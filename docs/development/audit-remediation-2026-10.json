@@ -3025,6 +3025,7 @@
         "riscv-interrupt-input-ownership-2026-11-19",
         "riscv-virt-plic-uart-2026-11-19",
         "riscv-synchronous-trap-delegation-2026-11-19",
+        "riscv-virt-firmware-traps-2026-11-19",
         {
           "id": "kvm-public-register-state-2026-11-03",
           "status": "locally_validated_with_explicit_unrelated_owning_failures",
@@ -3894,6 +3895,7 @@
         "riscv-interrupt-input-ownership-2026-11-19",
         "riscv-virt-plic-uart-2026-11-19",
         "riscv-synchronous-trap-delegation-2026-11-19",
+        "riscv-virt-firmware-traps-2026-11-19",
         "kvm-owned-io-and-mp-preservation-2026-11-03",
         "kvm-native-startup-eligibility-and-identities-2026-11-03",
         "kvm-native-mp-firmware-discovery-2026-11-03",
@@ -198804,6 +198806,17 @@
       ],
       "scope": "Direct RV32/RV64 synchronous exception delegation, native region fault continuation and unchanged fault reporting in restored process contexts. The existing core checkpoint fields carry both trap frames. Generic VMM continuation after synchronous exits remains open.",
       "qualification": "docs/development/riscv-clint/README.md#synchronous-trap-delegation-in-the-core",
+      "full_goal_complete": false
+    },
+    {
+      "id": "riscv-virt-firmware-traps-2026-11-19",
+      "status": "locally_qualified_full_findings_open",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "scope": "Explicit RV64 virt firmware profile for guest synchronous trap entry and handler execution. The version 3 shared platform block preserves this policy in coordinated source-free checkpoints across 1, 2 and 4 scheduled harts. Legacy profiles retain host ECALL, debugger and fault exits.",
+      "qualification": "docs/development/riscv-clint/README.md#synchronous-traps-in-the-virt-firmware-profile",
       "full_goal_complete": false
     },
     {

@@ -1203,3 +1203,5 @@ mod riscv_clint_tests;
 mod riscv_plic_tests;
 #[cfg(test)]
 mod riscv_supervisor_irq_tests;
+#[cfg(test)]
+mod riscv_trap_tests;

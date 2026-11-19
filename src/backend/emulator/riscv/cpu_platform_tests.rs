@@ -3,7 +3,7 @@ use crate::backend::emulator::riscv::platform::{BASE, LEN, Platform};
 use crate::isa::riscv::memory::AtomicOp;
 use crate::vm::timing::{ClockMode, TimingContext};
 
-fn fixture() -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
+fn fixture(architectural_traps: bool) -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
     let mem = Arc::new(
         GuestMemoryMmap::from_ranges(&[
             (GuestAddress(0), 0x2000),
@@ -18,10 +18,38 @@ fn fixture() -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
             2,
             0x2000,
             Arc::new(TimingContext::with_mode(ClockMode::Retired)),
+            architectural_traps,
         )
         .unwrap(),
     );
     (mem, platform)
+}
+
+#[test]
+fn machine_ecall_and_compressed_breakpoint_enter_the_selected_vector() {
+    let (mem, platform) = fixture(true);
+    let pc = 0x102;
+    for (word, origin, vector, epc, cause, tval, expected_cause, expected_tval) in [
+        (0x0000_0073u32, Priv::Machine, 0, 0x341, 0x342, 0x343, 11, 0),
+        (0x0000_9002, Priv::User, 0x200, 0x141, 0x142, 0x143, 3, pc),
+    ] {
+        mem.write_slice(&word.to_le_bytes(), GuestAddress(pc))
+            .unwrap();
+        let mut hart =
+            RiscVVcpu::new_in_platform(0, mem.clone(), RiscVConfig::rv64gc(), platform.clone())
+                .unwrap();
+        hart.cpu.set_pc(pc);
+        hart.cpu.set_privilege(origin);
+        hart.cpu.csr_write(0x302, (1 << 11) | (1 << 3)).unwrap();
+        hart.cpu.csr_write(0x305, 1).unwrap();
+        hart.cpu.csr_write(0x105, 0x201).unwrap();
+        assert!(hart.step_insn().unwrap().is_none());
+        assert_eq!(hart.instruction_count(), 0);
+        assert_eq!(hart.cpu.pc(), vector);
+        assert_eq!(hart.cpu.csr_read(epc).unwrap(), pc);
+        assert_eq!(hart.cpu.csr_read(cause).unwrap(), expected_cause);
+        assert_eq!(hart.cpu.csr_read(tval).unwrap(), expected_tval);
+    }
 }
 fn bridge(mem: Arc<GuestMemoryMmap>, platform: Option<Arc<Platform>>) -> GuestBridge {
     GuestBridge {
@@ -35,7 +63,7 @@ fn bridge(mem: Arc<GuestMemoryMmap>, platform: Option<Arc<Platform>>) -> GuestBr
 }
 #[test]
 fn configured_harts_share_msip_without_writing_shadow_ram() {
-    let (mem, platform) = fixture();
+    let (mem, platform) = fixture(false);
     mem.write_obj(0x00b52023u32.to_le(), GuestAddress(0x100))
         .unwrap();
     let mut sender =
@@ -67,7 +95,7 @@ fn configured_harts_share_msip_without_writing_shadow_ram() {
 }
 #[test]
 fn platform_interrupt_entry_retires_zero_and_cpu_mip_writes_do_not_own_inputs() {
-    let (mem, platform) = fixture();
+    let (mem, platform) = fixture(false);
     mem.write_obj(0x00000013u32.to_le(), GuestAddress(0x100))
         .unwrap();
     let mut cpu =
@@ -90,7 +118,7 @@ fn platform_interrupt_entry_retires_zero_and_cpu_mip_writes_do_not_own_inputs() 
 }
 #[test]
 fn clint_atomics_and_crossing_transactions_reject_without_ram_or_device_effects() {
-    let (mem, platform) = fixture();
+    let (mem, platform) = fixture(false);
     let mut memory = bridge(mem.clone(), Some(platform.clone()));
     let before = platform.checkpoint().unwrap();
     let operation = AtomicOp::Add(1);
@@ -117,7 +145,7 @@ fn clint_atomics_and_crossing_transactions_reject_without_ram_or_device_effects(
 }
 #[test]
 fn standalone_and_disabled_platform_bridges_keep_clint_addresses_as_ram() {
-    let (mem, platform) = fixture();
+    let (mem, platform) = fixture(false);
     for binding in [None, Some(platform.clone())] {
         platform.restore_with(None, || Ok(())).unwrap();
         let mut memory = bridge(mem.clone(), binding);
@@ -129,7 +157,7 @@ fn standalone_and_disabled_platform_bridges_keep_clint_addresses_as_ram() {
 }
 #[test]
 fn raw_hart_restore_requires_matching_shared_platform_profile() {
-    let (mem, platform) = fixture();
+    let (mem, platform) = fixture(false);
     let mut configured =
         RiscVVcpu::new_in_platform(0, mem.clone(), RiscVConfig::rv64gc(), platform.clone())
             .unwrap();
@@ -150,7 +178,7 @@ fn uart_reads_consume_input_without_fetch_or_invalid_access_side_effects() {
     use crate::devices::bus::MmioDevice;
     use crate::devices::serial::Serial16550;
 
-    let (mem, platform) = fixture();
+    let (mem, platform) = fixture(false);
     let mut uart = Serial16550::new_mmio(UART_BASE);
     uart.write(UART_BASE + 1, &[1]); // Receiver interrupt enable.
     platform.bind_serial(Arc::new(Mutex::new(uart))).unwrap();

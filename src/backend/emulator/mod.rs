@@ -194,10 +194,14 @@ impl Vm for EmulatorVm {
         if self.boots_all_riscv_harts() {
             let clock = crate::vm::timing::TimingContext::current()
                 .unwrap_or_else(|| Arc::new(crate::vm::timing::TimingContext::new()));
+            let architectural_traps = std::env::var("RAX_MACHINE").as_deref() == Ok("riscv-virt");
             return self
                 .riscv_platform
                 .set(Arc::new(riscv::platform::Platform::new(
-                    count, ram_end, clock,
+                    count,
+                    ram_end,
+                    clock,
+                    architectural_traps,
                 )?))
                 .map_err(|_| {
                     Error::InvalidConfig("CPU topology was configured concurrently".into())

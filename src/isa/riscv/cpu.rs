@@ -520,6 +520,15 @@ impl RiscVCpu {
         self.deliver_trap(trap, self.pc);
     }
 
+    /// Deliver the breakpoint left pending by [`RiscVExit::Ebreak`].
+    pub(crate) fn deliver_ebreak_trap(&mut self) {
+        let trap = Trap {
+            cause: cause::BREAKPOINT,
+            tval: self.pc,
+        };
+        self.deliver_trap(trap, self.pc);
+    }
+
     /// Retired instruction count.
     pub fn instret(&self) -> u64 {
         self.instret

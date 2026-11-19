@@ -717,7 +717,8 @@ mod riscv_frame_tests {
             crate::vm::timing::ClockMode::Retired,
         ));
         let platform =
-            crate::backend::emulator::riscv::platform::Platform::new(1, 0x8000000, clock).unwrap();
+            crate::backend::emulator::riscv::platform::Platform::new(1, 0x8000000, clock, false)
+                .unwrap();
         let mut state = ExecutionSnapshot {
             cursor: 0,
             retired: 0,

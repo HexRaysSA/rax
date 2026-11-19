@@ -3,7 +3,7 @@ use crate::vm::timing::ClockMode;
 
 fn fixture(count: u8) -> (Arc<TimingContext>, Platform) {
     let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
-    let platform = Platform::new(count, 0x8000000, clock.clone()).unwrap();
+    let platform = Platform::new(count, 0x8000000, clock.clone(), false).unwrap();
     (clock, platform)
 }
 fn clint_signals(platform: &Platform, id: u32) -> Option<(u64, bool, bool)> {
@@ -39,7 +39,44 @@ fn msip_is_banked_low_bit_level_and_hart_identity_is_bounded() {
         assert!(!clint_signals(&platform, id).unwrap().1);
     }
     assert!(platform.signals(4).is_err());
-    assert!(Platform::new(0, 0, Arc::new(TimingContext::new())).is_err());
+    assert!(Platform::new(0, 0, Arc::new(TimingContext::new()), false).is_err());
+}
+
+#[test]
+fn restored_platform_selects_the_saved_trap_policy() {
+    const LIMIT: usize = 16_384;
+    let (clock, legacy) = fixture(2);
+    let extent = 0x8000000;
+    let firmware = Platform::new(2, extent, clock, true).unwrap();
+    let record = firmware
+        .checkpoint()
+        .unwrap()
+        .unwrap()
+        .encode(LIMIT)
+        .unwrap();
+    assert_eq!(record[0], ARCHITECTURAL_TRAPS_VERSION);
+    let saved = PlatformCheckpoint::decode::<LIMIT>(&record).unwrap();
+    saved.validate(2, extent).unwrap();
+
+    let old = legacy.checkpoint().unwrap();
+    assert!(firmware.architectural_traps());
+    assert!(!legacy.architectural_traps());
+    assert!(
+        legacy
+            .restore_with(Some(saved.clone()), || Err::<(), _>(invalid("fixture")))
+            .is_err()
+    );
+    assert!(!legacy.architectural_traps());
+    legacy.restore_with(Some(saved), || Ok(())).unwrap();
+    assert!(legacy.architectural_traps());
+    assert!(legacy.plic_enabled());
+
+    firmware.restore_with(old, || Ok(())).unwrap();
+    assert!(!firmware.architectural_traps());
+    assert!(firmware.plic_enabled());
+    legacy.restore_with(None, || Ok(())).unwrap();
+    assert!(!legacy.architectural_traps());
+    assert!(!legacy.plic_enabled());
 }
 #[test]
 fn owned_clock_ticks_and_timer_threshold_are_independent_of_ambient_clock() {

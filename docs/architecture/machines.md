@@ -80,7 +80,14 @@ It models a collection of SoC-specific devices and firmware storage sufficient f
 
 ## RISC-V bare-metal machine
 
-The RISC-V machine loads a purpose-built RV64 ELF, provides RAM, exposes a 16550-compatible MMIO UART, and recognizes the current halt/environment convention. It lacks a complete privileged architecture and Sv39; therefore it runs bare-metal programs, not Linux kernels.
+The software RISC-V machine loads a bare-metal RV64 ELF and provides RAM,
+a 16550-compatible MMIO UART, CLINT and PLIC. By default it uses the guest
+`ECALL` convention for host shutdown and reports `EBREAK` as a debugger exit.
+Select `RAX_MACHINE=riscv-virt` to run firmware with architectural synchronous
+trap delivery. Firmware can shut down the VM by storing 1 at its ELF `tohost`
+symbol.
+The machine supports bare-metal firmware within its implemented privileged
+and device profiles. [Platform and checkpoint details](../development/riscv-clint/README.md#synchronous-traps-in-the-virt-firmware-profile)
 
 ## Hexagon bare-metal machine
 

@@ -776,8 +776,23 @@ impl RiscVVcpu {
         self.poll_vm_clock()?;
         let exit = self.cpu.step();
         self.poll_vm_clock()?;
+        let architectural_traps = || {
+            self.platform
+                .as_ref()
+                .is_some_and(|platform| platform.architectural_traps())
+        };
         let terminal = match exit {
             RiscVExit::Continue | RiscVExit::Wfi => None,
+            RiscVExit::Ecall if architectural_traps() => {
+                self.cpu.deliver_ecall_trap();
+                None
+            }
+            RiscVExit::Ebreak if architectural_traps() => {
+                self.cpu.deliver_ebreak_trap();
+                None
+            }
+            // The core entered the selected vector before reporting the fault.
+            RiscVExit::Trap(_) if architectural_traps() => None,
             RiscVExit::Ecall => {
                 let syscall = self.cpu.x(17);
                 let code = self.cpu.x(10);

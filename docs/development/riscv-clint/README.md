@@ -240,8 +240,8 @@ existing ECALL exit remains available to embedders. If the embedder
 calls `deliver_ecall_trap`, it uses the same architectural delegation.
 The process adapter reports faults at the original guest PC even when
 the embedder has restored machine exception delegation CSRs.
-The changed path keeps the existing CPU record layout. Generic VMM
-synchronous-exit dispatch remains a separate platform boundary.
+The changed path keeps the existing CPU record layout. The system VMM
+selects how to dispatch those synchronous exits.
 
 Three baseline regressions entered MTVEC with delegation enabled.
 The revised integration tests verify RV32 and RV64 state across
@@ -256,3 +256,40 @@ integration and C API suites passed 180 and 246 tests. The Linux
 user-mode suite passed 43 tests with its optional live Docker oracle
 ignored. Both RV64 fixture and corpus comparisons passed with and
 without JIT enabled.
+
+## Synchronous traps in the virt firmware profile
+
+```sh
+RAX_MACHINE=riscv-virt rax --arch riscv64 --backend emulator --memory 128M --kernel firmware.elf
+```
+
+In this profile each hart delivers `ECALL` and `EBREAK` (including
+`C.EBREAK`) to its guest trap handler. A synchronous fault that the core
+has already delivered resumes at the selected guest vector. Trap entry
+retires zero instructions and returns control to the coordinator so a
+peer hart can run. The ELF `tohost` symbol remains available for shutdown.
+
+The default bare-metal profile keeps the existing host exits for `ECALL`,
+`EBREAK` and other synchronous faults. Version 3 of the shared platform
+record saves the firmware selection together with the CLINT and PLIC.
+Restoring a full checkpoint recovers the saved selection across all harts,
+regardless of the launch environment. Versions 1 and 2 and a missing
+platform record retain legacy exit handling. Standalone, GSC and process
+adapters keep their separate exit conventions.
+
+| Assumption | Falsification probe | Result |
+|---|---|---|
+| The coordinator can continue a delivered fault without a host exit. | Run identical LLVM-linked ELFs on RAX and QEMU 11.1.2. Check M/S cause and the fault PC before UART output and shutdown. | The baseline stops before both markers. The revised CLI prints both expected markers and exits successfully. |
+| The saved policy controls every hart after restore. | Save before any handler instruction retires on one, two and four harts. Delete the ELF, restore in a new process with `RAX_MACHINE` unset, and require every hart to return, execute its following instruction, and take a second exception. | Each hart retires exactly six instructions between the two exceptions. |
+| The mode switch preserves compatibility. | Decode version 3, reject a failed restore, then restore a version 2 record and an absent record. Run the existing bare-metal boot guests. | The shared platform keeps its prior policy after failed publication, and legacy records select host exits. |
+
+The profile affects guest exception and scheduling behavior. Native
+hypervisor continuation and Intel hardware coverage remain outside this
+component. [RISC-V Privileged Architecture 20250508, §§3.1.8 and 3.3.1](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+The unfiltered library run over `ea4dd6009` passed 13,116 tests with two
+microkernel tests ignored. The owning integration targets passed 180
+tests, including bare-metal boots and retirement budgets. The C API
+passed 245 tests with `x86_64-suite,smir-jit`. The Linux-only RISC-V
+differential targets and x86-64 JIT target registered zero tests on
+Apple Silicon. The intervening Windows change touched disjoint files.

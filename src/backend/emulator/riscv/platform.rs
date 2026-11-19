@@ -28,6 +28,10 @@ const COMPARE: u64 = 0x4000;
 const TIME: u64 = 0xbff8;
 const CLINT_PROFILE: u8 = 1;
 const PLIC_PROFILE: u8 = 2;
+const ARCHITECTURAL_TRAPS_PROFILE: u8 = 4;
+const CLINT_VERSION: u8 = 1;
+const PLIC_VERSION: u8 = 2;
+const ARCHITECTURAL_TRAPS_VERSION: u8 = 3;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PlatformCheckpoint {
@@ -55,8 +59,10 @@ fn saved_compare<'de, D: serde::Deserializer<'de>>(
 }
 impl PlatformCheckpoint {
     pub(crate) fn validate(&self, count: usize, ram_end: u64) -> Result<()> {
-        if self.version != if self.plic.is_some() { 2 } else { 1 }
-            || count == 0
+        if !matches!(
+            (self.version, self.plic.is_some()),
+            (CLINT_VERSION, false) | (PLIC_VERSION | ARCHITECTURAL_TRAPS_VERSION, true)
+        ) || count == 0
             || count > 255
             || self.ram_end != ram_end
             || self.msip.len() != count
@@ -72,6 +78,17 @@ impl PlatformCheckpoint {
 
     pub(crate) fn plic_enabled(&self) -> bool {
         self.plic.is_some()
+    }
+
+    fn profile(&self) -> u8 {
+        let mut profile = CLINT_PROFILE;
+        if self.plic_enabled() {
+            profile |= PLIC_PROFILE;
+        }
+        if self.version == ARCHITECTURAL_TRAPS_VERSION {
+            profile |= ARCHITECTURAL_TRAPS_PROFILE;
+        }
+        profile
     }
 
     pub(crate) fn validate_uart(&self, serial: &Serial16550) -> Result<()> {
@@ -95,11 +112,11 @@ impl PlatformCheckpoint {
 
     pub(crate) fn decode<const LIMIT: usize>(bytes: &[u8]) -> Result<Self> {
         let invalid_payload = |e: uklad::error::DecodeError| invalid(&e.to_string());
-        match bytes.first() {
-            Some(1) => {
+        match bytes.first().copied() {
+            Some(CLINT_VERSION) => {
                 crate::codec::deserialize_limited::<_, LIMIT>(bytes).map_err(invalid_payload)
             }
-            Some(2) => {
+            Some(PLIC_VERSION | ARCHITECTURAL_TRAPS_VERSION) => {
                 let (mut state, plic): (Self, plic::Plic) =
                     crate::codec::deserialize_limited::<_, LIMIT>(bytes)
                         .map_err(invalid_payload)?;
@@ -213,24 +230,35 @@ fn register(address: u64, size: usize, count: usize) -> MemResult<Register> {
     Ok(Register::Reserved)
 }
 impl Platform {
-    pub(crate) fn new(count: u8, ram_end: u64, clock: Arc<TimingContext>) -> Result<Self> {
+    pub(crate) fn new(
+        count: u8,
+        ram_end: u64,
+        clock: Arc<TimingContext>,
+        architectural_traps: bool,
+    ) -> Result<Self> {
         if count == 0 {
             return Err(invalid("empty hart topology"));
         }
         let offset = clock.counter_ticks(FREQUENCY_HZ).wrapping_neg();
+        let registers = PlatformCheckpoint {
+            version: if architectural_traps {
+                ARCHITECTURAL_TRAPS_VERSION
+            } else {
+                PLIC_VERSION
+            },
+            ram_end,
+            msip: vec![false; usize::from(count)],
+            compare: vec![u64::MAX; usize::from(count)],
+            offset,
+            plic: Some(plic::Plic::new(count)),
+        };
+        let profile = AtomicU8::new(registers.profile());
         Ok(Self {
             state: Mutex::new(State {
                 enabled: true,
-                registers: PlatformCheckpoint {
-                    version: 2,
-                    ram_end,
-                    msip: vec![false; usize::from(count)],
-                    compare: vec![u64::MAX; usize::from(count)],
-                    offset,
-                    plic: Some(plic::Plic::new(count)),
-                },
+                registers,
             }),
-            profile: AtomicU8::new(CLINT_PROFILE | PLIC_PROFILE),
+            profile,
             serial: OnceLock::new(),
             clock,
             count: usize::from(count),
@@ -242,6 +270,9 @@ impl Platform {
     }
     pub(crate) fn plic_enabled(&self) -> bool {
         self.profile.load(Ordering::Acquire) & PLIC_PROFILE != 0
+    }
+    pub(crate) fn architectural_traps(&self) -> bool {
+        self.profile.load(Ordering::Acquire) & ARCHITECTURAL_TRAPS_PROFILE != 0
     }
     pub(crate) fn bind_serial(&self, serial: Arc<Mutex<Serial16550>>) -> Result<()> {
         self.serial
@@ -463,12 +494,7 @@ impl Platform {
             state.registers = saved;
         }
         let profile = if state.enabled {
-            CLINT_PROFILE
-                | if state.registers.plic.is_some() {
-                    PLIC_PROFILE
-                } else {
-                    0
-                }
+            state.registers.profile()
         } else {
             0
         };
