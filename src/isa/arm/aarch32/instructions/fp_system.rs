@@ -67,11 +67,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             }
         }
         if read
-            && k == (0, 0, 2, 5)
+            && matches!(k, (0, 0, 2, 5 | 7))
             && context.current_el == 1
             && context.el2_enabled
             && context.hcr & (1 << 18) != 0
         {
+            // This profile traps ID_ISAR6 via TID3 even when the ID is zero,
+            // selecting Arm's implementation-defined behavior for that case.
             return Some(self.fp_cp15_trap(insn, 2, context.el2_aarch64));
         }
         if k == CPACR && context.current_el == 1 && context.el2_enabled {

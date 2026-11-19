@@ -141,6 +141,62 @@ fn ns_el1_tid3_traps_mvfr_alias_reads_with_complete_iss_and_no_effects() {
     }
 }
 
+#[test]
+fn el1_id_isar6_readback_and_tid3_traps_agree_across_execution_states() {
+    const MRS_ISAR6: u32 = 0xd538_02e3; // MRS X3,ID_ISAR6_EL1.
+    const MRC_ISAR6: u32 = 0xee10_3ff2; // MRC P15,0,R3,C0,C2,7.
+    for fhm in [false, true] {
+        for tid3 in [false, true] {
+            for (a32, thumb) in [(false, false), (true, false), (true, true)] {
+                let mut config = AArch64Config {
+                    initial_el: 3,
+                    gic_config: None,
+                    ..Default::default()
+                };
+                config
+                    .features
+                    .set(ArmFeatures::FP16 | ArmFeatures::FHM, fhm);
+                let mut cpu = AArch64Cpu::new(config, Box::new(Memory64::new(0, 0x4000)));
+                let mut state = cpu.export_sregs();
+                let system = &mut state.execution.as_mut().unwrap().sysregs;
+                system.scr_el3 = 1 | (1 << 10);
+                system.hcr_el2 = (u64::from(!a32) << 31) | (u64::from(tid3) << 18);
+                cpu.import_sregs(&state).unwrap();
+                cpu.set_pstate_bits(if a32 {
+                    0x1d3 | (u64::from(thumb) << 5)
+                } else {
+                    0x3c5
+                })
+                .unwrap();
+                words(&mut cpu, &[if a32 { MRC_ISAR6 } else { MRS_ISAR6 }], thumb);
+                cpu.set_x(3, 0xa1b2c3d4);
+                let result = cpu.step();
+                if tid3 {
+                    let (expected_ec, expected_iss) = if a32 {
+                        (3, (0x1e << 20) | (7 << 17) | (3 << 5) | (2 << 1) | 1)
+                    } else {
+                        (0x18, (3 << 20) | (7 << 17) | (3 << 5) | (2 << 1) | 1)
+                    };
+                    assert!(
+                        matches!(result, Err(ArmError::ArchitecturalException {
+                        ec, iss, target_el: Some(2),
+                    }) if ec == expected_ec && iss == expected_iss),
+                        "A32={a32} T32={thumb} FHM={fhm}: {result:?}"
+                    );
+                    assert_eq!(cpu.get_x(3), 0xa1b2c3d4);
+                    assert_eq!(cpu.get_pc(), 0x100);
+                    assert_eq!(cpu.instruction_count(), 0);
+                } else {
+                    assert_eq!(result.unwrap(), CpuExit::Continue);
+                    assert_eq!(cpu.get_x(3), u64::from(fhm) << 8);
+                    assert_eq!(cpu.get_pc(), 0x104);
+                    assert_eq!(cpu.instruction_count(), 1);
+                }
+            }
+        }
+    }
+}
+
 fn profile(cpu: &mut AArch64Cpu, ids: [u64; 3]) {
     let mut state = cpu.export_sregs();
     let sysregs = &mut state.execution.as_mut().unwrap().sysregs;

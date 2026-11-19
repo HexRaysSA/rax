@@ -24,6 +24,20 @@ execution state retains priority over decode rejection. The A64
 entry guard also rejects reserved FHM size and top-bit encodings before PC
 advance. The A32/T32 decoder continues to own its encoding constraints.
 
+EL1 reads of ID_ISAR6 honor TID3 in ARM, Thumb and A64. The profile selects
+trapping for the implementation-defined case where the entire register is
+zero. A64 reads report EC `0x18`. Reads through the AArch32 coprocessor
+instruction report EC `0x03`. Both paths use the same feature value and
+take constant time and space. ID_ISAR6_EL1 is read-only.
+[Arm HCR_EL2.TID3](https://support.arm.com/documentation/ddi0595/2021-03/AArch64-Registers/HCR-EL2--Hypervisor-Configuration-Register)
+[Arm 102105_G.b_05, D18582](https://documentation-service.arm.com/static/61fbeef72dd99944d05149a2#page=85)
+
+The RAX regression executes both FHM values and both TID3 values in each
+execution state. It checks full ISS, unchanged destination register and
+zero retirement on a trap, and exact readback with TID3 clear. QEMU 11.1.2
+`max` independently matched six enabled-FHM controls, including complete
+ESR_EL2. The zero-ID trap is the selected RAX profile behavior.
+
 The actual stateless SMIR lifter declines all 16 A64 FHM forms with empty
 Undefined frontiers. This change preserves that boundary; it does not add
 native FHM admission. The CPU falls back to its profile-aware interpreter.
@@ -103,6 +117,7 @@ and source/artifact hashes are retained with this semantic group's receipts.
 | --- | --- |
 | FHM1: FP16 and FHM are separate capabilities with a dependency | Vary both flags, ARM/Thumb, every implemented form and access traps; disabled execution or mismatched guest IDs falsifies the contract |
 | FHM2: Old positional checkpoints remain readable | Restore the actual old exports and continue; malformed source admission or lost declared state falsifies compatibility |
+| FHM3: The modeled profile traps zero and nonzero ID_ISAR6 reads under TID3 | Clear and set TID3 for each register value in ARM, Thumb and A64. Retirement with trapping enabled, a wrong syndrome or a changed destination falsifies the policy. |
 
 The [FP access retirement correction](../fp-access-retirement.md) routes denied
 instructions through the common non-retiring fault path. The subsequent

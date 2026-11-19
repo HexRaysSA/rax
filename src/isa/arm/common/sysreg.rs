@@ -94,6 +94,14 @@ pub struct Aarch64SysRegEncoding {
 }
 
 impl Aarch64SysRegEncoding {
+    pub(crate) fn is_aarch32_fp_id(&self) -> bool {
+        self.aarch32_mvfr_index().is_some()
+            || matches!(
+                (self.op0, self.op1, self.crn, self.crm, self.op2),
+                (3, 0, 0, 2, 5 | 7)
+            )
+    }
+
     /// DDI0487B.a D7.2.75-77: mapped AArch32 media/FP ID registers.
     pub(crate) const fn aarch32_mvfr_index(&self) -> Option<usize> {
         if self.op0 == 3 && self.op1 == 0 && self.crn == 0 && self.crm == 3 && self.op2 < 3 {

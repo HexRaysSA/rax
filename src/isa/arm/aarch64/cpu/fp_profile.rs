@@ -81,8 +81,8 @@ pub(super) fn instruction_features(insn: u32) -> Option<ArmFeatures> {
 }
 
 impl AArch64Cpu {
-    /// MVFRn_EL1 and ID_ISAR5_EL1 are read-only EL1 ID accesses.
-    /// DDI0487B.a D7.2.75-77 defines the aliases and HCR_EL2.TID3 routing.
+    /// Route the read-only AArch32 FP capability aliases through HCR_EL2.TID3.
+    /// This profile selects TID3 trapping even when ID_ISAR6_EL1 reads zero.
     pub(super) fn check_aarch32_fp_id_instruction(
         &self,
         insn: u32,
@@ -90,9 +90,7 @@ impl AArch64Cpu {
         read: bool,
         rt: u8,
     ) -> Result<(), ArmError> {
-        if encoding.aarch32_mvfr_index().is_none()
-            && encoding != Aarch64SysRegEncoding::new(3, 0, 0, 2, 5)
-        {
+        if !encoding.is_aarch32_fp_id() {
             return Ok(());
         }
         if !read {
@@ -138,10 +136,6 @@ impl AArch64Cpu {
         self.update_fp_id_registers();
         self.clear_jit_cache();
         Ok(())
-    }
-
-    pub(crate) fn fhm_supported(&self) -> bool {
-        has_fhm(self.config.features)
     }
 
     pub(super) fn update_fp_id_registers(&mut self) {
