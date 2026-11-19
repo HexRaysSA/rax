@@ -1,6 +1,6 @@
 //! LLVM encodings, fixed literal results and complete conversion register effects.
 use rax::isa::arm::aarch32::vfp::Fpscr;
-use rax::isa::arm::decoder::{Aarch32Decoder, ThumbDecoder};
+use rax::isa::arm::decoder::{Aarch32Decoder, Mnemonic, ThumbDecoder};
 use rax::isa::arm::execution::FlatMemory;
 use rax::isa::arm::{Armv7Cpu, ExecResult, Executor};
 const CENSUS: &[(u32, &str)] = &[
@@ -89,6 +89,103 @@ fn llvm_instruction_admission_census() {
                     Executor::new(&mut cpu, &mut memory).execute(&insn),
                     ExecResult::Continue
                 ),
+                "{raw:08x} Thumb={thumb}"
+            );
+        }
+    }
+}
+
+#[test]
+fn absent_bfloat16_is_undefined_without_register_effects() {
+    // LLVM MC A32 encodings. Thumb remaps only the vector conversion prefix.
+    let encodings = [
+        0xf3b6_0642, // VCVT.BF16.F32 d0, q1
+        0xf3f6_f66e, // VCVT.BF16.F32 d31, q15
+        0xeeb3_0960, // VCVTB.BF16.F32 s0, s1
+        0xeef3_09c0, // VCVTT.BF16.F32 s1, s0
+        0xfc01_0d02, // VDOT.BF16 d0, d1, d2
+        0xfc4c_edea, // VDOT.BF16 q15, q14, q13
+        0xfe4e_fdaf, // VDOT.BF16 d31, d30, d15[1]
+        0xfe02_0d44, // VDOT.BF16 q0, q1, d4[0]
+        0xfe02_0d62, // VDOT.BF16 q0, q1, d2[1]
+        0xfc4c_ecea, // VMMLA.BF16 q15, q14, q13
+        0xfc32_0814, // VFMAB.BF16 q0, q1, q2
+        0xfc7c_e8fa, // VFMAT.BF16 q15, q14, q13
+        0xfe32_081a, // VFMAB.BF16 q0, q1, d2[1]
+        0xfe7c_e8ff, // VFMAT.BF16 q15, q14, d7[3]
+    ];
+    for thumb in [false, true] {
+        for raw in encodings {
+            assert_bfloat16_admission(raw, thumb, None);
+        }
+        for raw in [0xeef3_f94f, 0xeeb3_f9ef] {
+            for zero in [false, true] {
+                assert_bfloat16_admission(raw, thumb, Some(zero));
+            }
+        }
+    }
+}
+
+fn assert_bfloat16_admission(raw: u32, thumb: bool, eq: Option<bool>) {
+    let raw = if eq.is_some() && !thumb {
+        raw & 0x0fff_ffff
+    } else {
+        raw
+    };
+    let insn = decode(raw, thumb);
+    assert_eq!(
+        insn.mnemonic,
+        Mnemonic::UNDEFINED,
+        "{raw:08x} Thumb={thumb}"
+    );
+    let mut cpu = Armv7Cpu::new();
+    cpu.cpsr.t = thumb;
+    if let Some(zero) = eq {
+        cpu.cpsr.z = zero;
+        if thumb {
+            cpu.cpsr.set_it_state(0, 0b1000); // IT EQ
+        }
+    }
+    cpu.regs.fill(0x1234_5678);
+    cpu.vfp.dregs.fill(0x3f80_0000_4000_0000);
+    cpu.vfp.fpscr = Fpscr::from_bits(0xa800_0010);
+    let regs = cpu.regs;
+    let dregs = cpu.vfp.dregs;
+    let fpscr = cpu.vfp.fpscr.bits();
+    let cpsr = cpu.cpsr.to_u32();
+
+    let mut memory = FlatMemory::new(4096, 0);
+    let result = Executor::new(&mut cpu, &mut memory).execute(&insn);
+    if eq == Some(false) {
+        assert!(
+            matches!(result, ExecResult::Continue),
+            "{raw:08x} Thumb={thumb}"
+        );
+    } else {
+        assert!(
+            matches!(result, ExecResult::Undefined),
+            "{raw:08x} Thumb={thumb}"
+        );
+    }
+    assert_eq!(cpu.regs, regs);
+    assert_eq!(cpu.vfp.dregs, dregs);
+    assert_eq!(cpu.vfp.fpscr.bits(), fpscr);
+    assert_eq!(cpu.cpsr.to_u32(), cpsr);
+}
+
+#[test]
+fn bfloat16_allocations_preserve_adjacent_fp16_decodes() {
+    for thumb in [false, true] {
+        for (raw, mnemonic) in [
+            (0xf3b6_0602, Mnemonic::VCVT_F16_F32),
+            (0xeeb3_0a60, Mnemonic::VCVTB_F16_F32),
+            (0xeef3_0ac0, Mnemonic::VCVTT_F16_F32),
+            (0xfc21_0852, Mnemonic::VFMAL),
+            (0xfe01_085a, Mnemonic::VFMAL),
+        ] {
+            assert_eq!(
+                decode(raw, thumb).mnemonic,
+                mnemonic,
                 "{raw:08x} Thumb={thumb}"
             );
         }

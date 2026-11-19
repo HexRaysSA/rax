@@ -171,6 +171,21 @@ impl Aarch32Decoder {
     // =========================================================================
 
     fn decode_unconditional(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        // The current AArch32 profiles omit FEAT_AA32BF16. Its vector
+        // encodings must not reach the generic coprocessor decoders.
+        let bf16 = raw & 0xFFBF_0FD0 == 0xF3B6_0640 // VCVT
+            || raw & 0xFDB0_0F10 == 0xFC00_0D00 // VDOT (vector and indexed)
+            || raw & 0xFFB0_0F50 == 0xFC00_0C40 // VMMLA
+            || raw & 0xFDB0_0F10 == 0xFC30_0810; // VFMAB/VFMAT (vector and indexed)
+        if bf16 {
+            return Ok(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
         // CLREX A1 has fixed fields, including bits [27:20] = 0x57.
         // It must not enter the generic memory-hint/NOP fallback.
         if raw == 0xf57f_f01f {
@@ -1081,6 +1096,16 @@ impl Aarch32Decoder {
     }
 
     fn decode_coprocessor_dp(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        // VCVTB/VCVTT.BF16.F32 use the conditional scalar FP space.
+        // decode() attaches the A32 predicate to the undefined instruction.
+        if raw >> 28 != 15 && raw & 0x0FBF_0F50 == 0x0EB3_0940 {
+            return Ok(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         if let Some(insn) = Self::decode_vfp_half_register(raw) {
             return Ok(insn);
         }

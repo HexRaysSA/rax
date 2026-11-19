@@ -59,7 +59,8 @@ fn generic_unconditional_families_and_conditional_svc_keep_their_allocation() {
                 (0xfc51_0010, Mnemonic::MRRC),
                 (0xfd90_0000, Mnemonic::LDC),
                 (0xfd80_0000, Mnemonic::STC),
-                (0xfe02_0044, Mnemonic::CDP2),
+                // opc1=0 shares the p13 encoding with VDOT.BF16.
+                (0xfe12_0044, Mnemonic::CDP2),
                 (0xfe00_0010, Mnemonic::MCR2),
                 (0xfe10_0010, Mnemonic::MRC2),
             ] {

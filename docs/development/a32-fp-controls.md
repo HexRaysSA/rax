@@ -223,6 +223,26 @@ and TID3 traps. The full A32 FP controls, VFP A32, and ARM targets passed 155,
 unsupported. Physical AArch32 execution and the broader profile audit remain
 open.
 
+## AArch32 BF16 allocation
+
+The current AArch32 profiles omit FEAT_AA32BF16. The A32 and T32
+allocations for BF16 conversion, dot product, matrix multiply-accumulate,
+and widening multiply-add decode as Undefined. Scalar conversions
+preserve A32 conditions and Thumb IT predication. An executed undefined
+word takes precedence over FP access traps on the mixed-width software
+CPU. Decode uses a fixed number of masks and constant storage.
+[Arm DDI0597 ID032025, pages 875–876, 888–889, 912–913, 916–919, 936–938, and 1092–1093](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+LLVM MC identified the instruction forms and the affected p13 encoding
+`0xfe020d44` as indexed `VDOT.BF16`. QEMU 11.1.2 (Cortex-A15) matched 38
+guest cases across A32 and T32, including 32 undefined instructions, four
+predicate skips, and two legal FP move controls. The oracle checked D0, D1,
+and FPSCR. The RAX regressions also checked all general and FP data registers
+in the standalone executor, higher-EL FP access trap priority in the
+mixed-width CPU, and neighboring FP16 and coprocessor decodes.
+The `arm`, `arm_vfp_a32`, `a32_fp_controls`, and `a32_fp_pairs` targets
+passed 46,850, 526, 169, and 5 tests on Apple Silicon.
+
 ## Original ARM audit replay
 
 The audit author's `audit_arm/repro_full_cpu.rs` ran unchanged against the

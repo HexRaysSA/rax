@@ -208,6 +208,30 @@ fn mixed_a32_fpexc_disable_precedes_higher_fp_trap() {
     assert_eq!(cpu.instruction_count(), 0);
 }
 
+#[test]
+fn mixed_a32_absent_bfloat16_is_undefined_before_fp_access_traps() {
+    for thumb in [false, true] {
+        for raw in [0xeeb3_0960, 0xfc02_0d44, 0xfe32_081a] {
+            for target in [2, 3] {
+                let mut cpu = mixed(raw, thumb, target, false, true);
+                let simd = cpu.get_simd(0);
+                let fpsr = cpu.get_fpsr();
+                let r0 = cpu.get_gpr(0);
+                let result = cpu.step();
+                assert!(
+                    matches!(result, Err(ArmError::UndefinedInstruction(word)) if word == raw),
+                    "{raw:08x} Thumb={thumb} EL{target}: {result:?}"
+                );
+                assert_eq!(cpu.get_pc(), 0x100);
+                assert_eq!(cpu.get_simd(0), simd);
+                assert_eq!(cpu.get_fpsr(), fpsr);
+                assert_eq!(cpu.get_gpr(0), r0);
+                assert_eq!(cpu.instruction_count(), 0);
+            }
+        }
+    }
+}
+
 fn ns_el1() -> Armv7Cpu {
     let mut cpu = hyp();
     cpu.change_mode(ProcessorMode::Supervisor);
