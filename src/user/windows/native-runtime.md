@@ -3834,20 +3834,21 @@ measured WoW64 path an overlapping length output can clear the self-relative
 control bit and trigger conversion of the resident header to 32-bit fields.
 [Microsoft's NtQuerySecurityObject API reference](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-zwquerysecurityobject)
 
-### Selected token defaults
+### Selected token pointer records
 
-The installed Windows provider reads `TokenOwner`, `TokenPrimaryGroup` and
-`TokenDefaultDacl` from the same query-only token used to select the runtime's
-subject. It retains the payloads in that subject and discards the host
-pointers. Guest `NtQueryInformationToken` checks the handle's query right and
-writes a guest-width pointer followed by the selected SID or ACL. A captured
-NULL default DACL yields a pointer-sized zero. An unavailable capture yields
-an unsupported query.
+The installed Windows provider reads `TokenOwner`, `TokenPrimaryGroup`,
+`TokenDefaultDacl` and `TokenProcessTrustLevel` from the same query-only token
+used to select the runtime's subject. It retains the payloads in that subject
+and discards the host pointers. Guest `NtQueryInformationToken` checks the
+handle's query right and writes a guest-width pointer followed by the selected
+SID or ACL. A captured NULL default DACL or process-trust SID yields a
+pointer-sized zero. An unavailable capture yields an unsupported query.
 
 On build 29708, a successful native 64-bit call stores the required length
 before the pointed-to record, so an overlap preserves the record bytes.
 WoW64 narrows a private native result, stores the pointer first, then copies
 the payload and stores an optional caller length. A fault while copying
 the payload can leave the pointer visible. The required size differs by
-four bytes. The capture
-retains the payload bytes independently of the guest ABI or object handle.
+four bytes. Native ARM64, x64 and WoW64 on build 29708 returned a NULL
+process-trust SID for the sampled ordinary process token. The capture retains
+payload bytes independently of the guest ABI or object handle.

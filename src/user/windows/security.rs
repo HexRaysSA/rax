@@ -22,7 +22,7 @@ pub(crate) struct Subject {
     pub(crate) statistics: Option<token::statistics::Statistics>,
     /// Opaque TOKEN_USER SID attributes, captured without interpretation.
     pub(crate) user_attributes: u32,
-    pub(crate) token_defaults: token::defaults::Defaults,
+    pub(crate) token_pointer_records: token::pointer_records::Records,
     pub(crate) empty_claims: token::claims::EmptyClaims,
     pub(crate) user: Vec<u8>,
     pub(crate) groups: Vec<Group>,

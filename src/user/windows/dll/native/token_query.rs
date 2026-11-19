@@ -1,8 +1,8 @@
 //! Captured primary-token properties with measured caller-probe ordering.
 mod bno_copy;
 mod claims;
-mod defaults;
 mod groups;
+mod pointer_records;
 mod privileges;
 mod statistics;
 mod user;
@@ -14,7 +14,7 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 use crate::user::windows::security::token::claims::{TOKEN_DEVICE_CLAIMS, TOKEN_USER_CLAIMS};
-use crate::user::windows::security::token::defaults::Class as DefaultsClass;
+use crate::user::windows::security::token::pointer_records::Class as PointerClass;
 use crate::user::windows::security::token::privileges::TOKEN_PRIVILEGES;
 use crate::user::windows::security::token::scalars::{self, CapturedScalar};
 
@@ -44,10 +44,10 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                 && runtime.object_namespace.native_machine == Some(0xaa64)
         });
     let sid_record = matches!(class, TOKEN_USER | TOKEN_INTEGRITY_LEVEL);
-    let defaults_class = DefaultsClass::from_raw(class);
+    let pointer_class = PointerClass::from_raw(class);
     let widening = user::wow64_widening(class);
     let claim_record = matches!(class, TOKEN_USER_CLAIMS | TOKEN_DEVICE_CLAIMS);
-    let subject_record = sid_record || defaults_class.is_some() || claim_record;
+    let subject_record = sid_record || pointer_class.is_some() || claim_record;
     if !token_kind
         && !subject_record
         && !matches!(class, TOKEN_GROUPS | TOKEN_PRIVILEGES | 10 | 12 | 29 | 44)
@@ -183,15 +183,16 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
             .ok_or_else(|| c.unsupported("token groups are not captured"))?;
         return groups::publish(c, &subject.groups, output, length, returned);
     }
-    if let Some(selector) = defaults_class {
+    if let Some(selector) = pointer_class {
         let subject = captured_subject
             .or_else(|| c.p.objects.primary_token_subject())
-            .ok_or_else(|| c.unsupported("token defaults subject is not captured"))?;
-        let data = subject
-            .token_defaults
-            .get(selector)
-            .ok_or_else(|| c.unsupported(format!("token default class {class} is not captured")))?;
-        return defaults::publish(c, data, output, length, returned);
+            .ok_or_else(|| c.unsupported("token pointer record subject is not captured"))?;
+        let data = subject.token_pointer_records.get(selector).ok_or_else(|| {
+            c.unsupported(format!(
+                "token pointer record class {class} is not captured"
+            ))
+        })?;
+        return pointer_records::publish(c, data, output, length, returned);
     }
     if sid_record {
         let subject = captured_subject

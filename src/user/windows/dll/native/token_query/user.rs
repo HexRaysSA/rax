@@ -6,7 +6,7 @@ use crate::user::windows::hle::ApiErr;
 pub(super) fn wow64_widening(class: u32) -> u32 {
     match class {
         TOKEN_USER | TOKEN_INTEGRITY_LEVEL => 8,
-        class if DefaultsClass::from_raw(class).is_some() => 4,
+        class if PointerClass::from_raw(class).is_some() => 4,
         _ => 0,
     }
 }

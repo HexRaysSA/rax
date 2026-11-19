@@ -1,11 +1,11 @@
-//! Token defaults through the installed NTDLL service boundary on all guest ABIs.
+//! Single-pointer token records through the installed NTDLL service boundary on all guest ABIs.
 
 use super::{Proc, Thread, WinArch, handle, invoke, setup};
 use crate::user::windows::hle::dispatch::Outcome;
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
-use crate::user::windows::security::token::defaults::Class;
+use crate::user::windows::security::token::pointer_records::Class;
 use crate::user::windows::wnf::Catalog;
 use std::sync::Arc;
 
@@ -31,7 +31,7 @@ fn query(
 }
 
 #[test]
-fn native_token_defaults_replay_sizes_access_and_overlapping_writes() {
+fn native_token_pointer_records_replay_sizes_access_and_overlapping_writes() {
     for arch in WinArch::ALL {
         let (mut process, mut thread, output, handles) = setup(arch, false);
         let p = process.state_mut();
@@ -44,9 +44,10 @@ fn native_token_defaults_replay_sizes_access_and_overlapping_writes() {
             (Class::Owner, OWNER.as_slice()),
             (Class::PrimaryGroup, GROUP.as_slice()),
             (Class::DefaultDacl, ACL.as_slice()),
+            (Class::ProcessTrustLevel, &[]),
         ];
         for (class, bytes) in inputs {
-            subject.token_defaults.insert(class, bytes.into());
+            subject.token_pointer_records.insert(class, bytes.into());
         }
         p.objects
             .select_wnf_catalog(Catalog::selected(vec![], subject.clone()).unwrap());
@@ -141,7 +142,8 @@ fn native_token_defaults_replay_sizes_access_and_overlapping_writes() {
                     assert_eq!(p.space.u8(out).unwrap(), 0xa5);
                     continue;
                 }
-                let pointer = (out + width).to_le_bytes();
+                let pointer = if bytes.is_empty() { 0 } else { out + width };
+                let pointer = pointer.to_le_bytes();
                 let mut expected = [0xa5; 136];
                 let offset = (out - output) as usize;
                 if !wow && ret != 0 {
@@ -161,7 +163,7 @@ fn native_token_defaults_replay_sizes_access_and_overlapping_writes() {
         }
 
         subject
-            .token_defaults
+            .token_pointer_records
             .insert(Class::DefaultDacl, Box::from([]));
         let object = p.objects.create(Object::GuestImpersonationToken {
             subject: Arc::new(subject),
@@ -199,7 +201,7 @@ fn native_token_defaults_keep_pointer_when_wow64_payload_faults() {
     let p = process.state_mut();
     let mut subject = (*p.objects.primary_token_subject().unwrap()).clone();
     subject
-        .token_defaults
+        .token_pointer_records
         .insert(Class::Owner, Box::from(OWNER));
     p.objects
         .select_wnf_catalog(Catalog::selected(vec![], subject).unwrap());

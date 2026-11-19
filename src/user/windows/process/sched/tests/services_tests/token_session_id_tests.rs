@@ -183,7 +183,7 @@ fn native_token_session_id_preserves_nonzero_values_and_rejects_missing_identity
                 statistics: None,
                 attributes: None,
                 user_attributes: 0,
-                token_defaults: Default::default(),
+                token_pointer_records: Default::default(),
                 empty_claims: Default::default(),
                 user: vec![],
                 groups: vec![],

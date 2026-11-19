@@ -55,7 +55,7 @@ fn select(p: &mut Proc, attribute: Attribute) {
     let subject = Subject {
         statistics: None,
         user_attributes: 0,
-        token_defaults: Default::default(),
+        token_pointer_records: Default::default(),
         empty_claims: Default::default(),
         user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
         groups: vec![],

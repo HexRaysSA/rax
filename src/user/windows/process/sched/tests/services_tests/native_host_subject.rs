@@ -1,7 +1,7 @@
 //! Independent typed Win32 token controls, separate from the capture parser.
 use super::{CloseHandle, GetCurrentProcess, GetTokenInformation, OpenProcessToken};
 use crate::user::windows::security::token::claims::EmptyClaims;
-use crate::user::windows::security::token::defaults::{Class, Defaults};
+use crate::user::windows::security::token::pointer_records::{Class, Records};
 use crate::user::windows::security::{Group, Privilege, Subject};
 use std::ffi::c_void;
 
@@ -134,10 +134,13 @@ impl Buffer {
         }
     }
 
-    fn default_data(&self, class: Class) -> Box<[u8]> {
+    fn pointer_data(&self, class: Class) -> Box<[u8]> {
         let pointer = self.words[0];
         if pointer == 0 {
-            assert!(matches!(class, Class::DefaultDacl));
+            assert!(matches!(
+                class,
+                Class::DefaultDacl | Class::ProcessTrustLevel
+            ));
             assert_eq!(self.bytes, size_of::<usize>());
             return Box::from([]);
         }
@@ -208,9 +211,9 @@ impl Buffer {
 pub(super) fn capture() -> Subject {
     let token = Token::current();
     let user = token.information(1).group(0);
-    let mut token_defaults = Defaults::default();
+    let mut token_pointer_records = Records::default();
     for class in Class::ALL {
-        token_defaults.insert(class, token.information(class as u32).default_data(class));
+        token_pointer_records.insert(class, token.information(class as u32).pointer_data(class));
     }
     Subject {
         statistics: Some(
@@ -220,7 +223,7 @@ pub(super) fn capture() -> Subject {
             .unwrap(),
         ),
         user_attributes: user.attributes,
-        token_defaults,
+        token_pointer_records,
         empty_claims: EmptyClaims {
             user: token.information(33).bytes() == [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             device: token.information(34).bytes()

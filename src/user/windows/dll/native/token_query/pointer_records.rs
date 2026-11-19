@@ -1,4 +1,4 @@
-//! Publish pointer-sized TOKEN_OWNER, TOKEN_PRIMARY_GROUP and TOKEN_DEFAULT_DACL records.
+//! Publish token query records containing one guest pointer and an optional payload.
 
 use super::{Ctx, Flow, Mem, STATUS_BUFFER_TOO_SMALL, STATUS_SUCCESS, bno_copy};
 use crate::user::windows::arch::WinArch;

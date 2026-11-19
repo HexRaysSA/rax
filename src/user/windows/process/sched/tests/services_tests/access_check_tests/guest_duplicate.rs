@@ -64,7 +64,7 @@ fn guest_duplicate_replays_native_access_check_grants_and_impersonation_levels()
     let subject = Arc::new(Subject {
         statistics: None,
         user_attributes: 0,
-        token_defaults: Default::default(),
+        token_pointer_records: Default::default(),
         empty_claims: Default::default(),
         user: USER.to_vec(),
         groups: vec![Group {
