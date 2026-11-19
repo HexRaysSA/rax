@@ -189,3 +189,19 @@ Following-page translation, code coherence, and interrupt conservation
 require their own native cases.
 [Verified receipt](native-coherence-verified.json)
 [Guest observations](native-coherence-observations.jsonl)
+
+## Standalone MMIO requalification
+
+Run `44529227554` passed all 952 MMIO, MSR, and existing native VMM controls
+at `dacaae9ab251703aedeab104b6a5f3f332ebe770`. Every observation row matched
+the prior 952-case record. Verification bound both archive digests, the
+executed signed binary, and all 4,825 engine inputs to this result. The
+guest consumer used a native Intel process on virtualized macOS 15.7.9
+with SDK 15.5. [Native MMIO run](https://github.com/HexRaysSA/rax/actions/runs/44529227554)
+
+During the earlier 968-case combined run at
+`89085226695e30d0f6e63887d25075be59d9555a`, GitHub reported loss of runner
+communication in the guest step. The signed build artifact verifies against
+4,821 engine inputs. No execution artifact or downloadable job log is
+available, and the last guest case is unknown. The combined attempt provides
+zero qualified guest cases. [Combined job](https://github.com/HexRaysSA/rax/actions/runs/44519935525/job/135545645427)
