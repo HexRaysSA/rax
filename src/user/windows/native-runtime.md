@@ -2742,6 +2742,26 @@ other-SID copy inference, existing guest scratch-budget limits and complete
 commands/data/assumptions are recorded under
 docs/specifications/windows/native-token-user/.
 
+### TokenGroups queries from installed user programs (2026-11-19)
+
+On Windows 11 build 29708, native ARM64 and translated x64 publish identical
+class 2 layouts: an 8-byte count slot, 16 bytes per SID_AND_ATTRIBUTES,
+and packed SID records. Alignment accepts a 4-byte boundary. The two native
+padding fields and bytes beyond ReturnLength retain the caller's values.
+WoW64 uses a 4-byte count and 8-byte records, accepts unaligned output, and
+admits the token before attempting ReturnLength. It then stores the count
+and copies each SID before publishing its pointer and attributes. Guard and
+protection faults retain the reached writes. Both paths publish ReturnLength
+before result data, so overlapping result fields take precedence.
+
+The selected token subject supplies the group order, complete SID bytes, and
+opaque attributes, including deny-only and integrity attributes. The
+restricted-SID array is a separate token property. The handler can use an
+explicit impersonation token's own captured groups. The guest lands in the
+same token handle and access checks as the other information classes.
+Publication takes O(G + B) time for G groups and B SID bytes. The handler
+uses no guest-capacity-sized allocation.
+
 ### Primary-user Safer policy root (2026-10-19)
 
 Native runtime selection derives one fixed per-user Safer/CodeIdentifiers root

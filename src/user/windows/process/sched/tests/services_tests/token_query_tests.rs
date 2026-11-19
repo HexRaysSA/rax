@@ -14,6 +14,9 @@ mod scalar_properties;
 #[path = "token_bno_tests.rs"]
 mod bno_isolation;
 
+#[path = "token_groups_tests.rs"]
+mod groups;
+
 #[path = "token_user_tests.rs"]
 mod user_identity;
 

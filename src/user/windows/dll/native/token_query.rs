@@ -1,5 +1,6 @@
 //! Captured primary-token properties with measured caller-probe ordering.
 mod bno_copy;
+mod groups;
 mod statistics;
 mod user;
 
@@ -12,6 +13,7 @@ use crate::user::windows::objects::Object;
 use crate::user::windows::security::token::scalars::{self, CapturedScalar};
 
 const TOKEN_USER: u32 = 1;
+const TOKEN_GROUPS: u32 = 2;
 const TOKEN_INTEGRITY_LEVEL: u32 = 25;
 const SE_GROUP_INTEGRITY: u32 = 0x20;
 
@@ -38,7 +40,7 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     let sid_record = matches!(class, TOKEN_USER | TOKEN_INTEGRITY_LEVEL);
     if !token_kind
         && !sid_record
-        && !matches!(class, 10 | 12 | 29 | 44)
+        && !matches!(class, TOKEN_GROUPS | 10 | 12 | 29 | 44)
         && !scalars::is_class(class)
     {
         return Err(c.unsupported(format!("NtQueryInformationToken class {class}")));
@@ -48,9 +50,10 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     if c.arch() == WinArch::X86 && matches!(class, 40 | 45) {
         return Flow::ret(STATUS_INVALID_INFO_CLASS.into());
     }
-    // WoW64 SID and BNO converters use private native results, followed by
+    // WoW64 token converters use private native results, followed by
     // direct caller stores. They do not align or preflight the caller capacity.
-    *direct_copies = c.arch() == WinArch::X86 && (sid_record || matches!(class, 10 | 44));
+    *direct_copies =
+        c.arch() == WinArch::X86 && (sid_record || matches!(class, TOKEN_GROUPS | 10 | 44));
     if c.arch() == WinArch::X86
         && sid_record
         && let Some(status) = user::preflight(c, output, length, returned)?
@@ -93,7 +96,7 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
         return user::handle_error(c, class, returned, STATUS_NO_TOKEN);
     }
     let mut captured_value = None;
-    let mut captured_user = None;
+    let mut captured_subject = None;
     if token != process_token && token != effective_token {
         if token == c.arch().ptr(u64::MAX) || token == c.arch().ptr(u64::MAX - 1) {
             return user::handle_error(c, class, returned, STATUS_OBJECT_TYPE_MISMATCH);
@@ -109,8 +112,8 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                 if c.p.objects.access(token).unwrap_or(0) & 8 == 0 {
                     return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
                 }
-                if sid_record || class == 10 {
-                    captured_user = Some(subject.clone());
+                if sid_record || matches!(class, TOKEN_GROUPS | 10) {
+                    captured_subject = Some(subject.clone());
                 } else if class != 29 {
                     return Err(c.unsupported(if class == 12 {
                         "impersonation-token SessionId is not captured".to_owned()
@@ -126,7 +129,9 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                     return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
                 }
                 match class {
-                    TOKEN_USER | TOKEN_INTEGRITY_LEVEL => captured_user = Some(subject.clone()),
+                    TOKEN_USER | TOKEN_GROUPS | TOKEN_INTEGRITY_LEVEL => {
+                        captured_subject = Some(subject.clone());
+                    }
                     8 => captured_value = Some(2),
                     9 => captured_value = Some(*level),
                     29 => captured_value = Some(u32::from(subject.app_container)),
@@ -143,8 +148,14 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
             Some(_) => return user::handle_error(c, class, returned, STATUS_OBJECT_TYPE_MISMATCH),
         }
     }
+    if class == TOKEN_GROUPS {
+        let subject = captured_subject
+            .or_else(|| c.p.objects.primary_token_subject())
+            .ok_or_else(|| c.unsupported("token groups are not captured"))?;
+        return groups::publish(c, &subject.groups, output, length, returned);
+    }
     if sid_record {
-        let subject = captured_user
+        let subject = captured_subject
             .or_else(|| c.p.objects.primary_token_subject())
             .ok_or_else(|| {
                 c.unsupported(if class == TOKEN_USER {
@@ -174,8 +185,8 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
         return bno_information(c, output, length, returned);
     }
     if class == 10 {
-        let expected_type = if captured_user.is_some() { 2 } else { 1 };
-        let subject = captured_user
+        let expected_type = if captured_subject.is_some() { 2 } else { 1 };
+        let subject = captured_subject
             .or_else(|| c.p.objects.primary_token_subject())
             .ok_or_else(|| c.unsupported("token statistics subject is not captured"))?;
         return statistics::publish(c, &subject, expected_type, output, length, returned);
