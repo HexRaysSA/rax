@@ -46,7 +46,99 @@ pub(super) fn initialize(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
+    if let Some(inputs) = wow64_inputs(p, wow64) {
+        return initialize_wow64(p, t, sp, resume, inputs, None);
+    }
     convert(p, t, sp, resume, wow64, None)
+}
+
+fn wow64_inputs(p: &Proc, wow64: bool) -> Option<Arc<crate::user::windows::gui::Inputs>> {
+    if p.arch == WinArch::X86
+        && wow64
+        && let Availability::Wow64Companion(inputs) = &p.native.as_ref()?.gui
+    {
+        Some(inputs.clone())
+    } else {
+        None
+    }
+}
+
+fn initialize_wow64(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    inputs: Arc<crate::user::windows::gui::Inputs>,
+    result: Option<u32>,
+) -> Outcome {
+    let Some((state, teb)) = p.wow64.as_ref().zip(t.teb_allocation.companion()) else {
+        return failure("WoW64 GUI requires the process and thread companions");
+    };
+    let Some(client_data) = state.user_data.as_ref() else {
+        return failure("WoW64 GUI requires the selected USER startup connection");
+    };
+    if !client_data.owns_views(&p.vm) {
+        return failure("WoW64 GUI lost the selected USER startup views");
+    }
+
+    // On the measured pair, native USER initializes the companion TEB only.
+    // Repeated leaf calls return the process value without another callback.
+    let peb = state.native_peb;
+    let first = !p
+        .gui
+        .threads
+        .get(&t.tid)
+        .is_some_and(|thread| thread.initialized);
+    if first {
+        for (address, length) in [
+            (peb + 0xf8, 8),
+            (peb + 0x108, 4),
+            (teb + 0x78, 8),
+            (teb + 0x800, 160),
+        ] {
+            if let Err(error) = p.space.probe(address, length, MemoryAccessKind::Write) {
+                return failure(format!(
+                    "WoW64 GUI companion state is inaccessible: {error:?}"
+                ));
+            }
+        }
+    }
+    let tick = p.uptime_ms() as u32;
+    let version =
+        u64::from(p.gui.executable_version.0) << 8 | u64::from(p.gui.executable_version.1 & 0xff);
+    let (gdi, client) = match p
+        .gui
+        .prepare_wow64_thread(&mut p.vm, inputs, t.tid, tick, version)
+    {
+        Ok(state) => state,
+        Err(error) => return failure(format!("WoW64 GUI views or thread record: {error:?}")),
+    };
+    let value = p
+        .gui
+        .value
+        .unwrap_or_else(|| u64::from(p.random() as u32 | 0x8000_0000));
+    if first {
+        let mut client_bytes = [0; 160];
+        for (word, bytes) in client.iter().zip(client_bytes.chunks_exact_mut(8)) {
+            bytes.copy_from_slice(&word.to_le_bytes());
+        }
+        let write = || {
+            p.space.w64(peb + 0xf8, gdi)?;
+            p.space.w32(peb + 0x108, value as u32)?;
+            p.space.w64(teb + 0x78, u64::from(t.tid))?;
+            p.space.wr(teb + 0x800, &client_bytes)
+        };
+        if let Err(error) = write() {
+            return failure(format!("WoW64 GUI companion state was lost: {error:?}"));
+        }
+        p.gui
+            .threads
+            .get_mut(&t.tid)
+            .expect("prepared companion thread")
+            .initialized = true;
+        p.gui.value = Some(value);
+    }
+    returned(t, result.map_or(value, u64::from), sp, resume, true)
 }
 
 pub(super) fn remote_connect_state(
@@ -56,6 +148,10 @@ pub(super) fn remote_connect_state(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
+    if let Some(inputs) = wow64_inputs(p, wow64) {
+        let value = inputs.remote_connect_state;
+        return initialize_wow64(p, t, sp, resume, inputs, Some(value));
+    }
     let value = match p.native.as_ref().map(|runtime| &runtime.gui) {
         Some(Availability::Available(inputs)) if inputs.arch == p.arch => {
             inputs.remote_connect_state
@@ -82,6 +178,12 @@ pub(super) fn process_dpi(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
+    if let Some(inputs) = wow64_inputs(p, wow64) {
+        let Some(dpi) = inputs.process_dpi else {
+            return failure("selected Win32u has no usable process DPI query");
+        };
+        return initialize_wow64(p, t, sp, resume, inputs, Some(dpi.get()));
+    }
     let dpi = match p.native.as_ref().map(|runtime| &runtime.gui) {
         Some(Availability::Available(inputs)) if inputs.arch == p.arch => inputs.process_dpi,
         Some(Availability::Unavailable(reason)) => {

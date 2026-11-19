@@ -60,6 +60,71 @@ fn fixture_with_client_flags(arch: WinArch, flags: u64) -> io::Result<Arc<Inputs
     )
 }
 
+pub(crate) fn wow64_companion_fixture() -> Arc<Inputs> {
+    let fixture = fixture(WinArch::Arm64);
+    let mut client = fixture.client;
+    let base = 0x1_0100_0000;
+    for index in [4, 5, 12] {
+        client[index] = base + (client[index] - fixture.desktop.base);
+    }
+    let inputs = Inputs::selected(
+        WinArch::Arm64,
+        View {
+            base: 0x1_0000_0000,
+            section: fixture.gdi.section.clone(),
+        },
+        View {
+            base,
+            section: DataSection::private_readonly(
+                0x1401000,
+                vec![
+                    DataRegion {
+                        offset: 0,
+                        size: 0x34000,
+                        bytes: Some(vec![0; 0x34000].into()),
+                    },
+                    DataRegion {
+                        offset: 0x34000,
+                        size: 0x13cd000,
+                        bytes: None,
+                    },
+                ],
+            )
+            .unwrap(),
+        },
+        client,
+        3,
+        fixture.process_dpi,
+        fixture.assigned_desktop.clone(),
+        fixture.process_ui_context.clone(),
+    )
+    .unwrap();
+    inputs.qualify_wow64_companion().unwrap();
+    inputs
+}
+
+#[test]
+fn wow64_companion_gui_retires_first_view_when_desktop_cannot_fit() {
+    let mut vm = VirtualMemory::new(
+        AddressSpace::new(SpaceConfig {
+            va_limit: 0x30_0000,
+            arena_bytes: 4 << 20,
+            reserved_phys: vec![],
+        })
+        .unwrap(),
+        65536,
+        0x30_0000,
+    );
+    let mut state = State::new((6, 0));
+    assert!(matches!(
+        state.prepare_wow64_thread(&mut vm, wow64_companion_fixture(), 8, 125, 0x600),
+        Err(VmError::NoMemory)
+    ));
+    assert!(state.mappings.is_none() && state.threads.is_empty());
+    assert_eq!(vm.allocations().count(), 0);
+    assert_eq!(vm.committed_bytes(), 0);
+}
+
 fn memory() -> VirtualMemory {
     VirtualMemory::new(
         AddressSpace::new(SpaceConfig {

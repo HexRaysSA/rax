@@ -121,6 +121,10 @@ impl Allocation {
         Err(STATUS_NO_MEMORY)
     }
 
+    pub(crate) fn companion(&self) -> Option<u64> {
+        self.companion
+    }
+
     pub(crate) fn initialize_companion(
         &self,
         p: &Proc,

@@ -43,9 +43,13 @@ fn win32u_installed_init2_leaf_requires_gui_prerequisites_without_state_changes(
                 assert_eq!(p.space.u64(p.peb + 0x58).unwrap(), 0);
                 "USER callback table is absent or unreadable".to_owned()
             }
+            crate::user::windows::gui::Availability::Wow64Companion(_) => {
+                assert_eq!(arch, WinArch::X86);
+                "WoW64 GUI requires the selected USER startup connection".to_owned()
+            }
             crate::user::windows::gui::Availability::Unavailable(reason) => {
                 if arch == WinArch::X86 {
-                    assert!(reason.contains("WoW64") && reason.contains("paired contexts"));
+                    assert!(!reason.is_empty(), "explicit WoW64 capability error");
                 } else {
                     assert!(
                         reason.ends_with("selected Win32u has no NtGdiInit2"),

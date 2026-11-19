@@ -21,6 +21,7 @@ pub(crate) mod windows;
 
 pub(crate) const CLIENT_SEED_BYTES: usize = 32;
 const CI_INITTHREAD: u64 = 8;
+const WOW64_COMPANION_TI_FLAGS: u64 = 0x100 << 32;
 
 #[derive(Debug)]
 pub(crate) struct View {
@@ -60,6 +61,35 @@ fn invalid(message: &str) -> io::Error {
 }
 
 impl Inputs {
+    pub(crate) fn qualify_wow64_companion(&self) -> io::Result<()> {
+        let views = [&self.gdi, &self.desktop];
+        if self.arch != WinArch::Arm64
+            || views.iter().any(|view| view.base < 1 << 32)
+            || self.desktop.section.size != 0x1401000
+            || self.first_reserved != 0x34000
+            || self.client[18] > u64::from(u32::MAX)
+            || self.client[19] > u64::from(u16::MAX)
+        {
+            return Err(invalid("WoW64 GUI companion view profile differs"));
+        }
+        for view in views {
+            for region in &view.section.regions {
+                let Some(bytes) = &region.bytes else { continue };
+                if bytes.chunks_exact(8).any(|word| {
+                    let value = u64::from_le_bytes(word.try_into().expect("complete word"));
+                    views.iter().any(|target| {
+                        value >= target.base && value - target.base < target.section.size
+                    })
+                }) {
+                    return Err(invalid(
+                        "WoW64 GUI companion contains an unresolved view pointer",
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn selected(
         arch: WinArch,
         gdi: View,
@@ -182,6 +212,7 @@ impl Inputs {
 #[derive(Debug)]
 pub(crate) enum Availability {
     Available(Arc<Inputs>),
+    Wow64Companion(Arc<Inputs>),
     Unavailable(String),
 }
 
@@ -213,6 +244,7 @@ impl Availability {
 
 struct Mappings {
     inputs: Arc<Inputs>,
+    relocated: bool,
     gdi: KernelDataView,
     desktop: KernelDataView,
     cursor: u64,
@@ -332,37 +364,99 @@ impl State {
         tid: u32,
         tick: u32,
     ) -> Result<u64, VmError> {
-        if let Some(mappings) = &self.mappings {
-            if !Arc::ptr_eq(&mappings.inputs, &inputs)
+        self.prepare_thread_views(vm, inputs, tid, tick, false)
+    }
+
+    pub(crate) fn prepare_wow64_thread(
+        &mut self,
+        vm: &mut VirtualMemory,
+        inputs: Arc<Inputs>,
+        tid: u32,
+        tick: u32,
+        version: u64,
+    ) -> Result<(u64, [u64; 20]), VmError> {
+        let record = self.prepare_thread_views(vm, inputs.clone(), tid, tick, true)?;
+        let mappings = self
+            .mappings
+            .as_ref()
+            .expect("prepared companion GUI views");
+        let mut client = inputs.client;
+        client[0] |= CI_INITTHREAD;
+        client[2] = version;
+        client[3] = WOW64_COMPANION_TI_FLAGS;
+        client[4] = mappings.desktop.base + (inputs.client[4] - inputs.desktop.base);
+        client[5] = mappings.desktop.base;
+        client[12] = record;
+        Ok((mappings.gdi.base, client))
+    }
+
+    fn prepare_thread_views(
+        &mut self,
+        vm: &mut VirtualMemory,
+        inputs: Arc<Inputs>,
+        tid: u32,
+        tick: u32,
+        relocate: bool,
+    ) -> Result<u64, VmError> {
+        if let Some(mappings) = &mut self.mappings {
+            if mappings.relocated != relocate
+                || !Arc::ptr_eq(&mappings.inputs, &inputs)
                 || !vm.owns_kernel_data_view(&mappings.gdi)
                 || !vm.owns_kernel_data_view(&mappings.desktop)
             {
                 return Err(VmError::InvalidAddress);
             }
-        } else {
-            let gdi = vm.map_kernel_data_view(inputs.gdi.section.clone(), inputs.gdi.base)?;
-            let desktop = match vm
-                .map_kernel_data_view(inputs.desktop.section.clone(), inputs.desktop.base)
-            {
-                Ok(view) => view,
-                Err(error) => {
-                    vm.retire_kernel_data_view(&gdi)?;
-                    return Err(error);
-                }
+            if let Some(thread) = self.threads.get(&tid) {
+                return Ok(thread.record);
+            }
+            return Self::create_thread(vm, mappings, &mut self.threads, tid, tick);
+        }
+        let map = |vm: &mut VirtualMemory, view: &View| {
+            let base = if relocate {
+                vm.find_free(view.section.size, 65536, vm.low(), 1 << 32, true)
+                    .ok_or(VmError::NoMemory)?
+            } else {
+                view.base
             };
-            self.mappings = Some(Mappings {
-                cursor: inputs.desktop.base + inputs.first_reserved,
-                inputs,
-                gdi,
-                desktop,
-                free_records: Vec::new(),
-                default_ime_title: None,
-            });
+            vm.map_kernel_data_view(view.section.clone(), base)
+        };
+        let gdi = map(vm, &inputs.gdi)?;
+        let desktop = match map(vm, &inputs.desktop) {
+            Ok(view) => view,
+            Err(error) => {
+                vm.retire_kernel_data_view(&gdi)?;
+                return Err(error);
+            }
+        };
+        let mut mappings = Mappings {
+            cursor: desktop.base + inputs.first_reserved,
+            inputs,
+            relocated: relocate,
+            gdi,
+            desktop,
+            free_records: Vec::new(),
+            default_ime_title: None,
+        };
+        match Self::create_thread(vm, &mut mappings, &mut self.threads, tid, tick) {
+            Ok(address) => {
+                self.mappings = Some(mappings);
+                Ok(address)
+            }
+            Err(error) => {
+                vm.retire_kernel_data_view(&mappings.desktop)?;
+                vm.retire_kernel_data_view(&mappings.gdi)?;
+                Err(error)
+            }
         }
-        if let Some(thread) = self.threads.get(&tid) {
-            return Ok(thread.record);
-        }
-        let mappings = self.mappings.as_mut().expect("prepared GUI views");
+    }
+
+    fn create_thread(
+        vm: &mut VirtualMemory,
+        mappings: &mut Mappings,
+        threads: &mut BTreeMap<u32, ThreadState>,
+        tid: u32,
+        tick: u32,
+    ) -> Result<u64, VmError> {
         let address = mappings
             .free_records
             .last()
@@ -381,7 +475,7 @@ impl State {
         if mappings.free_records.pop().is_none() {
             mappings.cursor += CLIENT_SEED_BYTES as u64;
         }
-        self.threads.insert(
+        threads.insert(
             tid,
             ThreadState {
                 record: address,

@@ -4001,3 +4001,32 @@ copied unchanged from the selected snapshot. The reply rewrites only those
 pointer fields and clears the low byte of the flag. Both views retain their
 selected data-section identities and are checked before any repeated reply.
 No guest request is dispatched to the host USER service.
+
+### WoW64 companion GDI startup
+
+On Windows build 29708 on ARM64 in session 1, the selected SysWOW64
+`NtGdiInit2` leaf returns the 32-bit process value visible in the
+64-bit companion PEB at `+0x108`. In the native controls the x86 PEB and
+TEB GUI fields stayed zero. The companion PEB and TEB held GUI state and
+both read-only views were below 4 GiB. The GDI view committed 0x181000 bytes.
+The desktop view reserved 0x1401000 bytes, of which the first 0x34000
+bytes were committed by the host.
+
+The paired installed USER32 and Win32u images select the native snapshot.
+RAX checks the view extents and excludes aligned self-references to the
+source views before mapping the bytes into guest-owned read-only views.
+It rebases the measured companion desktop pointers, allocates a private
+thread record, and publishes the same guest-owned process value to the
+companion PEB and the x86 service return. Repeated calls reuse those views.
+The selected session supplies the `NtUserRemoteConnectState` and
+`NtUserGetDpiForCurrentProcess` results. The installed ARM64 and SysWOW64
+controls returned 192 DPI before and after explicit GDI initialization.
+RAX uses the fixed native DPI observation from the selected snapshot.
+The 32-bit GUI fields and callbacks are untouched by these companion leaves.
+The measured companion client word at slot 3 carries the thread flag 0x100
+in its upper half. The direct WoW64 leaves also work when the guest loader
+maps Win32u as an executable image section. The return address identifies
+the selected view and the exported leaf, with the complete instruction
+sequence, transition thunk, and live transition slot checked before dispatch.
+Additional GUI services and other installed-image pairs remain outside this
+measured profile.

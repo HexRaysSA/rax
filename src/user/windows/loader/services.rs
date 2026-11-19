@@ -30,6 +30,14 @@ pub(crate) struct ServiceTable {
 struct ServiceEntry {
     name: String,
     rva: u32,
+    direct_wow64: Option<DirectWow64Leaf>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct DirectWow64Leaf {
+    thunk_rva: u32,
+    code: [u8; 15],
+    len: usize,
 }
 
 impl ServiceTable {
@@ -109,6 +117,7 @@ impl ServiceTable {
             let Some(number) = stub_number(arch, bytes) else {
                 continue;
             };
+            let mut direct_wow64 = None;
             if arch == WinArch::X86 {
                 let Some(slot) = wow64_slot else { continue };
                 let Some(entry) = x86_entry(bytes) else {
@@ -136,9 +145,22 @@ impl ServiceTable {
                 {
                     continue;
                 }
+                if let Some(len) = entry.direct_len {
+                    let mut code = [0; 15];
+                    code[..len].copy_from_slice(&bytes[..len]);
+                    direct_wow64 = Some(DirectWow64Leaf {
+                        thunk_rva: u32::try_from(thunk).map_err(|_| malformed())?,
+                        code,
+                        len,
+                    });
+                }
             }
             let name = String::from_utf8(name).map_err(|_| malformed())?;
-            let entry = ServiceEntry { name, rva };
+            let entry = ServiceEntry {
+                name,
+                rva,
+                direct_wow64,
+            };
             if let Some(previous) = entries.get(&number)
                 && previous != &entry
             {
@@ -203,6 +225,7 @@ fn stub_number(arch: WinArch, bytes: &[u8]) -> Option<u32> {
 struct X86Entry {
     thunk: u32,
     conditional_base: Option<u32>,
+    direct_len: Option<usize>,
 }
 
 fn x86_entry(bytes: &[u8]) -> Option<X86Entry> {
@@ -217,6 +240,7 @@ fn x86_entry(bytes: &[u8]) -> Option<X86Entry> {
         return Some(X86Entry {
             thunk: u32::from_le_bytes(tail[1..5].try_into().ok()?),
             conditional_base: None,
+            direct_len: Some(if tail[7] == 0xC3 { 13 } else { 15 }),
         });
     }
     // Installed conditional leaf: CALL $+5; POP EDX; compare the high byte
@@ -236,6 +260,7 @@ fn x86_entry(bytes: &[u8]) -> Option<X86Entry> {
     Some(X86Entry {
         thunk: u32::from_le_bytes(code[32..36].try_into().ok()?),
         conditional_base: Some(u32::from_le_bytes(code[27..31].try_into().ok()?)),
+        direct_len: None,
     })
 }
 
@@ -292,7 +317,7 @@ pub(crate) mod tests {
         .unwrap()
     }
 
-    fn x86_image_table(name: &str, number: u32) -> (ServiceTable, Vec<u8>) {
+    pub(super) fn x86_image_table(name: &str, number: u32) -> (ServiceTable, Vec<u8>) {
         let mut image = vec![0u8; 0x400];
         for (offset, value) in [
             (0x110, 1u32),

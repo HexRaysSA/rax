@@ -89,6 +89,110 @@ fn setup(arch: WinArch) -> (super::super::super::super::WindowsProcess, Thread, 
 }
 
 #[test]
+fn wow64_gui_initialization_updates_only_the_companion_and_reuses_guest_views() {
+    use crate::user::windows::memory::{mem, prot};
+    use crate::user::windows::object_namespace::csr::client_data::native_fixture;
+    use crate::user::windows::process::{services, thread, wow64};
+
+    let (mut process, _, _) = setup(WinArch::X86);
+    let p = process.state_mut();
+    let version = &mut std::sync::Arc::make_mut(&mut p.cfg).version;
+    version.major = 10;
+    version.minor = 0;
+    version.build = 29708;
+    wow64::initialize_test_profile(p, WinArch::Arm64.machine()).unwrap();
+    p.native.as_mut().unwrap().gui =
+        Availability::Wow64Companion(crate::user::windows::gui::tests::wow64_companion_fixture());
+
+    let id = thread::create(p, p.modules.exe().entry, 0, 0x10000, false).unwrap();
+    let mut thread = p.threads.remove(&id).unwrap();
+    let peb = p.wow64.as_ref().unwrap().native_peb;
+    let teb = thread.teb_allocation.companion().unwrap();
+    let app_peb = p.space.bytes(p.peb, 512).unwrap();
+    let app_teb = p.space.bytes(thread.teb, 4096).unwrap();
+    let original_rng = p.rng;
+    let original_sp = thread.cpu.sp();
+    let module = p.modules.win32u_services.as_ref().unwrap().0;
+    let call = |p: &mut Proc, thread: &mut Thread, name: &str, number: u32| {
+        p.modules.win32u_services = Some((module, named_table(WinArch::X86, name, number)));
+        thread.cpu.set_sp(original_sp);
+        p.space.w32(original_sp, 0x1234_000c).unwrap();
+        thread.cpu.set_gpr(0, u64::from(number));
+        services::wow64(p, thread, 0x1234_0000)
+    };
+    assert!(matches!(
+        call(p, &mut thread, "NtGdiInit2", 0x1308),
+        Outcome::Fail(reason) if reason.contains("requires the selected USER startup connection")
+    ));
+    assert!(matches!(
+        call(p, &mut thread, "NtUserGetDpiForCurrentProcess", 0x1454),
+        Outcome::Fail(reason) if reason.contains("requires the selected USER startup connection")
+    ));
+    assert_eq!(p.rng, original_rng);
+    assert!(p.gui.threads.is_empty());
+    let views = native_fixture(0).map_wow64(&mut p.vm).unwrap();
+    p.wow64.as_mut().unwrap().user_data = Some(views);
+
+    assert_eq!(
+        call(p, &mut thread, "NtGdiInit2", 0x1308),
+        Outcome::Continue
+    );
+    let value = thread.cpu.gpr(0);
+    assert_eq!(value, u64::from(p.space.u32(peb + 0x108).unwrap()));
+    assert_ne!(value & 0x8000_0000, 0);
+    assert_eq!(thread.cpu.sp(), original_sp + 4);
+    assert_eq!(thread.cpu.pc(), 0x1234_000c);
+    assert!(thread.frames.is_empty());
+    let client = |p: &Proc, index: u64| p.space.u64(teb + 0x800 + index * 8).unwrap();
+    let gdi = p.space.u64(peb + 0xf8).unwrap();
+    let desktop = client(p, 5);
+    let record = client(p, 12);
+    assert_eq!(p.space.u64(teb + 0x78).unwrap(), u64::from(id));
+    assert_ne!(client(p, 0) & 8, 0);
+    assert_eq!(client(p, 2), 0x602);
+    assert_eq!(client(p, 3), 0x100 << 32);
+    assert_eq!(client(p, 4), desktop + 0x1040);
+    assert_eq!(record, desktop + 0x34000);
+    for base in [gdi, desktop, record] {
+        assert!(base < 1 << 32);
+        let region = p.vm.query(base).unwrap();
+        assert_eq!((region.kind, region.protect), (mem::MAPPED, prot::READONLY));
+    }
+    assert_eq!(p.space.bytes(p.peb, 512).unwrap(), app_peb);
+    assert_eq!(p.space.bytes(thread.teb, 4096).unwrap(), app_teb);
+
+    let rng = p.rng;
+    let committed = p.vm.committed_bytes();
+    assert_eq!(
+        call(p, &mut thread, "NtGdiInit2", 0x1308),
+        Outcome::Continue
+    );
+    assert_eq!(thread.cpu.gpr(0), value);
+    assert_eq!(
+        call(p, &mut thread, "NtUserRemoteConnectState", 0x1234),
+        Outcome::Continue
+    );
+    assert_eq!(thread.cpu.gpr(0), 3);
+    assert_eq!(
+        call(p, &mut thread, "NtUserGetDpiForCurrentProcess", 0x1454),
+        Outcome::Continue
+    );
+    assert_eq!(thread.cpu.gpr(0), 192);
+    assert_eq!(thread.cpu.sp(), original_sp + 4);
+    assert_eq!(thread.cpu.pc(), 0x1234_000c);
+    assert_eq!(p.rng, rng);
+    assert_eq!(p.vm.committed_bytes(), committed);
+    assert_eq!(client(p, 12), record);
+    p.vm.release(gdi).unwrap();
+    assert!(
+        matches!(call(p, &mut thread, "NtGdiInit2", 0x1308), Outcome::Fail(reason)
+        if reason.contains("WoW64 GUI views or thread record"))
+    );
+    assert_eq!(p.rng, rng);
+    assert_eq!(u64::from(p.space.u32(peb + 0x108).unwrap()), value);
+}
+
+#[test]
 fn no_active_kernel_callback_rejects_without_probing_output_or_changing_last_error() {
     for arch in WinArch::ALL {
         let (mut process, mut t) = fixture(arch, "NtClose", 5);

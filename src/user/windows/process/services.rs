@@ -68,13 +68,12 @@ fn enter(
         .filter(|(idx, _)| p.modules.is_live(*idx))
         .and_then(|(_, table)| table.name(p.arch, number))
         .or_else(|| {
+            let binding = p.modules.mapped_win32u.as_ref()?;
             if wow64_return {
-                return None;
+                binding.wow64_name(&p.vm, number, pc, resume)
+            } else {
+                binding.name(&p.vm, p.arch, number, pc)
             }
-            p.modules
-                .mapped_win32u
-                .as_ref()?
-                .name(&p.vm, p.arch, number, pc)
         });
     let kernelbase_api = p
         .modules
