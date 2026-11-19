@@ -1,0 +1,109 @@
+{
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "revision": 1003,
+  "native_arch": "arm64",
+  "native_opens": [
+    {
+      "access": 1,
+      "count": 1,
+      "status": 0,
+      "attributes": 64,
+      "options": 0
+    },
+    {
+      "access": 131097,
+      "count": 2,
+      "status": 0,
+      "attributes": 64,
+      "options": 0
+    }
+  ],
+  "native_queries": [
+    {
+      "name": "Debug",
+      "info_class": 2,
+      "capacity_bytes": 16,
+      "status": 3221225524
+    },
+    {
+      "name": "RawHex",
+      "info_class": 2,
+      "capacity_bytes": 16,
+      "status": 3221225524
+    },
+    {
+      "name": "Unicode",
+      "info_class": 2,
+      "capacity_bytes": 16,
+      "status": 3221225524
+    }
+  ],
+  "control_views": [
+    {
+      "view": "native",
+      "canonical": "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Cryptography\\AutoEnrollment",
+      "child_count": 1,
+      "value_count": 0,
+      "values": [
+        {
+          "name": "Debug",
+          "status": 2
+        },
+        {
+          "name": "RawHex",
+          "status": 2
+        },
+        {
+          "name": "Unicode",
+          "status": 2
+        }
+      ]
+    },
+    {
+      "view": "native64",
+      "canonical": "\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\Cryptography\\AutoEnrollment",
+      "child_count": 1,
+      "value_count": 0,
+      "values": [
+        {
+          "name": "Debug",
+          "status": 2
+        },
+        {
+          "name": "RawHex",
+          "status": 2
+        },
+        {
+          "name": "Unicode",
+          "status": 2
+        }
+      ]
+    },
+    {
+      "view": "wow32",
+      "canonical": "\\REGISTRY\\MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Cryptography\\AutoEnrollment",
+      "child_count": 1,
+      "value_count": 0,
+      "values": [
+        {
+          "name": "Debug",
+          "status": 2
+        },
+        {
+          "name": "RawHex",
+          "status": 2
+        },
+        {
+          "name": "Unicode",
+          "status": 2
+        }
+      ]
+    }
+  ],
+  "native_trace_sha256": "eda7f62501e706445fdea4ceee31356b3403af72afdc037e32b6c08fce68d751",
+  "native_control_sha256": "771d4b02cd82a65659d7b8ac93212fb962026282483760971bd3efbf6f6710ed"
+}

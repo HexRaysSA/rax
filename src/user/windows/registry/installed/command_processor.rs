@@ -51,13 +51,20 @@ pub(super) fn capture_processor0(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Processor0, &[], open_snapshot)
 }
 
-pub(super) fn capture_side_by_side(mut registry: Registry) -> io::Result<Registry> {
-    // The stock launch queries the root. Its native Winners descendant can
-    // contain thousands of keys, so retain only the two root headers.
-    let root = SnapshotRoot::SideBySide;
+pub(super) fn capture_root_header(
+    mut registry: Registry,
+    root: SnapshotRoot,
+) -> io::Result<Registry> {
     for view in [RegistryView::Native64, RegistryView::Wow32] {
         let selected = match open_snapshot(root, &[], view) {
-            Ok(key) => Ok((snapshot_header(&registry, &key, root.label())?, None)),
+            Ok(key) => {
+                let canonical = canonical_hive_name(&key, root.label())?;
+                root.check_name(&registry, &[], view, &canonical)?;
+                Ok((
+                    snapshot_header_for_key(&registry, &key, root.label(), canonical)?,
+                    None,
+                ))
+            }
             Err(error) if error.raw_os_error() == Some(2) => Err(STATUS_OBJECT_NAME_NOT_FOUND),
             Err(error) if error.raw_os_error() == Some(3) => Err(STATUS_OBJECT_PATH_NOT_FOUND),
             Err(error) => return Err(error),
@@ -276,6 +283,7 @@ fn open_snapshot_path(
         SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System)
         | SnapshotRoot::Ole
         | SnapshotRoot::OleAutomation
+        | SnapshotRoot::AutoEnrollment
         | SnapshotRoot::SideBySide
         | SnapshotRoot::Processor0
         | SnapshotRoot::Wow64Amd64

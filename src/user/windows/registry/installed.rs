@@ -468,7 +468,12 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let registry = command_processor::capture_wow64_amd64(registry)?;
     let registry = command_processor::capture_wow64_x86_jit(registry)?;
     let registry = command_processor::capture_processor0(registry)?;
-    let registry = command_processor::capture_side_by_side(registry)?;
+    // Stock startup reads these roots. Keep their metadata without opening
+    // descendants such as SideBySide's Winners and AutoEnrollment's child.
+    let registry =
+        command_processor::capture_root_header(registry, super::SnapshotRoot::SideBySide)?;
+    let registry =
+        command_processor::capture_root_header(registry, super::SnapshotRoot::AutoEnrollment)?;
     current_version::capture(registry)
 }
 

@@ -13,6 +13,10 @@ pub(super) mod capture;
 #[path = "snapshot_root/side_by_side_tests.rs"]
 mod side_by_side_tests;
 
+#[cfg(test)]
+#[path = "snapshot_root/auto_enrollment_tests.rs"]
+mod auto_enrollment_tests;
+
 pub(super) const USER_NT_CURRENT_VERSION_SUFFIX: &str =
     "\\Software\\Microsoft\\Windows NT\\CurrentVersion";
 pub(super) const USER_REGISTRY_POLICY_SUFFIX: &str =
@@ -24,6 +28,10 @@ pub(crate) const OLE_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLE"
 pub(super) const OLE_AUTOMATION_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLEAUT";
 pub(super) const OLE_AUTOMATION_WOW_KEY: &str =
     "\\Registry\\Machine\\Software\\WOW6432Node\\Microsoft\\OLEAUT";
+const AUTO_ENROLLMENT_KEY: &str =
+    "\\Registry\\Machine\\Software\\Microsoft\\Cryptography\\AutoEnrollment";
+pub(super) const AUTO_ENROLLMENT_WOW_KEY: &str =
+    "\\Registry\\Machine\\Software\\WOW6432Node\\Microsoft\\Cryptography\\AutoEnrollment";
 const SIDE_BY_SIDE_KEY: &str =
     "\\Registry\\Machine\\Software\\Microsoft\\Windows\\CurrentVersion\\SideBySide";
 pub(super) const SIDE_BY_SIDE_WOW_KEY: &str =
@@ -34,6 +42,7 @@ pub(crate) enum SnapshotRoot {
     Command(CommandRoot),
     Ole,
     OleAutomation,
+    AutoEnrollment,
     LocalSettings,
     ShellFolders,
     UserNtCurrentVersion,
@@ -49,6 +58,7 @@ impl SnapshotRoot {
             Self::Command(root) => root.path(sid),
             Self::Ole => Ok(OLE_KEY.encode_utf16().collect()),
             Self::OleAutomation => Ok(OLE_AUTOMATION_KEY.encode_utf16().collect()),
+            Self::AutoEnrollment => Ok(AUTO_ENROLLMENT_KEY.encode_utf16().collect()),
             Self::LocalSettings => local_settings::path(sid),
             Self::ShellFolders => shell_folders::path(sid),
             Self::UserNtCurrentVersion | Self::UserRegistryPolicy => {
@@ -68,6 +78,7 @@ impl SnapshotRoot {
             Self::Command(root) => root.selection(),
             Self::Ole => ViewRoot::Ole,
             Self::OleAutomation => ViewRoot::OleAutomation,
+            Self::AutoEnrollment => ViewRoot::AutoEnrollment,
             Self::LocalSettings => ViewRoot::LocalSettings,
             Self::ShellFolders => ViewRoot::ShellFolders,
             Self::UserNtCurrentVersion => ViewRoot::UserNtCurrentVersion,
@@ -115,6 +126,7 @@ impl SnapshotRoot {
             Self::Command(_) => "Command Processor",
             Self::Ole => "OLE",
             Self::OleAutomation => "OLE Automation",
+            Self::AutoEnrollment => "certificate autoenrollment",
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
             Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
@@ -181,10 +193,17 @@ impl SnapshotRoot {
                     )))
                 }
             }
-            Self::Ole | Self::OleAutomation | Self::Processor0 | Self::SideBySide => {
+            Self::Ole
+            | Self::OleAutomation
+            | Self::AutoEnrollment
+            | Self::Processor0
+            | Self::SideBySide => {
                 let expected = match (self, view) {
                     (Self::OleAutomation, RegistryView::Wow32) => {
                         OLE_AUTOMATION_WOW_KEY.encode_utf16().collect()
+                    }
+                    (Self::AutoEnrollment, RegistryView::Wow32) => {
+                        AUTO_ENROLLMENT_WOW_KEY.encode_utf16().collect()
                     }
                     (Self::SideBySide, RegistryView::Wow32) => {
                         SIDE_BY_SIDE_WOW_KEY.encode_utf16().collect()

@@ -23,6 +23,7 @@ pub(crate) enum ViewRoot {
     CommandUser,
     Ole,
     OleAutomation,
+    AutoEnrollment,
     LocalSettings,
     ShellFolders,
     CurrentVersion,
@@ -74,6 +75,10 @@ impl RegistryViews {
             (
                 ViewRoot::OleAutomation,
                 snapshot_root::OLE_AUTOMATION_WOW_KEY,
+            ),
+            (
+                ViewRoot::AutoEnrollment,
+                snapshot_root::AUTO_ENROLLMENT_WOW_KEY,
             ),
         ] {
             let prefix: Vec<_> = physical
