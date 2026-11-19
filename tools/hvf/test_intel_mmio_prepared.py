@@ -11,6 +11,7 @@ import time
 import unittest
 
 import intel_mmio_prepared as prepared
+from intel_mmio_native_probe import PROFILE_CASES
 
 
 class PreparedConsumerTests(unittest.TestCase):
@@ -26,17 +27,18 @@ class PreparedConsumerTests(unittest.TestCase):
         (self.artifact / prepared.EXECUTABLE).write_bytes(b"metadata fixture only")
         self.report = {"success": True, "compile_only": True, "export_guest": True,
                        "owned_build_removed": True,
+                       "profile": "entry-irq", "expected_cases": 2,
                        "executable_sha256": prepared.sha(self.artifact / prepared.EXECUTABLE),
                        "engine_source_digest": prepared.digest(self.inputs),
                        "consumer_sha256": "b" * 64, "script_sha256": "c" * 64,
                        "libraries": {"rax": {"sha256": "d" * 64}}, "build_environment": {}}
         prepared.save(self.artifact / "engine-source.json", self.inputs)
         prepared.save(self.artifact / "result.json", self.report)
-        prepared.export_description(self.artifact, self.report, 2)
+        prepared.export_description(self.artifact, self.report)
 
-    def admit(self, inputs=None, consumer=None, script=None):
+    def admit(self, inputs=None, consumer=None, script=None, profile="entry-irq", cases=2):
         return prepared.admit(self.artifact, self.inputs if inputs is None else inputs,
-                              consumer or "b" * 64, script or "c" * 64, 2)
+                              consumer or "b" * 64, script or "c" * 64, profile, cases)
 
     def modify_manifest(self, **changes):
         path = self.artifact / "prepared.json"
@@ -48,6 +50,7 @@ class PreparedConsumerTests(unittest.TestCase):
         executable, metadata = self.admit()
         self.assertEqual(executable, (self.artifact / prepared.EXECUTABLE).resolve())
         self.assertEqual(metadata["expected_cases"], 2)
+        self.assertEqual(metadata["profile"], "entry-irq")
 
     def test_executable_modification_rejects(self):
         (self.artifact / prepared.EXECUTABLE).write_bytes(b"changed")
@@ -74,7 +77,7 @@ class PreparedConsumerTests(unittest.TestCase):
                 self.admit()
 
     def test_unknown_version_and_boolean_version_reject(self):
-        for version in (1, 3, True, "2"):
+        for version in (1, 2, 4, True, "3"):
             self.modify_manifest(version=version)
             with self.subTest(version=version), self.assertRaisesRegex(ValueError, "version"):
                 self.admit()
@@ -135,15 +138,23 @@ class PreparedConsumerTests(unittest.TestCase):
             self.admit()
 
     def test_native_profiles_cannot_admit_each_others_prepared_artifacts(self):
-        for exported in (12, 16, 20, 32, 952, 968):
-            for requested in (12, 16, 20, 32, 952, 968):
-                prepared.export_description(self.artifact, self.report, exported)
+        for exported, count in PROFILE_CASES.items():
+            report = dict(self.report, profile=exported, expected_cases=count)
+            prepared.save(self.artifact / "result.json", report)
+            prepared.export_description(self.artifact, report)
+            for requested, requested_count in PROFILE_CASES.items():
                 with self.subTest(exported=exported, requested=requested):
                     if requested == exported:
-                        prepared.admit(self.artifact, self.inputs, "b" * 64, "c" * 64, requested)
+                        self.admit(profile=requested, cases=requested_count)
                     else:
                         with self.assertRaisesRegex(ValueError, "profile"):
-                            prepared.admit(self.artifact, self.inputs, "b" * 64, "c" * 64, requested)
+                            self.admit(profile=requested, cases=requested_count)
+
+    def test_compile_report_must_match_the_requested_profile_and_count(self):
+        for changes in ({"profile": "movnti"}, {"expected_cases": 8}, {"expected_cases": True}):
+            prepared.save(self.artifact / "result.json", dict(self.report, **changes))
+            with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, "compilation"):
+                self.admit()
 
     def test_artifact_symlink_rejects_without_changing_its_target(self):
         outside = self.root / "outside"

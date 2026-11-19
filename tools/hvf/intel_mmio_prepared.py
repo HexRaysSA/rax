@@ -152,17 +152,18 @@ def execute(label, command, *, root, environment, output, result, timeout=60):
     return stdout
 
 
-def export_description(output, result, expected_cases):
-    description = {"version": 2, "executable": EXECUTABLE,
-                   "expected_cases": expected_cases, "support_sha256": sha(Path(__file__)),
+def export_description(output, result):
+    description = {"version": 3, "executable": EXECUTABLE,
+                   "support_sha256": sha(Path(__file__)),
                    **{key: result[key] for key in (
+                       "profile", "expected_cases",
                        "executable_sha256", "engine_source_digest", "consumer_sha256",
                        "script_sha256", "libraries", "build_environment")}}
     save(output / "prepared.json", description)
     return description
 
 
-def admit(directory, inputs, consumer_hash, script_hash, expected_cases):
+def admit(directory, inputs, consumer_hash, script_hash, profile, expected_cases):
     directory = directory.resolve()
     for name in (EXECUTABLE, "prepared.json", "engine-source.json", "result.json"):
         path = directory / name
@@ -171,9 +172,11 @@ def admit(directory, inputs, consumer_hash, script_hash, expected_cases):
     description = json.loads((directory / "prepared.json").read_text())
     if not isinstance(description, dict):
         raise ValueError("prepared description must be an object")
-    if type(description["version"]) is not int or description["version"] != 2:
+    if type(description["version"]) is not int or description["version"] != 3:
         raise ValueError("unknown prepared artifact version")
     if (description["executable"] != EXECUTABLE
+            or not isinstance(profile, str) or not profile
+            or description.get("profile") != profile
             or type(description["expected_cases"]) is not int
             or type(expected_cases) is not int or expected_cases <= 0
             or description["expected_cases"] != expected_cases):
@@ -192,6 +195,9 @@ def admit(directory, inputs, consumer_hash, script_hash, expected_cases):
     if (not isinstance(report, dict)
             or report.get("success") is not True or report.get("compile_only") is not True
             or report.get("export_guest") is not True or report.get("owned_build_removed") is not True
+            or report.get("profile") != profile
+            or type(report.get("expected_cases")) is not int
+            or report["expected_cases"] != expected_cases
             or report.get("executable_sha256") != description["executable_sha256"]
             or report.get("engine_source_digest") != digest(inputs)):
         raise ValueError("prepared compilation did not qualify its artifact")

@@ -59,9 +59,9 @@ sixteen coherence controls, expecting 968 ordered records from one signed build:
 python3 tools/hvf/intel_mmio_native_probe.py --profile combined --output <new-directory>
 ```
 
-The three profile counts 16, 952 and 968 are distinct admission keys. Prepared
-artifacts for another profile reject before execution. The standalone
-`coherence` profile retains its original sixteen-case ordering.
+Current prepared artifacts bind both the profile name and its case count.
+Admission rejects a different profile even when it has the same count. The
+standalone `coherence` profile retains its original sixteen-case ordering.
 
 | ID | Assumption | Basis / dependent result | Stress test | Falsification probe | Status |
 |---|---|---|---|---|---|

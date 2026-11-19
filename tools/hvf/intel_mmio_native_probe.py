@@ -80,7 +80,7 @@ def main():
         if args.execute_prepared:
             executable, description = prepared.admit(
                 args.execute_prepared, inputs, result["consumer_sha256"],
-                result["script_sha256"], expected_cases)
+                result["script_sha256"], args.profile, expected_cases)
             result["prepared"] = description
             result["executable_sha256"] = description["executable_sha256"]
             # Artifact transport does not retain executable permission.
@@ -155,7 +155,7 @@ def main():
         assert sha(Path(__file__)) == result["script_sha256"]
         assert sha(Path(prepared.__file__)) == result["support_sha256"]
         if args.export_guest:
-            prepared.export_description(output, result, expected_cases)
+            prepared.export_description(output, result)
         result["engine_inputs_unchanged"] = len(inputs)
         result["success"] = True
     except (OSError, ValueError, KeyError, TypeError, AssertionError, RuntimeError, subprocess.TimeoutExpired) as error:
