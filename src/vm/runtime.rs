@@ -36,6 +36,7 @@ use crate::vm::snapshot::{
 use crate::vm::vcpu::{CpuState, VCpu, VcpuExit};
 
 const SERIAL_BASE: u16 = 0x3f8;
+const PL011_MMIO_LEN: u64 = 0x1000;
 
 /// Physical aperture diverted from RAM to PCI BAR-mapped MMIO when the optional
 /// PCI devices are attached. Chosen high (just below the IOAPIC/HPET/LAPIC fixed
@@ -541,7 +542,10 @@ impl Vmm {
             let uart = Arc::new(std::sync::Mutex::new(Pl011::new()));
             if let Some(base) = serial_mmio_base {
                 mmio_bus.register(
-                    MmioRange { base, len: 0x1000 },
+                    MmioRange {
+                        base,
+                        len: PL011_MMIO_LEN,
+                    },
                     Box::new(Pl011MmioDevice::new(base, uart.clone())),
                 )?;
             }

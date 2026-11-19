@@ -69,6 +69,25 @@ impl Vmm {
         }
     }
 
+    fn publish_pl011_mmio_irq(&self, addr: u64) -> Result<()> {
+        let (Some(uart), Some(base), Some(irq)) =
+            (&self.pl011, self.serial_mmio_base, self.serial_irq)
+        else {
+            return Ok(());
+        };
+        let range = MmioRange {
+            base,
+            len: PL011_MMIO_LEN,
+        };
+        if !range.contains(addr) {
+            return Ok(());
+        }
+        let uart = uart
+            .lock()
+            .map_err(|_| Error::Emulator("PL011 IRQ publication lock poisoned".into()))?;
+        self.vm.set_irq_line(irq, uart.irq_pending())
+    }
+
     pub fn run(&mut self) -> Result<()> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
@@ -297,7 +316,12 @@ impl Vmm {
                         &mut data,
                     )?;
                     vcpu.complete_io_in(&data);
-                    vcpu.io_completion_result()?;
+                    let completion = vcpu.io_completion_result();
+                    // The device has consumed the input even if the native reply
+                    // must be retried. Publish the line before any checkpoint.
+                    let irq = self.publish_pl011_mmio_irq(addr);
+                    completion?;
+                    irq?;
                 }
                 VcpuExit::MmioWrite { addr, data } => {
                     mmio::write(
@@ -307,7 +331,10 @@ impl Vmm {
                         addr,
                         &data,
                     )?;
-                    vcpu.complete_io_out()?;
+                    let completion = vcpu.complete_io_out();
+                    let irq = self.publish_pl011_mmio_irq(addr);
+                    completion?;
+                    irq?;
                 }
                 VcpuExit::MmioRmw {
                     addr,
@@ -325,7 +352,10 @@ impl Vmm {
                     // Device locks are released before native register/flag
                     // callbacks or instruction completion can reenter the VM.
                     vcpu.complete_io_in(&old);
-                    vcpu.io_completion_result()?;
+                    let completion = vcpu.io_completion_result();
+                    let irq = self.publish_pl011_mmio_irq(addr);
+                    completion?;
+                    irq?;
                 }
                 VcpuExit::SystemEvent { .. } => shutdown = true,
                 VcpuExit::FailEntry { reason } => {

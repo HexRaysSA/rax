@@ -288,6 +288,14 @@ the line, and the next EOI/IAR observes spurious 1023 and running priority 255.
 The final UART state and backend IRQ shadow both record deassertion. This masked-IAR fixture does not
 establish exception-vector delivery or architectural SMP startup.
 
+The VMM publishes the PL011 level after servicing a guest MMIO exit and
+before automatic checkpoint capture. It publishes the device's level even
+when native CPU completion reports an error after the device was serviced.
+The earlier path waited for the next console poll. A signed physical baseline
+consumed the last RX byte, advanced the guest PC, and saved SPI 33 asserted
+with an empty UART. The file regression checks that read boundary and the
+inverse transition when a guest write unmasks RX with input queued.
+
 ## Terminal native CPU state
 
 The v16 signed physical baseline failed after restoring a real SYSTEM_OFF/HVC
