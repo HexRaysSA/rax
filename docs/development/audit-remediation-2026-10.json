@@ -3024,6 +3024,7 @@
         "riscv-delegated-supervisor-interrupts-2026-11-19",
         "riscv-interrupt-input-ownership-2026-11-19",
         "riscv-virt-plic-uart-2026-11-19",
+        "riscv-synchronous-trap-delegation-2026-11-19",
         {
           "id": "kvm-public-register-state-2026-11-03",
           "status": "locally_validated_with_explicit_unrelated_owning_failures",
@@ -3892,6 +3893,7 @@
         "riscv-delegated-supervisor-interrupts-2026-11-19",
         "riscv-interrupt-input-ownership-2026-11-19",
         "riscv-virt-plic-uart-2026-11-19",
+        "riscv-synchronous-trap-delegation-2026-11-19",
         "kvm-owned-io-and-mp-preservation-2026-11-03",
         "kvm-native-startup-eligibility-and-identities-2026-11-03",
         "kvm-native-mp-firmware-discovery-2026-11-03",
@@ -198791,6 +198793,17 @@
       ],
       "scope": "Shared level-sensitive generic RV64 virt PLIC and 16550 input, M/S context claim and completion on each hart, bounded versioned controller/hart checkpoint and detached continuation with an active claim.",
       "qualification": "docs/development/riscv-clint/README.md#uart-interrupts-through-the-virt-plic",
+      "full_goal_complete": false
+    },
+    {
+      "id": "riscv-synchronous-trap-delegation-2026-11-19",
+      "status": "locally_qualified_full_findings_open",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "scope": "Direct RV32/RV64 synchronous exception delegation, native region fault continuation and unchanged fault reporting in restored process contexts. The existing core checkpoint fields carry both trap frames. Generic VMM continuation after synchronous exits remains open.",
+      "qualification": "docs/development/riscv-clint/README.md#synchronous-trap-delegation-in-the-core",
       "full_goal_complete": false
     },
     {

@@ -128,6 +128,43 @@ fn run_stops_at_the_system_call() {
 }
 
 #[test]
+fn checkpointed_medeleg_preserves_process_fault_reporting() {
+    const MEDELEG: u16 = 0x302;
+    const MEPC: u16 = 0x341;
+    const STVEC: u16 = 0x105;
+    const SEPC: u16 = 0x141;
+    const WORD: u32 = u32::MAX;
+
+    let (mut vcpu, _) = user_vcpu(&[WORD]);
+    let CpuState::RiscV(mut state) = vcpu.get_state().unwrap() else {
+        panic!("expected RISC-V state");
+    };
+    state.regs.csrs = vec![
+        (MEDELEG, 1 << cause::ILLEGAL_INSTR),
+        (MEPC, 0x240),
+        (STVEC, 0x400),
+        (SEPC, 0x440),
+    ];
+    vcpu.set_state(&CpuState::RiscV(state)).unwrap();
+    let saved = vcpu.save_context().unwrap();
+    vcpu.restore_context(&saved).unwrap();
+
+    assert_eq!(
+        expect_event(&mut vcpu, cause::ILLEGAL_INSTR),
+        RvUserTrap::Exception {
+            cause: cause::ILLEGAL_INSTR,
+            tval: u64::from(WORD),
+            pc: CODE,
+        }
+    );
+    assert_eq!(vcpu.current_pc(), CODE);
+    assert_eq!(vcpu.cpu.privilege(), Priv::User);
+    assert_eq!(vcpu.cpu.csr_read(MEPC), Ok(CODE));
+    assert_eq!(vcpu.cpu.csr_read(SEPC), Ok(0x440));
+    assert_eq!(vcpu.instruction_count(), 0);
+}
+
+#[test]
 fn ebreak_reports_a_breakpoint_without_retiring() {
     let (mut vcpu, _) = user_vcpu(&[EBREAK]);
     assert_eq!(

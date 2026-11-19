@@ -4,6 +4,7 @@
 //! `rax::isa::riscv` interpreter into rax as a bootable architecture.
 
 mod clint;
+mod exception_delegation;
 mod interrupt_sources;
 mod startup;
 

@@ -57,19 +57,9 @@ impl RiscVCpu {
             tval: 0,
         };
         if target == Priv::Machine {
-            self.deliver_trap(trap, self.pc);
+            self.enter_machine_trap(trap, self.pc);
         } else {
-            self.sepc = self.pc;
-            self.ext_csr.insert(Csr::Scause as u16, trap.cause);
-            self.ext_csr.insert(Csr::Stval as u16, trap.tval);
-            let sie = self.mstatus & MSTATUS_SIE != 0;
-            let supervisor = self.priv_ == Priv::Supervisor;
-            self.mstatus = (self.mstatus & !(MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP))
-                | (u64::from(sie) * MSTATUS_SPIE)
-                | (u64::from(supervisor) * MSTATUS_SPP);
-            self.priv_ = Priv::Supervisor;
-            let vector = self.ext_csr.get(&(Csr::Stvec as u16)).copied().unwrap_or(0);
-            self.pc = self.trap_entry_pc(vector, trap.cause);
+            self.enter_supervisor_trap(trap, self.pc);
         }
         true
     }

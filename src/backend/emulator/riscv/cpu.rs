@@ -685,7 +685,7 @@ impl RiscVVcpu {
         };
         *user.last_fault.lock().unwrap() = None;
         let pc = self.cpu.pc();
-        let exit = self.cpu.step();
+        let exit = self.cpu.step_for_process();
         match exit {
             RiscVExit::Continue | RiscVExit::Wfi => Ok(None),
             RiscVExit::Ecall => {

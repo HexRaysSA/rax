@@ -13,13 +13,23 @@ impl RiscVCpu {
 
     /// Fetch, decode and execute one instruction.
     pub fn step(&mut self) -> RiscVExit {
+        self.step_with_trap_handler(Self::deliver_trap)
+    }
+
+    /// Process emulation reports synchronous faults to the embedding kernel.
+    /// Preserve the existing machine trap frame used by that adapter.
+    pub(crate) fn step_for_process(&mut self) -> RiscVExit {
+        self.step_with_trap_handler(Self::enter_machine_trap)
+    }
+
+    fn step_with_trap_handler(&mut self, deliver: fn(&mut Self, Trap, u64)) -> RiscVExit {
         if self.take_pending_interrupt() {
             return RiscVExit::Continue;
         }
 
         let pc = self.pc;
         if let Some(trap) = self.instruction_fetch_alignment_trap(pc) {
-            self.deliver_trap(trap, pc);
+            deliver(self, trap, pc);
             return RiscVExit::Trap(trap);
         }
         let insn = match decode_at(self.mem.as_ref(), pc, self.cfg.xlen, &self.cfg.isa) {
@@ -29,7 +39,7 @@ impl RiscVCpu {
                     cause: cause::INSTR_ACCESS_FAULT,
                     tval: pc,
                 };
-                self.deliver_trap(trap, pc);
+                deliver(self, trap, pc);
                 return RiscVExit::Trap(trap);
             }
         };
@@ -40,7 +50,7 @@ impl RiscVCpu {
                 exit
             }
             Err(trap) => {
-                self.deliver_trap(trap, pc);
+                deliver(self, trap, pc);
                 RiscVExit::Trap(trap)
             }
         }

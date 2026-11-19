@@ -224,3 +224,35 @@ tests with two ignored. The isolated integration run passed 176 tests
 and the C API run passed 246 tests on Apple Silicon. The shared
 MMIO dispatch passed 135 Hypervisor.framework MMIO and ownership tests
 on that host. Physical Intel execution remains unverified.
+
+## Synchronous trap delegation in the core
+
+RV32 and RV64 now honor the implemented `medeleg` bits when a
+synchronous exception originates in U or S mode. Both synchronous and
+interrupt entry share the supervisor trap frame. `stvec` vectored mode
+uses its aligned base for an exception. Delegated entry records
+`sepc`, `scause`, and `stval`, updates SIE, SPIE, and SPP, and preserves
+the machine trap registers and machine status fields.
+[RISC-V Privileged Architecture 20250508, §§3.1.8 and 12.1.1–12.1.9](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+The interpreter and native region use the same delivery path. The
+existing ECALL exit remains available to embedders. If the embedder
+calls `deliver_ecall_trap`, it uses the same architectural delegation.
+The process adapter reports faults at the original guest PC even when
+the embedder has restored machine exception delegation CSRs.
+The changed path keeps the existing CPU record layout. Generic VMM
+synchronous-exit dispatch remains a separate platform boundary.
+
+Three baseline regressions entered MTVEC with delegation enabled.
+The revised integration tests verify RV32 and RV64 state across
+illegal instructions, U-mode ECALL delivery, and a faulting native
+load after a retired prefix. The native test requires one JIT entry
+and zero interpreter fallbacks at O0 and O2. QEMU 11.1.2 independently
+confirmed the machine-mode control, supervisor-mode illegal
+instruction, and user ECALL paths on both XLENs.
+
+The unfiltered library run passed 13,110 tests with two ignored. The
+integration and C API suites passed 180 and 246 tests. The Linux
+user-mode suite passed 43 tests with its optional live Docker oracle
+ignored. Both RV64 fixture and corpus comparisons passed with and
+without JIT enabled.
