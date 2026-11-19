@@ -899,3 +899,6 @@ mod coprocessor_prefix;
 
 #[path = "a32_fp_controls/scalar_memory_base.rs"]
 mod scalar_memory_base;
+
+#[path = "a32_fp_controls/scalar_half_predicate.rs"]
+mod scalar_half_predicate;

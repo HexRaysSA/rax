@@ -8,9 +8,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }) {
             return ExecResult::Undefined;
         }
-        if self.cpu.cpsr.t && self.cpu.cpsr.in_it_block() {
-            return ExecResult::Undefined;
-        }
         if insn.mnemonic != Mnemonic::VMOV_F16_CORE && self.cpu.vfp.fpscr.bits() & 0x00370000 != 0 {
             return ExecResult::Undefined;
         }

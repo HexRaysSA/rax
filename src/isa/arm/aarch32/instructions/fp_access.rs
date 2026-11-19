@@ -1,5 +1,6 @@
 //! Shared standalone/mixed-width FP access classification and policy.
 use super::*;
+use crate::isa::arm::aarch32::fp_admission;
 use crate::isa::arm::aarch32::fp_controls::{FpAccessFault, fp_access_kind};
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
@@ -9,19 +10,17 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     pub(super) fn fp_access_fault(&self, insn: &DecodedInsn) -> Option<ExecResult> {
         let mut kind = fp_access_kind(insn)?;
-        // For executed constrained-unpredictable encodings in an IT block,
-        // choose Undefined before checking competing FP access traps.
-        if insn.state.is_thumb()
-            && self.cpu.cpsr.in_it_block()
-            && (matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH)
-                || matches!(insn.mnemonic, Mnemonic::VLDR | Mnemonic::VSTR)
-                    && (insn.raw >> 8) & 3 == 1)
+        let in_it = insn.state.is_thumb() && self.cpu.cpsr.in_it_block();
+        // Predicate failure has already skipped the instruction. Choose
+        // Undefined for executed restricted encodings before FP access traps.
+        if (in_it && matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH))
+            || (!kind.advsimd && !fp_admission::scalar_half_predicate_supported(insn, in_it))
         {
             return Some(ExecResult::Undefined);
         }
         // Capability absence is a decode failure, before FP access traps and
         // before the handler can modify any architectural state.
-        if !crate::isa::arm::aarch32::fp_admission::instruction_supported(
+        if !fp_admission::instruction_supported(
             insn,
             kind.advsimd,
             &self.cpu.vfp,
@@ -30,7 +29,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         ) {
             return Some(ExecResult::Undefined);
         }
-        if insn.state.is_thumb() && self.cpu.cpsr.in_it_block() {
+        if in_it {
             kind.condition = self.cpu.cpsr.it_condition();
         }
         let access = self
@@ -55,11 +54,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if access.is_some() {
             return access;
         }
-        if !crate::isa::arm::aarch32::fp_admission::execution_supported(
-            insn,
-            kind.advsimd,
-            &self.cpu.vfp,
-        ) {
+        if !fp_admission::execution_supported(insn, kind.advsimd, &self.cpu.vfp) {
             // This PE synchronously bounces an unsupported scalar operating
             // mode to guest support code, after access checks, before effects.
             return Some(ExecResult::Exception(ExceptionType::UndefinedInstruction));

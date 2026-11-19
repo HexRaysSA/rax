@@ -159,6 +159,18 @@ enum HalfKind {
     SimdData,
 }
 
+/// Scalar FP16 encodings use AL in the conditional A32 space and exclude
+/// Thumb IT. Scalar conversions between FP16 and FP32/FP64 allow predicates.
+pub(crate) fn scalar_half_predicate_supported(insn: &DecodedInsn, in_it: bool) -> bool {
+    let restricted = if insn.state.is_thumb() {
+        in_it
+    } else {
+        // 1111 belongs to the unconditional namespace.
+        insn.raw >> 28 < 14
+    };
+    !restricted || !matches!(kind(insn, false), HalfKind::ScalarData)
+}
+
 fn decoded_as(decoded: Option<DecodedInsn>, mnemonic: Mnemonic) -> bool {
     decoded.is_some_and(|decoded| decoded.mnemonic == mnemonic && mnemonic != Mnemonic::UNDEFINED)
 }
