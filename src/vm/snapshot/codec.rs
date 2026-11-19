@@ -19,6 +19,7 @@ const DEVICE_STATUS_SCHEMA: u32 = 2;
 const DEVICE_LIVE_READ_SCHEMA: u32 = 3;
 const DEVICE_GATE_TRIGGER_SCHEMA: u32 = 4;
 const DEVICE_SOFTWARE_LOAD_SCHEMA: u32 = 5;
+const DEVICE_PERIODIC_SCHEMA: u32 = 6;
 const MAX_SECTIONS: u32 = 64;
 const MAX_CONFIG: u64 = 1024 * 1024;
 const MAX_METADATA: u64 = 16 * 1024 * 1024;
@@ -92,7 +93,9 @@ fn section_with_schema<W: Write>(
     writer.write_all(bytes).map_err(io)
 }
 fn device_schema(state: &DeviceState) -> u32 {
-    if state.pit.has_software_loaded_counter() {
+    if state.pit.has_periodic_counter() {
+        DEVICE_PERIODIC_SCHEMA
+    } else if state.pit.has_software_loaded_counter() {
         DEVICE_SOFTWARE_LOAD_SCHEMA
     } else if state.pit.has_gate_triggered_counter() {
         DEVICE_GATE_TRIGGER_SCHEMA
@@ -111,7 +114,13 @@ fn validate_device_schema(state: &DeviceState, schema: u32) -> Result<()> {
     if !state.pit.valid_software_loaded_state() {
         return Err(invalid("invalid PIT software-loaded counter phase"));
     }
+    if !state.pit.valid_periodic_state() {
+        return Err(invalid("invalid PIT periodic counter phase"));
+    }
     match device_schema(state) {
+        DEVICE_PERIODIC_SCHEMA if schema < DEVICE_PERIODIC_SCHEMA => Err(invalid(
+            "PIT periodic counter requires device section schema 6",
+        )),
         DEVICE_SOFTWARE_LOAD_SCHEMA if schema < DEVICE_SOFTWARE_LOAD_SCHEMA => Err(invalid(
             "PIT software-loaded counter requires device section schema 5",
         )),
@@ -482,6 +491,7 @@ fn read_sections<R: Read + Seek>(
                             | DEVICE_LIVE_READ_SCHEMA
                             | DEVICE_GATE_TRIGGER_SCHEMA
                             | DEVICE_SOFTWARE_LOAD_SCHEMA
+                            | DEVICE_PERIODIC_SCHEMA
                     )
             )
         {

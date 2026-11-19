@@ -201,15 +201,13 @@ fn pit_restore_drains_status_and_count_before_resuming_live_reads() {
     for (low_consumed, live_high_pending) in [(false, false), (true, false), (true, true)] {
         let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
         let source = &mut fixture.vm;
-        source.io_bus.write(0x43, &[0xb4]).unwrap(); // Channel 2, mode 2, GATE low.
-        source.io_bus.write(0x42, &[0x34]).unwrap();
-        source.io_bus.write(0x42, &[0x12]).unwrap();
+        // The power-on count of 11932 stays frozen with GATE low.
         if live_high_pending {
-            assert_eq!(read_counter(source), 0x34);
+            assert_eq!(read_counter(source), 0x9c);
         }
         if low_consumed {
             source.io_bus.write(0x43, &[0xd8]).unwrap(); // Count only.
-            assert_eq!(read_counter(source), 0x34);
+            assert_eq!(read_counter(source), 0x9c);
             source.io_bus.write(0x43, &[0xe8]).unwrap(); // Status only.
         } else {
             source.io_bus.write(0x43, &[0xc8]).unwrap(); // Count and status.
@@ -227,13 +225,13 @@ fn pit_restore_drains_status_and_count_before_resuming_live_reads() {
         let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
         assert_eq!(read_counter(&mut target), 0xb4);
         if !low_consumed {
-            assert_eq!(read_counter(&mut target), 0x34);
+            assert_eq!(read_counter(&mut target), 0x9c);
         }
-        assert_eq!(read_counter(&mut target), 0x12);
+        assert_eq!(read_counter(&mut target), 0x2e);
         if live_high_pending {
-            assert_eq!(read_counter(&mut target), 0x12);
+            assert_eq!(read_counter(&mut target), 0x2e);
         }
-        assert_eq!(read_counter(&mut target), 0x34);
+        assert_eq!(read_counter(&mut target), 0x9c);
     }
 }
 
@@ -425,6 +423,86 @@ fn pit_publishes_the_gsi2_edge_even_while_the_legacy_pic_is_busy() {
         Some(0x52)
     );
     assert!(!fixture.vm.pit.lock().unwrap().has_pending_interrupt());
+}
+
+#[test]
+fn detached_periodic_pit_keeps_the_active_cycle_and_replacement_irq_deadline() {
+    let nanos_at =
+        |ticks: u64| (ticks * 1_000_000_000).div_ceil(crate::vm::timing::PIT_FREQUENCY_HZ);
+    let read_counter = |vm: &mut Vmm| {
+        let mut byte = [0];
+        vm.io_bus.read(0x40, &mut byte).unwrap();
+        byte[0]
+    };
+    for (command, divisor, replacement, observations) in [
+        (
+            0x34,
+            4,
+            6,
+            [
+                (4, 0x74, 1, None),
+                (5, 0xb4, 6, Some(0x53)),
+                (6, 0xb4, 5, None),
+                (10, 0x34, 1, None),
+                (11, 0xb4, 6, Some(0x53)),
+            ],
+        ),
+        (
+            0x36,
+            5,
+            8,
+            [
+                (3, 0xf6, 0, None),
+                (4, 0x36, 8, None),
+                (7, 0x36, 2, None),
+                (8, 0xb6, 8, Some(0x53)),
+                (9, 0xb6, 6, None),
+            ],
+        ),
+    ] {
+        let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
+        let source = &mut fixture.vm;
+        let clock = source.timing_context.clone();
+        let scope = clock.enter();
+        program(source, 2, 0x53, 0, false);
+        source.io_bus.write(0x43, &[command]).unwrap();
+        source.io_bus.write(0x40, &[divisor]).unwrap();
+        source.io_bus.write(0x40, &[0]).unwrap();
+        clock.set_resume_base(nanos_at(2));
+        source.io_bus.write(0x40, &[replacement]).unwrap();
+        source.io_bus.write(0x40, &[0]).unwrap();
+        clock.set_resume_base(nanos_at(observations[0].0));
+        source.poll_pc_pit().unwrap();
+        let file = RemoveFile::new();
+        source
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&file.0)
+            .unwrap();
+        drop(scope);
+        drop(fixture);
+
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        let clock = target.timing_context.clone();
+        let _scope = clock.enter();
+        for (tick, status, count, vector) in observations {
+            clock.set_resume_base(nanos_at(tick));
+            target.poll_pc_pit().unwrap();
+            target.route_pc_interrupts().unwrap();
+            target.io_bus.write(0x43, &[0xc2]).unwrap();
+            assert_eq!(read_counter(&mut target), status, "tick {tick}");
+            let bytes = [read_counter(&mut target), read_counter(&mut target)];
+            assert_eq!(u16::from_le_bytes(bytes), count, "tick {tick}");
+            let mut lapic = target.local_apics[0].lock().unwrap();
+            assert_eq!(lapic.get_pending_vector(), vector, "tick {tick}");
+            if let Some(vector) = vector {
+                lapic.ack_interrupt(vector);
+                lapic.write_register(0xb0, 0);
+            }
+        }
+    }
 }
 
 #[test]

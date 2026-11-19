@@ -27,7 +27,7 @@ Each section has a 16-byte header: kind (`u32`), schema (`u32`) and payload leng
 | 2 | 1 | Instruction count, elapsed ns, uncompressed RAM bytes: three `u64` values | 16,777,216 bytes |
 | 3 | 1 | Current version-8 `CpuState` representation | 16,777,216 bytes |
 | 4 | 1 | `EmulatorState` | 16,777,216 bytes |
-| 5 | 1–5 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
+| 5 | 1–6 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
 | 6 | 1 | Raw zstd-compressed RAM bytes | Declared RAM bytes + floor(RAM bytes / 128) + 1,048,576 |
 
 Typed metadata uses bincode's fixed-integer encoding and rejects trailing payload
@@ -87,6 +87,7 @@ Device schema 2 allows a pending 8254 status byte alongside a pending counter
 read. Schema 3 also preserves a pending live high byte behind a count latch.
 Schema 4 also preserves gate-triggered PIT modes and their oscillator phase.
 Schema 5 preserves the oscillator phase of software-loaded PIT modes.
+Schema 6 preserves the active cycle and pending divisor in periodic PIT modes.
 The writer selects the lowest device schema that represents all device state.
 Each retains the version-8 container header.
 
@@ -136,6 +137,19 @@ The load, GATE, and OUT behavior follows sections “Mode Definitions” and
 “Operation Common to All Modes” of the [Intel 8254 data sheet][8254].
 
 [8254]: https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8254.pdf
+
+## PIT periodic state
+
+Schema 6 represents 8254 modes 2 and 3 with an active divisor, the oscillator
+tick of the sample, the elapsed clocks within the current phase, and the
+high or low half-cycle in mode 3. A scheduled initial or GATE-triggered load
+stores its transfer tick. The channel's existing fields preserve an unfinished
+two-byte write, the most recent complete divisor, and NULL COUNT while it
+awaits transfer. The active divisor may differ from the programmed divisor
+until the next cycle boundary in mode 2 or half-cycle boundary in mode 3.
+Programmed periodic channels require schema 6 even before the first load.
+Older records retain their timing through restore until the guest writes a
+new control word.
 
 ## Publication
 

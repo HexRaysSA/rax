@@ -182,3 +182,26 @@ edge. See the [device section encoding](../checkpoint-format.md#pit-gate-trigger
 
 The native Linux KVM PIT still owns its countdown phase in kernel-managed PC
 machines. That is a high-impact boundary for native checkpoint continuation.
+
+## Software PIT modes 2 and 3
+
+The first complete divisor loads on the next oscillator tick. While counting,
+a replacement transfers after the rate generator's active cycle or the
+square-wave generator's active half-cycle. NULL COUNT reports the wait for
+transfer. An unfinished two-byte write leaves the previous complete divisor
+and the live cycle intact.
+
+GATE low forces OUT high and stops decrements. A rising GATE latches a restart
+for the next tick. Mode 2 emits a low pulse at count one and raises IRQ0 on
+the subsequent rising OUT edge. Mode 3 decrements the visible count by two.
+An odd divisor has an extra clock in the high half during which the visible
+count is zero. A programmed divisor of one is outside the specified range
+for either mode. The model treats it as two.
+[Intel 8254 datasheet, Figures 17, 18 and 22](https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8254.pdf).
+
+Advancement takes constant time and space. It resolves the first load or
+replacement boundary and uses division and remainder to count subsequent
+cycles. The detached VMM test saves a pending divisor in each mode, then
+checks the active count, OUT, NULL COUNT, and IRQ0 through the I/O APIC after
+the source VM is destroyed. See the [device section
+encoding](../checkpoint-format.md#pit-periodic-state).

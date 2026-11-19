@@ -433,8 +433,7 @@ fn pending_pit_status_requires_new_device_section_schema() {
     use crate::devices::bus::IoDevice;
 
     let mut snapshot = sample();
-    snapshot.devices.pit.write(0x43, 0xa4); // Channel 2, MSB only, mode 2.
-    snapshot.devices.pit.write(0x42, 0x12);
+    // A power-on channel uses the historical mode 2 record.
     snapshot.devices.pit.write(0x43, 0xc8); // Latch both count and status.
     let mut parts = sections(&encoded(&snapshot));
     let device_index = parts
@@ -444,7 +443,7 @@ fn pending_pit_status_requires_new_device_section_schema() {
     assert_eq!(&parts[device_index][4..8], &2u32.to_le_bytes());
 
     let mut loaded = read(&assemble(&parts)).unwrap();
-    assert_eq!(loaded.devices.pit.read(0x42), 0xa4);
+    assert_eq!(loaded.devices.pit.read(0x42), 0xb4);
     parts[device_index][4..8].copy_from_slice(&1u32.to_le_bytes());
     assert!(error(&assemble(&parts)).contains("PIT status latch requires device section schema 2"));
     assert!(
@@ -453,17 +452,14 @@ fn pending_pit_status_requires_new_device_section_schema() {
 
     let raw = encoded(&loaded);
     assert_eq!(&sections(&raw)[device_index][4..8], &1u32.to_le_bytes());
-    assert_eq!(read(&raw).unwrap().devices.pit.read(0x42), 0x12);
-    assert_eq!(read(&legacy(&loaded)).unwrap().devices.pit.read(0x42), 0x12);
+    assert_eq!(read(&raw).unwrap().devices.pit.read(0x42), 0x9c);
+    assert_eq!(read(&legacy(&loaded)).unwrap().devices.pit.read(0x42), 0x9c);
 }
 #[test]
 fn a_live_pit_high_byte_behind_the_count_latch_requires_device_schema_three() {
     use crate::devices::bus::IoDevice;
     let mut snapshot = sample();
-    snapshot.devices.pit.write(0x43, 0xb4);
-    snapshot.devices.pit.write(0x42, 0x34);
-    snapshot.devices.pit.write(0x42, 0x12);
-    assert_eq!(snapshot.devices.pit.read(0x42), 0x34);
+    assert_eq!(snapshot.devices.pit.read(0x42), 0x9c);
     snapshot.devices.pit.write(0x43, 0xd8); // Count only, leaving live byte behind it.
 
     let mut parts = sections(&encoded(&snapshot));
@@ -473,8 +469,8 @@ fn a_live_pit_high_byte_behind_the_count_latch_requires_device_schema_three() {
         .unwrap();
     assert_eq!(&parts[device_index][4..8], &3u32.to_le_bytes());
     let mut loaded = read(&assemble(&parts)).unwrap();
-    assert_eq!(loaded.devices.pit.read(0x42), 0x34);
-    assert_eq!(loaded.devices.pit.read(0x42), 0x12);
+    assert_eq!(loaded.devices.pit.read(0x42), 0x9c);
+    assert_eq!(loaded.devices.pit.read(0x42), 0x2e);
     for schema in [1u32, 2] {
         parts[device_index][4..8].copy_from_slice(&schema.to_le_bytes());
         assert!(error(&assemble(&parts)).contains("requires device section schema 3"));
@@ -485,8 +481,8 @@ fn a_live_pit_high_byte_behind_the_count_latch_requires_device_schema_three() {
     let raw = encoded(&loaded);
     assert_eq!(&sections(&raw)[device_index][4..8], &1u32.to_le_bytes());
     let mut loaded = read(&raw).unwrap();
-    assert_eq!(loaded.devices.pit.read(0x42), 0x12);
-    assert_eq!(loaded.devices.pit.read(0x42), 0x34);
+    assert_eq!(loaded.devices.pit.read(0x42), 0x2e);
+    assert_eq!(loaded.devices.pit.read(0x42), 0x9c);
 }
 
 #[test]
@@ -547,6 +543,31 @@ fn pending_pit_software_load_requires_device_schema_five() {
         assert!(error(&assemble(&parts)).contains("requires device section schema 5"));
     }
     assert!(error(&legacy(&snapshot)).contains("requires device section schema 5"));
+}
+
+#[test]
+fn programmed_periodic_pit_requires_device_schema_six() {
+    use crate::devices::bus::IoDevice;
+    use crate::vm::timing::{ClockMode, TimingContext};
+    use std::sync::Arc;
+
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _scope = clock.enter();
+    let mut snapshot = sample();
+    snapshot.devices.pit.write(0x43, 0x96);
+    snapshot.devices.pit.write(0x42, 5);
+    let mut parts = sections(&encoded(&snapshot));
+    let device_index = parts
+        .iter()
+        .position(|part| part[..4] == 5u32.to_le_bytes())
+        .unwrap();
+    assert_eq!(parts[device_index][4..8], 6u32.to_le_bytes());
+    assert!(read(&assemble(&parts)).is_ok());
+    for schema in 1..=5u32 {
+        parts[device_index][4..8].copy_from_slice(&schema.to_le_bytes());
+        assert!(error(&assemble(&parts)).contains("requires device section schema 6"));
+    }
+    assert!(error(&legacy(&snapshot)).contains("requires device section schema 6"));
 }
 
 #[test]

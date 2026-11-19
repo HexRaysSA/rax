@@ -9,20 +9,28 @@
 //! - 0x42: Channel 2 data
 //! - 0x43: Mode/Command register (write-only)
 
+use std::sync::Arc;
+
 use crate::common::*;
 use rax::devices::bus::IoDevice;
 use rax::devices::pit::Pit;
+use rax::vm::timing::{ClockMode, PIT_FREQUENCY_HZ, TimingContext};
 use rax::vm::vcpu::{Registers, VcpuExit};
 
 /// Helper to run code with PIT device handling
 fn run_with_pit(code: &[u8], regs: Registers) -> (Vec<(u16, Vec<u8>)>, Vec<(u16, u8)>, Registers) {
     let (mut vcpu, _) = setup_vm(code, Some(regs));
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _scope = clock.enter();
     let mut pit = Pit::new();
     let mut io_writes: Vec<(u16, Vec<u8>)> = Vec::new();
     let mut io_reads: Vec<(u16, u8)> = Vec::new();
 
-    loop {
-        match vcpu.run().unwrap() {
+    for tick in 1u64.. {
+        let exit = vcpu.run().unwrap();
+        // Sample each exit after another PIT clock, independent of host scheduling.
+        clock.set_resume_base((tick * 1_000_000_000).div_ceil(PIT_FREQUENCY_HZ));
+        match exit {
             VcpuExit::IoIn { port, size } => {
                 let mut data = vec![0u8; size as usize];
                 // Route PIT ports to the PIT device
@@ -50,28 +58,6 @@ fn run_with_pit(code: &[u8], regs: Registers) -> (Vec<(u16, Vec<u8>)>, Vec<(u16,
 
     let final_regs = vcpu.get_regs().unwrap();
     (io_writes, io_reads, final_regs)
-}
-
-/// Assert that a latched count read back matches the programmed reload value,
-/// allowing for the small downward drift that a free-running, wall-clock-based
-/// counter exhibits between the OUT (write) and the latching IN (read). On real
-/// hardware the 8254 counter decrements continuously on the 1.19 MHz CLK, so a
-/// few PIT ticks may elapse while the test program executes the intervening
-/// instructions. We accept the exact value or a slightly smaller one.
-fn assert_count_near(actual: u64, expected: u64) {
-    // Tolerance: a generous number of PIT ticks (~430us at 1.19 MHz). Counting
-    // is downward, so the observed value is <= expected (never above the reload
-    // here). This window is comfortably larger than the handful of ticks that
-    // elapse during the test's intervening instructions, yet far smaller than
-    // the spacing between the distinct expected values the tests check for.
-    const TOL: u64 = 512;
-    let actual = actual & 0xFFFF;
-    let expected = expected & 0xFFFF;
-    let diff = expected.wrapping_sub(actual) & 0xFFFF;
-    assert!(
-        actual == expected || (diff <= TOL),
-        "latched count {actual:#06x} not within {TOL} ticks below expected {expected:#06x}"
-    );
 }
 
 // ============================================================================
@@ -167,9 +153,8 @@ fn test_pit_channel0_latch_and_read() {
     assert_eq!(reads[0].0, 0x40); // Low byte read
     assert_eq!(reads[1].0, 0x40); // High byte read
 
-    // The count should be ~0x1234 (the reload value we set). The counter is
-    // free-running on wall-clock time, so it may have decremented a few ticks.
-    assert_count_near(final_regs.rax, 0x1234);
+    // The latch samples the edge that transfers the initial divisor.
+    assert_eq!(final_regs.rax & 0xFFFF, 0x1234);
 }
 
 #[test]
@@ -216,11 +201,8 @@ fn test_pit_low_byte_only_mode() {
     let regs = Registers::default();
     let (_writes, reads, final_regs) = run_with_pit(&code, regs);
 
-    // Should read only the low byte (~0x42). The free-running counter may have
-    // decremented a couple of ticks since the write, so the low byte can be
-    // slightly below 0x42.
     assert_eq!(reads.len(), 1);
-    assert_count_near(final_regs.rax & 0xFF, 0x42);
+    assert_eq!(final_regs.rax & 0xFF, 0x42);
 }
 
 #[test]
@@ -241,11 +223,8 @@ fn test_pit_high_byte_only_mode() {
     let regs = Registers::default();
     let (_writes, reads, final_regs) = run_with_pit(&code, regs);
 
-    // Should read the high byte (~0x42). Reload value is 0x4200; the counter is
-    // free-running, so by the time it is latched a borrow from the high byte may
-    // have dropped it to 0x41 (i.e. the count is ~0x41Fx).
     assert_eq!(reads.len(), 1);
-    assert_count_near(final_regs.rax & 0xFF, 0x42);
+    assert_eq!(final_regs.rax & 0xFF, 0x42);
 }
 
 // ============================================================================
@@ -316,16 +295,15 @@ fn test_pit_1000hz_configuration() {
 
 #[test]
 fn test_pit_second_latch_ignored() {
-    // Configure, latch, change count (simulated by reconfigure), latch again
-    // Second latch should be ignored; first latch value should be returned
+    // The first latch must survive a divisor transfer and a second latch command.
     let code = [
         // Configure channel 0
         0xB0, 0x36, // MOV AL, 0x36
         0xE6, 0x43, // OUT 0x43, AL
-        // Write first value 0x1111
-        0xB0, 0x11, // MOV AL, 0x11
+        // Write the initial odd divisor 5.
+        0xB0, 0x05, // MOV AL, 5
         0xE6, 0x40, // OUT 0x40, AL
-        0xB0, 0x11, // MOV AL, 0x11
+        0xB0, 0x00, // MOV AL, 0
         0xE6, 0x40, // OUT 0x40, AL
         // First latch
         0xB0, 0x00, // MOV AL, 0x00
@@ -338,7 +316,7 @@ fn test_pit_second_latch_ignored() {
         // Second latch (should be ignored)
         0xB0, 0x00, // MOV AL, 0x00
         0xE6, 0x43, // OUT 0x43, AL
-        // Read latched value - should be 0x1111
+        // Read the first latched count.
         0xE4, 0x40, // IN AL, 0x40 (low byte)
         0x88, 0xC4, // MOV AH, AL
         0xE4, 0x40, // IN AL, 0x40 (high byte)
@@ -348,10 +326,8 @@ fn test_pit_second_latch_ignored() {
     let regs = Registers::default();
     let (_writes, _reads, final_regs) = run_with_pit(&code, regs);
 
-    // Should read the first latched value (~0x1111), not 0x2222. The first
-    // latch snapshots a free-running count, so it is 0x1111 minus a few ticks;
-    // crucially it must be near 0x1111 and nowhere near the ignored 0x2222.
-    assert_count_near(final_regs.rax, 0x1111);
+    // The first latch sampled 4. The active count has reached 0x2222.
+    assert_eq!(final_regs.rax & 0xFFFF, 4);
 }
 
 // ============================================================================
@@ -465,10 +441,7 @@ fn test_pit_dx_based_io() {
 
 #[test]
 fn test_pit_dx_based_read() {
-    // Use IN AL, DX for a deterministic PIT read. Channel 2 starts with GATE
-    // low, so its loaded count remains frozen while the variable-port I/O
-    // sequence executes; channel 0 would introduce unbounded wall-clock drift
-    // if the host preempted the test between the reload and latch exits.
+    // Channel 2 transfers the odd divisor with GATE low and then stays frozen.
     let code = [
         // Configure channel 2 for lobyte/hibyte mode 3.
         0x66, 0xBA, 0x43, 0x00, // MOV DX, 0x43
@@ -495,5 +468,5 @@ fn test_pit_dx_based_read() {
     let regs = Registers::default();
     let (_writes, _reads, final_regs) = run_with_pit(&code, regs);
 
-    assert_eq!(final_regs.rax & 0xFFFF, 0xABCD);
+    assert_eq!(final_regs.rax & 0xFFFF, 0xABCC);
 }
