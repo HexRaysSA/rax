@@ -27,7 +27,9 @@ admission boundary. It still validates the decoded effective linear address,
 canonicality and supported paging mode, physical width, nonpaged identity,
 preserved low twelve address bits and mapped-RAM exclusion. The complete
 physical range uses checked addition. The supported physical width remains
-32–52 bits; every caller admits only 1, 2, 4 or 8 bytes before range validation.
+32–52 bits. The scalar widths are 1, 2, 4, and 8 bytes. Aligned `CMPXCHG16B`
+admits a 16-byte range, which fits entirely in the first 4 KiB page.
+[Paired compare-exchange qualification](../hvf-mmio-cmpxchg8b/README.md)
 
 For a decoded linear start L, recorded physical start P and byte offset i:
 
@@ -77,7 +79,7 @@ access. The demonstrated failure is the concurrent guest writer changing tables
 between exit and software inspection.
 
 For transfer size n, admission is O(n) time and O(1) auxiliary space, with
-n in {1,2,4,8}. First-page data admission does not read its current PTEs.
+n in {1, 2, 4, 8, 16} bytes. First-page data admission uses the recorded GPA.
 
 High-impact remaining scope includes following-page and code coherence, other
 MMIO/control/interrupt profiles, complete backend/private/in-flight restoration,
@@ -182,8 +184,8 @@ engine inputs, the executed binary and the 160 logged stages.
 
 The concurrent cases confirm successful completion with an active writer.
 The run records Intel's EPT GPA and the final page-table entry after the
-writer stops. The table value at the moment of each exit is unknown. The
-corrected following-page, code-coherence and interrupt paths require their
-own native cases.
+writer stops. The table value at the moment of each exit is unknown.
+Following-page translation, code coherence, and interrupt conservation
+require their own native cases.
 [Verified receipt](native-coherence-verified.json)
 [Guest observations](native-coherence-observations.jsonl)
