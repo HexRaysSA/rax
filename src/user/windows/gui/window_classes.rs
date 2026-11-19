@@ -7,6 +7,7 @@ use std::rc::Rc;
 pub(crate) const RECORD_BYTES: usize = 80;
 pub(crate) const MENU_BYTES: usize = 32;
 const CS_GLOBALCLASS: u32 = 0x4000;
+pub(crate) const DEFAULT_IME_ATOM: u16 = 0xc027;
 const ERROR_CLASS_ALREADY_EXISTS: u32 = 1410;
 const ERROR_CLASS_DOES_NOT_EXIST: u32 = 1411;
 const ERROR_CLASS_HAS_WINDOWS: u32 = 1412;
@@ -43,6 +44,29 @@ pub(crate) struct Class {
     pub(crate) spelling: Name,
     primary: message_atoms::Name,
     version: message_atoms::Name,
+}
+
+impl Class {
+    pub(crate) fn default_ime(module: u64, procedure: u64) -> Rc<Self> {
+        let mut record = [0; RECORD_BYTES];
+        record[..4].copy_from_slice(&(RECORD_BYTES as u32).to_le_bytes());
+        record[4..8].copy_from_slice(&CS_GLOBALCLASS.to_le_bytes());
+        record[8..16].copy_from_slice(&procedure.to_le_bytes());
+        record[20..24].copy_from_slice(&8u32.to_le_bytes());
+        record[24..32].copy_from_slice(&module.to_le_bytes());
+        record[40..48].copy_from_slice(&0x10003u64.to_le_bytes());
+        Rc::new(Self {
+            public_atom: DEFAULT_IME_ATOM,
+            definition: Definition {
+                record,
+                menu: [0; 2],
+                ansi_procedure: false,
+            },
+            spelling: Name::Counted("IME".encode_utf16().collect()),
+            primary: message_atoms::Name::Ordinal(DEFAULT_IME_ATOM),
+            version: message_atoms::Name::Ordinal(DEFAULT_IME_ATOM),
+        })
+    }
 }
 
 impl Definition {

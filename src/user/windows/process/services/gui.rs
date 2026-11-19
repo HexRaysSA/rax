@@ -449,6 +449,9 @@ fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, 
         Completion::SetWindowLongPtr(arguments) => {
             return windows::set_window_long_ptr(p, t, arguments);
         }
+        Completion::SetWindowFnid(arguments) => return windows::set_window_fnid(p, t, arguments),
+        Completion::MessageCall(arguments) => return windows::message_call(p, t, arguments),
+        Completion::GetImeInfo(arguments) => return windows::get_ime_info(p, t, arguments),
         Completion::WindowProperty(arguments, operation) => {
             return windows::property(p, t, arguments, operation);
         }

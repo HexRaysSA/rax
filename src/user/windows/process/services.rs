@@ -130,6 +130,9 @@ fn enter(
                 | "NtUserGetThreadState"
                 | "NtUserGetClassName"
                 | "NtUserSetWindowLongPtr"
+                | "NtUserSetWindowFNID"
+                | "NtUserMessageCall"
+                | "NtUserGetImeInfoEx"
                 | "NtUserGetProp"
                 | "NtUserSetProp"
                 | "NtUserRemoveProp"
@@ -236,6 +239,15 @@ fn enter(
             ),
             "NtUserSetWindowLongPtr" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::SetWindowLongPtr)
+            }
+            "NtUserSetWindowFNID" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::SetWindowFnid)
+            }
+            "NtUserMessageCall" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::MessageCall)
+            }
+            "NtUserGetImeInfoEx" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetImeInfo)
             }
             "NtUserGetProp" => gui::window_operation(p, t, sp, resume, wow64_return, |args| {
                 Completion::WindowProperty(args, PropertyOperation::Get)

@@ -209,12 +209,14 @@ struct Mappings {
     desktop: KernelDataView,
     cursor: u64,
     free_records: Vec<u64>,
+    default_ime_title: Option<u64>,
 }
 
 pub(crate) struct ThreadState {
     pub(crate) record: u64,
     pub(crate) initialized: bool,
     pub(crate) ime_disabled: bool,
+    pub(crate) default_ime_window: Option<u32>,
     pub(crate) callbacks: Vec<Callback>,
 }
 
@@ -250,6 +252,9 @@ pub(crate) enum Completion {
     GetThreadState([u64; 1]),
     QueryWindowClassName([u64; 3]),
     SetWindowLongPtr([u64; 4]),
+    SetWindowFnid([u64; 2]),
+    MessageCall([u64; 7]),
+    GetImeInfo([u64; 2]),
     WindowProperty([u64; 2], windows::PropertyOperation),
     DestroyWindow([u64; 1]),
     ResumeWindow(windows::Continuation),
@@ -332,6 +337,7 @@ impl State {
                 gdi,
                 desktop,
                 free_records: Vec::new(),
+                default_ime_title: None,
             });
         }
         if let Some(thread) = self.threads.get(&tid) {
@@ -362,6 +368,7 @@ impl State {
                 record: address,
                 initialized: false,
                 ime_disabled: false,
+                default_ime_window: None,
                 callbacks: Vec::new(),
             },
         );

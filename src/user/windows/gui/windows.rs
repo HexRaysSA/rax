@@ -15,6 +15,10 @@ const WINDOW_BYTES: usize = 0x160;
 const WINDOW_DPI_CONTEXT_OFFSET: usize = 0x120;
 const WINDOW_DPI_UNAWARE: u32 = 0x6010;
 const WINDOW_THEME_VALUE: u64 = 0xf0;
+const WINDOW_OWNER_OFFSET: u64 = 0x40;
+const WINDOW_CLIENT_EXTRA_OFFSET: usize = 0x128;
+const WINDOW_FNID_OFFSET: u64 = 0x2a;
+const WINDOW_TITLE_OFFSET: u64 = 0xb8;
 const USER_TYPE_WINDOW: u8 = 1;
 const FIRST_WINDOW_SLOT: u64 = 16;
 const LAST_WINDOW_GENERATION: u16 = 0x7fff;
@@ -73,9 +77,15 @@ impl HandleTable {
 }
 
 pub(crate) const OVERLAPPED_STYLE: u32 = 0x00cf_0000;
+pub(crate) const DEFAULT_IME_STYLE: u32 = 0x8800_0000;
+pub(crate) const DEFAULT_IME_TITLE: &str = "Default IME";
 
 pub(crate) enum WindowKind {
     MessageOnly,
+    DefaultIme {
+        owner_window: u32,
+        client_extra: u64,
+    },
     Overlapped {
         limits: [i32; 10],
         tracking_size: [i32; 2],
@@ -96,7 +106,7 @@ impl Creation {
     pub(crate) fn rectangle(&self) -> [u8; 16] {
         let [x, y, width, height] = self.geometry;
         let [width, height] = match self.kind {
-            WindowKind::MessageOnly => [width, height],
+            WindowKind::MessageOnly | WindowKind::DefaultIme { .. } => [width, height],
             WindowKind::Overlapped { tracking_size, .. } => tracking_size,
         };
         let mut rectangle = [0; 16];
@@ -115,6 +125,17 @@ pub(crate) enum Phase {
     LoadTheme,
     Measure,
     NonClientCreate,
+    AllocateImeExtra,
+    ImeNonClientCreate,
+    ImeNonClientRectangle,
+    ImeCreate,
+    ImeSize,
+    ImeMove,
+    ImeStartup,
+    ImeBeginDestroy,
+    ImeDestroy,
+    ImeNonClientDestroy,
+    FreeImeExtra,
     NonClientRectangle,
     Create,
     BeginDestroy,
@@ -142,6 +163,7 @@ pub(crate) struct Window {
     pub(crate) client_address: u64,
     pub(crate) destroying: bool,
     pub(crate) creation: Creation,
+    order: u64,
     properties: BTreeMap<u16, u64>,
 }
 
@@ -163,6 +185,7 @@ impl Window {
 pub(super) struct Windows {
     pub(super) entries: BTreeMap<u32, Window>,
     free: Vec<u64>,
+    next_order: u64,
     handles: Option<HandleTable>,
 }
 
@@ -185,6 +208,14 @@ impl State {
             .handles
             .as_ref()
             .expect("selected USER handle table");
+        let ime_owner_address = match creation.kind {
+            WindowKind::DefaultIme { owner_window, .. } => Some(
+                self.window(u64::from(owner_window))
+                    .ok_or(VmError::InvalidAddress)?
+                    .client_address,
+            ),
+            _ => None,
+        };
         let mappings = self.mappings.as_mut().ok_or(VmError::InvalidAddress)?;
         let address = self.windows.free.last().copied().unwrap_or(mappings.cursor);
         let end = address
@@ -204,6 +235,19 @@ impl State {
         record[0x20..0x28].copy_from_slice(&creation.module.to_le_bytes());
         match creation.kind {
             WindowKind::MessageOnly => record[0x58..0x68].copy_from_slice(&creation.rectangle()),
+            WindowKind::DefaultIme { client_extra, .. } => {
+                let owner_offset =
+                    ime_owner_address.expect("validated IME owner") - mappings.desktop.base;
+                let field = WINDOW_OWNER_OFFSET as usize;
+                record[field..field + 8].copy_from_slice(&owner_offset.to_le_bytes());
+                record[0x1c..0x20]
+                    .copy_from_slice(&(DEFAULT_IME_STYLE | 0x0400_0000).to_le_bytes());
+                record[0x14..0x18].copy_from_slice(&0x700u32.to_le_bytes());
+                record[0xb0..0xb8].copy_from_slice(&offset.to_le_bytes());
+                record[0xc8..0xcc].copy_from_slice(&8u32.to_le_bytes());
+                record[WINDOW_CLIENT_EXTRA_OFFSET..WINDOW_CLIENT_EXTRA_OFFSET + 8]
+                    .copy_from_slice(&client_extra.to_le_bytes());
+            }
             WindowKind::Overlapped { .. } => {
                 // A hidden overlapped window receives a window edge and a
                 // server-side clipping bit before WM_NCCREATE.
@@ -226,6 +270,8 @@ impl State {
         if self.windows.free.pop().is_none() {
             mappings.cursor = end;
         }
+        let order = self.windows.next_order;
+        self.windows.next_order += 1;
         self.windows.entries.insert(
             handle,
             Window {
@@ -234,6 +280,7 @@ impl State {
                 client_address: address,
                 destroying: false,
                 creation,
+                order,
                 properties: BTreeMap::new(),
             },
         );
@@ -266,6 +313,106 @@ impl State {
             .entries
             .get(&handle)
             .map(|window| (handle, window))
+    }
+
+    pub(crate) fn next_ime_owner(&self, tid: u32) -> Option<u32> {
+        // Fixed hidden windows enter the modeled Z order at the top. The
+        // supported positioning operation preserves that order.
+        self.windows
+            .entries
+            .iter()
+            .filter(|(_, window)| {
+                window.owner == tid
+                    && !window.destroying
+                    && matches!(window.creation.kind, WindowKind::Overlapped { .. })
+            })
+            .max_by_key(|(_, window)| window.order)
+            .map(|(&handle, _)| handle)
+    }
+
+    pub(crate) fn move_ime_owner(
+        &mut self,
+        vm: &mut VirtualMemory,
+        ime: u32,
+        owner: u32,
+    ) -> Result<(), VmError> {
+        let owner_address = self
+            .window(u64::from(owner))
+            .ok_or(VmError::InvalidAddress)?
+            .client_address;
+        let wnd = self
+            .windows
+            .entries
+            .get_mut(&ime)
+            .ok_or(VmError::InvalidAddress)?;
+        let WindowKind::DefaultIme { owner_window, .. } = &mut wnd.creation.kind else {
+            return Err(VmError::InvalidAddress);
+        };
+        let mappings = self.mappings.as_ref().ok_or(VmError::InvalidAddress)?;
+        let offset = owner_address - mappings.desktop.base;
+        vm.write_kernel_data_view(
+            &mappings.desktop,
+            wnd.client_address + WINDOW_OWNER_OFFSET,
+            &offset.to_le_bytes(),
+        )?;
+        *owner_window = owner;
+        Ok(())
+    }
+
+    pub(crate) fn set_ime_title(
+        &mut self,
+        vm: &mut VirtualMemory,
+        handle: u32,
+    ) -> Result<(), VmError> {
+        let address = self
+            .window(u64::from(handle))
+            .ok_or(VmError::InvalidAddress)?
+            .client_address;
+        let mappings = self.mappings.as_mut().ok_or(VmError::InvalidAddress)?;
+        let title: Vec<_> = DEFAULT_IME_TITLE
+            .encode_utf16()
+            .chain([0])
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        let guest_title = match mappings.default_ime_title {
+            Some(title) => title,
+            None => {
+                let start = mappings.cursor;
+                let bytes = (title.len() as u64).next_multiple_of(8);
+                let end = start
+                    .checked_add(bytes)
+                    .filter(|&end| end <= mappings.desktop.base + mappings.desktop.size)
+                    .ok_or(VmError::NoMemory)?;
+                vm.commit_kernel_data_view(&mappings.desktop, start, bytes)?;
+                vm.write_kernel_data_view(&mappings.desktop, start, &title)?;
+                mappings.default_ime_title = Some(start);
+                mappings.cursor = end;
+                start
+            }
+        };
+        let maximum = title.len() as u32;
+        let offset = guest_title - mappings.desktop.base;
+        let mut descriptor = [0; 16];
+        descriptor[..4].copy_from_slice(&(maximum - 2).to_le_bytes());
+        descriptor[4..8].copy_from_slice(&maximum.to_le_bytes());
+        descriptor[8..].copy_from_slice(&offset.to_le_bytes());
+        vm.write_kernel_data_view(
+            &mappings.desktop,
+            address + WINDOW_TITLE_OFFSET,
+            &descriptor,
+        )
+    }
+
+    pub(crate) fn set_ime_fnid(
+        &self,
+        vm: &mut VirtualMemory,
+        window: &Window,
+        value: u16,
+    ) -> Result<(), VmError> {
+        let field = window.client_address + WINDOW_FNID_OFFSET;
+        let current = vm.space().u16(field).map_err(|_| VmError::InvalidAddress)?;
+        let mappings = self.mappings.as_ref().ok_or(VmError::InvalidAddress)?;
+        vm.write_kernel_data_view(&mappings.desktop, field, &(current | value).to_le_bytes())
     }
 
     pub(crate) fn window_mut(&mut self, handle: u32) -> Option<&mut Window> {
@@ -369,6 +516,11 @@ impl State {
         handles.retire(vm, handle)?;
         vm.write_kernel_data_view(&mappings.desktop, window.client_address, &[0; WINDOW_BYTES])?;
         self.windows.free.push(window.client_address);
+        if let Some(thread) = self.threads.get_mut(&window.owner)
+            && thread.default_ime_window == Some(handle)
+        {
+            thread.default_ime_window = None;
+        }
         self.windows.entries.remove(&handle);
         Ok(())
     }

@@ -158,12 +158,27 @@ fn expect_callback(p: &Proc, t: &Thread, phase: Phase, index: u32) -> (u32, u64)
     assert_eq!(t.cpu.sp(), callback.callback_sp);
     assert_eq!(p.space.u32(callback.callback_sp + 12).unwrap(), index);
     let view = t.teb + 0x840;
-    if phase == Phase::LoadTheme {
-        assert_eq!(p.space.bytes(view, 16).unwrap(), [0; 16]);
-    } else {
-        let window = p.gui.window(u64::from(continuation.handle)).unwrap();
-        assert_eq!(p.space.u64(view).unwrap(), u64::from(continuation.handle));
-        assert_eq!(p.space.u64(view + 8).unwrap(), window.client_address);
+    match phase {
+        Phase::LoadTheme | Phase::AllocateImeExtra | Phase::FreeImeExtra => {
+            assert_eq!(p.space.bytes(view, 16).unwrap(), [0; 16]);
+        }
+        _ => {
+            let active = match phase {
+                Phase::ImeNonClientCreate
+                | Phase::ImeNonClientRectangle
+                | Phase::ImeCreate
+                | Phase::ImeSize
+                | Phase::ImeMove
+                | Phase::ImeStartup
+                | Phase::ImeBeginDestroy
+                | Phase::ImeDestroy
+                | Phase::ImeNonClientDestroy => p.gui.threads[&t.tid].default_ime_window.unwrap(),
+                _ => continuation.handle,
+            };
+            let window = p.gui.window(u64::from(active)).unwrap();
+            assert_eq!(p.space.u64(view).unwrap(), u64::from(active));
+            assert_eq!(p.space.u64(view + 8).unwrap(), window.client_address);
+        }
     }
     (
         continuation.handle,
@@ -266,7 +281,7 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
             0x4000_0a00,
             0,
             0,
-            1,
+            0,
         ],
     );
     callback_return(p, &mut t, [0, 0, 0]);
@@ -592,5 +607,203 @@ fn ime_disabled_overlapped_window_applies_callback_tracking_limits() {
     p.space.w32(descriptor + 16, 3).unwrap();
     assert_composition(p, &mut t, hwnd, descriptor, (0, 122, 0xc0000023));
     assert_ime_query(p, &mut t, "NtUserQueryWindow", [hwnd, 8], 0x4567);
+    assert_ime_query(p, &mut t, "NtUserGetThreadState", [3], 0x4567);
+}
+
+#[test]
+fn default_ime_window_allocates_guest_extra_and_releases_it_before_owner_ncdestroy() {
+    let (mut process, mut t, base) = setup(WinArch::Arm64);
+    let p = process.state_mut();
+    let (_, _, atom) = setup_window(p, &mut t, base);
+    let Availability::Available(inputs) = &mut p.native.as_mut().unwrap().gui else {
+        panic!("expected selected GUI inputs");
+    };
+    let limits = [314, 50, 1520, 862, -8, -8, 136, 39, 1524, 866];
+    Arc::get_mut(inputs).unwrap().overlapped_window_limits = Ok(limits);
+    for (offset, word) in [0xb0ff_f310, 0x9130_4210, 0xd61f_0200]
+        .into_iter()
+        .enumerate()
+    {
+        p.space
+            .w32(base + 0x30c0 + offset as u64 * 4, word)
+            .unwrap();
+    }
+    // The fixture stands in for USER32 while the test drives the callback
+    // returns directly. The real provider also admits the guest SEC_IMAGE.
+    p.modules.list[0].name = "user32.dll".into();
+    let module = p.modules.exe().base;
+    p.space
+        .w64(base + 0x1000 + 123 * 8, module + 0x56000)
+        .unwrap();
+    p.space.w64(base + 0x1000 + 124 * 8, base + 0x2000).unwrap();
+
+    let atom = u64::from(atom);
+    service(
+        p,
+        &mut t,
+        "NtUserCreateWindowEx",
+        [
+            0,
+            atom,
+            atom,
+            0,
+            u64::from(OVERLAPPED_STYLE),
+            17,
+            31,
+            197,
+            103,
+            0,
+            0,
+            module,
+            0,
+            0,
+            0x4000_0600,
+            0,
+            0,
+            0,
+        ],
+    );
+    callback_return(p, &mut t, [0, 0, 0]);
+    let (owner, _) = expect_callback(p, &t, Phase::LoadTheme, 75);
+    let owner = u64::from(owner);
+    let reply = base + 0x8000;
+    let data = reply + 0x40;
+    let extra = reply + 0x90;
+    p.space.wr(reply, &[0; 24]).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+    expect_callback(p, &t, Phase::Measure, 18);
+    for (index, limit) in limits.into_iter().enumerate() {
+        p.space.w32(data + index as u64 * 4, limit as u32).unwrap();
+    }
+    p.space.w64(reply + 8, 40).unwrap();
+    p.space.w64(reply + 16, data).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+    expect_callback(p, &t, Phase::NonClientCreate, 10);
+    p.space.w64(reply, 1).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+
+    let (_, payload) = expect_callback(p, &t, Phase::AllocateImeExtra, 123);
+    assert_eq!(p.space.u32(payload).unwrap(), 8);
+    p.space.wr(reply, &[0; 24]).unwrap();
+    p.space.w64(reply, extra).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+    let ime = u64::from(p.gui.threads[&t.tid].default_ime_window.unwrap());
+    let client = p.gui.window(ime).unwrap().client_address;
+    let (_, payload) = expect_callback(p, &t, Phase::ImeNonClientCreate, 10);
+    assert_eq!(p.space.u64(payload + 0x60).unwrap(), owner);
+    assert_eq!(p.space.u32(payload + 0x78).unwrap(), 0x8800_0000);
+    assert_eq!(p.space.u64(payload + 0x88).unwrap(), 0xc027);
+    assert_eq!(p.space.u64(client + 0x128).unwrap(), extra);
+    service(p, &mut t, "NtUserSetWindowFNID", [ime, 0x2a9]);
+    assert_eq!(t.cpu.gpr(0), 1);
+    assert_eq!(p.space.u16(client + 0x2a).unwrap(), 0x2a9);
+    service(p, &mut t, "NtUserSetWindowLongPtr", [ime, 0, data, 0]);
+    assert_eq!(t.cpu.gpr(0), 0);
+    assert_eq!(p.space.u64(extra).unwrap(), data);
+    service(p, &mut t, "NtUserSetWindowLongPtr", [ime, 0, 0, 0]);
+    assert_eq!(t.cpu.gpr(0), data);
+    assert_eq!(p.space.u64(extra).unwrap(), 0);
+    let create_args = base + 0x8200;
+    p.space.w64(create_args + 0x38, payload + 0xb0).unwrap();
+    service(
+        p,
+        &mut t,
+        "NtUserMessageCall",
+        [ime, 0x81, 0, create_args, 0, 0x29e, 0],
+    );
+    assert_eq!(t.cpu.gpr(0), 1);
+    assert_eq!(p.space.u32(client + 0xb8).unwrap(), 22);
+    assert_eq!(p.space.u32(client + 0xbc).unwrap(), 24);
+    let desktop = p.space.u64(t.teb + 0x828).unwrap();
+    let title_offset = p.space.u64(client + 0xc0).unwrap();
+    let title: Vec<_> = "Default IME".encode_utf16().chain([0]).collect();
+    assert_eq!(
+        p.space.wunits(desktop + title_offset, title.len()).unwrap(),
+        title
+    );
+    p.space.w64(reply, 1).unwrap();
+    p.space.w64(reply + 16, data).unwrap();
+    p.space.wr(data, &[0; 16]).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+    for (phase, index) in [
+        (Phase::ImeNonClientRectangle, 21),
+        (Phase::ImeCreate, 10),
+        (Phase::ImeSize, 2),
+        (Phase::ImeMove, 2),
+        (Phase::ImeStartup, 2),
+        (Phase::NonClientRectangle, 21),
+        (Phase::Create, 10),
+    ] {
+        let (_, payload) = expect_callback(p, &t, phase, index);
+        if phase == Phase::ImeNonClientRectangle {
+            service(
+                p,
+                &mut t,
+                "NtUserMessageCall",
+                [ime, 0x83, 0, data, 0, 0x29e, 0],
+            );
+            assert_eq!(t.cpu.gpr(0), 0);
+            assert_eq!(p.space.bytes(data, 16).unwrap(), [0; 16]);
+        }
+        if phase == Phase::ImeStartup {
+            assert_eq!(p.space.u32(payload + 8).unwrap(), 0x287);
+            assert_eq!(p.space.u64(payload + 0x10).unwrap(), 0x21);
+            let info = base + 0x8401;
+            let sentinel = [0xa5; 0x161];
+            p.space.wr(info, &sentinel).unwrap();
+            p.space.w64(info, 0x0407_0407).unwrap();
+            service(p, &mut t, "NtUserGetImeInfoEx", [info, 0]);
+            assert_eq!(t.cpu.gpr(0), 0);
+            assert_eq!(p.space.bytes(info + 8, 0x159).unwrap(), sentinel[8..]);
+            p.space.w64(info, 0x0409_0409).unwrap();
+            service(p, &mut t, "NtUserGetImeInfoEx", [info, 0]);
+            assert_eq!(t.cpu.gpr(0), 1);
+            assert_eq!(p.space.u64(info).unwrap(), 0x0409_0409);
+            assert_eq!(p.space.u32(info + 0x0c).unwrap(), 0x0009_0000);
+            let ime_name: Vec<_> = "msctf.dll".encode_utf16().chain([0]).collect();
+            assert_eq!(
+                p.space.wunits(info + 0xbc, ime_name.len()).unwrap(),
+                ime_name
+            );
+            assert_eq!(p.space.u64(info + 0x3c).unwrap(), 0);
+            assert_eq!(p.space.u32(info + 0x15c).unwrap(), 2);
+            assert_eq!(p.space.bytes(info + 0x160, 1).unwrap(), [0xa5]);
+            service(p, &mut t, "NtUserGetThreadState", [0x0d]);
+            assert_eq!(t.cpu.gpr(0), 0);
+        }
+        p.space.w64(reply, 0).unwrap();
+        callback_return(p, &mut t, [reply, 24, 0]);
+    }
+    assert_eq!(t.cpu.gpr(0), owner);
+    service(p, &mut t, "NtUserQueryWindow", [owner, 8]);
+    assert_eq!(t.cpu.gpr(0), ime);
+    assert_top_level(p, &mut t, ime, 1, 0x4567);
+    assert_ancestor(p, &mut t, ime, 3, owner, 0x4567);
+
+    service(p, &mut t, "NtUserDestroyWindow", [owner]);
+    for (phase, index) in [
+        (Phase::BeginDestroy, 2),
+        (Phase::Destroy, 2),
+        (Phase::ImeBeginDestroy, 2),
+        (Phase::ImeDestroy, 2),
+        (Phase::ImeNonClientDestroy, 3),
+    ] {
+        expect_callback(p, &t, phase, index);
+        if phase == Phase::ImeNonClientDestroy {
+            service(p, &mut t, "NtUserSetWindowFNID", [ime, 0x4000]);
+            assert_eq!(t.cpu.gpr(0), 1);
+            assert_eq!(p.space.u16(client + 0x2a).unwrap(), 0x42a9);
+        }
+        callback_return(p, &mut t, [reply, 24, 0]);
+    }
+    let (_, payload) = expect_callback(p, &t, Phase::FreeImeExtra, 124);
+    assert_eq!(p.space.u64(payload).unwrap(), client);
+    assert_eq!(p.space.u64(payload + 8).unwrap(), extra);
+    callback_return(p, &mut t, [0, 0, 0]);
+    assert!(p.gui.window(ime).is_none());
+    expect_callback(p, &t, Phase::NonClientDestroy, 3);
+    callback_return(p, &mut t, [reply, 24, 0]);
+    assert_eq!(t.cpu.gpr(0), 1);
+    assert!(p.gui.window(owner).is_none());
     assert_ime_query(p, &mut t, "NtUserGetThreadState", [3], 0x4567);
 }

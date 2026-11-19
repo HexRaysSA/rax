@@ -4,9 +4,10 @@ use super::{
     CallbackFrame, Completion, Mem, Outcome, Proc, Thread, WinArch, failure, query_error,
     window_classes,
 };
-use crate::user::windows::gui::window_classes::Name;
+use crate::user::windows::gui::window_classes::{Class, DEFAULT_IME_ATOM, Name};
 use crate::user::windows::gui::windows::{
-    Continuation, Creation, OVERLAPPED_STYLE, Phase, PropertyOperation, Window, WindowKind,
+    Continuation, Creation, DEFAULT_IME_STYLE, DEFAULT_IME_TITLE, OVERLAPPED_STYLE, Phase,
+    PropertyOperation, Window, WindowKind,
 };
 use crate::user::windows::memory::MemFault;
 use crate::user::windows::nt::error::{
@@ -36,7 +37,12 @@ const SWP_KEEP_CURRENT: u32 =
 const CALLBACK_RETURN_BYTES: u32 = 24;
 const DEFAULT_IME_HANDLE: u32 = 8;
 const THREAD_DEFAULT_IME_HANDLE: u32 = 3;
+const THREAD_IME_COMPAT_FLAGS: u32 = 0x0d;
 const DEFAULT_DIMENSION: i32 = i32::MIN;
+const DEFAULT_IME_EXTRA_BYTES: u32 = 8;
+const FNID_IME: u16 = 0x02a9;
+const FNID_DELETED: u16 = 0x4000;
+const FNID_DEFWINDOWPROC: u32 = 0x029e;
 
 fn dword(bytes: &[u8], at: usize) -> u32 {
     u32::from_le_bytes(bytes[at..at + 4].try_into().expect("callback DWORD"))
@@ -110,6 +116,14 @@ fn class_argument(mem: &impl Mem, address: u64) -> Result<Name, CaptureError> {
 /// The selected ARM64 NTDLL image carries the USER procedure bridge measured in
 /// the installed 29708 callback control. Verify the installed code before use.
 fn procedure_bridge(p: &Proc) -> Result<u64, Outcome> {
+    selected_ntdll_procedure(p, 0x31e500, [0xb0ff_f310, 0x9133_4210, 0xd61f_0200])
+}
+
+fn ime_procedure(p: &Proc) -> Result<u64, Outcome> {
+    selected_ntdll_procedure(p, 0x31e5c0, [0xb0ff_f310, 0x9130_4210, 0xd61f_0200])
+}
+
+fn selected_ntdll_procedure(p: &Proc, rva: u64, expected: [u32; 3]) -> Result<u64, Outcome> {
     if p.arch != WinArch::Arm64 {
         return Err(failure(
             "window procedure callbacks lack a selected profile for this architecture",
@@ -121,9 +135,8 @@ fn procedure_bridge(p: &Proc) -> Result<u64, Outcome> {
         .ok_or_else(|| failure("selected NTDLL is absent"))?;
     let address = p.modules.list[module]
         .base
-        .checked_add(0x31e500)
+        .checked_add(rva)
         .ok_or_else(|| failure("selected NTDLL procedure bridge address overflow"))?;
-    let expected = [0xb0ff_f310, 0x9133_4210, 0xd61f_0200];
     if !expected
         .into_iter()
         .enumerate()
@@ -138,7 +151,7 @@ fn procedure_bridge(p: &Proc) -> Result<u64, Outcome> {
 
 pub(super) fn disable_thread_ime(
     p: &mut Proc,
-    t: &Thread,
+    t: &mut Thread,
     [thread]: [u64; 1],
 ) -> Result<u64, Outcome> {
     if p.arch != WinArch::Arm64 || thread as u32 != 0 {
@@ -146,11 +159,15 @@ pub(super) fn disable_thread_ime(
             "only the measured current-thread IME disable is supported",
         ));
     }
-    p.gui
+    let thread = p
+        .gui
         .threads
         .get_mut(&t.tid)
-        .ok_or_else(|| failure("IME disable requires a converted thread"))?
-        .ime_disabled = true;
+        .ok_or_else(|| failure("IME disable requires a converted thread"))?;
+    thread.ime_disabled = true;
+    if let Some(handle) = thread.default_ime_window {
+        return destroy(p, t, [u64::from(handle)]);
+    }
     Ok(1)
 }
 
@@ -176,7 +193,7 @@ pub(super) fn is_top_level(p: &Proc, t: &Thread, [handle]: [u64; 1]) -> Result<u
     };
     Ok(u64::from(matches!(
         window.creation.kind,
-        WindowKind::Overlapped { .. }
+        WindowKind::Overlapped { .. } | WindowKind::DefaultIme { .. }
     )))
 }
 
@@ -225,9 +242,13 @@ pub(super) fn get_ancestor(
     let value = match (flags as u32, window) {
         (GA_PARENT, Some((_, window))) => match window.creation.kind {
             WindowKind::MessageOnly => MESSAGE_PARENT,
-            WindowKind::Overlapped { .. } => DESKTOP_PARENT,
+            WindowKind::Overlapped { .. } | WindowKind::DefaultIme { .. } => DESKTOP_PARENT,
         },
-        (GA_ROOT | GA_ROOTOWNER, Some((hwnd, _))) => hwnd,
+        (GA_ROOTOWNER, Some((hwnd, window))) => match window.creation.kind {
+            WindowKind::DefaultIme { owner_window, .. } => owner_window,
+            _ => hwnd,
+        },
+        (GA_ROOT, Some((hwnd, _))) => hwnd,
         (GA_PARENT | GA_ROOT | GA_ROOTOWNER, None) => 0,
         _ => return query_error(p, t, ERROR_INVALID_PARAMETER, None),
     };
@@ -281,24 +302,24 @@ pub(super) fn set_position(
 }
 
 pub(super) fn get_thread_state(p: &Proc, t: &Thread, [query]: [u64; 1]) -> Result<u64, Outcome> {
-    if query as u32 != THREAD_DEFAULT_IME_HANDLE {
-        return Err(failure(format!(
-            "unmeasured USER thread-state query {:#x}",
-            query as u32
-        )));
+    match query as u32 {
+        THREAD_DEFAULT_IME_HANDLE => default_ime_window(p, t.tid),
+        // The selected native ARM64 process has no legacy IME compatibility flags.
+        THREAD_IME_COMPAT_FLAGS if p.arch == WinArch::Arm64 => Ok(0),
+        query => Err(failure(format!(
+            "unmeasured USER thread-state query {query:#x}"
+        ))),
     }
-    default_ime_window(p, t.tid)
 }
 
 fn default_ime_window(p: &Proc, tid: u32) -> Result<u64, Outcome> {
-    if p.arch != WinArch::Arm64 || !p.gui.threads.contains_key(&tid) {
-        return Err(failure(
-            "default IME window query requires a selected USER thread",
-        ));
-    }
-    // Message-only windows do not start a default IME window. The supported
-    // overlapped creation profile requires IME to be disabled.
-    Ok(0)
+    let thread = p
+        .gui
+        .threads
+        .get(&tid)
+        .filter(|_| p.arch == WinArch::Arm64)
+        .ok_or_else(|| failure("default IME window query requires a selected USER thread"))?;
+    Ok(u64::from(thread.default_ime_window.unwrap_or_default()))
 }
 
 pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Result<u64, Outcome> {
@@ -358,13 +379,9 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
     }
     let geometry = [x as i32, y as i32, width as i32, height as i32];
     let kind = match (parent, style as u32) {
-        (HWND_MESSAGE, 0) if band as u32 == 1 => WindowKind::MessageOnly,
+        (HWND_MESSAGE, 0) if matches!(band as u32, 0 | 1) => WindowKind::MessageOnly,
         (0, OVERLAPPED_STYLE)
-            if p.gui
-                .threads
-                .get(&t.tid)
-                .is_some_and(|thread| thread.ime_disabled)
-                && !geometry.contains(&DEFAULT_DIMENSION)
+            if !geometry.contains(&DEFAULT_DIMENSION)
                 && geometry[2..].iter().all(|&size| size >= 0)
                 && class.definition.record[4..8] == [0; 4]
                 && class.definition.record[16..24] == [0; 8]
@@ -388,7 +405,7 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
         }
         _ => {
             return Err(failure(
-                "window creation is outside the measured message-only and IME-disabled overlapped profiles",
+                "window creation is outside the measured message-only and hidden overlapped profiles",
             ));
         }
     };
@@ -408,6 +425,9 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
         }
     };
     procedure_bridge(p)?;
+    if matches!(kind, WindowKind::Overlapped { .. }) && !p.gui.threads[&t.tid].ime_disabled {
+        ime_procedure(p)?;
+    }
     let creation = Creation {
         kind,
         module: instance,
@@ -416,16 +436,7 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
         argument: parameter,
         geometry,
     };
-    let csr = p
-        .object_namespace
-        .selected_csr_server()
-        .ok()
-        .and_then(|server| server.client_data.clone())
-        .ok_or_else(|| failure("window creation requires the selected CSR USER table"))?;
-    let handle = p
-        .gui
-        .open_window(&mut p.vm, p.pid, t.tid, class, creation, &csr)
-        .map_err(|error| failure(format!("GUI window data view: {error:?}")))?;
+    let handle = open_window(p, t.tid, class, creation)?;
     let phase = if p.gui.theme_hook_started {
         Phase::Measure
     } else {
@@ -450,6 +461,23 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
             Err(outcome)
         }
     }
+}
+
+fn open_window(
+    p: &mut Proc,
+    tid: u32,
+    class: std::rc::Rc<Class>,
+    creation: Creation,
+) -> Result<u32, Outcome> {
+    let csr = p
+        .object_namespace
+        .selected_csr_server()
+        .ok()
+        .and_then(|server| server.client_data.clone())
+        .ok_or_else(|| failure("window creation requires the selected CSR USER table"))?;
+    p.gui
+        .open_window(&mut p.vm, p.pid, tid, class, creation, &csr)
+        .map_err(|error| failure(format!("GUI window data view: {error:?}")))
 }
 
 pub(super) fn class_name(
@@ -511,18 +539,175 @@ pub(super) fn set_window_long_ptr(
     t: &Thread,
     [handle, index, value, ansi]: [u64; 4],
 ) -> Result<u64, Outcome> {
-    if index as u32 as i32 != -2 || ansi as u32 != 0 {
+    let index = index as u32 as i32;
+    if !matches!(index, -2 | 0) || ansi as u32 != 0 {
         return Err(failure(
-            "window-long pointer index or encoding is outside the measured theme profile",
+            "window-long pointer index or encoding is outside the measured profiles",
         ));
     }
     let handle = handle as u32;
-    if p.gui.window(u64::from(handle)).is_none() {
+    let Some(window) = p.gui.window(u64::from(handle)) else {
         return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    };
+    if index == -2 {
+        return p
+            .gui
+            .set_window_theme_value(&mut p.vm, handle, value)
+            .map_err(|error| failure(format!("GUI window theme value: {error:?}")));
+    }
+    let WindowKind::DefaultIme { client_extra, .. } = window.creation.kind else {
+        return Err(failure(
+            "window extra storage is outside the measured IME profile",
+        ));
+    };
+    let result = p.space.u64(client_extra).and_then(|previous| {
+        p.space.w64(client_extra, value)?;
+        Ok(previous)
+    });
+    match result {
+        Ok(previous) => Ok(previous),
+        Err(error) => report(p, t, error.into()),
+    }
+}
+
+pub(super) fn set_window_fnid(
+    p: &mut Proc,
+    t: &Thread,
+    [handle, value]: [u64; 2],
+) -> Result<u64, Outcome> {
+    let Some((canonical, window)) = p.gui.window_accepting_wildcard_generation(&p.vm, handle)
+    else {
+        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    };
+    let thread = &p.gui.threads[&t.tid];
+    let phase = active_window_phase(thread);
+    let value = value as u16;
+    if p.arch != WinArch::Arm64
+        || thread.default_ime_window != Some(canonical)
+        || !matches!(
+            (phase, value),
+            (Some(Phase::ImeNonClientCreate), FNID_IME)
+                | (Some(Phase::ImeNonClientDestroy), FNID_DELETED)
+        )
+    {
+        return Err(failure(
+            "window function ID update is outside the measured IME lifecycle",
+        ));
     }
     p.gui
-        .set_window_theme_value(&mut p.vm, handle, value)
-        .map_err(|error| failure(format!("GUI window theme value: {error:?}")))
+        .set_ime_fnid(&mut p.vm, window, value)
+        .map_err(|error| failure(format!("default IME function ID write failed: {error:?}")))?;
+    Ok(1)
+}
+
+fn active_window_phase(thread: &crate::user::windows::gui::ThreadState) -> Option<Phase> {
+    match thread.callbacks.last()?.completion {
+        Completion::ResumeWindow(pending) => Some(pending.phase),
+        _ => None,
+    }
+}
+
+pub(super) fn message_call(
+    p: &mut Proc,
+    t: &Thread,
+    [handle, message, word, data, result, fnid, ansi]: [u64; 7],
+) -> Result<u64, Outcome> {
+    let thread = &p.gui.threads[&t.tid];
+    let canonical = handle as u32;
+    if p.arch != WinArch::Arm64
+        || thread.default_ime_window != Some(canonical)
+        || word != 0
+        || result != 0
+        || fnid as u32 != FNID_DEFWINDOWPROC
+        || ansi as u32 != 0
+    {
+        return Err(failure(
+            "window message call is outside the measured default IME profile",
+        ));
+    }
+    match (active_window_phase(thread), message as u32) {
+        (Some(Phase::ImeNonClientCreate), 0x81) => {
+            let expected: Vec<_> = DEFAULT_IME_TITLE.encode_utf16().chain([0]).collect();
+            let title = data
+                .checked_add(0x38)
+                .ok_or_else(|| failure("default IME create arguments overflow"))?;
+            let text = p
+                .space
+                .u64(title)
+                .and_then(|text| p.space.wunits(text, expected.len()));
+            match text {
+                Ok(title) if title == expected => {}
+                Ok(_) => {
+                    return Err(failure(
+                        "default IME title differs from the measured profile",
+                    ));
+                }
+                Err(error) => return report(p, t, error.into()),
+            }
+            p.gui
+                .set_ime_title(&mut p.vm, canonical)
+                .map_err(|error| failure(format!("default IME title write failed: {error:?}")))?;
+            Ok(1)
+        }
+        (Some(Phase::ImeNonClientRectangle), 0x83) => {
+            // The borderless helper retains its empty window rectangle.
+            let mut rectangle = [0; 16];
+            match p.space.rd(data, &mut rectangle) {
+                Ok(()) if rectangle == [0; 16] => Ok(0),
+                Ok(()) => Err(failure(
+                    "default IME rectangle differs from the measured profile",
+                )),
+                Err(error) => report(p, t, error.into()),
+            }
+        }
+        _ => Err(failure(
+            "window message call is outside the measured default IME lifecycle",
+        )),
+    }
+}
+
+pub(super) fn get_ime_info(
+    p: &mut Proc,
+    t: &Thread,
+    [address, lookup]: [u64; 2],
+) -> Result<u64, Outcome> {
+    const BY_KEYBOARD_LAYOUT: u32 = 0;
+    const US_ENGLISH: u64 = 0x0409_0409;
+    const IME_INFO_EX_BYTES: usize = 0x160;
+    if p.arch != WinArch::Arm64 || lookup as u32 != BY_KEYBOARD_LAYOUT {
+        return Err(failure(
+            "IME information lookup is outside the measured profile",
+        ));
+    }
+    match p.space.u64(address) {
+        Ok(US_ENGLISH) => {}
+        Ok(_) => return Ok(0),
+        Err(error) => return report(p, t, error.into()),
+    }
+
+    let mut record = [0; IME_INFO_EX_BYTES];
+    put64(&mut record, 0, US_ENGLISH);
+    // Default text-services IME capabilities for the measured US layout.
+    put32(&mut record, 0x08, 4);
+    put32(&mut record, 0x0c, 0x0009_0000);
+    put32(&mut record, 0x4c, 2);
+    put32(&mut record, 0x50, 0x000a_0000);
+    put32(&mut record, 0x54, 0x0004_0000);
+    put32(&mut record, 0x15c, 2);
+    for (offset, name) in [(0x24, "MSCTFIME UI"), (0xbc, "msctf.dll")] {
+        for (target, unit) in record[offset..]
+            .chunks_exact_mut(2)
+            .zip(name.encode_utf16())
+        {
+            target.copy_from_slice(&unit.to_le_bytes());
+        }
+    }
+    // The native UI class field can contain process addresses after its NUL.
+    // Zero initialization keeps those bytes independent of the native host.
+    match p.space.wr(address, &record) {
+        Ok(()) => Ok(1),
+        Err(error) => report(p, t, error.into()),
+    }
 }
 
 pub(super) fn property(
@@ -554,13 +739,18 @@ pub(super) fn destroy(p: &mut Proc, t: &mut Thread, [handle]: [u64; 1]) -> Resul
     if window.owner != t.tid || window.destroying {
         return query_error(p, t, 5, None);
     }
+    let phase = if matches!(window.creation.kind, WindowKind::DefaultIme { .. }) {
+        Phase::ImeBeginDestroy
+    } else {
+        Phase::BeginDestroy
+    };
     procedure_bridge(p)?;
     p.gui
         .start_window_destruction(handle, t.tid)
         .expect("validated window");
     let continuation = Continuation {
         handle: handle as u32,
-        phase: Phase::BeginDestroy,
+        phase,
         result: 1,
     };
     deliver(p, t, continuation)?;
@@ -582,6 +772,7 @@ fn measure(window: &Window, bridge: u64) -> Vec<u8> {
     put32(&mut bytes, 8, 0x24);
     let limits = match window.creation.kind {
         WindowKind::MessageOnly => [314, 50, 116, 116, -8, -8, 136, 39, 1524, 866],
+        WindowKind::DefaultIme { .. } => unreachable!("IME creation has no MINMAXINFO callback"),
         WindowKind::Overlapped { limits, .. } => limits,
     };
     for (index, value) in limits.into_iter().enumerate() {
@@ -616,6 +807,20 @@ fn create_message(window: &Window, bridge: u64, message: u32) -> Vec<u8> {
             bytes.resize(bytes.len().next_multiple_of(8), 0);
         }
     }
+    let mut title = creation.title;
+    if matches!(creation.kind, WindowKind::DefaultIme { .. }) {
+        put32(&mut bytes, 8, 1);
+        put64(&mut bytes, 0x18, 0xa8);
+        put32(&mut bytes, 0xa8, 0x80);
+        title = 0xb0;
+        bytes.extend(
+            DEFAULT_IME_TITLE
+                .encode_utf16()
+                .chain([0])
+                .flat_map(u16::to_le_bytes),
+        );
+        bytes.resize(bytes.len().next_multiple_of(8), 0);
+    }
     let length = bytes.len() as u32;
     put32(&mut bytes, 0, length);
     put32(&mut bytes, 4, 0x30);
@@ -626,6 +831,10 @@ fn create_message(window: &Window, bridge: u64, message: u32) -> Vec<u8> {
     put64(&mut bytes, 0x50, creation.module);
     match creation.kind {
         WindowKind::MessageOnly => put64(&mut bytes, 0x60, u64::from(MESSAGE_PARENT)),
+        WindowKind::DefaultIme { owner_window, .. } => {
+            put64(&mut bytes, 0x60, u64::from(owner_window));
+            put32(&mut bytes, 0x78, DEFAULT_IME_STYLE);
+        }
         WindowKind::Overlapped { .. } => {
             put32(&mut bytes, 0x78, OVERLAPPED_STYLE);
             put32(&mut bytes, 0x90, 0x100);
@@ -635,7 +844,7 @@ fn create_message(window: &Window, bridge: u64, message: u32) -> Vec<u8> {
     for (index, value) in [height, width, y, x].into_iter().enumerate() {
         put32(&mut bytes, 0x68 + index * 4, value as u32);
     }
-    put64(&mut bytes, 0x80, creation.title);
+    put64(&mut bytes, 0x80, title);
     put64(&mut bytes, 0x98, window.class.definition.procedure());
     put64(&mut bytes, 0xa0, bridge);
     bytes
@@ -687,19 +896,69 @@ fn deliver(p: &mut Proc, t: &mut Thread, next: Continuation) -> Result<(), Outco
         .window(u64::from(next.handle))
         .ok_or_else(|| failure("pending USER window is unavailable"))?;
     let bridge = procedure_bridge(p)?;
+    let callback_handle = match next.phase {
+        Phase::ImeNonClientCreate
+        | Phase::ImeNonClientRectangle
+        | Phase::ImeCreate
+        | Phase::ImeSize
+        | Phase::ImeMove
+        | Phase::ImeStartup
+        | Phase::ImeBeginDestroy
+        | Phase::ImeDestroy
+        | Phase::ImeNonClientDestroy
+        | Phase::FreeImeExtra => p.gui.threads[&t.tid]
+            .default_ime_window
+            .ok_or_else(|| failure("pending default IME window is absent"))?,
+        _ => next.handle,
+    };
+    let callback_window = if callback_handle == next.handle {
+        window
+    } else {
+        p.gui
+            .window(u64::from(callback_handle))
+            .ok_or_else(|| failure("pending default IME window is unavailable"))?
+    };
     let (index, payload) = match next.phase {
         Phase::LoadTheme => (75, load_theme(p)?),
-        Phase::Measure => (18, measure(window, bridge)),
-        Phase::NonClientCreate => (10, create_message(window, bridge, 0x81)),
-        Phase::NonClientRectangle => (21, calculate_rectangle(window, bridge)),
-        Phase::Create => (10, create_message(window, bridge, 1)),
-        Phase::BeginDestroy => (2, fixed_message(window, bridge, 0x90)),
-        Phase::Destroy => (2, fixed_message(window, bridge, 2)),
-        Phase::NonClientDestroy => (3, fixed_message(window, bridge, 0x82)),
+        Phase::AllocateImeExtra => (123, DEFAULT_IME_EXTRA_BYTES.to_le_bytes().to_vec()),
+        Phase::FreeImeExtra => {
+            let WindowKind::DefaultIme { client_extra, .. } = callback_window.creation.kind else {
+                return Err(failure("default IME window extra storage is absent"));
+            };
+            let mut payload = vec![0; 16];
+            put64(&mut payload, 0, callback_window.client_address);
+            put64(&mut payload, 8, client_extra);
+            (124, payload)
+        }
+        Phase::Measure => (18, measure(callback_window, bridge)),
+        Phase::NonClientCreate | Phase::ImeNonClientCreate => {
+            (10, create_message(callback_window, bridge, 0x81))
+        }
+        Phase::NonClientRectangle | Phase::ImeNonClientRectangle => {
+            (21, calculate_rectangle(callback_window, bridge))
+        }
+        Phase::Create | Phase::ImeCreate => (10, create_message(callback_window, bridge, 1)),
+        Phase::ImeSize => (2, fixed_message(callback_window, bridge, 5)),
+        Phase::ImeMove => (2, fixed_message(callback_window, bridge, 3)),
+        Phase::ImeStartup => {
+            let mut payload = fixed_message(callback_window, bridge, 0x287);
+            put64(&mut payload, 0x10, 0x21);
+            (2, payload)
+        }
+        Phase::BeginDestroy | Phase::ImeBeginDestroy => {
+            (2, fixed_message(callback_window, bridge, 0x90))
+        }
+        Phase::Destroy | Phase::ImeDestroy => (2, fixed_message(callback_window, bridge, 2)),
+        Phase::NonClientDestroy | Phase::ImeNonClientDestroy => {
+            (3, fixed_message(callback_window, bridge, 0x82))
+        }
     };
     let frame = CallbackFrame::prepare(p, t, t.cpu.sp(), t.cpu.pc(), index, &payload)?;
-    let client_info =
-        (next.phase != Phase::LoadTheme).then_some([u64::from(next.handle), window.client_address]);
+    let client_info = match next.phase {
+        Phase::LoadTheme => None,
+        Phase::AllocateImeExtra | Phase::FreeImeExtra => Some([0, 0]),
+        _ => Some([u64::from(callback_handle), callback_window.client_address]),
+    };
     match frame.enter(p, t, Completion::ResumeWindow(next), client_info) {
         Outcome::Continue => Ok(()),
         outcome => Err(outcome),
@@ -746,12 +1005,116 @@ fn measure_reply(p: &mut Proc, handle: u32, response: &[u8]) -> Result<(), Outco
     Ok(())
 }
 
+fn default_ime_user_module(p: &Proc) -> Option<u64> {
+    // Installed NTDLL can map USER32 without an entry in the emulator's
+    // module registry. Recover its guest image base from the measured
+    // allocation callback and the section that owns the code.
+    let table = p.space.u64(p.peb + 0x58).ok()?;
+    let target = p.space.u64(table.checked_add(123 * 8)?).ok()?;
+    let base = target.checked_sub(0x56000)?;
+    if window_classes::user_module(p) == Some(base) {
+        return Some(base);
+    }
+    let view = p.vm.section_view(target)?;
+    let name = view
+        .section
+        .path
+        .rsplit(|unit| *unit == u16::from(b'\\'))
+        .next()?;
+    let (image_base, _, flags) = p.vm.section_image_information(target)?;
+    (image_base == base
+        && flags & 3 == 0
+        && String::from_utf16(name)
+            .ok()?
+            .eq_ignore_ascii_case("user32.dll")
+        && p.space.u32(target.checked_add(0x14)?).ok()? == 0xb940_0002)
+        .then_some(base)
+}
+
+fn open_default_ime(p: &mut Proc, t: &Thread, owner: u32, extra: u64) -> Result<(), Outcome> {
+    let procedure = ime_procedure(p)?;
+    let module = default_ime_user_module(p)
+        .ok_or_else(|| failure("default IME window requires installed USER32"))?;
+    let creation = Creation {
+        kind: WindowKind::DefaultIme {
+            owner_window: owner,
+            client_extra: extra,
+        },
+        module: p.modules.exe().base,
+        class_argument: Name::Ordinal(DEFAULT_IME_ATOM),
+        title: 0,
+        argument: 0,
+        geometry: [0; 4],
+    };
+    let handle = open_window(p, t.tid, Class::default_ime(module, procedure), creation)?;
+    p.gui
+        .threads
+        .get_mut(&t.tid)
+        .expect("converted GUI thread")
+        .default_ime_window = Some(handle);
+    Ok(())
+}
+
+fn begin_ime_destruction(p: &mut Proc, t: &Thread, owner: u32) -> Result<Phase, Outcome> {
+    let Some(ime) = p.gui.threads[&t.tid].default_ime_window else {
+        return Ok(Phase::NonClientDestroy);
+    };
+    let Some(window) = p.gui.window(u64::from(ime)) else {
+        return Err(failure(
+            "default IME window is unavailable during destruction",
+        ));
+    };
+    if !matches!(window.creation.kind, WindowKind::DefaultIme { owner_window, .. } if owner_window == owner)
+    {
+        return Ok(Phase::NonClientDestroy);
+    }
+    if let Some(survivor) = p.gui.next_ime_owner(t.tid) {
+        p.gui
+            .move_ime_owner(&mut p.vm, ime, survivor)
+            .map_err(|error| failure(format!("default IME owner transfer failed: {error:?}")))?;
+        return Ok(Phase::NonClientDestroy);
+    }
+    p.gui
+        .start_window_destruction(u64::from(ime), t.tid)
+        .ok_or_else(|| failure("default IME window is already being destroyed"))?;
+    Ok(Phase::ImeBeginDestroy)
+}
+
+fn set_client_rectangle(p: &mut Proc, handle: u32, result: u64) -> Result<(), Outcome> {
+    let mut rectangle = [0; 16];
+    p.space
+        .rd(result, &mut rectangle)
+        .map_err(|error| failure(format!("nonclient rectangle is inaccessible: {error:?}")))?;
+    p.gui
+        .set_window_client_rectangle(&mut p.vm, handle, rectangle)
+        .map_err(|error| failure(format!("nonclient rectangle write failed: {error:?}")))
+}
+
 pub(super) fn resume(
     p: &mut Proc,
     t: &mut Thread,
     mut pending: Continuation,
     [output, length, status]: [u64; 3],
 ) -> Result<u64, Outcome> {
+    if pending.phase == Phase::FreeImeExtra {
+        if status as u32 as i32 != 0 || length as u32 != 0 || output != 0 {
+            return Err(failure(
+                "default IME extra storage release returned an unexpected result",
+            ));
+        }
+        let ime = p.gui.threads[&t.tid]
+            .default_ime_window
+            .ok_or_else(|| failure("released default IME window is absent"))?;
+        p.gui
+            .close_window(&mut p.vm, ime)
+            .map_err(|error| failure(format!("default IME window removal failed: {error:?}")))?;
+        if pending.handle == ime {
+            return Ok(pending.result);
+        }
+        pending.phase = Phase::NonClientDestroy;
+        deliver(p, t, pending)?;
+        return Err(Outcome::Continue);
+    }
     if (status as u32 as i32) < 0 || length as u32 != CALLBACK_RETURN_BYTES {
         let _ = p.gui.close_window(&mut p.vm, pending.handle);
         return Err(failure(
@@ -780,17 +1143,59 @@ pub(super) fn resume(
                 .start_window_destruction(u64::from(pending.handle), t.tid);
             Phase::NonClientDestroy
         }
-        Phase::NonClientCreate => Phase::NonClientRectangle,
-        Phase::NonClientRectangle => {
-            let mut rectangle = [0; 16];
+        Phase::NonClientCreate => {
+            let thread = &p.gui.threads[&t.tid];
+            let window = p
+                .gui
+                .window(u64::from(pending.handle))
+                .ok_or_else(|| failure("pending USER window is unavailable"))?;
+            if !thread.ime_disabled
+                && thread.default_ime_window.is_none()
+                && matches!(window.creation.kind, WindowKind::Overlapped { .. })
+            {
+                Phase::AllocateImeExtra
+            } else {
+                Phase::NonClientRectangle
+            }
+        }
+        Phase::AllocateImeExtra => {
+            if value == 0 || qword(&response, 8) != 0 || qword(&response, 16) != 0 {
+                return Err(failure(
+                    "default IME extra storage allocation returned an unexpected result",
+                ));
+            }
             p.space
-                .rd(qword(&response, 16), &mut rectangle)
+                .rd(value, &mut [0; DEFAULT_IME_EXTRA_BYTES as usize])
                 .map_err(|error| {
-                    failure(format!("nonclient rectangle is inaccessible: {error:?}"))
+                    failure(format!(
+                        "default IME extra storage is inaccessible: {error:?}"
+                    ))
                 })?;
-            p.gui
-                .set_window_client_rectangle(&mut p.vm, pending.handle, rectangle)
-                .map_err(|error| failure(format!("nonclient rectangle write failed: {error:?}")))?;
+            open_default_ime(p, t, pending.handle, value)?;
+            Phase::ImeNonClientCreate
+        }
+        Phase::ImeNonClientCreate if value == 0 => {
+            return Err(failure(
+                "installed default IME procedure rejected nonclient creation",
+            ));
+        }
+        Phase::ImeNonClientCreate => Phase::ImeNonClientRectangle,
+        Phase::ImeNonClientRectangle => {
+            let ime = p.gui.threads[&t.tid].default_ime_window.ok_or_else(|| {
+                failure("default IME window is absent during nonclient calculation")
+            })?;
+            set_client_rectangle(p, ime, qword(&response, 16))?;
+            Phase::ImeCreate
+        }
+        Phase::ImeCreate if value == u64::MAX => {
+            return Err(failure("installed default IME procedure rejected creation"));
+        }
+        Phase::ImeCreate => Phase::ImeSize,
+        Phase::ImeSize => Phase::ImeMove,
+        Phase::ImeMove => Phase::ImeStartup,
+        Phase::ImeStartup => Phase::NonClientRectangle,
+        Phase::NonClientRectangle => {
+            set_client_rectangle(p, pending.handle, qword(&response, 16))?;
             Phase::Create
         }
         Phase::Create if value == u64::MAX => {
@@ -801,7 +1206,11 @@ pub(super) fn resume(
         }
         Phase::Create => return Ok(pending.result),
         Phase::BeginDestroy => Phase::Destroy,
-        Phase::Destroy => Phase::NonClientDestroy,
+        Phase::Destroy => begin_ime_destruction(p, t, pending.handle)?,
+        Phase::ImeBeginDestroy => Phase::ImeDestroy,
+        Phase::ImeDestroy => Phase::ImeNonClientDestroy,
+        Phase::ImeNonClientDestroy => Phase::FreeImeExtra,
+        Phase::FreeImeExtra => unreachable!("handled before the callback response is read"),
         Phase::NonClientDestroy => {
             p.gui
                 .close_window(&mut p.vm, pending.handle)
