@@ -11,6 +11,7 @@ const NEW: u64 = OLD + 0x20_0000;
 const OBSERVED: u64 = 0xa000;
 const WRITER_COUNT: u64 = 0xa008;
 const WRITER_CODE: u64 = 0x1_8000;
+const WRITER_ITERATION_LIMIT: u64 = 1 << 32;
 const REPLY: u64 = 0x8877_6655_4433_2211;
 
 fn next(cpu: &mut dyn VCpu) -> rax::error::Result<VcpuExit> {
@@ -53,7 +54,14 @@ fn writer(memory: &GuestMemoryWrapper, vm: &dyn Vm) -> Box<dyn VCpu> {
     let mut code = vec![0x48, 0x89, 0x07, 0x48, 0x89, 0x17]; // MOV [RDI],RAX/RDX.
     code.extend([0x48, 0xff, 0x04, 0x25]); // INC qword [abs32].
     code.extend((WRITER_COUNT as u32).to_le_bytes());
-    code.extend([0xeb, 0xf0]); // Back to the first store (16-byte loop).
+    // The observer publishes its reply only after the second device access.
+    // This gives the peer a guest exit even while it remains inside one SDK slice.
+    code.extend([0x48, 0x83, 0x3c, 0x25]); // CMP qword [abs32],0.
+    code.extend((OBSERVED as u32).to_le_bytes());
+    code.extend([0, 0x75, 5]); // JNE to HLT, with a nonzero budget.
+    code.extend([0x48, 0xff, 0xc9]); // DEC RCX.
+    code.extend([0x75, 0xe2]); // JNE back to the first store.
+    code.push(0xf4); // HLT. A zero budget indicates probe failure.
     memory
         .memory()
         .write_slice(&code, GuestAddress(WRITER_CODE))
@@ -67,6 +75,7 @@ fn writer(memory: &GuestMemoryWrapper, vm: &dyn Vm) -> Box<dyn VCpu> {
     state.regs.rip = WRITER_CODE;
     state.regs.rdi = PDE;
     state.regs.rax = OLD | 0x83;
+    state.regs.rcx = WRITER_ITERATION_LIMIT;
     state.regs.rdx = NEW | 0x83;
     cpu.set_state(&CpuState::X86_64(state)).unwrap();
     cpu
@@ -122,16 +131,16 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
         progress(case, "prepare-peer");
         writer(&memory, vm.as_ref())
     });
-    let stop = Arc::new(AtomicBool::new(false));
+    let cancel_peer = Arc::new(AtomicBool::new(false));
     let barrier = Arc::new(Barrier::new(2));
     let peer = peer.map(|mut peer| {
-        let stop = stop.clone();
+        let cancel_peer = cancel_peer.clone();
         let barrier = barrier.clone();
         std::thread::spawn(move || {
             let mut error = String::new();
             barrier.wait();
             let mut first = true;
-            while !stop.load(Ordering::Acquire) {
+            while !cancel_peer.load(Ordering::Acquire) {
                 if first {
                     progress(case, "first-peer-entry");
                 }
@@ -142,6 +151,14 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
                 }
                 match result {
                     Ok(None) => {}
+                    Ok(Some(VcpuExit::Hlt)) => {
+                        if state(peer.as_ref()).regs.rcx == 0 {
+                            error = "peer exhausted its guest iteration budget".into();
+                        } else {
+                            progress(case, "peer-observed-reply");
+                        }
+                        break;
+                    }
                     Ok(Some(exit)) => {
                         error = format!("unexpected peer exit: {exit:?}");
                         break;
@@ -193,7 +210,9 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
         }
         Ok(())
     })();
-    stop.store(true, Ordering::Release);
+    if result.is_err() {
+        cancel_peer.store(true, Ordering::Release);
+    }
     let peer_error = peer
         .map(|peer| {
             progress(case, "join-peer");

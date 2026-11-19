@@ -209,3 +209,17 @@ and `join-peer` at line 173. The peer return is absent from the visible log.
 The cause below the logged boundary is unknown. No execution artifact or
 downloadable job log is available. The combined attempt provides zero
 qualified guest cases. [Combined job transcript](https://github.com/HexRaysSA/rax/actions/runs/44519935525/job/135545645427#step:8:173)
+
+## Guest-controlled peer completion
+
+The concurrent probe's peer polls the observer's reply in guest RAM at
+`0xa000`. The observer writes the reply after completing the second device
+read. The peer keeps updating the PDE up to that point and then executes
+`HLT`, which lets the test join it after a guest-generated exit.
+
+A 64-bit register caps the peer at `2^32` iterations. `HLT` with a zero
+counter is a test failure. Success requires a nonzero counter, observed peer
+writes, and the exact observer RIP, reply, and continuation marker. The host can
+also cancel further peer slices when the observer fails. This bounds guest
+work and gives the probe a completion path inside a native slice. The Intel
+SDK's host deadline behavior remains a separate requirement.
