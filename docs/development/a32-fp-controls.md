@@ -198,13 +198,15 @@ format checks passed.
 ## AArch32 FEAT_RDM
 
 VQRDMLAH and VQRDMLSH execute in A32 and T32 when `ID_ISAR5.RDM` is 1 and
-the CPU admits Advanced SIMD integer operations. The standalone default reports
-RDM 0. AArch32 execution on a mixed-width CPU reads the same RDM field through
-CP15 and `ID_ISAR5_EL1`, as derived from `ID_AA64ISAR0_EL1.RDM`. Absent and
-reserved capability fields reject before FP permission traps. Executed Thumb IT
-slots select the architecturally permitted Undefined outcome.
-[Arm DDI0597, VQRDMLAH](https://support.arm.com/documentation/ddi0597/2023-06/SIMD-FP-Instructions/VQRDMLAH--Vector-Saturating-Rounding-Doubling-Multiply-Accumulate-Returning-High-Half-?lang=en)
-[Arm DDI0597, VQRDMLSH](https://kib.kiev.ua/x86docs/ARM/XML/2026-09/ISA_AArch32_xml_A_profile_2025-09_96-2025-09_ASL1/xhtml/vqrdmlsh.html)
+the profile has a D32 register bank and `MVFR1.SIMDInt` is 1. Guest
+readback applies the same capability checks. The standalone default reports
+RDM 0. Mixed-width CPUs derive the field from `ID_AA64ISAR0_EL1.RDM`
+and report it through both AArch32 MRC and AArch64 MRS of the AArch32 ID
+register. Raw saved capability values are preserved. A missing, incompatible,
+or reserved capability selects Undefined before FP permission traps.
+Executed Thumb IT slots select the architecturally permitted Undefined outcome.
+[Arm DDI0597 ID032025, VQRDMLAH and VQRDMLSH, PDF pages 1220–1227](../specifications/arm/aarch32-isa-2025-03.pdf)
+· [Arm DDI0487B.a, G6.2.107–108](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
 
 For signed input lanes `a`, `b`, and accumulator `d`, with lane width `w` of
 16 or 32 bits, the unsaturated result is
@@ -222,6 +224,14 @@ and TID3 traps. The full A32 FP controls, VFP A32, and ARM targets passed 155,
 524, and 46,850 tests. The A32/T32 SMIR lifters report these operations as
 unsupported. Physical AArch32 execution and the broader profile audit remain
 open.
+
+The readback regression reproduced a D16 guest reporting RDM=1 while a
+legal RDM word returned Undefined. It now checks D16, missing and reserved
+SIMDInt, and reserved RDM levels. The mixed-width cases also retire a
+legal RDM word with SIMD floating-point arithmetic disabled. The 64 QEMU
+cases were replayed against the enabled and absent standard profiles.
+All 47,661 tests across `a32_fp_controls`, `arm`, `arm_vfp_a32`, and
+`isa_oracle` passed on Apple Silicon.
 
 ## AArch32 BF16 allocation
 

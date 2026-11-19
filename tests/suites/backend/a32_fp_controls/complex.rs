@@ -65,7 +65,8 @@ fn complex_id_and_dependencies_precede_access_traps() {
                     operation(&mut cpu, ID_ISAR5),
                     ExecResult::Continue
                 ));
-                assert_eq!(cpu.regs[0], (u32::from(full) << 28) | (1 << 24));
+                let rdm = u32::from(!matches!(dependencies, 1 | 2)) << 24;
+                assert_eq!(cpu.regs[0], (u32::from(full) << 28) | rdm);
                 // Reserved or incompatible profile fields stay intact.
                 assert_eq!(cpu.cp15.id_isar[5], (vcma << 28) | (1 << 24));
                 cpu.cp15.hcptr |= 1 << 10;

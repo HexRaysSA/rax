@@ -1112,7 +1112,8 @@
         "a32-scalar-vfp-memory-2026-11-18",
         "a32-fp-banked-trap-register-2026-11-18",
         "a32-fcma-admission-2026-11-19",
-        "a32-dotprod-admission-2026-11-19"
+        "a32-dotprod-admission-2026-11-19",
+        "a32-rdm-profile-2026-11-19"
       ]
     },
     {
@@ -199744,6 +199745,16 @@
       "scope": "LAPIC timer IRQ delivery across a saved native CPU entry slot, with direct and fresh-vCPU restored guest cases.",
       "qualification": "docs/development/hvf-interrupt-window/entry-irq-qualification.json",
       "native_qualification": "docs/development/hvf-interrupt-window/native-entry-irq-verified.json",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-rdm-profile-2026-11-19",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Use the same RDM level, D32 and SIMDInt prerequisites for AArch32 execution and guest ID readback. Preserve saved ID fields. Qualify standalone and mixed-width A32 and T32 profile combinations.",
+      "qualification": "docs/development/a32-fp-controls.md#aarch32-feat_rdm",
       "full_goal_complete": false
     },
     {

@@ -1,6 +1,6 @@
 //! CP15 access policy for the represented FP/security/virtualization controls.
 use super::*;
-use crate::isa::arm::aarch32::fp_admission::{effective_id_isar5_vcma, effective_id_isar6};
+use crate::isa::arm::aarch32::fp_admission::{effective_id_isar5, effective_id_isar6};
 use crate::isa::arm::aarch64::aarch32_state::system_trap_rt;
 use crate::isa::arm::common::sysreg::Cp15Encoding;
 
@@ -137,7 +137,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let mut value = self.cpu.cp15.read(enc)?;
         let vfp = &self.cpu.vfp;
         value = match key(enc) {
-            (0, 0, 2, 5) => effective_id_isar5_vcma(value, vfp.mvfr0, vfp.mvfr1),
+            (0, 0, 2, 5) => effective_id_isar5(value, vfp.mvfr0, vfp.mvfr1),
             (0, 0, 2, 7) => effective_id_isar6(value, vfp.mvfr0, vfp.mvfr1),
             _ => value,
         };

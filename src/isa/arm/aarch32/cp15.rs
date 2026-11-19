@@ -38,6 +38,7 @@ use crate::isa::arm::common::sysreg::Cp15Encoding;
 use std::fmt;
 
 pub(crate) const ID_ISAR5_VCMA: u32 = 15 << 28;
+pub(crate) const ID_ISAR5_RDM: u32 = 15 << 24;
 pub(crate) const ID_ISAR6_DP: u32 = 15 << 4;
 
 // These AArch32 extensions have no execution support. The storage still
@@ -326,12 +327,14 @@ impl Cp15State {
             (0, 0, 2, 3) => Some(self.id_isar[3]),
             (0, 0, 2, 4) => Some(self.id_isar[4]),
             (0, 0, 2, 5) => {
-                let value = self.id_isar[5];
-                Some(if value >> 28 > 1 {
-                    value & !ID_ISAR5_VCMA
-                } else {
-                    value
-                })
+                let mut value = self.id_isar[5];
+                if value & ID_ISAR5_VCMA > 1 << 28 {
+                    value &= !ID_ISAR5_VCMA;
+                }
+                if value & ID_ISAR5_RDM > 1 << 24 {
+                    value &= !ID_ISAR5_RDM;
+                }
+                Some(value)
             }
             (0, 0, 2, 7) => {
                 let value = self.id_isar6 & !(ID_ISAR6_I8MM | ID_ISAR6_BF16);

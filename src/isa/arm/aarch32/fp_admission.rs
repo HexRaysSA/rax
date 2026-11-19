@@ -3,7 +3,7 @@
 //! MVFR1 conversion fields do not imply FEAT_FP16 data processing. See the
 //! archived Arm ASL guards and feature-admission reference provenance.
 use super::{
-    cp15::{ID_ISAR5_VCMA, ID_ISAR6_DP},
+    cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_DP},
     vfp::VfpState,
 };
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
@@ -30,7 +30,7 @@ pub(crate) fn instruction_supported(
 ) -> bool {
     if matches!(insn.mnemonic, Mnemonic::VCADD | Mnemonic::VCMLA) {
         return advsimd
-            && effective_id_isar5_vcma(id_isar5, state.mvfr0, state.mvfr1) & ID_ISAR5_VCMA != 0
+            && effective_id_isar5(id_isar5, state.mvfr0, state.mvfr1) & ID_ISAR5_VCMA != 0
             && Aarch32Decoder::complex_simd_fields(a32_word(insn)).is_some_and(|fields| {
                 fields.is_ok_and(|fields| {
                     fields.mnemonic == insn.mnemonic
@@ -45,7 +45,7 @@ pub(crate) fn instruction_supported(
                 .is_some_and(|fields| fields.is_ok_and(|fields| fields.mnemonic == insn.mnemonic));
     }
     if matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH)
-        && (!advsimd || (id_isar5 >> 24) & 15 != 1)
+        && (!advsimd || effective_id_isar5(id_isar5, state.mvfr0, state.mvfr1) & ID_ISAR5_RDM == 0)
     {
         return false;
     }
@@ -374,22 +374,27 @@ fn kind_from_word(insn: &DecodedInsn, advsimd: bool, raw: u32) -> HalfKind {
 
 const ID_ISAR6_FHM: u32 = 15 << 8;
 
-/// FEAT_FCMA includes FP32 Advanced SIMD. FP16 remains independently optional.
-pub(crate) fn effective_id_isar5_vcma(id_isar5: u32, mvfr0: u32, mvfr1: u32) -> u32 {
-    let has_vcma = id_isar5 & ID_ISAR5_VCMA == 1 << 28;
-    let has_d32 = mvfr0 & 15 == 2;
-    let has_simd_integer = (mvfr1 >> 12) & 15 == 1;
+fn has_integer_simd(mvfr0: u32, mvfr1: u32) -> bool {
+    mvfr0 & 15 == 2 && (mvfr1 >> 12) & 15 == 1
+}
+
+/// Both extensions require integer Advanced SIMD. FCMA adds FP32 and leaves
+/// FP16 arithmetic independently optional.
+pub(crate) fn effective_id_isar5(mut id_isar5: u32, mvfr0: u32, mvfr1: u32) -> u32 {
+    let has_integer_simd = has_integer_simd(mvfr0, mvfr1);
     let has_simd_single = (mvfr1 >> 16) & 15 == 1;
-    if has_vcma && has_d32 && has_simd_integer && has_simd_single {
-        id_isar5
-    } else {
-        id_isar5 & !ID_ISAR5_VCMA
+    if !has_integer_simd || id_isar5 & ID_ISAR5_RDM != 1 << 24 {
+        id_isar5 &= !ID_ISAR5_RDM;
     }
+    if !(has_integer_simd && has_simd_single) || id_isar5 & ID_ISAR5_VCMA != 1 << 28 {
+        id_isar5 &= !ID_ISAR5_VCMA;
+    }
+    id_isar5
 }
 
 /// Project the DotProd and FHM fields through the active AArch32 SIMD profile.
 pub(crate) fn effective_id_isar6(mut id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
-    let has_simd_integer = mvfr0 & 15 == 2 && (mvfr1 >> 12) & 15 == 1;
+    let has_simd_integer = has_integer_simd(mvfr0, mvfr1);
     let has_simd_single = (mvfr1 >> 16) & 15 == 1;
     let has_simd_half = (mvfr1 >> 20) & 15 == 2;
     if !has_simd_integer || id_isar6 & ID_ISAR6_DP != 1 << 4 {
