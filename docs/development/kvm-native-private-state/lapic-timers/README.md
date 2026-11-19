@@ -88,3 +88,9 @@ alternative without artificial NMI delivery. It appears effective on fresh
 default graphs, but initialized relocated graphs retain a duplicate despite
 exact exported-bank equality. All 24 observations are retained; the candidate
 does not supply the missing general timer-phase contract.
+
+The [SVR staging control](svr-restoration.md) clears the private expiry latch
+with a guest-legal x2APIC register write. It preserves absence or presence of
+the pending timer interrupt on both destination profiles in twenty staged
+trials. The result covers an expired x2APIC one-shot with source pending
+interrupts already materialized in IRR.
