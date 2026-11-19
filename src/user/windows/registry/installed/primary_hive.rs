@@ -11,7 +11,8 @@ pub(crate) fn capture(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     let registry = super::command_processor::capture_local_settings(registry, sid)?;
     let registry = super::command_processor::capture_shell_folders(registry, sid)?;
     let registry = super::command_processor::capture_user_registry_policy(registry, sid)?;
-    super::command_processor::capture_user_nt_current_version(registry, sid)
+    let registry = super::command_processor::capture_user_nt_current_version(registry, sid)?;
+    super::command_processor::capture_user_theme(registry, sid)
 }
 
 pub(super) fn capture_header(registry: Registry, sid: &[u8]) -> io::Result<Registry> {

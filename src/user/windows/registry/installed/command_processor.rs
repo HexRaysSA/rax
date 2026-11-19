@@ -82,11 +82,20 @@ pub(super) fn capture_shell_folders(registry: Registry, sid: &[u8]) -> io::Resul
     capture_snapshot_with(registry, SnapshotRoot::ShellFolders, sid, open_snapshot)
 }
 
-pub(super) fn capture_user_registry_policy(
+pub(super) fn capture_user_registry_policy(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
+    capture_user_header(registry, sid, SnapshotRoot::UserRegistryPolicy)
+}
+
+pub(super) fn capture_user_theme(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
+    let registry = capture_user_header(registry, sid, SnapshotRoot::ThemeManager)?;
+    capture_user_header(registry, sid, SnapshotRoot::ThemePersonalize)
+}
+
+fn capture_user_header(
     mut registry: Registry,
     sid: &[u8],
+    root: SnapshotRoot,
 ) -> io::Result<Registry> {
-    let root = SnapshotRoot::UserRegistryPolicy;
     let path = root.path(sid)?;
     for view in [RegistryView::Native64, RegistryView::Wow32] {
         let selected = match super::native_key::open_view(&path, view) {
@@ -105,7 +114,8 @@ pub(super) fn capture_user_registry_policy(
             ) => Err(status),
             Err(status) => {
                 return Err(invalid(&format!(
-                    "registry-tools policy open failed: 0x{status:08X}"
+                    "{} native open failed: 0x{status:08X}",
+                    root.label()
                 )));
             }
         };
@@ -292,7 +302,9 @@ fn open_snapshot_path(
         | SnapshotRoot::LocalSettings
         | SnapshotRoot::ShellFolders
         | SnapshotRoot::UserNtCurrentVersion
-        | SnapshotRoot::UserRegistryPolicy => (-2_147_483_645isize, "\\Registry\\User\\"),
+        | SnapshotRoot::UserRegistryPolicy
+        | SnapshotRoot::ThemeManager
+        | SnapshotRoot::ThemePersonalize => (-2_147_483_645isize, "\\Registry\\User\\"),
     };
     let prefix: Vec<_> = prefix.encode_utf16().collect();
     let relative = path

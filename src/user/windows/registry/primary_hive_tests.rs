@@ -672,3 +672,70 @@ fn creator_compat_layers_keeps_distinct_native_absences() {
         Lookup::MissingPath
     ));
 }
+
+#[test]
+fn creator_theme_headers_bind_the_original_hive_and_preserve_access_outcomes() {
+    use crate::user::windows::nt::status::STATUS_ACCESS_DENIED;
+
+    let sid = sid();
+    let mut registry = registry().with_primary_hive(&sid, Some(header(9))).unwrap();
+    let manager = SnapshotRoot::ThemeManager;
+    let personalize = SnapshotRoot::ThemePersonalize;
+    let preference = Value {
+        name: units("AppsUseLightTheme"),
+        kind: 4,
+        data: 1u32.to_le_bytes().to_vec(),
+    };
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        registry = registry
+            .with_snapshot_selection(manager, &sid, view, Err(STATUS_ACCESS_DENIED))
+            .unwrap()
+            .with_snapshot_selection(
+                personalize,
+                &sid,
+                view,
+                Ok((
+                    CommandHeader {
+                        canonical: personalize.path(&sid).unwrap(),
+                        children: 0,
+                        enumeration: Some(Vec::new()),
+                        values: vec![preference.clone()],
+                        access: KeyAccess {
+                            maximum_access: 0x20019,
+                            system_security_status: 0xc000_0061,
+                        },
+                    },
+                    None,
+                )),
+            )
+            .unwrap();
+    }
+    let root = registry
+        .key(&user_policy::user_hive_path(&sid).unwrap())
+        .unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        let specify = |suffix: &str| units(suffix.trim_start_matches('\\'));
+        let manager_relative = specify(super::snapshot_root::THEME_MANAGER_SUFFIX);
+        let personalize_relative = specify(super::snapshot_root::THEME_PERSONALIZE_SUFFIX);
+        let Lookup::Present(blocked) = root.relative_in_view(&manager_relative, view) else {
+            panic!("creator theme denied key");
+        };
+        assert_eq!(blocked.open_denial, Some(STATUS_ACCESS_DENIED));
+        let Lookup::Present(key) = root.relative_in_view(&personalize_relative, view) else {
+            panic!("creator theme preference");
+        };
+        assert_eq!(key.value(&units("appsuselighttheme")), Some(&preference));
+        assert!(key.value(&units("ThemeDebuggees")).is_none());
+        assert!(matches!(
+            root.relative_in_view(
+                &units("Software\\Microsoft\\Windows\\CurrentVersion\\Themes"),
+                view
+            ),
+            Lookup::Unselected
+        ));
+        assert!(matches!(
+            registry.lookup_view(&units("\\Registry\\User\\S-1-5-19\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"), view),
+            Lookup::Unselected
+        ));
+    }
+}

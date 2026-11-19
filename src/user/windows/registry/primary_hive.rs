@@ -68,6 +68,16 @@ impl Registry {
                 super::snapshot_root::USER_REGISTRY_POLICY_SUFFIX,
                 "primary hive and registry-tools policy select different subjects",
             ),
+            (
+                ViewRoot::ThemeManager,
+                super::snapshot_root::THEME_MANAGER_SUFFIX,
+                "primary hive and ThemeManager select different subjects",
+            ),
+            (
+                ViewRoot::ThemePersonalize,
+                super::snapshot_root::THEME_PERSONALIZE_SUFFIX,
+                "primary hive and Themes Personalize select different subjects",
+            ),
         ] {
             if self.views.paths.get(&kind).is_some_and(|selected| {
                 let expected: Vec<_> = path.iter().copied().chain(suffix.encode_utf16()).collect();
@@ -165,6 +175,8 @@ impl Registry {
             (ViewRoot::ShellFolders, "Shell Folders"),
             (ViewRoot::UserNtCurrentVersion, "Windows NT CurrentVersion"),
             (ViewRoot::UserRegistryPolicy, "registry-tools policy"),
+            (ViewRoot::ThemeManager, "ThemeManager"),
+            (ViewRoot::ThemePersonalize, "Themes Personalize"),
         ];
         let selected = subjects
             .iter()

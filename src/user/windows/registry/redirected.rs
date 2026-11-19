@@ -30,6 +30,8 @@ pub(crate) enum ViewRoot {
     WindowsNt,
     UserNtCurrentVersion,
     UserRegistryPolicy,
+    ThemeManager,
+    ThemePersonalize,
     SideBySide,
     Wow64Amd64,
     Wow64X86Jit,
@@ -124,7 +126,12 @@ impl RegistryViews {
     }
 
     fn lookup_selected(&self, root: ViewRoot, view: RegistryView, suffix: &[u16]) -> Lookup {
-        if root == ViewRoot::UserRegistryPolicy && !suffix.is_empty() {
+        if !suffix.is_empty()
+            && matches!(
+                root,
+                ViewRoot::UserRegistryPolicy | ViewRoot::ThemeManager | ViewRoot::ThemePersonalize
+            )
+        {
             return Lookup::Unselected;
         }
         let selection = (root, view);
