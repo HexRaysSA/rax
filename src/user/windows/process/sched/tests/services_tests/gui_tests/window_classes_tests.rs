@@ -335,3 +335,135 @@ fn window_classes_preserve_versions_outputs_and_atom_lifetime() {
         );
     }
 }
+
+#[test]
+fn installed_ime_class_is_registered_lazily_with_paired_procedures() {
+    use crate::user::windows::gui::cursor_icons::{CURSOR, Catalog, Resource};
+
+    let arch = WinArch::Arm64;
+    let (mut process, mut t, base) = setup_state(arch);
+    let p = process.state_mut();
+    p.modules.list[0].name = "user32.dll".into();
+    let user = p.modules.exe().base;
+    let [record, name, ordinal, menu, empty, result, menu_out] =
+        [0x5000, 0x5200, 0x5400, 0x5600, 0x5800, 0x5a00, 0x5c00].map(|offset| base + offset);
+    let [error, status] = error_addresses(&t, arch);
+    let wide = base + 0x30c0;
+    let ansi = base + 0x30d0;
+    let ntdll_index = p
+        .modules
+        .by_name("ntdll.dll")
+        .unwrap_or(p.modules.nt_services.as_ref().unwrap().0);
+    let ntdll = &mut p.modules.list[ntdll_index];
+    ntdll.name = "ntdll.dll".into();
+    ntdll.base = wide - 0x31e5c0;
+    for (address, add) in [(wide, 0x9130_4210), (ansi, 0x9130_0210)] {
+        for (offset, word) in [0xb0ff_f310, add, 0xd61f_0200].into_iter().enumerate() {
+            p.space.w32(address + offset as u64 * 4, word).unwrap();
+        }
+    }
+    let Availability::Available(inputs) = &mut p.native.as_mut().unwrap().gui else {
+        unreachable!();
+    };
+    std::sync::Arc::get_mut(inputs).unwrap().cursor_icons = Ok(Catalog::new(vec![Resource {
+        ordinal: 32512,
+        selector: CURSOR,
+        depths: 0,
+        any_format: false,
+    }]));
+
+    describe(p, name, "iMe");
+    p.space.w64(ordinal + 8, 0xc027).unwrap();
+    p.space.wr(result, &[0xa5; 80]).unwrap();
+    p.space.wr(menu_out, &[0xa5; 32]).unwrap();
+    p.space.w32(status, LAST_STATUS).unwrap();
+    assert_eq!(
+        call(p, &mut t, "NtUserRegisterWindowMessage", [name]),
+        0xc027
+    );
+    assert_eq!(
+        call(
+            p,
+            &mut t,
+            "NtUserGetClassInfoEx",
+            [0, ordinal, result, menu_out, 0]
+        ),
+        0
+    );
+    assert_eq!(p.space.u32(error).unwrap(), 1411);
+    assert_eq!(p.space.u32(status).unwrap(), LAST_STATUS);
+    assert_eq!(p.space.bytes(result, 80).unwrap(), [0xa5; 80]);
+    assert_eq!(p.space.bytes(menu_out, 32).unwrap(), [0xa5; 32]);
+
+    p.space.w32(record, 80).unwrap();
+    p.space.w32(record + 4, 0x4000).unwrap();
+    p.space.w64(record + 8, wide).unwrap();
+    p.space.w32(record + 20, 8).unwrap();
+    p.space.w64(record + 24, user).unwrap();
+    p.space.w64(record + 40, 0x1601_0003).unwrap();
+    p.space.w64(menu + 16, empty).unwrap();
+    let registration = [record, name, name, menu, 0x2a9, 0x40, 0];
+    assert_eq!(
+        call(p, &mut t, "NtUserRegisterClassExWOW", registration),
+        0xc027
+    );
+
+    for (module, query_name, is_ansi, procedure, output_module) in [
+        (0, name, 0, wide, 0),
+        (user, ordinal, 1, ansi, 0),
+        (base + 0x9000, name, 1, ansi, base + 0x9000),
+    ] {
+        p.space.w32(error, LAST_ERROR).unwrap();
+        assert_eq!(
+            call(
+                p,
+                &mut t,
+                "NtUserGetClassInfoEx",
+                [module, query_name, result, menu_out, is_ansi]
+            ),
+            0xc027
+        );
+        assert_eq!(p.space.u32(result).unwrap(), 0xa5a5_a5a5);
+        assert_eq!(p.space.u32(result + 4).unwrap(), 0);
+        assert_eq!(p.space.u64(result + 8).unwrap(), procedure);
+        assert_eq!(p.space.u32(result + 20).unwrap(), 8);
+        assert_eq!(p.space.u64(result + 24).unwrap(), output_module);
+        assert_eq!(p.space.u64(result + 40).unwrap(), 0x10003);
+        assert_eq!(p.space.u64(menu_out).unwrap(), 0);
+        assert_eq!(p.space.bytes(menu_out + 8, 24).unwrap(), [0xa5; 24]);
+        assert_eq!(p.space.u32(error).unwrap(), LAST_ERROR);
+        assert_eq!(p.space.u32(status).unwrap(), LAST_STATUS);
+    }
+    assert_eq!(call(p, &mut t, "NtUserUnregisterClass", [name, 0, 0]), 1);
+    assert_eq!(
+        call(
+            p,
+            &mut t,
+            "NtUserGetClassInfoEx",
+            [0, ordinal, result, menu_out, 0]
+        ),
+        0
+    );
+    assert_eq!(
+        call(p, &mut t, "NtUserRegisterWindowMessage", [name]),
+        0xc027
+    );
+
+    let upcase = p.registry.upcase_table();
+    let allocated: Vec<_> = (0..40)
+        .map(|i| {
+            p.gui
+                .register_message(
+                    &upcase,
+                    &format!("dynamic{i}").encode_utf16().collect::<Vec<_>>(),
+                )
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(
+        allocated,
+        (0xc000..0xc029)
+            .filter(|&atom| atom != 0xc027)
+            .collect::<Vec<_>>()
+    );
+}

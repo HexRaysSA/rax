@@ -1,5 +1,6 @@
 //! Guest USER atoms shared by window messages, clipboard formats and window classes.
 
+use super::window_classes::{DEFAULT_IME_ATOM, DEFAULT_IME_NAME};
 use crate::user::windows::nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOT_ENOUGH_MEMORY};
 use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
@@ -48,7 +49,16 @@ pub(super) struct Table {
 impl Default for Table {
     fn default() -> Self {
         Self {
-            names: BTreeMap::new(),
+            // The system atom is visible even before USER32 registers the
+            // per-process IME class. Keep it out of the dynamic allocation range.
+            names: BTreeMap::from([(
+                DEFAULT_IME_NAME.to_vec(),
+                Atom {
+                    value: DEFAULT_IME_ATOM,
+                    permanent: true,
+                    class_references: 0,
+                },
+            )]),
             next: FIRST_STRING_ATOM,
             vacant: BTreeSet::new(),
         }
@@ -63,6 +73,9 @@ impl Table {
                 let value = if let Some(reused) = self.vacant.pop_first() {
                     reused
                 } else {
+                    if self.next == u32::from(DEFAULT_IME_ATOM) {
+                        self.next += 1;
+                    }
                     let next = u16::try_from(self.next).map_err(|_| ERROR_NOT_ENOUGH_MEMORY)?;
                     self.next += 1;
                     next

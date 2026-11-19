@@ -1,7 +1,12 @@
 //! Native 64-bit Win32u class entry points using guest-owned USER objects.
 
-use super::{Availability, Mem, MemoryAccessKind, Outcome, Proc, Thread, failure, query_error};
-use crate::user::windows::gui::window_classes::{Definition, MENU_BYTES, Name, RECORD_BYTES};
+use super::{
+    Availability, Mem, MemoryAccessKind, Outcome, Proc, Thread, WinArch, failure, query_error,
+    windows,
+};
+use crate::user::windows::gui::window_classes::{
+    CS_GLOBALCLASS, DEFAULT_IME_CURSOR, Definition, MENU_BYTES, Name, RECORD_BYTES,
+};
 use crate::user::windows::memory::MemFault;
 use crate::user::windows::nt::error::{
     ERROR_INVALID_NAME, ERROR_INVALID_PARAMETER, ERROR_NOACCESS,
@@ -204,18 +209,32 @@ fn registration(
             record,
             menu: [qword(&menu_record, 0), qword(&menu_record, 8)],
             ansi_procedure: flags & ANSI_PROCEDURE != 0,
+            ime_ansi_procedure: None,
         },
     )))
 }
 
 pub(super) fn register(p: &mut Proc, t: &Thread, arguments: [u64; 7]) -> Result<u64, Outcome> {
-    let (primary, version, definition) = match registration(p, arguments) {
+    let (primary, version, mut definition) = match registration(p, arguments) {
         Ok(Some(registration)) => registration,
         Ok(None) => return Ok(0),
         Err(error) => return error.report(p, t),
     };
     let upcase = p.registry.upcase_table();
     require_case_table(&upcase)?;
+    if p.arch == WinArch::Arm64
+        && arguments[4] as u16 == windows::FNID_IME
+        && arguments[5] as u32 == 0x40
+        && primary.is_default_ime(&upcase)
+        && version.is_default_ime(&upcase)
+        && user_module(p)
+            .or_else(|| windows::default_ime_user_module(p))
+            .is_some_and(|user| definition.module() == user)
+        && definition.procedure() == windows::ime_procedure(p, false)?
+    {
+        definition.ime_ansi_procedure = Some(windows::ime_procedure(p, true)?);
+        definition.record[40..48].copy_from_slice(&DEFAULT_IME_CURSOR.to_le_bytes());
+    }
     match p
         .gui
         .register_class(&upcase, &primary, &version, definition)
@@ -270,11 +289,22 @@ pub(super) fn get(
         let definition = &class.definition;
         let ansi = ansi as u32 != 0;
         let mut record = definition.record;
-        if ansi != definition.ansi_procedure && qword(&record, 8) != 0 {
+        if let Some(ansi_procedure) = definition.ime_ansi_procedure {
+            let style = dword(&record, 4) & !CS_GLOBALCLASS;
+            record[4..8].copy_from_slice(&style.to_le_bytes());
+            if ansi {
+                record[8..16].copy_from_slice(&ansi_procedure.to_le_bytes());
+            }
+        } else if ansi != definition.ansi_procedure && definition.procedure() != 0 {
             return Err(Rejection::Unsupported(
                 "window class procedure encoding conversion is unavailable",
             ));
         }
+        let user = if user.is_none() && definition.ime_ansi_procedure.is_some() {
+            windows::default_ime_user_module(p)
+        } else {
+            user
+        };
         let client_module = if Some(module) == user { 0 } else { module };
         record[24..32].copy_from_slice(&client_module.to_le_bytes());
         let menu = definition.menu[if ansi { 0 } else { 1 }];

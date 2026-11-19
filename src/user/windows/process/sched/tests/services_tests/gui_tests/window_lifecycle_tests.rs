@@ -243,6 +243,7 @@ fn setup_window(
                 record: class,
                 menu: [0; 2],
                 ansi_procedure: false,
+                ime_ansi_procedure: None,
             },
         )
         .unwrap();

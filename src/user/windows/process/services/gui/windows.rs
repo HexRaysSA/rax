@@ -40,7 +40,7 @@ const THREAD_DEFAULT_IME_HANDLE: u32 = 3;
 const THREAD_IME_COMPAT_FLAGS: u32 = 0x0d;
 const DEFAULT_DIMENSION: i32 = i32::MIN;
 const DEFAULT_IME_EXTRA_BYTES: u32 = 8;
-const FNID_IME: u16 = 0x02a9;
+pub(super) const FNID_IME: u16 = 0x02a9;
 const FNID_DELETED: u16 = 0x4000;
 const FNID_DEFWINDOWPROC: u32 = 0x029e;
 
@@ -119,8 +119,13 @@ fn procedure_bridge(p: &Proc) -> Result<u64, Outcome> {
     selected_ntdll_procedure(p, 0x31e500, [0xb0ff_f310, 0x9133_4210, 0xd61f_0200])
 }
 
-fn ime_procedure(p: &Proc) -> Result<u64, Outcome> {
-    selected_ntdll_procedure(p, 0x31e5c0, [0xb0ff_f310, 0x9130_4210, 0xd61f_0200])
+pub(super) fn ime_procedure(p: &Proc, ansi: bool) -> Result<u64, Outcome> {
+    let (rva, branch_target_offset) = if ansi {
+        (0x31e5d0, 0x9130_0210)
+    } else {
+        (0x31e5c0, 0x9130_4210)
+    };
+    selected_ntdll_procedure(p, rva, [0xb0ff_f310, branch_target_offset, 0xd61f_0200])
 }
 
 fn selected_ntdll_procedure(p: &Proc, rva: u64, expected: [u32; 3]) -> Result<u64, Outcome> {
@@ -426,7 +431,7 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
     };
     procedure_bridge(p)?;
     if matches!(kind, WindowKind::Overlapped { .. }) && !p.gui.threads[&t.tid].ime_disabled {
-        ime_procedure(p)?;
+        ime_procedure(p, false)?;
     }
     let creation = Creation {
         kind,
@@ -1005,7 +1010,7 @@ fn measure_reply(p: &mut Proc, handle: u32, response: &[u8]) -> Result<(), Outco
     Ok(())
 }
 
-fn default_ime_user_module(p: &Proc) -> Option<u64> {
+pub(super) fn default_ime_user_module(p: &Proc) -> Option<u64> {
     // Installed NTDLL can map USER32 without an entry in the emulator's
     // module registry. Recover its guest image base from the measured
     // allocation callback and the section that owns the code.
@@ -1032,7 +1037,7 @@ fn default_ime_user_module(p: &Proc) -> Option<u64> {
 }
 
 fn open_default_ime(p: &mut Proc, t: &Thread, owner: u32, extra: u64) -> Result<(), Outcome> {
-    let procedure = ime_procedure(p)?;
+    let procedure = ime_procedure(p, false)?;
     let module = default_ime_user_module(p)
         .ok_or_else(|| failure("default IME window requires installed USER32"))?;
     let creation = Creation {

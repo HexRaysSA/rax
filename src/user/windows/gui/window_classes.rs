@@ -6,8 +6,10 @@ use std::rc::Rc;
 
 pub(crate) const RECORD_BYTES: usize = 80;
 pub(crate) const MENU_BYTES: usize = 32;
-const CS_GLOBALCLASS: u32 = 0x4000;
+pub(crate) const CS_GLOBALCLASS: u32 = 0x4000;
 pub(crate) const DEFAULT_IME_ATOM: u16 = 0xc027;
+pub(crate) const DEFAULT_IME_NAME: [u16; 3] = [0x49, 0x4d, 0x45];
+pub(crate) const DEFAULT_IME_CURSOR: u64 = 0x10003;
 const ERROR_CLASS_ALREADY_EXISTS: u32 = 1410;
 const ERROR_CLASS_DOES_NOT_EXIST: u32 = 1411;
 const ERROR_CLASS_HAS_WINDOWS: u32 = 1412;
@@ -19,6 +21,13 @@ pub(crate) enum Name {
 }
 
 impl Name {
+    pub(crate) fn is_default_ime(&self, upcase: &[u16]) -> bool {
+        matches!(self, Self::Counted(units) if units
+            .iter()
+            .map(|&unit| upcase[usize::from(unit)])
+            .eq(DEFAULT_IME_NAME))
+    }
+
     fn atom_name(&self, upcase: &[u16]) -> Result<message_atoms::Name, u32> {
         match self {
             Self::Ordinal(value) => Ok(message_atoms::Name::Ordinal(*value)),
@@ -31,6 +40,7 @@ pub(crate) struct Definition {
     pub(crate) record: [u8; RECORD_BYTES],
     pub(crate) menu: [u64; 2],
     pub(crate) ansi_procedure: bool,
+    pub(crate) ime_ansi_procedure: Option<u64>,
 }
 
 #[derive(Default)]
@@ -54,15 +64,16 @@ impl Class {
         record[8..16].copy_from_slice(&procedure.to_le_bytes());
         record[20..24].copy_from_slice(&8u32.to_le_bytes());
         record[24..32].copy_from_slice(&module.to_le_bytes());
-        record[40..48].copy_from_slice(&0x10003u64.to_le_bytes());
+        record[40..48].copy_from_slice(&DEFAULT_IME_CURSOR.to_le_bytes());
         Rc::new(Self {
             public_atom: DEFAULT_IME_ATOM,
             definition: Definition {
                 record,
                 menu: [0; 2],
                 ansi_procedure: false,
+                ime_ansi_procedure: None,
             },
-            spelling: Name::Counted("IME".encode_utf16().collect()),
+            spelling: Name::Counted(DEFAULT_IME_NAME.to_vec()),
             primary: message_atoms::Name::Ordinal(DEFAULT_IME_ATOM),
             version: message_atoms::Name::Ordinal(DEFAULT_IME_ATOM),
         })
