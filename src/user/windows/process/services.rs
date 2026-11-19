@@ -122,6 +122,7 @@ fn enter(
                 | "NtUserCreateWindowEx"
                 | "NtUserDisableThreadIme"
                 | "NtUserQueryWindow"
+                | "NtUserIsTopLevelWindow"
                 | "NtUserGetThreadState"
                 | "NtUserGetClassName"
                 | "NtUserSetWindowLongPtr"
@@ -192,6 +193,9 @@ fn enter(
             }
             "NtUserQueryWindow" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::QueryWindow)
+            }
+            "NtUserIsTopLevelWindow" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::IsTopLevelWindow)
             }
             "NtUserGetThreadState" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetThreadState)

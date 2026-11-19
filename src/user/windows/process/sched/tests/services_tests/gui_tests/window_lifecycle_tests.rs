@@ -30,6 +30,18 @@ fn service<const N: usize>(p: &mut Proc, t: &mut Thread, name: &str, values: [u6
     );
 }
 
+fn assert_top_level(p: &mut Proc, t: &mut Thread, handle: u64, result: u64, last_error: u32) {
+    let offsets = crate::user::windows::layout::offsets(p.arch);
+    let error = t.teb + offsets.teb_last_error;
+    let status = t.teb + offsets.teb_last_status;
+    p.space.w32(error, 0x4567).unwrap();
+    p.space.w32(status, 0xc0000034).unwrap();
+    service(p, t, "NtUserIsTopLevelWindow", [handle]);
+    assert_eq!(t.cpu.gpr(0), result);
+    assert_eq!(p.space.u32(error).unwrap(), last_error);
+    assert_eq!(p.space.u32(status).unwrap(), 0xc0000034);
+}
+
 fn callback_return(p: &mut Proc, t: &mut Thread, output: [u64; 3]) {
     arguments(p, t, output);
     assert_eq!(dispatch(p, t, 5, RETURN + 0x100), Some(Outcome::Continue));
@@ -204,6 +216,9 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
 
     let hwnd = u64::from(handle);
     let tagged = hwnd | (1u64 << 32);
+    assert_top_level(p, &mut t, hwnd, 0, 0x4567);
+    assert_top_level(p, &mut t, tagged, 0, 0x4567);
+    assert_top_level(p, &mut t, hwnd | 0xffff_0000, 0, 0x4567);
     let view = t.teb + 0x840;
     assert_eq!(p.space.bytes(view, 16).unwrap(), [0; 16]);
     let error = t.teb + crate::user::windows::layout::offsets(WinArch::Arm64).teb_last_error;
@@ -279,6 +294,8 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
     vacant[26..28].copy_from_slice(&((handle >> 16) as u16 + 1).to_le_bytes());
     assert_eq!(p.space.bytes(slot, 32).unwrap(), vacant);
     assert!(p.gui.unregister_class(&upcase, &name, module, None).is_ok());
+    assert_top_level(p, &mut t, hwnd, 0, 1400);
+    assert_top_level(p, &mut t, hwnd | 0xffff_0000, 0, 1400);
 }
 
 #[test]
@@ -367,7 +384,14 @@ fn ime_disabled_overlapped_window_applies_callback_tracking_limits() {
     p.space.w64(reply, 0).unwrap();
     callback_return(p, &mut t, [reply, 24, 0]);
     assert_eq!(t.cpu.gpr(0), u64::from(handle));
-    service(p, &mut t, "NtUserQueryWindow", [u64::from(handle), 8]);
+    let hwnd = u64::from(handle);
+    for alias in [hwnd, hwnd | 0x5a00_0000_0000_0000, hwnd | 0xffff_0000] {
+        assert_top_level(p, &mut t, alias, 1, 0x4567);
+    }
+    for invalid in [0, 0x1234, u64::MAX - 2, hwnd & 0xffff, hwnd ^ 0x66_0000] {
+        assert_top_level(p, &mut t, invalid, 0, 1400);
+    }
+    service(p, &mut t, "NtUserQueryWindow", [hwnd, 8]);
     assert_eq!(t.cpu.gpr(0), 0);
     service(p, &mut t, "NtUserGetThreadState", [3]);
     assert_eq!(t.cpu.gpr(0), 0);

@@ -226,6 +226,26 @@ impl State {
         self.windows.entries.get(&u32::try_from(handle).ok()?)
     }
 
+    /// The upper 32 bits are ignored. Generation 0xffff selects the live
+    /// occupant of the 16-bit slot in the guest USER handle table.
+    pub(crate) fn window_accepting_wildcard_generation(
+        &self,
+        vm: &VirtualMemory,
+        handle: u64,
+    ) -> Option<&Window> {
+        let mut handle = handle as u32;
+        if handle >> 16 == u32::from(u16::MAX) {
+            let index = u64::from(handle as u16);
+            let table = self.windows.handles.as_ref()?;
+            if index >= table.entries {
+                return None;
+            }
+            let generation = vm.space().u16(table.address(index) + 26).ok()?;
+            handle = (u32::from(generation) << 16) | u32::from(index as u16);
+        }
+        self.windows.entries.get(&handle)
+    }
+
     pub(crate) fn window_mut(&mut self, handle: u32) -> Option<&mut Window> {
         self.windows.entries.get_mut(&handle)
     }

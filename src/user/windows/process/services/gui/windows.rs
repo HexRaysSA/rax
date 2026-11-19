@@ -161,6 +161,16 @@ pub(super) fn query(p: &Proc, t: &Thread, [handle, query]: [u64; 2]) -> Result<u
     ))
 }
 
+pub(super) fn is_top_level(p: &Proc, t: &Thread, [handle]: [u64; 1]) -> Result<u64, Outcome> {
+    let Some(window) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
+        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    };
+    Ok(u64::from(matches!(
+        window.creation.kind,
+        WindowKind::Overlapped { .. }
+    )))
+}
+
 pub(super) fn get_thread_state(p: &Proc, t: &Thread, [query]: [u64; 1]) -> Result<u64, Outcome> {
     if query as u32 == THREAD_DEFAULT_IME_HANDLE
         && p.gui

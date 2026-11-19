@@ -238,6 +238,7 @@ pub(crate) enum Completion {
     CreateWindow([u64; 18]),
     DisableThreadIme([u64; 1]),
     QueryWindow([u64; 2]),
+    IsTopLevelWindow([u64; 1]),
     GetThreadState([u64; 1]),
     QueryWindowClassName([u64; 3]),
     SetWindowLongPtr([u64; 4]),
