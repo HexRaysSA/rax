@@ -93,6 +93,18 @@ fn standalone_fhm_field_and_vector_half_dependency_reject_reserved_profiles() {
                     let before = cpu.vfp.dregs;
                     let fpscr = cpu.vfp.fpscr.bits();
                     let mut mem = rax::isa::arm::execution::FlatMemory::new(4096, 0);
+                    let id_read = if thumb {
+                        ThumbDecoder::decode_32bit(0xee10_0ff2)
+                    } else {
+                        Aarch32Decoder::decode(0xee10_0ff2)
+                    }
+                    .unwrap();
+                    assert!(matches!(
+                        Executor::new(&mut cpu, &mut mem).execute(&id_read),
+                        ExecResult::Continue
+                    ));
+                    assert_eq!((cpu.regs[0] >> 8) & 15, u32::from(fhm == 1 && simd == 2));
+                    assert_eq!(cpu.cp15.id_isar6, fhm << 8);
                     let result = Executor::new(&mut cpu, &mut mem).execute(&insn);
                     if fhm == 1 && simd == 2 {
                         assert!(matches!(result, ExecResult::Continue));
@@ -125,6 +137,81 @@ fn mixed_guest_fhm_id_and_a64_fields_follow_effective_capabilities() {
                 assert_eq!((sys.id_aa64isar0_el1 >> 48) & 15, expected);
                 assert_eq!((sys.id_aa64pfr0_el1 >> 16) & 15, u64::from(fp16));
                 assert_eq!((sys.id_aa64pfr0_el1 >> 20) & 15, u64::from(fp16));
+            }
+        }
+    }
+}
+
+#[test]
+fn fhm_id_follows_advsimd_dependencies_in_guest_reads_and_execution() {
+    const MRC_ID_ISAR6: u32 = 0xee10_0ff2;
+    const MRS_ID_ISAR6_EL1: u32 = 0xd538_02e0;
+    const MRS_ID_AA64ISAR0_EL1: u32 = 0xd538_0600;
+    let [mvfr0, mvfr1] = {
+        let cpu = Armv7Cpu::new();
+        [cpu.vfp.mvfr0, cpu.vfp.mvfr1]
+    };
+
+    for (test_mvfr0, test_mvfr1, implemented) in [
+        (mvfr0, mvfr1, true),
+        (mvfr0, (mvfr1 & !(15 << 20)) | (1 << 20), false),
+        (mvfr0, (mvfr1 & !(15 << 20)) | (3 << 20), false),
+        ((mvfr0 & !15) | 1, mvfr1, false),
+        (mvfr0, mvfr1 & !(15 << 16), false),
+        (mvfr0, mvfr1 & !(15 << 12), false),
+    ] {
+        for thumb in [false, true] {
+            let expected = u64::from(implemented);
+            let mut standalone = Armv7Cpu::new();
+            standalone.cpsr.t = thumb;
+            standalone.vfp.mvfr0 = test_mvfr0;
+            standalone.vfp.mvfr1 = test_mvfr1;
+            let id_read = if thumb {
+                ThumbDecoder::decode_32bit(MRC_ID_ISAR6)
+            } else {
+                Aarch32Decoder::decode(MRC_ID_ISAR6)
+            }
+            .unwrap();
+            let mut mem = rax::isa::arm::execution::FlatMemory::new(4096, 0);
+            assert!(matches!(
+                Executor::new(&mut standalone, &mut mem).execute(&id_read),
+                ExecResult::Continue
+            ));
+            assert_eq!(u64::from(standalone.regs[0] >> 8) & 15, expected);
+
+            let mut cpu = profile(WORDS[0], thumb, true, true, false);
+            let mut state = cpu.export_sregs();
+            let sys = &mut state.execution.as_mut().unwrap().sysregs;
+            for (index, value) in [test_mvfr0, test_mvfr1].into_iter().enumerate() {
+                sys.impl_defined.insert(
+                    Aarch64SysRegEncoding::new(3, 0, 0, 3, index as u8).encode(),
+                    u64::from(value),
+                );
+            }
+            cpu.import_sregs(&state).unwrap();
+            cpu.set_pstate_bits(0x3cd).unwrap();
+            cpu.set_pc(0x200);
+            cpu.write_memory(0x200, &MRS_ID_ISAR6_EL1.to_le_bytes())
+                .unwrap();
+            cpu.write_memory(0x204, &MRS_ID_AA64ISAR0_EL1.to_le_bytes())
+                .unwrap();
+            assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+            assert_eq!((cpu.get_x(0) >> 8) & 15, expected);
+            assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+            assert_eq!((cpu.get_x(0) >> 48) & 15, 1);
+
+            cpu.set_pstate_bits(0x1d3 | if thumb { 32 } else { 0 })
+                .unwrap();
+            cpu.set_pc(0xfc);
+            cpu.write_memory(0xfc, &bytes(MRC_ID_ISAR6, thumb)).unwrap();
+            assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+            assert_eq!((cpu.get_x(0) >> 8) & 15, expected);
+            let result = cpu.step();
+            assert_eq!(cpu.get_pc(), if implemented { 0x104 } else { 0x100 });
+            if implemented {
+                assert_eq!(result.unwrap(), CpuExit::Continue);
+            } else {
+                assert!(matches!(result, Err(ArmError::UndefinedInstruction(_))));
             }
         }
     }

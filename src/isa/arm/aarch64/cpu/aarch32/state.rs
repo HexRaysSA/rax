@@ -18,8 +18,9 @@ impl AArch64Cpu {
         let mut cpu = Armv7Cpu::new();
         cpu.pstate_features = self.config.features;
         cpu.cp15.id_isar[5] = self.sysregs.aarch32_id_isar5();
-        cpu.cp15.id_isar6 = self.sysregs.aarch32_id_isar6();
-        [cpu.vfp.mvfr0, cpu.vfp.mvfr1, cpu.vfp.mvfr2] = self.sysregs.aarch32_fp_ids();
+        let ids = self.sysregs.aarch32_fp_ids();
+        cpu.cp15.id_isar6 = self.sysregs.aarch32_id_isar6(ids);
+        [cpu.vfp.mvfr0, cpu.vfp.mvfr1, cpu.vfp.mvfr2] = ids;
         cpu.fp_access_context = Some(self.aarch32_fp_context());
         cpu.nonsecure = self.sysregs.scr_el3 & 1 != 0;
         for index in 0..15 {

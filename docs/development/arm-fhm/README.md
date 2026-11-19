@@ -2,10 +2,14 @@
 
 FEAT_FHM is independent of half-precision arithmetic and requires FEAT_FP16.
 `ArmFeatures::FHM` selects that capability; the v8.4 and later base feature
-sets include it. Standalone A32 uses `Cp15State.id_isar6[11:8]` and requires
-MVFR1.SIMDHP=2. Values other than FHM=1 cannot enable long multiply/accumulate.
+sets include it. Standalone A32 uses `Cp15State.id_isar6[11:8]`. Guest ID
+reads and long multiply/accumulate both require FHM=1, MVFR0.SIMDReg=2,
+MVFR1.SIMDInt=1, MVFR1.SIMDSP=1 and MVFR1.SIMDHP=2. The raw profile remains
+available in host state and private records.
 The standalone default remains its existing synthetic full-half profile.
 These settings do not identify a complete physical CPU implementation.
+
+The table describes the default MVFR profile.
 
 | FP16 flag | FHM flag | A64 FP/AdvSIMD half fields | A32 FPHP/SIMDHP | A32/A64 FHM fields | FHM admission |
 | --- | --- | --- | --- | --- | --- |
@@ -14,8 +18,9 @@ These settings do not identify a complete physical CPU implementation.
 | 0 | 1 | 0/0 | 2/1 | 0/0 | Undefined: FP16 dependency |
 | 1 | 1 | 1/1 | 3/2 | 1/1 | Subject to FP access controls |
 
-A32 FHM is ID_ISAR6[11:8]; A64 exposes the same value through ID_ISAR6_EL1
-and ID_AA64ISAR0_EL1[51:48]. Half support is reported in
+A32 FHM is ID_ISAR6[11:8] and is also visible through ID_ISAR6_EL1 in A64.
+An A32 MVFR overlay can lower that value while preserving the A64 execution
+capability in ID_AA64ISAR0_EL1[51:48]. Half support is reported in
 ID_AA64PFR0_EL1.FP[19:16] and AdvSIMD[23:20]. Constructor, reset and trusted
 system-state import refresh those modeled fields from the selected features.
 The mixed-width coprocessor preflight admits the modeled ID_ISAR6 read.

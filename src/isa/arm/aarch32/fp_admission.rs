@@ -349,19 +349,34 @@ fn kind_from_word(insn: &DecodedInsn, advsimd: bool, raw: u32) -> HalfKind {
     }
 }
 
+const ID_ISAR6_FHM: u32 = 15 << 8;
+
+/// Expose FHM only when the AArch32 profile can execute its SIMD operations.
+pub(crate) fn effective_id_isar6_fhm(id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
+    let has_fhm = id_isar6 & ID_ISAR6_FHM == 1 << 8;
+    let has_d32 = mvfr0 & 15 == 2;
+    let has_simd_integer = (mvfr1 >> 12) & 15 == 1;
+    let has_simd_single = (mvfr1 >> 16) & 15 == 1;
+    let has_simd_half = (mvfr1 >> 20) & 15 == 2;
+    if has_fhm && has_d32 && has_simd_integer && has_simd_single && has_simd_half {
+        id_isar6
+    } else {
+        id_isar6 & !ID_ISAR6_FHM
+    }
+}
+
 pub(crate) fn half_supported(
     insn: &DecodedInsn,
     advsimd: bool,
     state: &VfpState,
     id_isar6: u32,
 ) -> bool {
+    if matches!(insn.mnemonic, Mnemonic::VFMAL | Mnemonic::VFMLS) {
+        return advsimd
+            && effective_id_isar6_fhm(id_isar6, state.mvfr0, state.mvfr1) & ID_ISAR6_FHM != 0;
+    }
     let scalar = (state.mvfr1 >> 24) & 15;
     let simd = (state.mvfr1 >> 20) & 15;
-    // FHM is distinct from FP16 arithmetic and requires vector half support.
-    // Reserved feature encodings must not accidentally enable the extension.
-    if matches!(insn.mnemonic, Mnemonic::VFMAL | Mnemonic::VFMLS) {
-        return advsimd && simd == 2 && (id_isar6 >> 8) & 15 == 1;
-    }
     // The default full-half profile needs no further instruction classification.
     if scalar == 3 && simd == 2 {
         return true;

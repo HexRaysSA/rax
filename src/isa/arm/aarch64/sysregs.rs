@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use crate::isa::arm::aarch32::cp15::ID_ISAR5_VCMA;
+use crate::isa::arm::aarch32::fp_admission::effective_id_isar6_fhm;
 use crate::isa::arm::common::sysreg::{Aarch64SysReg, Aarch64SysRegEncoding};
 
 // =============================================================================
@@ -547,10 +548,10 @@ impl SystemRegisters {
         (other_fields & !(ID_ISAR5_VCMA | (15 << 24))) | rdm
     }
 
-    pub(crate) fn aarch32_id_isar6(&self) -> u32 {
+    pub(crate) fn aarch32_id_isar6(&self, [mvfr0, mvfr1, _]: [u32; 3]) -> u32 {
         let fhm = (((self.id_aa64isar0_el1 >> 48) & 15) as u32) << 8;
         let jscvt = ((self.id_aa64isar1_el1 >> 12) & 15) as u32;
-        fhm | jscvt
+        effective_id_isar6_fhm(fhm | jscvt, mvfr0, mvfr1)
     }
 
     /// Read a system register by encoding.
@@ -575,10 +576,10 @@ impl SystemRegisters {
             // REVIDR_EL1
             (3, 0, 0, 0, 6) => Some(self.revidr_el1),
 
-            // The A32 RDM, FHM and JSCVT IDs share the selected A64 capabilities.
+            // Project the selected A64 capabilities into the A32 profile.
             // Keep it here so CPU execution and saved-state/SMIR readers agree.
             (3, 0, 0, 2, 5) => Some(self.aarch32_id_isar5().into()),
-            (3, 0, 0, 2, 7) => Some(self.aarch32_id_isar6().into()),
+            (3, 0, 0, 2, 7) => Some(self.aarch32_id_isar6(self.aarch32_fp_ids()).into()),
 
             // ID_AA64PFR0_EL1
             (3, 0, 0, 4, 0) => Some(self.id_aa64pfr0_el1),
