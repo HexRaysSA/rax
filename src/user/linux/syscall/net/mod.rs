@@ -334,7 +334,7 @@ fn bind_unix(c: &mut Ctx<'_>, s: &Socket, b: &[u8]) -> SysResult {
                 super::notify::made_and_unmade(c, &host);
                 return Err(Errno(EINVAL));
             }
-            name::bind(s, &name::fit(&host)?)?;
+            name::bind_pathname(&c.p.vfs, s, &host, &p)?;
             st.path_binding = c.p.socket_paths.remember(&host, s, &p);
             // The node's mode: every permission the umask leaves.
             use std::os::unix::fs::PermissionsExt;

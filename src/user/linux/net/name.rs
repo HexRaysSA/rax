@@ -5,7 +5,8 @@
 //! an absolute host path, and one longer than the host's `sun_path` (104
 //! bytes on Darwin, 108 on Linux) is bound or connected through its
 //! directory ([`sys::unix_at`]). For pathname connections within one
-//! personality, peer queries use the guest's bind spelling. Host peers
+//! personality, peer queries use the guest's bind spelling. Linux hosts
+//! also retain the relative spelling of received peers. Host peers
 //! without a recorded binding are translated through the VFS.
 //!
 //! Linux's abstract namespace (a name whose first byte is NUL) is the
@@ -207,6 +208,27 @@ pub fn bind(s: &Socket, p: &Place) -> Result<(), Errno> {
         Place::Addr(a) => sys::bind(&s.file, a),
         Place::At(dir, name) => sys::unix_at(&s.file, dir, name, false),
     }
+}
+
+/// Binds a pathname socket. For a host-backed Linux filesystem, passing
+/// the actual relative pathname lets the kernel retain its spelling for
+/// accepted connections and queued datagrams, even after unlink.
+pub fn bind_pathname(vfs: &Vfs, s: &Socket, host: &Path, guest: &[u8]) -> Result<(), Errno> {
+    #[cfg(target_os = "linux")]
+    {
+        let cwd = Path::new(vfs.cwd());
+        if vfs.sysroot().is_none()
+            && cwd.is_absolute()
+            && !guest.starts_with(b"/")
+            && guest.len() < sys::sun_path_max()
+            && let Some(result) = sys::bind_unix_relative(&s.file, cwd, guest)
+        {
+            return result;
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (vfs, guest);
+    bind(s, &fit(host)?)
 }
 
 /// Connects `s` to `p`.

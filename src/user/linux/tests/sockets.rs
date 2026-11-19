@@ -601,6 +601,82 @@ fn unix_datagrams_reach_long_host_paths_without_connecting() {
     });
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn unix_received_pathnames_survive_sender_close_and_rebind() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = area(&mut h);
+        let dir = tmpdir("received-names", abi);
+        let nested = dir.join("nested");
+        std::fs::create_dir(&nested).unwrap();
+        let host_cwd = std::env::current_dir().unwrap();
+        chdir(&mut h, &dir, m);
+
+        let stream = sock(&mut h, AF_UNIX, STREAM | NONBLOCK);
+        let datagram = sock(&mut h, AF_UNIX, DGRAM | NONBLOCK);
+        let stream_address = sun(b"./stream");
+        let datagram_address = sun(b"./datagram");
+        assert_eq!(bind(&mut h, stream, &stream_address, m), 0);
+        assert_eq!(bind(&mut h, datagram, &datagram_address, m), 0);
+        h.ok(Sysno::Listen, &[stream, 4]);
+        let senders = [
+            (sun(b"./nested//sender"), b'A'),
+            (sun(b"nested/sender"), b'B'),
+        ];
+        for (sender_address, byte) in &senders {
+            let sender = sock(&mut h, AF_UNIX, STREAM | NONBLOCK);
+            assert_eq!(bind(&mut h, sender, sender_address, m), 0);
+            assert_eq!(connect(&mut h, sender, &stream_address, m), 0);
+            assert_eq!(send(&mut h, sender, &[*byte], 0, m), 1);
+            h.ok(Sysno::Close, &[sender]);
+            std::fs::remove_file(nested.join("sender")).unwrap();
+
+            let sender = sock(&mut h, AF_UNIX, DGRAM | NONBLOCK);
+            assert_eq!(bind(&mut h, sender, sender_address, m), 0);
+            let (destination, length) = addr(&h, m + 0x300, &datagram_address);
+            put(&h, m, &[*byte]);
+            h.ok(Sysno::Sendto, &[sender, m, 1, 0, destination, length]);
+            h.ok(Sysno::Close, &[sender]);
+            std::fs::remove_file(nested.join("sender")).unwrap();
+        }
+
+        let output = m + 0x200;
+        let length = m + 0x100;
+        for (sender_address, byte) in senders {
+            put(&h, length, &128u32.to_le_bytes());
+            let accepted = h.ok(Sysno::Accept4, &[stream, output, length, NONBLOCK]);
+            assert_eq!(get(&h, output, u32_at(&h, length) as usize), sender_address);
+            assert_eq!(name(&mut h, accepted, true, m).unwrap(), sender_address);
+            assert_eq!(name(&mut h, accepted, false, m).unwrap(), stream_address);
+            assert_eq!(recv(&mut h, accepted, 1, MSG_DONTWAIT, m).unwrap(), [byte]);
+            h.ok(Sysno::Close, &[accepted]);
+
+            for flags in [MSG_DONTWAIT | MSG_PEEK, MSG_DONTWAIT] {
+                put(&h, length, &128u32.to_le_bytes());
+                assert_eq!(
+                    h.call(Sysno::Recvfrom, &[datagram, m, 1, flags, output, length]),
+                    1
+                );
+                assert_eq!(get(&h, m, 1), [byte]);
+                assert_eq!(get(&h, output, u32_at(&h, length) as usize), sender_address);
+            }
+        }
+
+        assert_eq!(std::env::current_dir().unwrap(), host_cwd);
+        assert_eq!(
+            h.err(
+                Sysno::Recvfrom,
+                &[datagram, m, 1, MSG_DONTWAIT, output, length]
+            ),
+            EAGAIN
+        );
+        h.ok(Sysno::Close, &[stream]);
+        h.ok(Sysno::Close, &[datagram]);
+        std::fs::remove_dir_all(dir).unwrap();
+    });
+}
+
 #[test]
 fn addresses_copy_out_as_move_addr_to_user() {
     each_abi(|abi| {

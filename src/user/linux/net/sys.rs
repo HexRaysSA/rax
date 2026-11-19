@@ -624,6 +624,43 @@ pub fn peer_cred(fd: &impl AsRawFd) -> Result<(i32, u32, u32), Errno> {
     }
 }
 
+/// Binds the original relative pathname in the guest's working directory.
+/// Returns `None` if a private working directory cannot be set up. Once
+/// the host bind runs, its result is authoritative.
+#[cfg(target_os = "linux")]
+pub(super) fn bind_unix_relative(
+    fd: &(impl AsRawFd + Sync),
+    dir: &std::path::Path,
+    name: &[u8],
+) -> Option<Result<(), Errno>> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let directory = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_PATH)
+        .open(dir)
+        .ok()?;
+    let address = HostAddr::Unix {
+        name: name.to_vec(),
+        abstract_: false,
+    };
+    std::thread::scope(|scope| {
+        let thread = std::thread::Builder::new()
+            .spawn_scoped(scope, || {
+                // SAFETY: Only this helper uses the new filesystem context.
+                // The directory descriptor stays open throughout fchdir.
+                let isolated = unsafe {
+                    libc::unshare(libc::CLONE_FS) == 0 && libc::fchdir(directory.as_raw_fd()) == 0
+                };
+                isolated.then(|| bind(fd, &address))
+            })
+            .ok()?;
+        thread
+            .join()
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+    })
+}
+
 /// Binds (`connect == false`) or connects Unix socket `fd` to `name` in
 /// directory `dir`, for a path longer than the host's `sun_path`, without
 /// changing the process's working directory (the emulator may share its
