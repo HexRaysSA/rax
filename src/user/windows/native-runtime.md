@@ -2789,6 +2789,31 @@ only changes the first four bytes. Capture and publication use the same
 bounds, and the query requires O(P) time and O(1) working storage for P
 privileges.
 
+
+### Guest token privilege adjustment (2026-11-19)
+
+On Windows 11 ARM64 build 29708, 44 native cases produced the same results
+through ARM64, translated x64, and WoW64. NtAdjustPrivilegesToken requires
+TOKEN_ADJUST_PRIVILEGES, plus TOKEN_QUERY when PreviousState is provided.
+It updates only existing guest privileges and can disable all privileges or
+remove selected privileges. Duplicate handles observe the same token object.
+Guest token duplication takes an independent snapshot.
+
+The ABI captures the input before admitting the token and accepts unaligned
+input and output. With PreviousState present, it publishes the 32-bit
+ReturnLength before the previous records. A short caller buffer leaves the
+token unchanged. The required size includes one record even for an empty
+result. The sizing and adjustment passes can count duplicate requests
+differently. RAX bounds writes to the declared buffer capacity. An observed
+guard fault while publishing previous state preserved the privilege bits
+and changed ModifiedId. A successful removal also updates PrivilegeCount.
+Calls with no PreviousState leave ReturnLength alone. Missing privileges
+yield STATUS_NOT_ALL_ASSIGNED while admitted changes still take effect.
+The handler uses the guest token and a guest-only modification ID allocator.
+
+[AdjustTokenPrivileges](https://learn.microsoft.com/windows/win32/api/securitybaseapi/nf-securitybaseapi-adjusttokenprivileges)
+[TOKEN_PRIVILEGES](https://learn.microsoft.com/windows/win32/api/winnt/ns-winnt-token_privileges)
+
 ### Primary-user Safer policy root (2026-10-19)
 
 Native runtime selection derives one fixed per-user Safer/CodeIdentifiers root

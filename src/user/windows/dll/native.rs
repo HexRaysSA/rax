@@ -74,6 +74,7 @@ mod thread_query;
 mod thread_set;
 mod timers;
 mod token;
+mod token_adjust;
 mod token_attributes;
 mod token_duplicate;
 mod token_query;
@@ -425,6 +426,12 @@ pub(super) static EXPORTS: &[Export] = &[
     ),
     Export::func("NtQuerySystemTime", Stdcall, &[Ptr], system_time::query),
     Export::func("NtTestAlert", Stdcall, &[], alert::test),
+    Export::func(
+        "NtAdjustPrivilegesToken",
+        Stdcall,
+        &[Ptr, I32, Ptr, I32, Ptr, Ptr],
+        token_adjust::privileges,
+    ),
     Export::func(
         "NtQueryInformationToken",
         Stdcall,

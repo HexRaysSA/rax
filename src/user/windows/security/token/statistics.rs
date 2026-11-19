@@ -30,6 +30,12 @@ impl Statistics {
             && u32::try_from(privileges).ok() == Some(self.word(44))
     }
 
+    pub(crate) fn with_privilege_change(mut self, count: u32, modified_id: u64) -> Self {
+        self.0[44..48].copy_from_slice(&count.to_le_bytes());
+        self.0[48..56].copy_from_slice(&modified_id.to_le_bytes());
+        self
+    }
+
     pub(crate) fn bytes(&self) -> &[u8; BYTES] {
         &self.0
     }

@@ -18,6 +18,7 @@ pub mod status {
     pub const STATUS_TIMEOUT: u32 = 0x0000_0102;
     pub const STATUS_PENDING: u32 = 0x0000_0103;
     pub const STATUS_MORE_ENTRIES: u32 = 0x0000_0105;
+    pub const STATUS_NOT_ALL_ASSIGNED: u32 = 0x0000_0106;
     pub const STATUS_OBJECT_NAME_EXISTS: u32 = 0x4000_0000;
     pub const STATUS_IMAGE_NOT_AT_BASE: u32 = 0x4000_0003;
     pub const STATUS_IMAGE_AT_DIFFERENT_BASE: u32 = 0x4000_0036;
@@ -160,6 +161,7 @@ pub mod status {
 pub mod error {
     #![allow(missing_docs)]
     pub const ERROR_SUCCESS: u32 = 0;
+    pub const ERROR_NOT_ALL_ASSIGNED: u32 = 1300;
     pub const ERROR_INVALID_FUNCTION: u32 = 1;
     pub const ERROR_FILE_NOT_FOUND: u32 = 2;
     pub const ERROR_PATH_NOT_FOUND: u32 = 3;
@@ -289,6 +291,7 @@ pub fn status_to_error(status: u32) -> u32 {
     use status::*;
     match status {
         STATUS_SUCCESS => ERROR_SUCCESS,
+        STATUS_NOT_ALL_ASSIGNED => ERROR_NOT_ALL_ASSIGNED,
         STATUS_IMAGE_NOT_AT_BASE => ERROR_IMAGE_NOT_AT_BASE,
         STATUS_IMAGE_AT_DIFFERENT_BASE => ERROR_IMAGE_AT_DIFFERENT_BASE,
         STATUS_MAPPED_ALIGNMENT => ERROR_MAPPED_ALIGNMENT,

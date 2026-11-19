@@ -39,10 +39,12 @@ impl Objects {
     pub(crate) fn primary_token_subject(
         &self,
     ) -> Option<std::sync::Arc<crate::user::windows::security::Subject>> {
-        self.wnf_subscriptions
-            .catalog
-            .as_ref()
-            .and_then(Catalog::primary_subject)
+        self.primary_token_adjusted.clone().or_else(|| {
+            self.wnf_subscriptions
+                .catalog
+                .as_ref()
+                .and_then(Catalog::primary_subject)
+        })
     }
     /// Primary subject captured with the selected immutable native catalog.
     /// An absent capture is distinct from a non-AppContainer subject.
@@ -62,6 +64,7 @@ impl Objects {
     }
 
     pub(crate) fn select_wnf_catalog(&mut self, catalog: Catalog) {
+        self.primary_token_adjusted = None;
         self.wnf_subscriptions.catalog = Some(catalog);
     }
 

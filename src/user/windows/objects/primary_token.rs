@@ -1,7 +1,30 @@
 //! Process-owned primary-token identity, independent of caller handles.
 use super::{Object, Objects};
+use crate::user::windows::security::Subject;
+use std::sync::Arc;
 
 impl Objects {
+    /// Keep guest modifications on the token object and in the process-owned
+    /// primary subject, which is also observed through pseudo-handle queries.
+    pub(crate) fn set_token_subject(&mut self, handle: u64, subject: Subject) {
+        let subject = Arc::new(subject);
+        match self.get_mut(handle).expect("validated token handle") {
+            Object::PrimaryToken => self.primary_token_adjusted = Some(subject),
+            Object::ImpersonationToken(current)
+            | Object::GuestImpersonationToken {
+                subject: current, ..
+            } => *current = subject,
+            _ => unreachable!("validated token object"),
+        }
+    }
+
+    /// Allocates in a guest-only LUID range, separate from the captured native
+    /// token IDs. A process cannot recycle a prior modification ID.
+    pub(crate) fn next_token_modified_id(&mut self) -> Option<u64> {
+        self.token_modified_id = self.token_modified_id.checked_add(1)?;
+        Some(0x8000_0000_0000_0000 | u64::from(self.token_modified_id))
+    }
+
     /// Open with a previously validated grant. O(H) time for H live handles;
     /// only the first successful open creates the process-owned token object.
     pub(crate) fn open_primary_token(&mut self, grant: u32, inherit: bool) -> Option<u32> {

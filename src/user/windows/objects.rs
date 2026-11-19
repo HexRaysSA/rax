@@ -363,8 +363,10 @@ pub struct Objects {
     wnf_event: Option<ObjId>,
     /// ETW process notification registration is independent of WNF.
     etw_event: Option<ObjId>,
-    /// The immutable primary token survives the last caller handle.
+    /// The process owns its primary token independently of caller handles.
     primary_token: Option<ObjId>,
+    primary_token_adjusted: Option<std::sync::Arc<super::security::Subject>>,
+    token_modified_id: u32,
     desktop: Option<(ObjId, u32)>,
     window_station: Option<(ObjId, u32)>,
     wnf_subscriptions: wnf::Subscriptions,
@@ -815,6 +817,8 @@ impl Objects {
         self.wnf_event = None;
         self.etw_event = None;
         self.primary_token = None;
+        self.primary_token_adjusted = None;
+        self.token_modified_id = 0;
         self.desktop = None;
         self.window_station = None;
         self.wnf_subscriptions.records.clear();

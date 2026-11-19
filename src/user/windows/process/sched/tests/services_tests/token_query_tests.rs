@@ -26,6 +26,9 @@ mod groups;
 #[path = "token_privileges_tests.rs"]
 mod privileges;
 
+#[path = "token_adjustment_tests.rs"]
+mod adjustment;
+
 #[path = "token_user_tests.rs"]
 mod user_identity;
 
