@@ -18,6 +18,9 @@ mod base_nls;
 #[path = "alpc_tests/batch_notification.rs"]
 mod batch_notification;
 
+#[path = "alpc_tests/theme_bootstrap.rs"]
+mod theme_bootstrap;
+
 fn invoke(p: &mut Proc, t: &mut Thread, args: &[u64; 8]) -> Outcome {
     super::nls_tests::arguments(p, t, args);
     if p.arch != WinArch::Arm64 {

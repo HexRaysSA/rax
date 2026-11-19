@@ -10,6 +10,7 @@ mod activation;
 mod cache;
 mod child_start;
 mod csr;
+pub(super) mod theme;
 
 pub(super) use child_start::application_manifest_name;
 
@@ -117,6 +118,23 @@ fn capture(c: &mut Ctx) -> ApiResult {
         wire_total
     };
     let message = c.mem().bytes(send, total)?;
+    if matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.theme_message().is_some())
+    {
+        return theme::reply(
+            c,
+            port,
+            [
+                send,
+                send_attributes,
+                receive,
+                length,
+                receive_attributes,
+                timeout,
+            ],
+            capacity,
+            &message,
+        );
+    }
     if cache_peer {
         return cache::lookup(
             c,

@@ -539,6 +539,13 @@ pub(super) static NATIVE_SYSTEM_EXPORTS: &[Export] = &[Export::func(
 // ordinals and trap slots where existing callers expect them.
 pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
     Export::func(
+        "NtAlpcConnectPort",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
+        alpc::theme::connect,
+    )
+    .only(Archs::ARM64),
+    Export::func(
         "NtIsUILanguageComitted",
         Stdcall,
         &[],

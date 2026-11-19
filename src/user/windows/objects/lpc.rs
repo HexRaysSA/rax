@@ -12,6 +12,7 @@ pub struct LpcPort {
 
 #[derive(Debug)]
 enum Peer {
+    Theme(u32),
     Csr(Box<crate::user::windows::object_namespace::csr::CsrPeer>),
     Cache(Box<crate::user::windows::object_namespace::cache::CachePeer>),
 }
@@ -70,6 +71,25 @@ impl LpcPort {
             Some(Peer::Cache(peer)) => Some(peer),
             _ => None,
         }
+    }
+
+    pub(crate) fn theme() -> Self {
+        Self {
+            view: None,
+            peer: Some(Peer::Theme(2)),
+        }
+    }
+
+    pub(crate) fn theme_message(&self) -> Option<u32> {
+        match self.peer {
+            Some(Peer::Theme(sequence)) => Some(sequence),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn advance_theme(&mut self, next: u32) {
+        debug_assert!(matches!(self.peer, Some(Peer::Theme(_))));
+        self.peer = Some(Peer::Theme(next));
     }
 
     pub(crate) fn view(&self) -> Option<&SharedViewOwner> {
