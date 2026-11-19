@@ -46,6 +46,7 @@ pub(crate) struct Inputs {
     pub(crate) cursor_icons: Result<cursor_icons::Catalog, String>,
     pub(crate) window_station: Result<Arc<super::objects::WindowStation>, String>,
     pub(crate) overlapped_window_limits: Result<[i32; 10], String>,
+    pub(crate) overlapped_nonclient_rendering: Result<bool, String>,
 }
 
 fn invalid(message: &str) -> io::Error {
@@ -163,6 +164,9 @@ impl Inputs {
             overlapped_window_limits: Err(
                 "selected overlapped window limits were not captured".into()
             ),
+            overlapped_nonclient_rendering: Err(
+                "selected overlapped non-client rendering was not captured".into(),
+            ),
         }))
     }
 }
@@ -240,6 +244,7 @@ pub(crate) enum Completion {
     QueryWindow([u64; 2]),
     IsTopLevelWindow([u64; 1]),
     IsNonClientDpiScalingEnabled([u64; 1]),
+    GetWindowCompositionAttribute([u64; 2]),
     GetThreadState([u64; 1]),
     QueryWindowClassName([u64; 3]),
     SetWindowLongPtr([u64; 4]),

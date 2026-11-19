@@ -1,8 +1,8 @@
-//! Capture default overlapped-window limits through the installed USER32.
+//! Capture default overlapped-window limits and non-client rendering.
 use super::{GetProcAddress, Handle, Module};
-use crate::user::windows::gui::windows::OVERLAPPED_STYLE;
+use crate::user::windows::gui::windows::{OVERLAPPED_STYLE, WCA_NCRENDERING_ENABLED};
 use std::cell::Cell;
-use std::ffi::CStr;
+use std::ffi::{CStr, c_void};
 use std::mem::{size_of, transmute};
 use std::ptr::null_mut;
 
@@ -29,22 +29,46 @@ unsafe extern "system" {
     fn GetModuleHandleW(name: *const u16) -> Handle;
 }
 
-thread_local! {
-    static LIMITS: Cell<Option<[i32; 10]>> = const { Cell::new(None) };
+#[repr(C)]
+struct CompositionAttribute {
+    selector: u32,
+    output: *mut c_void,
+    size: u32,
 }
 
-unsafe extern "system" fn observe(_: Handle, message: u32, _: usize, data: isize) -> isize {
+type QueryComposition = unsafe extern "system" fn(Handle, *const CompositionAttribute) -> i32;
+
+thread_local! {
+    static LIMITS: Cell<Option<[i32; 10]>> = const { Cell::new(None) };
+    static COMPOSITION: Cell<Option<QueryComposition>> = const { Cell::new(None) };
+    static RENDERING: Cell<Option<bool>> = const { Cell::new(None) };
+}
+
+unsafe extern "system" fn observe(window: Handle, message: u32, _: usize, data: isize) -> isize {
     if message == 0x24 && data != 0 {
         // SAFETY: USER32 passed a live native MINMAXINFO. It contains ten
         // consecutive LONGs, copied before returning to the installed caller.
         let limits = unsafe { (data as *const [i32; 10]).read_unaligned() };
         LIMITS.with(|slot| slot.set(Some(limits)));
+        if let Some(query) = COMPOSITION.with(Cell::get) {
+            let mut value = u32::MAX;
+            let attribute = CompositionAttribute {
+                selector: WCA_NCRENDERING_ENABLED,
+                output: (&mut value as *mut u32).cast(),
+                size: size_of::<u32>() as u32,
+            };
+            // SAFETY: the handle comes from this fixed native callback. The
+            // descriptor and its writable BOOL remain live across the query.
+            if unsafe { query(window, &attribute) } != 0 && value <= 1 {
+                RENDERING.with(|slot| slot.set(Some(value != 0)));
+            }
+        }
     }
     // Reject WM_NCCREATE. The helper never creates a visible or live window.
     0
 }
 
-pub(super) fn capture(user: &Module) -> Result<[i32; 10], String> {
+pub(super) fn capture(user: &Module, win32u: &Module) -> Result<([i32; 10], Option<bool>), String> {
     let lookup = |name: &CStr| {
         // SAFETY: live selected module and a static, terminated export name.
         let address = unsafe { GetProcAddress(user.0, name.as_ptr()) };
@@ -109,7 +133,18 @@ pub(super) fn capture(user: &Module) -> Result<[i32; 10], String> {
             std::io::Error::last_os_error()
         ));
     }
+    // SAFETY: selected Win32u stays loaded through the helper callback.
+    let query =
+        unsafe { GetProcAddress(win32u.0, c"NtUserGetWindowCompositionAttribute".as_ptr()) };
+    let query = if query.is_null() {
+        None
+    } else {
+        // SAFETY: this named Win32u export takes HWND and attribute pointer.
+        Some(unsafe { transmute::<*mut c_void, QueryComposition>(query) })
+    };
     LIMITS.with(|slot| slot.set(None));
+    COMPOSITION.with(|slot| slot.set(query));
+    RENDERING.with(|slot| slot.set(None));
     // SAFETY: live class, fixed hidden style and dimensions, no foreign HWND
     // or guest data. The callback rejects creation after observing limits.
     let window = unsafe {
@@ -128,7 +163,9 @@ pub(super) fn capture(user: &Module) -> Result<[i32; 10], String> {
             null_mut(),
         )
     };
+    COMPOSITION.with(Cell::take);
     let limits = LIMITS.with(Cell::take);
+    let rendering = RENDERING.with(Cell::take);
     let unexpected = !window.is_null();
     if unexpected {
         // SAFETY: only the returned handle owned by this thread is destroyed.
@@ -144,5 +181,7 @@ pub(super) fn capture(user: &Module) -> Result<[i32; 10], String> {
     if unexpected {
         return Err("native window-limits probe unexpectedly created a window".into());
     }
-    limits.ok_or_else(|| "native overlapped window did not report default limits".into())
+    limits
+        .map(|limits| (limits, rendering))
+        .ok_or_else(|| "native overlapped window did not report default limits".into())
 }

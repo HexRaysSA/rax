@@ -124,6 +124,7 @@ fn enter(
                 | "NtUserQueryWindow"
                 | "NtUserIsTopLevelWindow"
                 | "NtUserIsNonClientDpiScalingEnabled"
+                | "NtUserGetWindowCompositionAttribute"
                 | "NtUserGetThreadState"
                 | "NtUserGetClassName"
                 | "NtUserSetWindowLongPtr"
@@ -205,6 +206,14 @@ fn enter(
                 resume,
                 wow64_return,
                 Completion::IsNonClientDpiScalingEnabled,
+            ),
+            "NtUserGetWindowCompositionAttribute" => gui::window_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::GetWindowCompositionAttribute,
             ),
             "NtUserGetThreadState" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetThreadState)

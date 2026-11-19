@@ -306,7 +306,18 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             // The probe registers a native class, so observe it after copying
             // the clean helper's shared-data views and thread seed.
             if arch == WinArch::Arm64 {
-                selected.overlapped_window_limits = window_limits::capture(&_user);
+                match window_limits::capture(&_user, &win32u) {
+                    Ok((limits, rendering)) => {
+                        selected.overlapped_window_limits = Ok(limits);
+                        selected.overlapped_nonclient_rendering = rendering.ok_or_else(|| {
+                            "native overlapped window did not report non-client rendering".into()
+                        });
+                    }
+                    Err(reason) => {
+                        selected.overlapped_window_limits = Err(reason.clone());
+                        selected.overlapped_nonclient_rendering = Err(reason);
+                    }
+                }
             }
             return Ok(inputs);
         }

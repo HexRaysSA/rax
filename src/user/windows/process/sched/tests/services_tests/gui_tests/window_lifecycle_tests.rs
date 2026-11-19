@@ -54,6 +54,34 @@ fn assert_nonclient_dpi_disabled(p: &mut Proc, t: &mut Thread, handle: u64, last
     assert_eq!(p.space.u32(status).unwrap(), 0xc0000034);
 }
 
+fn assert_composition(
+    p: &mut Proc,
+    t: &mut Thread,
+    handle: u64,
+    descriptor: u64,
+    expected: (u64, u32, u32),
+) {
+    let offsets = crate::user::windows::layout::offsets(p.arch);
+    let error = t.teb + offsets.teb_last_error;
+    let status = t.teb + offsets.teb_last_status;
+    p.space.w32(error, 0x4567).unwrap();
+    p.space.w32(status, 0xc0000034).unwrap();
+    service(
+        p,
+        t,
+        "NtUserGetWindowCompositionAttribute",
+        [handle, descriptor],
+    );
+    assert_eq!(
+        (
+            t.cpu.gpr(0),
+            p.space.u32(error).unwrap(),
+            p.space.u32(status).unwrap()
+        ),
+        expected
+    );
+}
+
 fn callback_return(p: &mut Proc, t: &mut Thread, output: [u64; 3]) {
     arguments(p, t, output);
     assert_eq!(dispatch(p, t, 5, RETURN + 0x100), Some(Outcome::Continue));
@@ -321,7 +349,9 @@ fn ime_disabled_overlapped_window_applies_callback_tracking_limits() {
         panic!("expected selected GUI inputs");
     };
     let limits = [314, 50, 1520, 862, -8, -8, 136, 39, 1524, 866];
-    Arc::get_mut(inputs).unwrap().overlapped_window_limits = Ok(limits);
+    let inputs = Arc::get_mut(inputs).unwrap();
+    inputs.overlapped_window_limits = Ok(limits);
+    inputs.overlapped_nonclient_rendering = Ok(true);
     service(p, &mut t, "NtUserDisableThreadIme", [0]);
     callback_return(p, &mut t, [0, 0, 0]);
     assert_eq!(t.cpu.gpr(0), 1);
@@ -407,6 +437,55 @@ fn ime_disabled_overlapped_window_applies_callback_tracking_limits() {
         assert_top_level(p, &mut t, invalid, 0, 1400);
         assert_nonclient_dpi_disabled(p, &mut t, invalid, 1400);
     }
+    use crate::user::mm::PAGE_SIZE;
+    use crate::user::windows::memory::prot;
+    let page = base + 0xa000;
+    let descriptor = page - 20;
+    let output = base + 0x8200;
+    p.space.w32(descriptor, 1).unwrap();
+    p.space.w64(descriptor + 8, output).unwrap();
+    p.space.w32(descriptor + 16, 8).unwrap();
+    p.space.w64(output, 0xa5a5_a5a5_ffff_ffff).unwrap();
+    p.vm.protect(page, PAGE_SIZE, prot::NOACCESS).unwrap();
+    assert_composition(
+        p,
+        &mut t,
+        hwnd | 0xffff_0000,
+        descriptor,
+        (1, 0x4567, 0xc0000034),
+    );
+    assert_eq!(p.space.u64(output).unwrap(), 0xa5a5_a5a5_0000_0001);
+    assert_composition(p, &mut t, 0, descriptor, (0, 6, 0xc0000008));
+
+    // Move the descriptor so the output probe can fault on a second page
+    // without aliasing its length field.
+    let output = page - 4;
+    let descriptor = base + 0x8281;
+    p.space.w32(descriptor, 1).unwrap();
+    p.space.w64(descriptor + 8, output).unwrap();
+    p.space.w32(descriptor + 16, 8).unwrap();
+    p.space.w32(output, 0x8765_4321).unwrap();
+    assert_composition(p, &mut t, 0, descriptor, (0, 998, 0xc0000005));
+    p.vm.protect(page, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+        .unwrap();
+    assert_composition(p, &mut t, hwnd, descriptor, (0, 0x8000_0001, 0x8000_0001));
+    assert_eq!(p.space.u32(output).unwrap(), 0x8765_4321);
+    assert_composition(p, &mut t, hwnd, descriptor, (1, 0x4567, 0xc0000034));
+    assert_eq!(p.space.u32(output).unwrap(), 1);
+
+    p.space.w64(descriptor + 8, 1).unwrap();
+    p.space.w32(descriptor + 16, 0).unwrap();
+    assert_composition(p, &mut t, hwnd, descriptor, (0, 122, 0xc0000023));
+    p.space.w32(descriptor, 99).unwrap();
+    assert_composition(p, &mut t, hwnd, descriptor, (0, 87, 0xc000000d));
+    p.space.w32(descriptor + 16, 4).unwrap();
+    assert_composition(p, &mut t, hwnd, descriptor, (0, 998, 0x80000002));
+    p.space.w32(descriptor, 2).unwrap();
+    p.space.w64(descriptor + 8, output).unwrap();
+    assert_composition(p, &mut t, 0, descriptor, (0, 6, 0xc0000008));
+    assert_composition(p, &mut t, hwnd, descriptor, (0, 87, 0xc000000d));
+    p.space.w32(descriptor + 16, 3).unwrap();
+    assert_composition(p, &mut t, hwnd, descriptor, (0, 122, 0xc0000023));
     service(p, &mut t, "NtUserQueryWindow", [hwnd, 8]);
     assert_eq!(t.cpu.gpr(0), 0);
     service(p, &mut t, "NtUserGetThreadState", [3]);

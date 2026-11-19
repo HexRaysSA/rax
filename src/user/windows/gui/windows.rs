@@ -9,6 +9,8 @@ use crate::user::windows::object_namespace::csr::client_data::{
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+pub(crate) const WCA_NCRENDERING_ENABLED: u32 = 1;
+
 const WINDOW_BYTES: usize = 0x160;
 const WINDOW_DPI_CONTEXT_OFFSET: usize = 0x120;
 const WINDOW_DPI_UNAWARE: u32 = 0x6010;

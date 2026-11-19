@@ -4,9 +4,13 @@ use crate::error::MemoryAccessKind;
 use crate::user::windows::gui::{Availability, Callback, Completion};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
-use crate::user::windows::nt::status::{STATUS_GUARD_PAGE_VIOLATION, STATUS_INVALID_PARAMETER};
+use crate::user::windows::nt::status::{
+    STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT, STATUS_GUARD_PAGE_VIOLATION,
+    STATUS_INVALID_PARAMETER,
+};
 use crate::user::windows::objects::Object;
 
+mod composition;
 mod cursor_icons;
 mod system_parameters;
 mod thread_info;
@@ -330,6 +334,34 @@ fn query_error(p: &Proc, t: &Thread, error: u32, status: Option<u32>) -> Result<
     Ok(0)
 }
 
+fn guest_memory_status(p: &mut Proc, address: u64) -> u32 {
+    if p.vm.take_guard(address) {
+        STATUS_GUARD_PAGE_VIOLATION
+    } else {
+        STATUS_ACCESS_VIOLATION
+    }
+}
+
+fn write_guest(p: &mut Proc, address: u64, data: &[u8]) -> Result<(), u32> {
+    p.space
+        .wr(address, data)
+        .map_err(|fault| guest_memory_status(p, fault.addr))
+}
+
+fn probe_guest_write(p: &mut Proc, address: u64, bytes: usize) -> Result<(), u32> {
+    p.space
+        .probe(address, bytes, MemoryAccessKind::Write)
+        .map_err(|fault| guest_memory_status(p, fault.address))
+}
+
+fn check_guest_alignment(address: u64, alignment: u64) -> Result<(), u32> {
+    if address.is_multiple_of(alignment) {
+        Ok(())
+    } else {
+        Err(STATUS_DATATYPE_MISALIGNMENT)
+    }
+}
+
 fn complete_window_message(p: &Proc, t: &Thread, descriptor: u64) -> Result<u64, Outcome> {
     let invalid = || {
         query_error(
@@ -406,6 +438,9 @@ fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, 
         Completion::IsTopLevelWindow(arguments) => return windows::is_top_level(p, t, arguments),
         Completion::IsNonClientDpiScalingEnabled(arguments) => {
             return windows::is_nonclient_dpi_scaling_enabled(p, t, arguments);
+        }
+        Completion::GetWindowCompositionAttribute(arguments) => {
+            return composition::complete(p, t, arguments);
         }
         Completion::GetThreadState(arguments) => return windows::get_thread_state(p, t, arguments),
         Completion::QueryWindowClassName(arguments) => return windows::class_name(p, t, arguments),
