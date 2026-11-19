@@ -127,6 +127,14 @@ native profile runs 36 long-mode MMIO cases, including restoration of the
 pending read into a fresh native vCPU. Each case checks that the guest
 continues through a following register marker and HLT.
 
+Hosted Intel macOS 15.7.9 (24G830), SDK 15.5, executed all 36 cases on
+`f837b851703e09ba10fb0d1e2be9f405659d253c`. All 18 instruction, width and
+value combinations passed both directly and after restoration. The runner
+reported `hypervisor_guest=1`. The execution artifact matched its published
+SHA-256, and all 4,786 engine inputs and 11 consumer and tool inputs matched
+the tested Git tree.
+[Native workflow run 44437835424](https://github.com/HexRaysSA/rax/actions/runs/44437835424)
+
 | ID | Assumption and dependent result | Falsification probe | Status |
 | --- | --- | --- | --- |
 | B1 | The device reply is the entire source operand. The translated EPT record and decoded width supply its identity. | Test zero, the top bit, and mixed bits at every width. Reject mismatched direction, short replies, and register-only forms. | Confirmed in the portable MMIO tests. |
