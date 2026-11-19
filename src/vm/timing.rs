@@ -8,6 +8,7 @@
 mod context;
 mod retired;
 pub use context::{TimingContext, TimingGuard};
+pub(crate) use retired::CLOCK_EPOCH_QUANTA;
 pub use retired::{ClockMode, ClockState, RETIREMENT_FREQUENCY_HZ};
 
 use crate::host::time::Instant;

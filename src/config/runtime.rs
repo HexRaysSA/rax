@@ -8,6 +8,7 @@ use super::values::{Address, MemorySize};
 use super::{ImageAccess, StorageConfig};
 use crate::error::{Error, Result};
 use crate::vm::memory::validate_guest_memory_size;
+use crate::vm::timing::ClockMode;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -373,8 +374,8 @@ impl VmConfig {
 
     /// Select only clock modes whose retirement source the backend implements.
     /// This check precedes host backend, device and memory construction.
-    pub(crate) fn validate_clock_mode(&self, mode: crate::vm::timing::ClockMode) -> Result<()> {
-        validate_clock_mode(self.backend, mode)
+    pub(crate) fn validate_clock_mode(&self, mode: ClockMode) -> Result<()> {
+        validate_clock_mode(self.backend, self.arch, mode)
     }
 
     pub fn validate(&self) -> Result<()> {
@@ -608,10 +609,15 @@ pub struct CheckpointConfig {
     pub storage: StorageConfig,
 }
 
-fn validate_clock_mode(backend: BackendKind, mode: crate::vm::timing::ClockMode) -> Result<()> {
-    if mode == crate::vm::timing::ClockMode::Retired && backend != BackendKind::Emulator {
+fn validate_clock_mode(backend: BackendKind, arch: ArchKind, mode: ClockMode) -> Result<()> {
+    if mode.uses_retirement() && backend != BackendKind::Emulator {
         return Err(Error::InvalidConfig(
             "retired VM clock requires the software backend".into(),
+        ));
+    }
+    if mode == ClockMode::RetiredWithIdle && arch != ArchKind::Aarch64 {
+        return Err(Error::InvalidConfig(
+            "idle-enabled VM clock requires software AArch64".into(),
         ));
     }
     Ok(())
@@ -628,8 +634,8 @@ pub(crate) fn validate_checkpoint_clock(
         return Ok(());
     };
     clock.validate()?;
-    validate_clock_mode(backend, clock.mode)?;
-    if clock.mode == crate::vm::timing::ClockMode::Retired {
+    validate_clock_mode(backend, bundle.base().config.arch, clock.mode)?;
+    if clock.mode.uses_retirement() {
         let execution = bundle.execution().ok_or_else(|| {
             Error::InvalidConfig(
                 "retired VM checkpoint requires execution coordinator state".into(),

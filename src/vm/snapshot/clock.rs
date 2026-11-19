@@ -20,10 +20,7 @@ pub(super) fn encode(state: &ClockState) -> Result<[u8; 44]> {
     let mut raw = [0; 44];
     raw[..8].copy_from_slice(TAG);
     raw[8..16].copy_from_slice(&RETIREMENT_FREQUENCY_HZ.to_le_bytes());
-    raw[16] = match state.mode {
-        ClockMode::Wall => 0,
-        ClockMode::Retired => 1,
-    };
+    raw[16] = state.mode.wire_code();
     raw[17] = state.subnanosecond_quanta;
     raw[18] = u8::from(state.timer_pending);
     for (at, value) in [
@@ -53,11 +50,7 @@ pub(super) fn read(reader: &mut impl Read, length: u64, elapsed: u64) -> Result<
     if raw[18] > 1 || raw[19] != 0 {
         return Err(invalid("invalid clock flags or reserved byte"));
     }
-    let mode = match raw[16] {
-        0 => ClockMode::Wall,
-        1 => ClockMode::Retired,
-        _ => return Err(invalid("unknown clock mode")),
-    };
+    let mode = ClockMode::from_wire_code(raw[16]).ok_or_else(|| invalid("unknown clock mode"))?;
     let state = ClockState {
         mode,
         subnanosecond_quanta: raw[17],

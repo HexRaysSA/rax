@@ -6,28 +6,21 @@ The complete-file constructor `Vmm::new_resume_bundle` selects the saved clock
 mode before constructing those objects, so target LAPICs retain the target VM's
 clock identity and saved relative timer age is rebased against the correct epoch.
 
-The software backend admits `ClockMode::Retired` only when every created vCPU
-supports its validated single-step retirement interface. `Wall` retains the
-existing path. Native KVM/HVF retired mode is rejected before host VM creation,
-RAM allocation or kernel access. No configuration field, serialized clock or
-CPU record, C ABI, ISA semantic or native lowering format changes.
+The software backend admits retirement clock modes only when every created
+vCPU supports its validated single-step retirement interface. Native KVM/HVF
+reject these modes before host VM creation, RAM allocation or kernel access.
 
-The default constructors continue to select wall time. The audit's intended
-deterministic default remains unfinished: switching it requires a defined idle
-advance and conversion of independent board clocks. S5L boot/heartbeat anchors,
-for example, still use host `Instant`; RTC and entropy remain separate inputs.
-This component does not establish whole-machine determinism, native retirement,
-architectural secondary startup, physical cycle accuracy or record/replay.
+The default constructors select wall time. A deterministic default requires
+idle policies for the other machine models and control over independent clocks
+and external inputs. The retirement clock is a software time model.
 
 ## Retirement and restore contract
 
 The existing software budget path publishes one clock unit per validated retired
 instruction (Hexagon packet), before the next instruction. At the selected
 3,000,000,000 units/s, each unit is exactly one third of a nanosecond. Host delay,
-diagnostic tick calls, failed attempts without committed retirement and waits
-with zero retirement do not advance this selected clock. A fully waiting retired
-clock therefore remains frozen; automatic idle advancement is an open default-
-scheduling requirement, not an implicit host-time fallback.
+diagnostic tick calls and failed attempts without committed retirement do not
+advance retirement time. `ClockMode::Retired` freezes when every CPU is waiting.
 
 On retired-clock PCs, the coordinator services the software PIC, PIT and local
 APIC before the selected CPU's next instruction. The clock advances when a step
@@ -46,14 +39,43 @@ phase   = q mod 3                       (0, 1, or 2)
 units   = initial_units + N             (u64 retired units, wrapping)
 ```
 
-Arithmetic and the 44-byte `RAXCLK01` section remain unchanged. The coordinator's
-retired count must equal the retired clock's units. Retired files require the
+The 44-byte `RAXCLK01` section stores the clock mode. The coordinator's retired
+count must equal the clock's retired units. Retirement-mode files require the
 coordinator, complete ordered CPU table and every private CPU record. Capture,
 configuration admission and in-place restore check this contract. New retired
 VMs reject base-only capture/restore and bundles missing a clock section;
 otherwise a legacy projection could lose fractional phase or the timeline.
 Clock-mode mismatch remains rejected before CPU, RAM or device publication.
-Legacy wall-mode projection behavior is unchanged.
+
+## AArch64 idle advancement
+
+Pass `ClockMode::RetiredWithIdle` to the explicit software AArch64 constructor
+to let the coordinator advance the common counter during WFI. At each turn it
+services CPU power requests and polls timer outputs. Once every online PE is
+in WFI, with no pending wake interrupt and no debugger-excluded online PE, it
+advances to the earliest level change on an enabled, unmasked timer and polls all
+online PEs again. WFE and a pending synchronous exit leave instruction entry
+eligible at the current time. With no future timer output, elapsed time freezes.
+
+The platform counter runs at 62,500,000 Hz, so one counter tick spans 16 ns or
+48 quanta of one third of a nanosecond. For physical counter tick `p`, virtual
+offset `o` and a future comparator `c`, assertion occurs at physical tick
+`p + (c - (p - o mod 2^64))`. A local counter wrap withdraws an asserted level
+if `c > 0`. The clock rounds up to the first representable quantum at the
+transition. At elapsed wrap the physical sample becomes zero, which can also
+change the comparator immediately. The scheduler scans the online
+set and calculates two deadlines per PE in O(P) time and O(1) auxiliary space.
+Idle advancement changes elapsed nanoseconds and phase. The retired count still
+counts committed instructions and remains equal to the coordinator count.
+
+Mode code 2 is stored in both the VM-clock and the per-CPU system-counter record.
+Files require a complete set of matching shared-counter records. Fresh restore
+selects the saved mode before device construction and in-place restore requires
+a matching mode. Modes 0 (`Wall`) and 1 (`Retired`) retain their file encodings.
+The runtime test saves a four-PE VM in WFI, removes the file source and continues
+from the loaded checkpoint with the same wake order, counter values and retired
+counts. The machine has a distinct virtual timer on one PE and physical timers
+on the others. The same transition tests run at one and two PEs.
 
 The new mode selection and admission cost O(C) time for C CPU records and O(1)
 additional state. Existing codec, RAM and device capture costs retain their
@@ -92,6 +114,6 @@ audit ledger retains all four original findings as partially validated.
 The follow-up [S5L elapsed-clock group](../s5l-selected-clock/README.md) now
 binds S5L boot/heartbeat elapsed consumers to this selected clock and restores
 them from the incoming logical publication epoch. Synthetic timer profiles,
-Other board consumers, default/idle policy and full replay remain open.
+other board consumers, idle policy outside AArch64 and full replay remain open.
 The [selected RTC calendar follow-up](../rtc-selected-clock/README.md) now binds
 PC CMOS and S5L PMU calendars; Wall external input is still not replayed.

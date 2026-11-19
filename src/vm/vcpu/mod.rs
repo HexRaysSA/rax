@@ -33,6 +33,12 @@ pub use state::{
 
 use crate::error::{Error, Result};
 
+/// Idle observation after the coordinator has synchronized pending interrupts.
+pub enum ClockIdle {
+    Runnable,
+    Waiting { timer_delay_quanta: Option<u128> },
+}
+
 /// Native host scheduling interval; this does not describe guest retirement.
 pub const DEFAULT_HOST_SLICE: std::time::Duration = std::time::Duration::from_millis(10);
 
@@ -148,6 +154,13 @@ pub trait VCpu: Send {
     /// ambient clock must not redirect another CPU's timers.
     fn poll_vm_clock(&mut self) -> Result<()> {
         Ok(())
+    }
+
+    /// Report an architectural wait and the next timer output transition.
+    /// Delays are in thirds of a nanosecond in the owning VM's clock domain.
+    /// Backends without this contract keep the coordinator from advancing.
+    fn clock_idle(&self) -> Result<ClockIdle> {
+        Ok(ClockIdle::Runnable)
     }
 
     /// Translate a guest virtual/linear address to a guest-physical address

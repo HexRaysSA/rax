@@ -3,6 +3,9 @@ use super::*;
 use crate::vm::timing::{ClockMode, TimingContext};
 use crate::vm::vcpu::{RetirementStop, VcpuExit};
 
+#[path = "aarch64_idle_clock_tests.rs"]
+mod idle_clock;
+
 const CNTPCT_X0: u32 = 0xd53b_e020;
 const CNTVCT_X1: u32 = 0xd53b_e041;
 const WFI: u32 = 0xd503_207f;

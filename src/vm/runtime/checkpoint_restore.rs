@@ -70,9 +70,7 @@ impl Vmm {
         let snapshot = bundle.base();
         self.validate_snapshot_target(snapshot)?;
         crate::config::runtime::validate_checkpoint_clock(self.backend_kind, bundle)?;
-        if self.timing_context.mode() == crate::vm::timing::ClockMode::Retired
-            && bundle.clock().is_none()
-        {
+        if self.timing_context.mode().uses_retirement() && bundle.clock().is_none() {
             return Err(Error::InvalidConfig(
                 "retired VM restore requires complete clock state".into(),
             ));

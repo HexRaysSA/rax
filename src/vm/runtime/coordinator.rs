@@ -1,7 +1,8 @@
 //! Single-owner CPU selection and architectural x86 secondary startup.
 use super::*;
 use crate::vm::snapshot::PendingIpiDelivery;
-use crate::vm::vcpu::{DEFAULT_HOST_SLICE, DEFAULT_RETIREMENT_QUANTUM, RetirementStop};
+use crate::vm::timing::ClockMode;
+use crate::vm::vcpu::{ClockIdle, DEFAULT_HOST_SLICE, DEFAULT_RETIREMENT_QUANTUM, RetirementStop};
 use std::collections::VecDeque;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -48,6 +49,35 @@ impl ExecutionCoordinator {
 }
 
 impl Vmm {
+    fn advance_idle_clock(&mut self) -> Result<()> {
+        let mut earliest = None;
+        for (index, online) in self.coordinator.online.iter().enumerate() {
+            if !online {
+                continue;
+            }
+            #[cfg(feature = "debug")]
+            if !self.debugger_allows_cpu(index) {
+                return Ok(());
+            }
+            match self.vcpus[index].clock_idle()? {
+                ClockIdle::Runnable => return Ok(()),
+                ClockIdle::Waiting {
+                    timer_delay_quanta: Some(delay),
+                } => {
+                    earliest = Some(earliest.map_or(delay, |previous: u128| previous.min(delay)));
+                }
+                ClockIdle::Waiting {
+                    timer_delay_quanta: None,
+                } => (),
+            }
+        }
+        if let Some(delay) = earliest {
+            self.timing_context.advance_idle(delay)?;
+            self.poll_vm_clocks()?;
+        }
+        Ok(())
+    }
+
     fn poll_vm_clocks(&mut self) -> Result<()> {
         if !matches!(
             self.checkpoint_config.arch,
@@ -122,6 +152,9 @@ impl Vmm {
         let _timing = self.timing_context.enter();
         self.route_interprocessor_requests()?;
         self.poll_vm_clocks()?;
+        if self.timing_context.mode() == ClockMode::RetiredWithIdle {
+            self.advance_idle_clock()?;
+        }
         let mut selected = None;
         for _ in 0..self.vcpus.len() {
             let Some(index) = self.coordinator.next() else {

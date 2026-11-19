@@ -12,12 +12,6 @@ enum ClockSource {
     Retired { nanos: u64, units: u64, phase: u8 },
 }
 impl ClockSource {
-    fn mode(&self) -> ClockMode {
-        match self {
-            Self::Wall { .. } => ClockMode::Wall,
-            Self::Retired { .. } => ClockMode::Retired,
-        }
-    }
     fn advance_retired(&mut self, delta: u64) -> bool {
         let Self::Retired {
             nanos,
@@ -27,11 +21,14 @@ impl ClockSource {
         else {
             return false;
         };
-        let quanta = u128::from(delta) + u128::from(*phase);
-        *nanos = nanos.wrapping_add((quanta / 3) as u64);
         *units = units.wrapping_add(delta);
-        *phase = (quanta % 3) as u8;
+        Self::advance_phase(nanos, phase, u128::from(delta));
         true
+    }
+    fn advance_phase(nanos: &mut u64, phase: &mut u8, delta: u128) {
+        let quanta = delta + u128::from(*phase);
+        *nanos = nanos.wrapping_add((quanta / super::retired::SUBNANOSECOND_QUANTA) as u64);
+        *phase = (quanta % super::retired::SUBNANOSECOND_QUANTA) as u8;
     }
     fn state(&self) -> (u64, u64, u8) {
         self.state_at(None)
@@ -58,6 +55,7 @@ impl ClockSource {
 /// A VM's explicitly selected time domain. Clone its Arc into a worker and enter it
 /// there explicitly; ambient bindings are local to the calling thread.
 pub struct TimingContext {
+    mode: ClockMode,
     clock: Mutex<ClockSource>,
     instructions: AtomicU64,
     timer_pending: AtomicBool,
@@ -77,20 +75,21 @@ impl TimingContext {
                 base: 0,
                 start: Some(Instant::now()),
             },
-            ClockMode::Retired => ClockSource::Retired {
+            ClockMode::Retired | ClockMode::RetiredWithIdle => ClockSource::Retired {
                 nanos: 0,
                 units: 0,
                 phase: 0,
             },
         };
         Self {
+            mode,
             clock: Mutex::new(clock),
             instructions: AtomicU64::new(0),
             timer_pending: AtomicBool::new(false),
         }
     }
     pub fn mode(&self) -> ClockMode {
-        self.clock.lock().unwrap_or_else(|p| p.into_inner()).mode()
+        self.mode
     }
     pub fn elapsed_nanos(&self) -> u64 {
         self.clock
@@ -138,6 +137,29 @@ impl TimingContext {
         }
         Ok(())
     }
+
+    /// Advance elapsed time by a positive delay in thirds of a nanosecond.
+    /// Only the stopped coordinator may call this after examining all vCPUs.
+    pub(crate) fn advance_idle(&self, delta: u128) -> Result<()> {
+        if self.mode != ClockMode::RetiredWithIdle {
+            return Err(Error::InvalidConfig(
+                "idle advancement requires an idle-enabled clock".into(),
+            ));
+        }
+        let mut clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
+        let ClockSource::Retired { nanos, phase, .. } = &mut *clock else {
+            return Err(Error::InvalidConfig(
+                "idle advancement requires a retirement clock".into(),
+            ));
+        };
+        if delta == 0 || delta >= super::CLOCK_EPOCH_QUANTA {
+            return Err(Error::InvalidConfig(
+                "idle deadline is outside the next clock epoch".into(),
+            ));
+        }
+        ClockSource::advance_phase(nanos, phase, delta);
+        Ok(())
+    }
     pub(super) fn record_retirement(&self, delta: u64) {
         self.clock
             .lock()
@@ -163,7 +185,7 @@ impl TimingContext {
         let clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
         let (elapsed_nanos, retired_units, subnanosecond_quanta) = clock.state_at(sample);
         ClockState {
-            mode: clock.mode(),
+            mode: self.mode,
             elapsed_nanos,
             retired_units,
             subnanosecond_quanta,
@@ -239,7 +261,7 @@ impl TimingContext {
                 base: state.elapsed_nanos,
                 start: (!stopped).then(Instant::now),
             },
-            ClockMode::Retired => ClockSource::Retired {
+            ClockMode::Retired | ClockMode::RetiredWithIdle => ClockSource::Retired {
                 nanos: state.elapsed_nanos,
                 units: state.retired_units,
                 phase: state.subnanosecond_quanta,

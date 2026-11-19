@@ -675,7 +675,7 @@ impl Vmm {
         for cpu_id in 0..config.vcpus {
             debug!(cpu_id, "creating vCPU");
             let mut vcpu = vm.create_vcpu(cpu_id as u32, mem_arc.clone())?;
-            if clock_mode == crate::vm::timing::ClockMode::Retired && !vcpu.supports_stepping() {
+            if clock_mode.uses_retirement() && !vcpu.supports_stepping() {
                 return Err(Error::InvalidConfig(
                     "retired VM clock requires single-instruction stepping for every vCPU".into(),
                 ));

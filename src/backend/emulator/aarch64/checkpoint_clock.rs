@@ -15,10 +15,7 @@ pub(super) fn is_tag(raw: &[u8]) -> bool {
 pub(super) fn encode(state: SystemCounterState) -> Result<[u8; SIZE]> {
     validate(state)?;
     let mut raw = [0; SIZE];
-    raw[0] = match state.mode {
-        ClockMode::Wall => 0,
-        ClockMode::Retired => 1,
-    };
+    raw[0] = state.mode.wire_code();
     raw[1..].copy_from_slice(&state.frequency_hz.to_le_bytes());
     Ok(raw)
 }
@@ -27,11 +24,8 @@ pub(super) fn decode(raw: &[u8]) -> Result<SystemCounterState> {
     if raw.len() != SIZE {
         return Err(invalid("truncated system counter header"));
     }
-    let mode = match raw[0] {
-        0 => ClockMode::Wall,
-        1 => ClockMode::Retired,
-        _ => return Err(invalid("unknown system counter clock")),
-    };
+    let mode =
+        ClockMode::from_wire_code(raw[0]).ok_or_else(|| invalid("unknown system counter clock"))?;
     let state = SystemCounterState {
         mode,
         frequency_hz: u64::from_le_bytes(raw[1..].try_into().unwrap()),

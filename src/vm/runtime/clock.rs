@@ -14,7 +14,9 @@ impl Vmm {
     /// board clocks and entropy sources still require their own wiring for
     /// whole-machine determinism.
     /// This is not a physical cycle model or an external-event replay mode.
-    /// Native backends reject Retired before host VM/resource construction.
+    /// `RetiredWithIdle` additionally advances the software AArch64 VM clock to
+    /// timer deadlines while every online processor is waiting for interrupt.
+    /// Native backends reject retirement clock modes before constructing resources.
     pub fn new_with_clock(config: VmConfig, mode: ClockMode) -> Result<Self> {
         Self::build_with_contexts(config, ConstructionMode::Boot, None, mode)
     }
@@ -32,7 +34,7 @@ impl Vmm {
 
 impl Vmm {
     pub(super) fn validate_base_snapshot_clock(&self) -> Result<()> {
-        if self.timing_context.mode() == ClockMode::Retired {
+        if self.timing_context.mode().uses_retirement() {
             return Err(Error::InvalidConfig(
                 "retired VM clock requires a complete snapshot bundle".into(),
             ));

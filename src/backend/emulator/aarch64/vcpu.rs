@@ -11,6 +11,15 @@ impl VCpu for Aarch64Vcpu {
             .map_err(|error| Error::Emulator(error.to_string()))
     }
 
+    fn clock_idle(&self) -> Result<crate::vm::vcpu::ClockIdle> {
+        if self.shutdown || self.powered_off || self.user.is_some() {
+            return Ok(crate::vm::vcpu::ClockIdle::Runnable);
+        }
+        self.cpu
+            .clock_idle()
+            .map_err(|error| Error::Emulator(error.to_string()))
+    }
+
     fn required_private_checkpoint_kind(&self) -> Option<u32> {
         Some(crate::vm::snapshot::AARCH64_CONTEXT)
     }
