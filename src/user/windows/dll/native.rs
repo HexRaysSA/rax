@@ -37,6 +37,7 @@ mod nls;
 mod object_create;
 mod object_duplicate;
 mod object_query;
+mod object_security;
 #[cfg(test)]
 pub(crate) use object_query::object_name_replay;
 mod performance_counter;
@@ -540,6 +541,12 @@ pub(super) static NATIVE_SYSTEM_EXPORTS: &[Export] = &[Export::func(
 // The installed NTDLL issues this syscall. Keep the synthetic PE export
 // ordinals and trap slots where existing callers expect them.
 pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
+    Export::func(
+        "NtQuerySecurityObject",
+        Stdcall,
+        &[Ptr, I32, Ptr, I32, Ptr],
+        object_security::query,
+    ),
     Export::func(
         "NtAlpcConnectPort",
         Stdcall,

@@ -9,6 +9,7 @@ mod directory_alias;
 pub(super) mod file_image;
 pub(super) mod gui;
 pub(super) mod image;
+mod rpc_security;
 mod section;
 pub(super) mod security_device;
 mod session_parent;
@@ -337,6 +338,7 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
     let mut sources = Vec::new();
     let mut selected: Vec<SelectedDirectory> = Vec::new();
     let mut incomplete = Vec::new();
+    let mut rpc_security = None;
     // Retain the exact captured objects until any alias identity comparison.
     // The fixed selection bounds this to at most eleven directory handles.
     let mut handles = Vec::new();
@@ -394,7 +396,10 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
         let rpc_control = path == RPC_CONTROL_PATH;
         let mut entries = if rpc_control {
             // RPCRT4 opens the directory before connecting to its server.
-            // Capture the grant alone, without enumerating host endpoints.
+            // Capture only the directory grant and descriptor, without
+            // enumerating host endpoints.
+            // A missing or unstable descriptor leaves the query unavailable.
+            rpc_security = rpc_security::capture(&h, maximum_access).ok();
             incomplete.push(units.clone());
             Vec::new()
         } else if units == session_parent && maximum_access & 1 == 0 {
@@ -486,12 +491,13 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
     for (_, handle) in handles {
         handle.close()?;
     }
-    let mut namespace = Namespace::selected_with_directory_aliases(
+    let mut namespace = Namespace::selected_with_directory_security(
         upcase,
         selected,
         Some(session),
         &incomplete,
         &aliases,
+        rpc_security,
     )?;
     for (path, source) in sources {
         let section = namespace

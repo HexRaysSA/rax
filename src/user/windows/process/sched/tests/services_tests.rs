@@ -13,6 +13,9 @@ mod native_profile;
 #[path = "services_tests/object_query_tests.rs"]
 mod object_query_tests;
 
+#[path = "services_tests/object_security_tests.rs"]
+mod object_security_tests;
+
 #[path = "services_tests/object_file_name_tests.rs"]
 mod object_file_name_tests;
 

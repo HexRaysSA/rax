@@ -3820,3 +3820,16 @@ its native access mask. The capture leaves membership unknown and does not
 enumerate host endpoints or enable ALPC connections. On build 29708 the stock
 `whoami.exe` supplies 24 bytes for the counted directory name. A backslash
 visible after those 24 bytes is outside the name supplied to the object manager.
+
+The Windows provider reads self-relative security descriptors for the fixed
+`\RPC Control` directory while selecting the installed namespace. The selected
+directory retains the owner, group, discretionary ACL and integrity label
+projections that its host grant permits. Guest `NtQuerySecurityObject` checks
+the supplied handle's own grant before returning the immutable projection. Audit
+SACL contents and other objects' descriptors remain outside this selection.
+Native ARM64, x64 and WoW64 on build 29708 measured a 232-byte result for
+`whoami.exe`'s information mask `0x17` and left a short descriptor buffer intact.
+The native API writes the required length after the descriptor. In the
+measured WoW64 path an overlapping length output can clear the self-relative
+control bit and trigger conversion of the resident header to 32-bit fields.
+[Microsoft's NtQuerySecurityObject API reference](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-zwquerysecurityobject)

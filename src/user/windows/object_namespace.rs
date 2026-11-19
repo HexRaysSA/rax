@@ -128,12 +128,14 @@ pub(crate) mod security_device;
 pub use file_data::FileSection;
 mod image;
 mod named;
+pub(crate) mod rpc_security;
 mod section;
 pub use data::DataSection;
 pub(crate) use data::SelectedSection;
 pub(crate) use image::code_bitmap::{BITMAP_BYTES, CodeBitmapPlan};
 pub(crate) use image::{ExtensionQuery, ImageExtension, ImageRegion, ImageTemplate};
 pub(crate) use named::Name as NativeName;
+pub(crate) use rpc_security::RpcSecurity;
 pub(crate) use section::CapturedSection;
 pub(crate) use section::GrantError as SectionGrantError;
 pub use section::ImageSection;
@@ -213,6 +215,7 @@ pub struct Directory {
     system_security_status: u32,
     force_case_insensitive: bool,
     entries_complete: bool,
+    pub(crate) rpc_security: Option<RpcSecurity>,
     upcase: Arc<[u16]>,
     entries: BTreeMap<Vec<u16>, Entry>,
 }
@@ -275,6 +278,17 @@ impl Namespace {
         session: Option<u32>,
         incomplete: &[Vec<u16>],
         aliases: &[(Vec<u16>, Vec<u16>)],
+    ) -> io::Result<Self> {
+        Self::selected_with_directory_security(upcase, selected, session, incomplete, aliases, None)
+    }
+
+    pub(crate) fn selected_with_directory_security(
+        upcase: Arc<[u16]>,
+        selected: Vec<SelectedDirectory>,
+        session: Option<u32>,
+        incomplete: &[Vec<u16>],
+        aliases: &[(Vec<u16>, Vec<u16>)],
+        mut rpc_security: Option<RpcSecurity>,
     ) -> io::Result<Self> {
         let allowed = selection_paths(session);
         let mut seen = std::collections::BTreeSet::new();
@@ -394,8 +408,14 @@ impl Namespace {
                 }
             }
             let key = s.path.clone();
+            let rpc_security = if is(&s.path, RPC_CONTROL_PATH) {
+                rpc_security.take()
+            } else {
+                None
+            };
             let dir = Directory {
                 path: s.path,
+                rpc_security,
                 maximum_access: s.maximum_access,
                 system_security_status: s.system_security_status,
                 force_case_insensitive: s.force_case_insensitive,
@@ -406,6 +426,9 @@ impl Namespace {
             if dirs.insert(key, dir).is_some() {
                 return Err(invalid("duplicate NT directory selection"));
             }
+        }
+        if rpc_security.is_some() {
+            return Err(invalid("RPC directory security has no selected directory"));
         }
         let alias = directory_alias::prepare(&mut dirs, &upcase, session, aliases)?;
         // Attach deepest nodes first so every Arc already owns its selected
@@ -718,6 +741,10 @@ impl SymbolicLink {
     }
 }
 impl Directory {
+    pub(crate) fn is_rpc_control(&self) -> bool {
+        is(&self.path, RPC_CONTROL_PATH)
+    }
+
     /// Shared mapping plus the selected caller's captured authorization ceiling.
     /// Duplication permits zero rights and discards SYNCHRONIZE/MAXIMUM_ALLOWED;
     /// opening applies MAXIMUM_ALLOWED and refuses a zero grant.

@@ -121,6 +121,21 @@ fn traverse_only_session_routes_keep_identity_after_catalog_drop() {
     }
 }
 
+pub(crate) fn rpc_directory_with_security(security: RpcSecurity) -> Namespace {
+    let mut records = captures(1);
+    records[0].entries.push(entry("RPC Control"));
+    records.push(directory(RPC_CONTROL_PATH, 0x2000F, vec![]));
+    Namespace::selected_with_directory_security(
+        table(),
+        records,
+        Some(1),
+        &[wide(RPC_CONTROL_PATH)],
+        &[],
+        Some(security),
+    )
+    .unwrap()
+}
+
 #[test]
 fn rpc_control_replays_directory_grants_without_selecting_endpoints() {
     let mut records = captures(1);
