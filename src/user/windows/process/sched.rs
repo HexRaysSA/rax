@@ -839,6 +839,7 @@ fn next_apc(c: &mut Ctx, saved: RegContext, wait_status: Option<u64>) -> ApiResu
     if let Some(apc) = c.t.apcs.pop_front() {
         let (routine, arguments) = match apc {
             thread::UserApc::Simple(routine, argument) => (routine, vec![argument]),
+            thread::UserApc::Native { routine, arguments } => (routine, arguments.to_vec()),
             thread::UserApc::Registry {
                 routine,
                 context,

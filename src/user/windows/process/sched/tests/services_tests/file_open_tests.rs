@@ -288,7 +288,7 @@ fn native_file_open_every_iosb_prefix_has_measured_ownership_and_atomic_store_ef
     }
 }
 
-fn arguments(p: &Proc, thread: &mut Thread, args: &[u64]) {
+pub(super) fn arguments(p: &Proc, thread: &mut Thread, args: &[u64]) {
     let sp = thread.cpu.sp();
     thread.cpu.set_pc(0x1234_0004);
     match p.arch {

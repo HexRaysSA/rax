@@ -9,6 +9,7 @@ mod alert;
 mod allocate;
 mod alpc;
 mod alpc_connect;
+mod apc_queue;
 mod apphelp;
 mod delay;
 mod device_control;
@@ -704,6 +705,28 @@ pub(super) static EXTENDED_SECTION_UNMAP_EXPORTS: &[Export] = &[Export::func(
 )];
 
 // Appended to preserve all published synthetic ordinals and trap addresses.
+/// Appended to preserve prior synthetic ordinal and trap assignments.
+pub(super) static APC_QUEUE_EXPORTS: &[Export] = &[
+    Export::func(
+        "NtQueueApcThread",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr],
+        apc_queue::queue,
+    ),
+    Export::func(
+        "NtQueueApcThreadEx",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
+        apc_queue::queue_ex,
+    ),
+    Export::func(
+        "NtQueueApcThreadEx2",
+        Stdcall,
+        &[Ptr, Ptr, I32, Ptr, Ptr, Ptr, Ptr],
+        apc_queue::queue_ex2,
+    ),
+];
+
 pub(super) static DELAY_EXPORTS: &[Export] = &[Export::func(
     "NtDelayExecution",
     Stdcall,

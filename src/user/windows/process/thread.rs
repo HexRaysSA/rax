@@ -57,6 +57,13 @@ pub enum ThreadState {
 pub enum UserApc {
     /// QueueUserAPC's single application argument.
     Simple(u64, u64),
+    /// Ordinary native APC and the three arguments captured at queue time.
+    Native {
+        /// Guest callback entrypoint.
+        routine: u64,
+        /// Arguments passed to the native APC routine in order.
+        arguments: [u64; 3],
+    },
     /// Native registry completion uses the three-argument IO_APC_ROUTINE ABI.
     Registry {
         /// Guest callback entrypoint.
