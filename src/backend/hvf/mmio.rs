@@ -434,7 +434,7 @@ pub(crate) fn prepare<M: PhysicalMemory>(
         || instruction.flow != Flow::Next
         || !matches!(
             instruction.mnemonic.as_str(),
-            "mov" | "movbe" | "movsx" | "movsxd" | "movzx"
+            "mov" | "movbe" | "movnti" | "movsx" | "movsxd" | "movzx"
         )
         || instruction.operands.len() != 2
     {
@@ -456,12 +456,15 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     {
         return Err("MMIO instruction direction/effects disagree with EPT record".into());
     }
-    let movbe = instruction.mnemonic == "movbe";
-    let size = match memory_operand.width_bits {
-        8 if !movbe => 1,
-        16 => 2,
-        32 => 4,
-        64 => 8,
+    let mnemonic = instruction.mnemonic.as_str();
+    let size = match (memory_operand.width_bits, mnemonic) {
+        (8, "movbe" | "movnti") | (16, "movnti") => {
+            return Err("unsupported MMIO transfer width".into());
+        }
+        (8, _) => 1,
+        (16, _) => 2,
+        (32, _) => 4,
+        (64, _) => 8,
         _ => return Err("unsupported MMIO transfer width".into()),
     };
     validate_memory(context, memory, record, memory_operand, size)?;
@@ -479,7 +482,7 @@ pub(crate) fn prepare<M: PhysicalMemory>(
         if destination.bits != other.width_bits {
             return Err("inconsistent MMIO register width".into());
         }
-        let extension = match instruction.mnemonic.as_str() {
+        let extension = match mnemonic {
             "mov" | "movsxd" if destination.bits == memory_operand.width_bits => Extension::Plain,
             "movbe" if destination.bits == memory_operand.width_bits => Extension::ByteSwap,
             "movsxd" if destination.bits == 64 && memory_operand.width_bits == 32 => {
@@ -502,14 +505,14 @@ pub(crate) fn prepare<M: PhysicalMemory>(
         })
     } else {
         if operands[0].kind != OperandKind::Memory
-            || !matches!(instruction.mnemonic.as_str(), "mov" | "movbe")
+            || !matches!(mnemonic, "mov" | "movbe" | "movnti")
             || !other.read
             || other.write
         {
             return Err("unsupported MMIO store effects".into());
         }
         let value = match other.kind {
-            OperandKind::Immediate if !movbe => other.value,
+            OperandKind::Immediate if mnemonic == "mov" => other.value,
             OperandKind::Register => {
                 let source =
                     RegisterPart::parse(&other.reg).ok_or("unsupported MMIO source register")?;
@@ -521,7 +524,7 @@ pub(crate) fn prepare<M: PhysicalMemory>(
             _ => return Err("unsupported MMIO store source".into()),
         };
         let mut data = value.to_le_bytes()[..usize::from(size)].to_vec();
-        if movbe {
+        if mnemonic == "movbe" {
             data.reverse();
         }
         Action::Write(data)

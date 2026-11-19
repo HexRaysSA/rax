@@ -264,6 +264,19 @@ pub(super) fn decode_0f(
             out.operands = vec![dst, rm];
             CMOV[(op & 15) as usize]
         }
+        0xc3 => {
+            if ctx.operand_size_override || ctx.rep_prefix.is_some() || ctx.has_rex2() {
+                return None;
+            }
+            // The 32-bit store is the default even in a 16-bit code segment.
+            let width = if ctx.rex_w() { 8 } else { 4 };
+            let (_, reg, rm) = modrm(ctx, address_bits, width, *branch_bits == 64)?;
+            if rm.kind != OperandKind::Memory {
+                return None;
+            }
+            out.operands = vec![read_write(rm, false, true), reg];
+            "movnti"
+        }
         0xc8..=0xcf => {
             out.operands.push(reg_operand(
                 (op & 7) | ctx.any_rex_b(),

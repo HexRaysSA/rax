@@ -22,6 +22,7 @@ on:
           - bit-scan
           - bit-count
           - movbe
+          - movnti
           - cmpxchg8b
           - cmpxchg16b
           - implicit-multiply

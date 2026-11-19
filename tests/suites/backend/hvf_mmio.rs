@@ -841,3 +841,83 @@ fn rmw_exit_accepts_both_architectural_ept_qualification_encodings() {
         }
     }
 }
+
+#[test]
+fn movnti_writes_exactly_the_encoded_register_width() {
+    let value = 0x0123_4567_89ab_cdefu64.to_le_bytes();
+    for (code, expected) in [
+        (&[0x0f, 0xc3, 0x07][..], &value[..4]),
+        (&[0x48, 0x0f, 0xc3, 0x07], &value[..8]),
+        (&[0x67, 0x44, 0x0f, 0xc3, 0x47, 0x04], &value[..4]),
+        (&[0x4c, 0x0f, 0xc3, 0x47, 0x07], &value[..8]),
+    ] {
+        let (mut context, mut ram, mut exit) = fixture(code);
+        context.registers[0] = u64::from_le_bytes(value);
+        context.registers[8] = u64::from_le_bytes(value);
+        let displacement = match code[code.len() - 2] {
+            0x47 => u64::from(code[code.len() - 1]),
+            _ => 0,
+        };
+        if code[0] == 0x67 {
+            context.registers[7] |= 0x1234_0000_0000;
+        }
+        exit.linear += displacement;
+        exit.physical += displacement;
+        exit.qualification = 0x182;
+        let plan = prepare(&context, &mut ram, exit).unwrap();
+        assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+        assert_eq!(plan.length, code.len() as u64);
+        let Action::Write(bytes) = plan.action else {
+            panic!("MOVNTI must produce one write");
+        };
+        assert_eq!(bytes, expected);
+        for qualification in [0x181, 0x183] {
+            exit.qualification = qualification;
+            assert!(prepare(&context, &mut ram, exit).is_err());
+        }
+    }
+}
+
+#[test]
+fn movnti_metadata_describes_a_memory_only_store_in_each_code_size() {
+    use isa::x86_64::instruction_metadata::{self, Flow, OperandKind};
+
+    for (bits, code, width, register) in [
+        (16, &[0x0f, 0xc3, 0x07][..], 32, "eax"),
+        (32, &[0x0f, 0xc3, 0x07], 32, "eax"),
+        (64, &[0x0f, 0xc3, 0x07], 32, "eax"),
+        (64, &[0x4c, 0x0f, 0xc3, 0x07], 64, "r8"),
+    ] {
+        let instruction = instruction_metadata::decode(bits, 0x1000, code).unwrap();
+        assert_eq!(instruction.mnemonic, "movnti");
+        assert_eq!(instruction.flow, Flow::Next);
+        assert!(instruction.operands_complete);
+        assert_eq!(instruction.size as usize, code.len());
+        let [memory, source] = instruction.operands.as_slice() else {
+            panic!("MOVNTI must have two operands");
+        };
+        assert_eq!(memory.kind, OperandKind::Memory);
+        assert_eq!(memory.address_bits, bits);
+        assert_eq!(source.kind, OperandKind::Register);
+        assert_eq!(source.reg, register);
+        assert_eq!((memory.width_bits, source.width_bits), (width, width));
+        assert!(!memory.read && memory.write && !memory.conditional);
+        assert!(source.read && !source.write && !source.conditional);
+        for end in 0..code.len() {
+            assert!(instruction_metadata::decode(bits, 0x1000, &code[..end]).is_err());
+        }
+    }
+
+    for code in [
+        &[0x0f, 0xc3, 0xc7][..],   // register target
+        &[0xf0, 0x0f, 0xc3, 0x07], // LOCK
+        &[0x66, 0x0f, 0xc3, 0x07], // operand-size prefix
+        &[0xf2, 0x0f, 0xc3, 0x07], // REPNE
+        &[0xf3, 0x0f, 0xc3, 0x07], // REP
+    ] {
+        assert!(instruction_metadata::decode(64, 0x1000, code).is_err());
+        let (context, mut ram, mut exit) = fixture(code);
+        exit.qualification = 0x182;
+        assert!(prepare(&context, &mut ram, exit).is_err());
+    }
+}

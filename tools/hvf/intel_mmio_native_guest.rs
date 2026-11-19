@@ -263,6 +263,70 @@ fn record(output: &Path, case: usize, name: &str, width: usize, value: u64) {
     writeln!(file, "{{\"case\":{case},\"name\":\"{name}\",\"width\":{width},\"value\":{value},\"passed\":true}}").unwrap();
 }
 
+fn movnti_cases(output: &Path) {
+    const EXTENDED: u64 = 0x8877_6655_4433_2211;
+
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    for (code, address, width, value) in [
+        (&[0x0f, 0xc3, 0x07][..], MMIO, 4, SEED),
+        (&[0x48, 0x0f, 0xc3, 0x07], MMIO, 8, SEED),
+        (&[0x67, 0x44, 0x0f, 0xc3, 0x47, 0x04], MMIO + 4, 4, EXTENDED),
+        (&[0x4c, 0x0f, 0xc3, 0x47, 0x07], MMIO + 7, 8, EXTENDED),
+    ] {
+        for (restore, name) in [(false, "movnti-store"), (true, "movnti-store-restored")] {
+            let memory = guest_memory(code);
+            // Select the uncacheable reset PAT entry for the device mapping.
+            word(&memory, 0x4000, 0x4000_009b);
+            let (mut vm, mut cpu) = machine(&memory);
+            let mut seeded = state(cpu.as_ref());
+            seeded.regs.r8 = EXTENDED;
+            seeded.regs.rflags = 0x8d7;
+            cpu.set_state(&CpuState::X86_64(seeded)).unwrap();
+
+            let check_pending = |cpu: &mut dyn VCpu| {
+                let exit = event(cpu);
+                assert!(
+                    matches!(exit, VcpuExit::MmioWrite { addr, ref data }
+                        if addr == address && data == &value.to_le_bytes()[..width]),
+                    "unexpected MOVNTI exit: {exit:?}"
+                );
+                assert!(cpu.get_state().is_err());
+                assert!(cpu.io_completion_result().is_err());
+            };
+            check_pending(cpu.as_mut());
+            if restore {
+                let boundary = vm.checkpoint_boundary().unwrap();
+                let (saved, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+                assert_eq!(saved.state.pc(), CODE);
+                let context = context.unwrap();
+                drop(boundary);
+                drop(cpu);
+                drop(vm);
+                (vm, cpu) = machine(&memory);
+                cpu.restore_checkpoint_context(&saved.state, &saved.emulator, Some(&context))
+                    .unwrap();
+            }
+            check_pending(cpu.as_mut());
+            cpu.complete_io_out().unwrap();
+            assert_eq!(state(cpu.as_ref()).regs.rip, CODE + code.len() as u64);
+            halted_with_flags(cpu.as_mut(), code.len(), SEED, 0x8d7);
+            assert_eq!(state(cpu.as_ref()).regs.r8, EXTENDED);
+            drop(cpu);
+            drop(vm);
+            record(
+                output,
+                case,
+                name,
+                width,
+                value & (u64::MAX >> (64 - 8 * width)),
+            );
+            case += 1;
+        }
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 fn patterns(width: usize) -> [u64; 6] {
     let mask = u64::MAX >> (64 - width * 8);
     let sign = 1u64 << (width * 8 - 1);
@@ -1345,6 +1409,12 @@ fn main() {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
         movbe::run(&output);
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--movnti")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        movnti_cases(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--coherence")) {
