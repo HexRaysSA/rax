@@ -258,8 +258,16 @@ Cortex-A15 guest reported 32 undefined instructions and completed both legal
 FP move controls with the expected D0, D1, and FPSCR values. RAX checked
 register preservation, mixed-width fault priority, SMIR rejection, and
 neighboring FP16 and `CDP2` encodings. All 47,551 tests across the four owning
-targets passed on Apple Silicon. Physical AArch32 execution and guest-visible
-capability overrides remain open.
+targets passed on Apple Silicon. Physical AArch32 execution remains unverified.
+
+Standalone CP15 reads report absent `ID_ISAR5.VCMA[31:28]` and
+`ID_ISAR6.{I8MM[27:24],BF16[23:20],DP[7:4]}` even if a host override or a
+saved state supplies those bits. AArch64 MRS and mixed-width MRC report the
+same AArch32 view. Raw saved fields remain round-trippable, and enabling the
+AArch64 forms still exposes their native AArch64 IDs. RDM, FHM, and JSCVT keep
+their existing AArch32 ID sources.
+[Arm ASL definitions](../architecture/arm/asl/arm_regs.asl),
+[Linux arm64 sysreg field table](../specifications/arm/native-context-feature-registers/linux-sysreg.txt)
 
 ## Original ARM audit replay
 
