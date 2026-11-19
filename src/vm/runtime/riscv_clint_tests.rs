@@ -246,8 +246,8 @@ fn legacy_private_harts_restore_clint_addresses_as_ordinary_ram() {
         .iter()
         .map(|record| {
             let mut record = record.clone().unwrap();
-            assert_eq!(&record.data[..9], b"RAXRV003\0");
-            record.data.splice(..9, b"RAXRV002".iter().copied());
+            assert_eq!(&record.data[..10], b"RAXRV004\0\0");
+            record.data.splice(..10, b"RAXRV002".iter().copied());
             Some(record)
         })
         .collect();

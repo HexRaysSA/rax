@@ -424,6 +424,9 @@ impl Image {
     }
     fn validate(&self) -> Result<()> {
         self.cpu.validate().map_err(invalid)?;
+        if self.cpu.external_seip() {
+            return Err(invalid("the GSC interrupt controller does not drive SEIP"));
+        }
         if self.reservation.is_some_and(|r| !r.valid() || r.size != 4)
             || self.reservation.is_some() != self.cpu.reservation_address().is_some()
             || self

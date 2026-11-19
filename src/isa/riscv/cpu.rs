@@ -21,6 +21,7 @@ mod csr_ops;
 mod execution;
 mod fp_moves;
 mod identity;
+mod interrupts;
 #[cfg(all(
     feature = "smir-jit",
     any(target_arch = "x86_64", target_arch = "aarch64")
@@ -209,6 +210,7 @@ pub struct RiscVCpu {
     mscratch: u64,
     mie: u64,
     mip: u64,
+    external_seip: bool,
     medeleg: u64,
     mideleg: u64,
     mcounteren: u64,
@@ -261,8 +263,8 @@ const SSTATUS_BASE_MASK: u64 = (1 << 1) // SIE
     | (0b11 << 15) // XS
     | (1 << 18) // SUM
     | (1 << 19); // MXR
-const S_INTERRUPT_MASK: u64 =
-    (1 << cause::INT_S_SOFTWARE) | (1 << cause::INT_S_TIMER) | (1 << cause::INT_S_EXTERNAL);
+const MIP_SEIP: u64 = 1 << cause::INT_S_EXTERNAL;
+const S_INTERRUPT_MASK: u64 = (1 << cause::INT_S_SOFTWARE) | (1 << cause::INT_S_TIMER) | MIP_SEIP;
 const MSTATUS_SIE: u64 = 1 << 1;
 const MSTATUS_MIE: u64 = 1 << 3;
 const MSTATUS_SPIE: u64 = 1 << 5;
@@ -306,6 +308,7 @@ impl RiscVCpu {
             mscratch: 0,
             mie: 0,
             mip: 0,
+            external_seip: false,
             medeleg: 0,
             mideleg: 0,
             mcounteren: 0,
@@ -351,6 +354,7 @@ impl RiscVCpu {
         self.mtval = 0;
         self.mscratch = 0;
         self.mie = 0;
+        // The external controller continues driving its SEIP line across a hart reset.
         self.mip = 0;
         self.medeleg = 0;
         self.mideleg = 0;
@@ -503,16 +507,6 @@ impl RiscVCpu {
         self.priv_ = p;
     }
 
-    /// Assert or deassert one or more pending interrupt bits in `mip`.
-    pub fn set_interrupt_pending(&mut self, mask: u64, pending: bool) {
-        let mask = mask & IMPLEMENTED_INTERRUPT_MASK & self.xmask();
-        if pending {
-            self.mip |= mask;
-        } else {
-            self.mip &= !mask;
-        }
-    }
-
     /// Deliver the `ECALL` left pending by [`RiscVExit::Ecall`].
     pub fn deliver_ecall_trap(&mut self) {
         let trap = Trap {
@@ -620,55 +614,6 @@ impl RiscVCpu {
         } else {
             base & self.xmask()
         }
-    }
-
-    /// Take one eligible interrupt before instruction fetch. Interpreted and
-    /// native-region entry share this boundary and retirement behavior.
-    fn take_pending_interrupt(&mut self) -> bool {
-        let pending = self.mip & self.mie & IMPLEMENTED_INTERRUPT_MASK;
-        let machine = pending & !self.mideleg;
-        let machine_enabled = self.priv_ < Priv::Machine || self.mstatus & MSTATUS_MIE != 0;
-        let supervisor_enabled = self.priv_ < Priv::Supervisor
-            || (self.priv_ == Priv::Supervisor && self.mstatus & MSTATUS_SIE != 0);
-        let (target, eligible) = if machine_enabled && machine != 0 {
-            (Priv::Machine, machine)
-        } else if supervisor_enabled {
-            (Priv::Supervisor, pending & self.mideleg & S_INTERRUPT_MASK)
-        } else {
-            return false;
-        };
-        let Some(cause) = [
-            cause::INT_M_EXTERNAL,
-            cause::INT_M_SOFTWARE,
-            cause::INT_M_TIMER,
-            cause::INT_S_EXTERNAL,
-            cause::INT_S_SOFTWARE,
-            cause::INT_S_TIMER,
-        ]
-        .into_iter()
-        .find(|cause| eligible & (1 << cause) != 0) else {
-            return false;
-        };
-        let trap = Trap {
-            cause: self.interrupt_cause_bit() | cause,
-            tval: 0,
-        };
-        if target == Priv::Machine {
-            self.deliver_trap(trap, self.pc);
-        } else {
-            self.sepc = self.pc;
-            self.ext_csr.insert(Csr::Scause as u16, trap.cause);
-            self.ext_csr.insert(Csr::Stval as u16, trap.tval);
-            let sie = self.mstatus & MSTATUS_SIE != 0;
-            let supervisor = self.priv_ == Priv::Supervisor;
-            self.mstatus = (self.mstatus & !(MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP))
-                | (u64::from(sie) * MSTATUS_SPIE)
-                | (u64::from(supervisor) * MSTATUS_SPP);
-            self.priv_ = Priv::Supervisor;
-            let vector = self.ext_csr.get(&(Csr::Stvec as u16)).copied().unwrap_or(0);
-            self.pc = self.trap_entry_pc(vector, trap.cause);
-        }
-        true
     }
 
     fn interrupt_cause_bit(&self) -> u64 {
@@ -5347,7 +5292,8 @@ mod tests {
         );
         assert_eq!(c.csr_read(0x104).unwrap(), ssip | stip);
 
-        c.csr_write(0x344, msip | mtip | ssip | stip).unwrap(); // mip
+        c.set_interrupt_pending(msip | mtip, true);
+        c.csr_write(0x344, ssip | stip).unwrap(); // mip
         assert_eq!(c.csr_read(0x144).unwrap(), ssip | stip);
         c.csr_write(0x144, 0).unwrap();
         assert_eq!(c.csr_read(0x344).unwrap() & ssip, 0);

@@ -3,10 +3,6 @@
 use super::*;
 
 impl RiscVCpu {
-    pub(super) fn locally_enabled_interrupt_pending(&self) -> bool {
-        self.mip & self.mie & (M_INTERRUPT_MASK | S_INTERRUPT_MASK) & self.xmask() != 0
-    }
-
     pub(super) fn instruction_fetch_alignment_trap(&self, pc: u64) -> Option<Trap> {
         let alignment_mask = if self.cfg.isa.c { 0b1 } else { 0b11 };
         (pc & alignment_mask != 0).then_some(Trap {

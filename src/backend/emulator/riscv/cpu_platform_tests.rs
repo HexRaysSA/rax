@@ -76,7 +76,7 @@ fn platform_interrupt_entry_retires_zero_and_cpu_mip_writes_do_not_own_inputs() 
     cpu.cpu.csr_write(0x305, 0x200).unwrap();
     cpu.cpu.csr_write(0x304, 0x88).unwrap();
     cpu.cpu.csr_write(0x300, 8).unwrap();
-    cpu.cpu.csr_write(0x344, 0x88).unwrap();
+    cpu.cpu.set_interrupt_pending(0x88, true);
     cpu.poll_vm_clock().unwrap();
     assert_eq!(cpu.cpu.csr_read(0x344).unwrap() & 0x88, 0);
     platform.write(BASE + 4, &1u32.to_le_bytes()).unwrap();

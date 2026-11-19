@@ -4,6 +4,7 @@
 //! `rax::isa::riscv` interpreter into rax as a bootable architecture.
 
 mod clint;
+mod interrupt_sources;
 mod startup;
 
 use std::sync::Arc;
@@ -184,7 +185,8 @@ fn interrupt_target_and_priority_match_at_interpreter_and_jit_entries() {
                 cpu.csr_write(0x300, global).unwrap();
                 cpu.csr_write(0x303, delegated).unwrap();
                 cpu.csr_write(0x304, pending).unwrap();
-                cpu.csr_write(0x344, pending).unwrap();
+                cpu.csr_write(0x344, pending & !MTI).unwrap();
+                cpu.set_interrupt_pending(pending & MTI, true);
                 cpu.set_privilege(origin);
                 cpu.set_pc(PC);
 

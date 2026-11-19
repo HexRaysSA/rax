@@ -3022,6 +3022,7 @@
         "riscv-shared-atomics-2026-11-03",
         "riscv-shared-clint-2026-11-03",
         "riscv-delegated-supervisor-interrupts-2026-11-19",
+        "riscv-interrupt-input-ownership-2026-11-19",
         {
           "id": "kvm-public-register-state-2026-11-03",
           "status": "locally_validated_with_explicit_unrelated_owning_failures",
@@ -3888,6 +3889,7 @@
         "riscv-shared-atomics-2026-11-03",
         "riscv-shared-clint-2026-11-03",
         "riscv-delegated-supervisor-interrupts-2026-11-19",
+        "riscv-interrupt-input-ownership-2026-11-19",
         "kvm-owned-io-and-mp-preservation-2026-11-03",
         "kvm-native-startup-eligibility-and-identities-2026-11-03",
         "kvm-native-mp-firmware-discovery-2026-11-03",
@@ -198765,6 +198767,17 @@
       ],
       "scope": "RV32/RV64 interrupt target and priority at interpreter/JIT entry, supervisor trap CSRs in compatible saved records, and source-free generic RV64 continuation from active SSI handlers on one, two and four real coordinator harts.",
       "qualification": "docs/development/riscv-clint/README.md#supervisor-interrupt-delivery",
+      "full_goal_complete": false
+    },
+    {
+      "id": "riscv-interrupt-input-ownership-2026-11-19",
+      "status": "locally_qualified_full_findings_open",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "scope": "RV32 and RV64 separate hardware and software supervisor external pending state, architectural MIP read-modify-write and read-only machine inputs, plus versioned adapter restore and legacy projection.",
+      "qualification": "docs/development/riscv-clint/README.md#interrupt-input-ownership",
       "full_goal_complete": false
     },
     {

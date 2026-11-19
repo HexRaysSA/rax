@@ -29,6 +29,10 @@ pub(crate) struct CoreContext {
     mscratch: u64,
     mie: u64,
     mip: u64,
+    // The RISC-V adapter stores this in its versioned envelope. GSC does
+    // not connect a controller to SEIP and validates that the line is low.
+    #[serde(skip)]
+    external_seip: bool,
     medeleg: u64,
     mideleg: u64,
     mcounteren: u64,
@@ -60,9 +64,20 @@ impl CoreContext {
         self.cfg
     }
 
+    pub(crate) fn external_seip(&self) -> bool {
+        self.external_seip
+    }
+
+    pub(crate) fn set_external_seip(&mut self, asserted: bool) {
+        self.external_seip = asserted;
+    }
+
     pub(crate) fn validate(&self) -> Result<(), String> {
         if self.x[0] != 0 || self.fcsr & !0xff != 0 {
             return Err("invalid integer-zero register or FP status width".into());
+        }
+        if self.mip & !super::IMPLEMENTED_INTERRUPT_MASK != 0 {
+            return Err("pending interrupt exceeds the implemented cause mask".into());
         }
         if self.v.len() != 32 * VLENB as usize || self.vxrm > 3 || self.vxsat > 1 {
             return Err("invalid vector geometry or status width".into());
@@ -112,6 +127,7 @@ impl CoreContext {
         cpu.mscratch = self.mscratch;
         cpu.mie = self.mie;
         cpu.mip = self.mip;
+        cpu.external_seip = self.external_seip;
         cpu.medeleg = self.medeleg;
         cpu.mideleg = self.mideleg;
         cpu.mcounteren = self.mcounteren;
@@ -158,6 +174,7 @@ impl RiscVCpu {
             mscratch,
             mie,
             mip,
+            external_seip,
             medeleg,
             mideleg,
             mcounteren,
@@ -200,6 +217,7 @@ impl RiscVCpu {
             mscratch: *mscratch,
             mie: *mie,
             mip: *mip,
+            external_seip: *external_seip,
             medeleg: *medeleg,
             mideleg: *mideleg,
             mcounteren: *mcounteren,

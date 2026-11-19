@@ -31,10 +31,17 @@ impl RiscVCpu {
         };
 
         if writes {
+            // The destination sees the combined SEIP value. CSRRS/CSRRC
+            // modify only the stored software bit, independent of the line.
+            let stored = if addr == Csr::Mip as u16 {
+                self.mip
+            } else {
+                old
+            };
             let new = match insn.op {
                 Op::Csrrw | Op::Csrrwi => src,
-                Op::Csrrs | Op::Csrrsi => old | src,
-                Op::Csrrc | Op::Csrrci => old & !src,
+                Op::Csrrs | Op::Csrrsi => stored | src,
+                Op::Csrrc | Op::Csrrci => stored & !src,
                 _ => unreachable!(),
             };
             self.csr_write(addr, new)?;
@@ -90,8 +97,8 @@ impl RiscVCpu {
             Csr::Mepc => self.mepc_read_value(),
             Csr::Mcause => self.mcause,
             Csr::Mtval => self.mtval,
-            Csr::Mip => self.mip,
-            Csr::Sip => self.mip & self.supervisor_interrupt_mask(),
+            Csr::Mip => self.interrupt_pending(),
+            Csr::Sip => self.interrupt_pending() & self.supervisor_interrupt_mask(),
             Csr::Mvendorid | Csr::Marchid | Csr::Mimpid => 0,
             Csr::Mhartid => self.mhartid,
             Csr::Vl => self.vl,
@@ -153,7 +160,9 @@ impl RiscVCpu {
             Csr::Mepc => self.mepc = value & self.epc_alignment_mask() & self.xmask(),
             Csr::Mcause => self.mcause = value,
             Csr::Mtval => self.mtval = value,
-            Csr::Mip => self.mip = value & IMPLEMENTED_INTERRUPT_MASK & self.xmask(),
+            Csr::Mip => {
+                self.mip = (self.mip & M_INTERRUPT_MASK) | (value & S_INTERRUPT_MASK);
+            }
             Csr::Sip => {
                 let mask = self.supervisor_software_interrupt_mask();
                 self.mip = (self.mip & !mask) | (value & mask);
@@ -401,8 +410,6 @@ mod tests {
         const MSTATUS_SD: u64 = 1 << 63;
         const MSTATUS_FS_DIRTY: u64 = 0b11 << 13;
         const MSTATUS_MPP_RESERVED: u64 = 0b10 << 11;
-        const SUPPORTED_INTERRUPTS: u64 =
-            (1 << 1) | (1 << 3) | (1 << 5) | (1 << 7) | (1 << 9) | (1 << 11);
 
         let mut hart = cpu(Isa::rv64gc());
         hart.csr_write(0x300, MSTATUS_SD | MSTATUS_FS_DIRTY | MSTATUS_MPP_RESERVED)
@@ -419,7 +426,7 @@ mod tests {
         );
 
         hart.csr_write(0x344, u64::MAX).unwrap();
-        assert_eq!(hart.csr_read(0x344), Ok(SUPPORTED_INTERRUPTS));
+        assert_eq!(hart.csr_read(0x344), Ok(S_INTERRUPT_MASK));
         hart.csr_write(0x303, u64::MAX).unwrap();
         assert_eq!(hart.csr_read(0x303), Ok((1 << 1) | (1 << 5) | (1 << 9)));
         hart.csr_write(0x302, (1 << 2) | (1 << 10)).unwrap();

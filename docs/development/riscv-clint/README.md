@@ -134,8 +134,8 @@ compared at the final coordinator, clock and private hart boundaries.
 
 QEMU 11.1.2 completed the ordinary-run guest with one, two and four harts
 using the same position-independent code. The detached file continuation
-is qualified by the RAX VMM tests. Synchronous supervisor traps, PLIC
-device delivery and distinct external SEIP line ownership remain open.
+is qualified by the RAX VMM tests. Synchronous supervisor traps and PLIC
+device delivery remain open.
 
 The Apple Silicon integration projection over `c0121da24` passed 160 tests
 across the ISA oracle, RISC-V boot and hart identity, and RISC-V lift and
@@ -148,3 +148,35 @@ All original audit findings remain partially validated. This group does not
 qualify other backend/controller profiles, full input replay, or physical Intel
 Hypervisor.framework execution. The preceding group's independent CI failures
 remain separately recorded in `../riscv-vmm-startup/qualification.json`.
+
+## Interrupt input ownership
+
+The RV32 and RV64 cores keep the external controller's SEIP line and the
+M-mode software injection bit separately. Guest MIP and delegated SIP
+reads, trap selection, and WFI use their logical OR. The MIP CSR's set and
+clear instructions return the combined value to the destination register
+and use the software bit as the write operand. Guest MIP writes preserve
+MSIP, MTIP and MEIP because the platform owns those inputs.
+[RISC-V Privileged Architecture 20250508, §3.1.9](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+Public register transfers carry the software injection so that exporting
+and importing registers cannot latch a controller-owned signal. Private
+`RAXRV004` records add one byte for the external line. Versions 1 through
+3 retain their existing pending bits and start with the separate line
+deasserted. The generic VMM had no producer for a separate controller
+line in those versions. GSC validates that its unused external SEIP line
+is low and keeps its existing record format.
+
+The isolated baseline failed both source-ownership regressions. QEMU
+11.1.2 verified the architectural effects using CLINT and PLIC inputs
+on RV32 and RV64. The RAX tests exercise instruction execution, private
+adapter restore, and legacy-record admission. Full UART-to-PLIC routing
+is a separate platform change.
+
+The integration run over `d5327b278` passed 176 tests across the ISA
+oracle, retirement budgets, boot, hart identity, lift and Apple Silicon
+JIT targets. The C API run over the same parent passed 246 tests. The
+full library run over `4fb7c6a84` with the same implementation and test
+files passed 13,100 tests with two ignored. The intervening Windows RPC
+change touched disjoint files. The x86-64 host JIT and Linux-only RISC-V
+differential targets registered zero tests on this host.

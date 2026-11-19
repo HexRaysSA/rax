@@ -17,7 +17,8 @@ pub(super) struct PendingActivation {
     completed: Arc<AtomicBool>,
 }
 
-const TAG: &[u8; 8] = b"RAXRV003";
+const TAG: &[u8; 8] = b"RAXRV004";
+const PLATFORM_TAG: &[u8; 8] = b"RAXRV003";
 const PREVIOUS_TAG: &[u8; 8] = b"RAXRV002";
 const LEGACY_TAG: &[u8; 8] = b"RAXRV001";
 const MAX_PAYLOAD: usize = 1024 * 1024;
@@ -48,18 +49,47 @@ fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("RISC-V context: {message}"))
 }
 
-pub(super) fn platform_profile(raw: &[u8]) -> Result<bool> {
-    if raw.starts_with(TAG) {
-        return match raw.get(8) {
+struct Header {
+    platform: bool,
+    external_seip: bool,
+    payload_offset: usize,
+    has_reservation_record: bool,
+}
+
+impl Header {
+    const MAX_LEN: usize = 10;
+
+    fn decode(raw: &[u8]) -> Result<Self> {
+        let flag = |index, name| match raw.get(index) {
             Some(0) => Ok(false),
             Some(1) => Ok(true),
-            _ => Err(invalid("invalid platform profile")),
+            _ => Err(invalid(name)),
         };
+        let (platform, external_seip, payload_offset, has_reservation_record) = match raw.get(..8) {
+            Some(tag) if tag == TAG => (
+                flag(8, "invalid platform profile")?,
+                flag(9, "invalid external SEIP level")?,
+                Self::MAX_LEN,
+                true,
+            ),
+            Some(tag) if tag == PLATFORM_TAG => {
+                (flag(8, "invalid platform profile")?, false, 9, true)
+            }
+            Some(tag) if tag == PREVIOUS_TAG => (false, false, 8, true),
+            Some(tag) if tag == LEGACY_TAG => (false, false, 8, false),
+            _ => return Err(invalid("invalid context tag")),
+        };
+        Ok(Self {
+            platform,
+            external_seip,
+            payload_offset,
+            has_reservation_record,
+        })
     }
-    if raw.starts_with(PREVIOUS_TAG) || raw.starts_with(LEGACY_TAG) {
-        return Ok(false);
-    }
-    Err(invalid("invalid context tag"))
+}
+
+pub(super) fn platform_profile(raw: &[u8]) -> Result<bool> {
+    Ok(Header::decode(raw)?.platform)
 }
 
 impl Context {
@@ -68,6 +98,7 @@ impl Context {
             .map_err(invalid)?;
         let mut raw = TAG.to_vec();
         raw.push(u8::from(self.platform));
+        raw.push(u8::from(self.cpu.external_seip()));
         raw.extend_from_slice(&payload);
         Ok(raw)
     }
@@ -98,8 +129,14 @@ impl Context {
         {
             return Err(invalid("memory/device binding mode differs from target"));
         }
-        if self.user.is_some() && (self.cpu.privilege() != Priv::User || !self.pending.is_empty()) {
-            return Err(invalid("invalid process-mode privilege or event queue"));
+        if self.user.is_some()
+            && (self.cpu.privilege() != Priv::User
+                || !self.pending.is_empty()
+                || self.cpu.external_seip())
+        {
+            return Err(invalid(
+                "invalid process-mode privilege, event queue or external SEIP line",
+            ));
         }
         for event in &self.pending {
             match event {
@@ -115,30 +152,28 @@ impl Context {
     }
 
     fn decode(raw: &[u8], target: &RiscVVcpu) -> Result<Self> {
-        if raw.len() > TAG.len() + 1 + MAX_PAYLOAD {
+        if raw.len() > Header::MAX_LEN + MAX_PAYLOAD {
             return Err(invalid("invalid context length"));
         }
-        let profile = platform_profile(raw)?;
-        let context: Self = if raw.starts_with(TAG) || raw.starts_with(PREVIOUS_TAG) {
-            let offset = if raw.starts_with(TAG) { 9 } else { 8 };
+        let header = Header::decode(raw)?;
+        let payload = &raw[header.payload_offset..];
+        let mut context = if header.has_reservation_record {
             let (reservation, mut context): (Option<Reservation>, Self) =
-                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(&raw[offset..])
-                    .map_err(invalid)?;
+                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
             context.reservation = reservation;
-            context.platform = profile;
             context
-        } else if raw.starts_with(LEGACY_TAG) {
+        } else {
             let context: Self =
-                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(&raw[8..]).map_err(invalid)?;
+                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
             if context.cpu.reservation_address().is_some() {
                 return Err(invalid(
                     "legacy active LR reservation lacks width and shared invalidation state",
                 ));
             }
             context
-        } else {
-            return Err(invalid("invalid context tag"));
         };
+        context.platform = header.platform;
+        context.cpu.set_external_seip(header.external_seip);
         context.validate(target)?;
         Ok(context)
     }

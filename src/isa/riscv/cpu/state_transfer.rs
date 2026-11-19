@@ -1,7 +1,7 @@
 //! Architectural state beyond the register files, for vCPU state transfer:
 //! the privilege level, the CSRs, and the vector unit.
 
-use super::{Priv, RiscVCpu};
+use super::{IMPLEMENTED_INTERRUPT_MASK, Priv, RiscVCpu};
 use crate::vm::vcpu::RiscVVectorState;
 
 /// The CSRs exported by number: machine trap setup and handling, the
@@ -37,12 +37,15 @@ impl RiscVCpu {
     /// Fixed CSR entries, followed by populated sparse trap and vendor CSRs
     /// in address order. An absent sparse trap entry has architectural value
     /// zero, including in checkpoints saved before supervisor trap support.
+    /// The SEIP bit in the transferred mip value is the software injection.
     pub fn export_csrs(&self) -> Vec<(u16, u64)> {
         let mut csrs: Vec<(u16, u64)> = EXPORTED_CSRS
             .iter()
             .filter_map(|&n| {
-                // The counters regardless of the counter-enable CSRs.
                 let value = match n {
+                    // Preserve source ownership through public register transfers.
+                    0x344 => Some(self.mip),
+                    // The counters regardless of the counter-enable CSRs.
                     0xC00 => Some(self.cycle),
                     0xC01 => Some(self.time),
                     0xC02 => Some(self.instret),
@@ -63,10 +66,12 @@ impl RiscVCpu {
 
     /// Writes each CSR with its WARL rules; read-only CSRs and CSRs the
     /// hart does not implement are ignored. The counters are installed
-    /// directly.
+    /// directly. mip restores the saved machine inputs and software SEIP,
+    /// while the live external SEIP line keeps its controller ownership.
     pub fn import_csrs(&mut self, csrs: &[(u16, u64)]) {
         for &(n, value) in csrs {
             match n {
+                0x344 => self.mip = value & IMPLEMENTED_INTERRUPT_MASK,
                 0xC00 => self.cycle = value,
                 0xC01 => self.time = value,
                 0xC02 => self.instret = value,

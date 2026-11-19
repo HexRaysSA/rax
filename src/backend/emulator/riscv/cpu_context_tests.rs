@@ -228,7 +228,7 @@ fn malformed_contexts_and_binding_changes_preserve_live_context() {
     for end in 0..raw.len() {
         assert!(target.restore_context(&raw[..end]).is_err(), "prefix {end}");
     }
-    for offset in [0, 8] {
+    for offset in [0, 8, 9] {
         let mut bad = raw.clone();
         bad[offset] ^= 0x80;
         assert!(target.restore_context(&bad).is_err());
@@ -242,6 +242,73 @@ fn malformed_contexts_and_binding_changes_preserve_live_context() {
         let before = other.save_context().unwrap();
         assert!(other.restore_context(&raw).is_err());
         assert_eq!(other.save_context().unwrap(), before);
+    }
+}
+
+#[test]
+fn hardware_seip_and_software_injection_survive_adapter_restore_independently() {
+    const SEIP: u64 = 1 << 9;
+    const MIP: u16 = 0x344;
+    const MIP_READ: u32 = 0x3440_22f3; // csrr t0,mip
+    const NOP: u32 = 0x0000_0013;
+    for cfg in [RiscVConfig::rv64gc(), RiscVConfig::rv32(Isa::rv64gc())] {
+        for software in [0, SEIP] {
+            for external in [false, true] {
+                let mut source = fixture(0, cfg, &[MIP_READ, NOP]);
+                source.cpu.set_interrupt_pending(SEIP, external);
+                source.cpu.csr_write(MIP, software).unwrap();
+                let public = source.get_state().unwrap();
+                // A debugger update must not latch the visible external line.
+                source.update_state(&public).unwrap();
+                let saved = source.save_context().unwrap();
+
+                let mut restored = fixture(0, cfg, &[MIP_READ, NOP]);
+                restored.cpu.set_interrupt_pending(SEIP, !external);
+                restored.cpu.csr_write(MIP, software ^ SEIP).unwrap();
+                restored.validate_context_record(&public, &saved).unwrap();
+                restored.restore_context(&saved).unwrap();
+                assert_eq!(restored.save_context().unwrap(), saved);
+                assert!(restored.step_insn().unwrap().is_none());
+                assert_eq!(restored.cpu.x(5), software | (u64::from(external) * SEIP));
+                restored.cpu.csr_write(MIP, 0).unwrap();
+                assert_eq!(restored.cpu.csr_read(MIP), Ok(u64::from(external) * SEIP));
+
+                // Re-restoring must replace the line even after the live
+                // target and both source latches have been modified.
+                restored.restore_context(&saved).unwrap();
+                restored.cpu.set_interrupt_pending(SEIP, false);
+                assert_eq!(restored.cpu.csr_read(MIP), Ok(software));
+            }
+        }
+    }
+}
+
+#[test]
+fn legacy_seip_has_only_the_preexisting_csr_bit() {
+    const SEIP: u64 = 1 << 9;
+    const MIP: u16 = 0x344;
+    let cfg = RiscVConfig::rv64gc();
+    let mut source = fixture(0, cfg, &[]);
+    source.cpu.csr_write(MIP, SEIP).unwrap();
+    let state = source.get_state().unwrap();
+    let current = source.save_context().unwrap();
+    // All historical adapters exposed the same mip software position and
+    // had no VMM producer for a separate external supervisor line.
+    for prefix in [&b"RAXRV003\0"[..], b"RAXRV002", b"RAXRV001"] {
+        // Legacy v1 omits the leading bincode None reservation byte.
+        let payload = if prefix == b"RAXRV001" {
+            &current[Header::MAX_LEN + 1..]
+        } else {
+            &current[Header::MAX_LEN..]
+        };
+        let raw = [prefix, payload].concat();
+        let mut target = fixture(0, cfg, &[]);
+        target.cpu.set_interrupt_pending(SEIP, true);
+        target.validate_context_record(&state, &raw).unwrap();
+        target.restore_context(&raw).unwrap();
+        assert_eq!(target.cpu.csr_read(MIP), Ok(SEIP));
+        target.cpu.csr_write(MIP, 0).unwrap();
+        assert_eq!(target.cpu.csr_read(MIP), Ok(0));
     }
 }
 
@@ -420,7 +487,7 @@ fn previous_reservation_contexts_migrate_to_explicit_legacy_platform_profile() {
     let source = fixture(1, RiscVConfig::rv64gc(), &[0x00000013]);
     let current = source.save_context().unwrap();
     let mut previous = PREVIOUS_TAG.to_vec();
-    previous.extend_from_slice(&current[9..]);
+    previous.extend_from_slice(&current[Header::MAX_LEN..]);
     let mut target = fixture(1, RiscVConfig::rv64gc(), &[0x00000013]);
     target.restore_context(&previous).unwrap();
     assert_eq!(target.save_context().unwrap(), current);
