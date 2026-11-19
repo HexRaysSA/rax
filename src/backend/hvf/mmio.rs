@@ -540,6 +540,9 @@ pub(crate) trait CompletionAccess {
     fn write_rflags(&mut self, flags: u64) -> Result<(), Self::Error>;
     fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
 }
+
+type Completion = ([Option<(usize, u64)>; 2], Option<u64>, u64);
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 enum Pending {
     Read(Input),
@@ -645,9 +648,7 @@ impl InputState {
                 ([register, None], None, input.length)
             }),
             Pending::Rmw(input) => input.completion(data),
-            Pending::AluRead(input) => input
-                .completion(data)
-                .map(|(register, flags, length)| ([register, None], flags, length)),
+            Pending::AluRead(input) => input.completion(data),
         };
         let (registers, flags, length) = match computed {
             Ok(v) => v,

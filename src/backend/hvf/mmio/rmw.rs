@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use super::PhysicalMemory;
 use super::{
-    Action, Context, ExitRecord, Flow, Instruction, Operand, OperandKind, Plan, RegisterPart,
+    Action, Completion, Context, ExitRecord, Flow, Instruction, Operand, OperandKind, Plan,
+    RegisterPart,
 };
 use crate::devices::bus::{MmioRmwOp, MmioShift};
 use crate::isa::x86_64::flags::{self, bits};
@@ -31,8 +32,6 @@ enum FlagEffect {
     DoubleShift,
     ComparePair,
 }
-
-type RegisterWrites = [Option<(usize, u64)>; 2];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RmwInput {
@@ -135,10 +134,7 @@ impl RmwInput {
         Ok(())
     }
 
-    pub(crate) fn completion(
-        &self,
-        data: &[u8],
-    ) -> Result<(RegisterWrites, Option<u64>, u64), String> {
+    pub(crate) fn completion(&self, data: &[u8]) -> Result<Completion, String> {
         self.validate()?;
         if data.len() != usize::from(self.size) {
             return Err("MMIO RMW completion width differs from request".into());

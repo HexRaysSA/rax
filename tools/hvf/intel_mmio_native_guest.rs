@@ -34,6 +34,8 @@ mod double_shift;
 mod guest_debug;
 #[path = "intel_mmio_movbe.rs"]
 mod movbe;
+#[path = "intel_mmio_multiply.rs"]
+mod multiply;
 #[path = "intel_mmio_popcnt.rs"]
 mod popcnt;
 
@@ -1232,6 +1234,12 @@ fn main() {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
         cmpxchg8b::run(&output);
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--implicit-multiply")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        multiply::run(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--movbe")) {

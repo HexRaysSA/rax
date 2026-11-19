@@ -114,6 +114,90 @@ fn alu(code: &[u8], flags: u64, register: u64) -> mmio::AluReadInput {
 }
 
 #[test]
+fn implicit_multiply_device_reads_admit_all_scalar_widths() {
+    for extension in [0x27, 0x2f] {
+        for prefix in [&[0xf6][..], &[0x66, 0xf7], &[0xf7], &[0x48, 0xf7]] {
+            admitted(&[prefix, &[extension]].concat());
+        }
+    }
+}
+
+#[test]
+fn implicit_multiply_restores_both_product_lanes_and_defined_flags() {
+    use rax::isa::x86_64::flags::bits::{CF, OF};
+
+    for (width, encoding) in [
+        (1, &[0xf6][..]),
+        (2, &[0x66, 0xf7]),
+        (4, &[0xf7]),
+        (8, &[0x48, 0xf7]),
+    ] {
+        let mask = u64::MAX >> (64 - 8 * width);
+        let sign = 1u64 << (8 * width - 1);
+        for (extension, factor, source, low, high, overflow) in [
+            (0x27, 2, 3, 6, 0, false),
+            (0x27, mask, 2, mask - 1, 1, true),
+            (0x2f, mask - 2, 2, mask - 5, mask, false),
+            (0x2f, sign, mask, sign, 0, true),
+        ] {
+            let code = [encoding, &[extension]].concat();
+            let (mut context, mut memory, record) = fixture(&code);
+            let retained = 0x2d6;
+            context.rflags = retained | if overflow { 0 } else { CF | OF };
+            let rax_before = (0xaabb_ccdd_5566_8800 & !mask) | factor;
+            let rdx_before = 0x7856_3412_fedc_ba98;
+            context.registers[0] = rax_before;
+            context.registers[2] = rdx_before;
+            let plan = prepare(&context, &mut memory, record).unwrap();
+            let Action::AluRead(input) = plan.action else {
+                panic!("expected one read-only multiply operand");
+            };
+            let bytes = source.to_le_bytes();
+            assert!(input.completion(&bytes[..width - 1]).is_err());
+            let expected_rax = match width {
+                1 => (rax_before & !0xffff) | (high << 8) | low,
+                2 => (rax_before & !0xffff) | low,
+                _ => low,
+            };
+            let expected_rdx = match width {
+                1 => None,
+                2 => Some((2, (rdx_before & !0xffff) | high)),
+                _ => Some((2, high)),
+            };
+            let expected_flags = retained | if overflow { CF | OF } else { 0 };
+            assert_eq!(
+                input.completion(&bytes[..width]).unwrap(),
+                (
+                    [Some((0, expected_rax)), expected_rdx],
+                    Some(expected_flags),
+                    code.len() as u64
+                )
+            );
+
+            let mut pending = mmio::InputState::default();
+            pending.begin_alu_read(input).unwrap();
+            let wire = rax::codec::serialize(&pending).unwrap();
+            let mut restored: mmio::InputState = rax::codec::deserialize_strict(&wire).unwrap();
+            restored.validate_checkpoint().unwrap();
+            assert_eq!(restored.descriptor(), Some((width as u8, None)));
+            let mut host = CompletionHost::default();
+            restored.complete(&mut host, &bytes[..width]);
+            assert_eq!(
+                (host.index, host.value),
+                expected_rdx.unwrap_or((0, expected_rax))
+            );
+            assert_eq!(host.flags, expected_flags);
+            assert_eq!(host.length, code.len() as u64);
+            assert!(restored.ready().is_ok());
+            assert_eq!(
+                host.calls.iter().filter(|&&event| event == "gpr").count(),
+                if width == 1 { 1 } else { 2 }
+            );
+        }
+    }
+}
+
+#[test]
 fn imul_device_reads_restore_signed_products_and_defined_flags() {
     use rax::isa::x86_64::flags::bits::{CF, OF};
 
@@ -181,11 +265,11 @@ fn imul_device_reads_admit_full_signed_immediates_in_each_code_mode() {
         };
         assert_eq!(
             input.completion(&source[..width]).unwrap(),
-            (Some((0, upper | 6)), Some(2), code.len() as u64)
+            ([Some((0, upper | 6)), None], Some(2), code.len() as u64)
         );
     }
     for code in [
-        &[0xf7, 0x2f][..],
+        &[0xf7, 0xef][..],
         &[0xf0, 0x0f, 0xaf, 0x07],
         &[0x0f, 0xaf, 0xc7],
     ] {
@@ -589,7 +673,7 @@ fn compare_orders_and_immediates_update_only_the_defined_flags() {
     for (opcode, expected) in [(0x39, 0x95), (0x3b, 0)] {
         let input = alu(&[opcode, 0x07], control, 2);
         let (register, flags, length) = input.completion(&1u32.to_le_bytes()).unwrap();
-        assert_eq!(register, None);
+        assert_eq!(register, [None, None]);
         assert_eq!(length, 2);
         let flags = flags.unwrap();
         assert_eq!(flags & 0x8d5, expected);
@@ -605,14 +689,14 @@ fn compare_orders_and_immediates_update_only_the_defined_flags() {
         let (register, flags, _) = input
             .completion(&vec![0xff; usize::from(input.size)])
             .unwrap();
-        assert_eq!(register, None);
+        assert_eq!(register, [None, None]);
         assert_eq!(flags.unwrap() & 0x8d5, 0x44);
     }
     let input = alu(&[0x48, 0xf7, 0x07, 0, 0, 0, 0x80], control, 0);
     let (register, flags, _) = input
         .completion(&0x8000000000000000u64.to_le_bytes())
         .unwrap();
-    assert_eq!(register, None);
+    assert_eq!(register, [None, None]);
     assert_eq!(flags.unwrap() & 0x8c5, 0x84); // TEST imm32 sign extends; AF undefined.
 }
 
@@ -655,7 +739,7 @@ fn qword_signed_overflow_boundaries_preserve_nonarithmetic_flags() {
     ] {
         let input = alu(&[0x48, opcode, 0x07], control, original);
         let (register, flags, _) = input.completion(&1u64.to_le_bytes()).unwrap();
-        assert_eq!(register, Some((0, result)));
+        assert_eq!(register, [Some((0, result)), None]);
         let flags = flags.unwrap();
         assert_eq!(flags & 0x8d5, arithmetic);
         assert_eq!(flags & !0x8d5, control);

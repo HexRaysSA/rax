@@ -24,6 +24,7 @@ on:
           - movbe
           - cmpxchg8b
           - cmpxchg16b
+          - implicit-multiply
           - entry-irq
         default: mmio
 

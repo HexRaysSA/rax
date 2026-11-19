@@ -105,7 +105,7 @@ fn every_immediate_byte_selects_a_bit_without_adjusting_the_base_address() {
             for memory in [0, 1u64 << bit] {
                 let bytes = memory.to_le_bytes();
                 let (register, flags, _) = input.completion(&bytes[..usize::from(size)]).unwrap();
-                assert_eq!(register, None);
+                assert_eq!(register, [None, None]);
                 assert_eq!(flags, Some((0x8d7 & !1) | u64::from(memory != 0)));
             }
         }

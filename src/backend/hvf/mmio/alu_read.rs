@@ -1,6 +1,7 @@
 //! Read-only device operands for integer arithmetic, comparisons and bit tests.
 use super::{
-    Context, ExitRecord, Flow, Instruction, OperandKind, PhysicalMemory, Plan, RegisterPart,
+    Completion, Context, ExitRecord, Flow, Instruction, Operand, OperandKind, PhysicalMemory, Plan,
+    RegisterPart,
 };
 use crate::isa::x86_64::flags::{self, bits};
 use serde::{Deserialize, Serialize};
@@ -33,6 +34,7 @@ enum Operation {
     Adox,
     Crc32,
     Imul,
+    ImplicitMultiply { signed: bool, rdx_before: u64 },
 }
 
 impl Operation {
@@ -64,6 +66,17 @@ impl AluReadInput {
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !matches!(self.size, 1 | 2 | 4 | 8) || !(1..=15).contains(&self.length) {
             return Err("invalid MMIO ALU read width/length".into());
+        }
+        if let Operation::ImplicitMultiply { rdx_before, .. } = self.operation {
+            let width = u32::from(self.size.max(2)) * 8;
+            if !matches!(self.destination, Some((RegisterPart { index: 0, shift: 0, bits }, _)) if bits == width)
+                || self.memory_left
+                || self.other != 0
+                || (self.size == 1 && rdx_before != 0)
+            {
+                return Err("invalid MMIO implicit multiply operands".into());
+            }
+            return Ok(());
         }
         let flags_only = matches!(
             self.operation,
@@ -109,10 +122,7 @@ impl AluReadInput {
         Ok(())
     }
 
-    pub(crate) fn completion(
-        &self,
-        data: &[u8],
-    ) -> Result<(Option<(usize, u64)>, Option<u64>, u64), String> {
+    pub(crate) fn completion(&self, data: &[u8]) -> Result<Completion, String> {
         self.validate()?;
         if data.len() != usize::from(self.size) {
             return Err("MMIO ALU completion width differs from request".into());
@@ -123,7 +133,11 @@ impl AluReadInput {
         if self.operation.is_bit_scan() && memory == 0 {
             // Keep the entire previous register for the architecturally
             // undefined zero-source destination, including its upper half.
-            return Ok((None, Some(self.flags_before | bits::ZF), self.length));
+            return Ok((
+                [None, None],
+                Some(self.flags_before | bits::ZF),
+                self.length,
+            ));
         }
         let width_bits = u32::from(self.size) * 8;
         let mask = u64::MAX >> (64 - width_bits);
@@ -161,6 +175,10 @@ impl AluReadInput {
                 let (product, overflow) = imul::truncated_product(left, right, self.size);
                 flags::set_cf_of(&mut updated, overflow, overflow);
                 product
+            }
+            Operation::ImplicitMultiply { signed, rdx_before } => {
+                return self
+                    .complete_implicit_multiply(memory, width_bits, mask, signed, rdx_before);
             }
         };
         match self.operation {
@@ -207,8 +225,95 @@ impl AluReadInput {
             .destination
             .map(|(part, original)| (part.index, part.merge(original, result)));
         let flags = (!matches!(self.operation, Operation::Crc32)).then_some(updated);
-        Ok((register, flags, self.length))
+        Ok(([register, None], flags, self.length))
     }
+
+    fn complete_implicit_multiply(
+        &self,
+        memory: u64,
+        width_bits: u32,
+        mask: u64,
+        signed: bool,
+        rdx_before: u64,
+    ) -> Result<Completion, String> {
+        let (accumulator, rax_before) = self.destination.ok_or("missing multiply accumulator")?;
+        let (product, overflow) = if signed {
+            let shift = 64 - width_bits;
+            let extend = |value: u64| i128::from(((value << shift) as i64) >> shift);
+            let product = extend(rax_before) * extend(memory);
+            (product as u128, product != extend(product as u64))
+        } else {
+            let product = u128::from(rax_before & mask) * u128::from(memory);
+            (product, product >> width_bits != 0)
+        };
+        // MUL/IMUL r/m8 writes the full AX; wider encodings use DX:AX,
+        // EDX:EAX or RDX:RAX. RegisterPart handles partial-lane retention.
+        let low = Some((0, accumulator.merge(rax_before, product as u64)));
+        let high = (self.size != 1).then(|| {
+            let part = RegisterPart {
+                index: 2,
+                ..accumulator
+            };
+            (2, part.merge(rdx_before, (product >> width_bits) as u64))
+        });
+        let mut flags = self.flags_before;
+        flags::set_cf_of(&mut flags, overflow, overflow);
+        Ok(([low, high], Some(flags), self.length))
+    }
+}
+
+fn prepare_implicit_multiply<M: PhysicalMemory>(
+    context: &Context,
+    memory: &mut M,
+    record: ExitRecord,
+    instruction: &Instruction,
+    operand: &Operand,
+) -> Result<Plan, String> {
+    if !instruction.operands_complete
+        || instruction.flow != Flow::Next
+        || operand.kind != OperandKind::Memory
+        || !operand.read
+        || operand.write
+        || operand.conditional
+        || record.qualification & 3 != 1
+    {
+        return Err("implicit multiply MMIO requires one translated read".into());
+    }
+    let size = match operand.width_bits {
+        8 => 1,
+        16 => 2,
+        32 => 4,
+        64 => 8,
+        _ => return Err("invalid MMIO implicit multiply operand width".into()),
+    };
+    super::validate_memory(context, memory, record, operand, size)?;
+    let length = u64::from(instruction.size);
+    let input = AluReadInput {
+        size,
+        length,
+        operation: Operation::ImplicitMultiply {
+            signed: instruction.mnemonic == "imul",
+            rdx_before: if size == 1 { 0 } else { context.registers[2] },
+        },
+        other: 0,
+        memory_left: false,
+        flags_before: context.rflags,
+        destination: Some((
+            RegisterPart {
+                index: 0,
+                bits: u32::from(size.max(2)) * 8,
+                shift: 0,
+            },
+            context.registers[0],
+        )),
+    };
+    input.validate()?;
+    Ok(Plan {
+        physical: record.physical,
+        linear: record.linear,
+        length,
+        action: super::Action::AluRead(input),
+    })
 }
 
 pub(super) fn prepare<M: PhysicalMemory>(
@@ -217,6 +322,11 @@ pub(super) fn prepare<M: PhysicalMemory>(
     record: ExitRecord,
     instruction: &Instruction,
 ) -> Result<Option<Plan>, String> {
+    if matches!(instruction.mnemonic.as_str(), "mul" | "imul")
+        && let [operand] = instruction.operands.as_slice()
+    {
+        return prepare_implicit_multiply(context, memory, record, instruction, operand).map(Some);
+    }
     let operation = match instruction.mnemonic.as_str() {
         "add" => Operation::Add,
         "adc" => Operation::Adc,
