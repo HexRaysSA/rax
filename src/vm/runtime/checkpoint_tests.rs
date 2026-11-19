@@ -34,8 +34,56 @@ impl Fixture {
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
+        let checkpoint = self.kernel.with_extension("rxc");
+        if checkpoint.exists() {
+            std::fs::remove_file(checkpoint).unwrap();
+        }
         std::fs::remove_file(&self.kernel).unwrap();
     }
+}
+
+#[test]
+fn console_checkpoint_preserves_input_before_the_hotkey_only() {
+    let mut fixture = Fixture::new();
+    let vm = &mut fixture.vm;
+    vm.snapshot_out = fixture.kernel.with_extension("rxc");
+    // Enable the FIFO and received-data interrupts on IRQ4.
+    {
+        let mut serial = vm.serial.lock().unwrap();
+        IoDevice::write(&mut *serial, 0x3fa, 1); // FCR: enable FIFO
+        IoDevice::write(&mut *serial, 0x3fc, 8); // MCR: OUT2
+        IoDevice::write(&mut *serial, 0x3f9, 1); // IER: received data
+    }
+    vm.io_bus.get_mut().unwrap().write(0x21, &[0xef]).unwrap();
+    let mut console = Console::from_bytes(b"A\x01\x01\x01sB");
+    assert!(!vm.service_console(&mut console));
+
+    let saved = crate::vm::snapshot::SnapshotBundle::load(&vm.snapshot_out).unwrap();
+    let mut saved_pic = saved.base().devices.pic.clone();
+    assert_eq!(saved_pic.get_pending_vector(), Some(0x24));
+    let mut live = vm.serial.lock().unwrap();
+    assert_eq!(IoDevice::read(&mut *live, 0x3f8), b'A');
+    assert_eq!(IoDevice::read(&mut *live, 0x3f8), 1);
+    assert_eq!(IoDevice::read(&mut *live, 0x3f8), b'B');
+    drop(live);
+
+    // Read the restored UART through its real I/O bridge. Only the bytes
+    // before the hotkey are available to a resumed guest.
+    vm.restore_snapshot_bundle(&saved).unwrap();
+    let mut read_port = |port| {
+        port_io::read(
+            vm.io_bus.get_mut().unwrap(),
+            &vm.serial,
+            vm.backend_kind,
+            port,
+            1,
+            1,
+        )
+        .unwrap()[0]
+    };
+    assert_eq!(read_port(0x3f8), b'A');
+    assert_eq!(read_port(0x3f8), 1);
+    assert_eq!(read_port(0x3fd) & 1, 0);
 }
 fn poison<T: Send + 'static>(lock: Arc<std::sync::Mutex<T>>) {
     assert!(

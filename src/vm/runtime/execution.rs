@@ -2,6 +2,73 @@
 use super::*;
 
 impl Vmm {
+    /// Publish bytes before handling the command that follows them on stdin.
+    pub(super) fn service_console(&self, console: &mut Console) -> bool {
+        loop {
+            let (guest_bytes, action) = console.poll_batch();
+            self.deliver_console_input(&guest_bytes);
+            match action {
+                Some(ConsoleAction::Help) => eprint!("{}", ESCAPE_HELP),
+                Some(ConsoleAction::Snapshot) => self.console_checkpoint(),
+                Some(ConsoleAction::Quit) => {
+                    info!("console quit requested (Ctrl-A x)");
+                    return true;
+                }
+                None => break,
+            }
+        }
+        // An out-of-band request includes the input already drained above.
+        if CHECKPOINT_SIGNAL.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            self.console_checkpoint();
+        }
+        false
+    }
+
+    fn deliver_console_input(&self, guest_bytes: &[u8]) {
+        if let Some(ref uart) = self.s3c_uart {
+            // ARMv6: queue console input; the vCPU's own IRQ scan
+            // raises the VIC line.
+            if !guest_bytes.is_empty() {
+                if let Ok(mut u) = uart.lock() {
+                    u.queue_input(guest_bytes);
+                }
+            }
+        } else if let Some(ref pl011) = self.pl011 {
+            // AArch64: feed the PL011 and drive its SPI line through
+            // the VM's interrupt controller (in-kernel GIC on HVF).
+            let pending = if let Ok(mut uart) = pl011.lock() {
+                if !guest_bytes.is_empty() {
+                    debug!(n = guest_bytes.len(), "console input queued to PL011");
+                    uart.queue_input(guest_bytes);
+                }
+                uart.irq_pending()
+            } else {
+                false
+            };
+            if let Some(irq) = self.serial_irq {
+                if let Err(e) = self.vm.set_irq_line(irq, pending) {
+                    debug!(irq, pending, error = %e, "failed to drive UART irq line");
+                }
+            }
+        } else {
+            let pending = if let Ok(mut serial) = self.serial.lock() {
+                if !guest_bytes.is_empty() {
+                    serial.queue_input(guest_bytes);
+                }
+                serial.has_pending_interrupt()
+            } else {
+                false
+            };
+            drive_legacy_serial_irq(
+                &*self.vm,
+                self.backend_kind,
+                &self.pic,
+                self.serial_irq,
+                pending,
+            );
+        }
+    }
+
     pub fn run(&mut self) -> Result<()> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
@@ -50,72 +117,8 @@ impl Vmm {
         loop {
             #[cfg(feature = "debug")]
             self.debugger.ready()?;
-            // Drain host stdin through the console mux: forward guest bytes to the
-            // UART and act on host escape commands. Then drive the legacy serial
-            // RX/TX interrupt line. Release the serial lock before taking the PIC
-            // lock to keep a consistent lock order.
-            {
-                let (guest_bytes, actions) = console.poll();
-                let mut quit = false;
-                for action in actions {
-                    match action {
-                        ConsoleAction::Help => eprint!("{}", ESCAPE_HELP),
-                        ConsoleAction::Quit => {
-                            info!("console quit requested (Ctrl-A x)");
-                            quit = true;
-                        }
-                        ConsoleAction::Snapshot => self.console_checkpoint(),
-                    }
-                }
-                if quit {
-                    break;
-                }
-                // SIGUSR1-triggered checkpoint (same effect as Ctrl-A s).
-                if CHECKPOINT_SIGNAL.swap(false, std::sync::atomic::Ordering::SeqCst) {
-                    self.console_checkpoint();
-                }
-                if let Some(ref uart) = self.s3c_uart {
-                    // ARMv6: queue console input; the vCPU's own IRQ scan
-                    // raises the VIC line.
-                    if !guest_bytes.is_empty() {
-                        if let Ok(mut u) = uart.lock() {
-                            u.queue_input(&guest_bytes);
-                        }
-                    }
-                } else if let Some(ref pl011) = self.pl011 {
-                    // AArch64: feed the PL011 and drive its SPI line through
-                    // the VM's interrupt controller (in-kernel GIC on HVF).
-                    let pending = if let Ok(mut uart) = pl011.lock() {
-                        if !guest_bytes.is_empty() {
-                            debug!(n = guest_bytes.len(), "console input queued to PL011");
-                            uart.queue_input(&guest_bytes);
-                        }
-                        uart.irq_pending()
-                    } else {
-                        false
-                    };
-                    if let Some(irq) = self.serial_irq {
-                        if let Err(e) = self.vm.set_irq_line(irq, pending) {
-                            debug!(irq, pending, error = %e, "failed to drive UART irq line");
-                        }
-                    }
-                } else {
-                    let pending = if let Ok(mut serial) = self.serial.lock() {
-                        if !guest_bytes.is_empty() {
-                            serial.queue_input(&guest_bytes);
-                        }
-                        serial.has_pending_interrupt()
-                    } else {
-                        false
-                    };
-                    drive_legacy_serial_irq(
-                        &*self.vm,
-                        self.backend_kind,
-                        &self.pic,
-                        self.serial_irq,
-                        pending,
-                    );
-                }
+            if self.service_console(&mut console) {
+                break;
             }
 
             // Handle GDB commands (non-blocking)

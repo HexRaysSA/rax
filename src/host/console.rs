@@ -82,34 +82,54 @@ impl Console {
         }
     }
 
+    /// Preload a deterministic receiver for tests of the console consumer.
+    #[cfg(test)]
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
+        let (tx, rx) = mpsc::channel();
+        for &byte in bytes {
+            tx.send(byte).unwrap();
+        }
+        Self {
+            rx: Some(rx),
+            armed: false,
+        }
+    }
+
     /// Drain all currently-available stdin bytes through the escape mux.
     /// Returns `(guest_bytes, actions)` where `guest_bytes` should be queued
     /// into the UART and `actions` handled by the VMM.
     pub fn poll(&mut self) -> (Vec<u8>, Vec<ConsoleAction>) {
         let mut guest = Vec::new();
         let mut actions = Vec::new();
-
-        let mut raw = Vec::new();
-        if let Some(ref rx) = self.rx {
-            loop {
-                match rx.try_recv() {
-                    Ok(byte) => raw.push(byte),
-                    Err(TryRecvError::Empty) => break,
-                    Err(TryRecvError::Disconnected) => {
-                        self.rx = None;
-                        break;
-                    }
-                }
+        loop {
+            let (bytes, action) = self.poll_batch();
+            guest.extend(bytes);
+            match action {
+                Some(action) => actions.push(action),
+                None => return (guest, actions),
             }
         }
+    }
 
-        for b in raw {
+    /// Read guest input up to the first host command. Bytes following that
+    /// command stay in the receiver until its caller has handled the command.
+    pub(crate) fn poll_batch(&mut self) -> (Vec<u8>, Option<ConsoleAction>) {
+        let mut guest = Vec::new();
+        while let Some(rx) = &self.rx {
+            let b = match rx.try_recv() {
+                Ok(byte) => byte,
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    self.rx = None;
+                    break;
+                }
+            };
             if self.armed {
                 self.armed = false;
                 match b {
-                    b's' | b'S' => actions.push(ConsoleAction::Snapshot),
-                    b'x' | b'X' => actions.push(ConsoleAction::Quit),
-                    b'h' | b'H' | b'?' => actions.push(ConsoleAction::Help),
+                    b's' | b'S' => return (guest, Some(ConsoleAction::Snapshot)),
+                    b'x' | b'X' => return (guest, Some(ConsoleAction::Quit)),
+                    b'h' | b'H' | b'?' => return (guest, Some(ConsoleAction::Help)),
                     ESC_PREFIX => guest.push(ESC_PREFIX), // literal Ctrl-A
                     other => {
                         // Unknown escape: pass both bytes through so nothing is
@@ -125,7 +145,7 @@ impl Console {
             }
         }
 
-        (guest, actions)
+        (guest, None)
     }
 }
 
@@ -133,22 +153,9 @@ impl Console {
 mod tests {
     use super::*;
 
-    /// Build a console whose input is a fixed byte slice (no real thread).
-    fn from_bytes(bytes: &[u8]) -> Console {
-        let (tx, rx) = mpsc::channel();
-        for &b in bytes {
-            tx.send(b).unwrap();
-        }
-        drop(tx);
-        Console {
-            rx: Some(rx),
-            armed: false,
-        }
-    }
-
     #[test]
     fn plain_bytes_pass_through() {
-        let mut c = from_bytes(b"echo hi\n");
+        let mut c = Console::from_bytes(b"echo hi\n");
         let (guest, actions) = c.poll();
         assert_eq!(guest, b"echo hi\n");
         assert!(actions.is_empty());
@@ -156,15 +163,28 @@ mod tests {
 
     #[test]
     fn escape_snapshot_and_quit() {
-        let mut c = from_bytes(&[0x01, b's', b'a', 0x01, b'x']);
+        let mut c = Console::from_bytes(&[0x01, b's', b'a', 0x01, b'x']);
         let (guest, actions) = c.poll();
         assert_eq!(guest, b"a");
         assert_eq!(actions, vec![ConsoleAction::Snapshot, ConsoleAction::Quit]);
     }
 
     #[test]
+    fn ordered_batches_stop_at_each_host_command() {
+        let mut console = Console::from_bytes(b"A\x01\x01\x01sB\x01hC\x01xD");
+        for (bytes, action) in [
+            (b"A\x01".as_slice(), Some(ConsoleAction::Snapshot)),
+            (b"B".as_slice(), Some(ConsoleAction::Help)),
+            (b"C".as_slice(), Some(ConsoleAction::Quit)),
+            (b"D".as_slice(), None),
+        ] {
+            assert_eq!(console.poll_batch(), (bytes.to_vec(), action));
+        }
+    }
+
+    #[test]
     fn literal_ctrl_a() {
-        let mut c = from_bytes(&[0x01, 0x01, b'z']);
+        let mut c = Console::from_bytes(&[0x01, 0x01, b'z']);
         let (guest, actions) = c.poll();
         assert_eq!(guest, vec![0x01, b'z']);
         assert!(actions.is_empty());
@@ -172,7 +192,7 @@ mod tests {
 
     #[test]
     fn unknown_escape_passes_both_bytes() {
-        let mut c = from_bytes(&[0x01, b'q']);
+        let mut c = Console::from_bytes(&[0x01, b'q']);
         let (guest, actions) = c.poll();
         assert_eq!(guest, vec![0x01, b'q']);
         assert!(actions.is_empty());

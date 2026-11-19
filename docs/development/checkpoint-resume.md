@@ -10,6 +10,12 @@ Writable restored media retain guest changes in memory and subsequent checkpoint
 files. Read-only media remain protected. Explicit image overrides still need to
 match recorded identity/policy before restore.
 
+In-band console checkpoints take effect at the `Ctrl-A s` command in the
+input stream. The run loop delivers preceding guest bytes and drives
+host-managed UART IRQ lines before capture. Later bytes stay queued for the
+live VM. A SIGUSR1 checkpoint includes the input drained by the current
+console poll. Both use the existing UART and controller records.
+
 `VmConfig::from_checkpoint_bundle`, `validate_resume_bundle` and
 `Vmm::new_resume_bundle` are additive typed entrypoints. Source-independent image
 admission requires represented endpoint/media state. The older base-only config
