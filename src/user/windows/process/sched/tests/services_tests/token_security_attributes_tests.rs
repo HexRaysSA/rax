@@ -130,6 +130,7 @@ fn native_token_security_attributes_impersonation_alias_owns_values_without_prim
         let subject = Arc::new(Subject {
             statistics: None,
             user_attributes: 0,
+            token_defaults: Default::default(),
             empty_claims: Default::default(),
             user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
             groups: vec![],
@@ -217,6 +218,7 @@ fn native_token_security_attributes_empty_set_matches_all_32_native_rows() {
         let subject = Subject {
             statistics: None,
             user_attributes: 0,
+            token_defaults: Default::default(),
             empty_claims: Default::default(),
             user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
             groups: vec![],
@@ -298,6 +300,7 @@ fn native_token_security_attributes_upper_output_faults_match_all_576_native_row
         let subject = Subject {
             statistics: None,
             user_attributes: 0,
+            token_defaults: Default::default(),
             empty_claims: Default::default(),
             user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
             groups: vec![],

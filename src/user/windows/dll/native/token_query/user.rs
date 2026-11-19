@@ -3,17 +3,26 @@ use super::*;
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::hle::ApiErr;
 
+pub(super) fn wow64_widening(class: u32) -> u32 {
+    match class {
+        TOKEN_USER | TOKEN_INTEGRITY_LEVEL => 8,
+        class if DefaultsClass::from_raw(class).is_some() => 4,
+        _ => 0,
+    }
+}
+
 pub(super) fn preflight(
     c: &mut Ctx,
     output: u64,
     length: u32,
     returned: u64,
+    widening: u32,
 ) -> Result<Option<u32>, ApiErr> {
     if output != 0 {
-        // Native scratch widens SID_AND_ATTRIBUTES by8 bytes. Reuse the
+        // Native scratch widens the caller record before conversion. Reuse the
         // personality's no-paging-file budget; no host-sized allocation or
         // guest-visible scratch mapping is needed. Heap failure sets LastError.
-        let capture = ((u64::from(length) + 8 + 15) & !15) + 16;
+        let capture = ((u64::from(length) + u64::from(widening) + 15) & !15) + 16;
         let charge = (capture + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
         if charge > c.p.vm.commit_limit() - c.p.vm.committed_bytes()
             || charge > c.p.vm.high() - c.p.vm.low()
@@ -23,10 +32,10 @@ pub(super) fn preflight(
         }
     } else if length != 0 {
         // A NULL caller buffer bypasses scratch. Native output probing fails
-        // before handle checks; the converter still subtracts8 from its zero
+        // before handle checks; the converter still narrows its zero
         // private required length. ReturnLength itself is optional in WoW64.
         if returned != 0 {
-            c.mem().w32(returned, u32::MAX - 7)?;
+            c.mem().w32(returned, 0u32.wrapping_sub(widening))?;
         }
         return Ok(Some(STATUS_ACCESS_VIOLATION));
     }
@@ -34,11 +43,9 @@ pub(super) fn preflight(
 }
 
 pub(super) fn handle_error(c: &mut Ctx, class: u32, returned: u64, status: u32) -> ApiResult {
-    if c.arch() == WinArch::X86
-        && matches!(class, TOKEN_USER | TOKEN_INTEGRITY_LEVEL)
-        && returned != 0
-    {
-        c.mem().w32(returned, u32::MAX - 7)?;
+    let widening = wow64_widening(class);
+    if c.arch() == WinArch::X86 && widening != 0 && returned != 0 {
+        c.mem().w32(returned, 0u32.wrapping_sub(widening))?;
     }
     if c.arch() == WinArch::X86 && class == 10 && returned != 0 {
         c.mem().w32(returned, 0)?;

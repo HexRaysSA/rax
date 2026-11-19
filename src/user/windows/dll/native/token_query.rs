@@ -1,6 +1,7 @@
 //! Captured primary-token properties with measured caller-probe ordering.
 mod bno_copy;
 mod claims;
+mod defaults;
 mod groups;
 mod privileges;
 mod statistics;
@@ -13,6 +14,7 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 use crate::user::windows::security::token::claims::{TOKEN_DEVICE_CLAIMS, TOKEN_USER_CLAIMS};
+use crate::user::windows::security::token::defaults::Class as DefaultsClass;
 use crate::user::windows::security::token::privileges::TOKEN_PRIVILEGES;
 use crate::user::windows::security::token::scalars::{self, CapturedScalar};
 
@@ -42,10 +44,12 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                 && runtime.object_namespace.native_machine == Some(0xaa64)
         });
     let sid_record = matches!(class, TOKEN_USER | TOKEN_INTEGRITY_LEVEL);
+    let defaults_class = DefaultsClass::from_raw(class);
+    let widening = user::wow64_widening(class);
     let claim_record = matches!(class, TOKEN_USER_CLAIMS | TOKEN_DEVICE_CLAIMS);
+    let subject_record = sid_record || defaults_class.is_some() || claim_record;
     if !token_kind
-        && !sid_record
-        && !claim_record
+        && !subject_record
         && !matches!(class, TOKEN_GROUPS | TOKEN_PRIVILEGES | 10 | 12 | 29 | 44)
         && !scalars::is_class(class)
     {
@@ -59,10 +63,10 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     // WoW64 token converters use private native results, followed by
     // direct caller stores. They do not align or preflight the caller capacity.
     *direct_copies = c.arch() == WinArch::X86
-        && (sid_record || claim_record || matches!(class, TOKEN_GROUPS | 10 | 44));
+        && (widening != 0 || claim_record || matches!(class, TOKEN_GROUPS | 10 | 44));
     if c.arch() == WinArch::X86
-        && sid_record
-        && let Some(status) = user::preflight(c, output, length, returned)?
+        && widening != 0
+        && let Some(status) = user::preflight(c, output, length, returned, widening)?
     {
         return Flow::ret(status.into());
     }
@@ -118,10 +122,7 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                 if c.p.objects.access(token).unwrap_or(0) & 8 == 0 {
                     return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
                 }
-                if sid_record
-                    || claim_record
-                    || matches!(class, TOKEN_GROUPS | TOKEN_PRIVILEGES | 10)
-                {
+                if subject_record || matches!(class, TOKEN_GROUPS | TOKEN_PRIVILEGES | 10) {
                     captured_subject = Some(subject.clone());
                 } else if class != 29 {
                     return Err(c.unsupported(if class == 12 {
@@ -138,14 +139,8 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                     return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
                 }
                 match class {
-                    TOKEN_USER
-                    | TOKEN_GROUPS
-                    | TOKEN_PRIVILEGES
-                    | TOKEN_INTEGRITY_LEVEL
-                    | TOKEN_USER_CLAIMS
-                    | TOKEN_DEVICE_CLAIMS => {
-                        captured_subject = Some(subject.clone());
-                    }
+                    TOKEN_GROUPS | TOKEN_PRIVILEGES => captured_subject = Some(subject.clone()),
+                    _ if subject_record => captured_subject = Some(subject.clone()),
                     8 => captured_value = Some(2),
                     9 => captured_value = Some(*level),
                     29 => captured_value = Some(u32::from(subject.app_container)),
@@ -187,6 +182,16 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
             .or_else(|| c.p.objects.primary_token_subject())
             .ok_or_else(|| c.unsupported("token groups are not captured"))?;
         return groups::publish(c, &subject.groups, output, length, returned);
+    }
+    if let Some(selector) = defaults_class {
+        let subject = captured_subject
+            .or_else(|| c.p.objects.primary_token_subject())
+            .ok_or_else(|| c.unsupported("token defaults subject is not captured"))?;
+        let data = subject
+            .token_defaults
+            .get(selector)
+            .ok_or_else(|| c.unsupported(format!("token default class {class} is not captured")))?;
+        return defaults::publish(c, data, output, length, returned);
     }
     if sid_record {
         let subject = captured_subject

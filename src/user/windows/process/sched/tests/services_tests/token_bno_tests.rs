@@ -256,6 +256,7 @@ fn native_token_bno_requires_a_primary_subject_and_keeps_impersonation_explicit(
             statistics: None,
             attributes: None,
             user_attributes: 0,
+            token_defaults: Default::default(),
             empty_claims: Default::default(),
             user: vec![],
             groups: vec![],

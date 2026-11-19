@@ -1,6 +1,7 @@
 //! Independent typed Win32 token controls, separate from the capture parser.
 use super::{CloseHandle, GetCurrentProcess, GetTokenInformation, OpenProcessToken};
 use crate::user::windows::security::token::claims::EmptyClaims;
+use crate::user::windows::security::token::defaults::{Class, Defaults};
 use crate::user::windows::security::{Group, Privilege, Subject};
 use std::ffi::c_void;
 
@@ -133,6 +134,32 @@ impl Buffer {
         }
     }
 
+    fn default_data(&self, class: Class) -> Box<[u8]> {
+        let pointer = self.words[0];
+        if pointer == 0 {
+            assert!(matches!(class, Class::DefaultDacl));
+            assert_eq!(self.bytes, size_of::<usize>());
+            return Box::from([]);
+        }
+
+        let start = pointer.checked_sub(self.words.as_ptr() as usize).unwrap();
+        assert!(start >= size_of::<usize>() && start + 8 <= self.bytes);
+        let bytes = &self.bytes()[start..];
+        let length = if matches!(class, Class::DefaultDacl) {
+            usize::from(u16::from_le_bytes(bytes[2..4].try_into().unwrap()))
+        } else {
+            assert!(8 + usize::from(bytes[1]) * 4 <= bytes.len());
+            // SAFETY: the complete native SID extent lies within this owned
+            // query buffer; the SDK functions read the SID without retaining it.
+            unsafe {
+                assert_ne!(IsValidSid(pointer as *const c_void), 0);
+                GetLengthSid(pointer as *const c_void) as usize
+            }
+        };
+        assert_eq!(length, bytes.len());
+        bytes.into()
+    }
+
     fn groups(&self) -> Vec<Group> {
         let count = self.dword() as usize;
         let offset = std::mem::offset_of!(Groups, first);
@@ -181,6 +208,10 @@ impl Buffer {
 pub(super) fn capture() -> Subject {
     let token = Token::current();
     let user = token.information(1).group(0);
+    let mut token_defaults = Defaults::default();
+    for class in Class::ALL {
+        token_defaults.insert(class, token.information(class as u32).default_data(class));
+    }
     Subject {
         statistics: Some(
             crate::user::windows::security::token::statistics::Statistics::selected(
@@ -189,6 +220,7 @@ pub(super) fn capture() -> Subject {
             .unwrap(),
         ),
         user_attributes: user.attributes,
+        token_defaults,
         empty_claims: EmptyClaims {
             user: token.information(33).bytes() == [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             device: token.information(34).bytes()

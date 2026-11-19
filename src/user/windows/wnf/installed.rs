@@ -4,7 +4,7 @@ use crate::user::windows::security::Privilege;
 use crate::user::windows::security::token::claims::{
     EMPTY_RECORD, EmptyClaims, TOKEN_DEVICE_CLAIMS, TOKEN_USER_CLAIMS,
 };
-use crate::user::windows::security::token::privileges;
+use crate::user::windows::security::token::{defaults, privileges};
 use std::ffi::c_void;
 use std::io;
 use std::ptr::null_mut;
@@ -163,10 +163,19 @@ fn capture(
         return Err(invalid("native token SessionId is not a DWORD"));
     }
     let session = u32::from_ne_bytes(session.try_into().unwrap());
+    let mut token_defaults = defaults::Defaults::default();
+    for class in defaults::Class::ALL {
+        if let Ok(buffer) = information(token, class as u32)
+            && let Some(data) = defaults::decode(class, &buffer)
+        {
+            token_defaults.insert(class, data);
+        }
+    }
     Ok((
         Subject {
             statistics: Some(statistics),
             user_attributes: user.attributes,
+            token_defaults,
             empty_claims: EmptyClaims {
                 user: information(token, TOKEN_USER_CLAIMS)
                     .is_ok_and(|bytes| bytes == EMPTY_RECORD),

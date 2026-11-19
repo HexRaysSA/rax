@@ -17,6 +17,9 @@ mod bno_isolation;
 #[path = "token_claims_tests.rs"]
 mod claims;
 
+#[path = "token_defaults_tests.rs"]
+mod defaults;
+
 #[path = "token_groups_tests.rs"]
 mod groups;
 
