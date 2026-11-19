@@ -114,6 +114,98 @@ fn alu(code: &[u8], flags: u64, register: u64) -> mmio::AluReadInput {
 }
 
 #[test]
+fn adx_device_reads_preserve_the_other_flags_across_pending_restore() {
+    use rax::isa::x86_64::flags::bits::{CF, OF};
+
+    for (prefix, flag) in [(0x66, CF), (0xf3, OF)] {
+        for width in [4, 8] {
+            let mut code = vec![prefix];
+            if width == 8 {
+                code.push(0x48);
+            }
+            code.extend([0x0f, 0x38, 0xf6, 0x07]);
+            admitted(&code);
+            let mask = u64::MAX >> (64 - 8 * width);
+            for (dest, source, carry_in, result, carry_out) in [
+                (u64::MAX, 0u64, false, mask, false),
+                (u64::MAX, 0, true, 0, true),
+                (u64::MAX, 1, false, 0, true),
+                (
+                    0xffff_ffff_0000_0002,
+                    3,
+                    true,
+                    0xffff_ffff_0000_0006 & mask,
+                    false,
+                ),
+            ] {
+                let preserved = 0xad7 & !flag;
+                let flags = preserved | if carry_in { flag } else { 0 };
+                let expected_flags = preserved | if carry_out { flag } else { 0 };
+                let input = alu(&code, flags, dest);
+                let reply = source.to_le_bytes();
+                assert!(input.completion(&reply[..width - 1]).is_err());
+                let mut pending = mmio::InputState::default();
+                pending.begin_alu_read(input).unwrap();
+                let encoded = rax::codec::serialize(&pending).unwrap();
+                let mut restored: mmio::InputState =
+                    rax::codec::deserialize_strict(&encoded).unwrap();
+                restored.validate_checkpoint().unwrap();
+                assert_eq!(restored.descriptor(), Some((width as u8, None)));
+                let mut host = CompletionHost::default();
+                restored.complete(&mut host, &reply[..width]);
+                assert_eq!(
+                    (host.index, host.value, host.flags),
+                    (0, result, expected_flags)
+                );
+                assert_eq!(host.length, code.len() as u64);
+                assert_eq!(host.calls, ["gpr", "writeflags", "finish"]);
+                assert!(restored.ready().is_ok());
+            }
+        }
+    }
+}
+
+#[test]
+fn adx_device_reads_keep_dword_operands_in_legacy_code_modes() {
+    for prefix in [0x66, 0xf3] {
+        let code = [prefix, 0x0f, 0x38, 0xf6, 0x07];
+        for bits in [16, 32] {
+            let (mut context, mut memory, record) = fixture(&code);
+            context.code_bits = bits;
+            if bits == 16 {
+                context.registers[3] = 0; // ModR/M 07 addresses [BX].
+                context.segments[3] = record.linear;
+            }
+            let plan = prepare(&context, &mut memory, record).unwrap();
+            assert!(matches!(plan.action, Action::AluRead(input) if input.size == 4));
+            assert_eq!(plan.length, code.len() as u64);
+        }
+    }
+}
+
+#[test]
+fn adx_neighboring_prefixes_and_register_forms_do_not_access_a_device() {
+    for code in [
+        &[0x0f, 0x38, 0xf6, 0x07][..], // WRSS, without the ADX mandatory prefix.
+        &[0xf2, 0x66, 0x0f, 0x38, 0xf6, 0x07],
+        &[0xf0, 0x66, 0x0f, 0x38, 0xf6, 0x07],
+        &[0xf3, 0x0f, 0x38, 0xf6, 0xc7],
+    ] {
+        let (context, mut memory, record) = fixture(code);
+        assert!(
+            prepare(&context, &mut memory, record).is_err(),
+            "{code:02x?}"
+        );
+        assert!(
+            memory
+                .reads
+                .iter()
+                .all(|&(address, _)| address != record.physical)
+        );
+    }
+}
+
+#[test]
 fn popcnt_replies_preserve_device_width_flags_and_pending_state() {
     let original = 0xfedc_ba98_7654_3210;
     let control = 2 | (1 << 9) | (1 << 10) | (1 << 16);

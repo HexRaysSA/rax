@@ -14,6 +14,8 @@ const MMIO: u64 = 0x4000_0080;
 const SEED: u64 = 0x1122_3344_5566_7788;
 const MARKER: u64 = 0xa1b2_c3d4_e5f6_0718;
 
+#[path = "intel_mmio_adx.rs"]
+mod adx;
 #[path = "intel_mmio_bit_scan.rs"]
 mod bit_scan;
 #[path = "intel_mmio_cmov.rs"]
@@ -193,8 +195,24 @@ fn halted_with_flags(
 }
 
 fn scalar_read(code: &[u8], reply: &[u8], expected_rax: u64, expected_flags: u64, restore: bool) {
+    scalar_read_with_flags(code, reply, 2, expected_rax, expected_flags, restore);
+}
+
+fn scalar_read_with_flags(
+    code: &[u8],
+    reply: &[u8],
+    initial_flags: u64,
+    expected_rax: u64,
+    expected_flags: u64,
+    restore: bool,
+) {
     let memory = guest_memory(code);
     let (mut vm, mut cpu) = machine(&memory);
+    if initial_flags != 2 {
+        let mut initial = state(cpu.as_ref());
+        initial.regs.rflags = initial_flags;
+        cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+    }
     let check_pending = |cpu: &mut dyn VCpu| {
         let pending = event(cpu);
         assert!(
@@ -1147,6 +1165,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--adx")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        adx::run(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--bit-count")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

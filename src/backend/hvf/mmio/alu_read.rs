@@ -22,6 +22,8 @@ enum Operation {
     BitScanReverse,
     CountTrailingZeros,
     CountLeadingZeros,
+    Adcx,
+    Adox,
 }
 
 impl Operation {
@@ -73,6 +75,11 @@ impl AluReadInput {
         if self.operation.is_unary() && (self.size == 1 || self.other != 0) {
             return Err("invalid MMIO unary ALU read descriptor".into());
         }
+        if matches!(self.operation, Operation::Adcx | Operation::Adox)
+            && !matches!(self.size, 4 | 8)
+        {
+            return Err("invalid MMIO ADX operand width".into());
+        }
         if let Some((part, _)) = self.destination {
             if !part.valid() || part.bits != u32::from(self.size) * 8 {
                 return Err("invalid MMIO ALU register part".into());
@@ -105,10 +112,17 @@ impl AluReadInput {
         } else {
             (other, memory)
         };
-        let carry = self.flags_before & bits::CF != 0;
+        let carry_flag = if matches!(self.operation, Operation::Adox) {
+            bits::OF
+        } else {
+            bits::CF
+        };
+        let carry = self.flags_before & carry_flag != 0;
         let result = match self.operation {
             Operation::Add => left.wrapping_add(right),
-            Operation::Adc => left.wrapping_add(right).wrapping_add(u64::from(carry)),
+            Operation::Adc | Operation::Adcx | Operation::Adox => {
+                left.wrapping_add(right).wrapping_add(u64::from(carry))
+            }
             Operation::Sub | Operation::Compare => left.wrapping_sub(right),
             Operation::Sbb => left.wrapping_sub(right).wrapping_sub(u64::from(carry)),
             Operation::And | Operation::Test => left & right,
@@ -126,6 +140,15 @@ impl AluReadInput {
             Operation::Add => flags::update_flags_add(&mut updated, left, right, result, self.size),
             Operation::Adc => {
                 flags::update_flags_adc(&mut updated, left, right, carry, result, self.size)
+            }
+            Operation::Adcx | Operation::Adox => {
+                // ADOX stores the unsigned carry-out in OF. Both forms
+                // preserve every flag other than their own carry flag.
+                let sum = u128::from(left) + u128::from(right) + u128::from(carry);
+                updated &= !carry_flag;
+                if sum > u128::from(mask) {
+                    updated |= carry_flag;
+                }
             }
             Operation::Sub | Operation::Compare => {
                 flags::update_flags_sub(&mut updated, left, right, result, self.size)
@@ -168,6 +191,8 @@ pub(super) fn prepare<M: PhysicalMemory>(
     let operation = match instruction.mnemonic.as_str() {
         "add" => Operation::Add,
         "adc" => Operation::Adc,
+        "adcx" => Operation::Adcx,
+        "adox" => Operation::Adox,
         "sub" => Operation::Sub,
         "sbb" => Operation::Sbb,
         "and" => Operation::And,

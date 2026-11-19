@@ -135,8 +135,8 @@ class PreparedConsumerTests(unittest.TestCase):
             self.admit()
 
     def test_native_profiles_cannot_admit_each_others_prepared_artifacts(self):
-        for exported in (12, 16, 952, 968):
-            for requested in (12, 16, 952, 968):
+        for exported in (12, 16, 32, 952, 968):
+            for requested in (12, 16, 32, 952, 968):
                 prepared.export_description(self.artifact, self.report, exported)
                 with self.subTest(exported=exported, requested=requested):
                     if requested == exported:

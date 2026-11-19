@@ -274,23 +274,40 @@ pub(super) fn decode_0f(
             ));
             "bswap"
         }
-        0x38 => {
-            let map_opcode = ctx.consume_u8().ok()?;
-            if !matches!(map_opcode, 0xf0 | 0xf1) || ctx.rep_prefix == Some(0xf2) {
+        0x38 => match ctx.consume_u8().ok()? {
+            0xf6 if ctx.rex2.is_none() => {
+                let mnemonic = match ctx.rep_prefix {
+                    Some(0xf3) => "adox",
+                    None if ctx.operand_size_override => "adcx",
+                    _ => {
+                        *unsupported = true;
+                        return None;
+                    }
+                };
+                // Intel SDM Vol. 2A: 66 selects ADCX, whose default operand
+                // size is still 32 bits in every code mode.
+                let width = if ctx.rex_w() { 8 } else { 4 };
+                let (_, reg, rm) = modrm(ctx, address_bits, width, *branch_bits == 64)?;
+                out.operands = vec![read_write(reg, true, true), rm];
+                mnemonic
+            }
+            map_opcode @ (0xf0 | 0xf1) if ctx.rep_prefix != Some(0xf2) => {
+                let (_, reg, rm) = modrm(ctx, address_bits, width, *branch_bits == 64)?;
+                if rm.kind != OperandKind::Memory {
+                    return None;
+                }
+                out.operands = if map_opcode == 0xf0 {
+                    vec![read_write(reg, false, true), rm]
+                } else {
+                    vec![read_write(rm, false, true), reg]
+                };
+                "movbe"
+            }
+            _ => {
                 *unsupported = true;
                 return None;
             }
-            let (_, reg, rm) = modrm(ctx, address_bits, width, *branch_bits == 64)?;
-            if rm.kind != OperandKind::Memory {
-                return None;
-            }
-            out.operands = if map_opcode == 0xf0 {
-                vec![read_write(reg, false, true), rm]
-            } else {
-                vec![read_write(rm, false, true), reg]
-            };
-            "movbe"
-        }
+        },
         0xb6 | 0xb7 | 0xbe | 0xbf => {
             let m = ctx.peek_u8().ok()?;
             let (_, mut reg, rm) = modrm(
