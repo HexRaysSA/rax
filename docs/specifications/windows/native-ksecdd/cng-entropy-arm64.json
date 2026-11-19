@@ -66,5 +66,46 @@
     "native_control_receipt_sha256": "d2fd749e7916bba052565e27a28aeddf38c9dc60749683f683107d68e004b051",
     "certutil_trace_sha256": "cfa961eb51984f09eca48fb4786e657a60882b6086a6d5626272150b15410cdc",
     "certutil_trace_driver_sha256": "5d4c2809243ddadc1868164d81a779a7721b5e57db004c7cc515bf5bded369f7"
+  },
+  "duplicate_access_controls": {
+    "rows": [
+      {
+        "access": 0,
+        "duplicate_status": 0,
+        "device_status": 0,
+        "status": 0,
+        "returned": 48,
+        "unchanged": false,
+        "tail_preserved": true
+      },
+      {
+        "access": 1048576,
+        "duplicate_status": 0,
+        "device_status": 0,
+        "status": 0,
+        "returned": 48,
+        "unchanged": false,
+        "tail_preserved": true
+      },
+      {
+        "access": 1,
+        "duplicate_status": 0,
+        "device_status": 0,
+        "status": 0,
+        "returned": 48,
+        "unchanged": false,
+        "tail_preserved": true
+      },
+      {
+        "access": 1048577,
+        "duplicate_status": 0,
+        "device_status": 0,
+        "status": 0,
+        "returned": 48,
+        "unchanged": false,
+        "tail_preserved": true
+      }
+    ],
+    "sha256": "56b1a402d48817967ddfd1337508f9cdad7f9ae7b35ccd53fe3638c41e72205a"
   }
 }

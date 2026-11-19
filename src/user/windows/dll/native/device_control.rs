@@ -139,9 +139,8 @@ fn entropy(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Check
     {
         return Err(c.unsupported("CNG entropy request is not selected").into());
     }
-    if c.p.objects.access(handle).unwrap_or(0) & 1 == 0 {
-        return status(STATUS_ACCESS_DENIED);
-    }
+    // The selected control is FILE_ANY_ACCESS. Native accepts a duplicate
+    // of this device handle even when the duplicate has zero granted access.
     let (io, output) = (c.ptr(4)?, c.ptr(8)?);
     probe_write(c, io, 16)?;
     probe_write(c, output, ENTROPY_BYTES)?;

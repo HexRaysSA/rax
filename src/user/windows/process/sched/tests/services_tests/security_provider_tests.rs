@@ -275,6 +275,37 @@ fn native_security_provider_replays_arm64_cng_entropy() {
         }
         previous = Some(current);
     }
+    let duplicates = observed["duplicate_access_controls"]["rows"]
+        .as_array()
+        .unwrap();
+    for row in duplicates {
+        let access = number(&row["access"]);
+        assert_eq!(
+            h.invoke_api(
+                "NtDuplicateObject",
+                &[u64::MAX, file, u64::MAX, handle_out, access, 0, 0]
+            ),
+            number(&row["duplicate_status"]) as u32
+        );
+        let state = h.process.state();
+        let duplicate = state.space.u64(handle_out).unwrap();
+        assert_eq!(state.objects.access(duplicate), Some(access as u32));
+        state.space.wr(io, &[0xa5; 16]).unwrap();
+        state.space.wr(output, &[0xa5; 64]).unwrap();
+        args[0] = duplicate;
+        assert_eq!(
+            h.invoke_api("NtDeviceIoControlFile", &args),
+            number(&row["device_status"]) as u32
+        );
+        let memory = &h.process.state().space;
+        let returned = number(&row["returned"]);
+        assert_eq!(memory.u64(io).unwrap(), number(&row["status"]));
+        assert_eq!(memory.u64(io + 8).unwrap(), returned);
+        assert_eq!(memory.bytes(output + returned, 16).unwrap(), [0xa5; 16]);
+        assert_ne!(memory.bytes(output, returned as usize).unwrap(), [0xa5; 48]);
+        assert_eq!(h.invoke_api("NtClose", &[duplicate]), STATUS_SUCCESS);
+    }
+    args[0] = file;
     assert_eq!(h.invoke_api("NtClose", &[file]), STATUS_SUCCESS);
     assert_eq!(
         h.invoke_api("NtDeviceIoControlFile", &args),

@@ -1,5 +1,6 @@
 //! Duplicate guest handles without publishing a host HANDLE or foreign object.
 use super::query::{guard_result, probe_write};
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, ObjId, Object};
@@ -27,6 +28,7 @@ enum Kind {
     Thread,
     Process,
     Event,
+    Cng,
 }
 
 struct Source {
@@ -100,7 +102,26 @@ fn checked(c: &mut Ctx) -> ApiResult {
                 });
         return Flow::ret(status.unwrap_or(STATUS_INVALID_HANDLE).into());
     }
-    if c.p.native.as_ref().is_some_and(|native| {
+    if selected_nonclosing(c, &r) {
+        match source(c, r.source) {
+            Candidate::Owned(source) => return nonclosing(c, &r, Some(source)),
+            Candidate::Invalid => return nonclosing(c, &r, None),
+            Candidate::Unselected => {}
+        }
+    }
+    same_access(c, r)
+}
+
+fn selected_nonclosing(c: &Ctx, r: &Request) -> bool {
+    if matches!(c.p.objects.get(r.source),
+        Some(Object::SecurityFile(device)) if device.cng_profile())
+    {
+        return c.arch() == WinArch::Arm64
+            && (r.options, r.attributes) == (0, 0)
+            && r.output != 0
+            && matches!(r.desired, 0 | 1 | 0x100000 | 0x100001);
+    }
+    c.p.native.as_ref().is_some_and(|native| {
         matches!(
             (
                 native.version.major,
@@ -111,14 +132,6 @@ fn checked(c: &mut Ctx) -> ApiResult {
         ) && native.object_namespace.native_machine == Some(0xaa64)
     }) && matches!(r.options, 0 | 2 | 4 | 6 | 0x10)
         && r.attributes & !0x203 == 0
-    {
-        match source(c, r.source) {
-            Candidate::Owned(source) => return nonclosing(c, &r, Some(source)),
-            Candidate::Invalid => return nonclosing(c, &r, None),
-            Candidate::Unselected => {}
-        }
-    }
-    same_access(c, r)
 }
 
 fn source(c: &Ctx, handle: u64) -> Candidate {
@@ -155,6 +168,7 @@ fn source(c: &Ctx, handle: u64) -> Candidate {
         }
         Some(Object::Process { pid, .. }) if *pid == c.p.pid => Kind::Process,
         Some(Object::Event { .. }) => Kind::Event,
+        Some(Object::SecurityFile(device)) if device.cng_profile() => Kind::Cng,
         _ => return Candidate::Unselected,
     };
     Candidate::Owned(Source {
@@ -183,6 +197,7 @@ fn grant(kind: Kind, desired: u32) -> Result<u32, u32> {
         return Err(STATUS_PRIVILEGE_NOT_HELD);
     }
     Ok(match kind {
+        Kind::Cng => desired,
         Kind::Thread => crate::user::windows::security::thread::map_access(desired),
         Kind::Event => {
             super::object_create::map_access(desired) | (desired & ACCESS_SYSTEM_SECURITY)

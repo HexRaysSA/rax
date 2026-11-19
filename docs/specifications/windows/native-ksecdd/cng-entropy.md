@@ -30,5 +30,10 @@ Every guest handle belongs to the guest namespace and never refers to a
 native device handle. Other guest architectures, control shapes,
 asynchronous delivery and alias-dependent native behavior are unmeasured.
 
+The control uses `FILE_ANY_ACCESS`. Native requests on four duplicates
+of the original synchronous file succeeded with grants of zero,
+`SYNCHRONIZE`, `FILE_READ_DATA`, and both rights. The guest dispatch
+retains the same device and file-mode checks across duplicates.
+
 - [NtDeviceIoControlFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntdeviceiocontrolfile)
 - [ProcessPrng](https://learn.microsoft.com/en-us/windows/win32/seccng/processprng)
