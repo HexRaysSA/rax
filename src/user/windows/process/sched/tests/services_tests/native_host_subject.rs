@@ -103,7 +103,7 @@ impl Buffer {
         u32::from_ne_bytes(self.bytes()[..4].try_into().unwrap())
     }
 
-    fn group(&self, offset: usize) -> Group {
+    fn group(&self, offset: usize, sid_start: usize) -> Group {
         assert!(offset + std::mem::size_of::<SidAttributes>() <= self.bytes);
         // SAFETY: a complete initialized native SID_AND_ATTRIBUTES record at
         // an ABI-derived offset. Raw pointers and integers admit all bit patterns.
@@ -117,7 +117,7 @@ impl Buffer {
         };
         let base = self.words.as_ptr() as usize;
         let sid_offset = (record.sid as usize).checked_sub(base).unwrap();
-        assert!(sid_offset.checked_add(8).unwrap() <= self.bytes);
+        assert!(sid_offset >= sid_start && sid_offset.checked_add(8).unwrap() <= self.bytes);
         let header_extent = 8 + usize::from(self.bytes()[sid_offset + 1]) * 4;
         assert!(sid_offset.checked_add(header_extent).unwrap() <= self.bytes);
         // SAFETY: the complete SID extent named by the native header lies
@@ -168,12 +168,14 @@ impl Buffer {
         let offset = std::mem::offset_of!(Groups, first);
         let stride = std::mem::size_of::<SidAttributes>();
         assert!(count <= 4096);
-        assert_eq!(
-            self.bytes,
-            (offset + count * stride).max(std::mem::size_of::<Privileges>())
-        );
+        if count == 0 {
+            return Vec::new();
+        }
+        // The group array is followed by SID storage in the same query buffer.
+        let records_end = offset + count * stride;
+        assert!(records_end <= self.bytes);
         (0..count)
-            .map(|index| self.group(offset + index * stride))
+            .map(|index| self.group(offset + index * stride, records_end))
             .collect()
     }
 
@@ -210,7 +212,7 @@ impl Buffer {
 
 pub(super) fn capture() -> Subject {
     let token = Token::current();
-    let user = token.information(1).group(0);
+    let user = token.information(1).group(0, size_of::<SidAttributes>());
     let mut token_pointer_records = Records::default();
     for class in Class::ALL {
         token_pointer_records.insert(class, token.information(class as u32).pointer_data(class));
