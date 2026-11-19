@@ -603,6 +603,12 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         nls::mui::installed_ui_language,
     )
     .only(Archs::X86),
+    Export::func(
+        "NtAlpcQueryInformation",
+        Stdcall,
+        &[Ptr, I32, Ptr, I32, Ptr],
+        alpc::query_information,
+    ),
 ];
 
 // Tail family preserves existing synthetic export ordinals and trap slots.

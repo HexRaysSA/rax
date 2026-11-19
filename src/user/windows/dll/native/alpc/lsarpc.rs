@@ -8,6 +8,7 @@ pub(super) const PORT_NAME: &str = "\\RPC Control\\LSARPC_ENDPOINT";
 
 const LOCAL_SYSTEM: [u8; 12] = [1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];
 const PORT_ACCESS: u32 = 0x001f_0001;
+pub(super) const PORT_FLAGS: u32 = 0x0209_0000;
 
 pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
     if connection.flags != SYNCHRONOUS
@@ -42,7 +43,7 @@ pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
         .bytes(connection.port_attributes, if width == 8 { 72 } else { 44 })?;
     port[14..16].fill(0); // Padding in SECURITY_QUALITY_OF_SERVICE.
     let mut expected_port = [0; 72];
-    for (field, value) in [0x0209_0000u32, 12, 2, 1].into_iter().enumerate() {
+    for (field, value) in [PORT_FLAGS, 12, 2, 1].into_iter().enumerate() {
         expected_port[field * 4..field * 4 + 4].copy_from_slice(&value.to_le_bytes());
     }
     for (field, value) in [4096, 0, u32::MAX, u32::MAX, u32::MAX, u32::MAX]
@@ -82,6 +83,11 @@ pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
         c.p.objects.release(id);
         return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into());
     };
+    let Some(Object::LpcPort(endpoint)) = c.p.objects.obj_mut(id) else {
+        unreachable!("new LSARPC handle owns the port created above");
+    };
+    endpoint.set_lsarpc_context(handle);
+
     let publish = || -> Result<(), crate::user::windows::memory::MemFault> {
         if connection.receive != 0 {
             c.mem().w32(connection.receive + 4, 0)?;

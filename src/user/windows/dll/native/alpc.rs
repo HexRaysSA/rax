@@ -10,6 +10,7 @@ mod activation;
 mod cache;
 mod child_start;
 mod csr;
+mod information;
 mod lsarpc;
 mod theme;
 
@@ -29,6 +30,10 @@ struct Connection {
 }
 
 pub(super) use child_start::application_manifest_name;
+
+pub(super) fn query_information(c: &mut Ctx) -> ApiResult {
+    information::query(c)
+}
 
 pub(super) fn connect(c: &mut Ctx) -> ApiResult {
     let result = connect_checked(c);

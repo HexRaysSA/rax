@@ -3849,7 +3849,18 @@ session on the host.
 Native ARM64, x64, and WoW64 on Windows ARM64 build 29708 agreed on the
 connection status, output publication, handle access, optional-pointer cases,
 and read-only output failures. Untested endpoint names remain outside the
-model. Account-lookup RPC exchanges on the new handle remain unsupported.
+model.
+
+The stock account-lookup client queries class 0 with a 16-byte output. The
+selected endpoint reports flags `0x02090000`, sequence 1, and its original
+handle as the opaque connection context. The context belongs to the endpoint
+and remains stable across duplication and closure of the original handle.
+The querying handle must grant `READ_CONTROL`.
+The record is 16 bytes on native ARM64 and x64 and 12 bytes under WoW64.
+Native 64-bit callers probe the supplied extent and the optional length
+destination before querying the port. WoW64 writes only the converted record
+and then the optional length. A fault at the length destination can therefore
+leave a WoW64 record written. Account-lookup RPC exchanges remain unsupported.
 
 ### Selected token pointer records
 

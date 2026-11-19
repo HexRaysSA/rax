@@ -45,7 +45,7 @@ const SYSTEM_CODE_INTEGRITY_POLICY_INFORMATION: u32 = 164;
 const SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION: u32 = 189;
 const SYSTEM_FLUSH_INFORMATION: u32 = 192;
 const SYSTEM_POLICY_INFORMATION: u32 = 134;
-const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
+pub(super) const WOW64_LENGTH_FAILURE: u32 = 0xFFFF_FFFC;
 
 pub(super) fn probe_write(c: &Ctx, address: u64, bytes: usize) -> Result<(), MemFault> {
     c.mem()

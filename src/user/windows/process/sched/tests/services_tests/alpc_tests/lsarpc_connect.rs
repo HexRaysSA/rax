@@ -3,6 +3,7 @@ use crate::user::windows::loader::services::tests::named_table;
 use crate::user::windows::nt::status::*;
 
 const CONNECT: u32 = 0x7b;
+const QUERY: u32 = 0x8b;
 const PROFILE_BUILD: u32 = 29708;
 const PORT_ACCESS: u32 = 0x001f_0001;
 
@@ -155,6 +156,18 @@ fn native_lsarpc_connection_replays_selected_input_and_output_profiles() {
                 assert_eq!(p.objects.access(handle), Some(PORT_ACCESS), "{context}");
                 assert_eq!(p.objects.handle_count(), count + 1, "{context}");
                 if case == 0 {
+                    assert_eq!(
+                        invoke(
+                            p,
+                            &mut thread,
+                            "NtAlpcQueryInformation",
+                            QUERY,
+                            &[handle, 0, recv + 8, 8 + width, 0]
+                        ),
+                        Outcome::Continue,
+                    );
+                    assert_eq!(thread.cpu.gpr(0), u64::from(STATUS_SUCCESS));
+                    assert_eq!(p.space.ptr(recv + 16, width).unwrap(), handle);
                     let send = invoke(
                         p,
                         &mut thread,
@@ -191,5 +204,333 @@ fn native_lsarpc_connection_replays_selected_input_and_output_profiles() {
         ));
         assert_eq!(p.space.ptr(out, width).unwrap(), 0x1122_3344);
         assert_eq!(p.objects.handle_count(), count);
+    }
+}
+
+#[test]
+fn native_lsarpc_information_replays_user_copy_and_handle_lifetime() {
+    const LENGTH_SEED: u32 = 0xabcd_ef12;
+    const CANARY: u8 = 0xa5;
+    for arch in WinArch::ALL {
+        let (mut process, mut thread) = fixture(arch, "NtClose", CONNECT);
+        let p = process.state_mut();
+        super::super::native_profile::kernel_profile(p, PROFILE_BUILD, 0xaa64);
+        let base =
+            p.vm.allocate(
+                None,
+                3 * PAGE_SIZE,
+                mem::RESERVE | mem::COMMIT,
+                prot::READWRITE,
+            )
+            .unwrap()
+            .0;
+        let boundary = base + PAGE_SIZE;
+        let output = base + 0x40;
+        let readonly = boundary + 0x40;
+        let returned = boundary + PAGE_SIZE;
+        let wow = arch == WinArch::X86;
+        let width = arch.ptr_size();
+        let size = 8 + width;
+        let port = u64::from(p.objects.insert(Object::LpcPort(LpcPort::lsarpc())));
+        let Some(Object::LpcPort(peer)) = p.objects.get_mut(port) else {
+            panic!("fixture port");
+        };
+        peer.set_lsarpc_context(port as u32);
+        let duplicate = u64::from(p.objects.duplicate(port, false).unwrap());
+        let id = p.objects.id(port).unwrap();
+        let no_access = u64::from(p.objects.open_access(id, false, 0).unwrap());
+        let connect_only = u64::from(p.objects.open_access(id, false, 1).unwrap());
+        let read_control = u64::from(p.objects.open_access(id, false, 0x0002_0000).unwrap());
+        let invalid = 0x4455_aa00;
+        let current = arch.ptr(u64::MAX);
+        let class = u64::from(u32::MAX);
+        let failure_length = if wow { 0xffff_fffc } else { LENGTH_SEED };
+        let need = size as u32;
+
+        // Syscall arguments followed by status, separate length and visible
+        // record. An alias at output or output + 8 overwrites that field.
+        type Case = (&'static str, [u64; 5], u32, u32, bool);
+        let cases: &[Case] = &[
+            ("exact", [port, 0, output, size, returned], 0, need, true),
+            ("excess", [port, 0, output, 64, returned], 0, need, true),
+            (
+                "short",
+                [port, 0, output, size - 1, returned],
+                STATUS_INFO_LENGTH_MISMATCH,
+                need,
+                false,
+            ),
+            (
+                "zero, read-only body",
+                [port, 0, readonly, 0, returned],
+                STATUS_INFO_LENGTH_MISMATCH,
+                need,
+                false,
+            ),
+            (
+                "NULL length",
+                [port, 0, output, size, 0],
+                0,
+                LENGTH_SEED,
+                true,
+            ),
+            (
+                "NULL port",
+                [0, 0, output, size, returned],
+                STATUS_INVALID_PARAMETER,
+                failure_length,
+                false,
+            ),
+            (
+                "no port access",
+                [no_access, 0, output, size, returned],
+                STATUS_ACCESS_DENIED,
+                failure_length,
+                false,
+            ),
+            (
+                "PORT_CONNECT grant",
+                [connect_only, 0, output, size, returned],
+                STATUS_ACCESS_DENIED,
+                failure_length,
+                false,
+            ),
+            (
+                "READ_CONTROL grant",
+                [read_control, 0, output, size, returned],
+                STATUS_SUCCESS,
+                need,
+                true,
+            ),
+            (
+                "NULL port, read-only output",
+                [0, 0, readonly, size, returned],
+                if wow {
+                    STATUS_INVALID_PARAMETER
+                } else {
+                    STATUS_ACCESS_VIOLATION
+                },
+                failure_length,
+                false,
+            ),
+            (
+                "NULL port, unaligned output",
+                [0, 0, output + 1, size, returned],
+                if wow {
+                    STATUS_INVALID_PARAMETER
+                } else {
+                    STATUS_DATATYPE_MISALIGNMENT
+                },
+                failure_length,
+                false,
+            ),
+            (
+                "NULL body, invalid port",
+                [invalid, 0, 0, size, returned],
+                STATUS_INVALID_PARAMETER,
+                failure_length,
+                false,
+            ),
+            (
+                "NULL body, bad length destination",
+                [port, 0, 0, size, readonly],
+                if wow {
+                    STATUS_ACCESS_VIOLATION
+                } else {
+                    STATUS_INVALID_PARAMETER
+                },
+                LENGTH_SEED,
+                false,
+            ),
+            (
+                "invalid handle",
+                [invalid, 0, output, size, returned],
+                STATUS_INVALID_HANDLE,
+                failure_length,
+                false,
+            ),
+            (
+                "wrong object type",
+                [current, 0, output, 1, returned],
+                STATUS_OBJECT_TYPE_MISMATCH,
+                failure_length,
+                false,
+            ),
+            (
+                "unknown class",
+                [port, class, output, size, returned],
+                if wow {
+                    STATUS_INVALID_INFO_CLASS
+                } else {
+                    STATUS_INVALID_PARAMETER
+                },
+                LENGTH_SEED,
+                false,
+            ),
+            (
+                "unknown class, invalid handle",
+                [invalid, class, output, size, returned],
+                if wow {
+                    STATUS_INVALID_INFO_CLASS
+                } else {
+                    STATUS_INVALID_HANDLE
+                },
+                LENGTH_SEED,
+                false,
+            ),
+            (
+                "unknown class, read-only body",
+                [port, class, readonly, size, returned],
+                if wow {
+                    STATUS_INVALID_INFO_CLASS
+                } else {
+                    STATUS_ACCESS_VIOLATION
+                },
+                LENGTH_SEED,
+                false,
+            ),
+            (
+                "unaligned body",
+                [port, 0, output + 1, size, returned],
+                if wow { 0 } else { STATUS_DATATYPE_MISALIGNMENT },
+                if wow { need } else { LENGTH_SEED },
+                wow,
+            ),
+            (
+                "DWORD-aligned body",
+                [port, 0, output + 4, size, returned],
+                0,
+                need,
+                true,
+            ),
+            (
+                "read-only short body",
+                [port, 0, readonly, 1, returned],
+                if wow {
+                    STATUS_INFO_LENGTH_MISMATCH
+                } else {
+                    STATUS_ACCESS_VIOLATION
+                },
+                if wow { need } else { LENGTH_SEED },
+                false,
+            ),
+            (
+                "read-only length",
+                [port, 0, output, size, readonly],
+                STATUS_ACCESS_VIOLATION,
+                LENGTH_SEED,
+                wow,
+            ),
+            (
+                "record crosses read-only boundary",
+                [port, 0, boundary - 8, size, returned],
+                STATUS_ACCESS_VIOLATION,
+                LENGTH_SEED,
+                false,
+            ),
+            (
+                "excess crosses read-only boundary",
+                [port, 0, boundary - size, 64, returned],
+                if wow { 0 } else { STATUS_ACCESS_VIOLATION },
+                if wow { need } else { LENGTH_SEED },
+                wow,
+            ),
+            (
+                "length aliases flags",
+                [port, 0, output, size, output],
+                0,
+                LENGTH_SEED,
+                true,
+            ),
+            (
+                "length overlaps flags unaligned",
+                [port, 0, output, size, output + 1],
+                0,
+                LENGTH_SEED,
+                true,
+            ),
+            (
+                "length aliases context",
+                [port, 0, output, size, output + 8],
+                0,
+                LENGTH_SEED,
+                true,
+            ),
+            (
+                "handle tag bits",
+                [port | 1, 0, output, size, returned],
+                0,
+                need,
+                true,
+            ),
+            (
+                "duplicate",
+                [duplicate, 0, output, size, returned],
+                0,
+                need,
+                true,
+            ),
+            (
+                "duplicate after close",
+                [duplicate, 0, output, size, returned],
+                0,
+                need,
+                true,
+            ),
+            (
+                "original after close",
+                [port, 0, output, size, returned],
+                STATUS_INVALID_HANDLE,
+                failure_length,
+                false,
+            ),
+        ];
+        let mut basic = [0; 16];
+        basic[..4].copy_from_slice(&0x0209_0000u32.to_le_bytes());
+        basic[4..8].copy_from_slice(&1u32.to_le_bytes());
+        basic[8..].copy_from_slice(&port.to_le_bytes());
+        for &(name, args, status, length, writes_body) in cases {
+            let [_, _, dest, _, used] = args;
+            if name == "duplicate after close" {
+                assert_eq!(
+                    invoke(p, &mut thread, "NtClose", 0xf, &[port]),
+                    Outcome::Continue
+                );
+                assert_eq!(thread.cpu.gpr(0), u64::from(STATUS_SUCCESS));
+            }
+            p.vm.protect(boundary, PAGE_SIZE, prot::READWRITE).unwrap();
+            let observed = if dest != 0 { dest } else { output };
+            p.space.wr(observed, &[CANARY; 32]).unwrap();
+            p.space.wr(readonly, &[CANARY; 32]).unwrap();
+            p.space.w32(returned, LENGTH_SEED).unwrap();
+            p.vm.protect(boundary, PAGE_SIZE, prot::READONLY).unwrap();
+
+            assert_eq!(
+                invoke(p, &mut thread, "NtAlpcQueryInformation", QUERY, &args),
+                Outcome::Continue,
+                "{arch} {name}"
+            );
+            assert_eq!(thread.cpu.gpr(0), u64::from(status), "{arch} {name}");
+            assert_eq!(p.space.u32(returned).unwrap(), length, "{arch} {name}");
+            let mut expected = [CANARY; 32];
+            if writes_body {
+                expected[..size as usize].copy_from_slice(&basic[..size as usize]);
+                if (dest..dest + size).contains(&used) {
+                    let offset = (used - dest) as usize;
+                    expected[offset..offset + 4].copy_from_slice(&need.to_le_bytes());
+                }
+            }
+            assert_eq!(
+                p.space.bytes(observed, 32).unwrap(),
+                expected,
+                "{arch} {name}"
+            );
+            if used == readonly {
+                assert_eq!(
+                    p.space.u32(readonly).unwrap(),
+                    u32::from_le_bytes([CANARY; 4])
+                );
+            }
+        }
     }
 }

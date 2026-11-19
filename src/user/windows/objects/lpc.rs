@@ -13,7 +13,7 @@ pub struct LpcPort {
 #[derive(Debug)]
 enum Peer {
     Theme(u32),
-    Lsarpc,
+    Lsarpc(u32),
     Csr(Box<crate::user::windows::object_namespace::csr::CsrPeer>),
     Cache(Box<crate::user::windows::object_namespace::cache::CachePeer>),
 }
@@ -77,12 +77,24 @@ impl LpcPort {
     pub(crate) fn lsarpc() -> Self {
         Self {
             view: None,
-            peer: Some(Peer::Lsarpc),
+            peer: Some(Peer::Lsarpc(0)),
+        }
+    }
+
+    pub(crate) fn set_lsarpc_context(&mut self, handle: u32) {
+        debug_assert!(matches!(self.peer, Some(Peer::Lsarpc(0))));
+        self.peer = Some(Peer::Lsarpc(handle));
+    }
+
+    pub(crate) fn lsarpc_context(&self) -> Option<u32> {
+        match self.peer {
+            Some(Peer::Lsarpc(context)) => Some(context),
+            _ => None,
         }
     }
 
     pub(crate) fn is_lsarpc(&self) -> bool {
-        matches!(self.peer, Some(Peer::Lsarpc))
+        self.lsarpc_context().is_some()
     }
 
     pub(crate) fn theme() -> Self {
