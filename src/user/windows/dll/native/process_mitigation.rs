@@ -1,5 +1,4 @@
-//! Class52 selector11 reports the standalone guest's unfiltered service table.
-//! Capture/store order is measured on build29683 across native and WoW64 entry.
+//! Class 52 reports policies configured by the guest process model.
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::{
@@ -7,6 +6,9 @@ use crate::user::windows::nt::status::{
     STATUS_OBJECT_TYPE_MISMATCH,
 };
 use crate::user::windows::objects::Object;
+
+const DYNAMIC_CODE_POLICY: u32 = 2;
+const SYSTEM_CALL_FILTER_POLICY: u32 = 11;
 
 pub(super) fn query(c: &mut Ctx, process: u64, output: u64, length: u32) -> ApiResult {
     // The common process-query path already checked alignment and probed the
@@ -37,13 +39,12 @@ pub(super) fn query(c: &mut Ctx, process: u64, output: u64, length: u32) -> ApiR
             return Err(c.unsupported("mitigation policy for an unmodeled peer process"));
         }
     }
-    if policy != 11 {
+    if !matches!(policy, DYNAMIC_CODE_POLICY | SYSTEM_CALL_FILTER_POLICY) {
         return Err(c.unsupported(format!("ProcessMitigationPolicy selector {policy}")));
     }
-    // Guest process creation currently installs the unfiltered native service
-    // table, with no accepted Win32k filter attribute or mitigation setter.
-    // Its FilterId is therefore zero. This describes guest state; host policy
-    // is never forwarded, and nonzero filter enforcement is not claimed.
+    // Guest creation permits dynamic code and installs the unfiltered native
+    // service table. The model accepts no creation attribute or setter that
+    // changes these two policies. Both selectors report the guest's own state.
     let flags = output.checked_add(4).ok_or(MemFault {
         addr: output,
         write: true,

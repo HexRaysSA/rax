@@ -3956,6 +3956,16 @@ passes a SID or a system name to a host API.
 [Windows LsaLookupSids2](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsalookupsids2)
 [MS-RPCE NDR64 conformant varying arrays](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rpce/0559c108-7705-448c-82a7-1c1a56e02650)
 
+### Process dynamic-code policy query
+
+The default guest process permits dynamic code. In
+`NtQueryInformationProcess` class 52, selector 2 reports zero flags for that
+process. A native WoW64 caller on build 29708 returned those flags for the
+8-byte record. Calls using 4 or 12 bytes returned
+`STATUS_INFO_LENGTH_MISMATCH`. All three calls preserved the input selector
+and the optional ReturnLength value.
+[Windows process mitigation policy](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-process_mitigation_dynamic_code_policy)
+
 ### Selected token pointer records
 
 The installed Windows provider reads `TokenOwner`, `TokenPrimaryGroup`,
