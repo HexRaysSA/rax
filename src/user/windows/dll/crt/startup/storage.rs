@@ -525,6 +525,7 @@ mod tests {
             )),
             native: None,
             flush_information: Err("controlled CRT fixture".into()),
+            supported_architectures: Err("controlled CRT fixture".into()),
             thread_access: Ok(crate::user::windows::security::thread::Access::modeled()),
             image_information: Err("test process has no admitted executable"),
             wow64: None,

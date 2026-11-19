@@ -19,6 +19,14 @@ pub(crate) mod processor_power;
 mod secure_boot_policy;
 mod system;
 pub(crate) use image::SelectedImage;
+pub(crate) use system::{SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2, SupportedArchitectures};
+
+pub(crate) fn supported_architectures(
+    runtime: &NativeRuntime,
+    arch: WinArch,
+) -> Result<SupportedArchitectures, String> {
+    system::capture_supported_architectures(runtime, arch)
+}
 pub(crate) use secure_boot_policy::{
     SECURE_BOOT_POLICY_BYTES, SYSTEM_SECURE_BOOT_POLICY_INFORMATION,
 };

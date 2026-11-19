@@ -1,5 +1,103 @@
 //! Fixed pointer-free system metadata; guest arguments never enter host queries.
 
+pub(crate) const SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2: u32 = 230;
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct SupportedArchitectures {
+    pub(crate) system: [u8; 16],
+    pub(crate) current_process: [u8; 16],
+}
+
+#[cfg(all(windows, target_arch = "aarch64"))]
+pub(super) fn capture_supported_architectures(
+    runtime: &super::NativeRuntime,
+    arch: super::WinArch,
+) -> Result<SupportedArchitectures, String> {
+    if arch != super::WinArch::Arm64
+        || runtime.object_namespace.native_machine != Some(0xAA64)
+        || (
+            runtime.version.major,
+            runtime.version.minor,
+            runtime.version.build,
+        ) != (10, 0, 29708)
+    {
+        return Err("unmeasured Windows supported processor architectures profile".into());
+    }
+    #[link(name = "ntdll")]
+    unsafe extern "system" {
+        fn NtQuerySystemInformationEx(
+            class: u32,
+            input: *const usize,
+            input_bytes: u32,
+            output: *mut u32,
+            output_bytes: u32,
+            returned: *mut u32,
+        ) -> i32;
+    }
+    fn capture(subject: usize, poison: u32) -> Result<[u32; 4], String> {
+        let mut words = [poison; 4];
+        let mut returned = 0;
+        // SAFETY: fixed metadata class and selector, naturally aligned
+        // native input/output, and an exclusive ULONG result. The guest
+        // cannot supply a host handle, address, length, or class.
+        let status = unsafe {
+            NtQuerySystemInformationEx(
+                SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2,
+                &subject,
+                8,
+                words.as_mut_ptr(),
+                16,
+                &mut returned,
+            )
+        };
+        if status != 0 || returned != 16 {
+            return Err(format!(
+                "native supported processor architectures status={status:#010x}, returned={returned}"
+            ));
+        }
+        Ok(words)
+    }
+    let stable = |subject| -> Result<[u32; 4], String> {
+        let first = capture(subject, 0xA5A5_A5A5)?;
+        if capture(subject, 0x5A5A_5A5A)? != first {
+            return Err("native supported processor architectures left unstable bytes".into());
+        }
+        Ok(first)
+    };
+    let system = stable(0)?;
+    let current_process = stable(usize::MAX)?;
+    // The admitted profile returns three nonzero machine entries and a zero
+    // terminator. A process query differs only by the ARM64 Process flag.
+    if system[0] as u16 != 0xAA64
+        || system[1] as u16 != 0x014C
+        || system[2] as u16 != 0x8664
+        || system[3] != 0
+        || system[0] & (1 << 19) != 0
+        || current_process != [system[0] | (1 << 19), system[1], system[2], 0]
+    {
+        return Err("native supported processor architecture records changed shape".into());
+    }
+    let encode = |words: [u32; 4]| {
+        let mut bytes = [0; 16];
+        for (field, word) in bytes.chunks_exact_mut(4).zip(words) {
+            field.copy_from_slice(&word.to_le_bytes());
+        }
+        bytes
+    };
+    Ok(SupportedArchitectures {
+        system: encode(system),
+        current_process: encode(current_process),
+    })
+}
+
+#[cfg(not(all(windows, target_arch = "aarch64")))]
+pub(super) fn capture_supported_architectures(
+    _: &super::NativeRuntime,
+    _: super::WinArch,
+) -> Result<SupportedArchitectures, String> {
+    Err("native supported processor architectures requires an ARM64 Windows host".into())
+}
+
 fn flush_profile(version: &super::WinVersion, machine: Option<u16>) -> bool {
     version.major == 10
         && version.minor == 0

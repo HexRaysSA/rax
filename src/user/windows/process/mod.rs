@@ -291,6 +291,7 @@ pub struct Proc {
     pub(crate) native: Option<super::native::NativeRuntime>,
     pub(crate) quota_limits: Option<quota::Limits>,
     pub(crate) flush_information: Result<[u8; 32], String>,
+    pub(crate) supported_architectures: Result<super::native::SupportedArchitectures, String>,
     pub(crate) thread_access: Result<super::security::thread::Access, String>,
     pub(crate) image_information: Result<image_information::ImageInformation, &'static str>,
     pub(crate) wow64: Option<wow64::State>,

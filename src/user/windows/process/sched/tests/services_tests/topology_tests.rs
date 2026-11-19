@@ -5,6 +5,9 @@ use super::*;
 #[path = "numa_node_tests.rs"]
 mod numa_node_tests;
 
+#[path = "supported_architectures_tests.rs"]
+mod supported_architectures_tests;
+
 const SERVICE: u32 = 0x16E; // Synthetic table identity, not a host-build table.
 
 #[cfg(windows)]

@@ -1,4 +1,4 @@
-//! Extended system query for the modeled single-processor group and NUMA node.
+//! Extended system queries for processor topology and installed architectures.
 //!
 //! Class 107 and its six-argument signature are pinned in PHNT; the public
 //! group layout is SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX. Probe/conversion
@@ -6,13 +6,15 @@
 //! originals in `docs/specifications/windows/native-processor-groups/` and
 //! `docs/specifications/windows/native-numa-node/`.
 
+use super::process_query::process_query_target;
 use super::query::{guard_result, probe_write, return_length};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
+use crate::user::windows::native::SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2;
 use crate::user::windows::nt::status::{
-    STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT, STATUS_INFO_LENGTH_MISMATCH,
-    STATUS_INVALID_PARAMETER,
+    STATUS_ACCESS_VIOLATION, STATUS_BUFFER_TOO_SMALL, STATUS_DATATYPE_MISALIGNMENT,
+    STATUS_INFO_LENGTH_MISMATCH, STATUS_INVALID_PARAMETER,
 };
 
 const SYSTEM_LOGICAL_PROCESSOR_AND_GROUP_INFORMATION: u32 = 107;
@@ -45,7 +47,10 @@ fn query(c: &mut Ctx) -> ApiResult {
     if input == 0 || input_bytes == 0 {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
-    if input % 4 != 0 {
+    let supported_architectures =
+        class == SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2 && c.arch() == WinArch::Arm64;
+    let input_alignment = if supported_architectures { 8 } else { 4 };
+    if input % input_alignment != 0 {
         return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
     }
     if c.arch() != WinArch::X86 {
@@ -72,6 +77,16 @@ fn query(c: &mut Ctx) -> ApiResult {
             probe_write(c, returned, 4)?;
         }
     }
+    if supported_architectures {
+        return query_supported_architectures(
+            c,
+            input,
+            input_bytes,
+            output,
+            output_bytes,
+            returned,
+        );
+    }
     if class != SYSTEM_LOGICAL_PROCESSOR_AND_GROUP_INFORMATION {
         return Err(c.unsupported(format!("NtQuerySystemInformationEx class {class}")));
     }
@@ -87,6 +102,52 @@ fn query(c: &mut Ctx) -> ApiResult {
             "NtQuerySystemInformationEx class {class} relationship {relationship}"
         ))),
     }
+}
+
+// Class 230's handle, probe, copy, and ReturnLength order is measured in
+// docs/specifications/windows/native-supported-processor-architectures/.
+fn query_supported_architectures(
+    c: &Ctx,
+    input: u64,
+    input_bytes: u32,
+    output: u64,
+    output_bytes: u32,
+    returned: u64,
+) -> ApiResult {
+    const PROCESS_QUERY_ACCESS: u32 = 0x0400 | 0x1000;
+    if input_bytes != 8 {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    let handle = c.mem().u64(input)?;
+    let process = if handle == 0 {
+        false
+    } else {
+        match process_query_target(c, handle, PROCESS_QUERY_ACCESS) {
+            Ok(pid) if pid == c.p.pid => true,
+            Ok(_) => {
+                return Err(c.unsupported("supported processor architectures for another process"));
+            }
+            Err(status) => return Flow::ret(status.into()),
+        }
+    };
+    let snapshot = c.p.supported_architectures.as_ref().map_err(|reason| {
+        c.unsupported(format!(
+            "supported processor architectures unavailable: {reason}"
+        ))
+    })?;
+    let data = if process {
+        &snapshot.current_process
+    } else {
+        &snapshot.system
+    };
+    let required = data.len() as u32;
+    if output_bytes < required {
+        return_length(c, returned, required)?;
+        return Flow::ret(STATUS_BUFFER_TOO_SMALL.into());
+    }
+    c.mem().wr(output, data)?;
+    return_length(c, returned, required)?;
+    Flow::ret(0)
 }
 
 fn numa_node(c: &mut Ctx, output: u64, output_bytes: u32, returned: u64) -> ApiResult {

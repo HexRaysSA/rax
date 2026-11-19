@@ -157,7 +157,7 @@ fn query(c: &mut Ctx) -> ApiResult {
     Flow::ret(0)
 }
 
-fn process_query_target(c: &Ctx, handle: u64, rights: u32) -> Result<u32, u32> {
+pub(super) fn process_query_target(c: &Ctx, handle: u64, rights: u32) -> Result<u32, u32> {
     if handle == c.arch().ptr(CURRENT_PROCESS) {
         return Ok(c.p.pid);
     }
