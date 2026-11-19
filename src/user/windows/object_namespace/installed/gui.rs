@@ -15,6 +15,7 @@ mod context;
 mod cursor_icons;
 mod desktop;
 mod system_parameters;
+mod window_station;
 
 #[repr(C)]
 #[derive(Default)]
@@ -251,6 +252,8 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
         // SAFETY: fixed installed query on this already converted native helper.
         let remote_before = unsafe { remote_connect_state() };
         let (handle_before, assigned_desktop) = desktop::capture(&_user, &win32u)?;
+        let assigned_window_station =
+            window_station::capture(&_user, &win32u).map_err(|error| error.to_string());
         let dpi = process_dpi(&win32u);
         let process_ui_context = context::capture(&win32u);
         let system_parameters = system_parameters::capture(&win32u);
@@ -271,6 +274,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             && assigned_desktop.name() == repeated_identity.name()
             && assigned_desktop.access == repeated_identity.access
             && assigned_desktop.flags == repeated_identity.flags
+            && assigned_window_station == window_station::capture(&_user, &win32u).map_err(|error| error.to_string())
             && dpi == process_dpi(&win32u)
             && process_ui_context == context::capture(&win32u)
             && system_parameters == system_parameters::capture(&win32u)
@@ -297,6 +301,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             let selected = Arc::get_mut(&mut inputs).expect("new GUI snapshot");
             selected.system_parameters = system_parameters;
             selected.cursor_icons = cursor_icons;
+            selected.window_station = assigned_window_station.map(|(_, station)| station);
             return Ok(inputs);
         }
     }

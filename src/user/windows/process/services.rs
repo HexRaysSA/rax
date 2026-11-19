@@ -110,6 +110,9 @@ fn enter(
                 | "NtUserRemoteConnectState"
                 | "NtUserFindExistingCursorIcon"
                 | "NtUserGetThreadDesktop"
+                | "NtUserGetProcessWindowStation"
+                | "NtUserGetObjectInformation"
+                | "NtUserCloseWindowStation"
                 | "NtUserRegisterLPK"
                 | "NtUserRegisterWindowMessage"
                 | "NtUserRegisterClassExWOW"
@@ -125,6 +128,25 @@ fn enter(
             "NtUserRemoteConnectState" => gui::remote_connect_state(p, t, sp, resume, wow64_return),
             "NtUserFindExistingCursorIcon" => gui::find_cursor_icon(p, t, sp, resume, wow64_return),
             "NtUserGetThreadDesktop" => gui::thread_desktop(p, t, sp, resume, wow64_return),
+            "NtUserGetProcessWindowStation" => {
+                gui::process_window_station(p, t, sp, resume, wow64_return)
+            }
+            "NtUserGetObjectInformation" => gui::user_object_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::QueryUserObject,
+            ),
+            "NtUserCloseWindowStation" => gui::user_object_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::CloseWindowStation,
+            ),
             "NtUserRegisterLPK" => gui::register_lpk(p, t, sp, resume, wow64_return),
             "NtUserRegisterWindowMessage" => {
                 gui::register_window_message(p, t, sp, resume, wow64_return)

@@ -454,6 +454,9 @@ mod cursor_icons_tests;
 #[path = "gui_tests/desktop_tests.rs"]
 mod desktop_tests;
 
+#[path = "gui_tests/window_station_tests.rs"]
+mod window_station_tests;
+
 #[path = "gui_tests/lpk_tests.rs"]
 mod lpk_tests;
 

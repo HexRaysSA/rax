@@ -17,6 +17,8 @@ use std::path::PathBuf;
 
 mod desktop;
 pub use desktop::Desktop;
+mod window_station;
+pub use window_station::WindowStation;
 mod directory;
 mod etw;
 mod file_name;
@@ -275,8 +277,8 @@ pub enum Object {
     },
     /// The selected desktop, independent of its intrinsically attached handle.
     Desktop(std::sync::Arc<Desktop>),
-    /// An object this implementation only needs to name (unmodeled tokens,
-    /// registry keys, window stations).
+    WindowStation(std::sync::Arc<WindowStation>),
+    /// An object this implementation only needs to name (e.g. registry keys).
     Opaque(&'static str),
 }
 
@@ -310,6 +312,7 @@ impl Object {
             | Object::ImpersonationToken(_)
             | Object::GuestImpersonationToken { .. } => "Token",
             Object::Desktop(_) => "Desktop",
+            Object::WindowStation(_) => "WindowStation",
             Object::Opaque(t) => t,
         }
     }
@@ -362,6 +365,7 @@ pub struct Objects {
     /// The immutable primary token survives the last caller handle.
     primary_token: Option<ObjId>,
     desktop: Option<(ObjId, u32)>,
+    window_station: Option<(ObjId, u32)>,
     wnf_subscriptions: wnf::Subscriptions,
     scheduler_bindings: BTreeMap<u32, (ObjId, u32)>,
     retired_scheduler_views: Vec<super::memory::SchedulerView>,
@@ -705,7 +709,7 @@ impl Objects {
     pub fn close(&mut self, handle: u64) -> Result<Option<Object>, ()> {
         let key = Self::key(handle).ok_or(())?;
         let e = *self.handles.get(&key).ok_or(())?;
-        if e.protect_from_close || self.assigned_desktop_handle(handle) {
+        if e.protect_from_close || self.attached_user_handle(handle) {
             return Err(());
         }
         self.handles.remove(&key);
@@ -811,6 +815,7 @@ impl Objects {
         self.etw_event = None;
         self.primary_token = None;
         self.desktop = None;
+        self.window_station = None;
         self.wnf_subscriptions.records.clear();
         self.scheduler_bindings.clear();
         self.registry_notifications = Default::default();

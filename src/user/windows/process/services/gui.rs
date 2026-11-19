@@ -9,6 +9,7 @@ use crate::user::windows::objects::Object;
 
 mod cursor_icons;
 mod system_parameters;
+mod user_objects;
 mod window_classes;
 
 const NO_CALLBACK_ACTIVE: u32 = 0xc000_0258;
@@ -173,6 +174,33 @@ pub(super) fn thread_desktop(
         0
     };
     convert(p, t, sp, resume, wow64, Some(Completion::Value(value)))
+}
+
+pub(super) fn process_window_station(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    wow64: bool,
+) -> Outcome {
+    match user_objects::station(p) {
+        Ok(value) => convert(p, t, sp, resume, wow64, Some(Completion::Value(value))),
+        Err(outcome) => outcome,
+    }
+}
+
+pub(super) fn user_object_operation<const N: usize>(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    wow64: bool,
+    operation: fn([u64; N]) -> Completion,
+) -> Outcome {
+    let Some(arguments) = arguments(p, t, sp) else {
+        return failure("USER object service arguments are unreadable");
+    };
+    convert(p, t, sp, resume, wow64, Some(operation(arguments)))
 }
 
 pub(super) fn process_ui_context(
@@ -346,6 +374,12 @@ fn complete_window_message(p: &Proc, t: &Thread, descriptor: u64) -> Result<u64,
 fn complete(p: &mut Proc, t: &Thread, operation: Completion) -> Result<u64, Outcome> {
     let (process, output) = match operation {
         Completion::Value(value) => return Ok(value),
+        Completion::QueryUserObject(arguments) => {
+            return user_objects::information(p, t, arguments);
+        }
+        Completion::CloseWindowStation(arguments) => {
+            return user_objects::close_station(p, t, arguments);
+        }
         Completion::RegisterLpk(value) => {
             p.gui.lpk_registration = Some(value);
             return Ok(1);

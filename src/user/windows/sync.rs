@@ -501,6 +501,7 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
             | Object::ImpersonationToken(_)
             | Object::GuestImpersonationToken { .. }
             | Object::Desktop(_)
+            | Object::WindowStation(_)
             | Object::Opaque(_),
         )
         | None => false,

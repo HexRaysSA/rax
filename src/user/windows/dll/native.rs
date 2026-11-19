@@ -717,7 +717,7 @@ fn terminate_thread(c: &mut Ctx) -> ApiResult {
 }
 fn close(c: &mut Ctx) -> ApiResult {
     let handle = c.ptr(0)?;
-    if c.p.objects.assigned_desktop_handle(handle) {
+    if c.p.objects.attached_user_handle(handle) {
         return Flow::ret(STATUS_HANDLE_NOT_CLOSABLE.into());
     }
     Flow::ret(

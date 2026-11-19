@@ -5,15 +5,16 @@ use std::ffi::c_void;
 use std::io;
 use std::sync::Arc;
 
-type Information = unsafe extern "system" fn(Handle, i32, *mut c_void, u32, *mut u32) -> i32;
+pub(super) type Information =
+    unsafe extern "system" fn(Handle, i32, *mut c_void, u32, *mut u32) -> i32;
 
 #[link(name = "kernel32")]
 unsafe extern "system" {
     fn GetCurrentThreadId() -> u32;
-    fn GetHandleInformation(handle: Handle, flags: *mut u32) -> i32;
+    pub(super) fn GetHandleInformation(handle: Handle, flags: *mut u32) -> i32;
 }
 
-fn text(query: Information, handle: Handle, class: i32) -> io::Result<Vec<u16>> {
+pub(super) fn text(query: Information, handle: Handle, class: i32) -> io::Result<Vec<u16>> {
     let mut output = [0u16; 1024];
     let mut returned = 0;
     // SAFETY: fixed current-process borrowed desktop and fixed query class;

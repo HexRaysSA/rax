@@ -113,15 +113,7 @@ fn lpk_registration_in_pending_callback_preserves_outer_operation_and_commit_ord
                 let expected = match original {
                     Completion::Value(value) => value,
                     Completion::RegisterLpk(_) => 1,
-                    Completion::FindCursorIcon(_)
-                    | Completion::RegisterWindowClass(_)
-                    | Completion::GetWindowClass(_)
-                    | Completion::UnregisterWindowClass(_)
-                    | Completion::ProcessUiContext { .. }
-                    | Completion::RegisterWindowMessage(_)
-                    | Completion::SystemParameter { .. } => {
-                        unreachable!("selected outer operation")
-                    }
+                    _ => unreachable!("selected outer operation"),
                 };
                 assert_eq!(t.cpu.gpr(0), if success { expected } else { 0 });
                 assert_eq!(t.cpu.pc(), resume);
