@@ -1071,6 +1071,32 @@ fn cmpxchg8b_mismatch_checks_the_second_page_before_accessing_the_operand() {
 }
 
 #[test]
+fn cmpxchg8b_preflight_wraps_with_the_legacy_linear_operand() {
+    let mut h = harness(&[0xf0, 0x0f, 0xc7, 0x0e]); // LOCK CMPXCHG8B [ESI]
+    h.vcpu.sregs.cs.l = false;
+    h.vcpu.sregs.cs.db = true;
+    h.vcpu.sregs.ds.base = 0xffff_f000;
+    h.vcpu.regs.rsi = 0xffc;
+    h.space.map(0xffff_f000, 0x4000, R | W);
+    h.space.map(0, 0x5000, R | W);
+    // The segment offset stays well below 4 GiB. Its base puts the linear
+    // operand across the 32-bit wrap, and the unwrapped page is unmapped.
+    h.vcpu.regs.rbx = 0x89ab_cdef;
+    h.vcpu.regs.rcx = 0x0123_4567;
+    assert!(h.vcpu.step().unwrap().is_none());
+    assert_eq!(h.vcpu.regs.rip, CODE + 4);
+    assert_ne!(h.vcpu.user_rflags() & 0x40, 0);
+    assert_eq!(
+        h.mem.read_obj::<u32>(GuestAddress(0x4ffc)).unwrap(),
+        0x89ab_cdef
+    );
+    assert_eq!(
+        h.mem.read_obj::<u32>(GuestAddress(0x5000)).unwrap(),
+        0x0123_4567
+    );
+}
+
+#[test]
 fn cmpxchg8b_preflight_admits_mmio_without_blocking_on_missing_ram_backing() {
     use crate::devices::ioapic::{IOAPIC_BASE, IoApic};
     use std::sync::Mutex;

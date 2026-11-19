@@ -936,7 +936,7 @@ impl Mmu {
             let paddr = self.translate(current, AccessType::Write, sregs)?;
             self.preflight_write_phys(paddr, chunk)?;
             remaining -= chunk;
-            current = current.wrapping_add(chunk as u64);
+            current = crossing_next(vaddr, current, chunk as u64, sregs);
         }
         Ok(())
     }
