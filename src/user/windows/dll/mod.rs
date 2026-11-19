@@ -24,7 +24,7 @@ mod threading;
 use super::hle::Export;
 
 pub(crate) use files::finish_close;
-pub(crate) use native::{WOW64_BASE_CREATE_PROCESS, WOW64_BASE_NLS};
+pub(crate) use native::{WOW64_BASE_CREATE_PROCESS, WOW64_BASE_NLS, WOW64_USER_CONNECT};
 pub(crate) use sysinfo::processor_feature_present;
 
 /// Context buffers at the raw kernel boundary can have a different layout

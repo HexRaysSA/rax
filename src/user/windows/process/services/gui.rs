@@ -326,10 +326,15 @@ pub(super) fn system_parameters(
 }
 
 fn selected_user_client_data(p: &Proc) -> Result<Arc<CsrClientData>, Outcome> {
-    p.object_namespace
-        .selected_csr_server()
-        .ok()
-        .and_then(|server| server.client_data.clone())
+    p.wow64
+        .as_ref()
+        .and_then(|state| state.user_data.clone())
+        .or_else(|| {
+            p.object_namespace
+                .selected_csr_server()
+                .ok()
+                .and_then(|server| server.client_data.clone())
+        })
         .ok_or_else(|| failure("the selected CSR USER handle table is unavailable"))
 }
 

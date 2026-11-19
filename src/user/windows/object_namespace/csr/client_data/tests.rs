@@ -300,6 +300,59 @@ fn native_csr_client_data_replays_all_four_selected_snapshots() {
 }
 
 #[test]
+fn wow64_user_connection_rebases_only_the_measured_pointer_fields() {
+    let native = fixture(0);
+    let mut vm = vm();
+    let data = native.map_wow64(&mut vm).unwrap();
+    assert!(data.owns_views(&vm));
+    let mut expected = native.information;
+    for slot in POINTER_SLOTS {
+        let pointer = word(&expected, slot);
+        if pointer == 0 {
+            continue;
+        }
+        let (old, new) = native
+            .views
+            .iter()
+            .zip(&data.views)
+            .find(|(old, _)| (old.base..old.base + old.section.size).contains(&pointer))
+            .unwrap();
+        let projected = new.base + (pointer - old.base);
+        expected[slot..slot + 8].copy_from_slice(&projected.to_le_bytes());
+    }
+    assert_eq!(data.information, expected);
+    for (old, new) in native.views.iter().zip(&data.views) {
+        assert!(new.base + new.section.size <= 1 << 32);
+        assert!(Arc::ptr_eq(&old.section, &new.section));
+        for span in &old.section.regions {
+            if let Some(bytes) = &span.bytes {
+                assert_eq!(
+                    vm.space()
+                        .bytes(new.base + span.offset, bytes.len())
+                        .unwrap(),
+                    **bytes
+                );
+            }
+        }
+    }
+    vm.release(data.views[0].base).unwrap();
+    assert!(!data.owns_views(&vm));
+}
+
+#[test]
+fn wow64_user_connection_rolls_back_when_the_second_low_view_does_not_fit() {
+    let data = fixture(0);
+    let base = 0x10000;
+    let mut vm = VirtualMemory::new(
+        vm().space().clone(),
+        base,
+        base + data.views[0].section.size,
+    );
+    assert!(matches!(data.map_wow64(&mut vm), Err(VmError::NoMemory)));
+    assert!(vm.allocation(base).is_none());
+}
+
+#[test]
 fn native_csr_client_data_mapping_collision_rolls_back_only_new_views() {
     for index in 0..2 {
         let (information, views) = capture(LOGS[0]);

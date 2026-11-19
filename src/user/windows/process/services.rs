@@ -82,22 +82,41 @@ fn enter(
         .as_ref()
         .filter(|_| wow64_return)
         .and_then(|binding| binding.api(&p.vm, number, resume, sp));
+    let user32_api = p
+        .modules
+        .mapped_wow64_user32
+        .as_ref()
+        .filter(|_| wow64_return)
+        .and_then(|binding| binding.api(&p.vm, number, resume, sp));
+    let private = match (kernelbase_api, user32_api) {
+        (Some(_), Some(_)) => {
+            return Some(Outcome::Fail(format!(
+                "raw Windows {} service {number:#x} at {pc:#x} has conflicting selected KernelBase and User32 identities",
+                p.arch
+            )));
+        }
+        (Some(api), None) => Some(("KernelBase", api)),
+        (None, Some(api)) => Some(("User32", api)),
+        (None, None) => None,
+    };
     if nt_name.is_some() && win32u_name.is_some() {
         return Some(Outcome::Fail(format!(
             "raw Windows {} service {number:#x} at {pc:#x} has conflicting selected NTDLL and Win32u identities",
             p.arch
         )));
     }
-    if kernelbase_api.is_some() && (nt_name.is_some() || win32u_name.is_some()) {
+    if let Some((library, _)) = private
+        && (nt_name.is_some() || win32u_name.is_some())
+    {
         return Some(Outcome::Fail(format!(
-            "raw Windows {} service {number:#x} at {pc:#x} has conflicting selected KernelBase and kernel-service identities",
+            "raw Windows {} service {number:#x} at {pc:#x} has conflicting selected {library} and kernel-service identities",
             p.arch
         )));
     }
     let Some((source, name)) = nt_name
         .map(|name| ("NTDLL", name.to_owned()))
         .or_else(|| win32u_name.map(|name| ("Win32u", name.to_owned())))
-        .or_else(|| kernelbase_api.map(|api| ("KernelBase", api.name.to_owned())))
+        .or_else(|| private.map(|(library, api)| (library, api.name.to_owned())))
     else {
         return Some(Outcome::Fail(format!(
             "raw Windows {} service {number:#x} at {pc:#x} has no admitted stub in the selected NTDLL or Win32u",
@@ -330,7 +349,7 @@ fn enter(
     // named NTDLL implementation from the other namespace.
     let api = match source {
         "NTDLL" => dll::nt_service(&name, p.arch),
-        "KernelBase" => kernelbase_api,
+        "KernelBase" | "User32" => private.map(|(_, api)| api),
         _ => None,
     };
     let Some(api) = api else {

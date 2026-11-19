@@ -643,6 +643,14 @@ pub(crate) static WOW64_BASE_CREATE_PROCESS: crate::user::windows::hle::Api =
         imp: wow64_csr::create_process,
     };
 
+pub(crate) static WOW64_USER_CONNECT: crate::user::windows::hle::Api =
+    crate::user::windows::hle::Api {
+        name: "UserConnectToServer",
+        args: &[Ptr, Ptr, I32, Ptr],
+        conv: Stdcall,
+        imp: wow64_csr::user_connect,
+    };
+
 // Append to preserve all prior synthetic export ordinals and trap addresses.
 pub(super) static THREAD_OPEN_EXPORTS: &[Export] = &[Export::func(
     "NtOpenThread",

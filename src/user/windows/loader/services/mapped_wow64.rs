@@ -1,4 +1,4 @@
-//! Bind measured private WoW64 services to the selected KernelBase image.
+//! Bind measured private WoW64 services to their selected installed image.
 use std::fs::File;
 use std::sync::Arc;
 
@@ -31,6 +31,7 @@ struct PrivateLeaf {
     stub: u64,
     parent: u32,
     argument_bytes: u8,
+    thunk: u32,
 }
 
 const NLS_LEAF: PrivateLeaf = PrivateLeaf {
@@ -38,21 +39,41 @@ const NLS_LEAF: PrivateLeaf = PrivateLeaf {
     stub: STUB,
     parent: PARENT,
     argument_bytes: 8,
+    thunk: THUNK,
 };
 const CHILD_LEAF: PrivateLeaf = PrivateLeaf {
     number: CSR_CHILD,
     stub: CSR_CHILD_STUB,
     parent: CSR_CHILD_PARENT,
     argument_bytes: 4,
+    thunk: THUNK,
 };
 
-pub(crate) struct MappedWow64KernelBase {
+const USER_CONNECT: PrivateLeaf = PrivateLeaf {
+    number: 0x2000,
+    stub: 0x65_fa0,
+    parent: 0x56_b35,
+    argument_bytes: 16,
+    thunk: 0xd_9b90,
+};
+const USER_CONNECT_INSIDE: u32 = 0xf_b98c;
+const USER32_HASH: [u8; 32] = [
+    0x0a, 0x3c, 0x35, 0x25, 0x23, 0x2a, 0x43, 0x09, 0x34, 0x0c, 0x4f, 0x30, 0x12, 0x69, 0x7d, 0x1b,
+    0xa5, 0x43, 0x48, 0x4e, 0x66, 0x27, 0x7d, 0xca, 0x9e, 0x55, 0x44, 0xe2, 0xbd, 0xab, 0xc4, 0x43,
+];
+
+struct SelectedImage {
     known: Option<Arc<ImageSection>>,
     file: Option<(File, FileIdentity)>,
 }
 
-impl MappedWow64KernelBase {
-    pub(crate) fn select(runtime: &NativeRuntime, arch: WinArch) -> Option<Self> {
+impl SelectedImage {
+    fn select(
+        runtime: &NativeRuntime,
+        arch: WinArch,
+        library: &str,
+        hash: [u8; 32],
+    ) -> Option<Self> {
         if arch != WinArch::X86
             || (
                 runtime.version.major,
@@ -63,15 +84,15 @@ impl MappedWow64KernelBase {
         {
             return None;
         }
-        let path = runtime.dll("kernelbase.dll").ok()??;
+        let path = runtime.dll(library).ok()??;
         let mut file = File::open(&path).ok()?;
         let identity = FileIdentity::of_open(&path, Some(&file), &file.metadata().ok()?).ok()?;
         let bytes = read_image_file(&mut file).ok()?;
         let digest: [u8; 32] = Sha256::digest(bytes).into();
-        if digest != IMAGE_HASH {
+        if digest != hash {
             return None;
         }
-        let name: Vec<_> = "\\KnownDlls32\\kernelbase.dll".encode_utf16().collect();
+        let name: Vec<_> = format!("\\KnownDlls32\\{library}").encode_utf16().collect();
         let known = runtime
             .object_namespace
             .lookup_section(None, &name, 0x40, false)
@@ -80,33 +101,6 @@ impl MappedWow64KernelBase {
             known,
             file: Some((file, identity)),
         })
-    }
-
-    pub(crate) fn api(
-        &self,
-        vm: &VirtualMemory,
-        number: u32,
-        resume: u64,
-        sp: u64,
-    ) -> Option<&'static Api> {
-        match number {
-            SERVICE => {
-                let (base, size) = self.verify_leaf(vm, resume, sp, &NLS_LEAF)?;
-                if size < u64::from(OUTPUT) + BASE_NLS_BYTES as u64 {
-                    return None;
-                }
-                let output = base.checked_add(OUTPUT)?;
-                let space = vm.space();
-                (space.u32(sp.checked_add(4)?).ok()? == output
-                    && space.u32(sp.checked_add(8)?).ok()? == BASE_NLS_BYTES as u32)
-                    .then_some(&dll::WOW64_BASE_NLS)
-            }
-            CSR_CHILD => {
-                self.verify_leaf(vm, resume, sp, &CHILD_LEAF)?;
-                Some(&dll::WOW64_BASE_CREATE_PROCESS)
-            }
-            _ => None,
-        }
     }
 
     fn verify_leaf(
@@ -136,7 +130,7 @@ impl MappedWow64KernelBase {
         }
         let base = u32::try_from(view.image_base).ok()?;
         let parent = base.checked_add(leaf.parent)?;
-        let thunk = base.checked_add(THUNK)?;
+        let thunk = base.checked_add(leaf.thunk)?;
         let space = vm.space();
         let mut code = [0; 15];
         space.fetch(view.image_base + leaf.stub, &mut code).ok()?;
@@ -158,6 +152,64 @@ impl MappedWow64KernelBase {
     }
 }
 
+pub(crate) struct MappedWow64KernelBase(SelectedImage);
+
+impl MappedWow64KernelBase {
+    pub(crate) fn select(runtime: &NativeRuntime, arch: WinArch) -> Option<Self> {
+        SelectedImage::select(runtime, arch, "kernelbase.dll", IMAGE_HASH).map(Self)
+    }
+
+    pub(crate) fn api(
+        &self,
+        vm: &VirtualMemory,
+        number: u32,
+        resume: u64,
+        sp: u64,
+    ) -> Option<&'static Api> {
+        match number {
+            SERVICE => {
+                let (base, size) = self.0.verify_leaf(vm, resume, sp, &NLS_LEAF)?;
+                if size < u64::from(OUTPUT) + BASE_NLS_BYTES as u64 {
+                    return None;
+                }
+                let output = base.checked_add(OUTPUT)?;
+                let space = vm.space();
+                (space.u32(sp.checked_add(4)?).ok()? == output
+                    && space.u32(sp.checked_add(8)?).ok()? == BASE_NLS_BYTES as u32)
+                    .then_some(&dll::WOW64_BASE_NLS)
+            }
+            CSR_CHILD => {
+                self.0.verify_leaf(vm, resume, sp, &CHILD_LEAF)?;
+                Some(&dll::WOW64_BASE_CREATE_PROCESS)
+            }
+            _ => None,
+        }
+    }
+}
+
+pub(crate) struct MappedWow64User32(SelectedImage);
+
+impl MappedWow64User32 {
+    pub(crate) fn select(runtime: &NativeRuntime, arch: WinArch) -> Option<Self> {
+        SelectedImage::select(runtime, arch, "user32.dll", USER32_HASH).map(Self)
+    }
+
+    pub(crate) fn api(
+        &self,
+        vm: &VirtualMemory,
+        number: u32,
+        resume: u64,
+        sp: u64,
+    ) -> Option<&'static Api> {
+        if number != USER_CONNECT.number {
+            return None;
+        }
+        let (base, _) = self.0.verify_leaf(vm, resume, sp, &USER_CONNECT)?;
+        let inside = base.checked_add(USER_CONNECT_INSIDE)?;
+        (vm.space().u32(sp.checked_add(16)?).ok()? == inside).then_some(&dll::WOW64_USER_CONNECT)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,6 +217,78 @@ mod tests {
     use crate::user::windows::memory::{mem, prot};
     use crate::user::windows::object_namespace::{ImageRegion, ImageTemplate};
     use crate::user::windows::{dll, loader::builtin};
+
+    #[test]
+    fn wow64_user_connect_requires_its_selected_image_caller_and_inside_flag() {
+        const BASE: u32 = 0x2000_0000;
+        const SIZE: u64 = 0x10_0000;
+        let mut bytes = builtin::build(
+            dll::find("ntdll.dll").unwrap(),
+            WinArch::X86,
+            u64::from(BASE),
+            &[],
+        )
+        .bytes;
+        bytes.resize(SIZE as usize, 0);
+        let nt = u32::from_le_bytes(bytes[0x3c..0x40].try_into().unwrap()) as usize;
+        bytes[nt + 80..nt + 84].copy_from_slice(&(SIZE as u32).to_le_bytes());
+        let leaf = &USER_CONNECT;
+        let stub = &mut bytes[leaf.stub as usize..leaf.stub as usize + 15];
+        stub[..6].copy_from_slice(&[0xb8, 0, 0x20, 0, 0, 0xba]);
+        stub[6..10].copy_from_slice(&(BASE + leaf.thunk).to_le_bytes());
+        stub[10..].copy_from_slice(&[0xff, 0xd2, 0xc2, 16, 0]);
+        let parent = leaf.parent as usize;
+        bytes[parent - 5] = 0xe8;
+        bytes[parent - 4..parent]
+            .copy_from_slice(&(leaf.stub as i32 - leaf.parent as i32).to_le_bytes());
+        let image = ImageTemplate::selected(
+            bytes,
+            vec![ImageRegion {
+                offset: 0,
+                size: SIZE,
+                state: mem::COMMIT,
+                protection: prot::EXECUTE_WRITECOPY,
+            }],
+        )
+        .unwrap();
+        let selected = ImageSection::with_test_image(image.clone());
+        let unrelated = ImageSection::with_test_image(image.clone());
+        let binding = MappedWow64User32(SelectedImage {
+            known: Some(selected.clone()),
+            file: None,
+        });
+        let space = AddressSpace::new(SpaceConfig {
+            va_limit: 1 << 32,
+            arena_bytes: 8 << 20,
+            reserved_phys: vec![],
+        })
+        .unwrap();
+        let mut vm = VirtualMemory::new(space.clone(), 0x10000, 1 << 32);
+        let base = u64::from(BASE);
+        vm.map_section_image(selected, &image, base, base, SIZE, 0, SIZE, false, false)
+            .unwrap();
+        let sp = base + SIZE - 24;
+        let resume = base + leaf.stub + 12;
+        space.w32(sp, BASE + leaf.parent).unwrap();
+        space.w32(sp + 16, BASE + USER_CONNECT_INSIDE).unwrap();
+        assert_eq!(
+            binding.api(&vm, leaf.number, resume, sp).unwrap().name,
+            "UserConnectToServer"
+        );
+        assert!(binding.api(&vm, leaf.number + 1, resume, sp).is_none());
+        assert!(binding.api(&vm, leaf.number, resume + 1, sp).is_none());
+        space.w32(sp + 16, BASE + USER_CONNECT_INSIDE + 1).unwrap();
+        assert!(binding.api(&vm, leaf.number, resume, sp).is_none());
+        space.w32(sp + 16, BASE + USER_CONNECT_INSIDE).unwrap();
+        space.w32(sp, BASE + leaf.parent + 1).unwrap();
+        assert!(binding.api(&vm, leaf.number, resume, sp).is_none());
+        vm.release(base).unwrap();
+        vm.map_section_image(unrelated, &image, base, base, SIZE, 0, SIZE, false, false)
+            .unwrap();
+        space.w32(sp, BASE + leaf.parent).unwrap();
+        space.w32(sp + 16, BASE + USER_CONNECT_INSIDE).unwrap();
+        assert!(binding.api(&vm, leaf.number, resume, sp).is_none());
+    }
 
     #[test]
     fn wow64_kernelbase_requires_the_selected_image_and_exact_measured_call_sites() {
@@ -207,10 +331,10 @@ mod tests {
         .unwrap();
         let selected = ImageSection::with_test_image(image.clone());
         let unrelated = ImageSection::with_test_image(image.clone());
-        let binding = MappedWow64KernelBase {
+        let binding = MappedWow64KernelBase(SelectedImage {
             known: Some(Arc::clone(&selected)),
             file: None,
-        };
+        });
         let base = u64::from(BASE);
         let space = AddressSpace::new(SpaceConfig {
             va_limit: 1 << 32,

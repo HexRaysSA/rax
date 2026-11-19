@@ -69,6 +69,8 @@ pub(crate) struct State {
     /// Captured process session, independent of mutable guest PEB/token fields.
     pub(crate) session: u32,
     pub(crate) csr: Option<CsrConnection>,
+    pub(crate) user_data:
+        Option<Arc<crate::user::windows::object_namespace::csr::client_data::CsrClientData>>,
     _work_view: Option<SharedViewOwner>,
 }
 
@@ -205,6 +207,7 @@ fn initialize_profile(p: &mut Proc, profile: Profile) -> Result<(), u32> {
                 kernel: profile.kernel,
                 session,
                 csr: None,
+                user_data: None,
                 _work_view: work_view,
             });
             Ok(())

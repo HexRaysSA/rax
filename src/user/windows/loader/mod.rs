@@ -230,6 +230,8 @@ pub struct Modules {
     pub(crate) mapped_win32u: Option<services::MappedWin32u>,
     /// Private BASE NLS service in the selected x86 KernelBase image view.
     pub(crate) mapped_wow64_kernelbase: Option<services::MappedWow64KernelBase>,
+    /// Private USER startup service in the selected x86 User32 image view.
+    pub(crate) mapped_wow64_user32: Option<services::MappedWow64User32>,
     pub(crate) arm64ec_cfg: bool,
 }
 

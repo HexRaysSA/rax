@@ -139,6 +139,55 @@ impl CsrClientData {
         ))
     }
 
+    /// USER's WoW64 reply uses the same section bytes with two guest addresses
+    /// below the x86 address limit. Only the measured SHAREDINFO pointers are
+    /// rewritten. A failed second mapping retires the first.
+    pub(crate) fn map_wow64(&self, vm: &mut VirtualMemory) -> Result<Arc<Self>, VmError> {
+        let map = |vm: &mut VirtualMemory, source: &ClientView| {
+            let size = source.section.size;
+            let base = vm
+                .find_free(size, 65536, vm.low(), 1 << 32, true)
+                .ok_or(VmError::NoMemory)?;
+            let section = source.section.clone();
+            vm.map_data_section(section.clone(), base, 0, size, prot::READONLY)?;
+            Ok(ClientView { base, section })
+        };
+        let table = map(vm, &self.views[0])?;
+        let shared = match map(vm, &self.views[1]) {
+            Ok(view) => view,
+            Err(error) => {
+                vm.release(table.base)?;
+                return Err(error);
+            }
+        };
+        let views = [table, shared];
+        let mut information = self.information;
+        for slot in POINTER_SLOTS {
+            let address = word(&self.information, slot);
+            if address == 0 {
+                continue;
+            }
+            // selected() validates every nonnull pointer against its view.
+            let (source, target) = self
+                .views
+                .iter()
+                .zip(&views)
+                .find(|(source, _)| {
+                    address >= source.base && address - source.base < source.section.size
+                })
+                .expect("selected CSR client pointer");
+            let rebased = target.base + (address - source.base);
+            information[slot..slot + 8].copy_from_slice(&rebased.to_le_bytes());
+        }
+        Ok(Arc::new(Self { information, views }))
+    }
+
+    pub(crate) fn owns_views(&self, vm: &VirtualMemory) -> bool {
+        self.views
+            .iter()
+            .all(|view| vm.owns_readonly_data_view(view.base, &view.section))
+    }
+
     /// Map both immutable views transactionally. A collision is reported, never
     /// overwritten or repaired by selecting unrelated guest address ranges.
     pub(crate) fn map(&self, vm: &mut VirtualMemory) -> Result<Vec<u64>, VmError> {

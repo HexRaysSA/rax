@@ -3984,3 +3984,20 @@ the payload can leave the pointer visible. The required size differs by
 four bytes. Native ARM64, x64 and WoW64 on build 29708 returned a NULL
 process-trust SID for the sampled ordinary process token. The capture retains
 payload bytes independently of the guest ABI or object handle.
+
+## WoW64 USER startup on ARM64 kernel 29708
+
+The selected x86 User32 image calls the private WoW64 service `0x2000` as
+`UserConnectToServer` from `UserClientDllInitialize`. Its four x86 stack slots
+carry the CSR directory, a caller buffer, the scalar size of 584 bytes, and
+the address of User32's one-byte server flag. The service requires the measured
+service leaf and caller in the selected image, plus the process's existing
+session-one CSR connection.
+
+The native ARM64 and x86 replies have the same 18 view-relative SHAREDINFO
+pointer fields. The x86 reply projects the selected readonly handle table and
+shared USER data into the guest's low address range. The two view bodies are
+copied unchanged from the selected snapshot. The reply rewrites only those
+pointer fields and clears the low byte of the flag. Both views retain their
+selected data-section identities and are checked before any repeated reply.
+No guest request is dispatched to the host USER service.

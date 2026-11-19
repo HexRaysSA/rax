@@ -600,6 +600,9 @@ fn spawn_image_file(
     modules.mapped_wow64_kernelbase = native
         .as_ref()
         .and_then(|runtime| loader::services::MappedWow64KernelBase::select(runtime, arch));
+    modules.mapped_wow64_user32 = native
+        .as_ref()
+        .and_then(|runtime| loader::services::MappedWow64User32::select(runtime, arch));
     let mut p = Proc {
         arch,
         space,
