@@ -222,3 +222,24 @@ and TID3 traps. The full A32 FP controls, VFP A32, and ARM targets passed 155,
 524, and 46,850 tests. The A32/T32 SMIR lifters report these operations as
 unsupported. Physical AArch32 execution and the broader profile audit remain
 open.
+
+## Original ARM audit replay
+
+The audit author's `audit_arm/repro_full_cpu.rs` ran unchanged against the
+published software CPU implementation at
+`dacaae9ab251703aedeab104b6a5f3f332ebe770`. The source SHA-256 is
+`d4d06f509b2df4d2c34dc8d723ca8aa80ffdead7e04ecada5a7b1bf0befa1285`.
+All six A32 scalar FP cases now agree with the expected S0 and FPSCR values in
+section 5.3. The six A64 FP controls reproduced their original output
+byte-for-byte. The seven A64 memory cases returned the expected values or
+public fault classes and addresses. The harness does not expose walk levels.
+[Original audit](audit-2026-10-source/audit_root_en.md#53-distinguishing-a32-fp-failures-from-passing-a64-controls)
+
+The isolated source projection copied the original file into `examples/`
+and used `cargo +stable run --locked --no-default-features --features
+x86_64-suite,smir-jit,hvf,debug --example audit_arm_replay`. The comparison
+checked the original case order and all printed result bits, status bits,
+and public memory fault fields. Replay stdout SHA-256 is
+`fad241e33c6369474152d55111d72d2a2baab8baa7cb3d1a3f711526e99d9716`.
+Optional profiles, security and debug controls, and physical A32 execution
+remain open.

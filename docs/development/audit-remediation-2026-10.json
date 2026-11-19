@@ -199827,6 +199827,16 @@
       "scope": "The 32 Intel HVF cases preserve both product lanes and CF/OF for signed and unsigned multiplication at all four widths. Half the cases restore the pending read into a fresh vCPU.",
       "qualification": "docs/development/hvf-mmio-multiply.md",
       "full_goal_complete": false
+    },
+    {
+      "id": "original-arm-audit-replay-2026-11-19",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The audit author's unchanged full-CPU witness now gives the expected S0 and FPSCR for all six original A32 cases. All six A64 FP controls are identical to the original output. Seven A64 memory results pass in the public software CPU API. Broader A32 profiles remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#original-arm-audit-replay",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
