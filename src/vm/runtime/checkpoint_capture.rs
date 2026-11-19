@@ -22,7 +22,17 @@ impl Vmm {
         for cpu in &self.vcpus {
             prepared.push(cpu.prepare_checkpoint_capture()?);
         }
-        self.settle_checkpoint_io()?;
+        #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+        let kvm = self
+            .vm
+            .as_any()
+            .downcast_ref::<crate::backend::kvm::KvmVm>();
+        let retains_native_io = cfg!(all(
+            feature = "kvm",
+            target_os = "linux",
+            target_arch = "x86_64"
+        )) && self.backend_kind == BackendKind::Kvm;
+        self.settle_checkpoint_io(retains_native_io)?;
         self.refresh_pc_irq_sources()?;
         // Match dispatch: UART/PCI endpoints, PC inventory, shared platform, legacy devices,
         // owned S3C UARTs and GICs, then physical RAM. No guest callback runs
@@ -72,7 +82,18 @@ impl Vmm {
                     }
                     let boundary = self.vm.checkpoint_boundary()?;
                     let scope = bindings.enter()?;
-                    let clock = self.timing_context.checkpoint_state();
+                    #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+                    let native = kvm
+                        .map(|kvm| -> Result<_> {
+                            let (banks, sampled_at) = kvm.capture_native_banks_at(&boundary)?;
+                            Ok((banks.into_checkpoint_capture()?, sampled_at))
+                        })
+                        .transpose()?;
+                    #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+                    let sampled_at = native.as_ref().and_then(|(_, sampled_at)| *sampled_at);
+                    #[cfg(not(all(feature = "kvm", target_os = "linux", target_arch = "x86_64")))]
+                    let sampled_at = None;
+                    let clock = self.timing_context.checkpoint_state_at(sampled_at);
                     let now = std::time::Instant::now();
                     let execution = ExecutionSnapshot {
                         cursor: self.coordinator.cursor,
@@ -95,18 +116,40 @@ impl Vmm {
                     let mut cpus = Vec::with_capacity(self.vcpus.len());
                     let mut backend_contexts = Vec::with_capacity(self.vcpus.len());
                     let mut resources = pc_resources;
-                    for (cpu, prepared) in self.vcpus.iter().zip(&prepared) {
-                        let (public, private, cpu_resources) = cpu
-                            .capture_prepared_checkpoint_record(
-                                &boundary,
-                                Some(&scope),
-                                prepared.as_ref(),
-                            )?;
-                        cpus.push(public);
-                        backend_contexts.push(private);
-                        resources.extend(cpu_resources);
+                    let base_lapic = lapics
+                        .first()
+                        .ok_or_else(|| Error::InvalidConfig("no local controller".into()))?
+                        .checkpoint_registers();
+                    let mut shared = None;
+                    #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+                    if let Some((native, _)) = native {
+                        for (apic, priority) in execution.local_apics.iter().zip(&native.priorities)
+                        {
+                            if let Some(priority) = priority {
+                                apic.registers.priority_handle().store(u32::from(*priority));
+                            }
+                        }
+                        if let Some(priority) = native.priorities[0] {
+                            base_lapic.priority_handle().store(u32::from(priority));
+                        }
+                        cpus = native.cpus;
+                        backend_contexts = native.contexts;
+                        shared = Some(native.shared);
                     }
-                    let shared = self.vm.capture_checkpoint_vm_context(&boundary)?;
+                    if shared.is_none() {
+                        for (cpu, prepared) in self.vcpus.iter().zip(&prepared) {
+                            let (public, private, cpu_resources) = cpu
+                                .capture_prepared_checkpoint_record(
+                                    &boundary,
+                                    Some(&scope),
+                                    prepared.as_ref(),
+                                )?;
+                            cpus.push(public);
+                            backend_contexts.push(private);
+                            resources.extend(cpu_resources);
+                        }
+                        shared = self.vm.capture_checkpoint_vm_context(&boundary)?;
+                    }
                     let first = cpus
                         .first()
                         .ok_or_else(|| Error::InvalidConfig("no vcpu available".into()))?;
@@ -114,10 +157,7 @@ impl Vmm {
                         pic: pic.clone(),
                         pit: pit.clone(),
                         serial: serial.clone(),
-                        lapic: (**lapics
-                            .first()
-                            .ok_or_else(|| Error::InvalidConfig("no local controller".into()))?)
-                        .checkpoint_registers(),
+                        lapic: base_lapic,
                     };
                     let (physical, memory_data) = PhysicalMemorySnapshot::capture_with_projection(
                         self.guest_mem.memory(),

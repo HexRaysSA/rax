@@ -2,8 +2,7 @@
 //!
 //! This is an internal composition layer. PIT/timer state, terminal I/O,
 //! physical RAM publication, rollback and first-entry
-//! activation belong to the complete producer; public snapshot hooks remain
-//! inactive until those components are composed.
+//! activation are coordinated by the enclosing VMM transaction.
 use super::{bounded, clock, cpu, deferred, lapic_timer, msrs, shared};
 use crate::backend::CheckpointBoundary;
 use crate::backend::kvm::clock_gate::PendingClock;
@@ -15,7 +14,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(in crate::backend::kvm) struct Image {
+pub(crate) struct Image {
     version: u16,
     #[serde(deserialize_with = "cpu_images")]
     cpus: Vec<cpu::Image>,
@@ -127,10 +126,19 @@ impl KvmVm {
 
     /// Derive all CPU images and the common clock from the actual stopped
     /// owner set. The caller cannot substitute descriptors, IDs or profiles.
+    #[cfg(test)]
     pub(in crate::backend::kvm) fn capture_native_banks(
         &self,
         boundary: &CheckpointBoundary<'_>,
     ) -> Result<Image> {
+        self.capture_native_banks_at(boundary)
+            .map(|(image, _)| image)
+    }
+
+    pub(crate) fn capture_native_banks_at(
+        &self,
+        boundary: &CheckpointBoundary<'_>,
+    ) -> Result<(Image, Option<std::time::Instant>)> {
         let handles = self.checkpoint_cpu_handles(boundary)?;
         let cores = lock_cpus(self, &handles)?;
         let irqchip = self.memory.irqchip_created.load(Ordering::Acquire);
@@ -178,10 +186,14 @@ impl KvmVm {
         let descriptors: Vec<_> = cores.iter().map(|cpu| (cpu.id, &cpu.vcpu_fd)).collect();
         // A second stopped capture before entry must retain the saved phase,
         // rather than count the destination's RAM/device-publication delay.
-        let clock = match pending_clock {
-            Some(pending) => pending.native,
-            None => clock::Image::capture(&self.memory.vm_fd, &descriptors, native_khz)
-                .map_err(invalid)?,
+        let (clock, sampled_at) = match pending_clock {
+            Some(pending) => (pending.native, None),
+            None => {
+                let (clock, sampled_at) =
+                    clock::Image::capture(&self.memory.vm_fd, &descriptors, native_khz)
+                        .map_err(invalid)?;
+                (clock, Some(sampled_at))
+            }
         };
         let shared = irqchip
             .then(|| {
@@ -209,7 +221,7 @@ impl KvmVm {
             shared,
         };
         image.validate_locked(self, &cores)?;
-        Ok(image)
+        Ok((image, sampled_at))
     }
 }
 
@@ -299,7 +311,7 @@ impl Image {
     /// Install stored banks on a disposable graph or inside the complete
     /// producer's rollback transaction. This deliberately does not rebase the
     /// clocks or activate entry before shared state and RAM are installed.
-    pub(in crate::backend::kvm) fn restore_stored(
+    pub(crate) fn restore_stored(
         &self,
         vm: &KvmVm,
         boundary: &CheckpointBoundary<'_>,
@@ -463,7 +475,7 @@ impl Image {
     /// Couple the retained software-device clock to this native epoch. The
     /// incoming phase stays frozen until actual guest entry, including across
     /// HLT polling, readiness probes and a second stopped checkpoint capture.
-    pub(in crate::backend::kvm) fn stage_resume_clock_with_timing(
+    pub(crate) fn stage_resume_clock_with_timing(
         &self,
         vm: &KvmVm,
         boundary: &CheckpointBoundary<'_>,
@@ -518,6 +530,9 @@ impl Image {
         Ok(())
     }
 }
+
+#[path = "wire.rs"]
+mod wire;
 
 #[cfg(test)]
 #[path = "owner_tests.rs"]

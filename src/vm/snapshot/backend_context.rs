@@ -29,6 +29,11 @@ pub const HEXAGON_CONTEXT: u32 = 9;
 pub const GSC_CONTEXT: u32 = 10;
 /// S5L8900 ARM1176 core and complete represented platform, with resource bindings.
 pub const S5L8900_CONTEXT: u32 = 11;
+/// Managed Linux KVM CPU and shared VM records.
+pub const KVM_X86_64_CONTEXT: u32 = 12;
+
+pub(crate) const KVM_CPU_TAG: &[u8; 8] = b"RAXKCPU1";
+pub(crate) const KVM_VM_TAG: &[u8; 8] = b"RAXKVM01";
 
 /// An opaque, bounded backend-owned record. Its kind identifies its producer;
 /// an architectural register projection cannot substitute for this payload.

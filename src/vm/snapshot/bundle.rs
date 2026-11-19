@@ -96,6 +96,15 @@ impl SnapshotBundle {
     pub fn vm_context(&self) -> Option<&super::BackendContext> {
         self.vm_context.as_ref()
     }
+    pub(crate) fn has_kvm_context(&self) -> bool {
+        super::producer::claims_kvm(self.backend_contexts.as_ref(), self.vm_context.as_ref())
+    }
+    pub(crate) fn saved_kvm_irqchip(&self) -> Option<bool> {
+        self.vm_context
+            .as_ref()
+            .and_then(super::producer::kvm_irqchip)
+    }
+
     pub fn take_vm_context(&mut self) -> Option<super::BackendContext> {
         self.vm_context.take()
     }
@@ -281,7 +290,7 @@ impl SnapshotBundle {
     pub(crate) fn validate_complete(&self) -> Result<()> {
         self.validate()?;
         self.validate_clint_graph()?;
-        if super::producer::is_native(&self.base.config) {
+        if super::producer::is_native(&self.base.config) || self.has_kvm_context() {
             if self.execution.is_none() || self.clock.is_none() {
                 return Err(Error::InvalidConfig(
                     "native checkpoint requires coordinator and clock state".into(),
@@ -292,7 +301,27 @@ impl SnapshotBundle {
                     "native checkpoint requires its complete physical RAM image".into(),
                 )
             })?;
-            let spans = if self.base.config.arch == crate::config::ArchKind::Aarch64 {
+            let spans = if self.has_kvm_context() {
+                if self
+                    .execution
+                    .as_ref()
+                    .and_then(|state| state.pc.as_ref())
+                    .is_none()
+                    || self.pci.is_none()
+                {
+                    return Err(Error::InvalidConfig(
+                        "native KVM checkpoint requires the PC and PCI images".into(),
+                    ));
+                }
+                let (reported, backing) =
+                    crate::vm::memory::checked_guest_memory_sizes(self.base.memory_size)?;
+                if reported != self.base.memory_size || !physical.layout().eq([(0, backing)]) {
+                    return Err(Error::InvalidConfig(
+                        "native KVM checkpoint requires its entire physical backing".into(),
+                    ));
+                }
+                return Ok(());
+            } else if self.base.config.arch == crate::config::ArchKind::Aarch64 {
                 if self
                     .execution
                     .as_ref()

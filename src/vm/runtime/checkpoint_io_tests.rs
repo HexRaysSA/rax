@@ -18,6 +18,10 @@ struct Fixture {
 }
 impl Fixture {
     fn new(count: u8) -> Self {
+        Self::with_memory(count, 2 * 1024 * 1024)
+    }
+
+    fn with_memory(count: u8, memory: u64) -> Self {
         let kernel = std::env::temp_dir().join(format!(
             "rax-kvm-checkpoint-service-{}-{}",
             std::process::id(),
@@ -39,7 +43,7 @@ impl Fixture {
             None,
         )
         .unwrap();
-        config.memory = MemorySize(2 * 1024 * 1024);
+        config.memory = MemorySize(memory);
         Self {
             vm: Vmm::new_resume(config).unwrap(),
             kernel,
@@ -309,9 +313,15 @@ fn bundle_capture_settles_native_uart_before_locking_the_actual_devices() {
             assert_eq!(state.regs.rax & 255, u64::from(0x41 + id as u8));
             assert_eq!(state.regs.rip, 0x1001 + id as u64 * 0x100);
         }
-        // This establishes I/O preparation through the public capture path.
-        // Complete native private/shared production remains separate.
-        assert!(bundle.backend_contexts().is_none());
+        assert!(bundle.vm_context().is_some());
+        assert!(
+            bundle
+                .backend_contexts()
+                .unwrap()
+                .entries()
+                .iter()
+                .all(Option::is_some)
+        );
         for id in 0..usize::from(count) {
             assert!(matches!(fixture.exit(id), VcpuExit::Hlt));
         }
@@ -325,7 +335,8 @@ fn bundle_capture_settles_native_uart_before_locking_the_actual_devices() {
 #[ignore = "requires native Linux KVM; selected by KVM CI"]
 fn snapshot_poweroff_fences_every_managed_cpu_and_leaves_peer_devices_untouched() {
     for count in [1, 2, 4] {
-        let mut fixture = Fixture::new(count);
+        let memory = if count == 1 { 128 << 20 } else { 2 << 20 };
+        let mut fixture = Fixture::with_memory(count, memory);
         let calls = Arc::new(Mutex::new(Vec::new()));
         fixture
             .vm
@@ -374,9 +385,25 @@ fn snapshot_poweroff_fences_every_managed_cpu_and_leaves_peer_devices_untouched(
             ));
         }
         fixture.vm.serial.lock().unwrap().queue_input(&[0x94]);
-        // Terminal wire production is still required. The failed capture must
-        // nevertheless retain power-off and stop every later device callback.
-        assert!(fixture.vm.take_snapshot_bundle(0).is_err());
+        let bundle = fixture.vm.take_snapshot_bundle(0).unwrap();
+        assert_eq!(bundle.saved_kvm_irqchip(), Some(false));
+        let mut target = Fixture::with_memory(count, memory);
+        if count == 1 {
+            let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+            target.vm = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        } else {
+            target.vm.restore_snapshot_bundle(&bundle).unwrap();
+        }
+        let stopped = target.vm.take_snapshot_bundle(0).unwrap();
+        assert_eq!(stopped.clock(), bundle.clock());
+        assert_eq!(stopped.vm_context(), bundle.vm_context());
+        for id in 0..usize::from(count) {
+            assert!(matches!(
+                target.vm.vcpus[id].run().unwrap(),
+                VcpuExit::Shutdown
+            ));
+        }
+        assert!(target.vm.serial.lock().unwrap().has_input());
         for id in 0..usize::from(count) {
             assert!(
                 matches!(fixture.exit(id), VcpuExit::Shutdown),
@@ -492,4 +519,57 @@ fn stopped_poweroff_quiesces_a_peer_already_inside_public_run() {
             .unwrap(),
         0
     );
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; selected by KVM CI"]
+fn failed_second_cpu_setter_rolls_back_first_cpu_and_preserves_target_ram() {
+    use crate::backend::kvm::CheckpointImage;
+
+    let mut source = Fixture::new(2);
+    let mut target = Fixture::new(2);
+    for (id, old_rax) in [0x41, 0x42].into_iter().enumerate() {
+        source.prepare(id, &[0xf4]);
+        target.prepare(id, &[0xf4]);
+        let CpuState::X86_64(mut state) = target.vm.vcpus[id].get_state().unwrap() else {
+            unreachable!()
+        };
+        state.regs.rax = old_rax;
+        target.vm.vcpus[id]
+            .set_state(&CpuState::X86_64(state))
+            .unwrap();
+    }
+    let address = GuestAddress(0x2000);
+    target
+        .vm
+        .guest_mem
+        .memory()
+        .write_obj(0x5au8, address)
+        .unwrap();
+
+    let mut bundle = source.vm.take_snapshot_bundle(0).unwrap();
+    let mut records = bundle.take_backend_contexts().unwrap().entries().to_vec();
+    CheckpointImage::break_debug_setter(records[1].as_mut().unwrap(), 1);
+    let bundle = bundle.with_backend_contexts(records).unwrap();
+    let error = target.vm.restore_snapshot_bundle(&bundle).unwrap_err();
+    assert!(
+        matches!(&error, Error::Kvm(native) if native.errno() == libc::EINVAL),
+        "{error}"
+    );
+    for (cpu, old_rax) in target.vm.vcpus.iter().zip([0x41, 0x42]) {
+        let CpuState::X86_64(state) = cpu.get_state().unwrap() else {
+            unreachable!()
+        };
+        assert_eq!(state.regs.rax, old_rax);
+    }
+    assert_eq!(
+        target
+            .vm
+            .guest_mem
+            .memory()
+            .read_obj::<u8>(address)
+            .unwrap(),
+        0x5a
+    );
+    assert!(matches!(target.exit(0), VcpuExit::Hlt));
 }

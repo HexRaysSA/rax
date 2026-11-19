@@ -19,6 +19,7 @@ mod state;
 mod xsave;
 
 pub use access::NativeVcpuFd;
+pub(crate) use checkpoint::Image as CheckpointImage;
 pub use owned_vcpu::OwnedVcpuFd;
 
 #[cfg(test)]

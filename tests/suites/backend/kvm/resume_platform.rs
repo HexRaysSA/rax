@@ -126,6 +126,15 @@ fn source_free_pc_checkpoint_keeps_native_profile_and_uart() {
             .write_slice(&canary, GuestAddress(FIRMWARE))
             .unwrap();
         let image = source.take_snapshot_bundle(0).unwrap();
+        assert!(
+            image.vm_context().is_some(),
+            "native VMM checkpoint omitted shared KVM state"
+        );
+        let contexts = image
+            .backend_contexts()
+            .expect("native VMM checkpoint omitted KVM CPU banks");
+        assert_eq!(contexts.entries().len(), usize::from(count));
+        assert!(contexts.entries().iter().all(Option::is_some));
         image.save(&checkpoint).unwrap();
         drop(image);
         source.run().unwrap();
@@ -138,7 +147,6 @@ fn source_free_pc_checkpoint_keeps_native_profile_and_uart() {
         drop(source);
         std::fs::remove_file(&kernel_path).unwrap();
         let image = SnapshotBundle::load(&checkpoint).unwrap();
-        std::fs::remove_file(&checkpoint).unwrap();
         let config = VmConfig::from_checkpoint_bundle(&image, CliConfig::default()).unwrap();
         assert!(!config.kernel.exists());
         let mut target = Vmm::new_resume_bundle(config, &image).unwrap();
@@ -146,6 +154,35 @@ fn source_free_pc_checkpoint_keeps_native_profile_and_uart() {
             target.capture_cpu_states().unwrap().len(),
             usize::from(count)
         );
+        if count == 1 {
+            let recaptured = target.take_snapshot_bundle(0).unwrap();
+            assert_eq!(recaptured.clock(), image.clock());
+            assert_eq!(recaptured.vm_context(), image.vm_context());
+            drop(recaptured);
+            target
+                .guest_mem()
+                .memory()
+                .write_slice(&[0xac; 1024], GuestAddress(FIRMWARE))
+                .unwrap();
+            for strip_shared in [true, false] {
+                let mut partial = SnapshotBundle::load(&checkpoint).unwrap();
+                if strip_shared {
+                    partial.take_vm_context().unwrap();
+                } else {
+                    partial.take_backend_contexts().unwrap();
+                }
+                assert!(target.restore_snapshot_bundle(&partial).is_err());
+                let mut bytes = [0; 1024];
+                target
+                    .guest_mem()
+                    .memory()
+                    .read_slice(&mut bytes, GuestAddress(FIRMWARE))
+                    .unwrap();
+                assert_eq!(bytes, [0xac; 1024]);
+            }
+            target.restore_snapshot_bundle(&image).unwrap();
+        }
+        std::fs::remove_file(&checkpoint).unwrap();
         let mut restored = [0; 1024];
         target
             .guest_mem()

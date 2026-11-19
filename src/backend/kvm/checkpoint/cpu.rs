@@ -211,6 +211,10 @@ impl Image {
         let observed = cpu.get_cpuid2(KVM_MAX_CPUID_ENTRIES)?;
         let plan = msrs::Plan::capture(kvm, configured, irqchip)?;
         let xsave = xsave::Image::read(vm, cpu)?;
+        // A posted timer interrupt becomes visible before KVM clears the
+        // deadline MSR. GET_LAPIC folds posted interrupts into IRR, so read
+        // it after the MSR sample used to admit a quiescent timer.
+        let msrs = msrs::Image::capture(cpu, &plan)?;
         let image = Self {
             version: VERSION,
             id,
@@ -252,7 +256,7 @@ impl Image {
                 layout: xsave.layout,
                 bytes: xsave.bytes,
             },
-            msrs: msrs::Image::capture(cpu, &plan)?,
+            msrs,
             nested_capacity: capability(vm, kvm_bindings::KVM_CAP_NESTED_STATE)?,
             nested: None,
         };
@@ -403,6 +407,39 @@ impl Image {
 
     pub(super) fn deadline(&self) -> Option<u64> {
         self.msrs.deadline()
+    }
+
+    /// Check timer admission and read the native TPR for its public projection.
+    pub(super) fn checkpoint_priority(&self) -> Result<Option<u8>> {
+        let Some(lapic) = &self.lapic else {
+            return Ok(None);
+        };
+        if self.special.decode().map_err(invalid)?.apic_base & (1 << 11) == 0 {
+            return Err(invalid("disabled LAPIC can conceal a TSC deadline"));
+        }
+        if self.deadline().is_some_and(|deadline| deadline != 0) {
+            return Err(invalid("armed TSC deadline requires verified expiry state"));
+        }
+        let lapic = lapic.decode().map_err(invalid)?;
+        if super::lapic_timer::has_countdown(&lapic) {
+            return Err(invalid(
+                "programmed LAPIC countdown requires verified expiry state",
+            ));
+        }
+        const TASK_PRIORITY: usize = 0x80;
+        let tpr = u32::from_le_bytes(std::array::from_fn(|byte| {
+            lapic.regs[TASK_PRIORITY + byte] as u8
+        }));
+        u8::try_from(tpr).map(Some).map_err(invalid)
+    }
+
+    #[cfg(test)]
+    pub(super) fn break_debug_setter(&mut self) {
+        let mut debug = self.debug.decode().unwrap();
+        // Linux rejects nonzero flags in KVM_SET_DEBUGREGS. Flags have no
+        // public projection, so preflight still reaches the native setters.
+        debug.flags = 1;
+        self.debug = Bank::capture(&debug).unwrap();
     }
 
     pub(super) fn retain_stopped_deadline(&mut self, deadline: Option<u64>) -> Result<()> {

@@ -132,7 +132,7 @@ impl Image {
         vm: &VmFd,
         cpus: &[(u32, &VcpuFd)],
         native_khz: u32,
-    ) -> Result<Self, String> {
+    ) -> Result<(Self, std::time::Instant), String> {
         if cpus.is_empty() || cpus.len() > MAX_CPUS {
             return Err(invalid("CPU count is outside the managed profile"));
         }
@@ -148,6 +148,7 @@ impl Image {
         let clock_before = host_tsc();
         let clock = vm.get_clock().map_err(invalid)?;
         let anchor = host_tsc();
+        let sampled_at = std::time::Instant::now();
         let image = Self {
             version: 1,
             clock: Bank::capture(&clock)?,
@@ -156,7 +157,7 @@ impl Image {
             cpus: clocks,
         };
         image.validate_envelope()?;
-        Ok(image)
+        Ok((image, sampled_at))
     }
 
     pub(in crate::backend::kvm) fn validate_envelope(&self) -> Result<(), String> {

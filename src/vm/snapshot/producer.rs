@@ -10,6 +10,15 @@ pub(super) fn is_native(config: &CheckpointConfig) -> bool {
         && matches!(config.arch, ArchKind::Aarch64 | ArchKind::X86_64)
 }
 
+pub(super) fn claims_kvm(
+    contexts: Option<&BackendContexts>,
+    shared: Option<&BackendContext>,
+) -> bool {
+    let is_kvm = |record: &BackendContext| record.kind == super::KVM_X86_64_CONTEXT;
+    shared.is_some_and(is_kvm)
+        || contexts.is_some_and(|set| set.entries().iter().flatten().any(is_kvm))
+}
+
 fn invalid(message: &str) -> Error {
     Error::Emulator(format!("checkpoint producer graph: {message}"))
 }
@@ -20,6 +29,9 @@ pub(super) fn validate(
     contexts: Option<&BackendContexts>,
     shared: Option<&BackendContext>,
 ) -> Result<()> {
+    if claims_kvm(contexts, shared) {
+        return validate_kvm(base, cpus, contexts, shared);
+    }
     if !is_native(&base.config) {
         if shared.is_some()
             || contexts.is_some_and(|set| {
@@ -116,6 +128,56 @@ pub(super) fn validate(
 
 /// Decode and admit the complete Intel producer before any destination writes.
 /// SDK/host compatibility is checked again against the destination owner.
+pub(super) fn kvm_irqchip(record: &BackendContext) -> Option<bool> {
+    if record.kind != super::KVM_X86_64_CONTEXT || !record.data.starts_with(super::KVM_VM_TAG) {
+        return None;
+    }
+    match record.data.get(9)? {
+        0 => Some(false),
+        1 => Some(true),
+        _ => None,
+    }
+}
+
+/// Validate the framing on every host. The destination KVM backend admits its
+/// native banks, projections and actual kernel/CPU profile under exclusion.
+fn validate_kvm(
+    base: &Snapshot,
+    cpus: Option<&CpuSnapshots>,
+    contexts: Option<&BackendContexts>,
+    shared: Option<&BackendContext>,
+) -> Result<()> {
+    use super::{KVM_CPU_TAG, KVM_X86_64_CONTEXT};
+    if base.config.backend != BackendKind::Kvm || base.config.arch != ArchKind::X86_64 {
+        return Err(invalid("KVM records require an x86-64 KVM configuration"));
+    }
+    base.validate_for_restore()?;
+    cpus.ok_or_else(|| invalid("native KVM checkpoint requires the CPU set"))?
+        .validate_structure(base)?;
+    let shared = shared
+        .filter(|record| record.kind == KVM_X86_64_CONTEXT)
+        .ok_or_else(|| invalid("missing shared KVM record"))?;
+    super::vm_context::validate(shared)?;
+    if kvm_irqchip(shared).is_none() || shared.data[8] != base.config.vcpus {
+        return Err(invalid("KVM VM record header or topology differs"));
+    }
+    let contexts = contexts.ok_or_else(|| invalid("missing KVM CPU records"))?;
+    contexts.validate(base.config.vcpus)?;
+    for (id, context) in contexts.entries().iter().enumerate() {
+        let record = context
+            .as_ref()
+            .filter(|record| record.kind == KVM_X86_64_CONTEXT)
+            .ok_or_else(|| invalid("missing or mismatched KVM CPU record"))?;
+        if record.data.len() <= 9
+            || !record.data.starts_with(KVM_CPU_TAG)
+            || record.data[8] != id as u8
+        {
+            return Err(invalid("KVM CPU record header or ID differs"));
+        }
+    }
+    Ok(())
+}
+
 fn validate_intel(
     base: &Snapshot,
     cpus: Option<&CpuSnapshots>,

@@ -343,7 +343,7 @@ fn drive_legacy_serial_irq(
 enum ConstructionMode {
     Boot,
     RestoreTarget,
-    Checkpoint,
+    Checkpoint { initialize_kvm_irqchip: bool },
 }
 
 impl Vmm {
@@ -387,11 +387,13 @@ impl Vmm {
             .map_or(crate::vm::timing::ClockMode::Wall, |clock| clock.mode);
         let mut vm = Self::build_with_contexts(
             config,
-            ConstructionMode::Checkpoint,
+            ConstructionMode::Checkpoint {
+                initialize_kvm_irqchip: bundle.saved_kvm_irqchip().unwrap_or(true),
+            },
             bundle.backend_contexts(),
             mode,
         )?;
-        vm.restore_snapshot_bundle(bundle)?;
+        vm.restore_snapshot_bundle_inner(bundle, true)?;
         Ok(vm)
     }
 
@@ -411,7 +413,7 @@ impl Vmm {
         clock_mode: crate::vm::timing::ClockMode,
     ) -> Result<Self> {
         let resume = construction != ConstructionMode::Boot;
-        let detached_media = construction == ConstructionMode::Checkpoint;
+        let detached_media = matches!(construction, ConstructionMode::Checkpoint { .. });
         config.validate_clock_mode(clock_mode)?;
         let timing_context = Arc::new(crate::vm::timing::TimingContext::with_mode(clock_mode));
         let _timing = timing_context.enter();
@@ -637,14 +639,17 @@ impl Vmm {
             machine.load_kernel_with_devices(guest_mem.memory(), &config, pc_devices.as_ref())?
         };
 
-        // A checkpoint rebuilds the native PC platform before allocating any
-        // CPU, so CPUID admission sees the same kernel controller profile as
-        // cold boot. The staging API remains an uninitialized restore target.
-        // CPU boot injection and firmware RAM publication still occur only on
-        // cold boot; captured CPU and RAM state are installed below instead.
+        // Determine the native IRQ chip and CPU profile before allocating
+        // vCPUs. Legacy full files use the boot profile. New full files
+        // declare whether their IRQ chip lived in the kernel.
         #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
-        if construction != ConstructionMode::RestoreTarget
-            && matches!(config.backend, BackendKind::Kvm)
+        if !matches!(
+            construction,
+            ConstructionMode::RestoreTarget
+                | ConstructionMode::Checkpoint {
+                    initialize_kvm_irqchip: false
+                }
+        ) && matches!(config.backend, BackendKind::Kvm)
         {
             let kvm_vm = vm
                 .as_any()

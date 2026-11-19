@@ -15,6 +15,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 pub(super) const TAG: u32 = u32::from_le_bytes(*b"RXS8");
 const SCHEMA: u32 = 1;
+const CURRENT_CONFIG_SCHEMA: u32 = 2;
+// Same configuration payload, with the mandatory KVM CPU/VM graph.
+const KVM_CONFIG_SCHEMA: u32 = 3;
 const DEVICE_STATUS_SCHEMA: u32 = 2;
 const DEVICE_LIVE_READ_SCHEMA: u32 = 3;
 const DEVICE_GATE_TRIGGER_SCHEMA: u32 = 4;
@@ -239,7 +242,12 @@ fn write_to_parts<W: Write>(
             0
         };
     writer.write_all(&count.to_le_bytes()).map_err(io)?;
-    section_with_schema(writer, 1, 2, &config)?;
+    let config_schema = if super::producer::claims_kvm(backend_contexts, vm_context) {
+        KVM_CONFIG_SCHEMA
+    } else {
+        CURRENT_CONFIG_SCHEMA
+    };
+    section_with_schema(writer, 1, config_schema, &config)?;
     for (kind, bytes) in [(2, &metadata), (3, &cpu), (4, &emulator)] {
         section(writer, kind, bytes)?;
     }
@@ -445,6 +453,7 @@ fn read_sections<R: Read + Seek>(
         return Err(invalid("checkpoint section count exceeds limit"));
     }
     let mut config: Option<CheckpointConfig> = None;
+    let mut requires_kvm_graph = false;
     let mut metadata: Option<Metadata> = None;
     let mut cpu: Option<CpuState> = None;
     let mut emulator: Option<EmulatorState> = None;
@@ -484,7 +493,7 @@ fn read_sections<R: Read + Seek>(
         if schema != SCHEMA
             && !matches!(
                 (kind, schema),
-                (1, 2)
+                (1, CURRENT_CONFIG_SCHEMA | KVM_CONFIG_SCHEMA)
                     | (
                         5,
                         DEVICE_STATUS_SCHEMA
@@ -791,7 +800,13 @@ fn read_sections<R: Read + Seek>(
         let raw = bytes(reader, file_size, length, limit)?;
         match kind {
             1 => {
-                config = Some(if schema == 1 {
+                requires_kvm_graph = schema == KVM_CONFIG_SCHEMA;
+                if requires_kvm_graph && !allow_extensions {
+                    return Err(invalid(
+                        "native KVM checkpoint requires SnapshotBundle::load",
+                    ));
+                }
+                config = Some(if schema == SCHEMA {
                     CheckpointConfig::from(decode::<TaggedConfigV1>(&raw, limit)?)
                 } else {
                     decode::<CheckpointConfig>(&raw, limit)?
@@ -835,6 +850,11 @@ fn read_sections<R: Read + Seek>(
         pci,
         physical_memory,
     };
+    if requires_kvm_graph != bundle.has_kvm_context() {
+        return Err(invalid(
+            "configuration schema and KVM checkpoint graph disagree",
+        ));
+    }
     bundle.validate()?;
     Ok(bundle)
 }

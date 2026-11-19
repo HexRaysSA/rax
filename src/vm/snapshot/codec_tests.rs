@@ -372,6 +372,24 @@ fn extra(kind: u32, schema: u32, bytes: &[u8]) -> Vec<u8> {
     raw.extend(bytes);
     raw
 }
+#[test]
+fn kvm_config_schema_requires_its_native_graph_without_rejecting_legacy_kvm() {
+    let mut snapshot = sample();
+    snapshot.config.backend = crate::config::BackendKind::Kvm;
+    let mut parts = sections(&encoded(&snapshot));
+    let path = TestPath::new();
+    std::fs::write(&path.0, assemble(&parts)).unwrap();
+    assert!(SnapshotBundle::load(&path.0).is_ok());
+    let config = parts
+        .iter_mut()
+        .find(|part| part[..4] == 1u32.to_le_bytes())
+        .unwrap();
+    config[4..8].copy_from_slice(&3u32.to_le_bytes());
+    std::fs::write(&path.0, assemble(&parts)).unwrap();
+    let error = SnapshotBundle::load(&path.0).unwrap_err().to_string();
+    assert!(error.contains("configuration schema and KVM checkpoint graph disagree"));
+}
+
 fn legacy(snapshot: &Snapshot) -> Vec<u8> {
     let c = &snapshot.config;
     let old = super::legacy::LegacyConfig {
@@ -609,7 +627,7 @@ fn missing_required_sections_and_excessive_section_count_fail() {
 #[test]
 fn unsupported_section_schema_is_rejected_before_payload() {
     let mut raw = encoded(&sample());
-    raw[24..28].copy_from_slice(&3u32.to_le_bytes());
+    raw[24..28].copy_from_slice(&4u32.to_le_bytes());
     assert!(error(&raw[..36]).contains("section schema"));
 }
 #[test]

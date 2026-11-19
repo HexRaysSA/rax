@@ -17,4 +17,4 @@ pub(super) use clock::Image as ClockImage;
 pub(super) use deferred::Image as DeferredImage;
 pub(super) use lapic_timer::{Countdown, prepare_countdowns};
 pub(super) use msrs::resume_deadlines;
-pub(super) use owner::Image;
+pub(crate) use owner::Image;

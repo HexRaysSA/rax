@@ -4,12 +4,14 @@ use crate::vm::vcpu::{CheckpointIoReply, CheckpointIoState};
 
 impl Vmm {
     /// Complete actual native device requests before taking writer locks.
-    /// Deferred/terminal state needs its full producer; stop here so later
-    /// CPUs cannot cause device effects after a power-off reply.
-    pub(super) fn settle_checkpoint_io(&self) -> Result<()> {
+    /// A full producer also retains deferred and terminal results. Once KVM
+    /// publishes power-off, settlement returns deferred for every remaining
+    /// CPU without servicing its devices.
+    pub(super) fn settle_checkpoint_io(&self, retains_native_io: bool) -> Result<()> {
         for (id, cpu) in self.vcpus.iter().enumerate() {
             if cpu.settle_checkpoint_io(&mut |event| self.checkpoint_io_service(id, event))?
                 == CheckpointIoState::Deferred
+                && !retains_native_io
             {
                 return Err(Error::InvalidConfig(
                     "native deferred/terminal I/O requires its complete checkpoint producer".into(),

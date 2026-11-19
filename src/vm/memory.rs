@@ -90,7 +90,7 @@ pub fn validate_guest_memory_size(size_bytes: u64) -> Result<()> {
     Ok(())
 }
 
-fn checked_guest_memory_sizes(size_bytes: u64) -> Result<(u64, u64)> {
+pub(crate) fn checked_guest_memory_sizes(size_bytes: u64) -> Result<(u64, u64)> {
     let reported_size = checked_align_up(size_bytes, PAGE_SIZE).ok_or_else(|| {
         crate::error::Error::InvalidConfig("guest memory size overflow".to_string())
     })?;

@@ -34,9 +34,17 @@ impl ClockSource {
         true
     }
     fn state(&self) -> (u64, u64, u8) {
+        self.state_at(None)
+    }
+
+    fn state_at(&self, sample: Option<Instant>) -> (u64, u64, u8) {
         match self {
             Self::Wall { base, start } => {
-                let elapsed = start.map_or(0, |start| start.elapsed().as_nanos() as u64);
+                let elapsed = start.map_or(0, |start| {
+                    sample
+                        .map_or_else(|| start.elapsed(), |at| at.saturating_duration_since(start))
+                        .as_nanos() as u64
+                });
                 (base.wrapping_add(elapsed), 0, 0)
             }
             Self::Retired {
@@ -146,8 +154,14 @@ impl TimingContext {
     /// Exact at a caller-established quiescent boundary. Tick/notification
     /// writers are independent atomics and must be quiescent during capture.
     pub fn checkpoint_state(&self) -> ClockState {
+        self.checkpoint_state_at(None)
+    }
+
+    /// Sample elapsed time at an adjacent host-clock observation made by a
+    /// stopped native producer. The other fields remain quiescent throughout.
+    pub(crate) fn checkpoint_state_at(&self, sample: Option<Instant>) -> ClockState {
         let clock = self.clock.lock().unwrap_or_else(|p| p.into_inner());
-        let (elapsed_nanos, retired_units, subnanosecond_quanta) = clock.state();
+        let (elapsed_nanos, retired_units, subnanosecond_quanta) = clock.state_at(sample);
         ClockState {
             mode: clock.mode(),
             elapsed_nanos,

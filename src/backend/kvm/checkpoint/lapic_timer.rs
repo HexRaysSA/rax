@@ -14,6 +14,10 @@ fn read(lapic: &kvm_lapic_state, offset: usize) -> u32 {
     u32::from_le_bytes(std::array::from_fn(|byte| lapic.regs[offset + byte] as u8))
 }
 
+pub(super) fn has_countdown(lapic: &kvm_lapic_state) -> bool {
+    read(lapic, INITIAL_COUNT) != 0 || read(lapic, CURRENT_COUNT) != 0
+}
+
 fn write(lapic: &mut kvm_lapic_state, offset: usize, value: u32) {
     lapic.regs[offset..offset + 4].copy_from_slice(&value.to_le_bytes().map(|byte| byte as i8));
 }

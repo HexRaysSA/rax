@@ -35,25 +35,38 @@ impl Vmm {
         Ok(())
     }
 
-    /// Restore represented public/base-private CPU contexts, four legacy models,
-    /// physical backing (or reported projection), the PC inventory when present,
-    /// PCI/media and explicit timing
-    /// state when present. Independent writers must be quiescent. Additional
-    /// backend-private/platform state and native setter/resource transactions
-    /// remain separate.
+    /// Restore the represented CPU, device, physical memory and timing owners
+    /// together. Independent writers must be quiescent.
     pub fn restore_snapshot_bundle(
         &mut self,
         bundle: &crate::vm::snapshot::SnapshotBundle,
+    ) -> Result<()> {
+        self.restore_snapshot_bundle_inner(bundle, false)
+    }
+
+    pub(super) fn restore_snapshot_bundle_inner(
+        &mut self,
+        bundle: &crate::vm::snapshot::SnapshotBundle,
+        disposable: bool,
     ) -> Result<()> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();
         bundle.validate_complete()?;
-        self.vm.validate_checkpoint_vm_context(
-            &bundle.base().config,
-            bundle.vm_context(),
-            bundle.backend_contexts(),
-        )?;
+        let native_kvm = bundle.has_kvm_context();
+        if native_kvm {
+            if self.backend_kind != BackendKind::Kvm {
+                return Err(Error::InvalidConfig(
+                    "KVM checkpoint requires a KVM target".into(),
+                ));
+            }
+        } else {
+            self.vm.validate_checkpoint_vm_context(
+                &bundle.base().config,
+                bundle.vm_context(),
+                bundle.backend_contexts(),
+            )?;
+        }
         let snapshot = bundle.base();
         self.validate_snapshot_target(snapshot)?;
         crate::config::runtime::validate_checkpoint_clock(self.backend_kind, bundle)?;
@@ -173,7 +186,9 @@ impl Vmm {
             states.push((&snapshot.cpu_state, &snapshot.emulator_state, None));
         }
         for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
-            vcpu.validate_checkpoint_for_machine(&snapshot.config, state, emulator, *context)?;
+            if !native_kvm {
+                vcpu.validate_checkpoint_for_machine(&snapshot.config, state, emulator, *context)?;
+            }
             if bundle.backend_contexts().is_some()
                 && context.is_none()
                 && let Some(kind) = vcpu.required_private_checkpoint_kind()
@@ -357,7 +372,7 @@ impl Vmm {
             )?;
         }
         let mut devices = snapshot.devices.clone();
-        if snapshot.config.backend == BackendKind::Kvm {
+        if snapshot.config.backend == BackendKind::Kvm && !native_kvm {
             devices.pit.admit_legacy_native_phase();
         }
         if let Some(pc) = &pc_restore {
@@ -452,6 +467,8 @@ impl Vmm {
                     publication: scope,
                     memory: guest_memory,
                     bundle,
+                    timing: timing_context,
+                    disposable,
                 }
                 .commit(physical, memory.as_deref())?;
             } else {
@@ -489,10 +506,12 @@ impl Vmm {
                 lapics[0].enable_coordinated_delivery();
                 coordinator.pending_ipi = None;
             }
-            if let Some(clock) = clock_restore {
-                clock.commit();
-            } else {
-                timing_context.set_resume_base(snapshot.elapsed_nanos);
+            if !native_kvm {
+                if let Some(clock) = clock_restore {
+                    clock.commit();
+                } else {
+                    timing_context.set_resume_base(snapshot.elapsed_nanos);
+                }
             }
             Ok(())
         };

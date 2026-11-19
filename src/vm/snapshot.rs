@@ -35,9 +35,10 @@ mod producer;
 mod vm_context;
 pub use backend_context::{
     AARCH32_CONTEXT, AARCH64_CONTEXT, BackendContext, BackendContexts, CORTEX_M_CONTEXT,
-    GSC_CONTEXT, HEXAGON_CONTEXT, HVF_AARCH64_CONTEXT, HVF_INTEL_CONTEXT, RISCV_CONTEXT,
-    S3C64XX_CONTEXT, S5L8900_CONTEXT, X86_64_CONTEXT,
+    GSC_CONTEXT, HEXAGON_CONTEXT, HVF_AARCH64_CONTEXT, HVF_INTEL_CONTEXT, KVM_X86_64_CONTEXT,
+    RISCV_CONTEXT, S3C64XX_CONTEXT, S5L8900_CONTEXT, X86_64_CONTEXT,
 };
+pub(crate) use backend_context::{KVM_CPU_TAG, KVM_VM_TAG};
 mod execution;
 pub use cpus::{CpuSnapshot, CpuSnapshots};
 pub use execution::ExecutionSnapshot;
