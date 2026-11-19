@@ -463,6 +463,8 @@ mod window_station_tests;
 #[path = "gui_tests/lpk_tests.rs"]
 mod lpk_tests;
 
+#[path = "gui_tests/message_queue_tests.rs"]
+mod message_queue_tests;
 #[path = "gui_tests/message_tests.rs"]
 mod message_tests;
 

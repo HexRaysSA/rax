@@ -16,6 +16,8 @@ mod gui;
 mod kernel_context;
 mod wait;
 
+pub(super) use gui::resume_posted_message;
+
 pub(super) fn dispatch(p: &mut Proc, t: &mut Thread, number: u32, pc: u64) -> Option<Outcome> {
     enter(p, t, number, pc, t.cpu.sp(), t.cpu.pc(), false)
 }
@@ -116,6 +118,10 @@ fn enter(
                 | "NtUserCloseWindowStation"
                 | "NtUserRegisterLPK"
                 | "NtUserRegisterWindowMessage"
+                | "NtUserPostThreadMessage"
+                | "NtUserPostQuitMessage"
+                | "NtUserPeekMessage"
+                | "NtUserGetMessage"
                 | "NtUserRegisterClassExWOW"
                 | "NtUserGetClassInfoEx"
                 | "NtUserUnregisterClass"
@@ -172,6 +178,23 @@ fn enter(
             "NtUserRegisterLPK" => gui::register_lpk(p, t, sp, resume, wow64_return),
             "NtUserRegisterWindowMessage" => {
                 gui::register_window_message(p, t, sp, resume, wow64_return)
+            }
+            "NtUserPostThreadMessage" => gui::window_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::PostThreadMessage,
+            ),
+            "NtUserPostQuitMessage" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::PostQuitMessage)
+            }
+            "NtUserPeekMessage" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::PeekMessage)
+            }
+            "NtUserGetMessage" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetMessage)
             }
             "NtUserRegisterClassExWOW" => gui::window_operation(
                 p,

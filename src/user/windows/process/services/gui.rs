@@ -12,6 +12,7 @@ use crate::user::windows::objects::Object;
 
 mod composition;
 mod cursor_icons;
+mod message_queue;
 mod system_parameters;
 mod thread_info;
 mod user_objects;
@@ -422,6 +423,10 @@ fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, 
             return Ok(1);
         }
         Completion::RegisterWindowMessage(name) => return complete_window_message(p, t, name),
+        Completion::PostThreadMessage(arguments) => return message_queue::post(p, t, arguments),
+        Completion::PostQuitMessage(arguments) => return message_queue::quit(p, t, arguments),
+        Completion::PeekMessage(arguments) => return message_queue::peek(p, t, arguments),
+        Completion::GetMessage(arguments) => return message_queue::get(p, t, arguments),
         Completion::FindCursorIcon(arguments) => return cursor_icons::complete(p, t, arguments),
         Completion::RegisterWindowClass(arguments) => {
             return window_classes::register(p, t, arguments);
@@ -724,6 +729,22 @@ fn convert(
         return failure(format!("GUI entry state is inaccessible: {error:?}"));
     }
     frame.enter(p, t, completion.unwrap_or(Completion::Value(value)), None)
+}
+
+pub(in crate::user::windows::process) fn resume_posted_message(
+    p: &mut Proc,
+    t: &mut Thread,
+    output: u64,
+    minimum: u32,
+    maximum: u32,
+) -> Outcome {
+    match message_queue::take_or_wait(p, t, output, minimum, maximum) {
+        Ok(result) => {
+            write_value(&mut t.cpu, Value::Int(result));
+            Outcome::Continue
+        }
+        Err(outcome) => outcome,
+    }
 }
 
 pub(super) fn callback_return(

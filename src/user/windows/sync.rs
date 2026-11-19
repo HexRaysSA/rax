@@ -119,6 +119,15 @@ pub enum Wait {
     },
     /// A synchronous byte-pipe read or write blocked on its peer.
     Pipe(super::objects::PipeEnd),
+    /// A native USER thread blocked in GetMessage with a captured filter.
+    PostedMessage {
+        /// Guest MSG output, looked up when a message is available.
+        output: u64,
+        /// Lowest matching message ID.
+        minimum: u32,
+        /// Highest matching message ID.
+        maximum: u32,
+    },
     /// Ownership of the critical section at `addr`.
     CritSec {
         /// The `CRITICAL_SECTION`.
@@ -144,7 +153,10 @@ impl Wait {
             Wait::Objects { deadline, .. }
             | Wait::Sleep { deadline, .. }
             | Wait::Address { deadline, .. } => *deadline,
-            Wait::CritSec { .. } | Wait::Srw { .. } | Wait::Pipe(_) => None,
+            Wait::CritSec { .. }
+            | Wait::Srw { .. }
+            | Wait::Pipe(_)
+            | Wait::PostedMessage { .. } => None,
         }
     }
 }
@@ -648,6 +660,14 @@ fn poll_inner(
 ) -> Result<Option<u64>, SyncError> {
     Ok(match wait {
         Wait::Pipe(endpoint) => endpoint.ready().then_some(0),
+        Wait::PostedMessage {
+            minimum, maximum, ..
+        } => p
+            .gui
+            .threads
+            .get(&tid)
+            .is_some_and(|thread| thread.messages.has_message(*minimum, *maximum))
+            .then_some(0),
         Wait::ThreadAlert { object, deadline } => {
             validate_thread_alert(p, tid, *object)?;
             if p.sync.take_thread_alert(*object) {

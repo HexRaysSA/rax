@@ -155,7 +155,16 @@ impl Scheduler {
                                     break;
                                 }
                                 t.state = ThreadState::Ready;
-                                if status == sync::WAIT_IO_COMPLETION && !t.apcs.is_empty() {
+                                if let sync::Wait::PostedMessage {
+                                    output,
+                                    minimum,
+                                    maximum,
+                                } = wait
+                                {
+                                    services::resume_posted_message(
+                                        p, &mut t, output, minimum, maximum,
+                                    )
+                                } else if status == sync::WAIT_IO_COMPLETION && !t.apcs.is_empty() {
                                     begin_apcs(p, &mut t, Some(status))
                                 } else {
                                     dispatch::wait_complete(p, &mut t, status)

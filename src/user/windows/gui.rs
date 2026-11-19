@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 pub(crate) mod cursor_icons;
 mod message_atoms;
+pub(crate) mod message_queue;
 pub(crate) mod system_parameters;
 pub(crate) mod window_classes;
 pub(crate) mod windows;
@@ -44,6 +45,7 @@ pub(crate) struct Inputs {
     pub(crate) process_ui_context: Result<[u32; 2], String>,
     pub(crate) system_parameters: Result<system_parameters::Snapshot, String>,
     pub(crate) cursor_icons: Result<cursor_icons::Catalog, String>,
+    pub(crate) message_cursor: [i32; 2],
     pub(crate) window_station: Result<Arc<super::objects::WindowStation>, String>,
     pub(crate) overlapped_window_limits: Result<[i32; 10], String>,
     pub(crate) overlapped_nonclient_rendering: Result<bool, String>,
@@ -161,6 +163,7 @@ impl Inputs {
             system_parameters: Err("selected GUI system parameters were not captured".into()),
             window_station: Err("assigned window station was not captured".into()),
             cursor_icons: Err("selected GUI cursor/icon cache was not captured".into()),
+            message_cursor: [0; 2],
             overlapped_window_limits: Err(
                 "selected overlapped window limits were not captured".into()
             ),
@@ -217,6 +220,7 @@ pub(crate) struct ThreadState {
     pub(crate) initialized: bool,
     pub(crate) ime_disabled: bool,
     pub(crate) default_ime_window: Option<u32>,
+    pub(crate) messages: message_queue::Queue,
     pub(crate) callbacks: Vec<Callback>,
 }
 
@@ -237,6 +241,10 @@ pub(crate) enum Completion {
     CloseWindowStation([u64; 1]),
     RegisterLpk(u32),
     RegisterWindowMessage(u64),
+    PostThreadMessage([u64; 4]),
+    PostQuitMessage([u64; 1]),
+    PeekMessage([u64; 5]),
+    GetMessage([u64; 4]),
     FindCursorIcon([u64; 3]),
     RegisterWindowClass([u64; 7]),
     GetWindowClass([u64; 5]),
@@ -369,6 +377,7 @@ impl State {
                 initialized: false,
                 ime_disabled: false,
                 default_ime_window: None,
+                messages: message_queue::Queue::default(),
                 callbacks: Vec::new(),
             },
         );

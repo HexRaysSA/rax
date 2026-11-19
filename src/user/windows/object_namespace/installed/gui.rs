@@ -176,6 +176,18 @@ fn process_dpi(win32u: &Module) -> Option<NonZeroU32> {
     NonZeroU32::new(unsafe { query() })
 }
 
+fn cursor_position(user: &Module) -> Option<[i32; 2]> {
+    // SAFETY: fixed read-only USER32 export and a native POINT owned by this helper.
+    let address = unsafe { GetProcAddress(user.0, c"GetCursorPos".as_ptr()) };
+    if address.is_null() {
+        return None;
+    }
+    let query: unsafe extern "system" fn(*mut [i32; 2]) -> i32 =
+        unsafe { std::mem::transmute(address) };
+    let mut point = [0; 2];
+    (unsafe { query(&mut point) } != 0).then_some(point)
+}
+
 pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<Arc<Inputs>> {
     let native = if cfg!(target_arch = "aarch64") {
         WinArch::Arm64
@@ -302,6 +314,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             let selected = Arc::get_mut(&mut inputs).expect("new GUI snapshot");
             selected.system_parameters = system_parameters;
             selected.cursor_icons = cursor_icons;
+            selected.message_cursor = cursor_position(&_user).unwrap_or_default();
             selected.window_station = assigned_window_station.map(|(_, station)| station);
             // The probe registers a native class, so observe it after copying
             // the clean helper's shared-data views and thread seed.
