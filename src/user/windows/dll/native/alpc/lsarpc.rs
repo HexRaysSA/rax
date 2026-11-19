@@ -2,15 +2,17 @@
 use super::{Connection, Ctx, Flow, Mem, Object, SYNCHRONOUS, probe_write};
 use crate::user::windows::hle::ApiResult;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::LpcPort;
+use crate::user::windows::objects::{LpcPort, LsarpcInterface};
 
 pub(super) const PORT_NAME: &str = "\\RPC Control\\LSARPC_ENDPOINT";
 
-const LOCAL_SYSTEM: [u8; 12] = [1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];
+pub(in crate::user::windows::dll::native) const LOCAL_SYSTEM: [u8; 12] =
+    [1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];
 const PORT_ACCESS: u32 = 0x001f_0001;
 mod bind;
 mod exchange;
 mod policy;
+mod policy_lookup;
 
 pub(super) use exchange::exchange;
 pub(super) const MAX_MESSAGE: usize = 4096;
@@ -44,9 +46,29 @@ pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
         }
     }
 
+    check_port_attributes(c, connection.port_attributes)?;
+
+    // Authenticate only the fixed identity of this virtual server. The supplied
+    // SID is a constraint on the endpoint and grants no rights to the caller.
+    if connection.sid != 0 && c.mem().bytes(connection.sid, LOCAL_SYSTEM.len())? != LOCAL_SYSTEM {
+        return Flow::ret(STATUS_SERVER_SID_MISMATCH.into());
+    }
+    open(
+        c,
+        LsarpcInterface::Policy,
+        connection.out,
+        connection.receive,
+    )
+}
+
+pub(in crate::user::windows::dll::native) fn check_port_attributes(
+    c: &Ctx,
+    port_attributes: u64,
+) -> Result<(), crate::user::windows::hle::ApiErr> {
+    let width = c.psize() as usize;
     let mut port = c
         .mem()
-        .bytes(connection.port_attributes, if width == 8 { 72 } else { 44 })?;
+        .bytes(port_attributes, if width == 8 { 72 } else { 44 })?;
     port[14..16].fill(0); // Padding in SECURITY_QUALITY_OF_SERVICE.
     let mut expected_port = [0; 72];
     for (field, value) in [PORT_FLAGS, 12, 2, 1].into_iter().enumerate() {
@@ -74,22 +96,30 @@ pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
         );
     }
 
-    // Authenticate only the fixed identity of this virtual server. The supplied
-    // SID is a constraint on the endpoint and grants no rights to the caller.
-    if connection.sid != 0 && c.mem().bytes(connection.sid, LOCAL_SYSTEM.len())? != LOCAL_SYSTEM {
-        return Flow::ret(STATUS_SERVER_SID_MISMATCH.into());
-    }
-    probe_write(c, connection.out, width)?;
-    if connection.receive != 0 {
-        if c.mem().u32(connection.receive)? != 0 {
+    Ok(())
+}
+
+pub(in crate::user::windows::dll::native) fn open(
+    c: &mut Ctx,
+    interface: LsarpcInterface,
+    out: u64,
+    receive: u64,
+) -> ApiResult {
+    let width = c.psize() as usize;
+    probe_write(c, out, width)?;
+    if receive != 0 {
+        if c.mem().u32(receive)? != 0 {
             return Err(c.unsupported(
                 "LSARPC connection message attributes are outside the selected profile",
             ));
         }
-        probe_write(c, connection.receive, 8)?;
+        probe_write(c, receive, 8)?;
     }
 
-    let Some(id) = c.p.objects.try_create(Object::LpcPort(LpcPort::lsarpc())) else {
+    let Some(id) =
+        c.p.objects
+            .try_create(Object::LpcPort(LpcPort::lsarpc(interface)))
+    else {
         return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into());
     };
     let Some(handle) = c.p.objects.open_access(id, false, PORT_ACCESS) else {
@@ -102,10 +132,10 @@ pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
     endpoint.set_lsarpc_context(handle);
 
     let publish = || -> Result<(), crate::user::windows::memory::MemFault> {
-        if connection.receive != 0 {
-            c.mem().w32(connection.receive + 4, 0)?;
+        if receive != 0 {
+            c.mem().w32(receive + 4, 0)?;
         }
-        c.write_ptr(connection.out, handle.into())
+        c.write_ptr(out, handle.into())
     };
     if let Err(error) = publish() {
         c.p.objects.close(handle.into());

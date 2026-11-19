@@ -1,6 +1,7 @@
 use super::*;
 use crate::user::windows::loader::services::tests::named_table;
 use crate::user::windows::nt::status::*;
+use crate::user::windows::objects::LsarpcInterface;
 
 const CONNECT: u32 = 0x7b;
 const QUERY: u32 = 0x8b;
@@ -236,7 +237,10 @@ fn native_lsarpc_information_replays_user_copy_and_handle_lifetime() {
         let wow = arch == WinArch::X86;
         let width = arch.ptr_size();
         let size = 8 + width;
-        let port = u64::from(p.objects.insert(Object::LpcPort(LpcPort::lsarpc())));
+        let port = u64::from(
+            p.objects
+                .insert(Object::LpcPort(LpcPort::lsarpc(LsarpcInterface::Policy))),
+        );
         let Some(Object::LpcPort(peer)) = p.objects.get_mut(port) else {
             panic!("fixture port");
         };

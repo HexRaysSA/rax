@@ -15,7 +15,7 @@ const CLOSE_REPLY_BYTES: usize = 92;
 const LOOKUP_REPLY_BYTES: usize = 80;
 const OPEN_BYTES: usize = 152;
 const OPEN_REPLY_BYTES: usize = 136;
-const POLICY_LOOKUP_NAMES: u32 = 0x800;
+pub(super) const POLICY_LOOKUP_NAMES: u32 = 0x800;
 const REVISION_V1: u32 = 1;
 const STATUS_NO_SUCH_PRIVILEGE: u32 = 0xc000_0060;
 
@@ -43,6 +43,17 @@ pub(super) fn response(
     association: ObjId,
     contexts: &LsarpcPolicies,
 ) -> Option<Response> {
+    let mut response = match operation(payload, request_type)? {
+        OPEN => open(payload, association, contexts)?,
+        LOOKUP_PRIVILEGE_VALUE => lookup(payload, contexts)?,
+        CLOSE => close(payload, contexts)?,
+        _ => return None,
+    };
+    echo_call_id(&mut response, payload);
+    Some(response)
+}
+
+pub(super) fn operation(payload: &[u8], request_type: u16) -> Option<u32> {
     if request_type != 0
         || payload.len() < RPC_HEADER_BYTES
         || qword(payload, 4) != 0
@@ -50,33 +61,18 @@ pub(super) fn response(
     {
         return None;
     }
-    let mut response = match word(payload, 20) {
-        OPEN => open(payload, association, contexts)?,
-        LOOKUP_PRIVILEGE_VALUE => lookup(payload, contexts)?,
-        CLOSE => close(payload, contexts)?,
-        _ => return None,
-    };
-    put_word(&mut response.body, 12, word(payload, 12)); // Local RPC call ID.
-    Some(response)
+    Some(word(payload, 20))
+}
+
+pub(super) fn echo_call_id(response: &mut Response, request: &[u8]) {
+    put_word(&mut response.body, 12, word(request, 12));
 }
 
 fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option<Response> {
-    // Inline NDR64 arguments.
-    // The measured form has a NULL SystemName and object pointers, and a non-NULL QoS.
-    if payload.len() != OPEN_BYTES
-        || payload[24..72].iter().any(|&b| b != 0)
-        || word(payload, 72) != 48
-        || payload[76..112].iter().any(|&b| b != 0)
-        || qword(payload, 112) == 0
-        || word(payload, 120) != 12
-        || word(payload, 124) != 2
-        || word(payload, 128) != 1
-        || word(payload, 136) != word(payload, 140)
-    {
+    if payload.len() != OPEN_BYTES || word(payload, 136) != word(payload, 140) {
         return None;
     }
-
-    let desired = word(payload, 132);
+    let desired = open_access(payload)?;
     let context = match (word(payload, 136), desired) {
         (version, _) if version != REVISION_V1 => Err(STATUS_NOT_SUPPORTED),
         (_, 0) => Err(STATUS_INVALID_PARAMETER),
@@ -99,6 +95,24 @@ fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option
         Err(status) => put_word(&mut response.body, 60, status),
     }
     Some(response)
+}
+
+pub(super) fn open_access(payload: &[u8]) -> Option<u32> {
+    // Inline NDR64 arguments.
+    // The measured form has a NULL SystemName and object pointers, and a non-NULL QoS.
+    if payload.len() < 136
+        || payload[24..72].iter().any(|&b| b != 0)
+        || word(payload, 72) != 48
+        || payload[76..112].iter().any(|&b| b != 0)
+        || qword(payload, 112) == 0
+        || word(payload, 120) != 12
+        || word(payload, 124) != 2
+        || word(payload, 128) != 1
+    {
+        return None;
+    }
+
+    Some(word(payload, 132))
 }
 
 fn lookup(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
@@ -146,7 +160,7 @@ fn lookup(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
     Some(response)
 }
 
-fn close(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
+pub(super) fn close(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
     if payload.len() != 84 || payload[24..64].iter().any(|&b| b != 0) {
         return None;
     }
@@ -160,7 +174,7 @@ fn close(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
     Some(response)
 }
 
-fn reply(size: usize) -> Response {
+pub(super) fn reply(size: usize) -> Response {
     let mut body = vec![0; size];
     put_word(&mut body, 0, REPLY);
     Response {

@@ -7,6 +7,8 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::cache::{PORT_NAME, SECTION_BYTES, server_security};
 use crate::user::windows::objects::{LpcPort, Object};
 
+mod policy_lookup;
+
 const HANDLE_ATTRIBUTE: u32 = 0x1000_0000;
 
 pub(super) fn connect(c: &mut Ctx) -> ApiResult {
@@ -14,45 +16,75 @@ pub(super) fn connect(c: &mut Ctx) -> ApiResult {
     guard_result(c, result)
 }
 
+struct Connection {
+    out: u64,
+    server: u64,
+    client: u64,
+    port: u64,
+    flags: u32,
+    security: u64,
+    message: u64,
+    length: u64,
+    output: u64,
+    input: u64,
+    timeout: u64,
+}
+
 fn checked(c: &mut Ctx) -> ApiResult {
-    let (out, connection, client, port, flags, security, message, length, output, input, timeout) = (
-        c.ptr(0)?,
-        c.ptr(1)?,
-        c.ptr(2)?,
-        c.ptr(3)?,
-        c.u32(4)?,
-        c.ptr(5)?,
-        c.ptr(6)?,
-        c.ptr(7)?,
-        c.ptr(8)?,
-        c.ptr(9)?,
-        c.ptr(10)?,
-    );
-    if client != 0 || flags != 0x20000 || output != 0 || timeout != 0 {
+    let arguments = Connection {
+        out: c.ptr(0)?,
+        server: c.ptr(1)?,
+        client: c.ptr(2)?,
+        port: c.ptr(3)?,
+        flags: c.u32(4)?,
+        security: c.ptr(5)?,
+        message: c.ptr(6)?,
+        length: c.ptr(7)?,
+        output: c.ptr(8)?,
+        input: c.ptr(9)?,
+        timeout: c.ptr(10)?,
+    };
+    if arguments.flags != 0x20000 || arguments.output != 0 || arguments.timeout != 0 {
         return Err(c.unsupported("NtAlpcConnectPortEx connection options are not selected"));
     }
+    if arguments.client != 0 {
+        return policy_lookup::connect(c, arguments);
+    }
+    cache(c, arguments)
+}
+
+fn pointer(bytes: &[u8], offset: usize, width: usize) -> u64 {
+    let mut value = [0; 8];
+    value[..width].copy_from_slice(&bytes[offset..offset + width]);
+    u64::from_le_bytes(value)
+}
+
+fn cache(c: &mut Ctx, arguments: Connection) -> ApiResult {
+    let Connection {
+        out,
+        server: connection,
+        port,
+        security,
+        message,
+        length,
+        input,
+        ..
+    } = arguments;
     let width = c.psize() as usize;
     let wow = c.arch() == WinArch::X86;
     let attributes_bytes = if wow { 24 } else { 48 };
     let attributes = c.mem().bytes(connection, attributes_bytes)?;
-    let pointer = |bytes: &[u8], at: usize| -> u64 {
-        if wow {
-            u32::from_le_bytes(bytes[at..at + 4].try_into().expect("captured pointer span")).into()
-        } else {
-            u64::from_le_bytes(bytes[at..at + 8].try_into().expect("captured pointer span"))
-        }
-    };
     if attributes[..4] != (attributes_bytes as u32).to_le_bytes()
-        || pointer(&attributes, width) != 0
+        || pointer(&attributes, width, width) != 0
         || attributes[3 * width..3 * width + 4] != [0; 4]
-        || pointer(&attributes, if wow { 16 } else { 32 }) != 0
-        || pointer(&attributes, if wow { 20 } else { 40 }) != 0
+        || pointer(&attributes, if wow { 16 } else { 32 }, width) != 0
+        || pointer(&attributes, if wow { 20 } else { 40 }, width) != 0
     {
         return Err(
             c.unsupported("NtAlpcConnectPortEx connection object attributes are not selected")
         );
     }
-    let name_at = pointer(&attributes, 2 * width);
+    let name_at = pointer(&attributes, 2 * width, width);
     let name_header = c.mem().bytes(name_at, if wow { 8 } else { 16 })?;
     let name_length = usize::from(u16::from_le_bytes(
         name_header[..2].try_into().expect("name length"),
@@ -61,7 +93,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if name_length != expected_name.len() * 2 {
         return Err(c.unsupported("NtAlpcConnectPortEx port name is not selected"));
     }
-    let name = c.mem().bytes(pointer(&name_header, width), name_length)?;
+    let name = c
+        .mem()
+        .bytes(pointer(&name_header, width, width), name_length)?;
     if !name
         .chunks_exact(2)
         .map(|p| u16::from_le_bytes([p[0], p[1]]))

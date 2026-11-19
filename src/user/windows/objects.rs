@@ -31,7 +31,7 @@ pub(crate) use file_directory::{DirectoryEntry, DirectoryScan};
 mod lpc;
 mod named;
 pub use lpc::LpcPort;
-pub(crate) use lpc::{LsarpcPolicies, LsarpcPolicyContext};
+pub(crate) use lpc::{LsarpcInterface, LsarpcPolicies, LsarpcPolicyContext};
 mod pipe;
 pub use pipe::PipeEnd;
 mod primary_token;

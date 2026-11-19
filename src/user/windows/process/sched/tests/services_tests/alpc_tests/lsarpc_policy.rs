@@ -1,5 +1,6 @@
 use super::*;
 use crate::user::windows::nt::status::*;
+use crate::user::windows::objects::LsarpcInterface;
 
 const POLICY_LOOKUP_NAMES: u32 = 0x800;
 const CONTEXT: u32 = 0x2000_0000;
@@ -76,7 +77,10 @@ fn close(call: u32, context: &[u8]) -> Vec<u8> {
 }
 
 fn new_port(p: &mut Proc) -> u64 {
-    let handle = u64::from(p.objects.insert(Object::LpcPort(LpcPort::lsarpc())));
+    let handle = u64::from(
+        p.objects
+            .insert(Object::LpcPort(LpcPort::lsarpc(LsarpcInterface::Policy))),
+    );
     let Some(Object::LpcPort(port)) = p.objects.get_mut(handle) else {
         panic!("fixture port");
     };

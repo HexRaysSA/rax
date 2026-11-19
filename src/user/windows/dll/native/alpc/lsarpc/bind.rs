@@ -1,6 +1,7 @@
 //! Local RPC transfer-syntax negotiation for the selected LSARPC endpoint.
 
 use super::exchange::{Response, put_word, word};
+use crate::user::windows::objects::LsarpcInterface;
 
 pub(super) const BIND: u32 = 1;
 const BIND_BYTES: usize = 72;
@@ -17,11 +18,24 @@ const LSARPC_INTERFACE: [u8; 20] = [
     0, 0, 0, 0,
 ];
 
-pub(super) fn response(payload: &[u8], request_type: u16) -> Option<Response> {
+const POLICY_LOOKUP_INTERFACE: [u8; 20] = [
+    0x29, 0x07, 0x8a, 0xfb, 0x04, 0x2d, 0x58, 0x46, 0xbe, 0x93, 0x27, 0xb4, 0xad, 0x55, 0x3f, 0xac,
+    1, 0, 0, 0,
+];
+
+pub(super) fn response(
+    interface: LsarpcInterface,
+    payload: &[u8],
+    request_type: u16,
+) -> Option<Response> {
     if payload.len() != BIND_BYTES || !matches!(request_type, 0 | 0x4000) {
         return None;
     }
-    let negotiated = if payload[12..32] == LSARPC_INTERFACE {
+    let expected = match interface {
+        LsarpcInterface::Policy => LSARPC_INTERFACE,
+        LsarpcInterface::PolicyLookup => POLICY_LOOKUP_INTERFACE,
+    };
+    let negotiated = if payload[12..32] == expected {
         match word(payload, 32) & SYNTAX_MASK {
             1 | 5 => Ok(NDR),
             2 | 3 | 6 => Ok(NDR64),
@@ -56,4 +70,36 @@ pub(super) fn response(payload: &[u8], request_type: u16) -> Option<Response> {
             }
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn policy_lookup_negotiates_ndr64_without_aliasing_the_other_lsarpc_interface() {
+        let mut payload = [0; BIND_BYTES];
+        put_word(&mut payload, 0, BIND);
+        put_word(&mut payload, 12, 0xfb8a_0729);
+        put_word(&mut payload, 16, 0x4658_2d04);
+        put_word(&mut payload, 20, 0xb427_93be);
+        put_word(&mut payload, 24, 0xac3f_55ad);
+        put_word(&mut payload, 28, 1);
+        put_word(&mut payload, 32, 3);
+
+        let accepted = response(LsarpcInterface::PolicyLookup, &payload, 0x4000).unwrap();
+        assert_eq!(accepted.transfer_syntax, Some(NDR64));
+        assert_eq!(accepted.request_type, 0x4000);
+        put_word(&mut payload, 32, NDR64);
+        assert_eq!(accepted.body, payload);
+
+        let rejected = response(LsarpcInterface::Policy, &payload, 0x4000).unwrap();
+        assert_eq!(rejected.transfer_syntax, None);
+        assert_eq!(word(&rejected.body, 8), RPC_S_UNKNOWN_IF);
+
+        put_word(&mut payload, 28, 0);
+        let rejected = response(LsarpcInterface::PolicyLookup, &payload, 0x4000).unwrap();
+        assert_eq!(rejected.transfer_syntax, None);
+        assert_eq!(word(&rejected.body, 8), RPC_S_UNKNOWN_IF);
+    }
 }

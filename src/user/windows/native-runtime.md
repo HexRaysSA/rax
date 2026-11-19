@@ -3926,6 +3926,29 @@ returns the context only. The context offset in the full allocation is
 [MS-LSAD LsarClose](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/99dd2d7a-b0fc-4c6d-837a-2b4d342383ae)
 [MS-LSAT interface definition](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsat/23cd602f-e46c-430d-ab5d-a678b9044a7d)
 
+### Installed Windows LSA Policy Lookup endpoint
+
+On Windows 11 ARM64 build 29708, stock `whoami.exe` uses the synchronous
+`NtAlpcConnectPortEx` profile for the counted `\RPC Control\lsapolicylookup`
+name. The client attribute record has no name and the connection attribute
+record carries only the server name. The call includes a revision-1
+self-relative server descriptor and an empty in-message attribute allocation.
+
+The guest evaluates the descriptor's DACL against the virtual server's
+LocalSystem identity to authenticate the endpoint. A private native test
+distinguished `PORT_CONNECT` from `READ_CONTROL` and verified that a
+server-identity failure returns `STATUS_SERVER_SID_MISMATCH`. The generic
+read, write and all rights include `PORT_CONNECT` for this check.
+No host endpoint, handle or token is opened by the emulated connection.
+[Windows RPC security quality of service](https://learn.microsoft.com/en-us/windows/win32/api/rpcdce/ns-rpcdce-rpc_security_qos_v5_a)
+
+This port binds interface `fb8a0729-2d04-4658-be93-27b4ad553fac` version 1.0.
+The installed ARM64 client negotiates NDR64. Operation 0 returns a policy
+context for a measured `POLICY_LOOKUP_NAMES` request and operation 1 closes
+it. The same association owns the context across duplicate port handles.
+The native client also sends operation 2 to look up its account SID.
+Account translation is outside the currently implemented endpoint profile.
+
 ### Selected token pointer records
 
 The installed Windows provider reads `TokenOwner`, `TokenPrimaryGroup`,

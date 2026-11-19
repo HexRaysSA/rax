@@ -1,6 +1,7 @@
 use super::lsarpc_connect::invoke;
 use super::*;
 use crate::user::windows::nt::status::*;
+use crate::user::windows::objects::LsarpcInterface;
 
 const CONTEXT: u32 = 0x2000_0000;
 const COOKIE: u64 = 0x123450;
@@ -56,7 +57,10 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
         p.vm.protect(bad_message, PAGE_SIZE, prot::READONLY)
             .unwrap();
 
-        let original = u64::from(p.objects.insert(Object::LpcPort(LpcPort::lsarpc())));
+        let original = u64::from(
+            p.objects
+                .insert(Object::LpcPort(LpcPort::lsarpc(LsarpcInterface::Policy))),
+        );
         let Some(Object::LpcPort(port)) = p.objects.get_mut(original) else {
             panic!("fixture port");
         };

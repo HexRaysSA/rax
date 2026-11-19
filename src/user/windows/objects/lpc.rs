@@ -19,8 +19,15 @@ enum Peer {
     Cache(Box<crate::user::windows::object_namespace::cache::CachePeer>),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LsarpcInterface {
+    Policy,
+    PolicyLookup,
+}
+
 #[derive(Debug)]
 pub(crate) struct LsarpcPeer {
+    pub(crate) interface: LsarpcInterface,
     pub(crate) context: u32,
     pub(crate) sequence: u32,
     pub(crate) message_id: u32,
@@ -127,10 +134,11 @@ impl LpcPort {
         }
     }
 
-    pub(crate) fn lsarpc() -> Self {
+    pub(crate) fn lsarpc(interface: LsarpcInterface) -> Self {
         Self {
             view: None,
             peer: Some(Peer::Lsarpc(LsarpcPeer {
+                interface,
                 context: 0,
                 sequence: 1,
                 message_id: 1,

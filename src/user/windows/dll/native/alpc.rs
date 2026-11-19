@@ -11,7 +11,7 @@ mod cache;
 mod child_start;
 mod csr;
 mod information;
-mod lsarpc;
+pub(super) mod lsarpc;
 mod theme;
 
 const SYNCHRONOUS: u32 = 0x0002_0000;

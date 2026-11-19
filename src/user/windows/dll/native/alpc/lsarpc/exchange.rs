@@ -1,10 +1,11 @@
 //! Guest ALPC message and context publication for the local LSARPC endpoint.
 
 use super::{Ctx, Flow, Mem, Object, probe_write};
-use super::{bind, policy};
+use super::{bind, policy, policy_lookup};
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::hle::ApiResult;
 use crate::user::windows::nt::status::*;
+use crate::user::windows::objects::LsarpcInterface;
 
 const CONTEXT_ATTRIBUTE: u32 = 0x2000_0000;
 // The synchronous virtual endpoint does not apply the caller's scheduling ticket.
@@ -40,8 +41,10 @@ pub(in crate::user::windows::dll::native) fn exchange(
     let request_type = u16::from_le_bytes([request[4], request[5]]);
     let valid_length = u16::from_le_bytes([request[0], request[1]]) as usize == payload.len();
     let response = match payload.get(..4).map(|_| word(payload, 0)) {
-        Some(bind::BIND) if valid_length => bind::response(payload, request_type)
-            .ok_or_else(|| c.unsupported("LSARPC bind header is outside the selected profile"))?,
+        Some(bind::BIND) if valid_length => bind::response(peer.interface, payload, request_type)
+            .ok_or_else(|| {
+            c.unsupported("LSARPC bind header is outside the selected profile")
+        })?,
         Some(bind::BIND) => {
             return Err(c.unsupported("LSARPC bind header is outside the selected profile"));
         }
@@ -55,13 +58,23 @@ pub(in crate::user::windows::dll::native) fn exchange(
                     "LSARPC local RPC operation {operation} requires the selected NDR64 profile"
                 )));
             }
-            policy::response(payload, request_type, association, &peer.policies).ok_or_else(
-                || {
-                    c.unsupported(format!(
-                        "LSARPC local RPC operation {operation} is outside the selected profile"
-                    ))
-                },
-            )?
+            let response = match peer.interface {
+                LsarpcInterface::Policy => {
+                    policy::response(payload, request_type, association, &peer.policies)
+                }
+                LsarpcInterface::PolicyLookup => {
+                    policy_lookup::response(payload, request_type, association, &peer.policies)
+                }
+            };
+            response.ok_or_else(|| {
+                let endpoint = match peer.interface {
+                    LsarpcInterface::Policy => "LSARPC",
+                    LsarpcInterface::PolicyLookup => "lsapolicylookup",
+                };
+                c.unsupported(format!(
+                    "{endpoint} local RPC operation {operation} is outside the selected profile"
+                ))
+            })?
         }
         _ => return Err(c.unsupported("LSARPC local RPC packet is outside the selected profile")),
     };
