@@ -174,6 +174,14 @@ compares each translated device read with the same instruction and input in
 RAM. It checks 48 device completions, including 24 after restoration into a
 fresh native vCPU.
 
+Hosted Intel macOS 15.7.9 (24G830), SDK 15.5, executed both count forms and
+passed all 48 device cases on `ce9e6ed8038934224917f1ee99b40f9dbe120723`.
+The runner reported `hypervisor_guest=1`. The execution artifact matched its
+published SHA-256, and all 4,786 engine inputs and 11 consumer and tool inputs
+matched the tested Git tree. The legacy fallbacks were exercised in the
+portable tests and the QEMU profile control.
+[Native workflow run 44441741303](https://github.com/HexRaysSA/rax/actions/runs/44441741303)
+
 | ID | Assumption and dependent result | Falsification probe |
 | --- | --- | --- |
 | C1 | The native owner and its HVF guest execute the same F3 encoding. | Compare each MMIO result and defined flags to the same instruction operating on guest RAM, including the source that distinguishes ZF. |
