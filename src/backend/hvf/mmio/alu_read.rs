@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 // MMIO harness, which compiles this planner without the native backend.
 #[path = "../../../isa/x86_64/execute/crc32.rs"]
 mod crc32;
+#[path = "../../../isa/x86_64/execute/imul.rs"]
+mod imul;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
@@ -30,6 +32,7 @@ enum Operation {
     Adcx,
     Adox,
     Crc32,
+    Imul,
 }
 
 impl Operation {
@@ -80,6 +83,9 @@ impl AluReadInput {
         }
         if self.operation.is_unary() && (self.size == 1 || self.other != 0) {
             return Err("invalid MMIO unary ALU read descriptor".into());
+        }
+        if matches!(self.operation, Operation::Imul) && self.size == 1 {
+            return Err("invalid MMIO IMUL operand width".into());
         }
         if matches!(self.operation, Operation::Adcx | Operation::Adox)
             && !matches!(self.size, 4 | 8)
@@ -133,6 +139,7 @@ impl AluReadInput {
             bits::CF
         };
         let carry = self.flags_before & carry_flag != 0;
+        let mut updated = self.flags_before;
         let result = match self.operation {
             Operation::Add => left.wrapping_add(right),
             Operation::Adc | Operation::Adcx | Operation::Adox => {
@@ -150,8 +157,12 @@ impl AluReadInput {
             Operation::CountTrailingZeros => u64::from(memory.trailing_zeros().min(width_bits)),
             Operation::CountLeadingZeros => u64::from(memory.leading_zeros() - (64 - width_bits)),
             Operation::Crc32 => u64::from(crc32::crc32c(self.other as u32, memory, self.size)),
+            Operation::Imul => {
+                let (product, overflow) = imul::truncated_product(left, right, self.size);
+                flags::set_cf_of(&mut updated, overflow, overflow);
+                product
+            }
         };
-        let mut updated = self.flags_before;
         match self.operation {
             Operation::Add => flags::update_flags_add(&mut updated, left, right, result, self.size),
             Operation::Adc => {
@@ -189,7 +200,7 @@ impl AluReadInput {
                     updated |= bits::ZF;
                 }
             }
-            Operation::Crc32 => {}
+            Operation::Crc32 | Operation::Imul => {}
             _ => flags::update_flags_logic(&mut updated, result, self.size),
         }
         let register = self
@@ -212,6 +223,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
         "adcx" => Operation::Adcx,
         "adox" => Operation::Adox,
         "crc32" => Operation::Crc32,
+        "imul" => Operation::Imul,
         "sub" => Operation::Sub,
         "sbb" => Operation::Sbb,
         "and" => Operation::And,
@@ -229,24 +241,33 @@ pub(super) fn prepare<M: PhysicalMemory>(
     };
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
-        || instruction.operands.len() != 2
         || instruction.operands.iter().any(|o| o.conditional)
     {
         return Err("incomplete MMIO ALU read effects".into());
     }
-    let operands = &instruction.operands;
-    let memory_left = operands[0].kind == OperandKind::Memory;
+    let memory_left = instruction
+        .operands
+        .first()
+        .is_some_and(|operand| operand.kind == OperandKind::Memory);
     let unary = operation.is_unary();
     let crc32 = matches!(operation, Operation::Crc32);
-    let (operand, other) = if memory_left {
-        (&operands[0], &operands[1])
-    } else {
-        (&operands[1], &operands[0])
+    let (operand, other, immediate) = match instruction.operands.as_slice() {
+        [first, second] if memory_left => (first, second, None),
+        [first, second] => (second, first, None),
+        [target, source, immediate]
+            if matches!(operation, Operation::Imul)
+                && immediate.kind == OperandKind::Immediate
+                && immediate.read
+                && !immediate.write =>
+        {
+            (source, target, Some(immediate.value))
+        }
+        _ => return Err("unsupported MMIO ALU operand shape".into()),
     };
     if operand.kind != OperandKind::Memory
         || !operand.read
         || operand.write
-        || other.read == unary
+        || other.read == (unary || immediate.is_some())
         || record.qualification & 3 != 1
     {
         return Err("MMIO ALU read effects disagree with the EPT access".into());
@@ -310,7 +331,9 @@ pub(super) fn prepare<M: PhysicalMemory>(
         size,
         length: u64::from(instruction.size),
         operation,
-        other: if bit_test || unary {
+        other: if let Some(immediate) = immediate {
+            immediate
+        } else if bit_test || unary {
             0
         } else if crc32 {
             u64::from(value as u32)

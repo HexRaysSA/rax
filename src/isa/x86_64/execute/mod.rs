@@ -9,6 +9,7 @@ pub(crate) mod crypto;
 pub(crate) use crc32::crc32c;
 pub mod data;
 pub mod fpu;
+mod imul;
 pub mod io;
 pub mod logic;
 pub mod shift;

@@ -6,6 +6,8 @@ use crate::vm::vcpu::VcpuExit;
 use crate::isa::x86_64::cpu::{InsnContext, X86_64Vcpu};
 use crate::isa::x86_64::flags;
 
+use super::super::imul::truncated_product;
+
 /// IMUL r, r/m (0x0F 0xAF)
 pub fn imul_r_rm(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     let op_size = ctx.op_size;
@@ -18,21 +20,7 @@ pub fn imul_r_rm(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<
         vcpu.get_reg(rm, op_size)
     };
 
-    let (result, overflow) = match op_size {
-        2 => {
-            let r = (dst as i16 as i32).wrapping_mul(src as i16 as i32);
-            (r as u16 as u64, r as i16 as i32 != r)
-        }
-        4 => {
-            let r = (dst as i32 as i64).wrapping_mul(src as i32 as i64);
-            (r as u32 as u64, r as i32 as i64 != r)
-        }
-        8 => {
-            let r = (dst as i64 as i128).wrapping_mul(src as i64 as i128);
-            (r as u64, r as i64 as i128 != r)
-        }
-        _ => (dst.wrapping_mul(src), false),
-    };
+    let (result, overflow) = truncated_product(dst, src, op_size);
     vcpu.set_reg(reg, result, op_size);
     flags::set_cf_of(&mut vcpu.regs.rflags, overflow, overflow);
     vcpu.clear_lazy_flags();
@@ -61,21 +49,7 @@ pub fn imul_r_rm_imm(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
         imm
     };
 
-    let (result, overflow) = match op_size {
-        2 => {
-            let r = (src as i16 as i32).wrapping_mul(imm as i16 as i32);
-            (r as u16 as u64, r as i16 as i32 != r)
-        }
-        4 => {
-            let r = (src as i32 as i64).wrapping_mul(imm as i32 as i64);
-            (r as u32 as u64, r as i32 as i64 != r)
-        }
-        8 => {
-            let r = (src as i64 as i128).wrapping_mul(imm as i64 as i128);
-            (r as u64, r as i64 as i128 != r)
-        }
-        _ => (src.wrapping_mul(imm), false),
-    };
+    let (result, overflow) = truncated_product(src, imm, op_size);
     vcpu.set_reg(reg, result, op_size);
     flags::set_cf_of(&mut vcpu.regs.rflags, overflow, overflow);
     vcpu.clear_lazy_flags();
@@ -98,21 +72,7 @@ pub fn imul_r_rm_imm8(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Op
     // Immediate is 8-bit, sign-extended to operand size
     let imm = ctx.consume_imm(1)? as i8 as i64 as u64;
 
-    let (result, overflow) = match op_size {
-        2 => {
-            let r = (src as i16 as i32).wrapping_mul(imm as i16 as i32);
-            (r as u16 as u64, r as i16 as i32 != r)
-        }
-        4 => {
-            let r = (src as i32 as i64).wrapping_mul(imm as i32 as i64);
-            (r as u32 as u64, r as i32 as i64 != r)
-        }
-        8 => {
-            let r = (src as i64 as i128).wrapping_mul(imm as i64 as i128);
-            (r as u64, r as i64 as i128 != r)
-        }
-        _ => (src.wrapping_mul(imm), false),
-    };
+    let (result, overflow) = truncated_product(src, imm, op_size);
     vcpu.set_reg(reg, result, op_size);
     flags::set_cf_of(&mut vcpu.regs.rflags, overflow, overflow);
     vcpu.clear_lazy_flags();

@@ -114,6 +114,93 @@ fn alu(code: &[u8], flags: u64, register: u64) -> mmio::AluReadInput {
 }
 
 #[test]
+fn imul_device_reads_restore_signed_products_and_defined_flags() {
+    use rax::isa::x86_64::flags::bits::{CF, OF};
+
+    for (width, prefix) in [(2, &[0x66][..]), (4, &[][..]), (8, &[0x48][..])] {
+        let lane_mask = u64::MAX >> (64 - 8 * width);
+        let original = if width == 8 { 3 } else { 0xdead_beef_0000_0003 };
+        let register_bits = if width == 2 { original & !lane_mask } else { 0 };
+        let high_bit = 1u64 << (8 * width - 1);
+        for (encoding, source, result, overflow) in [
+            (&[0x0f, 0xaf, 0x07][..], u64::MAX - 1, lane_mask - 5, false),
+            (&[0x0f, 0xaf, 0x07], high_bit, high_bit, true),
+            (&[0x6b, 0x07, 0xfd], u64::MAX - 1, 6, false),
+            (&[0x6b, 0x07, 0xff], high_bit, high_bit, true),
+        ] {
+            let code = [prefix, encoding].concat();
+            admitted(&code);
+            let preserved = 0x2d6;
+            let flags = preserved | if overflow { 0 } else { CF | OF };
+            let expected_flags = preserved | if overflow { CF | OF } else { 0 };
+            let input = alu(&code, flags, original);
+            let reply = source.to_le_bytes();
+            assert!(input.completion(&reply[..width - 1]).is_err());
+            let mut pending = mmio::InputState::default();
+            pending.begin_alu_read(input).unwrap();
+            let wire = rax::codec::serialize(&pending).unwrap();
+            let mut restored: mmio::InputState = rax::codec::deserialize_strict(&wire).unwrap();
+            restored.validate_checkpoint().unwrap();
+            assert_eq!(restored.descriptor(), Some((width as u8, None)));
+            let mut host = CompletionHost::default();
+            restored.complete(&mut host, &reply[..width]);
+            assert_eq!(
+                (host.index, host.value, host.flags),
+                (0, register_bits | result, expected_flags)
+            );
+            assert_eq!(host.length, code.len() as u64);
+            assert_eq!(host.calls, ["gpr", "writeflags", "finish"]);
+            assert!(restored.ready().is_ok());
+        }
+    }
+}
+
+#[test]
+fn imul_device_reads_admit_full_signed_immediates_in_each_code_mode() {
+    for (bits, code, width) in [
+        (16, &[0x69, 0x07, 0xfd, 0xff][..], 2),
+        (32, &[0x69, 0x07, 0xfd, 0xff, 0xff, 0xff], 4),
+        (64, &[0x48, 0x69, 0x07, 0xfd, 0xff, 0xff, 0xff], 8),
+    ] {
+        let (mut context, mut memory, record) = fixture(code);
+        context.code_bits = bits;
+        if bits == 16 {
+            context.registers[3] = 0; // ModR/M 07 addresses [BX].
+            context.segments[3] = record.linear;
+        }
+        let plan = prepare(&context, &mut memory, record).unwrap();
+        let Action::AluRead(input) = plan.action else {
+            panic!()
+        };
+        let source = (-2i64).to_le_bytes();
+        assert_eq!(input.size, width as u8);
+        let upper = if width == 2 {
+            context.registers[0] & !0xffff
+        } else {
+            0
+        };
+        assert_eq!(
+            input.completion(&source[..width]).unwrap(),
+            (Some((0, upper | 6)), Some(2), code.len() as u64)
+        );
+    }
+    for code in [
+        &[0xf7, 0x2f][..],
+        &[0xf0, 0x0f, 0xaf, 0x07],
+        &[0x0f, 0xaf, 0xc7],
+    ] {
+        let (context, mut memory, record) = fixture(code);
+        assert!(prepare(&context, &mut memory, record).is_err());
+        assert!(
+            !memory
+                .reads
+                .iter()
+                .any(|&(address, _)| address == record.physical)
+        );
+    }
+}
+
+#[test]
 fn crc32_device_reads_keep_source_and_accumulator_widths_distinct() {
     let source = 0xfedc_ba98_7654_3210_u64.to_le_bytes();
     let accumulator = 0xdead_beef_1234_5678;
