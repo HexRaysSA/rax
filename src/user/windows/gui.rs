@@ -245,6 +245,7 @@ pub(crate) enum Completion {
     IsTopLevelWindow([u64; 1]),
     IsNonClientDpiScalingEnabled([u64; 1]),
     GetWindowCompositionAttribute([u64; 2]),
+    GetAncestor([u64; 2]),
     GetThreadState([u64; 1]),
     QueryWindowClassName([u64; 3]),
     SetWindowLongPtr([u64; 4]),

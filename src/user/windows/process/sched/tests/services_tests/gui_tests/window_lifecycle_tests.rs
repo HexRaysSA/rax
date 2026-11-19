@@ -54,6 +54,25 @@ fn assert_nonclient_dpi_disabled(p: &mut Proc, t: &mut Thread, handle: u64, last
     assert_eq!(p.space.u32(status).unwrap(), 0xc0000034);
 }
 
+fn assert_ancestor(
+    p: &mut Proc,
+    t: &mut Thread,
+    handle: u64,
+    selector: u64,
+    value: u64,
+    last_error: u32,
+) {
+    let offsets = crate::user::windows::layout::offsets(p.arch);
+    let error = t.teb + offsets.teb_last_error;
+    let status = t.teb + offsets.teb_last_status;
+    p.space.w32(error, 0x4567).unwrap();
+    p.space.w32(status, 0xc0000034).unwrap();
+    service(p, t, "NtUserGetAncestor", [handle, selector]);
+    assert_eq!(t.cpu.gpr(0), value);
+    assert_eq!(p.space.u32(error).unwrap(), last_error);
+    assert_eq!(p.space.u32(status).unwrap(), 0xc0000034);
+}
+
 fn assert_composition(
     p: &mut Proc,
     t: &mut Thread,
@@ -259,6 +278,11 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
     assert_top_level(p, &mut t, hwnd, 0, 0x4567);
     assert_nonclient_dpi_disabled(p, &mut t, hwnd, 0x4567);
     assert_top_level(p, &mut t, tagged, 0, 0x4567);
+    assert_ancestor(p, &mut t, hwnd, 1, 0x1_000e, 0x4567);
+    assert_ancestor(p, &mut t, hwnd | 0xffff_0000, 2, hwnd, 0x4567);
+    assert_ancestor(p, &mut t, tagged, 3, hwnd, 0x4567);
+    assert_ancestor(p, &mut t, 0xffff_000e, 1, 0, 0x4567);
+    assert_ancestor(p, &mut t, 0x1_000e, 4, 0, 87);
     assert_top_level(p, &mut t, hwnd | 0xffff_0000, 0, 0x4567);
     let view = t.teb + 0x840;
     assert_eq!(p.space.bytes(view, 16).unwrap(), [0; 16]);
@@ -336,6 +360,8 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
     assert_eq!(p.space.bytes(slot, 32).unwrap(), vacant);
     assert!(p.gui.unregister_class(&upcase, &name, module, None).is_ok());
     assert_top_level(p, &mut t, hwnd, 0, 1400);
+    assert_ancestor(p, &mut t, hwnd, 1, 0, 1400);
+    assert_ancestor(p, &mut t, hwnd | 0xffff_0000, 4, 0, 1400);
     assert_nonclient_dpi_disabled(p, &mut t, hwnd, 1400);
     assert_top_level(p, &mut t, hwnd | 0xffff_0000, 0, 1400);
 }
@@ -431,12 +457,22 @@ fn ime_disabled_overlapped_window_applies_callback_tracking_limits() {
     let hwnd = u64::from(handle);
     for alias in [hwnd, hwnd | 0x5a00_0000_0000_0000, hwnd | 0xffff_0000] {
         assert_top_level(p, &mut t, alias, 1, 0x4567);
+        assert_ancestor(p, &mut t, alias, 0x100000001, 0x1_000c, 0x4567);
+        assert_ancestor(p, &mut t, alias, 2, hwnd, 0x4567);
+        assert_ancestor(p, &mut t, alias, 3, hwnd, 0x4567);
+        assert_ancestor(p, &mut t, alias, 0, 0, 87);
         assert_nonclient_dpi_disabled(p, &mut t, alias, 0x4567);
     }
     for invalid in [0, 0x1234, u64::MAX - 2, hwnd & 0xffff, hwnd ^ 0x66_0000] {
         assert_top_level(p, &mut t, invalid, 0, 1400);
+        assert_ancestor(p, &mut t, invalid, 1, 0, 1400);
+        assert_ancestor(p, &mut t, invalid, 4, 0, 1400);
         assert_nonclient_dpi_disabled(p, &mut t, invalid, 1400);
     }
+    assert_ancestor(p, &mut t, 0x1_000c, 2, 0, 0x4567);
+    assert_ancestor(p, &mut t, 0xffff_000c, 3, 0, 0x4567);
+    assert_ancestor(p, &mut t, 0x000c, 1, 0, 1400);
+
     use crate::user::mm::PAGE_SIZE;
     use crate::user::windows::memory::prot;
     let page = base + 0xa000;

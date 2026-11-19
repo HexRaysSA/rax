@@ -17,7 +17,13 @@ const ERROR_CANNOT_FIND_WND_CLASS: u32 = 1407;
 const ERROR_INSUFFICIENT_BUFFER: u32 = 122;
 const STATUS_BUFFER_TOO_SMALL: u32 = 0xc000_0023;
 const HWND_MESSAGE: u64 = u64::MAX - 2;
-const MESSAGE_PARENT: u64 = 0x0001_000e;
+// These guest HWNDs occupy the reserved slots below the first guest
+// allocation. Neither value comes from a host handle lookup.
+const DESKTOP_PARENT: u32 = 0x0001_000c;
+const MESSAGE_PARENT: u32 = 0x0001_000e;
+const GA_PARENT: u32 = 1;
+const GA_ROOT: u32 = 2;
+const GA_ROOTOWNER: u32 = 3;
 const CALLBACK_RETURN_BYTES: u32 = 24;
 const DEFAULT_IME_HANDLE: u32 = 8;
 const THREAD_DEFAULT_IME_HANDLE: u32 = 3;
@@ -162,7 +168,7 @@ pub(super) fn query(p: &Proc, t: &Thread, [handle, query]: [u64; 2]) -> Result<u
 }
 
 pub(super) fn is_top_level(p: &Proc, t: &Thread, [handle]: [u64; 1]) -> Result<u64, Outcome> {
-    let Some(window) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
+    let Some((_, window)) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
         return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
     };
     Ok(u64::from(matches!(
@@ -176,13 +182,49 @@ pub(super) fn is_nonclient_dpi_scaling_enabled(
     t: &Thread,
     [handle]: [u64; 1],
 ) -> Result<u64, Outcome> {
-    let Some(window) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
+    let Some((_, window)) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
         return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
     };
     window
         .nonclient_dpi_scaling(&p.vm)
         .map(u64::from)
         .ok_or_else(|| failure("window non-client DPI context is outside the measured profile"))
+}
+
+pub(super) fn get_ancestor(
+    p: &Proc,
+    t: &Thread,
+    [handle, flags]: [u64; 2],
+) -> Result<u64, Outcome> {
+    if p.arch != WinArch::Arm64 {
+        return Err(failure(
+            "window ancestor lookup lacks a selected architecture profile",
+        ));
+    }
+    let raw = handle as u32;
+    let system_handle = if raw >> 16 == u32::from(u16::MAX) {
+        0x0001_0000 | u32::from(raw as u16)
+    } else {
+        raw
+    };
+    let window = if matches!(system_handle, DESKTOP_PARENT | MESSAGE_PARENT) {
+        None
+    } else if let Some(window) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) {
+        Some(window)
+    } else {
+        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    };
+
+    let value = match (flags as u32, window) {
+        (GA_PARENT, Some((_, window))) => match window.creation.kind {
+            WindowKind::MessageOnly => MESSAGE_PARENT,
+            WindowKind::Overlapped { .. } => DESKTOP_PARENT,
+        },
+        (GA_ROOT | GA_ROOTOWNER, Some((hwnd, _))) => hwnd,
+        (GA_PARENT | GA_ROOT | GA_ROOTOWNER, None) => 0,
+        _ => return query_error(p, t, ERROR_INVALID_PARAMETER, None),
+    };
+    Ok(u64::from(value))
 }
 
 pub(super) fn get_thread_state(p: &Proc, t: &Thread, [query]: [u64; 1]) -> Result<u64, Outcome> {
@@ -357,7 +399,7 @@ pub(super) fn class_name(
     [handle, real, output]: [u64; 3],
 ) -> Result<u64, Outcome> {
     let message_parent = "Message".encode_utf16().collect::<Vec<_>>();
-    let name = if handle == MESSAGE_PARENT && p.gui.theme_hook_started {
+    let name = if handle == u64::from(MESSAGE_PARENT) && p.gui.theme_hook_started {
         &message_parent
     } else {
         let Some(window) = p.gui.window(handle) else {
@@ -524,7 +566,7 @@ fn create_message(window: &Window, bridge: u64, message: u32) -> Vec<u8> {
     put64(&mut bytes, 0x48, creation.argument);
     put64(&mut bytes, 0x50, creation.module);
     match creation.kind {
-        WindowKind::MessageOnly => put64(&mut bytes, 0x60, MESSAGE_PARENT),
+        WindowKind::MessageOnly => put64(&mut bytes, 0x60, u64::from(MESSAGE_PARENT)),
         WindowKind::Overlapped { .. } => {
             put32(&mut bytes, 0x78, OVERLAPPED_STYLE);
             put32(&mut bytes, 0x90, 0x100);

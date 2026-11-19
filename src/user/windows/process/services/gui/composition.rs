@@ -72,7 +72,7 @@ pub(super) fn complete(
     if attribute.size < 4 {
         return report(p, STATUS_BUFFER_TOO_SMALL);
     }
-    let Some(window) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
+    let Some((_, window)) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
         return report(p, STATUS_INVALID_HANDLE);
     };
     if !matches!(window.creation.kind, WindowKind::Overlapped { .. }) {
