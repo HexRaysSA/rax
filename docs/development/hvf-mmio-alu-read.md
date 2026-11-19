@@ -86,6 +86,15 @@ Intel executed native memory-source POPCNT over five input values and all 64
 combinations of the six status flags at each width. The Intel macOS workflow
 also exposes a `popcnt` profile with direct and source-free restored reads.
 
+The hosted Intel macOS 15.7.9 run with SDK 15.5 executed all 12 cases on
+`a1c320246a8e5ad5da3039f245b43886bbbdd7ce`. All six width/value pairs
+completed both directly and after restoring into a fresh native CPU. The
+runner reported `hypervisor_guest=1`. The downloaded artifact matched its
+published SHA-256, and all 4,783 recorded engine inputs and ten consumer and
+tool inputs matched the tested Git tree. Bare-metal Intel macOS execution,
+compatibility-mode device exits and broader interrupt profiles remain open.
+[Native workflow run 44428586669](https://github.com/HexRaysSA/rax/actions/runs/44428586669)
+
 | Assumption | Stress test and falsification probe |
 | --- | --- |
 | The captured device reply supplies the full source at its encoded width. | Exercise zero and nonzero replies at all three widths. A register-source value, extra device access, wrong partial write or changed control flag falsifies the contract. |
