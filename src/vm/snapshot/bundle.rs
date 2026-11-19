@@ -290,7 +290,7 @@ impl SnapshotBundle {
     /// files also require every byte in the SDK-mapped RAM window.
     pub(crate) fn validate_complete(&self) -> Result<()> {
         self.validate()?;
-        self.validate_clint_graph()?;
+        self.validate_riscv_platform_graph()?;
         if self.base.config.arch == crate::config::ArchKind::Aarch64
             && self
                 .execution
@@ -396,22 +396,24 @@ impl SnapshotBundle {
     }
     /// Metadata-only closure after a builder has admitted the physical image.
     /// Do not decompress/hash that image a second time during capture.
-    pub(crate) fn validate_clint_graph(&self) -> Result<()> {
+    pub(crate) fn validate_riscv_platform_graph(&self) -> Result<()> {
         let platform = self
             .execution
             .as_ref()
             .and_then(|e| e.riscv_platform.as_ref());
         let mut platform_harts = 0;
+        let mut plic_harts = 0;
         if let Some(contexts) = &self.backend_contexts {
             for record in contexts.entries().iter().flatten() {
-                if record.kind == super::RISCV_CONTEXT
-                    && crate::backend::emulator::riscv::context_uses_platform(&record.data)?
-                {
-                    platform_harts += 1;
+                if record.kind == super::RISCV_CONTEXT {
+                    let (uses_clint, uses_plic) =
+                        crate::backend::emulator::riscv::context_platform_profiles(&record.data)?;
+                    platform_harts += usize::from(uses_clint);
+                    plic_harts += usize::from(uses_plic);
                 }
             }
         }
-        if platform.is_some() {
+        if let Some(platform) = platform {
             let physical = self.physical_memory.as_ref().ok_or_else(|| {
                 Error::InvalidConfig("CLINT checkpoint requires complete physical RAM".into())
             })?;
@@ -434,6 +436,17 @@ impl SnapshotBundle {
             {
                 return Err(Error::InvalidConfig(
                     "CLINT checkpoint missing matching private harts or clock".into(),
+                ));
+            }
+            platform.validate_uart(&self.base.devices.serial)?;
+            let expected_plic_harts = if platform.plic_enabled() {
+                usize::from(self.base.config.vcpus)
+            } else {
+                0
+            };
+            if plic_harts != expected_plic_harts {
+                return Err(Error::InvalidConfig(
+                    "PLIC checkpoint requires matching private hart profiles".into(),
                 ));
             }
         } else if platform_harts != 0 {

@@ -17,7 +17,8 @@ pub(super) struct PendingActivation {
     completed: Arc<AtomicBool>,
 }
 
-const TAG: &[u8; 8] = b"RAXRV004";
+const TAG: &[u8; 8] = b"RAXRV005";
+const SPLIT_SEIP_TAG: &[u8; 8] = b"RAXRV004";
 const PLATFORM_TAG: &[u8; 8] = b"RAXRV003";
 const PREVIOUS_TAG: &[u8; 8] = b"RAXRV002";
 const LEGACY_TAG: &[u8; 8] = b"RAXRV001";
@@ -43,6 +44,8 @@ struct Context {
     reservation: Option<Reservation>,
     #[serde(skip)]
     platform: bool,
+    #[serde(skip)]
+    plic: bool,
 }
 
 fn invalid(message: impl std::fmt::Display) -> Error {
@@ -51,6 +54,7 @@ fn invalid(message: impl std::fmt::Display) -> Error {
 
 struct Header {
     platform: bool,
+    plic: bool,
     external_seip: bool,
     payload_offset: usize,
     has_reservation_record: bool,
@@ -65,22 +69,39 @@ impl Header {
             Some(1) => Ok(true),
             _ => Err(invalid(name)),
         };
-        let (platform, external_seip, payload_offset, has_reservation_record) = match raw.get(..8) {
-            Some(tag) if tag == TAG => (
-                flag(8, "invalid platform profile")?,
-                flag(9, "invalid external SEIP level")?,
-                Self::MAX_LEN,
-                true,
-            ),
-            Some(tag) if tag == PLATFORM_TAG => {
-                (flag(8, "invalid platform profile")?, false, 9, true)
-            }
-            Some(tag) if tag == PREVIOUS_TAG => (false, false, 8, true),
-            Some(tag) if tag == LEGACY_TAG => (false, false, 8, false),
-            _ => return Err(invalid("invalid context tag")),
+        let profiles = || match raw.get(8) {
+            Some(0) => Ok((false, false)),
+            Some(1) => Ok((true, false)),
+            Some(3) => Ok((true, true)),
+            _ => Err(invalid("invalid platform profile")),
         };
+        let ((platform, plic), external_seip, payload_offset, has_reservation_record) =
+            match raw.get(..8) {
+                Some(tag) if tag == TAG => (
+                    profiles()?,
+                    flag(9, "invalid external SEIP level")?,
+                    Self::MAX_LEN,
+                    true,
+                ),
+                Some(tag) if tag == SPLIT_SEIP_TAG => (
+                    (flag(8, "invalid platform profile")?, false),
+                    flag(9, "invalid external SEIP level")?,
+                    Self::MAX_LEN,
+                    true,
+                ),
+                Some(tag) if tag == PLATFORM_TAG => (
+                    (flag(8, "invalid platform profile")?, false),
+                    false,
+                    9,
+                    true,
+                ),
+                Some(tag) if tag == PREVIOUS_TAG => ((false, false), false, 8, true),
+                Some(tag) if tag == LEGACY_TAG => ((false, false), false, 8, false),
+                _ => return Err(invalid("invalid context tag")),
+            };
         Ok(Self {
             platform,
+            plic,
             external_seip,
             payload_offset,
             has_reservation_record,
@@ -88,8 +109,9 @@ impl Header {
     }
 }
 
-pub(super) fn platform_profile(raw: &[u8]) -> Result<bool> {
-    Ok(Header::decode(raw)?.platform)
+pub(super) fn platform_profiles(raw: &[u8]) -> Result<(bool, bool)> {
+    let header = Header::decode(raw)?;
+    Ok((header.platform, header.plic))
 }
 
 impl Context {
@@ -97,7 +119,7 @@ impl Context {
         let payload = crate::codec::serialize_limited(&(self.reservation, self), MAX_PAYLOAD)
             .map_err(invalid)?;
         let mut raw = TAG.to_vec();
-        raw.push(u8::from(self.platform));
+        raw.push(u8::from(self.platform) | (u8::from(self.plic) << 1));
         raw.push(u8::from(self.cpu.external_seip()));
         raw.extend_from_slice(&payload);
         Ok(raw)
@@ -173,6 +195,7 @@ impl Context {
             context
         };
         context.platform = header.platform;
+        context.plic = header.plic;
         context.cpu.set_external_seip(header.external_seip);
         context.validate(target)?;
         Ok(context)
@@ -302,6 +325,7 @@ impl RiscVVcpu {
             halted: *halted,
             devices_enabled: *devices_enabled,
             platform: platform.as_ref().is_some_and(|p| p.enabled()),
+            plic: platform.as_ref().is_some_and(|p| p.plic_enabled()),
             user,
         };
         context.validate(self)?;
@@ -312,7 +336,11 @@ impl RiscVVcpu {
     /// any live hart or adapter field. Existing memory/translation bindings stay
     /// attached; importing another binding mode is rejected before mutation.
     pub fn restore_context(&mut self, raw: &[u8]) -> Result<()> {
-        if platform_profile(raw)? != self.platform.as_ref().is_some_and(|p| p.enabled()) {
+        let live = self
+            .platform
+            .as_ref()
+            .map_or((false, false), |p| (p.enabled(), p.plic_enabled()));
+        if platform_profiles(raw)? != live {
             return Err(invalid(
                 "single-hart restore requires matching shared platform profile",
             ));

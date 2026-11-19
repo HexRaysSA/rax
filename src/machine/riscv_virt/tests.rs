@@ -329,35 +329,36 @@ fn readonly_late_segment_and_bootstrap_stacks_reject_without_writes() {
 }
 
 #[test]
-fn clint_image_overlap_is_rejected_before_any_segment_is_written() {
-    let base = crate::backend::emulator::riscv::platform::BASE;
-    let mem = GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), (base + 0x10000) as usize)])
-        .unwrap();
-    mem.write_slice(&[0xa5; 64], GuestAddress(0x1000)).unwrap();
+fn image_overlap_is_rejected_before_any_segment_is_written() {
+    use crate::backend::emulator::riscv::platform::{BASE, PLIC_BASE};
+    let mem =
+        GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), (PLIC_BASE + 0x1000) as usize)])
+            .unwrap();
+    let sentinel = [0xa5; 64];
+    mem.write_slice(&sentinel, GuestAddress(0x1000)).unwrap();
     let mut image = program::elf(&0x00000013u32.to_le_bytes(), 0x1000, 0x1000);
     program::put16(&mut image, 56, 2);
     program::put32(&mut image, 120, 1);
     program::put32(&mut image, 124, 6);
     program::put64(&mut image, 128, 4096);
-    program::put64(&mut image, 136, base);
-    program::put64(&mut image, 144, base);
     program::put64(&mut image, 152, 4);
     program::put64(&mut image, 160, 4);
-    assert!(
-        RiscvVirtMachine::load_elf(&mem, &image)
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("CLINT")
-    );
     let mut before = [0; 64];
+    for (base, controller) in [(BASE, "CLINT"), (PLIC_BASE, "PLIC")] {
+        // Include a segment whose leading bytes precede the reserved boundary.
+        for address in [base, base - 2] {
+            program::put64(&mut image, 136, address);
+            program::put64(&mut image, 144, address);
+            let error = RiscvVirtMachine::load_elf(&mem, &image).err().unwrap();
+            assert!(error.to_string().contains(controller));
+            mem.read_slice(&mut before, GuestAddress(0x1000)).unwrap();
+            assert_eq!(before, sentinel);
+        }
+    }
+    let error = RiscvVirtMachine::load_raw(&mem, &vec![0x13; BASE as usize + 4])
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("CLINT"));
     mem.read_slice(&mut before, GuestAddress(0x1000)).unwrap();
-    assert_eq!(before, [0xa5; 64]);
-    assert!(
-        RiscvVirtMachine::load_raw(&mem, &vec![0x13; base as usize + 4])
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("CLINT")
-    );
+    assert_eq!(before, sentinel);
 }

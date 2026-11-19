@@ -91,8 +91,15 @@ impl RiscvVirtMachine {
                 .ok_or_else(|| Error::KernelLoad("ELF memory segment overflow".into()))?;
             let memory_size = usize::try_from(ph.p_memsz)
                 .map_err(|_| Error::KernelLoad("ELF memory segment exceeds host range".into()))?;
-            if crate::backend::emulator::riscv::platform::overlaps(address, memory_size) {
-                return Err(Error::KernelLoad("RISC-V ELF overlaps CLINT MMIO".into()));
+            if let Some(controller) =
+                crate::backend::emulator::riscv::platform::overlapping_controller(
+                    address,
+                    memory_size,
+                )
+            {
+                return Err(Error::KernelLoad(format!(
+                    "RISC-V ELF overlaps {controller} MMIO"
+                )));
             }
             preflight_write(mem, address, memory_size)?;
             executable_entry |=

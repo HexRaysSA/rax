@@ -16,6 +16,8 @@ const PREVIOUS_SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE06";
 const SNAPSHOT_SCHEDULE_TAG: &[u8; 8] = b"RAXSCH01";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
+// The 255-hart RV64 controller package needs at most 11,150 bytes.
+const MAX_RISCV_CONTROL: usize = 16 * 1024;
 const MAX_REQUESTS: usize = 1_048_576;
 
 #[path = "execution_eoi.rs"]
@@ -491,8 +493,7 @@ impl ExecutionSnapshot {
             raw.extend_from_slice(&control);
         }
         if let Some(platform) = &self.riscv_platform {
-            let control =
-                crate::codec::serialize_limited(platform, MAX_CONTROL).map_err(invalid)?;
+            let control = platform.encode(MAX_RISCV_CONTROL)?;
             raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
             raw.extend_from_slice(&control);
         }
@@ -669,12 +670,13 @@ impl ExecutionSnapshot {
         };
         let riscv_platform = if tag == RISCV_TAG {
             let length = reader.u32()? as usize;
-            if length == 0 || length > MAX_CONTROL {
+            if length == 0 || length > MAX_RISCV_CONTROL {
                 return Err(invalid("bad RISC-V platform length"));
             }
             Some(
-                crate::codec::deserialize_limited::<_, MAX_CONTROL>(reader.take(length)?)
-                    .map_err(invalid)?,
+                crate::backend::emulator::riscv::platform::PlatformCheckpoint::decode::<
+                    MAX_RISCV_CONTROL,
+                >(reader.take(length)?)?,
             )
         } else {
             None

@@ -143,3 +143,42 @@ fn raw_hart_restore_requires_matching_shared_platform_profile() {
     platform.restore_with(None, || Ok(())).unwrap();
     configured.restore_context(&legacy).unwrap();
 }
+
+#[test]
+fn uart_reads_consume_input_without_fetch_or_invalid_access_side_effects() {
+    use crate::backend::emulator::riscv::platform::PLIC_BASE;
+    use crate::devices::bus::MmioDevice;
+    use crate::devices::serial::Serial16550;
+
+    let (mem, platform) = fixture();
+    let mut uart = Serial16550::new_mmio(UART_BASE);
+    uart.write(UART_BASE + 1, &[1]); // Receiver interrupt enable.
+    platform.bind_serial(Arc::new(Mutex::new(uart))).unwrap();
+    let mut memory = bridge(mem, Some(platform.clone()));
+    memory.write(PLIC_BASE + 40, &3u32.to_le_bytes()).unwrap();
+    memory
+        .write(PLIC_BASE + 0x2080, &(1u32 << 10).to_le_bytes())
+        .unwrap();
+    assert!(platform.queue_uart_input(b"X").unwrap());
+    assert_eq!(
+        platform.signals(0).unwrap().unwrap().external,
+        Some((false, true))
+    );
+    let claim = PLIC_BASE + 0x20_1004;
+    assert_eq!(memory.read_u32(claim).unwrap(), 10);
+    let before = platform.checkpoint().unwrap();
+    assert!(memory.fetch_u16(UART_BASE).is_err());
+    assert!(memory.read(UART_BASE - 1, &mut [0; 2]).is_err());
+    assert!(memory.write(UART_BASE + 7, &[0; 2]).is_err());
+    assert_eq!(platform.checkpoint().unwrap(), before);
+
+    let mut byte = [0; 1];
+    memory.read(UART_BASE, &mut byte).unwrap();
+    assert_eq!(byte, *b"X");
+    memory.write(claim, &10u32.to_le_bytes()).unwrap();
+    assert_eq!(
+        platform.signals(0).unwrap().unwrap().external,
+        Some((false, false))
+    );
+    assert_eq!(memory.read_u32(claim).unwrap(), 0);
+}

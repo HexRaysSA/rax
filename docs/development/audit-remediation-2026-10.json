@@ -3023,6 +3023,7 @@
         "riscv-shared-clint-2026-11-03",
         "riscv-delegated-supervisor-interrupts-2026-11-19",
         "riscv-interrupt-input-ownership-2026-11-19",
+        "riscv-virt-plic-uart-2026-11-19",
         {
           "id": "kvm-public-register-state-2026-11-03",
           "status": "locally_validated_with_explicit_unrelated_owning_failures",
@@ -3890,6 +3891,7 @@
         "riscv-shared-clint-2026-11-03",
         "riscv-delegated-supervisor-interrupts-2026-11-19",
         "riscv-interrupt-input-ownership-2026-11-19",
+        "riscv-virt-plic-uart-2026-11-19",
         "kvm-owned-io-and-mp-preservation-2026-11-03",
         "kvm-native-startup-eligibility-and-identities-2026-11-03",
         "kvm-native-mp-firmware-discovery-2026-11-03",
@@ -198778,6 +198780,17 @@
       ],
       "scope": "RV32 and RV64 separate hardware and software supervisor external pending state, architectural MIP read-modify-write and read-only machine inputs, plus versioned adapter restore and legacy projection.",
       "qualification": "docs/development/riscv-clint/README.md#interrupt-input-ownership",
+      "full_goal_complete": false
+    },
+    {
+      "id": "riscv-virt-plic-uart-2026-11-19",
+      "status": "locally_qualified_full_findings_open",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "scope": "Shared level-sensitive generic RV64 virt PLIC and 16550 input, M/S context claim and completion on each hart, bounded versioned controller/hart checkpoint and detached continuation with an active claim.",
+      "qualification": "docs/development/riscv-clint/README.md#uart-interrupts-through-the-virt-plic",
       "full_goal_complete": false
     },
     {

@@ -572,16 +572,16 @@ impl Vmm {
         }
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
-        let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
-        let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
-        let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
-        let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
         let platform = self
             .vm
             .as_any()
             .downcast_ref::<crate::backend::emulator::EmulatorVm>()
             .and_then(|vm| vm.riscv_platform());
         let commit = || -> Result<()> {
+            let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
+            let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
+            let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
+            let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
             vcpu.set_state(&snapshot.cpu_state)?;
             vcpu.set_emulator_state(&snapshot.emulator_state)?;
             self.guest_mem.write_all(&memory)?;

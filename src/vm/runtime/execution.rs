@@ -2,6 +2,13 @@
 use super::*;
 
 impl Vmm {
+    fn riscv_platform(&self) -> Option<Arc<crate::backend::emulator::riscv::platform::Platform>> {
+        self.vm
+            .as_any()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .and_then(|vm| vm.riscv_platform())
+    }
+
     /// Publish bytes before handling the command that follows them on stdin.
     pub(super) fn service_console(&self, console: &mut Console) -> bool {
         loop {
@@ -50,6 +57,18 @@ impl Vmm {
                     debug!(irq, pending, error = %e, "failed to drive UART irq line");
                 }
             }
+        } else if let Some(platform) = self.riscv_platform() {
+            if !guest_bytes.is_empty() {
+                match platform.queue_uart_input(guest_bytes) {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        if let Ok(mut serial) = self.serial.lock() {
+                            serial.queue_input(guest_bytes);
+                        }
+                    }
+                    Err(error) => debug!(%error, "failed to publish RV64 UART input"),
+                }
+            }
         } else {
             let pending = if let Ok(mut serial) = self.serial.lock() {
                 if !guest_bytes.is_empty() {
@@ -69,7 +88,13 @@ impl Vmm {
         }
     }
 
-    fn publish_pl011_mmio_irq(&self, addr: u64) -> Result<()> {
+    fn publish_serial_mmio_irq(&self, addr: u64) -> Result<()> {
+        use crate::backend::emulator::riscv::platform::{UART_BASE, UART_LEN};
+        if (UART_BASE..UART_BASE + UART_LEN).contains(&addr)
+            && let Some(platform) = self.riscv_platform()
+        {
+            return platform.publish_uart_write();
+        }
         let (Some(uart), Some(base), Some(irq)) =
             (&self.pl011, self.serial_mmio_base, self.serial_irq)
         else {
@@ -86,6 +111,29 @@ impl Vmm {
             .lock()
             .map_err(|_| Error::Emulator("PL011 IRQ publication lock poisoned".into()))?;
         self.vm.set_irq_line(irq, uart.irq_pending())
+    }
+
+    pub(super) fn dispatch_mmio_write(
+        &mut self,
+        cpu_index: usize,
+        addr: u64,
+        data: &[u8],
+    ) -> Result<()> {
+        let vcpu = self
+            .vcpus
+            .get_mut(cpu_index)
+            .ok_or_else(|| Error::InvalidConfig("selected vCPU is missing".into()))?;
+        mmio::write(
+            self.mmio_bus.get_mut()?,
+            &self.local_apics,
+            cpu_index,
+            addr,
+            data,
+        )?;
+        let completion = vcpu.complete_io_out();
+        let irq = self.publish_serial_mmio_irq(addr);
+        completion?;
+        irq
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -319,22 +367,12 @@ impl Vmm {
                     let completion = vcpu.io_completion_result();
                     // The device has consumed the input even if the native reply
                     // must be retried. Publish the line before any checkpoint.
-                    let irq = self.publish_pl011_mmio_irq(addr);
+                    let irq = self.publish_serial_mmio_irq(addr);
                     completion?;
                     irq?;
                 }
                 VcpuExit::MmioWrite { addr, data } => {
-                    mmio::write(
-                        self.mmio_bus.get_mut()?,
-                        &self.local_apics,
-                        turn.cpu_index,
-                        addr,
-                        &data,
-                    )?;
-                    let completion = vcpu.complete_io_out();
-                    let irq = self.publish_pl011_mmio_irq(addr);
-                    completion?;
-                    irq?;
+                    self.dispatch_mmio_write(turn.cpu_index, addr, &data)?;
                 }
                 VcpuExit::MmioRmw {
                     addr,
@@ -353,7 +391,7 @@ impl Vmm {
                     // callbacks or instruction completion can reenter the VM.
                     vcpu.complete_io_in(&old);
                     let completion = vcpu.io_completion_result();
-                    let irq = self.publish_pl011_mmio_irq(addr);
+                    let irq = self.publish_serial_mmio_irq(addr);
                     completion?;
                     irq?;
                 }

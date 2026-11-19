@@ -568,6 +568,13 @@ impl Vmm {
                 serial_guard.set_mmio_base(base);
             }
         }
+        if let Some(platform) = vm
+            .as_any()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .and_then(|vm| vm.riscv_platform())
+        {
+            platform.bind_serial(serial.clone())?;
+        }
         if pl011.is_none() && s3c_uart.is_none() {
             if let Some(base) = serial_mmio_base {
                 mmio_bus.register(
@@ -1191,5 +1198,8 @@ mod riscv_startup;
 #[cfg(test)]
 mod riscv_clint_tests;
 
+#[cfg(test)]
+#[path = "runtime/riscv_plic_tests.rs"]
+mod riscv_plic_tests;
 #[cfg(test)]
 mod riscv_supervisor_irq_tests;

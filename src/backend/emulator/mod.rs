@@ -312,6 +312,9 @@ impl Vm for EmulatorVm {
         if let Some(cluster) = self.arm_cluster.get() {
             return cluster.set_irq_line(irq, level);
         }
+        if let Some(platform) = self.riscv_platform.get() {
+            return platform.set_irq_line(irq, level);
+        }
         if level {
             let mut pending = self.irq_pending.lock().unwrap();
             if !pending.contains(&irq) {

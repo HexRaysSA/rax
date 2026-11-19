@@ -3,21 +3,20 @@
 //! This wires the self-contained [`crate::isa::riscv`] interpreter into the VMM as a
 //! bootable machine. It loads a flat binary or an ELF image into guest
 //! memory and produces the initial register file (entry PC, stack pointer), and
-//! exposes a 16550 UART at the RISC-V "virt" MMIO address for console output.
+//! exposes a 16550 UART at the RISC-V "virt" MMIO address.
 
 use std::fs::File;
 use std::io::Read;
 
 use vm_memory::{Address, GuestMemory, GuestMemoryMmap};
 
+use crate::backend::emulator::riscv::platform::UART_BASE;
 use crate::config::VmConfig;
 use crate::devices::bus::{IoBus, MmioBus};
 use crate::error::{Error, Result};
 use crate::machine::{BootInfo, Machine, RiscVBootInfo};
 use crate::vm::vcpu::{CpuState, RiscVRegisters};
 
-/// 16550 UART MMIO base (matches the RISC-V "virt" machine convention).
-const RISCV_UART_BASE: u64 = 0x1000_0000;
 mod image;
 pub(crate) mod startup;
 
@@ -29,10 +28,12 @@ impl RiscvVirtMachine {
     }
 
     fn load_raw(mem: &GuestMemoryMmap, buf: &[u8]) -> Result<RiscVBootInfo> {
-        if crate::backend::emulator::riscv::platform::overlaps(0, buf.len()) {
-            return Err(Error::KernelLoad(
-                "RISC-V raw image overlaps CLINT MMIO".into(),
-            ));
+        if let Some(controller) =
+            crate::backend::emulator::riscv::platform::overlapping_controller(0, buf.len())
+        {
+            return Err(Error::KernelLoad(format!(
+                "RISC-V raw image overlaps {controller} MMIO"
+            )));
         }
         crate::vm::memory::reservations::write(mem, 0, buf)?;
         Ok(RiscVBootInfo {
@@ -54,7 +55,7 @@ impl Machine for RiscvVirtMachine {
     }
 
     fn serial_mmio_base(&self) -> Option<u64> {
-        Some(RISCV_UART_BASE)
+        Some(UART_BASE)
     }
 
     fn load_kernel(&self, mem: &GuestMemoryMmap, config: &VmConfig) -> Result<BootInfo> {

@@ -180,3 +180,47 @@ full library run over `4fb7c6a84` with the same implementation and test
 files passed 13,100 tests with two ignored. The intervening Windows RPC
 change touched disjoint files. The x86-64 host JIT and Linux-only RISC-V
 differential targets registered zero tests on this host.
+
+## UART interrupts through the virt PLIC
+
+The generic RV64 emulator maps the shared PLIC at `0x0c00_0000` for
+`0x0060_0000` bytes. Source zero is reserved and the 16550 drives level
+source 10. Each configured hart has a machine and supervisor target, in
+that order. The controller accepts aligned, little-endian 32-bit accesses.
+The machine and supervisor external inputs are sampled before hart entry.
+[QEMU virt board map](https://github.com/qemu/qemu/blob/v11.1.2/include/hw/riscv/virt.h)
+
+The controller distinguishes pending, in-service and asserted input state.
+Only an enabled pending source with priority above the target threshold
+asserts a notification. A claim ignores the threshold and clears the
+shared pending bit. Completion from an enabled target releases the
+gateway, which immediately re-pends a level that remains asserted.
+[RISC-V PLIC specification](https://docs.riscv.org/reference/plic/v1.0.0/index.html)
+
+Host console input and destructive guest UART reads update the shared UART
+output under the platform lock. The VMM publishes writes after dispatching
+the ordered MMIO exit and before admitting the next hart. Checkpoints
+capture the UART and PLIC together. They validate the saved UART level
+against serial state and require every private hart to agree with the
+shared platform profile before restore. Version 2 controller records
+retain priorities, per-context enables and thresholds, level, pending
+and claim state. Version 1 keeps the CLINT-only mapping, and the private
+hart reader accepts saved versions 1 through 4.
+
+The old CLI failed the same guest code on one, two and four harts. The
+fixture checks M- and S-mode cause, resume PC and claim on every hart.
+QEMU 11.1.2 completed 30 common-path runs across those topologies. The RAX
+fixture additionally checks the gateway rule for a still-asserted level
+and saves a file with a claim in service before removing the boot ELF.
+The work covers the generic software board and its 16550 connection.
+[Guest assembly](../../../tests/fixtures/riscv/vmm_plic_uart.S)
+
+A separate CLI replay saved a CLINT-only file at retirement 87 after
+writing guest RAM at the future PLIC address. Both the old and current
+CLI resumed the file after the boot ELF was removed and verified the
+saved value. A cold boot of the current profile intercepted that same
+address as a PLIC register. The unfiltered library run passed 13,109
+tests with two ignored. The isolated integration run passed 176 tests
+and the C API run passed 246 tests on Apple Silicon. The shared
+MMIO dispatch passed 135 Hypervisor.framework MMIO and ownership tests
+on that host. Physical Intel execution remains unverified.

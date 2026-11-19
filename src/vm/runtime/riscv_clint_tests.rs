@@ -122,7 +122,10 @@ fn pending_clint_file_resumes_new_interrupt_work_on_one_two_and_four_harts() {
                 .signals(u32::from(hart))
                 .unwrap()
                 .unwrap();
-            assert!(signals.1 && signals.2, "both inputs pending on hart {hart}");
+            assert!(
+                signals.software && signals.timer,
+                "both inputs pending on hart {hart}"
+            );
         }
         let before = contexts(&source.vm);
         let saved = source
@@ -149,8 +152,8 @@ fn pending_clint_file_resumes_new_interrupt_work_on_one_two_and_four_harts() {
             vm.run().unwrap();
             assert_work(vm, count);
             for hart in 0..count {
-                let (_, software, timer) = platform(vm).signals(u32::from(hart)).unwrap().unwrap();
-                assert!(!software && !timer);
+                let signals = platform(vm).signals(u32::from(hart)).unwrap().unwrap();
+                assert!(!signals.software && !signals.timer);
             }
         }
         assert_eq!(contexts(&source.vm), contexts(&restored));
@@ -178,7 +181,7 @@ fn incomplete_or_mismatched_clint_graph_rejects_before_any_publication() {
     let original_execution = saved.execution().unwrap().clone();
     let original_contexts = saved.backend_contexts().unwrap().entries().to_vec();
     let original_clock = saved.clock().unwrap().clone();
-    for mutation in 0..6 {
+    for mutation in 0..7 {
         match mutation {
             0 => {
                 saved.take_clock();
@@ -196,12 +199,13 @@ fn incomplete_or_mismatched_clint_graph_rejects_before_any_publication() {
                 records.last_mut().unwrap().as_mut().unwrap().data[8] = 0;
                 saved = saved.with_backend_contexts(records).unwrap();
             }
-            4 => {
+            4 | 5 => {
                 let mut records = saved.backend_contexts().unwrap().entries().to_vec();
-                records.last_mut().unwrap().as_mut().unwrap().data[8] = 2;
+                records.last_mut().unwrap().as_mut().unwrap().data[8] =
+                    if mutation == 4 { 1 } else { 2 };
                 saved = saved.with_backend_contexts(records).unwrap();
             }
-            5 => {
+            6 => {
                 saved.take_physical_memory();
             }
             _ => unreachable!(),
@@ -217,7 +221,7 @@ fn incomplete_or_mismatched_clint_graph_rejects_before_any_publication() {
         );
         assert_eq!(target.vm.timing_context.checkpoint_state(), before_clock);
         assert_eq!(word(&target.vm, 0x80008004), 0xa5a5a5a5);
-        if mutation < 5 {
+        if mutation < 6 {
             saved = saved
                 .with_backend_contexts(original_contexts.clone())
                 .unwrap()
@@ -246,7 +250,7 @@ fn legacy_private_harts_restore_clint_addresses_as_ordinary_ram() {
         .iter()
         .map(|record| {
             let mut record = record.clone().unwrap();
-            assert_eq!(&record.data[..10], b"RAXRV004\0\0");
+            assert_eq!(&record.data[..10], b"RAXRV005\0\0");
             record.data.splice(..10, b"RAXRV002".iter().copied());
             Some(record)
         })

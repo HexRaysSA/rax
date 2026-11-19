@@ -373,6 +373,11 @@ impl Serial16550 {
         if (self.mcr & MCR_OUT2) == 0 {
             return false;
         }
+        self.interrupt_output()
+    }
+
+    /// The UART pin before the PC board's OUT2 gate.
+    pub(crate) fn interrupt_output(&self) -> bool {
         self.get_pending_interrupt().is_some()
     }
 

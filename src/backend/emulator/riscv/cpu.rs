@@ -2,13 +2,11 @@
 //! memory and maps its exits onto [`VcpuExit`].
 //!
 //! Guest memory is bridged through [`GuestBridge`], a [`Memory`] implementation
-//! over the VMM's [`GuestMemoryMmap`]. Accesses to the 16550 UART window are
-//! intercepted: status-register reads are serviced synchronously (the
-//! transmitter is always ready), and THR writes are buffered into a shared sink
-//! that the run loop drains into a [`VcpuExit::MmioWrite`] so the VMM's serial
-//! device produces console output. (The library interpreter executes one whole
-//! instruction per step and cannot suspend mid-instruction, so MMIO *writes* are
-//! surfaced after the step rather than during it.)
+//! over the VMM's [`GuestMemoryMmap`]. UART reads are synchronous. The shared
+//! virt board reads the 16550 and updates its PLIC input, while the standalone
+//! and legacy paths provide a synthetic ready status. UART writes enter an
+//! ordered sink as [`VcpuExit::MmioWrite`]. The VMM dispatches them after the
+//! instruction and publishes the UART interrupt before the next hart turn.
 //!
 //! [`RiscVVcpu::new_user`] builds a process-level (user-mode) hart for
 //! embedders that implement the operating system themselves: it runs in
@@ -36,12 +34,10 @@ use crate::vm::memory::reservations::{MemoryDomain, Monitor};
 mod atomic_tests;
 #[path = "cpu_reservations.rs"]
 mod reservations;
+use super::platform::{UART_BASE, UART_LEN};
 use crate::vm::vcpu::{CpuState, MemAccess, VCpu, VcpuExit};
 use reservations::overlaps_uart;
 
-/// 16550 UART MMIO base/length (matches `RiscvVirtMachine::serial_mmio_base`).
-const UART_BASE: u64 = 0x1000_0000;
-const UART_LEN: u64 = 8;
 /// 16550 Line Status Register offset and the "ready to transmit" bits.
 const LSR_OFFSET: u64 = 5;
 const LSR_THRE_TEMT: u8 = 0x60;
@@ -324,6 +320,25 @@ impl GuestBridge {
             .as_ref()
             .is_some_and(|platform| platform.claims(address, size))
     }
+
+    fn has_platform_uart(&self) -> bool {
+        self.devices_enabled
+            && self
+                .platform
+                .as_ref()
+                .is_some_and(|platform| platform.plic_enabled())
+    }
+
+    fn check_uart_window(&self, addr: u64, size: usize) -> MemResult<()> {
+        if self.has_platform_uart()
+            && overlaps_uart(addr, size)
+            && (addr < UART_BASE
+                || u128::from(addr) + size as u128 > u128::from(UART_BASE + UART_LEN))
+        {
+            return Err(MemError::OutOfBounds { addr, size });
+        }
+        Ok(())
+    }
 }
 impl Memory for GuestBridge {
     fn atomic(
@@ -396,6 +411,7 @@ impl Memory for GuestBridge {
     }
 
     fn probe(&self, addr: u64, size: usize, _write: bool) -> MemResult<()> {
+        self.check_uart_window(addr, size)?;
         if self.in_platform(addr, size) {
             return self
                 .platform
@@ -411,6 +427,7 @@ impl Memory for GuestBridge {
     }
 
     fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
+        self.check_uart_window(addr, buf.len())?;
         if self.in_platform(addr, buf.len()) {
             return self
                 .platform
@@ -422,6 +439,11 @@ impl Memory for GuestBridge {
                 .read(addr, buf);
         }
         if self.is_uart(addr) {
+            if let Some(platform) = &self.platform
+                && platform.read_uart(addr, buf)?
+            {
+                return Ok(());
+            }
             for (i, b) in buf.iter_mut().enumerate() {
                 let off = (addr + i as u64) - UART_BASE;
                 *b = if off == LSR_OFFSET { LSR_THRE_TEMT } else { 0 };
@@ -437,6 +459,7 @@ impl Memory for GuestBridge {
     }
 
     fn write(&mut self, addr: u64, data: &[u8]) -> MemResult<()> {
+        self.check_uart_window(addr, data.len())?;
         if self.in_platform(addr, data.len()) {
             return self
                 .platform
@@ -465,6 +488,15 @@ impl Memory for GuestBridge {
         })?;
         self.publish_tohost(addr, data);
         Ok(())
+    }
+
+    fn fetch_u16(&self, addr: u64) -> MemResult<u16> {
+        if self.has_platform_uart() && overlaps_uart(addr, 2) {
+            return Err(MemError::OutOfBounds { addr, size: 2 });
+        }
+        let mut bytes = [0; 2];
+        self.read(addr, &mut bytes)?;
+        Ok(u16::from_le_bytes(bytes))
     }
 }
 
@@ -779,18 +811,26 @@ impl RiscVVcpu {
     }
 }
 
-pub(crate) fn context_uses_platform(raw: &[u8]) -> Result<bool> {
-    context::platform_profile(raw)
+pub(crate) fn context_platform_profiles(raw: &[u8]) -> Result<(bool, bool)> {
+    context::platform_profiles(raw)
 }
 
 impl VCpu for RiscVVcpu {
     fn poll_vm_clock(&mut self) -> Result<()> {
         if let Some(platform) = &self.platform
-            && let Some((time, software, timer)) = platform.signals(self.id)?
+            && let Some(signals) = platform.signals(self.id)?
         {
-            self.cpu.set_time(time);
-            self.cpu.set_interrupt_pending(1 << 3, software);
-            self.cpu.set_interrupt_pending(1 << 7, timer);
+            self.cpu.set_time(signals.time);
+            self.cpu
+                .set_interrupt_pending(1 << cause::INT_M_SOFTWARE, signals.software);
+            self.cpu
+                .set_interrupt_pending(1 << cause::INT_M_TIMER, signals.timer);
+            if let Some((machine, supervisor)) = signals.external {
+                self.cpu
+                    .set_interrupt_pending(1 << cause::INT_M_EXTERNAL, machine);
+                self.cpu
+                    .set_interrupt_pending(1 << cause::INT_S_EXTERNAL, supervisor);
+            }
         }
         Ok(())
     }

@@ -3,6 +3,6 @@
 
 mod cpu;
 pub(crate) mod platform;
-pub(crate) use cpu::context_uses_platform;
+pub(crate) use cpu::context_platform_profiles;
 
 pub use cpu::{RiscVVcpu, RvUserTrap};
