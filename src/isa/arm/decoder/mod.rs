@@ -758,6 +758,8 @@ pub enum Mnemonic {
     VFMAL,
     VCADD,
     VCMLA,
+    VSDOT,
+    VUDOT,
     VFMLS,
     VNMLA,
     VNMLS,

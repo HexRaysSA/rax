@@ -7,6 +7,7 @@ use super::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType, operand::*
 use crate::isa::arm::ExecutionState;
 
 mod complex;
+mod dot_product;
 mod neon;
 mod vfp;
 
@@ -178,11 +179,10 @@ impl Aarch32Decoder {
             || raw & 0xFDB0_0F10 == 0xFC00_0D00 // VDOT (vector and indexed)
             || raw & 0xFFB0_0F50 == 0xFC00_0C40 // VMMLA
             || raw & 0xFDB0_0F10 == 0xFC30_0810; // VFMAB/VFMAT (vector and indexed)
-        let dot_product = raw & 0xFDB0_0F00 == 0xFC20_0D00; // VSDOT/VUDOT (vector and indexed)
         let i8mm = raw & 0xFF30_0F40 == 0xFC20_0C40 // VSMMLA/VUMMLA/VUSMMLA
             || raw & 0xFFB0_0F10 == 0xFCA0_0D00 // VUSDOT (vector)
             || raw & 0xFFB0_0F00 == 0xFE80_0D00; // VUSDOT/VSUDOT (indexed)
-        if bf16 || dot_product || i8mm {
+        if bf16 || i8mm {
             return Ok(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -191,6 +191,10 @@ impl Aarch32Decoder {
             ));
         }
         if let Some(fields) = Self::complex_simd_fields(raw) {
+            let mnemonic = fields.map_or(Mnemonic::UNDEFINED, |fields| fields.mnemonic);
+            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
+        }
+        if let Some(fields) = Self::dot_product_fields(raw) {
             let mnemonic = fields.map_or(Mnemonic::UNDEFINED, |fields| fields.mnemonic);
             return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
         }

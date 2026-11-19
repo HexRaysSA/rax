@@ -38,12 +38,12 @@ use crate::isa::arm::common::sysreg::Cp15Encoding;
 use std::fmt;
 
 pub(crate) const ID_ISAR5_VCMA: u32 = 15 << 28;
+pub(crate) const ID_ISAR6_DP: u32 = 15 << 4;
 
 // These AArch32 extensions have no execution support. The storage still
 // preserves legacy ID values for host callers and private checkpoints.
 const ID_ISAR6_I8MM: u32 = 0x0f00_0000;
 const ID_ISAR6_BF16: u32 = 0x00f0_0000;
-const ID_ISAR6_DP: u32 = 0x0000_00f0;
 
 /// CP15 coprocessor state.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -73,7 +73,7 @@ pub struct Cp15State {
     pub id_mmfr: [u32; 4],
     /// Instruction Set Attribute Register 0-5.
     pub id_isar: [u32; 6],
-    /// Instruction Set Attribute Register 6, including FEAT_FHM in bits [11:8].
+    /// Instruction Set Attribute Register 6, including FHM and DotProd.
     pub id_isar6: u32,
 
     // =========================================================================
@@ -333,7 +333,14 @@ impl Cp15State {
                     value
                 })
             }
-            (0, 0, 2, 7) => Some(self.id_isar6 & !(ID_ISAR6_I8MM | ID_ISAR6_BF16 | ID_ISAR6_DP)),
+            (0, 0, 2, 7) => {
+                let value = self.id_isar6 & !(ID_ISAR6_I8MM | ID_ISAR6_BF16);
+                Some(if value & ID_ISAR6_DP == 1 << 4 {
+                    value
+                } else {
+                    value & !ID_ISAR6_DP
+                })
+            }
 
             // CRn=1: System control
             (1, 0, 0, 0) => Some(self.sctlr.bits()),

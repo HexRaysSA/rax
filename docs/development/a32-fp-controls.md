@@ -260,10 +260,10 @@ register preservation, mixed-width fault priority, SMIR rejection, and
 neighboring FP16 and `CDP2` encodings. All 47,551 tests across the four owning
 targets passed on Apple Silicon. Physical AArch32 execution remains unverified.
 
-Standalone CP15 reads report absent
-`ID_ISAR6.{I8MM[27:24],BF16[23:20],DP[7:4]}` even if a host override or a
-saved state supplies those bits. AArch64 MRS and mixed-width MRC report the
-same AArch32 view. Raw saved fields remain round-trippable.
+Standalone CP15 reads report absent `ID_ISAR6.{I8MM[27:24],BF16[23:20]}`
+even if a host override or a saved state supplies those bits. AArch64 MRS
+and mixed-width MRC report the same AArch32 view. Raw saved fields remain
+round-trippable.
 [Arm ASL definitions](../architecture/arm/asl/arm_regs.asl),
 [Linux arm64 sysreg field table](../specifications/arm/native-context-feature-registers/linux-sysreg.txt)
 
@@ -295,6 +295,40 @@ and subnormal handling. The A32/T32 SMIR lifters report these operations as
 unsupported for interpreter fallback. Physical AArch32 execution and
 the remaining FP profile audit remain open.
 [QEMU replay vectors](../../tests/suites/backend/a32_fp_controls/complex-qemu.tsv)
+
+## AArch32 FEAT_DotProd
+
+The previous executor returned Undefined for `VSDOT` even with the DP
+feature bit set. Vector and indexed `VSDOT` and `VUDOT` now execute in A32
+and T32. Standalone AArch32 takes DP from its saved or configured
+`ID_ISAR6.DP`. Mixed-width PEs derive it from `ID_AA64ISAR0_EL1.DP` and
+expose the same effective field through AArch64 MRS and AArch32 MRC.
+Readback and execution require DP=1, a D32 register bank, and SIMDInt.
+The standalone reset profile reports DP=0. The saved field uses the
+existing format.
+[Arm ID_ISAR6](https://developer.arm.com/documentation/111107/2026-03/AArch32-Registers/ID-ISAR6--Instruction-Set-Attribute-Register-6)
+
+Absent features and invalid Q register pairs select Undefined before FP
+access traps. A failed Thumb IT predicate skips the instruction. An executed
+IT slot selects Undefined. Each result lane adds four byte products to the
+32-bit accumulator modulo 2^32 and preserves FPSCR. A signed byte product
+ranges from -16,256 to 16,384 and an unsigned product ranges from 0 to 65,025.
+Both four-product sums fit in a signed 32-bit temporary. The indexed form
+reads its source before either half of the destination is written.
+Execution takes O(lanes) time and constant extra storage for at most four lanes.
+[Arm DDI0597 ID032025, VSDOT pages 1325–1328 and VUDOT pages 1446–1449](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+LLVM MC verified 18 A1/T1 encoding pairs. QEMU 11.1.2 completed 36
+enabled cases with `max` and reported Undefined with unchanged registers
+and FPSCR for all 36 Cortex-A15 controls. The replay covers both
+signednesses, both vector widths, both indexed lanes, high registers,
+aliasing, and 32-bit wrap. RAX also exercises reserved feature levels,
+the D16 and SIMDInt prerequisites, invalid register pairs, and HCPTR trap
+priority. All 47,660 tests across `a32_fp_controls`, `arm`, `arm_vfp_a32`,
+and `isa_oracle` passed on Apple Silicon. The SMIR lifters use interpreter
+fallback for this instruction family. Physical AArch32 execution and the
+remaining FP audit stay open.
+[QEMU replay vectors](../../tests/suites/backend/a32_fp_controls/dot-product-qemu.tsv)
 
 ## Original ARM audit replay
 

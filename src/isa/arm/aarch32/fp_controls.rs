@@ -230,6 +230,8 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
             | Mnemonic::VFMLS
             | Mnemonic::VCADD
             | Mnemonic::VCMLA
+            | Mnemonic::VSDOT
+            | Mnemonic::VUDOT
             | Mnemonic::VNMLA
             | Mnemonic::VNMLS
             | Mnemonic::VFNMA
@@ -459,7 +461,13 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
     let advsimd = matches!(raw >> 24, 0xf2 | 0xf3 | 0xf4)
         || matches!(
             insn.mnemonic,
-            Mnemonic::VDUP | Mnemonic::VFMAL | Mnemonic::VFMLS | Mnemonic::VCADD | Mnemonic::VCMLA
+            Mnemonic::VDUP
+                | Mnemonic::VFMAL
+                | Mnemonic::VFMLS
+                | Mnemonic::VCADD
+                | Mnemonic::VCMLA
+                | Mnemonic::VSDOT
+                | Mnemonic::VUDOT
         )
         || (insn.mnemonic == Mnemonic::VMOV
             && raw & 0x0f00_0f10 == 0x0e00_0b10

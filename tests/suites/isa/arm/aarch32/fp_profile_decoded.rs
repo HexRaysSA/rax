@@ -130,10 +130,6 @@ fn absent_bfloat16_is_undefined_without_register_effects() {
 fn absent_dot_product_integer_matrix_and_complex_simd_are_undefined() {
     // LLVM MC A32 encodings. These allocations use the same opcode word in T32.
     let encodings = [
-        0xfc22_0d04, // VSDOT.S8 d0, d2, d4
-        0xfc22_0d54, // VUDOT.U8 q0, q1, q2
-        0xfe22_0d64, // VSDOT.S8 q0, q1, d4[1]
-        0xfe22_0d14, // VUDOT.U8 d0, d2, d4[0]
         0xfc22_0c44, // VSMMLA.S8 q0, q1, q2
         0xfc22_0c54, // VUMMLA.U8 q0, q1, q2
         0xfca2_0c44, // VUSMMLA.S8 q0, q1, q2
@@ -147,6 +143,10 @@ fn absent_dot_product_integer_matrix_and_complex_simd_are_undefined() {
             assert_smir_unsupported(raw, thumb);
         }
         for (raw, mnemonic) in [
+            (0xfc22_0d04, Mnemonic::VSDOT), // Signed vector D
+            (0xfc22_0d54, Mnemonic::VUDOT), // Unsigned vector Q
+            (0xfe22_0d64, Mnemonic::VSDOT), // Signed indexed Q
+            (0xfe22_0d14, Mnemonic::VUDOT), // Unsigned indexed D
             (0xfdb2_0844, Mnemonic::VCMLA), // FP32 vector Q
             (0xfc32_0804, Mnemonic::VCMLA), // FP32 vector D
             (0xfe12_0864, Mnemonic::VCMLA), // FP16 indexed

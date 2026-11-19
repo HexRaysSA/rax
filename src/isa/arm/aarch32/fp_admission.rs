@@ -2,7 +2,10 @@
 //!
 //! MVFR1 conversion fields do not imply FEAT_FP16 data processing. See the
 //! archived Arm ASL guards and feature-admission reference provenance.
-use super::{cp15::ID_ISAR5_VCMA, vfp::VfpState};
+use super::{
+    cp15::{ID_ISAR5_VCMA, ID_ISAR6_DP},
+    vfp::VfpState,
+};
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
 
 #[path = "fp_modes.rs"]
@@ -34,6 +37,12 @@ pub(crate) fn instruction_supported(
                         && (fields.element_bits == 32 || (state.mvfr1 >> 20) & 15 == 2)
                 })
             });
+    }
+    if matches!(insn.mnemonic, Mnemonic::VSDOT | Mnemonic::VUDOT) {
+        return advsimd
+            && effective_id_isar6(id_isar6, state.mvfr0, state.mvfr1) & ID_ISAR6_DP != 0
+            && Aarch32Decoder::dot_product_fields(a32_word(insn))
+                .is_some_and(|fields| fields.is_ok_and(|fields| fields.mnemonic == insn.mnemonic));
     }
     if matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH)
         && (!advsimd || (id_isar5 >> 24) & 15 != 1)
@@ -209,6 +218,8 @@ pub(crate) fn predicate_supported(insn: &DecodedInsn, advsimd: bool, in_it: bool
             | Mnemonic::VQRDMLSH
             | Mnemonic::VCADD
             | Mnemonic::VCMLA
+            | Mnemonic::VSDOT
+            | Mnemonic::VUDOT
     ) {
         return false;
     }
@@ -376,18 +387,19 @@ pub(crate) fn effective_id_isar5_vcma(id_isar5: u32, mvfr0: u32, mvfr1: u32) -> 
     }
 }
 
-/// Expose FHM only when the AArch32 profile can execute its SIMD operations.
-pub(crate) fn effective_id_isar6_fhm(id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
-    let has_fhm = id_isar6 & ID_ISAR6_FHM == 1 << 8;
-    let has_d32 = mvfr0 & 15 == 2;
-    let has_simd_integer = (mvfr1 >> 12) & 15 == 1;
+/// Project the DotProd and FHM fields through the active AArch32 SIMD profile.
+pub(crate) fn effective_id_isar6(mut id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
+    let has_simd_integer = mvfr0 & 15 == 2 && (mvfr1 >> 12) & 15 == 1;
     let has_simd_single = (mvfr1 >> 16) & 15 == 1;
     let has_simd_half = (mvfr1 >> 20) & 15 == 2;
-    if has_fhm && has_d32 && has_simd_integer && has_simd_single && has_simd_half {
-        id_isar6
-    } else {
-        id_isar6 & !ID_ISAR6_FHM
+    if !has_simd_integer || id_isar6 & ID_ISAR6_DP != 1 << 4 {
+        id_isar6 &= !ID_ISAR6_DP;
     }
+    if !(has_simd_integer && has_simd_single && has_simd_half) || id_isar6 & ID_ISAR6_FHM != 1 << 8
+    {
+        id_isar6 &= !ID_ISAR6_FHM;
+    }
+    id_isar6
 }
 
 pub(crate) fn half_supported(
@@ -398,7 +410,7 @@ pub(crate) fn half_supported(
 ) -> bool {
     if matches!(insn.mnemonic, Mnemonic::VFMAL | Mnemonic::VFMLS) {
         return advsimd
-            && effective_id_isar6_fhm(id_isar6, state.mvfr0, state.mvfr1) & ID_ISAR6_FHM != 0;
+            && effective_id_isar6(id_isar6, state.mvfr0, state.mvfr1) & ID_ISAR6_FHM != 0;
     }
     let scalar = (state.mvfr1 >> 24) & 15;
     let simd = (state.mvfr1 >> 20) & 15;

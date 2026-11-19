@@ -46,6 +46,7 @@ mod fp_state;
 mod reciprocal;
 
 mod complex;
+mod dot_product;
 mod fused_long;
 
 mod conversion;

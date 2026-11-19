@@ -182,7 +182,7 @@ fn mixed_id_reads_agree_without_masking_native_aarch64_features() {
 
     for (encoding, mrs, mrc, expected) in [
         (isar5, 0xd538_02a0u32, 0xee10_0fb2u32, 0x1100_0001),
-        (isar6, 0xd538_02e0, 0xee10_0ff2, 0x101),
+        (isar6, 0xd538_02e0, 0xee10_0ff2, 0x111),
     ] {
         assert_eq!(sys.read(encoding, 3), Some(expected));
         cpu.set_pstate_bits(0x3cd).unwrap(); // AArch64 EL3h.

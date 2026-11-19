@@ -14,6 +14,8 @@ const NEON_ADD: u32 = 0xf202_0844; // VADD.I8 Q0,Q1,Q2.
 
 #[path = "a32_fp_controls/complex.rs"]
 mod complex;
+#[path = "a32_fp_controls/dot_product.rs"]
+mod dot_product;
 
 fn hyp() -> Armv7Cpu {
     let mut cpu = Armv7Cpu::new();
