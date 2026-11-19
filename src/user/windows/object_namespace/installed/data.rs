@@ -1,8 +1,11 @@
-//! Fixed read-only host acquisition for the installed CSR SharedSection.
+//! Fixed read-only host acquisition for installed CSR and theme data.
 use super::{Handle, basic, check, invalid, section};
 use crate::user::windows::memory::{mem, prot};
 use crate::user::windows::nt::status::*;
-use crate::user::windows::object_namespace::data::{DataRegion, DataSection, MAX_SIZE};
+use crate::user::windows::object_namespace::csr::CsrMetadata;
+use crate::user::windows::object_namespace::data::{
+    DataRegion, DataSection, MAX_SIZE, THEME_ATTRIBUTES, theme_directory, theme_header_path,
+};
 use std::ffi::c_void;
 use std::io;
 use std::ptr::null_mut;
@@ -69,7 +72,7 @@ impl View {
         // SAFETY: the unique successful map is alive and consumed exactly once.
         check(
             unsafe { NtUnmapViewOfSection((-1isize) as Handle, self.0) },
-            "unmap selected CSR data",
+            "unmap selected named data",
         )?;
         self.0 = null_mut();
         Ok(())
@@ -153,21 +156,89 @@ pub(super) fn regions(base: usize, size: usize) -> io::Result<Vec<DataRegion>> {
     }
     Ok(regions)
 }
+struct Snapshot {
+    maximum_access: u32,
+    security: u32,
+    force_case_insensitive: bool,
+    size: u64,
+    regions: Vec<DataRegion>,
+    csr: Option<CsrMetadata>,
+}
+
 pub(super) fn capture(
     session: Option<u32>,
     capture_client: bool,
-) -> io::Result<(
-    Arc<DataSection>,
-    Option<crate::user::windows::object_namespace::csr::CsrMetadata>,
-)> {
+) -> io::Result<(Arc<DataSection>, Option<CsrMetadata>)> {
     let path = DataSection::path_for_session(session);
-    let handle = section::open_section(&path, 0x0200_0000, 0x40)?
-        .map_err(|status| invalid(&format!("open selected CSR data: {status:#010x}")))?;
+    let view = snapshot(&path, capture_client, None)?;
+    let selected = DataSection::selected_for_session(
+        session,
+        view.maximum_access,
+        view.security,
+        view.force_case_insensitive,
+        view.size,
+        view.regions,
+    )?;
+    Ok((selected, view.csr))
+}
+
+fn theme_section(session: u32, path: Vec<u16>, expected_size: u64) -> io::Result<Arc<DataSection>> {
+    let view = snapshot(&path, false, Some(expected_size))?;
+    DataSection::selected_theme(
+        session,
+        path,
+        view.maximum_access,
+        view.security,
+        view.force_case_insensitive,
+        view.size,
+        view.regions,
+    )
+}
+
+pub(super) fn capture_theme(session: u32) -> io::Result<[Arc<DataSection>; 3]> {
+    let path = theme_header_path(session);
+    let header = theme_section(session, path.clone(), 4096)?;
+    let bytes = header
+        .regions
+        .first()
+        .and_then(|region| region.bytes.as_deref())
+        .ok_or_else(|| invalid("selected theme directory has no readable header"))?;
+    let [(global, global_size), (local, local_size)] = theme_directory(session, bytes)?;
+    let global = theme_section(session, global, global_size)?;
+    let local = theme_section(session, local, local_size)?;
+    if !global
+        .regions
+        .first()
+        .and_then(|region| region.bytes.as_deref())
+        .is_some_and(|bytes| bytes.starts_with(b"BEGINTHM"))
+    {
+        return Err(invalid(
+            "selected global theme resource has an unmeasured layout",
+        ));
+    }
+    let current = theme_section(session, path, 4096)?;
+    if current.regions != header.regions
+        || current.grant(0x0200_0000, false) != header.grant(0x0200_0000, false)
+        || current.grant(0x0100_0000, false) != header.grant(0x0100_0000, false)
+    {
+        return Err(invalid(
+            "selected theme directory changed during resource capture",
+        ));
+    }
+    Ok([header, global, local])
+}
+
+fn snapshot(path: &[u16], capture_client: bool, theme_size: Option<u64>) -> io::Result<Snapshot> {
+    let handle = section::open_section(path, 0x0200_0000, 0x40)?
+        .map_err(|status| invalid(&format!("open selected named data: {status:#010x}")))?;
     let maximum_access = basic(&handle)?;
-    let security = match section::open_section(&path, 0x0100_0000, 0x40)? {
+    if let Some(size) = theme_size {
+        section::validate(&handle, THEME_ATTRIBUTES, size)?;
+    }
+    let security = match section::open_section(path, 0x0100_0000, 0x40)? {
         Ok(security) => {
             if basic(&security)? != 0x0100_0000 {
-                return Err(invalid("selected CSR security grant differs"));
+                return Err(invalid("selected data security grant differs"));
             }
             security.close()?;
             0
@@ -175,7 +246,7 @@ pub(super) fn capture(
         Err(status @ (STATUS_ACCESS_DENIED | STATUS_PRIVILEGE_NOT_HELD)) => status,
         Err(status) => {
             return Err(invalid(&format!(
-                "selected CSR security status: {status:#010x}"
+                "selected data security status: {status:#010x}"
             )));
         }
     };
@@ -189,17 +260,17 @@ pub(super) fn capture(
         .collect();
     let explicit = section::open_section(&altered, 0x0200_0000, 0x40)?.map_err(|status| {
         invalid(&format!(
-            "selected CSR explicit case status: {status:#010x}"
+            "selected data explicit case status: {status:#010x}"
         ))
     })?;
     if basic(&explicit)? != maximum_access {
-        return Err(invalid("selected CSR folded grant differs"));
+        return Err(invalid("selected data folded grant differs"));
     }
     explicit.close()?;
     let force_case_insensitive = match section::open_section(&altered, 0x0200_0000, 0)? {
         Ok(folded) => {
             if basic(&folded)? != maximum_access {
-                return Err(invalid("selected CSR case grant differs"));
+                return Err(invalid("selected data case grant differs"));
             }
             folded.close()?;
             true
@@ -207,7 +278,7 @@ pub(super) fn capture(
         Err(STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND) => false,
         Err(status) => {
             return Err(invalid(&format!(
-                "selected CSR case status: {status:#010x}"
+                "selected data case status: {status:#010x}"
             )));
         }
     };
@@ -230,11 +301,16 @@ pub(super) fn capture(
                 prot::READONLY,
             )
         },
-        "map selected CSR snapshot",
+        "map selected named data snapshot",
     )?;
     let view = View(address);
-    if address.is_null() || size == 0 || size as u64 > MAX_SIZE || size % 4096 != 0 {
-        return Err(invalid("selected CSR native map exceeds bounds"));
+    if address.is_null()
+        || size == 0
+        || size as u64 > MAX_SIZE
+        || size % 4096 != 0
+        || theme_size.is_some_and(|expected| size as u64 != expected)
+    {
+        return Err(invalid("selected native data map exceeds bounds"));
     }
     let mut captured = None;
     for _ in 0..3 {
@@ -245,24 +321,29 @@ pub(super) fn capture(
         }
     }
     let captured =
-        captured.ok_or_else(|| invalid("selected CSR data changed during bounded snapshot"))?;
+        captured.ok_or_else(|| invalid("selected data changed during bounded snapshot"))?;
     let metadata = if capture_client {
         super::csr::capture(&captured)?
     } else {
         None
     };
     if basic(&handle)? != maximum_access {
-        return Err(invalid("selected CSR grant changed during snapshot"));
+        return Err(invalid("selected data grant changed during snapshot"));
     }
-    let selected = DataSection::selected_for_session(
-        session,
+    if let Some(size) = theme_size {
+        section::validate(&handle, THEME_ATTRIBUTES, size)?;
+        if captured.iter().any(|region| region.bytes.is_none()) {
+            return Err(invalid("selected theme section is not fully committed"));
+        }
+    }
+    view.close()?;
+    handle.close()?;
+    Ok(Snapshot {
         maximum_access,
         security,
         force_case_insensitive,
-        size as u64,
-        captured,
-    )?;
-    view.close()?;
-    handle.close()?;
-    Ok((selected, metadata))
+        size: size as u64,
+        regions: captured,
+        csr: metadata,
+    })
 }

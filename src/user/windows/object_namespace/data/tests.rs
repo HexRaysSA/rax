@@ -103,3 +103,49 @@ fn selected_data_section_rejects_gaps_overlaps_extents_and_unbounded_storage() {
         .is_err()
     );
 }
+
+#[test]
+fn theme_directory_checks_the_current_session_and_declared_section_sizes() {
+    let mut header = [0u8; 4096];
+    let first = "\\Windows\\Theme2323452646";
+    let second = "\\Sessions\\1\\Windows\\Theme2615404641";
+    let set_name = |buffer: &mut [u8], start: usize, name: &str| {
+        buffer[start..start + 520].fill(0);
+        for (target, unit) in buffer[start..start + 520]
+            .chunks_exact_mut(2)
+            .zip(name.encode_utf16())
+        {
+            target.copy_from_slice(&unit.to_le_bytes());
+        }
+    };
+    for (offset, name) in [(0, first), (0x208, second), (0x428, first), (0x630, second)] {
+        set_name(&mut header, offset, name);
+    }
+    header[0x838..0x840].copy_from_slice(&0x159000u64.to_le_bytes());
+    header[0x840..0x848].copy_from_slice(&0x6000u64.to_le_bytes());
+    assert_eq!(
+        theme_directory(1, &header).unwrap(),
+        [
+            (first.encode_utf16().collect(), 0x159000),
+            (second.encode_utf16().collect(), 0x6000),
+        ]
+    );
+    assert!(theme_directory(2, &header).is_err());
+    assert!(theme_directory(1, &header[..4095]).is_err());
+    for wrong in [
+        "\\Windows\\Theme",
+        "\\Windows\\Theme4294967296",
+        "\\Windows\\Theme2\\Other",
+        "\\KnownDlls\\Theme1",
+        "\\Windows\\Theme2123452646",
+    ] {
+        let mut changed = header;
+        set_name(&mut changed, 0x428, wrong);
+        assert!(theme_directory(1, &changed).is_err(), "{wrong}");
+    }
+    for wrong_size in [0, 4095, (16 << 20) + 4096, u64::MAX] {
+        let mut changed = header;
+        changed[0x840..0x848].copy_from_slice(&wrong_size.to_le_bytes());
+        assert!(theme_directory(1, &changed).is_err(), "{wrong_size}");
+    }
+}

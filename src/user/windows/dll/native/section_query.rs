@@ -57,11 +57,12 @@ fn capture(c: &Ctx, handle: u64, class: u32) -> Result<Answer, ApiErr> {
         Object::Mapping {
             size, attributes, ..
         } => (*size, *attributes),
-        Object::DataSection(_) => {
-            return Err(c.unsupported(
-                "selected data-section basic allocation attributes were not captured",
-            ));
-        }
+        Object::DataSection(section) => (
+            section.size,
+            section.basic_attributes.ok_or_else(|| {
+                c.unsupported("selected data-section basic allocation attributes were not captured")
+            })?,
+        ),
         _ => unreachable!("typed Section"),
     };
     Ok(Answer::Basic { size, attributes })

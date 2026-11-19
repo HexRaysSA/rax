@@ -70,7 +70,10 @@ fn fixture(session: u32, global_access: u32, current_access: u32) -> Namespace {
         ),
         directory(
             "\\Windows",
-            vec![entry("SharedSection", "Section")],
+            vec![
+                entry("SharedSection", "Section"),
+                entry("Theme1", "Section"),
+            ],
             global_access,
         ),
         directory(
@@ -86,7 +89,11 @@ fn fixture(session: u32, global_access: u32, current_access: u32) -> Namespace {
     if session != 0 {
         captured.push(directory(
             &format!("\\Sessions\\{session}\\Windows"),
-            vec![entry("SharedSection", "Section")],
+            vec![
+                entry("SharedSection", "Section"),
+                entry("ThemeSection", "Section"),
+                entry("Theme2", "Section"),
+            ],
             current_access,
         ));
     }
@@ -279,5 +286,61 @@ fn session_windows_keeps_distinct_data_views_and_rejects_unselected_subjects() {
             .unwrap(),
             &current
         ));
+    }
+}
+
+#[test]
+fn installed_theme_sections_require_complete_selection_and_read_only_native_grants() {
+    let paths = [
+        "\\Sessions\\1\\Windows\\ThemeSection",
+        "\\Windows\\Theme1",
+        "\\Sessions\\1\\Windows\\Theme2",
+    ];
+    let mut namespace = fixture(1, ALL_ACCESS, ALL_ACCESS);
+    let section_for = |name, access| {
+        DataSection::selected_theme(
+            1,
+            units(name),
+            access,
+            STATUS_PRIVILEGE_NOT_HELD,
+            false,
+            4096,
+            vec![data::DataRegion {
+                offset: 0,
+                size: 4096,
+                bytes: Some(vec![0; 4096].into()),
+            }],
+        )
+    };
+    let capture = paths.map(|name| section_for(name, 0x20005).unwrap());
+    assert!(section_for(paths[0], 0x20007).is_err());
+    assert!(section_for("\\Sessions\\2\\Windows\\ThemeSection", 0x20005).is_err());
+    assert!(
+        namespace
+            .select_theme_sections([
+                capture[0].clone(),
+                capture[1].clone(),
+                section_for("\\Sessions\\1\\Windows\\Theme3", 0x20005).unwrap(),
+            ])
+            .is_err()
+    );
+    for path in paths {
+        assert!(matches!(
+            section(&namespace, path, 0x40, false),
+            Err(LookupError::Unselected)
+        ));
+    }
+    namespace.select_theme_sections(capture.clone()).unwrap();
+    for (path, captured) in paths.into_iter().zip(capture) {
+        let opened = section(&namespace, path, 0x40, false).unwrap();
+        assert!(Arc::ptr_eq(&opened, &captured));
+        assert_eq!(opened.basic_attributes, Some(data::THEME_ATTRIBUTES));
+        assert_eq!(opened.grant(5, false), Ok(5));
+        assert_eq!(opened.grant(0x2000000, false), Ok(0x20005));
+        assert_eq!(opened.grant(6, false), Err(STATUS_ACCESS_DENIED));
+        assert_eq!(
+            opened.grant(0x01000000, false),
+            Err(STATUS_PRIVILEGE_NOT_HELD)
+        );
     }
 }

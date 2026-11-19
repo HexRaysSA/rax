@@ -542,6 +542,14 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
             base_nls,
         )?)?;
     }
+    // Theme data is optional and attached only as a coherent selection.
+    // A session without the measured header cannot resolve these sections.
+    if arm64
+        && !windows_uses_global
+        && let Ok(theme) = data::capture_theme(session)
+    {
+        let _ = namespace.select_theme_sections(theme);
+    }
     namespace.select_wow_section_root(arm64)?;
     namespace.select_wow_system_root(&system_root()?)?;
     Ok(namespace)

@@ -1,11 +1,12 @@
 //! Snapshot of the selected installed CSR data section. Bytes remain opaque:
 //! the native CSR client owns server/client address-delta interpretation.
-use super::{LookupError, Namespace, SelectedObject, invalid, is};
+use super::{Entry, LookupError, Namespace, SelectedObject, invalid, is};
 use crate::user::windows::nt::status::*;
 use std::io;
 use std::sync::Arc;
 
 pub(crate) const MAX_SIZE: u64 = 64 << 20;
+pub(crate) const THEME_ATTRIBUTES: u32 = 0x0800_0000;
 const MAX_COMMITTED: u64 = 16 << 20;
 const MAX_REGIONS: usize = 16384;
 
@@ -24,6 +25,7 @@ pub struct DataSection {
     pub(crate) path: Vec<u16>,
     pub(crate) size: u64,
     pub(crate) regions: Vec<DataRegion>,
+    pub(crate) basic_attributes: Option<u32>,
     maximum_access: u32,
     system_security_status: u32,
     force_case_insensitive: bool,
@@ -74,12 +76,47 @@ impl DataSection {
             force_case_insensitive,
             size,
             regions,
+            None,
+        )
+    }
+
+    /// The current desktop's read-only theme directory and referenced data.
+    pub(crate) fn selected_theme(
+        session: u32,
+        path: Vec<u16>,
+        maximum_access: u32,
+        system_security_status: u32,
+        force_case_insensitive: bool,
+        size: u64,
+        regions: Vec<DataRegion>,
+    ) -> io::Result<Arc<Self>> {
+        if !theme_path(session, &path) {
+            return Err(invalid(
+                "selected theme section is outside the current Windows directories",
+            ));
+        }
+        Self::selected_inner(
+            path,
+            maximum_access,
+            system_security_status,
+            force_case_insensitive,
+            size,
+            regions,
+            Some(THEME_ATTRIBUTES),
         )
     }
 
     /// An unnamed, immutable client-data view, never published as an NT name.
     pub(crate) fn private_readonly(size: u64, regions: Vec<DataRegion>) -> io::Result<Arc<Self>> {
-        Self::selected_inner(Vec::new(), 4, STATUS_ACCESS_DENIED, false, size, regions)
+        Self::selected_inner(
+            Vec::new(),
+            4,
+            STATUS_ACCESS_DENIED,
+            false,
+            size,
+            regions,
+            None,
+        )
     }
 
     fn selected_inner(
@@ -89,10 +126,16 @@ impl DataSection {
         force_case_insensitive: bool,
         size: u64,
         regions: Vec<DataRegion>,
+        basic_attributes: Option<u32>,
     ) -> io::Result<Arc<Self>> {
+        let unselected_rights = if basic_attributes.is_some() {
+            0x1a
+        } else {
+            0x1b
+        };
         if maximum_access & 4 == 0
             || maximum_access & !0x000F_001F != 0
-            || maximum_access & 0x1B != 0
+            || maximum_access & unselected_rights != 0
             || !matches!(
                 system_security_status,
                 0 | STATUS_ACCESS_DENIED | STATUS_PRIVILEGE_NOT_HELD
@@ -104,7 +147,7 @@ impl DataSection {
             || regions.len() > MAX_REGIONS
         {
             return Err(invalid(
-                "selected CSR data section exceeds its access/extent profile",
+                "selected data section exceeds its access/extent profile",
             ));
         }
         let (mut cursor, mut committed) = (0u64, 0u64);
@@ -141,6 +184,7 @@ impl DataSection {
             path,
             size,
             regions,
+            basic_attributes,
             maximum_access,
             system_security_status,
             force_case_insensitive,
@@ -154,6 +198,89 @@ impl DataSection {
             duplicate,
         )
     }
+}
+
+pub(crate) fn theme_header_path(session: u32) -> Vec<u16> {
+    format!("\\Sessions\\{session}\\Windows\\ThemeSection")
+        .encode_utf16()
+        .collect()
+}
+
+fn numbered_theme_path(path: &[u16], prefix: &[u16]) -> bool {
+    let Some(number) = path.strip_prefix(prefix) else {
+        return false;
+    };
+    if number.is_empty() || number.len() > 10 {
+        return false;
+    }
+    let decimal = |property: u32, &unit: &u16| {
+        let digit = unit.checked_sub(b'0' as u16).filter(|&digit| digit < 10)?;
+        property.checked_mul(10)?.checked_add(u32::from(digit))
+    };
+    number.iter().try_fold(0, decimal).is_some()
+}
+
+fn theme_path(session: u32, path: &[u16]) -> bool {
+    let global: Vec<_> = "\\Windows\\Theme".encode_utf16().collect();
+    let local: Vec<_> = format!("\\Sessions\\{session}\\Windows\\Theme")
+        .encode_utf16()
+        .collect();
+    path == theme_header_path(session)
+        || numbered_theme_path(path, &global)
+        || numbered_theme_path(path, &local)
+}
+
+/// Read both duplicated resource names and mapping lengths from the measured
+/// one-page theme directory. Only its current-session and global theme names
+/// can be passed back to the native object provider.
+pub(crate) fn theme_directory(session: u32, bytes: &[u8]) -> io::Result<[(Vec<u16>, u64); 2]> {
+    const FIELD: usize = 260 * 2;
+    if bytes.len() != 4096 {
+        return Err(invalid(
+            "selected theme directory differs from its native page extent",
+        ));
+    }
+    let field = |start: usize| -> io::Result<Vec<u16>> {
+        let mut units = bytes[start..start + FIELD]
+            .chunks_exact(2)
+            .map(|word| u16::from_le_bytes([word[0], word[1]]));
+        let value: Vec<_> = units.by_ref().take_while(|&unit| unit != 0).collect();
+        if value.is_empty() || value.len() >= FIELD / 2 {
+            return Err(invalid(
+                "selected theme directory contains an invalid name field",
+            ));
+        }
+        Ok(value)
+    };
+    let global = field(0)?;
+    let local = field(0x208)?;
+    let prefix_global: Vec<_> = "\\Windows\\Theme".encode_utf16().collect();
+    let prefix_local: Vec<_> = format!("\\Sessions\\{session}\\Windows\\Theme")
+        .encode_utf16()
+        .collect();
+    if !numbered_theme_path(&global, &prefix_global)
+        || !numbered_theme_path(&local, &prefix_local)
+        || global != field(0x428)?
+        || local != field(0x630)?
+    {
+        return Err(invalid(
+            "selected theme directory contains unmeasured resource paths",
+        ));
+    }
+    let size = |start: usize| -> io::Result<u64> {
+        let length = u64::from_le_bytes(
+            bytes[start..start + 8]
+                .try_into()
+                .expect("fixed theme directory field"),
+        );
+        if length == 0 || length % 4096 != 0 || length > MAX_COMMITTED {
+            return Err(invalid(
+                "selected theme directory declares an invalid resource extent",
+            ));
+        }
+        Ok(length)
+    };
+    Ok([(global, size(0x838)?), (local, size(0x840)?)])
 }
 
 #[derive(Debug, Clone)]
@@ -176,9 +303,48 @@ impl SelectedSection {
     }
 }
 impl Namespace {
-    /// Attach only to the captured fixed directory/entry before publishing the
-    /// namespace. Other section entries remain explicit unselected frontiers.
+    /// Attach only the selected CSR section before publishing its namespace.
     pub(crate) fn select_data_section(&mut self, section: Arc<DataSection>) -> io::Result<()> {
+        let shared_name: Vec<_> = "SharedSection".encode_utf16().collect();
+        if section.path.rsplit(|&unit| unit == 92).next() != Some(shared_name.as_slice())
+            || section.basic_attributes.is_some()
+        {
+            return Err(invalid(
+                "selected data section is outside the fixed SharedSection name",
+            ));
+        }
+        let force_case_insensitive = section.force_case_insensitive;
+        let entry = self.section_entry(&section)?;
+        entry.section = Some(SelectedSection::Data(section));
+        self.section_case = Some(force_case_insensitive);
+        Ok(())
+    }
+
+    /// Publish the three installed theme sections as one coherent snapshot.
+    pub(crate) fn select_theme_sections(
+        &mut self,
+        sections: [Arc<DataSection>; 3],
+    ) -> io::Result<()> {
+        for (index, section) in sections.iter().enumerate() {
+            if section.basic_attributes != Some(THEME_ATTRIBUTES)
+                || sections[..index]
+                    .iter()
+                    .any(|older| older.path == section.path)
+            {
+                return Err(invalid("invalid selected theme section snapshot"));
+            }
+            self.section_entry(section)?;
+        }
+        for section in sections {
+            // The exclusive namespace has not changed since validation and
+            // every section names a distinct entry.
+            let entry = self.section_entry(&section)?;
+            entry.section = Some(SelectedSection::Data(section));
+        }
+        Ok(())
+    }
+
+    fn section_entry(&mut self, section: &DataSection) -> io::Result<&mut Entry> {
         if self
             .section_case
             .is_some_and(|case| case != section.force_case_insensitive)
@@ -191,14 +357,8 @@ impl Namespace {
             return Err(invalid("selected data section has no absolute NT name"));
         }
         let components: Vec<_> = section.path[1..].split(|unit| *unit == 92).collect();
-        let shared_name: Vec<_> = "SharedSection".encode_utf16().collect();
-        if components.len() < 2
-            || components.iter().any(|part| part.is_empty())
-            || components.last().copied() != Some(shared_name.as_slice())
-        {
-            return Err(invalid(
-                "selected data section is outside the fixed SharedSection name",
-            ));
+        if components.len() < 2 || components.iter().any(|part| part.is_empty()) {
+            return Err(invalid("selected data section has an invalid NT name"));
         }
         let mut directory = Arc::get_mut(
             self.root
@@ -222,15 +382,11 @@ impl Namespace {
         let entry = directory
             .entries
             .get_mut(&key)
-            .ok_or_else(|| invalid("selected SharedSection directory entry absent"))?;
+            .ok_or_else(|| invalid("selected data section directory entry absent"))?;
         if !is(&entry.captured.kind, "Section") || entry.section.is_some() {
-            return Err(invalid(
-                "selected SharedSection entry type/identity differs",
-            ));
+            return Err(invalid("selected data section entry type/identity differs"));
         }
-        self.section_case = Some(section.force_case_insensitive);
-        entry.section = Some(SelectedSection::Data(section));
-        Ok(())
+        Ok(entry)
     }
     pub(crate) fn lookup_installed_section(
         &self,
