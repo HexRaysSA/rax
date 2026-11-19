@@ -33,6 +33,17 @@ The checked-in `hello` fixture prints its arguments/environment and returns
 `40 + argc`: this invocation reports status 43. With no extra arguments it
 returns 41. These nonzero values test exit-status propagation.
 
+On a Linux host, a dynamically linked program can use the installed ELF
+interpreter and shared libraries if their paths and ABI match. The following
+command uses a compatible dynamically linked `/usr/bin/printf`.
+
+```sh
+./target/release/rax-user --os linux /usr/bin/printf '%s\n' 'hello from Linux'
+```
+
+Use `--sysroot` to overlay a different Linux library tree when the
+required interpreter or libraries are absent from the host.
+
 The guest ABI comes from the ELF header, so the same command selects x86-64,
 AArch64, RV64, or the partial i386 or ARM EABI compatibility path. Standard input, output,
 and error are the host's. The exit status is the guest's:

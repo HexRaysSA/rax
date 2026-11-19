@@ -139,8 +139,9 @@ cargo build --release --locked --no-default-features --bin rax-user
 cargo build --release --locked --no-default-features --features smir-jit --bin rax-user
 ```
 
-It runs Linux ELF programs on Linux or macOS, selects the ABI from the ELF
-header, and loads dynamic interpreters/libraries through `--sysroot`.
+It runs Linux ELF programs on Linux or macOS and selects the ABI from the ELF
+header. Compatible Linux interpreters and libraries installed on the host
+are available by default. `--sysroot` supplies an optional filesystem overlay.
 The primary ABIs are x86-64, AArch64, and RV64; i386 compatibility is partial
 and interpreted. KVM/HVF, a kernel image, and machine configuration are not
 part of this execution path. See [Linux programs](linux-programs.md).

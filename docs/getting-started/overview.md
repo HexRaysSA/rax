@@ -46,9 +46,11 @@ This fixture prints its argument/environment report and exits with 41 by
 design (`40 + argc`), exercising guest exit-status propagation.
 
 The ELF header selects x86-64, AArch64, RV64, or the partial i386
-compatibility ABI. Dynamic programs use `--sysroot` for their interpreter
-and libraries. See [Linux programs](linux-programs.md) for processes,
-threads, signals, sockets, IPC, tracing, and limitations.
+compatibility ABI. On Linux, a dynamically linked program can use the
+host's installed interpreter and libraries when their paths and ABI match.
+Use `--sysroot` to overlay a different library tree. See
+[Linux programs](linux-programs.md) for processes, threads, signals,
+sockets, IPC, tracing, and limitations.
 
 ## Clean-checkout machine baseline
 
