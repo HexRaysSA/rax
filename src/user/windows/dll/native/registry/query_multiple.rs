@@ -188,6 +188,11 @@ fn native(
             return status(STATUS_DATATYPE_MISALIGNMENT);
         }
         let name = text(c, descriptor, false)?;
+        if !key.covers_value(&name.units) {
+            return Err(c
+                .unsupported("registry value is outside the installed snapshot")
+                .into());
+        }
         let value = key.value(&name.units);
         missing |= value.is_none();
         values.push(value);

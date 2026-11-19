@@ -26,7 +26,7 @@ mod user_policy;
 use super::{APPCERT_DLLS_KEY, SEGMENT_HEAP_KEY};
 use super::{
     MAX_NAME_UNITS, MAX_VALUE_BYTES, MAX_VALUES, NLS_KEY, Registry, SESSION_MANAGER_KEY,
-    SelectedKey, Value, WNF_KEY, invalid,
+    SYSTEM_SETUP_IN_PROGRESS, SYSTEM_SETUP_KEY, SelectedKey, Value, WNF_KEY, invalid,
 };
 pub(crate) use primary_hive::capture as capture_primary_user;
 use std::ffi::c_void;
@@ -39,6 +39,14 @@ unsafe extern "system" {
     fn RegOpenKeyExW(key: Hkey, name: *const u16, options: u32, access: u32, out: *mut Hkey)
     -> i32;
     fn RegCloseKey(key: Hkey) -> i32;
+    fn RegQueryValueExW(
+        key: Hkey,
+        name: *const u16,
+        reserved: *mut u32,
+        kind: *mut u32,
+        data: *mut u8,
+        bytes: *mut u32,
+    ) -> i32;
     fn RegQueryInfoKeyW(
         key: Hkey,
         class: *mut u16,
@@ -234,7 +242,12 @@ fn capture(path: &'static str) -> io::Result<SelectedKey> {
 fn open_fixed(path: &'static str) -> io::Result<OwnedKey> {
     if !matches!(
         path,
-        NLS_KEY | SESSION_MANAGER_KEY | SEGMENT_HEAP_KEY | WNF_KEY | APPCERT_DLLS_KEY
+        NLS_KEY
+            | SESSION_MANAGER_KEY
+            | SEGMENT_HEAP_KEY
+            | WNF_KEY
+            | APPCERT_DLLS_KEY
+            | SYSTEM_SETUP_KEY
     ) {
         return Err(invalid("native registry path outside fixed selection"));
     }
@@ -333,13 +346,56 @@ fn segment_heap_with(
     .map(Some)
 }
 
+fn capture_system_setup() -> io::Result<Option<SelectedKey>> {
+    let key = match open_fixed(SYSTEM_SETUP_KEY) {
+        Ok(key) => key,
+        Err(error) if matches!(error.raw_os_error(), Some(2 | 3)) => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let children = info(&key)?.children;
+    let mut name: Vec<_> = SYSTEM_SETUP_IN_PROGRESS
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let mut data = [0u8; 4];
+    let (mut kind, mut bytes) = (0, 4);
+    // SAFETY: live query-only HKEY, fixed terminated name, and exclusive
+    // unaliased outputs for a four-byte DWORD. No guest address is involved.
+    let status = unsafe {
+        RegQueryValueExW(
+            key.0,
+            name.as_ptr(),
+            null_mut(),
+            &mut kind,
+            data.as_mut_ptr(),
+            &mut bytes,
+        )
+    };
+    let values = match (status, kind, bytes) {
+        (0, 4, 4) => {
+            name.pop();
+            vec![Value {
+                name,
+                kind,
+                data: data.to_vec(),
+            }]
+        }
+        (2, _, _) => Vec::new(),
+        (0 | 234, _, _) => return Ok(None),
+        _ => return Err(io::Error::from_raw_os_error(status)),
+    };
+    Ok(Some(SelectedKey {
+        path: SYSTEM_SETUP_KEY,
+        children,
+        values,
+    }))
+}
+
 pub(crate) fn snapshot() -> io::Result<Registry> {
     // Fixed shared SYSTEM keys and the complete IFEO subtree. Handles close in capture,
     // including error/retry paths; no native operation survives selection.
-    let selected = [SESSION_MANAGER_KEY]
-        .into_iter()
-        .map(capture)
-        .collect::<io::Result<Vec<_>>>()?;
+    let mut selected = vec![capture(SESSION_MANAGER_KEY)?];
+    selected.extend(capture_system_setup()?);
     // SAFETY: pure one-WCHAR NTDLL lookup, no retained pointers or mutation.
     // One immutable table is shared by all selected keys, including surrogates.
     let upcase = (0..=u16::MAX)

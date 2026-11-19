@@ -1,0 +1,42 @@
+{
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "revision": 1003,
+  "native_arch": "arm64",
+  "key": "\\Registry\\Machine\\System\\Setup",
+  "name": "SystemSetupInProgress",
+  "open": {
+    "access": 1,
+    "attributes": 64,
+    "options": 0,
+    "status": 0
+  },
+  "query": {
+    "info_class": 2,
+    "capacity_bytes": 16,
+    "status": 0,
+    "type": "REG_DWORD"
+  },
+  "native_values": [
+    {
+      "view": "native",
+      "kind": 4,
+      "data": 0
+    },
+    {
+      "view": "native64",
+      "kind": 4,
+      "data": 0
+    },
+    {
+      "view": "wow32",
+      "kind": 4,
+      "data": 0
+    }
+  ],
+  "native_trace_sha256": "bd691e4f6740b995b6721b47be7935b230a071cb476ef5af63365ec426e22f79",
+  "native_control_sha256": "51914478fcc8385255199cd4a33f968cc6c8b28f8b8df7db16dcb6b83c9a9ab2"
+}

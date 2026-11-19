@@ -10,6 +10,8 @@ pub(crate) const SESSION_MANAGER_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Session Manager";
 pub(crate) const WNF_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Notifications";
+pub(crate) const SYSTEM_SETUP_KEY: &str = "\\Registry\\Machine\\System\\Setup";
+pub(crate) const SYSTEM_SETUP_IN_PROGRESS: &str = "SystemSetupInProgress";
 pub(crate) const MAX_VALUES: usize = 4096;
 pub(crate) const MAX_NAME_UNITS: usize = 16_383;
 pub(crate) const MAX_VALUE_BYTES: usize = 1 << 20;
@@ -180,6 +182,21 @@ impl Key {
         let index = *self.values.by_name.get(&self.fold(name))?;
         self.values.entries.get(index)
     }
+    pub(crate) fn covers_value(&self, name: &[u16]) -> bool {
+        if !self
+            .path
+            .iter()
+            .copied()
+            .eq(SYSTEM_SETUP_KEY.encode_utf16())
+        {
+            return true;
+        }
+        let expected = SYSTEM_SETUP_IN_PROGRESS.encode_utf16();
+        name.len() == expected.clone().count()
+            && name.iter().zip(expected).all(|(&observed, selected)| {
+                self.upcase[usize::from(observed)] == self.upcase[usize::from(selected)]
+            })
+    }
     pub(crate) fn ordered_values(&self) -> Option<&[Value]> {
         self.values.native_order.then_some(&self.values.entries)
     }
@@ -208,7 +225,7 @@ impl Registry {
         )
     }
     pub(crate) fn selected(upcase: Vec<u16>, selected: Vec<SelectedKey>) -> io::Result<Self> {
-        if upcase.len() != 65_536 || selected.len() > 2 {
+        if upcase.len() != 65_536 || selected.len() > 3 {
             return Err(invalid("runtime registry table exceeds bounds"));
         }
         let mut result = Self {
@@ -222,7 +239,10 @@ impl Registry {
         };
         let mut budget = ValueBudget::default();
         for selected in selected {
-            if !matches!(selected.path, NLS_KEY | SESSION_MANAGER_KEY) {
+            if !matches!(
+                selected.path,
+                NLS_KEY | SESSION_MANAGER_KEY | SYSTEM_SETUP_KEY
+            ) {
                 return Err(invalid("registry key outside fixed runtime selection"));
             }
             let key = Key {

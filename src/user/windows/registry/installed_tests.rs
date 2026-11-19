@@ -214,17 +214,6 @@ struct Unicode {
 unsafe extern "system" {
     fn RtlEqualUnicodeString(a: *const Unicode, b: *const Unicode, insensitive: u8) -> u8;
 }
-#[link(name = "advapi32")]
-unsafe extern "system" {
-    fn RegQueryValueExW(
-        key: Hkey,
-        name: *const u16,
-        reserved: *mut u32,
-        kind: *mut u32,
-        data: *mut u8,
-        length: *mut u32,
-    ) -> i32;
-}
 #[test]
 fn installed_nls_snapshot_matches_independent_raw_queries_and_rtl_case_comparison() {
     let registry = snapshot().unwrap();

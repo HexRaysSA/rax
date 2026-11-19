@@ -543,6 +543,9 @@ fn query_checked(c: &mut Ctx) -> Checked<u32> {
         returned,
         scratch.as_deref_mut(),
     );
+    if matches!(&result, Err(Failure::Api(ApiErr::Unimplemented(_)))) {
+        return result;
+    }
     if let Some(scratch) = scratch {
         let result = match result {
             Err(Failure::Api(ApiErr::Fault(fault))) if c.p.vm.take_guard(fault.addr) => {
@@ -577,6 +580,11 @@ fn query_value(
         None => name(c, address)?,
     };
     let name = text(c, descriptor, false)?;
+    if !key.covers_value(&name.units) {
+        return Err(c
+            .unsupported("registry value is outside the installed snapshot")
+            .into());
+    }
     let value = key
         .value(&name.units)
         .ok_or(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND))?;
