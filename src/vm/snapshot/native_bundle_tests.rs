@@ -29,6 +29,7 @@ fn complete_file(count: u8) -> SnapshotBundle {
     let execution = ExecutionSnapshot {
         cursor: 0,
         retired: 0,
+        last_snapshot_insn: None,
         online: (0..count).map(|id| id == 0).collect(),
         pending_ipi: None,
         local_apics: (0..count)

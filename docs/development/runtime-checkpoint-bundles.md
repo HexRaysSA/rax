@@ -20,6 +20,18 @@ restore. `Vmm::new_resume_bundle` and `--checkpoint` construct detached targets
 without original sources; see `checkpoint-resume.md`. The older base constructor
 retains its original source-opening contract.
 
+With automatic checkpoints configured, the execution record ends with an
+8-byte `RAXSCH01` tag and the little-endian, 8-byte retirement count of the
+last successful automatic write. Manual capture records the current schedule
+position. An automatic capture records the count of its own write, and the
+live schedule advances only after that write succeeds. Warm and detached
+restore use the saved count for interval and explicit triggers under the
+target's configured schedule and output directory. Legacy execution records
+use the coordinator's saved retirement count as the starting point. Base-only
+records use the base header's instruction count. Files produced with scheduling
+disabled omit the suffix. Readers from before this extension reject files that
+carry the suffix.
+
 For N physical bytes, R <= 128 regions, M media bytes and K controller-record
 bytes, admission and restore are O(N + M + K), plus bounded region lookup O(ceil(N / 65536) log R). Scratch is
 O(R + 65536) bytes plus bounded codec windows, resident compressed checkpoint

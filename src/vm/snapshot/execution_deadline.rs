@@ -103,6 +103,7 @@ mod tests {
         ExecutionSnapshot {
             cursor: count - 1,
             retired: 53,
+            last_snapshot_insn: None,
             online: vec![true; count],
             pending_ipi: None,
             local_apics: (0..count)

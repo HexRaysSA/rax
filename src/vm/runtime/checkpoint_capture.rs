@@ -7,6 +7,18 @@ impl Vmm {
     /// Capture a stopped VM. Controlled RAM and endpoint writers are excluded;
     /// external raw aliases and host mapping changes still require coordination.
     pub fn take_snapshot_bundle(&self, insn_count: u64) -> Result<SnapshotBundle> {
+        let last_snapshot_insn = self
+            .snapshot_config
+            .as_ref()
+            .map(|_| self.last_snapshot_insn);
+        self.capture_snapshot_bundle(insn_count, last_snapshot_insn)
+    }
+
+    pub(super) fn capture_snapshot_bundle(
+        &self,
+        insn_count: u64,
+        last_snapshot_insn: Option<u64>,
+    ) -> Result<SnapshotBundle> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();
@@ -98,6 +110,7 @@ impl Vmm {
                     let execution = ExecutionSnapshot {
                         cursor: self.coordinator.cursor,
                         retired: self.coordinator.retired,
+                        last_snapshot_insn,
                         online: self.coordinator.online.clone(),
                         pending_ipi: self.coordinator.pending_ipi.clone(),
                         local_apics: lapics.iter().map(|apic| apic.checkpoint_at(now)).collect(),

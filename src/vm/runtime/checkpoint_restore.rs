@@ -413,6 +413,12 @@ impl Vmm {
         let vm = &*self.vm;
         let guest_memory = self.guest_mem.memory();
         let coordinator = &mut self.coordinator;
+        let last_snapshot_insn = &mut self.last_snapshot_insn;
+        let restored_snapshot_insn = bundle
+            .execution()
+            .map_or(snapshot.instruction_count, |state| {
+                state.last_snapshot_insn.unwrap_or(state.retired)
+            });
         let vcpus = &mut self.vcpus;
         let pic = &self.pic;
         let pit = &self.pit;
@@ -503,7 +509,9 @@ impl Vmm {
                 lapics[0].replace_state(devices.lapic);
                 lapics[0].enable_coordinated_delivery();
                 coordinator.pending_ipi = None;
+                coordinator.retired = snapshot.instruction_count;
             }
+            *last_snapshot_insn = restored_snapshot_insn;
             if !native_kvm {
                 if let Some(clock) = clock_restore {
                     clock.commit();
@@ -583,6 +591,8 @@ impl Vmm {
             lapic.replace_state(devices.lapic);
             lapic.enable_coordinated_delivery();
             self.coordinator.pending_ipi = None;
+            self.coordinator.retired = snapshot.instruction_count;
+            self.last_snapshot_insn = snapshot.instruction_count;
             crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
             Ok(())
         };

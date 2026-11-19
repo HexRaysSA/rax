@@ -117,6 +117,7 @@ mod tests {
         ExecutionSnapshot {
             cursor: 3,
             retired: 53,
+            last_snapshot_insn: None,
             online: vec![true, false, true, true],
             local_apics: (0..4)
                 .map(|id| LocalApic::new(id).checkpoint_at(std::time::Instant::now()))
@@ -142,6 +143,7 @@ mod tests {
     #[test]
     fn pending_ipi_wraps_the_unchanged_controller_frame() {
         let mut state = fixture();
+        state.last_snapshot_insn = Some(17);
         let apic = &mut state.local_apics[0];
         apic.queued.push_back(IpiRequest::Sipi {
             vector: 9,
@@ -159,6 +161,7 @@ mod tests {
             assert_eq!(&raw[HEADER_LENGTH..HEADER_LENGTH + before.len()], before);
             let restored = ExecutionSnapshot::decode(&raw, 4).unwrap();
             assert_eq!(restored.pending_ipi, state.pending_ipi);
+            assert_eq!(restored.last_snapshot_insn, Some(17));
             assert_eq!(restored.encoded().unwrap(), raw);
         }
         let legacy = ExecutionSnapshot::decode(&before, 4).unwrap();

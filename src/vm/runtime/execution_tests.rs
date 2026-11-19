@@ -733,6 +733,127 @@ fn automatic_checkpoint_after_input_contains_the_completed_value_and_resumes_it(
     std::fs::remove_dir_all(directory).unwrap();
 }
 
+#[test]
+fn automatic_checkpoint_schedule_rewinds_and_resumes_from_real_files() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut fixture = Fixture::with_memory(1, 128 << 20);
+    let directory = fixture.kernel.with_extension("schedule");
+    std::fs::create_dir(&directory).unwrap();
+    let schedule = SnapshotConfig {
+        interval: 20,
+        at_instructions: vec![25],
+        output_dir: directory.to_string_lossy().into_owned(),
+        prefix: "schedule".into(),
+    };
+    fixture.vm.snapshot_config = Some(schedule.clone());
+    fixture.vm.last_snapshot_insn = 10;
+    fixture.vm.coordinator.retired = 23;
+    let manual = directory.join("manual.rxc");
+    fixture
+        .vm
+        .take_snapshot_bundle(23)
+        .unwrap()
+        .save(&manual)
+        .unwrap();
+    let saved = SnapshotBundle::load(&manual).unwrap();
+
+    fixture.vm.coordinator.retired = 58;
+    fixture.vm.last_snapshot_insn = 50;
+    fixture.vm.restore_snapshot_bundle(&saved).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(
+        &saved,
+        CliConfig {
+            snapshot_interval: 20,
+            snapshot_at: vec![25],
+            snapshot_dir: Some(directory.clone()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let detached = Vmm::new_resume_bundle(config, &saved).unwrap();
+    assert_eq!(
+        (fixture.vm.coordinator.retired, detached.coordinator.retired),
+        (23, 23)
+    );
+    assert_eq!(
+        (fixture.vm.last_snapshot_insn, detached.last_snapshot_insn),
+        (10, 10)
+    );
+    drop(detached);
+
+    // Retirement 23 alone does not fix interval phase or consume the trigger
+    // at 25. Only a successful automatic write advances the schedule.
+    fixture.vm.coordinator.retired = 24;
+    fixture.vm.maybe_snapshot(24).unwrap();
+    assert_eq!(fixture.vm.last_snapshot_insn, 10);
+    assert!(!std::path::Path::new(&schedule.filename(24)).exists());
+    fixture.vm.coordinator.retired = 25;
+    let blocked = schedule.filename(25);
+    std::fs::create_dir(&blocked).unwrap();
+    assert!(fixture.vm.maybe_snapshot(25).is_err());
+    assert_eq!(fixture.vm.last_snapshot_insn, 10);
+    std::fs::remove_dir(&blocked).unwrap();
+    fixture.vm.maybe_snapshot(25).unwrap();
+    let scheduled = SnapshotBundle::load(&schedule.filename(25)).unwrap();
+    assert_eq!(scheduled.base().instruction_count, 25);
+    fixture.vm.last_snapshot_insn = 50;
+    fixture.vm.restore_snapshot_bundle(&scheduled).unwrap();
+    assert_eq!(fixture.vm.last_snapshot_insn, 25);
+    std::fs::remove_file(schedule.filename(25)).unwrap();
+    fixture.vm.maybe_snapshot(25).unwrap();
+    assert!(!std::path::Path::new(&schedule.filename(25)).exists());
+
+    let mut legacy = saved;
+    let mut execution = legacy.take_execution().unwrap();
+    execution.last_snapshot_insn = None;
+    legacy
+        .with_execution(execution)
+        .unwrap()
+        .save(&manual)
+        .unwrap();
+    let legacy = SnapshotBundle::load(&manual).unwrap();
+    fixture.vm.restore_snapshot_bundle(&legacy).unwrap();
+    assert_eq!(fixture.vm.last_snapshot_insn, 23);
+    std::fs::remove_file(manual).unwrap();
+    std::fs::remove_dir(directory).unwrap();
+}
+
+#[test]
+fn automatic_checkpoint_schedule_cannot_wrap_the_next_interval() {
+    let mut fixture = Fixture::new(1);
+    fixture.vm.snapshot_config = Some(SnapshotConfig {
+        interval: 5,
+        // Any attempted save would fail because the parent is a file.
+        output_dir: fixture.kernel.to_string_lossy().into_owned(),
+        ..SnapshotConfig::default()
+    });
+    fixture.vm.last_snapshot_insn = u64::MAX - 2;
+    fixture.vm.coordinator.retired = u64::MAX - 1;
+    fixture.vm.maybe_snapshot(u64::MAX - 1).unwrap();
+    assert_eq!(fixture.vm.last_snapshot_insn, u64::MAX - 2);
+
+    fixture.write(BSP, &[0x90, 0xf4]); // NOP; HLT
+    fixture.vm.coordinator.retired = u64::MAX;
+    assert!(matches!(
+        fixture.vm.execute_turn().unwrap().unwrap().exit,
+        VcpuExit::Hlt
+    ));
+    assert_eq!(fixture.vm.coordinator.retired, 1);
+    assert_eq!(fixture.vm.last_snapshot_insn, 0);
+}
+
+#[test]
+fn automatic_checkpoint_schedule_legacy_base_resumes_at_its_recorded_count() {
+    let mut fixture = Fixture::new(1);
+    let saved = fixture.vm.take_snapshot(23).unwrap();
+    fixture.vm.coordinator.retired = 50;
+    fixture.vm.last_snapshot_insn = 48;
+    fixture.vm.restore_snapshot(&saved).unwrap();
+    assert_eq!(fixture.vm.coordinator.retired, 23);
+    assert_eq!(fixture.vm.last_snapshot_insn, 23);
+}
+
 #[cfg(feature = "debug")]
 #[test]
 fn gdb_boundary_halted_cpu_does_not_hit_the_following_breakpoint_until_woken() {

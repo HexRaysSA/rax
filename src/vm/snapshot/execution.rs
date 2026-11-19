@@ -13,6 +13,7 @@ const SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE07";
 const PREVIOUS_SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE05";
 const SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE08";
 const PREVIOUS_SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE06";
+const SNAPSHOT_SCHEDULE_TAG: &[u8; 8] = b"RAXSCH01";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
 const MAX_REQUESTS: usize = 1_048_576;
@@ -31,6 +32,15 @@ fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("execution checkpoint: {message}"))
 }
 
+fn validate_snapshot_schedule(retired: u64, last_snapshot_insn: Option<u64>) -> Result<()> {
+    if last_snapshot_insn.is_some_and(|count| count > retired) {
+        return Err(invalid(
+            "automatic checkpoint count exceeds retirement count",
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -39,6 +49,7 @@ mod tests {
         ExecutionSnapshot {
             cursor: 0,
             retired: 53,
+            last_snapshot_insn: None,
             online: vec![true],
             pending_ipi: None,
             arm_cluster: None,
@@ -88,6 +99,43 @@ mod tests {
         let mut trailing = raw;
         trailing.push(0);
         assert!(ExecutionSnapshot::decode(&trailing, 1).is_err());
+    }
+
+    #[test]
+    fn automatic_checkpoint_schedule_frame_preserves_the_legacy_prefix_and_bounds() {
+        let legacy = fixture();
+        let mut state = ExecutionSnapshot::decode(&legacy, 1).unwrap();
+        assert_eq!(state.last_snapshot_insn, None);
+        for count in [0, 19, state.retired] {
+            state.last_snapshot_insn = Some(count);
+            let frame = state.encoded().unwrap();
+            assert_eq!(&frame[..legacy.len()], legacy);
+            assert_eq!(
+                &frame[legacy.len()..legacy.len() + 8],
+                SNAPSHOT_SCHEDULE_TAG
+            );
+            assert_eq!(&frame[legacy.len() + 8..], &count.to_le_bytes());
+            assert_eq!(
+                ExecutionSnapshot::decode(&frame, 1)
+                    .unwrap()
+                    .last_snapshot_insn,
+                Some(count)
+            );
+            for end in legacy.len() + 1..frame.len() {
+                assert!(
+                    ExecutionSnapshot::decode(&frame[..end], 1).is_err(),
+                    "{end}"
+                );
+            }
+            let mut repeat = frame.clone();
+            repeat.extend_from_slice(&frame[legacy.len()..]);
+            assert!(ExecutionSnapshot::decode(&repeat, 1).is_err());
+            let mut future = frame;
+            future[legacy.len() + 8..].copy_from_slice(&(state.retired + 1).to_le_bytes());
+            assert!(ExecutionSnapshot::decode(&future, 1).is_err());
+        }
+        state.last_snapshot_insn = Some(state.retired + 1);
+        assert!(state.encoded().is_err());
     }
 
     #[test]
@@ -245,6 +293,8 @@ fn decode<T: serde::de::DeserializeOwned>(raw: &[u8]) -> Result<T> {
 pub struct ExecutionSnapshot {
     pub(crate) cursor: usize,
     pub(crate) retired: u64,
+    /// Last successful automatic write, present when the source had a schedule.
+    pub(crate) last_snapshot_insn: Option<u64>,
     pub(crate) online: Vec<bool>,
     pub(crate) local_apics: Vec<LapicCheckpoint>,
     pub(crate) pending_ipi: Option<PendingIpiDelivery>,
@@ -270,6 +320,7 @@ impl ExecutionSnapshot {
     }
 
     pub(crate) fn validate(&self, base: &Snapshot) -> Result<()> {
+        validate_snapshot_schedule(self.retired, self.last_snapshot_insn)?;
         if base.devices.lapic.has_pending_eoi() {
             return Err(invalid(
                 "base controller projection contains unrepresented EOI state",
@@ -445,6 +496,16 @@ impl ExecutionSnapshot {
             raw.extend_from_slice(&(control.len() as u32).to_le_bytes());
             raw.extend_from_slice(&control);
         }
+        if let Some(count) = self.last_snapshot_insn {
+            validate_snapshot_schedule(self.retired, Some(count))?;
+            if raw.len() as u64 + 16 > MAX_SECTION {
+                return Err(invalid(
+                    "automatic checkpoint schedule exceeds section limit",
+                ));
+            }
+            raw.extend_from_slice(SNAPSHOT_SCHEDULE_TAG);
+            raw.extend_from_slice(&count.to_le_bytes());
+        }
         Ok(raw)
     }
 
@@ -618,12 +679,22 @@ impl ExecutionSnapshot {
         } else {
             None
         };
+        let last_snapshot_insn = if reader.0.is_empty() {
+            None
+        } else {
+            if reader.take(8)? != SNAPSHOT_SCHEDULE_TAG {
+                return Err(invalid("unexpected execution extension"));
+            }
+            Some(reader.u64()?)
+        };
+        validate_snapshot_schedule(retired, last_snapshot_insn)?;
         if !reader.0.is_empty() {
             return Err(invalid("trailing execution data"));
         }
         Ok(Self {
             cursor,
             retired,
+            last_snapshot_insn,
             online,
             local_apics,
             pending_ipi: None,
@@ -648,6 +719,7 @@ mod riscv_frame_tests {
         let mut state = ExecutionSnapshot {
             cursor: 0,
             retired: 0,
+            last_snapshot_insn: None,
             online: vec![true],
             pending_ipi: None,
             local_apics: vec![LocalApic::new(0).checkpoint_at(std::time::Instant::now())],

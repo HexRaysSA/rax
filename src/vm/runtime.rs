@@ -310,7 +310,7 @@ pub struct Vmm {
     wait_gdb: bool,
     /// Snapshot configuration
     snapshot_config: Option<SnapshotConfig>,
-    /// Last instruction count when snapshot was taken
+    /// Retirement count of the last successful automatic checkpoint.
     last_snapshot_insn: u64,
     /// Machine-defining configuration embedded in checkpoints this VM writes.
     checkpoint_config: CheckpointConfig,
@@ -991,46 +991,39 @@ impl Vmm {
 
     /// Check if we should take a snapshot and do so if needed
     fn maybe_snapshot(&mut self, insn_count: u64) -> Result<()> {
-        let should_snapshot = if let Some(ref config) = self.snapshot_config {
-            // Debug: print instruction count periodically
-            if insn_count % 1_000_000_000 == 0 {
-                eprintln!(
-                    "[SNAPSHOT] insn_count={} interval={} at={:?}",
-                    insn_count, config.interval, config.at_instructions
-                );
-            }
-            // Check interval-based snapshotting
-            if config.interval > 0 && insn_count >= self.last_snapshot_insn + config.interval {
-                true
-            } else {
-                // Check if we passed any specific instruction counts
-                config
-                    .at_instructions
-                    .iter()
-                    .any(|&at| at > self.last_snapshot_insn && at <= insn_count)
-            }
-        } else {
-            false
+        let Some(config) = &self.snapshot_config else {
+            return Ok(());
         };
-
-        if should_snapshot {
-            let snapshot = self.take_snapshot_bundle(insn_count)?;
-            let filename = self
-                .snapshot_config
-                .as_ref()
-                .map(|c| c.filename(insn_count))
-                .unwrap_or_else(|| format!("snapshot_{:012}.snap", insn_count));
-
-            info!(
-                filename = %filename,
-                insn_count = insn_count,
-                summary = %snapshot.base().summary(),
-                "saving snapshot"
+        if insn_count % 1_000_000_000 == 0 {
+            eprintln!(
+                "[SNAPSHOT] insn_count={} interval={} at={:?}",
+                insn_count, config.interval, config.at_instructions
             );
-
-            snapshot.save(&filename)?;
-            self.last_snapshot_insn = insn_count;
         }
+        let interval_due = config.interval > 0
+            && insn_count
+                .checked_sub(self.last_snapshot_insn)
+                .is_some_and(|delta| delta >= config.interval);
+        if !interval_due
+            && !config
+                .at_instructions
+                .iter()
+                .any(|&at| at > self.last_snapshot_insn && at <= insn_count)
+        {
+            return Ok(());
+        }
+        let filename = config.filename(insn_count);
+        // The file records its own completed write boundary. Publish it into
+        // the live VM only after the write succeeds.
+        let snapshot = self.capture_snapshot_bundle(insn_count, Some(insn_count))?;
+        info!(
+            filename = %filename,
+            insn_count = insn_count,
+            summary = %snapshot.base().summary(),
+            "saving snapshot"
+        );
+        snapshot.save(&filename)?;
+        self.last_snapshot_insn = insn_count;
 
         Ok(())
     }

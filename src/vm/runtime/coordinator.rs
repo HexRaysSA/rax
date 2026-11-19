@@ -109,6 +109,10 @@ impl Vmm {
         Ok(crate::vm::snapshot::ExecutionSnapshot {
             cursor: self.coordinator.cursor,
             retired: self.coordinator.retired,
+            last_snapshot_insn: self
+                .snapshot_config
+                .as_ref()
+                .map(|_| self.last_snapshot_insn),
             online: self.coordinator.online.clone(),
             pending_ipi: self.coordinator.pending_ipi.clone(),
             local_apics,
@@ -204,7 +208,11 @@ impl Vmm {
                 self.service_retired_pc_interrupts(index)?;
             }
             let result = self.vcpus[index].run_retirement_budget(1)?;
-            self.coordinator.retired = self.coordinator.retired.wrapping_add(result.retired);
+            let (retired, wrapped) = self.coordinator.retired.overflowing_add(result.retired);
+            self.coordinator.retired = retired;
+            if wrapped {
+                self.last_snapshot_insn = 0;
+            }
             self.route_interprocessor_requests()?;
             self.poll_vm_clocks()?;
             if !self.coordinator.online[index] {
