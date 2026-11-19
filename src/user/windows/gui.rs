@@ -10,6 +10,7 @@ use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::sync::Arc;
 
+pub(crate) mod cursor_icons;
 mod message_atoms;
 pub(crate) mod system_parameters;
 
@@ -40,6 +41,7 @@ pub(crate) struct Inputs {
     /// Fixed current-process UI context; absence does not disable other GUI inputs.
     pub(crate) process_ui_context: Result<[u32; 2], String>,
     pub(crate) system_parameters: Result<system_parameters::Snapshot, String>,
+    pub(crate) cursor_icons: Result<cursor_icons::Catalog, String>,
 }
 
 fn invalid(message: &str) -> io::Error {
@@ -152,6 +154,7 @@ impl Inputs {
             assigned_desktop,
             process_ui_context,
             system_parameters: Err("selected GUI system parameters were not captured".into()),
+            cursor_icons: Err("selected GUI cursor/icon cache was not captured".into()),
         }))
     }
 }
@@ -215,6 +218,7 @@ pub(crate) enum Completion {
     Value(u64),
     RegisterLpk(u32),
     RegisterWindowMessage(u64),
+    FindCursorIcon([u64; 3]),
     SystemParameter {
         action: u32,
         parameter: u32,

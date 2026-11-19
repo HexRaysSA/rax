@@ -113,7 +113,8 @@ fn lpk_registration_in_pending_callback_preserves_outer_operation_and_commit_ord
                 let expected = match original {
                     Completion::Value(value) => value,
                     Completion::RegisterLpk(_) => 1,
-                    Completion::ProcessUiContext { .. }
+                    Completion::FindCursorIcon(_)
+                    | Completion::ProcessUiContext { .. }
                     | Completion::RegisterWindowMessage(_)
                     | Completion::SystemParameter { .. } => {
                         unreachable!("selected outer operation")

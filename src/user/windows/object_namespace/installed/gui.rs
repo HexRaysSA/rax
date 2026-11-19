@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 type Handle = *mut c_void;
 mod context;
+mod cursor_icons;
 mod desktop;
 mod system_parameters;
 
@@ -253,6 +254,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
         let dpi = process_dpi(&win32u);
         let process_ui_context = context::capture(&win32u);
         let system_parameters = system_parameters::capture(&win32u);
+        let cursor_icons = cursor_icons::capture_stable(&win32u);
         let process_before = read::<512>(peb)?;
         let client_before = read::<160>(
             teb.checked_add(0x800)
@@ -292,9 +294,9 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
                 assigned_desktop,
                 process_ui_context,
             )?;
-            Arc::get_mut(&mut inputs)
-                .expect("new GUI snapshot")
-                .system_parameters = system_parameters;
+            let selected = Arc::get_mut(&mut inputs).expect("new GUI snapshot");
+            selected.system_parameters = system_parameters;
+            selected.cursor_icons = cursor_icons;
             return Ok(inputs);
         }
     }

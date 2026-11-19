@@ -448,6 +448,9 @@ fn remote_connect_state_nested_query_preserves_the_outer_conversion_continuation
     }
 }
 
+#[path = "gui_tests/cursor_icons_tests.rs"]
+mod cursor_icons_tests;
+
 #[path = "gui_tests/desktop_tests.rs"]
 mod desktop_tests;
 

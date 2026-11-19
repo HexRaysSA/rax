@@ -107,6 +107,7 @@ fn enter(
             "NtGdiInit2"
                 | "NtUserGetDpiForCurrentProcess"
                 | "NtUserRemoteConnectState"
+                | "NtUserFindExistingCursorIcon"
                 | "NtUserGetThreadDesktop"
                 | "NtUserRegisterLPK"
                 | "NtUserRegisterWindowMessage"
@@ -118,6 +119,7 @@ fn enter(
             "NtGdiInit2" => gui::initialize(p, t, sp, resume, wow64_return),
             "NtUserGetDpiForCurrentProcess" => gui::process_dpi(p, t, sp, resume, wow64_return),
             "NtUserRemoteConnectState" => gui::remote_connect_state(p, t, sp, resume, wow64_return),
+            "NtUserFindExistingCursorIcon" => gui::find_cursor_icon(p, t, sp, resume, wow64_return),
             "NtUserGetThreadDesktop" => gui::thread_desktop(p, t, sp, resume, wow64_return),
             "NtUserRegisterLPK" => gui::register_lpk(p, t, sp, resume, wow64_return),
             "NtUserRegisterWindowMessage" => {
