@@ -73,6 +73,24 @@ fn assert_ancestor(
     assert_eq!(p.space.u32(status).unwrap(), 0xc0000034);
 }
 
+fn assert_ime_query<const N: usize>(
+    p: &mut Proc,
+    t: &mut Thread,
+    service_name: &str,
+    arguments: [u64; N],
+    last_error: u32,
+) {
+    let offsets = crate::user::windows::layout::offsets(p.arch);
+    let error = t.teb + offsets.teb_last_error;
+    let status = t.teb + offsets.teb_last_status;
+    p.space.w32(error, 0x4567).unwrap();
+    p.space.w32(status, 0xc0000034).unwrap();
+    service(p, t, service_name, arguments);
+    assert_eq!(t.cpu.gpr(0), 0);
+    assert_eq!(p.space.u32(error).unwrap(), last_error);
+    assert_eq!(p.space.u32(status).unwrap(), 0xc0000034);
+}
+
 fn assert_position(
     p: &mut Proc,
     t: &mut Thread,
@@ -309,6 +327,14 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
     let before = p.space.bytes(client, 0x160).unwrap();
     assert_position(p, &mut t, tagged, hwnd, 0x417, (1, 0x4567));
     assert_position(p, &mut t, hwnd, 0x1_000e, 0x417, (0, 0x4567));
+    assert!(!p.gui.threads[&t.tid].ime_disabled);
+    assert_ime_query(p, &mut t, "NtUserGetThreadState", [3], 0x4567);
+    for alias in [hwnd, tagged, hwnd | 0xffff0000, 0x1000c, 0xffff000e] {
+        assert_ime_query(p, &mut t, "NtUserQueryWindow", [alias, 8], 0x4567);
+    }
+    for invalid in [0, 0x1234, u64::MAX - 2, hwnd & 0xffff] {
+        assert_ime_query(p, &mut t, "NtUserQueryWindow", [invalid, 8], 1400);
+    }
     assert_eq!(p.space.bytes(client, 0x160).unwrap(), before);
     assert_ancestor(p, &mut t, 0xffff_000e, 1, 0, 0x4567);
     assert_ancestor(p, &mut t, 0x1_000e, 4, 0, 87);
@@ -392,6 +418,8 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
     assert_ancestor(p, &mut t, hwnd, 1, 0, 1400);
     assert_ancestor(p, &mut t, hwnd | 0xffff_0000, 4, 0, 1400);
     assert_position(p, &mut t, hwnd | 0xffff_0000, 0, 0x80000417, (0, 1400));
+    assert_ime_query(p, &mut t, "NtUserQueryWindow", [hwnd, 8], 1400);
+    assert_ime_query(p, &mut t, "NtUserGetThreadState", [3], 0x4567);
     assert_nonclient_dpi_disabled(p, &mut t, hwnd, 1400);
     assert_top_level(p, &mut t, hwnd | 0xffff_0000, 0, 1400);
 }
@@ -563,8 +591,6 @@ fn ime_disabled_overlapped_window_applies_callback_tracking_limits() {
     assert_composition(p, &mut t, hwnd, descriptor, (0, 87, 0xc000000d));
     p.space.w32(descriptor + 16, 3).unwrap();
     assert_composition(p, &mut t, hwnd, descriptor, (0, 122, 0xc0000023));
-    service(p, &mut t, "NtUserQueryWindow", [hwnd, 8]);
-    assert_eq!(t.cpu.gpr(0), 0);
-    service(p, &mut t, "NtUserGetThreadState", [3]);
-    assert_eq!(t.cpu.gpr(0), 0);
+    assert_ime_query(p, &mut t, "NtUserQueryWindow", [hwnd, 8], 0x4567);
+    assert_ime_query(p, &mut t, "NtUserGetThreadState", [3], 0x4567);
 }

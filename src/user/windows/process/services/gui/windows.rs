@@ -161,19 +161,13 @@ pub(super) fn query(p: &Proc, t: &Thread, [handle, query]: [u64; 2]) -> Result<u
             query as u32
         )));
     }
-    let Some(window) = p.gui.window(u64::from(handle as u32)) else {
-        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
-    };
-    if p.gui
-        .threads
-        .get(&window.owner)
-        .is_some_and(|thread| thread.ime_disabled)
-    {
+    if p.arch == WinArch::Arm64 && is_system_root(handle) {
         return Ok(0);
     }
-    Err(failure(
-        "default IME window query requires the disabled IME profile",
-    ))
+    let Some((_, window)) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
+        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    };
+    default_ime_window(p, window.owner)
 }
 
 pub(super) fn is_top_level(p: &Proc, t: &Thread, [handle]: [u64; 1]) -> Result<u64, Outcome> {
@@ -287,18 +281,24 @@ pub(super) fn set_position(
 }
 
 pub(super) fn get_thread_state(p: &Proc, t: &Thread, [query]: [u64; 1]) -> Result<u64, Outcome> {
-    if query as u32 == THREAD_DEFAULT_IME_HANDLE
-        && p.gui
-            .threads
-            .get(&t.tid)
-            .is_some_and(|thread| thread.ime_disabled)
-    {
-        return Ok(0);
+    if query as u32 != THREAD_DEFAULT_IME_HANDLE {
+        return Err(failure(format!(
+            "unmeasured USER thread-state query {:#x}",
+            query as u32
+        )));
     }
-    Err(failure(format!(
-        "unmeasured USER thread-state query {:#x}",
-        query as u32
-    )))
+    default_ime_window(p, t.tid)
+}
+
+fn default_ime_window(p: &Proc, tid: u32) -> Result<u64, Outcome> {
+    if p.arch != WinArch::Arm64 || !p.gui.threads.contains_key(&tid) {
+        return Err(failure(
+            "default IME window query requires a selected USER thread",
+        ));
+    }
+    // Message-only windows do not start a default IME window. The supported
+    // overlapped creation profile requires IME to be disabled.
+    Ok(0)
 }
 
 pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Result<u64, Outcome> {
