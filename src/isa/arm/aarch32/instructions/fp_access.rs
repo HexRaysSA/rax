@@ -13,9 +13,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let in_it = insn.state.is_thumb() && self.cpu.cpsr.in_it_block();
         // Predicate failure has already skipped the instruction. Choose
         // Undefined for executed restricted encodings before FP access traps.
-        if (in_it && matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH))
-            || (!kind.advsimd && !fp_admission::scalar_half_predicate_supported(insn, in_it))
-        {
+        if !fp_admission::predicate_supported(insn, kind.advsimd, in_it) {
             return Some(ExecResult::Undefined);
         }
         // Capability absence is a decode failure, before FP access traps and

@@ -823,7 +823,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         };
         if !crate::isa::arm::decoder::Aarch32Decoder::decode_vfp_conditional_select(insn.raw)
             .is_some_and(|decoded| decoded.mnemonic == insn.mnemonic)
-            || (self.cpu.cpsr.t && self.cpu.cpsr.in_it_block())
         {
             return ExecResult::Undefined;
         }

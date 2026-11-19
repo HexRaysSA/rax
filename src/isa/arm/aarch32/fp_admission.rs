@@ -159,28 +159,70 @@ enum HalfKind {
     SimdData,
 }
 
-/// Scalar FP16 encodings use AL in the conditional A32 space and exclude
-/// Thumb IT. Scalar conversions between FP16 and FP32/FP64 allow predicates.
-pub(crate) fn scalar_half_predicate_supported(insn: &DecodedInsn, in_it: bool) -> bool {
-    let restricted = if insn.state.is_thumb() {
-        in_it
+/// The T32 encoding restrictions are checked after the predicate passes.
+/// Arm DDI0597 ID032025 specifies these in the individual instruction decodes.
+pub(crate) fn predicate_supported(insn: &DecodedInsn, advsimd: bool, in_it: bool) -> bool {
+    if !in_it {
+        // Scalar FP16 data processing requires AL in the conditional A32
+        // space. Condition 1111 belongs to the unconditional namespace.
+        return insn.state.is_thumb()
+            || advsimd
+            || insn.raw >> 28 >= 14
+            || !matches!(kind(insn, false), HalfKind::ScalarData);
+    }
+    let mnemonic = insn.mnemonic;
+    if matches!(
+        mnemonic,
+        Mnemonic::VSELEQ
+            | Mnemonic::VSELGE
+            | Mnemonic::VSELGT
+            | Mnemonic::VSELVS
+            | Mnemonic::VMAXNM_F16
+            | Mnemonic::VMAXNM_F32
+            | Mnemonic::VMAXNM_F64
+            | Mnemonic::VMINNM_F16
+            | Mnemonic::VMINNM_F32
+            | Mnemonic::VMINNM_F64
+            | Mnemonic::VFMAL
+            | Mnemonic::VFMLS
+            | Mnemonic::VQRDMLAH
+            | Mnemonic::VQRDMLSH
+    ) {
+        return false;
+    }
+    let raw = a32_word(insn);
+    if advsimd {
+        // The vector rounding group excludes IT at both widths. FP16
+        // fixed-point conversion shares mnemonics with the restricted
+        // integer conversion but has its own encoding and permits IT.
+        !decoded_as(Aarch32Decoder::decode_neon_vrint(raw), mnemonic)
+            && !decoded_as(Aarch32Decoder::decode_neon_directed_convert(raw), mnemonic)
+            && (!matches!(kind_from_word(insn, true, raw), HalfKind::SimdData)
+                || decoded_as(Aarch32Decoder::decode_neon_fp_fixed_convert(raw), mnemonic))
     } else {
-        // 1111 belongs to the unconditional namespace.
-        insn.raw >> 28 < 14
-    };
-    !restricted || !matches!(kind(insn, false), HalfKind::ScalarData)
+        !decoded_as(Aarch32Decoder::decode_vfp_directed_round(raw), mnemonic)
+            && !decoded_as(Aarch32Decoder::decode_vfp_directed_convert(raw), mnemonic)
+            && !matches!(kind_from_word(insn, false, raw), HalfKind::ScalarData)
+    }
 }
 
 fn decoded_as(decoded: Option<DecodedInsn>, mnemonic: Mnemonic) -> bool {
     decoded.is_some_and(|decoded| decoded.mnemonic == mnemonic && mnemonic != Mnemonic::UNDEFINED)
 }
 
-fn kind(insn: &DecodedInsn, advsimd: bool) -> HalfKind {
-    let raw = if insn.state.is_thumb() && insn.size == 4 {
+fn a32_word(insn: &DecodedInsn) -> u32 {
+    if insn.state.is_thumb() && insn.size == 4 {
         ThumbDecoder::a32_equivalent(insn.raw).unwrap_or(insn.raw)
     } else {
         insn.raw
-    };
+    }
+}
+
+fn kind(insn: &DecodedInsn, advsimd: bool) -> HalfKind {
+    kind_from_word(insn, advsimd, a32_word(insn))
+}
+
+fn kind_from_word(insn: &DecodedInsn, advsimd: bool, raw: u32) -> HalfKind {
     match insn.mnemonic {
         Mnemonic::VCVTB_F32_F16
         | Mnemonic::VCVTT_F32_F16
@@ -327,17 +369,11 @@ pub(crate) fn half_supported(
 /// FPRound's output flushing bypasses trapped underflow. FPConvert's half
 /// output ignores FZ16; ordinary half data processing uses FZ16.
 pub(crate) fn output_flushes(insn: &DecodedInsn, state: &VfpState) -> bool {
-    let half = match kind(insn, false) {
+    let raw = a32_word(insn);
+    let half = match kind_from_word(insn, false, raw) {
         HalfKind::ScalarConversion { .. } => return false,
         HalfKind::ScalarData => true,
-        _ => {
-            let raw = if insn.state.is_thumb() {
-                ThumbDecoder::a32_equivalent(insn.raw).unwrap_or(insn.raw)
-            } else {
-                insn.raw
-            };
-            Aarch32Decoder::scalar_fixed_fields(raw).is_some_and(|fields| fields.fp_bits == 16)
-        }
+        _ => Aarch32Decoder::scalar_fixed_fields(raw).is_some_and(|fields| fields.fp_bits == 16),
     };
     state.fpscr.bits() & (1 << if half { 19 } else { 24 }) != 0
 }
