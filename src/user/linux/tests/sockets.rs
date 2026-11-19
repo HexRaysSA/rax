@@ -387,13 +387,14 @@ fn unix_names_bind_resolve_and_report() {
         assert_eq!(bind(&mut h, l, &sun(b"s.sock"), m), -(EADDRINUSE as i64));
         let x = sock(&mut h, AF_UNIX, STREAM);
         assert_eq!(bind(&mut h, x, &sun(b"s.sock"), m), -(EADDRINUSE as i64));
-        // Connecting through a different spelling reports the bind name.
-        let abs = path_bytes(&dir.join("s.sock"));
-        assert_eq!(connect(&mut h, x, &sun(&abs), m), -(ECONNREFUSED as i64));
+        // The guest address must fit sockaddr_un regardless of the host
+        // temporary directory length. Use a distinct relative spelling.
+        let alternate = sun(b"./s.sock");
+        assert_eq!(connect(&mut h, x, &alternate, m), -(ECONNREFUSED as i64));
         h.ok(Sysno::Listen, &[l, 4]);
         let c = sock(&mut h, AF_UNIX, STREAM);
-        assert_eq!(connect(&mut h, c, &sun(&abs), m), 0);
-        assert_eq!(connect(&mut h, c, &sun(&abs), m), -(EISCONN as i64));
+        assert_eq!(connect(&mut h, c, &alternate, m), 0);
+        assert_eq!(connect(&mut h, c, &alternate, m), -(EISCONN as i64));
         assert_eq!(name(&mut h, c, true, m).unwrap(), sun(b"s.sock"));
         let s = h.ok(Sysno::Accept4, &[l, 0, 0, 0]);
         // The accepted socket has the listener's name.
