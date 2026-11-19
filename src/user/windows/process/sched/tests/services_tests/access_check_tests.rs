@@ -39,6 +39,7 @@ fn subject_fixture() -> Subject {
         statistics: None,
         attributes: None,
         user_attributes: 0,
+        empty_claims: Default::default(),
         user: hex(s["user"]["sid"].as_str().unwrap()),
         groups: groups("groups"),
         restricted: groups("restricted"),

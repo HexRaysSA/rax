@@ -1,5 +1,6 @@
 //! Independent typed Win32 token controls, separate from the capture parser.
 use super::{CloseHandle, GetCurrentProcess, GetTokenInformation, OpenProcessToken};
+use crate::user::windows::security::token::claims::EmptyClaims;
 use crate::user::windows::security::{Group, Privilege, Subject};
 use std::ffi::c_void;
 
@@ -180,6 +181,11 @@ pub(super) fn capture() -> Subject {
             .unwrap(),
         ),
         user_attributes: user.attributes,
+        empty_claims: EmptyClaims {
+            user: token.information(33).bytes() == [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            device: token.information(34).bytes()
+                == [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        },
         user: user.sid,
         groups: token.information(2).groups(),
         restricted: token.information(11).groups(),

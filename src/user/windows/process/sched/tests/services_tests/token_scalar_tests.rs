@@ -368,6 +368,7 @@ fn native_token_scalars_preserve_nonzero_values_and_refuse_uncaptured_identity()
             statistics: None,
             attributes: None,
             user_attributes: 0,
+            empty_claims: Default::default(),
             user: vec![],
             groups: vec![],
             restricted: vec![],

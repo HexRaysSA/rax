@@ -1,6 +1,9 @@
 //! Query-only token acquisition during installed-runtime selection.
 use super::catalog::{Group, Subject, sid};
 use crate::user::windows::security::Privilege;
+use crate::user::windows::security::token::claims::{
+    EMPTY_RECORD, EmptyClaims, TOKEN_DEVICE_CLAIMS, TOKEN_USER_CLAIMS,
+};
 use std::ffi::c_void;
 use std::io;
 use std::ptr::null_mut;
@@ -158,6 +161,12 @@ fn capture(
         Subject {
             statistics: Some(statistics),
             user_attributes: user.attributes,
+            empty_claims: EmptyClaims {
+                user: information(token, TOKEN_USER_CLAIMS)
+                    .is_ok_and(|bytes| bytes == EMPTY_RECORD),
+                device: information(token, TOKEN_DEVICE_CLAIMS)
+                    .is_ok_and(|bytes| bytes == EMPTY_RECORD),
+            },
             attributes: Some(crate::user::windows::security::token::attributes::capture(
                 token.0,
             )?),

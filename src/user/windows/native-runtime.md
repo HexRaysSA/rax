@@ -2762,6 +2762,21 @@ same token handle and access checks as the other information classes.
 Publication takes O(G + B) time for G groups and B SID bytes. The handler
 uses no guest-capacity-sized allocation.
 
+### Empty user and device claim attributes (2026-11-19)
+
+Installed token acquisition separately verifies empty version 1 results for
+`TokenUserClaimAttributes` (33) and `TokenDeviceClaimAttributes` (34). Requests
+read the selected primary or explicit impersonation subject. Populated and
+unavailable captures produce an explicit unsupported diagnostic.
+
+On the observed Windows 11 ARM64 build 29708, native ARM64 and translated
+x64 require 16 bytes, accept 4-byte output alignment, probe both destinations
+before the token, and leave trailing bytes intact. WoW64 checks the token
+first, reports the same 16-byte minimum, and clears the full caller capacity
+before publishing Version. The order of the reached vector stores is visible
+on misaligned page boundaries and guard pages. Clearing costs O(N) time for
+N caller bytes and O(1) storage. Query validation never forwards guest handles.
+
 ### Primary-user Safer policy root (2026-10-19)
 
 Native runtime selection derives one fixed per-user Safer/CodeIdentifiers root

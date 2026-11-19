@@ -6,6 +6,7 @@ use crate::user::windows::nt::status::{
 
 pub(crate) mod attributes;
 pub(crate) mod bno;
+pub(crate) mod claims;
 pub(crate) mod scalars;
 pub(crate) mod statistics;
 

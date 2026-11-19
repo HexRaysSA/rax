@@ -198,6 +198,7 @@ fn subject(user: Vec<u8>) -> crate::user::windows::security::Subject {
         statistics: None,
         attributes: None,
         user_attributes: 0,
+        empty_claims: Default::default(),
         user,
         groups: vec![],
         restricted: vec![],

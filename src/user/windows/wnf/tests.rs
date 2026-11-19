@@ -31,6 +31,7 @@ fn subject() -> Subject {
         statistics: None,
         attributes: None,
         user_attributes: 0,
+        empty_claims: Default::default(),
         user: Vec::new(),
         groups: Vec::new(),
         restricted: Vec::new(),

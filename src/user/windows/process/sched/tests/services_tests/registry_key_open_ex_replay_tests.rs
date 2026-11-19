@@ -24,6 +24,7 @@ fn subject(p: &mut Proc, profile: u32) {
     let subject = Subject {
         statistics: None,
         user_attributes: 0,
+        empty_claims: Default::default(),
         user: vec![1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0],
         groups: vec![],
         restricted: vec![],
