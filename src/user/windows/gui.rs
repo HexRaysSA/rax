@@ -11,6 +11,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) mod cursor_icons;
+mod handles;
+pub(crate) mod input_contexts;
 mod message_atoms;
 pub(crate) mod message_queue;
 pub(crate) mod system_parameters;
@@ -223,6 +225,7 @@ pub(crate) struct ThreadState {
     pub(crate) initialized: bool,
     pub(crate) ime_disabled: bool,
     pub(crate) default_ime_window: Option<u32>,
+    pub(crate) default_input_context: Option<u32>,
     pub(crate) messages: message_queue::Queue,
     pub(crate) callbacks: Vec<Callback>,
 }
@@ -262,6 +265,8 @@ pub(crate) enum Completion {
     GetAncestor([u64; 2]),
     SetWindowPos([u64; 7]),
     GetThreadState([u64; 1]),
+    QueryInputContext([u64; 2]),
+    UpdateInputContext([u64; 3]),
     QueryWindowClassName([u64; 3]),
     SetWindowLongPtr([u64; 4]),
     SetWindowFnid([u64; 2]),
@@ -291,6 +296,8 @@ pub(crate) struct State {
     message_atoms: Rc<RefCell<message_atoms::Table>>,
     classes: window_classes::Classes,
     windows: windows::Windows,
+    handles: Option<handles::HandleTable>,
+    input_contexts: input_contexts::InputContexts,
     pub(crate) theme_hook_started: bool,
     mappings: Option<Mappings>,
 }
@@ -381,6 +388,7 @@ impl State {
                 initialized: false,
                 ime_disabled: false,
                 default_ime_window: None,
+                default_input_context: None,
                 messages: message_queue::Queue::default(),
                 callbacks: Vec::new(),
             },
@@ -388,12 +396,18 @@ impl State {
         Ok(address)
     }
 
-    pub(crate) fn retire_thread(&mut self, tid: u32) {
+    pub(crate) fn retire_thread(
+        &mut self,
+        vm: &mut VirtualMemory,
+        tid: u32,
+    ) -> Result<(), VmError> {
+        self.close_thread_input_context(vm, tid)?;
         if let Some(thread) = self.threads.remove(&tid)
             && let Some(mappings) = self.mappings.as_mut()
         {
             mappings.free_records.push(thread.record);
         }
+        Ok(())
     }
 }
 

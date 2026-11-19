@@ -65,7 +65,7 @@ fn keyboard_layout_query_uses_converted_threads_and_preserves_teb_status() {
         p.threads.insert(peer_tid, peer);
         assert_eq!(invoke(p, &mut caller, peer_tid), LAYOUT);
         assert_eq!(invoke(p, &mut caller, peer_tid | 1), 0);
-        p.gui.retire_thread(peer_tid);
+        p.gui.retire_thread(&mut p.vm, peer_tid).unwrap();
         assert_eq!(invoke(p, &mut caller, peer_tid), 0);
     }
 }

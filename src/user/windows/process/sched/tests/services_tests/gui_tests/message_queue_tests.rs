@@ -56,6 +56,12 @@ fn posted_message_selects_removal_sources_and_native_fault_order() {
         let output = base + 0x5000;
         let error = t.teb + offsets(arch).teb_last_error;
         let status = t.teb + offsets(arch).teb_last_status;
+        let assert_message_time = |p: &mut Proc, t: &mut Thread, expected: u64| {
+            if arch == WinArch::Arm64 {
+                assert_eq!(value(p, t, "NtUserGetThreadState", [9]), expected);
+                assert_eq!(value(p, t, "NtUserGetThreadState", [0x0b]), 0);
+            }
+        };
         p.space.wr(output, &[0xa5; 48]).unwrap();
         p.space.w32(error, 0x5aa5).unwrap();
         p.space.w32(status, 0xc000_0034).unwrap();
@@ -65,6 +71,7 @@ fn posted_message_selects_removal_sources_and_native_fault_order() {
         std::sync::Arc::get_mut(inputs).unwrap().message_cursor = [-11, 141];
         assert_eq!(value(p, &mut t, "NtUserPeekMessage", [0, 0, 0, 0, 1]), 0);
         assert_eq!(p.space.u32(error).unwrap(), 0x5aa5);
+        assert_message_time(p, &mut t, 0);
         assert_eq!(
             value(
                 p,
@@ -138,12 +145,15 @@ fn posted_message_selects_removal_sources_and_native_fault_order() {
         assert_eq!(p.space.u32(output + 36).unwrap() as i32, -11);
         assert_eq!(p.space.u32(output + 40).unwrap(), 141);
         assert_eq!(p.space.u32(output + 44).unwrap(), 0);
+        let second_stamp = u64::from(p.space.u32(output + 32).unwrap());
+        assert_message_time(p, &mut t, second_stamp);
         assert_eq!(
             value(p, &mut t, "NtUserPeekMessage", [0, 0, SECOND, SECOND, 1]),
             0
         );
         assert_eq!(p.space.u32(error).unwrap(), 998);
         assert_eq!(p.space.u32(status).unwrap(), 0xc000_0005);
+        assert_message_time(p, &mut t, second_stamp);
         assert_eq!(
             value(
                 p,
@@ -158,12 +168,15 @@ fn posted_message_selects_removal_sources_and_native_fault_order() {
             1
         );
         assert_eq!(p.space.u32(output + 8).unwrap(), FIRST as u32);
+        let first_stamp = u64::from(p.space.u32(output + 32).unwrap());
+        assert_message_time(p, &mut t, first_stamp);
         assert_eq!(
             value(p, &mut t, "NtUserGetMessage", [output, 0, SECOND, SECOND]),
             0
         );
         assert_eq!(p.space.u32(output + 8).unwrap(), 0x12);
         assert_eq!(p.space.u64(output + 16).unwrap(), 0xffff_fffe);
+        assert_message_time(p, &mut t, first_stamp);
         assert_eq!(
             value(p, &mut t, "NtUserPeekMessage", [output, 0, 0, 0, 1]),
             0

@@ -135,6 +135,8 @@ fn enter(
                 | "NtUserGetAncestor"
                 | "NtUserSetWindowPos"
                 | "NtUserGetThreadState"
+                | "NtUserQueryInputContext"
+                | "NtUserUpdateInputContext"
                 | "NtUserGetClassName"
                 | "NtUserSetWindowLongPtr"
                 | "NtUserSetWindowFNID"
@@ -261,6 +263,22 @@ fn enter(
             "NtUserGetThreadState" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetThreadState)
             }
+            "NtUserQueryInputContext" => gui::window_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::QueryInputContext,
+            ),
+            "NtUserUpdateInputContext" => gui::window_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::UpdateInputContext,
+            ),
             "NtUserGetClassName" => gui::window_operation(
                 p,
                 t,

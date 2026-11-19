@@ -37,6 +37,7 @@ enum Ready {
 pub(crate) struct Queue {
     posted: VecDeque<Message>,
     quit: Option<u32>,
+    last_message_time: u32,
 }
 
 impl Queue {
@@ -68,6 +69,10 @@ impl Queue {
         self.ready(minimum, maximum).is_some()
     }
 
+    pub(crate) fn last_message_time(&self) -> u32 {
+        self.last_message_time
+    }
+
     pub(crate) fn get(
         &mut self,
         minimum: u32,
@@ -77,9 +82,17 @@ impl Queue {
         point: [i32; 2],
     ) -> Option<Message> {
         match self.ready(minimum, maximum)? {
-            Ready::Posted(index) if remove => self.posted.remove(index),
-            Ready::Posted(index) => Some(self.posted[index]),
+            Ready::Posted(index) => {
+                let message = self.posted[index];
+                if remove {
+                    self.posted.remove(index);
+                }
+                self.last_message_time = message.time;
+                Some(message)
+            }
             Ready::Quit(code) => {
+                // The synthesized WM_QUIT carries the current time and leaves
+                // GetMessageTime at the last retrieved posted message.
                 if remove {
                     self.quit = None;
                 }

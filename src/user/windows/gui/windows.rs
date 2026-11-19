@@ -1,11 +1,10 @@
 //! Guest-owned USER window lifetime and the address exposed to USER callbacks.
 
 use super::State;
+use super::handles::HandleKind;
 use super::window_classes::{Class, Name};
-use crate::user::windows::memory::{KernelDataView, Mem, VirtualMemory, VmError};
-use crate::user::windows::object_namespace::csr::client_data::{
-    CsrClientData, USER_HANDLE_ENTRY_BYTES,
-};
+use crate::user::windows::memory::{Mem, VirtualMemory, VmError};
+use crate::user::windows::object_namespace::csr::client_data::CsrClientData;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -19,62 +18,7 @@ const WINDOW_OWNER_OFFSET: u64 = 0x40;
 const WINDOW_CLIENT_EXTRA_OFFSET: usize = 0x128;
 const WINDOW_FNID_OFFSET: u64 = 0x2a;
 const WINDOW_TITLE_OFFSET: u64 = 0xb8;
-const USER_TYPE_WINDOW: u8 = 1;
-const FIRST_WINDOW_SLOT: u64 = 16;
-const LAST_WINDOW_GENERATION: u16 = 0x7fff;
-
-struct HandleTable {
-    view: KernelDataView,
-    entries: u64,
-}
-
-impl HandleTable {
-    fn slot(&self, vm: &VirtualMemory) -> Result<(u64, u32), VmError> {
-        for index in (FIRST_WINDOW_SLOT..self.entries).step_by(2) {
-            let address = self.address(index);
-            let mut entry = [0; USER_HANDLE_ENTRY_BYTES as usize];
-            vm.space()
-                .rd(address, &mut entry)
-                .map_err(|_| VmError::InvalidAddress)?;
-            if entry[..26] == [0; 26] && entry[28..] == [0; 4] {
-                let generation = u16::from_le_bytes([entry[26], entry[27]]).max(1);
-                if generation < LAST_WINDOW_GENERATION {
-                    return Ok((address, (u32::from(generation) << 16) | index as u32));
-                }
-            }
-        }
-        Err(VmError::NoMemory)
-    }
-
-    fn address(&self, index: u64) -> u64 {
-        self.view.base + index * USER_HANDLE_ENTRY_BYTES
-    }
-
-    fn publish(
-        &self,
-        vm: &mut VirtualMemory,
-        slot: u64,
-        handle: u32,
-        offset: u64,
-        tid: u32,
-        desktop_identity: u64,
-    ) -> Result<(), VmError> {
-        let mut entry = [0; USER_HANDLE_ENTRY_BYTES as usize];
-        entry[0..8].copy_from_slice(&offset.to_le_bytes());
-        entry[8..16].copy_from_slice(&u64::from(tid).to_le_bytes());
-        entry[16..24].copy_from_slice(&desktop_identity.to_le_bytes());
-        entry[24] = USER_TYPE_WINDOW;
-        entry[26..28].copy_from_slice(&(handle >> 16).to_le_bytes()[..2]);
-        vm.write_kernel_data_view(&self.view, slot, &entry)
-    }
-
-    fn retire(&self, vm: &mut VirtualMemory, handle: u32) -> Result<(), VmError> {
-        let slot = self.address(u64::from(handle as u16));
-        let mut entry = [0; USER_HANDLE_ENTRY_BYTES as usize];
-        entry[26..28].copy_from_slice(&((handle >> 16) as u16 + 1).to_le_bytes());
-        vm.write_kernel_data_view(&self.view, slot, &entry)
-    }
-}
+const WINDOW_INPUT_CONTEXT_OFFSET: usize = 0xd0;
 
 pub(crate) const OVERLAPPED_STYLE: u32 = 0x00cf_0000;
 pub(crate) const DEFAULT_IME_STYLE: u32 = 0x8800_0000;
@@ -186,7 +130,6 @@ pub(super) struct Windows {
     pub(super) entries: BTreeMap<u32, Window>,
     free: Vec<u64>,
     next_order: u64,
-    handles: Option<HandleTable>,
 }
 
 impl State {
@@ -199,15 +142,8 @@ impl State {
         creation: Creation,
         csr: &CsrClientData,
     ) -> Result<u32, VmError> {
-        if self.windows.handles.is_none() {
-            let (view, entries) = csr.window_handle_table(vm)?;
-            self.windows.handles = Some(HandleTable { view, entries });
-        }
-        let handles = self
-            .windows
-            .handles
-            .as_ref()
-            .expect("selected USER handle table");
+        self.bind_handle_table(vm, csr)?;
+        let handles = self.handles.as_ref().expect("selected USER handle table");
         let ime_owner_address = match creation.kind {
             WindowKind::DefaultIme { owner_window, .. } => Some(
                 self.window(u64::from(owner_window))
@@ -222,7 +158,7 @@ impl State {
             .checked_add(WINDOW_BYTES as u64)
             .filter(|&end| end <= mappings.desktop.base + mappings.desktop.size)
             .ok_or(VmError::NoMemory)?;
-        let (slot, handle) = handles.slot(vm)?;
+        let handle = handles.slot(vm, HandleKind::Window)?;
         let desktop_identity = vm
             .space()
             .u64(mappings.inputs.client[4])
@@ -253,6 +189,13 @@ impl State {
                 // server-side clipping bit before WM_NCCREATE.
                 record[0x18..0x1c].copy_from_slice(&0x100u32.to_le_bytes());
                 record[0x1c..0x20].copy_from_slice(&(OVERLAPPED_STYLE | 0x0400_0000).to_le_bytes());
+                let thread = self.threads.get(&owner).ok_or(VmError::InvalidAddress)?;
+                if !thread.ime_disabled
+                    && let Some(context) = thread.default_input_context
+                {
+                    record[WINDOW_INPUT_CONTEXT_OFFSET..WINDOW_INPUT_CONTEXT_OFFSET + 8]
+                        .copy_from_slice(&u64::from(context).to_le_bytes());
+                }
             }
         }
         record[0x78..0x80].copy_from_slice(&class.definition.procedure().to_le_bytes());
@@ -263,7 +206,14 @@ impl State {
 
         vm.commit_kernel_data_view(&mappings.desktop, address, WINDOW_BYTES as u64)?;
         vm.write_kernel_data_view(&mappings.desktop, address, &record)?;
-        if let Err(error) = handles.publish(vm, slot, handle, offset, owner, desktop_identity) {
+        if let Err(error) = handles.publish(
+            vm,
+            HandleKind::Window,
+            handle,
+            offset,
+            owner,
+            desktop_identity,
+        ) {
             vm.write_kernel_data_view(&mappings.desktop, address, &[0; WINDOW_BYTES])?;
             return Err(error);
         }
@@ -299,16 +249,10 @@ impl State {
         vm: &VirtualMemory,
         handle: u64,
     ) -> Option<(u32, &Window)> {
-        let mut handle = handle as u32;
-        if handle >> 16 == u32::from(u16::MAX) {
-            let index = u64::from(handle as u16);
-            let table = self.windows.handles.as_ref()?;
-            if index >= table.entries {
-                return None;
-            }
-            let generation = vm.space().u16(table.address(index) + 26).ok()?;
-            handle = (u32::from(generation) << 16) | u32::from(index as u16);
-        }
+        let handle = self
+            .handles
+            .as_ref()?
+            .canonical(vm, handle, HandleKind::Window)?;
         self.windows
             .entries
             .get(&handle)
@@ -504,13 +448,8 @@ impl State {
             .get(&handle)
             .ok_or(VmError::InvalidAddress)?;
         let mappings = self.mappings.as_ref().ok_or(VmError::InvalidAddress)?;
-        let handles = self
-            .windows
-            .handles
-            .as_ref()
-            .ok_or(VmError::InvalidAddress)?;
-        if !vm.owns_kernel_data_view(&handles.view) || !vm.owns_kernel_data_view(&mappings.desktop)
-        {
+        let handles = self.handles.as_ref().ok_or(VmError::InvalidAddress)?;
+        if !handles.owned_by(vm) || !vm.owns_kernel_data_view(&mappings.desktop) {
             return Err(VmError::InvalidAddress);
         }
         handles.retire(vm, handle)?;

@@ -116,7 +116,7 @@ impl CsrClientData {
 
     /// The USER handle table keeps the selected session geometry. The guest
     /// kernel can use vacant slots in its private copy of the committed prefix.
-    pub(crate) fn window_handle_table(
+    pub(crate) fn user_handle_table(
         &self,
         vm: &mut VirtualMemory,
     ) -> Result<(KernelDataView, u64), VmError> {

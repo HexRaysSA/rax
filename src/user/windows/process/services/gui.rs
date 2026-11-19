@@ -8,10 +8,13 @@ use crate::user::windows::nt::status::{
     STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT, STATUS_GUARD_PAGE_VIOLATION,
     STATUS_INVALID_PARAMETER,
 };
+use crate::user::windows::object_namespace::csr::client_data::CsrClientData;
 use crate::user::windows::objects::Object;
+use std::sync::Arc;
 
 mod composition;
 mod cursor_icons;
+mod input_contexts;
 mod message_queue;
 mod system_parameters;
 mod thread_info;
@@ -322,6 +325,14 @@ pub(super) fn system_parameters(
     )
 }
 
+fn selected_user_client_data(p: &Proc) -> Result<Arc<CsrClientData>, Outcome> {
+    p.object_namespace
+        .selected_csr_server()
+        .ok()
+        .and_then(|server| server.client_data.clone())
+        .ok_or_else(|| failure("the selected CSR USER handle table is unavailable"))
+}
+
 fn query_error(p: &Proc, t: &Thread, error: u32, status: Option<u32>) -> Result<u64, Outcome> {
     let offsets = crate::user::windows::layout::offsets(p.arch);
     p.space
@@ -453,6 +464,10 @@ fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, 
         Completion::GetAncestor(arguments) => return windows::get_ancestor(p, t, arguments),
         Completion::SetWindowPos(arguments) => return windows::set_position(p, t, arguments),
         Completion::GetThreadState(arguments) => return windows::get_thread_state(p, t, arguments),
+        Completion::QueryInputContext(arguments) => return input_contexts::query(p, t, arguments),
+        Completion::UpdateInputContext(arguments) => {
+            return input_contexts::update(p, t, arguments);
+        }
         Completion::QueryWindowClassName(arguments) => return windows::class_name(p, t, arguments),
         Completion::SetWindowLongPtr(arguments) => {
             return windows::set_window_long_ptr(p, t, arguments);

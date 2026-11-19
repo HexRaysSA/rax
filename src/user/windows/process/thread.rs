@@ -549,7 +549,9 @@ pub fn destroy(p: &mut Proc, mut t: Thread, code: u32) {
     if let Err(error) = p.gui.close_thread_windows(&mut p.vm, t.tid) {
         p.fail(format!("GUI window teardown failed: {error:?}"));
     }
-    p.gui.retire_thread(t.tid);
+    if let Err(error) = p.gui.retire_thread(&mut p.vm, t.tid) {
+        p.fail(format!("GUI input context teardown failed: {error:?}"));
+    }
     if let Err(status) = super::fiber::destroy_active(p, &t) {
         p.fail(format!("fiber teardown failed: {status:#010x}"));
     }

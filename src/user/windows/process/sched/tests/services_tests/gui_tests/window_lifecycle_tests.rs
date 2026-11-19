@@ -251,6 +251,103 @@ fn setup_window(
 }
 
 #[test]
+fn default_input_context_is_typed_readonly_and_retires_with_its_thread() {
+    let (mut process, mut t, base) = setup(WinArch::Arm64);
+    let p = process.state_mut();
+    let (csr, _, _) = setup_window(p, &mut t, base);
+    let tid = t.tid;
+    let layout = crate::user::windows::layout::offsets(p.arch);
+    let last_error = t.teb + layout.teb_last_error;
+    let last_status = t.teb + layout.teb_last_status;
+    service(p, &mut t, "NtUserGetThreadState", [4]);
+    assert_eq!(t.cpu.pc(), base);
+    callback_return(p, &mut t, [0, 0, 0]);
+    let handle = t.cpu.gpr(0);
+    assert_ne!(handle, 0);
+    assert_eq!(handle & 1, 1);
+    assert_eq!(
+        p.gui.threads[&tid].default_input_context,
+        Some(handle as u32)
+    );
+    service(p, &mut t, "NtUserGetThreadState", [4]);
+    assert_eq!(t.cpu.gpr(0), handle);
+
+    let entry = csr.views[0].base + (handle & 0xffff) * 32;
+    let desktop = p.space.u64(t.teb + 0x828).unwrap();
+    let record = desktop + p.space.u64(entry).unwrap();
+    assert_eq!(p.space.u64(record).unwrap(), handle);
+    assert_eq!(p.space.u64(entry + 8).unwrap(), u64::from(tid));
+    assert_eq!(p.space.u16(entry + 24).unwrap(), 17);
+    assert_eq!(u64::from(p.space.u16(entry + 26).unwrap()), handle >> 16);
+    assert!(p.space.w64(record + 0x18, 0x55).is_err());
+    assert!(p.space.w32(entry + 24, 0).is_err());
+    let run = |p: &mut Proc, t: &mut Thread, target, selector, expected, error| {
+        p.space.w32(last_error, 0x5aa5).unwrap();
+        p.space.w32(last_status, 0xc000_0034).unwrap();
+        service(p, t, "NtUserQueryInputContext", [target, selector]);
+        assert_eq!(t.cpu.gpr(0), expected);
+        assert_eq!(p.space.u32(last_error).unwrap(), error);
+        assert_eq!(p.space.u32(last_status).unwrap(), 0xc000_0034);
+    };
+    let pid = u64::from(p.pid);
+    let wildcard = (handle & 0xffff) | 0xffff_0000;
+    run(p, &mut t, handle, 0, pid, 0x5aa5);
+    run(p, &mut t, handle, 1, u64::from(tid), 0x5aa5);
+    run(p, &mut t, handle, 2, 0, 0x5aa5);
+    run(p, &mut t, wildcard, 3, handle, 0x5aa5);
+    run(p, &mut t, wildcard & 0x7fff_ffff, 3, handle, 0x5aa5);
+    run(p, &mut t, handle | 0x8000_0000, 3, handle, 0x5aa5);
+    run(p, &mut t, handle | 0x1_0000_0000, 1, u64::from(tid), 0x5aa5);
+    run(p, &mut t, handle, 4, 0, 87);
+    run(p, &mut t, handle ^ 0x10000, 4, 0, 6);
+
+    service(p, &mut t, "NtUserUpdateInputContext", [handle, 1, 0x112233]);
+    assert_eq!(t.cpu.gpr(0), 1);
+    assert_eq!(p.space.u64(record + 0x20).unwrap(), 0x112233);
+    service(
+        p,
+        &mut t,
+        "NtUserUpdateInputContext",
+        [wildcard, 0, base + 0x8000],
+    );
+    assert_eq!(t.cpu.gpr(0), 1);
+    assert_eq!(p.space.u64(record + 0x18).unwrap(), base + 0x8000);
+    service(p, &mut t, "NtUserUpdateInputContext", [handle, 0, 0]);
+    assert_eq!(t.cpu.gpr(0), 0);
+    assert_eq!(p.space.u32(last_error).unwrap(), 1247);
+
+    let Availability::Available(inputs) = &p.native.as_ref().unwrap().gui else {
+        unreachable!();
+    };
+    let inputs = Arc::clone(inputs);
+    let other_tid = tid + 4;
+    p.gui
+        .prepare_thread(&mut p.vm, inputs.clone(), other_tid, 0)
+        .unwrap();
+    let other = p
+        .gui
+        .default_input_context(&mut p.vm, &csr, other_tid)
+        .unwrap();
+    let other = u64::from(other);
+    assert_ne!(other, handle);
+    run(p, &mut t, other, 1, u64::from(other_tid), 0x5aa5);
+    p.gui.retire_thread(&mut p.vm, other_tid).unwrap();
+    run(p, &mut t, other, 3, 0, 6);
+    run(p, &mut t, handle, 3, handle, 0x5aa5);
+    let replacement_tid = other_tid + 4;
+    p.gui
+        .prepare_thread(&mut p.vm, inputs, replacement_tid, 0)
+        .unwrap();
+    let replacement = p
+        .gui
+        .default_input_context(&mut p.vm, &csr, replacement_tid)
+        .unwrap();
+    assert_eq!(u64::from(replacement) & 0xffff, other & 0xffff);
+    assert_ne!(u64::from(replacement), other);
+    run(p, &mut t, other, 3, 0, 6);
+}
+
+#[test]
 fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
     let (mut process, mut t, base) = setup(WinArch::Arm64);
     let p = process.state_mut();

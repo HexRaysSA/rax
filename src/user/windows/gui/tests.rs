@@ -102,7 +102,7 @@ fn gui_threads_have_private_records_inside_one_owned_readonly_desktop_view() {
             first
         );
         assert_eq!(vm.space().u32(first + 20).unwrap(), 123);
-        state.retire_thread(8);
+        state.retire_thread(&mut vm, 8).unwrap();
         assert!(!state.threads.contains_key(&8));
         let reused = state.prepare_thread(&mut vm, inputs, 16, 789).unwrap();
         assert_eq!(reused, first);

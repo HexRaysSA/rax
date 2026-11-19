@@ -1,8 +1,8 @@
 //! Measured 64-bit USER window creation, callbacks, and destruction.
 
 use super::{
-    CallbackFrame, Completion, Mem, Outcome, Proc, Thread, WinArch, failure, query_error,
-    window_classes,
+    CallbackFrame, Completion, Mem, Outcome, Proc, Thread, WinArch, failure, input_contexts,
+    query_error, selected_user_client_data, window_classes,
 };
 use crate::user::windows::gui::window_classes::{Class, DEFAULT_IME_ATOM, Name};
 use crate::user::windows::gui::windows::{
@@ -37,6 +37,9 @@ const SWP_KEEP_CURRENT: u32 =
 const CALLBACK_RETURN_BYTES: u32 = 24;
 const DEFAULT_IME_HANDLE: u32 = 8;
 const THREAD_DEFAULT_IME_HANDLE: u32 = 3;
+const THREAD_DEFAULT_INPUT_CONTEXT: u32 = 4;
+const THREAD_MESSAGE_TIME: u32 = 9;
+const THREAD_IMM_CLIENT_STATE: u32 = 0x0b;
 const THREAD_IME_COMPAT_FLAGS: u32 = 0x0d;
 const DEFAULT_DIMENSION: i32 = i32::MIN;
 const DEFAULT_IME_EXTRA_BYTES: u32 = 8;
@@ -306,9 +309,20 @@ pub(super) fn set_position(
     Ok(1)
 }
 
-pub(super) fn get_thread_state(p: &Proc, t: &Thread, [query]: [u64; 1]) -> Result<u64, Outcome> {
+pub(super) fn get_thread_state(
+    p: &mut Proc,
+    t: &Thread,
+    [query]: [u64; 1],
+) -> Result<u64, Outcome> {
     match query as u32 {
         THREAD_DEFAULT_IME_HANDLE => default_ime_window(p, t.tid),
+        THREAD_DEFAULT_INPUT_CONTEXT => input_contexts::default(p, t),
+        THREAD_MESSAGE_TIME if p.arch == WinArch::Arm64 => Ok(u64::from(
+            p.gui.threads[&t.tid].messages.last_message_time(),
+        )),
+        // Installed IMM32 consumes this state during ImmLockClientImc.
+        // The selected thread profile returns zero before and after retrieval.
+        THREAD_IMM_CLIENT_STATE if p.arch == WinArch::Arm64 => Ok(0),
         // The selected native ARM64 process has no legacy IME compatibility flags.
         THREAD_IME_COMPAT_FLAGS if p.arch == WinArch::Arm64 => Ok(0),
         query => Err(failure(format!(
@@ -432,6 +446,7 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
     procedure_bridge(p)?;
     if matches!(kind, WindowKind::Overlapped { .. }) && !p.gui.threads[&t.tid].ime_disabled {
         ime_procedure(p, false)?;
+        input_contexts::default(p, t)?;
     }
     let creation = Creation {
         kind,
@@ -474,12 +489,7 @@ fn open_window(
     class: std::rc::Rc<Class>,
     creation: Creation,
 ) -> Result<u32, Outcome> {
-    let csr = p
-        .object_namespace
-        .selected_csr_server()
-        .ok()
-        .and_then(|server| server.client_data.clone())
-        .ok_or_else(|| failure("window creation requires the selected CSR USER table"))?;
+    let csr = selected_user_client_data(p)?;
     p.gui
         .open_window(&mut p.vm, p.pid, tid, class, creation, &csr)
         .map_err(|error| failure(format!("GUI window data view: {error:?}")))
