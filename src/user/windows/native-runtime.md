@@ -3946,8 +3946,15 @@ This port binds interface `fb8a0729-2d04-4658-be93-27b4ad553fac` version 1.0.
 The installed ARM64 client negotiates NDR64. Operation 0 returns a policy
 context for a measured `POLICY_LOOKUP_NAMES` request and operation 1 closes
 it. The same association owns the context across duplicate port handles.
-The native client also sends operation 2 to look up its account SID.
-Account translation is outside the currently implemented endpoint profile.
+Operation 2 translates one SID when it matches the selected primary token
+and the caller holds the live policy context. On the observed ARM64 build,
+the installed provider obtains the account and domain once using the local
+policy lookup for its own primary token. The lookup uses a query-only grant
+and closes the host policy handle during selection. The response preserves
+the counted UTF-16 names and referenced domain SID. The guest call never
+passes a SID or a system name to a host API.
+[Windows LsaLookupSids2](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsalookupsids2)
+[MS-RPCE NDR64 conformant varying arrays](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rpce/0559c108-7705-448c-82a7-1c1a56e02650)
 
 ### Selected token pointer records
 

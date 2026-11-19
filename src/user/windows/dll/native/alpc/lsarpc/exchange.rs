@@ -63,7 +63,7 @@ pub(in crate::user::windows::dll::native) fn exchange(
                     policy::response(payload, request_type, association, &peer.policies)
                 }
                 LsarpcInterface::PolicyLookup => {
-                    policy_lookup::response(payload, request_type, association, &peer.policies)
+                    policy_lookup::response(c, payload, request_type, association, &peer.policies)
                 }
             };
             response.ok_or_else(|| {

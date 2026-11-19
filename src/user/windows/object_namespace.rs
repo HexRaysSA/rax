@@ -128,6 +128,7 @@ pub(crate) mod security_device;
 pub use file_data::FileSection;
 mod image;
 mod named;
+pub(crate) mod policy_lookup;
 pub(crate) mod rpc_security;
 mod section;
 pub use data::DataSection;
@@ -229,6 +230,7 @@ pub(crate) struct Namespace {
     wow_section_root: Option<Arc<Directory>>,
     csr_server: Option<Arc<csr::CsrServer>>,
     pub(crate) activation_context: Option<Arc<csr::activation::ActivationContext>>,
+    pub(crate) policy_lookup_account: Option<Arc<policy_lookup::PrimaryAccount>>,
     cache_server: Option<Arc<cache::CacheServer>>,
     security_device: Option<security_device::SecurityDevice>,
     cng_device: Option<security_device::SecurityDevice>,
@@ -489,6 +491,7 @@ impl Namespace {
             wow_section_root: None,
             csr_server: None,
             activation_context: None,
+            policy_lookup_account: None,
             cache_server: None,
             security_device: None,
             cng_device: None,

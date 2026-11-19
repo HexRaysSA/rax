@@ -13,6 +13,7 @@ mod bind;
 mod exchange;
 mod policy;
 mod policy_lookup;
+mod translate;
 
 pub(super) use exchange::exchange;
 pub(super) const MAX_MESSAGE: usize = 4096;

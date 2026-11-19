@@ -170,6 +170,14 @@ impl NativeRuntime {
             .ok_or_else(|| invalid("native primary-token session is not captured"))?;
         runtime.object_namespace =
             super::object_namespace::snapshot(runtime.registry.upcase_table(), token_session)?;
+        if arch == WinArch::Arm64
+            && (runtime.version.major, runtime.version.minor, runtime.version.build) == (10, 0, 29708)
+            && runtime.object_namespace.native_machine == Some(0xAA64)
+        {
+            runtime.object_namespace.policy_lookup_account =
+                super::object_namespace::policy_lookup::capture(&subject.user)
+                    .map(std::sync::Arc::new);
+        }
         if token_session == 1
             && arch == WinArch::Arm64
             && (

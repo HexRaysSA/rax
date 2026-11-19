@@ -1,7 +1,11 @@
 use super::lsarpc_connect::invoke;
 use super::*;
 use crate::user::windows::nt::status::{STATUS_INVALID_HANDLE, STATUS_SERVER_SID_MISMATCH};
+use crate::user::windows::object_namespace::policy_lookup::{Name, PrimaryAccount};
 use crate::user::windows::objects::LsarpcInterface;
+use crate::user::windows::security::Subject;
+use crate::user::windows::wnf::Catalog;
+use std::sync::Arc;
 
 const CONNECT: u32 = 0x7c;
 
@@ -135,6 +139,88 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         let context = &reply[24..44];
         assert_ne!(context, [0; 20]);
 
+        let mut domain_sid = vec![1, 4, 0, 0, 0, 0, 0, 5];
+        domain_sid.extend(
+            [21u32, 101, 202, 303]
+                .into_iter()
+                .flat_map(u32::to_le_bytes),
+        );
+        let mut user_sid = domain_sid.clone();
+        user_sid[1] = 5;
+        user_sid.extend(1001u32.to_le_bytes());
+        let subject = Subject {
+            statistics: None,
+            user_attributes: 0,
+            token_pointer_records: Default::default(),
+            empty_claims: Default::default(),
+            user: user_sid.clone(),
+            groups: Vec::new(),
+            restricted: Vec::new(),
+            app_container: false,
+            privileges: Vec::new(),
+            attributes: None,
+        };
+        p.objects
+            .select_wnf_catalog(Catalog::selected(Vec::new(), subject).unwrap());
+        p.native
+            .as_mut()
+            .unwrap()
+            .object_namespace
+            .policy_lookup_account = Some(Arc::new(PrimaryAccount {
+            user_sid: user_sid.clone(),
+            domain_sid: domain_sid.clone(),
+            domain: Name {
+                units: "TESTPC1".encode_utf16().collect(),
+                maximum_units: 8,
+            },
+            account: Name {
+                units: "abc".encode_utf16().collect(),
+                maximum_units: 4,
+            },
+        }));
+
+        let mut lookup = [0; 188];
+        words(
+            &mut lookup,
+            &[
+                (12, 20),
+                (16, 1),
+                (20, 2),
+                (88, 1),
+                (96, 0x20000),
+                (104, 1),
+                (112, 0x20004),
+                (120, 5),
+                (184, 2),
+            ],
+        );
+        lookup[64..84].copy_from_slice(context);
+        lookup[128..156].copy_from_slice(&user_sid);
+        let mut wrong_sid = lookup;
+        wrong_sid[152] ^= 1;
+        assert_translation_rejected(p, &mut thread, base + 0x400, handle, &wrong_sid);
+        for end in [127, 155, 187] {
+            assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup[..end]);
+        }
+
+        let translated = exchange(p, &mut thread, base + 0x400, handle, 0, &lookup);
+        assert_eq!(translated.len(), 288);
+        assert_eq!(read_word(&translated, 0), 3);
+        assert_eq!(read_word(&translated, 12), 20);
+        assert_eq!(read_word(&translated, 32), 1);
+        assert_eq!(read_word(&translated, 48), 32);
+        assert_eq!(read_word(&translated, 88), 8);
+        assert_eq!(read_word(&translated, 104), 7);
+        assert_eq!(&translated[112..126], b"T\0E\0S\0T\0P\0C\x001\0");
+        assert_eq!(read_word(&translated, 128), 4);
+        assert_eq!(&translated[136..160], &domain_sid);
+        assert_eq!(read_word(&translated, 184), 1);
+        assert_eq!(read_word(&translated, 216), 4);
+        assert_eq!(read_word(&translated, 232), 3);
+        assert_eq!(&translated[240..246], b"a\0b\0c\0");
+        assert_eq!(read_word(&translated, 248), 1);
+        assert_eq!(&translated[252..], &[0; 36]);
+
         let mut close = [0; 84];
         words(&mut close, &[(12, 11), (16, 1), (20, 1)]);
         close[64..84].copy_from_slice(context);
@@ -147,6 +233,7 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         let reply = exchange(p, &mut thread, base + 0x400, handle, 0, &close);
         assert_eq!(read_word(&reply, 12), 12);
         assert_eq!(read_word(&reply, 44), STATUS_INVALID_HANDLE);
+        assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup);
     }
 }
 
@@ -168,6 +255,39 @@ fn exchange(
     packet_type: u16,
     payload: &[u8],
 ) -> Vec<u8> {
+    let (result, header, reply, length) = submit(p, thread, arena, handle, packet_type, payload);
+    assert_eq!(result, Outcome::Continue);
+    assert_eq!(thread.cpu.gpr(0), 0);
+    let len = p.space.u16(reply).unwrap();
+    let width = p.arch.ptr_size();
+    assert_eq!(p.space.ptr(length, width).unwrap(), u64::from(len) + header);
+    p.space.bytes(reply + header, usize::from(len)).unwrap()
+}
+
+fn assert_translation_rejected(
+    p: &mut Proc,
+    thread: &mut Thread,
+    arena: u64,
+    handle: u64,
+    payload: &[u8],
+) {
+    let (result, _, reply, length) = submit(p, thread, arena, handle, 0, payload);
+    assert!(
+        matches!(result, Outcome::Fail(ref message) if message.contains("local RPC operation 2")),
+        "{result:?}"
+    );
+    assert_eq!(p.space.u32(reply).unwrap(), 0xc123_4567);
+    assert_eq!(p.space.ptr(length, p.arch.ptr_size()).unwrap(), 512);
+}
+
+fn submit(
+    p: &mut Proc,
+    thread: &mut Thread,
+    arena: u64,
+    handle: u64,
+    packet_type: u16,
+    payload: &[u8],
+) -> (Outcome, u64, u64, u64) {
     let header = if p.arch.is64() { 40 } else { 24 };
     let capacity = 512;
     let reply = arena + capacity;
@@ -181,18 +301,13 @@ fn exchange(
     p.space.w16(arena + 4, packet_type).unwrap();
     p.space.wr(arena + header, payload).unwrap();
     p.space.wptr(length, width, capacity).unwrap();
-    assert_eq!(
-        invoke(
-            p,
-            thread,
-            "NtAlpcSendWaitReceivePort",
-            SERVICE,
-            &[handle, 0x20000, arena, 0, reply, length, 0, 0],
-        ),
-        Outcome::Continue,
+    p.space.w32(reply, 0xc123_4567).unwrap();
+    let result = invoke(
+        p,
+        thread,
+        "NtAlpcSendWaitReceivePort",
+        SERVICE,
+        &[handle, 0x20000, arena, 0, reply, length, 0, 0],
     );
-    assert_eq!(thread.cpu.gpr(0), 0);
-    let len = p.space.u16(reply).unwrap();
-    assert_eq!(p.space.ptr(length, width).unwrap(), u64::from(len) + header);
-    p.space.bytes(reply + header, usize::from(len)).unwrap()
+    (result, header, reply, length)
 }
