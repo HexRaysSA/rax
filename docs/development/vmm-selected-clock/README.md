@@ -29,6 +29,14 @@ with zero retirement do not advance this selected clock. A fully waiting retired
 clock therefore remains frozen; automatic idle advancement is an open default-
 scheduling requirement, not an implicit host-time fallback.
 
+On retired-clock PCs, the coordinator services the software PIC, PIT and local
+APIC before the selected CPU's next instruction. The clock advances when a step
+retires, so a timer that becomes due during a turn can interrupt the next step
+without waiting for the remainder of the 1,000-instruction quantum. An already
+queued PIC request gets precedence over a fresh IRQ0 on the BSP. The PIT also
+publishes an edge to I/O APIC pin 2. The local APIC services pending NMIs at
+the same boundary even when the PIC delivers an interrupt.
+
 For incoming phase p and N retired units:
 
 ```

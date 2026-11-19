@@ -11,6 +11,41 @@ mod routing;
 mod tests;
 
 impl Vmm {
+    pub(super) fn uses_retired_pc_interrupt_timing(&self) -> bool {
+        self.checkpoint_config.arch == ArchKind::X86_64
+            && self.timing_context.mode() == crate::vm::timing::ClockMode::Retired
+    }
+
+    pub(super) fn poll_legacy_pic(&mut self) -> Result<bool> {
+        #[cfg(feature = "debug")]
+        if !self.debugger_allows_cpu(0) {
+            return Ok(false);
+        }
+        let bsp = self
+            .vcpus
+            .first_mut()
+            .ok_or_else(|| Error::InvalidConfig("no vcpu available".into()))?;
+        if bsp.can_inject_interrupt()
+            && let Ok(mut pic) = self.pic.lock()
+        {
+            return pic.try_deliver_pending(|vector| bsp.inject_interrupt(vector));
+        }
+        Ok(false)
+    }
+
+    pub(super) fn service_retired_pc_interrupts(&mut self, index: usize) -> Result<()> {
+        // An existing PIC request gets the first slot on the BSP. A new PIT
+        // edge can otherwise keep lower priority legacy requests waiting.
+        let pic_delivered = index == 0 && self.poll_legacy_pic()?;
+        if self.poll_pc_pit()? {
+            self.route_pc_interrupts()?;
+            if index == 0 && !pic_delivered {
+                self.poll_legacy_pic()?;
+            }
+        }
+        self.poll_local_apic(index)
+    }
+
     fn software_serial_level(&self) -> Result<Option<(u8, bool)>> {
         if self.checkpoint_config.arch != ArchKind::X86_64 || self.vm.uses_native_x86_irqchip() {
             return Ok(None);
@@ -73,10 +108,11 @@ impl Vmm {
     }
 
     /// Publish one timer edge to the existing PIC coalescing path and the PC's
-    /// IRQ0->GSI2 override. All model locks precede timer/source mutation.
-    pub(super) fn poll_pc_pit(&self) -> Result<()> {
+    /// IRQ0->GSI2 override. Return whether a controller received the pulse.
+    /// All model locks precede timer/source mutation.
+    pub(super) fn poll_pc_pit(&self) -> Result<bool> {
         if self.checkpoint_config.arch != ArchKind::X86_64 || self.vm.uses_native_x86_irqchip() {
-            return Ok(());
+            return Ok(false);
         }
         let mut ioapic = self
             .pc_devices
@@ -106,8 +142,9 @@ impl Vmm {
             }
             if pic_accepted || ioapic.is_some() {
                 pit.clear_interrupt();
+                return Ok(true);
             }
         }
-        Ok(())
+        Ok(false)
     }
 }

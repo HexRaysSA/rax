@@ -46,6 +46,7 @@ impl Vmm {
             libc::signal(libc::SIGUSR1, sigusr1_handler as libc::sighandler_t);
         }
 
+        let coordinator_services_pc_interrupts = self.uses_retired_pc_interrupt_timing();
         loop {
             #[cfg(feature = "debug")]
             self.debugger.ready()?;
@@ -162,37 +163,20 @@ impl Vmm {
                 }
             }
 
-            // Deliver device interrupts that were already pending before
-            // sampling the next timer edge. On a slow software backend, adding
-            // IRQ0 first on every host iteration can otherwise indefinitely
-            // starve lower-priority legacy lines such as the serial IRQ4.
-            {
-                #[cfg(feature = "debug")]
-                let delivery_allowed = self.debugger_allows_cpu(0);
-                #[cfg(not(feature = "debug"))]
-                let delivery_allowed = true;
-                let vcpu = self
-                    .vcpus
-                    .get_mut(0)
-                    .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
-
-                if delivery_allowed && vcpu.can_inject_interrupt() {
-                    if let Ok(mut pic) = self.pic.lock() {
-                        pic.try_deliver_pending(|vector| vcpu.inject_interrupt(vector))?;
+            if !coordinator_services_pc_interrupts {
+                // Give existing PIC requests precedence over the next PIT
+                // edge so repeated IRQ0 cannot starve the UART's IRQ4.
+                self.poll_legacy_pic()?;
+                self.poll_pc_pit()?;
+                self.route_interprocessor_requests()?;
+                for index in 0..self.vcpus.len() {
+                    if self.coordinator.online[index] {
+                        #[cfg(feature = "debug")]
+                        if !self.debugger_allows_cpu(index) {
+                            continue;
+                        }
+                        self.poll_local_apic(index)?;
                     }
-                }
-            }
-
-            self.poll_pc_pit()?;
-
-            self.route_interprocessor_requests()?;
-            for index in 0..self.vcpus.len() {
-                if self.coordinator.online[index] {
-                    #[cfg(feature = "debug")]
-                    if !self.debugger_allows_cpu(index) {
-                        continue;
-                    }
-                    self.poll_local_apic(index)?;
                 }
             }
 

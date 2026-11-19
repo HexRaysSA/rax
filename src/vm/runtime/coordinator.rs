@@ -162,7 +162,13 @@ impl Vmm {
                 debug_step_completed: false,
             }));
         }
+        let service_pc_interrupts = self.uses_retired_pc_interrupt_timing();
         for _ in 0..DEFAULT_RETIREMENT_QUANTUM {
+            // Retirement updates the VM clock at the end of each step. Give
+            // timers and queued controllers that boundary before another step.
+            if service_pc_interrupts {
+                self.service_retired_pc_interrupts(index)?;
+            }
             let result = self.vcpus[index].run_retirement_budget(1)?;
             self.coordinator.retired = self.coordinator.retired.wrapping_add(result.retired);
             self.route_interprocessor_requests()?;

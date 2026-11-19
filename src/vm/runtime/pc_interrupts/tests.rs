@@ -1,4 +1,5 @@
 //! Actual VMM source/controller ownership and detached checkpoint continuation.
+use super::super::execution_tests::{BSP, Fixture};
 use super::*;
 use crate::config::CliConfig;
 use crate::vm::snapshot::SnapshotBundle;
@@ -247,6 +248,151 @@ fn program(vm: &mut Vmm, pin: u8, vector: u8, destination: u8, level: bool) {
         .unwrap();
     let low = u32::from(vector) | (u32::from(level) << 15);
     vm.mmio_bus.write(0xfec0_0010, &low.to_le_bytes()).unwrap();
+}
+
+fn prepare_retired_timer_guest(fixture: &mut Fixture, cpu_index: usize, vector: u8, finish: &[u8]) {
+    let mut guest = vec![0x90; 16];
+    guest.extend_from_slice(finish);
+    fixture.write(BSP, &guest);
+    // Copy the interrupted EIP out of the 32-bit interrupt frame.
+    let mut handler = vec![0x8b, 0x04, 0x24, 0xa3, 0, 0x70, 0, 0];
+    handler.extend_from_slice(finish);
+    fixture.write(0xa000, &handler);
+    fixture.write(u64::from(vector) * 8, &[0, 0xa0, 8, 0, 0, 0x8e, 0, 0]);
+    let vm = &mut fixture.vm;
+    let CpuState::X86_64(mut state) = vm.vcpus[0].get_state().unwrap() else {
+        unreachable!();
+    };
+    state.regs.rflags = 0x202;
+    state.sregs.gdt.base = 0x7300;
+    state.sregs.gdt.limit = 23;
+    state.sregs.idt.base = 0;
+    state.sregs.idt.limit = 2047;
+    vm.vcpus[cpu_index]
+        .set_state(&CpuState::X86_64(state))
+        .unwrap();
+}
+
+fn assert_retired_timer_delivery(vm: &Vmm, retired: u64) {
+    let mut saved_eip = [0; 4];
+    vm.guest_mem
+        .memory()
+        .read_slice(&mut saved_eip, vm_memory::GuestAddress(0x7000))
+        .unwrap();
+    assert_eq!(u64::from(u32::from_le_bytes(saved_eip)), BSP + 6);
+    assert_eq!(vm.coordinator.retired, retired);
+    assert_eq!(vm.timing_context.checkpoint_state().retired_units, retired);
+}
+
+fn retired_timer_delivery(vector: u8, program_timer: impl FnOnce(&mut Vmm)) {
+    let mut fixture = Fixture::with_retired_clock();
+    prepare_retired_timer_guest(&mut fixture, 0, vector, &[0xf4]);
+    let vm = &mut fixture.vm;
+    let clock = vm.timing_context.clone();
+    let _scope = clock.enter();
+    program_timer(vm);
+    let turn = vm.execute_turn().unwrap().unwrap();
+    assert!(matches!(turn.exit, VcpuExit::Hlt));
+    assert_retired_timer_delivery(vm, 9); // Six NOPs and three handler instructions.
+}
+
+#[test]
+fn retired_lapic_expiry_interrupts_the_next_guest_instruction() {
+    retired_timer_delivery(0x41, |vm| {
+        let mut lapic = vm.local_apics[0].lock().unwrap();
+        lapic.write_register(0x3e0, 0xb); // Divide by one, 1 GHz.
+        lapic.write_register(0x320, 0x41);
+        lapic.write_register(0x380, 2); // 2 ns = six retired instructions.
+    });
+}
+
+fn program_retired_pit_edge(vm: &mut Vmm) {
+    // Mode 0 loads at oscillator tick 1 and expires at tick 3.
+    vm.io_bus.write(0x43, &[0x10]).unwrap();
+    vm.io_bus.write(0x40, &[2]).unwrap();
+    let edge = 3_000_000_000u64.div_ceil(crate::vm::timing::PIT_FREQUENCY_HZ);
+    vm.timing_context.set_resume_base(edge - 2);
+}
+
+#[test]
+fn retired_pit_expiry_interrupts_the_next_guest_instruction_through_pic() {
+    retired_timer_delivery(0x40, |vm| {
+        for (port, byte) in [(0x20, 0x13), (0x21, 0x40), (0x21, 0x01), (0x21, 0xfe)] {
+            vm.io_bus.write(port, &[byte]).unwrap();
+        }
+        program_retired_pit_edge(vm);
+    });
+}
+
+#[test]
+fn retired_pit_expiry_interrupts_the_next_guest_instruction_through_ioapic() {
+    retired_timer_delivery(0x41, |vm| {
+        vm.io_bus.write(0x21, &[0xff]).unwrap();
+        program(vm, 2, 0x41, 0, false);
+        program_retired_pit_edge(vm);
+    });
+}
+
+#[test]
+fn retired_pc_delivers_a_pending_nmi_before_the_pic_handler_executes() {
+    let mut fixture = Fixture::with_retired_clock();
+    prepare_retired_timer_guest(&mut fixture, 0, 0x40, &[0xf4]);
+    fixture.write(0xa000, &[0xc6, 0x05, 0, 0x70, 0, 0, 0x11, 0xf4]);
+    fixture.write(0xa100, &[0xc6, 0x05, 1, 0x70, 0, 0, 0x22, 0xf4]);
+    fixture.write(2 * 8, &[0, 0xa1, 8, 0, 0, 0x8e, 0, 0]);
+    let vm = &mut fixture.vm;
+    for (port, byte) in [(0x20, 0x13), (0x21, 0x40), (0x21, 0x01), (0x21, 0xfe)] {
+        vm.io_bus.write(port, &[byte]).unwrap();
+    }
+    vm.pic.lock().unwrap().pulse_irq(0);
+    vm.local_apics[0].lock().unwrap().set_pending_nmi();
+
+    let turn = vm.execute_turn().unwrap().unwrap();
+    assert!(matches!(turn.exit, VcpuExit::Hlt));
+    let mut markers = [0; 2];
+    vm.guest_mem
+        .memory()
+        .read_slice(&mut markers, vm_memory::GuestAddress(0x7000))
+        .unwrap();
+    assert_eq!(markers, [0, 0x22]);
+}
+
+#[test]
+fn detached_retired_pc_delivers_pit_to_the_selected_ap_at_the_same_instruction() {
+    let power_off = [0x66, 0xba, 4, 6, 0x66, 0xb8, 0, 0x20, 0x66, 0xef];
+    for count in [2, 4] {
+        let mut fixture = Fixture::with_retired_cpus(count);
+        let cpu_index = usize::from(count - 1);
+        prepare_retired_timer_guest(&mut fixture, cpu_index, 0x41, &power_off);
+        let source = &mut fixture.vm;
+        source.coordinator.online.fill(true);
+        source.coordinator.cursor = cpu_index;
+        let clock = source.timing_context.clone();
+        let scope = clock.enter();
+        source.io_bus.write(0x21, &[0xff]).unwrap();
+        program(source, 2, 0x41, count - 1, false);
+        program_retired_pit_edge(source);
+        let file = RemoveFile::new();
+        source
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&file.0)
+            .unwrap();
+        drop(scope);
+        drop(fixture);
+
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut restored = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        restored.run().unwrap();
+        assert_retired_timer_delivery(&restored, 11); // Six NOPs and five handler instructions.
+        for (id, cpu) in restored.vcpus.iter().enumerate() {
+            assert_eq!(
+                cpu.instruction_count(),
+                if id == cpu_index { 11 } else { 0 }
+            );
+        }
+    }
 }
 
 fn remote(vm: &mut Vmm, pin: u8) -> bool {

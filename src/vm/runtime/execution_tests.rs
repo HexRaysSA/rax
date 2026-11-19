@@ -33,7 +33,11 @@ impl Fixture {
     }
 
     pub(super) fn with_retired_clock() -> Self {
-        Self::with_devices(1, 128 << 20, false, ClockMode::Retired)
+        Self::with_retired_cpus(1)
+    }
+
+    pub(super) fn with_retired_cpus(count: u8) -> Self {
+        Self::with_devices(count, 128 << 20, false, ClockMode::Retired)
     }
 
     fn with_devices(count: u8, bytes: u64, pci_devices: bool, clock_mode: ClockMode) -> Self {
