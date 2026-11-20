@@ -173,6 +173,105 @@ fn fixture(code: &[u8]) -> (Context, Ram, ExitRecord) {
 }
 
 #[test]
+fn legacy_movd_and_movq_plan_the_guest_width_and_xmm_lane() {
+    for (code, size, index, read) in [
+        (&[0x66, 0x0f, 0x6e, 0x07][..], 4, 0, true),
+        (&[0x66, 0x44, 0x0f, 0x7e, 0x3f], 4, 15, false),
+        (&[0x66, 0x4c, 0x0f, 0x6e, 0x3f], 8, 15, true),
+        (&[0x66, 0x48, 0x0f, 0x7e, 0x07], 8, 0, false),
+        (&[0xf3, 0x44, 0x0f, 0x7e, 0x3f], 8, 15, true),
+        (&[0x66, 0x0f, 0xd6, 0x07], 8, 0, false),
+    ] {
+        let (context, mut ram, mut record) = fixture(code);
+        record.qualification = if read { 0x181 } else { 0x182 };
+        let plan = prepare(&context, &mut ram, record).unwrap();
+        let transfer = match plan.action {
+            Action::XmmRead(transfer) if read => transfer,
+            Action::XmmWrite(transfer) if !read => transfer,
+            _ => panic!("wrong plan direction for {code:02x?}"),
+        };
+        assert_eq!(plan.physical, record.physical);
+        assert_eq!((transfer.index, transfer.size), (index, size));
+        assert_eq!(transfer.length, code.len() as u64);
+        assert_eq!(transfer.length, plan.length);
+        assert!(
+            ram.reads
+                .iter()
+                .all(|&(address, _)| address != record.physical)
+        );
+        record.qualification ^= 3;
+        assert!(prepare(&context, &mut ram, record).is_err());
+    }
+}
+
+#[test]
+fn xmm_reply_is_zero_extended_and_retired_once_after_publication() {
+    #[derive(Default)]
+    struct Host {
+        xmm: Vec<(u8, [u8; 16])>,
+        retired: Vec<u64>,
+        fail_write: bool,
+    }
+    impl mmio::CompletionAccess for Host {
+        type Error = &'static str;
+        fn write_gpr(&mut self, _index: usize, _value: u64) -> Result<(), Self::Error> {
+            panic!("XMM MMIO changes no GPR")
+        }
+        fn write_rflags(&mut self, _flags: u64) -> Result<(), Self::Error> {
+            panic!("XMM MMIO changes no flags")
+        }
+        fn write_xmm(&mut self, index: u8, value: [u8; 16]) -> Result<(), String> {
+            if self.fail_write {
+                return Err("write failed".into());
+            }
+            self.xmm.push((index, value));
+            Ok(())
+        }
+        fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error> {
+            assert_eq!(self.xmm.len(), 1);
+            self.retired.push(length);
+            Ok(())
+        }
+    }
+
+    for size in [4, 8] {
+        for (reply_size, fail_write) in [(size, false), (size - 1, false), (size, true)] {
+            let mut pending = mmio::InputState::default();
+            pending
+                .begin_xmm(mmio::XmmTransfer {
+                    index: 15,
+                    size,
+                    length: 5,
+                })
+                .unwrap();
+            let mut host = Host {
+                fail_write,
+                ..Host::default()
+            };
+            assert_eq!(pending.descriptor(), Some((size, None)));
+            assert!(pending.validate_checkpoint().is_ok());
+            let reply = &0x8877_6655_4433_2211u64.to_le_bytes()[..usize::from(reply_size)];
+            pending.complete(&mut host, reply);
+            if reply_size != size || fail_write {
+                assert!(pending.ready().is_err());
+                assert!(pending.validate_checkpoint().is_ok());
+                assert!(host.xmm.is_empty() && host.retired.is_empty());
+                pending.complete(&mut host, &[0; 8]);
+                assert!(host.xmm.is_empty() && host.retired.is_empty());
+                continue;
+            }
+            let mut expected = [0; 16];
+            expected[..reply.len()].copy_from_slice(reply);
+            assert_eq!(host.xmm, [(15, expected)]);
+            assert_eq!(host.retired, [5]);
+            assert!(pending.ready().is_ok());
+            pending.complete(&mut host, reply);
+            assert_eq!(host.retired, [5]);
+        }
+    }
+}
+
+#[test]
 fn load_register_parts_and_zero_extension_are_exact() {
     for (code, index, bits, shift) in [
         (&[0x8a, 0x07][..], 0, 8, 0),
@@ -696,6 +795,7 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             Action::Rmw(_) => panic!("MOV reference case produced an RMW plan"),
             Action::AluRead(_) => panic!("MOV reference case produced an ALU read plan"),
             Action::Divide(_) => panic!("MOV reference case produced a divide plan"),
+            Action::XmmRead(_) | Action::XmmWrite(_) => panic!("unexpected XMM plan for GPR MOV"),
         }
         let record = &raw[12 + i * 152..12 + (i + 1) * 152];
         let actual: [u64; 16] = std::array::from_fn(|index| quad(record, index * 8));

@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 pub(crate) const MAX_IMAGE: usize = 1024 * 1024;
 const HEADER_END: usize = 576;
 const COMPACTED: u64 = 1 << 63;
+const XMM_START: usize = 160;
+const XMM_COUNT: u8 = 16;
+const XMM_BYTES: usize = 16;
 
 #[cfg(test)]
 #[path = "intel_xsave_tests.rs"]
@@ -16,6 +19,13 @@ mod tests;
 
 fn invalid(message: impl std::fmt::Display) -> Error {
     Error::InvalidConfig(format!("native Intel XSAVE: {message}"))
+}
+
+fn xmm_offset(index: u8) -> Result<usize> {
+    if index >= XMM_COUNT {
+        return Err(invalid("XMM register index exceeds the legacy bank"));
+    }
+    Ok(XMM_START + usize::from(index) * XMM_BYTES)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -204,12 +214,34 @@ impl Layout {
             standard[32..160].fill(0);
         }
         if present & 2 == 0 {
-            standard[160..416].fill(0);
+            standard[XMM_START..XMM_START + usize::from(XMM_COUNT) * XMM_BYTES].fill(0);
             if compact != 0 {
                 standard[24..28].copy_from_slice(&0x1f80u32.to_le_bytes());
             }
         }
         Ok(standard)
+    }
+
+    pub(crate) fn read_xmm(&self, image: &[u8], index: u8) -> Result<[u8; XMM_BYTES]> {
+        let offset = xmm_offset(index)?;
+        self.validate_image(image)?;
+        if u64_at(image, 512) & 2 == 0 {
+            return Ok([0; XMM_BYTES]);
+        }
+        Ok(image[offset..offset + XMM_BYTES].try_into().unwrap())
+    }
+
+    pub(crate) fn overlay_xmm(
+        &self,
+        image: &[u8],
+        index: u8,
+        value: [u8; XMM_BYTES],
+    ) -> Result<Vec<u8>> {
+        let offset = xmm_offset(index)?;
+        let mut image = self.standard(image)?;
+        image[offset..offset + XMM_BYTES].copy_from_slice(&value);
+        image[512] |= 2;
+        Ok(image)
     }
 
     pub fn project(&self, image: &[u8], registers: &mut Registers) -> Result<EmulatorState> {

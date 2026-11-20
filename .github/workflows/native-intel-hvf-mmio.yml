@@ -23,6 +23,7 @@ on:
           - bit-count
           - movbe
           - movnti
+          - legacy-xmm
           - cmpxchg8b
           - cmpxchg16b
           - implicit-multiply

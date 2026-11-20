@@ -84,6 +84,80 @@ pub(super) fn host_step(cpu: &mut dyn VCpu, enabled: bool) {
 }
 
 #[test]
+fn legacy_xmm_mmio_resumes_without_reentering_and_preserves_the_other_simd_lanes() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    for (code, size, reading) in [
+        (&[0x66, 0x44, 0x0f, 0x6e, 0x3b][..], 4, true),
+        (&[0x66, 0x4c, 0x0f, 0x7e, 0x3b][..], 8, false),
+    ] {
+        let qualification = if reading { 0x181 } else { 0x182 };
+        let (vm, memory, mut source) = seeded(code, qualification, false);
+        let mut fp = {
+            let mut sdk = SDK.lock().unwrap();
+            let cpu = sdk.cpus.values_mut().next().unwrap();
+            cpu.fpstate[512] |= 6; // Legacy SSE and YMM use.
+            cpu.fpstate[160..416].fill(0xa5);
+            cpu.fpstate[400..408].copy_from_slice(&0x8877_6655_4433_2211u64.to_le_bytes());
+            cpu.fpstate[576..832].fill(0x5a);
+            cpu.fpstate.clone()
+        };
+        let exit = source.run().unwrap();
+        match exit {
+            VcpuExit::MmioRead {
+                size: expected,
+                addr,
+            } if reading => {
+                assert_eq!(expected, size);
+                assert_eq!(addr, 0xfee0_0000);
+            }
+            VcpuExit::MmioWrite { ref data, addr } if !reading => {
+                assert_eq!(data.as_slice(), &fp[400..408]);
+                assert_eq!(addr, 0xfee0_0000);
+            }
+            _ => panic!("unexpected exit {exit:?}"),
+        }
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let (public, private) = source.capture_checkpoint_record(&boundary, None).unwrap();
+        drop(boundary);
+        drop(source);
+        drop(vm);
+        drop(memory);
+
+        let (vm, memory, mut target) = seeded(code, qualification, false);
+        target
+            .restore_checkpoint_context(&public.state, &public.emulator, private.as_ref())
+            .unwrap();
+        let before = entries();
+        assert_eq!(format!("{:?}", target.run().unwrap()), format!("{exit:?}"));
+        assert_eq!(entries(), before);
+        if reading {
+            target.complete_io_in(&[0x21, 0x43, 0x65, 0x87]);
+            fp[400..404].copy_from_slice(&[0x21, 0x43, 0x65, 0x87]);
+            fp[404..416].fill(0);
+        } else {
+            target.complete_io_out().unwrap();
+        }
+        target.io_completion_result().unwrap();
+        assert_eq!(entries(), before);
+        let CpuState::X86_64(state) = target.get_state().unwrap() else {
+            panic!("wrong architecture")
+        };
+        assert_eq!(state.regs.rip, 0x100 + code.len() as u64);
+        assert_eq!(state.regs.rax, 2);
+        assert_eq!(state.regs.rflags & 0x1_0300, 0x300);
+        let sdk = SDK.lock().unwrap();
+        let cpu = sdk.cpus.values().next().unwrap();
+        assert_eq!(cpu.fpstate, fp);
+        drop(sdk);
+        drop(target);
+        drop(vm);
+        drop(memory);
+    }
+}
+
+#[test]
 fn scalar_mmio_data_breakpoint_is_pending_after_device_completion() {
     let _serial = SERIAL
         .lock()

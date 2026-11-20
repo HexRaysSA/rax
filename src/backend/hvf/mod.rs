@@ -855,6 +855,12 @@ impl HvfCore {
         self.advance_rip(length)
     }
 
+    fn begin_mmio_write(&mut self, addr: u64, length: u64, data: Vec<u8>) -> Result<VcpuExit> {
+        self.output
+            .begin(VcpuExit::MmioWrite { addr, data }, length)
+            .map_err(Error::Emulator)
+    }
+
     fn host_bit_count_decoding() -> mmio::BitCountDecoding {
         let tzcnt: u8;
         let lzcnt: u8;
@@ -1235,16 +1241,22 @@ impl run_loop::ExitHandler for HvfCore {
                     size,
                 })
             }
-            mmio::Action::Write(data) => self
-                .output
-                .begin(
-                    VcpuExit::MmioWrite {
-                        addr: plan.physical,
-                        data,
-                    },
-                    plan.length,
-                )
-                .map_err(Error::Emulator),
+            mmio::Action::Write(data) => self.begin_mmio_write(plan.physical, plan.length, data),
+            mmio::Action::XmmRead(input) => {
+                let size = input.size;
+                self.mmio_input.begin_xmm(input).map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size,
+                })
+            }
+            mmio::Action::XmmWrite(input) => {
+                let layout = &self.native_profile()?.xsave;
+                let bytes = intel_fp::read(self.vcpu_id, layout)?;
+                let value = layout.read_xmm(&bytes, input.index)?;
+                let data = value[..usize::from(input.size)].to_vec();
+                self.begin_mmio_write(plan.physical, plan.length, data)
+            }
             mmio::Action::Rmw(input) => {
                 let size = input.size;
                 let operation = input.operation;
@@ -1436,6 +1448,20 @@ impl HvfCore {
                 }
                 fn write_rflags(&mut self, flags: u64) -> Result<()> {
                     write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RFLAGS, flags)
+                }
+                fn write_xmm(
+                    &mut self,
+                    index: u8,
+                    value: [u8; 16],
+                ) -> std::result::Result<(), String> {
+                    let write = || -> Result<()> {
+                        let id = self.vcpu.vcpu_id;
+                        let layout = &self.vcpu.native_profile()?.xsave;
+                        let bytes = intel_fp::read(id, layout)?;
+                        let updated = layout.overlay_xmm(&bytes, index, value)?;
+                        intel_fp::write(id, layout, &updated)
+                    };
+                    write().map_err(|error| error.to_string())
                 }
                 fn finish_instruction(&mut self, length: u64) -> Result<()> {
                     self.vcpu.retire_mmio(length)

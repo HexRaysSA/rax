@@ -42,6 +42,8 @@ mod multiply;
 mod nmi_window;
 #[path = "intel_mmio_popcnt.rs"]
 mod popcnt;
+#[path = "intel_mmio_xmm.rs"]
+mod xmm;
 
 fn word(memory: &GuestMemoryWrapper, address: u64, value: u64) {
     memory
@@ -1317,6 +1319,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--legacy-xmm")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        xmm::run(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--crc32")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

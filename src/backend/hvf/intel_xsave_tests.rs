@@ -58,6 +58,56 @@ fn init_components_ignore_stale_bytes() {
 }
 
 #[test]
+fn xmm_mmio_overlay_preserves_active_non_destination_state() {
+    let layout = layout();
+    let mut bytes = image(&layout);
+    bytes[512..520].copy_from_slice(&7u64.to_le_bytes());
+    bytes[24..28].copy_from_slice(&0x3f80u32.to_le_bytes());
+    bytes[32..160].fill(0x12);
+    bytes[160..416].fill(0x34);
+    bytes[576..832].fill(0x56);
+    let source = bytes.clone();
+
+    for index in [0, 15] {
+        let offset = 160 + usize::from(index) * 16;
+        assert_eq!(layout.read_xmm(&bytes, index).unwrap(), [0x34; 16]);
+        let value = [0xf0; 16];
+        let changed = layout.overlay_xmm(&bytes, index, value).unwrap();
+        assert_eq!(layout.read_xmm(&changed, index).unwrap(), value);
+        assert_eq!(&changed[..offset], &bytes[..offset]);
+        assert_eq!(&changed[offset + 16..], &bytes[offset + 16..]);
+    }
+    assert!(layout.read_xmm(&bytes, 16).is_err());
+    assert!(layout.overlay_xmm(&bytes, 16, [0; 16]).is_err());
+    assert_eq!(bytes, source);
+}
+
+#[test]
+fn xmm_mmio_materializes_initial_lanes_before_setting_sse_in_use() {
+    let layout = layout();
+    for compact in [0, COMPACTED | 5] {
+        let mut bytes = image(&layout);
+        bytes[512..520].copy_from_slice(&5u64.to_le_bytes());
+        bytes[520..528].copy_from_slice(&compact.to_le_bytes());
+        bytes[24..28].copy_from_slice(&0x3f80u32.to_le_bytes());
+        bytes[160..416].fill(0xa5);
+        bytes[576..832].fill(0x5a);
+        assert_eq!(layout.read_xmm(&bytes, 15).unwrap(), [0; 16]);
+        let value = [0xff; 16];
+        let changed = layout.overlay_xmm(&bytes, 15, value).unwrap();
+        assert_eq!(layout.read_xmm(&changed, 15).unwrap(), value);
+        assert_eq!(&changed[160..400], &[0; 240]);
+        assert_eq!(&changed[576..832], &[0x5a; 256]);
+        assert_eq!(u64_at(&changed, 512), 7);
+        assert_eq!(u64_at(&changed, 520), 0);
+        assert_eq!(
+            u32_at(&changed, 24),
+            if compact == 0 { 0x3f80 } else { 0x1f80 }
+        );
+    }
+}
+
+#[test]
 fn x87_logical_slots_recover_physical_registers_and_full_tags() {
     let layout = layout();
     let mut bytes = image(&layout);

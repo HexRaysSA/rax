@@ -188,6 +188,37 @@ impl Input {
         Ok(self.destination.merge(self.original, extended))
     }
 }
+/// A legacy MOVD/MOVQ transfer involving the low bytes of an XMM register.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct XmmTransfer {
+    pub(crate) index: u8,
+    pub(crate) size: u8,
+    pub(crate) length: u64,
+}
+
+impl XmmTransfer {
+    fn validate(&self) -> Result<(), String> {
+        if self.index >= 16 || !matches!(self.size, 4 | 8) || !(1..=15).contains(&self.length) {
+            return Err("invalid HVF MMIO XMM transfer descriptor".into());
+        }
+        Ok(())
+    }
+
+    fn load(&self, data: &[u8]) -> Result<[u8; 16], String> {
+        self.validate()?;
+        if data.len() != usize::from(self.size) {
+            return Err(format!(
+                "HVF MMIO XMM input expected {} bytes, received {}",
+                self.size,
+                data.len()
+            ));
+        }
+        let mut value = [0; 16];
+        value[..data.len()].copy_from_slice(data);
+        Ok(value)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) enum Action {
     Read(Input),
@@ -195,6 +226,8 @@ pub(crate) enum Action {
     Rmw(RmwInput),
     AluRead(AluReadInput),
     Divide(DivideInput),
+    XmmRead(XmmTransfer),
+    XmmWrite(XmmTransfer),
 }
 #[derive(Clone, Debug)]
 pub(crate) struct Plan {
@@ -332,6 +365,62 @@ fn validate_memory<M: PhysicalMemory>(
     Ok(())
 }
 
+fn prepare_xmm<M: PhysicalMemory>(
+    context: &Context,
+    memory: &mut M,
+    record: ExitRecord,
+    instruction: &Instruction,
+    read: bool,
+) -> Result<Plan, String> {
+    let [destination, source] = instruction.operands.as_slice() else {
+        return Err("XMM MMIO transfer requires two operands".into());
+    };
+    let (xmm, operand) = if read {
+        (destination, source)
+    } else {
+        (source, destination)
+    };
+    let size = if instruction.mnemonic == "movd" { 4 } else { 8 };
+    if !instruction.operands_complete
+        || instruction.flow != Flow::Next
+        || operand.kind != OperandKind::Memory
+        || operand.width_bits != 8 * u32::from(size)
+        || operand.read != read
+        || operand.write == read
+        || operand.conditional
+        || xmm.kind != OperandKind::Register
+        || xmm.width_bits != 128
+        || xmm.read == read
+        || xmm.write != read
+        || xmm.conditional
+    {
+        return Err("wrong operands or direction for legacy XMM MMIO transfer".into());
+    }
+    let index = xmm
+        .reg
+        .strip_prefix("xmm")
+        .and_then(|index| index.parse().ok())
+        .ok_or("invalid XMM register index")?;
+    let length = u64::from(instruction.size);
+    let transfer = XmmTransfer {
+        index,
+        size,
+        length,
+    };
+    transfer.validate()?;
+    validate_memory(context, memory, record, operand, size)?;
+    Ok(Plan {
+        physical: record.physical,
+        linear: record.linear,
+        length,
+        action: if read {
+            Action::XmmRead(transfer)
+        } else {
+            Action::XmmWrite(transfer)
+        },
+    })
+}
+
 pub(crate) fn prepare<M: PhysicalMemory>(
     context: &Context,
     memory: &mut M,
@@ -360,6 +449,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     }
     if read == write {
         return Err("scalar MMIO direction disagrees with instruction effects".into());
+    }
+    if matches!(instruction.mnemonic.as_str(), "movd" | "movq") {
+        return prepare_xmm(context, memory, record, &instruction, read);
     }
     if matches!(instruction.mnemonic.as_str(), "div" | "idiv") {
         return divide::prepare(context, memory, record, &instruction);
@@ -548,6 +640,9 @@ pub(crate) trait CompletionAccess {
     type Error: std::fmt::Display;
     fn write_gpr(&mut self, index: usize, value: u64) -> Result<(), Self::Error>;
     fn write_rflags(&mut self, flags: u64) -> Result<(), Self::Error>;
+    fn write_xmm(&mut self, _index: u8, _value: [u8; 16]) -> Result<(), String> {
+        Err("MMIO host cannot write an XMM register".into())
+    }
     fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
     fn publish_divide_breakpoints(&mut self, _causes: u64) -> Result<(), String> {
         Err("MMIO host cannot publish divide breakpoint causes".into())
@@ -559,6 +654,16 @@ pub(crate) trait CompletionAccess {
 
 type Completion = ([Option<(usize, u64)>; 2], Option<u64>, u64);
 
+enum Effect {
+    Scalar(Completion),
+    Xmm {
+        index: u8,
+        value: [u8; 16],
+        length: u64,
+    },
+    DivideError,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 enum Pending {
     Read(Input),
@@ -568,6 +673,7 @@ enum Pending {
         input: DivideInput,
         data_causes: u64,
     },
+    Xmm(XmmTransfer),
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
@@ -597,6 +703,7 @@ impl InputState {
             Pending::AluRead(input) => (input.size, None),
             Pending::Divide { input, .. } => (input.size, None),
             Pending::Rmw(input) => (input.size, Some(input.operation)),
+            Pending::Xmm(input) => (input.size, None),
         })
     }
     pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {
@@ -611,6 +718,7 @@ impl InputState {
             Some(Pending::Read(input)) => Self::default().begin(input.clone())?,
             Some(Pending::Rmw(input)) => input.validate()?,
             Some(Pending::AluRead(input)) => input.validate()?,
+            Some(Pending::Xmm(input)) => input.validate()?,
             Some(Pending::Divide { input, data_causes }) => {
                 Self::validate_divide(input, *data_causes)?;
             }
@@ -654,6 +762,12 @@ impl InputState {
         self.pending = Some(Pending::AluRead(input));
         Ok(())
     }
+    pub(crate) fn begin_xmm(&mut self, input: XmmTransfer) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        input.validate()?;
+        self.pending = Some(Pending::Xmm(input));
+        Ok(())
+    }
     fn validate_divide(input: &DivideInput, data_causes: u64) -> Result<(), String> {
         input.validate()?;
         // Pending-debug B0–B3 plus the enabled-breakpoint bit. Every
@@ -688,11 +802,18 @@ impl InputState {
                     Extension::Unselected { clear_upper: false }
                 ))
                 .then_some((input.destination.index, value));
-                Some(([register, None], None, input.length))
+                Effect::Scalar(([register, None], None, input.length))
             }),
-            Pending::Rmw(input) => input.completion(data).map(Some),
-            Pending::AluRead(input) => input.completion(data).map(Some),
-            Pending::Divide { input, .. } => input.completion(data),
+            Pending::Rmw(input) => input.completion(data).map(Effect::Scalar),
+            Pending::AluRead(input) => input.completion(data).map(Effect::Scalar),
+            Pending::Divide { input, .. } => input
+                .completion(data)
+                .map(|value| value.map_or(Effect::DivideError, Effect::Scalar)),
+            Pending::Xmm(input) => input.load(data).map(|value| Effect::Xmm {
+                index: input.index,
+                value,
+                length: input.length,
+            }),
         };
         let completion = match computed {
             Ok(v) => v,
@@ -703,8 +824,19 @@ impl InputState {
         };
         self.reply = Some(data.to_vec());
         let mut apply = || -> Result<(), String> {
-            let Some((registers, flags, length)) = completion else {
-                return host.inject_divide_error();
+            let (registers, flags, length) = match completion {
+                Effect::Scalar(completion) => completion,
+                Effect::DivideError => return host.inject_divide_error(),
+                Effect::Xmm {
+                    index,
+                    value,
+                    length,
+                } => {
+                    host.write_xmm(index, value)?;
+                    return host
+                        .finish_instruction(length)
+                        .map_err(|error| error.to_string());
+                }
             };
             if let Pending::Divide { data_causes, .. } = input
                 && *data_causes != 0

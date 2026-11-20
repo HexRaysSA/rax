@@ -264,6 +264,41 @@ pub(super) fn decode_0f(
             out.operands = vec![dst, rm];
             CMOV[(op & 15) as usize]
         }
+        0x6e | 0x7e | 0xd6 if !ctx.has_rex2() => {
+            let legacy_integer =
+                matches!(op, 0x6e | 0x7e) && ctx.operand_size_override && ctx.rep_prefix.is_none();
+            let sse2_load =
+                op == 0x7e && !ctx.operand_size_override && ctx.rep_prefix == Some(0xf3);
+            let sse2_store = op == 0xd6 && ctx.operand_size_override && ctx.rep_prefix.is_none();
+            if !(legacy_integer || sse2_load || sse2_store) {
+                *unsupported = true;
+                return None;
+            }
+            let size = if !legacy_integer || ctx.rex_w() { 8 } else { 4 };
+            let raw_rm = ctx.peek_u8().ok()? & 7;
+            let (group, _, mut rm) = modrm(ctx, address_bits, size, *branch_bits == 64)?;
+            let mut xmm = Operand {
+                kind: OperandKind::Register,
+                reg: format!("xmm{}", group | ctx.rex_r()),
+                width_bits: 128,
+                read: true,
+                ..Default::default()
+            };
+            if !legacy_integer && rm.kind == OperandKind::Register {
+                // The F3 0F 7E and 66 0F D6 register forms use XMM on both sides.
+                let rm_index = raw_rm | ctx.rex_b();
+                rm.reg = format!("xmm{rm_index}");
+                rm.width_bits = 128;
+            }
+            let load = op == 0x6e || sse2_load;
+            if load {
+                xmm = read_write(xmm, false, true);
+                out.operands = vec![xmm, rm];
+            } else {
+                out.operands = vec![read_write(rm, false, true), xmm];
+            }
+            if size == 8 { "movq" } else { "movd" }
+        }
         0xc3 => {
             if ctx.operand_size_override || ctx.rep_prefix.is_some() || ctx.has_rex2() {
                 return None;
