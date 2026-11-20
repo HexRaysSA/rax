@@ -216,8 +216,9 @@ RAX rejected the stopped checkpoint request with a programmed LAPIC
 countdown whose expiry state was unavailable. The follow-up produced
 zero checkpoint files. The [native receipt](post-smp-native.json) records
 the guest and binary hashes, scoped trace counts, clock evidence, and
-individual CMOS observations. RAX userspace timer wakeups and coordinated
-restoration at that boundary remain open.
+individual CMOS observations. The kernel-owned countdown phase at that
+boundary remains unavailable. The userspace LAPIC has a separately
+qualified wake path below.
 
 `native-profile.S`, `encoding.json`, and `queries.json` retain the guest witness.
 The adjacent primary Linux references preserve their original notices. Intel
@@ -251,3 +252,21 @@ UART input from each CPU. After checkpointing and destroying the source VM,
 the restored CPUs reported their distinct saved bytes. A final unread UART
 byte proved that restore did not consume input twice.
 [Hosted KVM run for `db443e45b`](https://github.com/HexRaysSA/rax/actions/runs/44750698131/job/136337513983)
+
+## Halted checkpoints and PC interrupt delivery
+
+Three native KVM regressions passed at `bb5f7059b` on the hosted Linux x86-64
+runner. Each check required the named test to execute successfully.
+[Hosted KVM run](https://github.com/HexRaysSA/rax/actions/runs/44771568304/job/136410468049)
+
+| Profile | Guest and checkpoint witness |
+| --- | --- |
+| Userspace interrupt controller, one, two and four vCPUs | Real-mode code armed the software LAPIC count and halted the VM. A new VM restored the saved timer age. The first scheduled idle turn resumed the clock. The selected CPU took vector `0x41`, executed EOI and IRET, and reached the continuation once. Every peer remained halted at its saved PC. |
+| Userspace interrupt controller, one vCPU | A stopped guest UART `OUT` enabled a pending receive interrupt. Settling the PIO completion presented vector `0x24` through the userspace PIC. |
+| Kernel interrupt controller, one vCPU | Real-mode code routed IOAPIC pin 12 to vector `0x2c`, then generated an i8042 auxiliary byte through PIO. Capture settled the outstanding write, and a fresh VM ran the handler once. It reported `0x5a`, then returned to the interrupted code and reported `0xbe`. |
+
+The userspace LAPIC stores the countdown age. A separate kernel-owned LAPIC
+probe observed identical 1,024-byte APIC images with current count zero
+before an armed timer fired and after the interrupt was serviced. The
+coordinated KVM capture path still rejects that ambiguous countdown state.
+[Hosted KVM countdown probe](https://github.com/HexRaysSA/rax/actions/runs/44761608392)

@@ -200149,6 +200149,17 @@
       "full_goal_complete": false
     },
     {
+      "id": "kvm-halted-timer-and-pc-interrupts-2026-11-20",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Hosted Linux KVM at bb5f7059b executed the restored userspace LAPIC timer wake on one, two and four vCPUs, stopped UART output through the userspace PIC, and detached kernel-owned i8042 IRQ12 delivery. The kernel-owned countdown phase remains unrecoverable from identical APIC images in the recorded control.",
+      "qualification": "docs/development/kvm-native-topology/README.md#halted-checkpoints-and-pc-interrupt-delivery",
+      "full_goal_complete": false
+    },
+    {
       "id": "original-arm-audit-replay-2026-11-19",
       "findings": [
         "A32-FP"
