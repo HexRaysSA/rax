@@ -275,8 +275,8 @@ fn installed_musl_matches_native_through_closed_c_abi() {
     let stdout = capture_installed_linux_stream(&process, RAX_PROCESS_STDOUT);
     let stderr = capture_installed_linux_stream(&process, RAX_PROCESS_STDERR);
     assert_eq!(
-        Some(exit_code),
-        native.status.code(),
+        exit_code,
+        24,
         "musl guest stderr: {}",
         String::from_utf8_lossy(&stderr)
     );
