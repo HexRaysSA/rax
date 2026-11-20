@@ -663,13 +663,19 @@ fn spawn_image_file(
             message: e.message,
         }
     })?;
-    if p.native.is_some()
-        && let Some(file) = file
-        && let Some(filename) =
-            super::super::mapped_filename::Filename::image(file).map_err(SpawnError::Io)?
-    {
-        p.vm.record_mapped_filename(p.modules.exe().base, filename)
-            .map_err(memory)?;
+    if let Some(runtime) = p.native.as_ref() {
+        let installed = if file.is_none() {
+            runtime.matching_executable(&image_path, pe.bytes())
+        } else {
+            None
+        };
+        if let Some(file) = file.or(installed.as_ref())
+            && let Some(filename) =
+                super::super::mapped_filename::Filename::image(file).map_err(SpawnError::Io)?
+        {
+            p.vm.record_mapped_filename(p.modules.exe().base, filename)
+                .map_err(memory)?;
+        }
     }
     p.image_information =
         super::image_information::ImageInformation::capture(&pe, p.modules.exe().entry);

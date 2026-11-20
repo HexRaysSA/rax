@@ -755,6 +755,10 @@ the denial of general host filesystem, sockets, processes and IPC remain in
 force. Inspection reports `capabilities.native_runtime`; this is a selected
 mode, not a guarantee that every runtime API or application is supported.
 
+Windows associates a supplied main image with an installed backing file when
+its guest path identifies a file in the selected system directory and its bytes
+match that file exactly.
+
 Native selection on a different OS returns `RAX_ERR_UNSUPPORTED`; unavailable
 files, unsupported image/service encodings and unimplemented kernel operations
 return explicit errors rather than selecting built-in Windows DLLs. Ordinary

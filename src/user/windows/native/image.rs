@@ -16,6 +16,21 @@ pub(crate) struct SelectedImage {
 }
 
 impl NativeRuntime {
+    /// Find an installed backing file for a main image supplied as bytes.
+    /// The exact bytes must match a file in the selected system directory.
+    pub(crate) fn matching_executable(&self, guest_path: &str, image: &[u8]) -> Option<File> {
+        let (directory, basename) = guest_path.rsplit_once('\\')?;
+        if !directory.eq_ignore_ascii_case(self.guest_directory.trim_end_matches('\\')) {
+            return None;
+        }
+        let path = self.dll(basename).ok()??;
+        let scope =
+            crate::user::windows::fs::FileNameOrigin::capture(&self.directory, Vec::new()).ok()?;
+        let mut file = File::open(&path).ok()?;
+        scope.name(&file, &path).ok()?;
+        same_image_bytes(&mut file, image).ok()?.then_some(file)
+    }
+
     pub(crate) fn installed_view(
         &self,
         arch: WinArch,
@@ -71,6 +86,25 @@ impl NativeRuntime {
         let template = section.image_for(arch)?;
         selected_view(pe, arch, section, template)
     }
+}
+
+fn same_image_bytes(file: &mut File, expected: &[u8]) -> io::Result<bool> {
+    let metadata = file.metadata()?;
+    if !metadata.is_file()
+        || metadata.len() != expected.len() as u64
+        || metadata.len() > MAX_DLL_BYTES
+    {
+        return Ok(false);
+    }
+    let mut buffer = [0; 8192];
+    for chunk in expected.chunks(buffer.len()) {
+        let actual = &mut buffer[..chunk.len()];
+        file.read_exact(actual)?;
+        if actual != chunk {
+            return Ok(false);
+        }
+    }
+    Ok(file.read(&mut buffer[..1])? == 0)
 }
 
 #[cfg(windows)]
@@ -171,6 +205,53 @@ mod tests {
         assert_eq!(selected.pe.bytes(), file.bytes());
         assert_eq!(selected.pe.memory_image(), template.bytes.as_ref());
         assert!(Arc::ptr_eq(&selected.template, &template));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn installed_main_image_from_bytes_retains_its_backing_file() {
+        use crate::user::windows::{WindowsConfig, WindowsProcess, mapped_filename::Filename};
+
+        let arch = if cfg!(target_arch = "aarch64") {
+            WinArch::Arm64
+        } else if cfg!(target_arch = "x86_64") {
+            WinArch::X64
+        } else {
+            WinArch::X86
+        };
+        let runtime = NativeRuntime::select(arch).unwrap();
+        let guest = format!("{}\\cmd.exe", runtime.guest_directory);
+        let installed = runtime.dll("cmd.exe").unwrap().unwrap();
+        let mut image = read_image(&installed).unwrap();
+        let expected = Filename::image(&File::open(installed).unwrap())
+            .unwrap()
+            .unwrap()
+            .read()
+            .unwrap();
+        let mut config = WindowsConfig::embedded(&guest, vec![], vec![], 4096).unwrap();
+        config.native_libraries = true;
+        let process = WindowsProcess::spawn_image(config, image.clone()).unwrap();
+        let p = process.state();
+        assert_eq!(
+            p.vm.mapped_filename(p.modules.exe().base).unwrap(),
+            Some(expected)
+        );
+
+        for unrelated in ["C:\\app\\cmd.exe", "cmd.exe", "C:\\cmd.exe"] {
+            assert!(runtime.matching_executable(unrelated, &image).is_none());
+        }
+        assert!(
+            runtime
+                .matching_executable(&format!("{guest}:stream"), &image)
+                .is_none()
+        );
+        assert!(
+            runtime
+                .matching_executable(&guest, &image[..image.len() - 1])
+                .is_none()
+        );
+        image[0] ^= 1;
+        assert!(runtime.matching_executable(&guest, &image).is_none());
     }
 
     #[cfg(windows)]
