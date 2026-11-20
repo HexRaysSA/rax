@@ -229,7 +229,7 @@ fn installed_crt_collation_matches_native_through_closed_c_abi() {
         None,
     );
     assert!(native.status.success());
-    assert_eq!(native.stdout.len(), 20);
+    assert_eq!(native.stdout.len(), 44);
     assert!(
         native.stdout[0] != 0 || native.stdout[10] != 0,
         "a usable CRT"
