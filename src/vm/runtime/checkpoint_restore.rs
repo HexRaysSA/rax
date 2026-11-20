@@ -388,6 +388,12 @@ impl Vmm {
             if !native_irqchip {
                 // Both software controllers see the same wire. Rebind the
                 // PIC's input history without modifying its saved IRR/ISR.
+                if let Some(irq) = self.serial_irq.filter(|&pin| pin < 16) {
+                    let irq = irq as u8;
+                    devices
+                        .pic
+                        .restore_irq_input_level(irq, pc.irq_input_level(irq));
+                }
                 for (irq, level) in pc.i8042_irq_levels() {
                     devices.pic.restore_irq_input_level(irq, level);
                 }

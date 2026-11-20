@@ -15,6 +15,12 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 const MMIO: u64 = 0xf000_0000;
 const TAIL: &[u8] = &[0xc6, 0x06, 0x00, 0x20, 0xaa, 0xf4];
 
+fn store32(code: &mut Vec<u8>, address: u32, value: u32) {
+    code.extend_from_slice(&[0x67, 0x66, 0xc7, 0x05]);
+    code.extend_from_slice(&address.to_le_bytes());
+    code.extend_from_slice(&value.to_le_bytes());
+}
+
 struct Fixture {
     vm: Vmm,
     kernel: std::path::PathBuf,
@@ -145,6 +151,95 @@ fn stopped_native_uart_output_uses_the_userspace_irq_controller() {
         Some(0x24)
     );
     assert!(matches!(fixture.exit(0), VcpuExit::Hlt));
+}
+
+#[test]
+#[ignore = "requires the managed native KVM irqchip"]
+fn stopped_native_uart_receive_releases_the_level_after_detached_restore() {
+    const VECTOR: u8 = 0x24;
+    const IRQ4_TRIGGER_LEVEL: u32 = 1 << 15;
+    const COM1: u16 = 0x3f8;
+    const HANDLER: u16 = 0x1200;
+
+    let mut source = Fixture::with_construction(
+        1,
+        128 << 20,
+        ConstructionMode::Checkpoint {
+            initialize_kvm_irqchip: true,
+        },
+    );
+    let mut guest = vec![0xfa, 0x31, 0xc0, 0x8e, 0xd0, 0xbc, 0x00, 0x80];
+    guest.extend_from_slice(&[0xb0, 0xff, 0xe6, 0x21, 0xe6, 0xa1]); // Mask both PICs.
+    store32(&mut guest, 0xfee0_00f0, 0x1ff);
+    store32(&mut guest, 0xfec0_0000, 0x19); // IOAPIC pin 4 high.
+    store32(&mut guest, 0xfec0_0010, 0);
+    store32(&mut guest, 0xfec0_0000, 0x18); // IOAPIC pin 4 low.
+    store32(
+        &mut guest,
+        0xfec0_0010,
+        IRQ4_TRIGGER_LEVEL | u32::from(VECTOR),
+    );
+    guest.extend_from_slice(&[0xba, 0xf9, 0x03, 0xb0, 0x01, 0xee]); // Enable UART RX IRQ.
+    guest.extend_from_slice(&[0xfb, 0xf4, 0x90, 0xfa, 0xb0, 0xbe, 0xe6, 0xe9, 0xf4]);
+    source.prepare(0, &guest);
+    let CpuState::X86_64(mut state) = source.vm.vcpus[0].get_state().unwrap() else {
+        unreachable!();
+    };
+    state.sregs.idt.base = 0;
+    state.sregs.idt.limit = 0x3ff;
+    source.vm.vcpus[0]
+        .set_state(&CpuState::X86_64(state))
+        .unwrap();
+    let memory = source.vm.guest_mem.memory();
+    memory
+        .write_obj(u32::from(HANDLER), GuestAddress(u64::from(VECTOR) * 4))
+        .unwrap();
+    let mut handler = vec![0xba, 0xf8, 0x03, 0xec, 0xe6, 0xe9]; // IN AL, DX; report AL.
+    store32(&mut handler, 0xfee0_00b0, 0);
+    handler.push(0xcf); // IRET.
+    memory
+        .write_slice(&handler, GuestAddress(u64::from(HANDLER)))
+        .unwrap();
+    let mut uart = source.vm.serial.lock().unwrap();
+    IoDevice::write(&mut *uart, COM1 + 4, 8); // PC OUT2 interrupt gate.
+    uart.queue_input(&[0x5a]);
+    drop(uart);
+
+    assert!(
+        matches!(source.exit(0), VcpuExit::IoOut { port, data } if port == COM1 + 1 && data == [1])
+    );
+    let path = source.kernel.with_extension("uart-rx.rxc");
+    source
+        .vm
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    drop(source);
+    let snapshot = crate::vm::snapshot::SnapshotBundle::load(&path);
+    std::fs::remove_file(&path).unwrap();
+    let snapshot = snapshot.unwrap();
+    assert_eq!(snapshot.saved_kvm_irqchip(), Some(true));
+    let config = VmConfig::from_checkpoint_bundle(&snapshot, CliConfig::default()).unwrap();
+    let mut target = Fixture::new(1);
+    target.vm = Vmm::new_resume_bundle(config, &snapshot).unwrap();
+
+    assert!(matches!(
+        target.exit(0),
+        VcpuExit::IoIn {
+            port: COM1,
+            size: 1
+        }
+    ));
+    assert_eq!(target.settle(0), CheckpointIoState::Complete);
+    assert!(!target.vm.serial.lock().unwrap().has_pending_interrupt());
+    assert!(matches!(target.exit(0), VcpuExit::IoOut { port: 0xe9, data } if data == [0x5a]));
+    assert_eq!(target.settle(0), CheckpointIoState::Complete);
+    let continued = target.exit(0);
+    assert!(
+        matches!(&continued, VcpuExit::IoOut { port: 0xe9, data } if data == &[0xbe]),
+        "UART IRQ4 remained asserted after the OS read its receive buffer: {continued:?}"
+    );
 }
 
 #[test]
@@ -906,11 +1001,6 @@ fn stopped_native_i8042_irq12_is_delivered_once_after_detached_restore() {
     );
     // Program the native IOAPIC redirection entry for pin 12. Leave the
     // in-kernel LAPIC enabled and leave both PIC masks closed.
-    fn store32(code: &mut Vec<u8>, address: u32, value: u32) {
-        code.extend_from_slice(&[0x67, 0x66, 0xc7, 0x05]);
-        code.extend_from_slice(&address.to_le_bytes());
-        code.extend_from_slice(&value.to_le_bytes());
-    }
     let mut program = vec![0xfa, 0x31, 0xc0, 0x8e, 0xd0, 0xbc, 0x00, 0x80];
     program.extend_from_slice(&[0xb0, 0xff, 0xe6, 0x21, 0xe6, 0xa1]);
     store32(&mut program, 0xfee0_00f0, 0x1ff);

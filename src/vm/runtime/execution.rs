@@ -348,7 +348,10 @@ impl Vmm {
                     1,
                 )?;
                 vcpu.complete_io_in(&data);
-                vcpu.io_completion_result()?;
+                let completion = vcpu.io_completion_result();
+                let irq = self.sync_pc_serial_pio_input(port);
+                completion?;
+                irq?;
             }
             VcpuExit::IoInString { port, size, count } => {
                 let data = port_io::read(
@@ -361,7 +364,10 @@ impl Vmm {
                     count,
                 )?;
                 vcpu.complete_io_in(&data);
-                vcpu.io_completion_result()?;
+                let completion = vcpu.io_completion_result();
+                let irq = self.sync_pc_serial_pio_input(port);
+                completion?;
+                irq?;
             }
             VcpuExit::IoOut { port, data } => {
                 debug!(port = port, size = data.len(), "PIO write");

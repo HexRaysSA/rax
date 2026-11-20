@@ -129,6 +129,15 @@ jobs:
             --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
           grep -F -x "test $case_name ... ok" "$witness"
 
+      - name: Native UART IRQ4 release after detached restore
+        run: |
+          set -o pipefail
+          case_name=vm::runtime::checkpoint_io::tests::stopped_native_uart_receive_releases_the_level_after_detached_restore
+          witness="$RUNNER_TEMP/rax-kvm-uart-irq4.out"
+          cargo test --locked --features x86_64-suite --lib "$case_name" -- \
+            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test $case_name ... ok" "$witness"
+
       - name: Native i8042 IRQ12 after detached restore
         run: |
           set -o pipefail

@@ -1251,3 +1251,124 @@ fn held_i8042_output_does_not_retrigger_the_pic_after_detached_restore() {
         );
     }
 }
+
+#[test]
+fn reading_the_uart_iir_releases_a_level_pic_input_at_the_pio_boundary() {
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    for count in [1, 2] {
+        let mut fixture = Fixture::new(1);
+        let vm = &mut fixture.vm;
+        // A single, level-triggered master at vectors 0x20..0x27, IRQ4 unmasked.
+        for (port, byte) in [(0x20, 0x1b), (0x21, 0x20), (0x21, 1), (0x21, 0xef)] {
+            vm.io_bus.write(port, &[byte]).unwrap();
+        }
+        for (port, value) in [(0x3fc, 8), (0x3f9, 2)] {
+            assert!(matches!(
+                vm.checkpoint_io_service(
+                    0,
+                    VcpuExit::IoOut {
+                        port,
+                        data: vec![value]
+                    }
+                )
+                .unwrap(),
+                CheckpointIoReply::Output
+            ));
+        }
+        vm.route_pc_interrupts().unwrap();
+        assert!(vm.pic.lock().unwrap().has_pending());
+
+        let event = if count == 1 {
+            VcpuExit::IoIn {
+                port: 0x3fa,
+                size: 1,
+            }
+        } else {
+            VcpuExit::IoInString {
+                port: 0x3fa,
+                size: 1,
+                count,
+            }
+        };
+        let CheckpointIoReply::Input(bytes) = vm.checkpoint_io_service(0, event).unwrap() else {
+            panic!("expected UART interrupt-identification input");
+        };
+        let expected = [2, 1];
+        assert_eq!(
+            bytes.iter().map(|byte| byte & 0xf).collect::<Vec<_>>(),
+            expected[..count as usize]
+        );
+        assert!(!vm.serial.lock().unwrap().has_pending_interrupt());
+        assert!(
+            !vm.pic.lock().unwrap().has_pending(),
+            "PIC kept the UART input asserted after the IIR acknowledgement"
+        );
+    }
+}
+
+#[test]
+fn detached_uart_irq_rebinds_the_pic_input_without_replaying_its_edge() {
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    let mut fixture = Fixture::with_retired_clock();
+    let source = &mut fixture.vm;
+    source.io_bus.write(0x21, &[0xef]).unwrap();
+    for (port, value) in [(0x3fc, 8), (0x3f9, 2)] {
+        source
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port,
+                    data: vec![value],
+                },
+            )
+            .unwrap();
+    }
+    assert_eq!(source.pic.lock().unwrap().get_pending_vector(), Some(0x24));
+    let file = RemoveFile::new();
+    source
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&file.0)
+        .unwrap();
+    drop(fixture);
+
+    let image = SnapshotBundle::load(&file.0).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&image, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &image).unwrap();
+    target.io_bus.write(0x20, &[0x20]).unwrap(); // Retire the original ISR bit.
+    // Accessing the scratch register republishes the same held UART input.
+    target
+        .checkpoint_io_service(
+            0,
+            VcpuExit::IoOut {
+                port: 0x3ff,
+                data: vec![0x77],
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        target.pic.lock().unwrap().get_pending_vector(),
+        None,
+        "restoration replayed an already acknowledged UART edge"
+    );
+
+    assert!(matches!(
+        target.checkpoint_io_service(0, VcpuExit::IoIn { port: 0x3fa, size: 1 })
+            .unwrap(),
+        CheckpointIoReply::Input(bytes) if bytes[0] & 0xf == 2
+    ));
+    for value in [0, 2] {
+        target
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port: 0x3f9,
+                    data: vec![value],
+                },
+            )
+            .unwrap();
+    }
+    assert_eq!(target.pic.lock().unwrap().get_pending_vector(), Some(0x24));
+}

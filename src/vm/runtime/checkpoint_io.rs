@@ -33,6 +33,10 @@ impl Vmm {
             VcpuExit::IoOut { port, data } => Some((*port, data.len())),
             _ => None,
         };
+        let serial_input = match &event {
+            VcpuExit::IoIn { port, .. } | VcpuExit::IoInString { port, .. } => Some(*port),
+            _ => None,
+        };
         let rtc = port.is_some_and(|(port, width)| {
             use crate::devices::rtc::{RTC_ADDRESS, RTC_DATA};
             port <= RTC_DATA && width > usize::from(RTC_ADDRESS.saturating_sub(port))
@@ -113,6 +117,9 @@ impl Vmm {
         }?;
         if rtc {
             self.sync_pc_rtc_irq(None)?;
+        }
+        if let Some(port) = serial_input {
+            self.sync_pc_serial_pio_input(port)?;
         }
         Ok(reply)
     }

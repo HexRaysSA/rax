@@ -57,8 +57,8 @@ impl Vmm {
         Ok(pulsed)
     }
 
-    fn software_serial_level(&self) -> Result<Option<(u8, bool)>> {
-        if self.checkpoint_config.arch != ArchKind::X86_64 || self.vm.uses_native_x86_irqchip() {
+    fn pc_serial_level(&self) -> Result<Option<(u8, bool)>> {
+        if self.checkpoint_config.arch != ArchKind::X86_64 {
             return Ok(None);
         }
         let Some(irq) = self.serial_irq else {
@@ -77,16 +77,53 @@ impl Vmm {
         Ok(Some((irq as u8, pending)))
     }
 
+    fn publish_software_serial_level(&self, pin: u8, asserted: bool) -> Result<()> {
+        let mut ioapic = self
+            .pc_devices
+            .as_ref()
+            .map(|pc| {
+                pc.ioapic
+                    .lock()
+                    .map_err(|_| Error::Emulator("I/O APIC serial route lock poisoned".into()))
+            })
+            .transpose()?;
+        let mut pic = self
+            .pic
+            .lock()
+            .map_err(|_| Error::Emulator("PIC serial route lock poisoned".into()))?;
+        if let Some(ioapic) = &mut ioapic {
+            ioapic.set_irq(pin, asserted);
+        }
+        pic.set_irq(pin, asserted);
+        Ok(())
+    }
+
+    /// Reads can acknowledge an RX, THRE, modem or line-status cause.
+    /// Publish the post-read wire before returning a settled boundary.
+    pub(super) fn sync_pc_serial_pio_input(&self, port: u16) -> Result<()> {
+        if !(SERIAL_BASE..SERIAL_BASE + 8).contains(&port) {
+            return Ok(());
+        }
+        let Some((pin, asserted)) = self.pc_serial_level()? else {
+            return Ok(());
+        };
+        if self.vm.uses_native_x86_irqchip() {
+            self.vm
+                .set_irq_line(u32::from(pin), asserted)
+                .inspect_err(|_| self.vm.poison_checkpoint_restore())
+        } else {
+            self.publish_software_serial_level(pin, asserted)
+        }
+    }
+
     /// Advance RTC sources and publish all changed levels before capture.
     /// Leave queued controller events for the next dispatch boundary.
     pub(super) fn refresh_pc_irq_sources(&self) -> Result<()> {
         self.poll_pc_rtc()?;
-        if let (Some(pc), Some((pin, asserted))) = (&self.pc_devices, self.software_serial_level()?)
+        if !self.vm.uses_native_x86_irqchip()
+            && let Some((pin, asserted)) = self.pc_serial_level()?
         {
-            pc.ioapic
-                .lock()
-                .map_err(|_| Error::Emulator("I/O APIC source lock poisoned".into()))?
-                .set_irq(pin, asserted);
+            self.publish_software_serial_level(pin, asserted)?;
         }
         Ok(())
     }
@@ -99,7 +136,7 @@ impl Vmm {
         let Some(pc) = &self.pc_devices else {
             return Ok(());
         };
-        let serial = self.software_serial_level()?;
+        let serial = self.pc_serial_level()?;
         let mut apics = Vec::new();
         apics
             .try_reserve_exact(self.local_apics.len())

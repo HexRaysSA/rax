@@ -70,9 +70,13 @@ impl PreparedPcCheckpoint {
         self.sysctl.speaker_gate()
     }
 
+    pub(crate) fn irq_input_level(&self, irq: u8) -> bool {
+        self.ioapic.line_asserted(irq)
+    }
+
     pub(crate) fn i8042_irq_levels(&self) -> [(u8, bool); 2] {
         use crate::devices::i8042::{AUX_IRQ, KEYBOARD_IRQ};
-        [KEYBOARD_IRQ, AUX_IRQ].map(|irq| (irq, self.ioapic.line_asserted(irq)))
+        [KEYBOARD_IRQ, AUX_IRQ].map(|irq| (irq, self.irq_input_level(irq)))
     }
 
     pub(crate) fn rtc_irq_level(&self, uses_native_irqchip: bool) -> Result<Option<bool>> {
