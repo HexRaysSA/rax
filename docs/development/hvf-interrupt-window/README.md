@@ -206,3 +206,11 @@ The Intel macOS consumer cross-build linked and passed strict signature
 verification with the hypervisor entitlement. All 21 prepared-consumer tests
 and 16 workflow checks passed locally. The dispatch choices match the probe's
 profile list. The cross-build performed no guest entry.
+
+The `1190a9e3a` hosted Intel run produced one successful `nmi-baseline-hlt`
+record with zero NMI handler visits. The signed executable and both archives
+matched their digests. The 4,879 engine files and 15 consumer inputs matched
+the Git tree. The host reported an untranslated GenuineIntel process inside a
+macOS 15.7.9 guest. This verifies the cold setup without an injected event.
+Virtual NMI delivery and bare-metal Intel execution remain open.
+[Native control](https://github.com/HexRaysSA/rax/actions/runs/44671968208/job/136074789095)
