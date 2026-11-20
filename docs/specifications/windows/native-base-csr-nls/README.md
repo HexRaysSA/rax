@@ -1,4 +1,4 @@
-# ARM64 BASE per-user NLS exchange
+# Native BASE per-user NLS exchange
 
 This corpus measures BASE CSR API `0x0001001b` on native ARM64 Windows
 10.0.29698. A fresh ordinary-user child first invokes
@@ -55,7 +55,25 @@ three before the observer calls the public locale API and three afterward.
 The output records results, request/capture sizes and initialized output
 bytes. The producer checks physical AMD64, uses only its own capture and
 accepts no guest input. The artifact binds the source, executable, log and
-installed NTDLL. The observer does not enable an emulator reply profile.
+installed NTDLL.
+
+The [native run](https://github.com/HexRaysSA/rax/actions/runs/44721552312)
+records six successful calls on each build in session 2. The 80-byte reply
+describes one registered pointer in a 1,704-byte capture and supplies a
+1,660-byte payload. Each build returns identical bytes across its six calls.
+The two builds return distinct payloads.
+
+| Build | Native payload SHA-256 |
+| --- | --- |
+| 20348 | `63332e833aa6c713a934bb56e8c956e61ee70ef62479d5a2233485003ec577f0` |
+| 26100 | `5beaa250a44a2658f08948593c85171e6f57a015cb2c7c7eda6f46b79cb761e3` |
+
+Runtime admission requires physical AMD64, a native AMD64 guest, one of
+those builds and the matching current session. The installed adapter compares
+two live snapshots initialized to different patterns and checks their reply
+geometry, status and server identity. The guest path validates its typed
+endpoint and capture before copying that snapshot through owned views. Replay
+covers both observed payloads and rejects a foreign machine or kernel.
 
 ## Implementation contract
 
@@ -80,9 +98,10 @@ mapping retain their own schema. The BASE payload has no added client mapping.
 Snapshot acquisition and reply copying take O(B) time and space, B=1660 bytes.
 Guest packets, addresses, handles, strings and requests never reach host IPC.
 
-The BASE snapshot is admitted on ARM64 Windows 10.0.29698 and on
-ARM64 Windows 10.0.29708 in session 1. The guest kernel must match the
-selected peer's admitted kernel before the peer can publish this reply.
+The BASE snapshot is admitted on ARM64 Windows 10.0.29698, on ARM64
+Windows 10.0.29708 in session 1, and on physical AMD64 Windows 10.0.20348
+and 10.0.26100 in session 2. The guest kernel must match the selected
+peer's admitted kernel before the peer can publish this reply.
 Other CSR profiles retain their earlier behavior. Shared reply semantics compile on
 Windows, macOS and Linux; installed acquisition uses the native Windows adapter.
 No public C ABI, default feature, dependency pin or persisted format changes.
@@ -165,3 +184,10 @@ to check both complete subject-specific receipts and their source bindings.
 Missing or mismatched receipts fail this check. It validates retained evidence;
 it does not execute or replace native tests. Full file-backed CMD execution
 still stops at class134 and is not claimed successful.
+
+The [Server 2022 startup observation](https://github.com/HexRaysSA/rax/actions/runs/44724503210)
+has the measured header, selector, status and 32-bit size. The eight bytes
+following the status and four bytes following the size are nonzero in its
+guest wire request. The build 20348 adapter treats those bytes as opaque.
+The capture still requires the exact registered pointer, extent, and
+selected server view.

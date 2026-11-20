@@ -4,7 +4,9 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, supports_kernel};
+use crate::user::windows::object_namespace::csr::{
+    BASE_NLS_BYTES, BaseNlsReply, supports_kernel, supports_profile,
+};
 use crate::user::windows::objects::Object;
 
 const BATCH_NOTIFICATION_API: u32 = 0x0001_0010;
@@ -34,10 +36,18 @@ pub(super) fn client_connect(
         c.p.cfg.version.minor,
         c.p.cfg.version.build,
     );
+    let arch = c.arch();
+    let native_amd64 = arch == WinArch::X64
+        && c.p.object_namespace.native_machine == Some(0x8664)
+        && supports_profile(arch, kernel.0, kernel.1, kernel.2);
+    // The Server 2022 startup request carries nonzero bytes after the status
+    // and ULONG size. Neither span participates in capture addressing.
+    let amd64_20348 = native_amd64 && kernel == (10, 0, 20348);
     let base_nls = message.len() == 80
         && message[..8] == [40, 0, 80, 0, 0, 0, 0, 0]
-        && message[48..64] == [0x1B, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        && word(message, 72) == BASE_NLS_BYTES as u64;
+        && message[48..56] == [0x1B, 0, 1, 0, 0, 0, 0, 0]
+        && message[72..76] == (BASE_NLS_BYTES as u32).to_le_bytes()
+        && (amd64_20348 || message[56..64] == [0; 8] && message[76..80] == [0; 4]);
     let user = message.len() == 88
         && message[..8] == [48, 0, 88, 0, 0, 0, 0, 0]
         && message[48..64] == [0; 16]
@@ -50,8 +60,9 @@ pub(super) fn client_connect(
         && message[52..64] == [0; 12]
         && word(message, 64) != u64::MAX
         && word(message, 72) <= 1;
-    if c.arch() != WinArch::Arm64
-        || !supports_kernel(kernel.0, kernel.1, kernel.2)
+    let native_arm64 = arch == WinArch::Arm64 && supports_kernel(kernel.0, kernel.1, kernel.2);
+    let native_amd64_base_nls = native_amd64 && base_nls;
+    if !(native_arm64 || native_amd64_base_nls)
         || send_attributes != 0
         || receive_attributes != 0
         || timeout != 0
@@ -92,9 +103,9 @@ pub(super) fn client_connect(
                 );
             };
             if base_nls && peer.base_nls_kernel != Some(kernel) {
-                return Err(
-                    c.unsupported("NtAlpcSendWaitReceivePort unmeasured CSR message/profile")
-                );
+                return Err(c.unsupported(
+                    "NtAlpcSendWaitReceivePort BASE NLS peer kernel/session differs",
+                ));
             }
             let Some(view) = port.view() else {
                 return Err(
