@@ -200074,6 +200074,17 @@
       "full_goal_complete": false
     },
     {
+      "id": "kvm-post-smp-cmos-and-countdown-2026-11-20",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "native_limitation_reproduced",
+      "scope": "Native KVM boots four CPUs and verifies the legacy APIC tick, then fails to reach userspace. CPU 0 repeatedly reads a changing CMOS calendar during roughly one-second scans while the APs receive local timer interrupts. A stopped checkpoint at that boundary rejects an unverifiable programmed LAPIC countdown. A same-host QEMU control reaches userspace and wakes pinned threads on all four CPUs. RAX userspace completion and active countdown restoration remain open.",
+      "qualification": "docs/development/kvm-native-topology/post-smp-native.json",
+      "full_goal_complete": false
+    },
+    {
       "id": "x86-pc-interrupt-arbitration-2026-11-20",
       "findings": [
         "C-SMP"

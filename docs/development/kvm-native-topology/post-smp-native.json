@@ -1,0 +1,301 @@
+{
+  "rax": {
+    "revision": "53dbf4fc7d9e06cd5c8134a9d0194e43bf309139",
+    "binary_sha256": "4f1fed658917a21103c6dab890fa4cebdd9a3c6659eb27df01f2aba4de5577af",
+    "kernel_sha256": "d74be574189057a036866309fd5546724a92390a4f6ba086e93ddab2f6e0e01d",
+    "kernel_release": "6.8.0-138-generic",
+    "init_binary_sha256": "759268431760b34b6fae179a86e44399646e2ee7159adda2b9a4708fc82655ca",
+    "console_sha256": "7674a8c109a132953a26c3d8509aa3ecd549b6413083efe295836acc37fd5c9a",
+    "elapsed_s": 720.741,
+    "configured_vcpus_brought_up": 4,
+    "legacy_apic_jiffies_delta": 100,
+    "last_guest_line": "[  138.168736] pinctrl core: initialized pinctrl subsystem",
+    "verified_userspace": false,
+    "boot_printk": {
+      "smp_boot_configuration_s": 131.491854,
+      "ap_extint_mask_s": {
+        "1": 17.314178,
+        "2": 133.415735,
+        "3": 135.463582
+      }
+    },
+    "native_kvm_pvclock": {
+      "trace_sha256": "b16f320851bbce3ab5c5560d425e89e7ade7bbc7d58324fd975c846deb06b428",
+      "updates_by_cpu": {
+        "0": 8,
+        "1": 6,
+        "2": 5,
+        "3": 4
+      },
+      "matched_bsp_and_ap_fields": {
+        "tsc_timestamp": 738624336627,
+        "system_time_ns": 211546174100,
+        "tsc_to_system_mul": 2459950918,
+        "tsc_shift": -1,
+        "flags": 1
+      }
+    },
+    "userspace_witness_source": {
+      "path": "linux-pinned-timers.c",
+      "sha256": "f119531c0c90d491ff8d12de39dae594704446603bfbaf6a63375b98b7c59762"
+    },
+    "checkpoint_attempt": {
+      "additional_kernel_argument": "initcall_debug",
+      "console_threshold": 7,
+      "kernel_debug_prints_visible": false,
+      "elapsed_s": 780.387,
+      "guest_and_runtime_console_sha256": "44b41808205d76f6fb801d1425bbc3949061d928958a014a5c4670d6bf7592b3",
+      "files_captured": 0,
+      "rejected": "native KVM CPU record: programmed LAPIC countdown requires verified expiry state"
+    },
+    "quiet_controls": [
+      {
+        "utc": "2026-11-20T06:18:42.536047+00:00",
+        "profile": "legacy-quiet",
+        "status": 0,
+        "elapsed_s": 180.193,
+        "userspace_pass": false,
+        "log": "[    0.000502] ACPI BIOS Error (bug): A valid RSDP was not found (20230628/tbxfroot-222)\r\n"
+      },
+      {
+        "utc": "2026-11-20T06:21:42.703036+00:00",
+        "profile": "deadline-quiet",
+        "status": 0,
+        "elapsed_s": 180.167,
+        "userspace_pass": false,
+        "log": "[    0.000470] ACPI BIOS Error (bug): A valid RSDP was not found (20230628/tbxfroot-222)\r\n"
+      },
+      {
+        "utc": "2026-11-20T06:24:43.005200+00:00",
+        "profile": "legacy-no-pv-spin",
+        "status": 0,
+        "elapsed_s": 180.302,
+        "userspace_pass": false,
+        "log": "[    0.000442] ACPI BIOS Error (bug): A valid RSDP was not found (20230628/tbxfroot-222)\r\n"
+      }
+    ],
+    "rtc_trace": {
+      "kvm_exit_trace_sha256": "379a73bbd35ed0e20a401e4ba90b416da77e0102c1e3577b529002fa972688a6",
+      "kvm_exit_window_s": 3,
+      "kvm_exit_samples": [
+        [
+          {
+            "vcpu": 0,
+            "symbol": "rtc_cmos_read",
+            "exit_reason": "IO_INSTRUCTION",
+            "count": 47
+          },
+          {
+            "vcpu": 0,
+            "symbol": "rtc_cmos_read",
+            "exit_reason": "PREEMPTION_TIMER",
+            "count": 94
+          },
+          {
+            "vcpu": 1,
+            "symbol": "asm_sysvec_apic_timer_interrupt",
+            "exit_reason": "EXTERNAL_INTERRUPT",
+            "count": 3
+          },
+          {
+            "vcpu": 1,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "HLT",
+            "count": 517
+          },
+          {
+            "vcpu": 1,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "PREEMPTION_TIMER",
+            "count": 1
+          },
+          {
+            "vcpu": 2,
+            "symbol": "asm_sysvec_apic_timer_interrupt",
+            "exit_reason": "EXTERNAL_INTERRUPT",
+            "count": 5
+          },
+          {
+            "vcpu": 2,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "HLT",
+            "count": 517
+          },
+          {
+            "vcpu": 2,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "PREEMPTION_TIMER",
+            "count": 3
+          },
+          {
+            "vcpu": 3,
+            "symbol": "asm_sysvec_apic_timer_interrupt",
+            "exit_reason": "EXTERNAL_INTERRUPT",
+            "count": 4
+          },
+          {
+            "vcpu": 3,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "EXTERNAL_INTERRUPT",
+            "count": 1
+          },
+          {
+            "vcpu": 3,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "HLT",
+            "count": 515
+          },
+          {
+            "vcpu": 3,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "PREEMPTION_TIMER",
+            "count": 2
+          }
+        ],
+        [
+          {
+            "vcpu": 0,
+            "symbol": "rtc_cmos_read",
+            "exit_reason": "IO_INSTRUCTION",
+            "count": 47
+          },
+          {
+            "vcpu": 0,
+            "symbol": "rtc_cmos_read",
+            "exit_reason": "PREEMPTION_TIMER",
+            "count": 94
+          },
+          {
+            "vcpu": 1,
+            "symbol": "asm_sysvec_apic_timer_interrupt",
+            "exit_reason": "EXTERNAL_INTERRUPT",
+            "count": 3
+          },
+          {
+            "vcpu": 1,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "HLT",
+            "count": 504
+          },
+          {
+            "vcpu": 1,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "PREEMPTION_TIMER",
+            "count": 2
+          },
+          {
+            "vcpu": 2,
+            "symbol": "asm_sysvec_apic_timer_interrupt",
+            "exit_reason": "EXTERNAL_INTERRUPT",
+            "count": 5
+          },
+          {
+            "vcpu": 2,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "HLT",
+            "count": 504
+          },
+          {
+            "vcpu": 2,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "PREEMPTION_TIMER",
+            "count": 2
+          },
+          {
+            "vcpu": 3,
+            "symbol": "asm_sysvec_apic_timer_interrupt",
+            "exit_reason": "EXTERNAL_INTERRUPT",
+            "count": 1
+          },
+          {
+            "vcpu": 3,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "HLT",
+            "count": 511
+          },
+          {
+            "vcpu": 3,
+            "symbol": "pv_native_safe_halt",
+            "exit_reason": "PREEMPTION_TIMER",
+            "count": 6
+          }
+        ]
+      ],
+      "kvm_pio_trace_sha256": "206b1ef1a0ca505a056be07352d570676f5628c7c74d61fb306aeb0d5544df5b",
+      "kvm_pio_window_s": 5,
+      "cmos_data_reads": 79,
+      "cmos_reply_interval_ms": {
+        "count": 77,
+        "min": 109.976,
+        "median": 124.951,
+        "max": 156.983
+      },
+      "coherent_read_windows": {
+        "registers_in_order": [
+          0,
+          2,
+          4,
+          7,
+          8,
+          9,
+          11,
+          10,
+          0
+        ],
+        "sampled": [
+          {
+            "duration_ms": 1058.946,
+            "initial_second_bcd": "09",
+            "final_second_bcd": "10"
+          },
+          {
+            "duration_ms": 962.994,
+            "initial_second_bcd": "11",
+            "final_second_bcd": "12"
+          },
+          {
+            "duration_ms": 966.948,
+            "initial_second_bcd": "12",
+            "final_second_bcd": "13"
+          },
+          {
+            "duration_ms": 996.94,
+            "initial_second_bcd": "23",
+            "final_second_bcd": "24"
+          },
+          {
+            "duration_ms": 982.952,
+            "initial_second_bcd": "24",
+            "final_second_bcd": "25"
+          }
+        ]
+      }
+    }
+  },
+  "qemu_kvm_control": {
+    "version": "8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)",
+    "binary_sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+    "kernel_sha256": "d74be574189057a036866309fd5546724a92390a4f6ba086e93ddab2f6e0e01d",
+    "init_binary_sha256": "759268431760b34b6fae179a86e44399646e2ee7159adda2b9a4708fc82655ca",
+    "log_sha256": "1cb7f029b561e643fe74ddae7486c0592b1fc5916b9770562dc06ad2b8b45aa7",
+    "boot_printk": {
+      "smp_boot_configuration_s": 0.49125,
+      "ap_extint_mask_s": {
+        "1": 0.026392,
+        "2": 0.026392,
+        "3": 0.026392
+      }
+    },
+    "observed_pinned_guest_timer_wakeup_ns": {
+      "1": 20132399,
+      "0": 20095246,
+      "2": 20097119,
+      "3": 22858565
+    }
+  },
+  "host": {
+    "cpu": "Intel Xeon E5-1650 v3",
+    "kernel_release": "6.8.0-138-generic",
+    "backend": "/dev/kvm"
+  }
+}

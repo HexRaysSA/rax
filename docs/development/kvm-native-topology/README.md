@@ -166,6 +166,51 @@ The complete native `kvm_host_slices`, `kvm_minimal`, and `kvm_smp`
 targets passed 16, 15, and 32 tests respectively. The runs enabled the
 KVM-gated cases and reported zero failures, ignored cases, or filters.
 
+## Linux progress after CPU bring-up
+
+Revision `53dbf4fc7` brought up all four CPUs on the same physical Intel
+KVM host. Linux again measured 100 jiffies in its forced legacy
+APIC calibration, then stopped emitting console output after the pinctrl
+initialization line. The 720.741 s run never reached the static `/init`
+witness. The witness pins a child to each CPU and checks CPU identity
+across a 20 ms absolute monotonic sleep. Build it with
+`cc -static -std=c11 -Wall -Wextra -Werror -O2 -o init linux-pinned-timers.c`
+and archive the executable at the root of an initramfs.
+
+| Assumption or boundary | Impact | Falsification probe |
+| --- | --- | --- |
+| The early guest log timestamps alone do not measure clock continuity. | High | Boot the same kernel and init with QEMU/KVM. Check for the same early ordering and compare native pvclock stamps across the vCPUs. |
+| CPU 0 repeatedly retries an inconsistent CMOS calendar read after SMP. | High | Capture worker-only KVM exit and port traces. Compare seconds returned at the beginning and end of each complete CMOS scan. |
+| An active LAPIC countdown needs a separate expiry-state witness. | High | Request a coordinated checkpoint at this boundary. Require either a usable record or a precise capture error. |
+
+QEMU 8.2.2 on the same host reached `/init` with the same kernel and
+init executable. All four pinned children completed the requested sleeps
+with observed elapsed times from 20,095,246 ns to 22,858,565 ns. Both
+VMMs printed early AP timestamps earlier than the BSP bring-up timestamp.
+A separate RAX trace of 23 native pvclock publications recorded matching
+TSC epoch, time base, multiplier, shift, and stable flag for samples on
+all four CPUs. The QEMU PC machine uses a different virtual chipset.
+[Linux printk timestamp](https://github.com/torvalds/linux/blob/v6.8/kernel/printk/printk.c#L2045-L2048)
+[Linux KVM pvclock setup](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kernel/kvmclock.c#L79-L95)
+
+A 780.387 s follow-up stopped at the same boundary. Two scoped kernel
+traces resolved CPU 0 exits to `rtc_cmos_read` and observed timer
+interrupt handlers on each AP. The median interval between consecutive
+CMOS byte responses was 124.951 ms across 77 intervals. All five complete
+calendar scans crossed a one-second boundary and returned a different
+seconds value on the final check. Linux retries those inconsistent
+snapshots. Three quieter controls, including TSC-deadline and disabling
+paravirtual spinlocks, also failed to reach `/init` within 180 s each.
+[Linux CMOS PIO](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kernel/rtc.c#L74-L85)
+[Linux CMOS consistency check](https://github.com/torvalds/linux/blob/v6.8/drivers/rtc/rtc-mc146818-lib.c#L18-L79)
+
+RAX rejected the stopped checkpoint request with a programmed LAPIC
+countdown whose expiry state was unavailable. The follow-up produced
+zero checkpoint files. The [native receipt](post-smp-native.json) records
+the guest and binary hashes, scoped trace counts, clock evidence, and
+individual CMOS observations. RAX userspace timer wakeups and coordinated
+restoration at that boundary remain open.
+
 `native-profile.S`, `encoding.json`, and `queries.json` retain the guest witness.
 The adjacent primary Linux references preserve their original notices. Intel
 SDM and AMD APM section/page provenance is in `references/provenance.json`.
