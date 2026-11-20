@@ -244,3 +244,10 @@ pairs to check the timer result. For the overlap result, match the
 executable and guest digests, then reconstruct entry-to-exit intervals from
 the host CPU topology and discard migrating or sibling-core pairs.
 [Native qualification receipt](parallel-worker-timers.json)
+
+The hosted Linux x86-64 KVM regression exercised two and four vCPUs. The
+BSP started the APs with INIT/SIPI and the coordinator collected a pending
+UART input from each CPU. After checkpointing and destroying the source VM,
+the restored CPUs reported their distinct saved bytes. A final unread UART
+byte proved that restore did not consume input twice.
+[Hosted KVM run for `db443e45b`](https://github.com/HexRaysSA/rax/actions/runs/44750698131/job/136337513983)

@@ -115,6 +115,11 @@ at 976,563 ns for the 1,024 Hz rate. Its second capture holds IRQ8 asserted
 after both controllers accept it. Restore preserves the held state, and
 EOI after Register C acknowledgement does not generate a second delivery.
 
+The hosted Linux x86-64 KVM regression restored an asserted GSI8 from a
+detached checkpoint. Settling the guest's stopped Register C read lowered
+the kernel line. The resumed guest reported the expected `0xc0` byte.
+[Hosted KVM run for `db443e45b`](https://github.com/HexRaysSA/rax/actions/runs/44750698131/job/136337513983)
+
 ## Software PIT speaker wiring
 
 On PC VMMs using the software PIT, port `0x61` drives channel 2 GATE and
