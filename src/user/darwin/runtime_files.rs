@@ -1,4 +1,5 @@
-//! Read-only selection of the macOS host's dyld, caches, and on-disk dylibs.
+//! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
+//! system version metadata.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace; this does not enable host-service forwarding. Cache
@@ -9,6 +10,9 @@ use std::io;
 #[cfg(any(target_os = "macos", test))]
 #[path = "runtime_files/dylibs.rs"]
 mod dylibs;
+
+#[cfg(any(target_os = "macos", test))]
+const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.plist";
 
 /// Add the native macOS runtime, preserving explicit supplied-file overrides.
 /// A different host cannot supply its own runtime for a Darwin guest.
@@ -45,6 +49,7 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
             ),
         ],
     )?;
+    let files = select_system_version(files, root)?;
     let roots = [
         "/usr/lib",
         "/System/Library/Frameworks",
@@ -63,6 +68,26 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
     })
     .collect();
     files.with_native_library_roots(roots, Some(dylibs::accept))
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn select_system_version(files: Files, root: &std::path::Path) -> io::Result<Files> {
+    use crate::user::supplied_fs::Error;
+
+    if !matches!(files.lookup(SYSTEM_VERSION_PLIST), Err(Error::NotFound)) {
+        return Ok(files);
+    }
+    // CoreFoundation's system version lookup reads this installed metadata.
+    // Admit the regular file at this path only.
+    let host = root.join(SYSTEM_VERSION_PLIST.trim_start_matches('/'));
+    match std::fs::symlink_metadata(&host) {
+        Ok(metadata) if metadata.is_file() => {
+            files.with_host_file(SYSTEM_VERSION_PLIST.into(), &host)
+        }
+        Ok(_) => Ok(files),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(files),
+        Err(error) => Err(error),
+    }
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -164,6 +189,68 @@ mod tests {
                 .lookup("/System/Library/dyld/dyld_shared_cache_arm64e.map")
                 .is_err()
         );
+    }
+
+    #[test]
+    fn system_version_metadata_is_selected_without_neighboring_files() {
+        let fixture = TestFile::new(b"dyld", 4);
+        let dyld = fixture.dir.join("usr/lib/dyld");
+        let cache_dir = fixture.dir.join("System/Library/dyld");
+        let version = fixture
+            .dir
+            .join(SYSTEM_VERSION_PLIST.trim_start_matches('/'));
+        std::fs::create_dir_all(dyld.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(version.parent().unwrap()).unwrap();
+        std::fs::write(dyld, b"dyld").unwrap();
+        std::fs::write(cache_dir.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        std::fs::write(&version, b"installed").unwrap();
+        std::fs::write(version.with_file_name("Unselected.plist"), b"other").unwrap();
+        let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
+        assert_eq!(&*selected.read(SYSTEM_VERSION_PLIST).unwrap(), b"installed");
+        assert!(
+            selected
+                .lookup("/System/Library/CoreServices/Unselected.plist")
+                .is_err()
+        );
+
+        let supplied = Files::default()
+            .with_file(SYSTEM_VERSION_PLIST.into(), Arc::from(&b"supplied"[..]))
+            .unwrap();
+        let selected = select_native_root(&supplied, &fixture.dir).unwrap();
+        assert_eq!(&*selected.read(SYSTEM_VERSION_PLIST).unwrap(), b"supplied");
+
+        let caller = TestFile::new(b"caller", 6);
+        std::fs::write(caller.dir.join("SystemVersion.plist"), b"mounted").unwrap();
+        let mounted = Files::default()
+            .with_host_roots(std::collections::BTreeMap::from([(
+                "/System/Library/CoreServices".into(),
+                caller.dir.clone(),
+            )]))
+            .unwrap();
+        let selected = select_native_root(&mounted, &fixture.dir).unwrap();
+        assert_eq!(&*selected.read(SYSTEM_VERSION_PLIST).unwrap(), b"mounted");
+
+        let blocked = Files::default()
+            .with_file(
+                "/System/Library/CoreServices".into(),
+                Arc::from(&b"file"[..]),
+            )
+            .unwrap();
+        let selected = select_native_root(&blocked, &fixture.dir).unwrap();
+        assert_eq!(
+            &*selected.read("/System/Library/CoreServices").unwrap(),
+            b"file"
+        );
+        assert!(selected.lookup(SYSTEM_VERSION_PLIST).is_err());
+
+        #[cfg(unix)]
+        {
+            std::fs::remove_file(&version).unwrap();
+            std::os::unix::fs::symlink(&fixture.path, &version).unwrap();
+            let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
+            assert!(selected.lookup(SYSTEM_VERSION_PLIST).is_err());
+        }
     }
 
     #[test]
@@ -428,12 +515,24 @@ mod tests {
         use crate::user::darwin::{
             DarwinConfig, DarwinProcess, ExitStatus, RunStatus, loader::ImageFile,
         };
+        let version_tool = "/usr/bin/sw_vers";
+        let version = std::process::Command::new(version_tool)
+            .arg("-productVersion")
+            .output()
+            .unwrap();
+        assert!(version.status.success());
+        assert!(version.stderr.is_empty());
         for (path, arguments, expected) in [
-            ("/usr/bin/true", vec![], ""),
+            ("/usr/bin/true", vec![], vec![]),
             (
                 "/usr/bin/printf",
                 vec![b"%s\\n".to_vec(), b"native-cache".to_vec()],
-                "native-cache\n",
+                b"native-cache\n".to_vec(),
+            ),
+            (
+                version_tool,
+                vec![b"-productVersion".to_vec()],
+                version.stdout,
             ),
         ] {
             let console = crate::user::console::CapturedConsole::new(Vec::new(), 65536).unwrap();
@@ -466,15 +565,16 @@ mod tests {
                     RunStatus::BudgetExhausted => {}
                     RunStatus::Complete(status) => {
                         let mut stderr = vec![0; 65536];
-                        let n = console
+                        let stderr_len = console
                             .drain(crate::user::console::OutputStream::Stderr, &mut stderr)
                             .unwrap();
                         assert_eq!(
                             status,
                             ExitStatus::Exited(0),
                             "{path}: {}",
-                            String::from_utf8_lossy(&stderr[..n])
+                            String::from_utf8_lossy(&stderr[..stderr_len])
                         );
+                        assert_eq!(&stderr[..stderr_len], b"", "{path}");
                         assert!(
                             process.proc.shared_region.is_some(),
                             "{path} did not use the shared cache"
@@ -483,7 +583,7 @@ mod tests {
                         let n = console
                             .drain(crate::user::console::OutputStream::Stdout, &mut stdout)
                             .unwrap();
-                        assert_eq!(&stdout[..n], expected.as_bytes(), "{path}");
+                        assert_eq!(&stdout[..n], expected, "{path}");
                         eprintln!(
                             "{path} {abi:?}: completed within {} scheduler turns",
                             MAX_TURNS - remaining
