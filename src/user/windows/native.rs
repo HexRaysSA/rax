@@ -171,7 +171,11 @@ impl NativeRuntime {
         runtime.object_namespace =
             super::object_namespace::snapshot(runtime.registry.upcase_table(), token_session)?;
         if arch == WinArch::Arm64
-            && (runtime.version.major, runtime.version.minor, runtime.version.build) == (10, 0, 29708)
+            && (
+                runtime.version.major,
+                runtime.version.minor,
+                runtime.version.build,
+            ) == (10, 0, 29708)
             && runtime.object_namespace.native_machine == Some(0xAA64)
         {
             runtime.object_namespace.policy_lookup_account =
@@ -255,7 +259,9 @@ impl NativeRuntime {
                 return Availability::Unavailable(error.to_string());
             }
             _ => {
-                return Availability::Unavailable("selected USER32/Win32u runtime is absent".into());
+                return Availability::Unavailable(
+                    "selected USER32/Win32u runtime is absent".into(),
+                );
             }
         };
         if arch != WinArch::X86
