@@ -323,3 +323,20 @@ records 371 passes and six failures across ARM64 and x86-64 fixtures:
 The native and emulated code-signing flags or trace admission differ despite
 exit status 0. These original failures are retained; their causes and repairs
 remain separate from this Windows registry change.
+
+## Packages sibling observed on Windows Server 2022
+
+On native x64 Windows build 20348, the closed C API's installed
+`cmd.exe /d /c ver` reached an `NtOpenKey` for
+`\\Registry\\Machine\\SOFTWARE\\Microsoft\\AppModel\\Lookaside\\Packages` at
+1,040 scheduler turns. The previous snapshot returned an unsupported
+operation for that name. The hosted run recorded the original stop and the
+name decoded from stopped guest memory.
+[Windows installed-process run](https://github.com/HexRaysSA/rax/actions/runs/44705547280)
+
+The snapshot includes this fixed HKLM sibling in both registry views.
+Acquisition uses the same read-only adapter and aggregate bounds as the
+existing `machine` and `user` selections. Each view retains its own data or
+explicit absence. The registry and syscall replay tests exercise distinct
+values for each sibling, and the Windows capture test compares each view
+with a fresh native query.

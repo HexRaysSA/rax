@@ -307,6 +307,8 @@ fn appmodel_sibling_roots_keep_independent_views_and_retained_catalogs() {
                 (AppModelRoot::Machine, RegistryView::Wow32) => 32,
                 (AppModelRoot::User, RegistryView::Native64) => 164,
                 (AppModelRoot::User, RegistryView::Wow32) => 132,
+                (AppModelRoot::Packages, RegistryView::Native64) => 224,
+                (AppModelRoot::Packages, RegistryView::Wow32) => 192,
             };
             registry = registry
                 .with_appmodel_view(
@@ -322,9 +324,14 @@ fn appmodel_sibling_roots_keep_independent_views_and_retained_catalogs() {
     }
     let machine = present(&registry, MACHINE_KEY, RegistryView::Native64);
     let user = present(&registry, &USER_KEY.to_lowercase(), RegistryView::Native64);
+    let packages = present(
+        &registry,
+        &PACKAGES_KEY.to_lowercase(),
+        RegistryView::Native64,
+    );
     let catalog = registry.views.clone();
     drop(registry);
-    for (root, expected) in [(&machine, 32), (&user, 132)] {
+    for (root, expected) in [(&machine, 32), (&user, 132), (&packages, 192)] {
         let Lookup::Present(child) = catalog.relative(root, &units("child"), RegistryView::Wow32)
         else {
             panic!("sibling snapshot lost")

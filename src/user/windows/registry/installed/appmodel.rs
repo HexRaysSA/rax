@@ -1,4 +1,4 @@
-//! Capture the two fixed HKLM AppModel subtrees through both Win32 views.
+//! Capture the fixed HKLM AppModel subtrees through both Win32 views.
 //! Guest paths, access masks and handles never reach these acquisition calls.
 use super::super::{AppModelRoot, RegistryView};
 use super::*;
@@ -19,8 +19,8 @@ fn capture_with(
                 registry.view_budget()?,
                 |path| opener(selected, view, path),
             )?;
-            // Charge every completed root/view before acquiring the next;
-            // all four trees share aggregate value and metadata budgets.
+            // Charge each completed root/view against the shared value and
+            // metadata budgets before acquiring the next one.
             registry = registry.with_appmodel_view(selected, view, tree)?;
         }
     }

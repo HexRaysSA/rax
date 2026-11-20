@@ -17,13 +17,18 @@ fn tree(byte: u8) -> KeyTree {
         ..leaf()
     }
 }
+
+fn fixture_view_bias(selected: AppModelRoot) -> u8 {
+    match selected {
+        AppModelRoot::Machine => 0,
+        AppModelRoot::User => 100,
+        AppModelRoot::Packages => 160,
+    }
+}
+
 fn captured(p: &mut Proc) {
     for selected in AppModelRoot::ALL {
-        let bias = if selected == AppModelRoot::User {
-            100
-        } else {
-            0
-        };
+        let bias = fixture_view_bias(selected);
         p.registry = p
             .registry
             .clone()
@@ -76,11 +81,7 @@ fn value(p: &mut Proc, t: &mut Thread, base: u64, handle: u64) -> u8 {
 #[test]
 fn appmodel_absolute_and_relative_views_follow_native_controls_all_abis() {
     for selected in AppModelRoot::ALL {
-        let bias = if selected == AppModelRoot::User {
-            100
-        } else {
-            0
-        };
+        let bias = fixture_view_bias(selected);
         for arch in WinArch::ALL {
             for (build, machine) in [(20348, 0x8664), (26100, 0x8664), (29695, 0xAA64)] {
                 for service in ["NtOpenKey", "NtOpenKeyEx"] {

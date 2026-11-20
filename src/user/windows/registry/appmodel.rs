@@ -6,20 +6,24 @@ pub(crate) const MACHINE_KEY: &str =
     "\\Registry\\Machine\\Software\\Microsoft\\AppModel\\Lookaside\\machine";
 pub(crate) const USER_KEY: &str =
     "\\Registry\\Machine\\Software\\Microsoft\\AppModel\\Lookaside\\user";
+pub(crate) const PACKAGES_KEY: &str =
+    "\\Registry\\Machine\\Software\\Microsoft\\AppModel\\Lookaside\\Packages";
 
-/// Both leaves belong to HKLM. `User` does not select HKCU or a user SID hive.
+/// The fixed leaves belong to HKLM, including the leaf named `user`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum AppModelRoot {
     Machine,
     User,
+    Packages,
 }
 impl AppModelRoot {
-    pub(crate) const ALL: [Self; 2] = [Self::Machine, Self::User];
+    pub(crate) const ALL: [Self; 3] = [Self::Machine, Self::User, Self::Packages];
 
     pub(crate) fn path(self) -> &'static str {
         match self {
             Self::Machine => MACHINE_KEY,
             Self::User => USER_KEY,
+            Self::Packages => PACKAGES_KEY,
         }
     }
 }

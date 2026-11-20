@@ -58,7 +58,7 @@ fn installed_appmodel_absence_is_independent_and_other_errors_abort() {
         ));
     }
     for status in [3, 5, 234, 259] {
-        for failed_call in 1..=4 {
+        for failed_call in 1..=2 * AppModelRoot::ALL.len() {
             let mut calls = 0;
             let error = capture_with(registry.clone(), |_, _, _| {
                 calls += 1;
