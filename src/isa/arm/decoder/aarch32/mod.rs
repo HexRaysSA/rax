@@ -10,6 +10,7 @@ mod bfloat;
 pub(crate) use bfloat::BfloatFields;
 mod complex;
 mod dot_product;
+pub(crate) use dot_product::ProductShape;
 mod neon;
 mod vfp;
 
@@ -179,23 +180,11 @@ impl Aarch32Decoder {
             let mnemonic = fields.map_or(Mnemonic::UNDEFINED, |fields| fields.mnemonic());
             return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
         }
-        // Reserve these allocations before the coprocessor fallback.
-        let i8mm = raw & 0xFF30_0F40 == 0xFC20_0C40 // VSMMLA/VUMMLA/VUSMMLA
-            || raw & 0xFFB0_0F10 == 0xFCA0_0D00 // VUSDOT (vector)
-            || raw & 0xFFB0_0F00 == 0xFE80_0D00; // VUSDOT/VSUDOT (indexed)
-        if i8mm {
-            return Ok(DecodedInsn::new(
-                Mnemonic::UNDEFINED,
-                ExecutionState::Aarch32,
-                raw,
-                4,
-            ));
-        }
         if let Some(fields) = Self::complex_simd_fields(raw) {
             let mnemonic = fields.map_or(Mnemonic::UNDEFINED, |fields| fields.mnemonic);
             return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
         }
-        if let Some(fields) = Self::dot_product_fields(raw) {
+        if let Some(fields) = Self::int8_product_fields(raw) {
             let mnemonic = fields.map_or(Mnemonic::UNDEFINED, |fields| fields.mnemonic);
             return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
         }

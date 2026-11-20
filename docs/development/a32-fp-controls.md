@@ -282,10 +282,9 @@ register preservation, mixed-width fault priority, SMIR rejection, and
 neighboring FP16 and `CDP2` encodings. All 47,551 tests across the four owning
 targets passed on Apple Silicon. Physical AArch32 execution remains unverified.
 
-Standalone CP15 reads report absent `ID_ISAR6.I8MM[27:24]`
-even if a host override or a saved state supplies those bits. AArch64 MRS
-and mixed-width MRC report the same AArch32 view. Raw saved fields remain
-round-trippable.
+The earlier profile suppressed `ID_ISAR6.I8MM[27:24]` while preserving
+the raw saved field. The I8MM implementation below supplies the effective
+view for standalone CP15, AArch64 MRS and mixed-width MRC.
 [Arm ASL definitions](../architecture/arm/asl/arm_regs.asl),
 [Linux arm64 sysreg field table](../specifications/arm/native-context-feature-registers/linux-sysreg.txt)
 
@@ -351,6 +350,43 @@ and `isa_oracle` passed on Apple Silicon. The SMIR lifters use interpreter
 fallback for this instruction family. Physical AArch32 execution and the
 remaining FP audit stay open.
 [QEMU replay vectors](../../tests/suites/backend/a32_fp_controls/dot-product-qemu.tsv)
+
+## AArch32 FEAT_AA32I8MM
+
+`VSMMLA`, `VUMMLA`, `VUSMMLA`, `VUSDOT` and `VSUDOT` now execute in
+A32 and T32. The standalone CPU selects the feature with
+`ID_ISAR6.I8MM=1`. A mixed-width CPU requires the saved
+`ID_ISAR6_EL1.I8MM=1` selection, `ID_AA64ISAR1_EL1.I8MM=1`, and
+AArch32 EL0 support. Both use the effective D32 and SIMDInt checks for
+ID readback and instruction admission. The default AArch32 selection
+is absent. The existing saved ID field carries the selection.
+[Arm Feature Names, page 41](../specifications/arm/audit-reference-inputs/feature_names_109697_2025_09_en.pdf)
+
+The matrix forms reuse the A64 `MatMulAdd` arithmetic. Each result
+lane accumulates eight products of bytes into a 32-bit lane. The dot
+forms accumulate four products and select the signedness of each
+source separately. Each intermediate product has magnitude at most
+65,025, so the largest sum of products has magnitude at most 520,200
+and fits in `i32`. The destination addition wraps modulo 2^32.
+Execution uses bounded time and constant auxiliary storage per
+instruction. The result leaves FPSCR and condition flags unchanged.
+[Arm DDI0597 ID032025, pages 1355–1356, 1434–1435 and 1450–1457](../specifications/arm/aarch32-isa-2025-03.pdf)
+[Arm MatMulAdd pseudocode](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L48286)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The decoded operands select the prescribed widths, register pairs and indexed lane. | LLVM MC agrees on all 32 A1/T1 word pairs. Tests vary odd Q fields and the reserved matrix selector. |
+| ID readback and operation admission share a profile. | Test reserved I8MM levels, D16, absent SIMDInt, absent FP16/FP32 SIMD, and competing HCPTR traps. Reimport a mixed-width profile and verify guest ID and execution. |
+| T32 checks the predicate before rejecting a restricted IT slot. | A failed predicate skips the operation. A passing predicate reports Undefined ahead of the access trap, with unchanged vector registers. |
+| Source operands survive destination aliasing. | Replay mixed signs, vector and indexed overlap, all three matrix operand layouts, high registers and 32-bit wrap with QEMU 11.1.2. |
+
+The baseline returned Undefined for a valid enabled `VSMMLA`. The
+candidate matched 64 enabled QEMU `max` cases and 64 Cortex-A15
+Undefined controls. All 47,677 tests passed across the five owning
+targets on Apple Silicon with `smir-jit`. Unsupported SMIR operations
+continue through interpreter fallback. Physical AArch32 execution and
+the wider profile and security/debug audit remain open.
+[QEMU replay vectors](../../tests/suites/backend/a32_fp_controls/i8mm-qemu.tsv)
 
 ## Original ARM audit replay
 

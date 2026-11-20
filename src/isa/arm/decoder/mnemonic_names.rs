@@ -881,6 +881,11 @@ impl Mnemonic {
             Mnemonic::VMMLA_BF16 => "vmmla.bf16",
             Mnemonic::VFMAB_BF16 => "vfmab.bf16",
             Mnemonic::VFMAT_BF16 => "vfmat.bf16",
+            Mnemonic::VUSDOT => "vusdot",
+            Mnemonic::VSUDOT => "vsudot",
+            Mnemonic::VSMMLA => "vsmmla",
+            Mnemonic::VUMMLA => "vummla",
+            Mnemonic::VUSMMLA => "vusmmla",
 
             // Unknown/Invalid
             Mnemonic::UNKNOWN => "unknown",

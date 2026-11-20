@@ -41,8 +41,7 @@ pub(crate) const ID_ISAR5_VCMA: u32 = 15 << 28;
 pub(crate) const ID_ISAR5_RDM: u32 = 15 << 24;
 pub(crate) const ID_ISAR6_DP: u32 = 15 << 4;
 
-// I8MM has no AArch32 execution support. Preserve the raw field in storage.
-const ID_ISAR6_I8MM: u32 = 0x0f00_0000;
+pub(crate) const ID_ISAR6_I8MM: u32 = 0x0f00_0000;
 pub(crate) const ID_ISAR6_BF16: u32 = 0x00f0_0000;
 
 /// CP15 coprocessor state.
@@ -336,7 +335,10 @@ impl Cp15State {
                 Some(value)
             }
             (0, 0, 2, 7) => {
-                let mut value = self.id_isar6 & !ID_ISAR6_I8MM;
+                let mut value = self.id_isar6;
+                if value & ID_ISAR6_I8MM != 1 << 24 {
+                    value &= !ID_ISAR6_I8MM;
+                }
                 if value & ID_ISAR6_DP != 1 << 4 {
                     value &= !ID_ISAR6_DP;
                 }

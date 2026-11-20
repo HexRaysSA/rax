@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use crate::isa::arm::aarch32::cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16};
+use crate::isa::arm::aarch32::cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16, ID_ISAR6_I8MM};
 use crate::isa::arm::aarch32::fp_admission::{effective_id_isar5, effective_id_isar6};
 use crate::isa::arm::common::sysreg::{Aarch64SysReg, Aarch64SysRegEncoding};
 
@@ -558,15 +558,20 @@ impl SystemRegisters {
         let fhm = (((self.id_aa64isar0_el1 >> 48) & 15) as u32) << 8;
         let dp = (((self.id_aa64isar0_el1 >> 44) & 15) as u32) << 4;
         let jscvt = ((self.id_aa64isar1_el1 >> 12) & 15) as u32;
-        // FEAT_AA32BF16 is optional in the A64 BF16 profile and requires
-        // FEAT_AA32, which implies AArch32 support at EL0.
-        let bf16 = if (self.id_aa64isar1_el1 >> 44) & 15 == 1 && self.id_aa64pfr0_el1 & 15 == 2 {
+        // The optional AArch32 forms require their A64 counterpart as
+        // well as FEAT_AA32, which implies AArch32 support at EL0.
+        let mut a32_only = 0;
+        if self.id_aa64pfr0_el1 & 15 == 2 {
             let encoding = Aarch64SysRegEncoding::new(3, 0, 0, 2, 7).encode();
-            self.impl_defined.get(&encoding).copied().unwrap_or(0) as u32 & ID_ISAR6_BF16
-        } else {
-            0
-        };
-        effective_id_isar6(fhm | dp | jscvt | bf16, mvfr0, mvfr1)
+            let selected = self.impl_defined.get(&encoding).copied().unwrap_or(0) as u32;
+            if (self.id_aa64isar1_el1 >> 44) & 15 == 1 {
+                a32_only |= selected & ID_ISAR6_BF16;
+            }
+            if (self.id_aa64isar1_el1 >> 52) & 15 == 1 {
+                a32_only |= selected & ID_ISAR6_I8MM;
+            }
+        }
+        effective_id_isar6(fhm | dp | jscvt | a32_only, mvfr0, mvfr1)
     }
 
     /// Read a system register by encoding.

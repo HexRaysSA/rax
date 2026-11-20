@@ -4,6 +4,7 @@ pub mod cpu;
 pub mod features;
 pub(crate) mod fp;
 pub(crate) mod fp_access;
+pub(crate) mod int8;
 pub mod isa;
 pub mod memory;
 pub mod state;

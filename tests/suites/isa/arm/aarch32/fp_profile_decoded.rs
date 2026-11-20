@@ -133,20 +133,14 @@ fn absent_bfloat16_is_undefined_without_register_effects() {
 #[test]
 fn absent_dot_product_integer_matrix_and_complex_simd_are_undefined() {
     // LLVM MC A32 encodings. These allocations use the same opcode word in T32.
-    let encodings = [
-        0xfc22_0c44, // VSMMLA.S8 q0, q1, q2
-        0xfc22_0c54, // VUMMLA.U8 q0, q1, q2
-        0xfca2_0c44, // VUSMMLA.S8 q0, q1, q2
-        0xfca2_0d44, // VUSDOT.S8 q0, q1, q2
-        0xfe82_0d74, // VSUDOT.U8 q0, q1, d4[1]
-        0xfe82_0d64, // VUSDOT.S8 q0, q1, d4[1]
-    ];
     for thumb in [false, true] {
-        for raw in encodings {
-            assert_undefined_admission(raw, thumb, None, Mnemonic::UNDEFINED);
-            assert_smir_unsupported(raw, thumb);
-        }
         for (raw, mnemonic) in [
+            (0xfc22_0c44, Mnemonic::VSMMLA),
+            (0xfc22_0c54, Mnemonic::VUMMLA),
+            (0xfca2_0c44, Mnemonic::VUSMMLA),
+            (0xfca2_0d44, Mnemonic::VUSDOT),
+            (0xfe82_0d74, Mnemonic::VSUDOT),
+            (0xfe82_0d64, Mnemonic::VUSDOT),
             (0xfc22_0d04, Mnemonic::VSDOT), // Signed vector D
             (0xfc22_0d54, Mnemonic::VUDOT), // Unsigned vector Q
             (0xfe22_0d64, Mnemonic::VSDOT), // Signed indexed Q

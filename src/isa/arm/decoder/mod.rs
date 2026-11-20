@@ -1239,6 +1239,11 @@ pub enum Mnemonic {
     VMMLA_BF16,
     VFMAB_BF16,
     VFMAT_BF16,
+    VUSDOT,
+    VSUDOT,
+    VSMMLA,
+    VUMMLA,
+    VUSMMLA,
 }
 
 mod mnemonic_names;

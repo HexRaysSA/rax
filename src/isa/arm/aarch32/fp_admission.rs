@@ -3,7 +3,7 @@
 //! MVFR1 conversion fields do not imply FEAT_FP16 data processing. See the
 //! archived Arm ASL guards and feature-admission reference provenance.
 use super::{
-    cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16, ID_ISAR6_DP},
+    cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16, ID_ISAR6_DP, ID_ISAR6_I8MM},
     vfp::VfpState,
 };
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
@@ -38,10 +38,19 @@ pub(crate) fn instruction_supported(
                 })
             });
     }
-    if matches!(insn.mnemonic, Mnemonic::VSDOT | Mnemonic::VUDOT) {
+    let int8_feature = match insn.mnemonic {
+        Mnemonic::VSDOT | Mnemonic::VUDOT => ID_ISAR6_DP,
+        Mnemonic::VUSDOT
+        | Mnemonic::VSUDOT
+        | Mnemonic::VSMMLA
+        | Mnemonic::VUMMLA
+        | Mnemonic::VUSMMLA => ID_ISAR6_I8MM,
+        _ => 0,
+    };
+    if int8_feature != 0 {
         return advsimd
-            && effective_id_isar6(id_isar6, state.mvfr0, state.mvfr1) & ID_ISAR6_DP != 0
-            && Aarch32Decoder::dot_product_fields(a32_word(insn))
+            && effective_id_isar6(id_isar6, state.mvfr0, state.mvfr1) & int8_feature != 0
+            && Aarch32Decoder::int8_product_fields(a32_word(insn))
                 .is_some_and(|fields| fields.is_ok_and(|fields| fields.mnemonic == insn.mnemonic));
     }
     if matches!(
@@ -235,6 +244,11 @@ pub(crate) fn predicate_supported(insn: &DecodedInsn, advsimd: bool, in_it: bool
             | Mnemonic::VCMLA
             | Mnemonic::VSDOT
             | Mnemonic::VUDOT
+            | Mnemonic::VUSDOT
+            | Mnemonic::VSUDOT
+            | Mnemonic::VSMMLA
+            | Mnemonic::VUMMLA
+            | Mnemonic::VUSMMLA
             | Mnemonic::VDOT_BF16
             | Mnemonic::VMMLA_BF16
             | Mnemonic::VFMAB_BF16
@@ -412,13 +426,16 @@ pub(crate) fn effective_id_isar5(mut id_isar5: u32, mvfr0: u32, mvfr1: u32) -> u
     id_isar5
 }
 
-/// Project the DotProd, FHM and BF16 fields through the active AArch32 FP profile.
+/// Project the optional SIMD and FP fields through the active AArch32 profile.
 pub(crate) fn effective_id_isar6(mut id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
     let has_simd_integer = has_integer_simd(mvfr0, mvfr1);
     let has_simd_single = (mvfr1 >> 16) & 15 == 1;
     let has_simd_half = (mvfr1 >> 20) & 15 == 2;
     if !has_simd_integer || id_isar6 & ID_ISAR6_DP != 1 << 4 {
         id_isar6 &= !ID_ISAR6_DP;
+    }
+    if !has_simd_integer || id_isar6 & ID_ISAR6_I8MM != 1 << 24 {
+        id_isar6 &= !ID_ISAR6_I8MM;
     }
     if !(has_simd_integer && has_simd_single && has_simd_half) || id_isar6 & ID_ISAR6_FHM != 1 << 8
     {

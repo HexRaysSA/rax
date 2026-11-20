@@ -18,6 +18,7 @@ use crate::isa::arm::common::cpu::{
     MemoryFaultType, ProcessorState, WatchpointKind,
 };
 use crate::isa::arm::common::features::ArmFeatures;
+use crate::isa::arm::common::int8;
 use crate::isa::arm::common::memory::ArmMemory;
 use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 use crate::vm::vcpu::Aarch64SystemRegisters;
@@ -45,37 +46,14 @@ impl AArch64Cpu {
             if scalar || q == 0 || size != 0b10 {
                 return Err(ArmError::UndefinedInstruction(insn));
             }
-            let (n_signed, m_signed) = if lo6 == 0b101011 {
+            let signed = if lo6 == 0b101011 {
                 (false, true) // USMMLA: Vn unsigned, Vm signed
             } else if u == 1 {
                 (false, false) // UMMLA
             } else {
                 (true, true) // SMMLA
             };
-            let n = self.v[rn].to_le_bytes();
-            let m = self.v[rm].to_le_bytes();
-            let a = self.v[rd];
-            let mut res = 0u128;
-            for i in 0..2 {
-                for j in 0..2 {
-                    let mut acc = (a >> ((i * 2 + j) * 32)) as u32 as i32 as i64;
-                    for k in 0..8 {
-                        let nv = if n_signed {
-                            n[i * 8 + k] as i8 as i64
-                        } else {
-                            n[i * 8 + k] as i64
-                        };
-                        let mv = if m_signed {
-                            m[j * 8 + k] as i8 as i64
-                        } else {
-                            m[j * 8 + k] as i64
-                        };
-                        acc += nv * mv;
-                    }
-                    res |= (acc as u32 as u128) << ((i * 2 + j) * 32);
-                }
-            }
-            self.v[rd] = res;
+            self.v[rd] = int8::matrix_accumulate(self.v[rd], self.v[rn], self.v[rm], signed);
             return Ok(CpuExit::Continue);
         }
 

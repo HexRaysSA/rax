@@ -18,6 +18,8 @@ mod bfloat;
 mod complex;
 #[path = "a32_fp_controls/dot_product.rs"]
 mod dot_product;
+#[path = "a32_fp_controls/i8mm.rs"]
+mod i8mm;
 
 fn hyp() -> Armv7Cpu {
     let mut cpu = Armv7Cpu::new();
