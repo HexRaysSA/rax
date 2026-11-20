@@ -206,7 +206,7 @@ fn installed_findstr_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_sort_matches_native_through_closed_c_abi() {
-    check_native_process_memory_queries();
+    observe_native_process_queries();
     compare_installed_sort(&[]);
 }
 
@@ -230,7 +230,7 @@ fn compare_installed_sort(arguments: &[&str]) {
 }
 
 #[cfg(windows)]
-fn check_native_process_memory_queries() {
+fn observe_native_process_queries() {
     use std::ffi::c_void;
 
     #[link(name = "ntdll")]
@@ -306,6 +306,29 @@ fn check_native_process_memory_queries() {
             "native current-process VM counters: size={size} status={status:08x} written={written} peaks_cover_current={peaks_cover_current}"
         );
     }
+
+    let (image_size, subsystem) = if cfg!(target_pointer_width = "64") {
+        (64, 32)
+    } else {
+        (48, 16)
+    };
+    let (status, written, data) = query(37, image_size);
+    let has_entry_point = data[0] != 0 && data[0] != usize::MAX - 1;
+    let exe = std::env::current_exe().expect("native test executable path");
+    let executable = rax_engine::user::image::pe::PeImage::parse(
+        std::fs::read(exe).expect("read native test executable"),
+    )
+    .expect("parse native test executable");
+    let record: Vec<u8> = data.into_iter().flat_map(usize::to_le_bytes).collect();
+    let header = executable.headers();
+    let file_size = u32::try_from(executable.bytes().len()).expect("test image size fits ULONG");
+    let image_fields_agree = record[subsystem..subsystem + 4]
+        == u32::from(header.subsystem).to_le_bytes()
+        && record[subsystem + 16..subsystem + 18] == header.machine.to_le_bytes()
+        && record[subsystem + 24..subsystem + 28] == file_size.to_le_bytes();
+    eprintln!(
+        "native current-process image information: size={image_size} status={status:08x} written={written} has_entry_point={has_entry_point} image_fields_agree={image_fields_agree}"
+    );
 }
 
 #[cfg(windows)]
