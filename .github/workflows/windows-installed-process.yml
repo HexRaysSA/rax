@@ -26,6 +26,10 @@ on:
         description: Compare installed findstr.exe with redirected standard input
         type: boolean
         default: false
+      measure_native_user_shape:
+        description: Measure fixed current-session USER connection geometry
+        type: boolean
+        default: false
       measure_startup_queries:
         description: Capture native startup license and MUI observations
         type: boolean
@@ -163,6 +167,45 @@ jobs:
           $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
           if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
             exit 1
+          }
+      - name: Measure the native USER connection geometry
+        if: ${{ !cancelled() && inputs.measure_native_user_shape && steps.stock.outcome != 'skipped' }}
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-alpc-csr/fixed-user-shape.rs'
+          $exe = Join-Path $env:TMPDIR 'fixed-user-shape.exe'
+          $log = Join-Path $root 'native-user-shape.log'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $sourceHash = (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant()
+          $ntdllHash = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+          rustc --edition 2024 -Dwarnings --target $env:RAX_TEST_TARGET $source -o $exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exeHash = (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
+          $PSNativeCommandUseErrorActionPreference = $false
+          & $exe 2>&1 | Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          $identity = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            target = $env:RAX_TEST_TARGET
+            source_sha256 = $sourceHash
+            ntdll_sha256 = $ntdllHash
+            exe_sha256 = $exeHash
+            exit_code = $exitCode
+            log_sha256 = (Get-FileHash -LiteralPath $log).Hash.ToLowerInvariant()
+            inputs_unchanged = (
+              $sourceHash -eq (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant() -and
+              $ntdllHash -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant() -and
+              $exeHash -eq (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
+            )
+          }
+          $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'native-user-shape-identity.json') -Encoding utf8
+          if ($identity.exit_code -ne 0 -or !$identity.inputs_unchanged -or
+              !(Select-String -LiteralPath $log -Pattern '^complete samples=2$' -Quiet)) {
+            throw 'Native USER connection observations did not complete'
           }
       - name: Measure the native startup license queries
         if: ${{ !cancelled() && inputs.measure_startup_queries && steps.stock.outcome != 'skipped' }}
@@ -448,6 +491,8 @@ jobs:
             target/windows-installed-process/capi.log
             target/windows-installed-process/filter-receipt.json
             target/windows-installed-process/filter-capi.log
+            target/windows-installed-process/native-user-shape.log
+            target/windows-installed-process/native-user-shape-identity.json
             target/windows-installed-process/startup-license.json
             target/windows-installed-process/startup-license-identity.json
             target/windows-installed-process/native-mui-query.log
