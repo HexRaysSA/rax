@@ -64,15 +64,15 @@ impl<T: Clone> State<T> {
     /// completion is terminal; retrying dispatch would repeat a device effect.
     pub(crate) fn acknowledge(
         &mut self,
-        complete: impl FnOnce(u64) -> Result<(), String>,
+        complete: impl FnOnce(&T, u64) -> Result<(), String>,
     ) -> Result<(), String> {
         self.healthy()?;
-        let Some((_, length)) = self.pending.as_ref() else {
+        let Some((packet, length)) = self.pending.as_ref() else {
             let error = "unexpected HVF output acknowledgment".to_string();
             self.failure = Some(error.clone());
             return Err(error);
         };
-        if let Err(error) = complete(*length) {
+        if let Err(error) = complete(packet, *length) {
             let error =
                 format!("HVF output completion failed after device acknowledgment: {error}");
             self.failure = Some(error.clone());

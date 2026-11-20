@@ -36,6 +36,8 @@ mod intel_vm;
 #[cfg(target_arch = "x86_64")]
 mod intel_worker;
 #[cfg(target_arch = "x86_64")]
+use crate::backend::intel_hvf_context::Packet;
+#[cfg(target_arch = "x86_64")]
 use crate::backend::intel_hvf_io::{guest_translation, mmio, port_io};
 #[cfg(target_arch = "x86_64")]
 mod intel_checkpoint;
@@ -337,7 +339,7 @@ struct HvfCore {
     /// Scalar input request and terminal completion failure.
     port_input: port_io::InputState,
     mmio_input: mmio::InputState,
-    output: output::State<VcpuExit>,
+    output: output::State<Packet>,
     native_step: native_step::State,
     /// Whether the vCPU is halted
     halted: bool,
@@ -345,7 +347,7 @@ struct HvfCore {
     /// Architectural PAT is software-owned: the SDK exposes no PAT access.
     pat: u64,
     checkpoint_profile: Option<crate::backend::intel_hvf_context::Profile>,
-    pending_request: Option<crate::backend::intel_hvf_context::Packet>,
+    pending_request: Option<Packet>,
     execution_failure: Option<String>,
     restore_failure: Option<String>,
     tsc_offset: i64,
@@ -774,10 +776,14 @@ impl HvfCore {
     }
 
     fn advance_rip(&self, bytes: u64) -> Result<()> {
+        self.retire_boundary(Some(bytes))
+    }
+
+    fn retire_boundary(&self, length: Option<u64>) -> Result<()> {
         self.native_step.ready().map_err(Error::Emulator)?;
         struct Access<'a> {
             vcpu: &'a HvfCore,
-            next: u64,
+            next: Option<u64>,
         }
         impl retirement::Access for Access<'_> {
             type Error = Error;
@@ -813,7 +819,10 @@ impl HvfCore {
                 )
             }
             fn advance_ip(&mut self) -> Result<()> {
-                write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RIP, self.next)
+                if let Some(next) = self.next {
+                    write_register(self.vcpu.vcpu_id, hv_x86_reg_t::HV_X86_RIP, next)?;
+                }
+                Ok(())
             }
             fn write_interruptibility(&mut self, value: u64) -> Result<()> {
                 vmcs_write(
@@ -823,20 +832,31 @@ impl HvfCore {
                 )
             }
         }
-        let rip = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP)?;
-        let efer = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_IA32_EFER)?;
-        let cs = vmcs_read(
-            self.vcpu_id,
-            hv_vmx_vmcs_field_t::VMCS_GUEST_CS_ACCESS_RIGHTS,
-        )?;
-        let bits = sync_exit::code_width(efer, cs);
-        let next = sync_exit::next_ip(rip, bytes, bits).map_err(|reason| {
-            Error::Emulator(format!(
-                "invalid HVF instruction advance:{reason:?},length={bytes},bits={bits}"
-            ))
-        })?;
-        retirement::complete(&mut Access { vcpu: self, next })
-            .map_err(|error| Error::Emulator(self.native_step.poison(error.to_string())))?;
+        let retired = if let Some(bytes) = length {
+            let rip = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RIP)?;
+            let efer = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_IA32_EFER)?;
+            let cs = vmcs_read(
+                self.vcpu_id,
+                hv_vmx_vmcs_field_t::VMCS_GUEST_CS_ACCESS_RIGHTS,
+            )?;
+            let bits = sync_exit::code_width(efer, cs);
+            let next = sync_exit::next_ip(rip, bytes, bits).map_err(|reason| {
+                Error::Emulator(format!(
+                    "invalid HVF instruction advance:{reason:?},length={bytes},bits={bits}"
+                ))
+            })?;
+            retirement::complete(&mut Access {
+                vcpu: self,
+                next: Some(next),
+            })
+        } else {
+            retirement::complete_string_iteration(&mut Access {
+                vcpu: self,
+                next: None,
+            })
+        };
+        retired.map_err(|error| Error::Emulator(self.native_step.poison(error.to_string())))?;
+        // VMX monitor-trap boundaries also occur after a successful REP iteration.
         self.native_step.complete_instruction();
         Ok(())
     }
@@ -856,8 +876,19 @@ impl HvfCore {
     }
 
     fn begin_mmio_write(&mut self, addr: u64, length: u64, data: Vec<u8>) -> Result<VcpuExit> {
+        self.begin_output(
+            Packet::Write {
+                address: addr,
+                data,
+            },
+            length,
+        )
+    }
+
+    fn begin_output(&mut self, packet: Packet, length: u64) -> Result<VcpuExit> {
         self.output
-            .begin(VcpuExit::MmioWrite { addr, data }, length)
+            .begin(packet, length)
+            .map(|packet| packet.exit())
             .map_err(Error::Emulator)
     }
 
@@ -937,13 +968,7 @@ impl HvfCore {
         let cr4 = read_register(id, hv_x86_reg_t::HV_X86_CR4)?;
         let efer = vmcs_read(id, VMCS_GUEST_IA32_EFER)?;
         let cs = vmcs_read(id, VMCS_GUEST_CS_ACCESS_RIGHTS)?;
-        let code_bits = if efer & (1 << 10) != 0 && cs & (1 << 13) != 0 {
-            64
-        } else if cs & (1 << 14) != 0 {
-            32
-        } else {
-            16
-        };
+        let code_bits = mmio::code_width(efer, cs & (1 << 13) != 0, cs & (1 << 14) != 0);
         let mut pdpte = [0; 4];
         if cr0 & (1 << 31) != 0 && cr4 & (1 << 5) != 0 && efer & (1 << 10) == 0 {
             for (value, field) in pdpte.iter_mut().zip([
@@ -1114,8 +1139,8 @@ impl run_loop::ExitHandler for HvfCore {
         if let Some(request) = &self.pending_request {
             return Ok(Some(request.exit()));
         }
-        if let Some(exit) = self.output.pending().map_err(Error::Emulator)? {
-            return Ok(Some(exit));
+        if let Some(packet) = self.output.pending().map_err(Error::Emulator)? {
+            return Ok(Some(packet.exit()));
         }
         self.io_ready()?;
         native_memory::validate_cpu_backing(&self.memory_layout, &self.mem)?;
@@ -1190,20 +1215,17 @@ impl run_loop::ExitHandler for HvfCore {
             port_io::Direction::Out => {
                 let data = port_io::output_bytes(rax, io.size)
                     .ok_or_else(|| Error::Emulator("invalid HVF output width".into()))?;
-                self.output
-                    .begin(
-                        VcpuExit::IoOut {
-                            port: io.port,
-                            data,
-                        },
-                        length,
-                    )
-                    .map_err(Error::Emulator)
+                self.begin_output(
+                    Packet::PortWrite {
+                        port: io.port,
+                        data,
+                    },
+                    length,
+                )
             }
         }?;
         if matches!(&exit, VcpuExit::IoIn { .. }) {
-            self.pending_request =
-                Some(crate::backend::intel_hvf_context::Packet::from_exit(&exit)?);
+            self.pending_request = Some(Packet::from_exit(&exit)?);
         }
         self.retain_data_breakpoints(debug_causes)?;
         Ok(exit)
@@ -1242,6 +1264,24 @@ impl run_loop::ExitHandler for HvfCore {
                 })
             }
             mmio::Action::Write(data) => self.begin_mmio_write(plan.physical, plan.length, data),
+            mmio::Action::StringLoad(input) => {
+                let size = input.size;
+                self.mmio_input
+                    .begin_string_load(input)
+                    .map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size,
+                })
+            }
+            mmio::Action::StringStore { data, progress } => self.begin_output(
+                Packet::StringWrite {
+                    address: plan.physical,
+                    data,
+                    progress,
+                },
+                plan.length,
+            ),
             mmio::Action::XmmRead(input) => {
                 let size = input.size;
                 self.mmio_input.begin_xmm(input).map_err(Error::Emulator)?;
@@ -1269,8 +1309,7 @@ impl run_loop::ExitHandler for HvfCore {
             }
         }?;
         if matches!(&exit, VcpuExit::MmioRead { .. } | VcpuExit::MmioRmw { .. }) {
-            self.pending_request =
-                Some(crate::backend::intel_hvf_context::Packet::from_exit(&exit)?);
+            self.pending_request = Some(Packet::from_exit(&exit)?);
         }
         self.retain_data_breakpoints(data_causes)?;
         Ok(exit)
@@ -1416,8 +1455,20 @@ impl HvfCore {
     fn complete_io_out(&mut self) -> Result<()> {
         self.execution_ready()?;
         let mut output = std::mem::take(&mut self.output);
-        let result = output
-            .acknowledge(|length| self.advance_rip(length).map_err(|error| error.to_string()));
+        let result = output.acknowledge(|packet, length| {
+            let complete = || -> Result<()> {
+                if let Packet::StringWrite { data, progress, .. } = packet {
+                    let (updates, length) = progress.updates(data.len() as u8, false);
+                    for (index, value) in updates.into_iter().flatten() {
+                        write_register(self.vcpu_id, general_register(index as u8)?, value)?;
+                    }
+                    self.retire_boundary(length)
+                } else {
+                    self.advance_rip(length)
+                }
+            };
+            complete().map_err(|error| error.to_string())
+        });
         self.output = output;
         result.map_err(Error::Emulator)
     }
@@ -1465,6 +1516,11 @@ impl HvfCore {
                 }
                 fn finish_instruction(&mut self, length: u64) -> Result<()> {
                     self.vcpu.retire_mmio(length)
+                }
+                fn finish_string_iteration(&mut self) -> std::result::Result<(), String> {
+                    self.vcpu
+                        .retire_boundary(None)
+                        .map_err(|error| error.to_string())
                 }
                 fn publish_divide_breakpoints(
                     &mut self,

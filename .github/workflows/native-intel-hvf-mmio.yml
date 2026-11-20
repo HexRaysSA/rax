@@ -24,6 +24,7 @@ on:
           - movbe
           - movnti
           - legacy-xmm
+          - string-mmio
           - cmpxchg8b
           - cmpxchg16b
           - implicit-multiply

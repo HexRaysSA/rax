@@ -32,6 +32,16 @@ pub(crate) trait Access {
 /// further entry and capture, since architectural writes may already be visible.
 /// O(1) time and auxiliary space.
 pub(crate) fn complete<T: Access>(host: &mut T) -> Result<(), T::Error> {
+    complete_boundary(host, true)
+}
+
+/// REP can trap and be interrupted after each element. Keep RIP and the
+/// EPT exit's saved RF at this boundary while elements remain.
+pub(crate) fn complete_string_iteration<T: Access>(host: &mut T) -> Result<(), T::Error> {
+    complete_boundary(host, false)
+}
+
+fn complete_boundary<T: Access>(host: &mut T, final_iteration: bool) -> Result<(), T::Error> {
     let flags = host.rflags()?;
     let control = host.debug_control()?;
     let pending = host.pending_debug()?;
@@ -48,6 +58,7 @@ pub(crate) fn complete<T: Access>(host: &mut T) -> Result<(), T::Error> {
         pending: u64,
         next_pending: u64,
         shadow: u64,
+        final_iteration: bool,
     }
     impl<T: Access> super::interrupt_shadow::Access for Boundary<'_, T> {
         type Error = T::Error;
@@ -55,9 +66,11 @@ pub(crate) fn complete<T: Access>(host: &mut T) -> Result<(), T::Error> {
             Ok(self.shadow)
         }
         fn advance_ip(&mut self) -> Result<(), Self::Error> {
-            self.host.advance_ip()?;
-            if self.flags & RESUME != 0 {
-                self.host.write_rflags(self.flags & !RESUME)?;
+            if self.final_iteration {
+                self.host.advance_ip()?;
+                if self.flags & RESUME != 0 {
+                    self.host.write_rflags(self.flags & !RESUME)?;
+                }
             }
             if self.next_pending != self.pending {
                 self.host.write_pending_debug(self.next_pending)?;
@@ -74,5 +87,6 @@ pub(crate) fn complete<T: Access>(host: &mut T) -> Result<(), T::Error> {
         pending,
         next_pending,
         shadow,
+        final_iteration,
     })
 }

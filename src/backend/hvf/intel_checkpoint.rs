@@ -1,7 +1,7 @@
 //! Complete owner-thread capture/publication. VM-level rollback holds exclusion.
 use super::*;
 use crate::backend::intel_hvf_context::{
-    self as wire, ClockBinding, Context, DebugState, Packet, Profile, Register,
+    self as wire, ClockBinding, Context, DebugState, Profile, Register,
 };
 use crate::backend::intel_hvf_projection::Read;
 use crate::vm::snapshot::{BackendContext, CpuSnapshot, EmulatorState, HVF_INTEL_CONTEXT};
@@ -126,9 +126,6 @@ impl HvfCore {
         let (enabled, completed, failure) =
             self.native_step.checkpoint().map_err(Error::Emulator)?;
         let (output, output_failure) = self.output.checkpoint();
-        let output = output
-            .map(|(exit, length)| -> Result<_> { Ok((Packet::from_exit(&exit)?, length)) })
-            .transpose()?;
         let mut context = Context {
             mmio_debug_complete: true,
             deadline: Some(self.deadline.snapshot()),
@@ -352,14 +349,9 @@ impl HvfCore {
         let debug =
             native_step::State::from_checkpoint(debug.enabled, debug.completed, debug.failure)
                 .map_err(Error::Emulator)?;
-        let output = output::State::from_checkpoint(
-            context
-                .output
-                .as_ref()
-                .map(|(packet, length)| (packet.exit(), *length)),
-            context.output_failure.clone(),
-        )
-        .map_err(Error::Emulator)?;
+        let output =
+            output::State::from_checkpoint(context.output.clone(), context.output_failure.clone())
+                .map_err(Error::Emulator)?;
         // Set XCR0 before the complete image, and retain every unprojected host
         // component. Remaining writes occur with VM entry excluded.
         write_register(

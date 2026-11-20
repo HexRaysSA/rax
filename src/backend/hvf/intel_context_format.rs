@@ -222,6 +222,12 @@ pub(crate) enum Packet {
         size: u8,
         operation: crate::devices::bus::MmioRmwOp,
     },
+    // Appended to preserve historical positional variant discriminants.
+    StringWrite {
+        address: u64,
+        data: Vec<u8>,
+        progress: mmio::StringProgress,
+    },
 }
 impl Packet {
     pub fn from_exit(exit: &VcpuExit) -> Result<Self> {
@@ -268,10 +274,12 @@ impl Packet {
                 addr: *address,
                 size: *size,
             },
-            Self::Write { address, data } => VcpuExit::MmioWrite {
-                addr: *address,
-                data: data.clone(),
-            },
+            Self::Write { address, data } | Self::StringWrite { address, data, .. } => {
+                VcpuExit::MmioWrite {
+                    addr: *address,
+                    data: data.clone(),
+                }
+            }
             Self::Rmw {
                 address,
                 size,
@@ -289,6 +297,14 @@ impl Packet {
             Self::PortWrite { data, .. } => (None, data.len(), true),
             Self::Read { address, size } => (Some(*address), usize::from(*size), false),
             Self::Write { address, data } => (Some(*address), data.len(), false),
+            Self::StringWrite {
+                address,
+                data,
+                progress,
+            } => {
+                progress.validate().map_err(invalid)?;
+                (Some(*address), data.len(), false)
+            }
             Self::Rmw {
                 address,
                 size,
@@ -488,10 +504,38 @@ impl Context {
         if let Some(request) = &self.request {
             request.validate()?;
         }
+        let regs = &self.public.regs;
+        let sregs = &self.public.sregs;
+        let code = mmio::code_width(sregs.efer, sregs.cs.l, sregs.cs.db);
+        if let Some(load) = self.mmio_input.string_load() {
+            if !self.mmio_debug_complete
+                || (load.size == 8 && code != 64)
+                || (self.mmio_input.failure().is_none()
+                    && (load.original_rax != regs.rax
+                        || !load
+                            .progress
+                            .matches_frontier(regs.rsi, regs.rcx, regs.rflags, code)))
+            {
+                return Err(invalid("native LODS differs from its saved CPU boundary"));
+            }
+        }
         if let Some((packet, length)) = &self.output {
             packet.validate()?;
-            if !matches!(packet, Packet::PortWrite { .. } | Packet::Write { .. })
-                || !(1..=15).contains(length)
+            if let Packet::StringWrite { data, progress, .. } = packet {
+                if !self.mmio_debug_complete
+                    || progress.length != *length
+                    || (data.len() == 8 && code != 64)
+                    || (self.output_failure.is_none()
+                        && (!progress.matches_frontier(regs.rdi, regs.rcx, regs.rflags, code)
+                            || data.as_slice() != &regs.rax.to_le_bytes()[..data.len()]))
+                {
+                    return Err(invalid("native STOS differs from its saved CPU boundary"));
+                }
+            }
+            if !matches!(
+                packet,
+                Packet::PortWrite { .. } | Packet::Write { .. } | Packet::StringWrite { .. }
+            ) || !(1..=15).contains(length)
                 || self.request.is_some()
             {
                 return Err(invalid("invalid native output continuation"));

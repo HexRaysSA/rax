@@ -1,6 +1,6 @@
 //! A device reply/acknowledgment reaches the shared guest debug boundary once.
 use super::*;
-use mmio::Plan;
+use mmio::{CompletionAccess, Plan};
 
 struct Host {
     registers: [u64; 16],
@@ -88,6 +88,11 @@ impl mmio::CompletionAccess for Host {
     }
     fn finish_instruction(&mut self, length: u64) -> Result<(), String> {
         self.finish(length)
+    }
+    fn finish_string_iteration(&mut self) -> Result<(), String> {
+        retirement::complete_string_iteration(self)?;
+        self.step.complete_instruction();
+        Ok(())
     }
 }
 
@@ -177,7 +182,10 @@ fn pending(action: Action) -> mmio::InputState {
         Action::AluRead(input) => state.begin_alu_read(input).unwrap(),
         Action::Divide(input) => state.begin_divide(input, 0).unwrap(),
         Action::XmmRead(input) => state.begin_xmm(input).unwrap(),
-        Action::Write(_) | Action::XmmWrite(_) => panic!("write has an output acknowledgment"),
+        Action::StringLoad(input) => state.begin_string_load(input).unwrap(),
+        Action::Write(_) | Action::XmmWrite(_) | Action::StringStore { .. } => {
+            panic!("write has an output acknowledgment")
+        }
     }
     state
 }
@@ -207,7 +215,9 @@ fn scalar_mmio_tf_rf_btf_shadow_and_host_step_survive_pending_codec_roundtrips()
                                     .unwrap();
                             let mut cpu = host(context, control, shadow, enabled);
                             assert!(!cpu.step.take_completion().unwrap());
-                            restored.acknowledge(|length| cpu.finish(length)).unwrap();
+                            restored
+                                .acknowledge(|_, length| cpu.finish(length))
+                                .unwrap();
                             assert!(restored.ready().is_ok());
                             assert_eq!(cpu.registers, context.registers);
                             assert_eq!(cpu.flags, flags & !0x1_0000);
@@ -284,7 +294,7 @@ fn acknowledged_output_retirement_errors_remain_terminal_across_checkpoints() {
         cpu.fail = Some(fail);
         let mut state = output::State::default();
         state.begin(data.clone(), plan.length).unwrap();
-        assert!(state.acknowledge(|length| cpu.finish(length)).is_err());
+        assert!(state.acknowledge(|_, length| cpu.finish(length)).is_err());
         assert!(!cpu.step.take_completion().unwrap_or(false));
         let binary = rax::codec::serialize(&state.checkpoint()).unwrap();
         drop(state);
@@ -297,7 +307,7 @@ fn acknowledged_output_retirement_errors_remain_terminal_across_checkpoints() {
         );
         assert!(
             restored
-                .acknowledge(|_| panic!("duplicate retirement"))
+                .acknowledge(|_, _| panic!("duplicate retirement"))
                 .is_err()
         );
     }
@@ -321,7 +331,9 @@ fn setcc_pending_output_keeps_the_byte_until_restored_retirement() {
         assert_eq!(restored.pending().unwrap(), Some(vec![expected]));
         assert_eq!(cpu.rip, context.rip);
         assert!(!cpu.step.take_completion().unwrap());
-        restored.acknowledge(|length| cpu.finish(length)).unwrap();
+        restored
+            .acknowledge(|_, length| cpu.finish(length))
+            .unwrap();
         assert_eq!(restored.pending().unwrap(), None);
         assert_eq!(cpu.rip, context.rip + 3);
         assert_eq!(cpu.registers, context.registers);
@@ -329,4 +341,104 @@ fn setcc_pending_output_keeps_the_byte_until_restored_retirement() {
         assert!(cpu.step.take_completion().unwrap());
         assert!(!cpu.step.take_completion().unwrap());
     }
+}
+
+#[test]
+fn rep_lods_completes_each_read_at_its_restart_boundary_after_restore() {
+    let code = [0xf3, 0x67, 0xad]; // REP LODSD with ESI and ECX.
+    let (mut context, mut memory, mut record) = fixture(&code);
+    context.registers[6] = (0x7654_3210 << 32) | record.linear;
+    context.registers[1] = 0x8765_4321_0000_0002;
+    context.rflags = retirement::SINGLE_STEP | retirement::RESUME | (1 << 10) | 2;
+    let mut cpu = host(context, 0, 1, true);
+    for (value, count) in [(0x1111_2222u32, 1), (0x3333_4444, 0)] {
+        let plan = prepare(&context, &mut memory, record).unwrap();
+        assert_eq!(plan.physical, record.physical);
+        let binary = rax::codec::serialize(&pending(plan.action)).unwrap();
+        let mut restored: mmio::InputState = rax::codec::deserialize_strict(&binary).unwrap();
+        restored.validate_checkpoint().unwrap();
+        assert_eq!(restored.descriptor(), Some((4, None)));
+        restored.complete(&mut cpu, &value.to_le_bytes());
+        assert!(restored.ready().is_ok());
+        assert_eq!(cpu.registers[0], u64::from(value));
+        assert_eq!(cpu.registers[1], count);
+        assert_eq!(cpu.registers[6], record.linear - 4);
+        assert_eq!(
+            cpu.rip,
+            context.rip + if count == 0 { code.len() as u64 } else { 0 }
+        );
+        assert_eq!(cpu.pending, 3 | retirement::PENDING_STEP);
+        assert_eq!(cpu.shadow, 0);
+        assert_eq!(cpu.flags & retirement::RESUME != 0, count != 0);
+        assert!(cpu.step.take_completion().unwrap());
+        assert!(!cpu.step.take_completion().unwrap());
+        context.registers = cpu.registers;
+        record.linear -= 4;
+        record.physical -= 4;
+    }
+}
+
+#[test]
+fn rep_stos_roundtrips_pending_data_and_wraps_word_index_on_acknowledgment() {
+    let code = [0x64, 0xf3, 0xaa]; // FS override is ignored for STOS.
+    let (mut context, mut memory, mut record) = fixture(&code);
+    context.code_bits = 16;
+    context.paging.cr0 = 0;
+    context.paging.cr4 = 0;
+    context.paging.efer = 0;
+    context.registers[7] = 0x1234_5678_9abc_ffff;
+    context.registers[1] = 0x8765_4321_4321_0001;
+    context.segments[0] = 0x9000;
+    context.segments[4] = 0x3000;
+    record.linear = 0x18fff;
+    record.physical = record.linear;
+    record.qualification = 0x182;
+    let plan = prepare(&context, &mut memory, record).unwrap();
+    let Action::StringStore { data, progress } = plan.action else {
+        panic!("expected STOS output");
+    };
+    assert_eq!(data, [0xf0]);
+    let mut state = output::State::default();
+    state.begin((data, progress), plan.length).unwrap();
+    let binary = rax::codec::serialize(&state.checkpoint()).unwrap();
+    let (pending, failure) = rax::codec::deserialize_strict(&binary).unwrap();
+    let mut restored =
+        output::State::<(Vec<u8>, mmio::StringProgress)>::from_checkpoint(pending, failure)
+            .unwrap();
+    let mut cpu = host(context, 0, 0, false);
+    assert_eq!(cpu.registers, context.registers);
+    restored
+        .acknowledge(|(data, progress), length| {
+            assert_eq!(data, &[0xf0]);
+            assert_eq!(progress.length, length);
+            let (updates, next) = progress.updates(data.len() as u8, false);
+            for (index, value) in updates.into_iter().flatten() {
+                cpu.write_gpr(index, value)?;
+            }
+            assert_eq!(next, Some(length));
+            cpu.finish(length)
+        })
+        .unwrap();
+    assert_eq!(cpu.registers[7], 0x1234_5678_9abc_0000);
+    assert_eq!(cpu.registers[1], 0x8765_4321_4321_0000);
+    assert_eq!(cpu.registers[0], context.registers[0]);
+    assert_eq!(cpu.rip, context.rip + code.len() as u64);
+    assert!(restored.pending().unwrap().is_none());
+}
+
+#[test]
+fn string_planner_checks_segment_direction_and_nonzero_repeat_count() {
+    let (mut context, mut memory, mut record) = fixture(&[0x64, 0xf3, 0xac]);
+    context.registers[6] = record.linear - 0x4000;
+    context.registers[1] = 1;
+    context.segments[4] = 0x4000;
+    assert!(prepare(&context, &mut memory, record).is_ok());
+    record.qualification = 0x182;
+    assert!(prepare(&context, &mut memory, record).is_err());
+    record.qualification = 0x181;
+    context.registers[1] = 0;
+    assert!(prepare(&context, &mut memory, record).is_err());
+    context.registers[1] = 1;
+    context.segments[4] = 0;
+    assert!(prepare(&context, &mut memory, record).is_err());
 }

@@ -64,9 +64,10 @@ impl HvfCore {
     pub(super) fn data_breakpoint_causes(&self, plan: &Plan) -> Result<u64> {
         let (size, writing) = match &plan.action {
             Action::Read(input) => (input.size, false),
+            Action::StringLoad(input) => (input.size, false),
             Action::AluRead(input) => (input.size, false),
             Action::Divide(input) => (input.size, false),
-            Action::Write(data) => (data.len() as u8, true),
+            Action::Write(data) | Action::StringStore { data, .. } => (data.len() as u8, true),
             Action::Rmw(input) => (input.size, true),
             Action::XmmRead(input) => (input.size, false),
             Action::XmmWrite(input) => (input.size, true),

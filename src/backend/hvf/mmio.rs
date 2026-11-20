@@ -7,6 +7,16 @@ use serde::{Deserialize, Serialize};
 
 const EFER_LMA: u64 = 1 << 10;
 
+pub(crate) fn code_width(efer: u64, cs_long: bool, cs_default_big: bool) -> u32 {
+    if efer & EFER_LMA != 0 && cs_long {
+        64
+    } else if cs_default_big {
+        32
+    } else {
+        16
+    }
+}
+
 #[path = "mmio/rmw.rs"]
 mod rmw;
 pub(crate) use rmw::RmwInput;
@@ -16,6 +26,9 @@ pub(crate) use alu_read::AluReadInput;
 #[path = "mmio/divide.rs"]
 mod divide;
 use divide::DivideInput;
+#[path = "mmio/string.rs"]
+mod string;
+pub(crate) use string::{Load as StringLoad, Progress as StringProgress};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RegisterPart {
@@ -228,6 +241,11 @@ pub(crate) enum Action {
     Divide(DivideInput),
     XmmRead(XmmTransfer),
     XmmWrite(XmmTransfer),
+    StringLoad(StringLoad),
+    StringStore {
+        data: Vec<u8>,
+        progress: StringProgress,
+    },
 }
 #[derive(Clone, Debug)]
 pub(crate) struct Plan {
@@ -279,7 +297,10 @@ fn memory_address(context: &Context, operand: &Operand) -> Result<u64, String> {
     })
 }
 
-fn fetch<M: PhysicalMemory>(context: &Context, memory: &mut M) -> Result<Instruction, String> {
+fn fetch<M: PhysicalMemory>(
+    context: &Context,
+    memory: &mut M,
+) -> Result<(Instruction, Vec<u8>), String> {
     if !matches!(context.code_bits, 16 | 32 | 64) {
         return Err("unsupported MMIO code width".into());
     }
@@ -300,7 +321,7 @@ fn fetch<M: PhysicalMemory>(context: &Context, memory: &mut M) -> Result<Instruc
         memory.read_physical(physical, &mut byte)?;
         bytes.push(byte[0]);
         match metadata::decode(context.code_bits, context.rip, &bytes) {
-            Ok(instruction) => return Ok(instruction),
+            Ok(instruction) => return Ok((instruction, bytes)),
             Err(metadata::DecodeFailure::Unsupported) => {
                 return Err("MMIO instruction metadata is unsupported".into());
             }
@@ -443,12 +464,15 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     // Guest TF is retained in the captured flags. Input completion and output
     // acknowledgment reach the owner's common debug-retirement boundary only
     // after the device effect succeeds; preparing a plan never retires it.
-    let instruction = fetch(context, memory)?;
+    let (instruction, encoded) = fetch(context, memory)?;
     if let Some(plan) = rmw::prepare(context, memory, record, &instruction)? {
         return Ok(plan);
     }
     if read == write {
         return Err("scalar MMIO direction disagrees with instruction effects".into());
+    }
+    if let Some(plan) = string::prepare(context, memory, record, &instruction, &encoded, read)? {
+        return Ok(plan);
     }
     if matches!(instruction.mnemonic.as_str(), "movd" | "movq") {
         return prepare_xmm(context, memory, record, &instruction, read);
@@ -644,6 +668,9 @@ pub(crate) trait CompletionAccess {
         Err("MMIO host cannot write an XMM register".into())
     }
     fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
+    fn finish_string_iteration(&mut self) -> Result<(), String> {
+        Err("MMIO host cannot finish a partial string instruction".into())
+    }
     fn publish_divide_breakpoints(&mut self, _causes: u64) -> Result<(), String> {
         Err("MMIO host cannot publish divide breakpoint causes".into())
     }
@@ -661,6 +688,11 @@ enum Effect {
         value: [u8; 16],
         length: u64,
     },
+    StringLoad {
+        accumulator: u64,
+        updates: string::GprWrites,
+        length: Option<u64>,
+    },
     DivideError,
 }
 
@@ -674,6 +706,7 @@ enum Pending {
         data_causes: u64,
     },
     Xmm(XmmTransfer),
+    StringLoad(StringLoad),
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
@@ -700,6 +733,7 @@ impl InputState {
     pub(crate) fn descriptor(&self) -> Option<(u8, Option<crate::devices::bus::MmioRmwOp>)> {
         self.pending.as_ref().map(|pending| match pending {
             Pending::Read(input) => (input.size, None),
+            Pending::StringLoad(input) => (input.size, None),
             Pending::AluRead(input) => (input.size, None),
             Pending::Divide { input, .. } => (input.size, None),
             Pending::Rmw(input) => (input.size, Some(input.operation)),
@@ -717,6 +751,7 @@ impl InputState {
         match self.pending.as_ref() {
             Some(Pending::Read(input)) => Self::default().begin(input.clone())?,
             Some(Pending::Rmw(input)) => input.validate()?,
+            Some(Pending::StringLoad(input)) => input.validate()?,
             Some(Pending::AluRead(input)) => input.validate()?,
             Some(Pending::Xmm(input)) => input.validate()?,
             Some(Pending::Divide { input, data_causes }) => {
@@ -749,6 +784,18 @@ impl InputState {
         input.validate()?;
         self.pending = Some(Pending::Read(input));
         Ok(())
+    }
+    pub(crate) fn begin_string_load(&mut self, input: StringLoad) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        input.validate()?;
+        self.pending = Some(Pending::StringLoad(input));
+        Ok(())
+    }
+    pub(crate) fn string_load(&self) -> Option<&StringLoad> {
+        match self.pending.as_ref() {
+            Some(Pending::StringLoad(input)) => Some(input),
+            _ => None,
+        }
     }
     pub(crate) fn begin_rmw(&mut self, input: RmwInput) -> Result<(), String> {
         self.ready().map_err(str::to_owned)?;
@@ -805,6 +852,14 @@ impl InputState {
                 Effect::Scalar(([register, None], None, input.length))
             }),
             Pending::Rmw(input) => input.completion(data).map(Effect::Scalar),
+            Pending::StringLoad(input) => input.value(data).map(|accumulator| {
+                let (updates, length) = input.progress.updates(input.size, true);
+                Effect::StringLoad {
+                    accumulator,
+                    updates,
+                    length,
+                }
+            }),
             Pending::AluRead(input) => input.completion(data).map(Effect::Scalar),
             Pending::Divide { input, .. } => input
                 .completion(data)
@@ -827,6 +882,24 @@ impl InputState {
             let (registers, flags, length) = match completion {
                 Effect::Scalar(completion) => completion,
                 Effect::DivideError => return host.inject_divide_error(),
+                Effect::StringLoad {
+                    accumulator,
+                    updates,
+                    length,
+                } => {
+                    host.write_gpr(0, accumulator)
+                        .map_err(|error| error.to_string())?;
+                    for (index, value) in updates.into_iter().flatten() {
+                        host.write_gpr(index, value)
+                            .map_err(|error| error.to_string())?;
+                    }
+                    return match length {
+                        Some(length) => host
+                            .finish_instruction(length)
+                            .map_err(|error| error.to_string()),
+                        None => host.finish_string_iteration(),
+                    };
+                }
                 Effect::Xmm {
                     index,
                     value,

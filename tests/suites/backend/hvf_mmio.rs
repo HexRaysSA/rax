@@ -796,6 +796,9 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             Action::AluRead(_) => panic!("MOV reference case produced an ALU read plan"),
             Action::Divide(_) => panic!("MOV reference case produced a divide plan"),
             Action::XmmRead(_) | Action::XmmWrite(_) => panic!("unexpected XMM plan for GPR MOV"),
+            Action::StringLoad(_) | Action::StringStore { .. } => {
+                panic!("unexpected string plan for GPR MOV")
+            }
         }
         let record = &raw[12 + i * 152..12 + (i + 1) * 152];
         let actual: [u64; 16] = std::array::from_fn(|index| quad(record, index * 8));
@@ -1022,5 +1025,25 @@ fn movnti_metadata_describes_a_memory_only_store_in_each_code_size() {
         let (context, mut ram, mut exit) = fixture(code);
         exit.qualification = 0x182;
         assert!(prepare(&context, &mut ram, exit).is_err());
+    }
+}
+
+#[test]
+fn string_load_and_store_plan_the_current_element() {
+    for (code, index, access) in [
+        (&[0xac][..], 6, 0x181),             // LODSB
+        (&[0x48, 0xab][..], 7, 0x182),       // STOSQ
+        (&[0xf3, 0x67, 0xad][..], 6, 0x181), // REP LODSD with ESI
+        (&[0xf3, 0x66, 0xab][..], 7, 0x182), // REP STOSW
+    ] {
+        let (mut context, mut ram, mut exit) = fixture(code);
+        context.registers[index] = exit.linear;
+        context.registers[1] = 2;
+        exit.qualification = access;
+        let plan = prepare(&context, &mut ram, exit)
+            .expect("single-memory string operation must plan its current MMIO element");
+        assert_eq!(plan.physical, exit.physical);
+        assert_eq!(plan.linear, exit.linear);
+        assert_eq!(plan.length, code.len() as u64);
     }
 }
