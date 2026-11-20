@@ -37,6 +37,14 @@ CPU creation. Invalid pure profiles/IDs reject before native allocation; after
 allocation the configuration stays closed even if later setup fails. Stateful
 CPUID records, unrelated ISA features and unavailable optional leaves are retained.
 
+## Unfiltered hosted KVM validation
+
+Dispatch the KVM workflow with `owning_library=true` to run the complete
+`kvm_minimal`, `kvm_host_slices`, `kvm_smp`, `checkpoint_cpus` and library
+test binaries with KVM and debugger support enabled. This mode uses a
+commit-specific concurrency group so later pushes to the same branch can
+run the normal KVM checks without cancelling the unfiltered run.
+
 ## Checkpoint identity for an invalid topology level
 
 The Linux KVM checkpoint witness at `190b4929b` rejected a restore when the

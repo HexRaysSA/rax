@@ -23,9 +23,14 @@ on:
   schedule:
     - cron: "0 5 * * *"
   workflow_dispatch:
+    inputs:
+      owning_library:
+        description: Run the unfiltered KVM library and checkpoint test binaries
+        type: boolean
+        default: false
 
 concurrency:
-  group: kvm-${{ github.ref }}
+  group: kvm-${{ github.ref }}-${{ inputs.owning_library && github.sha || 'default' }}
   cancel-in-progress: true
 
 permissions:
@@ -39,7 +44,7 @@ jobs:
   kvm:
     name: kvm (linux-x64, default features)
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: ${{ inputs.owning_library && 180 || 90 }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: ./.github/actions/setup-rust
@@ -92,6 +97,18 @@ jobs:
       - name: Native secondary startup, fixed IPIs, halt/wakeup, and CPU identities
         run: cargo test --features x86_64-suite --test kvm_smp -- --include-ignored --test-threads=1 --nocapture
 
+      - name: Unfiltered KVM and checkpoint owning binaries
+        if: inputs.owning_library
+        env:
+          CARGO_PROFILE_TEST_OPT_LEVEL: "1"
+          CARGO_PROFILE_TEST_DEBUG: "0"
+          CARGO_PROFILE_TEST_LTO: "off"
+        run: |
+          cargo test --locked --features x86_64-suite,debug \
+            --test kvm_minimal --test kvm_host_slices --test kvm_smp --test checkpoint_cpus \
+            -- --include-ignored --test-threads=1 --format=terse
+          cargo test --locked --features x86_64-suite,debug --lib -- --test-threads=1 --format=terse
+
       - name: cargo build --release (default features, fat LTO)
         run: cargo build --release
 
@@ -99,7 +116,7 @@ jobs:
   # up KVM VMs across large generated corpora and are far too slow for push.
   kvm-differential:
     name: kvm differential (interp + JIT vs hardware)
-    if: github.event_name != 'push'
+    if: github.event_name != 'push' && !inputs.owning_library
     runs-on: ubuntu-24.04
     # Hosted-runner CPU exposure varies and many generated cases deliberately
     # exercise optional ISA state. Preserve the nightly signal without turning
@@ -142,7 +159,7 @@ jobs:
   # rax↔silicon divergences and are not redundantly executed.
   kvm-avx512:
     name: kvm avx-512 differential (interp vs hardware)
-    if: github.event_name != 'push'
+    if: github.event_name != 'push' && !inputs.owning_library
     runs-on: ubuntu-24.04
     continue-on-error: true
     timeout-minutes: 60
