@@ -218,6 +218,26 @@ fn installed_sort_c_locale_matches_native_through_closed_c_abi() {
 }
 
 #[cfg(windows)]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_crt_collation_matches_native_through_closed_c_abi() {
+    let source = std::env::var_os("RAX_CRT_COLLATION_FIXTURE").expect("owned collation test image");
+    let native = compare_windows_program(
+        "rax-collation.exe",
+        Some(std::path::Path::new(&source)),
+        &[],
+        None,
+    );
+    assert!(native.status.success());
+    assert_eq!(native.stdout.len(), 20);
+    assert!(
+        native.stdout[0] != 0 || native.stdout[10] != 0,
+        "a usable CRT"
+    );
+    assert!(native.stderr.is_empty());
+}
+
+#[cfg(windows)]
 fn compare_installed_sort(arguments: &[&str]) {
     let native = compare_windows_installed_program(
         "sort.exe",
@@ -463,6 +483,16 @@ fn compare_windows_installed_program(
     arguments: &[&str],
     stdin: Option<&[u8]>,
 ) -> std::process::Output {
+    compare_windows_program(image, None, arguments, stdin)
+}
+
+#[cfg(windows)]
+fn compare_windows_program(
+    image: &str,
+    fixture: Option<&std::path::Path>,
+    arguments: &[&str],
+    stdin: Option<&[u8]>,
+) -> std::process::Output {
     use std::io::Write as _;
     use std::path::PathBuf;
     use std::process::{Command, Stdio};
@@ -470,8 +500,11 @@ fn compare_windows_installed_program(
     let system_root = PathBuf::from(std::env::var_os("SystemRoot").expect("Windows system root"));
     let system32 = system_root.join("System32");
     let current_directory = system32.to_str().expect("Unicode system library path");
-    let program = system32.join(image);
-    let program_path = program.to_str().expect("Unicode system program path");
+    let installed_path = system32.join(image);
+    let program_path = installed_path
+        .to_str()
+        .expect("Unicode system program path");
+    let program = fixture.unwrap_or(&installed_path);
     let command_interpreter = system32.join("cmd.exe");
     let environment = [
         (
@@ -485,7 +518,7 @@ fn compare_windows_installed_program(
         ),
         ("PATH", current_directory),
     ];
-    let mut command = Command::new(&program);
+    let mut command = Command::new(program);
     command
         .args(arguments)
         .current_dir(&system32)
@@ -505,8 +538,11 @@ fn compare_windows_installed_program(
     } else {
         command.output().expect("native installed output")
     };
+    if fixture.is_some() {
+        eprintln!("native CRT collation bytes: {:?}", native.stdout);
+    }
 
-    let bytes = std::fs::read(&program).expect("installed Windows executable");
+    let bytes = std::fs::read(program).expect("Windows comparison executable");
     if image == "sort.exe" && arguments.is_empty() {
         report_installed_sort_collation_imports(&bytes);
     }
