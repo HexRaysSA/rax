@@ -29,7 +29,12 @@ pub(super) fn capture_client_data(
     Option<std::sync::Arc<crate::user::windows::object_namespace::csr::client_data::CsrClientData>>,
 > {
     #[cfg(target_arch = "aarch64")]
-    return client_data::capture(metadata).map(Some);
+    {
+        if super::super::csr::supports_arm64_plain_startup(metadata.kernel, metadata.session) {
+            return Ok(None);
+        }
+        return client_data::capture(metadata).map(Some);
+    }
     #[cfg(not(target_arch = "aarch64"))]
     {
         let _ = metadata;
@@ -132,11 +137,14 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     let peb_address = unsafe { get_peb() } as u64;
     let mut peb = [0; 0x388];
     read(peb_address, &mut peb)?;
-    if !crate::user::windows::object_namespace::csr::supports_kernel(
+    let kernel = (
         u32::from_le_bytes(peb[0x118..0x11C].try_into().expect("fixed major span")),
         u32::from_le_bytes(peb[0x11C..0x120].try_into().expect("fixed minor span")),
         u16::from_le_bytes(peb[0x120..0x122].try_into().expect("fixed build span")).into(),
-    ) || u32::from_le_bytes(peb[0x2C0..0x2C4].try_into().expect("fixed session span")) != session
+    );
+    let plain_startup = super::super::csr::supports_arm64_plain_startup(kernel, session);
+    if !(plain_startup || super::super::csr::supports_kernel(kernel.0, kernel.1, kernel.2))
+        || u32::from_le_bytes(peb[0x2C0..0x2C4].try_into().expect("fixed session span")) != session
     {
         return Ok(None);
     }
@@ -162,7 +170,21 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     if own_prefix.as_slice() != prefix {
         return Ok(None);
     }
-    // SAFETY: The selected ARM64 profile and export bytes have been verified.
+    if plain_startup {
+        // Match the complete 7-instruction read/select/return body from the
+        // native 26200 capture, including its image-relative operands.
+        let mut code = [0; 28];
+        read(pid_getter as u64, &mut code)?;
+        if code
+            != [
+                0x48, 0x15, 0x00, 0x90, 0x08, 0x01, 0x48, 0x39, 0x1F, 0x01, 0x00, 0x71, 0x68, 0x15,
+                0x00, 0xB0, 0x08, 0x29, 0x40, 0xF9, 0xE0, 0x13, 0x88, 0x9A, 0xC0, 0x03, 0x5F, 0xD6,
+            ]
+        {
+            return Ok(None);
+        }
+    }
+    // SAFETY: the selected ARM64 profile requires the measured export body.
     // This current-process getter takes no arguments or callbacks. Its bounded
     // readonly load/CSEL/RET returns the pointer-width process identifier.
     let pid = unsafe { get_pid() };
@@ -174,11 +196,7 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     }
     Ok(Some(CsrMetadata {
         arch: WinArch::Arm64,
-        kernel: (
-            u32::from_le_bytes(peb[0x118..0x11C].try_into().expect("fixed major span")),
-            u32::from_le_bytes(peb[0x11C..0x120].try_into().expect("fixed minor span")),
-            u16::from_le_bytes(peb[0x120..0x122].try_into().expect("fixed build span")).into(),
-        ),
+        kernel,
         session,
         server_base,
         statics_offset,

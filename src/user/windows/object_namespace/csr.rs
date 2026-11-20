@@ -32,6 +32,12 @@ pub(crate) fn supports_kernel(major: u32, minor: u32, build: u32) -> bool {
     major == 10 && minor == 0 && matches!(build, 29683 | 29695 | 29698 | 29704 | 29708)
 }
 
+/// The observed plain connection belongs to native ARM64 build 26200,
+/// session 2. The broader secure/USER/BASE gates are independent.
+pub(crate) fn supports_arm64_plain_startup(kernel: (u32, u32, u32), session: u32) -> bool {
+    kernel == (10, 0, 26200) && session == 2
+}
+
 pub(crate) fn supports_profile(arch: WinArch, major: u32, minor: u32, build: u32) -> bool {
     match arch {
         WinArch::Arm64 => supports_kernel(major, minor, build),
@@ -57,6 +63,8 @@ pub(crate) struct CsrMetadata {
 impl CsrMetadata {
     fn supported(&self) -> bool {
         supports_profile(self.arch, self.kernel.0, self.kernel.1, self.kernel.2)
+            || self.arch == WinArch::Arm64
+                && supports_arm64_plain_startup(self.kernel, self.session)
     }
 
     pub(crate) fn supports_base_nls(&self) -> bool {

@@ -1,7 +1,9 @@
 //! One measured CSR startup connection, with real client/server backing.
 use super::*;
 use crate::user::windows::memory::prot;
-use crate::user::windows::object_namespace::csr::CsrServer;
+use crate::user::windows::object_namespace::csr::{
+    CsrServer, supports_arm64_plain_startup, supports_profile,
+};
 use crate::user::windows::objects::{LpcPort, Object};
 use std::sync::Arc;
 
@@ -10,8 +12,12 @@ const QOS: [u8; 12] = [0, 0, 0, 0, 2, 0, 0, 0, 1, 1, 0, 0];
 
 pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) -> ApiResult {
     let metadata = &server.metadata;
+    let arm64_plain = c.arch() == WinArch::Arm64
+        && metadata.arch == WinArch::Arm64
+        && supports_arm64_plain_startup(metadata.kernel, metadata.session);
     let measured_call = match (c.arch(), metadata.arch, request.secure) {
-        (WinArch::Arm64, WinArch::Arm64, true) | (WinArch::X64, WinArch::X64, false) => true,
+        (WinArch::Arm64, WinArch::Arm64, secure) => secure != arm64_plain,
+        (WinArch::X64, WinArch::X64, false) => true,
         (WinArch::X64, WinArch::Arm64, true) => {
             matches!(
                 (metadata.kernel, metadata.session),
@@ -23,12 +29,13 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
         _ => false,
     };
     if !measured_call
-        || !crate::user::windows::object_namespace::csr::supports_profile(
-            metadata.arch,
-            c.p.cfg.version.major,
-            c.p.cfg.version.minor,
-            c.p.cfg.version.build,
-        )
+        || (!arm64_plain
+            && !supports_profile(
+                metadata.arch,
+                c.p.cfg.version.major,
+                c.p.cfg.version.minor,
+                c.p.cfg.version.build,
+            ))
         || metadata.kernel
             != (
                 c.p.cfg.version.major,
@@ -51,7 +58,8 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
     }
     // Guest fields cannot select a different captured host-session snapshot.
     let qos = c.mem().bytes(request.qos, 12)?;
-    let qos_matches = if request.secure {
+    let requires_initialized_inputs = request.secure || arm64_plain;
+    let qos_matches = if requires_initialized_inputs {
         qos == QOS
     } else {
         // The native AMD64 startup call leaves Length uninitialized. The
@@ -81,7 +89,8 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
     }
     let mut information = [0; 48];
     c.mem().rd(request.information, &mut information)?;
-    if (request.secure && information[..32] != [0; 32]) || information[32..40] != 1u64.to_le_bytes()
+    if (requires_initialized_inputs && information[..32] != [0; 32])
+        || information[32..40] != 1u64.to_le_bytes()
     {
         return Err(c.unsupported(&format!(
             "{} unmeasured CSR startup information packet",

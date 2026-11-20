@@ -5,6 +5,32 @@ The selected ARM64 CSR path admits Windows 10.0 builds 29683,
 checks. Other architectures and unmeasured builds are not admitted by this
 profile. Each session retains its captured metadata and namespace identity. This is a CSR qualification, not complete installed-library startup.
 
+## ARM64 build 26200, session 2
+
+The [native capture](https://github.com/HexRaysSA/rax/actions/runs/44718577587)
+and the installed-C ABI test use the same native NTDLL on the same ARM64
+runner. The native child makes one successful eight-argument
+`NtConnectPort` call on `\Sessions\2\Windows\ApiPort`. The secure
+observer records zero calls. Both children exit naturally with 41.
+The separately initialized metadata process records the 1,048,576-byte
+read-only section, 20,480-byte committed prefix and statics offset `0x750`.
+Its server-base aliases agree with the child connection reply.
+
+[The projected fields](profile-26200-v1.json) bind those observations to the
+artifact digest and installed NTDLL. The plain call takes a 48-byte client
+view, a 24-byte server view and a 48-byte information buffer. It returns
+distinct client and server views, clears the server view, publishes a
+952-byte maximum message and replaces the first 24 information bytes.
+On this ARM64 profile the input QoS and the first 32 information bytes
+follow the initialized layout also used by existing secure ARM64 calls.
+
+Runtime admission requires the measured architecture, build, session,
+current-process section metadata and complete seven-instruction PID export.
+The installed adapter does not acquire the separate USER or BASE reply
+data for this profile. Guest reply publication uses only guest-owned
+client and server views. The portable replay exercises both architectures,
+foreign sessions/builds and reply/view ownership.
+
 ## Build 29708
 
 The [build 29708 profile](profile-29708-v1.json) binds Windows 10.0.29708.1003

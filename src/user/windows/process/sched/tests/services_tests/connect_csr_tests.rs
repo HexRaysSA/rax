@@ -1,4 +1,4 @@
-//! Measured AMD64 CSR startup with independent current/global section owners.
+//! Measured plain CSR startup with independent current/global section owners.
 use super::*;
 use crate::user::mm::SharedObject;
 use crate::user::windows::object_namespace::csr::{CsrMetadata, CsrServer};
@@ -15,6 +15,13 @@ mod installed;
 fn captures() -> Value {
     serde_json::from_str(include_str!("../../../../../../../docs/specifications/windows/native-session-csr-connect/profiles-v3.json")).unwrap()
 }
+fn arm64_capture() -> Value {
+    serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-csr-kernel-profiles/profile-26200-v1.json"
+    ))
+    .unwrap()
+}
+
 fn bytes(row: &Value, field: &str) -> Vec<u8> {
     let s = row[field].as_str().unwrap();
     (0..s.len())
@@ -82,6 +89,11 @@ pub(super) fn data(session: Option<u32>, base: u64) -> Arc<DataSection> {
     let mut prefix = vec![0; 5 * 4096];
     prefix[40..48].copy_from_slice(&base.to_le_bytes());
     prefix[48..56].copy_from_slice(&base.to_le_bytes());
+    data_with_prefix(session, prefix)
+}
+
+fn data_with_prefix(session: Option<u32>, mut prefix: Vec<u8>) -> Arc<DataSection> {
+    prefix.resize(5 * 4096, 0);
     DataSection::selected_for_session(
         session,
         0x20004,
@@ -107,7 +119,11 @@ fn setup(p: &mut Proc, b: u64, row: &Value) -> [u64; 8] {
     let reply = bytes(row, "information_after_hex");
     let base = word(&reply, 0);
     let pid = word(&reply, 16) as u32;
-    let current = data(Some(2), base);
+    let current = if p.arch == WinArch::Arm64 {
+        data_with_prefix(Some(2), bytes(row, "selected_prefix_hex"))
+    } else {
+        data(Some(2), base)
+    };
     let global = data(None, 0x1234_0000);
     p.object_namespace = namespace(2);
     p.object_namespace.select_data_section(global).unwrap();
@@ -120,7 +136,7 @@ fn setup(p: &mut Proc, b: u64, row: &Value) -> [u64; 8] {
             CsrServer::selected(
                 current,
                 CsrMetadata {
-                    arch: WinArch::X64,
+                    arch: p.arch,
                     kernel,
                     session: 2,
                     server_base: base,
@@ -249,8 +265,15 @@ fn name(p: &Proc, header: u64, buffer: u64, value: &str) {
 #[test]
 fn native_connect_csr_matches_measured_replies_and_owns_both_mapped_views() {
     let captures = captures();
-    for row in captures["projections"].as_array().unwrap() {
-        let (mut process, mut thread) = fixture(WinArch::X64, "NtConnectPort", SERVICE);
+    let arm64 = arm64_capture();
+    let cases = captures["projections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| (WinArch::X64, row))
+        .chain([(WinArch::Arm64, &arm64)]);
+    for (arch, row) in cases {
+        let (mut process, mut thread) = fixture(arch, "NtConnectPort", SERVICE);
         let p = process.state_mut();
         let b = scratch(p, 65536);
         let args = setup(p, b, row);
@@ -299,9 +322,18 @@ fn native_connect_csr_matches_measured_replies_and_owns_both_mapped_views() {
 #[test]
 fn native_connect_csr_rejects_foreign_session_profile_and_geometry_without_publication() {
     let captures = captures();
-    let row = &captures["projections"][0];
+    let arm64 = arm64_capture();
+    for (arch, row, foreign_build) in [
+        (WinArch::X64, &captures["projections"][0], 26100),
+        (WinArch::Arm64, &arm64, 26201),
+    ] {
+        reject_foreign_startup_inputs(arch, row, foreign_build);
+    }
+}
+
+fn reject_foreign_startup_inputs(arch: WinArch, row: &Value, foreign_build: u32) {
     for variant in 0..10 {
-        let (mut process, mut thread) = fixture(WinArch::X64, "NtConnectPort", SERVICE);
+        let (mut process, mut thread) = fixture(arch, "NtConnectPort", SERVICE);
         let p = process.state_mut();
         let b = scratch(p, 65536);
         let mut args = setup(p, b, row);
@@ -310,7 +342,7 @@ fn native_connect_csr_rejects_foreign_session_profile_and_geometry_without_publi
             1 => p.space.w64(args[6] + 32, 2).unwrap(),
             2 => p.space.w32(args[2] + 4, 3).unwrap(),
             3 => p.space.w32(args[3] + 16, 1).unwrap(),
-            4 => Arc::make_mut(&mut p.cfg).version.build = 26100,
+            4 => Arc::make_mut(&mut p.cfg).version.build = foreign_build,
             5 => args[5] = args[0],
             6 => name(p, args[1], b + 256, "\\Windows\\ApiPort"),
             7 => p.space.w64(args[3] + 24, 4096).unwrap(),
