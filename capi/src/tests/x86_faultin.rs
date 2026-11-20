@@ -281,6 +281,64 @@ fn partial_rep_retries_only_uncompleted_elements() {
 }
 
 #[test]
+fn partial_repeated_comparison_reports_entry_flags_and_retries_the_faulting_element() {
+    const RFLAGS: i32 = 0x0012;
+    const RSI: i32 = 0x0106;
+    const RDI: i32 = 0x0107;
+    const STATUS: u64 = 0x8d5;
+    for mode in [RAX_MODE_32, RAX_MODE_64] {
+        for opcode in [0xa6, 0xae] {
+            for prefix in [0xf2, 0xf3] {
+                let e = Sparse::new(mode);
+                let first = u8::from(prefix == 0xf2);
+                let initial_flags = 0x13 | if prefix == 0xf2 { 0x40 } else { 0 };
+                e.bytes(0x1000, &[prefix, opcode]);
+                e.reg(RAX, 0);
+                e.reg(RSI, 0x1800);
+                e.reg(RDI, 0x1fff);
+                e.reg(RCX, 3);
+                e.reg(RFLAGS, initial_flags);
+                e.bytes(0x1800, &[0, 0]);
+                e.bytes(0x1fff, &[first]);
+                assert_ne!(
+                    rax_emu_start(e.0, 0x1000, 0x1002, 1_000_000, 1),
+                    RaxStatus::Ok
+                );
+                assert_eq!(
+                    (fault(&e).address, fault(&e).retired_instructions),
+                    (0x2000, 0)
+                );
+                assert_eq!(unsafe { rd_u64(e.0, RIP) }, 0x1000);
+                assert_eq!(unsafe { rd_u64(e.0, RDI) }, 0x2000);
+                assert_eq!(unsafe { rd_u64(e.0, RCX) }, 2);
+                assert_eq!(
+                    unsafe { rd_u64(e.0, RFLAGS) } & STATUS,
+                    initial_flags & STATUS
+                );
+                assert_eq!(
+                    rax_mem_map(e.0, 0x2000, 0x1000, RAX_PROT_ALL),
+                    RaxStatus::Ok
+                );
+                e.bytes(0x2000, &[1 - first]);
+                assert_eq!(
+                    rax_emu_start(e.0, 0x1000, 0x1002, 1_000_000, 1),
+                    RaxStatus::Ok
+                );
+                let result_flags = if prefix == 0xf2 { 0x44 } else { 0x95 };
+                assert_eq!(unsafe { rd_u64(e.0, RFLAGS) } & STATUS, result_flags);
+                assert_eq!(unsafe { rd_u64(e.0, RDI) }, 0x2001);
+                assert_eq!(unsafe { rd_u64(e.0, RCX) }, 1);
+                assert_eq!(
+                    unsafe { rd_u64(e.0, RSI) },
+                    if opcode == 0xa6 { 0x1802 } else { 0x1800 }
+                );
+                assert_eq!(rax_emu_icount(e.0), 1);
+            }
+        }
+    }
+}
+
+#[test]
 fn fault_query_validates_header_and_preserves_extension_tail() {
     let e = Sparse::new(RAX_MODE_64);
     let mut info = RaxFaultInfo::default();

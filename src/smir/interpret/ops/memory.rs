@@ -209,11 +209,11 @@ impl SmirInterpreter {
                     }
                 }
 
+                let mut comparison = None;
                 while remaining != 0 {
                     let src_off = ctx.read_vreg(*src_index) & addr_mask;
                     let dst_off = ctx.read_vreg(*dst_index) & addr_mask;
                     let src_addr = segment_base.wrapping_add(src_off);
-                    let mut compared = false;
 
                     match kind {
                         crate::smir::ir::ops::X86StringKind::Movs => {
@@ -238,18 +238,14 @@ impl SmirInterpreter {
                             let rhs =
                                 self.load_memory(memory, dst_off, *width, SignExtend::Zero)?;
                             let lhs = ctx.read_vreg(*accumulator) & op_width.mask();
-                            let result = lhs.wrapping_sub(rhs) & op_width.mask();
-                            ctx.flags.set_lazy_sub(lhs, rhs, result, op_width);
-                            compared = true;
+                            comparison = Some((lhs, rhs));
                         }
                         crate::smir::ir::ops::X86StringKind::Cmps => {
                             let lhs =
                                 self.load_memory(memory, src_addr, *width, SignExtend::Zero)?;
                             let rhs =
                                 self.load_memory(memory, dst_off, *width, SignExtend::Zero)?;
-                            let result = lhs.wrapping_sub(rhs) & op_width.mask();
-                            ctx.flags.set_lazy_sub(lhs, rhs, result, op_width);
-                            compared = true;
+                            comparison = Some((lhs, rhs));
                         }
                     }
 
@@ -285,14 +281,22 @@ impl SmirInterpreter {
                         remaining = 0;
                     }
 
-                    if compared && repeated {
-                        let zf = ctx.flags.get_zf();
-                        if (*rep == crate::smir::ir::ops::X86RepMode::Repe && !zf)
-                            || (*rep == crate::smir::ir::ops::X86RepMode::Repne && zf)
+                    if let Some((lhs, rhs)) = comparison
+                        && repeated
+                    {
+                        let equal = lhs == rhs;
+                        if (*rep == crate::smir::ir::ops::X86RepMode::Repe && !equal)
+                            || (*rep == crate::smir::ir::ops::X86RepMode::Repne && equal)
                         {
                             break;
                         }
                     }
+                }
+                // A later memory fault retains the completed indices and count
+                // but reports the instruction's original arithmetic flags.
+                if let Some((lhs, rhs)) = comparison {
+                    let result = lhs.wrapping_sub(rhs) & op_width.mask();
+                    ctx.flags.set_lazy_sub(lhs, rhs, result, op_width);
                 }
             }
 

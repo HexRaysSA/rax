@@ -177,3 +177,60 @@ fn lifted_string_faults_preserve_current_element_restart_state() {
     assert_eq!(ctx.read_vreg(rdi), 0x201);
     assert_eq!(ctx.read_vreg(rcx), 1);
 }
+
+#[test]
+fn lifted_repeated_comparison_faults_restore_entry_flags_and_keep_completed_elements() {
+    let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+    let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+    let rsi = VReg::Arch(ArchReg::X86(X86Reg::Rsi));
+    let rdi = VReg::Arch(ArchReg::X86(X86Reg::Rdi));
+    let status = 0x8d5;
+    for opcode in [0xa6, 0xae] {
+        for prefix in [0xf2, 0xf3] {
+            let first = u8::from(prefix == 0xf2);
+            let initial = 0x13 | if prefix == 0xf2 { 0x40 } else { 0 };
+            let mut memory = FlatMemory::new(0x2000);
+            memory.write(0x300, &[0, 0]).unwrap();
+            memory.write(0x1fff, &[first]).unwrap();
+            let mut ctx = SmirContext::new_x86_64();
+            ctx.flags.materialized = MaterializedFlags::from_rflags(initial);
+            ctx.write_vreg(rax, 0);
+            ctx.write_vreg(rcx, 3);
+            ctx.write_vreg(rsi, 0x300);
+            ctx.write_vreg(rdi, 0x1fff);
+            let code = [prefix, opcode];
+            let exit = execute_lifted_x86(&code, &mut ctx, &mut memory);
+            assert!(matches!(
+                exit,
+                BlockResult::Exit(ExitReason::MemoryFault {
+                    addr: 0x2000,
+                    write: false,
+                    ..
+                })
+            ));
+            assert_eq!(ctx.read_vreg(rcx), 2);
+            assert_eq!(ctx.read_vreg(rdi), 0x2000);
+            ctx.flags.materialize_all();
+            assert_eq!(
+                ctx.flags.materialized.to_rflags() & status,
+                initial & status
+            );
+
+            let mut memory = FlatMemory::new(0x3000);
+            memory.write(0x2000, &[1 - first]).unwrap();
+            assert!(matches!(
+                execute_lifted_x86(&code, &mut ctx, &mut memory),
+                BlockResult::Exit(ExitReason::Halt)
+            ));
+            ctx.flags.materialize_all();
+            let final_flags = if prefix == 0xf2 { 0x44 } else { 0x95 };
+            assert_eq!(ctx.flags.materialized.to_rflags() & status, final_flags);
+            assert_eq!(ctx.read_vreg(rcx), 1);
+            assert_eq!(ctx.read_vreg(rdi), 0x2001);
+            assert_eq!(
+                ctx.read_vreg(rsi),
+                if opcode == 0xa6 { 0x302 } else { 0x300 }
+            );
+        }
+    }
+}

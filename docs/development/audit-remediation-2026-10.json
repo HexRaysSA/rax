@@ -200210,6 +200210,16 @@
       "scope": "The audit author's unchanged full-CPU witness now gives the expected S0 and FPSCR for all six original A32 cases. All six A64 FP controls are identical to the original output. Seven A64 memory results pass in the public software CPU API. Broader A32 profiles remain open.",
       "qualification": "docs/development/a32-fp-controls.md#original-arm-audit-replay",
       "full_goal_complete": false
+    },
+    {
+      "id": "software-x86-repeated-comparison-fault-flags-2026-11-20",
+      "findings": [
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Direct x86 execution and lifted SMIR interpretation preserve entry arithmetic flags and completed element progress on REPE/REPNE CMPS and SCAS operand faults. Both new tests reproduced the mismatch on the parent. The corrected code passed 247 C API, 5 lifted string, and 28560 x86 integration tests on Apple Silicon.",
+      "qualification": "docs/development/guest-fault-recovery.md#contract-and-evidence",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

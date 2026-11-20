@@ -6,7 +6,9 @@ mod movs;
 mod scas;
 mod stos;
 
+use crate::error::Result;
 use crate::isa::x86_64::cpu::{InsnContext, X86_64Vcpu};
+use crate::isa::x86_64::flags;
 
 // Re-export all instruction functions
 pub use cmps::*;
@@ -146,4 +148,33 @@ pub(super) fn dec_count(rcx: u64, addr_size: StringAddressSize) -> u64 {
         StringAddressSize::Addr32 => u64::from((rcx as u32).wrapping_sub(1)),
         StringAddressSize::Addr64 => rcx.wrapping_sub(1),
     }
+}
+
+fn finish_comparison(
+    vcpu: &mut X86_64Vcpu,
+    prefix: Option<u8>,
+    addr_size: StringAddressSize,
+    lhs: u64,
+    rhs: u64,
+    size: u8,
+) -> Result<bool> {
+    let repeat = prefix.is_some_and(|prefix| {
+        vcpu.regs.rcx = dec_count(vcpu.regs.rcx, addr_size);
+        let condition = match prefix {
+            0xf2 => lhs != rhs,
+            0xf3 => lhs == rhs,
+            _ => true,
+        };
+        condition && rep_count(vcpu.regs.rcx, addr_size) != 0
+    });
+    // Faults on later elements keep the entry flags. Retain the existing
+    // intermediate user single-step trap boundary when one is requested.
+    if !repeat || vcpu.user_single_step_enabled() {
+        flags::update_flags_sub(&mut vcpu.regs.rflags, lhs, rhs, lhs.wrapping_sub(rhs), size);
+        vcpu.clear_lazy_flags();
+    }
+    if repeat {
+        vcpu.user_repeat_step_trap()?;
+    }
+    Ok(repeat)
 }

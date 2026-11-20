@@ -29,6 +29,20 @@ that partial architectural state. A failed attempt contributes zero retired
 instructions. Pre-execution hooks can observe attempts; embedders must not
 present those notifications as completed instruction traces.
 
+For REPE and REPNE SCAS and CMPS, an operand fault preserves the arithmetic
+flags from instruction entry while retaining the completed index and count
+updates. The direct x86 executor and SMIR interpreter use the current
+comparison for the repeat predicate. They publish the ending comparison on
+ordinary retirement. The direct executor retains its existing user-mode
+single-step boundary after a completed element. The sparse C API regression
+repairs the missing page and checks that retry compares the remaining
+element and retires once. [Intel SDM Volume 2B, pp. 4-565 to 4-568](https://cdrdv2.intel.com/v1/dl/getContent/671241)
+
+Both operand-fault regressions exposed the completed comparison's status
+bits on the parent. The corrected sources passed all 247 C API library
+tests, all five lifted string-interpreter tests, and 28,560 x86 integration
+tests on Apple Silicon. The x86 suite left three tests ignored.
+
 ## Assumption register
 
 | ID | Assumption | Basis | Dependent result | Stress test / falsification probe | Status |
@@ -37,6 +51,7 @@ present those notifications as completed instruction traces.
 | A2 | Failed instruction attempts must not consume the caller's retirement limit; partial REP elements remain committed. | Intel MOVS/REP exception semantics and existing string engine. | Counter correction and retry behavior. | Failed PUSH, crossing store, partial REP and repeated halted-step tests. | Confirmed for tested paths. |
 | A3 | AArch64's current fault information does not retain an access width. | `MemoryFaultInfo` and emulator adapter. | ABI reports width 0, explicitly unknown. | Inspect adapter and assert access kind/address; introducing a width field would permit replacing 0. | Retained. |
 | A4 | Existing C API consumers accept an additive minor-version API. | Existing layouts and numeric constants retained. | ABI 1.4 query. | Strict C offsets, unknown-version/short-buffer/tail tests, installed shared/static C++ execution on native CI. | Validation required on each native lane. |
+| A5 | A fault on a later conditional comparison exposes entry flags and the progress of earlier elements. | Intel SDM Volume 2B, REP instruction entry. | Retry after an operand fault. | Start each prefix with ZF opposite its continuation predicate, then fault after a comparison changes the entry flags. Compare flags, indices and count at the fault and after resumption. | Covered for 32-bit and 64-bit C API execution and lifted 64-bit interpretation. |
 
 ## Change-surface map
 
@@ -59,6 +74,8 @@ Ordinary AArch64 store preflight is O(r) for r intersected backing regions,
 with O(1) auxiliary storage. The ABI v1 record is 48 bytes, with 64-bit PC,
 address and retirement fields at byte offsets 16, 24 and 40 respectively.
 The fixed-width fields introduce no host-pointer-size dependency.
+Conditional repeated comparisons take O(n) time for n attempted elements
+and use O(1) auxiliary storage.
 
 Bounded findings:
 
