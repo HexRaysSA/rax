@@ -170,33 +170,80 @@ fn installed_dynamic_programs_run_without_supplied_dependencies_or_general_host_
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_cmd_ver_matches_native_through_closed_c_abi() {
+    let native = compare_windows_installed_program("cmd.exe", &["/d", "/c", "ver"], None);
+    assert!(native.status.success());
+    assert!(!native.stdout.is_empty());
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_findstr_matches_native_through_closed_c_abi() {
+    let arguments = &["/l", "/c:rax-witness"];
+    let matched = compare_windows_installed_program(
+        "findstr.exe",
+        arguments,
+        Some(b"ignored\r\nrax-witness\r\n"),
+    );
+    assert_eq!(matched.status.code(), Some(0));
+    assert_eq!(matched.stdout, b"rax-witness\r\n");
+    assert!(matched.stderr.is_empty());
+
+    let unmatched =
+        compare_windows_installed_program("findstr.exe", arguments, Some(b"ignored\r\n"));
+    assert_eq!(unmatched.status.code(), Some(1));
+    assert!(unmatched.stdout.is_empty());
+    assert!(unmatched.stderr.is_empty());
+}
+
+#[cfg(windows)]
+fn compare_windows_installed_program(
+    image: &str,
+    arguments: &[&str],
+    stdin: Option<&[u8]>,
+) -> std::process::Output {
+    use std::io::Write as _;
     use std::path::PathBuf;
-    use std::process::Command;
+    use std::process::{Command, Stdio};
 
     let system_root = PathBuf::from(std::env::var_os("SystemRoot").expect("Windows system root"));
     let system32 = system_root.join("System32");
     let current_directory = system32.to_str().expect("Unicode system library path");
-    let program = system32.join("cmd.exe");
+    let program = system32.join(image);
     let program_path = program.to_str().expect("Unicode system program path");
-    let arguments = ["/d", "/c", "ver"];
+    let command_interpreter = system32.join("cmd.exe");
     let environment = [
         (
             "SystemRoot",
             system_root.to_str().expect("Unicode system root"),
         ),
         ("windir", system_root.to_str().expect("Unicode system root")),
-        ("ComSpec", program_path),
+        (
+            "ComSpec",
+            command_interpreter.to_str().expect("Unicode cmd path"),
+        ),
         ("PATH", current_directory),
     ];
-    let native = Command::new(&program)
+    let mut command = Command::new(&program);
+    command
         .args(arguments)
         .current_dir(&system32)
         .env_clear()
-        .envs(environment)
-        .output()
-        .expect("native installed cmd");
-    assert!(native.status.success());
-    assert!(!native.stdout.is_empty());
+        .envs(environment);
+    let native = if let Some(input) = stdin {
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("start native installed program");
+        let mut pipe = child.stdin.take().expect("native standard input");
+        pipe.write_all(input).expect("write native standard input");
+        drop(pipe);
+        child.wait_with_output().expect("native installed output")
+    } else {
+        command.output().expect("native installed output")
+    };
 
     let bytes = std::fs::read(&program).expect("installed Windows executable");
     let options = serde_json::json!({
@@ -211,6 +258,14 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
     })
     .to_string();
     let process = open(&bytes, &options);
+    if let Some(input) = stdin {
+        assert_eq!(
+            rax_process_stdin_feed(process.0, input.as_ptr(), input.len()),
+            RaxStatus::Ok,
+            "{}",
+            error()
+        );
+    }
     let opened = info(&process);
     assert_eq!(opened["capabilities"]["native_runtime"], true);
     assert_eq!(opened["capabilities"]["host_filesystem"], false);
@@ -245,6 +300,12 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
         assert_ne!(result.turns_started, 0);
     }
     if result.reason != RAX_PROCESS_EXITED {
+        eprintln!(
+            "{program_path}: native exit status {:?}, stdout {} bytes, stderr {} bytes",
+            native.status.code(),
+            native.stdout.len(),
+            native.stderr.len()
+        );
         let stopped = info(&process);
         if let Some((service, name)) = stopped_native_request(&process, &stopped) {
             eprintln!("guest {service} requested {name:?}");
@@ -258,11 +319,12 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
     }
     assert_eq!(
         Some(result.exit_code),
-        native.status.code().map(i32::cast_unsigned)
+        native.status.code().map(i32::cast_unsigned),
+        "{program_path}: exit status"
     );
     for (stream, expected) in [
-        (RAX_PROCESS_STDOUT, native.stdout),
-        (RAX_PROCESS_STDERR, native.stderr),
+        (RAX_PROCESS_STDOUT, &native.stdout),
+        (RAX_PROCESS_STDERR, &native.stderr),
     ] {
         let mut bytes = vec![0; 65536];
         let mut size = 0;
@@ -279,9 +341,10 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
         assert_eq!(
             &bytes[..size],
             expected.as_slice(),
-            "console stream {stream}"
+            "{program_path}: console stream {stream}"
         );
     }
+    native
 }
 
 #[cfg(windows)]

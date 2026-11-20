@@ -22,6 +22,10 @@ on:
       - vendor/vm-memory/**
   workflow_dispatch:
     inputs:
+      compare_installed_filter:
+        description: Compare installed findstr.exe with redirected standard input
+        type: boolean
+        default: false
       measure_startup_queries:
         description: Capture native startup license and MUI observations
         type: boolean
@@ -120,6 +124,41 @@ jobs:
           $receipt.installed_images_unchanged = (
             $receipt.ntdll_sha256 -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant() -and
             $receipt.cmd_sha256 -eq (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
+          )
+          $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
+          if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
+            exit 1
+          }
+      - name: Compare installed findstr.exe through the closed C ABI
+        if: ${{ !cancelled() && inputs.compare_installed_filter && steps.stock.outcome != 'skipped' }}
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
+          $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
+          $test = 'tests::process::native_runtime::installed_findstr_matches_native_through_closed_c_abi'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $findstr = Join-Path $env:SystemRoot 'System32/findstr.exe'
+          $receipt = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            target = $env:RAX_TEST_TARGET
+            test = $test
+            ntdll_sha256 = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+            findstr_sha256 = (Get-FileHash -LiteralPath $findstr).Hash.ToLowerInvariant()
+          }
+          $receiptPath = Join-Path $root 'filter-receipt.json'
+          $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
+          $log = Join-Path $root 'filter-capi.log'
+          $PSNativeCommandUseErrorActionPreference = $false
+          cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
+            $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log
+          $receipt.exit_code = $LASTEXITCODE
+          $receipt.completed_one_test = Select-String -LiteralPath $log -Quiet -Pattern '^test result: ok\. 1 passed; 0 failed; 0 ignored;'
+          $receipt.installed_images_unchanged = (
+            $receipt.ntdll_sha256 -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant() -and
+            $receipt.findstr_sha256 -eq (Get-FileHash -LiteralPath $findstr).Hash.ToLowerInvariant()
           )
           $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
           if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
@@ -407,6 +446,8 @@ jobs:
           path: |
             target/windows-installed-process/receipt.json
             target/windows-installed-process/capi.log
+            target/windows-installed-process/filter-receipt.json
+            target/windows-installed-process/filter-capi.log
             target/windows-installed-process/startup-license.json
             target/windows-installed-process/startup-license-identity.json
             target/windows-installed-process/native-mui-query.log
