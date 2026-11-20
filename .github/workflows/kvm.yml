@@ -76,7 +76,15 @@ jobs:
           cargo test --features x86_64-suite --lib backend::kvm::checkpoint::owner::tests::exception_events:: -- --include-ignored --test-threads=1 --nocapture
           cargo test --features x86_64-suite --lib backend::kvm::checkpoint::owner::tests::managed_pit_edge_publishes_pic_ioapic_and_only_unmasked_watchdog_nmis -- --include-ignored --test-threads=1 --nocapture
           cargo test --features x86_64-suite --lib backend::kvm::checkpoint::owner::tests::tsc_deadline:: -- --include-ignored --test-threads=1 --nocapture
-          cargo test --features x86_64-suite --lib vm::runtime::checkpoint_io_tests::future_native_deadline_survives_a_source_free_vmm_checkpoint -- --include-ignored --test-threads=1 --nocapture
+
+      - name: Native future LAPIC deadline checkpoint
+        run: |
+          set -o pipefail
+          case_name=vm::runtime::checkpoint_io::tests::future_native_deadline_survives_a_source_free_vmm_checkpoint
+          witness="$RUNNER_TEMP/rax-kvm-future-deadline.out"
+          cargo test --features x86_64-suite --lib "$case_name" -- \
+            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test $case_name ... ok" "$witness"
 
       - name: Native finite entry, signal ownership, and PIO/MMIO continuation
         run: cargo test --features x86_64-suite --test kvm_host_slices -- --include-ignored --test-threads=1 --nocapture
