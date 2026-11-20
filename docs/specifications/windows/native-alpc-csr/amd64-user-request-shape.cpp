@@ -32,11 +32,16 @@ static bool report(HANDLE child, const CONTEXT &context, const char *mode,
          unsigned(lengths >> 16));
   if (lengths != 0x00580030 || !read(child, address, message))
     return false;
-  if (field<uint32_t>(message.data(), 48) != 0 ||
-      field<uint64_t>(message.data(), 64) != 3)
-    return false;
-  const auto information = field<uint64_t>(message.data(), 80);
-  if (information != 576 && information != 584)
+  const bool api_zero = field<uint32_t>(message.data(), 48) == 0;
+  const bool user_index = field<uint32_t>(message.data(), 64) == 3;
+  const auto information = field<uint32_t>(message.data(), 80);
+  const bool known_size = information == 576 || information == 584;
+  printf("mode=%s sample=%u api_zero=%u user_index=%u known_size=%u "
+         "index_padding_zero=%u size_padding_zero=%u\n",
+         mode, sample, unsigned(api_zero), unsigned(user_index), unsigned(known_size),
+         unsigned(field<uint32_t>(message.data(), 68) == 0),
+         unsigned(field<uint32_t>(message.data(), 84) == 0));
+  if (!api_zero || !user_index || !known_size)
     return false;
   uintptr_t capacity_address = 0;
   uint64_t capacity = 0;
