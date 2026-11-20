@@ -40,7 +40,7 @@ def main():
             subprocess.run(["codesign", "--verify", "--strict", str(probe)], check=True, timeout=60)
             result["executable_sha256"] = sha256(probe.read_bytes()).hexdigest()
             if not args.compile_only:
-                for event in ("none", "irq", "nmi"):
+                for event in ("none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking"):
                     entry = subprocess.run([str(probe), event], capture_output=True, text=True,
                                            timeout=15)
                     row = {

@@ -9,8 +9,10 @@ enum {
     START_PORT = 0x81, HANDLER_PORT = 0x80,
 };
 
-enum event { NONE, IRQ, NMI };
-static const char *const names[] = {"none", "irq", "nmi"};
+enum event { NONE, IRQ, NMI, NMI_WITH_IF, NMI_WITHOUT_VIRTUAL_BLOCKING };
+static const char *const names[] = {
+    "none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking",
+};
 
 static void publish_gate(uint8_t *memory, unsigned vector)
 {
@@ -38,11 +40,10 @@ static bool port_exit(hv_vcpuid_t cpu, uint64_t reason, unsigned port)
 int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
-    enum event event;
-    if (strcmp(argv[1], names[NONE]) == 0) event = NONE;
-    else if (strcmp(argv[1], names[IRQ]) == 0) event = IRQ;
-    else if (strcmp(argv[1], names[NMI]) == 0) event = NMI;
-    else return 2;
+    const size_t count = sizeof(names) / sizeof(names[0]);
+    size_t event = 0;
+    while (event < count && strcmp(argv[1], names[event]) != 0) event++;
+    if (event == count) return 2;
 
     int preflight = availability_main();
     if (preflight != 0) return preflight;
@@ -71,13 +72,16 @@ int main(int argc, char **argv)
     field(cpu, IDT_LIMIT, (IRQ_VECTOR + 1) * 16 - 1);
     uint64_t caps = 0;
     check(hv_vmx_read_capability(HV_VMX_CAP_PINBASED, &caps), "read pin capability");
-    uint64_t pins = read_field(cpu, PIN_CONTROLS) | 1 | (1 << 3) | (1 << 5);
-    if ((pins & ~(caps >> 32)) != 0) {
-        fprintf(stderr, "virtual NMI pin controls unavailable\n");
+    const uint64_t virtual_nmis = UINT64_C(1) << 5;
+    uint64_t pins = read_field(cpu, PIN_CONTROLS) | 1 | (1 << 3);
+    if (event == NMI_WITHOUT_VIRTUAL_BLOCKING) pins &= ~virtual_nmis;
+    else pins |= virtual_nmis;
+    if ((pins & ~(caps >> 32)) != 0 || ((uint32_t)caps & ~pins) != 0) {
+        fprintf(stderr, "requested NMI pin controls unavailable\n");
         return 1;
     }
     field(cpu, PIN_CONTROLS, pins);
-    const uint64_t initial_flags = event == IRQ ? 0x202 : 2;
+    const uint64_t initial_flags = event == IRQ || event == NMI_WITH_IF ? 0x202 : 2;
     reg(cpu, HV_X86_RFLAGS, initial_flags);
     reg(cpu, HV_X86_R11, 0);
     mach_timebase_info_data_t timebase;
@@ -92,7 +96,7 @@ int main(int argc, char **argv)
 
     uint64_t entry_event = 0;
     if (event == IRQ) entry_event = UINT64_C(0x80000000) | IRQ_VECTOR;
-    if (event == NMI) entry_event = UINT64_C(0x80000202);
+    if (event >= NMI) entry_event = UINT64_C(0x80000202);
     field(cpu, ENTRY_EVENT, entry_event);
     uint64_t staged = read_field(cpu, ENTRY_EVENT);
     uint64_t shadow = read_field(cpu, INTERRUPTIBILITY);
