@@ -56,6 +56,33 @@ impl Access for Host {
 }
 
 #[test]
+fn synchronous_divide_error_uses_only_an_unoccupied_entry_slot() {
+    use event_injection::inject_divide_error;
+    for (flags, blocking) in [(2, 0), (0x202, 1), (2, 2), (2, 8)] {
+        let mut host = Host {
+            flags,
+            blocking,
+            pending: 1 << 14,
+            ..Host::default()
+        };
+        assert_eq!(inject_divide_error(&mut host), Ok(true));
+        assert_eq!(host.writes, [0x8000_0300]);
+        assert_eq!(host.calls, ["entry", "write"]);
+        assert_eq!(inject(&mut host, Event::Interrupt(0x31)), Ok(false));
+        assert_eq!(inject(&mut host, Event::Nmi), Ok(false));
+        assert_eq!(inject_divide_error(&mut host), Ok(false));
+    }
+    for fail in ["entry", "write"] {
+        let mut host = Host {
+            fail: Some(fail),
+            ..Host::default()
+        };
+        assert_eq!(inject_divide_error(&mut host), Err(fail));
+        assert!(host.writes.is_empty());
+    }
+}
+
+#[test]
 fn irq_matrix_preserves_existing_event_and_ignores_nmi_blocking() {
     // Orthogonal primary partitions: IF, event-slot occupancy, STI/MOVSS,
     // SMI/NMI/enclave state, every external vector, unrelated high bits.

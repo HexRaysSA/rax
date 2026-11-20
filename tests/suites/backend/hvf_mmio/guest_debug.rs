@@ -175,6 +175,7 @@ fn pending(action: Action) -> mmio::InputState {
         Action::Read(input) => state.begin(input).unwrap(),
         Action::Rmw(input) => state.begin_rmw(input).unwrap(),
         Action::AluRead(input) => state.begin_alu_read(input).unwrap(),
+        Action::Divide(input) => state.begin_divide(input, 0).unwrap(),
         Action::Write(_) => panic!("write has an output acknowledgment"),
     }
     state

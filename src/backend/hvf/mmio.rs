@@ -13,6 +13,9 @@ pub(crate) use rmw::RmwInput;
 #[path = "mmio/alu_read.rs"]
 mod alu_read;
 pub(crate) use alu_read::AluReadInput;
+#[path = "mmio/divide.rs"]
+mod divide;
+use divide::DivideInput;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RegisterPart {
@@ -191,6 +194,7 @@ pub(crate) enum Action {
     Write(Vec<u8>),
     Rmw(RmwInput),
     AluRead(AluReadInput),
+    Divide(DivideInput),
 }
 #[derive(Clone, Debug)]
 pub(crate) struct Plan {
@@ -356,6 +360,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     }
     if read == write {
         return Err("scalar MMIO direction disagrees with instruction effects".into());
+    }
+    if matches!(instruction.mnemonic.as_str(), "div" | "idiv") {
+        return divide::prepare(context, memory, record, &instruction);
     }
     if let Some(plan) = alu_read::prepare(context, memory, record, &instruction)? {
         return Ok(plan);
@@ -542,6 +549,12 @@ pub(crate) trait CompletionAccess {
     fn write_gpr(&mut self, index: usize, value: u64) -> Result<(), Self::Error>;
     fn write_rflags(&mut self, flags: u64) -> Result<(), Self::Error>;
     fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
+    fn publish_divide_breakpoints(&mut self, _causes: u64) -> Result<(), String> {
+        Err("MMIO host cannot publish divide breakpoint causes".into())
+    }
+    fn inject_divide_error(&mut self) -> Result<(), String> {
+        Err("MMIO host cannot deliver a divide error".into())
+    }
 }
 
 type Completion = ([Option<(usize, u64)>; 2], Option<u64>, u64);
@@ -551,6 +564,10 @@ enum Pending {
     Read(Input),
     Rmw(RmwInput),
     AluRead(AluReadInput),
+    Divide {
+        input: DivideInput,
+        data_causes: u64,
+    },
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
@@ -578,6 +595,7 @@ impl InputState {
         self.pending.as_ref().map(|pending| match pending {
             Pending::Read(input) => (input.size, None),
             Pending::AluRead(input) => (input.size, None),
+            Pending::Divide { input, .. } => (input.size, None),
             Pending::Rmw(input) => (input.size, Some(input.operation)),
         })
     }
@@ -593,6 +611,9 @@ impl InputState {
             Some(Pending::Read(input)) => Self::default().begin(input.clone())?,
             Some(Pending::Rmw(input)) => input.validate()?,
             Some(Pending::AluRead(input)) => input.validate()?,
+            Some(Pending::Divide { input, data_causes }) => {
+                Self::validate_divide(input, *data_causes)?;
+            }
             None => (),
         }
         if let Some(reply) = &self.reply {
@@ -633,6 +654,25 @@ impl InputState {
         self.pending = Some(Pending::AluRead(input));
         Ok(())
     }
+    fn validate_divide(input: &DivideInput, data_causes: u64) -> Result<(), String> {
+        input.validate()?;
+        // Pending-debug B0–B3 plus the enabled-breakpoint bit. Every
+        // nonempty matched set carries both kinds of bits.
+        if data_causes != 0 && (data_causes & !0xf != 1 << 12 || data_causes & 0xf == 0) {
+            return Err("invalid MMIO divide breakpoint causes".into());
+        }
+        Ok(())
+    }
+    pub(crate) fn begin_divide(
+        &mut self,
+        input: DivideInput,
+        data_causes: u64,
+    ) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        Self::validate_divide(&input, data_causes)?;
+        self.pending = Some(Pending::Divide { input, data_causes });
+        Ok(())
+    }
     pub(crate) fn complete<T: CompletionAccess>(&mut self, host: &mut T, data: &[u8]) {
         if self.failure.is_some() {
             return;
@@ -648,12 +688,13 @@ impl InputState {
                     Extension::Unselected { clear_upper: false }
                 ))
                 .then_some((input.destination.index, value));
-                ([register, None], None, input.length)
+                Some(([register, None], None, input.length))
             }),
-            Pending::Rmw(input) => input.completion(data),
-            Pending::AluRead(input) => input.completion(data),
+            Pending::Rmw(input) => input.completion(data).map(Some),
+            Pending::AluRead(input) => input.completion(data).map(Some),
+            Pending::Divide { input, .. } => input.completion(data),
         };
-        let (registers, flags, length) = match computed {
+        let completion = match computed {
             Ok(v) => v,
             Err(e) => {
                 self.failure = Some(e);
@@ -661,14 +702,25 @@ impl InputState {
             }
         };
         self.reply = Some(data.to_vec());
-        let mut apply = || -> Result<(), T::Error> {
+        let mut apply = || -> Result<(), String> {
+            let Some((registers, flags, length)) = completion else {
+                return host.inject_divide_error();
+            };
+            if let Pending::Divide { data_causes, .. } = input
+                && *data_causes != 0
+            {
+                host.publish_divide_breakpoints(*data_causes)?;
+            }
             for (index, value) in registers.into_iter().flatten() {
-                host.write_gpr(index, value)?;
+                host.write_gpr(index, value)
+                    .map_err(|error| error.to_string())?;
             }
             if let Some(flags) = flags {
-                host.write_rflags(flags)?;
+                host.write_rflags(flags)
+                    .map_err(|error| error.to_string())?;
             }
             host.finish_instruction(length)
+                .map_err(|error| error.to_string())
         };
         if let Err(error) = apply() {
             self.failure = Some(format!("HVF MMIO completion failed: {error}"));

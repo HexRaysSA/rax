@@ -1,6 +1,43 @@
 //! Integer ALU operands fetched from a device require ordinary reads, not RMW.
 use super::*;
 
+#[test]
+fn divide_device_reads_admit_all_legacy_scalar_widths() {
+    for (code_bits, prefix, size) in [
+        (16, &[0xf6][..], 1),
+        (16, &[0xf7], 2),
+        (16, &[0x66, 0xf7], 4),
+        (32, &[0xf6], 1),
+        (32, &[0x66, 0xf7], 2),
+        (32, &[0xf7], 4),
+        (64, &[0xf6], 1),
+        (64, &[0x66, 0xf7], 2),
+        (64, &[0xf7], 4),
+        (64, &[0x48, 0xf7], 8),
+    ] {
+        for modrm in [0x37, 0x3f] {
+            let code = [prefix, &[modrm]].concat();
+            let (mut context, mut ram, mut exit) = fixture(&code);
+            context.code_bits = code_bits;
+            if code_bits == 16 {
+                context.registers[3] = 0x8000; // [BX] instead of [E/RDI].
+                exit.linear = 0x8000;
+                exit.physical = 0x8000;
+            }
+            let plan = prepare(&context, &mut ram, exit)
+                .unwrap_or_else(|error| panic!("{code_bits}-bit {code:02x?}: {error}"));
+            assert!(matches!(plan.action, Action::Divide(input) if input.size == size));
+            assert_eq!(plan.physical, exit.physical);
+            assert_eq!(plan.length, code.len() as u64);
+            assert!(
+                !ram.reads
+                    .iter()
+                    .any(|&(address, _)| address == exit.physical)
+            );
+        }
+    }
+}
+
 const ALU: &[(&str, u8)] = &[
     ("add", 0x03),
     ("adc", 0x13),

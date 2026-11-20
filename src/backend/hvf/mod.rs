@@ -1200,7 +1200,7 @@ impl run_loop::ExitHandler for HvfCore {
     fn mmio(&mut self) -> Result<VcpuExit> {
         self.io_ready()?;
         let plan = self.prepare_mmio()?;
-        let data_causes = self.data_breakpoint_causes(&plan)?;
+        let mut data_causes = self.data_breakpoint_causes(&plan)?;
         let exit = match plan.action {
             mmio::Action::Read(input) => {
                 let size = input.size;
@@ -1214,6 +1214,16 @@ impl run_loop::ExitHandler for HvfCore {
                 let size = input.size;
                 self.mmio_input
                     .begin_alu_read(input)
+                    .map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size,
+                })
+            }
+            mmio::Action::Divide(input) => {
+                let size = input.size;
+                self.mmio_input
+                    .begin_divide(input, std::mem::take(&mut data_causes))
                     .map_err(Error::Emulator)?;
                 Ok(VcpuExit::MmioRead {
                     addr: plan.physical,
@@ -1419,6 +1429,23 @@ impl HvfCore {
                 }
                 fn finish_instruction(&mut self, length: u64) -> Result<()> {
                     self.vcpu.retire_mmio(length)
+                }
+                fn publish_divide_breakpoints(
+                    &mut self,
+                    causes: u64,
+                ) -> std::result::Result<(), String> {
+                    self.vcpu
+                        .retain_data_breakpoints(causes)
+                        .map_err(|error| error.to_string())
+                }
+                fn inject_divide_error(&mut self) -> std::result::Result<(), String> {
+                    let installed =
+                        event_injection::inject_divide_error(&mut self.vcpu.event_access())
+                            .map_err(|error| error.to_string())?;
+                    if !installed {
+                        return Err("VM-entry slot is occupied during MMIO divide error".into());
+                    }
+                    Ok(())
                 }
             }
             let mut state = std::mem::take(&mut self.mmio_input);

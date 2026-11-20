@@ -24,6 +24,8 @@ mod bit_test_tests;
 mod cmov_tests;
 #[path = "hvf_mmio/cmpxchg8b.rs"]
 mod cmpxchg8b_tests;
+#[path = "hvf_mmio/divide.rs"]
+mod divide_tests;
 #[path = "hvf_mmio/double_shifts.rs"]
 mod double_shift_tests;
 #[path = "hvf_mmio/exit_address.rs"]
@@ -693,6 +695,7 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             }
             Action::Rmw(_) => panic!("MOV reference case produced an RMW plan"),
             Action::AluRead(_) => panic!("MOV reference case produced an ALU read plan"),
+            Action::Divide(_) => panic!("MOV reference case produced a divide plan"),
         }
         let record = &raw[12 + i * 152..12 + (i + 1) * 152];
         let actual: [u64; 16] = std::array::from_fn(|index| quad(record, index * 8));

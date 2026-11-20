@@ -16,7 +16,7 @@ CONSUMER_SOURCES = ("intel_mmio_native_guest.rs", "intel_mmio_double_shift.rs",
                     "intel_mmio_movbe.rs", "intel_mmio_cmpxchg8b.rs", "intel_mmio_cmpxchg16b.rs",
                     "intel_mmio_cmov.rs",
                     "intel_mmio_popcnt.rs", "intel_mmio_bit_scan.rs", "intel_mmio_adx.rs",
-                    "intel_mmio_crc32.rs", "intel_mmio_multiply.rs")
+                    "intel_mmio_crc32.rs", "intel_mmio_multiply.rs", "intel_mmio_divide.rs")
 
 
 def sha(path):

@@ -65,6 +65,7 @@ impl HvfCore {
         let (size, writing) = match &plan.action {
             Action::Read(input) => (input.size, false),
             Action::AluRead(input) => (input.size, false),
+            Action::Divide(input) => (input.size, false),
             Action::Write(data) => (data.len() as u8, true),
             Action::Rmw(input) => (input.size, true),
         };

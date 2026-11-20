@@ -28,6 +28,8 @@ mod cmpxchg8b;
 mod coherence;
 #[path = "intel_mmio_crc32.rs"]
 mod crc32;
+#[path = "intel_mmio_divide.rs"]
+mod divide;
 #[path = "intel_mmio_double_shift.rs"]
 mod double_shift;
 #[path = "intel_mmio_guest_debug.rs"]
@@ -1403,6 +1405,12 @@ fn main() {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
         multiply::run(&output);
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--implicit-divide")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        divide::run(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--movbe")) {

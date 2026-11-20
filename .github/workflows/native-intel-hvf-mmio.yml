@@ -26,6 +26,7 @@ on:
           - cmpxchg8b
           - cmpxchg16b
           - implicit-multiply
+          - implicit-divide
           - entry-irq
           - irq-window
         default: mmio

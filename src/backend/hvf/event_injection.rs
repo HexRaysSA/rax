@@ -8,6 +8,17 @@ const IF: u64 = 1 << 9;
 const STI_OR_MOV_SS: u64 = 3;
 const NMI_BLOCKING: u64 = 1 << 3;
 
+/// #DE is a hardware exception without an error code. It is synchronous,
+/// so maskable interrupt conditions do not govern it, but the slot must
+/// still be free.
+pub(crate) fn inject_divide_error<T: Access>(host: &mut T) -> Result<bool, T::Error> {
+    if host.entry_information()? & VALID != 0 {
+        return Ok(false);
+    }
+    host.write_entry_information(VALID | (3 << 8))?;
+    Ok(true)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Event {
     Interrupt(u8),
