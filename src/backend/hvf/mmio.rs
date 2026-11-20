@@ -201,7 +201,7 @@ impl Input {
         Ok(self.destination.merge(self.original, extended))
     }
 }
-/// A legacy MOVD/MOVQ transfer involving the low bytes of an XMM register.
+/// A scalar MOVD/MOVQ transfer involving the low bytes of an XMM register.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct XmmTransfer {
     pub(crate) index: u8,
@@ -239,7 +239,10 @@ pub(crate) enum Action {
     Rmw(RmwInput),
     AluRead(AluReadInput),
     Divide(DivideInput),
-    XmmRead(XmmTransfer),
+    XmmRead {
+        input: XmmTransfer,
+        zero_upper: bool,
+    },
     XmmWrite(XmmTransfer),
     StringLoad(StringLoad),
     StringStore {
@@ -401,7 +404,11 @@ fn prepare_xmm<M: PhysicalMemory>(
     } else {
         (source, destination)
     };
-    let size = if instruction.mnemonic == "movd" { 4 } else { 8 };
+    let size = if matches!(instruction.mnemonic.as_str(), "movd" | "vmovd") {
+        4
+    } else {
+        8
+    };
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
         || operand.kind != OperandKind::Memory
@@ -415,7 +422,7 @@ fn prepare_xmm<M: PhysicalMemory>(
         || xmm.write != read
         || xmm.conditional
     {
-        return Err("wrong operands or direction for legacy XMM MMIO transfer".into());
+        return Err("wrong operands or direction for scalar XMM MMIO transfer".into());
     }
     let index = xmm
         .reg
@@ -435,7 +442,10 @@ fn prepare_xmm<M: PhysicalMemory>(
         linear: record.linear,
         length,
         action: if read {
-            Action::XmmRead(transfer)
+            Action::XmmRead {
+                input: transfer,
+                zero_upper: matches!(instruction.mnemonic.as_str(), "vmovd" | "vmovq"),
+            }
         } else {
             Action::XmmWrite(transfer)
         },
@@ -474,7 +484,10 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if let Some(plan) = string::prepare(context, memory, record, &instruction, &encoded, read)? {
         return Ok(plan);
     }
-    if matches!(instruction.mnemonic.as_str(), "movd" | "movq") {
+    if matches!(
+        instruction.mnemonic.as_str(),
+        "movd" | "movq" | "vmovd" | "vmovq"
+    ) {
         return prepare_xmm(context, memory, record, &instruction, read);
     }
     if matches!(instruction.mnemonic.as_str(), "div" | "idiv") {
@@ -664,7 +677,7 @@ pub(crate) trait CompletionAccess {
     type Error: std::fmt::Display;
     fn write_gpr(&mut self, index: usize, value: u64) -> Result<(), Self::Error>;
     fn write_rflags(&mut self, flags: u64) -> Result<(), Self::Error>;
-    fn write_xmm(&mut self, _index: u8, _value: [u8; 16]) -> Result<(), String> {
+    fn write_xmm(&mut self, _index: u8, _value: [u8; 16], _zero_upper: bool) -> Result<(), String> {
         Err("MMIO host cannot write an XMM register".into())
     }
     fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
@@ -686,6 +699,7 @@ enum Effect {
     Xmm {
         index: u8,
         value: [u8; 16],
+        zero_upper: bool,
         length: u64,
     },
     StringLoad {
@@ -707,6 +721,8 @@ enum Pending {
     },
     Xmm(XmmTransfer),
     StringLoad(StringLoad),
+    // Appending preserves both legacy XMM and string-load records.
+    VexXmm(XmmTransfer),
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
@@ -737,7 +753,7 @@ impl InputState {
             Pending::AluRead(input) => (input.size, None),
             Pending::Divide { input, .. } => (input.size, None),
             Pending::Rmw(input) => (input.size, Some(input.operation)),
-            Pending::Xmm(input) => (input.size, None),
+            Pending::Xmm(input) | Pending::VexXmm(input) => (input.size, None),
         })
     }
     pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {
@@ -753,7 +769,7 @@ impl InputState {
             Some(Pending::Rmw(input)) => input.validate()?,
             Some(Pending::StringLoad(input)) => input.validate()?,
             Some(Pending::AluRead(input)) => input.validate()?,
-            Some(Pending::Xmm(input)) => input.validate()?,
+            Some(Pending::Xmm(input) | Pending::VexXmm(input)) => input.validate()?,
             Some(Pending::Divide { input, data_causes }) => {
                 Self::validate_divide(input, *data_causes)?;
             }
@@ -809,10 +825,14 @@ impl InputState {
         self.pending = Some(Pending::AluRead(input));
         Ok(())
     }
-    pub(crate) fn begin_xmm(&mut self, input: XmmTransfer) -> Result<(), String> {
+    pub(crate) fn begin_xmm(&mut self, input: XmmTransfer, zero_upper: bool) -> Result<(), String> {
         self.ready().map_err(str::to_owned)?;
         input.validate()?;
-        self.pending = Some(Pending::Xmm(input));
+        self.pending = Some(if zero_upper {
+            Pending::VexXmm(input)
+        } else {
+            Pending::Xmm(input)
+        });
         Ok(())
     }
     fn validate_divide(input: &DivideInput, data_causes: u64) -> Result<(), String> {
@@ -864,11 +884,14 @@ impl InputState {
             Pending::Divide { input, .. } => input
                 .completion(data)
                 .map(|value| value.map_or(Effect::DivideError, Effect::Scalar)),
-            Pending::Xmm(input) => input.load(data).map(|value| Effect::Xmm {
-                index: input.index,
-                value,
-                length: input.length,
-            }),
+            Pending::Xmm(transfer) | Pending::VexXmm(transfer) => {
+                transfer.load(data).map(|value| Effect::Xmm {
+                    index: transfer.index,
+                    value,
+                    zero_upper: matches!(input, Pending::VexXmm(_)),
+                    length: transfer.length,
+                })
+            }
         };
         let completion = match computed {
             Ok(v) => v,
@@ -903,9 +926,10 @@ impl InputState {
                 Effect::Xmm {
                     index,
                     value,
+                    zero_upper,
                     length,
                 } => {
-                    host.write_xmm(index, value)?;
+                    host.write_xmm(index, value, zero_upper)?;
                     return host
                         .finish_instruction(length)
                         .map_err(|error| error.to_string());

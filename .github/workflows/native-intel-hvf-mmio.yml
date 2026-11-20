@@ -24,6 +24,7 @@ on:
           - movbe
           - movnti
           - legacy-xmm
+          - vex-xmm
           - string-mmio
           - cmpxchg8b
           - cmpxchg16b

@@ -477,34 +477,40 @@ fn pending_input_and_retained_failure_require_the_exported_request() {
 
 #[test]
 fn pending_xmm_input_roundtrips_with_its_exported_request() {
-    for size in [4, 8] {
-        let mut saved = context();
-        let input = mmio::XmmTransfer {
-            index: 15,
-            size,
-            length: 5,
-        };
-        saved.mmio_input.begin_xmm(input).unwrap();
-        assert!(saved.validate().is_err());
-        saved.request = Some(Packet::Read {
-            address: 0xfee0_0000,
-            size,
-        });
-        let data = &0x8877_6655_4433_2211u64.to_le_bytes()[..usize::from(size)];
-        saved
-            .mmio_input
-            .hold_failure(data, "test owner failure".into());
-        let bytes = saved.encode().unwrap();
-        let loaded = Context::decode(&bytes).unwrap();
-        assert_eq!(loaded.encode().unwrap(), bytes);
-        assert_eq!(loaded.mmio_input.descriptor(), Some((size, None)));
-        assert_eq!(loaded.mmio_input.failure(), Some("test owner failure"));
-        saved.request = Some(Packet::Read {
-            address: 0xfee0_0000,
-            size: 2,
-        });
-        assert!(saved.validate().is_err());
+    let mut encoded = Vec::new();
+    for zero_upper in [false, true] {
+        for size in [4, 8] {
+            let mut saved = context();
+            let input = mmio::XmmTransfer {
+                index: 15,
+                size,
+                length: 5,
+            };
+            saved.mmio_input.begin_xmm(input, zero_upper).unwrap();
+            assert!(saved.validate().is_err());
+            saved.request = Some(Packet::Read {
+                address: 0xfee0_0000,
+                size,
+            });
+            let data = &0x8877_6655_4433_2211u64.to_le_bytes()[..usize::from(size)];
+            saved
+                .mmio_input
+                .hold_failure(data, "test owner failure".into());
+            let bytes = saved.encode().unwrap();
+            encoded.push(bytes.clone());
+            let loaded = Context::decode(&bytes).unwrap();
+            assert_eq!(loaded.encode().unwrap(), bytes);
+            assert_eq!(loaded.mmio_input.descriptor(), Some((size, None)));
+            assert_eq!(loaded.mmio_input.failure(), Some("test owner failure"));
+            saved.request = Some(Packet::Read {
+                address: 0xfee0_0000,
+                size: 2,
+            });
+            assert!(saved.validate().is_err());
+        }
     }
+    assert_ne!(encoded[0], encoded[2]);
+    assert_ne!(encoded[1], encoded[3]);
 }
 
 #[test]

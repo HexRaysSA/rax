@@ -84,13 +84,15 @@ pub(super) fn host_step(cpu: &mut dyn VCpu, enabled: bool) {
 }
 
 #[test]
-fn legacy_xmm_mmio_resumes_without_reentering_and_preserves_the_other_simd_lanes() {
+fn scalar_xmm_mmio_resumes_without_reentering_and_preserves_the_other_simd_lanes() {
     let _serial = SERIAL
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    for (code, size, reading) in [
-        (&[0x66, 0x44, 0x0f, 0x6e, 0x3b][..], 4, true),
-        (&[0x66, 0x4c, 0x0f, 0x7e, 0x3b][..], 8, false),
+    for (code, size, reading, zero_upper) in [
+        (&[0x66, 0x44, 0x0f, 0x6e, 0x3b][..], 4, true, false),
+        (&[0x66, 0x4c, 0x0f, 0x7e, 0x3b][..], 8, false, false),
+        (&[0xc5, 0x79, 0x6e, 0x3b][..], 4, true, true),
+        (&[0xc4, 0x61, 0xf9, 0x7e, 0x3b][..], 8, false, false),
     ] {
         let qualification = if reading { 0x181 } else { 0x182 };
         let (vm, memory, mut source) = seeded(code, qualification, false);
@@ -136,6 +138,9 @@ fn legacy_xmm_mmio_resumes_without_reentering_and_preserves_the_other_simd_lanes
             target.complete_io_in(&[0x21, 0x43, 0x65, 0x87]);
             fp[400..404].copy_from_slice(&[0x21, 0x43, 0x65, 0x87]);
             fp[404..416].fill(0);
+            if zero_upper {
+                fp[816..832].fill(0);
+            }
         } else {
             target.complete_io_out().unwrap();
         }

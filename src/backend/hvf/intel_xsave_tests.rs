@@ -72,13 +72,13 @@ fn xmm_mmio_overlay_preserves_active_non_destination_state() {
         let offset = 160 + usize::from(index) * 16;
         assert_eq!(layout.read_xmm(&bytes, index).unwrap(), [0x34; 16]);
         let value = [0xf0; 16];
-        let changed = layout.overlay_xmm(&bytes, index, value).unwrap();
+        let changed = layout.overlay_xmm(&bytes, index, value, false).unwrap();
         assert_eq!(layout.read_xmm(&changed, index).unwrap(), value);
         assert_eq!(&changed[..offset], &bytes[..offset]);
         assert_eq!(&changed[offset + 16..], &bytes[offset + 16..]);
     }
     assert!(layout.read_xmm(&bytes, 16).is_err());
-    assert!(layout.overlay_xmm(&bytes, 16, [0; 16]).is_err());
+    assert!(layout.overlay_xmm(&bytes, 16, [0; 16], true).is_err());
     assert_eq!(bytes, source);
 }
 
@@ -94,7 +94,7 @@ fn xmm_mmio_materializes_initial_lanes_before_setting_sse_in_use() {
         bytes[576..832].fill(0x5a);
         assert_eq!(layout.read_xmm(&bytes, 15).unwrap(), [0; 16]);
         let value = [0xff; 16];
-        let changed = layout.overlay_xmm(&bytes, 15, value).unwrap();
+        let changed = layout.overlay_xmm(&bytes, 15, value, false).unwrap();
         assert_eq!(layout.read_xmm(&changed, 15).unwrap(), value);
         assert_eq!(&changed[160..400], &[0; 240]);
         assert_eq!(&changed[576..832], &[0x5a; 256]);
@@ -351,5 +351,52 @@ fn mxcsr_mask_still_rejects_reserved_bits_outside_the_amd_extension() {
     for bit in [16u32, 18, 31] {
         bytes[24..28].copy_from_slice(&(0x1f80u32 | (1 << bit)).to_le_bytes());
         assert!(amd.validate_image(&bytes).is_err(), "reserved bit {bit}");
+    }
+}
+
+#[test]
+fn vex_scalar_overlay_clears_only_destination_upper_lanes() {
+    let mut layout = layout();
+    layout.mask |= (1 << 5) | (1 << 6) | (1 << 7);
+    layout.size = 2560;
+    for (bit, size, offset) in [(5, 64, 896), (6, 512, 960), (7, 1024, 1536)] {
+        layout.components.push(Component {
+            bit,
+            size,
+            offset,
+            align64: true,
+        });
+    }
+    for compact in [0, COMPACTED | layout.mask] {
+        for present in [3, layout.mask] {
+            let mut bytes = image(&layout);
+            bytes[512..520].copy_from_slice(&present.to_le_bytes());
+            bytes[520..528].copy_from_slice(&compact.to_le_bytes());
+            bytes[160..416].fill(0x34);
+            for (bit, value) in [(2, 0x52), (5, 0x55), (6, 0x56), (7, 0x57)] {
+                let start = layout.offset(&bytes, bit).unwrap().unwrap();
+                let width = layout.component(bit).unwrap().size as usize;
+                bytes[start..start + width].fill(value);
+            }
+            let mut before = Registers::default();
+            layout.project(&bytes, &mut before).unwrap();
+            for index in [0, 15] {
+                let result = layout.overlay_xmm(&bytes, index, [0x11; 16], true).unwrap();
+                assert_eq!(u64_at(&result, 512), present);
+                assert_eq!(u64_at(&result, 520), 0);
+                let mut after = Registers::default();
+                layout.project(&result, &mut after).unwrap();
+                let index = usize::from(index);
+                let mut expected = before.clone();
+                expected.xmm[index] = [0x1111_1111_1111_1111; 2];
+                expected.ymm_high[index] = [0; 2];
+                expected.zmm_high[index] = [0; 4];
+                assert_eq!(after.xmm, expected.xmm);
+                assert_eq!(after.ymm_high, expected.ymm_high);
+                assert_eq!(after.zmm_high, expected.zmm_high);
+                assert_eq!(after.zmm_ext, expected.zmm_ext);
+                assert_eq!(after.k, expected.k);
+            }
+        }
     }
 }

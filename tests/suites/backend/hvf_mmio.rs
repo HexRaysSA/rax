@@ -186,7 +186,10 @@ fn legacy_movd_and_movq_plan_the_guest_width_and_xmm_lane() {
         record.qualification = if read { 0x181 } else { 0x182 };
         let plan = prepare(&context, &mut ram, record).unwrap();
         let transfer = match plan.action {
-            Action::XmmRead(transfer) if read => transfer,
+            Action::XmmRead {
+                input,
+                zero_upper: false,
+            } if read => input,
             Action::XmmWrite(transfer) if !read => transfer,
             _ => panic!("wrong plan direction for {code:02x?}"),
         };
@@ -208,7 +211,7 @@ fn legacy_movd_and_movq_plan_the_guest_width_and_xmm_lane() {
 fn xmm_reply_is_zero_extended_and_retired_once_after_publication() {
     #[derive(Default)]
     struct Host {
-        xmm: Vec<(u8, [u8; 16])>,
+        xmm: Vec<(u8, [u8; 16], bool)>,
         retired: Vec<u64>,
         fail_write: bool,
     }
@@ -220,11 +223,16 @@ fn xmm_reply_is_zero_extended_and_retired_once_after_publication() {
         fn write_rflags(&mut self, _flags: u64) -> Result<(), Self::Error> {
             panic!("XMM MMIO changes no flags")
         }
-        fn write_xmm(&mut self, index: u8, value: [u8; 16]) -> Result<(), String> {
+        fn write_xmm(
+            &mut self,
+            index: u8,
+            value: [u8; 16],
+            zero_upper: bool,
+        ) -> Result<(), String> {
             if self.fail_write {
                 return Err("write failed".into());
             }
-            self.xmm.push((index, value));
+            self.xmm.push((index, value, zero_upper));
             Ok(())
         }
         fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error> {
@@ -234,39 +242,44 @@ fn xmm_reply_is_zero_extended_and_retired_once_after_publication() {
         }
     }
 
-    for size in [4, 8] {
-        for (reply_size, fail_write) in [(size, false), (size - 1, false), (size, true)] {
-            let mut pending = mmio::InputState::default();
-            pending
-                .begin_xmm(mmio::XmmTransfer {
-                    index: 15,
-                    size,
-                    length: 5,
-                })
-                .unwrap();
-            let mut host = Host {
-                fail_write,
-                ..Host::default()
-            };
-            assert_eq!(pending.descriptor(), Some((size, None)));
-            assert!(pending.validate_checkpoint().is_ok());
-            let reply = &0x8877_6655_4433_2211u64.to_le_bytes()[..usize::from(reply_size)];
-            pending.complete(&mut host, reply);
-            if reply_size != size || fail_write {
-                assert!(pending.ready().is_err());
+    for zero_upper in [false, true] {
+        for size in [4, 8] {
+            for (reply_size, fail_write) in [(size, false), (size - 1, false), (size, true)] {
+                let mut pending = mmio::InputState::default();
+                pending
+                    .begin_xmm(
+                        mmio::XmmTransfer {
+                            index: 15,
+                            size,
+                            length: 5,
+                        },
+                        zero_upper,
+                    )
+                    .unwrap();
+                let mut host = Host {
+                    fail_write,
+                    ..Host::default()
+                };
+                assert_eq!(pending.descriptor(), Some((size, None)));
                 assert!(pending.validate_checkpoint().is_ok());
-                assert!(host.xmm.is_empty() && host.retired.is_empty());
-                pending.complete(&mut host, &[0; 8]);
-                assert!(host.xmm.is_empty() && host.retired.is_empty());
-                continue;
+                let reply = &0x8877_6655_4433_2211u64.to_le_bytes()[..usize::from(reply_size)];
+                pending.complete(&mut host, reply);
+                if reply_size != size || fail_write {
+                    assert!(pending.ready().is_err());
+                    assert!(pending.validate_checkpoint().is_ok());
+                    assert!(host.xmm.is_empty() && host.retired.is_empty());
+                    pending.complete(&mut host, &[0; 8]);
+                    assert!(host.xmm.is_empty() && host.retired.is_empty());
+                    continue;
+                }
+                let mut expected = [0; 16];
+                expected[..reply.len()].copy_from_slice(reply);
+                assert_eq!(host.xmm, [(15, expected, zero_upper)]);
+                assert_eq!(host.retired, [5]);
+                assert!(pending.ready().is_ok());
+                pending.complete(&mut host, reply);
+                assert_eq!(host.retired, [5]);
             }
-            let mut expected = [0; 16];
-            expected[..reply.len()].copy_from_slice(reply);
-            assert_eq!(host.xmm, [(15, expected)]);
-            assert_eq!(host.retired, [5]);
-            assert!(pending.ready().is_ok());
-            pending.complete(&mut host, reply);
-            assert_eq!(host.retired, [5]);
         }
     }
 }
@@ -795,7 +808,9 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             Action::Rmw(_) => panic!("MOV reference case produced an RMW plan"),
             Action::AluRead(_) => panic!("MOV reference case produced an ALU read plan"),
             Action::Divide(_) => panic!("MOV reference case produced a divide plan"),
-            Action::XmmRead(_) | Action::XmmWrite(_) => panic!("unexpected XMM plan for GPR MOV"),
+            Action::XmmRead { .. } | Action::XmmWrite(_) => {
+                panic!("unexpected XMM plan for GPR MOV")
+            }
             Action::StringLoad(_) | Action::StringStore { .. } => {
                 panic!("unexpected string plan for GPR MOV")
             }
@@ -1025,6 +1040,87 @@ fn movnti_metadata_describes_a_memory_only_store_in_each_code_size() {
         let (context, mut ram, mut exit) = fixture(code);
         exit.qualification = 0x182;
         assert!(prepare(&context, &mut ram, exit).is_err());
+    }
+}
+
+#[test]
+fn vex_movd_memory_read_has_a_native_mmio_plan() {
+    let (context, mut ram, exit) = fixture(&[0xc5, 0xf9, 0x6e, 0x07]);
+    let plan = prepare(&context, &mut ram, exit)
+        .expect("VEX scalar XMM MMIO read must have a validated plan");
+    assert_eq!(plan.length, 4);
+    assert_eq!(plan.linear, exit.linear);
+    assert_eq!(plan.physical, exit.physical);
+}
+
+#[test]
+fn vex_scalar_xmm_access_width_direction_and_upper_lane_policy() {
+    for (code, size, index, read, bits) in [
+        (&[0xc5, 0xf9, 0x6e, 0x07][..], 4, 0, true, 64),
+        (&[0xc5, 0x79, 0x7e, 0x3f], 4, 15, false, 64),
+        (&[0xc4, 0x61, 0xf9, 0x6e, 0x3f], 8, 15, true, 64),
+        (&[0xc4, 0xe1, 0xf9, 0x7e, 0x07], 8, 0, false, 64),
+        (&[0xc5, 0x7a, 0x7e, 0x3f], 8, 15, true, 64),
+        (&[0xc5, 0xf9, 0xd6, 0x07], 8, 0, false, 64),
+        (&[0xc4, 0xe1, 0xf9, 0x6e, 0x07], 4, 0, true, 32),
+        (&[0xc4, 0x01, 0xf9, 0x6e, 0x7c, 0xa5, 0x10], 8, 15, true, 64),
+    ] {
+        let (mut context, mut ram, mut exit) = fixture(code);
+        context.code_bits = bits;
+        context.registers[12] = 0x10;
+        context.registers[13] = exit.linear - 0x50;
+        exit.qualification = if read { 0x181 } else { 0x182 };
+        let plan = prepare(&context, &mut ram, exit).unwrap();
+        let input = match plan.action {
+            Action::XmmRead {
+                input,
+                zero_upper: true,
+            } if read => input,
+            Action::XmmWrite(input) if !read => input,
+            _ => panic!("wrong plan direction or upper-lane policy for {code:02x?}"),
+        };
+        assert_eq!((input.index, input.size), (index, size));
+        assert_eq!(input.length, code.len() as u64);
+        assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+        assert!(
+            ram.reads
+                .iter()
+                .all(|&(address, _)| address != exit.physical)
+        );
+        let wrong_direction = ExitRecord {
+            qualification: exit.qualification ^ 3,
+            ..exit
+        };
+        assert!(prepare(&context, &mut ram, wrong_direction).is_err());
+        let wrong_address = ExitRecord {
+            physical: exit.physical + 1,
+            ..exit
+        };
+        assert!(prepare(&context, &mut ram, wrong_address).is_err());
+    }
+}
+
+#[test]
+fn vex_scalar_xmm_refuses_reserved_encodings_and_register_operands() {
+    for code in [
+        &[0xc5, 0xfd, 0x6e, 0x07][..],   // L=1
+        &[0xc5, 0xf1, 0x6e, 0x07],       // reserved vvvv
+        &[0xc4, 0xe2, 0xf9, 0x6e, 0x07], // another opcode map
+        &[0xf0, 0xc5, 0xf9, 0x6e, 0x07],
+        &[0xf2, 0xc5, 0xf9, 0x6e, 0x07],
+        &[0xf3, 0xc5, 0xf9, 0x6e, 0x07],
+        &[0x66, 0xc5, 0xf9, 0x6e, 0x07],
+        &[0x40, 0x67, 0xc5, 0xf9, 0x6e, 0x07],
+        &[0xc5, 0xf9, 0x6e, 0xc7], // register-only
+        &[0xc4, 0xe1, 0xf9],       // truncated
+    ] {
+        let (context, mut ram, exit) = fixture(code);
+        assert!(prepare(&context, &mut ram, exit).is_err(), "{code:02x?}");
+        assert!(
+            ram.reads
+                .iter()
+                .all(|&(address, _)| address != exit.physical)
+        );
     }
 }
 

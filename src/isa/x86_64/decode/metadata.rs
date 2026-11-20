@@ -335,6 +335,9 @@ fn decode_inner(bits: u32, pc: u64, bytes: &[u8], unsupported: &mut bool) -> Opt
     let mut branch_bits = bits;
     let mut lockable = false;
     match opcode {
+        0xc4 | 0xc5 if bits == 64 || ctx.peek_u8().ok()? & 0xc0 == 0xc0 => {
+            vex::decode_scalar_xmm(&mut ctx, opcode, bits, address_bits, &mut out, unsupported)?;
+        }
         0xc3 | 0xc2 | 0xcb | 0xca | 0xcf => {
             out.mnemonic = match opcode {
                 0xc3 | 0xc2 => "ret",
@@ -684,4 +687,6 @@ fn decode_inner(bits: u32, pc: u64, bytes: &[u8], unsupported: &mut bool) -> Opt
 
 #[path = "metadata_legacy.rs"]
 mod legacy;
+#[path = "metadata_vex.rs"]
+mod vex;
 use legacy::{decode_0f, fixed_legacy};

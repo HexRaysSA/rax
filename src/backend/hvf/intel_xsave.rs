@@ -236,11 +236,26 @@ impl Layout {
         image: &[u8],
         index: u8,
         value: [u8; XMM_BYTES],
+        zero_upper: bool,
     ) -> Result<Vec<u8>> {
         let offset = xmm_offset(index)?;
         let mut image = self.standard(image)?;
         image[offset..offset + XMM_BYTES].copy_from_slice(&value);
         image[512] |= 2;
+        if zero_upper {
+            // VEX.128 clears all architectural upper lanes of the destination.
+            // An inactive component already represents zero at every index.
+            for (bit, width) in [(2, 16), (6, 32)] {
+                if image[512] & (1 << bit) != 0 {
+                    let base = self
+                        .component(bit)
+                        .ok_or_else(|| invalid("missing active vector component"))?
+                        .offset as usize;
+                    let start = base + usize::from(index) * width;
+                    image[start..start + width].fill(0);
+                }
+            }
+        }
         Ok(image)
     }
 

@@ -1282,9 +1282,11 @@ impl run_loop::ExitHandler for HvfCore {
                 },
                 plan.length,
             ),
-            mmio::Action::XmmRead(input) => {
+            mmio::Action::XmmRead { input, zero_upper } => {
                 let size = input.size;
-                self.mmio_input.begin_xmm(input).map_err(Error::Emulator)?;
+                self.mmio_input
+                    .begin_xmm(input, zero_upper)
+                    .map_err(Error::Emulator)?;
                 Ok(VcpuExit::MmioRead {
                     addr: plan.physical,
                     size,
@@ -1504,12 +1506,13 @@ impl HvfCore {
                     &mut self,
                     index: u8,
                     value: [u8; 16],
+                    zero_upper: bool,
                 ) -> std::result::Result<(), String> {
                     let write = || -> Result<()> {
                         let id = self.vcpu.vcpu_id;
                         let layout = &self.vcpu.native_profile()?.xsave;
                         let bytes = intel_fp::read(id, layout)?;
-                        let updated = layout.overlay_xmm(&bytes, index, value)?;
+                        let updated = layout.overlay_xmm(&bytes, index, value, zero_upper)?;
                         intel_fp::write(id, layout, &updated)
                     };
                     write().map_err(|error| error.to_string())

@@ -69,7 +69,7 @@ impl HvfCore {
             Action::Divide(input) => (input.size, false),
             Action::Write(data) | Action::StringStore { data, .. } => (data.len() as u8, true),
             Action::Rmw(input) => (input.size, true),
-            Action::XmmRead(input) => (input.size, false),
+            Action::XmmRead { input, .. } => (input.size, false),
             Action::XmmWrite(input) => (input.size, true),
         };
         let dr7 = vmcs_read(self.vcpu_id, V::VMCS_GUEST_DR7)?;
