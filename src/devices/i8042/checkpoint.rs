@@ -19,6 +19,43 @@ impl I8042 {
 mod tests {
     use super::*;
     #[test]
+    fn pending_auxiliary_loopback_preserves_latch_source_and_irq() {
+        for enable_irq in [false, true] {
+            let mut source = I8042::new();
+            source.write(STATUS_PORT, CMD_WRITE_CMD_BYTE);
+            let irq = if enable_irq { CMD_BYTE_AUX_IRQ } else { 0 };
+            source.write(DATA_PORT, CMD_BYTE_KBD_DISABLE | CMD_BYTE_AUX_DISABLE | irq);
+            source.write(STATUS_PORT, CMD_READ_CMD_BYTE);
+            source.write(STATUS_PORT, CMD_WRITE_AUX_OUTPUT_BUFFER);
+            assert!(!source.aux_irq_pending());
+            assert_eq!(
+                source.read(STATUS_PORT) & (STATUS_OBF | STATUS_AUX | STATUS_IBF),
+                STATUS_OBF
+            );
+
+            let raw = crate::codec::serialize(&source).unwrap();
+            let mut target: I8042 = crate::codec::deserialize_strict(&raw).unwrap();
+            target.validate_checkpoint().unwrap();
+            target.write(DATA_PORT, 0x5a);
+            assert!(!target.aux_irq_pending());
+            assert_eq!(
+                target.read(DATA_PORT),
+                irq | CMD_BYTE_KBD_DISABLE | CMD_BYTE_AUX_DISABLE
+            );
+            assert_eq!(
+                target.read(STATUS_PORT) & (STATUS_OBF | STATUS_AUX | STATUS_IBF),
+                STATUS_OBF | STATUS_AUX
+            );
+            assert_eq!(target.aux_irq_pending(), enable_irq);
+            assert!(!target.keyboard_irq_pending());
+            assert_eq!(target.read(DATA_PORT), 0x5a);
+            assert_eq!(target.read(STATUS_PORT) & (STATUS_OBF | STATUS_AUX), 0);
+            assert_eq!(target.mouse.sample_rate, source.mouse.sample_rate);
+            assert_eq!(crate::codec::serialize(&source).unwrap(), raw);
+        }
+    }
+
+    #[test]
     fn pending_mouse_parameter_and_interleaved_output_survive() {
         let mut source = I8042::new();
         source.write(0x64, 0xd4);

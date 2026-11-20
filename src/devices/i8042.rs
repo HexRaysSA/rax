@@ -90,6 +90,7 @@ const CMD_DISABLE_KBD: u8 = 0xAD;
 const CMD_ENABLE_KBD: u8 = 0xAE;
 const CMD_READ_OUTPUT_PORT: u8 = 0xD0;
 const CMD_WRITE_OUTPUT_PORT: u8 = 0xD1;
+const CMD_WRITE_AUX_OUTPUT_BUFFER: u8 = 0xD3;
 const CMD_WRITE_AUX: u8 = 0xD4;
 // 0xF0..=0xFF pulse the output line; the low nibble is a mask of lines to
 // pulse low. Bit 0 (line P0) is the CPU reset line, so 0xFE pulses reset.
@@ -234,6 +235,8 @@ enum PendingWrite {
     OutputPort,
     /// Next 0x60 write is forwarded to the auxiliary device (after 0xD4).
     AuxByte,
+    /// Next 0x60 write loops back as auxiliary output (after 0xD3).
+    AuxOutputBuffer,
 }
 
 /// Intel 8042 PS/2 controller.
@@ -538,6 +541,12 @@ impl I8042 {
             PendingWrite::OutputPort => {
                 self.set_output_port(value);
             }
+            PendingWrite::AuxOutputBuffer => {
+                // Controller loopback does not send a command to the mouse
+                // and works even while the external AUX port is disabled.
+                self.enqueue_aux_byte(value);
+                self.refill_output_buffer();
+            }
             PendingWrite::AuxByte => {
                 // 0xD4 routed this 0x60 write to the auxiliary device: feed it
                 // to the emulated PS/2 mouse, which replies on the aux stream.
@@ -744,6 +753,9 @@ impl I8042 {
             }
             CMD_WRITE_OUTPUT_PORT => {
                 self.pending = PendingWrite::OutputPort;
+            }
+            CMD_WRITE_AUX_OUTPUT_BUFFER => {
+                self.pending = PendingWrite::AuxOutputBuffer;
             }
             CMD_WRITE_AUX => {
                 self.pending = PendingWrite::AuxByte;

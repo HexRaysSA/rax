@@ -59,6 +59,34 @@ fn aliases_keep_target_owners_and_partial_dma_keyboard_and_floppy_commands() {
     assert_eq!(again.data, image.data);
 }
 #[test]
+fn detached_pc_checkpoint_preserves_pending_auxiliary_loopback() {
+    let (source, mut input, _) = device_set();
+    input.write(0x64, &[0x60]).unwrap();
+    input.write(0x60, &[0x32]).unwrap(); // Disable both ports, enable AUX IRQ.
+    input.write(0x64, &[0xd3]).unwrap();
+    let (image, resources) = capture(&source);
+    let bytes = image.encoded().unwrap();
+    drop(input);
+    drop(source);
+
+    let image = PcCheckpoint::decode(&bytes).unwrap();
+    let resources = PreparedResources::from_bindings(resources).unwrap();
+    let (target, mut output, _) = device_set();
+    target
+        .restore_with(image.prepare(&resources).unwrap(), || Ok(()))
+        .unwrap();
+    output.write(0x60, &[0x5a]).unwrap();
+    let mut byte = [0];
+    output.read(0x64, &mut byte).unwrap();
+    assert_eq!(byte[0] & 0x23, 0x21); // Auxiliary output full, input empty.
+    assert!(target.i8042.lock().unwrap().aux_irq_pending());
+    output.read(0x60, &mut byte).unwrap();
+    assert_eq!(byte, [0x5a]);
+    output.read(0x64, &mut byte).unwrap();
+    assert_eq!(byte[0] & 0x23, 0);
+}
+
+#[test]
 fn failed_publication_callback_preserves_the_entire_device_inventory() {
     let (source, mut io, _) = device_set();
     io.write(0x70, &[0xb8]).unwrap();
