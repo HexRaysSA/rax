@@ -205,11 +205,12 @@ fn installed_i386_glibc_matches_native_through_closed_c_abi() {
     assert_eq!(before["capabilities"]["native_runtime"], true);
     assert_eq!(before["capabilities"]["host_filesystem"], false);
     assert_eq!(before["capabilities"]["host_services"], false);
-    assert_eq!(run_installed_posix(&process, &path).exit_code, 23);
-    for (stream, expected) in [
-        (RAX_PROCESS_STDOUT, native.stdout.as_slice()),
-        (RAX_PROCESS_STDERR, native.stderr.as_slice()),
-    ] {
+    let exit_code = run_installed_posix(&process, &path).exit_code;
+    let mut output = [Vec::new(), Vec::new()];
+    for (stream, captured) in [RAX_PROCESS_STDOUT, RAX_PROCESS_STDERR]
+        .into_iter()
+        .zip(&mut output)
+    {
         let mut bytes = [0u8; 4096];
         let mut size = 0;
         assert_eq!(
@@ -222,8 +223,17 @@ fn installed_i386_glibc_matches_native_through_closed_c_abi() {
             ),
             RaxStatus::Ok
         );
-        assert_eq!(&bytes[..size], expected);
+        captured.extend_from_slice(&bytes[..size]);
     }
+    let [stdout, stderr] = output;
+    assert_eq!(
+        exit_code,
+        23,
+        "i386 guest stderr: {}",
+        String::from_utf8_lossy(&stderr)
+    );
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
 }
 
 #[cfg(windows)]
