@@ -184,6 +184,7 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_findstr_matches_native_through_closed_c_abi() {
     check_native_extension_point_policy();
+    report_native_extension_startup_flag();
     let arguments = &["/l", "/c:rax-witness"];
     let matched = compare_windows_installed_program(
         "findstr.exe",
@@ -228,6 +229,48 @@ fn check_native_extension_point_policy() {
     assert_ne!(ok, 0, "{}", std::io::Error::last_os_error());
     assert_eq!(flags, 0, "installed process extension-point policy");
     eprintln!("native extension-point policy: flags=0x{flags:x}");
+}
+
+#[cfg(windows)]
+fn report_native_extension_startup_flag() {
+    use std::ffi::c_void;
+
+    #[link(name = "advapi32")]
+    unsafe extern "system" {
+        fn RegGetValueW(
+            key: *mut c_void,
+            subkey: *const u16,
+            value: *const u16,
+            flags: u32,
+            value_type: *mut u32,
+            data: *mut c_void,
+            bytes: *mut u32,
+        ) -> i32;
+    }
+
+    let wide = |name: &str| name.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
+    let subkey = wide(r"Software\Microsoft\Windows NT\CurrentVersion\Windows");
+    let value = wide("LoadAppInit_DLLs");
+    let mut kind = 0;
+    let mut enabled = u32::MAX;
+    let mut bytes = 4;
+    const HKLM: isize = -2_147_483_646;
+    const REG_DWORD_ONLY: u32 = 0x10;
+    let status = unsafe {
+        RegGetValueW(
+            HKLM as *mut c_void,
+            subkey.as_ptr(),
+            value.as_ptr(),
+            REG_DWORD_ONLY,
+            &mut kind,
+            (&raw mut enabled).cast(),
+            &mut bytes,
+        )
+    };
+    eprintln!(
+        "native extension-startup flag: status={status} type={kind} bytes={bytes} disabled={}",
+        status == 0 && kind == 4 && bytes == 4 && enabled == 0
+    );
 }
 
 #[cfg(windows)]
