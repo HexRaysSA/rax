@@ -29,6 +29,7 @@ on:
           - implicit-divide
           - entry-irq
           - irq-window
+          - nmi-baseline
           - nmi-window
         default: mmio
 

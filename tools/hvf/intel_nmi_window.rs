@@ -44,6 +44,26 @@ fn set_handler_state(cpu: &mut dyn VCpu, mut input: X86_64CpuState) {
     cpu.set_state(&CpuState::X86_64(input)).unwrap();
 }
 
+fn window_machine(memory: &GuestMemoryWrapper) -> (Box<dyn Vm>, Box<dyn VCpu>) {
+    install_handler(memory);
+    let (vm, mut cpu) = machine(memory);
+    let input = state(cpu.as_ref());
+    set_handler_state(cpu.as_mut(), input);
+    (vm, cpu)
+}
+
+pub(super) fn run_baseline(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let memory = guest_memory(&[]);
+    let (_vm, mut cpu) = window_machine(&memory);
+    eprintln!("nmi-baseline entering the initialized guest without an event");
+    halted(cpu.as_mut(), 0, SEED);
+    let visits = state(cpu.as_ref()).regs.r11;
+    assert_eq!(visits, 0, "NMI handler ran without an injected event");
+    record(output, 0, "nmi-baseline-hlt", 8, visits);
+    println!("{{\"cases\":1,\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 /// Split a failed first entry into controls that change one input each.
 /// These diagnostic exits do not count toward successful NMI observations.
 fn diagnose_first_entry() {
@@ -60,6 +80,7 @@ fn diagnose_first_entry() {
         Control::PriorPortExit,
         Control::InterruptFlagSet,
     ] {
+        eprintln!("nmi-window {control:?}: initializing fresh VM");
         let code: &[u8] = if control == Control::PriorPortExit {
             &[0xe6, START_PORT as u8]
         } else {
@@ -96,6 +117,7 @@ fn diagnose_first_entry() {
         }
         let before = state(cpu.as_ref());
         let accepted = (control != Control::NoNmi).then(|| cpu.inject_nmi());
+        eprintln!("nmi-window {control:?} starting entry: request={accepted:?}");
         let exit = event(cpu.as_mut());
         eprintln!(
             "nmi-window {control:?}: request={accepted:?} exit={exit:?} rip={:#x} rflags={:#x}",
@@ -106,16 +128,13 @@ fn diagnose_first_entry() {
 
 fn observe(watch: Watch) -> u64 {
     let memory = guest_memory(&[]);
-    install_handler(&memory);
-    let (mut vm, mut cpu) = machine(&memory);
-    let input = state(cpu.as_ref());
-    set_handler_state(cpu.as_mut(), input);
+    let (mut vm, mut cpu) = window_machine(&memory);
     assert!(cpu.inject_nmi().unwrap());
     let first_exit = event(cpu.as_mut());
     if !matches!(first_exit, VcpuExit::IoOut { port: PORT, .. }) {
+        eprintln!("nmi-window first handler entry failed: {first_exit:?}");
         drop(cpu);
         drop(vm);
-        eprintln!("nmi-window first handler entry failed: {first_exit:?}");
         diagnose_first_entry();
         panic!("expected an NMI handler port exit: {first_exit:?}");
     }

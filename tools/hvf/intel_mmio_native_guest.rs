@@ -1391,6 +1391,12 @@ fn main() {
         println!("{{\"cases\":3,\"failed\":0,\"guest_execution_performed\":true}}");
         return;
     }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--nmi-baseline")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        nmi_window::run_baseline(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--nmi-window")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

@@ -185,3 +185,24 @@ Each control changes one input used by the failing case.
 
 The controls run only after a failure and produce no successful-case
 records. The verified failure blocks native NMI qualification in C-HVF.
+
+### Cold entry without an event
+
+The first diagnostic run lost communication with the hosted runner during
+guest execution. The signed build survived. The run produced neither guest
+observations nor a guest log, so the failure phase within the guest probe
+is unknown. [Hosted job](https://github.com/HexRaysSA/rax/actions/runs/44661487412/job/136040528403)
+
+The independent `nmi-baseline` profile uses the same cold VM construction,
+IDT and guest state as `nmi-window`. It leaves the VM-entry event slot empty
+and requires HLT at the expected RIP, the continuation marker, and zero NMI
+handler visits. The assumption that the cold guest state itself permits
+VM entry is falsified if that control returns a VM-entry failure. The
+baseline runs in its own job and its single observation covers only entry
+without an injected event. Each `nmi-window` diagnostic logs its phase before
+the host entry call or teardown.
+
+The Intel macOS consumer cross-build linked and passed strict signature
+verification with the hypervisor entitlement. All 21 prepared-consumer tests
+and 16 workflow checks passed locally. The dispatch choices match the probe's
+profile list. The cross-build performed no guest entry.
