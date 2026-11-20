@@ -1,4 +1,6 @@
-# Legacy XMM transfers through Intel HVF MMIO
+# Scalar XMM transfers through Intel HVF MMIO
+
+## Legacy SSE2
 
 Legacy SSE2 MOVD and MOVQ memory operands transfer 4 or 8 bytes. Loads
 replace the destination XMM register with the zero-extended device reply.
@@ -55,11 +57,30 @@ real Hypervisor.framework backend. The runner verified the prepared
 consumer signature and reported six successes on a fresh vCPU and six
 after detached restoration. Its availability probe reported an
 untranslated Intel process in a hypervisor guest. Physical Intel macOS,
-AVX and wider MMIO, string moves, and mixed RAM and device operands
-remain open.
+wider vectors, and mixed RAM and device operands remain open.
 
 [Hosted execution observations](https://github.com/HexRaysSA/rax/actions/runs/44711344124)
 
 - Tested commit `44c81f236c7e2399913f2a5df4aafe88ef948370`
 - Signed consumer SHA-256 `b489c25de09f64b800351ca8e3f6e459eafa55ed54f2eb3586e1e2e5abf42da4`
 - Observation stream SHA-256 `89593872de38c050034d9e0e320510e64710af12c373dc5cb45d4ee7fbbf34c1`
+
+## VEX scalar transfers
+
+Six VEX MOVD/MOVQ forms use the same 4-byte and 8-byte device transactions.
+VEX loads also clear the destination's architectural upper lanes. The
+pending input record distinguishes legacy and VEX completion while retaining
+the established serialization of legacy records. Stores use the same
+immutable output packets as the legacy forms.
+
+The composed portable MMIO suite passed all 117 cases, including the prior
+pending-record formats. Both direct and detached-restore execution of all
+six forms passed on Intel macOS 15.7.9 with SDK 15.5. The runner reported an
+untranslated Intel process inside a hypervisor guest. The runtime archive
+matched its published digest, and 4,883 engine inputs and 18 consumer and
+runner inputs matched Git blobs at the tested revision.
+
+- Tested commit `0a7ec6836fa0ab764a40debd8d9fdcb81882caf9`
+- Runtime artifact `14646035309`, SHA-256 `21898e68b7d06c64c02e2c6943a0b06489489719e13d59a08f8d709a268e1fa3`
+
+[Hosted VEX execution](https://github.com/HexRaysSA/rax/actions/runs/44763145540)

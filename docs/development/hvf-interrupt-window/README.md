@@ -232,3 +232,24 @@ first injection or a subsequent diagnostic ran is unknown. Native
 virtual-NMI delivery remains unqualified.
 [Hosted job](https://github.com/HexRaysSA/rax/actions/runs/44673875789/job/136080967265)
 [Verified build receipt](native-nmi-phase-build-verified.json)
+
+### Hot entry and independent SDK control
+
+The signed `nmi-hot-entry` consumer reached its ordinary guest port marker
+and completed it before offering the NMI. The next entry failed with reason
+`0x80000021`, before any handler port exit. [Hosted RAX consumer](https://github.com/HexRaysSA/rax/actions/runs/44738498804/job/136295848412)
+
+The independent SDK-only program staged event `0x80000202` with guest
+interruptibility initially zero. The empty event slot reached HLT, and
+the maskable IRQ produced one handler visit, IRET, and continuation. Both
+NMI trials, with IF clear or set, failed with reason `0x80000021` and exit
+qualification zero. The saved interruptibility value was 8 and no handler
+instruction ran. The runner required the virtual-NMI pin control, so the
+probe could not test entry with that control disabled. The program uses the
+Apple SDK directly. It reproduces the failure on the virtualized Intel
+runner independently of the RAX backend. The cause in the host stack and
+bare-metal behavior remain unknown.
+[Hosted SDK-only control](https://github.com/HexRaysSA/rax/actions/runs/44743699288)
+
+- Tested SDK probe revision `9df2e9c5990415f5ceb0de7ed4c4b07bc3354adf`
+- Runtime artifact `14632670471`, SHA-256 `83de7c43dde09996458b492fb503391f6c3f8aa098217acd708b8617a2f39df5`

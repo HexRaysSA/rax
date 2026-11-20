@@ -4591,7 +4591,7 @@
         "Native Intel HVF on a virtualized Intel runner passed all 16 first-page address cases and all 12 legacy CMPXCHG8B cases. Following-page and concurrent code authority, remaining MMIO families, full interrupt conservation and bare-metal Intel validation remain open.",
         "Two native cases confirm exactly-once delivery of the selected LAPIC timer event, direct and after a CPU-entry-slot restore on a virtualized Intel runner. General vectoring and cross-CPU interrupt conservation remain open.",
         "Hosted Intel HVF yielded before CLI in both direct and stopped-restore IRQ cases and delivered the queued vector once. The unarmed control retained its pending event. Remaining MMIO and cross-CPU interrupt profiles and bare-metal Intel validation stay open.",
-        "The hosted virtual-NMI profile on the same signed revision failed its first NMI entry with VMX reason 0x80000021 and zero completed cases. See hvf-interrupt-window/native-nmi-window-failure-verified.json. The guest-state field responsible and bare-metal Intel behavior remain unknown."
+        "The hosted virtual-NMI profile failed with VMX reason 0x80000021 before entering the handler, both on cold entry and after an ordinary guest PIO exit. An independent Apple SDK-only control reproduced the failure with IF clear and set, with successful empty-slot and maskable IRQ controls. See hvf-interrupt-window/README.md#hot-entry-and-independent-sdk-control. The cause in the host stack and bare-metal Intel behavior remain unknown."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -200020,6 +200020,28 @@
       "status": "locally_qualified_full_findings_open",
       "scope": "Six legacy SSE2 MOVD/MOVQ MMIO forms, including deferred input to XMM and preservation of adjacent registers and active extended state. The six RAM controls and unfiltered library, MMIO, translation and Intel SDK-model test targets passed. The library reported 13,220 passed and 5 ignored. Hosted Intel workflow 44711344124 passed all 12 real HVF guest cases, six after detached restore. Its runner reported nested execution. Physical Intel macOS validation remains open.",
       "qualification": "docs/development/hvf-mmio-xmm.md",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-vex-xmm-2026-11-20",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "native_qualified_full_findings_open",
+      "scope": "Six scalar VEX MOVD/MOVQ memory forms, including exact device widths, architectural upper-lane clearing, and legacy pending checkpoint compatibility. All 117 composed portable MMIO cases and 12 real guest cases passed, including direct and detached restoration on a hosted Intel macOS runner.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#vex-scalar-transfers",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-lods-stos-2026-11-20",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "native_qualified_full_findings_open",
+      "scope": "Scalar and REP LODS/STOS complete one device element per MMIO packet. Hosted Intel workflow 44765293245 passed all 12 real guest cases and preserved the exact RCX, index, RAX, RIP and RFLAGS at detached EPT frontiers. The archive matched its published digest and its 4,883 engine and 19 consumer and runner sources matched 833008917f3096c21d4b6bc5a6a459d683953eda. This covers single-device-operand forms. Dual-memory string operands, wider transfers, and physical Intel validation remain open.",
+      "qualification": "https://github.com/HexRaysSA/rax/actions/runs/44765293245",
       "full_goal_complete": false
     },
     {
