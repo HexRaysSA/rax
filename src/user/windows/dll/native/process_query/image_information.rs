@@ -106,6 +106,9 @@ fn checked(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) ->
             native.version.build,
             native.object_namespace.native_machine,
         ) {
+            // The ordinary 26200 ARM64 record is qualified. Preflight the
+            // entire guest record before publishing any output bytes.
+            (10, 0, 26200, Some(0xaa64)) if c.arch() == WinArch::Arm64 => (size, true),
             (10, 0, 29683 | 29695 | 29698, Some(0xaa64)) => (8, false),
             (10, 0, 29708, Some(0xaa64)) if matches!(c.arch(), WinArch::Arm64 | WinArch::X86) => {
                 (8, true)
