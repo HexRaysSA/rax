@@ -108,10 +108,20 @@ configured interval, then finish EOI and IRET without a second delivery.
 The probe requires both xAPIC and x2APIC cases to pass.
 
 Run the [native KVM LAPIC timer phase workflow](../../../../.github/workflows/native-kvm-lapic-phase.yml)
-on the Linux x86-64 runner. It records the installed kernel and source hash.
-The probe requires a KVM host exposing `KVM_CAP_X86_APIC_BUS_CYCLES_NS`.
-This checks whether a zero count can describe a future expiry. Exact capture
-and restoration of that timer phase through the RAX VMM remain open.
+on a Linux x86-64 host exposing `KVM_CAP_X86_APIC_BUS_CYCLES_NS`.
+The [hosted run](https://github.com/HexRaysSA/rax/actions/runs/44761608392/job/136375298551)
+passed on Linux `7.0.0-1014-aws`. In each mode the exported 1,024-byte
+LAPIC record was identical before expiry and after delivery and EOI.
+The observed delivery time includes the KVM exit and userspace readout.
+
+| Mode | Early sample after programming (ns) | Handler output observed after programming (ns) | Changed LAPIC bytes |
+| --- | ---: | ---: | ---: |
+| xAPIC | 5,708 | 2,560,233,398 | 0 |
+| x2APIC | 4,726 | 2,560,177,101 | 0 |
+
+These cases rule out using the LAPIC record alone to classify a zero count
+as settled. The test compares the LAPIC bank and observes native delivery
+and EOI. Exact capture and restoration through the RAX VMM remain open.
 
 [Linux v6.17 LAPIC code](https://github.com/torvalds/linux/blob/v6.17/arch/x86/kvm/lapic.c)
 [Linux KVM API for the APIC bus period](https://www.kernel.org/doc/html/v6.13/virt/kvm/api.html#kvm-cap-x86-apic-bus-cycles-ns)
