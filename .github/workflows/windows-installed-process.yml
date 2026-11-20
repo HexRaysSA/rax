@@ -26,6 +26,10 @@ on:
         description: Capture native startup license and MUI observations
         type: boolean
         default: false
+      measure_arm64_csr:
+        description: Capture native ARM64 current-session CSR startup
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -169,6 +173,38 @@ jobs:
           } finally {
             Pop-Location
           }
+      - name: Select ARM64 Python for CSR observation
+        if: ${{ !cancelled() && inputs.measure_arm64_csr && steps.stock.outcome != 'skipped' && matrix.target == 'aarch64-pc-windows-msvc' }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.13'
+          architecture: arm64
+      - name: Observe ARM64 current-session CSR startup and metadata
+        if: ${{ !cancelled() && inputs.measure_arm64_csr && steps.stock.outcome != 'skipped' && matrix.target == 'aarch64-pc-windows-msvc' }}
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $install = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or !$install) { throw 'Visual Studio ARM64 compiler is unavailable' }
+          Import-Module (Join-Path $install 'Common7/Tools/Microsoft.VisualStudio.DevShell.dll')
+          Enter-VsDevShell -VsInstallPath $install -SkipAutomaticLocation -DevCmdArguments '-arch=arm64 -host_arch=arm64'
+          $environment = Join-Path $env:TMPDIR 'csr-compiler-environment.json'
+          $compiler = [ordered]@{}
+          foreach ($name in @('PATH', 'INCLUDE', 'LIB', 'LIBPATH', 'VCTOOLSINSTALLDIR', 'VSCMD_ARG_HOST_ARCH', 'VSCMD_ARG_TGT_ARCH')) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if (!$value) { throw "Missing ARM64 compiler environment variable $name" }
+            $compiler[$name] = $value
+          }
+          $compiler | ConvertTo-Json | Set-Content -LiteralPath $environment -Encoding utf8
+          python -B docs/specifications/windows/native-session-csr-connect/run-v3.py --environment $environment
+          $exitCode = $LASTEXITCODE
+          $capture = 'target/native-session-csr-connect-v3.json'
+          if (Test-Path -LiteralPath $capture) {
+            Move-Item -LiteralPath $capture -Destination 'target/windows-installed-process/native-session-csr-connect-v3.json'
+          } elseif ($exitCode -eq 0) {
+            throw 'ARM64 CSR capture completed without writing observations'
+          }
+          if ($exitCode -ne 0) { exit $exitCode }
       - name: Preserve native process evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -181,4 +217,5 @@ jobs:
             target/windows-installed-process/startup-license-identity.json
             target/windows-installed-process/native-mui-query.log
             target/windows-installed-process/native-mui-query-identity.json
+            target/windows-installed-process/native-session-csr-connect-v3.json
           if-no-files-found: error

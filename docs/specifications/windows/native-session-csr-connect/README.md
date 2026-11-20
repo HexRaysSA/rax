@@ -72,6 +72,12 @@ remote view and publish distinct client/server views. Both initialized parents
 record a1 MiB readonly section with20480 committed bytes and statics offset0x750.
 These captures qualify observations, not a new emulator connection path.
 
+The installed-process workflow accepts `measure_arm64_csr` to run the same
+v3 capture on a native Windows ARM64 runner. The stock C ABI comparison
+and the capture share the runner. The driver checks the interpreter and
+probe PE machines, kernel machine, installed NTDLL hash, and original
+child results.
+
 The recorded AMD64 PID export has a20-byte MOV/XOR/CMP/CMOVNE/RET body.
 `metadata-v2.cpp` verifies its exact opcodes, resolves both signed RIP-relative
 operands within the loaded NTDLL image, and reads only the pointer-width PID
