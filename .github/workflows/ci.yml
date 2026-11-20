@@ -287,6 +287,8 @@ jobs:
           export RAX_LINUX_MULTILIB_PROGRAM="$work/i386-puts"
           printf '%s\n' '#include <stdio.h>' 'int main(void) { puts("installed i386 libc"); return 23; }' |
             cc -m32 -x c - -o "$RAX_LINUX_MULTILIB_PROGRAM"
+          readlink -f /lib/ld-linux.so.2
+          ldd "$RAX_LINUX_MULTILIB_PROGRAM"
           cargo test --locked -p rax-capi --no-default-features installed_i386_glibc_matches_native_through_closed_c_abi -- --ignored --nocapture
       - name: Native Windows clock and NLS observations
         if: runner.os == 'Windows'
