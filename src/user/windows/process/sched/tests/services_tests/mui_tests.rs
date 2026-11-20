@@ -24,6 +24,21 @@ const CORPORA: [(WinArch, &str); 3] = [
     ),
 ];
 
+const AMD64_CORPORA: [(u32, &str); 2] = [
+    (
+        20348,
+        include_str!(
+            "../../../../../../../docs/specifications/windows/native-mui-query/amd64-20348-native.log"
+        ),
+    ),
+    (
+        26100,
+        include_str!(
+            "../../../../../../../docs/specifications/windows/native-mui-query/amd64-26100-native.log"
+        ),
+    ),
+];
+
 fn field(line: &str, key: &str, radix: u32) -> u32 {
     let prefix = format!("{key}=");
     let text = line
@@ -170,13 +185,16 @@ fn native_mui_install_language_replays_wow64_word_and_guard_effects() {
 #[test]
 fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
     let mut total = 0;
-    for (arch, raw, build) in CORPORA
+    let arm64_hosts = CORPORA.into_iter().flat_map(|(arch, raw)| {
+        [29683, 29695, 29698, 29704, 29708].map(|build| (arch, raw, build, 0xAA64))
+    });
+    let amd64_hosts = AMD64_CORPORA
         .into_iter()
-        .flat_map(|(arch, raw)| [29683, 29695, 29698, 29704, 29708].map(|build| (arch, raw, build)))
-    {
+        .map(|(build, raw)| (WinArch::X64, raw, build, 0x8664));
+    for (arch, raw, build, machine) in arm64_hosts.chain(amd64_hosts) {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
-        p.object_namespace.native_machine = Some(0xAA64);
+        p.object_namespace.native_machine = Some(machine);
         Arc::make_mut(&mut p.cfg).version.build = build;
         let base =
             p.vm.allocate(None, 16384, mem::RESERVE | mem::COMMIT, prot::READWRITE)
@@ -297,7 +315,7 @@ fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
         assert_eq!(count, 1680);
         total += count;
     }
-    assert_eq!(total, 25200);
+    assert_eq!(total, 28560);
 }
 
 #[test]

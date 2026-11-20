@@ -303,7 +303,7 @@ fn native_nls_initialize_replays_all_72_amd64_protect_free_outputs_and_unmaps_ow
 }
 
 #[test]
-fn native_nls_initialize_amd64_selection_does_not_admit_mui_or_missing_snapshot() {
+fn native_nls_initialize_and_mui_require_their_own_selected_snapshots() {
     for build in [20348, 26100] {
         for arch in [WinArch::X64, WinArch::X86] {
             let (mut process, mut thread, base) = setup(arch, build);
@@ -315,8 +315,12 @@ fn native_nls_initialize_amd64_selection_does_not_admit_mui_or_missing_snapshot(
             let count = p.vm.allocations().count();
             let module = p.modules.nt_services.as_ref().unwrap().0;
             p.modules.nt_services = Some((module, table(arch, "NtGetMUIRegistryInfo", 0x12)));
+            let expected_mui_failure = match arch {
+                WinArch::X64 => "immutable query data was not selected",
+                _ => "native build profile is unmeasured",
+            };
             assert!(matches!(invoke(p, &mut thread, &[0, base+256, base+288]),
-                Outcome::Fail(ref reason) if reason.contains("native build profile is unmeasured")));
+                Outcome::Fail(ref reason) if reason.contains(expected_mui_failure)));
             p.modules.nt_services = Some((module, table(arch, "NtInitializeNlsFiles", 0x12)));
             p.nls = None;
             assert!(

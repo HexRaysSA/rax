@@ -42,10 +42,12 @@ fn write_status(c: &mut Ctx, result: ApiResult) -> ApiResult {
 }
 
 fn checked(c: &mut Ctx) -> ApiResult {
-    if !crate::user::windows::nls::supports_startup_profile(
-        &c.p.cfg.version,
-        c.p.object_namespace.native_machine,
-    ) {
+    use crate::user::windows::nls;
+
+    let version = &c.p.cfg.version;
+    let machine = c.p.object_namespace.native_machine;
+    let amd64 = nls::supports_amd64_mui_profile(version, machine, c.arch());
+    if !amd64 && !nls::supports_startup_profile(version, machine) {
         return Err(c.unsupported("NtGetMUIRegistryInfo native build profile is unmeasured"));
     }
     let (flags, size, output) = (c.u32(0)?, c.ptr(1)?, c.ptr(2)?);
@@ -73,6 +75,11 @@ fn checked(c: &mut Ctx) -> ApiResult {
     }
     if length < required {
         return Flow::ret(STATUS_BUFFER_TOO_SMALL.into());
+    }
+    if amd64 {
+        // Validate the whole destination after publishing the requirement.
+        // A fault leaves the destination as it was after size publication.
+        super::super::query::probe_write(c, output, length as usize)?;
     }
     // The measured kernel first zeros the complete caller-supplied extent,
     // then copies the actual data. A fault can retain a zeroed prefix, even

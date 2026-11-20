@@ -7,19 +7,25 @@ that host call. Two captures at different live output addresses must agree;
 the adapter allows three attempts and at most 1 MiB of MUI data within the
 existing 64 MiB combined NLS budget.
 
-The measured profile is Windows 10.0.29683.1000 on an ARM64 kernel. ARM64,
-x64 and x86 executable controls each contain 1,680 rows, for 5,040 native rows.
-Those are three process views of one kernel. An independent x64 kernel profile
-remains unknown. Build 29695 is independently qualified in
+The original measurements are from Windows 10.0.29683.1000 on an ARM64
+kernel. The three executable views contain 1,680 rows each, for 5,040 native
+rows. Build 29695 is independently qualified in
 [the later kernel record](../native-nls-build-29695/README.md), including x86
 large-address-awareness controls and fresh generation observations. Other
-Windows builds remain unmeasured.
+Windows builds are admitted by their own observations.
 
 The installed-process workflow's `measure_startup_queries` input runs the
-existing 1,680-case producer on AMD64 Server 2022 and Server 2025. It records the query rows, payload length
-and hash, and the producer, executable and NTDLL identities. The producer
-uses flags 0 and 1 and the invalid bit 4. It never sends the cache clear or
-commit bits.
+existing 1,680-case producer on AMD64 Server 2022 and Server 2025. It records
+the query rows, payload length and hash, and the producer, executable and
+NTDLL identities. The producer uses flags 0 and 1 and the invalid bit 4.
+
+The AMD64 builds publish the required size before checking the complete
+destination extent. If the extent reaches an inaccessible page, the call
+returns `STATUS_ACCESS_VIOLATION` without clearing the accessible prefix.
+When the destination aliases the size word, the published size survives
+that fault. Both AMD64 runs reproduced this ordering over the 1,680-case
+matrix. The emulator binds the results to the x64 process view of native
+builds 20348 and 26100. [Capture identities](amd64-inputs.json) bind the runs.
 
 ## Query behavior
 
@@ -37,7 +43,8 @@ unimplemented; no host clear or commit operation is invoked.
 | NULL buffer with zero capacity | Success; publish the required size |
 | Non-NULL buffer shorter than required | `STATUS_BUFFER_TOO_SMALL`, `0xC0000023`; required size published, buffer untouched |
 | Sufficient capacity | Publish required size, zero the entire supplied capacity, then copy the payload |
-| Fault while zeroing capacity | Preserve the zeroed accessible prefix; do not copy the payload |
+| Destination crosses an inaccessible page on the original ARM64 kernels | Zero the accessible prefix and return a fault before copying the payload |
+| Destination crosses an inaccessible page on AMD64 builds 20348 or 26100 | Retain the published required size and return a fault before clearing destination bytes |
 
 The observed payload is 1,232 bytes. The tests use a synthetic payload of that
 size; the native rows determine status, publication order, alias effects and
@@ -59,6 +66,10 @@ three independent query-only controls observe shared count 1, payload count 1,
 and shared count 1 afterward. The installed kernel and symbol identities,
 including distinct RSDS/DBI and Info ages, are in `generation-inputs.json`.
 
+AMD64 acquisition checks this relationship on the installed process before
+selecting its snapshot. The fixed native shared word before and after the two
+payload copies must agree with the payload's language-generation field.
+
 The earlier ordinary guest observer measured shared count 0 and payload count
 1. After the initializer correction, the native read-only-page regression test
 passes and the ordinary guest observer reports shared count 1 and payload count
@@ -73,6 +84,7 @@ full process-emulation objective.
 | --- | --- | --- | --- | --- | --- | --- |
 | MUI-A1 | Query bytes are self-relative for this selected profile | Different live native allocations and identical payload hashes in three process views | Immutable shared payload | Repeated captures at distinct addresses | Address-dependent bytes or inconsistent captures | Confirmed for recorded profile |
 | MUI-A2 | Payload generation and guest shared generation must agree | Matching kernel symbols and query-only native controls; earlier guest mismatch | Guest RTL cache coherence | Native shared-page test and ordinary guest observation | A differing counter or later guest writer | Confirmed for recorded native and ordinary guest observations |
+| MUI-A3 | The AMD64 payload language generation corresponds to the same shared-page field | The selected native profile and bounded startup payload are independently identified | AMD64 shared-page initialization | Read the fixed native word before and after two captures into distinct allocations | A differing payload generation, shared word, or pair of payloads rejects acquisition | Checked on every AMD64 acquisition |
 
 `inputs.json` binds the original producer source, driver, native logs and
 receipt by byte count and SHA-256. `generation-inputs.json` binds the independent
@@ -85,7 +97,7 @@ evidence boundaries.
 | --- | --- | --- |
 | High | Guest MUI cache clear and commit | Full MUI capability remains incomplete |
 | High | Ordinary USER32 callback and owning consumers | Targeted query checks do not establish their completion |
-| Medium | Independent x64 kernel and other Windows builds | Limits the measured profile's portability claim |
+| Medium | WoW64 on physical AMD64 and other unmeasured builds | The captures qualify the two native x64 process profiles |
 
 ## WoW64 UI-language commitment
 

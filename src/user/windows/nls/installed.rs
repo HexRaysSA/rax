@@ -122,8 +122,9 @@ pub(crate) fn snapshot(
         let (locale, bytes) = initialize::capture()?;
         nls = nls.with_initialize(locale, bytes)?;
     }
-    if super::supports_startup_profile(version, native_machine) {
-        nls = nls.with_mui(mui::capture()?)?;
+    let amd64_mui = super::supports_amd64_mui_profile(version, native_machine, arch);
+    if amd64_mui || super::supports_startup_profile(version, native_machine) {
+        nls = nls.with_mui(mui::capture(amd64_mui)?)?;
     }
     if arch == WinArch::X86
         && native_machine == Some(0xaa64)
@@ -195,6 +196,10 @@ mod tests {
         let measured = super::super::supports_startup_profile(
             &runtime.version,
             runtime.object_namespace.native_machine,
+        ) || super::super::supports_amd64_mui_profile(
+            &runtime.version,
+            runtime.object_namespace.native_machine,
+            arch,
         );
         assert_eq!(nls.mui_generation().is_some(), measured);
         if measured {

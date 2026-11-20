@@ -5,6 +5,10 @@ use std::sync::Arc;
 
 pub(super) const MAX_MUI_BYTES: usize = 1 << 20;
 
+pub(super) fn language_generation(bytes: &[u8]) -> Option<u32> {
+    Some(u32::from_le_bytes(bytes.get(12..16)?.try_into().ok()?))
+}
+
 impl Nls {
     pub(crate) fn with_mui(mut self, bytes: Vec<u8>) -> io::Result<Self> {
         let used = self
@@ -29,9 +33,7 @@ impl Nls {
     }
 
     pub(crate) fn mui_generation(&self) -> Option<u32> {
-        self.mui.as_ref().map(|bytes| {
-            u32::from_le_bytes(bytes[12..16].try_into().expect("validated MUI header"))
-        })
+        self.mui.as_deref().and_then(language_generation)
     }
 }
 

@@ -1,6 +1,7 @@
 //! Fixed query-only native acquisition; guest flags and pointers never enter it.
-use super::super::mui::MAX_MUI_BYTES;
+use super::super::mui::{MAX_MUI_BYTES, language_generation};
 use super::{invalid, invalid_status};
+use crate::user::windows::layout::{KUSER_SHARED_DATA, kuser};
 use std::ffi::{CStr, c_void};
 use std::io;
 use std::ptr::NonNull;
@@ -14,6 +15,13 @@ unsafe extern "system" {
 unsafe extern "system" {
     fn GetModuleHandleW(name: *const u16) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, name: *const u8) -> *mut c_void;
+    fn ReadProcessMemory(
+        process: *mut c_void,
+        address: *const c_void,
+        output: *mut c_void,
+        bytes: usize,
+        returned: *mut usize,
+    ) -> i32;
 }
 
 fn resident_ntdll_export(export: &CStr) -> Option<NonNull<c_void>> {
@@ -77,16 +85,49 @@ fn query() -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-pub(super) fn capture() -> io::Result<Vec<u8>> {
+fn shared_language_generation() -> io::Result<u32> {
+    let mut value = 0u32;
+    let mut returned = 0usize;
+    // SAFETY: the current-process pseudo-handle reads one fixed word from
+    // the installed readonly shared page into exclusive native output.
+    let status = unsafe {
+        ReadProcessMemory(
+            (-1isize) as *mut c_void,
+            (KUSER_SHARED_DATA + kuser::LANG_GENERATION_COUNT) as *const c_void,
+            (&mut value as *mut u32).cast(),
+            size_of::<u32>(),
+            &mut returned,
+        )
+    };
+    if status == 0 || returned != size_of::<u32>() {
+        return Err(invalid(
+            "cannot read the installed shared MUI language generation",
+        ));
+    }
+    Ok(value)
+}
+
+pub(super) fn capture(check_shared_generation: bool) -> io::Result<Vec<u8>> {
     for _ in 0..3 {
+        let before = check_shared_generation
+            .then(shared_language_generation)
+            .transpose()?;
         let first = query()?;
         // Keep both native allocations live: self-relative query data must
         // agree at different output addresses as well as across queries.
         if first == query()? {
+            if let Some(before) = before
+                && (language_generation(&first) != Some(before)
+                    || shared_language_generation()? != before)
+            {
+                continue;
+            }
             return Ok(first);
         }
     }
-    Err(invalid(
-        "installed MUI query changed during bounded capture",
-    ))
+    Err(invalid(if check_shared_generation {
+        "installed MUI query data or language generation disagreed during bounded capture"
+    } else {
+        "installed MUI query changed during bounded capture"
+    }))
 }

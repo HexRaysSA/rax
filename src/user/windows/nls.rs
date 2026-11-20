@@ -26,6 +26,20 @@ pub(crate) fn supports_startup_profile(
         }
 }
 
+/// The physical AMD64 cohort probes the full output range before clearing it.
+pub(crate) fn supports_amd64_mui_profile(
+    version: &super::process::WinVersion,
+    native_machine: Option<u16>,
+    arch: super::arch::WinArch,
+) -> bool {
+    arch == super::arch::WinArch::X64
+        && native_machine == Some(0x8664)
+        && matches!(
+            (version.major, version.minor, version.build),
+            (10, 0, 20348 | 26100)
+        )
+}
+
 /// Initialization has independent AMD64 controls; MUI retains its own admission.
 pub(crate) fn supports_initialize_profile(
     version: &super::process::WinVersion,
@@ -114,7 +128,7 @@ pub(crate) fn snapshot(
 mod tests {
     use super::*;
     #[test]
-    fn initialize_profile_binds_independent_kernel_machine_and_process_views_without_mui() {
+    fn amd64_nls_and_mui_profiles_bind_the_kernel_machine_and_process_view() {
         use super::super::arch::WinArch;
         for build in [20347, 20348, 20349, 26099, 26100, 26101] {
             for machine in [None, Some(0x14C), Some(0xAA64), Some(0x8664)] {
@@ -132,15 +146,21 @@ mod tests {
                         supports_initialize_profile(&version, machine, arch),
                         expected
                     );
+                    assert_eq!(
+                        supports_amd64_mui_profile(&version, machine, arch),
+                        expected && arch == WinArch::X64
+                    );
                     assert!(
                         !supports_startup_profile(&version, machine),
                         "MUI admission is independent"
                     );
                     version.minor = 1;
                     assert!(!supports_initialize_profile(&version, machine, arch));
+                    assert!(!supports_amd64_mui_profile(&version, machine, arch));
                     version.minor = 0;
                     version.major = 11;
                     assert!(!supports_initialize_profile(&version, machine, arch));
+                    assert!(!supports_amd64_mui_profile(&version, machine, arch));
                 }
             }
         }

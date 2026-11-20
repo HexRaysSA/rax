@@ -22,6 +22,10 @@ fn installed_mui_generation_is_published_in_the_readonly_guest_shared_page() {
     let measured = crate::user::windows::nls::supports_startup_profile(
         &p.cfg.version,
         p.object_namespace.native_machine,
+    ) || crate::user::windows::nls::supports_amd64_mui_profile(
+        &p.cfg.version,
+        p.object_namespace.native_machine,
+        arch,
     );
     assert_eq!(generation.is_some(), measured);
     assert_eq!(
