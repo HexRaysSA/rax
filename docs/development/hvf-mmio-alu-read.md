@@ -190,3 +190,41 @@ portable tests and the QEMU profile control.
 
 High impact. Native compatibility-mode exits, bare-metal Intel macOS, wider
 interrupt coherence and the broader guest CPUID policy remain open.
+
+## Scalar SCAS
+
+Intel HVF accepts one translated 1-, 2-, 4- or 8-byte read for scalar SCAS.
+Completion compares the selected accumulator width with the reply and
+updates CF, PF, AF, ZF, SF and OF. DF selects whether the index advances or
+retreats by the operand size. The guest address size controls index wrapping
+and the 32-bit index write zero-extends in 64-bit mode. RAX and RCX retain
+their values. A pending read records the accumulator, index, flags and
+instruction length. Restore checks the captured CPU boundary before allowing
+the reply. The completion uses constant time and auxiliary storage.
+[Intel SDM Volume 2, SCAS](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The two owning regressions failed on the parent because the MMIO planner
+rejected the scalar instruction. All 118 portable MMIO tests and 16 workflow
+checks passed at `746a89486`. An x86-64 userspace reference under Rosetta
+confirmed the defined flags and index movement for ten RAM-operand cases.
+Those cases covered all operand widths, both directions, and the
+address-size override.
+
+Hosted Intel macOS 15.7.9 (24G830), SDK 15.5, passed all 22 string-MMIO
+cases at `746a89486e864d0d3ca3fe76de990fbb2f6ec734`. Five scalar SCAS
+cases ran directly and the same five ran after restoration into a fresh
+vCPU. Each case verified its device reply and the following guest marker.
+The runner reported an untranslated GenuineIntel process and
+`hypervisor_guest=1`. The execution archive matched its published SHA-256.
+All 4,884 engine inputs and 17 consumer and runner inputs matched the
+tested Git tree. [Hosted Intel run](https://github.com/HexRaysSA/rax/actions/runs/44777966388/job/136432769442)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The device reply is the complete right-hand operand. | Compare all four operand widths to RAM-operand observations. An index or arithmetic flag mismatch falsifies the operand or width selection. |
+| The restored read still refers to the saved scalar instruction boundary. | Restore into a fresh CPU and check the index, count, accumulator and flags before completion. Require one device access, one retirement and the following guest marker. |
+
+Repeated SCAS remains outside this profile. That path must preserve the
+original comparison flags across the whole repeat instruction so a later
+fault can restart with the specified flags. Bare-metal Intel macOS and
+compatibility-mode device exits remain open.

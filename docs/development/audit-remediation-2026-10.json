@@ -200045,6 +200045,17 @@
       "full_goal_complete": false
     },
     {
+      "id": "hvf-mmio-scalar-scas-2026-11-20",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "native_qualified_full_findings_open",
+      "scope": "Scalar SCAS completes one translated 1-, 2-, 4- or 8-byte read, changes the arithmetic flags and address-sized index, and retains the accumulator and count. Two baseline failures reproduced and all 118 portable MMIO tests passed. Hosted Intel run 44777966388 at 746a89486 passed all 22 string-MMIO cases, including five direct and five detached SCAS cases. The archive digest and all 4,901 input source hashes matched. Repeated SCAS fault restart, native compatibility-mode device exits and physical Intel macOS validation remain open.",
+      "qualification": "docs/development/hvf-mmio-alu-read.md#scalar-scas",
+      "full_goal_complete": false
+    },
+    {
       "id": "a32-bf16-admission-2026-11-20",
       "findings": [
         "A32-FP"
