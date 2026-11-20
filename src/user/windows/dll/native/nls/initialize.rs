@@ -3,6 +3,9 @@ use super::*;
 use crate::user::windows::dll::native::query::write_guard_result;
 
 pub(crate) fn initialize(c: &mut Ctx) -> ApiResult {
+    if collation_fixture(c) {
+        eprintln!("guest collation NtInitializeNlsFiles");
+    }
     let result = checked(c);
     match write_guard_result(c, result) {
         Err(ApiErr::Fault(_)) => Flow::ret(STATUS_ACCESS_VIOLATION.into()),

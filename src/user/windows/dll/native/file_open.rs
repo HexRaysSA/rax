@@ -222,7 +222,6 @@ pub(super) fn kernel(
         return status(STATUS_INVALID_PARAMETER);
     }
     let resolved = path::resolve_open(c, &attrs, name.as_deref());
-    #[cfg(debug_assertions)]
     if let Some(spelling) = name
         .as_deref()
         .and_then(|units| super::nls::collation_name(c, units))
