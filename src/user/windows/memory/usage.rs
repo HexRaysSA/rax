@@ -51,6 +51,31 @@ impl VirtualMemory {
     /// commitment follow this manager's backing-budget model. Guest kernel
     /// page pools are absent from that model.
     pub(crate) fn process_counters(&self, extended: bool) -> [u8; 112] {
+        let mut data = [0; 112];
+        for (slot, word) in data
+            .chunks_exact_mut(8)
+            .zip(self.process_counter_words(extended))
+        {
+            slot.copy_from_slice(&word.to_le_bytes());
+        }
+        data
+    }
+
+    /// The WoW64 ABI uses 32-bit counters through PrivateWorkingSetSize,
+    /// followed by four padding bytes and a 64-bit SharedCommitUsage.
+    pub(crate) fn wow64_process_counters(&self, extended: bool) -> [u8; 64] {
+        let words = self.process_counter_words(extended);
+        let mut data = [0; 64];
+        for (slot, word) in data[..52].chunks_exact_mut(4).zip(words) {
+            // Byte counters here fit the guest's bounded 32-bit address
+            // space, and the page-fault count is already a u32.
+            slot.copy_from_slice(&(word as u32).to_le_bytes());
+        }
+        data[56..].copy_from_slice(&words[13].to_le_bytes());
+        data
+    }
+
+    fn process_counter_words(&self, extended: bool) -> [u64; 14] {
         let (resident, peak_resident, faults) = self.space.residency();
         let shared = self.shared_committed_bytes();
         let private = self.committed - shared;
@@ -62,7 +87,7 @@ impl VirtualMemory {
         } else {
             0
         };
-        let words = [
+        [
             self.peak_reserved,
             self.reserved,
             u64::from(faults),
@@ -77,12 +102,7 @@ impl VirtualMemory {
             private,
             private_resident,
             shared,
-        ];
-        let mut data = [0; 112];
-        for (slot, word) in data.chunks_exact_mut(8).zip(words) {
-            slot.copy_from_slice(&word.to_le_bytes());
-        }
-        data
+        ]
     }
 
     /// O(1) snapshot. Guest commitments are backed by the usable frame budget;

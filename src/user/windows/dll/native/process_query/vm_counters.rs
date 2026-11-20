@@ -1,6 +1,6 @@
-//! ProcessVmCounters for the measured 29708 ARM64 native personality.
+//! ProcessVmCounters for the measured 29708 ARM64 and WoW64 personalities.
 use super::super::query::{probe_write, return_length};
-use super::current_process_status;
+use super::{PROCESS_QUERY_RIGHTS, current_process_status, wow64_copy};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
@@ -10,7 +10,7 @@ use crate::user::windows::nt::status::{
 };
 
 pub(super) fn selected(c: &Ctx) -> bool {
-    c.arch() == WinArch::Arm64
+    matches!(c.arch(), WinArch::Arm64 | WinArch::X86)
         && c.p.native.as_ref().is_some_and(|runtime| {
             matches!(
                 (
@@ -31,6 +31,9 @@ pub(super) fn query(
     length: u32,
     returned: u64,
 ) -> ApiResult {
+    if c.arch() == WinArch::X86 {
+        return wow64(c, handle, output, length, returned);
+    }
     if length != 0 {
         if output % 4 != 0 {
             return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
@@ -48,7 +51,8 @@ pub(super) fn query(
     if !matches!(length, 88 | 96 | 112) {
         return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }
-    let status = current_process_status(c, handle, 0x0400 | 0x1000, "process memory counters")?;
+    let status =
+        current_process_status(c, handle, PROCESS_QUERY_RIGHTS, "process memory counters")?;
     if status != STATUS_SUCCESS {
         return Flow::ret(status.into());
     }
@@ -58,4 +62,23 @@ pub(super) fn query(
     c.mem().wr(output, data)?;
     return_length(c, returned, length)?;
     Flow::ret(STATUS_SUCCESS.into())
+}
+
+fn wow64(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) -> ApiResult {
+    if !matches!(length, 44 | 48 | 64) {
+        return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
+    }
+    let status = wow64_copy::prepare(
+        c,
+        handle,
+        output,
+        length,
+        returned,
+        "process memory counters",
+    )?;
+    if status != STATUS_SUCCESS {
+        return Flow::ret(status.into());
+    }
+    let counters = c.p.vm.wow64_process_counters(length == 64);
+    wow64_copy::write(c, output, &counters[..length as usize], 52..56)
 }

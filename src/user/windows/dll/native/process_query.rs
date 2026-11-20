@@ -19,6 +19,8 @@ const PROCESS_WX86_INFORMATION: u32 = 19;
 const PROCESS_COOKIE: u32 = 36;
 const PROCESS_ENCLAVE_INFORMATION: u32 = 86;
 const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
+const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+const PROCESS_QUERY_RIGHTS: u32 = PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION;
 const PROCESS_VM_WRITE: u32 = 0x20;
 
 mod command_line;
@@ -30,6 +32,7 @@ mod image_information;
 mod image_name;
 mod quota_limits;
 mod vm_counters;
+mod wow64_copy;
 mod wow64_information;
 
 pub(super) fn information(c: &mut Ctx) -> ApiResult {

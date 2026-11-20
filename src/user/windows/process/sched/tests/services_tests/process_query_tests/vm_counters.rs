@@ -16,6 +16,89 @@ struct Case {
     status: u32,
 }
 
+#[derive(Deserialize)]
+struct Wow64Corpus {
+    geometry: Wow64Capture,
+    faults: Wow64Capture,
+}
+
+#[derive(Deserialize)]
+struct Wow64Capture {
+    cases: Vec<Wow64Case>,
+}
+
+#[derive(Deserialize)]
+struct Wow64Case {
+    name: String,
+    length: u32,
+    handle: u32,
+    visible: Pointer,
+    output: Pointer,
+    returned: Pointer,
+    length_observation: Pointer,
+    initial_protection: u32,
+    protection: u32,
+    status: u32,
+    length_value: u32,
+    image: String,
+    return_page: String,
+}
+
+#[derive(Deserialize)]
+struct Pointer {
+    base: Base,
+    offset: i32,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum Base {
+    First,
+    Boundary,
+    Absolute,
+}
+
+impl Pointer {
+    fn resolve(&self, first: u64, boundary: u64) -> u64 {
+        let base = match self.base {
+            Base::First => first,
+            Base::Boundary => boundary,
+            Base::Absolute => 0,
+        };
+        base.checked_add_signed(i64::from(self.offset)).unwrap()
+    }
+}
+
+fn unhex(text: &str) -> Vec<u8> {
+    assert_eq!(text.len() % 2, 0);
+    (0..text.len())
+        .step_by(2)
+        .map(|offset| u8::from_str_radix(&text[offset..offset + 2], 16).unwrap())
+        .collect()
+}
+
+fn handle(p: &mut Proc, value: u32) -> u64 {
+    match value {
+        u32::MAX => u64::MAX,
+        0 => 0,
+        0xFFFF_FFFE => u64::MAX - 1,
+        0xFFFF_FFFD => {
+            let event = p.objects.create(Object::Event {
+                manual: false,
+                signaled: 0,
+            });
+            u64::from(p.objects.open(event, false))
+        }
+        rights => {
+            let process = p.objects.create(Object::Process {
+                pid: p.pid,
+                exit_code: None,
+            });
+            u64::from(p.objects.open_access(process, false, rights).unwrap())
+        }
+    }
+}
+
 fn query(p: &mut Proc, t: &mut Thread, handle: u64, out: u64, bytes: u32, returned: u64) -> u32 {
     arguments(p, t, handle, 3, out, bytes, returned);
     assert_eq!(dispatch(p, t), Outcome::Continue);
@@ -33,24 +116,7 @@ fn native_process_vm_counters_replay_query_lengths_rights_and_guard_bytes() {
     let p = process.state_mut();
     super::super::native_profile::kernel_profile(p, 29708, 0xAA64);
     for case in corpus.cases {
-        let handle = match case.handle {
-            u32::MAX => u64::MAX,
-            0 => 0,
-            0xFFFF_FFFD => {
-                let event = p.objects.create(Object::Event {
-                    manual: false,
-                    signaled: 0,
-                });
-                u64::from(p.objects.open(event, false))
-            }
-            rights => {
-                let process = p.objects.create(Object::Process {
-                    pid: p.pid,
-                    exit_code: None,
-                });
-                u64::from(p.objects.open_access(process, false, rights).unwrap())
-            }
-        };
+        let handle = handle(p, case.handle);
         let pointer = |base, offset| u64::try_from(offset).map_or(0, |offset| base + offset);
         let mut output = [0xA5; 152];
         let mut length = [0xD4; 12];
@@ -90,15 +156,111 @@ fn native_process_vm_counters_replay_query_lengths_rights_and_guard_bytes() {
 }
 
 #[test]
+fn wow64_process_vm_counters_replay_lengths_rights_padding_and_copy_faults() {
+    let corpus: Wow64Corpus = serde_json::from_str(include_str!(
+        "../../../../../../../../docs/specifications/windows/native-process-vm-counters/queries-29708-wow64-x86.json"
+    ))
+    .unwrap();
+    assert_eq!(corpus.geometry.cases.len(), 55);
+    assert_eq!(corpus.faults.cases.len(), 26);
+    let (mut process, mut thread, _) = setup(WinArch::X86);
+    let p = process.state_mut();
+    super::super::native_profile::kernel_profile(p, 29708, 0xAA64);
+    let (first, _) =
+        p.vm.allocate(
+            None,
+            2 * PAGE_SIZE,
+            mem::RESERVE | mem::COMMIT,
+            prot::READWRITE,
+        )
+        .unwrap();
+    let boundary = first + PAGE_SIZE;
+    for case in corpus.geometry.cases.into_iter().chain(corpus.faults.cases) {
+        let visible = case.visible.resolve(first, boundary);
+        let output = case.output.resolve(first, boundary);
+        let returned = case.returned.resolve(first, boundary);
+        let length_observation = case.length_observation.resolve(first, boundary);
+        let mut expected = unhex(&case.image);
+        p.space.wr(visible, &vec![0xA5; expected.len()]).unwrap();
+        p.space.wr(first + 256, &[0xD4; 5]).unwrap();
+        p.space.wr(boundary - 2, &[0xA5; 4]).unwrap();
+        p.vm.protect(boundary, PAGE_SIZE, case.initial_protection)
+            .unwrap();
+        if case.status == 0 {
+            // Native capture supplies padding and surrounding bytes. Derive
+            // sampled counter values independently from the guest's 64-bit
+            // record because the host has a different process address space.
+            let bytes = case.length as usize;
+            let offset = (output - visible) as usize;
+            let native = p.vm.process_counters(bytes == 64);
+            for (slot, field) in expected[offset..offset + bytes.min(52)]
+                .chunks_exact_mut(4)
+                .zip(native.chunks_exact(8))
+            {
+                slot.copy_from_slice(&field[..4]);
+            }
+            if bytes == 64 {
+                expected[offset + 56..offset + bytes].copy_from_slice(&native[104..112]);
+            }
+        }
+        let handle = handle(p, case.handle);
+        let status = query(p, &mut thread, handle, output, case.length, returned);
+        assert_eq!(status, case.status, "{}", case.name);
+        assert_eq!(
+            p.vm.query(boundary).unwrap().protect,
+            case.protection,
+            "{}",
+            case.name
+        );
+        p.vm.protect(boundary, PAGE_SIZE, prot::READWRITE).unwrap();
+        assert_eq!(
+            p.space.u32(length_observation).unwrap(),
+            case.length_value,
+            "{}",
+            case.name
+        );
+        assert_eq!(
+            p.space.bytes(visible, expected.len()).unwrap(),
+            expected,
+            "{}",
+            case.name
+        );
+        assert_eq!(
+            p.space.bytes(boundary - 2, 4).unwrap(),
+            unhex(&case.return_page),
+            "{}",
+            case.name
+        );
+    }
+}
+
+#[test]
 fn native_process_vm_counters_distinguish_reservation_commit_touch_and_release() {
-    let (mut process, mut thread, scratch) = setup(WinArch::Arm64);
+    check_vm_counter_lifecycle(WinArch::Arm64);
+}
+
+#[test]
+fn wow64_process_vm_counters_distinguish_reservation_commit_touch_and_release() {
+    check_vm_counter_lifecycle(WinArch::X86);
+}
+
+fn check_vm_counter_lifecycle(arch: WinArch) {
+    let (mut process, mut thread, scratch) = setup(arch);
     let p = process.state_mut();
     super::super::native_profile::kernel_profile(p, 29708, 0xAA64);
     let snapshot = |p: &mut Proc, thread: &mut Thread| {
-        assert_eq!(query(p, thread, u64::MAX, scratch, 112, 0), 0);
         let mut words = [0; 14];
-        for (index, word) in words.iter_mut().enumerate() {
-            *word = p.space.u64(scratch + index as u64 * 8).unwrap();
+        if arch == WinArch::X86 {
+            assert_eq!(query(p, thread, u64::MAX, scratch, 64, 0), 0);
+            for (index, word) in words[..13].iter_mut().enumerate() {
+                *word = u64::from(p.space.u32(scratch + index as u64 * 4).unwrap());
+            }
+            words[13] = p.space.u64(scratch + 56).unwrap();
+        } else {
+            assert_eq!(query(p, thread, u64::MAX, scratch, 112, 0), 0);
+            for (index, word) in words.iter_mut().enumerate() {
+                *word = p.space.u64(scratch + index as u64 * 8).unwrap();
+            }
         }
         words
     };
