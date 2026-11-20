@@ -101,7 +101,8 @@ fn query_native(
         } else {
             return Err(c
                 .unsupported(&format!(
-                    "uncaptured registry key information class {class}"
+                    "uncaptured registry key information class {class} for {}",
+                    String::from_utf16_lossy(&key.path)
                 ))
                 .into());
         };
