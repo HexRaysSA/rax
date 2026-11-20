@@ -30,7 +30,11 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         &root.join("usr/lib/dyld"),
         &[
             root.join("System/Library/dyld"),
+            // dyld opens the mounted Cryptex path after discovering its root.
+            root.join("System/Cryptexes/OS/System/Library/dyld"),
             root.join("System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld"),
+            root.join("System/Cryptexes/Rosetta/System/Library/dyld"),
+            root.join("System/Volumes/Preboot/Cryptexes/Rosetta/System/Library/dyld"),
             root.join("System/Cryptexes/Rosetta/System/x86Support/System/Library/dyld"),
             root.join(
                 "System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/System/Library/dyld",
@@ -143,6 +147,8 @@ mod tests {
     #[test]
     fn native_selection_discovers_rosetta_primary_and_split_caches() {
         for rosetta in [
+            "System/Cryptexes/Rosetta/System/Library/dyld",
+            "System/Volumes/Preboot/Cryptexes/Rosetta/System/Library/dyld",
             "System/Cryptexes/Rosetta/System/x86Support/System/Library/dyld",
             "System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/System/Library/dyld",
         ] {
@@ -150,9 +156,12 @@ mod tests {
             let dyld = fixture.dir.join("usr/lib/dyld");
             std::fs::create_dir_all(dyld.parent().unwrap()).unwrap();
             std::fs::write(&dyld, b"host-dyld").unwrap();
-            let os = fixture
-                .dir
-                .join("System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld");
+            let os = if rosetta.starts_with("System/Volumes/Preboot/") {
+                "System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld"
+            } else {
+                "System/Cryptexes/OS/System/Library/dyld"
+            };
+            let os = fixture.dir.join(os);
             std::fs::create_dir_all(&os).unwrap();
             std::fs::write(os.join("dyld_shared_cache_arm64e"), b"arm-cache").unwrap();
             let rosetta = fixture.dir.join(rosetta);
@@ -167,10 +176,10 @@ mod tests {
             }
             let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
             assert_eq!(&*selected.read("/usr/lib/dyld").unwrap(), b"host-dyld");
-            for (name, bytes) in [
-                ("dyld_shared_cache_arm64e", &b"arm-cache"[..]),
-                ("dyld_shared_cache_x86_64", &b"x64-cache"[..]),
-                ("dyld_shared_cache_x86_64.01", &b"x64-split"[..]),
+            for (directory, name, bytes) in [
+                (&os, "dyld_shared_cache_arm64e", &b"arm-cache"[..]),
+                (&rosetta, "dyld_shared_cache_x86_64", &b"x64-cache"[..]),
+                (&rosetta, "dyld_shared_cache_x86_64.01", &b"x64-split"[..]),
             ] {
                 assert_eq!(
                     &*selected
@@ -178,6 +187,13 @@ mod tests {
                         .unwrap(),
                     bytes
                 );
+                if let Some(path) = directory
+                    .join(name)
+                    .to_str()
+                    .filter(|path| path.starts_with('/'))
+                {
+                    assert_eq!(&*selected.read(path).unwrap(), bytes);
+                }
             }
             assert!(
                 selected
