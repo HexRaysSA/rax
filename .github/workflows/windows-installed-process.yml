@@ -34,6 +34,10 @@ on:
         description: Capture native ARM64 current-session CSR startup
         type: boolean
         default: false
+      measure_arm64_mapped_filename:
+        description: Observe native ARM64 mapped-filename output on installed local images
+        type: boolean
+        default: false
       measure_amd64_base_nls:
         description: Capture native AMD64 BASE NLS query replies
         type: boolean
@@ -317,6 +321,50 @@ jobs:
               !(Select-String -LiteralPath $log -Pattern '^complete samples=6$' -Quiet)) {
             throw 'AMD64 BASE NLS probe did not retain six complete observations'
           }
+      - name: Measure native ARM64 mapped-filename queries
+        if: ${{ !cancelled() && inputs.measure_arm64_mapped_filename && steps.stock.outcome != 'skipped' && matrix.target == 'aarch64-pc-windows-msvc' }}
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-mapped-filename/arm64-native-local-v1.rs'
+          $exe = Join-Path $env:TMPDIR 'arm64-native-local-mapped-filename.exe'
+          $log = Join-Path $root 'arm64-native-local-mapped-filename.log'
+          $system = Join-Path $env:SystemRoot 'System32'
+          $inputs = [ordered]@{}
+          foreach ($file in @($source, (Join-Path $system 'ntdll.dll'), (Join-Path $system 'kernel32.dll'), (Join-Path $system 'cmd.exe'))) {
+            $inputs[$file] = (Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant()
+          }
+          rustc --edition 2024 -Dwarnings --target $env:RAX_TEST_TARGET $source -o $exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $inputs[$exe] = (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
+          & $exe | Set-Content -LiteralPath $log -Encoding utf8
+          $exitCode = $LASTEXITCODE
+          $unchanged = $true
+          $identities = [ordered]@{}
+          foreach ($file in $inputs.Keys) {
+            if ((Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant() -ne $inputs[$file]) {
+              $unchanged = $false
+            }
+            $identities[(Split-Path -Leaf $file)] = $inputs[$file]
+          }
+          $identity = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            target = $env:RAX_TEST_TARGET
+            file_sha256 = $identities
+            log_sha256 = (Get-FileHash -LiteralPath $log).Hash.ToLowerInvariant()
+            exit_code = $exitCode
+            inputs_unchanged = $unchanged
+          }
+          $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'arm64-native-local-mapped-filename-identity.json') -Encoding utf8
+          $completion = Select-String -LiteralPath $log -Pattern '^complete rows=(\d+)$'
+          $rows = (Select-String -LiteralPath $log -Pattern '^row=').Count
+          if ($exitCode -ne 0 -or !$unchanged -or $completion.Count -ne 1 -or
+              $rows -lt 100 -or $rows -ne [int]$completion.Matches[0].Groups[1].Value) {
+            throw 'Native ARM64 mapped-filename probe did not retain all observation rows'
+          }
       - name: Preserve native process evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -334,4 +382,6 @@ jobs:
             target/windows-installed-process/native-session-csr-connect-v3.json
             target/windows-installed-process/native-amd64-base-nls.log
             target/windows-installed-process/native-amd64-base-nls-identity.json
+            target/windows-installed-process/arm64-native-local-mapped-filename.log
+            target/windows-installed-process/arm64-native-local-mapped-filename-identity.json
           if-no-files-found: error
