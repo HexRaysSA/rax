@@ -431,6 +431,35 @@ This covers arbitration at the adapter boundary. Interrupt-controller retention,
 VM-entry failure recovery, event-delivery faults and pending debug state,
 concurrent callers and native Intel delivery require separate validation.
 
+### Hosted Intel NMI entry
+
+The real RAX `nmi-hot-entry` case reached its initial port exit with IF clear.
+The backend accepted the NMI after the port completion. The next entry
+returned `0x80000021` before the guest handler reached its port marker.
+[RAX native guest run](https://github.com/HexRaysSA/rax/actions/runs/44738498804)
+
+`intel_nmi_entry_native.py` reproduces the transition using the Hypervisor
+Framework SDK directly. The signed x86-64 consumer ran as a native Intel
+process inside a hosted macOS VM. The pin capability was
+`0x0000007f0000003f`, which requires virtual-NMI blocking in this environment.
+The NMI cases read back a staged entry event of `0x80000202` and began with a
+clear guest interruptibility field.
+[SDK observation run and result archive](https://github.com/HexRaysSA/rax/actions/runs/44743699288)
+
+| Event after the initial port exit | Observed result |
+| --- | --- |
+| None | Guest reached HLT with zero handler visits. |
+| Maskable IRQ, IF set | Handler ran once and IRET returned to the guest. |
+| NMI, IF clear | Entry failed with `0x80000021`, qualification zero, and zero handler visits. The saved NMI-blocking bit was set. |
+| NMI, IF set | Same entry failure, saved interruptibility, and handler count. |
+| NMI with virtual blocking disabled | The reported pin capability disallowed this control. Guest entry was skipped for this case. |
+
+The direct SDK result establishes the failure without RAX in this hosted
+environment. The Intel architecture associates entry reason 33 with
+guest-state validation, and qualification zero leaves the specific check
+unknown. Whether bare-metal Intel macOS exhibits the same failure is unknown.
+[Intel SDM Volume 3C](https://cdrdv2-public.intel.com/812396/326019-sdm-vol-3c.pdf)
+
 ## Emulated instruction interrupt shadows
 
 `cargo +stable test --test hvf_interrupt_shadow` checks completion of saved
