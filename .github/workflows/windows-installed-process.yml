@@ -34,6 +34,10 @@ on:
         description: Observe the installed AMD64 client USER request fields
         type: boolean
         default: false
+      measure_legacy_gdi_init:
+        description: Observe first legacy GDI initialization in an installed AMD64 child
+        type: boolean
+        default: false
       measure_startup_queries:
         description: Capture native startup license and MUI observations
         type: boolean
@@ -261,6 +265,51 @@ jobs:
               @(Select-String -LiteralPath $log -Pattern "^mode=fixed sample=[01] transport=(ALPC|LPC) information_bytes=$userBytes ").Count -ne 2 -or
               @(Select-String -LiteralPath $log -Pattern '^mode=findstr sample=[01] observed=[01] child_exited=1 exit=1 calls=').Count -ne 2) {
             throw 'Native USER request observation did not complete'
+          }
+      - name: Observe the first legacy AMD64 GDI initialization
+        if: ${{ !cancelled() && inputs.measure_legacy_gdi_init && matrix.target == 'x86_64-pc-windows-msvc' }}
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-win32u-services/native/amd64-legacy-gdi-init.cpp'
+          $exe = Join-Path $env:TMPDIR 'amd64-legacy-gdi-init.exe'
+          $obj = Join-Path $env:TMPDIR 'amd64-legacy-gdi-init.obj'
+          $log = Join-Path $root 'amd64-legacy-gdi-init.log'
+          $findstr = Join-Path $env:SystemRoot 'System32/findstr.exe'
+          $win32u = Join-Path $env:SystemRoot 'System32/win32u.dll'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$vs) { throw 'MSVC development shell is unavailable' }
+          & (Join-Path $vs 'Common7/Tools/Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          cl.exe /nologo /std:c++20 /MT /EHsc /W4 /WX "/Fo$obj" "/Fe$exe" $source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $inputs = [ordered]@{}
+          foreach ($file in @($source, $exe, $findstr, $win32u, $ntdll)) {
+            $inputs[$file] = (Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant()
+          }
+          $PSNativeCommandUseErrorActionPreference = $false
+          $mode = if ([Environment]::OSVersion.Version.Build -eq 20348) { 'required' } else { 'optional' }
+          & $exe $mode 2>&1 | Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          $unchanged = $true
+          $identities = [ordered]@{}
+          foreach ($file in $inputs.Keys) {
+            $unchanged = $unchanged -and ($inputs[$file] -eq (Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant())
+            $identities[(Split-Path -Leaf $file)] = $inputs[$file]
+          }
+          [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            file_sha256 = $identities
+            log_sha256 = (Get-FileHash -LiteralPath $log).Hash.ToLowerInvariant()
+            inputs_unchanged = $unchanged
+            exit_code = $exitCode
+          } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'amd64-legacy-gdi-init-identity.json') -Encoding utf8
+          if ($exitCode -ne 0 -or !$unchanged -or
+              !(Select-String -LiteralPath $log -Pattern '^complete samples=2 matches=[0-2]$' -Quiet)) {
+            throw 'Native legacy GDI initialization observation did not complete'
           }
       - name: Measure the native startup license queries
         if: ${{ !cancelled() && inputs.measure_startup_queries && steps.stock.outcome != 'skipped' }}
@@ -550,6 +599,8 @@ jobs:
             target/windows-installed-process/native-user-shape-identity.json
             target/windows-installed-process/amd64-user-request-shape.log
             target/windows-installed-process/amd64-user-request-identity.json
+            target/windows-installed-process/amd64-legacy-gdi-init.log
+            target/windows-installed-process/amd64-legacy-gdi-init-identity.json
             target/windows-installed-process/startup-license.json
             target/windows-installed-process/startup-license-identity.json
             target/windows-installed-process/native-mui-query.log
