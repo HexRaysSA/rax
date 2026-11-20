@@ -1115,7 +1115,8 @@
         "a32-dotprod-admission-2026-11-19",
         "a32-rdm-profile-2026-11-19",
         "a32-bf16-admission-2026-11-20",
-        "a32-i8mm-admission-2026-11-20"
+        "a32-i8mm-admission-2026-11-20",
+        "a32-jscvt-profile-2026-11-20"
       ]
     },
     {
@@ -200021,6 +200022,16 @@
       "status": "locally_qualified_full_findings_open",
       "scope": "Opt-in FEAT_AA32I8MM matrix and mixed-sign dot products, coherent standalone and mixed-width ID admission, and reuse of A64 matrix arithmetic. QEMU matched 64 enabled cases and 64 disabled controls. Physical AArch32 validation remains open.",
       "qualification": "docs/development/a32-fp-controls.md#aarch32-feat_aa32i8mm",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-jscvt-profile-2026-11-20",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The standalone and mixed-width AArch32 ID views now require supported binary64 arithmetic for JSCVT. Both baseline regressions fail with absent FPDP. All five owning suites pass on Apple Silicon. Physical AArch32 qualification remains open.",
+      "qualification": "docs/development/a32-fp-controls.md#aarch32-jscvt-capability-readback",
       "full_goal_complete": false
     },
     {

@@ -388,6 +388,26 @@ continue through interpreter fallback. Physical AArch32 execution and
 the wider profile and security/debug audit remain open.
 [QEMU replay vectors](../../tests/suites/backend/a32_fp_controls/i8mm-qemu.tsv)
 
+## AArch32 JSCVT capability readback
+
+`VJCVT.S32.F64` consumes a binary64 operand. The software AArch32 profile
+advertises `ID_ISAR6.JSCVT=1` only when the selected JSCVT field is 1 and
+`MVFR0.FPDP` selects VFPv2 or VFPv3 double-precision arithmetic. Guest
+CP15 MRC and the mixed-width `ID_ISAR6_EL1` MRS use the same projection as
+instruction admission. The selection stored in the CPU context stays intact.
+The projection takes constant time and constant auxiliary storage.
+[Arm Feature Names, pages 57–58](../specifications/arm/audit-reference-inputs/feature_names_109697_2025_09_en.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| An enabled conversion requires an implemented binary64 arithmetic profile. | A32 and T32 MRC advertise the feature when FPDP is absent or reserved, or the enabled conversion fails with a defined FPDP value. |
+| A mixed-width CPU uses the imported AArch32 profile for both guest ID aliases. | A64 MRS, A32 MRC and A32/T32 execution disagree after importing the MVFR0 value. |
+
+At baseline both new tests exposed JSCVT with `FPDP=0`. The corrected
+software CPU passed 512 standalone and 32 mixed-width configurations.
+All 47,679 tests passed across the five owning targets on Apple Silicon
+with `smir-jit`. Physical AArch32 qualification remains open.
+
 ## Original ARM audit replay
 
 The audit author's `audit_arm/repro_full_cpu.rs` ran unchanged against the

@@ -3,7 +3,9 @@
 //! MVFR1 conversion fields do not imply FEAT_FP16 data processing. See the
 //! archived Arm ASL guards and feature-admission reference provenance.
 use super::{
-    cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16, ID_ISAR6_DP, ID_ISAR6_I8MM},
+    cp15::{
+        ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16, ID_ISAR6_DP, ID_ISAR6_I8MM, ID_ISAR6_JSCVT,
+    },
     vfp::VfpState,
 };
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
@@ -73,7 +75,9 @@ pub(crate) fn instruction_supported(
     {
         return false;
     }
-    if insn.mnemonic == Mnemonic::VJCVT_S32_F64 && id_isar6 & 15 != 1 {
+    if insn.mnemonic == Mnemonic::VJCVT_S32_F64
+        && effective_id_isar6(id_isar6, state.mvfr0, state.mvfr1) & ID_ISAR6_JSCVT == 0
+    {
         return false;
     }
     if !advsimd && super::fp_traps::is_computation(insn) && (state.mvfr0 >> 12) & 15 > 1 {
@@ -428,6 +432,11 @@ pub(crate) fn effective_id_isar5(mut id_isar5: u32, mvfr0: u32, mvfr1: u32) -> u
 
 /// Project the optional SIMD and FP fields through the active AArch32 profile.
 pub(crate) fn effective_id_isar6(mut id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
+    // VJCVT consumes binary64, unlike the raw 64-bit storage operations.
+    let has_scalar_double = matches!((mvfr0 >> 8) & 15, 1 | 2);
+    if !has_scalar_double || id_isar6 & ID_ISAR6_JSCVT != 1 {
+        id_isar6 &= !ID_ISAR6_JSCVT;
+    }
     let has_simd_integer = has_integer_simd(mvfr0, mvfr1);
     let has_simd_single = (mvfr1 >> 16) & 15 == 1;
     let has_simd_half = (mvfr1 >> 20) & 15 == 2;

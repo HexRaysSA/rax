@@ -247,6 +247,50 @@ fn profile(cpu: &mut AArch64Cpu, ids: [u64; 3]) {
 }
 
 #[test]
+fn mixed_jscvt_views_and_guest_execution_use_the_imported_double_precision_profile() {
+    const MRS_ISAR6: u32 = 0xd538_02e3;
+    const MRC_ISAR6: u32 = 0xee10_3ff2;
+    const VJCVT: u32 = 0xeeb9_0bc1;
+    for thumb in [false, true] {
+        for precision in 0..16 {
+            let mut cpu = cpu(false);
+            let mut state = cpu.export_sregs();
+            state.execution.as_mut().unwrap().features |= ArmFeatures::JSCVT.bits();
+            cpu.import_sregs(&state).unwrap();
+            let mut ids = expected(false);
+            ids[0] = (ids[0] & !(15 << 8)) | (precision << 8);
+            profile(&mut cpu, ids);
+            let enabled = matches!(precision, 1 | 2);
+
+            words(&mut cpu, &[MRS_ISAR6], false);
+            assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+            assert_eq!(cpu.get_x(3) & 15, u64::from(enabled), "FPDP={precision}");
+            cpu.set_pstate_bits(0x1d3 | (u64::from(thumb) << 5))
+                .unwrap();
+            words(&mut cpu, &[MRC_ISAR6, VJCVT], thumb);
+            assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+            assert_eq!(
+                cpu.get_x(3) & 15,
+                u64::from(enabled),
+                "Thumb={thumb}, FPDP={precision}"
+            );
+            let before = (u128::from(1.0_f64.to_bits()) << 64) | 0x1122_3344_5566_7788;
+            cpu.set_simd(0, before);
+            let result = cpu.step();
+            if enabled {
+                assert_eq!(result.unwrap(), CpuExit::Continue);
+                assert_eq!(cpu.get_simd(0), (before & !u128::from(u32::MAX)) | 1);
+                assert_eq!(cpu.instruction_count(), 3);
+            } else {
+                assert!(matches!(result, Err(ArmError::UndefinedInstruction(VJCVT))));
+                assert_eq!(cpu.get_simd(0), before);
+                assert_eq!(cpu.instruction_count(), 2);
+            }
+        }
+    }
+}
+
+#[test]
 fn trusted_profile_is_zero_extended_and_preserved_across_fresh_cpu_restore() {
     // Deliberately reduced scalar/SIMD capabilities, with nonzero host upper bits.
     let ids = [0xaabbccdd10110021, 0xaabbccdd11000011, 0xaabbccdd00000000];

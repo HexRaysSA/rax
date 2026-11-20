@@ -39,6 +39,7 @@ use std::fmt;
 
 pub(crate) const ID_ISAR5_VCMA: u32 = 15 << 28;
 pub(crate) const ID_ISAR5_RDM: u32 = 15 << 24;
+pub(crate) const ID_ISAR6_JSCVT: u32 = 15;
 pub(crate) const ID_ISAR6_DP: u32 = 15 << 4;
 
 pub(crate) const ID_ISAR6_I8MM: u32 = 0x0f00_0000;
@@ -336,6 +337,9 @@ impl Cp15State {
             }
             (0, 0, 2, 7) => {
                 let mut value = self.id_isar6;
+                if value & ID_ISAR6_JSCVT != 1 {
+                    value &= !ID_ISAR6_JSCVT;
+                }
                 if value & ID_ISAR6_I8MM != 1 << 24 {
                     value &= !ID_ISAR6_I8MM;
                 }

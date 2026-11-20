@@ -10,7 +10,7 @@ const INPUT_STATUS: u32 = 0x80;
 const INVALID: u32 = 1;
 const INEXACT: u32 = 0x10;
 
-fn execute_vjcvt(cpu: &mut Armv7Cpu, raw: u32) -> ExecResult {
+fn execute_in_state(cpu: &mut Armv7Cpu, raw: u32) -> ExecResult {
     if !cpu.cpsr.t {
         return execute(cpu, raw);
     }
@@ -51,7 +51,7 @@ fn vjcvt_rounds_toward_zero_wraps_and_updates_fpscr() {
                 if fz && input.is_subnormal() {
                     status = INPUT_STATUS;
                 }
-                let result = execute_vjcvt(&mut cpu, VJCVT);
+                let result = execute_in_state(&mut cpu, VJCVT);
                 assert!(
                     matches!(result, ExecResult::Continue),
                     "{thumb}: {result:?}"
@@ -99,7 +99,7 @@ fn vjcvt_feature_predicate_and_register_checks_precede_access_traps() {
                 }
             }
             let before = (cpu.vfp.fpscr.bits(), cpu.vfp.dregs);
-            let result = execute_vjcvt(&mut cpu, raw);
+            let result = execute_in_state(&mut cpu, raw);
             assert!(
                 if access_trap {
                     matches!(result, ExecResult::FpAccessTrap { target_el: 2, .. })
@@ -109,6 +109,45 @@ fn vjcvt_feature_predicate_and_register_checks_precede_access_traps() {
                 "{thumb}/{feature}/{allowed}/{narrow}: {result:?}"
             );
             assert_eq!((cpu.vfp.fpscr.bits(), cpu.vfp.dregs), before);
+        }
+    }
+}
+
+#[test]
+fn standalone_jscvt_id_requires_double_precision() {
+    const MRC_ISAR6: u32 = 0xee10_3ff2; // MRC P15,0,R3,C0,C2,7.
+    for thumb in [false, true] {
+        for precision in 0..16 {
+            for jscvt in 0..16 {
+                let mut cpu = Armv7Cpu::new();
+                cpu.cpsr.t = thumb;
+                cpu.vfp.mvfr0 = (cpu.vfp.mvfr0 & !(15 << 8)) | (precision << 8);
+                let original_id = (cpu.cp15.id_isar6 & !15) | jscvt;
+                cpu.cp15.id_isar6 = original_id;
+                cpu.vfp.write_d_bits(0, CANARY);
+                cpu.vfp.write_d(1, 1.0);
+                let enabled = jscvt == 1 && matches!(precision, 1 | 2);
+
+                assert!(matches!(
+                    execute_in_state(&mut cpu, MRC_ISAR6),
+                    ExecResult::Continue
+                ));
+                assert_eq!(
+                    cpu.regs[3] & 15,
+                    u32::from(enabled),
+                    "Thumb={thumb}, FPDP={precision}, JSCVT={jscvt}"
+                );
+                assert_eq!(cpu.cp15.id_isar6, original_id);
+                let before = (cpu.vfp.dregs, cpu.vfp.fpscr.bits());
+                let result = execute_in_state(&mut cpu, VJCVT);
+                if enabled {
+                    assert!(matches!(result, ExecResult::Continue));
+                    assert_eq!(cpu.vfp.read_s_bits(0), 1);
+                } else {
+                    assert!(matches!(result, ExecResult::Undefined));
+                    assert_eq!((cpu.vfp.dregs, cpu.vfp.fpscr.bits()), before);
+                }
+            }
         }
     }
 }
@@ -128,7 +167,7 @@ fn vjcvt_enabled_exception_preserves_destination_and_nzcv() {
         cpu.vfp.write_d_bits(0, CANARY);
         cpu.vfp.write_d(1, input);
         let before = cpu.vfp.dregs;
-        let result = execute_vjcvt(&mut cpu, VJCVT);
+        let result = execute_in_state(&mut cpu, VJCVT);
         assert!(
             matches!(result, ExecResult::Exception(rax::isa::arm::ExceptionType::FloatingPoint(bits)) if u32::from(bits) == status),
             "{result:?}"
