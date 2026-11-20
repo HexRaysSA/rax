@@ -207,8 +207,23 @@ fn installed_findstr_matches_native_through_closed_c_abi() {
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_sort_matches_native_through_closed_c_abi() {
     check_native_process_memory_queries();
-    let native =
-        compare_windows_installed_program("sort.exe", &[], Some(b"delta\r\nalpha\r\ncharlie\r\n"));
+    compare_installed_sort(&[]);
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_sort_c_locale_matches_native_through_closed_c_abi() {
+    compare_installed_sort(&["/l", "C"]);
+}
+
+#[cfg(windows)]
+fn compare_installed_sort(arguments: &[&str]) {
+    let native = compare_windows_installed_program(
+        "sort.exe",
+        arguments,
+        Some(b"delta\r\nalpha\r\ncharlie\r\n"),
+    );
     assert_eq!(native.status.code(), Some(0));
     assert_eq!(native.stdout, b"alpha\r\ncharlie\r\ndelta\r\n");
     assert!(native.stderr.is_empty());

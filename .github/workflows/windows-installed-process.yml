@@ -192,11 +192,15 @@ jobs:
           $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
           $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
           $PSNativeCommandUseErrorActionPreference = $false
-          $probes = [ordered]@{filter = 'findstr'; sort = 'sort'}
+          $probes = [ordered]@{
+            filter = @('findstr', 'findstr')
+            sort = @('sort', 'sort')
+            'sort-c-locale' = @('sort', 'sort_c_locale')
+          }
           $failed = $false
           foreach ($name in $probes.Keys) {
-            $program = $probes[$name]
-            $test = "tests::process::native_runtime::installed_${program}_matches_native_through_closed_c_abi"
+            $program, $fixture = $probes[$name]
+            $test = "tests::process::native_runtime::installed_${fixture}_matches_native_through_closed_c_abi"
             $image = Join-Path $env:SystemRoot "System32/$program.exe"
             $hashKey = "${program}_sha256"
             $receipt = [ordered]@{
@@ -648,6 +652,8 @@ jobs:
             target/windows-installed-process/filter-capi.log
             target/windows-installed-process/sort-receipt.json
             target/windows-installed-process/sort-capi.log
+            target/windows-installed-process/sort-c-locale-receipt.json
+            target/windows-installed-process/sort-c-locale-capi.log
             target/windows-installed-process/native-token-duplicate.log
             target/windows-installed-process/native-token-duplicate-identity.json
             target/windows-installed-process/native-user-shape.log
