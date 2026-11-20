@@ -6,6 +6,7 @@ use std::io;
 use std::sync::Arc;
 
 pub(crate) const INFORMATION_BYTES: usize = 584;
+pub(crate) const SERVER_2022_INFORMATION_BYTES: usize = 576;
 pub(crate) const USER_HANDLE_ENTRY_BYTES: u64 = 32;
 // Observed 64-bit SHAREDINFO slots, including the WoW64 CSR conversion. These
 // are fixed fields, not a scan for integer values that resemble addresses.

@@ -96,28 +96,28 @@ fn allocation(base: u64, size: usize) -> io::Result<Arc<DataSection>> {
 }
 
 pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Arc<CsrClientData>> {
-    if metadata.arch != crate::user::windows::arch::WinArch::Arm64
-        && !metadata.supports_additional_user_client()
-    {
+    let profile = metadata.additional_user_client();
+    if metadata.arch != crate::user::windows::arch::WinArch::Arm64 && profile.is_none() {
         return Err(invalid(
             "CSR client capture requires a matched native profile",
         ));
     }
     let mut directory = metadata.directory_path();
     directory.push(0);
+    let information_bytes = profile.map_or(INFORMATION_BYTES, |profile| profile.information_bytes);
     let mut information = [0u8; INFORMATION_BYTES];
     let mut inside = 0xA5;
     // SAFETY: reached after the measured kernel and matching
     // architecture/session/section checks. Native callers and an independent
     // syscall observer confirm the scalar ULONG ABI. Fixed directory, server 3
-    // and zero-initialized 584-byte buffer. No guest inputs or callbacks.
+    // and the measured span of a zero-initialized buffer. No guest inputs.
     check(
         unsafe {
             CsrClientConnectToServer(
                 directory.as_mut_ptr(),
                 3,
                 information.as_mut_ptr().cast(),
-                INFORMATION_BYTES as u32,
+                information_bytes as u32,
                 &mut inside,
             )
         },

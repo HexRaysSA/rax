@@ -50,8 +50,12 @@ and reported the same SHAREDINFO relationships. The 32 KiB readonly shared
 allocation was fully committed on 26200. On 26100 its first 16 KiB were
 committed and the rest remained reserved. The 2 MiB handle-table allocation
 had a bounded, readonly committed prefix on both builds. The fixed request
-returned `STATUS_INVALID_PARAMETER` on AMD64 build 20348. The additional USER
-profiles apply only to the two successful build and session pairs.
+returned `STATUS_INVALID_PARAMETER` on AMD64 build 20348. The installed client
+on that build requested 576 bytes. A [second native run](https://github.com/HexRaysSA/rax/actions/runs/44752408122)
+confirmed that size with two successful requests in session 2, a preserved
+sentinel, and the same 16 KiB committed prefix in the 32 KiB shared allocation.
+The three additional USER profiles bind the request size to the measured
+architecture, build, and session.
 
 Native private limit probes use a 512-byte legacy port. They establish access,
 conversion, and failure ordering; they are not a positive oracle for a

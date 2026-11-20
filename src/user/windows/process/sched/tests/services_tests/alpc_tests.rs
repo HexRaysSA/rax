@@ -212,11 +212,14 @@ fn native_alpc_csr_exchange_owns_repeated_reply_mappings_and_server_capture() {
 fn native_alpc_csr_user_only_admits_the_measured_additional_profiles() {
     use crate::user::windows::object_namespace::csr::CsrMetadata;
 
-    for (arch, build, session, admitted) in [
-        (WinArch::Arm64, 26200, 2, true),
-        (WinArch::X64, 26100, 2, true),
-        (WinArch::X64, 26100, 1, false),
-        (WinArch::X64, 20348, 2, false),
+    for (arch, build, session, information_bytes, admitted) in [
+        (WinArch::Arm64, 26200, 2, 584, true),
+        (WinArch::X64, 26100, 2, 584, true),
+        (WinArch::X64, 26100, 1, 584, false),
+        (WinArch::X64, 26100, 2, 576, false),
+        (WinArch::X64, 20348, 2, 576, true),
+        (WinArch::X64, 20348, 2, 584, false),
+        (WinArch::X64, 20348, 1, 576, false),
     ] {
         let (mut process, mut thread) = fixture(arch, "NtAlpcSendWaitReceivePort", SERVICE);
         let p = process.state_mut();
@@ -249,15 +252,25 @@ fn native_alpc_csr_user_only_admits_the_measured_additional_profiles() {
             p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                 .unwrap();
         let args = csr_request(p, base, local, remote, port);
+        p.space.w64(base + 80, information_bytes).unwrap();
+        p.space
+            .w32(local + 0x750, 40 + information_bytes as u32 + 4)
+            .unwrap();
+        p.space.w8(local + 0x778 + information_bytes, 0xa5).unwrap();
         let result = invoke(p, &mut thread, &args);
+        let received = p
+            .space
+            .bytes(local + 0x778, information_bytes as usize)
+            .unwrap();
+        assert_eq!(p.space.u8(local + 0x778 + information_bytes).unwrap(), 0xa5);
         if admitted {
             assert_eq!(result, Outcome::Continue);
             assert_eq!(thread.cpu.gpr(0), 0);
-            assert_eq!(p.space.bytes(local + 0x778, 584).unwrap(), data.information);
+            assert_eq!(received, data.information[..information_bytes as usize]);
             assert!(data.owns_views(&p.vm));
         } else {
             assert!(matches!(result, Outcome::Fail(reason) if reason.contains("unmeasured CSR")));
-            assert_eq!(p.space.bytes(local + 0x778, 584).unwrap(), [0; 584]);
+            assert!(received.iter().all(|&byte| byte == 0));
             assert!(!data.owns_views(&p.vm));
         }
     }

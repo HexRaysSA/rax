@@ -4,8 +4,12 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
+use crate::user::windows::object_namespace::csr::client_data::{
+    INFORMATION_BYTES, SERVER_2022_INFORMATION_BYTES,
+};
 use crate::user::windows::object_namespace::csr::{
-    ARM64_PLAIN_STARTUP_KERNEL, BASE_NLS_BYTES, BaseNlsReply, supports_kernel, supports_profile,
+    ARM64_PLAIN_STARTUP_KERNEL, BASE_NLS_BYTES, BaseNlsReply, UserClientProfile, supports_kernel,
+    supports_profile,
 };
 use crate::user::windows::objects::Object;
 
@@ -48,11 +52,13 @@ pub(super) fn client_connect(
         && message[48..56] == [0x1B, 0, 1, 0, 0, 0, 0, 0]
         && message[72..76] == (BASE_NLS_BYTES as u32).to_le_bytes()
         && (amd64_20348 || message[56..64] == [0; 8] && message[76..80] == [0; 4]);
-    let user = message.len() == 88
+    let user_bytes = (message.len() == 88
         && message[..8] == [48, 0, 88, 0, 0, 0, 0, 0]
         && message[48..64] == [0; 16]
-        && word(message, 64) == 3
-        && word(message, 80) == 584;
+        && word(message, 64) == 3)
+        .then(|| usize::try_from(word(message, 80)).ok())
+        .flatten()
+        .filter(|&bytes| matches!(bytes, INFORMATION_BYTES | SERVER_2022_INFORMATION_BYTES));
     let batch_notification = message.len() == BATCH_NOTIFICATION_BYTES
         && message[..8] == [40, 0, 80, 0, 0, 0, 0, 0]
         && word(message, 40) == 0
@@ -61,29 +67,35 @@ pub(super) fn client_connect(
         && word(message, 64) != u64::MAX
         && word(message, 72) <= 1;
     let native_arm64 = arch == WinArch::Arm64 && supports_kernel(kernel.0, kernel.1, kernel.2);
-    // Build 26200 adds only the BASE query. The peer below still needs the
-    // captured session-2 BASE profile and the exact private capture schema.
+    // On build 26200 BASE still needs its separately captured session-2
+    // profile and exact private capture schema.
     let arm64_plain_startup = arch == WinArch::Arm64
         && kernel == ARM64_PLAIN_STARTUP_KERNEL
         && c.p.object_namespace.native_machine == Some(0xAA64)
         && length != 0
         && capacity == 952;
     let selected_base_nls = base_nls && (native_amd64 || arm64_plain_startup);
-    let selected_user = user
-        && length != 0
-        && capacity == 952
-        && c.p.object_namespace.native_machine == Some(arch.machine())
-        && matches!(
+    let selected_user = user_bytes.is_some_and(|information_bytes| {
+        let requested = UserClientProfile {
+            arch,
+            kernel,
+            information_bytes,
+        };
+        matches!(
             c.p.objects.get(port),
             Some(Object::LpcPort(endpoint)) if endpoint.peer().is_some_and(
-                |peer| peer.additional_user_kernel == Some(kernel)
+                |peer| peer.additional_user_client == Some(requested)
             )
-        );
-    if !(native_arm64 || selected_base_nls || selected_user)
+        )
+    }) && length != 0
+        && capacity == 952
+        && c.p.object_namespace.native_machine == Some(arch.machine());
+    let recognized_arm64 =
+        native_arm64 && (base_nls || batch_notification || user_bytes == Some(INFORMATION_BYTES));
+    if !(recognized_arm64 || selected_base_nls || selected_user)
         || send_attributes != 0
         || receive_attributes != 0
         || timeout != 0
-        || !(base_nls || user || batch_notification)
     {
         let wire_api = match (c.arch(), message.get(48..52)) {
             (WinArch::Arm64 | WinArch::X64, Some([a, b, c, d])) => {
@@ -124,10 +136,11 @@ pub(super) fn client_connect(
             reason.push_str(&format!(
                 concat!(
                     " USER request (lengths_match={}, header_flags_zero={}, ",
-                    "server_index_matches={}, information_bytes={})"
+                    "reserved_zero={}, server_index_matches={}, information_bytes={})"
                 ),
                 message[..4] == [48, 0, 88, 0],
                 message[4..8] == [0; 4],
+                message[52..64] == [0; 12],
                 word(message, 64) == 3,
                 word(message, 80),
             ));
@@ -169,7 +182,7 @@ pub(super) fn client_connect(
         }
         _ => return Err(c.unsupported("NtAlpcSendWaitReceivePort selected peer disappeared")),
     };
-    if base_nls && nls_data.is_none() || user && user_data.is_none() {
+    if base_nls && nls_data.is_none() || user_bytes.is_some() && user_data.is_none() {
         return Err(c.unsupported("NtAlpcSendWaitReceivePort selected reply data is absent"));
     }
     if !c.p.vm.owns_shared_view(&view) {
@@ -178,7 +191,11 @@ pub(super) fn client_connect(
     let capture = word(message, 40);
     let pointer_offset = if base_nls { 64 } else { 72 };
     let information = word(message, pointer_offset);
-    let information_len = if base_nls { BASE_NLS_BYTES } else { 584 };
+    let information_len = if base_nls {
+        BASE_NLS_BYTES
+    } else {
+        user_bytes.expect("admitted USER size")
+    };
     let capture_bytes = 40 + information_len as u64 + 4;
     if capture < remote
         || capture.checked_add(capture_bytes).is_none_or(|end| {
@@ -211,9 +228,10 @@ pub(super) fn client_connect(
                 && peer
                     .vm
                     .space()
-                    .bytes(information, 584)
+                    .bytes(information, information_len)
                     .map_err(|e| ApiErr::Internal(format!("CSR peer information: {e:?}")))?
-                    != [0; 584]
+                    .iter()
+                    .any(|&byte| byte != 0)
         {
             return Err(
                 c.unsupported("NtAlpcSendWaitReceivePort unmeasured CSR capture schema/input")
@@ -240,7 +258,7 @@ pub(super) fn client_connect(
         }
     } else {
         (
-            &user_data.as_ref().expect("selected USER data").information,
+            &user_data.as_ref().expect("selected USER data").information[..information_len],
             0,
         )
     };

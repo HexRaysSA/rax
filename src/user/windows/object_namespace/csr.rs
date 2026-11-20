@@ -23,6 +23,13 @@ pub(crate) enum BaseNlsReply {
     Unsuccessful,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct UserClientProfile {
+    pub(crate) arch: WinArch,
+    pub(crate) kernel: (u32, u32, u32),
+    pub(crate) information_bytes: usize,
+}
+
 #[cfg(test)]
 #[path = "csr/kernel_profile_tests.rs"]
 mod kernel_profile_tests;
@@ -84,12 +91,22 @@ impl CsrMetadata {
 
     /// In addition to the existing ARM64 profiles, these native builds
     /// completed the same fixed USER request in session 2.
-    pub(crate) fn supports_additional_user_client(&self) -> bool {
-        self.session == 2
-            && matches!(
-                (self.arch, self.kernel),
-                (WinArch::Arm64, ARM64_PLAIN_STARTUP_KERNEL) | (WinArch::X64, (10, 0, 26100))
-            )
+    pub(crate) fn additional_user_client(&self) -> Option<UserClientProfile> {
+        if self.session != 2 {
+            return None;
+        }
+        let information_bytes = match (self.arch, self.kernel) {
+            (WinArch::Arm64, ARM64_PLAIN_STARTUP_KERNEL) | (WinArch::X64, (10, 0, 26100)) => {
+                client_data::INFORMATION_BYTES
+            }
+            (WinArch::X64, (10, 0, 20348)) => client_data::SERVER_2022_INFORMATION_BYTES,
+            _ => return None,
+        };
+        Some(UserClientProfile {
+            arch: self.arch,
+            kernel: self.kernel,
+            information_bytes,
+        })
     }
 
     fn namespace_session(&self) -> Option<u32> {
@@ -244,10 +261,7 @@ impl CsrServer {
                 .metadata
                 .supports_base_nls()
                 .then_some(self.metadata.kernel),
-            additional_user_kernel: self
-                .metadata
-                .supports_additional_user_client()
-                .then_some(self.metadata.kernel),
+            additional_user_client: self.metadata.additional_user_client(),
             arm64_29708_session_one: self.metadata.arch == WinArch::Arm64
                 && self.metadata.kernel == (10, 0, 29708)
                 && self.metadata.session == 1,
@@ -271,7 +285,7 @@ pub(crate) struct CsrPeer {
     pub(crate) base_nls: Option<BaseNlsReply>,
     /// The selected native kernel when BASE is admitted for this peer's session.
     pub(crate) base_nls_kernel: Option<(u32, u32, u32)>,
-    pub(crate) additional_user_kernel: Option<(u32, u32, u32)>,
+    pub(crate) additional_user_client: Option<UserClientProfile>,
     pub(crate) arm64_29708_session_one: bool,
     pub(crate) server_pid: u32,
     pub(crate) server_thread: u32,
@@ -297,7 +311,9 @@ impl CsrPeer {
     ) -> Result<(u64, u32), VmError> {
         if !matches!(
             information.len(),
-            client_data::INFORMATION_BYTES | BASE_NLS_BYTES
+            client_data::INFORMATION_BYTES
+                | client_data::SERVER_2022_INFORMATION_BYTES
+                | BASE_NLS_BYTES
         ) {
             return Err(VmError::NoMemory);
         }

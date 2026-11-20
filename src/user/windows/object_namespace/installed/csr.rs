@@ -29,7 +29,7 @@ pub(super) fn capture_client_data(
     Option<std::sync::Arc<crate::user::windows::object_namespace::csr::client_data::CsrClientData>>,
 > {
     #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
-    if metadata.supports_additional_user_client() {
+    if metadata.additional_user_client().is_some() {
         // Existing BASE and console applications can start when USER data
         // is unavailable. Only a guest requesting USER needs those views.
         return Ok(client_data::capture(metadata).ok());
