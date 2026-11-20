@@ -1,4 +1,4 @@
-//! ProcessVmCounters for the measured 29708 ARM64 and WoW64 personalities.
+//! Guest-owned ProcessVmCounters for the measured Windows builds.
 use super::super::query::{probe_write, return_length};
 use super::{PROCESS_QUERY_RIGHTS, current_process_status, wow64_copy};
 use crate::user::windows::arch::WinArch;
@@ -10,18 +10,19 @@ use crate::user::windows::nt::status::{
 };
 
 pub(super) fn selected(c: &Ctx) -> bool {
-    matches!(c.arch(), WinArch::Arm64 | WinArch::X86)
-        && c.p.native.as_ref().is_some_and(|runtime| {
-            matches!(
-                (
-                    runtime.version.major,
-                    runtime.version.minor,
-                    runtime.version.build,
-                    runtime.object_namespace.native_machine,
-                ),
-                (10, 0, 29708, Some(0xAA64))
+    c.p.native.as_ref().is_some_and(|runtime| {
+        let host_arch = runtime
+            .object_namespace
+            .native_machine
+            .and_then(WinArch::from_machine);
+        (runtime.version.major, runtime.version.minor) == (10, 0)
+            && matches!(
+                (c.arch(), host_arch, runtime.version.build),
+                (WinArch::Arm64, Some(WinArch::Arm64), 26200 | 29708)
+                    | (WinArch::X86, Some(WinArch::Arm64), 29708)
+                    | (WinArch::X64, Some(WinArch::X64), 26100)
             )
-        })
+    })
 }
 
 pub(super) fn query(

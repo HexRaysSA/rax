@@ -236,18 +236,20 @@ fn wow64_process_vm_counters_replay_lengths_rights_padding_and_copy_faults() {
 
 #[test]
 fn native_process_vm_counters_distinguish_reservation_commit_touch_and_release() {
-    check_vm_counter_lifecycle(WinArch::Arm64);
+    check_vm_counter_lifecycle(WinArch::Arm64, 29708, 0xaa64);
+    check_vm_counter_lifecycle(WinArch::Arm64, 26200, 0xaa64);
+    check_vm_counter_lifecycle(WinArch::X64, 26100, 0x8664);
 }
 
 #[test]
 fn wow64_process_vm_counters_distinguish_reservation_commit_touch_and_release() {
-    check_vm_counter_lifecycle(WinArch::X86);
+    check_vm_counter_lifecycle(WinArch::X86, 29708, 0xaa64);
 }
 
-fn check_vm_counter_lifecycle(arch: WinArch) {
+fn check_vm_counter_lifecycle(arch: WinArch, build: u32, machine: u16) {
     let (mut process, mut thread, scratch) = setup(arch);
     let p = process.state_mut();
-    super::super::native_profile::kernel_profile(p, 29708, 0xAA64);
+    super::super::native_profile::kernel_profile(p, build, machine);
     let snapshot = |p: &mut Proc, thread: &mut Thread| {
         let mut words = [0; 14];
         if arch == WinArch::X86 {
