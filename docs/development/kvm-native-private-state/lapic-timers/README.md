@@ -94,3 +94,24 @@ with a guest-legal x2APIC register write. It preserves absence or presence of
 the pending timer interrupt on both destination profiles in twenty staged
 trials. The result covers an expired x2APIC one-shot with source pending
 interrupts already materialized in IRR.
+
+## Future expiry with a zero current count
+
+Linux v6.17 reports the remaining timer phase in whole counts. A one-shot
+with less than one count left can therefore report zero before it fires.
+The [native probe](lapic-zero-count-before-expiry.c) selects a bus cycle of
+20,000,000 ns and a divider of 128, so one timer count spans 2,560,000,000 ns.
+Its early sample must find an initial count of one, a current count of zero,
+and no pending or in-service interrupt for the timer vector. The guest must
+remain in HLT during the first entry, reach the timer handler after the
+configured interval, then finish EOI and IRET without a second delivery.
+The probe requires both xAPIC and x2APIC cases to pass.
+
+Run the [native KVM LAPIC timer phase workflow](../../../../.github/workflows/native-kvm-lapic-phase.yml)
+on the Linux x86-64 runner. It records the installed kernel and source hash.
+The probe requires a KVM host exposing `KVM_CAP_X86_APIC_BUS_CYCLES_NS`.
+This checks whether a zero count can describe a future expiry. Exact capture
+and restoration of that timer phase through the RAX VMM remain open.
+
+[Linux v6.17 LAPIC code](https://github.com/torvalds/linux/blob/v6.17/arch/x86/kvm/lapic.c)
+[Linux KVM API for the APIC bus period](https://www.kernel.org/doc/html/v6.13/virt/kvm/api.html#kvm-cap-x86-apic-bus-cycles-ns)

@@ -1,0 +1,34 @@
+name: Native KVM LAPIC timer phase
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lapic-phase:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Enable KVM access on the runner
+        run: |
+          sudo chmod 0666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Measure current count before the one-shot fires
+        run: |
+          set -euo pipefail
+          build_dir="$(mktemp -d "$RUNNER_TEMP/rax-lapic-phase.XXXXXX")"
+          cleanup() {
+            if test -f "$build_dir/lapic-phase"; then
+              unlink "$build_dir/lapic-phase"
+            fi
+            rmdir "$build_dir"
+          }
+          trap cleanup EXIT
+          source=docs/development/kvm-native-private-state/lapic-timers/lapic-zero-count-before-expiry.c
+          uname -sr
+          sha256sum "$source"
+          cc -std=gnu11 -Wall -Wextra -Werror "$source" -o "$build_dir/lapic-phase"
+          timeout --kill-after=1s 15s "$build_dir/lapic-phase"
