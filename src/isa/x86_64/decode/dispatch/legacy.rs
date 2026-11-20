@@ -28,6 +28,7 @@ impl X86_64Vcpu {
                     a.wrapping_add(1)
                 };
                 self.set_reg(reg, result, op_size);
+                self.resolve_lazy_cf();
                 if is_dec {
                     self.set_lazy_dec(a, result, op_size);
                 } else {

@@ -180,6 +180,36 @@ fn int_0x80_is_the_system_call_of_a_compatibility_task() {
 }
 
 #[test]
+fn compact_inc_and_dec_preserve_pending_carry_in_i386() {
+    for (opcode, result) in [(0x42, 3), (0x4A, 1)] {
+        for (initial_cf, word, expected_cf) in [(0xF8, *b"/usr", 1), (0xF9, *b"/us\0", 0)] {
+            let mut h = Harness::new(LinuxAbi::I386);
+            let mut code = vec![0xB9]; // mov ecx, word
+            code.extend(word);
+            code.extend([
+                0xBA, 2, 0, 0, 0, // mov edx, 2
+                0x31, 0xDB,       // xor ebx, ebx
+                initial_cf, // CLC/STC establishes the opposite carry before ADD.
+                0x81, 0xC1, 0xFF, 0xFE, 0xFE, 0xFE,   // add ecx, 0xfefefeff
+                opcode, // inc/dec edx (single-byte encoding)
+                0x73, 5, // jnc past mov ebx, 1
+                0xBB, 1, 0, 0, 0, // mov ebx, 1
+                0x89, 0xD1, // mov ecx, edx
+                0xB8, 20, 0, 0, 0, // mov eax, 20 (getpid)
+                0xCD, 0x80, // int 0x80
+            ]);
+            put(&h, CODE, &code);
+            h.proc.threads[0].cpu.set_pc(CODE);
+            let event = h.proc.threads[0].cpu.run(1000);
+            let CpuEvent::Syscall { nr, args } = event else {
+                panic!("a system call, got {event:?}");
+            };
+            assert_eq!((nr, args[0], args[1]), (20, expected_cf, result));
+        }
+    }
+}
+
+#[test]
 fn set_thread_area_fills_allocates_and_reads_back_tls_entries() {
     let mut h = Harness::new(LinuxAbi::I386);
     let at = h.scratch;
