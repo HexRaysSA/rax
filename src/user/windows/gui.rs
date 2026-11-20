@@ -63,10 +63,12 @@ fn invalid(message: &str) -> io::Error {
 impl Inputs {
     pub(crate) fn qualify_wow64_companion(&self) -> io::Result<()> {
         let views = [&self.gdi, &self.desktop];
+        // Inputs::selected checks that the desktop has a committed prefix
+        // containing the client records followed by a nonempty reserved tail.
+        // The boundary can move as the native desktop heap grows.
         if self.arch != WinArch::Arm64
             || views.iter().any(|view| view.base < 1 << 32)
             || self.desktop.section.size != 0x1401000
-            || self.first_reserved != 0x34000
             || self.client[18] > u64::from(u32::MAX)
             || self.client[19] > u64::from(u16::MAX)
         {

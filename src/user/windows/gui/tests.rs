@@ -61,13 +61,19 @@ fn fixture_with_client_flags(arch: WinArch, flags: u64) -> io::Result<Arc<Inputs
 }
 
 pub(crate) fn wow64_companion_fixture() -> Arc<Inputs> {
+    let inputs = wow64_companion_inputs(0x34000);
+    inputs.qualify_wow64_companion().unwrap();
+    inputs
+}
+
+fn wow64_companion_inputs(committed: u64) -> Arc<Inputs> {
     let fixture = fixture(WinArch::Arm64);
     let mut client = fixture.client;
     let base = 0x1_0100_0000;
     for index in [4, 5, 12] {
         client[index] = base + (client[index] - fixture.desktop.base);
     }
-    let inputs = Inputs::selected(
+    Inputs::selected(
         WinArch::Arm64,
         View {
             base: 0x1_0000_0000,
@@ -80,12 +86,12 @@ pub(crate) fn wow64_companion_fixture() -> Arc<Inputs> {
                 vec![
                     DataRegion {
                         offset: 0,
-                        size: 0x34000,
-                        bytes: Some(vec![0; 0x34000].into()),
+                        size: committed,
+                        bytes: Some(vec![0; committed as usize].into()),
                     },
                     DataRegion {
-                        offset: 0x34000,
-                        size: 0x13cd000,
+                        offset: committed,
+                        size: 0x1401000 - committed,
                         bytes: None,
                     },
                 ],
@@ -98,9 +104,26 @@ pub(crate) fn wow64_companion_fixture() -> Arc<Inputs> {
         fixture.assigned_desktop.clone(),
         fixture.process_ui_context.clone(),
     )
-    .unwrap();
-    inputs.qualify_wow64_companion().unwrap();
-    inputs
+    .unwrap()
+}
+
+#[test]
+fn wow64_companion_gui_uses_the_captured_desktop_commit_boundary() {
+    for committed in [0x34000, 0x54000, 0x55000, 0x56000] {
+        let inputs = wow64_companion_inputs(committed);
+        inputs.qualify_wow64_companion().unwrap();
+        let mut vm = memory();
+        let mut state = State::new((6, 0));
+        let (gdi, client) = state
+            .prepare_wow64_thread(&mut vm, inputs, 8, 125, 0x600)
+            .unwrap();
+
+        assert!(gdi < 1 << 32 && client[5] < 1 << 32);
+        assert_eq!(client[4], client[5] + 0x1040);
+        assert_eq!(client[12], client[5] + committed);
+        assert_eq!(vm.space().u32(client[12] + 20).unwrap(), 125);
+        assert!(vm.space().w32(client[12] + 20, 99).is_err());
+    }
 }
 
 #[test]

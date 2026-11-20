@@ -4021,7 +4021,11 @@ On Windows build 29708 on ARM64 in session 1, the selected SysWOW64
 TEB GUI fields stayed zero. The companion PEB and TEB held GUI state and
 both read-only views were below 4 GiB. The GDI view committed 0x181000 bytes.
 The desktop view reserved 0x1401000 bytes, of which the first 0x34000
-bytes were committed by the host.
+bytes were committed by the host. Subsequent ARM64 helpers on the same
+build captured 0x54000 and 0x56000 committed bytes. The selector checks
+that the page-aligned committed prefix contains the required client records
+and is followed by reserved space. The first guest thread record starts at
+the captured boundary.
 
 The paired installed USER32 and Win32u images select the native snapshot.
 RAX checks the view extents and excludes aligned self-references to the
