@@ -5,13 +5,16 @@ use crate::user::windows::{arch::WinArch, native::NativeRuntime};
 pub(crate) const CLASS: u32 = 1;
 pub(crate) const BASIC_BYTES: u32 = 48;
 pub(crate) const EXTENDED_BYTES: u32 = 88;
+pub(crate) const WOW64_BASIC_BYTES: u32 = 32;
+pub(crate) const WOW64_EXTENDED_BYTES: u32 = 56;
+pub(crate) const WOW64_PADDING: std::ops::Range<usize> = 20..24;
 
 pub(crate) struct Limits([u64; 11]);
 
 impl Limits {
     pub(crate) fn select(runtime: Option<&NativeRuntime>, arch: WinArch) -> Option<Self> {
         let runtime = runtime?;
-        if arch != WinArch::Arm64
+        if !matches!(arch, WinArch::Arm64 | WinArch::X86)
             || runtime.object_namespace.native_machine != Some(0xAA64)
             || (
                 runtime.version.major,
@@ -21,7 +24,13 @@ impl Limits {
         {
             return None;
         }
-        capture()
+        let limits = capture()?;
+        // The measured 32-bit profile accepts representable SIZE_T values
+        // and the all-ones sentinel. Other oversized values remain unqualified.
+        if arch == WinArch::X86 && limits.wow64_encoded().is_none() {
+            return None;
+        }
+        Some(limits)
     }
 
     pub(crate) fn encoded(&self) -> [u8; EXTENDED_BYTES as usize] {
@@ -30,6 +39,25 @@ impl Limits {
             out.copy_from_slice(&value.to_le_bytes());
         }
         bytes
+    }
+
+    pub(crate) fn wow64_encoded(&self) -> Option<[u8; WOW64_EXTENDED_BYTES as usize]> {
+        let mut bytes = [0; WOW64_EXTENDED_BYTES as usize];
+        let sizes = self.0[..5].iter().chain(&self.0[6..10]);
+        let (basic, extended) = bytes.split_at_mut(WOW64_BASIC_BYTES as usize);
+        let fields = basic[..WOW64_PADDING.start]
+            .chunks_exact_mut(4)
+            .chain(extended[..16].chunks_exact_mut(4));
+        for (value, out) in sizes.zip(fields) {
+            let value = match *value {
+                u64::MAX => u32::MAX,
+                value => u32::try_from(value).ok()?,
+            };
+            out.copy_from_slice(&value.to_le_bytes());
+        }
+        basic[WOW64_PADDING.end..].copy_from_slice(&self.0[5].to_le_bytes());
+        extended[16..].copy_from_slice(&self.0[10].to_le_bytes());
+        Some(bytes)
     }
 
     #[cfg(test)]
