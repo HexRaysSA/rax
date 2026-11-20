@@ -30,6 +30,10 @@ on:
         description: Measure fixed current-session USER connection geometry
         type: boolean
         default: false
+      measure_native_user_request:
+        description: Observe the installed AMD64 client USER request fields
+        type: boolean
+        default: false
       measure_startup_queries:
         description: Capture native startup license and MUI observations
         type: boolean
@@ -210,6 +214,50 @@ jobs:
           if ($identity.exit_code -ne 0 -or !$identity.inputs_unchanged -or
               !(Select-String -LiteralPath $log -Pattern '^complete samples=2$' -Quiet)) {
             throw 'Native USER connection observations did not complete'
+          }
+      - name: Observe the native AMD64 USER request
+        if: ${{ !cancelled() && inputs.measure_native_user_request && matrix.target == 'x86_64-pc-windows-msvc' }}
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-alpc-csr/amd64-user-request-shape.cpp'
+          $exe = Join-Path $env:TMPDIR 'amd64-user-request-shape.exe'
+          $obj = Join-Path $env:TMPDIR 'amd64-user-request-shape.obj'
+          $log = Join-Path $root 'amd64-user-request-shape.log'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $findstr = Join-Path $env:SystemRoot 'System32/findstr.exe'
+          $hash = { param($path) (Get-FileHash -LiteralPath $path).Hash.ToLowerInvariant() }
+          $sourceHash = & $hash $source
+          $ntdllHash = & $hash $ntdll
+          $findstrHash = & $hash $findstr
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$vs) { throw 'MSVC development shell is unavailable' }
+          & (Join-Path $vs 'Common7/Tools/Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          cl.exe /nologo /std:c++20 /MT /EHsc /W4 /WX "/Fo$obj" "/Fe$exe" $source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exeHash = & $hash $exe
+          $PSNativeCommandUseErrorActionPreference = $false
+          & $exe 2>&1 | Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          $identity = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            source_sha256 = $sourceHash
+            ntdll_sha256 = $ntdllHash
+            findstr_sha256 = $findstrHash
+            exe_sha256 = $exeHash
+            exit_code = $exitCode
+            log_sha256 = & $hash $log
+            inputs_unchanged = (
+              $sourceHash -eq (& $hash $source) -and $ntdllHash -eq (& $hash $ntdll) -and
+              $findstrHash -eq (& $hash $findstr) -and $exeHash -eq (& $hash $exe)
+            )
+          }
+          $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'amd64-user-request-identity.json') -Encoding utf8
+          if ($exitCode -ne 0 -or !$identity.inputs_unchanged -or
+              @(Select-String -LiteralPath $log -Pattern '^sample=[01] observed=1 child_exited=1 exit=1 calls=').Count -ne 2) {
+            throw 'Native USER request observation did not complete'
           }
       - name: Measure the native startup license queries
         if: ${{ !cancelled() && inputs.measure_startup_queries && steps.stock.outcome != 'skipped' }}
@@ -497,6 +545,8 @@ jobs:
             target/windows-installed-process/filter-capi.log
             target/windows-installed-process/native-user-shape.log
             target/windows-installed-process/native-user-shape-identity.json
+            target/windows-installed-process/amd64-user-request-shape.log
+            target/windows-installed-process/amd64-user-request-identity.json
             target/windows-installed-process/startup-license.json
             target/windows-installed-process/startup-license-identity.json
             target/windows-installed-process/native-mui-query.log
