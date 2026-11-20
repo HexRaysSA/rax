@@ -310,6 +310,9 @@ fn compare_windows_installed_program(
         if let Some((service, name)) = stopped_native_request(&process, &stopped) {
             eprintln!("guest {service} requested {name:?}");
         }
+        if let Some(shape) = stopped_token_duplicate_shape(&process, &stopped) {
+            eprintln!("guest NtDuplicateToken request {shape}");
+        }
         panic!(
             "guest {} stopped after {} scheduler turns: {}",
             opened["architecture"],
@@ -348,6 +351,112 @@ fn compare_windows_installed_program(
 }
 
 #[cfg(windows)]
+fn stopped_token_duplicate_shape(process: &Owned, stopped: &serde_json::Value) -> Option<String> {
+    let diagnostic = stopped["diagnostic"].as_str()?;
+    let suffix =
+        diagnostic.strip_prefix("emulator failure: native NTDLL service NtDuplicateToken")?;
+    if !suffix.starts_with([':', ' ']) {
+        return None;
+    }
+    let thread = ready_native_thread(stopped)?;
+    let hex = |value: &serde_json::Value| {
+        u64::from_str_radix(value.as_str()?.strip_prefix("0x")?, 16).ok()
+    };
+    let register = |index| hex(thread["registers"].get(index)?);
+    let read = |address, bytes: &mut [u8]| {
+        rax_process_mem_read(process.0, address, bytes.as_mut_ptr(), bytes.len()) == RaxStatus::Ok
+    };
+    let (source, access, attributes, effective, kind, output) =
+        match stopped["architecture"].as_str()? {
+            "x64" => {
+                let sp = hex(&thread["sp"])?;
+                let mut stack = [0; 16];
+                if !read(sp.checked_add(40)?, &mut stack) {
+                    return None;
+                }
+                (
+                    register(10usize)?,
+                    register(2)?,
+                    register(8)?,
+                    register(9)?,
+                    u64::from_le_bytes(stack[..8].try_into().ok()?),
+                    u64::from_le_bytes(stack[8..].try_into().ok()?),
+                )
+            }
+            "arm64" => (
+                register(0)?,
+                register(1)?,
+                register(2)?,
+                register(3)?,
+                register(4)?,
+                register(5)?,
+            ),
+            _ => return None,
+        };
+    let role = match source {
+        0 => "null",
+        u64::MAX => "current-process",
+        n if n == u64::MAX - 1 => "current-thread",
+        n if n == u64::MAX - 3 => "current-process-token",
+        n if n == u64::MAX - 4 => "current-thread-token",
+        n if n == u64::MAX - 5 => "current-thread-effective-token",
+        _ => "handle",
+    };
+    let mut shape = format!(
+        "source={role} access={:#x} effective={} kind={} output_present={}",
+        access as u32,
+        effective as u8,
+        kind as u32,
+        output != 0
+    );
+    if attributes == 0 {
+        shape.push_str(" attributes=absent");
+        return Some(shape);
+    }
+    let mut header = [0; 48];
+    if !read(attributes, &mut header) {
+        shape.push_str(" attributes=unreadable");
+        return Some(shape);
+    }
+    let word = |offset| u32::from_le_bytes(header[offset..offset + 4].try_into().unwrap());
+    let pointer = |offset| u64::from_le_bytes(header[offset..offset + 8].try_into().unwrap());
+    let quality = pointer(40);
+    shape.push_str(&format!(
+        " attributes_bytes={} flags={:#x} named={} descriptor_present={}",
+        word(0),
+        word(24),
+        pointer(8) != 0 || pointer(16) != 0,
+        pointer(32) != 0
+    ));
+    if quality == 0 {
+        shape.push_str(" quality=absent");
+    } else {
+        let mut qos = [0; 12];
+        if read(quality, &mut qos) {
+            let length = u32::from_le_bytes(qos[..4].try_into().ok()?);
+            let level = u32::from_le_bytes(qos[4..8].try_into().ok()?);
+            shape.push_str(&format!(
+                " quality_bytes={length} level={level} tracking={} quality_effective={}",
+                qos[8], qos[9]
+            ));
+        } else {
+            shape.push_str(" quality=unreadable");
+        }
+    }
+    Some(shape)
+}
+
+#[cfg(windows)]
+fn ready_native_thread(stopped: &serde_json::Value) -> Option<&serde_json::Value> {
+    let mut ready = stopped["threads"]
+        .as_array()?
+        .iter()
+        .filter(|thread| thread["state"] == "ready");
+    let thread = ready.next()?;
+    ready.next().is_none().then_some(thread)
+}
+
+#[cfg(windows)]
 fn stopped_native_request(
     process: &Owned,
     stopped: &serde_json::Value,
@@ -380,14 +489,7 @@ fn stopped_native_request(
         "arm64" => argument,
         _ => return None,
     };
-    let mut ready = stopped["threads"]
-        .as_array()?
-        .iter()
-        .filter(|thread| thread["state"] == "ready");
-    let thread = ready.next()?;
-    if ready.next().is_some() {
-        return None;
-    }
+    let thread = ready_native_thread(stopped)?;
     let address = thread["registers"]
         .get(register)?
         .as_str()?
