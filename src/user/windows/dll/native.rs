@@ -602,7 +602,7 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         &[Ptr, I32, Ptr, I32, I32, Ptr],
         token_duplicate::duplicate,
     )
-    .only(Archs::ARM64),
+    .only(Archs::WIN64),
     Export::func(
         "NtQueryInstallUILanguage",
         Stdcall,

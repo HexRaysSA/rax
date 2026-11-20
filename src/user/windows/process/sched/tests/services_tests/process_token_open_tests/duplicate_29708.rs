@@ -221,7 +221,7 @@ fn native_duplicate_token_rejects_unmeasured_profiles_and_abis() {
         1346
     );
     assert!(nt_service(NAME, WinArch::X86).is_none());
-    assert!(nt_service(NAME, WinArch::X64).is_none());
+    assert!(nt_service(NAME, WinArch::X64).is_some());
     for profile in [
         None,
         Some((29707, 0xaa64)),

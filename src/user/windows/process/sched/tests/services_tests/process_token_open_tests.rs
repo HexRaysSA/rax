@@ -94,6 +94,72 @@ fn captured(p: &mut Proc) {
 }
 
 #[test]
+fn native_duplicate_current_subject_respects_source_access_and_owned_request() {
+    use super::{native_profile::kernel_profile, terminal_fixture};
+    use crate::user::windows::loader::services::tests::named_table;
+    const NUMBER: u32 = 0x42;
+    const SENTINEL: u64 = 0xa5a5_a5a5_a5a5_a5a5;
+    for (arch, build) in [
+        (WinArch::X64, 20348),
+        (WinArch::X64, 26100),
+        (WinArch::Arm64, 26200),
+    ] {
+        let (mut process, mut thread, module) = terminal_fixture(arch);
+        let p = process.state_mut();
+        kernel_profile(p, build, arch.machine());
+        p.modules.nt_services = Some((module, named_table(arch, "NtDuplicateToken", NUMBER)));
+        captured(p);
+        let attributes = scratch(p);
+        let quality = attributes + 0x80;
+        let output = attributes + 0x100;
+        p.space.w32(attributes, 48).unwrap();
+        p.space.w64(attributes + 40, quality).unwrap();
+        p.space.w32(quality, 12).unwrap();
+        p.space.w32(quality + 4, 2).unwrap();
+        p.space.w8(quality + 8, 1).unwrap();
+        let source = p.objects.open_primary_token(10, false).unwrap();
+        let query_only = p.objects.open_primary_token(8, false).unwrap();
+        let handle_count = p.objects.handle_count();
+        let invoke = |p: &mut Proc, thread: &mut Thread, token: u32, desired: u64| {
+            p.space.w64(output, SENTINEL).unwrap();
+            thread.cpu.set_pc(0x1234_0004);
+            let args = [token.into(), desired, attributes, 0, 2, output];
+            if arch == WinArch::X64 {
+                thread.cpu.set_gpr(0, NUMBER.into());
+                for (register, value) in [10, 2, 8, 9].into_iter().zip(args) {
+                    thread.cpu.set_gpr(register, value);
+                }
+                p.space.w64(thread.cpu.sp() + 40, args[4]).unwrap();
+                p.space.w64(thread.cpu.sp() + 48, args[5]).unwrap();
+            } else {
+                for (register, value) in args.into_iter().enumerate() {
+                    thread.cpu.set_gpr(register, value);
+                }
+            }
+            handle_stop(p, thread, stop(arch, NUMBER))
+        };
+        assert_eq!(invoke(p, &mut thread, source, 12), Outcome::Continue);
+        assert_eq!(thread.cpu.gpr(0), u64::from(STATUS_SUCCESS));
+        let target = p.space.u64(output).unwrap();
+        assert_ne!(p.objects.id(target), p.objects.id(source.into()));
+        assert!(matches!(
+            p.objects.get(target),
+            Some(Object::GuestImpersonationToken { level: 2, .. })
+        ));
+        assert_eq!(p.objects.access(target), Some(12));
+        p.objects.close(target).unwrap();
+
+        assert_eq!(invoke(p, &mut thread, query_only, 12), Outcome::Continue);
+        assert_eq!(thread.cpu.gpr(0), u64::from(STATUS_ACCESS_DENIED));
+        assert_eq!(p.space.u64(output).unwrap(), SENTINEL);
+        assert!(matches!(invoke(p, &mut thread, source, 8),
+            Outcome::Fail(reason) if reason.contains("unmeasured installed NtDuplicateToken request")));
+        assert_eq!(p.space.u64(output).unwrap(), SENTINEL);
+        assert_eq!(p.objects.handle_count(), handle_count);
+    }
+}
+
+#[test]
 fn native_process_token_opens_share_identity_and_keep_independent_grants_all_abis() {
     for arch in WinArch::ALL {
         let (mut process, mut thread) = fixture(arch, "NtOpenProcessToken", SERVICE);

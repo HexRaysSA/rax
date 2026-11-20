@@ -1,4 +1,4 @@
-//! Installed ARM64 token duplication for the guest's immutable primary subject.
+//! Installed token duplication for the guest's immutable primary subject.
 
 use super::query::{probe_write, write_guard_result};
 use crate::user::windows::arch::WinArch;
@@ -8,6 +8,7 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
 const TOKEN_DUPLICATE: u32 = 2;
+const TOKEN_IMPERSONATE_QUERY: u32 = 0x0c;
 const TOKEN_IMPERSONATION: u32 = 2;
 const OBJ_INHERIT: u32 = 2;
 const OBJ_KERNEL_HANDLE: u32 = 0x200;
@@ -15,20 +16,23 @@ const MEASURED_ATTRIBUTES: u32 =
     OBJ_INHERIT | 0x20 | 0x40 | 0x80 | OBJ_KERNEL_HANDLE | 0x400 | 0x800 | 0x1000 | 0x10000;
 
 pub(super) fn duplicate(c: &mut Ctx) -> ApiResult {
-    let qualified = c.arch() == WinArch::Arm64
-        && c.p.native.as_ref().is_some_and(|runtime| {
-            let version = &runtime.version;
-            (version.major, version.minor, version.build) == (10, 0, 29708)
-                && runtime.object_namespace.native_machine == Some(0xaa64)
-        });
-    if !qualified {
+    let arch = c.arch();
+    let Some(runtime) = c.p.native.as_ref().filter(|runtime| {
+        (runtime.version.major, runtime.version.minor) == (10, 0)
+            && runtime.object_namespace.native_machine == Some(arch.machine())
+    }) else {
         return Err(c.unsupported("unmeasured installed NtDuplicateToken profile"));
-    }
-    let result = checked(c);
+    };
+    let stock_request_only = match (arch, runtime.version.build) {
+        (WinArch::Arm64, 29708) => false,
+        (WinArch::X64, 20348 | 26100) | (WinArch::Arm64, 26200) => true,
+        _ => return Err(c.unsupported("unmeasured installed NtDuplicateToken profile")),
+    };
+    let result = checked(c, stock_request_only);
     write_guard_result(c, result)
 }
 
-fn checked(c: &mut Ctx) -> ApiResult {
+fn checked(c: &mut Ctx, stock_request_only: bool) -> ApiResult {
     let (source, desired, oa, effective, kind, output) = (
         c.ptr(0)?,
         c.u32(1)?,
@@ -37,6 +41,15 @@ fn checked(c: &mut Ctx) -> ApiResult {
         c.u32(4)?,
         c.ptr(5)?,
     );
+    if stock_request_only
+        && (desired != TOKEN_IMPERSONATE_QUERY
+            || oa == 0
+            || effective != 0
+            || kind != TOKEN_IMPERSONATION
+            || output == 0)
+    {
+        return Err(c.unsupported("unmeasured installed NtDuplicateToken request"));
+    }
     if !matches!(kind, 1 | TOKEN_IMPERSONATION) {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
@@ -60,6 +73,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
             return Err(c.unsupported("named or security-descriptor token duplication"));
         }
         let quality = pointer(40);
+        if stock_request_only && (attributes != 0 || quality == 0) {
+            return Err(c.unsupported("unmeasured installed NtDuplicateToken attributes"));
+        }
         if quality != 0 {
             if quality % 4 != 0 {
                 return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
@@ -77,6 +93,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
                 return Err(c.unsupported("unmeasured token context-tracking mode"));
             }
             inner_effective = qos[9];
+            if stock_request_only && (level != 2 || qos[8] != 1 || inner_effective != 0) {
+                return Err(c.unsupported("unmeasured installed NtDuplicateToken QoS"));
+            }
         }
     }
     if source == u64::MAX || source == u64::MAX - 1 {
