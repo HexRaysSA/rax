@@ -2,6 +2,7 @@
 //! Lock order is PC I/O APIC -> all LAPICs in CPU order. No native CPU method,
 //! guest callback or bus transaction runs while these model locks are held.
 use super::*;
+use crate::devices::rtc::RTC_IRQ;
 
 #[path = "pc_interrupts/routing.rs"]
 mod routing;
@@ -76,9 +77,10 @@ impl Vmm {
         Ok(Some((irq as u8, pending)))
     }
 
-    /// Stopped device completion may change a UART line before capture. Publish
-    /// that source level without consuming any queued controller message/EOI.
+    /// Advance RTC sources and publish all changed levels before capture.
+    /// Leave queued controller events for the next dispatch boundary.
     pub(super) fn refresh_pc_irq_sources(&self) -> Result<()> {
+        self.poll_pc_rtc()?;
         if let (Some(pc), Some((pin, asserted))) = (&self.pc_devices, self.software_serial_level()?)
         {
             pc.ioapic
@@ -90,6 +92,7 @@ impl Vmm {
     }
 
     pub(super) fn route_pc_interrupts(&self) -> Result<()> {
+        self.poll_pc_rtc()?;
         if self.checkpoint_config.arch != ArchKind::X86_64 || self.vm.uses_native_x86_irqchip() {
             return Ok(());
         }
@@ -115,6 +118,41 @@ impl Vmm {
             ioapic.set_irq(pin, asserted);
         }
         routing::route_messages(&mut ioapic, &mut apics)
+    }
+
+    pub(super) fn poll_pc_rtc(&self) -> Result<()> {
+        self.sync_pc_rtc_irq(Some(self.timing_context.elapsed_nanos()))
+    }
+
+    pub(super) fn sync_pc_rtc_irq(&self, now: Option<u64>) -> Result<()> {
+        let Some(pc) = &self.pc_devices else {
+            return Ok(());
+        };
+        let poisoned = |device| Error::Emulator(format!("{device} RTC route lock poisoned"));
+        let mut rtc = pc.rtc.lock().map_err(|_| poisoned("CMOS"))?;
+        if let Some(now) = now {
+            rtc.poll(now);
+        }
+        let asserted = rtc.has_pending_interrupt();
+        if rtc.published_irq == asserted {
+            return Ok(());
+        }
+        if self.vm.uses_native_x86_irqchip() {
+            // Register C can already have been consumed by the device.
+            // A native line failure must prevent entry with divergent state.
+            self.vm
+                .set_irq_line(u32::from(RTC_IRQ), asserted)
+                .inspect_err(|_| self.vm.poison_checkpoint_restore())?;
+        } else {
+            // Match PC inventory capture order. Preflight both controller
+            // locks before publishing a level to either of them.
+            let mut ioapic = pc.ioapic.lock().map_err(|_| poisoned("I/O APIC"))?;
+            let mut pic = self.pic.lock().map_err(|_| poisoned("PIC"))?;
+            ioapic.set_irq(RTC_IRQ, asserted);
+            pic.set_irq(RTC_IRQ, asserted);
+        }
+        rtc.published_irq = asserted;
+        Ok(())
     }
 
     /// Publish one timer edge to the existing PIC coalescing path and the PC's

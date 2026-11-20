@@ -159,6 +159,10 @@ impl IoApicCheckpoint {
 }
 
 impl PreparedIoApicCheckpoint {
+    pub(crate) fn line_asserted(&self, gsi: u8) -> bool {
+        self.line_asserted[usize::from(gsi)]
+    }
+
     pub(crate) fn commit(self, target: &mut IoApic) {
         target.ioregsel = self.ioregsel;
         target.id = self.id;

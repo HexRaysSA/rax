@@ -215,8 +215,11 @@ fn truncated_unknown_tag_and_trailing_pc_images_reject() {
         assert!(PcCheckpoint::decode(&raw[..end]).is_err(), "prefix {end}");
     }
     let mut unknown = raw.clone();
-    unknown[7] = b'3';
+    unknown[7] = b'4';
     assert!(PcCheckpoint::decode(&unknown).is_err());
+    let mut invalid_phase = raw.clone();
+    invalid_phase[8..16].copy_from_slice(&u64::MAX.to_le_bytes());
+    assert!(PcCheckpoint::decode(&invalid_phase).is_err());
     let mut trailing = raw;
     trailing.push(0);
     assert!(PcCheckpoint::decode(&trailing).is_err());
@@ -386,9 +389,12 @@ fn owned_machine_boot_binds_each_iso_to_its_original_device_set() {
 fn legacy_calendar_tags_reencode_and_wall_restore_but_retired_denies_before_publish() {
     use crate::vm::timing::{ClockMode, TimingContext};
     let (source, _, _) = device_set();
-    let (image, resources) = capture(&source);
+    let (mut image, resources) = capture(&source);
+    assert_eq!(&image.encoded().unwrap()[..8], b"RAXPCD03");
+    image.rtc_timing = None;
     let raw = image.encoded().unwrap();
     assert_eq!(&raw[..8], b"RAXPCD02");
+    assert_eq!(PcCheckpoint::decode(&raw).unwrap().encoded().unwrap(), raw);
     let mut legacy = raw.clone();
     legacy[..8].copy_from_slice(b"RAXPCD01");
     let decoded = PcCheckpoint::decode(&legacy).unwrap();

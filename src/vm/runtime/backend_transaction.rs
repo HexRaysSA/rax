@@ -14,6 +14,7 @@ pub(super) struct BackendRestore<'a, 'boundary, 'scope> {
     pub bundle: &'a SnapshotBundle,
     pub timing: &'a Arc<crate::vm::timing::TimingContext>,
     pub disposable: bool,
+    pub rtc_irq_level: Option<bool>,
 }
 
 impl BackendRestore<'_, '_, '_> {
@@ -138,6 +139,7 @@ impl BackendRestore<'_, '_, '_> {
             Error::InvalidConfig("native KVM checkpoint requires its managed VM owner".into())
         })?;
         let source = CheckpointImage::from_checkpoint_bundle(self.bundle)?;
+        source.validate_rtc_irq_level(self.rtc_irq_level)?;
         let phase = self.bundle.clock().copied().ok_or_else(|| {
             Error::InvalidConfig("native KVM checkpoint requires a software-device clock".into())
         })?;

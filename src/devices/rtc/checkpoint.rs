@@ -1,5 +1,7 @@
 //! Pure modeled RTC state; target runtime ownership remains outside this image.
-use super::{REG_A, REG_A_UIP, REG_C, REG_D, REG_D_VRT, RtcStub};
+use super::{
+    OSCILLATOR_PHASE_MODULUS, REG_A, REG_A_UIP, REG_B, REG_C, REG_C_IRQF, REG_D, REG_D_VRT, RtcStub,
+};
 use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +15,52 @@ pub(crate) struct RtcCheckpoint {
 
 pub(crate) struct PreparedRtcCheckpoint(RtcCheckpoint);
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct RtcTimingCheckpoint {
+    periodic_phase: u64,
+    last_polled_nanos: u64,
+    last_calendar_second: u64,
+}
+
+impl RtcTimingCheckpoint {
+    pub(crate) const WIRE_SIZE: usize = 24;
+
+    pub(crate) fn validate(&self) -> Result<()> {
+        if self.periodic_phase >= OSCILLATOR_PHASE_MODULUS {
+            return Err(Error::InvalidConfig("invalid RTC oscillator phase".into()));
+        }
+        Ok(())
+    }
+}
+
 impl RtcStub {
+    pub(crate) fn timing_checkpoint(&self) -> RtcTimingCheckpoint {
+        RtcTimingCheckpoint {
+            periodic_phase: self.periodic_phase,
+            last_polled_nanos: self.last_polled_nanos,
+            last_calendar_second: self.last_calendar_second,
+        }
+    }
+
+    pub(crate) fn restore_timing(&mut self, timing: Option<RtcTimingCheckpoint>) {
+        if let Some(timing) = timing {
+            self.periodic_phase = timing.periodic_phase;
+            self.last_polled_nanos = timing.last_polled_nanos;
+            self.published_irq = self.has_pending_interrupt();
+            self.last_calendar_second = if self.uses_retired_calendar() {
+                timing.last_calendar_second
+            } else {
+                self.calendar.timestamp().as_secs()
+            };
+        } else {
+            // Old producers didn't advance or publish IRQ8 from the VMM.
+            self.periodic_phase = 0;
+            self.last_polled_nanos = crate::vm::timing::elapsed_nanos();
+            self.last_calendar_second = self.calendar.timestamp().as_secs();
+            self.published_irq = false;
+        }
+    }
+
     pub(crate) fn checkpoint_state(&self) -> RtcCheckpoint {
         RtcCheckpoint {
             cmos: self.cmos,
@@ -24,6 +71,14 @@ impl RtcStub {
 }
 
 impl RtcCheckpoint {
+    pub(crate) fn validate_irq_summary(&self) -> Result<()> {
+        let summary = self.cmos[REG_C as usize];
+        if (summary & REG_C_IRQF != 0) != (summary & self.cmos[REG_B as usize] & 0x70 != 0) {
+            return Err(Error::InvalidConfig("invalid RTC IRQ summary".into()));
+        }
+        Ok(())
+    }
+
     pub(crate) fn prepare(&self) -> Result<PreparedRtcCheckpoint> {
         if self.index >= 128
             || self.cmos[REG_A as usize] & REG_A_UIP != 0
@@ -37,6 +92,10 @@ impl RtcCheckpoint {
 }
 
 impl PreparedRtcCheckpoint {
+    pub(crate) fn irq_asserted(&self) -> bool {
+        self.0.cmos[REG_C as usize] & REG_C_IRQF != 0
+    }
+
     pub(crate) fn commit(self, target: &mut RtcStub) {
         target.cmos = self.0.cmos;
         target.index = self.0.index;

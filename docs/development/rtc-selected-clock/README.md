@@ -40,10 +40,14 @@ VM contract still requires independent writers to remain quiescent.
 
 | Private tags | Calendar restore admission |
 | --- | --- |
+| `RAXPCD03` | Bundle-selected Wall or Retired calendar with PC RTC oscillator phase. |
 | `RAXPCD02`, `RAXSLI02` | Bundle-selected Wall or Retired calendar. |
 | `RAXPCD01`, `RAXSLI01` | Existing Wall behavior only; Retired restoration rejects before publication. |
 
-The payload field layouts remain unchanged. New tags distinguish this calendar
+The selected-calendar change preserved its original payload field layouts.
+The later PC IRQ8 change adds an oscillator phase to
+[RAXPCD03](../pc-machine-checkpoint/README.md#rtc-oscillator-phase-and-irq8).
+The selected-calendar tags distinguish this calendar
 contract from older host-backed images. Decoding and re-encoding a legacy image
 preserves its old tag. Legacy Wall imports remain supported. Existing retired
 PC/S5L files with old calendar tags are not silently upgraded or treated as

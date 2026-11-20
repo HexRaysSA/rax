@@ -13,10 +13,11 @@ does not qualify that two-call API for concurrent use.
 
 ## Wire and resource admission
 
-RAXEXE04 extends the execution record with a length-prefixed RAXPCD02 control
-image. RAXEXE01/02/03 remain readable. Complete PC execution restoration rejects
-an older execution image without PC state. Historical base-only represented
-state remains a separate API and does not acquire missing device state.
+RAXEXE04 extends the execution record with a length-prefixed PC control image.
+The current control tag is RAXPCD03. RAXEXE01/02/03 remain readable. Complete PC
+execution restoration rejects an older execution image without PC state.
+Historical base-only represented state remains a separate API and does not
+acquire missing device state.
 
 Small state uses the strict bounded legacy codec. The PC control image is limited
 to 62,914,560 bytes within the 67,108,864-byte execution section. Dynamic collection
@@ -91,6 +92,28 @@ qualifies resource framing; it does not establish any backend private-state comp
 The [selected-calendar follow-up](../rtc-selected-clock/README.md) qualifies
 CMOS time/UIP/alarm clock binding,actual guest PIO continuation and explicit
 RAXPCD01 Wall-only versus RAXPCD02 selected-calendar admission.
+
+## RTC oscillator phase and IRQ8
+
+RAXPCD03 prefixes the RAXPCD02 body with three little-endian 64-bit values.
+They record the oscillator phase in units of 1/1,000,000,000 of one
+32,768 Hz oscillator cycle, the last sampled VM nanosecond counter, and
+the last sampled UTC calendar second. RAXPCD01 and RAXPCD02 contain no IRQ8
+oscillator phase. Their imports start a new periodic phase and retain the
+calendar admission described above.
+
+On capture, the VMM polls RTC and publishes the pending IRQ8 level before
+sampling the controller banks. On restore, the recorded Register C level
+must agree with the saved I/O APIC input or native KVM GSI8. Software restore
+rebinds the PIC input without generating an edge. Reading Register C clears
+the RTC flags and lowers the line, including when checkpoint settlement
+services a pending native PIO read. A failed native line update disables
+guest entry because the RTC and native controller can have diverged.
+
+The detached-file test requires no delivery at 976,562 ns and delivery
+at 976,563 ns for the 1,024 Hz rate. Its second capture holds IRQ8 asserted
+after both controllers accept it. Restore preserves the held state, and
+EOI after Register C acknowledgement does not generate a second delivery.
 
 ## Software PIT speaker wiring
 

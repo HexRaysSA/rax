@@ -219,6 +219,12 @@ impl Vmm {
         let pc_restore = pc_image
             .map(|image| image.prepare(&resources))
             .transpose()?;
+        let native_irqchip = self.vm.uses_native_x86_irqchip();
+        let rtc_irq_level = pc_restore
+            .as_ref()
+            .map(|pc| pc.rtc_irq_level(native_irqchip))
+            .transpose()?
+            .flatten();
         if referenced != resources.keys().collect() {
             return Err(Error::InvalidConfig(
                 "checkpoint contains unreferenced resources".into(),
@@ -380,6 +386,9 @@ impl Vmm {
                 .pit
                 .set_channel2_gate_at(pc.speaker_gate(), publication_clock.elapsed_nanos);
         }
+        if !native_irqchip && let Some(level) = rtc_irq_level {
+            devices.pic.restore_rtc_irq_level(level);
+        }
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
         // UART/PCI -> PC inventory -> shared platform -> legacy -> owned S3C UART/GIC -> RAM.
@@ -472,6 +481,7 @@ impl Vmm {
                     bundle,
                     timing: timing_context,
                     disposable,
+                    rtc_irq_level,
                 }
                 .commit(physical, memory.as_deref())?;
             } else {

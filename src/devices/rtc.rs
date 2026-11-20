@@ -37,6 +37,8 @@ use super::bus::IoDevice;
 pub const RTC_ADDRESS: u16 = 0x70;
 /// CMOS/RTC data port.
 pub const RTC_DATA: u16 = 0x71;
+/// ISA IRQ and the corresponding PC I/O APIC input for the RTC.
+pub(crate) const RTC_IRQ: u8 = 8;
 
 // --- CMOS register indices ---------------------------------------------------
 
@@ -72,6 +74,9 @@ const REG_EXT_MEM_HI_2: u8 = 0x31;
 const REG_A_UIP: u8 = 0x80;
 /// Register A rate-select mask (bits 0-3).
 const REG_A_RATE_MASK: u8 = 0x0f;
+const OSCILLATOR_HZ: u64 = 32_768;
+const OSCILLATOR_PHASE_UNIT: u64 = 1_000_000_000;
+const OSCILLATOR_PHASE_MODULUS: u64 = 16_384 * OSCILLATOR_PHASE_UNIT;
 
 // --- Register B bits ---------------------------------------------------------
 
@@ -120,6 +125,10 @@ use crate::vm::timing::{CalendarClock, DateTime};
 /// `arch/x86_64`. [`Rtc`] is provided as a clearer alias.
 pub struct RtcStub {
     calendar: CalendarClock,
+    periodic_phase: u64,
+    last_calendar_second: u64,
+    last_polled_nanos: u64,
+    pub(crate) published_irq: bool,
     /// 128 bytes of CMOS RAM, including the control registers at 0x0A-0x0D.
     cmos: [u8; 128],
     /// Currently selected register index (0x00-0x7F).
@@ -160,8 +169,14 @@ impl RtcStub {
         cmos[REG_EXT_MEM_LO_2 as usize] = ext_kib as u8;
         cmos[REG_EXT_MEM_HI_2 as usize] = (ext_kib >> 8) as u8;
 
+        let calendar = CalendarClock::selected();
+        let last_calendar_second = calendar.timestamp().as_secs();
         RtcStub {
-            calendar: CalendarClock::selected(),
+            calendar,
+            last_calendar_second,
+            periodic_phase: 0,
+            last_polled_nanos: crate::vm::timing::elapsed_nanos(),
+            published_irq: false,
             cmos,
             index: 0,
             nmi_disabled: false,
@@ -273,7 +288,10 @@ impl RtcStub {
 
         check(self.cmos[REG_SECONDS_ALARM as usize], to_cmp(now.second))
             && check(self.cmos[REG_MINUTES_ALARM as usize], to_cmp(now.minute))
-            && check(self.cmos[REG_HOURS_ALARM as usize], to_cmp(now.hour))
+            && check(
+                self.cmos[REG_HOURS_ALARM as usize],
+                self.format_hours(now.hour),
+            )
     }
 
     /// Recompute the Register C IRQF summary bit from the source flags and the
@@ -300,50 +318,60 @@ impl RtcStub {
     ///
     /// Returns `true` if IRQ8 is asserted after this call.
     pub fn tick(&mut self, elapsed_nanos: u64) -> bool {
-        let b = self.cmos[REG_B as usize];
+        self.advance_clock(elapsed_nanos, self.calendar.timestamp().as_secs())
+    }
 
-        // While the SET bit is asserted, updates are frozen — no update-ended
-        // or alarm processing occurs.
-        if b & REG_B_SET == 0 {
-            let now = self.now();
+    /// Advance the PC-owned clock to the VMM's current publication boundary.
+    pub(crate) fn poll(&mut self, now: u64) {
+        let elapsed = now.wrapping_sub(std::mem::replace(&mut self.last_polled_nanos, now));
+        let second = if self.uses_retired_calendar() {
+            crate::vm::timing::calendar::RETIRED_CALENDAR_ORIGIN + now / 1_000_000_000
+        } else {
+            self.calendar.timestamp().as_secs()
+        };
+        self.advance_clock(elapsed, second);
+    }
 
-            // Update-ended interrupt: flagged once per second. We approximate
-            // "an update ended" by flagging whenever at least one second of
-            // wall-clock has been crossed since construction; here we flag on
-            // any tick where the update would have completed.
+    fn advance_clock(&mut self, elapsed_nanos: u64, unix_second: u64) -> bool {
+        let previous = std::mem::replace(&mut self.last_calendar_second, unix_second);
+        if self.cmos[REG_B as usize] & REG_B_SET == 0 && unix_second > previous {
             self.cmos[REG_C as usize] |= REG_C_UF;
-
-            // Alarm interrupt.
-            if self.alarm_matches(&now) {
-                self.cmos[REG_C as usize] |= REG_C_AF;
+            if self.cmos[REG_C as usize] & REG_C_AF == 0 {
+                // Alarm selectors recur daily. A longer delay cannot expose
+                // a distinct match beyond the most recent complete day.
+                let first = (previous + 1).max(unix_second.saturating_sub(86_399));
+                if (first..=unix_second).any(|second| {
+                    self.alarm_matches(&crate::vm::timing::calendar::from_unix_seconds(second))
+                }) {
+                    self.cmos[REG_C as usize] |= REG_C_AF;
+                }
             }
         }
 
-        // Periodic interrupt: if a non-zero rate is selected, any elapsed time
-        // beyond a single period flags PF. A rate of 0 disables the divider.
-        if let Some(period_ns) = self.periodic_period_nanos() {
-            if elapsed_nanos >= period_ns {
+        // Accumulate exact oscillator phase even when no individual poll
+        // spans a full period. Every selectable divisor divides 16,384.
+        let phase = u128::from(self.periodic_phase);
+        let end = phase + u128::from(elapsed_nanos) * u128::from(OSCILLATOR_HZ);
+        if let Some(period) = self.periodic_divisor() {
+            let interval = u128::from(period) * u128::from(OSCILLATOR_PHASE_UNIT);
+            if phase / interval < end / interval {
                 self.cmos[REG_C as usize] |= REG_C_PF;
             }
         }
+        self.periodic_phase = (end % u128::from(OSCILLATOR_PHASE_MODULUS)) as u64;
 
         self.update_irqf();
         self.has_pending_interrupt()
     }
 
-    /// Periodic-interrupt period in nanoseconds for the current Register A
-    /// rate-select bits, or `None` if periodic interrupts are disabled.
-    fn periodic_period_nanos(&self) -> Option<u64> {
+    /// Oscillator clocks per periodic interrupt in the 32.768 kHz profile.
+    /// The first two nonzero selectors are aliases for selectors 8 and 9.
+    fn periodic_divisor(&self) -> Option<u16> {
         let rate = self.cmos[REG_A as usize] & REG_A_RATE_MASK;
-        if rate == 0 {
-            return None;
-        }
-        // Frequency = 32768 >> (rate - 1) Hz. Period = 1e9 / freq ns.
-        let freq = 32_768u64 >> (rate - 1);
-        if freq == 0 {
-            None
-        } else {
-            Some(1_000_000_000 / freq)
+        match rate {
+            0 => None,
+            1 | 2 => Some(1 << (rate + 6)),
+            _ => Some(1 << (rate - 1)),
         }
     }
 
@@ -634,8 +662,7 @@ mod tests {
     #[test]
     fn periodic_period_for_rate_6_is_1024hz() {
         let rtc = make_rtc(); // default rate nibble = 6
-        // 32768 >> (6-1) = 32768 >> 5 = 1024 Hz. Period ~= 976562 ns.
-        assert_eq!(rtc.periodic_period_nanos(), Some(1_000_000_000 / 1024));
+        assert_eq!(rtc.periodic_divisor(), Some(32));
     }
 
     #[test]
@@ -643,7 +670,62 @@ mod tests {
         let mut rtc = make_rtc();
         rtc.write(RTC_ADDRESS, REG_A);
         rtc.write(RTC_DATA, 0x20); // divider bits set, rate = 0
-        assert_eq!(rtc.periodic_period_nanos(), None);
+        assert_eq!(rtc.periodic_divisor(), None);
+    }
+
+    #[test]
+    fn early_polling_accumulates_the_periodic_phase_at_the_32khz_rate() {
+        for (rate, period) in [(1, 3_906_250), (2, 7_812_500), (3, 122_071), (6, 976_563)] {
+            let mut rtc = make_rtc();
+            rtc.write(RTC_ADDRESS, REG_A);
+            rtc.write(RTC_DATA, 0x20 | rate);
+            rtc.write(RTC_ADDRESS, REG_B);
+            rtc.write(RTC_DATA, REG_B_SET | REG_B_PIE);
+            rtc.write(RTC_ADDRESS, REG_C);
+
+            let quarter = period / 4;
+            for _ in 0..3 {
+                assert!(!rtc.tick(quarter), "early assertion at rate {rate}");
+                assert_eq!(rtc.read(RTC_DATA), 0);
+            }
+            assert!(!rtc.tick(period - 3 * quarter - 1));
+            assert_eq!(rtc.read(RTC_DATA), 0);
+            assert!(rtc.tick(1), "missed oscillator edge at rate {rate}");
+            assert_eq!(rtc.read(RTC_DATA), REG_C_PF | REG_C_IRQF);
+            assert_eq!(rtc.read(RTC_DATA), 0);
+            assert!(!rtc.tick(0), "acknowledged edge replay at rate {rate}");
+            assert!(rtc.tick(period));
+            assert_eq!(rtc.read(RTC_DATA), REG_C_PF | REG_C_IRQF);
+        }
+    }
+
+    #[test]
+    fn update_and_alarm_flags_latch_on_elapsed_calendar_seconds() {
+        let mut rtc = make_rtc();
+        rtc.cmos[REG_B as usize] = REG_B_24H | REG_B_DM | REG_B_UIE | REG_B_AIE;
+        rtc.cmos[REG_A as usize] = 0x20; // Suppress the periodic source.
+        rtc.last_calendar_second = 86_398;
+        rtc.write(RTC_ADDRESS, REG_C);
+
+        assert!(!rtc.advance_clock(0, 86_398));
+        assert_eq!(rtc.read(RTC_DATA), 0);
+        assert!(rtc.advance_clock(1_000_000_000, 86_399));
+        assert_eq!(rtc.read(RTC_DATA), REG_C_UF | REG_C_IRQF);
+
+        // The alarm at 00:00:00 remains visible even when the next call
+        // occurs at 00:00:02, after the current registers have moved on.
+        assert!(rtc.advance_clock(3_000_000_000, 86_402));
+        assert_eq!(rtc.read(RTC_DATA), REG_C_AF | REG_C_UF | REG_C_IRQF);
+        assert!(!rtc.advance_clock(0, 86_402));
+        assert_eq!(rtc.read(RTC_DATA), 0);
+
+        rtc.cmos[REG_B as usize] |= REG_B_SET;
+        assert!(!rtc.advance_clock(1_000_000_000, 86_403));
+        rtc.cmos[REG_B as usize] &= !REG_B_SET;
+        assert!(!rtc.advance_clock(0, 86_403));
+        assert_eq!(rtc.read(RTC_DATA), 0);
+        assert!(rtc.advance_clock(1_000_000_000, 86_404));
+        assert_eq!(rtc.read(RTC_DATA), REG_C_UF | REG_C_IRQF);
     }
 
     // --- Register C read-clears ---------------------------------------------
@@ -781,7 +863,7 @@ mod tests {
         rtc.cmos[REG_MINUTES_ALARM as usize] = 0xff;
         rtc.cmos[REG_HOURS_ALARM as usize] = 0xff;
 
-        let raised = rtc.tick(0);
+        let raised = rtc.advance_clock(0, rtc.last_calendar_second + 1);
         assert!(raised, "AIE + matching alarm must assert IRQ8");
         assert_ne!(rtc.peek_reg_c() & REG_C_AF, 0);
     }
@@ -792,7 +874,7 @@ mod tests {
     fn update_ended_interrupt_raises_irq8() {
         let mut rtc = make_rtc();
         rtc.cmos[REG_B as usize] = REG_B_24H | REG_B_DM | REG_B_UIE;
-        let raised = rtc.tick(0);
+        let raised = rtc.advance_clock(0, rtc.last_calendar_second + 1);
         assert!(raised, "UIE must assert IRQ8 on update-ended");
         assert_ne!(rtc.peek_reg_c() & REG_C_UF, 0);
     }
@@ -806,7 +888,7 @@ mod tests {
         rtc.cmos[REG_MINUTES_ALARM as usize] = 0xff;
         rtc.cmos[REG_HOURS_ALARM as usize] = 0xff;
 
-        let raised = rtc.tick(0);
+        let raised = rtc.advance_clock(0, rtc.last_calendar_second + 1);
         assert!(!raised, "SET must freeze update-ended and alarm sources");
         assert_eq!(rtc.peek_reg_c() & (REG_C_UF | REG_C_AF), 0);
     }
@@ -842,7 +924,7 @@ mod tests {
 
 #[path = "rtc/checkpoint.rs"]
 mod checkpoint;
-pub(crate) use checkpoint::{PreparedRtcCheckpoint, RtcCheckpoint};
+pub(crate) use checkpoint::{PreparedRtcCheckpoint, RtcCheckpoint, RtcTimingCheckpoint};
 
 #[cfg(test)]
 #[path = "rtc/selected_tests.rs"]

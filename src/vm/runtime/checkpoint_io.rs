@@ -26,7 +26,21 @@ impl Vmm {
         cpu: usize,
         event: VcpuExit,
     ) -> Result<CheckpointIoReply> {
-        match event {
+        let port = match &event {
+            VcpuExit::IoIn { port, size } | VcpuExit::IoInString { port, size, .. } => {
+                Some((*port, usize::from(*size)))
+            }
+            VcpuExit::IoOut { port, data } => Some((*port, data.len())),
+            _ => None,
+        };
+        let rtc = port.is_some_and(|(port, width)| {
+            use crate::devices::rtc::{RTC_ADDRESS, RTC_DATA};
+            port <= RTC_DATA && width > usize::from(RTC_ADDRESS.saturating_sub(port))
+        });
+        if rtc {
+            self.poll_pc_rtc()?;
+        }
+        let reply = match event {
             VcpuExit::IoIn { port, size } => self.io_bus.with_stopped(|bus| {
                 port_io::read(bus, &self.serial, self.backend_kind, port, size, 1)
                     .map(CheckpointIoReply::Input)
@@ -74,7 +88,11 @@ impl Vmm {
             event => Err(Error::InvalidConfig(format!(
                 "unexpected native checkpoint device event: {event:?}"
             ))),
+        }?;
+        if rtc {
+            self.sync_pc_rtc_irq(None)?;
         }
+        Ok(reply)
     }
 }
 

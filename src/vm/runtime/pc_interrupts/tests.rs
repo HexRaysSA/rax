@@ -629,6 +629,85 @@ fn uart_iir_acknowledgement_deasserts_the_same_source_used_by_ioapic_routing() {
 }
 
 #[test]
+fn rtc_periodic_phase_and_irq8_survive_detached_checkpoint_and_acknowledgement() {
+    use crate::vm::vcpu::CheckpointIoReply;
+    let mut fixture = Fixture::with_retired_clock();
+    let vm = &mut fixture.vm;
+    program(vm, 8, 0x58, 0, true);
+    vm.io_bus.write(0x21, &[0xfb]).unwrap(); // Unmask the PIC cascade.
+    vm.io_bus.write(0xa1, &[0xfe]).unwrap(); // Unmask the slave RTC pin.
+    vm.io_bus.write(0x70, &[0x0b, 0xc2]).unwrap(); // SET, PIE, 24-hour mode.
+    vm.timing_context.set_resume_base(488_282);
+    vm.route_pc_interrupts().unwrap();
+    assert!(!remote(vm, 8));
+    assert!(!vm.pic.lock().unwrap().has_pending());
+
+    let file = RemoveFile::new();
+    vm.take_snapshot_bundle(0).unwrap().save(&file.0).unwrap();
+    drop(fixture);
+    let bundle = SnapshotBundle::load(&file.0).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+
+    target.timing_context.set_resume_base(976_562);
+    target.route_pc_interrupts().unwrap();
+    assert!(!remote(&mut target, 8));
+    target.timing_context.set_resume_base(976_563);
+    target.route_pc_interrupts().unwrap();
+    assert!(
+        remote(&mut target, 8),
+        "RTC IRQ8 missing at the first full period"
+    );
+    assert!(target.pic.lock().unwrap().has_pending());
+    assert_eq!(
+        target.local_apics[0].lock().unwrap().get_pending_vector(),
+        Some(0x58)
+    );
+    assert_eq!(target.pic.lock().unwrap().get_pending_vector(), Some(0x28));
+
+    // Both controllers have accepted this line. A detached restore must keep
+    // the saved input high without creating another edge in the PIC.
+    let asserted = RemoveFile::new();
+    target
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&asserted.0)
+        .unwrap();
+    drop(target);
+    let bundle = SnapshotBundle::load(&asserted.0).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+    assert!(remote(&mut target, 8));
+    target.io_bus.write(0xa0, &[0x20]).unwrap();
+    target.io_bus.write(0x20, &[0x20]).unwrap();
+    assert_eq!(target.pic.lock().unwrap().get_pending_vector(), None);
+
+    target.io_bus.write(0x70, &[0x0c]).unwrap();
+    let CheckpointIoReply::Input(status) = target
+        .checkpoint_io_service(
+            0,
+            VcpuExit::IoIn {
+                port: 0x71,
+                size: 1,
+            },
+        )
+        .unwrap()
+    else {
+        panic!("expected RTC input");
+    };
+    assert_eq!(status, [0xc0]);
+    complete_level(&mut target, 0, 0x58);
+    target.route_pc_interrupts().unwrap();
+    assert!(
+        !remote(&mut target, 8),
+        "RTC IRQ8 reappeared after acknowledgement"
+    );
+    target.timing_context.set_resume_base(1_953_125);
+    target.route_pc_interrupts().unwrap();
+    assert!(remote(&mut target, 8));
+}
+
+#[test]
 fn pit_publishes_the_gsi2_edge_even_while_the_legacy_pic_is_busy() {
     let mut fixture = super::super::execution_tests::Fixture::new(1);
     let clock = fixture.vm.timing_context.clone();
@@ -868,4 +947,78 @@ fn nmi_handler_and_pending_nmi_continue_from_a_detached_checkpoint() {
         assert_eq!(return_pcs[..4], expected);
         assert_eq!(return_pcs[4..], expected);
     }
+}
+
+#[test]
+fn failed_native_rtc_acknowledgement_disables_guest_entry() {
+    use crate::backend::Vm;
+    use crate::vm::vcpu::VCpu;
+    use std::any::Any;
+    use std::sync::Mutex;
+    use std::sync::atomic::AtomicBool;
+    use vm_memory::GuestMemoryMmap;
+
+    struct FaultedRtcIrq {
+        calls: Arc<Mutex<Vec<bool>>>,
+        entry_disabled: Arc<AtomicBool>,
+    }
+
+    impl Vm for FaultedRtcIrq {
+        fn uses_native_x86_irqchip(&self) -> bool {
+            true
+        }
+
+        fn create_vcpu(&self, _id: u32, _mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {
+            unreachable!()
+        }
+
+        fn set_irq_line(&self, irq: u32, asserted: bool) -> Result<()> {
+            assert_eq!(irq, u32::from(RTC_IRQ));
+            self.calls.lock().unwrap().push(asserted);
+            if asserted {
+                Ok(())
+            } else {
+                Err(Error::Emulator("injected RTC IRQ8 deassert failure".into()))
+            }
+        }
+
+        fn poison_checkpoint_restore(&self) {
+            self.entry_disabled.store(true, Ordering::Release);
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    let mut fixture = Fixture::with_retired_clock();
+    let vm = &mut fixture.vm;
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    let entry_disabled = Arc::new(AtomicBool::new(false));
+    vm.vm = Box::new(FaultedRtcIrq {
+        calls: calls.clone(),
+        entry_disabled: entry_disabled.clone(),
+    });
+    vm.io_bus.write(0x70, &[0x0b, 0xc2]).unwrap();
+    vm.timing_context.set_resume_base(976_563);
+    vm.poll_pc_rtc().unwrap();
+    assert!(!entry_disabled.load(Ordering::Acquire));
+
+    vm.io_bus.write(0x70, &[0x0c]).unwrap();
+    let read = || {
+        vm.checkpoint_io_service(
+            0,
+            VcpuExit::IoIn {
+                port: 0x71,
+                size: 1,
+            },
+        )
+    };
+    assert!(matches!(read(), Err(Error::Emulator(msg))
+        if msg == "injected RTC IRQ8 deassert failure"));
+    assert!(entry_disabled.load(Ordering::Acquire));
+    assert_eq!(*calls.lock().unwrap(), vec![true, false]);
+    let mut status = [0xff];
+    vm.io_bus.read(0x71, &mut status).unwrap();
+    assert_eq!(status, [0], "the device already consumed Register C");
 }

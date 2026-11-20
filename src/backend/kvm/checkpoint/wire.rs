@@ -58,6 +58,15 @@ fn decode<T: DeserializeOwned, const LIMIT: usize>(
 }
 
 impl Image {
+    pub(crate) fn validate_rtc_irq_level(&self, expected: Option<bool>) -> Result<()> {
+        if let (Some(chip), Some(expected)) = (&self.shared, expected)
+            && chip.rtc_irq_level() != expected
+        {
+            return Err(invalid("native RTC line differs from Register C"));
+        }
+        Ok(())
+    }
+
     pub(crate) fn into_checkpoint_capture(self) -> Result<Capture> {
         let count = self.cpus.len();
         let mut cpus = Vec::with_capacity(count);

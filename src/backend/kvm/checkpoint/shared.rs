@@ -44,6 +44,10 @@ fn read_pic(vm: &VmFd, chip_id: u32) -> Result<Bank<kvm_pic_state>> {
 }
 
 impl Image {
+    pub(super) fn rtc_irq_level(&self) -> bool {
+        self.levels[usize::from(crate::devices::rtc::RTC_IRQ)]
+    }
+
     pub(super) fn capture(vm: &VmFd, lines: &irq::Lines) -> Result<Self> {
         let chip = read(vm, KVM_IRQCHIP_IOAPIC)?;
         // SAFETY: successful GET_IRQCHIP with the IOAPIC ID initializes this

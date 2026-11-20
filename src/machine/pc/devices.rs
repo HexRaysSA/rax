@@ -1,14 +1,21 @@
 //! Typed PC ownership. Aliases retain the target VM's Arc identities.
 use crate::devices::{
-    dma::Dma, fdc::Fdc, fw_cfg::FwCfg, i8042::I8042, ide::IdeController, ioapic::IoApic,
-    rtc::RtcStub, sysctl::SystemControl,
+    dma::Dma,
+    fdc::Fdc,
+    fw_cfg::FwCfg,
+    i8042::I8042,
+    ide::IdeController,
+    ioapic::IoApic,
+    rtc::{RtcStub, RtcTimingCheckpoint},
+    sysctl::SystemControl,
 };
 use crate::error::{Error, Result};
 use crate::vm::snapshot::{CheckpointResource, PreparedResources, ResourceKey};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 const LIMIT: usize = 60 * 1024 * 1024;
-const TAG: &[u8; 8] = b"RAXPCD02";
+const TAG: &[u8; 8] = b"RAXPCD03";
+const CALENDAR_TAG: &[u8; 8] = b"RAXPCD02";
 const LEGACY_TAG: &[u8; 8] = b"RAXPCD01";
 
 /// Retained by the VMM, with the same handles registered in the PIO/MMIO buses.
@@ -30,6 +37,7 @@ pub struct PcDevices {
 pub(crate) struct PcCheckpoint {
     data: Vec<u8>,
     legacy_calendar: bool,
+    rtc_timing: Option<RtcTimingCheckpoint>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -51,6 +59,7 @@ struct State {
 pub(crate) struct PreparedPcCheckpoint {
     legacy_calendar: bool,
     rtc: crate::devices::rtc::PreparedRtcCheckpoint,
+    rtc_timing: Option<RtcTimingCheckpoint>,
     ioapic: crate::devices::ioapic::PreparedIoApicCheckpoint,
     sysctl: crate::devices::sysctl::PreparedSystemControlCheckpoint,
     state: State,
@@ -59,6 +68,17 @@ pub(crate) struct PreparedPcCheckpoint {
 impl PreparedPcCheckpoint {
     pub(crate) fn speaker_gate(&self) -> bool {
         self.sysctl.speaker_gate()
+    }
+
+    pub(crate) fn rtc_irq_level(&self, uses_native_irqchip: bool) -> Result<Option<bool>> {
+        let level = self.rtc_timing.as_ref().map(|_| self.rtc.irq_asserted());
+        if !uses_native_irqchip
+            && let Some(level) = level
+            && self.ioapic.line_asserted(crate::devices::rtc::RTC_IRQ) != level
+        {
+            return Err(invalid("I/O APIC RTC line differs from Register C"));
+        }
+        Ok(level)
     }
 }
 
@@ -144,6 +164,7 @@ impl PcDevices {
             PcCheckpoint {
                 data,
                 legacy_calendar: false,
+                rtc_timing: Some(held.rtc.timing_checkpoint()),
             },
             resources,
         );
@@ -162,6 +183,7 @@ impl PcDevices {
         let result = publish()?;
         // Admission, allocation and all fallible guest/backend work have finished.
         prepared.rtc.commit(&mut held.rtc);
+        held.rtc.restore_timing(prepared.rtc_timing);
         prepared.ioapic.commit(&mut held.ioapic);
         prepared.sysctl.commit(&mut held.sysctl);
         *held.fw_cfg = prepared.state.fw_cfg;
@@ -226,6 +248,10 @@ impl PcCheckpoint {
         }
         let state: State =
             crate::codec::deserialize_limited::<_, LIMIT>(&self.data).map_err(invalid)?;
+        if let Some(timing) = &self.rtc_timing {
+            timing.validate()?;
+            state.rtc.validate_irq_summary()?;
+        }
         state.validate()?;
         Ok(state)
     }
@@ -249,22 +275,38 @@ impl PcCheckpoint {
     }
     pub(crate) fn encoded(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut bytes = if self.legacy_calendar {
-            LEGACY_TAG
-        } else {
-            TAG
-        }
-        .to_vec();
+        let mut bytes = match &self.rtc_timing {
+            Some(timing) => {
+                let mut bytes = TAG.to_vec();
+                bytes.extend_from_slice(&crate::codec::serialize(timing).map_err(invalid)?);
+                bytes
+            }
+            None if self.legacy_calendar => LEGACY_TAG.to_vec(),
+            None => CALENDAR_TAG.to_vec(),
+        };
         bytes.extend_from_slice(&self.data);
         Ok(bytes)
     }
     pub(crate) fn decode(raw: &[u8]) -> Result<Self> {
-        if ![Some(TAG.as_slice()), Some(LEGACY_TAG.as_slice())].contains(&raw.get(..8)) {
-            return Err(invalid("unsupported control tag"));
+        let (legacy_calendar, rtc_timing, data) = match raw.split_at_checked(TAG.len()) {
+            Some((tag, body)) if tag == TAG => {
+                let (timing, data) = body
+                    .split_at_checked(RtcTimingCheckpoint::WIRE_SIZE)
+                    .ok_or_else(|| invalid("truncated RTC timing"))?;
+                let timing = crate::codec::deserialize_strict(timing).map_err(invalid)?;
+                (false, Some(timing), data)
+            }
+            Some((tag, data)) if tag == CALENDAR_TAG => (false, None, data),
+            Some((tag, data)) if tag == LEGACY_TAG => (true, None, data),
+            _ => return Err(invalid("unsupported control tag")),
+        };
+        if data.len() > LIMIT {
+            return Err(invalid("control image length"));
         }
         let image = Self {
-            data: raw[8..].to_vec(),
-            legacy_calendar: raw.starts_with(LEGACY_TAG),
+            data: data.to_vec(),
+            legacy_calendar,
+            rtc_timing,
         };
         image.validate()?;
         Ok(image)
@@ -297,6 +339,7 @@ impl PcCheckpoint {
         Ok(PreparedPcCheckpoint {
             legacy_calendar: self.legacy_calendar,
             rtc: state.rtc.prepare()?,
+            rtc_timing: self.rtc_timing.clone(),
             ioapic: state.ioapic.prepare()?,
             sysctl: state.sysctl.prepare()?,
             state,

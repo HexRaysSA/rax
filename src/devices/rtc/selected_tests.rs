@@ -56,7 +56,9 @@ fn retired_cmos_uip_set_alarm_and_modes_use_the_same_retained_calendar() {
         rtc.write(0x70, index);
         rtc.write(0x71, 0xc0);
     }
-    assert!(rtc.tick(0));
+    assert!(!rtc.tick(0));
+    clock.advance_retired(244_000 * 3).unwrap();
+    assert!(rtc.tick(244_000));
     assert_ne!(read(&mut rtc, REG_C) & REG_C_AF, 0);
     state.elapsed_nanos = (13 * 3600 + 42 * 60 + 17) * 1_000_000_000;
     state.subnanosecond_quanta = 0;

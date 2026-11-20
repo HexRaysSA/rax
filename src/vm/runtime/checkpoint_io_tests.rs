@@ -579,6 +579,85 @@ fn failed_second_cpu_setter_rolls_back_first_cpu_and_preserves_target_ram() {
 }
 
 #[test]
+#[ignore = "requires the managed native KVM irqchip"]
+fn native_rtc_irq8_acknowledgement_updates_the_restored_kernel_line() {
+    use crate::backend::kvm::{CheckpointImage, KvmVm};
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut source = Fixture::with_construction(
+        1,
+        128 << 20,
+        ConstructionMode::Checkpoint {
+            initialize_kvm_irqchip: true,
+        },
+    );
+    source.prepare(0, &[0xe4, 0x71, 0xe6, 0x80, 0xf4]); // IN AL, 71h; OUT 80h, AL.
+    source.vm.io_bus.write(0x70, &[0x0a, 0x26]).unwrap();
+    source.vm.io_bus.write(0x70, &[0x0b, 0xc2]).unwrap();
+    source.vm.io_bus.write(0x70, &[0x0c]).unwrap();
+    let clock = source.vm.timing_context.clone();
+    clock.set_resume_base(clock.elapsed_nanos() + 1_000_000);
+    let snapshot = source.vm.take_snapshot_bundle(0).unwrap();
+    assert_eq!(snapshot.saved_kvm_irqchip(), Some(true));
+    CheckpointImage::from_checkpoint_bundle(&snapshot)
+        .unwrap()
+        .validate_rtc_irq_level(Some(true))
+        .unwrap();
+    let path = source.kernel.with_extension("rxc");
+    snapshot.save(&path).unwrap();
+    drop(snapshot);
+    drop(source);
+    let snapshot = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&snapshot, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &snapshot).unwrap();
+
+    let io = (0..100)
+        .find_map(|_| {
+            target.vcpus[0]
+                .run_host_slice(Duration::from_millis(10))
+                .unwrap()
+        })
+        .expect("resumed RTC register read");
+    assert!(matches!(
+        io,
+        VcpuExit::IoIn {
+            port: 0x71,
+            size: 1
+        }
+    ));
+    assert_eq!(
+        target.vcpus[0]
+            .settle_checkpoint_io(&mut |exit| target.checkpoint_io_service(0, exit))
+            .unwrap(),
+        CheckpointIoState::Complete
+    );
+    assert!(
+        !target
+            .pc_devices
+            .as_ref()
+            .unwrap()
+            .rtc
+            .lock()
+            .unwrap()
+            .has_pending_interrupt()
+    );
+    let boundary = target.vm.checkpoint_boundary().unwrap();
+    let native = target.vm.as_any().downcast_ref::<KvmVm>().unwrap();
+    let (banks, _) = native.capture_native_banks_at(&boundary).unwrap();
+    banks.validate_rtc_irq_level(Some(false)).unwrap();
+    drop(boundary);
+    let output = (0..100)
+        .find_map(|_| {
+            target.vcpus[0]
+                .run_host_slice(Duration::from_millis(10))
+                .unwrap()
+        })
+        .expect("resumed RTC result");
+    assert!(matches!(output, VcpuExit::IoOut { port: 0x80, data } if data == [0xc0]));
+}
+
+#[test]
 #[ignore = "requires native Linux KVM with TSC deadline support"]
 fn future_native_deadline_survives_a_source_free_vmm_checkpoint() {
     use crate::vm::snapshot::SnapshotBundle;

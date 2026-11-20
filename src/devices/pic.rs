@@ -432,6 +432,14 @@ impl Default for DualPic {
 }
 
 impl DualPic {
+    /// Bind the retained RTC wire level without generating a new edge or
+    /// altering either controller's captured request and in-service bits.
+    pub(crate) fn restore_rtc_irq_level(&mut self, asserted: bool) {
+        self.slave.irq_lines = (self.slave.irq_lines & !1) | u8::from(asserted);
+        self.master.irq_lines =
+            (self.master.irq_lines & !(1 << 2)) | (u8::from(self.slave.has_pending()) << 2);
+    }
+
     pub fn new() -> Self {
         // Standard x86 protected-mode vector offsets:
         //   Master PIC: vectors 0x20-0x27 (IRQ 0-7)
