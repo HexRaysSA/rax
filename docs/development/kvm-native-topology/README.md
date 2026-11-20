@@ -137,8 +137,8 @@ ordinary I/O adapter owns any preceding I/O completion or reported exit.
 The worker continues to own its timer and signal mask until it exits. The
 association adds O(1) operations and requires O(1) additional storage. It
 does not bound kernel scheduling or grace-period latency.
-[Linux 6.8 KVM_RUN dispatch](https://github.com/torvalds/linux/blob/v6.8/virt/kvm/kvm_main.c#L4144-L4169)
-[Linux KVM UAPI immediate-exit and I/O completion semantics](https://github.com/torvalds/linux/blob/v6.8/Documentation/virt/kvm/api.rst#L5984-L5995)
+[Linux 6.8 KVM_RUN dispatch](references/linux-kvm-main-v6.8.c#L4427-L4449)
+[Linux KVM UAPI immediate-exit and I/O completion semantics](../kvm-public-state/references/kvm-api-v6.8.rst#L6495-L6505)
 
 | Assumption | Impact | Falsification probe |
 | --- | --- | --- |
@@ -190,8 +190,8 @@ VMMs printed early AP timestamps earlier than the BSP bring-up timestamp.
 A separate RAX trace of 23 native pvclock publications recorded matching
 TSC epoch, time base, multiplier, shift, and stable flag for samples on
 all four CPUs. The QEMU PC machine uses a different virtual chipset.
-[Linux printk timestamp](https://github.com/torvalds/linux/blob/v6.8/kernel/printk/printk.c#L2045-L2048)
-[Linux KVM pvclock setup](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kernel/kvmclock.c#L79-L95)
+[Linux printk timestamp](references/linux-printk-v6.8.c#L2169-L2177)
+[Linux KVM pvclock setup](references/linux-kvmclock-v6.8.c#L167-L195)
 
 A 780.387 s follow-up stopped at the same boundary. Two scoped kernel
 traces resolved CPU 0 exits to `rtc_cmos_read` and observed timer
@@ -201,8 +201,8 @@ calendar scans crossed a one-second boundary and returned a different
 seconds value on the final check. Linux retries those inconsistent
 snapshots. Three quieter controls, including TSC-deadline and disabling
 paravirtual spinlocks, also failed to reach `/init` within 180 s each.
-[Linux CMOS PIO](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kernel/rtc.c#L74-L85)
-[Linux CMOS consistency check](https://github.com/torvalds/linux/blob/v6.8/drivers/rtc/rtc-mc146818-lib.c#L18-L79)
+[Linux CMOS PIO](references/linux-x86-rtc-v6.8.c#L80-L91)
+[Linux CMOS consistency check](references/linux-rtc-mc146818-v6.8.c#L21-L86)
 
 RAX rejected the stopped checkpoint request with a programmed LAPIC
 countdown whose expiry state was unavailable. The follow-up produced
