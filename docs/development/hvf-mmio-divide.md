@@ -11,8 +11,8 @@ registers. Time and auxiliary storage are bounded per instruction.
 
 Zero divisors and out-of-range quotients deliver `#DE` at the saved
 instruction pointer. The hardware-exception entry carries vector 0
-without an error code. Fault completion leaves the result registers
-and RIP at the original instruction, omits retirement, and discards the
+without an error code. Fault completion preserves the result registers
+and faulting RIP, omits retirement, and discards the
 data-breakpoint causes for that instruction. If the host cannot install
 the event, the pending record fences further execution and retains the
 reply. Once installed, the event occupies the same VM-entry slot used
@@ -26,7 +26,12 @@ by IRQ and NMI delivery.
 | An owned entry event must survive interrupt attempts. | Exercise occupied entry slots and failed VMCS writes. The native profile also tries IRQ and NMI delivery between divide completion and guest re-entry. |
 | A pending dividend is independent of guest instruction fetch after restore. | Round-trip the pending record and finish with the original dividend. The native profile recreates the vCPU both before the reply and after queuing the fault. |
 
-The native `implicit-divide` profile compares 80 MMIO observations
-with the same guest encodings using RAM. It checks both result registers,
-fault RIP, saved flags, DR6, and the continuation marker. Native
-qualification requires the workflow and its guest observations.
+The native `implicit-divide` profile passed all 80 comparisons with the
+same guest encodings using RAM. It checks both result registers, fault RIP,
+saved flags, DR6 and the continuation marker. That includes 32 direct
+cases, 32 with a pending read restored into a fresh VM and vCPU, and 16
+with a queued fault restored into a fresh VM and vCPU. The recorded source
+revision ran on a virtualized Intel macOS 15.7.9 runner. Bare-metal Intel
+and other MMIO and interrupt profiles remain open.
+[Qualification record](hvf-mmio-divide/native-verified.json),
+[GitHub Actions run](https://github.com/HexRaysSA/rax/actions/runs/44642670882)
