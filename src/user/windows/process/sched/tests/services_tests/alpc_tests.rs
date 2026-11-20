@@ -212,14 +212,18 @@ fn native_alpc_csr_exchange_owns_repeated_reply_mappings_and_server_capture() {
 fn native_alpc_csr_user_only_admits_the_measured_additional_profiles() {
     use crate::user::windows::object_namespace::csr::CsrMetadata;
 
-    for (arch, build, session, information_bytes, admitted) in [
-        (WinArch::Arm64, 26200, 2, 584, true),
-        (WinArch::X64, 26100, 2, 584, true),
-        (WinArch::X64, 26100, 1, 584, false),
-        (WinArch::X64, 26100, 2, 576, false),
-        (WinArch::X64, 20348, 2, 576, true),
-        (WinArch::X64, 20348, 2, 584, false),
-        (WinArch::X64, 20348, 1, 576, false),
+    for (arch, build, session, information_bytes, padding, status, admitted) in [
+        (WinArch::Arm64, 26200, 2, 584, false, 0, true),
+        (WinArch::Arm64, 26200, 2, 584, true, 0, false),
+        (WinArch::X64, 26100, 2, 584, false, 0, true),
+        (WinArch::X64, 26100, 2, 584, true, 0, false),
+        (WinArch::X64, 26100, 1, 584, false, 0, false),
+        (WinArch::X64, 26100, 2, 576, true, 0, false),
+        (WinArch::X64, 20348, 2, 576, false, 0, true),
+        (WinArch::X64, 20348, 2, 576, true, 0, true),
+        (WinArch::X64, 20348, 2, 576, true, 1, false),
+        (WinArch::X64, 20348, 2, 584, false, 0, false),
+        (WinArch::X64, 20348, 1, 576, true, 0, false),
     ] {
         let (mut process, mut thread) = fixture(arch, "NtAlpcSendWaitReceivePort", SERVICE);
         let p = process.state_mut();
@@ -253,6 +257,12 @@ fn native_alpc_csr_user_only_admits_the_measured_additional_profiles() {
                 .unwrap();
         let args = csr_request(p, base, local, remote, port);
         p.space.w64(base + 80, information_bytes).unwrap();
+        p.space.w32(base + 52, status).unwrap();
+        if padding {
+            p.space.w64(base + 56, 0xa5a5_a5a5_a5a5_a5a5).unwrap();
+            p.space.w32(base + 68, 0xa5a5_a5a5).unwrap();
+            p.space.w32(base + 84, 0xa5a5_a5a5).unwrap();
+        }
         p.space
             .w32(local + 0x750, 40 + information_bytes as u32 + 4)
             .unwrap();

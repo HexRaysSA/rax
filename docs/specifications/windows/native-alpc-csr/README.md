@@ -55,7 +55,14 @@ on that build requested 576 bytes. A [second native run](https://github.com/HexR
 confirmed that size with two successful requests in session 2, a preserved
 sentinel, and the same 16 KiB committed prefix in the 32 KiB shared allocation.
 The three additional USER profiles bind the request size to the measured
-architecture, build, and session.
+architecture, build, and session. The [AMD64 request observation](https://github.com/HexRaysSA/rax/actions/runs/44759138753)
+confirmed the 88-byte ALPC message and 952-byte receive capacity on 20348
+and 26100. On 20348 the fixed 576-byte control and installed `findstr.exe`
+both completed with nonzero size padding. The fixed control also had nonzero
+index padding. The installed executable sent a nonzero reserved span after
+the zero return status. Two repeats of each case gave the same field checks.
+Only the selected 20348 USER profile ignores those spans. On 26100 both
+callers sent zero padding and reserved bytes in the 584-byte exchange.
 
 Native private limit probes use a 512-byte legacy port. They establish access,
 conversion, and failure ordering; they are not a positive oracle for a

@@ -24,6 +24,28 @@ fn word(message: &[u8], offset: usize) -> u64 {
     )
 }
 
+fn user_information_bytes(message: &[u8], amd64_20348: bool) -> Option<usize> {
+    if message.len() != 88
+        || message[..8] != [48, 0, 88, 0, 0, 0, 0, 0]
+        || message[48..56] != [0; 8]
+        || message[64..68] != 3u32.to_le_bytes()
+    {
+        return None;
+    }
+    let bytes = u32::from_le_bytes(message[80..84].try_into().expect("validated USER size"));
+    // Build 20348 sends ULONG index and size fields and may populate their
+    // alignment padding and the reserved span after the return status.
+    // Capture addressing still uses the validated, separate 64-bit pointer.
+    if amd64_20348 && bytes == SERVER_2022_INFORMATION_BYTES as u32 {
+        return Some(SERVER_2022_INFORMATION_BYTES);
+    }
+    (bytes == INFORMATION_BYTES as u32
+        && message[56..64] == [0; 8]
+        && message[68..72] == [0; 4]
+        && message[84..88] == [0; 4])
+        .then_some(INFORMATION_BYTES)
+}
+
 pub(super) fn client_connect(
     c: &mut Ctx,
     port: u64,
@@ -52,13 +74,7 @@ pub(super) fn client_connect(
         && message[48..56] == [0x1B, 0, 1, 0, 0, 0, 0, 0]
         && message[72..76] == (BASE_NLS_BYTES as u32).to_le_bytes()
         && (amd64_20348 || message[56..64] == [0; 8] && message[76..80] == [0; 4]);
-    let user_bytes = (message.len() == 88
-        && message[..8] == [48, 0, 88, 0, 0, 0, 0, 0]
-        && message[48..64] == [0; 16]
-        && word(message, 64) == 3)
-        .then(|| usize::try_from(word(message, 80)).ok())
-        .flatten()
-        .filter(|&bytes| matches!(bytes, INFORMATION_BYTES | SERVER_2022_INFORMATION_BYTES));
+    let user_bytes = user_information_bytes(message, amd64_20348);
     let batch_notification = message.len() == BATCH_NOTIFICATION_BYTES
         && message[..8] == [40, 0, 80, 0, 0, 0, 0, 0]
         && word(message, 40) == 0
@@ -136,13 +152,17 @@ pub(super) fn client_connect(
             reason.push_str(&format!(
                 concat!(
                     " USER request (lengths_match={}, header_flags_zero={}, ",
-                    "reserved_zero={}, server_index_matches={}, information_bytes={})"
+                    "status_zero={}, reserved_zero={}, server_index_matches={}, ",
+                    "index_padding_zero={}, information_bytes={}, size_padding_zero={})"
                 ),
                 message[..4] == [48, 0, 88, 0],
                 message[4..8] == [0; 4],
-                message[52..64] == [0; 12],
-                word(message, 64) == 3,
-                word(message, 80),
+                message[52..56] == [0; 4],
+                message[56..64] == [0; 8],
+                message[64..68] == 3u32.to_le_bytes(),
+                message[68..72] == [0; 4],
+                u32::from_le_bytes(message[80..84].try_into().expect("fixed USER size")),
+                message[84..88] == [0; 4],
             ));
         }
         return Err(c.unsupported(reason));
