@@ -403,6 +403,61 @@ fn report_native_extension_startup_flag() {
 }
 
 #[cfg(windows)]
+fn report_installed_sort_collation_imports(bytes: &[u8]) {
+    use rax_engine::user::image::pe::imports::{self, ImportRef};
+    use rax_engine::user::image::pe::{PeImage, dir};
+
+    let report = || -> Result<Vec<String>, String> {
+        let pe = PeImage::parse(bytes).map_err(|error| format!("{error:?}"))?;
+        let mapped = pe
+            .try_memory_image()
+            .map_err(|error| format!("{error:?}"))?;
+        let header = pe.headers();
+        let regular = imports::descriptors(&mapped, header.directory(dir::IMPORT))
+            .map_err(|error| format!("{error:?}"))?;
+        let delayed = imports::delay_descriptors(&mapped, header.directory(dir::DELAY_IMPORT))
+            .map_err(|error| format!("{error:?}"))?;
+        let thunks = regular
+            .into_iter()
+            .map(|entry| entry.thunks(&mapped, header.kind))
+            .chain(
+                delayed
+                    .into_iter()
+                    .map(|entry| entry.thunks(&mapped, header.kind)),
+            );
+        let mut names = Vec::new();
+        for group in thunks {
+            for thunk in group.map_err(|error| format!("{error:?}"))? {
+                let ImportRef::Name { name, .. } = thunk.symbol else {
+                    continue;
+                };
+                let name = String::from_utf8_lossy(&name);
+                if [
+                    "CompareString",
+                    "LCMapString",
+                    "GetLocaleInfo",
+                    "GetUserDefaultLocale",
+                    "GetNLSVersion",
+                    "_wcsicoll",
+                    "wcscoll",
+                    "strcoll",
+                ]
+                .iter()
+                .any(|prefix| name.starts_with(*prefix))
+                    || matches!(&*name, "setlocale" | "_wsetlocale" | "wcscmp" | "_wcsicmp")
+                {
+                    names.push(name.into_owned());
+                }
+            }
+        }
+        names.sort_unstable();
+        names.dedup();
+        Ok(names)
+    };
+    eprintln!("installed sort collation imports: {:?}", report());
+}
+
+#[cfg(windows)]
 fn compare_windows_installed_program(
     image: &str,
     arguments: &[&str],
@@ -452,6 +507,9 @@ fn compare_windows_installed_program(
     };
 
     let bytes = std::fs::read(&program).expect("installed Windows executable");
+    if image == "sort.exe" && arguments.is_empty() {
+        report_installed_sort_collation_imports(&bytes);
+    }
     let options = serde_json::json!({
         "personality": "windows",
         "native_runtime": true,
