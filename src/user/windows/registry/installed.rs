@@ -376,8 +376,8 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
     let root = super::TreeRoot::SrpGroupPolicy;
-    let selected = tree::capture_root(&registry, root)?;
-    let registry = registry.with_tree(root, selected)?;
+    let selected = key_information::capture(&registry, root)?;
+    let registry = registry.with_information_tree(root, selected)?;
     let root = super::TreeRoot::SaferCodeIdentifiers;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;

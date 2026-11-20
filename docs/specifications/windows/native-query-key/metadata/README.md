@@ -13,6 +13,13 @@ handles retain their records and descendants after the registry namespace drops.
 Missing fixed roots remain distinguishable from capture errors and unselected
 paths.
 
+The already selected `Srp\GP` subtree uses the same bounded capture. When
+`Srp\GP\DLL` is present, installed ARM64 `cmd.exe` on Windows build 26200
+queries its `KeyFullInformation` record during startup. The guest receives
+metadata from the selected installed key through the existing dispatcher.
+The capture retains the installed policy values and opens keys for query and
+enumeration access.
+
 The native adapter first obtains a bounded required length, then reads each
 record under two different buffer fills. It rejects undefined record bytes,
 unstable samples, contradictory counts/names/timestamps, incomplete descendants,

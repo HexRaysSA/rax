@@ -42,6 +42,13 @@ fn installed_loader_registry_srp_snapshot_matches_independent_native_presence_al
                     .expect("present trailing-separator alias");
                 assert!(std::sync::Arc::ptr_eq(&alias, &selected));
                 assert_eq!(selected.children, info(&host).unwrap().children);
+                let native = key_information::records(&host).unwrap();
+                let captured = selected.information().expect("captured SRP key metadata");
+                assert_eq!(captured.record(2).unwrap(), native.record(2).unwrap());
+                let canonical = registry
+                    .key(&native.canonical())
+                    .expect("captured SRP canonical alias");
+                assert!(std::sync::Arc::ptr_eq(&canonical, &selected));
                 super::tests::check_ifeo(&registry, &host, &guest, 0);
             }
         }
