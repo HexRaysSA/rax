@@ -26,6 +26,10 @@ on:
         description: Compare installed findstr.exe with redirected standard input
         type: boolean
         default: false
+      measure_native_token_duplicate:
+        description: Measure duplication of the test process's own token
+        type: boolean
+        default: false
       measure_native_user_shape:
         description: Measure fixed current-session USER connection geometry
         type: boolean
@@ -140,6 +144,43 @@ jobs:
           $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
           if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
             exit 1
+          }
+      - name: Observe duplication of the native test process token
+        if: ${{ !cancelled() && inputs.measure_native_token_duplicate && steps.stock.outcome != 'skipped' }}
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
+          $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
+          $test = 'tests::process::native_runtime::token_duplicate::installed_current_subject_duplicate_matches_guest_request'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'capi/src/tests/process/native_runtime/token_duplicate.rs'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $log = Join-Path $root 'native-token-duplicate.log'
+          $sourceHash = (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant()
+          $ntdllHash = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+          $PSNativeCommandUseErrorActionPreference = $false
+          cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
+            $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          $unchanged = (
+            $sourceHash -eq (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant() -and
+            $ntdllHash -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+          )
+          [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            target = $env:RAX_TEST_TARGET
+            source_sha256 = $sourceHash
+            ntdll_sha256 = $ntdllHash
+            log_sha256 = (Get-FileHash -LiteralPath $log).Hash.ToLowerInvariant()
+            inputs_unchanged = $unchanged
+            exit_code = $exitCode
+          } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'native-token-duplicate-identity.json') -Encoding utf8
+          if ($exitCode -ne 0 -or !$unchanged -or
+              !(Select-String -LiteralPath $log -Pattern '^test result: ok\. 1 passed; 0 failed; 0 ignored;' -Quiet) -or
+              !(Select-String -LiteralPath $log -Pattern '^native duplicate complete: ' -Quiet)) {
+            throw 'Native current-process token duplication control did not pass'
           }
       - name: Compare installed findstr.exe through the closed C ABI
         if: ${{ !cancelled() && inputs.compare_installed_filter && steps.stock.outcome != 'skipped' }}
@@ -598,6 +639,8 @@ jobs:
             target/windows-installed-process/capi.log
             target/windows-installed-process/filter-receipt.json
             target/windows-installed-process/filter-capi.log
+            target/windows-installed-process/native-token-duplicate.log
+            target/windows-installed-process/native-token-duplicate-identity.json
             target/windows-installed-process/native-user-shape.log
             target/windows-installed-process/native-user-shape-identity.json
             target/windows-installed-process/amd64-user-request-shape.log
