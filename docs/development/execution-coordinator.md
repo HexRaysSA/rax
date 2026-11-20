@@ -236,3 +236,53 @@ cargo +stable test --locked --no-default-features --features x86_64-suite,smir-j
   --test x86_fault_retirement --test retirement_budget
 cargo +stable check --locked --no-default-features --lib
 ```
+
+## x86 PC interrupt arbitration
+
+The coordinator offers pending controller events to the selected CPU. The
+software wall-clock path offers them at turn entry, the retired clock at
+each instruction boundary, and the native path before guest entry. An
+eligible NMI takes precedence over a maskable IRQ. The bootstrap CPU then
+considers the PIC before fixed local APIC vectors. A blocked NMI stays
+pending while an eligible maskable IRQ may enter. Once a CPU accepts an
+event, the controllers hold other requests for a later boundary. Intel SDM
+revision 086, Volume 3A, section 7.9 and Table 7-2 specify the priority.
+[Pinned Intel SDM provenance](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.provenance.md)
+
+The PIT still publishes edges to its controller routes. The selected local
+APIC latches a timer expiration even if another event entered first. Event
+arbitration takes O(1) time and space, excluding existing controller routing
+across the configured vCPUs.
+
+| ID | Assumption and basis | Dependent result | Stress test and falsification probe |
+| --- | --- | --- | --- |
+| A1 | The Intel priority applies when both events are eligible at the same boundary. | NMI is the single event delivered. | Use an NMI trap gate with IF set. The first handler instruction ends the VM. Require one 12-byte frame (3 x 4-byte slots) containing the interrupted guest EIP, plus the pending maskable vectors. |
+| A2 | A shared controller queue can hold an event until its CPU is selected. | An off-turn CPU can take a single event before it executes. | Run the other CPU first in wall mode. Check the target's first handler and frame. Exercise both bootstrap and secondary CPU targets in both clock modes. |
+| A3 | The software CPU returns false when NMI delivery is blocked. | The controller retains the NMI while an eligible PIC IRQ can enter. | Latch a second NMI while the first handler still has IF set. Require PIC acknowledgment and a retained NMI. |
+
+The parent delivered two 12-byte frames before the bootstrap CPU
+executed the NMI handler. The secondary CPU also received two frames
+and entered the fixed IRQ handler first. Both tests reproduced on the
+wall clock and the blocked-NMI control passed. The corrected regressions
+passed on both wall and retired clocks. The native scheduling fixture
+passed all eight cases, including selected CPU window ownership.
+
+The owning portable validation command uses the full library target and
+the x86, controller, timing, and checkpoint integration targets. The library
+passed 13,214 tests with 5 ignored. The nine integration targets passed
+28,670 tests with 3 ignored. All ten targets reported zero failures and
+zero filtered cases. The feature-minimal library check, Linux x86-64 KVM
+cross-check, and Intel macOS HVF consumer cross-link passed.
+
+```sh
+cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug \
+    --no-fail-fast --lib --test x86_64 --test controller_checkpoint \
+    --test vm_timing --test retired_clock --test checkpoint_clock \
+    --test checkpoint_resume --test runtime_checkpoint_bundle \
+    --test checkpoint_cpus --test retirement_budget
+```
+
+| Impact | Evidence boundary |
+| --- | --- |
+| High | The native scheduling fixture checks arbitration at the guest-entry API. Physical Intel HVF qualification of this scheduling path remains open. |
+| Medium | Wall-clock software checks for controller events at turns. Retired-clock software checks at instruction boundaries. |

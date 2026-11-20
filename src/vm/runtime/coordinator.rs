@@ -172,11 +172,18 @@ impl Vmm {
             break;
         }
         let Some(index) = selected else {
+            self.service_pc_pit()?;
             return Ok(None);
         };
         #[cfg(feature = "debug")]
         {
             self.debugger.last_cpu = index;
+        }
+        let retired_pc = self.uses_retired_pc_interrupt_timing();
+        if self.checkpoint_config.arch == ArchKind::X86_64 && !retired_pc {
+            // A wall-clock turn services the selected CPU at entry. Polling
+            // every CPU could stack two events before one CPU executes.
+            self.service_pc_interrupts(index)?;
         }
         if !self.vcpus[index].supports_stepping() {
             // Native host yields carry no architectural exit or retirement.
@@ -205,12 +212,11 @@ impl Vmm {
                 debug_step_completed: false,
             }));
         }
-        let service_pc_interrupts = self.uses_retired_pc_interrupt_timing();
         for _ in 0..DEFAULT_RETIREMENT_QUANTUM {
             // Retirement updates the VM clock at the end of each step. Give
             // timers and queued controllers that boundary before another step.
-            if service_pc_interrupts {
-                self.service_retired_pc_interrupts(index)?;
+            if retired_pc {
+                self.service_pc_interrupts(index)?;
             }
             let result = self.vcpus[index].run_retirement_budget(1)?;
             let (retired, wrapped) = self.coordinator.retired.overflowing_add(result.retired);

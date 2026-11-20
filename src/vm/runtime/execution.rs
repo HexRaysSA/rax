@@ -180,7 +180,6 @@ impl Vmm {
             libc::signal(libc::SIGUSR1, sigusr1_handler as libc::sighandler_t);
         }
 
-        let coordinator_services_pc_interrupts = self.uses_retired_pc_interrupt_timing();
         loop {
             #[cfg(feature = "debug")]
             self.debugger.ready()?;
@@ -230,23 +229,6 @@ impl Vmm {
                     }
                 } else {
                     continue;
-                }
-            }
-
-            if !coordinator_services_pc_interrupts {
-                // Give existing PIC requests precedence over the next PIT
-                // edge so repeated IRQ0 cannot starve the UART's IRQ4.
-                self.poll_legacy_pic()?;
-                self.poll_pc_pit()?;
-                self.route_interprocessor_requests()?;
-                for index in 0..self.vcpus.len() {
-                    if self.coordinator.online[index] {
-                        #[cfg(feature = "debug")]
-                        if !self.debugger_allows_cpu(index) {
-                            continue;
-                        }
-                        self.poll_local_apic(index)?;
-                    }
                 }
             }
 

@@ -333,28 +333,109 @@ fn retired_pit_expiry_interrupts_the_next_guest_instruction_through_ioapic() {
     });
 }
 
+fn assert_pc_nmi_delivery_priority(cpu_index: usize) {
+    const NMI_HANDLER: u64 = 0xa100;
+    const IRQ_HANDLER: u64 = 0xa000;
+    let power_off = [0x66, 0xef]; // OUT DX, AX
+    for retired in [false, true] {
+        let mut fixture = if retired {
+            Fixture::with_retired_cpus(2)
+        } else {
+            Fixture::new(2)
+        };
+        prepare_retired_timer_guest(&mut fixture, cpu_index, 0x40, &power_off);
+        fixture.write(IRQ_HANDLER, &power_off);
+        fixture.write(0x51 * 8, &[0, 0xa0, 8, 0, 0, 0x8e, 0, 0]);
+        // The trap gate preserves IF. The first handler instruction powers
+        // off, so the result observes the initial arbitration boundary.
+        fixture.write(2 * 8, &[0, 0xa1, 8, 0, 0, 0x8f, 0, 0]);
+        fixture.write(NMI_HANDLER, &power_off);
+        fixture.write(0xa200, &[0xe6, 0x80, 0xf4]); // Peer runs first on wall clock.
+
+        let vm = &mut fixture.vm;
+        let CpuState::X86_64(mut initial) = vm.vcpus[cpu_index].get_state().unwrap() else {
+            unreachable!();
+        };
+        let initial_rsp = initial.regs.rsp;
+        initial.regs.rax = 0x2000;
+        initial.regs.rdx = 0x604;
+        vm.vcpus[cpu_index]
+            .set_state(&CpuState::X86_64(initial.clone()))
+            .unwrap();
+        vm.coordinator.online.fill(true);
+        vm.coordinator.cursor = cpu_index;
+        if !retired {
+            initial.regs.rip = 0xa200;
+            let peer = 1 - cpu_index;
+            vm.vcpus[peer]
+                .set_state(&CpuState::X86_64(initial))
+                .unwrap();
+            vm.coordinator.cursor = peer;
+        }
+        if cpu_index == 0 {
+            for (port, byte) in [(0x20, 0x13), (0x21, 0x40), (0x21, 0x01), (0x21, 0xfe)] {
+                vm.io_bus.write(port, &[byte]).unwrap();
+            }
+            vm.pic.lock().unwrap().pulse_irq(0);
+        }
+        {
+            let mut apic = vm.local_apics[cpu_index].lock().unwrap();
+            apic.set_irr(0x51);
+            apic.set_pending_nmi();
+        }
+
+        vm.run().unwrap();
+        let CpuState::X86_64(after) = vm.vcpus[cpu_index].get_state().unwrap() else {
+            unreachable!();
+        };
+        assert_eq!(
+            (after.regs.rip, after.regs.rsp),
+            (NMI_HANDLER + 2, initial_rsp - 12),
+            "retired={retired} cpu={cpu_index}"
+        );
+        let mut interrupted_eip = [0; 4];
+        vm.guest_mem
+            .memory()
+            .read_slice(
+                &mut interrupted_eip,
+                vm_memory::GuestAddress(after.regs.rsp),
+            )
+            .unwrap();
+        assert_eq!(u64::from(u32::from_le_bytes(interrupted_eip)), BSP);
+        assert_eq!(vm.pic.lock().unwrap().has_pending(), cpu_index == 0);
+        let apic = vm.local_apics[cpu_index].lock().unwrap();
+        assert!(!apic.has_pending_nmi());
+        assert_eq!(apic.get_pending_vector(), Some(0x51));
+    }
+}
+
 #[test]
-fn retired_pc_delivers_a_pending_nmi_before_the_pic_handler_executes() {
+fn pc_bsp_nmi_precedes_pic_and_lapic_at_the_same_boundary() {
+    assert_pc_nmi_delivery_priority(0);
+}
+
+#[test]
+fn pc_ap_nmi_precedes_lapic_at_the_same_boundary() {
+    assert_pc_nmi_delivery_priority(1);
+}
+
+#[test]
+fn pc_blocked_nmi_leaves_the_controller_pending_and_allows_a_pic_irq() {
     let mut fixture = Fixture::with_retired_clock();
     prepare_retired_timer_guest(&mut fixture, 0, 0x40, &[0xf4]);
-    fixture.write(0xa000, &[0xc6, 0x05, 0, 0x70, 0, 0, 0x11, 0xf4]);
-    fixture.write(0xa100, &[0xc6, 0x05, 1, 0x70, 0, 0, 0x22, 0xf4]);
-    fixture.write(2 * 8, &[0, 0xa1, 8, 0, 0, 0x8e, 0, 0]);
+    fixture.write(2 * 8, &[0, 0xa1, 8, 0, 0, 0x8f, 0, 0]);
     let vm = &mut fixture.vm;
+    assert!(vm.vcpus[0].inject_nmi().unwrap());
+    vm.local_apics[0].lock().unwrap().set_pending_nmi();
     for (port, byte) in [(0x20, 0x13), (0x21, 0x40), (0x21, 0x01), (0x21, 0xfe)] {
         vm.io_bus.write(port, &[byte]).unwrap();
     }
     vm.pic.lock().unwrap().pulse_irq(0);
-    vm.local_apics[0].lock().unwrap().set_pending_nmi();
 
-    let turn = vm.execute_turn().unwrap().unwrap();
-    assert!(matches!(turn.exit, VcpuExit::Hlt));
-    let mut markers = [0; 2];
-    vm.guest_mem
-        .memory()
-        .read_slice(&mut markers, vm_memory::GuestAddress(0x7000))
-        .unwrap();
-    assert_eq!(markers, [0, 0x22]);
+    vm.service_pc_interrupts(0).unwrap();
+    assert_eq!(vm.vcpus[0].current_pc(), 0xa000);
+    assert!(vm.local_apics[0].lock().unwrap().has_pending_nmi());
+    assert!(!vm.pic.lock().unwrap().has_pending());
 }
 
 #[test]
@@ -762,7 +843,7 @@ fn nmi_handler_and_pending_nmi_continue_from_a_detached_checkpoint() {
         let bundle = SnapshotBundle::load(&file.0).unwrap();
         let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
         let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
-        target.poll_local_apic(cpu_index).unwrap();
+        target.poll_local_apic(cpu_index, false).unwrap();
         assert!(
             target.local_apics[cpu_index]
                 .lock()

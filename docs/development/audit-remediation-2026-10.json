@@ -3922,7 +3922,8 @@
         "aarch64-software-psci-acknowledgement-2026-11-18",
         "x86-ipi-delivery-resume-2026-11-18",
         "hvf-native-controller-irq-window-2026-11-19",
-        "x86-software-nmi-blocking-2026-11-20"
+        "x86-software-nmi-blocking-2026-11-20",
+        "x86-pc-interrupt-arbitration-2026-11-20"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -200048,6 +200049,16 @@
       "status": "locally_qualified_full_findings_open",
       "scope": "Software x86 blocks nested NMIs, releases the block at the start of IRET, and retains it in stopped contexts. Detached 1, 2 and 4 CPU files exercise the selected CPU and its independently queued controller event.",
       "qualification": "docs/development/execution-coordinator.md#software-x86-nmi-blocking-and-checkpoint-continuation",
+      "full_goal_complete": false
+    },
+    {
+      "id": "x86-pc-interrupt-arbitration-2026-11-20",
+      "findings": [
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The configured x86 coordinator offers one controller event per selected CPU boundary. An eligible NMI precedes maskable PIC and local APIC requests. Actual bootstrap and secondary CPU witnesses preserve the first stack frame and queued requests in both clock modes. Native scheduling fixture evidence covers the entry API.",
+      "qualification": "docs/development/execution-coordinator.md#x86-pc-interrupt-arbitration",
       "full_goal_complete": false
     },
     {

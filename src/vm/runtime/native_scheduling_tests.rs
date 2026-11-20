@@ -225,11 +225,11 @@ fn native_bsp_gives_the_entry_slot_to_nmi_before_legacy_pic() {
     }
     vm.pic.lock().unwrap().pulse_irq(0);
     vm.local_apics[0].lock().unwrap().set_pending_nmi();
-    assert!(!vm.poll_legacy_pic().unwrap());
+    assert!(vm.poll_bsp_interrupts().unwrap());
     assert_eq!(calls.lock().unwrap().bsp_entry_event.take(), Some(2));
     assert!(vm.pic.lock().unwrap().has_pending());
     assert!(!vm.local_apics[0].lock().unwrap().has_pending_nmi());
-    assert!(vm.poll_legacy_pic().unwrap());
+    assert!(vm.poll_bsp_interrupts().unwrap());
     assert_eq!(calls.lock().unwrap().bsp_entry_event, Some(0x40));
     assert!(!vm.pic.lock().unwrap().has_pending());
 }

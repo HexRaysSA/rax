@@ -16,12 +16,16 @@ impl Vmm {
             && self.timing_context.mode() == crate::vm::timing::ClockMode::Retired
     }
 
-    pub(super) fn poll_legacy_pic(&mut self) -> Result<bool> {
+    /// Intel SDM 086 Vol. 3A, Table 7-2 gives NMIs priority over INTR.
+    /// Return whether the BSP has already accepted an event at this boundary.
+    pub(super) fn poll_bsp_interrupts(&mut self) -> Result<bool> {
         #[cfg(feature = "debug")]
         if !self.debugger_allows_cpu(0) {
             return Ok(false);
         }
-        self.poll_intel_bsp_nmi_before_pic()?;
+        if self.poll_bsp_nmi()? {
+            return Ok(true);
+        }
         let bsp = self
             .vcpus
             .first_mut()
@@ -34,17 +38,22 @@ impl Vmm {
         Ok(false)
     }
 
-    pub(super) fn service_retired_pc_interrupts(&mut self, index: usize) -> Result<()> {
-        // An existing PIC request gets the first slot on the BSP. A new PIT
-        // edge can otherwise keep lower priority legacy requests waiting.
-        let pic_delivered = index == 0 && self.poll_legacy_pic()?;
-        if self.poll_pc_pit()? {
-            self.route_pc_interrupts()?;
-            if index == 0 && !pic_delivered {
-                self.poll_legacy_pic()?;
-            }
+    pub(super) fn service_pc_interrupts(&mut self, index: usize) -> Result<()> {
+        // Offer the BSP its existing events before creating a PIT edge so
+        // periodic IRQ0 does not starve an older PIC request.
+        let mut delivered = index == 0 && self.poll_bsp_interrupts()?;
+        if self.service_pc_pit()? && index == 0 && !delivered {
+            delivered = self.poll_bsp_interrupts()?;
         }
-        self.poll_local_apic(index)
+        self.poll_local_apic(index, delivered)
+    }
+
+    pub(super) fn service_pc_pit(&self) -> Result<bool> {
+        let pulsed = self.poll_pc_pit()?;
+        if pulsed {
+            self.route_pc_interrupts()?;
+        }
+        Ok(pulsed)
     }
 
     fn software_serial_level(&self) -> Result<Option<(u8, bool)>> {

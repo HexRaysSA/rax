@@ -216,14 +216,14 @@ fn delivery_releases_controller_lock_and_preserves_rejected_irq() {
     let mut fixture = Fixture::new(1);
     let (accepted, attempts) = probe(&mut fixture, false);
     fixture.vm.lapic.lock().unwrap().set_irr(0x51);
-    fixture.vm.poll_local_apic(0).unwrap();
+    fixture.vm.poll_local_apic(0, false).unwrap();
     assert_eq!(attempts.load(Ordering::SeqCst), 1);
     assert_eq!(
         fixture.vm.lapic.lock().unwrap().get_pending_vector(),
         Some(0x51)
     );
     accepted.store(true, Ordering::SeqCst);
-    fixture.vm.poll_local_apic(0).unwrap();
+    fixture.vm.poll_local_apic(0, false).unwrap();
     assert_eq!(attempts.load(Ordering::SeqCst), 2);
     let lapic = fixture.vm.lapic.lock().unwrap();
     assert_eq!(lapic.get_pending_vector(), None);
@@ -239,26 +239,26 @@ fn tpr_in_service_priority_and_software_disable_keep_irr_pending() {
         lapic.write_register(0x80, 0x50);
         lapic.set_irr(0x51);
     }
-    fixture.vm.poll_local_apic(0).unwrap();
+    fixture.vm.poll_local_apic(0, false).unwrap();
     assert_eq!(attempts.load(Ordering::SeqCst), 0);
     fixture.vm.lapic.lock().unwrap().write_register(0x80, 0);
-    fixture.vm.poll_local_apic(0).unwrap();
+    fixture.vm.poll_local_apic(0, false).unwrap();
     assert_eq!(attempts.load(Ordering::SeqCst), 1);
     fixture.vm.lapic.lock().unwrap().set_irr(0x41);
-    fixture.vm.poll_local_apic(0).unwrap();
+    fixture.vm.poll_local_apic(0, false).unwrap();
     assert_eq!(attempts.load(Ordering::SeqCst), 1);
     fixture.vm.lapic.lock().unwrap().write_register(0xb0, 0);
-    fixture.vm.poll_local_apic(0).unwrap();
+    fixture.vm.poll_local_apic(0, false).unwrap();
     assert_eq!(attempts.load(Ordering::SeqCst), 2);
     {
         let mut lapic = fixture.vm.lapic.lock().unwrap();
         lapic.write_register(0xf0, 0xff);
         lapic.set_irr(0x61);
     }
-    fixture.vm.poll_local_apic(0).unwrap();
+    fixture.vm.poll_local_apic(0, false).unwrap();
     assert_eq!(attempts.load(Ordering::SeqCst), 2);
     fixture.vm.lapic.lock().unwrap().write_register(0xf0, 0x1ff);
-    fixture.vm.poll_local_apic(0).unwrap();
+    fixture.vm.poll_local_apic(0, false).unwrap();
     assert_eq!(attempts.load(Ordering::SeqCst), 3);
     assert_eq!(fixture.vm.lapic.lock().unwrap().get_pending_vector(), None);
 }
