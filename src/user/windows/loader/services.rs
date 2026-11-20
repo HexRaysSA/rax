@@ -18,6 +18,7 @@ pub(crate) use mapped_wow64::{MappedWow64KernelBase, MappedWow64User32};
 
 const MAX_EXPORTS: u32 = 1 << 16;
 const STUB_BYTES: usize = 64;
+const MAX_AMD64_LEAF_BYTES: usize = 28;
 
 #[derive(Debug)]
 pub(crate) struct ServiceTable {
@@ -30,7 +31,15 @@ pub(crate) struct ServiceTable {
 struct ServiceEntry {
     name: String,
     rva: u32,
+    amd64: Option<Amd64Leaf>,
     direct_wow64: Option<DirectWow64Leaf>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct Amd64Leaf {
+    syscall_offset: usize,
+    code: [u8; MAX_AMD64_LEAF_BYTES],
+    len: usize,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -114,8 +123,25 @@ impl ServiceTable {
             else {
                 return Err(malformed());
             };
-            let Some(number) = stub_number(arch, bytes) else {
-                continue;
+            let (number, amd64) = if arch == WinArch::X64 {
+                let Some((number, syscall_offset, bytes)) = amd64_leaf(bytes) else {
+                    continue;
+                };
+                let mut code = [0; MAX_AMD64_LEAF_BYTES];
+                code[..bytes.len()].copy_from_slice(bytes);
+                (
+                    number,
+                    Some(Amd64Leaf {
+                        syscall_offset,
+                        code,
+                        len: bytes.len(),
+                    }),
+                )
+            } else {
+                let Some(number) = stub_number(arch, bytes) else {
+                    continue;
+                };
+                (number, None)
             };
             let mut direct_wow64 = None;
             if arch == WinArch::X86 {
@@ -159,6 +185,7 @@ impl ServiceTable {
             let entry = ServiceEntry {
                 name,
                 rva,
+                amd64,
                 direct_wow64,
             };
             if let Some(previous) = entries.get(&number)
@@ -195,24 +222,7 @@ fn stub_number(arch: WinArch, bytes: &[u8]) -> Option<u32> {
             let ret = u32::from_le_bytes(bytes.get(4..8)?.try_into().ok()?);
             (svc & 0xFFE0_001F == 0xD400_0001 && ret == 0xD65F_03C0).then_some((svc >> 5) & 0xFFFF)
         }
-        WinArch::X64 => {
-            let bytes = bytes
-                .strip_prefix(&[0xF3, 0x0F, 0x1E, 0xFA])
-                .unwrap_or(bytes);
-            if bytes.get(..4)? != [0x4C, 0x8B, 0xD1, 0xB8] {
-                return None;
-            }
-            let number = u32::from_le_bytes(bytes.get(4..8)?.try_into().ok()?);
-            let tail = bytes.get(8..)?;
-            // Direct SYSCALL leaf, or the KUSER_SHARED_DATA test selecting
-            // SYSCALL versus INT 2E. No arbitrary branch scanning is used.
-            (tail.starts_with(&[0x0F, 0x05, 0xC3])
-                || tail.starts_with(&[
-                    0xF6, 0x04, 0x25, 0x08, 0x03, 0xFE, 0x7F, 0x01, 0x75, 0x03, 0x0F, 0x05, 0xC3,
-                    0xCD, 0x2E, 0xC3,
-                ]))
-            .then_some(number)
-        }
+        WinArch::X64 => amd64_leaf(bytes).map(|(number, _, _)| number),
         WinArch::X86 => {
             if bytes.first()? != &0xB8 || x86_entry(bytes).is_none() {
                 return None;
@@ -220,6 +230,29 @@ fn stub_number(arch: WinArch, bytes: &[u8]) -> Option<u32> {
             Some(u32::from_le_bytes(bytes.get(1..5)?.try_into().ok()?))
         }
     }
+}
+
+fn amd64_leaf(code: &[u8]) -> Option<(u32, usize, &[u8])> {
+    let bytes = code.strip_prefix(&[0xF3, 0x0F, 0x1E, 0xFA]).unwrap_or(code);
+    if bytes.get(..4)? != [0x4C, 0x8B, 0xD1, 0xB8] {
+        return None;
+    }
+    let number = u32::from_le_bytes(bytes.get(4..8)?.try_into().ok()?);
+    let tail = bytes.get(8..)?;
+    // The guarded leaf selects SYSCALL or INT 2E from KUSER_SHARED_DATA.
+    // Native AMD64 dispatch uses only the SYSCALL instruction.
+    let (offset, len) = if tail.starts_with(&[0x0F, 0x05, 0xC3]) {
+        (8, 11)
+    } else if tail.starts_with(&[
+        0xF6, 0x04, 0x25, 0x08, 0x03, 0xFE, 0x7F, 0x01, 0x75, 0x03, 0x0F, 0x05, 0xC3, 0xCD, 0x2E,
+        0xC3,
+    ]) {
+        (18, 24)
+    } else {
+        return None;
+    };
+    let prefix = code.len() - bytes.len();
+    Some((number, prefix + offset, &code[..prefix + len]))
 }
 
 struct X86Entry {

@@ -3,7 +3,7 @@
 use std::fs::File;
 use std::sync::Arc;
 
-use super::{ServiceTable, stub_number};
+use super::{MAX_AMD64_LEAF_BYTES, ServiceTable, stub_number};
 use crate::user::image::pe::{PeImage, hybrid::CodeKind};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::fs::FileIdentity;
@@ -29,6 +29,9 @@ impl MappedWin32u {
         let known_path = match arch {
             WinArch::Arm64 => "\\KnownDlls\\win32u.dll",
             WinArch::X86 => "\\KnownDlls32\\win32u.dll",
+            WinArch::X64 if runtime.object_namespace.native_machine == Some(arch.machine()) => {
+                "\\KnownDlls\\win32u.dll"
+            }
             WinArch::X64 => return None,
         };
         let path = runtime.dll("win32u.dll").ok()??;
@@ -54,8 +57,8 @@ impl MappedWin32u {
         })
     }
 
-    /// One lookup each in the selected exports and live image allocations,
-    /// followed by an 8-byte instruction fetch.
+    /// Match the exact service instruction in an executable view of the
+    /// selected image, including the complete AMD64 leaf around SYSCALL.
     pub(crate) fn name(
         &self,
         vm: &VirtualMemory,
@@ -63,7 +66,7 @@ impl MappedWin32u {
         number: u32,
         pc: u64,
     ) -> Option<&str> {
-        if arch != WinArch::Arm64 || pc % 4 != 0 {
+        if arch != self.services.arch || arch == WinArch::X86 {
             return None;
         }
         let entry = self.services.entries.get(&number)?;
@@ -71,9 +74,22 @@ impl MappedWin32u {
         if !self.matches_selected(&view.section) {
             return None;
         }
-        let within = pc.checked_sub(view.image_base)?;
-        if within.checked_add(8)? > view.size
-            || view.offset.checked_add(within)? != u64::from(entry.rva)
+        let within = u64::from(entry.rva).checked_sub(view.offset)?;
+        let start = view.image_base.checked_add(within)?;
+        if let Some(leaf) = &entry.amd64 {
+            if start.checked_add(leaf.syscall_offset as u64)? != pc
+                || within.checked_add(leaf.len as u64)? > view.size
+                || view.code_kind(pc) != Some(CodeKind::Amd64)
+            {
+                return None;
+            }
+            let mut bytes = [0; MAX_AMD64_LEAF_BYTES];
+            vm.space().fetch(start, &mut bytes[..leaf.len]).ok()?;
+            return (bytes == leaf.code).then_some(entry.name.as_str());
+        }
+        if pc != start
+            || pc % 4 != 0
+            || within.checked_add(8)? > view.size
             || view.code_kind(pc) != Some(CodeKind::Arm64)
         {
             return None;
@@ -227,10 +243,42 @@ mod tests {
     }
 
     #[test]
-    fn mapped_win32u_requires_the_selected_live_executable_view_and_exact_leaf() {
-        let arch = WinArch::Arm64;
+    fn mapped_arm64_win32u_requires_the_selected_executable_leaf() {
+        let number = 0x1308u32;
+        let mut stub = [0; 8];
+        stub[..4].copy_from_slice(&(0xD400_0001u32 | (number << 5)).to_le_bytes());
+        stub[4..].copy_from_slice(&0xD65F_03C0u32.to_le_bytes());
+        assert_mapped_leaf(WinArch::Arm64, number, &stub, 0);
+    }
+
+    #[test]
+    fn mapped_amd64_win32u_requires_the_selected_executable_leaf_and_syscall_offset() {
+        let number = 0x12e8u32;
+        for prefix in [b"".as_slice(), &[0xF3, 0x0F, 0x1E, 0xFA]] {
+            for (syscall, tail) in [
+                (8, &[0x0F, 0x05, 0xC3][..]),
+                (
+                    18,
+                    &[
+                        0xF6, 0x04, 0x25, 0x08, 0x03, 0xFE, 0x7F, 0x01, 0x75, 0x03, 0x0F, 0x05,
+                        0xC3, 0xCD, 0x2E, 0xC3,
+                    ][..],
+                ),
+            ] {
+                let stub = [
+                    prefix,
+                    &[0x4C, 0x8B, 0xD1, 0xB8],
+                    &number.to_le_bytes(),
+                    tail,
+                ]
+                .concat();
+                assert_mapped_leaf(WinArch::X64, number, &stub, prefix.len() + syscall);
+            }
+        }
+    }
+
+    fn assert_mapped_leaf(arch: WinArch, number: u32, stub: &[u8], syscall: usize) {
         let preferred = 0x2000_0000;
-        let number = 0x1308;
         let mut image = builtin::build(dll::find("ntdll.dll").unwrap(), arch, preferred, &[]);
         let (_, BuiltinSym::Rva(entry)) = image
             .symbols
@@ -241,11 +289,7 @@ mod tests {
             panic!("missing fixture export");
         };
         let entry = *entry as usize;
-        let mut stub = [0; 8];
-        stub[..4].copy_from_slice(&(0xD400_0001u32 | (number << 5)).to_le_bytes());
-        stub[4..].copy_from_slice(&0xD65F_03C0u32.to_le_bytes());
-        image.bytes[entry..entry + 8].copy_from_slice(&stub);
-        image.bytes[entry + 8..entry + 16].copy_from_slice(&stub);
+        image.bytes[entry..entry + stub.len()].copy_from_slice(stub);
         let pe = PeImage::parse(image.bytes).unwrap();
         let services = ServiceTable::from_image(arch, &pe).unwrap().unwrap();
         let bytes = pe.memory_image();
@@ -299,12 +343,27 @@ mod tests {
             false,
         )
         .unwrap();
-        let pc = preferred + entry as u64;
+        let start = preferred + entry as u64;
+        let pc = start + syscall as u64;
         assert_eq!(binding.name(&vm, arch, number, pc), Some("NtClose"));
-        for address in [pc + 4, pc + 8, other + entry as u64, 0x10_0000] {
+        for address in [
+            pc + 1,
+            pc + 2,
+            pc + 4,
+            other + entry as u64 + syscall as u64,
+            0x10_0000,
+        ] {
             assert_eq!(binding.name(&vm, arch, number, address), None);
         }
-        assert_eq!(binding.name(&vm, WinArch::X64, number, pc), None);
+        if syscall != 0 {
+            assert_eq!(binding.name(&vm, arch, number, start), None);
+        }
+        let other_arch = if arch == WinArch::Arm64 {
+            WinArch::X64
+        } else {
+            WinArch::Arm64
+        };
+        assert_eq!(binding.name(&vm, other_arch, number, pc), None);
         assert_eq!(binding.name(&vm, arch, number + 1, pc), None);
 
         let code_page = pc & !0xfff;
@@ -314,7 +373,7 @@ mod tests {
         assert_eq!(binding.name(&vm, arch, number, pc), None);
         vm.protect(code_page, 0x1000, prot::EXECUTE_WRITECOPY)
             .unwrap();
-        space.w32(pc + 4, 0xD503_201F).unwrap();
+        space.w8(start + stub.len() as u64 - 1, 0x90).unwrap();
         assert_eq!(binding.name(&vm, arch, number, pc), None);
 
         vm.release(preferred).unwrap();
