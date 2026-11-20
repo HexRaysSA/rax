@@ -153,7 +153,7 @@ pub(super) fn run(output: &Path) {
             case += 1;
         }
     }
-    let case = run_scalar_scan(output, case);
+    let case = run_scan_reference(output, run_scalar_scan(output, case));
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
@@ -293,4 +293,120 @@ fn run_scalar_scan(output: &Path, mut case: usize) -> usize {
         }
     }
     case
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ScanBoundary {
+    PageFault,
+    DebugTrap,
+    Interrupt,
+}
+
+// These controls run the original instruction entirely in guest RAM. They
+// distinguish the architectural fault frame from trap and interrupt frames.
+fn run_scan_reference(output: &Path, mut case: usize) -> usize {
+    for prefix in [0xf2, 0xf3] {
+        for (boundary, label) in [
+            (ScanBoundary::PageFault, "scas-repeat-ram-page-fault"),
+            (ScanBoundary::DebugTrap, "scas-repeat-ram-debug-trap"),
+            (ScanBoundary::Interrupt, "scas-repeat-ram-interrupt"),
+        ] {
+            record(output, case, label, 1, scan_ram_boundary(prefix, boundary));
+            case += 1;
+        }
+    }
+    case
+}
+
+fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
+    const HANDLER: u64 = 0x11000;
+    const IDT: u64 = 0x12000;
+    const PT: u64 = 0x13000;
+    const FIRST_RAM: u64 = 0x15000;
+    const SECOND_RAM: u64 = 0x16000;
+    const FIRST: u64 = 0x4000_0fff;
+    const STATUS: u64 = 0x8d5;
+    let code = [prefix, 0xae];
+    let memory = guest_memory(&code);
+    let first = u8::from(prefix == 0xf2);
+    word(&memory, 0x4000, PT | 3);
+    word(&memory, PT, FIRST_RAM | 3);
+    memory
+        .memory()
+        .write_slice(&[first], GuestAddress(FIRST_RAM + 0xfff))
+        .unwrap();
+    memory
+        .memory()
+        .write_slice(&[1 - first], GuestAddress(SECOND_RAM))
+        .unwrap();
+    let (vector, control) = match boundary {
+        ScanBoundary::PageFault => (14, 0),
+        ScanBoundary::DebugTrap => (1, 0x100),
+        ScanBoundary::Interrupt => (0x31, 0x200),
+    };
+    word(
+        &memory,
+        IDT + vector * 16,
+        HANDLER | (8 << 16) | (0x8e << 40),
+    );
+    // Following the fault stop, skip the error code and return from the interrupt.
+    let handler = [0xf4, 0x48, 0x83, 0xc4, 0x08, 0x48, 0xcf];
+    memory
+        .memory()
+        .write_slice(&handler, GuestAddress(HANDLER))
+        .unwrap();
+    let (_vm, mut cpu) = machine(&memory);
+    let mut initial = state(cpu.as_ref());
+    let initial_flags = 0x13 | if prefix == 0xf2 { 0x40 } else { 0 };
+    initial.regs.rflags = initial_flags | control;
+    initial.regs.rax = 0;
+    initial.regs.rcx = 3;
+    initial.regs.rdi = FIRST;
+    initial.sregs.idt.base = IDT;
+    initial.sregs.idt.limit = (vector * 16 + 15) as u16;
+    cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+    if boundary == ScanBoundary::Interrupt {
+        cpu.set_single_step(true);
+        let exit = event(cpu.as_mut());
+        assert!(matches!(exit, VcpuExit::GdbStep), "{exit:?}");
+        let after = state(cpu.as_ref()).regs;
+        assert_eq!((after.rip, after.rdi, after.rcx), (CODE, FIRST + 1, 2));
+        println!(
+            "native RAM SCAS prefix={prefix:#x} monitor_trap_rflags={:#x}",
+            after.rflags
+        );
+        cpu.set_single_step(false);
+        assert!(cpu.inject_interrupt(vector as u8).unwrap());
+    }
+    let exit = event(cpu.as_mut());
+    assert!(matches!(exit, VcpuExit::Hlt), "{exit:?}");
+    let regs = state(cpu.as_ref()).regs;
+    assert_eq!(
+        (regs.rip, regs.rdi, regs.rcx, regs.rax, regs.r10),
+        (HANDLER + 1, FIRST + 1, 2, 0, 0)
+    );
+    let frame = regs.rsp
+        + if boundary == ScanBoundary::PageFault {
+            8
+        } else {
+            0
+        };
+    assert_eq!(read_word(&memory, frame), CODE);
+    let flags = read_word(&memory, frame + 16);
+    println!("native RAM SCAS prefix={prefix:#x} boundary={boundary:?} frame_rflags={flags:#x}");
+    if boundary == ScanBoundary::PageFault {
+        assert_eq!(flags & STATUS, initial_flags & STATUS);
+        assert_eq!(read_word(&memory, regs.rsp), 0);
+        word(&memory, PT + 8, SECOND_RAM | 3);
+        let exit = event(cpu.as_mut());
+        assert!(matches!(exit, VcpuExit::Hlt), "{exit:?}");
+        let after = state(cpu.as_ref()).regs;
+        assert_eq!(
+            (after.rip, after.rdi, after.rcx, after.rax, after.r10),
+            (CODE + code.len() as u64 + 11, FIRST + 2, 1, 0, MARKER)
+        );
+        let expected = if prefix == 0xf2 { 0x44 } else { 0x95 };
+        assert_eq!(after.rflags & STATUS, expected);
+    }
+    flags
 }

@@ -15,7 +15,7 @@ import intel_mmio_prepared as prepared
 PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "adx": 32, "crc32": 20, "cmov": 12, "popcnt": 12, "movbe": 12,
                  "cmpxchg8b": 12, "cmpxchg16b": 16, "entry-irq": 2, "bit-scan": 36, "bit-count": 48,
                  "implicit-multiply": 32, "implicit-divide": 80, "irq-window": 3, "nmi-window": 3,
-                 "movnti": 8, "nmi-baseline": 1, "legacy-xmm": 12, "nmi-hot-entry": 1, "vex-xmm": 12, "string-mmio": 22}
+                 "movnti": 8, "nmi-baseline": 1, "legacy-xmm": 12, "nmi-hot-entry": 1, "vex-xmm": 12, "string-mmio": 28}
 
 
 def sha(path):
