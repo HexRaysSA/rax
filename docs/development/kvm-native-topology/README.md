@@ -54,6 +54,13 @@ their EDX to the destination vCPU ID before the existing profile checks.
 The wire format and the runtime checks for other CPUID fields are preserved.
 The legacy projection takes O(E) time and O(1) additional space for E entries.
 
+The Linux x64 KVM job at `4e3cc795f` passed the full 15-case `kvm_minimal`
+suite. The source-free PC test completed the restore, RAM verification, and
+guest continuation loop for 1, 2, and 4 vCPUs. The 15-case native entry and
+I/O suite and the 32-case native SMP suite also passed. The job ran through
+the release build. Qualification applies to the recorded Linux KVM host.
+[Native success](https://github.com/HexRaysSA/rax/actions/runs/44670444437/job/136069846160)
+
 | Assumption | Impact | Falsification probe |
 | --- | --- | --- |
 | A zero-domain subleaf carries x2APIC identity without advertising a valid topology level. | High | Project the two observed host IDs at each vCPU in 1-, 2-, and 4-vCPU configurations. Require equal profiles, unchanged validity, and EDX equal to the vCPU ID. |
