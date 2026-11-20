@@ -34,6 +34,10 @@ on:
         description: Capture native ARM64 current-session CSR startup
         type: boolean
         default: false
+      measure_arm64_mui_registry:
+        description: Observe native ARM64 MUI registry queries
+        type: boolean
+        default: false
       measure_arm64_mapped_filename:
         description: Observe native ARM64 mapped-filename output on installed local images
         type: boolean
@@ -144,27 +148,43 @@ jobs:
           }
           $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'startup-license-identity.json') -Encoding utf8
           if (!$identity.ntdll_unchanged) { throw 'Native ntdll changed during measurement' }
-      - name: Measure native AMD64 MUI registry queries
-        if: ${{ !cancelled() && inputs.measure_startup_queries && steps.stock.outcome != 'skipped' && matrix.target == 'x86_64-pc-windows-msvc' }}
+      - name: Measure native MUI registry queries
+        if: ${{ !cancelled() && steps.stock.outcome != 'skipped' && ((inputs.measure_startup_queries && matrix.target == 'x86_64-pc-windows-msvc') || (inputs.measure_arm64_mui_registry && matrix.target == 'aarch64-pc-windows-msvc')) }}
         shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
         run: |
           $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
           $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-mui-query/native-mui-query-v2.cpp'
           $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
-          $install = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if ($LASTEXITCODE -ne 0 -or !$install) { throw 'Visual Studio x64 compiler is unavailable' }
+          $arch = 'x64'
+          $component = 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'
+          $expectedMachine = 0x8664
+          if ($env:RAX_TEST_TARGET -eq 'aarch64-pc-windows-msvc') {
+            $arch = 'arm64'
+            $component = 'Microsoft.VisualStudio.Component.VC.Tools.ARM64'
+            $expectedMachine = 0xAA64
+          }
+          $install = & $vswhere -latest -products '*' -requires $component -property installationPath
+          if ($LASTEXITCODE -ne 0 -or !$install) { throw "Visual Studio $arch compiler is unavailable" }
           Import-Module (Join-Path $install 'Common7/Tools/Microsoft.VisualStudio.DevShell.dll')
-          Enter-VsDevShell -VsInstallPath $install -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          Enter-VsDevShell -VsInstallPath $install -SkipAutomaticLocation -DevCmdArguments "-arch=$arch -host_arch=$arch"
           $scratch = Join-Path $env:TMPDIR 'mui-query'
           New-Item -ItemType Directory -Path $scratch -Force | Out-Null
           $exe = Join-Path $scratch 'native-mui-query.exe'
           $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
           $native = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
           $log = Join-Path $root 'native-mui-query.log'
+          $sourceHash = (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant()
           Push-Location -LiteralPath $scratch
           try {
             & cl.exe /nologo /EHsc /std:c++17 "/Fe$exe" $source
             if ($LASTEXITCODE -ne 0) { throw "MUI probe compilation failed with exit code $LASTEXITCODE" }
+            $pe = [IO.File]::ReadAllBytes($exe)
+            $peOffset = [BitConverter]::ToInt32($pe, 0x3C)
+            $machine = [BitConverter]::ToUInt16($pe, $peOffset + 4)
+            if ($machine -ne $expectedMachine) { throw "MUI probe did not compile for native $arch" }
+            $probeHash = (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
             & $exe | Set-Content -LiteralPath $log -Encoding utf8
             if ($LASTEXITCODE -ne 0) { throw "MUI probe failed with exit code $LASTEXITCODE" }
             $payload = Join-Path $scratch 'mui.bin'
@@ -173,15 +193,23 @@ jobs:
             }
             $identity = [ordered]@{
               source_commit = $env:GITHUB_SHA
-              source_sha256 = (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant()
-              probe_sha256 = (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
+              source_sha256 = $sourceHash
+              probe_sha256 = $probeHash
+              kernel = [Environment]::OSVersion.Version.ToString()
+              target = $env:RAX_TEST_TARGET
+              machine = $machine
               ntdll_sha256 = $native
               ntdll_unchanged = $native -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+              source_unchanged = $sourceHash -eq (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant()
+              probe_unchanged = $probeHash -eq (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
+              log_sha256 = (Get-FileHash -LiteralPath $log).Hash.ToLowerInvariant()
               payload_bytes = (Get-Item -LiteralPath $payload).Length
               payload_sha256 = (Get-FileHash -LiteralPath $payload).Hash.ToLowerInvariant()
             }
             $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'native-mui-query-identity.json') -Encoding utf8
-            if (!$identity.ntdll_unchanged) { throw 'Native ntdll changed during measurement' }
+            if (!$identity.ntdll_unchanged -or !$identity.source_unchanged -or !$identity.probe_unchanged) {
+              throw 'MUI probe inputs changed during measurement'
+            }
           } finally {
             Pop-Location
           }
