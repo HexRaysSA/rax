@@ -27,6 +27,26 @@ fn native_process_image_information_uses_admitted_executable_for_all_guest_abis(
     }
 }
 
+#[test]
+fn installed_arm64_26200_process_image_information_uses_guest_image_record() {
+    let (mut process, mut thread, scratch) = setup(WinArch::Arm64);
+    let p = process.state_mut();
+    replay::kernel_profile(p, 26200, 0xaa64);
+    let (record, size) = p
+        .image_information
+        .as_ref()
+        .unwrap()
+        .encode(WinArch::Arm64)
+        .unwrap();
+    assert_eq!(size, 64);
+    arguments(p, &mut thread, u64::MAX, 37, scratch, 64, scratch + 96);
+    assert_eq!(dispatch(p, &mut thread), Outcome::Continue);
+    assert_eq!(thread.cpu.gpr(0), 0);
+    assert_eq!(p.space.bytes(scratch, 64).unwrap(), record);
+    assert_eq!(p.space.bytes(scratch + 64, 32).unwrap(), [0xa5; 32]);
+    assert_eq!(p.space.u32(scratch + 96).unwrap(), 64);
+}
+
 #[path = "image_information/replay.rs"]
 mod replay;
 
