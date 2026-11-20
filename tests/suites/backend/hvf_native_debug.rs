@@ -441,7 +441,8 @@ fn outputs_reemit_identical_operands_until_acknowledged_then_complete_once() {
             }
             let mut completions = 0;
             output
-                .acknowledge(|got| {
+                .acknowledge(|packet, got| {
+                    assert_eq!(packet, &request);
                     assert_eq!(got, length);
                     completions += 1;
                     state.complete_instruction();
@@ -455,7 +456,7 @@ fn outputs_reemit_identical_operands_until_acknowledged_then_complete_once() {
             assert!(!state.take_completion().unwrap());
             assert!(
                 output
-                    .acknowledge(|_| panic!("duplicate retirement"))
+                    .acknowledge(|_, _| panic!("duplicate retirement"))
                     .is_err()
             );
             assert!(output.ready().is_err());
@@ -470,7 +471,8 @@ fn output_completion_failure_never_repeats_an_acknowledged_device_effect() {
     assert!(output.begin(vec![0], 1).is_err());
     assert_eq!(output.pending().unwrap(), Some(vec![0x5a]));
     let error = output
-        .acknowledge(|length| {
+        .acknowledge(|packet, length| {
+            assert_eq!(packet.as_slice(), &[0x5a]);
             assert_eq!(length, 3);
             Err("SDK failed after device commit".into())
         })
@@ -478,7 +480,7 @@ fn output_completion_failure_never_repeats_an_acknowledged_device_effect() {
     assert!(output.ready().is_err());
     assert_eq!(output.pending(), Err(error.clone()));
     assert_eq!(
-        output.acknowledge(|_| panic!("retrying acknowledged output")),
+        output.acknowledge(|_, _| panic!("retrying acknowledged output")),
         Err(error)
     );
 }
@@ -492,6 +494,10 @@ fn malformed_output_length_and_unexpected_acknowledgment_have_no_effects() {
         assert_eq!(output.pending().unwrap(), None);
     }
     let mut output = output::State::<u32>::default();
-    assert!(output.acknowledge(|_| panic!("no pending output")).is_err());
+    assert!(
+        output
+            .acknowledge(|_, _| panic!("no pending output"))
+            .is_err()
+    );
     assert!(output.pending().is_err());
 }
