@@ -196,36 +196,39 @@ fn installed_i386_glibc_matches_native_through_closed_c_abi() {
     assert_eq!(native.stdout, b"installed i386 libc\n");
     assert!(native.stderr.is_empty());
 
-    let process = open(
-        &image,
-        r#"{"personality":"linux","native_runtime":true,"memory_bytes":268435456,"slice_instructions":4096}"#,
-    );
+    let mut options = serde_json::json!({
+        "personality": "linux",
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+        "slice_instructions": 4096,
+    });
+    let process = open(&image, &options.to_string());
     let before = info(&process);
     assert_eq!(before["architecture"], "x86");
     assert_eq!(before["capabilities"]["native_runtime"], true);
     assert_eq!(before["capabilities"]["host_filesystem"], false);
     assert_eq!(before["capabilities"]["host_services"], false);
     let exit_code = run_installed_posix(&process, &path).exit_code;
-    let mut output = [Vec::new(), Vec::new()];
-    for (stream, captured) in [RAX_PROCESS_STDOUT, RAX_PROCESS_STDERR]
-        .into_iter()
-        .zip(&mut output)
-    {
-        let mut bytes = [0u8; 4096];
-        let mut size = 0;
-        assert_eq!(
-            rax_process_output_read(
-                process.0,
-                stream,
-                bytes.as_mut_ptr(),
-                bytes.len(),
-                &mut size
-            ),
-            RaxStatus::Ok
-        );
-        captured.extend_from_slice(&bytes[..size]);
+    let stdout = capture_installed_i386_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_i386_stream(&process, RAX_PROCESS_STDERR);
+    if exit_code != 23 {
+        let library_dir = loader.parent().unwrap();
+        for environment in [
+            serde_json::json!({"LD_DEBUG": "libs,files"}),
+            serde_json::json!({"LD_DEBUG": "libs,files", "LD_LIBRARY_PATH": library_dir}),
+        ] {
+            options["environment"] = environment;
+            let traced = open(&image, &options.to_string());
+            let status = run_installed_posix(&traced, &path);
+            let trace = capture_installed_i386_stream(&traced, RAX_PROCESS_STDERR);
+            eprintln!(
+                "i386 loader trace with {} (exit {}):\n{}",
+                options["environment"],
+                status.exit_code,
+                String::from_utf8_lossy(&trace)
+            );
+        }
     }
-    let [stdout, stderr] = output;
     assert_eq!(
         exit_code,
         23,
@@ -234,6 +237,24 @@ fn installed_i386_glibc_matches_native_through_closed_c_abi() {
     );
     assert_eq!(stdout, native.stdout);
     assert_eq!(stderr, native.stderr);
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn capture_installed_i386_stream(process: &Owned, stream: u32) -> Vec<u8> {
+    let mut bytes = vec![0u8; 65536];
+    let mut size = 0;
+    assert_eq!(
+        rax_process_output_read(
+            process.0,
+            stream,
+            bytes.as_mut_ptr(),
+            bytes.len(),
+            &mut size
+        ),
+        RaxStatus::Ok
+    );
+    bytes.truncate(size);
+    bytes
 }
 
 #[cfg(windows)]
