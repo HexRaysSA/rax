@@ -168,6 +168,120 @@ fn installed_dynamic_programs_run_without_supplied_dependencies_or_general_host_
 
 #[cfg(windows)]
 #[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_cmd_ver_matches_native_through_closed_c_abi() {
+    use std::path::PathBuf;
+    use std::process::Command;
+
+    let system_root = PathBuf::from(std::env::var_os("SystemRoot").expect("Windows system root"));
+    let system32 = system_root.join("System32");
+    let current_directory = system32.to_str().expect("Unicode system library path");
+    let program = system32.join("cmd.exe");
+    let program_path = program.to_str().expect("Unicode system program path");
+    let arguments = ["/d", "/c", "ver"];
+    let environment = [
+        (
+            "SystemRoot",
+            system_root.to_str().expect("Unicode system root"),
+        ),
+        ("windir", system_root.to_str().expect("Unicode system root")),
+        ("ComSpec", program_path),
+        ("PATH", current_directory),
+    ];
+    let native = Command::new(&program)
+        .args(arguments)
+        .current_dir(&system32)
+        .env_clear()
+        .envs(environment)
+        .output()
+        .expect("native installed cmd");
+    assert!(native.status.success());
+    assert!(!native.stdout.is_empty());
+
+    let bytes = std::fs::read(&program).expect("installed Windows executable");
+    let options = serde_json::json!({
+        "personality": "windows",
+        "native_runtime": true,
+        "guest_path": program_path,
+        "current_directory": current_directory,
+        "arguments": arguments,
+        "environment": environment.into_iter().collect::<std::collections::BTreeMap<_, _>>(),
+        "memory_bytes": 268435456,
+        "slice_instructions": 4096,
+    })
+    .to_string();
+    let process = open(&bytes, &options);
+    let opened = info(&process);
+    assert_eq!(opened["capabilities"]["native_runtime"], true);
+    assert_eq!(opened["capabilities"]["host_filesystem"], false);
+    let modules = opened["modules"].as_array().expect("opened guest modules");
+    assert!(modules.iter().any(|module| {
+        module["name"] == "ntdll.dll"
+            && module["path"]
+                .as_str()
+                .is_some_and(|path| path.to_ascii_lowercase().contains("system32"))
+    }));
+
+    let mut result = RaxProcessResult::default();
+    const MAX_TURNS: u64 = 16_384;
+    let mut remaining = MAX_TURNS;
+    loop {
+        assert_ne!(
+            remaining, 0,
+            "{program_path}: guest exceeded {MAX_TURNS} turns"
+        );
+        let turns = remaining.min(256);
+        assert_eq!(
+            rax_process_run(process.0, turns, 0, &mut result),
+            RaxStatus::Ok,
+            "{}",
+            error()
+        );
+        assert!(result.turns_started <= turns);
+        remaining -= result.turns_started;
+        if result.reason != RAX_PROCESS_BUDGET {
+            break;
+        }
+        assert_ne!(result.turns_started, 0);
+    }
+    assert_eq!(
+        result.reason,
+        RAX_PROCESS_EXITED,
+        "guest {} stopped after {} scheduler turns: {}",
+        opened["architecture"],
+        MAX_TURNS - remaining,
+        info(&process)["diagnostic"]
+    );
+    assert_eq!(
+        Some(result.exit_code),
+        native.status.code().map(i32::cast_unsigned)
+    );
+    for (stream, expected) in [
+        (RAX_PROCESS_STDOUT, native.stdout),
+        (RAX_PROCESS_STDERR, native.stderr),
+    ] {
+        let mut bytes = vec![0; 65536];
+        let mut size = 0;
+        assert_eq!(
+            rax_process_output_read(
+                process.0,
+                stream,
+                bytes.as_mut_ptr(),
+                bytes.len(),
+                &mut size
+            ),
+            RaxStatus::Ok
+        );
+        assert_eq!(
+            &bytes[..size],
+            expected.as_slice(),
+            "console stream {stream}"
+        );
+    }
+}
+
+#[cfg(windows)]
+#[test]
 fn installed_ntdll_is_selected_and_its_termination_leaf_runs_through_c_abi() {
     use rax_engine::user::image::pe::exports::{ExportDirectory, ExportTarget};
     use rax_engine::user::image::pe::{DataDirectory, RvaFault, RvaSource, dir};

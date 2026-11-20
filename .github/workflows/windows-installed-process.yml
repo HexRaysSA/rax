@@ -1,0 +1,106 @@
+name: Windows installed process
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - .github/workflows/windows-installed-process.yml
+      - .github/actions/setup-rust/**
+      - Cargo.toml
+      - Cargo.lock
+      - capi/**
+      - src/**
+      - vendor/vm-memory/**
+  pull_request:
+    paths:
+      - .github/workflows/windows-installed-process.yml
+      - .github/actions/setup-rust/**
+      - Cargo.toml
+      - Cargo.lock
+      - capi/**
+      - src/**
+      - vendor/vm-memory/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-installed-process-${{ github.sha }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: Closed installed process (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, target: x86_64-pc-windows-msvc }
+          - { os: windows-2025, target: x86_64-pc-windows-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Keep build temporaries in the worktree
+        shell: pwsh
+        run: |
+          $scratch = Join-Path $env:GITHUB_WORKSPACE '.tmp-installed-process'
+          New-Item -ItemType Directory -Path $scratch -Force | Out-Null
+          @("TMPDIR=$scratch", "TMP=$scratch", "TEMP=$scratch") |
+            Add-Content -LiteralPath $env:GITHUB_ENV -Encoding utf8
+      - name: Select native Windows ARM64 Rust host
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        run: rustup set default-host aarch64-pc-windows-msvc
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: 1.95.0
+          targets: ${{ matrix.target }}
+          cache-key: windows-installed-process-${{ matrix.os }}
+      - name: Compare installed cmd.exe through the closed C ABI
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
+          $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $test = 'tests::process::native_runtime::installed_cmd_ver_matches_native_through_closed_c_abi'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $cmd = Join-Path $env:SystemRoot 'System32/cmd.exe'
+          $receipt = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            target = $env:RAX_TEST_TARGET
+            test = $test
+            ntdll_sha256 = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+            cmd_sha256 = (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
+          }
+          $receiptPath = Join-Path $root 'receipt.json'
+          $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
+          $log = Join-Path $root 'capi.log'
+          $PSNativeCommandUseErrorActionPreference = $false
+          cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
+            $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log
+          $receipt.exit_code = $LASTEXITCODE
+          $receipt.completed_one_test = Select-String -LiteralPath $log -Quiet -Pattern '^test result: ok\. 1 passed; 0 failed; 0 ignored;'
+          $receipt.installed_images_unchanged = (
+            $receipt.ntdll_sha256 -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant() -and
+            $receipt.cmd_sha256 -eq (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
+          )
+          $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
+          if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
+            exit 1
+          }
+      - name: Preserve native process evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-installed-process-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            target/windows-installed-process/receipt.json
+            target/windows-installed-process/capi.log
+          if-no-files-found: error
