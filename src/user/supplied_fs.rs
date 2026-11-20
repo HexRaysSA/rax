@@ -296,10 +296,29 @@ impl Files {
         Ok(next)
     }
 
-    fn with_kind(&self, path: String, kind: Kind) -> Result<Self, Error> {
-        if self.0.contains_key(&path) {
-            return Err(Error::Exists);
+    #[cfg(target_os = "linux")]
+    pub(super) fn with_selected_backings(
+        &self,
+        files: BTreeMap<String, Arc<HostFileSource>>,
+    ) -> Result<Self, Error> {
+        if files.is_empty() {
+            return Ok(self.clone());
         }
+        self.with_kinds(
+            files
+                .into_iter()
+                .map(|(path, source)| (path, Kind::Backed(source))),
+        )
+    }
+
+    fn with_kind(&self, path: String, kind: Kind) -> Result<Self, Error> {
+        self.with_kinds([(path, kind)])
+    }
+
+    fn with_kinds(
+        &self,
+        additions: impl IntoIterator<Item = (String, Kind)>,
+    ) -> Result<Self, Error> {
         let mut files: BTreeMap<_, _> = self
             .0
             .iter()
@@ -307,7 +326,12 @@ impl Files {
                 (!entry.is_dir()).then(|| (path.clone(), entry.kind.clone()))
             })
             .collect();
-        files.insert(path, kind);
+        for (path, kind) in additions {
+            if self.0.contains_key(&path) {
+                return Err(Error::Exists);
+            }
+            files.insert(path, kind);
+        }
         let mut next = Self::from_kinds(files)?;
         next.1 = self.1.clone();
         next.restore_roots()?;

@@ -5,12 +5,13 @@ use crate::user::supplied_fs::Files;
 use std::io;
 #[cfg(any(target_os = "linux", test))]
 use std::{collections::BTreeMap, path::PathBuf};
+#[cfg(any(target_os = "linux", test))]
+mod ld_cache;
 
-/// Select installed Linux runtime roots and the dynamic-linker cache. Explicit
-/// supplied files override installed files. Libraries loaded later by `dlopen`
-/// are discovered through the same selected roots, rather than a dependency
-/// snapshot. Nonstandard runtime locations can be selected by the caller using
-/// [`Files::with_host_roots`] instead of this convenience selector.
+/// Select installed Linux runtime roots, the dynamic-linker cache, and the
+/// installed ELF libraries that cache names outside the roots. Explicit
+/// supplied files override installed files. Later `dlopen` calls use the same
+/// namespace. Unregistered runtime roots require explicit selection.
 pub fn native(files: &Files) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     {
@@ -46,13 +47,71 @@ fn select(
     roots: BTreeMap<String, PathBuf>,
     cache: Option<PathBuf>,
 ) -> io::Result<Files> {
+    #[cfg(target_os = "linux")]
+    let root_names = roots.keys().cloned().collect::<Vec<_>>();
     let files = files.with_host_roots(roots)?;
-    match cache {
-        Some(cache) if files.lookup("/etc/ld.so.cache").is_err() => {
-            files.with_host_file("/etc/ld.so.cache".into(), &cache)
+    let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
+        return Ok(files);
+    };
+    let files = files.with_host_file("/etc/ld.so.cache".into(), &cache)?;
+    #[cfg(target_os = "linux")]
+    let files = with_cached_libraries(files, &root_names)?;
+    Ok(files)
+}
+
+#[cfg(target_os = "linux")]
+fn with_cached_libraries(files: Files, roots: &[String]) -> io::Result<Files> {
+    use crate::user::supplied_fs::Error;
+    use std::{collections::BTreeSet, path::Path};
+
+    // Parse only a cache selected from the host. The guest uses its original
+    // bytes and remains responsible for directory, ABI and hwcap precedence.
+    let Ok(cache) = files.read("/etc/ld.so.cache") else {
+        return Ok(files);
+    };
+    let mut selected = BTreeMap::new();
+    for name in ld_cache::paths(&cache).collect::<BTreeSet<_>>() {
+        let path = Path::new(name);
+        if roots.iter().any(|root| path.starts_with(root))
+            || !matches!(files.lookup(name), Err(Error::NotFound))
+        {
+            continue;
         }
-        _ => Ok(files),
+        // Stale entries and files unusable as shared objects remain absent.
+        if let Ok(source) = open_cached_library(path) {
+            selected.insert(name.to_owned(), source.into());
+        }
     }
+    files
+        .with_selected_backings(selected)
+        .map_err(io::Error::other)
+}
+
+#[cfg(target_os = "linux")]
+fn open_cached_library(path: &std::path::Path) -> io::Result<crate::user::mm::HostFileSource> {
+    use crate::user::mm::HostFileSource;
+    use std::os::unix::fs::{FileExt, OpenOptionsExt};
+
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK)
+        .open(path)?;
+    let invalid = || io::Error::new(io::ErrorKind::InvalidData, "cached ELF shared object");
+    if !file.metadata()?.is_file() {
+        return Err(invalid());
+    }
+    let mut header = [0; 18];
+    file.read_exact_at(&mut header, 0)?;
+    let byte_order = header[5];
+    let kind = [header[16], header[17]];
+    if &header[..4] != b"\x7fELF"
+        || !matches!(header[4], 1 | 2)
+        || header[6] != 1
+        || !matches!((byte_order, kind), (1, [3, 0]) | (2, [0, 3]))
+    {
+        return Err(invalid());
+    }
+    HostFileSource::new(file)
 }
 
 #[cfg(test)]
@@ -98,6 +157,38 @@ mod tests {
         )
         .unwrap();
         assert!(selected.lookup("/etc/ld.so.cache").is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn selected_linker_cache_admits_only_named_shared_objects_and_preserves_overrides() {
+        let fixture = crate::user::supplied_fs::test_backing::TestFile::new(b"unused", 6);
+        let library = fixture.dir.join("libcached.so.1");
+        let neighbor = fixture.dir.join("libunlisted.so.1");
+        let invalid = fixture.dir.join("libnonelf.so.1");
+        let mut header = [0; 64];
+        header[..7].copy_from_slice(b"\x7fELF\x02\x01\x01");
+        header[16] = 3;
+        std::fs::write(&library, header).unwrap();
+        std::fs::write(&neighbor, header).unwrap();
+        std::fs::write(&invalid, b"not an ELF object").unwrap();
+        let library = library.to_str().unwrap();
+        let cache = fixture.dir.join("ld.so.cache");
+        std::fs::write(
+            &cache,
+            ld_cache::fixture(&[library, invalid.to_str().unwrap()]),
+        )
+        .unwrap();
+        let roots = BTreeMap::from([("/lib".into(), fixture.dir.clone())]);
+        let selected = select(&Files::default(), roots.clone(), Some(cache.clone())).unwrap();
+        assert_eq!(&*selected.read(library).unwrap(), &header);
+        assert!(selected.lookup(neighbor.to_str().unwrap()).is_err());
+        assert!(selected.lookup(invalid.to_str().unwrap()).is_err());
+        let explicit = Files::default()
+            .with_file(library.into(), std::sync::Arc::from(&b"supplied"[..]))
+            .unwrap();
+        let selected = select(&explicit, roots, Some(cache)).unwrap();
+        assert_eq!(&*selected.read(library).unwrap(), b"supplied");
     }
 
     #[cfg(not(target_os = "linux"))]
