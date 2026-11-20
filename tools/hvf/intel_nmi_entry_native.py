@@ -50,9 +50,12 @@ def main():
                     }
                     result["observations"][event] = row
                 for event, row in result["observations"].items():
-                    host, observation = [json.loads(line) for line in row["stdout"].splitlines()]
-                    if row["exit_code"] or observation["event"] != event:
+                    lines = row["stdout"].splitlines()
+                    if row["exit_code"] or len(lines) != 2:
                         raise RuntimeError(f"SDK observation lacked its control: {event}")
+                    host, observation = map(json.loads, lines)
+                    if observation["event"] != event:
+                        raise RuntimeError(f"SDK observation used the wrong event: {event}")
                     row["host"] = host
                     row["observation"] = observation
         result["success"] = True

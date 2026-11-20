@@ -37,6 +37,17 @@ static bool port_exit(hv_vcpuid_t cpu, uint64_t reason, unsigned port)
     return reason == 30 && (read_field(cpu, EXIT_QUAL) >> 16 & 0xffff) == port;
 }
 
+static void destroy(hv_vcpuid_t cpu, void *memory)
+{
+    check(hv_vcpu_destroy(cpu), "destroy vCPU");
+    check(hv_vm_unmap(0, RAM), "unmap guest RAM");
+    check(hv_vm_destroy(), "destroy VM");
+    if (munmap(memory, RAM) != 0) {
+        perror("unmap host RAM");
+        exit(1);
+    }
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) return 2;
@@ -76,6 +87,14 @@ int main(int argc, char **argv)
     uint64_t pins = read_field(cpu, PIN_CONTROLS) | 1 | (1 << 3);
     if (event == NMI_WITHOUT_VIRTUAL_BLOCKING) pins &= ~virtual_nmis;
     else pins |= virtual_nmis;
+    if (event == NMI_WITHOUT_VIRTUAL_BLOCKING && ((uint32_t)caps & virtual_nmis) != 0) {
+        printf("{\"event\":\"%s\",\"admission\":\"virtual-blocking-required\","
+               "\"pin_capability\":%" PRIu64 ",\"requested_pin_controls\":%" PRIu64 ","
+               "\"guest_entry_attempted\":false}\n",
+               names[event], caps, pins);
+        destroy(cpu, memory);
+        return 0;
+    }
     if ((pins & ~(caps >> 32)) != 0 || ((uint32_t)caps & ~pins) != 0) {
         fprintf(stderr, "requested NMI pin controls unavailable\n");
         return 1;
@@ -114,19 +133,16 @@ int main(int argc, char **argv)
     }
     bool continuation = final_reason == 12 && read_reg(cpu, HV_X86_RIP) == CODE + 12 &&
         read_reg(cpu, HV_X86_R10) == MARKER && read_reg(cpu, HV_X86_RFLAGS) == initial_flags;
-    printf("{\"event\":\"%s\",\"pin_controls\":%" PRIu64
+    printf("{\"event\":\"%s\",\"pin_controls\":%" PRIu64 ",\"pin_capability\":%" PRIu64
            ",\"staged_event\":%" PRIu64 ",\"prior_shadow\":%" PRIu64
            ",\"exit_reason\":%" PRIu64 ",\"exit_qualification\":%" PRIu64
            ",\"handler_shadow\":%" PRIu64 ",\"handler_visits\":%" PRIu64
            ",\"handler_reached\":%s,\"continuation\":%s,\"final_state\":",
-           names[event], pins, staged, shadow, reason, qualification, handler_shadow, visits,
+           names[event], pins, caps, staged, shadow, reason, qualification, handler_shadow, visits,
            entered_handler ? "true" : "false", continuation ? "true" : "false");
     snapshot(cpu);
     puts("}");
-    check(hv_vcpu_destroy(cpu), "destroy vCPU");
-    check(hv_vm_unmap(0, RAM), "unmap guest RAM");
-    check(hv_vm_destroy(), "destroy VM");
-    if (munmap(memory, RAM) != 0) return 1;
+    destroy(cpu, memory);
     if (staged != entry_event || shadow != 0) return 1;
     if (event == NONE) return continuation && visits == 0 ? 0 : 1;
     if (event == IRQ) return continuation && entered_handler ? 0 : 1;
