@@ -238,7 +238,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $exeHash = & $hash $exe
           $PSNativeCommandUseErrorActionPreference = $false
-          & $exe 2>&1 | Tee-Object -FilePath $log
+          $userBytes = if ([Environment]::OSVersion.Version.Build -eq 20348) { '576' } else { '584' }
+          & $exe $userBytes 2>&1 | Tee-Object -FilePath $log
           $exitCode = $LASTEXITCODE
           $identity = [ordered]@{
             source_commit = $env:GITHUB_SHA
@@ -256,7 +257,9 @@ jobs:
           }
           $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'amd64-user-request-identity.json') -Encoding utf8
           if ($exitCode -ne 0 -or !$identity.inputs_unchanged -or
-              @(Select-String -LiteralPath $log -Pattern '^sample=[01] observed=1 child_exited=1 exit=1 calls=').Count -ne 2) {
+              @(Select-String -LiteralPath $log -Pattern '^mode=fixed sample=[01] observed=1 child_exited=1 exit=0 calls=').Count -ne 2 -or
+              @(Select-String -LiteralPath $log -Pattern "^mode=fixed sample=[01] transport=(ALPC|LPC) information_bytes=$userBytes ").Count -ne 2 -or
+              @(Select-String -LiteralPath $log -Pattern '^mode=findstr sample=[01] observed=[01] child_exited=1 exit=1 calls=').Count -ne 2) {
             throw 'Native USER request observation did not complete'
           }
       - name: Measure the native startup license queries
