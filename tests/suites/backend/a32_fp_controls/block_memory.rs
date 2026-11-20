@@ -43,16 +43,14 @@ fn block(mnemonic: Mnemonic) -> bool {
 }
 fn valid(double: bool, first: u32, words: u32) -> bool {
     let count = if double { words / 2 } else { words };
-    count != 0 && first + count <= 32 && (!double || count <= 16)
+    let limit = if double && words & 1 != 0 { 16 } else { 32 };
+    count != 0 && first + count <= limit && (!double || count <= 16)
 }
 #[test]
 fn scalar_block_list_fields_are_validated_during_arm_and_thumb_decode() {
     for double in [false, true] {
         for first in 0..32 {
             for words in 0..256 {
-                if double && words & 1 != 0 {
-                    continue;
-                } // Unsupported FLDMX/FSTMX frontier.
                 for rn in [0, 13] {
                     for load in [false, true] {
                         for mode in 0..3 {
@@ -156,6 +154,12 @@ fn edges() -> impl Iterator<Item = (bool, u32, u32)> {
         (true, 17, 32),
         (true, 0, 34),
         (true, 0, 0),
+        (true, 15, 3),
+        (true, 15, 5),
+        (true, 16, 3),
+        (true, 0, 33),
+        (true, 0, 1),
+        (true, 0, 35),
     ]
     .into_iter()
 }
@@ -263,15 +267,152 @@ fn mixed_width_scalar_block_failures_do_not_retire_or_become_fp_traps() {
     }
 }
 #[test]
-fn unallocated_half_block_and_legacy_odd_double_lists_do_not_gain_fp_execution() {
+fn unallocated_half_block_does_not_gain_fp_execution() {
     for thumb in [false, true] {
         for load in [false, true] {
             for mode in 0..3 {
                 let single = word(false, 0, 2, 0, load, mode);
                 assert!(!block(decode((single & !0x300) | 0x100, thumb).mnemonic));
-                assert!(!block(
-                    decode(word(true, 0, 3, 0, load, mode), thumb).mnemonic
-                ));
+            }
+        }
+    }
+}
+
+#[test]
+fn legacy_vfp_double_blocks_use_odd_writeback_without_accessing_the_padding_word() {
+    let base = 0x800;
+    let halves = [0x0123_4567, 0x89ab_cdef];
+    let bits = (u64::from(halves[1]) << 32) | u64::from(halves[0]);
+    for thumb in [false, true] {
+        for load in [false, true] {
+            for mode in 0..3 {
+                for big_endian in [false, true] {
+                    let start = if mode == 2 { base - 12 } else { base };
+                    let mut memory = FlatMemory::new(8, start);
+                    // ArmMemory supplies word values. CPSR.E switches the order
+                    // in which those words form the double register.
+                    let ordered = if big_endian {
+                        [halves[1], halves[0]]
+                    } else {
+                        halves
+                    };
+                    let mut cpu = Armv7Cpu::new();
+                    cpu.regs[0] = base;
+                    cpu.cpsr.t = thumb;
+                    cpu.cpsr.e = big_endian;
+                    cpu.cp15.cpacr = Cpacr::from_bits(0x00f0_0000);
+                    if load {
+                        memory.write_word(start, ordered[0]).unwrap();
+                        memory.write_word(start + 4, ordered[1]).unwrap();
+                    } else {
+                        cpu.vfp.dregs[15] = bits;
+                    }
+
+                    let raw = word(true, 15, 3, 0, load, mode);
+                    let result = Executor::new(&mut cpu, &mut memory).execute(&decode(raw, thumb));
+                    assert!(
+                        matches!(result, ExecResult::Continue),
+                        "{raw:08x}: {result:?}, Thumb={thumb}, BE={big_endian}"
+                    );
+                    assert_eq!(cpu.vfp.dregs[15], bits);
+                    assert_eq!(memory.read_word(start).unwrap(), ordered[0]);
+                    assert_eq!(memory.read_word(start + 4).unwrap(), ordered[1]);
+                    assert_eq!(
+                        cpu.regs[0],
+                        match mode {
+                            1 => base + 12,
+                            2 => base - 12,
+                            _ => base,
+                        },
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn legacy_vfp_double_blocks_preserve_data_endianness_through_both_cpu_adapters() {
+    use rax::backend::emulator::aarch32::Aarch32Vcpu;
+    use rax::vm::vcpu::{CpuState, VCpu};
+    use std::sync::Arc;
+    use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
+
+    // The eighth data byte is the last mapped byte in the standalone PE.
+    let start = 0xff8u32;
+    let address = u64::from(start);
+    let bits = 0x89ab_cdef_0123_4567u64;
+    for thumb in [false, true] {
+        for big_endian in [false, true] {
+            let cpsr = 0x1d3 | u32::from(thumb) << 5 | u32::from(big_endian) << 9;
+            let bytes = if big_endian {
+                bits.to_be_bytes()
+            } else {
+                bits.to_le_bytes()
+            };
+            for load in [false, true] {
+                let raw = word(true, 15, 3, 0, load, 1);
+                let mut mixed = super::mixed(raw, thumb, 0, false, true);
+                mixed.set_pstate_bits(u64::from(cpsr)).unwrap();
+                mixed.set_x(0, address);
+                if load {
+                    mixed.write_memory(address, &bytes).unwrap();
+                } else {
+                    mixed.set_simd(7, u128::from(bits) << 64);
+                }
+                assert!(
+                    mixed.step().is_ok(),
+                    "{raw:08x}, Thumb={thumb}, BE={big_endian}"
+                );
+                assert_eq!(mixed.instruction_count(), 1);
+                assert_eq!(mixed.get_x(0), address + 12);
+                assert_eq!((mixed.get_simd(7) >> 64) as u64, bits);
+                assert_eq!(mixed.read_memory(address, 8).unwrap(), bytes);
+
+                let memory =
+                    Arc::new(GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 0x1000)]).unwrap());
+                let mut standalone = Aarch32Vcpu::new(0, memory.clone());
+                let CpuState::Aarch32(mut state) = standalone.get_state().unwrap() else {
+                    panic!("expected AArch32 state");
+                };
+                // Grant CP10/CP11 access through the guest MCR path, then run
+                // the transfer with CPSR.E set or clear as requested.
+                state.regs.r[0] = 0x00f0_0000;
+                state.regs.pc = 0x100;
+                standalone.set_state(&CpuState::Aarch32(state)).unwrap();
+                memory
+                    .write_slice(&0xee01_0f50u32.to_le_bytes(), GuestAddress(0x100))
+                    .unwrap();
+                assert!(standalone.step_insn().unwrap().is_none());
+                let CpuState::Aarch32(mut state) = standalone.get_state().unwrap() else {
+                    panic!("expected AArch32 state");
+                };
+                state.regs.cpsr = cpsr;
+                state.regs.r[0] = start;
+                if load {
+                    memory.write_slice(&bytes, GuestAddress(address)).unwrap();
+                } else {
+                    state.regs.s[30] = bits as u32;
+                    state.regs.s[31] = (bits >> 32) as u32;
+                }
+                standalone.set_state(&CpuState::Aarch32(state)).unwrap();
+                let instruction = if thumb { raw.rotate_left(16) } else { raw };
+                memory
+                    .write_slice(&instruction.to_le_bytes(), GuestAddress(0x104))
+                    .unwrap();
+                assert!(standalone.step_insn().unwrap().is_none());
+                assert_eq!(standalone.instruction_count(), 2);
+                let CpuState::Aarch32(state) = standalone.get_state().unwrap() else {
+                    panic!("expected AArch32 state");
+                };
+                assert_eq!(state.regs.r[0], start + 12);
+                assert_eq!(state.regs.s[30], bits as u32);
+                assert_eq!(state.regs.s[31], (bits >> 32) as u32);
+                let mut actual = [0; 8];
+                memory
+                    .read_slice(&mut actual, GuestAddress(address))
+                    .unwrap();
+                assert_eq!(actual, bytes);
             }
         }
     }

@@ -200106,6 +200106,16 @@
       "full_goal_complete": false
     },
     {
+      "id": "a32-legacy-vfp-block-2026-11-20",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Legacy VFP blocks use the D0–D15 register window, the full encoded address span, and word-aligned endian-aware transfers. 47,634 owning integration tests passed. Cortex-A15 QEMU matched 24 valid fixtures. Physical Arm remains unverified.",
+      "qualification": "docs/development/a32-fp-controls.md#legacy-vfp-double-register-block-transfers",
+      "full_goal_complete": false
+    },
+    {
       "id": "x86-software-nmi-blocking-2026-11-20",
       "findings": [
         "C-STATE",

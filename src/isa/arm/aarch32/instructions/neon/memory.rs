@@ -43,6 +43,30 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         (addr % align != 0).then_some(ExecResult::MemoryFault(MemoryError::Unaligned(addr)))
     }
 
+    /// A scalar D-register transfer uses two word-aligned accesses in address
+    /// order. CPSR.E selects which half is stored at the lower address.
+    fn read_vfp_double(&self, addr: u32) -> Result<u64, MemoryError> {
+        let first = u64::from(self.mem.read_word(addr)?);
+        let second = u64::from(self.mem.read_word(addr.wrapping_add(4))?);
+        Ok(if self.cpu.cpsr.e {
+            (first << 32) | second
+        } else {
+            (second << 32) | first
+        })
+    }
+
+    fn write_vfp_double(&mut self, addr: u32, bits: u64) -> Result<(), MemoryError> {
+        let low = bits as u32;
+        let high = (bits >> 32) as u32;
+        let (first, second) = if self.cpu.cpsr.e {
+            (high, low)
+        } else {
+            (low, high)
+        };
+        self.mem.write_word(addr, first)?;
+        self.mem.write_word(addr.wrapping_add(4), second)
+    }
+
     pub(crate) fn exec_vldr(&mut self, insn: &DecodedInsn) -> ExecResult {
         if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
@@ -68,20 +92,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 }
                 Err(e) => ExecResult::MemoryFault(e),
             },
-            64 => {
-                let lo = match self.mem.read_word(addr) {
-                    Ok(v) => v,
-                    Err(e) => return ExecResult::MemoryFault(e),
-                };
-                let hi = match self.mem.read_word(addr.wrapping_add(4)) {
-                    Ok(v) => v,
-                    Err(e) => return ExecResult::MemoryFault(e),
-                };
-                self.cpu
-                    .vfp
-                    .write_d_bits(d, ((hi as u64) << 32) | lo as u64);
-                ExecResult::Continue
-            }
+            64 => match self.read_vfp_double(addr) {
+                Ok(bits) => {
+                    self.cpu.vfp.write_d_bits(d, bits);
+                    ExecResult::Continue
+                }
+                Err(e) => ExecResult::MemoryFault(e),
+            },
             _ => ExecResult::Undefined,
         }
     }
@@ -108,19 +125,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 Ok(()) => ExecResult::Continue,
                 Err(e) => ExecResult::MemoryFault(e),
             },
-            64 => {
-                let bits = self.cpu.vfp.read_d_bits(d);
-                if let Err(e) = self.mem.write_word(addr, bits as u32) {
-                    return ExecResult::MemoryFault(e);
-                }
-                if let Err(e) = self
-                    .mem
-                    .write_word(addr.wrapping_add(4), (bits >> 32) as u32)
-                {
-                    return ExecResult::MemoryFault(e);
-                }
-                ExecResult::Continue
-            }
+            64 => match self.write_vfp_double(addr, self.cpu.vfp.read_d_bits(d)) {
+                Ok(()) => ExecResult::Continue,
+                Err(e) => ExecResult::MemoryFault(e),
+            },
             _ => ExecResult::Undefined,
         }
     }
@@ -152,17 +160,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     current = current.wrapping_add(4);
                 }
                 64 => {
-                    let lo = match self.mem.read_word(current) {
+                    let bits = match self.read_vfp_double(current) {
                         Ok(v) => v,
                         Err(e) => return ExecResult::MemoryFault(e),
                     };
-                    let hi = match self.mem.read_word(current.wrapping_add(4)) {
-                        Ok(v) => v,
-                        Err(e) => return ExecResult::MemoryFault(e),
-                    };
-                    self.cpu
-                        .vfp
-                        .write_d_bits(reg, ((hi as u64) << 32) | lo as u64);
+                    self.cpu.vfp.write_d_bits(reg, bits);
                     current = current.wrapping_add(8);
                 }
                 _ => return ExecResult::Undefined,
@@ -200,14 +202,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     current = current.wrapping_add(4);
                 }
                 64 => {
-                    let bits = self.cpu.vfp.read_d_bits(reg);
-                    if let Err(e) = self.mem.write_word(current, bits as u32) {
-                        return ExecResult::MemoryFault(e);
-                    }
-                    if let Err(e) = self
-                        .mem
-                        .write_word(current.wrapping_add(4), (bits >> 32) as u32)
-                    {
+                    if let Err(e) = self.write_vfp_double(current, self.cpu.vfp.read_d_bits(reg)) {
                         return ExecResult::MemoryFault(e);
                     }
                     current = current.wrapping_add(8);

@@ -115,10 +115,12 @@ fn mixed(raw: u32, thumb: bool, target: u8, secure: bool, fpexc: bool) -> AArch6
         Aarch64SysRegEncoding::new(3, 4, 5, 3, 0).encode(),
         if fpexc { 1 << 30 } else { 0 },
     );
-    system.impl_defined.insert(
-        Aarch64SysRegEncoding::new(3, if target == 2 { 4 } else { 6 }, 1, 1, 2).encode(),
-        1 << 10,
-    );
+    if matches!(target, 2 | 3) {
+        system.impl_defined.insert(
+            Aarch64SysRegEncoding::new(3, if target == 2 { 4 } else { 6 }, 1, 1, 2).encode(),
+            1 << 10,
+        );
+    }
     cpu.import_sregs(&state).unwrap();
     cpu.set_pstate_bits(0x1d3 | u64::from(thumb) << 5).unwrap();
     cpu.set_pc(0x100);

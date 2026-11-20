@@ -227,6 +227,34 @@ Invalid or privileged FP system-register accesses retain the existing
 controls returns the architectural Undefined Instruction exception instead.
 The complete existing VFP binary verifies the distinction.
 
+## Legacy VFP double-register block transfers
+
+The odd-count FLDMX and FSTMX encodings transfer one to sixteen consecutive
+registers in D0 through D15. Invalid lists and bases are rejected before
+checking access permissions. For N registers, the encoded word count is
+2N + 1, so the encoded address span is 8N + 4 bytes, at most 132 bytes.
+Only 8N bytes are accessed. The trailing word contributes to the
+decrement-before start address and writeback. Both legacy and ordinary
+scalar double-register transfers use CPSR.E to order the two words.
+The standalone backend applies data byte order to word and halfword
+accesses and fetches according to BE8 instruction order. A transfer takes
+O(N) time and O(1) auxiliary space.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The odd count selects a legacy D-register block. | High | Enumerate ARM and Thumb list fields. A zero count, D16, or a list crossing D15 must take the decode fault before an access trap. |
+| The trailing word contributes to the address span alone. | High | Place the final transferred word at the mapping boundary. Verify the base update and both transferred words. |
+| Both CPU adapters use the same data byte order. | High | Compare the eight guest bytes and the D15 value in both byte orders through standalone and mixed-width backends. |
+
+The parent returned Undefined for `0xec80fb03`. The composed revision
+passed 47,634 tests across seven owning integration binaries.
+The Cortex-A15 QEMU guest
+independently matched all 24 tested ARM and Thumb encodings across transfer
+direction, addressing mode, and byte order. Physical Arm execution remains
+unverified.
+
+[Armv7-A/R former VFP mnemonics](https://support.arm.com/documentation/ddi0406/c/Application-Level-Architecture/Instruction-Details/Alphabetical-list-of-instructions/F---former-Floating-point-instruction-mnemonics)
+
 ## Banked register in a cross-width trap syndrome
 
 An AArch32 CPACR or HCPTR system-access trap to AArch64 reports the X-register

@@ -115,25 +115,11 @@ impl Aarch32Decoder {
             return None;
         }
 
-        let imm8 = raw & 0xFF;
-        // Odd double lists belong to the unsupported FLDMX/FSTMX encodings.
-        if size == 3 && (imm8 & 1) != 0 {
-            return None;
-        }
-
         let l = (raw >> 20) & 1;
         let rn = ((raw >> 16) & 0xF) as u8;
-        let vd = (raw >> 12) & 15;
-        let d = (raw >> 22) & 1;
-        let first = if size == 3 {
-            (d << 4) | vd
-        } else {
-            (vd << 1) | d
-        };
-        let count = if size == 3 { imm8 / 2 } else { imm8 };
         // Decode constraints precede CheckVFPEnabled. Preserve the selected
         // Undefined outcome for invalid lists and apply it to invalid bases.
-        if count == 0 || first + count > 32 || size == 3 && count > 16 || rn == 15 && w != 0 {
+        if Self::vfp_block_registers(raw).is_none() || rn == 15 && w != 0 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -141,11 +127,12 @@ impl Aarch32Decoder {
                 4,
             ));
         }
-        let mnemonic = match (l, rn, p, u, w) {
-            (0, 13, 1, 0, 1) => Mnemonic::VPUSH,
-            (1, 13, 0, 1, 1) => Mnemonic::VPOP,
-            (0, _, _, _, _) => Mnemonic::VSTM,
-            (1, _, _, _, _) => Mnemonic::VLDM,
+        let legacy = size == 3 && raw & 1 != 0;
+        let mnemonic = match (l, rn, p, u, w, legacy) {
+            (0, 13, 1, 0, 1, false) => Mnemonic::VPUSH,
+            (1, 13, 0, 1, 1, false) => Mnemonic::VPOP,
+            (0, _, _, _, _, _) => Mnemonic::VSTM,
+            (1, _, _, _, _, _) => Mnemonic::VLDM,
             _ => return None,
         };
 
@@ -154,6 +141,25 @@ impl Aarch32Decoder {
                 MemOperand::imm_offset(Register::raw(rn, false, rn == 13), 0),
             )),
         )
+    }
+
+    /// Element width, first register, and register count of a scalar VFP list.
+    pub(crate) fn vfp_block_registers(raw: u32) -> Option<(u32, u8, u8)> {
+        let size = (raw >> 8) & 3;
+        let vd = ((raw >> 12) & 15) as u8;
+        let d = ((raw >> 22) & 1) as u8;
+        let words = (raw & 0xff) as u8;
+        let (width, first, count, limit) = match size {
+            2 => (32, (vd << 1) | d, words, 32),
+            // FLDMX/FSTMX use an odd word count and address only D0–D15.
+            3 if words & 1 != 0 => (64, (d << 4) | vd, words / 2, 16),
+            3 => (64, (d << 4) | vd, words / 2, 32),
+            _ => return None,
+        };
+        if count == 0 || size == 3 && count > 16 || u16::from(first) + u16::from(count) > limit {
+            return None;
+        }
+        Some((width, first, count))
     }
 
     pub(crate) fn decode_vfp_transfer_or_system(raw: u32) -> Option<DecodedInsn> {

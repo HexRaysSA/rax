@@ -160,30 +160,18 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     ) -> Option<(u32, u32, u32, u8, u8, bool, usize)> {
         let p = (insn.raw >> 24) & 1;
         let u = (insn.raw >> 23) & 1;
-        let d_bit = ((insn.raw >> 22) & 1) as u8;
         let w = ((insn.raw >> 21) & 1) != 0;
         let rn = ((insn.raw >> 16) & 0xF) as usize;
-        let vd = ((insn.raw >> 12) & 0xF) as u8;
-        let size = (insn.raw >> 8) & 0x3;
-        let words = (insn.raw & 0xFF) as u8;
-        if words == 0 || !matches!((p, u, w), (0, 1, _) | (1, 0, true)) {
-            return None;
-        }
-
-        let (elem_size, first, count) = match size {
-            2 => (32, (vd << 1) | d_bit, words),
-            3 if (words & 1) == 0 => (64, (d_bit << 4) | vd, words / 2),
-            _ => return None,
-        };
-        if count == 0
-            || first.checked_add(count - 1)? >= 32
-            || size == 3 && count > 16
+        if !matches!((p, u, w), (0, 1, _) | (1, 0, true))
             || rn == 15 && (w || insn.state.is_thumb())
         {
             return None;
         }
 
-        let byte_count = (words as u32).wrapping_mul(4);
+        let (elem_size, first, count) = Aarch32Decoder::vfp_block_registers(insn.raw)?;
+        // The final unused word of FLDMX/FSTMX contributes to the addressing
+        // span. The transfer loop visits only the decoded registers.
+        let byte_count = (insn.raw & 0xff) * 4;
         let base = if rn == 15 {
             self.cpu.get_pc() & !3
         } else {

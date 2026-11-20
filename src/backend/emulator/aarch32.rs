@@ -57,6 +57,7 @@ struct EmbedBridge {
 struct BridgeState {
     mmu: V6MmuConfig,
     privileged: bool,
+    big_endian_data: bool,
     /// The fault that made the last failing access fail.
     fault: Option<GuestMemoryFault>,
 }
@@ -192,21 +193,39 @@ impl ArmMemory for EmbedBridge {
     fn read_word(&self, addr: u32) -> std::result::Result<u32, MemoryError> {
         let mut b = [0u8; 4];
         self.read(addr, &mut b, MemoryAccessKind::Read)?;
-        Ok(u32::from_le_bytes(b))
+        Ok(if self.state.borrow().big_endian_data {
+            u32::from_be_bytes(b)
+        } else {
+            u32::from_le_bytes(b)
+        })
     }
 
     fn write_word(&mut self, addr: u32, value: u32) -> std::result::Result<(), MemoryError> {
-        self.write(addr, &value.to_le_bytes())
+        let bytes = if self.state.borrow().big_endian_data {
+            value.to_be_bytes()
+        } else {
+            value.to_le_bytes()
+        };
+        self.write(addr, &bytes)
     }
 
     fn read_halfword(&self, addr: u32) -> std::result::Result<u16, MemoryError> {
         let mut b = [0u8; 2];
         self.read(addr, &mut b, MemoryAccessKind::Read)?;
-        Ok(u16::from_le_bytes(b))
+        Ok(if self.state.borrow().big_endian_data {
+            u16::from_be_bytes(b)
+        } else {
+            u16::from_le_bytes(b)
+        })
     }
 
     fn write_halfword(&mut self, addr: u32, value: u16) -> std::result::Result<(), MemoryError> {
-        self.write(addr, &value.to_le_bytes())
+        let bytes = if self.state.borrow().big_endian_data {
+            value.to_be_bytes()
+        } else {
+            value.to_le_bytes()
+        };
+        self.write(addr, &bytes)
     }
 
     fn read_byte(&self, addr: u32) -> std::result::Result<u8, MemoryError> {
@@ -249,7 +268,7 @@ impl Aarch32Vcpu {
         }
     }
 
-    /// Refreshes the bridge's MMU view from CP15 and the current mode.
+    /// Refreshes the bridge's MMU and data-access state before the instruction.
     fn sync_mmu(&mut self) {
         let cp = &self.cpu.cp15;
         let mut state = self.bridge.state.borrow_mut();
@@ -262,6 +281,7 @@ impl Aarch32Vcpu {
             afe: false,
         };
         state.privileged = self.cpu.cpsr.mode != ProcessorMode::User as u8;
+        state.big_endian_data = self.cpu.cpsr.e;
         state.fault = None;
     }
 

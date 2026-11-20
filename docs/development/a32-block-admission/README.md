@@ -10,19 +10,21 @@ RAX selects Undefined for these unpredictable operands. The overflowing-list
 outcome was already selected by its handlers; the fix applies that policy
 before permission checks and selects the same permitted outcome for the other
 represented constraints. It does not require other hardware to make that choice.
-Unallocated half block forms no longer decode as VFP blocks, and unsupported
-odd double FLDMX/FSTMX forms retain their existing execution boundary. No CPU
-state, checkpoint wire or C ABI layout changes are introduced.
+Unallocated half block forms no longer decode as VFP blocks. Legacy
+FLDMX/FSTMX use odd double counts and the D0–D15 register window. No CPU state,
+checkpoint wire or C ABI layout changes are introduced. See the
+[legacy transfer qualification](../a32-fp-controls.md#legacy-vfp-double-register-block-transfers).
 
 | Operand | Decode requirement |
 |---|---|
 | Single list | count = imm8; count >0 and first + count <=32 |
 | Even double list | count = imm8 /2; 1 <=count <=16 and first + count <=32 |
+| Odd double list | count = imm8 / 2; 1 <= count <= 16 and first + count <= 16 |
 | PC base in ARM | No writeback |
 | PC base in Thumb | Excluded |
 
 Indices/counts are dimensionless. The encoded byte extent is4 * imm8, at most
-1020 bytes; an admitted list spans at most128 bytes. The largest classification
+1020 bytes. An admitted ordinary list spans at most 128 bytes and a legacy list spans at most 132 bytes. The largest classification
 sum is31 +255 =286, within `u32`. Classification uses O(1) time/space.
 
 The original complete library probe passes one valid control and fails two
