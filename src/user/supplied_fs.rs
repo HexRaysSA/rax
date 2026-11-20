@@ -359,38 +359,58 @@ impl Files {
             return Err(std::io::Error::other(Error::Exists));
         }
         let mut next = self.clone();
-        next.caller_roots = Some(Arc::new(Roots::new(roots, None)?));
+        next.caller_roots = Some(Arc::new(Roots::new(roots, roots::Origin::CALLER)?));
         next.restore_roots().map_err(std::io::Error::other)?;
         Ok(next)
     }
 
     /// Add installed native library mounts behind explicit entries and caller mounts.
-    #[cfg(any(target_os = "macos", test))]
+    #[cfg(any(target_os = "linux", target_os = "macos", test))]
     pub(super) fn with_native_library_roots(
         &self,
         mut roots: BTreeMap<String, std::path::PathBuf>,
-        accept: roots::AcceptFile,
+        accept: Option<roots::AcceptFile>,
     ) -> std::io::Result<Self> {
-        roots.retain(|path, _| {
-            // An explicit file may occupy this mount point or an ancestor.
-            // The nearest explicit ancestor suffices since the entries map
-            // cannot contain descendants of an explicit regular file.
+        if self.native_libraries.is_some() {
+            return Ok(self.clone());
+        }
+        let mut blocked = Vec::new();
+        for path in roots.keys() {
+            // A supplied file or caller mount can occupy this mount point
+            // or one of its ancestors.
             let mut ancestor = path.as_str();
-            loop {
-                if let Some(entry) = self.entries.get(ancestor) {
-                    break entry.is_dir();
+            while !ancestor.is_empty() {
+                match self.entry(ancestor) {
+                    Ok(entry) => {
+                        if !entry.is_dir() {
+                            blocked.push(path.clone());
+                        }
+                        break;
+                    }
+                    Err(Error::NotDirectory) => {
+                        blocked.push(path.clone());
+                        break;
+                    }
+                    Err(Error::NotFound) => {}
+                    Err(error) => return Err(std::io::Error::other(error)),
                 }
                 let Some((parent, _)) = ancestor.rsplit_once('/') else {
-                    break true;
+                    break;
                 };
                 ancestor = parent;
             }
-        });
-        if roots.is_empty() || self.native_libraries.is_some() {
+        }
+        for path in blocked {
+            roots.remove(&path);
+        }
+        if roots.is_empty() {
             return Ok(self.clone());
         }
         let mut next = self.clone();
-        next.native_libraries = Some(Arc::new(Roots::new(roots, Some(accept))?));
+        next.native_libraries = Some(Arc::new(Roots::new(
+            roots,
+            roots::Origin::installed(accept),
+        )?));
         next.restore_roots().map_err(std::io::Error::other)?;
         Ok(next)
     }

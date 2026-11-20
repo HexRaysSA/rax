@@ -12,16 +12,34 @@ const MAX_ENTRIES: usize = 2048;
 pub(super) type AcceptFile = fn(&std::fs::File) -> std::io::Result<bool>;
 
 #[derive(Debug)]
+pub(super) struct Origin {
+    inode_base: u64,
+    accept: Option<AcceptFile>,
+}
+
+impl Origin {
+    pub(super) const CALLER: Self = Self {
+        inode_base: 0x8000_0000_0000_0000,
+        accept: None,
+    };
+
+    #[cfg(any(target_os = "linux", target_os = "macos", test))]
+    pub(super) fn installed(accept: Option<AcceptFile>) -> Self {
+        Self {
+            inode_base: 0xc000_0000_0000_0000,
+            accept,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(super) struct Roots {
     roots: BTreeMap<String, PathBuf>,
     entries: Mutex<BTreeMap<String, Entry>>,
-    accept: Option<AcceptFile>,
+    origin: Origin,
 }
 impl Roots {
-    pub(super) fn new(
-        roots: BTreeMap<String, PathBuf>,
-        accept: Option<AcceptFile>,
-    ) -> std::io::Result<Self> {
+    pub(super) fn new(roots: BTreeMap<String, PathBuf>, origin: Origin) -> std::io::Result<Self> {
         let mut canonical = BTreeMap::new();
         for (guest, host) in roots {
             validate(&guest).map_err(std::io::Error::other)?;
@@ -42,7 +60,7 @@ impl Roots {
         Ok(Self {
             roots: canonical,
             entries: Mutex::new(BTreeMap::new()),
-            accept,
+            origin,
         })
     }
     pub(super) fn paths(&self) -> impl Iterator<Item = &str> {
@@ -114,13 +132,8 @@ impl Roots {
         if entries.len() >= MAX_ENTRIES {
             return Err(Error::TooLarge);
         }
-        let origin = if self.accept.is_some() {
-            0xc000_0000_0000_0000
-        } else {
-            0x8000_0000_0000_0000
-        };
         let entry = Entry {
-            ino: origin | entries.len() as u64,
+            ino: self.origin.inode_base | entries.len() as u64,
             kind,
         };
         entries.insert(path.to_owned(), entry.clone());
@@ -151,7 +164,7 @@ impl Roots {
         if !file.metadata().map_err(|_| Error::Io)?.is_file() {
             return Err(Error::NotFound);
         }
-        if let Some(accept) = self.accept
+        if let Some(accept) = self.origin.accept
             && !accept(&file).map_err(|_| Error::Io)?
         {
             return Err(Error::NotFound);

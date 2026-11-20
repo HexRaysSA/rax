@@ -66,7 +66,7 @@ fn select(
 ) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     let root_names = roots.keys().cloned().collect::<Vec<_>>();
-    let files = files.with_host_roots(roots)?;
+    let files = files.with_native_library_roots(roots, None)?;
     let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
         return Ok(files);
     };
@@ -174,6 +174,50 @@ mod tests {
         )
         .unwrap();
         assert!(selected.lookup("/etc/ld.so.cache").is_err());
+    }
+
+    #[test]
+    fn installed_roots_fill_gaps_behind_caller_mounts() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+
+        let caller = TestFile::new(b"caller", 6);
+        let installed = TestFile::new(b"installed", 9);
+        std::fs::write(installed.dir.join("native-only"), b"native-only").unwrap();
+        std::fs::write(caller.dir.join("shadow"), b"shadow").unwrap();
+        let files = Files::new(BTreeMap::from([(
+            "/lib/backing".into(),
+            std::sync::Arc::from(&b"explicit"[..]),
+        )]))
+        .unwrap()
+        .with_host_roots(BTreeMap::from([
+            ("/lib".into(), caller.dir.clone()),
+            ("/overlay".into(), caller.dir.clone()),
+        ]))
+        .unwrap();
+        let selected = select(
+            &files,
+            BTreeMap::from([
+                ("/lib".into(), installed.dir.clone()),
+                ("/overlay/shadow/nested".into(), installed.dir.clone()),
+            ]),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(&*selected.read("/lib/backing").unwrap(), b"explicit");
+        assert_eq!(&*selected.read("/lib/shadow").unwrap(), b"shadow");
+        assert_eq!(&*selected.read("/lib/native-only").unwrap(), b"native-only");
+        assert!(matches!(
+            files.read("/lib/native-only"),
+            Err(Error::NotFound)
+        ));
+        assert!(matches!(
+            selected.read("/overlay/shadow/nested/native-only"),
+            Err(Error::NotDirectory)
+        ));
+        let caller_entry = selected.lookup("/lib/shadow").unwrap().1;
+        let installed_entry = selected.lookup("/lib/native-only").unwrap().1;
+        assert_ne!(caller_entry.ino, installed_entry.ino);
     }
 
     #[cfg(unix)]

@@ -62,7 +62,7 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         host.is_dir().then(|| (guest.to_owned(), host))
     })
     .collect();
-    files.with_native_library_roots(roots, dylibs::accept)
+    files.with_native_library_roots(roots, Some(dylibs::accept))
 }
 
 #[cfg(any(target_os = "macos", test))]
