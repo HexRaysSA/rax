@@ -1,0 +1,32 @@
+{
+  "source": "native Windows installed-process workflow",
+  "profiles": {
+    "26100": {
+      "source_commit": "b72e40e67c079614ec4eccf20c1e29b2056344eb",
+      "source_sha256": "352ac6587974eec2d254bef70d202d53a9d1c71cff2dc2a2894fa909516498e1",
+      "probe_sha256": "0c689c23561d3229adfd9f3541cb064e22e792021def47c98651cc06213d2c78",
+      "ntdll_sha256": "4092c01cb70e15a956d76ca43366a6e324f1154eab7bf7636fe13236215c578a",
+      "ntdll_unchanged": true,
+      "runner": "windows-2025",
+      "workflow_run": 44712366427,
+      "artifact_sha256": "d536ef7a15327387921614d884fbe4414598247c6bc0c386366dc0fb8085442c",
+      "native_json": "amd64-26100-native.json",
+      "native_json_sha256": "7c2c389d5dec8c9f7bff4c894efe8891ca96ba6176d1d05753caceefaa712f4a",
+      "rows": 80
+    },
+    "20348": {
+      "source_commit": "b72e40e67c079614ec4eccf20c1e29b2056344eb",
+      "source_sha256": "352ac6587974eec2d254bef70d202d53a9d1c71cff2dc2a2894fa909516498e1",
+      "probe_sha256": "a461a05d1357a5678c0bde3f95c8cf86a8f98547b00b57885116c6159bf28afe",
+      "ntdll_sha256": "a0e40b2c09fc47964f7802bebfcd0b2136bfb80b9f833a62b68651b44b003380",
+      "ntdll_unchanged": true,
+      "runner": "windows-2022",
+      "workflow_run": 44712366427,
+      "artifact_sha256": "e3f349cdaad394bcb4296dd08f31d9959390d84a52e1c6a818f1241302ee8af1",
+      "native_json": "amd64-20348-native.json",
+      "native_json_sha256": "5618e6880de2125dc2c9e18054d21d5923e8962228a82471a07e9e8d3be6a1a2",
+      "rows": 80
+    }
+  },
+  "checkout_source_endings": "The Git blob contains LF. The runner producer receipt hashes the corresponding checkout with CRLF."
+}

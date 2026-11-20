@@ -27,8 +27,7 @@ buffers leave the data unchanged and publish the required size.
 AMD64 guest dispatch selects this contract on a measured ARM64 installation
 and uses the existing read-only host policy snapshot. The ABI replay checks
 the fifth parameter in the AMD64 stack argument area and the returned status,
-type, size and adjacent output bytes. A physical AMD64 host remains outside
-this measured profile.
+type, size and adjacent output bytes.
 
 The standalone AMD64 comparator produced the same 512 bytes as Windows for
 the 16 replay cases. The original CRT-linked probe also matched all 144 bytes
@@ -43,3 +42,13 @@ and a valid data pointer. Each of the 80 rows records the status, type,
 required size, and guarded destination bytes. Run the installed-process
 workflow with `measure_startup_queries` to record the kernel version and
 hashes of the producer, executable, and NTDLL.
+
+The native AMD64 observations on Windows Server builds 20348 and 26100
+each cover the full 80-query matrix. Both installed names are DWORDs. A
+short buffer reports four required bytes and optionally publishes type 4,
+including a null or nonnull output at capacity zero. Exact spellings return
+the installed values. Lowercase spellings return `STATUS_OBJECT_NAME_NOT_FOUND`
+and preserve the length, type and data outputs for both names. The emulator
+selects this profile for an AMD64 guest on those two AMD64 kernels and
+uses the selected host policy snapshot. [Capture identities](amd64-inputs.json)
+bind the native results.

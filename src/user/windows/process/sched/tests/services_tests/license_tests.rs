@@ -279,6 +279,126 @@ fn amd64_startup_license_replays_the_native64_queries_on_windows_arm() {
 }
 
 #[test]
+fn amd64_startup_license_replays_both_native_server_builds() {
+    use crate::user::windows::policy::APP_SERVER_MODE_NAME;
+
+    #[derive(serde::Deserialize)]
+    struct Capture {
+        kernel: [u32; 3],
+        machine: u16,
+        rows: Vec<Query>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Query {
+        name: String,
+        length: u16,
+        maximum: u16,
+        capacity: u32,
+        null_data: bool,
+        has_type: bool,
+        status: u32,
+        kind: u32,
+        required: u32,
+        storage: String,
+    }
+
+    let captures = [
+        (
+            20348,
+            include_str!(
+                "../../../../../../../docs/specifications/windows/native-startup-license/amd64-20348-native.json"
+            ),
+        ),
+        (
+            26100,
+            include_str!(
+                "../../../../../../../docs/specifications/windows/native-startup-license/amd64-26100-native.json"
+            ),
+        ),
+    ];
+    let decode_hex = |hex: &str| {
+        hex.as_bytes()
+            .chunks_exact(2)
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+            .collect::<Vec<_>>()
+    };
+
+    for (build, source) in captures {
+        let capture: Capture = serde_json::from_str(source).unwrap();
+        assert_eq!(capture.kernel, [10, 0, build]);
+        assert_eq!(capture.machine, 0x8664);
+        assert_eq!(capture.rows.len(), 80);
+        let values = [DEVICE_FAMILY_NAME, APP_SERVER_MODE_NAME].map(|name| {
+            let row = capture
+                .rows
+                .iter()
+                .find(|row| row.name == name && row.capacity == 4 && row.has_type)
+                .unwrap();
+            assert_eq!(row.status, STATUS_SUCCESS);
+            assert_eq!(row.kind, 4);
+            assert_eq!(row.required, 4);
+            (name, 4, decode_hex(&row.storage)[4..8].to_vec())
+        });
+
+        let (mut process, mut thread, module) = terminal_fixture(WinArch::X64);
+        let p = process.state_mut();
+        p.modules.nt_services = Some((
+            module,
+            named_table(WinArch::X64, "NtQueryLicenseValue", SERVICE),
+        ));
+        native_profile::kernel_profile(p, build, capture.machine);
+        p.native.as_mut().unwrap().policy_catalog = Ok(Arc::new(Catalog::fixture(values)));
+        let (base, _) =
+            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap();
+        let (name, storage, kind, required) = (base + 16, base + 160, base + 192, base + 200);
+        let stack = thread.cpu.sp();
+
+        for row in capture.rows {
+            let units: Vec<_> = row.name.encode_utf16().chain(Some(0)).collect();
+            assert_eq!(row.length as usize, 2 * (units.len() - 1));
+            p.space.w16(base, row.length).unwrap();
+            p.space.w16(base + 2, row.maximum).unwrap();
+            p.space.w64(base + 8, name).unwrap();
+            p.space.put_wunits(name, &units).unwrap();
+            p.space.wr(storage, b"ABCDEFGHIJKLMNOPQRSTUVWX").unwrap();
+            p.space.w32(kind, 0xA5A5_A5A5).unwrap();
+            p.space.w32(required, 0x5A5A_5A5A).unwrap();
+
+            super::nls_tests::arguments(
+                p,
+                &mut thread,
+                &[
+                    base,
+                    if row.has_type { kind } else { 0 },
+                    if row.null_data { 0 } else { storage + 4 },
+                    row.capacity.into(),
+                    required,
+                ],
+            );
+            thread.cpu.set_gpr(0, u64::from(SERVICE));
+            assert_eq!(
+                handle_stop(p, &mut thread, stop(WinArch::X64, SERVICE)),
+                Outcome::Continue
+            );
+            assert_eq!(thread.cpu.pc(), 0x1234_0004);
+            assert_eq!(thread.cpu.sp(), stack);
+            assert!(thread.frames.is_empty());
+            let case = (build, row.name.as_str(), row.maximum, row.capacity);
+            assert_eq!(thread.cpu.gpr(0) as u32, row.status, "{case:?}");
+            assert_eq!(p.space.u32(kind).unwrap(), row.kind, "{case:?}");
+            assert_eq!(p.space.u32(required).unwrap(), row.required, "{case:?}");
+            assert_eq!(
+                p.space.bytes(storage, 24).unwrap(),
+                decode_hex(&row.storage),
+                "{case:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn wow64_startup_license_replays_the_observed_stock_cmd_queries() {
     use crate::user::windows::policy::{APP_SERVER_MODE_NAME, WOW64_STARTUP_NAMES};
     use crate::user::windows::process::wow64;
