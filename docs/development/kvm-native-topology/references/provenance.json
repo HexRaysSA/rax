@@ -47,6 +47,50 @@
       "retrieved_utc": "2026-11-03T17:49:55.259851+00:00",
       "scope": "Unmodified AMD-authored public manual mirrored by Stanford; original title, revision and notices retained. Final field review against the archived revision confirms APIC-width/count, reserved cache bits, node uniqueness, Core/Socket domains and core-property bit positions. Earlier3.34 web-only research was corroborated by this locally archived3.36 revision. No physical AMD/Hygon runtime qualification is claimed.",
       "size_justification": "Complete primary architecture reference required by repository instructions; contains the exact topology field definitions used by the code and synthetic matrices."
+    },
+    {
+      "file": "linux-x86-rtc-v6.8.c",
+      "document": "Linux v6.8 arch/x86/kernel/rtc.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kernel/rtc.c",
+      "retrieved_utc": "2026-11-20T06:35:22.423972+00:00",
+      "bytes": 3604,
+      "sha256": "414818c47e28cacc8a46ec76310e80b84b2349632f31c6a9f9ee100c691b6cf9",
+      "git_blob": "2e7066980f3e8bf665613ab4fd2f9ccb03ad7627",
+      "license": "GPL-2.0",
+      "scope": "RTC port 0x70/0x71 read transactions. Unmodified upstream source with original notices."
+    },
+    {
+      "file": "linux-rtc-mc146818-v6.8.c",
+      "document": "Linux v6.8 drivers/rtc/rtc-mc146818-lib.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/drivers/rtc/rtc-mc146818-lib.c",
+      "retrieved_utc": "2026-11-20T06:35:22.423972+00:00",
+      "bytes": 8125,
+      "sha256": "5064e13844ec4228ee95e0cfebf759413dd7e5d04ef8a35e64c191c4ec5f6b9a",
+      "git_blob": "651bf3c279c7462151096cf8565a56fffab9052d",
+      "license": "GPL-2.0-only",
+      "scope": "Seconds and update-in-progress consistency checks. Unmodified upstream source with original notices."
+    },
+    {
+      "file": "linux-printk-v6.8.c",
+      "document": "Linux v6.8 kernel/printk/printk.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/kernel/printk/printk.c",
+      "retrieved_utc": "2026-11-20T06:35:22.423972+00:00",
+      "bytes": 115931,
+      "sha256": "49a65a5fd19d3824671526375028e56199649eda167cc595ba95a77086f40e0b",
+      "git_blob": "f2444b581e16c3c3b4ef955ab89c2a0278436f7b",
+      "license": "GPL-2.0-only",
+      "scope": "Kernel log timestamps from local_clock. Unmodified upstream source with original notices."
+    },
+    {
+      "file": "linux-kvm-main-v6.8.c",
+      "document": "Linux v6.8 virt/kvm/kvm_main.c",
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/virt/kvm/kvm_main.c",
+      "retrieved_utc": "2026-11-20T06:35:22.423972+00:00",
+      "bytes": 170109,
+      "sha256": "7debd8f0f4f08ef34446d9833ec2fab2438c2eec80756897c1099dc99d0e7766",
+      "git_blob": "0f50960b0e3a89215757163ad3b458c92670f4de",
+      "license": "GPL-2.0-only",
+      "scope": "KVM_RUN thread reassociation and RCU worker grace period. Unmodified upstream source with original notices."
     }
   ]
 }
