@@ -70,7 +70,7 @@ pub(super) fn client_connect(
             }
             _ => String::from("unavailable"),
         };
-        return Err(c.unsupported(format!(
+        let mut reason = format!(
             "NtAlpcSendWaitReceivePort unmeasured CSR message/profile \
              (arch={}, kernel={}.{}.{}, message_bytes={}, wire_api={wire_api}, \
              receive_capacity={capacity}, send_attributes={}, receive_attributes={}, timeout={})",
@@ -82,7 +82,21 @@ pub(super) fn client_connect(
             send_attributes != 0,
             receive_attributes != 0,
             timeout != 0,
-        )));
+        );
+        if arch == WinArch::X64 && wire_api == "0x1001b" {
+            reason.push_str(&format!(
+                " BASE NLS admission (physical_amd64={}, lengths={}, header_flags_zero={}, \
+                 status_zero={}, reserved_zero={}, size={}, size_padding_zero={})",
+                c.p.object_namespace.native_machine == Some(0x8664),
+                message.get(..4) == Some(&[40, 0, 80, 0]),
+                message.get(4..8) == Some(&[0; 4]),
+                message.get(52..56) == Some(&[0; 4]),
+                message.get(56..64) == Some(&[0; 8]),
+                message.get(72..76) == Some(&(BASE_NLS_BYTES as u32).to_le_bytes()),
+                message.get(76..80) == Some(&[0; 4]),
+            ));
+        }
+        return Err(c.unsupported(reason));
     }
     if batch_notification {
         if kernel != (10, 0, 29708) || length == 0 || capacity != 952 {
@@ -99,9 +113,9 @@ pub(super) fn client_connect(
                 );
             };
             if base_nls && peer.base_nls_kernel != Some(kernel) {
-                return Err(
-                    c.unsupported("NtAlpcSendWaitReceivePort unmeasured CSR message/profile")
-                );
+                return Err(c.unsupported(
+                    "NtAlpcSendWaitReceivePort BASE NLS peer kernel/session differs",
+                ));
             }
             let Some(view) = port.view() else {
                 return Err(
