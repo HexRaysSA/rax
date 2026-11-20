@@ -248,6 +248,10 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
         let stopped = info(&process);
         if let Some((service, name)) = stopped_native_request(&process, &stopped) {
             eprintln!("guest {service} requested {name:?}");
+            #[cfg(target_arch = "aarch64")]
+            if service == "NtOpenFile" && name == r"\Device\SrpDevice" {
+                native_srp_open_controls();
+            }
         }
         panic!(
             "guest {} stopped after {} scheduler turns: {}",
@@ -344,6 +348,26 @@ fn stopped_native_request(
             return None;
         }
         descriptor = u64::from_le_bytes(attributes[16..24].try_into().ok()?);
+        if service == "NtOpenFile" && stopped["architecture"] == "arm64" {
+            let register = |index: usize| {
+                u32::from_str_radix(
+                    thread["registers"]
+                        .get(index)?
+                        .as_str()?
+                        .strip_prefix("0x")?,
+                    16,
+                )
+                .ok()
+            };
+            if let (Some(access), Some(share), Some(options)) =
+                (register(1), register(4), register(5))
+            {
+                let flags = u32::from_le_bytes(attributes[24..28].try_into().ok()?);
+                eprintln!(
+                    "guest NtOpenFile access={access:08x} share={share:08x} options={options:08x} flags={flags:08x}"
+                );
+            }
+        }
     }
     let mut header = [0; 16];
     if !read(descriptor, &mut header) {
@@ -362,6 +386,91 @@ fn stopped_native_request(
         .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
         .collect();
     Some((service, String::from_utf16(&units).ok()?))
+}
+
+#[cfg(all(windows, target_arch = "aarch64"))]
+fn native_srp_open_controls() {
+    use std::ffi::c_void;
+    use std::os::windows::io::{FromRawHandle, OwnedHandle};
+    use std::ptr::null_mut;
+
+    #[repr(C)]
+    struct Unicode {
+        length: u16,
+        maximum: u16,
+        buffer: *const u16,
+    }
+
+    #[repr(C)]
+    struct Attributes {
+        length: u32,
+        root: *mut c_void,
+        name: *const Unicode,
+        flags: u32,
+        security: *mut c_void,
+        qos: *mut c_void,
+    }
+
+    #[repr(C)]
+    struct Io {
+        status: usize,
+        information: usize,
+    }
+
+    #[link(name = "ntdll")]
+    unsafe extern "system" {
+        fn NtOpenFile(
+            output: *mut *mut c_void,
+            access: u32,
+            attributes: *const Attributes,
+            io: *mut Io,
+            share: u32,
+            options: u32,
+        ) -> i32;
+    }
+
+    let units: Vec<u16> = r"\Device\SrpDevice".encode_utf16().collect();
+    let length = (units.len() * 2) as u16;
+    let name = Unicode {
+        length,
+        maximum: length,
+        buffer: units.as_ptr(),
+    };
+    let attributes = Attributes {
+        length: size_of::<Attributes>() as u32,
+        root: null_mut(),
+        name: &name,
+        flags: 0x40,
+        security: null_mut(),
+        qos: null_mut(),
+    };
+    for (access, share, options) in [
+        (0x0010_0001, 7, 0x20),
+        (0x0010_0080, 7, 0x20),
+        (0x0010_0000, 7, 0x20),
+        (0x0000_0001, 7, 0),
+    ] {
+        let mut handle = null_mut();
+        let mut io = Io {
+            status: usize::MAX - 1,
+            information: usize::MAX - 2,
+        };
+        // SAFETY: all inputs are fixed read-only controls with live native
+        // storage. The test closes any granted handle without issuing device I/O.
+        let status =
+            unsafe { NtOpenFile(&mut handle, access, &attributes, &mut io, share, options) };
+        let opened = !handle.is_null();
+        if status >= 0 && opened {
+            // SAFETY: a successful open transfers this unique native handle.
+            drop(unsafe { OwnedHandle::from_raw_handle(handle) });
+        }
+        eprintln!(
+            "native SRP open access={access:08x} share={share:08x} options={options:08x} status={:08x} opened={opened} iosb-status={:016x} iosb-information={:016x}",
+            status.cast_unsigned(),
+            io.status,
+            io.information
+        );
+    }
 }
 
 #[cfg(windows)]
