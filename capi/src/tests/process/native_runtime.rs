@@ -209,8 +209,8 @@ fn installed_i386_glibc_matches_native_through_closed_c_abi() {
     assert_eq!(before["capabilities"]["host_filesystem"], false);
     assert_eq!(before["capabilities"]["host_services"], false);
     let exit_code = run_installed_posix(&process, &path).exit_code;
-    let stdout = capture_installed_i386_stream(&process, RAX_PROCESS_STDOUT);
-    let stderr = capture_installed_i386_stream(&process, RAX_PROCESS_STDERR);
+    let stdout = capture_installed_linux_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_linux_stream(&process, RAX_PROCESS_STDERR);
     if exit_code != 23 {
         let library_dir = loader.parent().unwrap();
         for environment in [
@@ -220,7 +220,7 @@ fn installed_i386_glibc_matches_native_through_closed_c_abi() {
             options["environment"] = environment;
             let traced = open(&image, &options.to_string());
             let status = run_installed_posix(&traced, &path);
-            let trace = capture_installed_i386_stream(&traced, RAX_PROCESS_STDERR);
+            let trace = capture_installed_linux_stream(&traced, RAX_PROCESS_STDERR);
             eprintln!(
                 "i386 loader trace with {} (exit {}):\n{}",
                 options["environment"],
@@ -240,7 +240,52 @@ fn installed_i386_glibc_matches_native_through_closed_c_abi() {
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-fn capture_installed_i386_stream(process: &Owned, stream: u32) -> Vec<u8> {
+#[test]
+#[ignore = "run explicitly with the Linux x64 CI program and installed musl"]
+fn installed_musl_matches_native_through_closed_c_abi() {
+    let path = std::env::var("RAX_LINUX_MUSL_PROGRAM").expect("path to the musl fixture");
+    let image = std::fs::read(&path).expect("read the dynamically linked musl fixture");
+    let elf = rax_engine::user::image::elf::ElfImage::parse_self_described(&image).unwrap();
+    let interpreter = "/lib/ld-musl-x86_64.so.1";
+    assert_eq!(elf.interpreter(), Some(interpreter.as_bytes()));
+    let loader = std::fs::canonicalize(interpreter).expect("installed musl loader");
+    assert!(loader.is_file(), "{loader:?}");
+
+    let native = std::process::Command::new(&path)
+        .env_clear()
+        .output()
+        .expect("run the musl fixture natively");
+    assert_eq!(native.status.code(), Some(24));
+    assert_eq!(native.stdout, b"installed musl libc\n");
+    assert!(native.stderr.is_empty());
+
+    let options = serde_json::json!({
+        "personality": "linux",
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+        "slice_instructions": 4096,
+    });
+    let process = open(&image, &options.to_string());
+    let before = info(&process);
+    assert_eq!(before["architecture"], "x86_64");
+    assert_eq!(before["capabilities"]["native_runtime"], true);
+    assert_eq!(before["capabilities"]["host_filesystem"], false);
+    assert_eq!(before["capabilities"]["host_services"], false);
+    let exit_code = run_installed_posix(&process, &path).exit_code;
+    let stdout = capture_installed_linux_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_linux_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(
+        Some(exit_code),
+        native.status.code(),
+        "musl guest stderr: {}",
+        String::from_utf8_lossy(&stderr)
+    );
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn capture_installed_linux_stream(process: &Owned, stream: u32) -> Vec<u8> {
     let mut bytes = vec![0u8; 65536];
     let mut size = 0;
     assert_eq!(
