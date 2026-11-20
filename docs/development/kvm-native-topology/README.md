@@ -82,15 +82,28 @@ SDK-compatible complete library passes all 17 owning cases, all ten native I/O
 cases, ten profile unit/lifecycle cases and sixteen public-state cases. Root
 unit selections are filtered; these results are not an unfiltered library run.
 
-Independent final-CLI Linux activates exactly 1/2/4 CPUs, detects KVM clock
-MSRs and a 3491.912 MHz TSC, and no longer reports die-conversion warnings.
-Periodic LAPIC timer verification still fails; complete timer/IRQ correctness
-is not established by CPU startup. All eighteen canonical workspace commands
-pass; receipts and assumptions are in `qualification.json`. Native
+The historical final-CLI Linux run activated exactly 1/2/4 CPUs, detected
+KVM clock MSRs and a 3491.912 MHz TSC, and reported a periodic LAPIC
+verification failure. All eighteen canonical workspace commands passed.
+Receipts and assumptions are in `qualification.json`. Native
 private/shared/in-flight checkpoint production, coordinated restore, full
 clocks/replay, remaining A32/HVF profiles and physical Intel HVF execution
 remain separate full requirements. AMD/Hygon
 field matrices are synthetic; no physical AMD/Hygon runtime result is claimed.
+
+The current-source probe at `4b2bff02` used the same Linux
+`6.8.0-138-generic` guest image and a fresh CLI build. Linux reported
+TSC-deadline availability and brought up all configured CPUs in both the
+one- and four-vCPU cases. The harness exited after the SMP bring-up
+marker. Linux skips legacy LAPIC calibration when it enables
+TSC-deadline. With `clearcpuid=152` masking that feature, the one-vCPU
+control stopped emitting serial output after disabling its early
+console. It reached neither legacy calibration nor SMP bring-up within
+325 s. The point of failure inside the guest remains unknown. The startup
+evidence covers a single Linux guest and Intel KVM host.
+[Linux LAPIC calibration](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kernel/apic/apic.c)
+[Linux CPU feature indices](https://github.com/torvalds/linux/blob/v6.8/arch/x86/include/asm/cpufeatures.h)
+[Native boot observations](linux-startup-native.json)
 
 `native-profile.S`, `encoding.json`, and `queries.json` retain the guest witness.
 The adjacent primary Linux references preserve their original notices. Intel
