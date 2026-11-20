@@ -5,7 +5,7 @@
 //! roots allow on-demand lookup; their host symlinks must target selected roots.
 //! Selected open files can back entries without copying their complete contents. Lookup walks
 //! components before interpreting `..`, so `/file/../other` is `NotDirectory`.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use crate::user::mm::{BytesSource, HostFileSource, PageSource, SourceIdentity};
@@ -25,6 +25,7 @@ pub enum Error {
     NotFound,
     NotDirectory,
     IsDirectory,
+    LinkLoop,
     Io,
     TooLarge,
 }
@@ -37,6 +38,7 @@ impl std::fmt::Display for Error {
             Self::NotFound => "guest path is not supplied",
             Self::NotDirectory => "guest path component is not a directory",
             Self::IsDirectory => "guest path is a directory",
+            Self::LinkLoop => "guest pathname encountered a symbolic link without following it",
             Self::Io => "selected guest backing file read failed",
             Self::TooLarge => "selected guest backing exceeds its image or namespace limit",
         })
@@ -50,6 +52,8 @@ pub enum Kind {
     /// Read-only backing selected by the embedder, never by a guest pathname.
     Backed(Arc<HostFileSource>),
     Directory,
+    /// Metadata for an installed Linux runtime link selected without following it.
+    Symlink(Arc<[u8]>),
 }
 #[derive(Clone, Debug)]
 pub struct Entry {
@@ -61,6 +65,12 @@ pub struct Entry {
 impl Entry {
     pub fn is_dir(&self) -> bool {
         matches!(self.kind, Kind::Directory)
+    }
+    pub(crate) fn link_target(&self) -> Option<&[u8]> {
+        match &self.kind {
+            Kind::Symlink(target) => Some(target),
+            _ => None,
+        }
     }
     pub fn bytes(&self) -> Result<Arc<[u8]>, Error> {
         match &self.kind {
@@ -91,15 +101,17 @@ impl Entry {
                 Ok(bytes.into())
             }
             Kind::Directory => Err(Error::IsDirectory),
+            Kind::Symlink(_) => Err(Error::LinkLoop),
         }
     }
 
-    /// File length without materializing its contents. Directories have size zero.
+    /// File or link length without materializing its contents. Directories have size zero.
     pub fn len(&self) -> u64 {
         match &self.kind {
             Kind::File(bytes) => bytes.len() as u64,
             Kind::Backed(source) => source.len(),
             Kind::Directory => 0,
+            Kind::Symlink(target) => target.len() as u64,
         }
     }
 
@@ -122,6 +134,7 @@ impl Entry {
             Kind::File(bytes) => Arc::new(BytesSource::new(bytes.clone())),
             Kind::Backed(source) => source.clone(),
             Kind::Directory => return Err(Error::IsDirectory),
+            Kind::Symlink(_) => return Err(Error::LinkLoop),
         };
         Ok(Arc::new(GuestSource {
             source,
@@ -365,11 +378,28 @@ impl Files {
     }
 
     /// Add installed native library mounts behind explicit entries and caller mounts.
-    #[cfg(any(target_os = "linux", target_os = "macos", test))]
+    #[cfg(any(target_os = "macos", test))]
     pub(super) fn with_native_library_roots(
         &self,
-        mut roots: BTreeMap<String, std::path::PathBuf>,
+        roots: BTreeMap<String, std::path::PathBuf>,
         accept: Option<roots::AcceptFile>,
+    ) -> std::io::Result<Self> {
+        self.with_library_roots(roots, roots::Origin::installed(accept, false))
+    }
+
+    #[cfg(any(target_os = "linux", test))]
+    pub(super) fn with_linux_library_roots(
+        &self,
+        roots: BTreeMap<String, std::path::PathBuf>,
+    ) -> std::io::Result<Self> {
+        self.with_library_roots(roots, roots::Origin::installed(None, true))
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos", test))]
+    fn with_library_roots(
+        &self,
+        mut roots: BTreeMap<String, std::path::PathBuf>,
+        origin: roots::Origin,
     ) -> std::io::Result<Self> {
         if self.native_libraries.is_some() {
             return Ok(self.clone());
@@ -380,7 +410,7 @@ impl Files {
             // or one of its ancestors.
             let mut ancestor = path.as_str();
             while !ancestor.is_empty() {
-                match self.entry(ancestor) {
+                match self.entry(ancestor, true) {
                     Ok(entry) => {
                         if !entry.is_dir() {
                             blocked.push(path.clone());
@@ -407,10 +437,7 @@ impl Files {
             return Ok(self.clone());
         }
         let mut next = self.clone();
-        next.native_libraries = Some(Arc::new(Roots::new(
-            roots,
-            roots::Origin::installed(accept),
-        )?));
+        next.native_libraries = Some(Arc::new(Roots::new(roots, origin)?));
         next.restore_roots().map_err(std::io::Error::other)?;
         Ok(next)
     }
@@ -442,11 +469,21 @@ impl Files {
         Ok(())
     }
 
-    fn entry(&self, path: &str) -> Result<Entry, Error> {
+    fn entry(&self, path: &str, follow: bool) -> Result<Entry, Error> {
         if let Some(entry) = self.entries.get(path) {
+            if !follow
+                && let Some(roots) = &self.native_libraries
+                && roots.owns(entry)
+                && let Some(link) = roots.mount_link(path)?
+            {
+                return Ok(link);
+            }
             return Ok(entry.clone());
         }
         for roots in self.caller_roots.iter().chain(&self.native_libraries) {
+            if !follow && let Some(link) = roots.symlink(path)? {
+                return Ok(link);
+            }
             match roots.lookup(path) {
                 Err(Error::NotFound) => continue,
                 result => return result,
@@ -458,27 +495,38 @@ impl Files {
     /// Resolves an absolute guest path, retaining directory checks before `..`.
     /// Returns its canonical guest name and a shared entry; never a host path.
     pub fn lookup(&self, path: &str) -> Result<(String, Entry), Error> {
+        self.lookup_with_follow(path, true)
+    }
+
+    pub(crate) fn lookup_with_follow(
+        &self,
+        path: &str,
+        follow_last: bool,
+    ) -> Result<(String, Entry), Error> {
         validate(path)?;
         let mut current = String::from("/");
-        let mut entry = self.entry("/")?;
-        for component in path.split('/').filter(|c| !c.is_empty()) {
+        let mut entry = self.entry("/", true)?;
+        let mut components = path.split('/').filter(|c| !c.is_empty()).peekable();
+        while let Some(component) = components.next() {
             if !entry.is_dir() {
                 return Err(Error::NotDirectory);
             }
-            match component {
-                "." => {}
+            let follow = match component {
+                "." => true,
                 ".." => {
                     let end = current.rfind('/').expect("absolute path");
                     current.truncate(end.max(1));
+                    true
                 }
                 name => {
                     if current != "/" {
                         current.push('/');
                     }
                     current.push_str(name);
+                    follow_last || components.peek().is_some() || path.ends_with('/')
                 }
-            }
-            entry = self.entry(&current)?;
+            };
+            entry = self.entry(&current, follow)?;
         }
         if path.ends_with('/') && !entry.is_dir() {
             return Err(Error::NotDirectory);
@@ -501,29 +549,27 @@ impl Files {
         } else {
             format!("{canonical}/")
         };
-        let mut children: BTreeMap<String, Entry> = self
+        let mut names: BTreeSet<String> = self
             .entries
             .range(prefix.clone()..)
             .take_while(|(key, _)| key.starts_with(&prefix))
-            .filter_map(|(key, value)| {
+            .filter_map(|(key, _)| {
                 let name = &key[prefix.len()..];
-                (!name.is_empty() && !name.contains('/')).then(|| (name.to_string(), value.clone()))
+                (!name.is_empty() && !name.contains('/')).then(|| name.to_string())
             })
             .collect();
         for roots in self.caller_roots.iter().chain(&self.native_libraries) {
-            for name in roots.children(prefix.trim_end_matches('/'))? {
-                let path = format!("{prefix}{name}");
-                match self.entry(&path) {
-                    Ok(entry) => {
-                        children.entry(name).or_insert(entry);
-                    }
-                    // Broken links and targets outside the selected roots are absent.
-                    Err(Error::NotFound) => {}
-                    Err(error) => return Err(error),
-                }
+            names.extend(roots.children(prefix.trim_end_matches('/'))?);
+        }
+        let mut children = Vec::new();
+        for name in names {
+            match self.entry(&format!("{prefix}{name}"), false) {
+                Ok(entry) => children.push((name, entry)),
+                Err(Error::NotFound) => {}
+                Err(error) => return Err(error),
             }
         }
-        Ok(children.into_iter().collect())
+        Ok(children)
     }
 }
 

@@ -66,7 +66,7 @@ fn select(
 ) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     let root_names = roots.keys().cloned().collect::<Vec<_>>();
-    let files = files.with_native_library_roots(roots, None)?;
+    let files = files.with_linux_library_roots(roots)?;
     let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
         return Ok(files);
     };

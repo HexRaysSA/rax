@@ -15,32 +15,43 @@ pub(super) type AcceptFile = fn(&std::fs::File) -> std::io::Result<bool>;
 pub(super) struct Origin {
     inode_base: u64,
     accept: Option<AcceptFile>,
+    observe_symlinks: bool,
 }
 
 impl Origin {
     pub(super) const CALLER: Self = Self {
         inode_base: 0x8000_0000_0000_0000,
         accept: None,
+        observe_symlinks: false,
     };
 
     #[cfg(any(target_os = "linux", target_os = "macos", test))]
-    pub(super) fn installed(accept: Option<AcceptFile>) -> Self {
+    pub(super) fn installed(accept: Option<AcceptFile>, observe_symlinks: bool) -> Self {
         Self {
             inode_base: 0xc000_0000_0000_0000,
             accept,
+            observe_symlinks,
         }
     }
+}
+
+#[derive(Debug, Default)]
+struct Entries {
+    files: BTreeMap<String, Entry>,
+    links: BTreeMap<String, Entry>,
 }
 
 #[derive(Debug)]
 pub(super) struct Roots {
     roots: BTreeMap<String, PathBuf>,
-    entries: Mutex<BTreeMap<String, Entry>>,
+    mount_links: BTreeMap<String, Arc<[u8]>>,
+    entries: Mutex<Entries>,
     origin: Origin,
 }
 impl Roots {
     pub(super) fn new(roots: BTreeMap<String, PathBuf>, origin: Origin) -> std::io::Result<Self> {
         let mut canonical = BTreeMap::new();
+        let mut mount_links = BTreeMap::new();
         for (guest, host) in roots {
             validate(&guest).map_err(std::io::Error::other)?;
             if guest == "/"
@@ -51,15 +62,21 @@ impl Roots {
             {
                 return Err(std::io::Error::other(Error::InvalidPath));
             }
-            let host = std::fs::canonicalize(host)?;
-            if !host.is_dir() {
+            let host_directory = std::fs::canonicalize(&host)?;
+            if !host_directory.is_dir() {
                 return Err(std::io::Error::other(Error::NotDirectory));
             }
-            canonical.insert(guest, host);
+            if origin.observe_symlinks
+                && let Some(target) = link_target(&host).map_err(std::io::Error::other)?
+            {
+                mount_links.insert(guest.clone(), target);
+            }
+            canonical.insert(guest, host_directory);
         }
         Ok(Self {
             roots: canonical,
-            entries: Mutex::new(BTreeMap::new()),
+            mount_links,
+            entries: Mutex::new(Entries::default()),
             origin,
         })
     }
@@ -86,15 +103,7 @@ impl Roots {
             return Err(Error::NotFound);
         }
         let path = host.join(relative);
-        let canonical = std::fs::canonicalize(path).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotADirectory {
-                Error::NotDirectory
-            } else if e.kind() == std::io::ErrorKind::NotFound {
-                Error::NotFound
-            } else {
-                Error::Io
-            }
-        })?;
+        let canonical = std::fs::canonicalize(path).map_err(path_error)?;
         if !self.roots.values().any(|root| canonical.starts_with(root)) {
             return Err(Error::NotFound);
         }
@@ -124,26 +133,82 @@ impl Roots {
     pub(super) fn directory_ino(&self, path: &str) -> Result<u64, Error> {
         self.insert(path, Kind::Directory).map(|entry| entry.ino)
     }
+    pub(super) fn owns(&self, entry: &Entry) -> bool {
+        let base = self.origin.inode_base;
+        (base..base + MAX_ENTRIES as u64).contains(&entry.ino)
+    }
+
     fn insert(&self, path: &str, kind: Kind) -> Result<Entry, Error> {
         let mut entries = self.entries.lock().map_err(|_| Error::Io)?;
-        if let Some(entry) = entries.get(path) {
+        let index = entries.files.len() + entries.links.len();
+        let table = if matches!(kind, Kind::Symlink(_)) {
+            &mut entries.links
+        } else {
+            &mut entries.files
+        };
+        if let Some(entry) = table.get(path) {
             return Ok(entry.clone());
         }
-        if entries.len() >= MAX_ENTRIES {
+        if index >= MAX_ENTRIES {
             return Err(Error::TooLarge);
         }
         let entry = Entry {
-            ino: self.origin.inode_base | entries.len() as u64,
+            ino: self.origin.inode_base | index as u64,
             kind,
         };
-        entries.insert(path.to_owned(), entry.clone());
+        table.insert(path.to_owned(), entry.clone());
         Ok(entry)
     }
+
+    pub(super) fn mount_link(&self, path: &str) -> Result<Option<Entry>, Error> {
+        self.mount_links
+            .get(path)
+            .map(|target| self.insert(path, Kind::Symlink(target.clone())))
+            .transpose()
+    }
+
+    pub(super) fn symlink(&self, path: &str) -> Result<Option<Entry>, Error> {
+        if !self.origin.observe_symlinks {
+            return Ok(None);
+        }
+        if let Some(entry) = self
+            .entries
+            .lock()
+            .map_err(|_| Error::Io)?
+            .links
+            .get(path)
+            .cloned()
+        {
+            return Ok(Some(entry));
+        }
+        let Some((parent, name)) = path.rsplit_once('/') else {
+            return Ok(None);
+        };
+        // Resolve and confine the parent before reading the directory entry.
+        // The target bytes may describe a missing or unselected destination.
+        let parent = match self.host(parent) {
+            Ok(parent) => parent,
+            Err(Error::NotFound) => return Ok(None),
+            Err(error) => return Err(error),
+        };
+        #[cfg(any(target_os = "macos", windows))]
+        if !std::fs::read_dir(&parent)
+            .map_err(path_error)?
+            .any(|item| item.is_ok_and(|item| item.file_name() == std::ffi::OsStr::new(name)))
+        {
+            return Ok(None);
+        }
+        link_target(&parent.join(name))?
+            .map(|target| self.insert(path, Kind::Symlink(target)))
+            .transpose()
+    }
+
     pub(super) fn lookup(&self, path: &str) -> Result<Entry, Error> {
         if let Some(entry) = self
             .entries
             .lock()
             .map_err(|_| Error::Io)?
+            .files
             .get(path)
             .cloned()
         {
@@ -191,5 +256,41 @@ impl Roots {
             }
         }
         Ok(names)
+    }
+}
+
+fn path_error(error: std::io::Error) -> Error {
+    #[cfg(unix)]
+    if error.raw_os_error() == Some(libc::ELOOP) {
+        return Error::LinkLoop;
+    }
+    match error.kind() {
+        std::io::ErrorKind::NotADirectory => Error::NotDirectory,
+        std::io::ErrorKind::NotFound => Error::NotFound,
+        _ => Error::Io,
+    }
+}
+
+fn link_target(path: &std::path::Path) -> Result<Option<Arc<[u8]>>, Error> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        match std::fs::read_link(path) {
+            Ok(target) => Ok(Some(Arc::from(target.as_os_str().as_bytes()))),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::InvalidInput | std::io::ErrorKind::NotFound
+                ) =>
+            {
+                Ok(None)
+            }
+            Err(error) => Err(path_error(error)),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(None)
     }
 }

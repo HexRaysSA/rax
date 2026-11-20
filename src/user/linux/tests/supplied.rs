@@ -149,6 +149,97 @@ fn selected_file_stats_observe_live_truncation_all_abis() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn installed_library_links_support_metadata_and_path_descriptors_all_abis() {
+    use crate::user::linux::abi::open::O_PATH;
+    use crate::user::linux::syscall::path::{AT_EMPTY_PATH, AT_SYMLINK_NOFOLLOW};
+    use std::os::unix::fs::symlink;
+
+    let fixture = crate::user::supplied_fs::test_backing::TestFile::new(b"loader", 6);
+    let lib64 = fixture.dir.join("usr/lib64");
+    std::fs::create_dir_all(&lib64).unwrap();
+    std::fs::write(lib64.join("loader"), b"loader").unwrap();
+    symlink("usr/lib64", fixture.dir.join("lib64")).unwrap();
+    symlink("loader", lib64.join("ld.so")).unwrap();
+    symlink("missing", lib64.join("dangling")).unwrap();
+    symlink("loop", lib64.join("loop")).unwrap();
+    symlink("/unselected/loader", lib64.join("outside")).unwrap();
+    let files = Files::default()
+        .with_linux_library_roots(BTreeMap::from([
+            ("/lib64".into(), fixture.dir.join("lib64")),
+            ("/usr/lib64".into(), lib64),
+        ]))
+        .unwrap();
+    assert_eq!(
+        files
+            .children("/")
+            .unwrap()
+            .iter()
+            .find(|(name, _)| name == "lib64")
+            .unwrap()
+            .1
+            .link_target(),
+        Some(&b"usr/lib64"[..])
+    );
+
+    for abi in ABIS {
+        let mut h = Harness::with_supplied(abi, files.clone());
+        let (name, buf) = (h.scratch, h.scratch + 512);
+        path(&h, name, "/lib64");
+        assert_eq!(h.ok(Sysno::Readlinkat, &[AT_FDCWD, name, buf, 32]), 9);
+        assert_eq!(get(&h, buf, 9), b"usr/lib64");
+        path(&h, name, "/lib64/");
+        assert_eq!(h.err(Sysno::Readlinkat, &[AT_FDCWD, name, buf, 32]), EINVAL);
+
+        path(&h, name, "/lib64/ld.so");
+        assert_eq!(h.ok(Sysno::Statx, &[AT_FDCWD, name, 0, 0x7ff, buf]), 0);
+        let mode = u16::from_le_bytes(get(&h, buf + 28, 2).try_into().unwrap());
+        assert_eq!(mode & 0o170000, 0o100000);
+        assert_eq!(
+            h.ok(
+                Sysno::Statx,
+                &[AT_FDCWD, name, u64::from(AT_SYMLINK_NOFOLLOW), 0x7ff, buf]
+            ),
+            0
+        );
+        let mode = u16::from_le_bytes(get(&h, buf + 28, 2).try_into().unwrap());
+        assert_eq!(mode, 0o120777);
+        let nofollow = u64::from(abi.open_flags().nofollow);
+        assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, name, nofollow, 0]), ELOOP);
+        let link = h.ok(
+            Sysno::Openat,
+            &[AT_FDCWD, name, u64::from(O_PATH) | nofollow, 0],
+        );
+        path(&h, name, "");
+        assert_eq!(h.ok(Sysno::Readlinkat, &[link, name, buf, 3]), 3);
+        assert_eq!(get(&h, buf, 3), b"loa");
+        assert_eq!(h.err(Sysno::Read, &[link, buf, 3]), EBADF);
+        assert_eq!(
+            h.ok(
+                Sysno::Statx,
+                &[link, name, u64::from(AT_EMPTY_PATH), 0x7ff, buf]
+            ),
+            0
+        );
+        assert_eq!(
+            u16::from_le_bytes(get(&h, buf + 28, 2).try_into().unwrap()),
+            0o120777
+        );
+
+        path(&h, name, "/usr/lib64/dangling");
+        assert_eq!(h.ok(Sysno::Readlinkat, &[AT_FDCWD, name, buf, 32]), 7);
+        assert_eq!(get(&h, buf, 7), b"missing");
+        assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, name, 0, 0]), ENOENT);
+        path(&h, name, "/usr/lib64/outside");
+        assert_eq!(h.ok(Sysno::Readlinkat, &[AT_FDCWD, name, buf, 32]), 18);
+        assert_eq!(get(&h, buf, 18), b"/unselected/loader");
+        assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, name, 0, 0]), ENOENT);
+        path(&h, name, "/usr/lib64/loop");
+        assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, name, 0, 0]), ELOOP);
+    }
+}
+
 #[test]
 fn supplied_files_read_seek_stat_map_and_enumerate_all_abis() {
     for abi in ABIS {

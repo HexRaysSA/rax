@@ -80,7 +80,7 @@ pub fn resolve_str(c: &Ctx<'_>, dirfd: i32, path: &str, follow: bool) -> Result<
         join_guest(&base_dir(c, dirfd)?, path)
     };
     if let Some(files) = c.p.vfs.supplied() {
-        match files.lookup(&guest) {
+        match files.lookup_with_follow(&guest, follow) {
             Ok((canonical, entry)) => return Ok(Target::Supplied(entry, canonical)),
             Err(crate::user::supplied_fs::Error::NotFound) => {}
             Err(error) => return Err(error.into()),
@@ -159,10 +159,10 @@ fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
     let size = entry.len().min(i64::MAX as u64) as i64;
     Stat {
         ino: entry.ino,
-        mode: if entry.is_dir() {
-            mode::S_IFDIR | 0o555
-        } else {
-            mode::S_IFREG | 0o555
+        mode: match &entry.kind {
+            crate::user::supplied_fs::Kind::Directory => mode::S_IFDIR | 0o555,
+            crate::user::supplied_fs::Kind::Symlink(_) => mode::S_IFLNK | 0o777,
+            _ => mode::S_IFREG | 0o555,
         },
         nlink: if entry.is_dir() { 2 } else { 1 },
         uid: 0,
@@ -368,6 +368,9 @@ pub(super) fn open_target(
             if flags & (O_CREAT | O_EXCL) == (O_CREAT | O_EXCL) {
                 return Err(Errno(EEXIST));
             }
+            if entry.link_target().is_some() && flags & O_PATH == 0 {
+                return Err(Errno(ELOOP));
+            }
             if flags & O_PATH == 0
                 && (accmode != O_RDONLY || flags & (O_TRUNC | O_TMPFILE_BIT) != 0)
             {
@@ -395,16 +398,18 @@ pub(super) fn open_target(
                 entries.extend(files.children(&guest)?.into_iter().map(|(name, entry)| {
                     fs::fd::DirEntry {
                         ino: entry.ino,
-                        dtype: if entry.is_dir() {
-                            fs::fd::dt::DT_DIR
-                        } else {
-                            fs::fd::dt::DT_REG
+                        dtype: match entry.kind {
+                            crate::user::supplied_fs::Kind::Directory => fs::fd::dt::DT_DIR,
+                            crate::user::supplied_fs::Kind::Symlink(_) => fs::fd::dt::DT_LNK,
+                            _ => fs::fd::dt::DT_REG,
                         },
                         name: name.into_bytes(),
                     }
                 }));
                 directory = Some((entries, 0));
                 (FileObject::Synthetic(Arc::from([])), FileType::Directory)
+            } else if entry.link_target().is_some() {
+                (FileObject::Supplied(entry.clone()), FileType::Symlink)
             } else {
                 (FileObject::Supplied(entry.clone()), FileType::Regular)
             };
@@ -801,7 +806,12 @@ pub fn readlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -
     }
     let bytes = match resolve(c, dirfd, path, AT_EMPTY_PATH, false)? {
         Target::Proc(ProcEntry::Link(t), _) => t.into_bytes(),
-        Target::Proc(..) | Target::Fd(_) | Target::Supplied(..) => return Err(Errno(EINVAL)),
+        Target::Proc(..) => return Err(Errno(EINVAL)),
+        Target::Supplied(entry, _) => entry.link_target().ok_or(Errno(EINVAL))?.to_vec(),
+        Target::Fd(file) => match &file.object {
+            FileObject::Supplied(entry) => entry.link_target().ok_or(Errno(EINVAL))?.to_vec(),
+            _ => return Err(Errno(EINVAL)),
+        },
         #[cfg(not(unix))]
         Target::Host { .. } => return Err(Errno(EPERM)),
         #[cfg(unix)]
