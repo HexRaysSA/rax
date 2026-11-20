@@ -74,7 +74,7 @@ pub(super) fn client_connect(
             }
             _ => String::from("unavailable"),
         };
-        return Err(c.unsupported(format!(
+        let mut reason = format!(
             "NtAlpcSendWaitReceivePort unmeasured CSR message/profile \
              (arch={}, kernel={}.{}.{}, message_bytes={}, wire_api={wire_api}, \
              receive_capacity={capacity}, send_attributes={}, receive_attributes={}, timeout={})",
@@ -86,7 +86,24 @@ pub(super) fn client_connect(
             send_attributes != 0,
             receive_attributes != 0,
             timeout != 0,
-        )));
+        );
+        if wire_api == "0x1001b" && message.len() == 80 {
+            let information_bytes =
+                u32::from_le_bytes(message[72..76].try_into().expect("fixed BASE size"));
+            reason.push_str(&format!(
+                " BASE NLS request (native_machine={:?}, lengths_match={}, \
+                 header_flags_zero={}, status_zero={}, reserved_zero={}, information_bytes={}, \
+                 size_padding_zero={})",
+                c.p.object_namespace.native_machine,
+                message[..4] == [40, 0, 80, 0],
+                message[4..8] == [0; 4],
+                message[52..56] == [0; 4],
+                message[56..64] == [0; 8],
+                information_bytes,
+                message[76..80] == [0; 4],
+            ));
+        }
+        return Err(c.unsupported(reason));
     }
     if batch_notification {
         if kernel != (10, 0, 29708) || length == 0 || capacity != 952 {

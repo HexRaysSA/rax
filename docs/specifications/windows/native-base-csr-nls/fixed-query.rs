@@ -1,11 +1,15 @@
-//! Fixed current-process BASE NLS query on physical AMD64 Windows.
+//! Fixed current-process BASE NLS query on native 64-bit Windows.
 use std::ffi::c_void;
 use std::io;
 use std::ptr;
 
 const INFORMATION_BYTES: usize = 1660;
 const API: u32 = 0x0001_001b;
-const AMD64: u16 = 0x8664;
+const NATIVE_MACHINE: u16 = if cfg!(target_arch = "aarch64") {
+    0xaa64
+} else {
+    0x8664
+};
 
 #[link(name = "ntdll")]
 unsafe extern "system" {
@@ -101,8 +105,11 @@ fn sample(index: usize, pattern: u8) -> io::Result<()> {
     let status = unsafe { CsrClientCallServer(message.0.as_mut_ptr().cast(), capture.0, API, 16) };
     let bytes = read::<INFORMATION_BYTES>(information)?;
     let reply = word(&message.0, 52);
+    let header_flags_zero = message.0[4..8] == [0; 4];
+    let reserved_zero = message.0[56..64] == [0; 8];
+    let size_padding_zero = message.0[76..80] == [0; 4];
     print!(
-        "sample={index} input={pattern:02x} status={status:08x} reply={reply:08x} data_bytes={} message_bytes={} api={:x} requested={} allocated={allocated} capture_bytes={} count={} slot={capture_slot} payload=",
+        "sample={index} input={pattern:02x} status={status:08x} reply={reply:08x} data_bytes={} message_bytes={} api={:x} requested={} allocated={allocated} capture_bytes={} count={} slot={capture_slot} header_flags_zero={header_flags_zero} reserved_zero={reserved_zero} size_padding_zero={size_padding_zero} payload=",
         u16::from_le_bytes(message.0[..2].try_into().expect("header data size")),
         u16::from_le_bytes(message.0[2..4].try_into().expect("header message size")),
         word(&message.0, 48),
@@ -125,13 +132,15 @@ fn main() -> io::Result<()> {
     let mut session = 0;
     // SAFETY: both calls query the current process and write initialized
     // scalar out parameters. No external process handle is accepted.
-    if !cfg!(all(windows, target_arch = "x86_64"))
-        || unsafe { IsWow64Process2(GetCurrentProcess(), &mut guest, &mut native) } == 0
+    if !cfg!(all(
+        windows,
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    )) || unsafe { IsWow64Process2(GetCurrentProcess(), &mut guest, &mut native) } == 0
         || guest != 0
-        || native != AMD64
+        || native != NATIVE_MACHINE
         || unsafe { ProcessIdToSessionId(GetCurrentProcessId(), &mut session) } == 0
     {
-        return Err(io::Error::other("physical AMD64 Windows required"));
+        return Err(io::Error::other("matching native 64-bit Windows required"));
     }
     println!("machine={native:04x} session={session}");
     let patterns = [0xa5, 0x5a, 0, 0xa5, 0x5a, 0];

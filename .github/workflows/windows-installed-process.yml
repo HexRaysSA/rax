@@ -46,6 +46,10 @@ on:
         description: Capture native AMD64 BASE NLS query replies
         type: boolean
         default: false
+      measure_arm64_base_nls:
+        description: Capture native ARM64 BASE NLS query replies
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -312,16 +316,18 @@ jobs:
             throw 'ARM64 CSR capture completed without writing observations'
           }
           if ($exitCode -ne 0) { exit $exitCode }
-      - name: Measure native AMD64 BASE NLS replies
-        if: ${{ !cancelled() && inputs.measure_amd64_base_nls && steps.stock.outcome != 'skipped' && matrix.target == 'x86_64-pc-windows-msvc' }}
+      - name: Measure native BASE NLS replies
+        if: ${{ !cancelled() && steps.stock.outcome != 'skipped' && ((inputs.measure_amd64_base_nls && matrix.target == 'x86_64-pc-windows-msvc') || (inputs.measure_arm64_base_nls && matrix.target == 'aarch64-pc-windows-msvc')) }}
         shell: pwsh
         env:
           RAX_TEST_TARGET: ${{ matrix.target }}
         run: |
           $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
-          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-base-csr-nls/amd64-fixed-query.rs'
-          $exe = Join-Path $env:TMPDIR 'native-amd64-base-nls.exe'
-          $log = Join-Path $root 'native-amd64-base-nls.log'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-base-csr-nls/fixed-query.rs'
+          $arch = if ($env:RAX_TEST_TARGET -eq 'aarch64-pc-windows-msvc') { 'arm64' } else { 'amd64' }
+          $prefix = "native-$arch-base-nls"
+          $exe = Join-Path $env:TMPDIR "$prefix.exe"
+          $log = Join-Path $root "$prefix.log"
           $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
           $sourceHash = (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant()
           $ntdllHash = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
@@ -343,11 +349,11 @@ jobs:
               $ntdllHash -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
             )
           }
-          $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'native-amd64-base-nls-identity.json') -Encoding utf8
+          $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root "$prefix-identity.json") -Encoding utf8
           if ($exitCode -ne 0 -or !$identity.inputs_unchanged -or
               (Select-String -LiteralPath $log -Pattern '^sample=').Count -ne 6 -or
               !(Select-String -LiteralPath $log -Pattern '^complete samples=6$' -Quiet)) {
-            throw 'AMD64 BASE NLS probe did not retain six complete observations'
+            throw 'Native BASE NLS probe did not retain six complete observations'
           }
       - name: Measure native ARM64 mapped-filename queries
         if: ${{ !cancelled() && inputs.measure_arm64_mapped_filename && steps.stock.outcome != 'skipped' && matrix.target == 'aarch64-pc-windows-msvc' }}
@@ -408,8 +414,8 @@ jobs:
             target/windows-installed-process/arm64-nls-initialize-identity.json
             target/windows-installed-process/arm64-native-nls-initialize*.log
             target/windows-installed-process/native-session-csr-connect-v3.json
-            target/windows-installed-process/native-amd64-base-nls.log
-            target/windows-installed-process/native-amd64-base-nls-identity.json
+            target/windows-installed-process/native-*-base-nls.log
+            target/windows-installed-process/native-*-base-nls-identity.json
             target/windows-installed-process/arm64-native-local-mapped-filename.log
             target/windows-installed-process/arm64-native-local-mapped-filename-identity.json
           if-no-files-found: error
