@@ -78,6 +78,12 @@ and the capture share the runner. The driver checks the interpreter and
 probe PE machines, kernel machine, installed NTDLL hash, and original
 child results.
 
+The first hosted attempt (run44717559739) stopped at the ARM64 compiler
+because the register-based caller accessor leaves its process handle unused
+and the breakpoint export variable shadowed the event predicate. The follow-up
+marks the unused parameter and gives the export a distinct name. Earlier
+AMD64 receipts retain the producer identity from commit `482a175a4`.
+
 The recorded AMD64 PID export has a20-byte MOV/XOR/CMP/CMOVNE/RET body.
 `metadata-v2.cpp` verifies its exact opcodes, resolves both signed RIP-relative
 operands within the loaded NTDLL image, and reads only the pointer-width PID

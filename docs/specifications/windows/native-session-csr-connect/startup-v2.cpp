@@ -78,7 +78,7 @@ static uintptr_t argument(HANDLE process, const CONTEXT &context,
 #endif
 }
 
-static uintptr_t caller(HANDLE process, const CONTEXT &context) {
+static uintptr_t caller([[maybe_unused]] HANDLE process, const CONTEXT &context) {
 #if defined(_M_ARM64)
   return context.Lr;
 #elif defined(_M_X64)
@@ -134,11 +134,11 @@ int main(int argc, char **) {
   std::vector<unsigned char> trap{0xCC};
 #if defined(_M_ARM64)
   instruction = 4;
-  auto breakpoint = GetProcAddress(ntdll, "DbgBreakPoint");
-  if (!breakpoint)
+  auto breakpoint_export = GetProcAddress(ntdll, "DbgBreakPoint");
+  if (!breakpoint_export)
     fail("native-breakpoint-export");
   ULONG brk = 0;
-  memcpy(&brk, breakpoint, 4);
+  memcpy(&brk, breakpoint_export, 4);
   if ((brk & 0xFFE0001F) != 0xD4200000)
     fail("native-breakpoint-instruction");
   printf("native-breakpoint instruction=%08lX\n", brk);
