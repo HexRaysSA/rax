@@ -11,43 +11,60 @@ impl HvfCore {
     }
 
     pub(super) fn run_host_slice(&mut self, limit: Duration) -> Result<Option<VcpuExit>> {
-        self.run_coordinated_host_slice(limit, false)
+        self.run_coordinated_host_slice(limit, false, false)
     }
 
     pub(super) fn run_coordinated_host_slice(
         &mut self,
         limit: Duration,
         pending_maskable_irq: bool,
+        pending_nmi: bool,
     ) -> Result<Option<VcpuExit>> {
         self.execution_ready()?;
         let end = deadline::mach::after(limit)?;
-        let watch_for_irq = pending_maskable_irq
-            && interrupt_window::can_toggle(self.native_profile()?.capabilities.primary);
-        let mut clear_window = false;
+        use interrupt_window::{MASKABLE, NMI};
+        let profile = self.native_profile()?;
+        let primary = profile.capabilities.primary;
+        let watch_irq = pending_maskable_irq && interrupt_window::can_toggle(primary, MASKABLE);
+        let watch_nmi =
+            pending_nmi && profile.virtual_nmis() && interrupt_window::can_toggle(primary, NMI);
+        let mut release = 0;
         let result = run_loop::run_with_entry(self, |core| {
-            if watch_for_irq
-                && !clear_window
+            if watch_irq
+                && release & MASKABLE == 0
                 && deadline::mach::now() < end
                 && event_injection::should_watch_maskable_window(&mut core.event_access())?
+                && core.set_interrupt_windows(MASKABLE, true)?
             {
-                clear_window = core.set_interrupt_window(true)?;
+                release |= MASKABLE;
+            }
+            if watch_nmi
+                && release & NMI == 0
+                && deadline::mach::now() < end
+                && !event_injection::available(
+                    &mut core.event_access(),
+                    event_injection::Event::Nmi,
+                )?
+                && core.set_interrupt_windows(NMI, true)?
+            {
+                release |= NMI;
             }
             let reason = core.enter_native(Some(end))?;
-            if watch_for_irq
-                && reason.is_some_and(|raw| {
-                    raw & (deadline::FAIL_ENTRY | 0xffff)
-                        == run_loop::reason::VMX_EXIT_REASON_IRQ_WINDOW
-                })
-            {
-                clear_window = true;
+            let window = match reason.map(|raw| raw & (deadline::FAIL_ENTRY | 0xffff)) {
+                Some(run_loop::reason::VMX_EXIT_REASON_IRQ_WINDOW) if watch_irq => MASKABLE,
+                Some(run_loop::reason::VMX_EXIT_REASON_NMI_WINDOW) if watch_nmi => NMI,
+                _ => 0,
+            };
+            if window != 0 {
+                release |= window;
                 return Ok(None);
             }
             Ok(reason)
         });
-        let result = if clear_window {
-            // The controller still owns the IRQ. The request belongs to
+        let result = if release != 0 {
+            // The controller still owns its events. The request belongs to
             // this slice and never needs to be reconstructed from a record.
-            let cleared = self.set_interrupt_window(false);
+            let cleared = self.set_interrupt_windows(release, false);
             result.and_then(|exit| cleared.map(|_| exit))
         } else {
             result

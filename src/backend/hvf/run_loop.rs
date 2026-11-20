@@ -12,6 +12,7 @@ pub(crate) mod reason {
     pub const VMX_EXIT_REASON_EXCEPTION_NMI: u32 = 0;
     pub const VMX_EXIT_REASON_EXT_INTERRUPT: u32 = 1;
     pub const VMX_EXIT_REASON_IRQ_WINDOW: u32 = 7;
+    pub const VMX_EXIT_REASON_NMI_WINDOW: u32 = 8;
     pub const VMX_EXIT_REASON_CR_ACCESS: u32 = 28;
     pub const VMX_EXIT_REASON_XSETBV: u32 = 55;
     pub const VMX_EXIT_REASON_MONITOR_TRAP: u32 = 37;
@@ -34,6 +35,7 @@ pub(crate) trait ExitHandler {
     fn exception(&mut self) -> Result<Self::Exit, Self::Error>;
     fn monitor_trap(&mut self) -> Result<Self::Exit, Self::Error>;
     fn interrupt_window(&mut self) -> Result<(), Self::Error>;
+    fn nmi_window(&mut self) -> Result<(), Self::Error>;
     fn control_register(&mut self) -> Result<(), Self::Error>;
     fn xsetbv(&mut self) -> Result<(), Self::Error>;
     fn fail_entry(&mut self, raw_reason: u32) -> Result<Self::Exit, Self::Error>;
@@ -89,6 +91,7 @@ fn dispatch<T: ExitHandler>(handler: &mut T, raw_reason: u32) -> Result<Option<T
         VMX_EXIT_REASON_MONITOR_TRAP => return handler.monitor_trap().map(Some),
         VMX_EXIT_REASON_EXT_INTERRUPT => {}
         VMX_EXIT_REASON_IRQ_WINDOW => handler.interrupt_window()?,
+        VMX_EXIT_REASON_NMI_WINDOW => handler.nmi_window()?,
         VMX_EXIT_REASON_CR_ACCESS => handler.control_register()?,
         VMX_EXIT_REASON_XSETBV => handler.xsetbv()?,
         basic => return handler.unknown(basic).map(Some),

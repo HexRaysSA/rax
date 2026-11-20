@@ -3,6 +3,63 @@ use super::*;
 use crate::backend::intel_hvf_xsave::{Component, Layout};
 
 #[test]
+fn legacy_nmi_context_admission_preserves_a_queued_event_only_with_virtual_blocking() {
+    let pin_id = V::VMCS_CTRL_PIN_BASED as u32;
+    let entry_id = V::VMCS_CTRL_VMENTRY_IRQ_INFO as u32;
+    let shadow_id = V::VMCS_GUEST_INTERRUPTIBILITY_STATE as u32;
+    let queued_nmi = 0x8000_0202;
+    let mut old = context();
+    old.profile
+        .controls
+        .iter_mut()
+        .find(|reg| reg.id == pin_id)
+        .unwrap()
+        .value = NMI_EXITING;
+    old.vmcs
+        .iter_mut()
+        .find(|reg| reg.id == pin_id)
+        .unwrap()
+        .value = NMI_EXITING;
+    old.vmcs
+        .iter_mut()
+        .find(|reg| reg.id == entry_id)
+        .unwrap()
+        .value = queued_nmi;
+    let mut destination = old.profile.clone();
+    destination
+        .controls
+        .iter_mut()
+        .find(|reg| reg.id == pin_id)
+        .unwrap()
+        .value |= VIRTUAL_NMIS;
+    let public = CpuState::X86_64(old.public.clone());
+    let emulator = old.emulator.clone();
+
+    assert!(old.admit(old.id, &old.profile, &public, &emulator).is_err());
+    let mut blocked = old.clone();
+    blocked
+        .vmcs
+        .iter_mut()
+        .find(|reg| reg.id == shadow_id)
+        .unwrap()
+        .value = BLOCKING_BY_NMI;
+    assert!(blocked.migrate_virtual_nmis(&destination).is_err());
+
+    let mut foreign = destination.clone();
+    foreign.tsc_hz = Some(1);
+    let mut loaded = Context::decode(&old.encode().unwrap()).unwrap();
+    loaded.migrate_virtual_nmis(&foreign).unwrap();
+    assert_eq!(loaded.profile, old.profile);
+    loaded.migrate_virtual_nmis(&destination).unwrap();
+    loaded
+        .admit(old.id, &destination, &public, &emulator)
+        .unwrap();
+    assert_eq!(loaded.vmcs(pin_id).unwrap(), VIRTUAL_NMIS | NMI_EXITING);
+    assert_eq!(loaded.vmcs(entry_id).unwrap(), queued_nmi);
+    assert_eq!(loaded.vmcs(shadow_id).unwrap() & BLOCKING_BY_NMI, 0);
+}
+
+#[test]
 fn deadline_cpu_record_preserves_lvt_arm_and_queued_vectors_without_changing_old_records() {
     use crate::devices::lapic::tsc_deadline::Image;
     let old = context();

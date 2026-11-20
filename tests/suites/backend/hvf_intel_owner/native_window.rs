@@ -6,6 +6,11 @@ use std::time::Duration;
 
 const PRIMARY: u32 = 0x4002;
 const WINDOW: u64 = 1 << 2;
+const NMI_WINDOW: u64 = 1 << 22;
+const INTERRUPTIBILITY: u32 = 0x4824;
+const NMI_BLOCKING: u64 = 1 << 3;
+const ENTRY_INFORMATION: u32 = 0x4016;
+const NMI_EVENT: u64 = 0x8000_0202;
 #[cfg(feature = "debug")]
 const MTF: u64 = 1 << 27;
 
@@ -28,6 +33,70 @@ fn arm_window() -> u64 {
 
 fn entry_count() -> usize {
     SDK.lock().unwrap().cpus[&0].deadlines.len()
+}
+
+#[test]
+fn virtual_nmi_block_survives_restore_and_window_resumes_at_iret() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let limit = Duration::from_secs(10);
+    for restore in [false, true] {
+        let (vm, memory) = fixture();
+        let memory = Arc::new(memory.memory().clone());
+        let mut cpu = vm.create_vcpu(0, Arc::clone(&memory)).unwrap();
+        let mut sdk_id = 0;
+        assert!(!cpu.can_inject_interrupt(), "IF remains clear");
+        assert!(cpu.inject_nmi().unwrap());
+        assert!(!cpu.inject_nmi().unwrap(), "first NMI owns the slot");
+        assert!(cpu.run_host_slice(limit).unwrap().is_none());
+        {
+            let sdk = SDK.lock().unwrap();
+            let native = &sdk.cpus[&0];
+            assert_eq!(native.vmcs[&INTERRUPTIBILITY] & NMI_BLOCKING, NMI_BLOCKING);
+            assert_eq!(native.vmcs[&ENTRY_INFORMATION], NMI_EVENT & !(1 << 31));
+        }
+        if restore {
+            let boundary = vm.checkpoint_boundary().unwrap();
+            let (saved, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+            drop(boundary);
+            drop(cpu);
+            cpu = vm.create_vcpu(0, Arc::clone(&memory)).unwrap();
+            sdk_id = SDK.lock().unwrap().next_id - 1;
+            cpu.restore_checkpoint_context(&saved.state, &saved.emulator, context.as_ref())
+                .unwrap();
+        }
+        assert!(!cpu.inject_nmi().unwrap(), "handler still blocks the NMI");
+        {
+            let mut sdk = SDK.lock().unwrap();
+            let native = sdk.cpus.get_mut(&sdk_id).unwrap();
+            native.iret_before_exit = true;
+            native.exits.push_back(12);
+        }
+        let retired = cpu.instruction_count();
+        assert!(
+            cpu.run_coordinated_host_slice_with_events(limit, false, true)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(cpu.instruction_count(), retired);
+        {
+            let sdk = SDK.lock().unwrap();
+            let native = &sdk.cpus[&sdk_id];
+            assert_eq!(native.nmi_window_exits, 1);
+            assert_eq!(native.exits.front(), Some(&12));
+            assert_eq!(native.vmcs[&PRIMARY] & NMI_WINDOW, 0);
+            assert_eq!(native.vmcs[&INTERRUPTIBILITY] & NMI_BLOCKING, 0);
+        }
+        assert!(
+            cpu.inject_nmi().unwrap(),
+            "second NMI is still caller-owned"
+        );
+        assert!(matches!(
+            cpu.run_host_slice(limit).unwrap(),
+            Some(VcpuExit::Hlt)
+        ));
+    }
 }
 
 #[test]

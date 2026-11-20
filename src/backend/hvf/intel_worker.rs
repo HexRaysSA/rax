@@ -141,7 +141,17 @@ impl VCpu for HvfVcpu {
         limit: std::time::Duration,
         pending_maskable_irq: bool,
     ) -> Result<Option<VcpuExit>> {
-        self.request(move |core| core.run_coordinated_host_slice(limit, pending_maskable_irq))
+        self.run_coordinated_host_slice_with_events(limit, pending_maskable_irq, false)
+    }
+    fn run_coordinated_host_slice_with_events(
+        &mut self,
+        limit: std::time::Duration,
+        pending_maskable_irq: bool,
+        pending_nmi: bool,
+    ) -> Result<Option<VcpuExit>> {
+        self.request(move |core| {
+            core.run_coordinated_host_slice(limit, pending_maskable_irq, pending_nmi)
+        })
     }
     fn poll_vm_clock(&mut self) -> Result<()> {
         let Some(controller) = &self.local_apic else {

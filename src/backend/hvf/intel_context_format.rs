@@ -32,6 +32,10 @@ pub(crate) const KERNEL_GS_BASE: u32 = 0xc000_0102;
 pub(crate) const TSC_AUX: u32 = 0xc000_0103;
 pub(crate) const MSRS: &[u32] = &[STAR, LSTAR, CSTAR, FMASK, KERNEL_GS_BASE, TSC_AUX];
 pub(crate) const MONITOR_TRAP: u64 = 1 << 27;
+const NMI_WINDOW: u64 = 1 << 22;
+const VIRTUAL_NMIS: u64 = 1 << 5;
+const NMI_EXITING: u64 = 1 << 3;
+const BLOCKING_BY_NMI: u64 = 1 << 3;
 pub(crate) const DEBUG_EXCEPTIONS: u64 = (1 << 1) | (1 << 3);
 
 fn invalid(message: impl std::fmt::Display) -> Error {
@@ -110,6 +114,12 @@ fn control(capability: u64, value: u64) -> Result<()> {
 }
 
 impl Profile {
+    pub fn virtual_nmis(&self) -> bool {
+        self.controls.iter().any(|register| {
+            register.id == V::VMCS_CTRL_PIN_BASED as u32 && register.value & VIRTUAL_NMIS != 0
+        })
+    }
+
     pub fn validate(&self) -> Result<()> {
         self.xsave.validate()?;
         if self.identity.brand.len() != 48
@@ -154,7 +164,9 @@ impl Profile {
             control(capability, current)?;
             if !policy {
                 let dynamic = match id {
-                    id if id == V::VMCS_CTRL_CPU_BASED as u32 => MONITOR_TRAP | (1 << 2),
+                    id if id == V::VMCS_CTRL_CPU_BASED as u32 => {
+                        MONITOR_TRAP | (1 << 2) | NMI_WINDOW
+                    }
                     id if id == V::VMCS_CTRL_VMENTRY_CONTROLS as u32 => 1 << 9,
                     _ => 0,
                 };
@@ -162,6 +174,15 @@ impl Profile {
                     return Err(invalid("saved controls differ from the producer policy"));
                 }
             }
+        }
+        let pin = value(fields, V::VMCS_CTRL_PIN_BASED as u32)?;
+        let primary = value(fields, V::VMCS_CTRL_CPU_BASED as u32)?;
+        if (pin & VIRTUAL_NMIS != 0 && pin & NMI_EXITING == 0)
+            || (primary & NMI_WINDOW != 0 && pin & VIRTUAL_NMIS == 0)
+        {
+            return Err(invalid(
+                "saved NMI controls violate their VM-entry dependencies",
+            ));
         }
         if !policy {
             for id in [V::VMCS_CTRL_CR0_MASK as u32, V::VMCS_CTRL_CR4_MASK as u32] {
@@ -504,6 +525,42 @@ impl Context {
         {
             return Err(invalid("target CPU/profile or public projection differs"));
         }
+        let entry_event = self.vmcs(V::VMCS_CTRL_VMENTRY_IRQ_INFO as u32)?;
+        let event_kind = (1 << 31) | (7 << 8);
+        if !profile.virtual_nmis() && entry_event & event_kind == (1 << 31) | (2 << 8) {
+            return Err(invalid("queued NMI requires virtual-NMI blocking"));
+        }
+        Ok(())
+    }
+
+    /// Old producers did not track virtual-NMI blocking. An unblocked
+    /// record can adopt the destination's single new policy bit. A saved
+    /// physical-NMI block cannot be interpreted as a guest virtual block.
+    pub fn migrate_virtual_nmis(&mut self, destination: &Profile) -> Result<()> {
+        if self.profile.virtual_nmis() || !destination.virtual_nmis() {
+            return Ok(());
+        }
+        let id = V::VMCS_CTRL_PIN_BASED as u32;
+        let mut prior = destination.clone();
+        let pin = prior
+            .controls
+            .iter_mut()
+            .find(|register| register.id == id)
+            .ok_or_else(|| invalid("target NMI pin policy is absent"))?;
+        pin.value &= !VIRTUAL_NMIS;
+        if prior != self.profile {
+            return Ok(());
+        }
+        if self.vmcs(V::VMCS_GUEST_INTERRUPTIBILITY_STATE as u32)? & BLOCKING_BY_NMI != 0 {
+            return Err(invalid("legacy physical-NMI blocking is ambiguous"));
+        }
+        let pin = self
+            .vmcs
+            .iter_mut()
+            .find(|register| register.id == id)
+            .ok_or_else(|| invalid("legacy NMI pin policy is absent"))?;
+        pin.value |= VIRTUAL_NMIS;
+        self.profile = destination.clone();
         Ok(())
     }
     pub fn encode(&self) -> Result<Vec<u8>> {

@@ -80,7 +80,13 @@ pub(crate) fn initialize<T: ControlAccess>(host: &mut T) -> Result<(), ControlEr
     }
     let mut values = [0; 4];
     for (index, (capability, _, requested)) in REQUESTS.iter().enumerate() {
-        values[index] = value(*capability, capabilities[index], *requested)?;
+        let mut requested = *requested;
+        if *capability == HV_VMX_CAP_PINBASED {
+            // SDM Vol. 3C §28.6.1.1: VM entry establishes guest NMI
+            // blocking only with virtual NMIs enabled.
+            requested |= (capabilities[index] >> 32) & PIN_BASED_VIRTUAL_NMIS;
+        }
+        values[index] = value(*capability, capabilities[index], requested)?;
     }
     for (index, (_, field, _)) in REQUESTS.iter().enumerate() {
         host.write(*field, values[index])

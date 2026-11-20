@@ -38,6 +38,8 @@ mod guest_debug;
 mod movbe;
 #[path = "intel_mmio_multiply.rs"]
 mod multiply;
+#[path = "intel_nmi_window.rs"]
+mod nmi_window;
 #[path = "intel_mmio_popcnt.rs"]
 mod popcnt;
 
@@ -1387,6 +1389,12 @@ fn main() {
             record(&output, case, name, 8, count);
         }
         println!("{{\"cases\":3,\"failed\":0,\"guest_execution_performed\":true}}");
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--nmi-window")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        nmi_window::run(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--cmpxchg16b")) {

@@ -116,3 +116,33 @@ The restored case uses a stopped CPU record, guest RAM, and a caller-held
 LAPIC image. Full coordinated file restore and native multi-CPU IRQ ordering
 remain open. Portable coordinator tests separately covered four CPU selections
 and the PIC and LAPIC priority gates.
+
+## Controller-owned NMIs
+
+The Intel VMX profile enables virtual NMIs when the SDK capability allows
+it. VM entry then blocks another NMI until the guest's IRET removes the
+block. The coordinator watches primary execution-control bit 22 for each
+selected CPU with a pending local APIC NMI. Exit reason 8 yields before the
+next instruction. The LAPIC retains the NMI until VM-entry injection accepts
+it. BSP arbitration offers an NMI the entry slot before a competing PIC IRQ.
+Guest IF and LAPIC processor priority govern maskable interrupts separately.
+
+The checkpoint records the guest interruptibility field and the VM-entry
+event slot. A legacy record can adopt the virtual-NMI policy when all other
+profile fields match and its saved NMI block is clear. An older producer's
+unrecorded handler state cannot be reconstructed. Restore rejects a legacy
+physical-NMI block on migration and rejects a queued NMI when the target
+lacks virtual blocking. A target with virtual blocking can deliver NMIs
+through controller polls if its SDK disallows toggling the window control.
+
+| Assumption | Dependent behavior | Falsification probe |
+| --- | --- | --- |
+| VM entry establishes the virtual block and IRET clears it. | The queued second NMI waits for the first handler to return. | An interruptible VM-entry slot after the handler's OUT and before IRET, or a watched slice that passes the first instruction after IRET. |
+| Restore preserves the VMCS interruptibility field before execution. | A restored CPU resumes in the original handler. | Acceptance of another NMI immediately after restoring the stopped handler to a fresh CPU. |
+| The software controller retains an event until the CPU accepts it. | Each selected CPU watches only its own pending NMI. | A blocked AP NMI disappears, arms another CPU's watch, or is suppressed by a maskable priority gate. |
+
+The `nmi-window` native probe has unarmed, direct and restored cases and
+records each handler visit. Its restored case covers a stopped CPU record
+and reused guest RAM. The coordinator and SDK-model tests exercise selected
+CPU routing, VMX controls and publication without executing guest instructions.
+[Intel SDM, Vol. 3C, Sections 27.2, 27.3, 28.2.1.1 and 28.6.1.1](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)

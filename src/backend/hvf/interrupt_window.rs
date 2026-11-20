@@ -1,13 +1,15 @@
-//! Acknowledgement of the Intel interrupt-window execution control.
+//! Acknowledgement of Intel maskable and NMI window execution controls.
 //!
-//! Intel SDM Vol.3C26.6.2/Table26-6 and AppendixC: bit2 requests a window
-//! exit before an instruction when IF and interruptibility admit it. Clearing
-//! this request consumes no caller-owned event and does not advance guest RIP.
-const WINDOW: u64 = 1 << 2;
+//! Intel SDM Vol. 3C §27.2 specifies both windows. Bit 2 requests an exit
+//! when IF and interruptibility admit a maskable interrupt. Bit 22 requests
+//! an exit when virtual NMI blocking and the instruction shadow allow an NMI.
+//! Acknowledging a window leaves the caller's event and guest RIP intact.
+pub(crate) const MASKABLE: u64 = 1 << 2;
+pub(crate) const NMI: u64 = 1 << 22;
 
 /// The SDK must permit both arming and releasing this optional control.
-pub(crate) fn can_toggle(capability: u64) -> bool {
-    capability & WINDOW == 0 && (capability >> 32) & WINDOW != 0
+pub(crate) fn can_toggle(capability: u64, control: u64) -> bool {
+    capability & control == 0 && (capability >> 32) & control == control
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -23,16 +25,17 @@ pub(crate) trait Access {
 }
 
 /// O(1) work and storage. Return whether this call changed the control.
-/// The caller retains IRQ ownership and fences any error.
+/// The caller retains event ownership and fences any error.
 pub(crate) fn set_enabled<T: Access>(
     host: &mut T,
+    controls: u64,
     enabled: bool,
 ) -> Result<bool, ControlError<T::Error>> {
     let original = host.read_controls().map_err(ControlError::Host)?;
     let expected = if enabled {
-        original | WINDOW
+        original | controls
     } else {
-        original & !WINDOW
+        original & !controls
     };
     if original == expected {
         return Ok(false);
@@ -47,7 +50,11 @@ pub(crate) fn set_enabled<T: Access>(
 
 #[cfg(test)]
 mod tests {
-    use super::{Access, ControlError, WINDOW, can_toggle, set_enabled};
+    use super::{Access, ControlError, MASKABLE as WINDOW, NMI};
+
+    fn set_enabled(host: &mut Host, enabled: bool) -> Result<bool, ControlError<&'static str>> {
+        super::set_enabled(host, WINDOW, enabled)
+    }
 
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum Failure {
@@ -205,9 +212,23 @@ mod tests {
 
     #[test]
     fn only_a_control_that_can_be_set_and_cleared_supports_a_slice_owned_watch() {
-        assert!(!can_toggle(0));
-        assert!(!can_toggle(WINDOW));
-        assert!(can_toggle(WINDOW << 32));
-        assert!(!can_toggle((WINDOW << 32) | WINDOW));
+        for control in [WINDOW, NMI] {
+            assert!(!super::can_toggle(0, control));
+            assert!(!super::can_toggle(control, control));
+            assert!(super::can_toggle(control << 32, control));
+            assert!(!super::can_toggle((control << 32) | control, control));
+        }
+    }
+
+    #[test]
+    fn nmi_and_irq_controls_can_be_released_independently() {
+        let monitor = 1 << 27;
+        let mut host = Host::new(monitor, None);
+        assert_eq!(super::set_enabled(&mut host, WINDOW | NMI, true), Ok(true));
+        assert_eq!(host.controls, monitor | WINDOW | NMI);
+        assert_eq!(super::set_enabled(&mut host, NMI, false), Ok(true));
+        assert_eq!(host.controls, monitor | WINDOW);
+        assert_eq!(super::set_enabled(&mut host, WINDOW, false), Ok(true));
+        assert_eq!(host.controls, monitor);
     }
 }

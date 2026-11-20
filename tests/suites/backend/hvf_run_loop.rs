@@ -4,7 +4,7 @@ mod run_loop;
 use run_loop::{ExitHandler, run};
 use std::collections::VecDeque;
 
-const INTERNAL: [u32; 7] = [10, 31, 32, 1, 7, 28, 55];
+const INTERNAL: [u32; 8] = [10, 31, 32, 1, 7, 8, 28, 55];
 struct Host {
     reasons: VecDeque<u32>,
     trace: Vec<&'static str>,
@@ -97,6 +97,9 @@ impl ExitHandler for Host {
     fn interrupt_window(&mut self) -> Result<(), Self::Error> {
         self.call("window")
     }
+    fn nmi_window(&mut self) -> Result<(), Self::Error> {
+        self.call("nmi-window")
+    }
     fn control_register(&mut self) -> Result<(), Self::Error> {
         self.call("control")
     }
@@ -140,18 +143,51 @@ fn monitor_trap_has_a_distinct_host_debug_route() {
 }
 
 #[test]
+fn nmi_window_has_its_own_acknowledgement_and_makes_no_public_exit() {
+    let mut host = Host::new([8, 12]);
+    assert_eq!(run(&mut host), Ok(12));
+    assert_eq!(
+        host.trace,
+        ["prepare", "enter", "nmi-window", "prepare", "enter", "halt"]
+    );
+}
+
+#[test]
 fn every_internal_exit_resumes_after_its_own_effect() {
     let mut host = Host::new(INTERNAL.into_iter().chain([12]));
     assert_eq!(run(&mut host), Ok(12));
     assert_eq!(
         host.trace,
         [
-            "prepare", "enter", "cpuid", "prepare", "enter", "rdmsr", "prepare", "enter", "wrmsr",
-            "prepare", "enter", "prepare", "enter", "window", "prepare", "enter", "control",
-            "prepare", "enter", "xsetbv", "prepare", "enter", "halt"
+            "prepare",
+            "enter",
+            "cpuid",
+            "prepare",
+            "enter",
+            "rdmsr",
+            "prepare",
+            "enter",
+            "wrmsr",
+            "prepare",
+            "enter",
+            "prepare",
+            "enter",
+            "window",
+            "prepare",
+            "enter",
+            "nmi-window",
+            "prepare",
+            "enter",
+            "control",
+            "prepare",
+            "enter",
+            "xsetbv",
+            "prepare",
+            "enter",
+            "halt"
         ]
     );
-    assert_eq!((host.entries, host.preparations), (8, 8));
+    assert_eq!((host.entries, host.preparations), (9, 9));
 }
 
 #[test]
@@ -188,6 +224,7 @@ fn every_host_phase_propagates_errors_without_a_later_effect() {
         (31, "rdmsr"),
         (32, "wrmsr"),
         (7, "window"),
+        (8, "nmi-window"),
         (28, "control"),
         (55, "xsetbv"),
         (0xffff, "unknown"),

@@ -184,8 +184,12 @@ impl Vmm {
             // those which do not implement this contract.
             let exit = if self.vcpus[index].supports_host_slices() {
                 let limit = self.host_slice_limit()?;
-                let waiting = self.intel_hvf_maskable_irq_waiting(index)?;
-                self.vcpus[index].run_coordinated_host_slice(limit, waiting)?
+                let (pending_irq, pending_nmi) = self.intel_hvf_events_waiting(index)?;
+                self.vcpus[index].run_coordinated_host_slice_with_events(
+                    limit,
+                    pending_irq,
+                    pending_nmi,
+                )?
             } else {
                 Some(self.vcpus[index].run()?)
             };

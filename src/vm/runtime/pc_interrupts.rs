@@ -21,6 +21,7 @@ impl Vmm {
         if !self.debugger_allows_cpu(0) {
             return Ok(false);
         }
+        self.poll_intel_bsp_nmi_before_pic()?;
         let bsp = self
             .vcpus
             .first_mut()

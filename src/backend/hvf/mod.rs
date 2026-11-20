@@ -998,6 +998,11 @@ impl HvfCore {
         if self.io_ready().is_err() {
             return Ok(false);
         }
+        if event == event_injection::Event::Nmi && !self.native_profile()?.virtual_nmis() {
+            return Err(Error::InvalidConfig(
+                "Intel HVF does not expose virtual NMI blocking".into(),
+            ));
+        }
         let injected = event_injection::inject(&mut self.event_access(), event)?;
         if injected {
             self.halted = false;
@@ -1005,7 +1010,7 @@ impl HvfCore {
         Ok(injected)
     }
 
-    fn set_interrupt_window(&self, enabled: bool) -> Result<bool> {
+    fn set_interrupt_windows(&self, mask: u64, enabled: bool) -> Result<bool> {
         struct Controls {
             id: hv_vcpuid_t,
         }
@@ -1018,7 +1023,7 @@ impl HvfCore {
                 vmcs_write(self.id, hv_vmx_vmcs_field_t::VMCS_CTRL_CPU_BASED, value)
             }
         }
-        interrupt_window::set_enabled(&mut Controls { id: self.vcpu_id }, enabled).map_err(
+        interrupt_window::set_enabled(&mut Controls { id: self.vcpu_id }, mask, enabled).map_err(
             |error| match error {
                 interrupt_window::ControlError::Host(error) => error,
                 interrupt_window::ControlError::Readback { expected, observed } => {
@@ -1288,7 +1293,12 @@ impl run_loop::ExitHandler for HvfCore {
         Ok(VcpuExit::Shutdown)
     }
     fn interrupt_window(&mut self) -> Result<()> {
-        self.set_interrupt_window(false).map(|_| ())
+        self.set_interrupt_windows(interrupt_window::MASKABLE, false)
+            .map(|_| ())
+    }
+    fn nmi_window(&mut self) -> Result<()> {
+        self.set_interrupt_windows(interrupt_window::NMI, false)
+            .map(|_| ())
     }
     fn control_register(&mut self) -> Result<()> {
         let qualification = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_EXIT_QUALIFICATION)?;

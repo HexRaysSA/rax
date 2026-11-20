@@ -71,6 +71,8 @@ struct Cpu {
     consecutive_windows: usize,
     auto_ack_window: bool,
     brief_irq_window: bool,
+    iret_before_exit: bool,
+    nmi_window_exits: usize,
     window_control_reads: usize,
     window_control_writes: Vec<u64>,
     window_fault: Option<WindowFault>,
@@ -262,6 +264,8 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
             consecutive_windows: 0,
             auto_ack_window: false,
             brief_irq_window: false,
+            iret_before_exit: false,
+            nmi_window_exits: 0,
             window_control_reads: 0,
             window_control_writes: Vec::new(),
             window_fault: None,
@@ -499,7 +503,32 @@ pub extern "C" fn hv_vcpu_run_until(id: u32, deadline: u64) -> i32 {
         let window = cpu.vmcs.get(&0x4002).copied().unwrap_or(0) & 4 != 0
             && cpu.registers.get(&1).copied().unwrap_or(0) & 0x200 != 0
             && cpu.vmcs.get(&0x4824).copied().unwrap_or(0) & 3 == 0;
-        let reason = if window {
+        let virtual_nmis = cpu.vmcs.get(&0x4000).copied().unwrap_or(0) & (1 << 5) != 0;
+        let failed_entry = cpu
+            .exits
+            .front()
+            .is_some_and(|reason| reason & (1 << 31) != 0);
+        if virtual_nmis && !failed_entry {
+            if cpu.vmcs.get(&0x4016) == Some(&0x8000_0202) {
+                *cpu.vmcs.entry(0x4824).or_default() |= 8;
+            }
+            if std::mem::take(&mut cpu.iret_before_exit) {
+                *cpu.vmcs.entry(0x4824).or_default() &= !8;
+            }
+        }
+        let nmi_window = virtual_nmis
+            && !failed_entry
+            && cpu.vmcs.get(&0x4002).copied().unwrap_or(0) & (1 << 22) != 0
+            && cpu.vmcs.get(&0x4824).copied().unwrap_or(0) & 11 == 0;
+        let reason = if nmi_window {
+            if cpu.consecutive_windows == 4 {
+                window_budget_exhausted = true;
+                return;
+            }
+            cpu.nmi_window_exits += 1;
+            cpu.consecutive_windows += 1;
+            8
+        } else if window {
             // Bound a defective backend's consecutive reentries. Legitimate
             // independent window notifications have no cumulative limit.
             if cpu.consecutive_windows == 4 {

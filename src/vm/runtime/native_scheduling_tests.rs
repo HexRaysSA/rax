@@ -8,7 +8,9 @@ use std::time::Duration;
 #[derive(Default)]
 struct Calls {
     bounded: Vec<(u32, Duration)>,
-    irq_windows: Vec<(u32, bool)>,
+    event_windows: Vec<(u32, bool, bool)>,
+    accept_bsp_entry_events: bool,
+    bsp_entry_event: Option<u8>,
     unbounded: Vec<u32>,
     outgoing: Option<Arc<Mutex<LocalApic>>>,
     init_attempts: Vec<u32>,
@@ -52,17 +54,36 @@ impl VCpu for Native {
         }))
     }
 
-    fn run_coordinated_host_slice(
+    fn run_coordinated_host_slice_with_events(
         &mut self,
         limit: Duration,
         pending_maskable_irq: bool,
+        pending_nmi: bool,
     ) -> Result<Option<VcpuExit>> {
         self.calls
             .lock()
             .unwrap()
-            .irq_windows
-            .push((self.id, pending_maskable_irq));
+            .event_windows
+            .push((self.id, pending_maskable_irq, pending_nmi));
         self.run_host_slice(limit)
+    }
+
+    fn can_inject_interrupt(&self) -> bool {
+        let calls = self.calls.lock().unwrap();
+        self.id == 0 && calls.accept_bsp_entry_events && calls.bsp_entry_event.is_none()
+    }
+
+    fn inject_interrupt(&mut self, vector: u8) -> Result<bool> {
+        let mut calls = self.calls.lock().unwrap();
+        if self.id == 0 && calls.accept_bsp_entry_events && calls.bsp_entry_event.is_none() {
+            calls.bsp_entry_event = Some(vector);
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn inject_nmi(&mut self) -> Result<bool> {
+        self.inject_interrupt(2)
     }
 
     fn get_state(&self) -> Result<CpuState> {
@@ -153,7 +174,7 @@ fn host_yields_visit_every_online_cpu_without_guest_exits_or_retirement() {
 }
 
 #[test]
-fn irq_window_requests_follow_the_selected_cpu_and_controller_priority() {
+fn event_window_requests_follow_the_selected_cpu_and_controller_priority() {
     let (mut fixture, calls) = fixture(4, false);
     let vm = &mut fixture.vm;
     vm.backend_kind = BackendKind::Hvf;
@@ -168,6 +189,7 @@ fn irq_window_requests_follow_the_selected_cpu_and_controller_priority() {
             }
             if index == 2 {
                 apic.write_register(0x80, 0x50);
+                apic.set_pending_nmi();
             }
             apic.set_irr(0x51);
         }
@@ -176,14 +198,40 @@ fn irq_window_requests_follow_the_selected_cpu_and_controller_priority() {
         assert!(vm.execute_turn().unwrap().is_none());
     }
     assert_eq!(
-        calls.lock().unwrap().irq_windows,
-        [(0, true), (1, true), (2, false), (3, false)]
+        calls.lock().unwrap().event_windows,
+        [
+            (0, true, false),
+            (1, true, false),
+            (2, false, true),
+            (3, false, false)
+        ]
     );
     assert!(vm.pic.lock().unwrap().has_pending());
     for apic in vm.local_apics.iter().skip(1) {
         assert_eq!(apic.lock().unwrap().get_pending_vector(), Some(0x51));
     }
+    assert!(vm.local_apics[2].lock().unwrap().has_pending_nmi());
     assert_eq!(vm.coordinator.retired, 17);
+}
+
+#[test]
+fn native_bsp_gives_the_entry_slot_to_nmi_before_legacy_pic() {
+    let (mut fixture, calls) = fixture(2, false);
+    let vm = &mut fixture.vm;
+    vm.backend_kind = BackendKind::Hvf;
+    calls.lock().unwrap().accept_bsp_entry_events = true;
+    for (port, byte) in [(0x20, 0x13), (0x21, 0x40), (0x21, 0x01), (0x21, 0xfe)] {
+        vm.io_bus.write(port, &[byte]).unwrap();
+    }
+    vm.pic.lock().unwrap().pulse_irq(0);
+    vm.local_apics[0].lock().unwrap().set_pending_nmi();
+    assert!(!vm.poll_legacy_pic().unwrap());
+    assert_eq!(calls.lock().unwrap().bsp_entry_event.take(), Some(2));
+    assert!(vm.pic.lock().unwrap().has_pending());
+    assert!(!vm.local_apics[0].lock().unwrap().has_pending_nmi());
+    assert!(vm.poll_legacy_pic().unwrap());
+    assert_eq!(calls.lock().unwrap().bsp_entry_event, Some(0x40));
+    assert!(!vm.pic.lock().unwrap().has_pending());
 }
 
 #[test]

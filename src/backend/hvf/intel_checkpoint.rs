@@ -282,7 +282,8 @@ impl HvfCore {
                     "native Intel checkpoint requires its complete CPU record".into(),
                 )
             })?;
-        let context = Context::decode(&record.data)?;
+        let mut context = Context::decode(&record.data)?;
+        context.migrate_virtual_nmis(self.native_profile()?)?;
         context.admit(self.id, self.native_profile()?, state, emulator)?;
         context.reject_ambiguous_legacy_mmio()?;
         Ok(context)

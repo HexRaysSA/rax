@@ -164,7 +164,10 @@ fn complete_initialization_reads_four_banks_before_eight_exact_writes() {
     assert_eq!(
         h.committed,
         vec![
-            (VMCS_CTRL_PIN_BASED, (1 << 0) | (1 << 1) | (1 << 3)),
+            (
+                VMCS_CTRL_PIN_BASED,
+                (1 << 0) | (1 << 1) | (1 << 3) | (1 << 5)
+            ),
             (
                 VMCS_CTRL_CPU_BASED,
                 (1 << 3) | (1 << 7) | (1 << 19) | (1 << 20) | (1 << 24) | (1 << 31)
@@ -292,4 +295,26 @@ fn sdk_private_link_pointer_is_not_written() {
             .iter()
             .all(|(field, _)| *field != hv_vmx_vmcs_field_t::VMCS_GUEST_LINK_POINTER)
     );
+}
+
+#[test]
+fn intel_vmx_enables_virtual_nmi_blocking_when_the_capability_exists() {
+    for (permitted, required) in [(false, false), (true, false), (true, true)] {
+        let mut host = Host::new();
+        if !permitted {
+            host.caps[0] &= !(PIN_BASED_VIRTUAL_NMIS << 32);
+        }
+        if required {
+            host.caps[0] |= PIN_BASED_VIRTUAL_NMIS;
+        }
+        initialize(&mut host).unwrap();
+        let (field, value) = host.committed[0];
+        assert_eq!(field, hv_vmx_vmcs_field_t::VMCS_CTRL_PIN_BASED);
+        assert_eq!(value & PIN_BASED_NMI_EXIT, PIN_BASED_NMI_EXIT);
+        assert_eq!(
+            value & PIN_BASED_VIRTUAL_NMIS,
+            PIN_BASED_VIRTUAL_NMIS * u64::from(permitted),
+            "permitted={permitted}, required={required}"
+        );
+    }
 }

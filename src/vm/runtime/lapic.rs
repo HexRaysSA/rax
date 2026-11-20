@@ -7,6 +7,19 @@ use super::Vmm;
 // Intel SDM Vol. 3A, local APIC processor-priority register.
 const PROCESSOR_PRIORITY_REGISTER: u64 = 0xa0;
 
+fn inject_local_nmi(
+    cpu: &mut dyn crate::vm::vcpu::VCpu,
+    controller: &std::sync::Mutex<crate::devices::lapic::LocalApic>,
+) -> Result<()> {
+    if cpu.inject_nmi()? {
+        controller
+            .lock()
+            .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?
+            .clear_pending_nmi();
+    }
+    Ok(())
+}
+
 fn deliverable_vector(lapic: &crate::devices::lapic::LocalApic) -> Option<u8> {
     let priority = lapic.read_register(PROCESSOR_PRIORITY_REGISTER) & 0xf0;
     lapic
@@ -38,11 +51,8 @@ impl Vmm {
             .vcpus
             .get_mut(index)
             .ok_or_else(|| Error::InvalidConfig("local APIC CPU index out of range".into()))?;
-        if nmi && cpu.inject_nmi()? {
-            controller
-                .lock()
-                .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?
-                .clear_pending_nmi();
+        if nmi {
+            inject_local_nmi(cpu.as_mut(), &controller)?;
         }
         if let Some(vector) = vector {
             if cpu.can_inject_interrupt() && cpu.inject_interrupt(vector)? {
@@ -55,28 +65,51 @@ impl Vmm {
         Ok(())
     }
 
-    /// Observe the controller after its normal injection attempt. Both IRR
-    /// and PIC acceptance stay under their existing ownership rules.
-    pub(super) fn intel_hvf_maskable_irq_waiting(&self, index: usize) -> Result<bool> {
+    /// The BSP NMI gets first use of the Intel VM-entry slot when a PIC IRQ
+    /// competes for it. Fixed LAPIC interrupts retain their existing order.
+    pub(super) fn poll_intel_bsp_nmi_before_pic(&mut self) -> Result<()> {
         if self.backend_kind != BackendKind::Hvf || self.checkpoint_config.arch != ArchKind::X86_64
         {
-            return Ok(false);
+            return Ok(());
         }
-        if index == 0
+        let Some(controller) = self.local_apics.first() else {
+            return Ok(());
+        };
+        let pending = controller
+            .lock()
+            .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?
+            .has_pending_nmi();
+        if self.coordinator.online.first() == Some(&true) && pending {
+            let bsp = self
+                .vcpus
+                .first_mut()
+                .ok_or_else(|| Error::InvalidConfig("no vcpu available".into()))?;
+            inject_local_nmi(bsp.as_mut(), controller)?;
+        }
+        Ok(())
+    }
+
+    /// Observe controller-owned work after its normal injection attempt.
+    pub(super) fn intel_hvf_events_waiting(&self, index: usize) -> Result<(bool, bool)> {
+        if self.backend_kind != BackendKind::Hvf || self.checkpoint_config.arch != ArchKind::X86_64
+        {
+            return Ok((false, false));
+        }
+        let pic_waiting = index == 0
             && self
                 .pic
                 .lock()
                 .map_err(|_| Error::Emulator("PIC lock poisoned".into()))?
-                .has_pending()
-        {
-            return Ok(true);
-        }
+                .has_pending();
         let lapic = self
             .local_apics
             .get(index)
             .ok_or_else(|| Error::InvalidConfig("local APIC CPU index out of range".into()))?
             .lock()
             .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?;
-        Ok(deliverable_vector(&lapic).is_some())
+        Ok((
+            pic_waiting || deliverable_vector(&lapic).is_some(),
+            lapic.has_pending_nmi(),
+        ))
     }
 }

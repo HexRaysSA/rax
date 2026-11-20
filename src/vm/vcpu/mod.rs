@@ -127,6 +127,17 @@ pub trait VCpu: Send {
         self.run_host_slice(limit)
     }
 
+    /// Extend coordinated entry with a controller-owned NMI readiness hint.
+    /// Both hints remain with the caller after a scheduling yield.
+    fn run_coordinated_host_slice_with_events(
+        &mut self,
+        limit: std::time::Duration,
+        pending_maskable_irq: bool,
+        _pending_nmi: bool,
+    ) -> Result<Option<VcpuExit>> {
+        self.run_coordinated_host_slice(limit, pending_maskable_irq)
+    }
+
     /// Execute at most `budget` retired units, preserving the reason for yield.
     /// One Hexagon packet is one unit. A zero budget performs no execution.
     /// Non-stepping backends reject before entry; there is no unbounded fallback.
