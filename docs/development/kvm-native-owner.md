@@ -311,9 +311,15 @@ The Linux x86-64 library test binary cross-builds with the checkpoint
 regressions. The isolated public-admission replay observes rejection at
 the parent revision and preserves TPR with the fix. Its reached-deadline,
 wrong timer mode, and countdown controls still reject. The native VMM
-regression is registered in the hosted KVM workflow. Native runtime
-qualification, already-expired timer phases, and private kernel timer
-state remain separate evidence requirements.
+regression passed on a hosted Linux x86-64 runner using `/dev/kvm` at
+commit `11b352ecb`. The exact test ran once and exercised 1, 2, and 4 vCPUs.
+It saved the armed deadline to disk, destroyed the source VM, restored a new
+VM and verified interrupt entry at or after the guest deadline. That workflow
+also passed all 15 `kvm_minimal`, 16 `kvm_host_slices` and 32 `kvm_smp` tests,
+and built the release executable with the default features and fat LTO.
+[Native KVM run 44736204405](https://github.com/HexRaysSA/rax/actions/runs/44736204405/job/136288240373)
+
+Already-expired timer phases and other private kernel timer state remain open.
 
 ## Remaining full checkpoint work
 
