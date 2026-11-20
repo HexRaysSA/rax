@@ -139,13 +139,15 @@ fn acquire(
         maximum: (units.len() * 2) as u16,
         buffer: units.as_ptr(),
     };
-    // Open the confined satellite without following a reparse point after selection.
+    // Keep selected locale data confined even if the path changes after selection.
     let resource = path.runtime_library
         && path
             .host
             .extension()
             .and_then(|value| value.to_str())
-            .is_some_and(|value| value.eq_ignore_ascii_case("mui"));
+            .is_some_and(|value| {
+                value.eq_ignore_ascii_case("mui") || value.eq_ignore_ascii_case("nls")
+            });
     let attrs = Attributes {
         length: std::mem::size_of::<Attributes>() as u32,
         root: retained.map_or(std::ptr::null_mut(), AsRawHandle::as_raw_handle),
