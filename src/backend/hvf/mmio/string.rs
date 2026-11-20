@@ -1,4 +1,4 @@
-//! One device access per scalar LODS/STOS/SCAS or completed REP load/store iteration.
+//! One device access per scalar or repeated LODS, STOS or SCAS iteration.
 use super::{
     Action, Context, ExitRecord, Extension, Input, Instruction, Operand, OperandKind,
     PhysicalMemory, Plan, RegisterPart, validate_memory,
@@ -139,17 +139,22 @@ pub(super) fn prepare<M: PhysicalMemory>(
     let load = matches!(operation, Operation::Load);
     // Metadata already decoded operand size and rejected LOCK. These opcodes
     // have neither a ModR/M byte nor immediate. Reject encodings outside
-    // the legacy prefix space. Repeated SCAS needs the original flags for
-    // fault restart, so the scalar continuation admits no repeat prefix.
+    // the legacy prefix space. F2 is admitted for the conditional scan.
     let Some((&opcode, prefixes)) = encoded.split_last() else {
         return Err("missing MMIO string opcode".into());
     };
+    let scan = matches!(operation, Operation::Scan);
+    let repeat = prefixes
+        .iter()
+        .rev()
+        .copied()
+        .find(|&byte| matches!(byte, 0xf2 | 0xf3));
     if !matches!(opcode, 0xaa..=0xaf)
         || prefixes.iter().any(|&byte| {
             !matches!(byte, 0x26 | 0x2e | 0x36 | 0x3e | 0x64..=0x67 | 0xf3)
+                && !(scan && byte == 0xf2)
                 && !(context.code_bits == 64 && matches!(byte, 0x40..=0x4f))
         })
-        || (matches!(operation, Operation::Scan) && prefixes.contains(&0xf3))
         || matches!(operation, Operation::Store) == read
     {
         return Err("MMIO string encoding or direction differs from the access".into());
@@ -189,7 +194,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
     let progress = Progress {
         width,
         index: context.registers[if load { 6 } else { 7 }],
-        count: prefixes.contains(&0xf3).then_some(context.registers[1]),
+        count: repeat.map(|_| context.registers[1]),
         backwards: context.rflags & DIRECTION != 0,
         length,
     };
@@ -223,6 +228,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
             progress.register(7),
             size,
             length,
+            repeat.map(|prefix| prefix == 0xf3),
         )),
     };
     Ok(Some(Plan {

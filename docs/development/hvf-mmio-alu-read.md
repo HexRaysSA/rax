@@ -255,3 +255,33 @@ IRETQ, and the second element produced the terminating arithmetic flags.
 
 Bare-metal Intel macOS and free-running interrupt timing at a repeat
 boundary remain unverified.
+
+### Device-read continuation
+
+Intel HVF completes one translated device read per REPE or REPNE SCAS
+element. It decrements the address-sized count, advances or retreats the
+index by the operand size, and checks both the new count and ZF from the
+comparison. The final element publishes its arithmetic flags and advances
+RIP. A continuing element leaves the repeat RIP and entry arithmetic flags
+visible with the updated count and index. A detached pending read retains
+the repeat condition, count, comparison operands and instruction boundary.
+Validation rejects an exhausted or inconsistent saved count. Each element
+uses constant time and auxiliary storage apart from the existing decode and
+translation checks.
+[Intel SDM Volume 2, REP and SCAS](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The baseline portable planner rejected repeated SCAS. The corrected
+sources passed all 120 portable MMIO tests and all 16 workflow checks.
+All 99 Intel SDK-model owner tests passed unfiltered under Rosetta.
+The 48-case native consumer type-checked, including four widths and
+direct and restored device reads across the fault, debug and interrupt
+boundaries above.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A continuing element preserves entry arithmetic flags at the tested guest and host boundaries. | Start with status bits distinct from the first compare. Inspect the guest fault, debug and interrupt frames and the host monitor-trap stop after one element. |
+| A pending checkpoint identifies the same read and count frontier. | Destroy the source vCPU, restore the pending read in a new vCPU, and require the same next request, flags, count and index. Reject saved zero and mismatched counts. |
+| Completion distinguishes exhaustion from a condition mismatch. | Test both ending conditions, four widths, both directions and address-size override in the device path. Verify the following guest marker once. |
+
+Bare-metal Intel macOS, compatibility-mode device exits and free-running
+interrupt timing at a repeat boundary remain open.

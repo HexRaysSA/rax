@@ -696,6 +696,7 @@ type Completion = ([Option<(usize, u64)>; 2], Option<u64>, u64);
 
 enum Effect {
     Scalar(Completion),
+    PartialString(string::GprWrites),
     Xmm {
         index: u8,
         value: [u8; 16],
@@ -886,7 +887,7 @@ impl InputState {
                     length,
                 }
             }),
-            Pending::AluRead(input) => input.completion(data).map(Effect::Scalar),
+            Pending::AluRead(input) => input.effect(data),
             Pending::Divide { input, .. } => input
                 .completion(data)
                 .map(|value| value.map_or(Effect::DivideError, Effect::Scalar)),
@@ -909,7 +910,8 @@ impl InputState {
         self.reply = Some(data.to_vec());
         let mut apply = || -> Result<(), String> {
             let (registers, flags, length) = match completion {
-                Effect::Scalar(completion) => completion,
+                Effect::Scalar((registers, flags, length)) => (registers, flags, Some(length)),
+                Effect::PartialString(registers) => (registers, None, None),
                 Effect::DivideError => return host.inject_divide_error(),
                 Effect::StringLoad {
                     accumulator,
@@ -954,8 +956,12 @@ impl InputState {
                 host.write_rflags(flags)
                     .map_err(|error| error.to_string())?;
             }
-            host.finish_instruction(length)
-                .map_err(|error| error.to_string())
+            match length {
+                Some(length) => host
+                    .finish_instruction(length)
+                    .map_err(|error| error.to_string()),
+                None => host.finish_string_iteration(),
+            }
         };
         if let Err(error) = apply() {
             self.failure = Some(format!("HVF MMIO completion failed: {error}"));

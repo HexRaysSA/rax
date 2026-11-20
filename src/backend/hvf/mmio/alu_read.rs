@@ -1,7 +1,7 @@
 //! Read-only device operands for integer arithmetic, comparisons and bit tests.
 use super::{
-    Completion, Context, ExitRecord, Flow, Instruction, Operand, OperandKind, PhysicalMemory, Plan,
-    RegisterPart,
+    Completion, Context, Effect, ExitRecord, Flow, Instruction, Operand, OperandKind,
+    PhysicalMemory, Plan, RegisterPart,
 };
 use crate::isa::x86_64::flags::{self, bits};
 use serde::{Deserialize, Serialize};
@@ -37,6 +37,7 @@ enum Operation {
     ImplicitMultiply { signed: bool, rdx_before: u64 },
     // Appended for compatibility with existing pending inputs.
     StringScan,
+    RepeatStringScan { count: u64, while_equal: bool },
 }
 
 impl Operation {
@@ -70,11 +71,17 @@ impl AluReadInput {
         index: RegisterPart,
         size: u8,
         length: u64,
+        repeat_while_equal: Option<bool>,
     ) -> Self {
         Self {
             size,
             length,
-            operation: Operation::StringScan,
+            operation: repeat_while_equal.map_or(Operation::StringScan, |while_equal| {
+                Operation::RepeatStringScan {
+                    count: context.registers[1],
+                    while_equal,
+                }
+            }),
             other: context.registers[0],
             memory_left: false,
             flags_before: context.rflags,
@@ -83,13 +90,24 @@ impl AluReadInput {
     }
 
     pub(super) fn is_string_scan(&self) -> bool {
-        matches!(self.operation, Operation::StringScan)
+        matches!(
+            self.operation,
+            Operation::StringScan | Operation::RepeatStringScan { .. }
+        )
     }
 
-    pub(crate) fn matches_scan_frontier(&self, rax: u64, rdi: u64, rflags: u64, code: u32) -> bool {
+    pub(crate) fn matches_scan_frontier(
+        &self,
+        rax: u64,
+        rcx: u64,
+        rdi: u64,
+        rflags: u64,
+        code: u32,
+    ) -> bool {
         let override_width = if code == 32 { 16 } else { 32 };
         self.other == rax
             && self.flags_before == rflags
+            && !matches!(self.operation, Operation::RepeatStringScan { count, .. } if count != rcx)
             && self.destination.is_some_and(|(part, original)| {
                 original == rdi && (part.bits == code || part.bits == override_width)
             })
@@ -111,20 +129,19 @@ impl AluReadInput {
             return Ok(());
         }
         if self.is_string_scan() {
+            let Some((part, _)) = self.destination else {
+                return Err("missing MMIO SCAS destination".into());
+            };
             if self.memory_left
-                || !matches!(
-                    self.destination,
-                    Some((
-                        RegisterPart {
-                            index: 7,
-                            shift: 0,
-                            bits: 16 | 32 | 64
-                        },
-                        _
-                    ))
-                )
+                || part.index != 7
+                || part.shift != 0
+                || !matches!(part.bits, 16 | 32 | 64)
             {
                 return Err("invalid MMIO SCAS destination".into());
+            }
+            if matches!(self.operation, Operation::RepeatStringScan { count, .. } if count & part.mask() == 0)
+            {
+                return Err("MMIO SCAS repeat count is exhausted".into());
             }
             return Ok(());
         }
@@ -209,7 +226,10 @@ impl AluReadInput {
             Operation::Adc | Operation::Adcx | Operation::Adox => {
                 left.wrapping_add(right).wrapping_add(u64::from(carry))
             }
-            Operation::Sub | Operation::Compare | Operation::StringScan => left.wrapping_sub(right),
+            Operation::Sub
+            | Operation::Compare
+            | Operation::StringScan
+            | Operation::RepeatStringScan { .. } => left.wrapping_sub(right),
             Operation::Sbb => left.wrapping_sub(right).wrapping_sub(u64::from(carry)),
             Operation::And | Operation::Test => left & right,
             Operation::Or => left | right,
@@ -245,7 +265,10 @@ impl AluReadInput {
                     updated |= carry_flag;
                 }
             }
-            Operation::Sub | Operation::Compare | Operation::StringScan => {
+            Operation::Sub
+            | Operation::Compare
+            | Operation::StringScan
+            | Operation::RepeatStringScan { .. } => {
                 flags::update_flags_sub(&mut updated, left, right, result, self.size)
             }
             Operation::Sbb => {
@@ -285,6 +308,23 @@ impl AluReadInput {
         });
         let flags = (!matches!(self.operation, Operation::Crc32)).then_some(updated);
         Ok(([register, None], flags, self.length))
+    }
+
+    pub(super) fn effect(&self, data: &[u8]) -> Result<Effect, String> {
+        let (mut registers, flags, length) = self.completion(data)?;
+        if let Operation::RepeatStringScan { count, while_equal } = self.operation {
+            let (index, _) = self.destination.expect("validated SCAS index");
+            let counter = RegisterPart { index: 1, ..index };
+            let remaining = (count & counter.mask()) - 1;
+            registers[1] = Some((counter.index, counter.merge(count, remaining)));
+            let equal = flags.expect("SCAS comparison flags") & bits::ZF != 0;
+            if remaining != 0 && equal == while_equal {
+                // Keep the entry flags through the next iteration. A later
+                // fault reports those flags with the completed count/index.
+                return Ok(Effect::PartialString(registers));
+            }
+        }
+        Ok(Effect::Scalar((registers, flags, length)))
     }
 
     fn complete_implicit_multiply(

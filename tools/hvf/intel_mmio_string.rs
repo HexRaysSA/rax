@@ -154,6 +154,7 @@ pub(super) fn run(output: &Path) {
         }
     }
     let case = run_scan_reference(output, run_scalar_scan(output, case));
+    let case = run_scan_mmio_boundaries(output, run_repeated_scan(output, case));
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
@@ -295,6 +296,110 @@ fn run_scalar_scan(output: &Path, mut case: usize) -> usize {
     case
 }
 
+const SCAN_STATUS: u64 = 0x8d5;
+const SCAN_EQUAL: u64 = 0x44;
+const SCAN_UNEQUAL: u64 = 0x95;
+const SCAN_DF: u64 = 1 << 10;
+const SCAN_RF: u64 = 1 << 16;
+
+fn expect_scan_read(cpu: &mut dyn VCpu, address: u64, width: usize) {
+    let exit = event(cpu);
+    assert!(
+        matches!(exit, VcpuExit::MmioRead { addr, size } if addr == address
+        && usize::from(size) == width),
+        "{exit:?}"
+    );
+}
+
+fn detach_scan(
+    memory: &GuestMemoryWrapper,
+    vm: Box<dyn Vm>,
+    cpu: Box<dyn VCpu>,
+) -> (Box<dyn Vm>, Box<dyn VCpu>) {
+    let boundary = vm.checkpoint_boundary().unwrap();
+    let (saved, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+    let private = private.unwrap();
+    assert_eq!(saved.state.pc(), CODE);
+    drop(boundary);
+    drop(cpu);
+    drop(vm);
+    let (vm, mut cpu) = machine(memory);
+    cpu.restore_checkpoint_context(&saved.state, &saved.emulator, Some(&private))
+        .unwrap();
+    (vm, cpu)
+}
+
+fn run_repeated_scan(output: &Path, mut case: usize) -> usize {
+    for (code, width, while_equal, backwards, exhaust) in [
+        (&[0xf3, 0xae][..], 1, true, false, false),
+        (&[0xf2, 0x66, 0xaf][..], 2, false, true, true),
+        (&[0x67, 0xf3, 0xaf][..], 4, true, false, true),
+        (&[0xf2, 0x48, 0xaf][..], 8, false, true, false),
+    ] {
+        let initial_count = if exhaust { 2 } else { 3 };
+        let first = u64::from(!while_equal);
+        let second = if exhaust { first } else { 1 - first };
+        let direction = if backwards { SCAN_DF } else { 0 };
+        let movement = if backwards {
+            -(width as i64)
+        } else {
+            width as i64
+        };
+        let entry_flags = 0x13 | direction | if while_equal { 0 } else { 0x40 };
+        for restored in [false, true] {
+            let memory = guest_memory(code);
+            word(&memory, 0x4000, 0x4000_009b);
+            let (mut vm, mut cpu) = machine(&memory);
+            let mut initial = state(cpu.as_ref());
+            let high = if code[0] == 0x67 {
+                0x7654_3210_0000_0000
+            } else {
+                0
+            };
+            initial.regs.rax = 0;
+            initial.regs.rcx = high | initial_count;
+            initial.regs.rdi = high | MMIO;
+            initial.regs.rflags = entry_flags;
+            cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+
+            let mut address = MMIO;
+            for (iteration, reply) in [first, second].into_iter().enumerate() {
+                expect_scan_read(cpu.as_mut(), address, width);
+                if restored {
+                    (vm, cpu) = detach_scan(&memory, vm, cpu);
+                    expect_scan_read(cpu.as_mut(), address, width);
+                }
+                cpu.complete_io_in(&reply.to_le_bytes()[..width]);
+                cpu.io_completion_result().unwrap();
+                address = address.wrapping_add_signed(movement);
+                let regs = state(cpu.as_ref()).regs;
+                let done = iteration == 1;
+                let result_flags = if reply == 0 { SCAN_EQUAL } else { SCAN_UNEQUAL };
+                assert_eq!((regs.rax, regs.rdi, regs.r10), (0, address, 0));
+                assert_eq!(regs.rcx, initial_count - 1 - iteration as u64);
+                assert_eq!(regs.rip, CODE + if done { code.len() as u64 } else { 0 });
+                if done {
+                    assert_eq!(regs.rflags, 2 | direction | result_flags);
+                } else {
+                    assert_eq!(regs.rflags & !SCAN_RF, entry_flags);
+                }
+            }
+            assert!(matches!(event(cpu.as_mut()), VcpuExit::Hlt));
+            let regs = state(cpu.as_ref()).regs;
+            assert_eq!(regs.r10, MARKER);
+            let name = if restored {
+                "scas-repeat-restored"
+            } else {
+                "scas-repeat-direct"
+            };
+            record(output, case, name, width, regs.rflags);
+            case += 1;
+        }
+    }
+
+    case
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ScanBoundary {
     PageFault,
@@ -302,39 +407,82 @@ enum ScanBoundary {
     Interrupt,
 }
 
-// These controls run the original instruction entirely in guest RAM. They
-// distinguish the architectural fault frame from trap and interrupt frames.
+impl ScanBoundary {
+    fn case_label(self, operand: ScanOperand) -> &'static str {
+        match (self, operand) {
+            (Self::PageFault, ScanOperand::Ram) => "scas-repeat-ram-page-fault",
+            (Self::DebugTrap, ScanOperand::Ram) => "scas-repeat-ram-debug-trap",
+            (Self::Interrupt, ScanOperand::Ram) => "scas-repeat-ram-interrupt",
+            (Self::PageFault, ScanOperand::Mmio) => "scas-repeat-mmio-page-fault",
+            (Self::DebugTrap, ScanOperand::Mmio) => "scas-repeat-mmio-debug-trap",
+            (Self::Interrupt, ScanOperand::Mmio) => "scas-repeat-mmio-interrupt",
+            (Self::PageFault, ScanOperand::RestoredMmio) => "scas-repeat-restored-page-fault",
+            (Self::DebugTrap, ScanOperand::RestoredMmio) => "scas-repeat-restored-debug-trap",
+            (Self::Interrupt, ScanOperand::RestoredMmio) => "scas-repeat-restored-interrupt",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ScanOperand {
+    Ram,
+    Mmio,
+    RestoredMmio,
+}
+
+const SCAN_BOUNDARIES: [ScanBoundary; 3] = [
+    ScanBoundary::PageFault,
+    ScanBoundary::DebugTrap,
+    ScanBoundary::Interrupt,
+];
+
+// Run the original instruction in guest RAM to distinguish fault, trap, and
+// interrupt frames before exercising the same boundaries on device operands.
 fn run_scan_reference(output: &Path, mut case: usize) -> usize {
     for prefix in [0xf2, 0xf3] {
-        for (boundary, label) in [
-            (ScanBoundary::PageFault, "scas-repeat-ram-page-fault"),
-            (ScanBoundary::DebugTrap, "scas-repeat-ram-debug-trap"),
-            (ScanBoundary::Interrupt, "scas-repeat-ram-interrupt"),
-        ] {
-            record(output, case, label, 1, scan_ram_boundary(prefix, boundary));
+        for boundary in SCAN_BOUNDARIES {
+            let operand = ScanOperand::Ram;
+            let flags = scan_boundary(prefix, boundary, operand);
+            record(output, case, boundary.case_label(operand), 1, flags);
             case += 1;
         }
     }
     case
 }
 
-fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
+fn run_scan_mmio_boundaries(output: &Path, mut case: usize) -> usize {
+    for prefix in [0xf2, 0xf3] {
+        for boundary in SCAN_BOUNDARIES {
+            for operand in [ScanOperand::Mmio, ScanOperand::RestoredMmio] {
+                let flags = scan_boundary(prefix, boundary, operand);
+                record(output, case, boundary.case_label(operand), 1, flags);
+                case += 1;
+            }
+        }
+    }
+    case
+}
+
+fn scan_boundary(prefix: u8, boundary: ScanBoundary, operand: ScanOperand) -> u64 {
     const HANDLER: u64 = 0x11000;
     const IDT: u64 = 0x12000;
     const PT: u64 = 0x13000;
     const FIRST_RAM: u64 = 0x15000;
     const SECOND_RAM: u64 = 0x16000;
     const FIRST: u64 = 0x4000_0fff;
-    const STATUS: u64 = 0x8d5;
     let code = [prefix, 0xae];
     let memory = guest_memory(&code);
     let first = u8::from(prefix == 0xf2);
     word(&memory, 0x4000, PT | 3);
-    word(&memory, PT, FIRST_RAM | 3);
-    memory
-        .memory()
-        .write_slice(&[first], GuestAddress(FIRST_RAM + 0xfff))
-        .unwrap();
+    if operand == ScanOperand::Ram {
+        word(&memory, PT, FIRST_RAM | 3);
+        memory
+            .memory()
+            .write_slice(&[first], GuestAddress(FIRST_RAM + 0xfff))
+            .unwrap();
+    } else {
+        word(&memory, PT, (FIRST & !0xfff) | 3);
+    }
     memory
         .memory()
         .write_slice(&[1 - first], GuestAddress(SECOND_RAM))
@@ -352,7 +500,7 @@ fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
         .memory()
         .write_slice(&handler, GuestAddress(HANDLER))
         .unwrap();
-    let (_vm, mut cpu) = machine(&memory);
+    let (mut vm, mut cpu) = machine(&memory);
     let mut initial = state(cpu.as_ref());
     let initial_flags = 0x13 | if prefix == 0xf2 { 0x40 } else { 0 };
     initial.regs.rflags = initial_flags | control;
@@ -362,16 +510,30 @@ fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
     initial.sregs.idt.base = IDT;
     initial.sregs.idt.limit = (vector * 16 + 15) as u16;
     cpu.set_state(&CpuState::X86_64(initial)).unwrap();
-    if boundary == ScanBoundary::Interrupt {
+    if operand != ScanOperand::Ram {
+        expect_scan_read(cpu.as_mut(), FIRST, 1);
+        if operand == ScanOperand::RestoredMmio {
+            (vm, cpu) = detach_scan(&memory, vm, cpu);
+            expect_scan_read(cpu.as_mut(), FIRST, 1);
+        }
+        if boundary == ScanBoundary::Interrupt {
+            cpu.set_single_step(true);
+        }
+        cpu.complete_io_in(&[first]);
+        cpu.io_completion_result().unwrap();
+    } else if boundary == ScanBoundary::Interrupt {
         cpu.set_single_step(true);
+    }
+    if boundary == ScanBoundary::Interrupt {
         let exit = event(cpu.as_mut());
         assert!(matches!(exit, VcpuExit::GdbStep), "{exit:?}");
         let after = state(cpu.as_ref()).regs;
         assert_eq!((after.rip, after.rdi, after.rcx), (CODE, FIRST + 1, 2));
         println!(
-            "native RAM SCAS prefix={prefix:#x} monitor_trap_rflags={:#x}",
+            "native {operand:?} SCAS prefix={prefix:#x} monitor_trap_rflags={:#x}",
             after.rflags
         );
+        assert_eq!(after.rflags & SCAN_STATUS, initial_flags & SCAN_STATUS);
         cpu.set_single_step(false);
         assert!(cpu.inject_interrupt(vector as u8).unwrap());
     }
@@ -393,9 +555,11 @@ fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
         };
     assert_eq!(read_word(&memory, frame), CODE);
     let flags = read_word(&memory, frame + 16);
-    println!("native RAM SCAS prefix={prefix:#x} boundary={boundary:?} frame_rflags={flags:#x}");
+    println!(
+        "native {operand:?} SCAS prefix={prefix:#x} boundary={boundary:?} frame_rflags={flags:#x}"
+    );
+    assert_eq!(flags & SCAN_STATUS, initial_flags & SCAN_STATUS);
     if boundary == ScanBoundary::PageFault {
-        assert_eq!(flags & STATUS, initial_flags & STATUS);
         assert_eq!(read_word(&memory, regs.rsp), 0);
         word(&memory, PT + 8, SECOND_RAM | 3);
         cpu.wake();
@@ -406,8 +570,14 @@ fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
             (after.rip, after.rdi, after.rcx, after.rax, after.r10),
             (CODE + code.len() as u64 + 11, FIRST + 2, 1, 0, MARKER)
         );
-        let expected = if prefix == 0xf2 { 0x44 } else { 0x95 };
-        assert_eq!(after.rflags & STATUS, expected);
+        let expected = if prefix == 0xf2 {
+            SCAN_EQUAL
+        } else {
+            SCAN_UNEQUAL
+        };
+        assert_eq!(after.rflags & SCAN_STATUS, expected);
     }
+    drop(cpu);
+    drop(vm);
     flags
 }

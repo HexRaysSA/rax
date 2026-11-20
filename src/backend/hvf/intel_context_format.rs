@@ -523,7 +523,7 @@ impl Context {
             if !self.mmio_debug_complete
                 || (scan.size == 8 && code != 64)
                 || (self.mmio_input.failure().is_none()
-                    && !scan.matches_scan_frontier(regs.rax, regs.rdi, regs.rflags, code))
+                    && !scan.matches_scan_frontier(regs.rax, regs.rcx, regs.rdi, regs.rflags, code))
             {
                 return Err(invalid("native SCAS differs from its saved CPU boundary"));
             }

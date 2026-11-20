@@ -504,7 +504,7 @@ fn scalar_scas_retires_a_single_read_and_preserves_rax_and_rcx_after_restore() {
 }
 
 #[test]
-fn scalar_scas_uses_es_and_wraps_di_and_refuses_repeat_and_write_exits() {
+fn scalar_scas_uses_es_and_wraps_di_and_refuses_write_and_exhausted_repeat_exits() {
     let (mut context, mut memory, mut record) = fixture(&[0x64, 0xae]);
     context.code_bits = 16;
     context.paging.cr0 = 0;
@@ -525,8 +525,124 @@ fn scalar_scas_uses_es_and_wraps_di_and_refuses_repeat_and_write_exits() {
     record.qualification = 0x182;
     assert!(prepare(&context, &mut memory, record).is_err());
     record.qualification = 0x181;
+    context.registers[1] = 0x7654_3210_aaaa_0000;
     for prefix in [0xf2, 0xf3] {
         memory.bytes(context.rip, &[prefix, 0xae]);
         assert!(prepare(&context, &mut memory, record).is_err());
     }
+}
+
+#[test]
+fn repeated_scas_preserves_restart_flags_and_commits_only_the_ending_comparison() {
+    use isa::x86_64::flags::bits::{AF, CF, PF, SF, ZF};
+
+    for (prefix, first, different, stop) in
+        [(0xf3, 0u8, 1u8, CF | PF | AF | SF), (0xf2, 1, 0, PF | ZF)]
+    {
+        for (suffix, size) in [
+            (&[0xae][..], 1),
+            (&[0x66, 0xaf][..], 2),
+            (&[0xaf][..], 4),
+            (&[0x48, 0xaf][..], 8),
+        ] {
+            for address32 in [false, true] {
+                for backwards in [false, true] {
+                    let mut code = vec![prefix];
+                    if address32 {
+                        code.push(0x67);
+                    }
+                    code.extend_from_slice(suffix);
+                    let (mut context, mut memory, mut record) = fixture(&code);
+                    let high = if address32 { 0xaaaa_bbbb_0000_0000 } else { 0 };
+                    let direction = u64::from(backwards) << 10;
+                    let movement = if backwards {
+                        -(size as i64)
+                    } else {
+                        size as i64
+                    };
+                    let restart = 2 | direction | CF | if prefix == 0xf2 { ZF } else { 0 };
+                    context.rflags = restart | retirement::RESUME;
+                    context.registers[0] = if size == 8 { 0 } else { 0x1234_0000_0000_0000 };
+                    context.registers[1] = high | 3;
+                    context.registers[7] = high | record.linear;
+
+                    let mut cpu = host(context, 0, 1, true);
+                    for (iteration, reply) in [first, different].into_iter().enumerate() {
+                        let plan = prepare(&context, &mut memory, record)
+                            .expect("repeated SCAS needs a translated device read");
+                        let mut state = pending(plan.action);
+                        let packed = rax::codec::serialize(&state).unwrap();
+                        state = rax::codec::deserialize_strict(&packed).unwrap();
+                        state.validate_checkpoint().unwrap();
+                        assert_eq!(state.descriptor(), Some((size as u8, None)));
+                        let scan = state.string_scan().unwrap();
+                        let [rax, rcx, ..] = context.registers;
+                        let rdi = context.registers[7];
+                        assert!(scan.matches_scan_frontier(rax, rcx, rdi, context.rflags, 64));
+                        assert!(!scan.matches_scan_frontier(rax, rcx + 1, rdi, context.rflags, 64));
+                        state.complete(&mut cpu, &u64::from(reply).to_le_bytes()[..size]);
+                        assert!(state.ready().is_ok());
+                        let done = iteration == 1;
+                        assert_eq!(cpu.registers[0], context.registers[0]);
+                        assert_eq!(cpu.registers[1], 2 - iteration as u64);
+                        assert_eq!(
+                            cpu.registers[7],
+                            record.linear.wrapping_add_signed(movement)
+                        );
+                        assert_eq!(
+                            cpu.rip,
+                            context.rip + if done { code.len() as u64 } else { 0 }
+                        );
+                        assert_eq!(
+                            cpu.flags,
+                            if done {
+                                2 | direction | stop
+                            } else {
+                                context.rflags
+                            }
+                        );
+                        assert_eq!(cpu.shadow, 0);
+                        assert!(cpu.step.take_completion().unwrap());
+                        assert!(!cpu.step.take_completion().unwrap());
+
+                        context.registers = cpu.registers;
+                        context.rflags = cpu.flags;
+                        record.linear = cpu.registers[7];
+                        record.physical = record.linear;
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn repeated_scas_uses_cx_and_di_and_retires_when_the_count_is_exhausted() {
+    let code = [0xf3, 0x64, 0xae];
+    let (mut context, mut memory, mut record) = fixture(&code);
+    let upper_count = 0x7654_3210_aaaa_0000;
+    let upper_index = 0x1234_5678_9abc_0000;
+    context.code_bits = 16;
+    context.paging.cr0 = 0;
+    context.paging.cr4 = 0;
+    context.paging.efer = 0;
+    context.registers[0] = 0;
+    context.registers[1] = upper_count | 1;
+    context.registers[7] = upper_index | 0xffff;
+    context.segments[0] = 0x9000;
+    context.segments[4] = 0x3000;
+    record.linear = 0x18fff;
+    record.physical = record.linear;
+    let plan = prepare(&context, &mut memory, record).unwrap();
+    let mut cpu = host(context, 0, 0, false);
+    let mut state = pending(plan.action);
+    state.complete(&mut cpu, &[0]);
+    assert!(state.ready().is_ok());
+    assert_eq!(cpu.registers[1], upper_count);
+    assert_eq!(cpu.registers[7], upper_index);
+    assert_eq!(cpu.rip, context.rip + code.len() as u64);
+    assert_eq!(
+        cpu.flags,
+        2 | isa::x86_64::flags::bits::PF | isa::x86_64::flags::bits::ZF
+    );
 }
