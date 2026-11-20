@@ -153,5 +153,144 @@ pub(super) fn run(output: &Path) {
             case += 1;
         }
     }
+    let case = run_scalar_scan(output, case);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn run_scalar_scan(output: &Path, mut case: usize) -> usize {
+    const DF: u64 = 1 << 10;
+    const RF: u64 = 1 << 16;
+    const CF: u64 = 1;
+    const PF: u64 = 1 << 2;
+    const AF: u64 = 1 << 4;
+    const ZF: u64 = 1 << 6;
+    const SF: u64 = 1 << 7;
+    const OF: u64 = 1 << 11;
+    const STATUS: u64 = CF | PF | AF | ZF | SF | OF;
+    const COUNT: u64 = 0x1234_4321_0000_0002;
+    for (code, size, acc, rhs, backwards, expected) in [
+        (
+            &[0xae][..],
+            1,
+            0x1234_5678_9abc_007fu64,
+            0x80u64,
+            false,
+            CF | PF | SF | OF,
+        ),
+        (
+            &[0x66, 0xaf][..],
+            2,
+            0x1234_5678_9abc_0000,
+            1,
+            true,
+            CF | PF | AF | SF,
+        ),
+        (
+            &[0xaf][..],
+            4,
+            0x1234_5678_8000_0000,
+            0x8000_0000,
+            false,
+            PF | ZF,
+        ),
+        (
+            &[0x48, 0xaf][..],
+            8,
+            0,
+            0x8000_0000_0000_0000,
+            true,
+            CF | PF | SF | OF,
+        ),
+        (
+            &[0x67, 0xae][..],
+            1,
+            0x1234_5678_9abc_007f,
+            0x80,
+            true,
+            CF | PF | SF | OF,
+        ),
+    ] {
+        let direction = if backwards { DF } else { 0 };
+        for restored in [false, true] {
+            let memory = guest_memory(code);
+            word(&memory, 0x4000, 0x4000_009b);
+            let (mut vm, mut cpu) = machine(&memory);
+            let mut initial = state(cpu.as_ref());
+            initial.regs.rax = acc;
+            initial.regs.rcx = COUNT;
+            initial.regs.rdi = if code[0] == 0x67 {
+                0x7654_3210_0000_0000 | MMIO
+            } else {
+                MMIO
+            };
+            initial.regs.rflags = 2 | direction | STATUS;
+            cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+            let pending = |cpu: &mut dyn VCpu| {
+                let exit = event(cpu);
+                assert!(
+                    matches!(exit, VcpuExit::MmioRead { addr: MMIO, size: actual } if usize::from(actual) == size),
+                    "unexpected SCAS exit for {code:02x?}: {exit:?}"
+                );
+                assert!(cpu.io_completion_result().is_err());
+            };
+            pending(cpu.as_mut());
+            if restored {
+                let boundary = vm.checkpoint_boundary().unwrap();
+                let (saved, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+                let CpuState::X86_64(saved_cpu) = &saved.state else {
+                    panic!("wrong saved CPU")
+                };
+                assert_eq!(saved_cpu.regs.rax, acc);
+                assert_eq!(saved_cpu.regs.rcx, COUNT);
+                assert_eq!(saved_cpu.regs.rdi as u32, MMIO as u32);
+                assert_eq!(saved_cpu.regs.rip, CODE);
+                assert_eq!(saved_cpu.regs.rflags & !RF, 2 | direction | STATUS);
+                drop(boundary);
+                drop(cpu);
+                drop(vm);
+                (vm, cpu) = machine(&memory);
+                cpu.restore_checkpoint_context(
+                    &saved.state,
+                    &saved.emulator,
+                    Some(&context.unwrap()),
+                )
+                .unwrap();
+                pending(cpu.as_mut());
+                let boundary = vm.checkpoint_boundary().unwrap();
+                let (restored_cpu, _) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+                let CpuState::X86_64(restored_cpu) = restored_cpu.state else {
+                    panic!("wrong restored CPU")
+                };
+                assert_eq!(restored_cpu.regs.rdi, saved_cpu.regs.rdi);
+                assert_eq!(restored_cpu.regs.rflags, saved_cpu.regs.rflags);
+            }
+            cpu.complete_io_in(&rhs.to_le_bytes()[..size]);
+            cpu.io_completion_result().unwrap();
+            let regs = state(cpu.as_ref()).regs;
+            let next = MMIO.wrapping_add_signed(if backwards {
+                -(size as i64)
+            } else {
+                size as i64
+            });
+            assert_eq!(regs.rax, acc);
+            assert_eq!(regs.rcx, COUNT);
+            assert_eq!(regs.rdi, next);
+            assert_eq!(regs.rip, CODE + code.len() as u64);
+            assert_eq!(regs.rflags, 2 | direction | expected);
+            assert_eq!(regs.r10, 0);
+            assert!(matches!(event(cpu.as_mut()), VcpuExit::Hlt));
+            let ended = state(cpu.as_ref()).regs;
+            assert_eq!(ended.r10, MARKER);
+            assert_eq!(ended.rdi, next);
+            assert_eq!(ended.rflags, regs.rflags);
+            let label = if restored {
+                "scas-scalar-restored"
+            } else {
+                "scas-scalar-direct"
+            };
+            record(output, case, label, size, ended.rflags);
+            case += 1;
+        }
+    }
+    case
 }

@@ -813,6 +813,12 @@ impl InputState {
             _ => None,
         }
     }
+    pub(crate) fn string_scan(&self) -> Option<&AluReadInput> {
+        match self.pending.as_ref() {
+            Some(Pending::AluRead(input)) if input.is_string_scan() => Some(input),
+            _ => None,
+        }
+    }
     pub(crate) fn begin_rmw(&mut self, input: RmwInput) -> Result<(), String> {
         self.ready().map_err(str::to_owned)?;
         input.validate()?;

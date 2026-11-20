@@ -1,11 +1,11 @@
-//! One device access per scalar LODS/STOS or completed REP iteration.
+//! One device access per scalar LODS/STOS/SCAS or completed REP load/store iteration.
 use super::{
     Action, Context, ExitRecord, Extension, Input, Instruction, Operand, OperandKind,
     PhysicalMemory, Plan, RegisterPart, validate_memory,
 };
 use serde::{Deserialize, Serialize};
 
-const DIRECTION: u64 = 1 << 10;
+pub(super) const DIRECTION: u64 = 1 << 10;
 pub(super) type GprWrites = [Option<(usize, u64)>; 2];
 
 /// Pre-access registers remain live until the device operation completes.
@@ -107,6 +107,12 @@ fn accumulator(size: u8) -> RegisterPart {
     }
 }
 
+enum Operation {
+    Load,
+    Store,
+    Scan,
+}
+
 pub(super) fn prepare<M: PhysicalMemory>(
     context: &Context,
     memory: &mut M,
@@ -115,29 +121,36 @@ pub(super) fn prepare<M: PhysicalMemory>(
     encoded: &[u8],
     read: bool,
 ) -> Result<Option<Plan>, String> {
-    let (load, size) = match instruction.mnemonic.as_str() {
-        "lodsb" => (true, 1),
-        "lodsw" => (true, 2),
-        "lodsd" => (true, 4),
-        "lodsq" => (true, 8),
-        "stosb" => (false, 1),
-        "stosw" => (false, 2),
-        "stosd" => (false, 4),
-        "stosq" => (false, 8),
+    let (operation, size) = match instruction.mnemonic.as_str() {
+        "lodsb" => (Operation::Load, 1),
+        "lodsw" => (Operation::Load, 2),
+        "lodsd" => (Operation::Load, 4),
+        "lodsq" => (Operation::Load, 8),
+        "stosb" => (Operation::Store, 1),
+        "stosw" => (Operation::Store, 2),
+        "stosd" => (Operation::Store, 4),
+        "stosq" => (Operation::Store, 8),
+        "scasb" => (Operation::Scan, 1),
+        "scasw" => (Operation::Scan, 2),
+        "scasd" => (Operation::Scan, 4),
+        "scasq" => (Operation::Scan, 8),
         _ => return Ok(None),
     };
+    let load = matches!(operation, Operation::Load);
     // Metadata already decoded operand size and rejected LOCK. These opcodes
     // have neither a ModR/M byte nor immediate. Reject encodings outside
-    // the legacy prefix space and an F2 repeat prefix on LODS/STOS.
+    // the legacy prefix space. Repeated SCAS needs the original flags for
+    // fault restart, so the scalar continuation admits no repeat prefix.
     let Some((&opcode, prefixes)) = encoded.split_last() else {
         return Err("missing MMIO string opcode".into());
     };
-    if !matches!(opcode, 0xaa..=0xad)
+    if !matches!(opcode, 0xaa..=0xaf)
         || prefixes.iter().any(|&byte| {
             !matches!(byte, 0x26 | 0x2e | 0x36 | 0x3e | 0x64..=0x67 | 0xf3)
                 && !(context.code_bits == 64 && matches!(byte, 0x40..=0x4f))
         })
-        || load != read
+        || (matches!(operation, Operation::Scan) && prefixes.contains(&0xf3))
+        || matches!(operation, Operation::Store) == read
     {
         return Err("MMIO string encoding or direction differs from the access".into());
     }
@@ -192,18 +205,25 @@ pub(super) fn prepare<M: PhysicalMemory>(
         ..Operand::default()
     };
     validate_memory(context, memory, record, &operand, size)?;
-    let action = if load {
-        Action::StringLoad(Load {
+    let action = match operation {
+        Operation::Load => Action::StringLoad(Load {
             progress,
             original_rax: context.registers[0],
             size,
-        })
-    } else {
-        let bytes = context.registers[0].to_le_bytes();
-        Action::StringStore {
-            data: bytes[..usize::from(size)].to_vec(),
-            progress,
+        }),
+        Operation::Store => {
+            let bytes = context.registers[0].to_le_bytes();
+            Action::StringStore {
+                data: bytes[..usize::from(size)].to_vec(),
+                progress,
+            }
         }
+        Operation::Scan => Action::AluRead(super::AluReadInput::string_scan(
+            context,
+            progress.register(7),
+            size,
+            length,
+        )),
     };
     Ok(Some(Plan {
         physical: record.physical,

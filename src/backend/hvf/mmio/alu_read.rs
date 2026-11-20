@@ -35,6 +35,8 @@ enum Operation {
     Crc32,
     Imul,
     ImplicitMultiply { signed: bool, rdx_before: u64 },
+    // Appended for compatibility with existing pending inputs.
+    StringScan,
 }
 
 impl Operation {
@@ -63,6 +65,36 @@ pub(crate) struct AluReadInput {
 }
 
 impl AluReadInput {
+    pub(super) fn string_scan(
+        context: &Context,
+        index: RegisterPart,
+        size: u8,
+        length: u64,
+    ) -> Self {
+        Self {
+            size,
+            length,
+            operation: Operation::StringScan,
+            other: context.registers[0],
+            memory_left: false,
+            flags_before: context.rflags,
+            destination: Some((index, context.registers[7])),
+        }
+    }
+
+    pub(super) fn is_string_scan(&self) -> bool {
+        matches!(self.operation, Operation::StringScan)
+    }
+
+    pub(crate) fn matches_scan_frontier(&self, rax: u64, rdi: u64, rflags: u64, code: u32) -> bool {
+        let override_width = if code == 32 { 16 } else { 32 };
+        self.other == rax
+            && self.flags_before == rflags
+            && self.destination.is_some_and(|(part, original)| {
+                original == rdi && (part.bits == code || part.bits == override_width)
+            })
+    }
+
     pub(crate) fn validate(&self) -> Result<(), String> {
         if !matches!(self.size, 1 | 2 | 4 | 8) || !(1..=15).contains(&self.length) {
             return Err("invalid MMIO ALU read width/length".into());
@@ -75,6 +107,24 @@ impl AluReadInput {
                 || (self.size == 1 && rdx_before != 0)
             {
                 return Err("invalid MMIO implicit multiply operands".into());
+            }
+            return Ok(());
+        }
+        if self.is_string_scan() {
+            if self.memory_left
+                || !matches!(
+                    self.destination,
+                    Some((
+                        RegisterPart {
+                            index: 7,
+                            shift: 0,
+                            bits: 16 | 32 | 64
+                        },
+                        _
+                    ))
+                )
+            {
+                return Err("invalid MMIO SCAS destination".into());
             }
             return Ok(());
         }
@@ -159,7 +209,7 @@ impl AluReadInput {
             Operation::Adc | Operation::Adcx | Operation::Adox => {
                 left.wrapping_add(right).wrapping_add(u64::from(carry))
             }
-            Operation::Sub | Operation::Compare => left.wrapping_sub(right),
+            Operation::Sub | Operation::Compare | Operation::StringScan => left.wrapping_sub(right),
             Operation::Sbb => left.wrapping_sub(right).wrapping_sub(u64::from(carry)),
             Operation::And | Operation::Test => left & right,
             Operation::Or => left | right,
@@ -195,7 +245,7 @@ impl AluReadInput {
                     updated |= carry_flag;
                 }
             }
-            Operation::Sub | Operation::Compare => {
+            Operation::Sub | Operation::Compare | Operation::StringScan => {
                 flags::update_flags_sub(&mut updated, left, right, result, self.size)
             }
             Operation::Sbb => {
@@ -221,9 +271,18 @@ impl AluReadInput {
             Operation::Crc32 | Operation::Imul => {}
             _ => flags::update_flags_logic(&mut updated, result, self.size),
         }
-        let register = self
-            .destination
-            .map(|(part, original)| (part.index, part.merge(original, result)));
+        let register = self.destination.map(|(part, original)| {
+            let value = if self.is_string_scan() {
+                if self.flags_before & super::string::DIRECTION != 0 {
+                    original.wrapping_sub(u64::from(self.size))
+                } else {
+                    original.wrapping_add(u64::from(self.size))
+                }
+            } else {
+                result
+            };
+            (part.index, part.merge(original, value))
+        });
         let flags = (!matches!(self.operation, Operation::Crc32)).then_some(updated);
         Ok(([register, None], flags, self.length))
     }

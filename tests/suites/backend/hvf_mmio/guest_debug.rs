@@ -442,3 +442,91 @@ fn string_planner_checks_segment_direction_and_nonzero_repeat_count() {
     context.segments[4] = 0;
     assert!(prepare(&context, &mut memory, record).is_err());
 }
+
+#[test]
+fn scalar_scas_retires_a_single_read_and_preserves_rax_and_rcx_after_restore() {
+    use isa::x86_64::flags::bits::{AF, CF, OF, PF, SF, ZF};
+
+    let status = CF | PF | AF | ZF | SF | OF;
+    for (code, size, device, expected) in [
+        (&[0xae][..], 1, 0x80u64, CF | PF | SF | OF),
+        (&[0x66, 0xaf][..], 2, 1, CF | PF | AF | SF),
+        (&[0xaf][..], 4, 0x8000_0000, PF | ZF),
+        (
+            &[0x48, 0xaf][..],
+            8,
+            0x8000_0000_0000_0000,
+            CF | PF | SF | OF,
+        ),
+        (&[0x67, 0xae][..], 1, 0x80, CF | PF | SF | OF),
+    ] {
+        for backwards in [false, true] {
+            let (mut context, mut memory, record) = fixture(code);
+            context.registers[0] = match size {
+                1 => 0x1234_abcd_1234_007f,
+                2 => 0x1234_abcd_1234_0000,
+                4 => 0x1234_abcd_8000_0000,
+                8 => 0,
+                _ => unreachable!(),
+            };
+            context.registers[1] = 0x5678_1234_9abc_0000;
+            context.registers[7] = record.linear | (u64::from(code[0] == 0x67) * (0x1234 << 32));
+            let direction = u64::from(backwards) << 10;
+            context.rflags = status | direction | retirement::SINGLE_STEP | retirement::RESUME | 2;
+            let plan = prepare(&context, &mut memory, record)
+                .expect("scalar SCAS needs a translated device read");
+            assert_eq!(plan.physical, record.physical);
+            let bytes = rax::codec::serialize(&pending(plan.action)).unwrap();
+            let mut restored: mmio::InputState = rax::codec::deserialize_strict(&bytes).unwrap();
+            restored.validate_checkpoint().unwrap();
+            assert_eq!(restored.descriptor(), Some((size, None)));
+            let mut cpu = host(context, 0, 1, true);
+            restored.complete(&mut cpu, &device.to_le_bytes()[..usize::from(size)]);
+            assert!(restored.ready().is_ok());
+            let expected_di = if backwards {
+                record.linear - u64::from(size)
+            } else {
+                record.linear + u64::from(size)
+            };
+            let mut expected_gprs = context.registers;
+            expected_gprs[7] = expected_di;
+            assert_eq!(cpu.registers, expected_gprs);
+            assert_eq!(
+                cpu.flags,
+                direction | retirement::SINGLE_STEP | expected | 2
+            );
+            assert_eq!(cpu.rip, context.rip + code.len() as u64);
+            assert_eq!(cpu.shadow, 0);
+            assert!(cpu.step.take_completion().unwrap());
+            assert!(!cpu.step.take_completion().unwrap());
+        }
+    }
+}
+
+#[test]
+fn scalar_scas_uses_es_and_wraps_di_and_refuses_repeat_and_write_exits() {
+    let (mut context, mut memory, mut record) = fixture(&[0x64, 0xae]);
+    context.code_bits = 16;
+    context.paging.cr0 = 0;
+    context.paging.cr4 = 0;
+    context.paging.efer = 0;
+    context.registers[7] = 0x1234_5678_9abc_ffff;
+    context.segments[0] = 0x9000;
+    context.segments[4] = 0x3000;
+    record.linear = 0x18fff;
+    record.physical = record.linear;
+    let plan = prepare(&context, &mut memory, record).unwrap();
+    let mut cpu = host(context, 0, 0, false);
+    let mut state = pending(plan.action);
+    state.complete(&mut cpu, &[context.registers[0] as u8]);
+    assert!(state.ready().is_ok());
+    assert_eq!(cpu.registers[7], 0x1234_5678_9abc_0000);
+    assert_eq!(cpu.rip, context.rip + 2);
+    record.qualification = 0x182;
+    assert!(prepare(&context, &mut memory, record).is_err());
+    record.qualification = 0x181;
+    for prefix in [0xf2, 0xf3] {
+        memory.bytes(context.rip, &[prefix, 0xae]);
+        assert!(prepare(&context, &mut memory, record).is_err());
+    }
+}
