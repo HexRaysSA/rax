@@ -2,6 +2,7 @@
 use super::*;
 
 #[cfg(all(windows, target_pointer_width = "64"))]
+#[path = "native_runtime/token_duplicate.rs"]
 mod token_duplicate;
 
 fn refused(image: &[u8], options: &str, supplied: &[RaxProcessImage], status: RaxStatus) -> String {
