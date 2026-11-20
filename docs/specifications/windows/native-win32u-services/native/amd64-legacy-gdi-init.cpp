@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <intrin.h>
 #include <string>
 #include <windows.h>
 
@@ -34,6 +35,28 @@ struct GuiState {
            unsigned(desktop != 0), unsigned(process != 0));
   }
 };
+
+bool report_view(HANDLE child, uintptr_t address, const char *view, unsigned sample) {
+  if (!address || address % 65536 != 0)
+    return false;
+  size_t cursor = 0;
+  unsigned regions = 0;
+  for (; regions < 32 && cursor < (64u << 20); ++regions) {
+    MEMORY_BASIC_INFORMATION info{};
+    if (VirtualQueryEx(child, reinterpret_cast<const void *>(address + cursor),
+                       &info, sizeof(info)) != sizeof(info))
+      return false;
+    if (reinterpret_cast<uintptr_t>(info.AllocationBase) != address)
+      break;
+    if (!info.RegionSize || info.RegionSize > (64u << 20) - cursor)
+      return false;
+    printf("sample=%u view=%s region=%u offset=%zu bytes=%zu committed=%u reserved=%u\n",
+           sample, view, regions, cursor, info.RegionSize,
+           unsigned(info.State == MEM_COMMIT), unsigned(info.State == MEM_RESERVE));
+    cursor += info.RegionSize;
+  }
+  return regions > 0 && regions < 32 && cursor < (64u << 20);
+}
 
 class Observer {
 public:
@@ -148,13 +171,20 @@ private:
       if (!state.capture(child.hProcess, teb))
         return false;
       state.report("after", sample);
+      if (!report_view(child.hProcess, state.gdi, "gdi", sample) ||
+          !report_view(child.hProcess, state.desktop, "desktop", sample))
+        return false;
       printf("sample=%u return_zero=%u return_one=%u\n", sample,
              unsigned(context.Rax == 0), unsigned(context.Rax == 1));
       returned = true;
       context.Dr7 = 0;
     } else if (entered && site == dispatcher && (context.Dr6 & 2)) {
-      if (++callbacks > 64)
+      uint32_t length = 0, index = 0;
+      if (++callbacks > 64 ||
+          !read(child.hProcess, context.Rsp + 40, length) ||
+          !read(child.hProcess, context.Rsp + 44, index))
         return false;
+      printf("sample=%u callback=%u index=%u data_bytes=%u\n", sample, callbacks, index, length);
     } else {
       return false;
     }
@@ -220,6 +250,25 @@ int wmain(int argc, wchar_t **argv) {
     matches += unsigned(observer.completed());
   }
   FreeLibrary(win32u);
+  if (required) {
+    // Exercise supported API initialization on this disposable process.
+    const auto gdi = LoadLibraryExW(L"gdi32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (!gdi)
+      return 2;
+    using GetStock = HGDIOBJ(WINAPI *)(int);
+    const auto get_stock = reinterpret_cast<GetStock>(reinterpret_cast<uintptr_t>(
+        GetProcAddress(gdi, "GetStockObject")));
+    const auto brush = get_stock ? get_stock(WHITE_BRUSH) : nullptr;
+    const auto teb = static_cast<uintptr_t>(__readgsqword(0x30));
+    GuiState state;
+    if (!brush || !state.capture(GetCurrentProcess(), teb))
+      return 2;
+    state.report("host-stock-object", 0);
+    if (!state.gdi || !state.thread || !state.desktop || !state.process ||
+        !report_view(GetCurrentProcess(), state.gdi, "host-gdi", 0) ||
+        !report_view(GetCurrentProcess(), state.desktop, "host-desktop", 0))
+      return 2;
+  }
   printf("complete samples=2 matches=%u\n", matches);
   return !required || matches == 2 ? 0 : 5;
 }

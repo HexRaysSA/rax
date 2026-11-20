@@ -308,7 +308,10 @@ jobs:
             exit_code = $exitCode
           } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'amd64-legacy-gdi-init-identity.json') -Encoding utf8
           if ($exitCode -ne 0 -or !$unchanged -or
-              !(Select-String -LiteralPath $log -Pattern '^complete samples=2 matches=[0-2]$' -Quiet)) {
+              !(Select-String -LiteralPath $log -Pattern '^complete samples=2 matches=[0-2]$' -Quiet) -or
+              ($mode -eq 'required' -and (
+                !(Select-String -LiteralPath $log -Pattern '^sample=0 phase=host-stock-object ' -Quiet) -or
+                @(Select-String -LiteralPath $log -Pattern '^sample=[01] callback=1 index=').Count -ne 2))) {
             throw 'Native legacy GDI initialization observation did not complete'
           }
       - name: Measure the native startup license queries
