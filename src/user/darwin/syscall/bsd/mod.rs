@@ -91,10 +91,15 @@ const CANCELLATION_POINTS: &[u32] = &[
 
 /// Runs BSD call `number` with `a` (its arguments in 64-bit words).
 pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
-    if !ctx.proc.config.host_services
-        && !crate::user::darwin::process::embedding::bsd_allowed(number)
-    {
-        return Err(Errno::EPERM);
+    if !ctx.proc.config.host_services {
+        match number {
+            nr::PROC_INFO => return proc::closed_pidinfo(ctx, a, false),
+            nr::PROC_INFO_EXTENDED_ID => return proc::closed_pidinfo(ctx, a, true),
+            _ if !crate::user::darwin::process::embedding::bsd_allowed(number) => {
+                return Err(Errno::EPERM);
+            }
+            _ => {}
+        }
     }
     let i = |n: usize| a[n] as i32;
     let u = |n: usize| a[n] as u32;

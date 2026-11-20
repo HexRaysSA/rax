@@ -1239,6 +1239,89 @@ fn embedded_kernel_version_is_guest_owned_and_has_exact_copyout_boundaries() {
 }
 
 #[test]
+fn embedded_proc_info_reports_only_the_guest_process_identity() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr},
+        arch::Rv,
+        syscall::{Ctx, bsd},
+    };
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut process = process_with_profile(abi, true);
+        let uuid = *b"guest-image-uuid";
+        process.proc.program.main.uuid = Some(uuid);
+        let pid = process.proc.pid as u64;
+        let version = u64::from(process.proc.audit[7]);
+        let unique_id = (version << 32) | pid;
+        let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+        let buf = thread.cpu.sp() - 1024;
+        let mut ctx = Ctx {
+            proc: &mut process.proc,
+            thread: &mut thread,
+            nr: 0,
+            pc: ENTRY,
+        };
+        let sentinel = [0xa5; 64];
+        let mut expected = sentinel;
+        expected[..16].copy_from_slice(&uuid);
+        expected[16..24].copy_from_slice(&unique_id.to_le_bytes());
+        expected[24..32].fill(0);
+        expected[32..36].copy_from_slice(&(version as u32).to_le_bytes());
+        expected[36..56].fill(0);
+        for (number, args) in [
+            (nr::PROC_INFO, [2, pid, 17, 1, buf, 64, 0, 0]),
+            (
+                nr::PROC_INFO_EXTENDED_ID,
+                [2, pid, 17, 1, version, 1, buf, 56],
+            ),
+            (
+                nr::PROC_INFO_EXTENDED_ID,
+                [2, pid, 17, 2, unique_id, 0, buf, 64],
+            ),
+        ] {
+            ctx.write(buf, &sentinel).unwrap();
+            assert_eq!(
+                bsd::call(&mut ctx, number, &args),
+                Ok(Rv::one(56)),
+                "{abi:?}"
+            );
+            assert_eq!(ctx.read(buf, 64).unwrap(), expected, "{abi:?}");
+        }
+
+        for (number, args, error) in [
+            (nr::PROC_INFO, [1, pid, 17, 1, buf, 64, 0, 0], Errno::EPERM),
+            (
+                nr::PROC_INFO,
+                [2, pid + 1, 17, 1, buf, 64, 0, 0],
+                Errno::EPERM,
+            ),
+            (nr::PROC_INFO, [2, pid, 18, 1, buf, 64, 0, 0], Errno::EPERM),
+            (nr::PROC_INFO, [2, pid, 17, 1, buf, 55, 0, 0], Errno::ENOMEM),
+            (nr::PROC_INFO, [2, pid, 17, 1, 0, 56, 0, 0], Errno::EFAULT),
+            (
+                nr::PROC_INFO_EXTENDED_ID,
+                [2, pid, 17, 1, version + 1, 0, buf, 64],
+                Errno::ESRCH,
+            ),
+            (
+                nr::PROC_INFO_EXTENDED_ID,
+                [2, pid, 17, 2, unique_id + 1, 0, buf, 64],
+                Errno::ESRCH,
+            ),
+            (
+                nr::PROC_INFO_EXTENDED_ID,
+                [2, pid, 17, 3, unique_id, 0, buf, 64],
+                Errno::EINVAL,
+            ),
+        ] {
+            ctx.write(buf, &sentinel).unwrap();
+            assert_eq!(bsd::call(&mut ctx, number, &args), Err(error), "{abi:?}");
+            assert_eq!(ctx.read(buf, 64).unwrap(), sentinel, "{abi:?}");
+        }
+    }
+}
+
+#[test]
 fn embedded_vm_queries_and_advice_reject_rounding_overflow() {
     use crate::user::darwin::{
         abi::{Errno, tables::nr},

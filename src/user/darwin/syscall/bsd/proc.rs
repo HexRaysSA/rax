@@ -1,7 +1,7 @@
 //! Process identity and life cycle.
 
 use crate::user::darwin::abi::Errno;
-use crate::user::darwin::arch::SysResult;
+use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::process::ExitStatus;
 use crate::user::darwin::syscall::Ctx;
 
@@ -11,6 +11,46 @@ pub fn exit(ctx: &mut Ctx<'_>, rval: i32) -> SysResult {
     ctx.proc.exit_with(ExitStatus::Exited(rval & 0xff));
     ctx.thread.exited = true;
     Err(Errno::EJUSTRETURN)
+}
+
+/// Return `PROC_PIDUNIQIDENTIFIERINFO` for the sole process in a closed guest.
+/// libdispatch queries this during firehose initialization.
+pub(super) fn closed_pidinfo(ctx: &Ctx<'_>, a: &[u64; 8], extended: bool) -> SysResult {
+    const PIDINFO: i32 = 2;
+    const UNIQIDENTIFIERINFO: i32 = 17;
+    const COMPARE_IDVERSION: u32 = 1;
+    const COMPARE_UNIQUEID: u32 = 2;
+    const SIZE: usize = 56;
+
+    if a[0] as i32 != PIDINFO || a[1] as i32 != ctx.proc.pid || a[2] as i32 != UNIQIDENTIFIERINFO {
+        return Err(Errno::EPERM);
+    }
+    let (flags, ext_id, buffer, size) = if extended {
+        (a[3] as u32, a[4], a[6], a[7] as u32)
+    } else {
+        (0, 0, a[4], a[5] as u32)
+    };
+    if flags & COMPARE_IDVERSION != 0 && flags & COMPARE_UNIQUEID != 0 {
+        return Err(Errno::EINVAL);
+    }
+    if size < SIZE as u32 {
+        return Err(Errno::ENOMEM);
+    }
+    let version = ctx.proc.audit[7];
+    // PID and generation identify the process within its private namespace.
+    let unique_id = (u64::from(version) << 32) | u64::from(ctx.proc.pid as u32);
+    if (flags & COMPARE_IDVERSION != 0 && ext_id != u64::from(version))
+        || (flags & COMPARE_UNIQUEID != 0 && ext_id != unique_id)
+    {
+        return Err(Errno::ESRCH);
+    }
+    // XNU's proc_uniqidentifierinfo. The closed process has no visible parent.
+    let mut info = [0; SIZE];
+    info[..16].copy_from_slice(&ctx.proc.program.main.uuid.unwrap_or_default());
+    info[16..24].copy_from_slice(&unique_id.to_le_bytes());
+    info[32..36].copy_from_slice(&version.to_le_bytes());
+    ctx.write(buffer, &info)?;
+    Ok(Rv::one(SIZE as u64))
 }
 
 /// A host process-ID call's result (`getpgrp`, `getsid`, `setsid`, ...):
