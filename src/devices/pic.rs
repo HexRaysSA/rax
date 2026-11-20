@@ -432,12 +432,18 @@ impl Default for DualPic {
 }
 
 impl DualPic {
-    /// Bind the retained RTC wire level without generating a new edge or
-    /// altering either controller's captured request and in-service bits.
-    pub(crate) fn restore_rtc_irq_level(&mut self, asserted: bool) {
-        self.slave.irq_lines = (self.slave.irq_lines & !1) | u8::from(asserted);
-        self.master.irq_lines =
-            (self.master.irq_lines & !(1 << 2)) | (u8::from(self.slave.has_pending()) << 2);
+    /// Bind a retained PC input level and its cascade without changing IRR or ISR.
+    pub(crate) fn restore_irq_input_level(&mut self, irq: u8, asserted: bool) {
+        let bit = irq & 7;
+        if irq < 8 {
+            self.master.irq_lines =
+                (self.master.irq_lines & !(1 << bit)) | (u8::from(asserted) << bit);
+        } else {
+            self.slave.irq_lines =
+                (self.slave.irq_lines & !(1 << bit)) | (u8::from(asserted) << bit);
+            self.master.irq_lines =
+                (self.master.irq_lines & !(1 << 2)) | (u8::from(self.slave.has_pending()) << 2);
+        }
     }
 
     pub fn new() -> Self {

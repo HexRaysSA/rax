@@ -590,6 +590,7 @@ fn uart_iir_acknowledgement_deasserts_the_same_source_used_by_ioapic_routing() {
             &*fixture.vm.vm,
             fixture.vm.backend_kind,
             fixture.vm.serial_irq,
+            None,
             port,
             &[value],
         )
@@ -609,6 +610,7 @@ fn uart_iir_acknowledgement_deasserts_the_same_source_used_by_ioapic_routing() {
         fixture.vm.io_bus.get_mut().unwrap(),
         &fixture.vm.serial,
         fixture.vm.backend_kind,
+        None,
         0x3fa,
         1,
         1,
@@ -950,6 +952,161 @@ fn nmi_handler_and_pending_nmi_continue_from_a_detached_checkpoint() {
 }
 
 #[test]
+fn i8042_irq12_reaches_the_guest_interrupt_controller_on_normal_port_output() {
+    let mut fixture = Fixture::new(1);
+    program(&mut fixture.vm, 12, 0x5c, 0, false);
+    fixture.write(
+        BSP,
+        &[
+            0xb0, 0x60, 0xe6, 0x64, // Arm the command-byte write.
+            0xb0, 0x22, 0xe6, 0x60, // IRQ12 enabled, external auxiliary port disabled.
+            0xb0, 0xd3, 0xe6, 0x64, // Arm internal auxiliary output.
+            0xb0, 0x5a, 0xe6, 0x60, // Queue an auxiliary byte.
+            0xba, 0x04, 0x06, 0, 0, // mov edx, 0x604
+            0x66, 0xb8, 0, 0x20, // mov ax, 0x2000
+            0x66, 0xef, // ACPI S5, handled by the ordinary run loop.
+        ],
+    );
+    fixture.vm.run().unwrap();
+    fixture.vm.route_pc_interrupts().unwrap();
+    assert_eq!(
+        fixture.vm.local_apics[0]
+            .lock()
+            .unwrap()
+            .get_pending_vector(),
+        Some(0x5c)
+    );
+}
+
+#[test]
+fn i8042_irq12_reedges_when_a_detached_output_latch_refills_during_batched_input() {
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    let mut fixture = Fixture::with_memory(1, 128 << 20);
+    program(&mut fixture.vm, 12, 0x5c, 0, false);
+    for (port, value) in [
+        (0x64, 0x60),
+        (0x60, 0x22),
+        (0x64, 0xd3),
+        (0x60, 0x5a),
+        (0x64, 0xd3),
+        (0x60, 0x6b),
+    ] {
+        let outcome = fixture
+            .vm
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port,
+                    data: vec![value],
+                },
+            )
+            .unwrap();
+        assert!(matches!(outcome, CheckpointIoReply::Output));
+    }
+    fixture.vm.route_pc_interrupts().unwrap();
+    assert_eq!(
+        fixture.vm.local_apics[0]
+            .lock()
+            .unwrap()
+            .get_pending_vector(),
+        Some(0x5c)
+    );
+    complete_level(&mut fixture.vm, 0, 0x5c);
+    fixture.vm.route_pc_interrupts().unwrap();
+    let file = RemoveFile::new();
+    fixture
+        .vm
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&file.0)
+        .unwrap();
+    drop(fixture);
+
+    let image = SnapshotBundle::load(&file.0).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&image, CliConfig::default()).unwrap();
+    let target = Vmm::new_resume_bundle(config, &image).unwrap();
+    assert_eq!(
+        target.local_apics[0].lock().unwrap().get_pending_vector(),
+        None
+    );
+    let outcome = target
+        .checkpoint_io_service(
+            0,
+            VcpuExit::IoInString {
+                port: 0x60,
+                size: 1,
+                count: 2,
+            },
+        )
+        .unwrap();
+    assert!(matches!(outcome, CheckpointIoReply::Input(bytes) if bytes == [0x5a, 0x6b]));
+    target.route_pc_interrupts().unwrap();
+    assert_eq!(
+        target.local_apics[0].lock().unwrap().get_pending_vector(),
+        Some(0x5c),
+        "Consuming the first byte lowers the line. Refilling it raises a second edge."
+    );
+}
+
+#[test]
+fn i8042_irq1_tracks_the_command_gate_while_the_output_latch_stays_full() {
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    let mut fixture = Fixture::new(1);
+    let vm = &mut fixture.vm;
+    let vector = 0x51;
+    program(vm, 1, vector, 0, true);
+    let write = |vm: &Vmm, port, value| {
+        let reply = vm
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port,
+                    data: vec![value],
+                },
+            )
+            .unwrap();
+        assert!(matches!(reply, CheckpointIoReply::Output));
+    };
+    let command = |vm: &Vmm, value| {
+        write(vm, 0x64, 0x60);
+        write(vm, 0x60, value);
+    };
+    let pending = |vm: &Vmm| {
+        vm.route_pc_interrupts().unwrap();
+        vm.local_apics[0].lock().unwrap().get_pending_vector()
+    };
+    command(vm, 0);
+    write(vm, 0x60, 0xf4); // Keyboard ACK fills the latch with IRQ1 disabled.
+    assert_eq!(pending(vm), None);
+    command(vm, 1);
+    assert_eq!(pending(vm), Some(vector));
+    assert!(remote(vm, 1));
+
+    command(vm, 0);
+    complete_level(vm, 0, vector);
+    assert_eq!(pending(vm), None);
+    assert!(!remote(vm, 1));
+
+    command(vm, 1);
+    assert_eq!(pending(vm), Some(vector));
+    let reply = vm
+        .checkpoint_io_service(
+            0,
+            VcpuExit::IoIn {
+                port: 0x60,
+                size: 1,
+            },
+        )
+        .unwrap();
+    assert!(matches!(reply, CheckpointIoReply::Input(bytes) if bytes == [0xfa]));
+    complete_level(vm, 0, vector);
+    assert_eq!(pending(vm), None);
+    assert!(!remote(vm, 1));
+}
+
+#[test]
 fn failed_native_rtc_acknowledgement_disables_guest_entry() {
     use crate::backend::Vm;
     use crate::vm::vcpu::VCpu;
@@ -1021,4 +1178,76 @@ fn failed_native_rtc_acknowledgement_disables_guest_entry() {
     let mut status = [0xff];
     vm.io_bus.read(0x71, &mut status).unwrap();
     assert_eq!(status, [0], "the device already consumed Register C");
+}
+
+#[test]
+fn held_i8042_output_does_not_retrigger_the_pic_after_detached_restore() {
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    let write = |vm: &Vmm, port, value| {
+        let outcome = vm
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port,
+                    data: vec![value],
+                },
+            )
+            .unwrap();
+        assert!(matches!(outcome, CheckpointIoReply::Output));
+    };
+    let queue_byte = |vm: &Vmm, irq, value| {
+        // A keyboard command produces ACK. D3 loops the byte back on AUX.
+        if irq == 12 {
+            write(vm, 0x64, 0xd3);
+        }
+        write(vm, 0x60, value);
+    };
+    for (irq, gate, vector, reply_byte) in [(1, 1, 0x21, 0xfa), (12, 2, 0x2c, 0x69)] {
+        let mut source = Fixture::with_memory(1, 128 << 20);
+        let vm = &mut source.vm;
+        vm.io_bus.write(0x21, &[0xf9]).unwrap();
+        vm.io_bus.write(0xa1, &[0xef]).unwrap();
+        write(vm, 0x64, 0x60);
+        write(vm, 0x60, gate);
+        queue_byte(vm, irq, 0x69);
+        assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(vector));
+        let file = RemoveFile::new();
+        vm.take_snapshot_bundle(0).unwrap().save(&file.0).unwrap();
+        drop(source);
+
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        drop(file);
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        if irq == 12 {
+            target.io_bus.write(0xa0, &[0x20]).unwrap();
+        }
+        target.io_bus.write(0x20, &[0x20]).unwrap();
+        {
+            let mut pic = target.pic.lock().unwrap();
+            assert_eq!(pic.get_pending_vector(), None);
+            pic.set_irq(irq, true);
+            assert_eq!(
+                pic.get_pending_vector(),
+                None,
+                "refreshing the still-high IRQ{irq} wire cannot create a rising edge"
+            );
+        }
+        let reply = target
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoIn {
+                    port: 0x60,
+                    size: 1,
+                },
+            )
+            .unwrap();
+        assert!(matches!(reply, CheckpointIoReply::Input(bytes) if bytes == [reply_byte]));
+        queue_byte(&target, irq, 0x74);
+        assert_eq!(
+            target.pic.lock().unwrap().get_pending_vector(),
+            Some(vector)
+        );
+    }
 }

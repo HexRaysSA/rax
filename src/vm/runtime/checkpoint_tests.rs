@@ -75,6 +75,7 @@ fn console_checkpoint_preserves_input_before_the_hotkey_only() {
             vm.io_bus.get_mut().unwrap(),
             &vm.serial,
             vm.backend_kind,
+            None,
             port,
             1,
             1,

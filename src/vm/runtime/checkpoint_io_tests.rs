@@ -893,3 +893,86 @@ fn parallel_native_pio_continues_once_on_each_vcpu_after_detached_restore() {
         assert!(!uart.has_input());
     }
 }
+
+#[test]
+#[ignore = "requires native Linux KVM; selected by KVM CI"]
+fn stopped_native_i8042_irq12_is_delivered_once_after_detached_restore() {
+    let mut source = Fixture::with_construction(
+        1,
+        128 << 20,
+        ConstructionMode::Checkpoint {
+            initialize_kvm_irqchip: true,
+        },
+    );
+    // Program the native IOAPIC redirection entry for pin 12. Leave the
+    // in-kernel LAPIC enabled and leave both PIC masks closed.
+    fn store32(code: &mut Vec<u8>, address: u32, value: u32) {
+        code.extend_from_slice(&[0x67, 0x66, 0xc7, 0x05]);
+        code.extend_from_slice(&address.to_le_bytes());
+        code.extend_from_slice(&value.to_le_bytes());
+    }
+    let mut program = vec![0xfa, 0x31, 0xc0, 0x8e, 0xd0, 0xbc, 0x00, 0x80];
+    program.extend_from_slice(&[0xb0, 0xff, 0xe6, 0x21, 0xe6, 0xa1]);
+    store32(&mut program, 0xfee0_00f0, 0x1ff);
+    store32(&mut program, 0xfec0_0000, 0x29);
+    store32(&mut program, 0xfec0_0010, 0);
+    store32(&mut program, 0xfec0_0000, 0x28);
+    store32(&mut program, 0xfec0_0010, 0x2c);
+    for (port, value) in [(0x64, 0x60), (0x60, 0x22), (0x64, 0xd3), (0x60, 0x5a)] {
+        program.extend_from_slice(&[0xb0, value, 0xe6, port]);
+    }
+    program.extend_from_slice(&[0xfb, 0xf4, 0xfa, 0xb0, 0xbe, 0xe6, 0xe9, 0xf4]);
+    source.prepare(0, &program);
+    let CpuState::X86_64(mut state) = source.vm.vcpus[0].get_state().unwrap() else {
+        unreachable!();
+    };
+    state.sregs.idt.base = 0;
+    state.sregs.idt.limit = 0x3ff;
+    source.vm.vcpus[0]
+        .set_state(&CpuState::X86_64(state))
+        .unwrap();
+    let memory = source.vm.guest_mem.memory();
+    memory
+        .write_slice(&[0x00, 0x12, 0, 0], GuestAddress(0x2c * 4))
+        .unwrap();
+    let mut handler = vec![0xe4, 0x60, 0xe6, 0xe9]; // Report the byte received by IRQ12.
+    store32(&mut handler, 0xfee0_00b0, 0); // Local APIC EOI.
+    handler.push(0xcf);
+    memory.write_slice(&handler, GuestAddress(0x1200)).unwrap();
+
+    for (port, value) in [(0x64, 0x60), (0x60, 0x22), (0x64, 0xd3)] {
+        assert!(
+            matches!(source.exit(0), VcpuExit::IoOut { port: actual, data }
+            if actual == port && data == [value])
+        );
+        assert_eq!(source.settle(0), CheckpointIoState::Complete);
+    }
+    assert!(matches!(source.exit(0), VcpuExit::IoOut { port: 0x60, data } if data == [0x5a]));
+    let checkpoint = source.kernel.with_extension("i8042.rxc");
+    source
+        .vm
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&checkpoint)
+        .unwrap();
+    drop(source);
+    let image = crate::vm::snapshot::SnapshotBundle::load(&checkpoint);
+    std::fs::remove_file(&checkpoint).unwrap();
+    let image = image.unwrap();
+    assert_eq!(image.saved_kvm_irqchip(), Some(true));
+
+    let config = VmConfig::from_checkpoint_bundle(&image, CliConfig::default()).unwrap();
+    let mut target = Fixture::new(1);
+    target.vm = Vmm::new_resume_bundle(config, &image).unwrap();
+    assert!(matches!(
+        target.exit(0),
+        VcpuExit::IoIn {
+            port: 0x60,
+            size: 1
+        }
+    ));
+    assert_eq!(target.settle(0), CheckpointIoState::Complete);
+    assert!(matches!(target.exit(0), VcpuExit::IoOut { port: 0xe9, data } if data == [0x5a]));
+    assert_eq!(target.settle(0), CheckpointIoState::Complete);
+    assert!(matches!(target.exit(0), VcpuExit::IoOut { port: 0xe9, data } if data == [0xbe]));
+}

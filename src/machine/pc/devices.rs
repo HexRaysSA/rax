@@ -70,6 +70,11 @@ impl PreparedPcCheckpoint {
         self.sysctl.speaker_gate()
     }
 
+    pub(crate) fn i8042_irq_levels(&self) -> [(u8, bool); 2] {
+        use crate::devices::i8042::{AUX_IRQ, KEYBOARD_IRQ};
+        [KEYBOARD_IRQ, AUX_IRQ].map(|irq| (irq, self.ioapic.line_asserted(irq)))
+    }
+
     pub(crate) fn rtc_irq_level(&self, uses_native_irqchip: bool) -> Result<Option<bool>> {
         let level = self.rtc_timing.as_ref().map(|_| self.rtc.irq_asserted());
         if !uses_native_irqchip

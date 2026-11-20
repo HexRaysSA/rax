@@ -1,10 +1,102 @@
 //! Width-preserving fixed-port reads for scalar and batched PIO input.
 use super::SERIAL_BASE;
+use crate::backend::Vm;
 use crate::config::BackendKind;
 use crate::devices::bus::{IoBus, IoDevice};
+use crate::devices::i8042::{DATA_PORT, I8042, STATUS_PORT};
+use crate::devices::pic::DualPic;
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
+use crate::machine::pc::PcDevices;
 use std::sync::{Arc, Mutex};
+
+pub(super) struct KeyboardIrqs<'a> {
+    pub(super) pc: &'a PcDevices,
+    pub(super) pic: &'a Mutex<DualPic>,
+    pub(super) vm: &'a dyn Vm,
+}
+
+impl KeyboardIrqs<'_> {
+    fn with_controller<T>(
+        &self,
+        operation: impl FnOnce(&mut I8042, &mut dyn FnMut(u8, bool) -> Result<()>) -> Result<T>,
+    ) -> Result<T> {
+        let native = self.vm.uses_native_x86_irqchip();
+        // Capture visits the PC I/O APIC, then the 8042, then the legacy PIC
+        // and backend owner. Hold the same order. All software locks precede
+        // guest-visible controller mutation.
+        let mut ioapic = if native {
+            None
+        } else {
+            Some(
+                self.pc
+                    .ioapic
+                    .lock()
+                    .map_err(|_| Error::Emulator("i8042 I/O APIC route lock poisoned".into()))?,
+            )
+        };
+        let mut controller = self
+            .pc
+            .i8042
+            .lock()
+            .map_err(|_| Error::Emulator("i8042 controller lock poisoned".into()))?;
+        let mut pic = if native {
+            None
+        } else {
+            Some(
+                self.pic
+                    .lock()
+                    .map_err(|_| Error::Emulator("i8042 PIC route lock poisoned".into()))?,
+            )
+        };
+        operation(&mut controller, &mut |irq, asserted| {
+            if let (Some(ioapic), Some(pic)) = (&mut ioapic, &mut pic) {
+                ioapic.set_irq(irq, asserted);
+                pic.set_irq(irq, asserted);
+                Ok(())
+            } else {
+                // A failed native publication can follow a device mutation
+                // or a completed edge on the other side of the route.
+                self.vm
+                    .set_irq_line(u32::from(irq), asserted)
+                    .inspect_err(|_| self.vm.poison_checkpoint_restore())
+            }
+        })
+    }
+
+    fn read_data(&self) -> Result<u8> {
+        self.with_controller(|controller, set_irq| {
+            // Reading the latch deasserts its line before promoting a queued
+            // byte. Publish both transitions even for another byte on this
+            // same line and when several reads share one native PIO exit.
+            if let Some(irq) = controller.output_irq() {
+                set_irq(irq, false)?;
+            }
+            let value = controller.read(DATA_PORT);
+            if let Some(irq) = controller.output_irq() {
+                set_irq(irq, true)?;
+            }
+            Ok(value)
+        })
+    }
+
+    fn write(&self, port: u16, value: u8) -> Result<()> {
+        self.with_controller(|controller, set_irq| {
+            let previous = controller.output_irq();
+            controller.write(port, value);
+            let current = controller.output_irq();
+            if previous != current {
+                if let Some(irq) = previous {
+                    set_irq(irq, false)?;
+                }
+                if let Some(irq) = current {
+                    set_irq(irq, true)?;
+                }
+            }
+            Ok(())
+        })
+    }
+}
 
 /// Each element is one scalar port transaction. Generic byte lanes advance
 /// within that element; the next element starts at the original port again.
@@ -14,6 +106,7 @@ pub(super) fn read(
     bus: &mut IoBus,
     serial: &Arc<Mutex<Serial16550>>,
     backend: BackendKind,
+    keyboard: Option<&KeyboardIrqs<'_>>,
     port: u16,
     size: u8,
     count: u32,
@@ -50,6 +143,19 @@ pub(super) fn read(
         for byte in &mut data {
             bus.read(port, std::slice::from_mut(byte))?;
         }
+    } else if let Some(keyboard) =
+        keyboard.filter(|_| (port..=port.saturating_add(u16::from(size - 1))).contains(&DATA_PORT))
+    {
+        for element in data.chunks_exact_mut(width) {
+            for (lane, byte) in element.iter_mut().enumerate() {
+                let address = port.saturating_add(lane as u16);
+                if address == DATA_PORT {
+                    *byte = keyboard.read_data()?;
+                } else {
+                    bus.read(address, std::slice::from_mut(byte))?;
+                }
+            }
+        }
     } else {
         for element in data.chunks_exact_mut(width) {
             bus.read(port, element)?;
@@ -76,6 +182,7 @@ pub(super) fn write(
     vm: &dyn crate::backend::Vm,
     backend: BackendKind,
     serial_irq: Option<u32>,
+    keyboard: Option<&KeyboardIrqs<'_>>,
     port: u16,
     bytes: &[u8],
 ) -> Result<bool> {
@@ -112,6 +219,20 @@ pub(super) fn write(
     } else if matches!(port, 0x1f0 | 0x170) {
         for byte in bytes {
             bus.write(port, std::slice::from_ref(byte))?;
+        }
+    } else if let Some(keyboard) = keyboard.filter(|_| {
+        let end = port.saturating_add(bytes.len().saturating_sub(1) as u16);
+        [DATA_PORT, STATUS_PORT]
+            .iter()
+            .any(|lane| (port..=end).contains(lane))
+    }) {
+        for (lane, byte) in bytes.iter().copied().enumerate() {
+            let address = port.saturating_add(lane as u16);
+            if matches!(address, DATA_PORT | STATUS_PORT) {
+                keyboard.write(address, byte)?;
+            } else {
+                bus.write(address, std::slice::from_ref(&byte))?;
+            }
         }
     } else {
         bus.write(port, bytes)?;

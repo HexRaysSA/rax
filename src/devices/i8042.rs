@@ -13,12 +13,9 @@
 //! # Interrupt model
 //!
 //! Like the other devices in this crate (see [`crate::devices::pit`] and
-//! [`crate::devices::serial`]), the 8042 does not own an IRQ callback. Instead
-//! it exposes pollable "interrupt pending" flags that the VMM samples each loop
-//! iteration and forwards to the PIC. Keyboard data raises IRQ 1 (when command
-//! byte bit 0 is set) and auxiliary data raises IRQ 12 (when command byte bit 1
-//! is set). The orchestrator queries [`I8042::keyboard_irq_pending`] /
-//! [`I8042::aux_irq_pending`] and clears them with the matching `clear_*` calls.
+//! [`crate::devices::serial`]), the 8042 does not own an IRQ callback. The PC
+//! port service drives the IRQ for the current output latch and updates the
+//! line at the exact byte boundary, including while settling native I/O.
 
 use std::collections::VecDeque;
 
@@ -28,6 +25,9 @@ use super::bus::IoDevice;
 pub const DATA_PORT: u16 = 0x60;
 /// Status register (read) / command register (write).
 pub const STATUS_PORT: u16 = 0x64;
+
+pub(crate) const KEYBOARD_IRQ: u8 = 1;
+pub(crate) const AUX_IRQ: u8 = 12;
 
 /// Maximum queued bytes per PS/2 device behind the output latch. The real 8042
 /// has tiny buffering; this generous bound preserves normal guest/device bursts
@@ -403,6 +403,18 @@ impl I8042 {
     }
 
     // ----- Queryable state for the orchestrator ----------------------------
+
+    /// The routed PC line is a level derived from the current output byte.
+    /// Standalone pending flags retain their serialized polling semantics.
+    pub(crate) fn output_irq(&self) -> Option<u8> {
+        self.output_byte?;
+        if self.output_is_aux {
+            (self.command_byte & CMD_BYTE_AUX_IRQ != 0).then_some(AUX_IRQ)
+        } else {
+            (self.command_byte & (CMD_BYTE_KBD_IRQ | CMD_BYTE_KBD_DISABLE) == CMD_BYTE_KBD_IRQ)
+                .then_some(KEYBOARD_IRQ)
+        }
+    }
 
     /// True if IRQ 1 (keyboard) is asserted and pending injection.
     pub fn keyboard_irq_pending(&self) -> bool {

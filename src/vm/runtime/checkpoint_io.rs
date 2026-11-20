@@ -40,14 +40,35 @@ impl Vmm {
         if rtc {
             self.poll_pc_rtc()?;
         }
+        let keyboard = self.pc_devices.as_ref().map(|pc| port_io::KeyboardIrqs {
+            pc,
+            pic: &self.pic,
+            vm: &*self.vm,
+        });
         let reply = match event {
             VcpuExit::IoIn { port, size } => self.io_bus.with_stopped(|bus| {
-                port_io::read(bus, &self.serial, self.backend_kind, port, size, 1)
-                    .map(CheckpointIoReply::Input)
+                port_io::read(
+                    bus,
+                    &self.serial,
+                    self.backend_kind,
+                    keyboard.as_ref(),
+                    port,
+                    size,
+                    1,
+                )
+                .map(CheckpointIoReply::Input)
             }),
             VcpuExit::IoInString { port, size, count } => self.io_bus.with_stopped(|bus| {
-                port_io::read(bus, &self.serial, self.backend_kind, port, size, count)
-                    .map(CheckpointIoReply::Input)
+                port_io::read(
+                    bus,
+                    &self.serial,
+                    self.backend_kind,
+                    keyboard.as_ref(),
+                    port,
+                    size,
+                    count,
+                )
+                .map(CheckpointIoReply::Input)
             }),
             VcpuExit::IoOut { port, data } => {
                 let power_off = self.io_bus.with_stopped(|bus| {
@@ -58,6 +79,7 @@ impl Vmm {
                         &*self.vm,
                         self.backend_kind,
                         self.serial_irq,
+                        keyboard.as_ref(),
                         port,
                         &data,
                     )

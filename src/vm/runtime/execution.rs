@@ -281,6 +281,11 @@ impl Vmm {
             .get_mut(turn.cpu_index)
             .ok_or_else(|| Error::InvalidConfig("selected vCPU is missing".into()))?;
 
+        let keyboard = self.pc_devices.as_ref().map(|pc| port_io::KeyboardIrqs {
+            pc,
+            pic: &self.pic,
+            vm: &*self.vm,
+        });
         match turn.exit {
             VcpuExit::Hlt => {
                 // HLT is normal - kernel waits for interrupts
@@ -337,6 +342,7 @@ impl Vmm {
                     self.io_bus.get_mut()?,
                     &self.serial,
                     self.backend_kind,
+                    keyboard.as_ref(),
                     port,
                     size,
                     1,
@@ -349,6 +355,7 @@ impl Vmm {
                     self.io_bus.get_mut()?,
                     &self.serial,
                     self.backend_kind,
+                    keyboard.as_ref(),
                     port,
                     size,
                     count,
@@ -366,6 +373,7 @@ impl Vmm {
                     &*self.vm,
                     self.backend_kind,
                     self.serial_irq,
+                    keyboard.as_ref(),
                     port,
                     &data,
                 )?;

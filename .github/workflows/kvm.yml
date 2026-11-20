@@ -129,6 +129,15 @@ jobs:
             --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
           grep -F -x "test $case_name ... ok" "$witness"
 
+      - name: Native i8042 IRQ12 after detached restore
+        run: |
+          set -o pipefail
+          case_name=vm::runtime::checkpoint_io::tests::stopped_native_i8042_irq12_is_delivered_once_after_detached_restore
+          witness="$RUNNER_TEMP/rax-kvm-i8042-irq12.out"
+          cargo test --locked --features x86_64-suite --lib "$case_name" -- \
+            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test $case_name ... ok" "$witness"
+
       - name: Native finite entry, signal ownership, and PIO/MMIO continuation
         run: cargo test --features x86_64-suite --test kvm_host_slices -- --include-ignored --test-threads=1 --nocapture
 
@@ -143,7 +152,7 @@ jobs:
           CARGO_PROFILE_TEST_LTO: "off"
         run: |
           cargo test --locked --features x86_64-suite,debug \
-            --test kvm_minimal --test kvm_host_slices --test kvm_smp --test checkpoint_cpus \
+            --test kvm_minimal --test kvm_host_slices --test kvm_smp --test checkpoint_cpus --test realmode_boot \
             -- --include-ignored --test-threads=1 --format=terse
           cargo test --locked --features x86_64-suite,debug --lib -- --test-threads=1 --format=terse
 

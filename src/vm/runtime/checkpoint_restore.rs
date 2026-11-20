@@ -385,9 +385,18 @@ impl Vmm {
             devices
                 .pit
                 .set_channel2_gate_at(pc.speaker_gate(), publication_clock.elapsed_nanos);
-        }
-        if !native_irqchip && let Some(level) = rtc_irq_level {
-            devices.pic.restore_rtc_irq_level(level);
+            if !native_irqchip {
+                // Both software controllers see the same wire. Rebind the
+                // PIC's input history without modifying its saved IRR/ISR.
+                for (irq, level) in pc.i8042_irq_levels() {
+                    devices.pic.restore_irq_input_level(irq, level);
+                }
+                if let Some(level) = rtc_irq_level {
+                    devices
+                        .pic
+                        .restore_irq_input_level(crate::devices::rtc::RTC_IRQ, level);
+                }
+            }
         }
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
