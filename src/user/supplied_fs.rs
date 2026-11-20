@@ -514,8 +514,15 @@ impl Files {
             let follow = match component {
                 "." => true,
                 ".." => {
-                    let end = current.rfind('/').expect("absolute path");
-                    current.truncate(end.max(1));
+                    if let Some(roots) = &self.native_libraries
+                        && roots.owns(&entry)
+                        && let Some(parent) = roots.parent_after_following(&current)?
+                    {
+                        current = parent;
+                    } else {
+                        let end = current.rfind('/').expect("absolute path");
+                        current.truncate(end.max(1));
+                    }
                     true
                 }
                 name => {

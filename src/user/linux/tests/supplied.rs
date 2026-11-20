@@ -158,10 +158,12 @@ fn installed_library_links_support_metadata_and_path_descriptors_all_abis() {
 
     let fixture = crate::user::supplied_fs::test_backing::TestFile::new(b"loader", 6);
     let lib64 = fixture.dir.join("usr/lib64");
-    std::fs::create_dir_all(&lib64).unwrap();
+    std::fs::create_dir_all(lib64.join("sub/child")).unwrap();
     std::fs::write(lib64.join("loader"), b"loader").unwrap();
+    std::fs::write(lib64.join("sub/sibling"), b"sibling").unwrap();
     symlink("usr/lib64", fixture.dir.join("lib64")).unwrap();
     symlink("loader", lib64.join("ld.so")).unwrap();
+    symlink("sub/child", lib64.join("directory-link")).unwrap();
     symlink("missing", lib64.join("dangling")).unwrap();
     symlink("loop", lib64.join("loop")).unwrap();
     symlink("/unselected/loader", lib64.join("outside")).unwrap();
@@ -237,6 +239,13 @@ fn installed_library_links_support_metadata_and_path_descriptors_all_abis() {
         assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, name, 0, 0]), ENOENT);
         path(&h, name, "/usr/lib64/loop");
         assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, name, 0, 0]), ELOOP);
+
+        path(&h, name, "/lib64/directory-link");
+        let dir = h.ok(Sysno::Openat, &[AT_FDCWD, name, u64::from(O_PATH), 0]);
+        path(&h, name, "../sibling");
+        let fd = h.ok(Sysno::Openat, &[dir, name, 0, 0]);
+        assert_eq!(h.ok(Sysno::Read, &[fd, buf, 16]), 7);
+        assert_eq!(get(&h, buf, 7), b"sibling");
     }
 }
 

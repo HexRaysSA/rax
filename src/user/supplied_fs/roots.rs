@@ -4,7 +4,7 @@ use super::{Entry, Error, Kind, validate};
 use crate::user::mm::HostFileSource;
 use std::{
     collections::BTreeMap,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -83,9 +83,8 @@ impl Roots {
     pub(super) fn paths(&self) -> impl Iterator<Item = &str> {
         self.roots.keys().map(String::as_str)
     }
-    fn host(&self, guest: &str) -> Result<PathBuf, Error> {
-        let (root, host) = self
-            .roots
+    fn mount(&self, guest: &str) -> Option<(&str, &Path)> {
+        self.roots
             .iter()
             .filter(|(root, _)| {
                 guest == root.as_str()
@@ -94,7 +93,10 @@ impl Roots {
                         .is_some_and(|rest| rest.starts_with('/'))
             })
             .max_by_key(|(root, _)| root.len())
-            .ok_or(Error::NotFound)?;
+            .map(|(root, host)| (root.as_str(), host.as_path()))
+    }
+    fn host(&self, guest: &str) -> Result<PathBuf, Error> {
+        let (root, host) = self.mount(guest).ok_or(Error::NotFound)?;
         let relative = guest[root.len()..].trim_start_matches('/');
         // These are POSIX guest components, not a Windows path or ADS name.
         // Reject native separators/drive syntax before any host resolution.
@@ -112,7 +114,7 @@ impl Roots {
         // canonical containment above; this checks each guest-requested name.
         #[cfg(any(target_os = "macos", windows))]
         {
-            let mut parent = host.clone();
+            let mut parent = host.to_path_buf();
             for name in guest[root.len()..]
                 .split('/')
                 .filter(|name| !name.is_empty())
@@ -130,6 +132,54 @@ impl Roots {
         }
         Ok(canonical)
     }
+
+    pub(super) fn parent_after_following(&self, guest: &str) -> Result<Option<String>, Error> {
+        if !self.origin.observe_symlinks {
+            return Ok(None);
+        }
+        let Some((mount, host)) = self.mount(guest) else {
+            return Ok(None);
+        };
+        let canonical = match self.host(guest) {
+            Ok(path) => path,
+            Err(Error::NotFound) => return Ok(None),
+            Err(error) => return Err(error),
+        };
+        let relative = guest[mount.len()..].trim_start_matches('/');
+        if !self.mount_links.contains_key(guest) && canonical == host.join(relative) {
+            return Ok(None);
+        }
+
+        // Translate the selected target back to a guest mount. For /lib64 ->
+        // usr/lib64, prefer /usr/lib64 so its parent is /usr in the guest.
+        let (target_mount, suffix) = self
+            .roots
+            .iter()
+            .filter_map(|(root, host)| {
+                let suffix = canonical.strip_prefix(host).ok()?;
+                Some((root, host, suffix))
+            })
+            .max_by_key(|(root, host, _)| {
+                (
+                    !self.mount_links.contains_key(*root),
+                    host.as_os_str().len(),
+                )
+            })
+            .map(|(root, _, suffix)| (root, suffix))
+            .ok_or(Error::NotFound)?;
+        let Some(suffix_parent) = suffix.parent() else {
+            let end = target_mount.rfind('/').expect("absolute mount");
+            return Ok(Some(target_mount[..end.max(1)].to_owned()));
+        };
+        let mut parent = target_mount.clone();
+        for component in suffix_parent {
+            parent.push('/');
+            parent.push_str(component.to_str().ok_or(Error::NotFound)?);
+        }
+        validate(&parent)?;
+        Ok(Some(parent))
+    }
+
     pub(super) fn directory_ino(&self, path: &str) -> Result<u64, Error> {
         self.insert(path, Kind::Directory).map(|entry| entry.ino)
     }

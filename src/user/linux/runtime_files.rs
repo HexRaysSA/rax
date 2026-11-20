@@ -222,6 +222,57 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn installed_directory_symlinks_resolve_parent_after_following() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{os::unix::fs::symlink, sync::Arc};
+
+        let fixture = TestFile::new(b"unused", 6);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib64");
+        std::fs::create_dir_all(lib.join("sub/child")).unwrap();
+        std::fs::create_dir(lib.join("alternate")).unwrap();
+        std::fs::write(root.join("root-marker"), b"root").unwrap();
+        std::fs::write(root.join("usr/root-marker"), b"usr").unwrap();
+        std::fs::write(lib.join("sub/nested-marker"), b"nested").unwrap();
+        symlink("usr/lib64", root.join("lib64")).unwrap();
+        symlink("sub/child", lib.join("directory-link")).unwrap();
+        symlink("directory-link", lib.join("second-link")).unwrap();
+        symlink("../..", lib.join("outside")).unwrap();
+        let files = Files::new(BTreeMap::from([
+            ("/root-marker".into(), Arc::from(&b"root"[..])),
+            ("/usr/root-marker".into(), Arc::from(&b"usr"[..])),
+        ]))
+        .unwrap();
+        let roots = installed_roots(root);
+        let selected = select(&files, roots.clone(), None).unwrap();
+        for path in [
+            "lib64/../root-marker",
+            "lib64/../../root-marker",
+            "usr/lib64/sub/child/../nested-marker",
+            "usr/lib64/directory-link/../nested-marker",
+            "lib64/second-link/../nested-marker",
+        ] {
+            let native = std::fs::read(root.join(path)).unwrap();
+            let emulated = selected.read(&format!("/{path}")).unwrap();
+            assert_eq!(&*emulated, native, "{path}");
+        }
+        assert!(matches!(
+            selected.lookup("/usr/lib64/sub/nested-marker/.."),
+            Err(Error::NotDirectory)
+        ));
+        assert!(matches!(
+            selected.lookup("/usr/lib64/outside/../root-marker"),
+            Err(Error::NotFound)
+        ));
+        let with_caller_mount = files
+            .with_host_roots(BTreeMap::from([("/lib64".into(), lib.join("alternate"))]))
+            .unwrap();
+        let selected = select(&with_caller_mount, roots, None).unwrap();
+        assert_eq!(&*selected.read("/lib64/../root-marker").unwrap(), b"root");
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn installed_roots_resolve_the_i386_interpreter_across_lib32_layouts() {
         use std::os::unix::fs::symlink;
 
