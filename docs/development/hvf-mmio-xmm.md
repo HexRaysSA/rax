@@ -50,5 +50,16 @@ and passed strict signature verification with the hypervisor entitlement.
 All 21 prepared-consumer tests and 16 pinned-workflow checks passed.
 The complete macOS library suite passed 13,220 tests with 5 ignored, zero
 failures, and zero filtered cases.
-Hosted execution of this profile, AVX and wider MMIO, string moves,
-mixed RAM and device operands, and physical Intel qualification remain open.
+The hosted Intel run executed all 12 cases on macOS 15.7.9 with the
+real Hypervisor.framework backend. The runner verified the prepared
+consumer signature and reported six successes on a fresh vCPU and six
+after detached restoration. Its availability probe reported an
+untranslated Intel process in a hypervisor guest. Physical Intel macOS,
+AVX and wider MMIO, string moves, and mixed RAM and device operands
+remain open.
+
+[Hosted execution observations](https://github.com/HexRaysSA/rax/actions/runs/44711344124)
+
+- Tested commit `44c81f236c7e2399913f2a5df4aafe88ef948370`
+- Signed consumer SHA-256 `b489c25de09f64b800351ca8e3f6e459eafa55ed54f2eb3586e1e2e5abf42da4`
+- Observation stream SHA-256 `89593872de38c050034d9e0e320510e64710af12c373dc5cb45d4ee7fbbf34c1`

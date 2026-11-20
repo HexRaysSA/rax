@@ -200018,7 +200018,7 @@
         "C-STATE"
       ],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Six legacy SSE2 MOVD/MOVQ MMIO forms, including deferred input to XMM and preservation of adjacent registers and active extended state. The six RAM controls and unfiltered library, MMIO, translation and Intel SDK-model test targets passed. The library reported 13,220 passed and 5 ignored. Hosted execution and physical Intel macOS validation remain open.",
+      "scope": "Six legacy SSE2 MOVD/MOVQ MMIO forms, including deferred input to XMM and preservation of adjacent registers and active extended state. The six RAM controls and unfiltered library, MMIO, translation and Intel SDK-model test targets passed. The library reported 13,220 passed and 5 ignored. Hosted Intel workflow 44711344124 passed all 12 real HVF guest cases, six after detached restore. Its runner reported nested execution. Physical Intel macOS validation remains open.",
       "qualification": "docs/development/hvf-mmio-xmm.md",
       "full_goal_complete": false
     },
