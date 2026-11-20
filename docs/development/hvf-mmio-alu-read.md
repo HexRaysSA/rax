@@ -228,3 +228,30 @@ Repeated SCAS remains outside this profile. That path must preserve the
 original comparison flags across the whole repeat instruction so a later
 fault can restart with the specified flags. Bare-metal Intel macOS and
 compatibility-mode device exits remain open.
+
+## Repeated SCAS native reference
+
+A reference run at `464886c66559883c6cf9acaad8b29cbcbe3de54c` passed
+28 cases on hosted Intel macOS 15.7.9. Six new guest-RAM cases observed the
+frame after one repeat iteration for both prefixes. In all six, RIP still
+named the instruction, RDI had advanced once, and RCX had decremented once.
+The Intel process was untranslated and the runner reported
+`hypervisor_guest=1`. The archive SHA-256 and all 4,884 engine inputs and
+17 consumer and runner inputs matched. [Hosted Intel reference run](https://github.com/HexRaysSA/rax/actions/runs/44793066710/job/136485480945)
+
+| Prefix | Operand page-fault frame RFLAGS | Guest single-step frame RFLAGS | Monitor-trap RFLAGS | Injected interrupt frame RFLAGS |
+| --- | --- | --- | --- | --- |
+| REPNE | `0x10053` | `0x10153` | `0x10253` | `0x10253` |
+| REPE | `0x10013` | `0x10113` | `0x10213` | `0x10213` |
+
+The arithmetic bits match entry in all four observations per prefix. The
+injected interrupt follows a monitor-trap stop after one completed element.
+On page-fault retry, the guest mapped the missing leaf and returned through
+IRETQ, and the second element produced the terminating arithmetic flags.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The flags distinguish entry state from the first completed comparison. | Seed REPNE with arithmetic flags `0x51` and arrange a first compare producing `0x95`. Seed REPE with `0x11` and arrange a first compare producing `0x44`. Read the saved frame flags and the monitor-trap state after one completed element. |
+
+Bare-metal Intel macOS and free-running interrupt timing at a repeat
+boundary remain unverified.
