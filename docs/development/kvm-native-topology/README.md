@@ -40,10 +40,24 @@ CPUID records, unrelated ISA features and unavailable optional leaves are retain
 ## Unfiltered hosted KVM validation
 
 Dispatch the KVM workflow with `owning_library=true` to run the complete
-`kvm_minimal`, `kvm_host_slices`, `kvm_smp`, `checkpoint_cpus` and library
-test binaries with KVM and debugger support enabled. This mode uses a
+`kvm_minimal`, `kvm_host_slices`, `kvm_smp`, `checkpoint_cpus`, `realmode_boot`
+and library test binaries with KVM and debugger support enabled. This mode uses a
 commit-specific concurrency group so later pushes to the same branch can
 run the normal KVM checks without cancelling the unfiltered run.
+
+The hosted Linux x86-64 `/dev/kvm` run at `bb5f7059b` completed every
+owning binary without a failure. The integration invocation included ignored
+tests. The library invocation left its 97 normally ignored tests disabled.
+[Hosted KVM job](https://github.com/HexRaysSA/rax/actions/runs/44771673783/job/136410666709)
+
+| Test binary | Passed | Ignored |
+| --- | ---: | ---: |
+| `checkpoint_cpus` | 12 | 0 |
+| `kvm_host_slices` | 17 | 0 |
+| `kvm_minimal` | 15 | 0 |
+| `kvm_smp` | 32 | 0 |
+| `realmode_boot` | 10 | 0 |
+| Library | 14,209 | 97 |
 
 ## Checkpoint identity for an invalid topology level
 
