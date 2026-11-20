@@ -504,6 +504,7 @@ fn stopped_native_request(
         "NtOpenKey" if diagnostic.contains("registry key outside selected runtime snapshot") => {
             ("NtOpenKey", 2)
         }
+        "NtOpenKeyEx" if diagnostic.contains("unsnapshotted registry subkey") => ("NtOpenKeyEx", 2),
         "NtOpenFile"
             if diagnostic.contains("NT metadata name outside mapped DOS drive namespace") =>
         {
@@ -532,13 +533,11 @@ fn stopped_native_request(
     let read = |address, bytes: &mut [u8]| {
         rax_process_mem_read(process.0, address, bytes.as_mut_ptr(), bytes.len()) == RaxStatus::Ok
     };
-    if matches!(service, "NtOpenKey" | "NtOpenFile") {
-        // These stops are expected for absolute names. Resolve the native64
-        // OBJECT_ATTRIBUTES.ObjectName only when RootDirectory is null.
+    if matches!(service, "NtOpenKey" | "NtOpenKeyEx" | "NtOpenFile") {
         let mut attributes = [0; 48];
         if !read(descriptor, &mut attributes)
             || attributes[..4] != 48_u32.to_le_bytes()
-            || attributes[8..16] != [0; 8]
+            || (attributes[8..16] != [0; 8]) != (service == "NtOpenKeyEx")
         {
             return None;
         }
@@ -560,7 +559,47 @@ fn stopped_native_request(
         .chunks_exact(2)
         .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
         .collect();
-    Some((service, String::from_utf16(&units).ok()?))
+    let name = String::from_utf16(&units).ok()?;
+    if service == "NtOpenKeyEx" {
+        return Some((service, classify_startup_subkey(&name)));
+    }
+    Some((service, name))
+}
+
+#[cfg(windows)]
+fn classify_startup_subkey(name: &str) -> String {
+    const SYSTEM_COMPONENTS: &[&str] = &[
+        "AppCompatFlags",
+        "AppCertDlls",
+        "App Paths",
+        "Control",
+        "CurrentControlSet",
+        "CurrentVersion",
+        "Diagnostics",
+        "Explorer",
+        "Fonts",
+        "Image File Execution Options",
+        "KnownDLLs",
+        "Microsoft",
+        "NLS",
+        "Policies",
+        "Session Manager",
+        "Software",
+        "System",
+        "Windows",
+        "Windows NT",
+    ];
+    let parts: Vec<_> = name
+        .split('\\')
+        .map(|part| {
+            SYSTEM_COMPONENTS
+                .iter()
+                .copied()
+                .find(|known| known.eq_ignore_ascii_case(part))
+                .unwrap_or("<other>")
+        })
+        .collect();
+    parts.join("\\")
 }
 
 #[cfg(windows)]
