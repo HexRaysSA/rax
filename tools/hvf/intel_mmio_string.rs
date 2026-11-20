@@ -1,6 +1,10 @@
 //! Real EPT exits and detached continuations for one-memory string operations.
 use super::*;
 
+fn string_registers(regs: &rax::vm::vcpu::Registers, load: bool) -> (u64, u64) {
+    (regs.rcx, if load { regs.rsi } else { regs.rdi })
+}
+
 pub(super) fn run(output: &Path) {
     const DIRECTION: u64 = 1 << 10;
     const RESUME: u64 = 1 << 16;
@@ -39,6 +43,10 @@ pub(super) fn run(output: &Path) {
                 initial.regs.rdi = high | MMIO;
             }
             cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+            assert_eq!(
+                string_registers(&state(cpu.as_ref()).regs, read),
+                (high | 2, high | MMIO)
+            );
 
             let mut rax = SEED;
             let mut address = MMIO;
@@ -63,14 +71,21 @@ pub(super) fn run(output: &Path) {
                     let CpuState::X86_64(regs) = &saved.state else {
                         panic!("wrong saved CPU");
                     };
-                    let high = if iteration == 0 { high } else { 0 };
                     assert_eq!(regs.regs.rip, CODE);
                     assert_eq!(regs.regs.rax, rax);
-                    assert_eq!(regs.regs.rcx, high | (2 - iteration as u64));
-                    assert_eq!(
-                        if read { regs.regs.rsi } else { regs.regs.rdi },
-                        high | address
-                    );
+                    let (count, index) = string_registers(&regs.regs, read);
+                    let expected_count = 2 - iteration as u64;
+                    if address32 && iteration == 0 {
+                        // The native EPT exit may clear the upper halves
+                        // before completing the first 32-bit REP iteration.
+                        assert_eq!(count as u32, expected_count as u32);
+                        assert_eq!(index as u32, address as u32);
+                        assert!(matches!(count & !u64::from(u32::MAX), 0 | HIGH));
+                        assert!(matches!(index & !u64::from(u32::MAX), 0 | HIGH));
+                        println!("{label} native EPT frontier: count={count:#x}, index={index:#x}");
+                    } else {
+                        assert_eq!((count, index), (expected_count, address));
+                    }
                     drop(boundary);
                     drop(cpu);
                     drop(vm);
@@ -78,6 +93,15 @@ pub(super) fn run(output: &Path) {
                     cpu.restore_checkpoint_context(&saved.state, &saved.emulator, Some(&context))
                         .unwrap();
                     pending(cpu.as_mut());
+                    let boundary = vm.checkpoint_boundary().unwrap();
+                    let (restored, _) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+                    let CpuState::X86_64(restored) = restored.state else {
+                        panic!("wrong restored CPU");
+                    };
+                    assert_eq!(string_registers(&restored.regs, read), (count, index));
+                    assert_eq!(restored.regs.rax, regs.regs.rax);
+                    assert_eq!(restored.regs.rip, regs.regs.rip);
+                    assert_eq!(restored.regs.rflags, regs.regs.rflags);
                 }
                 if read {
                     cpu.complete_io_in(&reply.to_le_bytes()[..size]);
