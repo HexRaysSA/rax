@@ -12,7 +12,7 @@ pub(crate) mod activation;
 pub(crate) mod client_data;
 pub(crate) mod pid_export;
 
-/// Measured ARM64 BASE per-user NLS reply size.
+/// Measured native BASE per-user NLS reply size.
 pub(crate) const BASE_NLS_BYTES: usize = 1660;
 
 /// A measured BASE query failure is distinct from ALPC transport failure.
@@ -68,11 +68,14 @@ impl CsrMetadata {
     }
 
     pub(crate) fn supports_base_nls(&self) -> bool {
-        self.arch == WinArch::Arm64
-            && matches!(
+        match self.arch {
+            WinArch::Arm64 => matches!(
                 (self.kernel, self.session),
                 ((10, 0, 29698), _) | ((10, 0, 29708), 1)
-            )
+            ),
+            WinArch::X64 => self.session == 2 && self.supported(),
+            WinArch::X86 => false,
+        }
     }
 
     fn namespace_session(&self) -> Option<u32> {

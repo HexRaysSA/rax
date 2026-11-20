@@ -1,5 +1,5 @@
 use super::*;
-use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply};
+use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, CsrMetadata};
 
 const NATIVE: &[u8; BASE_NLS_BYTES] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -9,6 +9,15 @@ const NATIVE: &[u8; BASE_NLS_BYTES] = include_bytes!(concat!(
 const SYSTEM: &[u8; BASE_NLS_BYTES] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/docs/specifications/windows/native-base-csr-nls/native-system-information-v1.bin"
+));
+
+const AMD64_20348: &[u8; BASE_NLS_BYTES] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/docs/specifications/windows/native-base-csr-nls/native-amd64-20348-information-v1.bin"
+));
+const AMD64_26100: &[u8; BASE_NLS_BYTES] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/docs/specifications/windows/native-base-csr-nls/native-amd64-26100-information-v1.bin"
 ));
 
 fn setup(p: &mut Proc, information: Arc<[u8; BASE_NLS_BYTES]>) -> (u32, u64, u64) {
@@ -21,9 +30,28 @@ fn setup_for_profile(
     build: u32,
     session: u32,
 ) -> (u32, u64, u64) {
-    let (section, server) = super::super::secure_connect_tests::csr::server_for_kernel(build);
-    let mut metadata = server.metadata.clone();
-    metadata.session = session;
+    let (section, metadata) = if p.arch == WinArch::X64 {
+        let server_base = 0x0000_7FFF_1234_0000;
+        p.object_namespace.native_machine = Some(0x8664);
+        (
+            super::super::connect_csr_tests::data(Some(session), server_base),
+            CsrMetadata {
+                arch: WinArch::X64,
+                kernel: (10, 0, build),
+                session,
+                server_base,
+                statics_offset: 0x750,
+                server_pid: 0x1500,
+            },
+        )
+    } else {
+        let (section, server) = super::super::secure_connect_tests::csr::server_for_kernel(build);
+        let metadata = CsrMetadata {
+            session,
+            ..server.metadata.clone()
+        };
+        (section, metadata)
+    };
     let server = CsrServer::selected_with_data(
         section,
         metadata,
@@ -38,7 +66,10 @@ fn setup_for_profile(
     let local = view.base;
     let id = p.objects.create(Object::LpcPort(LpcPort::csr(view, peer)));
     let port = p.objects.open_access(id, false, 0x1F0001).unwrap();
-    Arc::make_mut(&mut p.cfg).version.build = build;
+    let version = &mut Arc::make_mut(&mut p.cfg).version;
+    version.major = 10;
+    version.minor = 0;
+    version.build = build;
     (port, local, remote)
 }
 
@@ -67,14 +98,24 @@ fn request(p: &Proc, base: u64, local: u64, remote: u64, port: u32) -> [u64; 8] 
 
 #[test]
 fn native_base_nls_reply_matches_opaque_snapshot_and_owns_capture_lifetime() {
-    let (mut process, mut t) = fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);
+    for (arch, build, session, data) in [
+        (WinArch::Arm64, 29698, 0, NATIVE),
+        (WinArch::X64, 20348, 2, AMD64_20348),
+        (WinArch::X64, 26100, 2, AMD64_26100),
+    ] {
+        replay_reply(arch, build, session, data);
+    }
+}
+
+fn replay_reply(arch: WinArch, build: u32, session: u32, data: &[u8; BASE_NLS_BYTES]) {
+    let (mut process, mut t) = fixture(arch, "NtAlpcSendWaitReceivePort", SERVICE);
     let p = process.state_mut();
     let base =
         p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
             .unwrap()
             .0;
-    let information = Arc::new(*NATIVE);
-    let (port, local, remote) = setup(p, information.clone());
+    let information = Arc::new(*data);
+    let (port, local, remote) = setup_for_profile(p, information.clone(), build, session);
     let before = (p.vm.committed_bytes(), p.objects.handle_count(), p.rng);
     for id in 1..=3 {
         let args = request(p, base, local, remote, port);
@@ -114,6 +155,35 @@ fn native_base_nls_reply_matches_opaque_snapshot_and_owns_capture_lifetime() {
     p.objects.close(port.into()).unwrap();
     p.reclaim_scheduler_views().unwrap();
     assert!(p.vm.allocation(local).is_none());
+}
+
+#[test]
+fn native_amd64_base_nls_requires_the_native_machine_and_matching_reply_profile() {
+    let (mut process, mut t) = fixture(WinArch::X64, "NtAlpcSendWaitReceivePort", SERVICE);
+    let p = process.state_mut();
+    let base =
+        p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let (port, local, remote) = setup_for_profile(p, Arc::new(*AMD64_20348), 20348, 2);
+    let args = request(p, base, local, remote, port);
+    let original = p.space.bytes(base, 1032).unwrap();
+    let original_capture = p.space.bytes(local + 0x750, BASE_NLS_BYTES + 44).unwrap();
+    for (machine, build) in [
+        (None, 20348),
+        (Some(0xAA64), 20348),
+        (Some(0x8664), 20349),
+        (Some(0x8664), 26100),
+    ] {
+        p.object_namespace.native_machine = machine;
+        Arc::make_mut(&mut p.cfg).version.build = build;
+        assert!(matches!(invoke(p, &mut t, &args), Outcome::Fail(_)));
+        assert_eq!(p.space.bytes(base, 1032).unwrap(), original);
+        assert_eq!(
+            p.space.bytes(local + 0x750, BASE_NLS_BYTES + 44).unwrap(),
+            original_capture
+        );
+    }
 }
 
 #[test]

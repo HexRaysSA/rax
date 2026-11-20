@@ -1,4 +1,5 @@
 //! Fixed current-process BASE snapshot, acquired before guest publication.
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, CsrMetadata};
 use crate::user::windows::object_namespace::installed::{check, invalid};
 use std::ffi::c_void;
@@ -37,6 +38,8 @@ impl Drop for Capture {
 #[repr(C, align(16))]
 struct Message([u8; 952]);
 
+const API: u32 = 0x0001_001b;
+
 /// O(B) time and space for fixed B=1660 bytes. The native per-user payload is
 /// copied whole, without interpreting integers as addresses or synthesizing
 /// locale settings. Admission is the independently measured native profile.
@@ -49,13 +52,15 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Option<BaseNlsReply>
     if unsafe { CsrGetProcessId() } != metadata.server_pid as usize {
         return Err(invalid("CSR BASE query server identity differs"));
     }
+    let amd64 = metadata.arch == WinArch::X64;
     let mut samples = Vec::with_capacity(2);
-    for _ in 0..2 {
+    for pattern in [0xA5, 0x5A] {
         // SAFETY: fixed measured allocation sizes; no guest inputs/callbacks.
-        let capture = Capture(unsafe { CsrAllocateCaptureBuffer(1, BASE_NLS_BYTES as u32) });
-        if capture.0.is_null() {
+        let raw = unsafe { CsrAllocateCaptureBuffer(1, BASE_NLS_BYTES as u32) };
+        if raw.is_null() {
             return Err(io::Error::other("allocate fixed CSR BASE capture"));
         }
+        let capture = Capture(raw);
         let mut message = Message([0; 952]);
         // Register the pointer slot in the message itself. NTDLL converts this
         // exact slot to/from a server-view address during the synchronous call.
@@ -70,19 +75,30 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Option<BaseNlsReply>
         if allocated != BASE_NLS_BYTES as u32 || information == 0 {
             return Err(invalid("CSR BASE capture allocation differs"));
         }
-        message.0[72..76].copy_from_slice(&(BASE_NLS_BYTES as u32).to_le_bytes());
-        // SAFETY: fixed query-only BASE0x1001b/16B request under the matched
-        // ARM64 profile. Native controls compare it byte-for-byte with
-        // an independent public locale query. Only this local process talks to
-        // CSR; no guest addresses, handles, packets or strings enter the call.
+        if amd64 {
+            // SAFETY: the checked pointer owns the full fixed output. Native
+            // controls show two different inputs produce identical output.
+            unsafe { std::ptr::write_bytes(information as *mut u8, pattern, BASE_NLS_BYTES) };
+        }
+        let bytes = (BASE_NLS_BYTES as u32).to_le_bytes();
+        message.0[72..76].copy_from_slice(&bytes);
+        // SAFETY: fixed query-only BASE selector and size under a matched
+        // local profile. No guest addresses, handles or requests enter CSR.
         let result =
-            unsafe { CsrClientCallServer(message.0.as_mut_ptr().cast(), capture.0, 0x1001B, 16) };
+            unsafe { CsrClientCallServer(message.0.as_mut_ptr().cast(), capture.0, API, 16) };
         let status = u32::from_le_bytes(message.0[52..56].try_into().expect("fixed BASE status"));
         if status != result as u32
             || message.0[64..72] != pointer
             || unsafe { CsrGetProcessId() } != metadata.server_pid as usize
         {
             return Err(invalid("CSR BASE reply status, pointer or server differs"));
+        }
+        if amd64
+            && (message.0[..4] != [40, 0, 80, 0]
+                || message.0[48..52] != API.to_le_bytes()
+                || message.0[72..76] != bytes)
+        {
+            return Err(invalid("CSR BASE AMD64 reply geometry differs"));
         }
         if status == 0xC000_0001 && metadata.kernel == (10, 0, 29698) {
             samples.push(BaseNlsReply::Unsuccessful);

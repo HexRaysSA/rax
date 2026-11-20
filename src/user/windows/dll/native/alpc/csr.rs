@@ -4,7 +4,9 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, supports_kernel};
+use crate::user::windows::object_namespace::csr::{
+    BASE_NLS_BYTES, BaseNlsReply, supports_kernel, supports_profile,
+};
 use crate::user::windows::objects::Object;
 
 const BATCH_NOTIFICATION_API: u32 = 0x0001_0010;
@@ -50,8 +52,13 @@ pub(super) fn client_connect(
         && message[52..64] == [0; 12]
         && word(message, 64) != u64::MAX
         && word(message, 72) <= 1;
-    if c.arch() != WinArch::Arm64
-        || !supports_kernel(kernel.0, kernel.1, kernel.2)
+    let arch = c.arch();
+    let native_arm64 = arch == WinArch::Arm64 && supports_kernel(kernel.0, kernel.1, kernel.2);
+    let native_amd64_base_nls = arch == WinArch::X64
+        && base_nls
+        && c.p.object_namespace.native_machine == Some(0x8664)
+        && supports_profile(arch, kernel.0, kernel.1, kernel.2);
+    if !(native_arm64 || native_amd64_base_nls)
         || send_attributes != 0
         || receive_attributes != 0
         || timeout != 0
