@@ -31,6 +31,7 @@ on:
           - entry-irq
           - irq-window
           - nmi-baseline
+          - nmi-hot-entry
           - nmi-window
         default: mmio
 

@@ -1319,6 +1319,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--nmi-hot-entry")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        nmi_window::run_hot_entry(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--legacy-xmm")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

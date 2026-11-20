@@ -64,6 +64,43 @@ pub(super) fn run_baseline(output: &Path) {
     println!("{{\"cases\":1,\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
+/// Isolate event admission after a known-good non-NMI guest entry.
+pub(super) fn run_hot_entry(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let code = [0xe6, START_PORT as u8];
+    let memory = guest_memory(&code);
+    let (_vm, mut cpu) = window_machine(&memory);
+    eprintln!("nmi-hot-entry: entering without an event");
+    let exit = event(cpu.as_mut());
+    assert!(
+        matches!(
+            exit,
+            VcpuExit::IoOut {
+                port: START_PORT,
+                ..
+            }
+        ),
+        "initial guest entry must reach its port marker: {exit:?}",
+    );
+    cpu.complete_io_out().unwrap();
+    cpu.io_completion_result().unwrap();
+    let before = state(cpu.as_ref()).regs;
+    assert_eq!((before.rip, before.rflags, before.r11), (CODE + 2, 2, 0));
+    eprintln!("nmi-hot-entry: publishing NMI with IF clear after the completed marker");
+    assert!(cpu.inject_nmi().unwrap());
+    eprintln!("nmi-hot-entry: NMI accepted; entering the guest");
+    let handler = event(cpu.as_mut());
+    eprintln!("nmi-hot-entry: handler entry returned {handler:?}");
+    complete_handler_exit(cpu.as_mut(), handler, 1);
+    assert!(!cpu.inject_nmi().unwrap(), "NMI admitted before IRET");
+    eprintln!("nmi-hot-entry: resuming through IRET");
+    halted(cpu.as_mut(), code.len(), SEED);
+    let visits = state(cpu.as_ref()).regs.r11;
+    assert_eq!(visits, 1);
+    record(output, 0, "nmi-hot-entry", 8, visits);
+    println!("{{\"cases\":1,\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 /// Split a failed first entry into controls that change one input each.
 /// These diagnostic exits do not count toward successful NMI observations.
 fn diagnose_first_entry() {
