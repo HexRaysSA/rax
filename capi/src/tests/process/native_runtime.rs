@@ -244,14 +244,18 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
         }
         assert_ne!(result.turns_started, 0);
     }
-    assert_eq!(
-        result.reason,
-        RAX_PROCESS_EXITED,
-        "guest {} stopped after {} scheduler turns: {}",
-        opened["architecture"],
-        MAX_TURNS - remaining,
-        info(&process)["diagnostic"]
-    );
+    if result.reason != RAX_PROCESS_EXITED {
+        let stopped = info(&process);
+        if let Some((service, name)) = stopped_native_request(&process, &stopped) {
+            eprintln!("guest {service} requested {name:?}");
+        }
+        panic!(
+            "guest {} stopped after {} scheduler turns: {}",
+            opened["architecture"],
+            MAX_TURNS - remaining,
+            stopped["diagnostic"]
+        );
+    }
     assert_eq!(
         Some(result.exit_code),
         native.status.code().map(i32::cast_unsigned)
@@ -278,6 +282,81 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
             "console stream {stream}"
         );
     }
+}
+
+#[cfg(windows)]
+fn stopped_native_request(
+    process: &Owned,
+    stopped: &serde_json::Value,
+) -> Option<(&'static str, String)> {
+    let diagnostic = stopped["diagnostic"].as_str()?;
+    let (service, argument) = match diagnostic
+        .strip_prefix("emulator failure: native NTDLL service ")?
+        .split_once(": ")?
+        .0
+    {
+        "NtOpenKey" if diagnostic.contains("registry key outside selected runtime snapshot") => {
+            ("NtOpenKey", 2)
+        }
+        "NtQueryLicenseValue" if diagnostic.contains("unmeasured NtQueryLicenseValue profile") => {
+            ("NtQueryLicenseValue", 0)
+        }
+        "NtConnectPort" if diagnostic.contains("requires a matched selected guest server") => {
+            ("NtConnectPort", 1)
+        }
+        _ => return None,
+    };
+    // At the native x64 syscall boundary, R10 holds the first argument.
+    let register = match stopped["architecture"].as_str()? {
+        "x64" => [10, 2, 8][argument],
+        "arm64" => argument,
+        _ => return None,
+    };
+    let mut ready = stopped["threads"]
+        .as_array()?
+        .iter()
+        .filter(|thread| thread["state"] == "ready");
+    let thread = ready.next()?;
+    if ready.next().is_some() {
+        return None;
+    }
+    let address = thread["registers"]
+        .get(register)?
+        .as_str()?
+        .strip_prefix("0x")?;
+    let mut descriptor = u64::from_str_radix(address, 16).ok()?;
+    let read = |address, bytes: &mut [u8]| {
+        rax_process_mem_read(process.0, address, bytes.as_mut_ptr(), bytes.len()) == RaxStatus::Ok
+    };
+    if service == "NtOpenKey" {
+        // This stop is only expected for absolute keys. Resolve the native64
+        // OBJECT_ATTRIBUTES.ObjectName only when RootDirectory is null.
+        let mut attributes = [0; 48];
+        if !read(descriptor, &mut attributes)
+            || attributes[..4] != 48_u32.to_le_bytes()
+            || attributes[8..16] != [0; 8]
+        {
+            return None;
+        }
+        descriptor = u64::from_le_bytes(attributes[16..24].try_into().ok()?);
+    }
+    let mut header = [0; 16];
+    if !read(descriptor, &mut header) {
+        return None;
+    }
+    let length = usize::from(u16::from_le_bytes([header[0], header[1]]));
+    let maximum = usize::from(u16::from_le_bytes([header[2], header[3]]));
+    let buffer = u64::from_le_bytes(header[8..].try_into().ok()?);
+    let mut storage = [0; 512];
+    let bytes = storage.get_mut(..length)?;
+    if length == 0 || length % 2 != 0 || length > maximum || !read(buffer, bytes) {
+        return None;
+    }
+    let units: Vec<_> = bytes
+        .chunks_exact(2)
+        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .collect();
+    Some((service, String::from_utf16(&units).ok()?))
 }
 
 #[cfg(windows)]
