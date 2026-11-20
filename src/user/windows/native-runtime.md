@@ -49,6 +49,14 @@ Application DLLs remain subject to general host-file access or explicit supplied
 bytes. Supplied bytes override installed files in native mode. KnownDLL names
 select installed system files; no missing installed DLL selects an HLE image.
 
+Closed installed-runtime processes can read a localized `.mui` satellite
+under a direct locale child of the selected system directory. The satellite
+belongs to an installed system DLL or to the main executable after its
+image bytes match the opened installed file. The resolver verifies both
+canonical parent and basename at each level. Windows opens the selected
+resource without following reparse points. These handles use the installed
+library read-only grant.
+
 The API-set parser preserves the schema-defined hash identity, importer-specific
 aliases, explicitly unavailable values, and the raw namespace mapped at
 `PEB.ApiSetMap`. Version-6 entries record `HashedLength` through the major/minor

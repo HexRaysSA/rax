@@ -139,11 +139,18 @@ fn acquire(
         maximum: (units.len() * 2) as u16,
         buffer: units.as_ptr(),
     };
+    // Open the confined satellite without following a reparse point after selection.
+    let resource = path.runtime_library
+        && path
+            .host
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("mui"));
     let attrs = Attributes {
         length: std::mem::size_of::<Attributes>() as u32,
         root: retained.map_or(std::ptr::null_mut(), AsRawHandle::as_raw_handle),
         name: &name,
-        flags: flags & 0x1040,
+        flags: flags & 0x1040 | if resource { 0x1000 } else { 0 },
         security: std::ptr::null_mut(),
         qos: std::ptr::null_mut(),
     };

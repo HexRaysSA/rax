@@ -233,6 +233,8 @@ pub struct Modules {
     /// Private USER startup service in the selected x86 User32 image view.
     pub(crate) mapped_wow64_user32: Option<services::MappedWow64User32>,
     pub(crate) arm64ec_cfg: bool,
+    /// The opened installed executable matched the guest image bytes.
+    pub(crate) installed_executable: bool,
 }
 
 impl Modules {

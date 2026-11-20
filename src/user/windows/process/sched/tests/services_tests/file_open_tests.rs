@@ -229,6 +229,88 @@ fn native_file_open_selected_runtime_grant_is_read_only_and_cannot_enroll_other_
 }
 
 #[test]
+fn native_file_open_mui_satellites_require_an_installed_owner_and_read_only_access() {
+    use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_OBJECT_PATH_NOT_FOUND};
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let directory = selection(&mut h);
+        let locale = directory.join("en-US");
+        std::fs::create_dir(&locale).unwrap();
+        let executable = h.process.state().modules.exe().name.clone();
+        std::fs::write(
+            locale.join(format!("{executable}.mui")),
+            b"installed executable",
+        )
+        .unwrap();
+        std::fs::write(locale.join("fixture.dll.mui"), b"installed DLL").unwrap();
+        std::fs::write(locale.join("lookalike.dll.mui"), b"foreign DLL").unwrap();
+        std::fs::write(locale.join("unselected.exe.mui"), b"foreign executable").unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let prefix = r"\??\C:\WINDOWS\SYSTEM32";
+        let executable_path = format!(r"{prefix}\EN-us\{executable}.mui");
+        h.name(&executable_path);
+        assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED);
+        h.process.state_mut().modules.installed_executable = true;
+        for (path, contents) in [
+            (executable_path, b"installed executable".as_slice()),
+            (
+                format!(r"{prefix}\en-US\FIXTURE.DLL.MUI"),
+                b"installed DLL".as_slice(),
+            ),
+        ] {
+            h.name(&path);
+            assert_eq!(
+                h.open_with(output, io, 0x100001, 7, 0x60),
+                STATUS_SUCCESS,
+                "{arch}/{path}"
+            );
+            let p = h.process.state_mut();
+            let handle = p.space.ptr(output, arch.ptr_size()).unwrap();
+            assert!(p.objects.runtime_library(handle));
+            assert_eq!(p.objects.access(handle), Some(0x100001));
+            let Some(crate::user::windows::objects::Object::File(file)) = p.objects.get(handle)
+            else {
+                panic!("MUI handle must own a file");
+            };
+            let mut bytes = Vec::new();
+            std::io::Read::read_to_end(&mut file.host.as_ref().unwrap(), &mut bytes).unwrap();
+            assert_eq!(bytes, contents);
+            p.objects.close(handle).unwrap();
+            assert_eq!(
+                h.open_with(output, io, 0x100002, 7, 0x60),
+                STATUS_ACCESS_DENIED
+            );
+        }
+        for name in [
+            r"en-US\lookalike.dll.mui",
+            r"en-US\unselected.exe.mui",
+            r"en_US\fixture.dll.mui",
+            r"en-US\nested\fixture.dll.mui",
+            r"fixture.dll.mui",
+        ] {
+            h.name(&format!(r"{prefix}\{name}"));
+            assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED, "{arch}/{name}");
+        }
+        h.name(&format!(r"{prefix}\zz-ZZ\fixture.dll.mui"));
+        assert_eq!(h.open(output, io), STATUS_OBJECT_PATH_NOT_FOUND);
+        #[cfg(unix)]
+        {
+            let foreign = h.directory.0.join("fixture.bin");
+            std::os::unix::fs::symlink(foreign, locale.join("fixture.dll.mui.link")).unwrap();
+            std::fs::rename(
+                locale.join("fixture.dll.mui.link"),
+                locale.join("fixture.dll.mui"),
+            )
+            .unwrap();
+            h.name(&format!(r"{prefix}\en-US\fixture.dll.mui"));
+            assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED);
+        }
+        assert!(!h.process.state().cfg.host_filesystem);
+    }
+}
+
+#[test]
 fn native_file_open_every_iosb_prefix_has_measured_ownership_and_atomic_store_effects() {
     use crate::user::windows::objects::Object;
     for arch in WinArch::ALL {

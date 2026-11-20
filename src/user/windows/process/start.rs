@@ -669,6 +669,7 @@ fn spawn_image_file(
         } else {
             None
         };
+        p.modules.installed_executable = installed.is_some();
         if let Some(file) = file.or(installed.as_ref())
             && let Some(filename) =
                 super::super::mapped_filename::Filename::image(file).map_err(SpawnError::Io)?

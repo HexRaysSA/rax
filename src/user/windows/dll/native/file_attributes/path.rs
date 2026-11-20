@@ -6,11 +6,13 @@ pub(in super::super) mod unix;
 use super::super::named_object::{Checked, status};
 use super::attributes::Attributes;
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::fs::find_case_insensitive;
 use crate::user::windows::hle::Ctx;
+use crate::user::windows::native::NativeRuntime;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_INVALID_HANDLE, STATUS_INVALID_PARAMETER,
-    STATUS_OBJECT_NAME_INVALID, STATUS_OBJECT_PATH_NOT_FOUND, STATUS_OBJECT_PATH_SYNTAX_BAD,
-    STATUS_OBJECT_TYPE_MISMATCH,
+    STATUS_OBJECT_NAME_INVALID, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+    STATUS_OBJECT_PATH_SYNTAX_BAD, STATUS_OBJECT_TYPE_MISMATCH,
 };
 use crate::user::windows::objects::Object;
 use std::ffi::OsString;
@@ -139,6 +141,66 @@ fn parts<'a>(c: &Ctx, name: &'a [u16]) -> Checked<(Vec<&'a [u16]>, bool)> {
     Ok((parts, directory))
 }
 
+fn confined_child(c: &Ctx, directory: &Path, name: &str, missing: u32) -> Checked<PathBuf> {
+    let Some(path) = find_case_insensitive(directory, name) else {
+        return status(missing);
+    };
+    let canonical = canonical_root(c, &path)?;
+    if canonical.parent() != Some(directory)
+        || !canonical
+            .file_name()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case(name))
+    {
+        return status(STATUS_ACCESS_DENIED);
+    }
+    Ok(canonical)
+}
+
+fn selected_mui(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked<Option<PathBuf>> {
+    let Some(separator) = path.iter().position(|&unit| unit == u16::from(b'\\')) else {
+        return Ok(None);
+    };
+    let (locale, filename) = (&path[..separator], &path[separator + 1..]);
+    if locale.is_empty()
+        || locale.len() > 85
+        || !locale.split(|&unit| unit == u16::from(b'-')).all(|part| {
+            (1..=8).contains(&part.len())
+                && part
+                    .iter()
+                    .all(|&unit| matches!(unit, 48..=57 | 65..=90 | 97..=122))
+        })
+        || filename.contains(&u16::from(b'\\'))
+    {
+        return Ok(None);
+    }
+    let filename = String::from_utf16(filename)
+        .map_err(|_| c.unsupported("selected MUI filename is not Unicode"))?;
+    let Some((owner, suffix)) = filename.rsplit_once('.') else {
+        return Ok(None);
+    };
+    if !suffix.eq_ignore_ascii_case("mui") {
+        return Ok(None);
+    }
+    let installed_executable = c.p.modules.installed_executable
+        && c.p
+            .modules
+            .list
+            .first()
+            .is_some_and(|exe| owner.eq_ignore_ascii_case(&exe.name));
+    let installed_dll = owner.to_ascii_lowercase().ends_with(".dll")
+        && runtime
+            .dll(owner)
+            .map_err(|error| c.unsupported(format!("selected MUI owner: {error}")))?
+            .is_some();
+    if !installed_executable && !installed_dll {
+        return Ok(None);
+    }
+    let locale = String::from_utf16(locale).expect("validated ASCII locale name");
+    let locale = confined_child(c, &runtime.directory, &locale, STATUS_OBJECT_PATH_NOT_FOUND)?;
+    confined_child(c, &locale, &filename, STATUS_OBJECT_NAME_NOT_FOUND).map(Some)
+}
+
 fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<PathBuf>> {
     let Some(runtime) = &c.p.native else {
         return Ok(None);
@@ -159,6 +221,9 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<PathBuf>> {
             continue;
         }
         let basename = &path[prefix.len() + 1..];
+        if !c.p.cfg.host_filesystem && basename.contains(&u16::from(b'\\')) {
+            return selected_mui(c, runtime, basename);
+        }
         if basename.len() < 5 || !equal(c, &basename[basename.len() - 4..], &[46, 100, 108, 108]) {
             continue;
         }
@@ -169,7 +234,7 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<PathBuf>> {
             .map_err(|_| c.unsupported("selected DLL basename is not Unicode"))?;
         return match runtime.dll_paths(&name) {
             Ok(Some((spelling, _))) => Ok(Some(spelling)),
-            Ok(None) => status(crate::user::windows::nt::status::STATUS_OBJECT_NAME_NOT_FOUND),
+            Ok(None) => status(STATUS_OBJECT_NAME_NOT_FOUND),
             Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
                 status(STATUS_ACCESS_DENIED)
             }
