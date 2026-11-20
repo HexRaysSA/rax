@@ -646,3 +646,62 @@ fn data_debug_sdk_failures_fence_entry_without_exporting_a_device_access() {
         }
     }
 }
+
+#[test]
+fn cmpxchg16b_last_byte_watch_survives_detached_mmio_completion() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let code = [0xf0, 0x48, 0x0f, 0xc7, 0x0b];
+    let (vm, memory, mut source) = seeded(&code, 0x183, false);
+    {
+        let mut sdk = SDK.lock().unwrap();
+        let native = sdk.cpus.values_mut().next().unwrap();
+        native.registers.insert(1, 0x1_0202); // RF/IF set, TF clear.
+        native.registers.insert(41, 0xfee0_000f); // DR0, last byte.
+        native.registers.insert(42, 0xfee0_0010); // DR1, first byte outside.
+        native.vmcs.insert(0x681a, 0x33_0405); // Two one-byte read/write watches.
+    }
+    let exit = source.run().unwrap();
+    assert!(matches!(
+        exit,
+        VcpuExit::MmioRmw {
+            addr: 0xfee0_0000,
+            size: 16,
+            ..
+        }
+    ));
+    assert!(!source.inject_interrupt(0x51).unwrap());
+    let boundary = vm.checkpoint_boundary().unwrap();
+    let (public, native) = source.capture_checkpoint_record(&boundary, None).unwrap();
+    let native = native.expect("pending native MMIO context");
+    drop(boundary);
+    drop(source);
+    drop(vm);
+    drop(memory);
+
+    let (_vm, _memory, mut target) = seeded(&code, 0x183, false);
+    target
+        .restore_checkpoint_context(&public.state, &public.emulator, Some(&native))
+        .unwrap();
+    let before = entries();
+    assert_eq!(format!("{:?}", target.run().unwrap()), format!("{exit:?}"));
+    target.complete_io_in(&2u128.to_le_bytes());
+    target.io_completion_result().unwrap();
+    assert_eq!(entries(), before);
+    assert_eq!(target.get_state().unwrap().pc(), 0x100 + code.len() as u64);
+
+    let pending = SDK
+        .lock()
+        .unwrap()
+        .cpus
+        .values()
+        .next()
+        .unwrap()
+        .vmcs
+        .get(&0x6822)
+        .copied();
+    assert_eq!(pending, Some(0x1001));
+    assert!(!target.inject_interrupt(0x51).unwrap());
+    assert!(!target.inject_nmi().unwrap());
+}

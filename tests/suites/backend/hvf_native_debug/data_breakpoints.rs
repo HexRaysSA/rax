@@ -36,7 +36,7 @@ fn every_slot_enable_type_width_and_overlap_boundary() {
         for enable in 0..4u64 {
             for condition in 0..4u64 {
                 for (encoded, length) in lengths {
-                    for size in [1u8, 2, 4, 8] {
+                    for size in [1u8, 2, 4, 8, 16] {
                         for writing in [false, true] {
                             for offset in 0..32u64 {
                                 let start = 0x1000 + offset;
@@ -64,6 +64,17 @@ fn every_slot_enable_type_width_and_overlap_boundary() {
 }
 
 #[test]
+fn cmpxchg16b_watch_includes_the_last_byte_and_excludes_the_following_byte() {
+    let address = 0x10_0000;
+    let addresses = [address + 7, address + 8, address + 15, address + 16];
+    // All four byte watches are enabled; slot 1 is write-only.
+    let dr7 = 0x400 | 0x55 | (3 << 16) | (1 << 20) | (3 << 24) | (3 << 28);
+    assert_eq!(causes(dr7, &addresses, address, 16, true), Ok(0x1007));
+    assert_eq!(causes(dr7, &addresses, address, 16, false), Ok(0x1005));
+    assert_eq!(causes(dr7, &addresses, address, 8, true), Ok(0x1001));
+}
+
+#[test]
 fn simultaneous_local_and_global_matches_accumulate_without_unrelated_status() {
     let addresses = [0x1000, 0x1001, 0x1002, 0x1003];
     let dr7 = 0x400 | 0xe7 | (3 << 16) | (3 << 20) | (1 << 24) | (3 << 28);
@@ -85,7 +96,7 @@ fn upper_linear_bits_and_wrapping_byte_extent_are_retained() {
         causes(0x3_0401, &[0, 0, 0, 0], u64::MAX, 2, false).unwrap(),
         0x1001
     );
-    for size in [0, 3, 5, 16, 255] {
+    for size in [0, 3, 5, 15, 17, 255] {
         assert!(causes(dr7, &addresses, 0, size, true).is_err());
     }
 }

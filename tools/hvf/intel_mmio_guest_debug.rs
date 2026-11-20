@@ -1,10 +1,10 @@
 //! Actual guest #DB after scalar EPT/port completion, including new owners.
 use super::*;
 
-const OBSERVATIONS: u64 = 0xa000;
+pub(super) const OBSERVATIONS: u64 = 0xa000;
 const DEBUG_HANDLER: u64 = 0xb000;
 const ASYNC_HANDLER: u64 = 0xb100;
-const IDT: u64 = 0xc000;
+pub(super) const IDT: u64 = 0xc000;
 const PORT: u16 = 0x3f8;
 const PORT_RAX: u64 = 0x1234_5678_9abc_def0;
 
@@ -139,7 +139,7 @@ struct PortAccess {
     enabled: bool,
 }
 
-fn debug_memory(code: &[u8], nmi: bool) -> GuestMemoryWrapper {
+pub(super) fn debug_memory(code: &[u8], nmi: bool) -> GuestMemoryWrapper {
     let memory = guest_memory(code);
     gate(&memory, 1, DEBUG_HANDLER);
     gate(&memory, if nmi { 2 } else { 0x51 }, ASYNC_HANDLER);
