@@ -209,6 +209,61 @@ fn native_alpc_csr_exchange_owns_repeated_reply_mappings_and_server_capture() {
 }
 
 #[test]
+fn native_alpc_csr_user_only_admits_the_measured_additional_profiles() {
+    use crate::user::windows::object_namespace::csr::CsrMetadata;
+
+    for (arch, build, session, admitted) in [
+        (WinArch::Arm64, 26200, 2, true),
+        (WinArch::X64, 26100, 2, true),
+        (WinArch::X64, 26100, 1, false),
+        (WinArch::X64, 20348, 2, false),
+    ] {
+        let (mut process, mut thread) = fixture(arch, "NtAlpcSendWaitReceivePort", SERVICE);
+        let p = process.state_mut();
+        p.object_namespace.native_machine = Some(arch.machine());
+        let version = &mut Arc::make_mut(&mut p.cfg).version;
+        version.major = 10;
+        version.minor = 0;
+        version.build = build;
+        let server_base = 0x0000_7fff_1234_0000;
+        let section = super::connect_csr_tests::data(Some(session), server_base);
+        let metadata = CsrMetadata {
+            arch,
+            kernel: (10, 0, build),
+            session,
+            server_base,
+            statics_offset: 0x750,
+            server_pid: 0x1500,
+        };
+        let data = client_data::native_fixture(0);
+        let server =
+            CsrServer::selected_with_client_data(section, metadata, Some(data.clone())).unwrap();
+        let backing = Arc::new(SharedObject::anonymous(65536).unwrap());
+        let peer = server.peer(backing.clone(), 65536).unwrap();
+        let remote = peer.base;
+        let view = p.vm.map_shared_view(backing, None, 0, 65536).unwrap();
+        let local = view.base;
+        let object = p.objects.create(Object::LpcPort(LpcPort::csr(view, peer)));
+        let port = p.objects.open_access(object, false, 0x1f0001).unwrap();
+        let (base, _) =
+            p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap();
+        let args = csr_request(p, base, local, remote, port);
+        let result = invoke(p, &mut thread, &args);
+        if admitted {
+            assert_eq!(result, Outcome::Continue);
+            assert_eq!(thread.cpu.gpr(0), 0);
+            assert_eq!(p.space.bytes(local + 0x778, 584).unwrap(), data.information);
+            assert!(data.owns_views(&p.vm));
+        } else {
+            assert!(matches!(result, Outcome::Fail(reason) if reason.contains("unmeasured CSR")));
+            assert_eq!(p.space.bytes(local + 0x778, 584).unwrap(), [0; 584]);
+            assert!(!data.owns_views(&p.vm));
+        }
+    }
+}
+
+#[test]
 fn native_alpc_csr_rejects_foreign_capture_and_changed_schema_without_publication() {
     for variant in 0..12 {
         let (mut process, mut t) = fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);

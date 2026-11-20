@@ -48,25 +48,24 @@ impl CsrClientData {
             // USER commits more handle-table pages as the session grows.
             // The allocation identity/extent and readonly snapshot stay fixed;
             // its nonempty committed prefix is not an ABI-sized field.
-            let valid_runs = if index == 0 {
-                matches!(section.regions.len(), 1 | 2)
-                    && section.regions.first().is_some_and(|prefix| {
-                        prefix.offset == 0
-                            && prefix.size != 0
-                            && prefix.size % 4096 == 0
-                            && prefix.size <= expected_size
-                            && prefix.bytes.is_some()
-                    })
-                    && section
-                        .regions
-                        .get(1)
-                        .is_none_or(|tail| tail.bytes.is_none())
-            } else {
-                section.regions.len() == 1
-                    && section.regions[0].offset == 0
-                    && section.regions[0].size == expected_size
-                    && section.regions[0].bytes.is_some()
-            };
+            // The measured AMD64 view has a 16 KiB committed prefix in
+            // its 32 KiB shared allocation. The ARM64 view is fully committed.
+            let valid_runs = matches!(section.regions.len(), 1 | 2)
+                && section.regions.first().is_some_and(|prefix| {
+                    prefix.offset == 0
+                        && prefix.bytes.is_some()
+                        && if index == 0 {
+                            prefix.size != 0
+                                && prefix.size % 4096 == 0
+                                && prefix.size <= expected_size
+                        } else {
+                            matches!(prefix.size, 16384 | 32768)
+                        }
+                })
+                && section
+                    .regions
+                    .get(1)
+                    .is_none_or(|tail| tail.bytes.is_none());
             if !section.path.is_empty()
                 || view.base == 0
                 || view.base % 65536 != 0

@@ -69,7 +69,17 @@ pub(super) fn client_connect(
         && length != 0
         && capacity == 952;
     let selected_base_nls = base_nls && (native_amd64 || arm64_plain_startup);
-    if !(native_arm64 || selected_base_nls)
+    let selected_user = user
+        && length != 0
+        && capacity == 952
+        && c.p.object_namespace.native_machine == Some(arch.machine())
+        && matches!(
+            c.p.objects.get(port),
+            Some(Object::LpcPort(endpoint)) if endpoint.peer().is_some_and(
+                |peer| peer.additional_user_kernel == Some(kernel)
+            )
+        );
+    if !(native_arm64 || selected_base_nls || selected_user)
         || send_attributes != 0
         || receive_attributes != 0
         || timeout != 0
@@ -108,6 +118,15 @@ pub(super) fn client_connect(
                 message[56..64] == [0; 8],
                 information_bytes,
                 message[76..80] == [0; 4],
+            ));
+        }
+        if wire_api == "0x0" && message.len() == 88 {
+            reason.push_str(&format!(
+                " USER request (lengths_match={}, header_flags_zero={}, +                 server_index_matches={}, information_bytes={})",
+                message[..4] == [48, 0, 88, 0],
+                message[4..8] == [0; 4],
+                word(message, 64) == 3,
+                word(message, 80),
             ));
         }
         return Err(c.unsupported(reason));

@@ -6,7 +6,7 @@ use std::io;
 
 #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 mod base_nls;
-#[cfg(target_arch = "aarch64")]
+#[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
 mod client_data;
 #[cfg(target_arch = "x86_64")]
 mod x64;
@@ -28,11 +28,14 @@ pub(super) fn capture_client_data(
 ) -> io::Result<
     Option<std::sync::Arc<crate::user::windows::object_namespace::csr::client_data::CsrClientData>>,
 > {
+    #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+    if metadata.supports_additional_user_client() {
+        // Existing BASE and console applications can start when USER data
+        // is unavailable. Only a guest requesting USER needs those views.
+        return Ok(client_data::capture(metadata).ok());
+    }
     #[cfg(target_arch = "aarch64")]
     {
-        if super::super::csr::supports_arm64_plain_startup(metadata.kernel, metadata.session) {
-            return Ok(None);
-        }
         return client_data::capture(metadata).map(Some);
     }
     #[cfg(not(target_arch = "aarch64"))]

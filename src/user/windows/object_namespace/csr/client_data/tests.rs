@@ -162,6 +162,55 @@ fn native_csr_client_data_accepts_growing_prefix_and_fully_committed_bounded_tab
 }
 
 #[test]
+fn native_csr_client_data_preserves_amd64_shared_reserve_tail() {
+    let committed = 16 * 1024;
+    let (mut information, mut views) = capture(LOGS[0]);
+    let base = views[1].base;
+    let old_prefix = views[1].section.regions[0].bytes.as_ref().unwrap();
+    views[1].section = DataSection::private_readonly(
+        32768,
+        vec![
+            DataRegion {
+                offset: 0,
+                size: committed,
+                bytes: Some(old_prefix[..committed as usize].into()),
+            },
+            DataRegion {
+                offset: committed,
+                size: 32768 - committed,
+                bytes: None,
+            },
+        ],
+    )
+    .unwrap();
+    for offset in POINTER_SLOTS {
+        let address = word(&information, offset);
+        if (base + committed..base + 32768).contains(&address) {
+            information[offset..offset + 8].fill(0);
+        }
+    }
+    let data = CsrClientData::selected(information, views).unwrap();
+    let mut vm = vm();
+    assert_eq!(data.map(&mut vm).unwrap().len(), 2);
+    assert!(data.owns_views(&vm));
+    assert!(vm.space().u8(base + committed - 1).is_ok());
+    assert!(vm.space().u8(base + committed).is_err());
+    assert!(vm.space().w8(base + committed - 1, 0).is_err());
+
+    information[56..64].copy_from_slice(&(base + committed).to_le_bytes());
+    assert!(
+        CsrClientData::selected(
+            information,
+            data.views.each_ref().map(|view| ClientView {
+                base: view.base,
+                section: view.section.clone(),
+            })
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn native_csr_client_data_replays_three_native_grown_geometries_without_relocating_views() {
     let geometry: serde_json::Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

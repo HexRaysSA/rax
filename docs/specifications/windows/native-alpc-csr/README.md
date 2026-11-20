@@ -43,6 +43,16 @@ private ports. No guest ALPC request is forwarded to host CSRSS.
 | WoW64 reads caller `SIZE_T` before native handle/access checks | Combined faults in priority v6/v12 |
 | WoW64 constructs the native total in 16 bits | Limits v9: `65535 + 40 = 65575`, truncated modulo 65536 to 39; native total below 40 returns `STATUS_INVALID_PARAMETER` |
 
+The [fixed USER shape run](https://github.com/HexRaysSA/rax/actions/runs/44749162706)
+observed two successful 584-byte requests from each native session-2 client on
+ARM64 build 26200 and AMD64 build 26100. Both preserved the trailing sentinel
+and reported the same SHAREDINFO relationships. The 32 KiB readonly shared
+allocation was fully committed on 26200. On 26100 its first 16 KiB were
+committed and the rest remained reserved. The 2 MiB handle-table allocation
+had a bounded, readonly committed prefix on both builds. The fixed request
+returned `STATUS_INVALID_PARAMETER` on AMD64 build 20348. The additional USER
+profiles apply only to the two successful build and session pairs.
+
 Native private limit probes use a 512-byte legacy port. They establish access,
 conversion, and failure ordering; they are not a positive oracle for a
 952-byte maximum. The selected CSR connection independently advertises 952
