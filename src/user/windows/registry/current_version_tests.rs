@@ -187,6 +187,121 @@ fn current_version_views_keep_distinct_values_records_aliases_and_shared_routes(
 }
 
 #[test]
+fn current_version_projects_only_the_disabled_native_extension_flag() {
+    let subject = ProcessConfigKey::DisabledLegacyExtensions;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let flag = super::process_config::LEGACY_EXTENSION_FLAG;
+    let value = Value {
+        name: units(flag),
+        kind: 4,
+        data: vec![0; 4],
+    };
+    let key_header = CommandHeader {
+        canonical: units(subject.path()),
+        children: 0,
+        enumeration: None,
+        values: vec![value.clone()],
+        access: KeyAccess {
+            maximum_access: 0x20019,
+            system_security_status: 0xC0000061,
+        },
+    };
+    for (view, candidate) in [
+        (RegistryView::Native64, vec![]),
+        (
+            RegistryView::Native64,
+            vec![Value {
+                data: vec![1, 0, 0, 0],
+                ..value.clone()
+            }],
+        ),
+        (
+            RegistryView::Native64,
+            vec![Value {
+                kind: 3,
+                ..value.clone()
+            }],
+        ),
+        (
+            RegistryView::Native64,
+            vec![Value {
+                data: vec![0; 8],
+                ..value.clone()
+            }],
+        ),
+        (
+            RegistryView::Native64,
+            vec![
+                value.clone(),
+                Value {
+                    name: units("Unselected"),
+                    ..value.clone()
+                },
+            ],
+        ),
+        (RegistryView::Wow32, vec![value.clone()]),
+    ] {
+        let mut header = key_header.clone();
+        header.values = candidate;
+        assert!(
+            registry()
+                .with_snapshot_selection(root, &[], view, Ok((header, None)))
+                .is_err()
+        );
+    }
+
+    let native = RegistryView::Native64;
+    let wow = RegistryView::Wow32;
+    let make_parent = |path: &str| {
+        header_with_entries(
+            units(path),
+            vec![BasicChild {
+                name: units("Windows"),
+                last_write: 0,
+            }],
+            0,
+        )
+    };
+    let registry = registry()
+        .with_machine_hive(MachineHeader {
+            enumeration: None,
+            canonical: units(MACHINE_HIVE_KEY),
+            children: 6,
+            values: vec![],
+            access: key_header.access,
+        })
+        .unwrap()
+        .with_snapshot_selection(root, &[], native, Ok((key_header, None)))
+        .unwrap()
+        .with_current_version(native, Ok(make_parent(CURRENT_VERSION_KEY)))
+        .unwrap()
+        .with_current_version(wow, Ok(make_parent(CURRENT_VERSION_WOW_KEY)))
+        .unwrap();
+    let Lookup::Present(selected) = registry.lookup_view(&units(subject.path()), native) else {
+        panic!("the absolute native startup key was not selected");
+    };
+    let machine = registry.key(&units(MACHINE_HIVE_KEY)).unwrap();
+    let relative = subject.path().strip_prefix(MACHINE_HIVE_KEY).unwrap();
+    let parent = registry.key(&units(CURRENT_VERSION_KEY)).unwrap();
+    for lookup in [
+        machine.relative_in_view(&units(relative), native),
+        parent.relative(&units("windows")),
+    ] {
+        let Lookup::Present(key) = lookup else {
+            panic!("the relative native startup key was not selected");
+        };
+        assert!(Arc::ptr_eq(&key, &selected));
+    }
+    assert_eq!(selected.value(&units(flag)), Some(&value));
+    assert!(!selected.covers_value(&units("Unselected")));
+    assert!(selected.ordered_values().is_none());
+    assert!(matches!(
+        registry.lookup_view(&units(subject.path()), wow),
+        Lookup::Unselected
+    ));
+}
+
+#[test]
 fn current_version_retained_roots_own_shared_routes_without_cycles() {
     let registry = paired();
     let Lookup::Present(key) =

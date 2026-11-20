@@ -1,5 +1,5 @@
 //! Query fixed startup values once during library selection.
-use super::super::process_config::{ProcessConfigKey, SYSTEM_SETUP_VALUES};
+use super::super::process_config::{LEGACY_EXTENSION_FLAG, ProcessConfigKey, SYSTEM_SETUP_VALUES};
 use super::super::{CommandHeader, RegistryView, SnapshotRoot};
 use super::*;
 use crate::user::windows::nt::status::{
@@ -15,7 +15,10 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
                 Ok(key) => {
                     let canonical = canonical_hive_name(&key, subject.label())?;
                     subject.check_name(&registry, view, &canonical)?;
-                    capture_header(subject, &key, canonical)?.map(|header| (header, None))
+                    capture_header(subject, &key, canonical, || {
+                        capture_values(&key, subject.values())
+                    })?
+                    .map(|header| (header, None))
                 }
                 Err(
                     status @ (STATUS_OBJECT_NAME_NOT_FOUND
@@ -32,19 +35,71 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
             registry = registry.with_snapshot_selection(root, &[], view, selected)?;
         }
     }
-    Ok(registry)
+    capture_disabled_extensions(registry)
+}
+
+fn capture_disabled_extensions(registry: Registry) -> io::Result<Registry> {
+    let subject = ProcessConfigKey::DisabledLegacyExtensions;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let view = RegistryView::Native64;
+    let path = root.path(&[])?;
+    let Ok(key) = super::native_key::open_view(&path, view) else {
+        return Ok(registry);
+    };
+    let canonical = canonical_hive_name(&key, subject.label())?;
+    subject.check_name(&registry, view, &canonical)?;
+    let Ok(header) = capture_header(subject, &key, canonical, || {
+        capture_values_with(&key, || Ok(disabled_extension_flag(&key)))
+    })?
+    else {
+        return Ok(registry);
+    };
+    if !subject.accepts_values(view, &header.values) {
+        return Ok(registry);
+    }
+    registry.with_snapshot_selection(root, &[], view, Ok((header, None)))
+}
+
+fn disabled_extension_flag(key: &OwnedKey) -> Vec<Value> {
+    let name: Vec<_> = LEGACY_EXTENSION_FLAG
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let (mut kind, mut size, mut data) = (0, 4, [0_u8; 4]);
+    // SAFETY: live read-only query of a fixed terminated name and four-byte
+    // buffer. The guest projection contains exclusively the disabled DWORD.
+    let status = unsafe {
+        RegQueryValueExW(
+            key.0,
+            name.as_ptr(),
+            null_mut(),
+            &mut kind,
+            data.as_mut_ptr(),
+            &mut size,
+        )
+    };
+    if status == 0 && kind == 4 && size == 4 && data == [0; 4] {
+        vec![Value {
+            name: name[..name.len() - 1].to_vec(),
+            kind,
+            data: data.to_vec(),
+        }]
+    } else {
+        Vec::new()
+    }
 }
 
 fn capture_header(
     subject: ProcessConfigKey,
     key: &OwnedKey,
     canonical: Vec<u16>,
+    values: impl FnOnce() -> io::Result<(u32, Vec<Value>)>,
 ) -> io::Result<Result<CommandHeader, u32>> {
     let access = super::command_processor::subtree::access(key, &canonical)?;
     if access.maximum_access & 1 == 0 {
         return Ok(Err(STATUS_ACCESS_DENIED));
     }
-    let (children, values) = capture_values(key, subject.values())?;
+    let (children, values) = values()?;
     if canonical_hive_name(key, subject.label())? != canonical
         || super::native_key::basic(key, subject.label())? != access.maximum_access
     {
@@ -80,14 +135,20 @@ pub(super) fn system_setup() -> io::Result<Option<SelectedKey>> {
 }
 
 fn capture_values(key: &OwnedKey, names: &[&str]) -> io::Result<(u32, Vec<Value>)> {
+    capture_values_with(key, || {
+        names
+            .iter()
+            .filter_map(|name| query(key, name).transpose())
+            .collect()
+    })
+}
+
+fn capture_values_with(
+    key: &OwnedKey,
+    sample: impl Fn() -> io::Result<Vec<Value>>,
+) -> io::Result<(u32, Vec<Value>)> {
     for _ in 0..3 {
         let before = stamp(key)?;
-        let sample = || -> io::Result<Vec<Value>> {
-            names
-                .iter()
-                .filter_map(|name| query(key, name).transpose())
-                .collect()
-        };
         let (first, second) = match sample().and_then(|first| Ok((first, sample()?))) {
             Ok(pair) => pair,
             Err(error) if error.raw_os_error() == Some(234) => continue,
