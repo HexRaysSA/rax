@@ -122,7 +122,10 @@ pub(super) fn client_connect(
         }
         if wire_api == "0x0" && message.len() == 88 {
             reason.push_str(&format!(
-                " USER request (lengths_match={}, header_flags_zero={}, +                 server_index_matches={}, information_bytes={})",
+                concat!(
+                    " USER request (lengths_match={}, header_flags_zero={}, ",
+                    "server_index_matches={}, information_bytes={})"
+                ),
                 message[..4] == [48, 0, 88, 0],
                 message[4..8] == [0; 4],
                 word(message, 64) == 3,

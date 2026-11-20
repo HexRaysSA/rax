@@ -3,8 +3,6 @@ use std::ffi::c_void;
 use std::io;
 use std::mem::size_of;
 
-const INFORMATION_BYTES: usize = 584;
-const INFORMATION_WORDS: usize = INFORMATION_BYTES / 8;
 const SENTINEL: u64 = 0xa5a5_a5a5_a5a5_a5a5;
 const MAX_VIEW_BYTES: usize = 8 * 1024 * 1024;
 const MEM_COMMIT: u32 = 0x1000;
@@ -98,6 +96,16 @@ fn view(base: usize) -> io::Result<View> {
 }
 
 fn main() -> io::Result<()> {
+    let information_bytes = match std::env::args().nth(1).as_deref() {
+        Some("576") => 576,
+        None | Some("584") => 584,
+        _ => {
+            return Err(io::Error::other(
+                "expected the observed 576- or 584-byte USER size",
+            ));
+        }
+    };
+    let information_words = information_bytes / 8;
     let mut session = 0;
     // SAFETY: fixed current process identity and a writable local DWORD.
     if unsafe { ProcessIdToSessionId(GetCurrentProcessId(), &mut session) } == 0 {
@@ -109,10 +117,13 @@ fn main() -> io::Result<()> {
         format!("\\Sessions\\{session}\\Windows")
     };
     let directory: Vec<_> = path.encode_utf16().chain([0]).collect();
-    println!("arch={} session={session}", std::env::consts::ARCH);
+    println!(
+        "arch={} session={session} information_bytes={information_bytes}",
+        std::env::consts::ARCH
+    );
     for sample in 0..2 {
         let mut data = [0u64; 128];
-        data[INFORMATION_WORDS..].fill(SENTINEL);
+        data[information_words..].fill(SENTINEL);
         let mut inside = 0xa5;
         // SAFETY: normal current-session USER initialization, with the proved
         // scalar ULONG ABI and a zeroed, aligned, caller-owned output buffer.
@@ -121,11 +132,11 @@ fn main() -> io::Result<()> {
                 directory.as_ptr(),
                 3,
                 data.as_mut_ptr().cast(),
-                INFORMATION_BYTES as u32,
+                information_bytes as u32,
                 &mut inside,
             )
         };
-        let tail_unchanged = data[INFORMATION_WORDS..]
+        let tail_unchanged = data[information_words..]
             .iter()
             .all(|&word| word == SENTINEL);
         println!(

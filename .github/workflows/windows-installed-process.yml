@@ -185,12 +185,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $exeHash = (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
           $PSNativeCommandUseErrorActionPreference = $false
-          & $exe 2>&1 | Tee-Object -FilePath $log
+          $kernel = [Environment]::OSVersion.Version
+          $userBytes = if ($env:RAX_TEST_TARGET -eq 'x86_64-pc-windows-msvc' -and
+              $kernel.Build -eq 20348) { 576 } else { 584 }
+          & $exe $userBytes 2>&1 | Tee-Object -FilePath $log
           $exitCode = $LASTEXITCODE
           $identity = [ordered]@{
             source_commit = $env:GITHUB_SHA
             kernel = [Environment]::OSVersion.Version.ToString()
             target = $env:RAX_TEST_TARGET
+            information_bytes = $userBytes
             source_sha256 = $sourceHash
             ntdll_sha256 = $ntdllHash
             exe_sha256 = $exeHash
