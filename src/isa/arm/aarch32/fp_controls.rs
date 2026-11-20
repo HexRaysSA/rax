@@ -42,11 +42,21 @@ pub(crate) struct FpAccessContext {
     pub nsacr: u32,
     pub hcptr: u32,
     pub hcr: u64,
+    #[serde(skip)] // Transient projection of SystemRegisters, never checkpoint-owned.
+    pub hstr: u32,
     pub cptr_el2: u64,
     pub cptr_el3: u64,
 }
 
 impl FpAccessContext {
+    pub(in crate::isa::arm) fn traps_cp15(self, crn: u8) -> bool {
+        const HOST: u64 = (1 << 34) | (1 << 27); // HCR_EL2.{E2H,TGE}
+        self.current_el <= 1
+            && self.el2_enabled
+            && self.hstr & (1 << crn) != 0
+            && !(self.vhe && self.hcr & HOST == HOST)
+    }
+
     pub(crate) fn effective_fpexc_enabled(self) -> bool {
         self.fpexc & (1 << 30) != 0
             || self.current_el == 0
@@ -549,6 +559,7 @@ impl super::cpu::Armv7Cpu {
             nsacr: self.cp15.nsacr,
             hcptr: self.cp15.hcptr,
             hcr: u64::from(self.cp15.hcr),
+            hstr: 0,
             cptr_el2: 0,
             cptr_el3: 0,
         }
@@ -574,6 +585,7 @@ mod shared_policy_tests {
             fpexc: 1 << 30,
             nsacr: 0,
             hcptr: 0,
+            hstr: 0,
             hcr: (1 << 34) | (1 << 27),
             cptr_el2: 1 << 20,
             cptr_el3: 0,

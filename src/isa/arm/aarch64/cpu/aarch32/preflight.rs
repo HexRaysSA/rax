@@ -44,7 +44,7 @@ impl AArch64Cpu {
                 && cp == 15
                 && matches!(
                     (opc1, crn, crm, opc2),
-                    (0, 1, 0, 2) | (0, 1, 1, 2) | (4, 1, 1, 0 | 2)
+                    (0, 1, 0, 2) | (0, 1, 1, 2) | (4, 1, 1, 0 | 2 | 3)
                 );
             let fp_instruction_id = insn.mnemonic == Mnemonic::MRC
                 && cp == 15
@@ -58,7 +58,20 @@ impl AArch64Cpu {
                 && cp == 15
                 && (insn.raw >> 4) & 15 <= 1
                 && crm == 14;
-            if !(fp_system || fp_control || fp_instruction_id || thread_id || frequency || counter)
+            // A selected HSTR bit can intercept a scalar CP15 transfer
+            // even when its ordinary register effects are unimplemented.
+            // Execution still owns the EL0 check and trap delivery.
+            let hstr_trap = scalar
+                && cp == 15
+                && insn.raw >> 28 != 15
+                && self.aarch32_fp_context().traps_cp15(crn as u8);
+            if !(fp_system
+                || fp_control
+                || fp_instruction_id
+                || thread_id
+                || frequency
+                || counter
+                || hstr_trap)
             {
                 return Err(ArmError::UnsupportedExecutionState(format!(
                     "AArch32 coprocessor transfer {:#010x}",

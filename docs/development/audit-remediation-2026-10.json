@@ -200052,6 +200052,16 @@
       "full_goal_complete": false
     },
     {
+      "id": "a32-mixed-width-hstr-scalar-cp15-2026-11-20",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "One HSTR_EL2 and AArch32 Hyp control bank, legacy-slot isolation, and precise interception of represented and selected otherwise unsupported scalar CP15 transfers. Independent QEMU and public-vCPU probes cover ARM and Thumb. The seven owning test targets and full Linux library passed 61,743 tests with 5 ignored, zero failed, and zero filtered. Double-register interception, standalone AArch32 HSTR and physical Arm remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#mixed-width-hstr-interception",
+      "full_goal_complete": false
+    },
+    {
       "id": "x86-software-nmi-blocking-2026-11-20",
       "findings": [
         "C-STATE",

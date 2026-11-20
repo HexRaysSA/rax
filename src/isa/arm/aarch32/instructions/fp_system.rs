@@ -6,6 +6,7 @@ use crate::isa::arm::common::sysreg::Cp15Encoding;
 
 const CPACR: (u8, u8, u8, u8) = (1, 0, 0, 2);
 const HCPTR: (u8, u8, u8, u8) = (1, 4, 1, 2);
+const HSTR: (u8, u8, u8, u8) = (1, 4, 1, 3);
 const NSACR: (u8, u8, u8, u8) = (1, 0, 1, 2);
 const NSACR_NONSECURE_DEFAULT: u32 = (1 << 10) | (1 << 11);
 
@@ -50,6 +51,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     ) -> Option<ExecResult> {
         let k = key(enc);
         let context = self.cpu.fp_control_context();
+        if context.traps_cp15(enc.crn) {
+            // The scalar transfer already passed its predicate and EL0
+            // privilege checks. The selector precedes register-specific traps.
+            return Some(self.fp_cp15_trap(insn, 2, context.el2_aarch64));
+        }
+        if k == HSTR && context.el3_aarch64 && context.current_el != 2 {
+            return Some(ExecResult::Undefined);
+        }
         if k == NSACR && context.el3_aarch64 {
             // The mixed-width PE has no AArch32 EL3 register bank. Its
             // Non-secure reads expose the architected default at EL1/EL2.
@@ -146,6 +155,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(super) fn fp_cp15_read(&self, enc: Cp15Encoding) -> Option<u32> {
+        if key(enc) == HSTR {
+            return self.cpu.fp_access_context.map(|context| context.hstr);
+        }
         let mut value = self.cpu.cp15.read(enc)?;
         let vfp = &self.cpu.vfp;
         value = match key(enc) {
@@ -159,6 +171,12 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(super) fn fp_cp15_write(&mut self, enc: Cp15Encoding, value: u32) -> bool {
+        if key(enc) == HSTR
+            && let Some(context) = &mut self.cpu.fp_access_context
+        {
+            context.hstr = value;
+            return true;
+        }
         let (zero, one) = self.fp_ns_cp15_clamp(enc);
         // RAZ/WI and RAO/WI views leave the underlying shared register intact.
         let ignored = zero | one;

@@ -86,7 +86,7 @@ and reported zero failures.
 | --- | --- | --- |
 | The enclosing PE implements EL3 in AArch64 or omits EL3. | High | Run both configurations and verify identical Non-secure read and write outcomes. |
 | Selecting the fallback does not change the standalone Armv7 NSACR bank. | High | Compare the standalone bank behavior and the complete owning A32 targets. |
-| HSTR.T1 interception precedes these defaults on profiles that implement it. | High | Set HSTR.T1 and require an EL2 trap. HSTR is unimplemented in this PE. |
+| HSTR.T1 interception precedes these defaults on profiles that implement it. | High | Set HSTR.T1 and require an EL2 trap. See the mixed-width HSTR qualification below. |
 | Secure EL2 routing follows the represented security controls. | Medium | Toggle SCR_EL3.EEL2 with FEAT_SEL2 enabled. The public-vCPU and QEMU probes observed the corresponding EL3 and EL2 vectors. |
 
 QEMU 11.1.2 independently reproduced the Non-secure read value, the
@@ -95,6 +95,53 @@ Undefined write, and the Secure EL3 syndromes `0x0fe40403` (read) and
 for both operations. Eight further public-vCPU cases switch the Secure
 trap between EL2 and EL3 in ARM and Thumb. QEMU independently confirms
 both destinations and ESR values for ARM. Physical Arm remains untested.
+
+## Mixed-width HSTR interception
+
+The AArch64 HSTR_EL2 register and its AArch32 Hyp alias share the enclosing
+PE's system register bank. The CPU checkpoint already includes that bank.
+The new trap control uses a reserved checkpoint slot. A generic value
+from a pre-HSTR checkpoint leaves the control at RAX's reset value of zero.
+Bits 63:16, T14, and T4 read as zero and ignore writes. An EL3 read exposes zero when the profile omits AArch32 or EL2. The stored trap selection applies
+only when EL2 is enabled in the current security state and the effective
+VHE host combination is clear.
+[Arm HSTR_EL2](https://df.lth.se/~getz/ARM/SysReg/AArch64-hstr_el2.html)
+[Arm AArch32 HSTR](https://df.lth.se/~getz/ARM/SysReg/AArch32-hstr.html)
+[Arm A64 shared pseudocode, AArch64_CheckCP15InstrCoarseTraps](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L13037)
+
+For scalar MRC and MCR transfers, the CRn selector is checked
+after the instruction predicate and the EL0 privilege gate, then before
+register-specific traps and effects. Trap delivery preserves the source
+register and reports EC 0x03 through ESR_EL2 or the AArch32 Hyp HSR.
+Each transfer performs one constant-time selector check with no allocation.
+A selected EL1 transfer can take this trap even when RAX lacks its
+ordinary register effects. With the selector clear, the existing execution
+boundary still applies.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| HSTR_EL2.T1 intercepts the NSACR access before its ordinary read or write rule. | High | Toggle T1 for ARM and Thumb NSACR reads and writes. Require zero retirement and the original operand on a trap. |
+| The AArch32 Hyp alias uses the enclosing EL2 bank. | High | Write and read the alias in Hyp, enter AArch32 EL1 and check the resulting exception syndrome. |
+| Saved generic values cannot arm the new control. | High | Restore a legacy-format generic value at the exact architectural encoding, then read HSTR_EL2 from EL2 and require zero. Check that AArch64 reads and writes below EL2 take Undefined Instruction. |
+| The trap-only path cannot perform the ordinary operation. | High | Set T1 for a SCTLR read and T7 for the legacy CP15 wait and CP15DMB. Check ARM and Thumb syndrome, unchanged R0, handler PC, and zero retirement. Clear the selectors and require the same unsupported-state result as the parent. |
+| The selector respects register class, privilege and condition execution. | High | Toggle C0, C1 and C13 selectors for ID_ISAR5, CPACR and TPIDRURW. Require EL0 NSACR denial and a false ARM condition to keep their existing result. |
+
+QEMU 11.1.2 matched eight ARM/Thumb NSACR cases for AArch64 EL2 and eight
+for AArch32 Hyp, including enabled and disabled controls. The independent
+18-case public step probe covered CPACR, ID_ISAR5, TPIDRURW, denied EL0
+NSACR, and a false ARM condition. The owning regressions also exercise
+restore into a fresh core with the original trap selector. A separate
+QEMU Cortex-A53 run reproduced the T1 and T7 cases with ESR values
+`0x0fe00401`, `0x0fe81c00`, and `0x0fea1c14`, with six enabled and six
+disabled cases. The RAX parent stopped with an unsupported execution state
+for an enabled legacy CP15 wait. With the trap selected, the candidate
+delivered all six ARM and Thumb exceptions. The candidate's six disabled
+controls preserved the parent boundary. General double-register CP15
+traps, standalone AArch32 HSTR and physical Arm qualification remain open.
+
+The seven complete owning integration targets passed 47,598 tests. The full
+library passed 14,145 with 5 ignored. Both runs reported zero failures
+and zero filtered cases.
 
 ## Register-pair admission and data routing
 

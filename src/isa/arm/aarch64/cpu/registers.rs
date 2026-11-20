@@ -9,7 +9,7 @@ use crate::isa::arm::aarch64::exceptions::{
 };
 use crate::isa::arm::aarch64::gic::{Gic, GicConfig};
 use crate::isa::arm::aarch64::mmu::{Mmu, MmuConfig, TranslationFault, TranslationGranule};
-use crate::isa::arm::aarch64::sysregs::SystemRegisters;
+use crate::isa::arm::aarch64::sysregs::{HSTR_EL2, SystemRegisters};
 use crate::isa::arm::aarch64::{NUM_ELS, NUM_GPRS, NUM_SIMD_REGS, sctlr};
 
 use crate::isa::arm::common::cpu::{
@@ -210,7 +210,9 @@ impl AArch64Cpu {
 
     /// Read system register.
     pub(crate) fn read_sysreg(&self, encoding: Aarch64SysRegEncoding) -> Result<u64, ArmError> {
-        if encoding == Aarch64SysRegEncoding::new(3, 4, 14, 0, 3) && self.current_el < 2 {
+        if self.current_el < 2
+            && (encoding == Aarch64SysRegEncoding::new(3, 4, 14, 0, 3) || encoding == HSTR_EL2)
+        {
             return Err(ArmError::InvalidExceptionLevel(self.current_el));
         }
         // A trusted process personality can provide its kernel's user cycle
@@ -444,7 +446,9 @@ impl AArch64Cpu {
         encoding: Aarch64SysRegEncoding,
         value: u64,
     ) -> Result<(), ArmError> {
-        if encoding == Aarch64SysRegEncoding::new(3, 4, 14, 0, 3) && self.current_el < 2 {
+        if self.current_el < 2
+            && (encoding == Aarch64SysRegEncoding::new(3, 4, 14, 0, 3) || encoding == HSTR_EL2)
+        {
             return Err(ArmError::InvalidExceptionLevel(self.current_el));
         }
         if self.current_el == 0 && !Self::sysreg_write_allowed_at_el0(encoding) {

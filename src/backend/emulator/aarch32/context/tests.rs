@@ -311,6 +311,7 @@ fn projected_enclosing_pe_context_is_rejected_before_mutation() {
         nsacr: 0xc00,
         hcptr: 0,
         hcr: 0,
+        hstr: 0,
         cptr_el2: 0,
         cptr_el3: 0,
     });

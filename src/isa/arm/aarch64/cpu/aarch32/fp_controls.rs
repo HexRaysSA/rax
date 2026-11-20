@@ -38,6 +38,7 @@ impl AArch64Cpu {
             nsacr: 0,
             hcptr: cptr_el2 as u32,
             hcr: controls.hcr_el2,
+            hstr: self.sysregs.hstr(),
             cptr_el2,
             cptr_el3: register(6),
         }
@@ -62,6 +63,11 @@ impl AArch64Cpu {
         }
         if cpu.cp15.hcr != self.sysregs.hcr_el2 as u32 {
             self.sysregs.hcr_el2 = (self.sysregs.hcr_el2 & !0xffff_ffff) | u64::from(cpu.cp15.hcr);
+        }
+        if let Some(context) = cpu.fp_access_context
+            && context.hstr != self.sysregs.hstr()
+        {
+            self.sysregs.write_hstr(context.hstr);
         }
     }
 }

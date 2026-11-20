@@ -9,6 +9,12 @@ use crate::isa::arm::aarch32::cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16,
 use crate::isa::arm::aarch32::fp_admission::{effective_id_isar5, effective_id_isar6};
 use crate::isa::arm::common::sysreg::{Aarch64SysReg, Aarch64SysRegEncoding};
 
+pub(super) const HSTR_EL2: Aarch64SysRegEncoding = Aarch64SysRegEncoding::new(3, 4, 1, 1, 3);
+// Op0=0 is outside the MRS/MSR register encoding space. Older checkpoints
+// may have retained an untyped write at the architectural HSTR_EL2 encoding.
+// That entry cannot establish the new trap control's value.
+const HSTR_CHECKPOINT_SLOT: u16 = Aarch64SysRegEncoding::new(0, 4, 1, 1, 3).encode();
+
 // =============================================================================
 // System Register Bank (per-EL storage)
 // =============================================================================
@@ -353,7 +359,7 @@ pub struct SystemRegisters {
     // =========================================================================
     // Implementation Defined Registers (generic storage)
     // =========================================================================
-    /// Implementation defined register storage.
+    /// Implementation-defined values and reserved private checkpoint slots.
     pub impl_defined: HashMap<u16, u64>,
 }
 
@@ -364,6 +370,32 @@ impl Default for SystemRegisters {
 }
 
 impl SystemRegisters {
+    fn hstr_mask(&self) -> u32 {
+        let el2 = (self.id_aa64pfr0_el1 >> 8) & 15;
+        let aarch32 = (0..=2).any(|el| (self.id_aa64pfr0_el1 >> (4 * el)) & 15 == 2);
+        if aarch32 && matches!(el2, 1 | 2) {
+            0xbfef // All T<n> fields except RES0 bits 14 and 4.
+        } else {
+            0
+        }
+    }
+
+    pub(super) fn hstr(&self) -> u32 {
+        self.impl_defined
+            .get(&HSTR_CHECKPOINT_SLOT)
+            .copied()
+            .unwrap_or(0) as u32
+            & self.hstr_mask()
+    }
+
+    pub(super) fn write_hstr(&mut self, value: u32) {
+        let mask = self.hstr_mask();
+        if mask != 0 {
+            self.impl_defined
+                .insert(HSTR_CHECKPOINT_SLOT, u64::from(value & mask));
+        }
+    }
+
     /// Create a new system register state with reset values.
     pub fn new() -> Self {
         Self {
@@ -704,6 +736,8 @@ impl SystemRegisters {
 
             // HCR_EL2
             (3, 4, 1, 1, 0) => Some(self.hcr_el2),
+            // HSTR_EL2 shares the EL2 store with the AArch32 Hyp alias.
+            (3, 4, 1, 1, 3) => (current_el >= 2).then(|| u64::from(self.hstr())),
             // VTCR_EL2
             (3, 4, 2, 1, 2) => Some(self.vtcr_el2),
             // VTTBR_EL2
@@ -784,6 +818,7 @@ impl SystemRegisters {
             (3, 3, 2, 4, 1) => Some(self.rndrrs),
 
             // Check implementation defined storage
+            _ if enc == HSTR_CHECKPOINT_SLOT => None,
             _ => self.impl_defined.get(&enc).copied(),
         }
     }
@@ -981,6 +1016,13 @@ impl SystemRegisters {
                 self.hcr_el2 = value;
                 true
             }
+            (3, 4, 1, 1, 3) => {
+                if current_el < 2 {
+                    return false;
+                }
+                self.write_hstr(value as u32);
+                true
+            }
             // VTCR_EL2
             (3, 4, 2, 1, 2) => {
                 self.vtcr_el2 = value;
@@ -1123,6 +1165,9 @@ impl SystemRegisters {
             // Store in implementation defined
             _ => {
                 let enc = encoding.encode();
+                if enc == HSTR_CHECKPOINT_SLOT {
+                    return false;
+                }
                 self.impl_defined.insert(enc, value);
                 true
             }

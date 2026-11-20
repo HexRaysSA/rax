@@ -65,16 +65,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             if !self.cpu.is_privileged() && !self.pl0_cp15(insn, false, reg, opc1, crm, opc2) {
                 return ExecResult::Undefined;
             }
-            let value = self.reg(t);
+            let enc = crate::isa::arm::common::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
+            if let Some(fault) = self.fp_cp15_fault(insn, enc, false) {
+                return fault;
+            }
             // WFI (MCR p15, 0, Rt, c7, c0, 4): ARMv6 wait-for-interrupt.
             if opc1 == 0 && reg == 7 && crm == 0 && opc2 == 4 {
                 self.cpu.is_halted = true;
                 return ExecResult::Halt;
             }
-            let enc = crate::isa::arm::common::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
-            if let Some(fault) = self.fp_cp15_fault(insn, enc, false) {
-                return fault;
-            }
+            let value = self.reg(t);
             // Cache/TLB maintenance (CRn 7/8) and unmodelled registers are
             // accepted as no-ops; everything modelled lands in Cp15State.
             let _ = self.fp_cp15_write(enc, value);
