@@ -9,13 +9,19 @@ use std::{
 };
 
 const MAX_ENTRIES: usize = 2048;
+pub(super) type AcceptFile = fn(&std::fs::File) -> std::io::Result<bool>;
+
 #[derive(Debug)]
 pub(super) struct Roots {
     roots: BTreeMap<String, PathBuf>,
     entries: Mutex<BTreeMap<String, Entry>>,
+    accept: Option<AcceptFile>,
 }
 impl Roots {
-    pub(super) fn new(roots: BTreeMap<String, PathBuf>) -> std::io::Result<Self> {
+    pub(super) fn new(
+        roots: BTreeMap<String, PathBuf>,
+        accept: Option<AcceptFile>,
+    ) -> std::io::Result<Self> {
         let mut canonical = BTreeMap::new();
         for (guest, host) in roots {
             validate(&guest).map_err(std::io::Error::other)?;
@@ -36,6 +42,7 @@ impl Roots {
         Ok(Self {
             roots: canonical,
             entries: Mutex::new(BTreeMap::new()),
+            accept,
         })
     }
     pub(super) fn paths(&self) -> impl Iterator<Item = &str> {
@@ -107,8 +114,13 @@ impl Roots {
         if entries.len() >= MAX_ENTRIES {
             return Err(Error::TooLarge);
         }
+        let origin = if self.accept.is_some() {
+            0xc000_0000_0000_0000
+        } else {
+            0x8000_0000_0000_0000
+        };
         let entry = Entry {
-            ino: 0x8000_0000_0000_0000 | entries.len() as u64,
+            ino: origin | entries.len() as u64,
             kind,
         };
         entries.insert(path.to_owned(), entry.clone());
@@ -137,6 +149,11 @@ impl Roots {
         }
         let file = options.open(host).map_err(|_| Error::Io)?;
         if !file.metadata().map_err(|_| Error::Io)?.is_file() {
+            return Err(Error::NotFound);
+        }
+        if let Some(accept) = self.accept
+            && !accept(&file).map_err(|_| Error::Io)?
+        {
             return Err(Error::NotFound);
         }
         self.insert(

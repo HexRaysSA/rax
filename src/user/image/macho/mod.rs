@@ -305,11 +305,19 @@ pub fn grade(host: HostCpu, cputype: u32, subtype: u32, features: u32) -> u32 {
 /// shorter file), every slice must lie after the table and inside the file,
 /// no two may overlap, and no CPU type/subtype pair may repeat.
 pub fn fat_arches(bytes: &[u8], page_size: u64) -> Result<Vec<FatArch>, MachOError> {
-    let r = Reader { bytes };
+    fat_arches_with_file_size(bytes, page_size, bytes.len() as u64)
+}
+
+/// Validate a fat header read separately from the rest of its backing file.
+pub(crate) fn fat_arches_with_file_size(
+    header: &[u8],
+    page_size: u64,
+    file_size: u64,
+) -> Result<Vec<FatArch>, MachOError> {
+    let r = Reader { bytes: header };
     if r.u32_be(0).map_err(|_| MachOError::NotMachO)? != FAT_MAGIC {
         return Err(MachOError::NotMachO);
     }
-    let file_size = bytes.len() as u64;
     let nfat = u64::from(r.u32_be(4).map_err(|_| failure("short fat header"))?);
     let max = (page_size - FAT_HEADER_SIZE) / FAT_ARCH_SIZE;
     if nfat > max {
@@ -320,7 +328,7 @@ pub fn fat_arches(bytes: &[u8], page_size: u64) -> Result<Vec<FatArch>, MachOErr
     let word = |off: u64| -> u32 {
         let mut b = [0u8; 4];
         for (i, byte) in b.iter_mut().enumerate() {
-            *byte = bytes.get((off + i as u64) as usize).copied().unwrap_or(0);
+            *byte = header.get((off + i as u64) as usize).copied().unwrap_or(0);
         }
         u32::from_be_bytes(b)
     };

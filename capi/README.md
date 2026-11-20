@@ -745,8 +745,9 @@ fallback in the default supplied profile.
 
 ABI 1.11 adds `"native_runtime":true`. It explicitly selects read-only installed
 runtime files on the matching host OS: Linux library roots and optional
-`/etc/ld.so.cache`, macOS `/usr/lib/dyld` and installed split shared caches,
-or Windows architecture-matched system DLLs and the installed API-set namespace.
+`/etc/ld.so.cache`, macOS `/usr/lib/dyld`, installed split shared caches and
+on-disk Mach-O dylibs in system library roots, or Windows architecture-matched
+system DLLs and the installed API-set namespace.
 No separate sysroot is required for those dependencies. Explicit supplied files
 retain precedence. On Darwin, omitted architecture selects the host ABI in this
 mode; an explicit architecture still selects that slice. Console capture and

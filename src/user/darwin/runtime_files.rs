@@ -1,10 +1,14 @@
-//! Read-only selection of the macOS host's dyld and split shared caches.
+//! Read-only selection of the macOS host's dyld, caches, and on-disk dylibs.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace; this does not enable host-service forwarding. Cache
 //! pages are read on demand through retained handles rather than copied in full.
 use crate::user::supplied_fs::Files;
 use std::io;
+
+#[cfg(any(target_os = "macos", test))]
+#[path = "runtime_files/dylibs.rs"]
+mod dylibs;
 
 /// Add the native macOS runtime, preserving explicit supplied-file overrides.
 /// A different host cannot supply its own runtime for a Darwin guest.
@@ -25,7 +29,7 @@ pub fn native(files: &Files) -> io::Result<Files> {
 
 #[cfg(any(target_os = "macos", test))]
 fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files> {
-    select(
+    let files = select(
         files,
         &root.join("usr/lib/dyld"),
         &[
@@ -40,7 +44,25 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
                 "System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/System/Library/dyld",
             ),
         ],
-    )
+    )?;
+    let roots = [
+        "/usr/lib",
+        "/System/Library/Frameworks",
+        "/System/Library/PrivateFrameworks",
+        "/System/Cryptexes/OS/usr/lib",
+        "/System/Volumes/Preboot/Cryptexes/OS/usr/lib",
+        "/System/Cryptexes/Rosetta/usr/lib",
+        "/System/Volumes/Preboot/Cryptexes/Rosetta/usr/lib",
+        "/System/Cryptexes/Rosetta/System/x86Support/usr/lib",
+        "/System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/usr/lib",
+    ]
+    .into_iter()
+    .filter_map(|guest| {
+        let host = root.join(guest.trim_start_matches('/'));
+        host.is_dir().then(|| (guest.to_owned(), host))
+    })
+    .collect();
+    files.with_native_library_roots(roots, dylibs::accept)
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -233,6 +255,133 @@ mod tests {
                 .kind(),
             io::ErrorKind::NotFound
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_dylibs_preserve_explicit_files_and_reject_other_backings() {
+        use crate::user::image::macho::{
+            CPU_TYPE_ARM64, FAT_MAGIC, MH_DYLIB, MH_EXECUTE, MH_MAGIC_64,
+        };
+        let fixture = TestFile::new(b"root", 4);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let framework = root.join("System/Library/Frameworks/Example.framework");
+        let version = framework.join("Versions/A");
+        let rosetta_path = "/System/Cryptexes/Rosetta/usr/lib";
+        let rosetta = root.join(rosetta_path.trim_start_matches('/'));
+        let cache = root.join("System/Library/dyld");
+        for dir in [&lib, &version, &rosetta, &cache] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        std::fs::write(lib.join("dyld"), b"dyld").unwrap();
+        std::fs::write(cache.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        let mut thin = [0u8; 32];
+        thin[..4].copy_from_slice(&MH_MAGIC_64.to_le_bytes());
+        thin[4..8].copy_from_slice(&CPU_TYPE_ARM64.to_le_bytes());
+        thin[12..16].copy_from_slice(&MH_DYLIB.to_le_bytes());
+        std::fs::write(lib.join("libonly.dylib"), thin).unwrap();
+        std::fs::write(version.join("Example"), thin).unwrap();
+        std::fs::write(rosetta.join("libextra.dylib"), thin).unwrap();
+        std::os::unix::fs::symlink("A", framework.join("Versions/Current")).unwrap();
+        std::os::unix::fs::symlink("Versions/Current/Example", framework.join("Example")).unwrap();
+        let outside = root.join("secret.dylib");
+        std::fs::write(&outside, thin).unwrap();
+        std::os::unix::fs::symlink(outside, lib.join("escape.dylib")).unwrap();
+        std::fs::write(lib.join("text.dylib"), b"unrelated text").unwrap();
+        let mut executable = thin;
+        executable[12..16].copy_from_slice(&MH_EXECUTE.to_le_bytes());
+        std::fs::write(lib.join("executable"), executable).unwrap();
+
+        let slice = 1u32 << 15;
+        let mut fat = vec![0; slice as usize];
+        for (field, value) in [
+            FAT_MAGIC,
+            1,
+            CPU_TYPE_ARM64,
+            0,
+            slice,
+            thin.len() as u32,
+            15,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            fat[field * 4..(field + 1) * 4].copy_from_slice(&value.to_be_bytes());
+        }
+        fat.extend_from_slice(&thin);
+        std::fs::write(lib.join("libfat.dylib"), &fat).unwrap();
+        fat[slice as usize + 12..slice as usize + 16].copy_from_slice(&MH_EXECUTE.to_le_bytes());
+        std::fs::write(lib.join("mixed.dylib"), fat).unwrap();
+
+        let caller = TestFile::new(b"caller", 6);
+        let explicit = Files::default()
+            .with_file("/usr/lib/libonly.dylib".into(), Arc::from(&b"explicit"[..]))
+            .unwrap()
+            .with_host_roots(std::collections::BTreeMap::from([(
+                "/other".into(),
+                caller.dir.clone(),
+            )]))
+            .unwrap();
+        let selected = select_native_root(&explicit, root).unwrap();
+        assert_eq!(
+            &*selected.read("/usr/lib/libonly.dylib").unwrap(),
+            b"explicit"
+        );
+        assert_eq!(
+            &*selected
+                .read("/System/Library/Frameworks/Example.framework/Example")
+                .unwrap(),
+            &thin
+        );
+        assert_eq!(
+            &*selected
+                .read(&format!("{rosetta_path}/libextra.dylib"))
+                .unwrap(),
+            &thin
+        );
+        assert_eq!(
+            &*selected
+                .read(&format!(
+                    "/other/{}",
+                    caller.path.file_name().unwrap().to_str().unwrap()
+                ))
+                .unwrap(),
+            b"caller"
+        );
+        assert!(matches!(
+            selected.lookup("/usr/lib/libfat.dylib").unwrap().1.kind,
+            Kind::Backed(_)
+        ));
+        for path in [
+            "/usr/lib/escape.dylib",
+            "/usr/lib/text.dylib",
+            "/usr/lib/executable",
+            "/usr/lib/mixed.dylib",
+            "/secret.dylib",
+        ] {
+            assert!(selected.lookup(path).is_err(), "{path}");
+        }
+        let names: Vec<_> = selected
+            .children("/usr/lib")
+            .unwrap()
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        assert_eq!(names, ["dyld", "libfat.dylib", "libonly.dylib"]);
+
+        let framework_root = "/System/Library/Frameworks";
+        let blocked = explicit
+            .with_file(framework_root.into(), Arc::from(&b"caller file"[..]))
+            .unwrap();
+        let selected = select_native_root(&blocked, root).unwrap();
+        assert_eq!(&*selected.read(framework_root).unwrap(), b"caller file");
+        assert!(
+            selected
+                .lookup("/System/Library/Frameworks/Example.framework/Example")
+                .is_err()
+        );
+        assert!(selected.lookup("/usr/lib/libfat.dylib").is_ok());
     }
 
     #[cfg(not(target_os = "macos"))]

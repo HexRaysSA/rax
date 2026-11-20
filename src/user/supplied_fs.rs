@@ -152,7 +152,11 @@ impl PageSource for GuestSource {
 
 /// A closed namespace. Clones share copied bytes or selected read-only handles.
 #[derive(Clone, Debug)]
-pub struct Files(Arc<BTreeMap<String, Entry>>, Option<Arc<Roots>>);
+pub struct Files {
+    entries: Arc<BTreeMap<String, Entry>>,
+    caller_roots: Option<Arc<Roots>>,
+    native_libraries: Option<Arc<Roots>>,
+}
 impl Default for Files {
     fn default() -> Self {
         Self::new(BTreeMap::new()).expect("empty supplied namespace is valid")
@@ -230,7 +234,11 @@ impl Files {
         for (index, entry) in entries.values_mut().enumerate() {
             entry.ino = 0x5241_5900 + index as u64;
         }
-        Ok(Self(Arc::new(entries), None))
+        Ok(Self {
+            entries: Arc::new(entries),
+            caller_roots: None,
+            native_libraries: None,
+        })
     }
 
     /// Produces a new namespace with an additional file. Used to include the
@@ -255,7 +263,7 @@ impl Files {
         selected: BTreeMap<String, std::path::PathBuf>,
     ) -> std::io::Result<Self> {
         let mut files: BTreeMap<_, _> = self
-            .0
+            .entries
             .iter()
             .filter_map(|(path, entry)| {
                 (!entry.is_dir()).then(|| (path.clone(), entry.kind.clone()))
@@ -263,7 +271,7 @@ impl Files {
             .collect();
         let mut sources: BTreeMap<std::path::PathBuf, Arc<HostFileSource>> = BTreeMap::new();
         for (path, host) in selected {
-            if self.0.contains_key(&path) {
+            if self.entries.contains_key(&path) {
                 return Err(std::io::Error::other(Error::Exists));
             }
             let source = if let Some(source) = sources.get(&host) {
@@ -291,7 +299,8 @@ impl Files {
             files.insert(path, Kind::Backed(source));
         }
         let mut next = Self::from_kinds(files).map_err(std::io::Error::other)?;
-        next.1 = self.1.clone();
+        next.caller_roots = self.caller_roots.clone();
+        next.native_libraries = self.native_libraries.clone();
         next.restore_roots().map_err(std::io::Error::other)?;
         Ok(next)
     }
@@ -320,20 +329,21 @@ impl Files {
         additions: impl IntoIterator<Item = (String, Kind)>,
     ) -> Result<Self, Error> {
         let mut files: BTreeMap<_, _> = self
-            .0
+            .entries
             .iter()
             .filter_map(|(path, entry)| {
                 (!entry.is_dir()).then(|| (path.clone(), entry.kind.clone()))
             })
             .collect();
         for (path, kind) in additions {
-            if self.0.contains_key(&path) {
+            if self.entries.contains_key(&path) {
                 return Err(Error::Exists);
             }
             files.insert(path, kind);
         }
         let mut next = Self::from_kinds(files)?;
-        next.1 = self.1.clone();
+        next.caller_roots = self.caller_roots.clone();
+        next.native_libraries = self.native_libraries.clone();
         next.restore_roots()?;
         Ok(next)
     }
@@ -345,34 +355,66 @@ impl Files {
         &self,
         roots: BTreeMap<String, std::path::PathBuf>,
     ) -> std::io::Result<Self> {
-        if self.1.is_some() {
+        if self.caller_roots.is_some() {
             return Err(std::io::Error::other(Error::Exists));
         }
-        let roots = Arc::new(Roots::new(roots)?);
-        let mut next = Self(self.0.clone(), Some(roots));
+        let mut next = self.clone();
+        next.caller_roots = Some(Arc::new(Roots::new(roots, None)?));
+        next.restore_roots().map_err(std::io::Error::other)?;
+        Ok(next)
+    }
+
+    /// Add installed native library mounts behind explicit entries and caller mounts.
+    #[cfg(any(target_os = "macos", test))]
+    pub(super) fn with_native_library_roots(
+        &self,
+        mut roots: BTreeMap<String, std::path::PathBuf>,
+        accept: roots::AcceptFile,
+    ) -> std::io::Result<Self> {
+        roots.retain(|path, _| {
+            // An explicit file may occupy this mount point or an ancestor.
+            // The nearest explicit ancestor suffices since the entries map
+            // cannot contain descendants of an explicit regular file.
+            let mut ancestor = path.as_str();
+            loop {
+                if let Some(entry) = self.entries.get(ancestor) {
+                    break entry.is_dir();
+                }
+                let Some((parent, _)) = ancestor.rsplit_once('/') else {
+                    break true;
+                };
+                ancestor = parent;
+            }
+        });
+        if roots.is_empty() || self.native_libraries.is_some() {
+            return Ok(self.clone());
+        }
+        let mut next = self.clone();
+        next.native_libraries = Some(Arc::new(Roots::new(roots, Some(accept))?));
         next.restore_roots().map_err(std::io::Error::other)?;
         Ok(next)
     }
 
     fn restore_roots(&mut self) -> Result<(), Error> {
-        let Some(roots) = &self.1 else { return Ok(()) };
-        let entries = Arc::make_mut(&mut self.0);
-        for root in roots.paths() {
-            let mut parent = String::new();
-            for component in root.split('/').filter(|s| !s.is_empty()) {
-                parent.push('/');
-                parent.push_str(component);
-                match entries.get(&parent) {
-                    Some(entry) if !entry.is_dir() => return Err(Error::Exists),
-                    Some(_) => {}
-                    None => {
-                        entries.insert(
-                            parent.clone(),
-                            Entry {
-                                ino: roots.directory_ino(&parent)?,
-                                kind: Kind::Directory,
-                            },
-                        );
+        let entries = Arc::make_mut(&mut self.entries);
+        for roots in self.caller_roots.iter().chain(&self.native_libraries) {
+            for root in roots.paths() {
+                let mut parent = String::new();
+                for component in root.split('/').filter(|s| !s.is_empty()) {
+                    parent.push('/');
+                    parent.push_str(component);
+                    match entries.get(&parent) {
+                        Some(entry) if !entry.is_dir() => return Err(Error::Exists),
+                        Some(_) => {}
+                        None => {
+                            entries.insert(
+                                parent.clone(),
+                                Entry {
+                                    ino: roots.directory_ino(&parent)?,
+                                    kind: Kind::Directory,
+                                },
+                            );
+                        }
                     }
                 }
             }
@@ -381,10 +423,16 @@ impl Files {
     }
 
     fn entry(&self, path: &str) -> Result<Entry, Error> {
-        if let Some(entry) = self.0.get(path) {
+        if let Some(entry) = self.entries.get(path) {
             return Ok(entry.clone());
         }
-        self.1.as_ref().ok_or(Error::NotFound)?.lookup(path)
+        for roots in self.caller_roots.iter().chain(&self.native_libraries) {
+            match roots.lookup(path) {
+                Err(Error::NotFound) => continue,
+                result => return result,
+            }
+        }
+        Err(Error::NotFound)
     }
 
     /// Resolves an absolute guest path, retaining directory checks before `..`.
@@ -434,7 +482,7 @@ impl Files {
             format!("{canonical}/")
         };
         let mut children: BTreeMap<String, Entry> = self
-            .0
+            .entries
             .range(prefix.clone()..)
             .take_while(|(key, _)| key.starts_with(&prefix))
             .filter_map(|(key, value)| {
@@ -442,7 +490,7 @@ impl Files {
                 (!name.is_empty() && !name.contains('/')).then(|| (name.to_string(), value.clone()))
             })
             .collect();
-        if let Some(roots) = &self.1 {
+        for roots in self.caller_roots.iter().chain(&self.native_libraries) {
             for name in roots.children(prefix.trim_end_matches('/'))? {
                 let path = format!("{prefix}{name}");
                 match self.entry(&path) {
