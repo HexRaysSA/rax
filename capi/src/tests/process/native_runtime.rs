@@ -1,6 +1,9 @@
 //! Installed runtime grants exercised through the exported C process interface.
 use super::*;
 
+#[cfg(all(windows, target_pointer_width = "64"))]
+mod token_duplicate;
+
 fn refused(image: &[u8], options: &str, supplied: &[RaxProcessImage], status: RaxStatus) -> String {
     let mut handle = ptr::null_mut();
     assert_eq!(
