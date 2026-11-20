@@ -30,13 +30,17 @@ fn setup_for_profile(
     build: u32,
     session: u32,
 ) -> (u32, u64, u64) {
-    let (section, metadata) = if p.arch == WinArch::X64 {
+    let (section, metadata) = if p.arch == WinArch::X64 || build == 26200 {
         let server_base = 0x0000_7FFF_1234_0000;
-        p.object_namespace.native_machine = Some(0x8664);
+        p.object_namespace.native_machine = Some(if p.arch == WinArch::X64 {
+            0x8664
+        } else {
+            0xAA64
+        });
         (
             super::super::connect_csr_tests::data(Some(session), server_base),
             CsrMetadata {
-                arch: WinArch::X64,
+                arch: p.arch,
                 kernel: (10, 0, build),
                 session,
                 server_base,
@@ -100,6 +104,9 @@ fn request(p: &Proc, base: u64, local: u64, remote: u64, port: u32) -> [u64; 8] 
 fn native_base_nls_reply_matches_opaque_snapshot_and_owns_capture_lifetime() {
     for (arch, build, session, data) in [
         (WinArch::Arm64, 29698, 0, NATIVE),
+        // The distinct live 26200 payload is private to its current user.
+        // This retained payload exercises the same copy and lifetime contract.
+        (WinArch::Arm64, 26200, 2, NATIVE),
         (WinArch::X64, 20348, 2, AMD64_20348),
         (WinArch::X64, 26100, 2, AMD64_26100),
     ] {
@@ -206,6 +213,40 @@ fn native_amd64_base_nls_requires_the_native_machine_and_matching_reply_profile(
         assert_eq!(
             p.space.bytes(local + 0x750, BASE_NLS_BYTES + 44).unwrap(),
             original_capture
+        );
+    }
+}
+
+#[test]
+fn native_arm64_26200_base_nls_refuses_an_unmatched_machine_or_packet() {
+    let (mut process, mut thread) = fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);
+    let p = process.state_mut();
+    let base =
+        p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let (port, local, remote) = setup_for_profile(p, Arc::new(*NATIVE), 26200, 2);
+    for (machine, api, capacity) in [
+        (None, 0x1001B, 952),
+        (Some(0x8664), 0x1001B, 952),
+        (Some(0xAA64), 0x1001B, 951),
+        (Some(0xAA64), 0x10010, 952),
+    ] {
+        let args = request(p, base, local, remote, port);
+        p.object_namespace.native_machine = machine;
+        p.space.w32(base + 48, api).unwrap();
+        if api == 0x10010 {
+            p.space.w64(base + 40, 0).unwrap();
+            p.space.w64(base + 72, 0).unwrap();
+        }
+        p.space.w64(base + 1024, capacity).unwrap();
+        let input = p.space.bytes(base, 1032).unwrap();
+        let capture = p.space.bytes(local + 0x750, BASE_NLS_BYTES + 44).unwrap();
+        assert!(matches!(invoke(p, &mut thread, &args), Outcome::Fail(_)));
+        assert_eq!(p.space.bytes(base, 1032).unwrap(), input);
+        assert_eq!(
+            p.space.bytes(local + 0x750, BASE_NLS_BYTES + 44).unwrap(),
+            capture
         );
     }
 }

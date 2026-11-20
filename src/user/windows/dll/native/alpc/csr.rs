@@ -5,7 +5,7 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::csr::{
-    BASE_NLS_BYTES, BaseNlsReply, supports_kernel, supports_profile,
+    ARM64_PLAIN_STARTUP_KERNEL, BASE_NLS_BYTES, BaseNlsReply, supports_kernel, supports_profile,
 };
 use crate::user::windows::objects::Object;
 
@@ -61,8 +61,15 @@ pub(super) fn client_connect(
         && word(message, 64) != u64::MAX
         && word(message, 72) <= 1;
     let native_arm64 = arch == WinArch::Arm64 && supports_kernel(kernel.0, kernel.1, kernel.2);
-    let native_amd64_base_nls = native_amd64 && base_nls;
-    if !(native_arm64 || native_amd64_base_nls)
+    // Build 26200 adds only the BASE query. The peer below still needs the
+    // captured session-2 BASE profile and the exact private capture schema.
+    let arm64_plain_startup = arch == WinArch::Arm64
+        && kernel == ARM64_PLAIN_STARTUP_KERNEL
+        && c.p.object_namespace.native_machine == Some(0xAA64)
+        && length != 0
+        && capacity == 952;
+    let selected_base_nls = base_nls && (native_amd64 || arm64_plain_startup);
+    if !(native_arm64 || selected_base_nls)
         || send_attributes != 0
         || receive_attributes != 0
         || timeout != 0

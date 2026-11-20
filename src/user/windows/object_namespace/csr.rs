@@ -14,6 +14,7 @@ pub(crate) mod pid_export;
 
 /// Measured native BASE per-user NLS reply size.
 pub(crate) const BASE_NLS_BYTES: usize = 1660;
+pub(crate) const ARM64_PLAIN_STARTUP_KERNEL: (u32, u32, u32) = (10, 0, 26200);
 
 /// A measured BASE query failure is distinct from ALPC transport failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,7 +36,7 @@ pub(crate) fn supports_kernel(major: u32, minor: u32, build: u32) -> bool {
 /// The observed plain connection belongs to native ARM64 build 26200,
 /// session 2. The broader secure/USER/BASE gates are independent.
 pub(crate) fn supports_arm64_plain_startup(kernel: (u32, u32, u32), session: u32) -> bool {
-    kernel == (10, 0, 26200) && session == 2
+    kernel == ARM64_PLAIN_STARTUP_KERNEL && session == 2
 }
 
 pub(crate) fn supports_profile(arch: WinArch, major: u32, minor: u32, build: u32) -> bool {
@@ -69,10 +70,13 @@ impl CsrMetadata {
 
     pub(crate) fn supports_base_nls(&self) -> bool {
         match self.arch {
-            WinArch::Arm64 => matches!(
-                (self.kernel, self.session),
-                ((10, 0, 29698), _) | ((10, 0, 29708), 1)
-            ),
+            WinArch::Arm64 => {
+                supports_arm64_plain_startup(self.kernel, self.session)
+                    || matches!(
+                        (self.kernel, self.session),
+                        ((10, 0, 29698), _) | ((10, 0, 29708), 1)
+                    )
+            }
             WinArch::X64 => self.session == 2 && self.supported(),
             WinArch::X86 => false,
         }

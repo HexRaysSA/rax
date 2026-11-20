@@ -98,9 +98,9 @@ mapping retain their own schema. The BASE payload has no added client mapping.
 Snapshot acquisition and reply copying take O(B) time and space, B=1660 bytes.
 Guest packets, addresses, handles, strings and requests never reach host IPC.
 
-The BASE snapshot is admitted on ARM64 Windows 10.0.29698, on ARM64
-Windows 10.0.29708 in session 1, and on physical AMD64 Windows 10.0.20348
-and 10.0.26100 in session 2. The guest kernel must match the selected
+The BASE snapshot is admitted on ARM64 Windows 10.0.29698, ARM64
+Windows 10.0.29708 in session 1, and ARM64 Windows 10.0.26200 and AMD64
+Windows 10.0.20348 and 10.0.26100 in session 2. The guest kernel must match the selected
 peer's admitted kernel before the peer can publish this reply.
 Other CSR profiles retain their earlier behavior. Shared reply semantics compile on
 Windows, macOS and Linux; installed acquisition uses the native Windows adapter.
@@ -123,6 +123,30 @@ across all eight replies, and transport results. Its output contains no
 current user's payload, user identifiers or captured addresses. Raw current
 captures are retained separately. The 29708 profile admits the successful response measured in ARM64
 session 1. The unsuccessful service status is qualified for build 29698.
+
+## ARM64 Windows 10.0.26200, session 2
+
+The hosted native probe made six fixed current-process queries, with three
+initialization patterns before its public locale call and the same three
+patterns afterward. All six returned service status 0 and identical 1,660-byte
+payloads. The reply was 80 bytes and the capture was 1,704 bytes. The stock
+`cmd.exe /d /c ver` previously stopped at this request on the same native
+`ntdll.dll`. Its 80-byte message requested 1,660 information bytes, with a
+952-byte receive capacity and zero reserved bytes. The receipt records hashes
+and geometry for this run. [Receipt](profile-26200-v1.json)
+[Hosted native measurement](https://github.com/HexRaysSA/rax/actions/runs/44742179564)
+
+Runtime acquisition requires the existing current-session CSR section and
+server identity. It checks the reply geometry and compares snapshots from two
+initialization patterns before publishing the process. The 26200 guest accepts
+only the measured BASE request through this profile and uses the existing
+owned capture and reply path. The retained regression uses a distinct older
+payload to exercise byte copying without embedding the current user's reply.
+
+| ID | Assumption | Falsification probe | Status |
+| --- | --- | --- | --- |
+| A4 | The selected current-user BASE reply is independent of output initialization. | Compare all six native results and repeat the comparison during each launch. A mismatch rejects the acquisition. | Confirmed for the measured runner and checked on launch |
+| A5 | The existing 26200 session-2 selected CSR peer owns the new BASE exchange. | Reject a foreign machine, incompatible wire operation or receive size, peer kernel mismatch, and foreign or replaced capture views. | Confirmed for the measured boundary |
 
 ## Verification
 
@@ -158,7 +182,7 @@ successful guest-program completion. The unmeasured cause of SYSTEM's earlier
 service failure also remains unknown. Other native kernel/architecture profiles
 require their own measured reply contracts before this adapter admits them.
 
-## Runtime and build qualification
+## Archived runtime and build qualification
 
 `python3 -B docs/specifications/windows/native-base-csr-nls/verify_runtime.py`
 checks the retained 58 native core case-runs (51 unique cases), source bindings,
@@ -174,10 +198,10 @@ strict library lint passes on macOS and Windows ARM64.
 The Windows CAPI executable built and linked on the host and then ran natively
 under both SYSTEM and the ordinary-user identity. Each run passed 243 tests,
 with no failures or ignored tests. The recovered receipts retain the exact
-image, source-manifest and native NTDLL hashes; all manifest-owned source bytes
-still match. They qualify the compiled BASE NLS snapshot recorded in that
-manifest, rather than later unrelated source changes. Original native
-validation jobs were preserved.
+image, source-manifest and native NTDLL hashes. They qualify the compiled BASE
+NLS snapshot recorded in those manifests. The archive verifier requires a
+checkout with the matching source digests. Original native validation jobs were
+preserved.
 
 Run `python3 -B docs/specifications/windows/native-base-csr-nls/verify_runtime.py --capi`
 to check both complete subject-specific receipts and their source bindings.

@@ -1,0 +1,49 @@
+{
+  "schema": "rax-arm64-26200-base-nls-observation-v1",
+  "run": 44742179564,
+  "kernel": [
+    10,
+    0,
+    26200
+  ],
+  "session": 2,
+  "native_machine": "0xaa64",
+  "source": {
+    "source_commit": "932d578f08af29239c05332e06411a4ff3571fa4",
+    "source_sha256": "73e87a8209eb245d69e268802d028b46a6935301f984a6f1bf187e98cd0bfeaa",
+    "probe_sha256": "fa1c6ffcd9344b93e1effc2c286a449cfb714e22bf229e92aa45dbef9513c972",
+    "ntdll_sha256": "3a1617c63d3a69f7f4d740bdbbe65c3d34ec28c2a7254902dc130e5b2bbe7209",
+    "log_sha256": "5603bd4b370930dd350cf9c760a0f26eb1a93103e7694432337c880c075aab5e"
+  },
+  "archive_sha256": "377fd2199ce9ae384fb6c6af3873825d097898c4e17cd7efd95768976e27d561",
+  "native_reply": {
+    "api": "0x0001001b",
+    "client_call_status": 0,
+    "service_status": 0,
+    "message_data_bytes": 40,
+    "message_total_bytes": 80,
+    "capture_bytes": 1704,
+    "capture_pointer_count": 1,
+    "information_bytes": 1660,
+    "payload_sha256": "5c49f872055779abbabaec19b43ad481fdf574e1177f8730dc3654498ca4decc",
+    "samples": 6,
+    "initialization_hex": [
+      "a5",
+      "5a",
+      "00",
+      "a5",
+      "5a",
+      "00"
+    ]
+  },
+  "installed_guest_request": {
+    "cmd_sha256": "7e49d8fdc5a4c1c3c8a3f7fb762163a50aa1487acc1353cd81c45e9b3a71e4a5",
+    "scheduler_turn": 3607,
+    "receive_capacity_bytes": 952,
+    "send_attributes": false,
+    "receive_attributes": false,
+    "timeout": false,
+    "reserved_zero": true,
+    "size_padding_zero": true
+  }
+}

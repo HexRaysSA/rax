@@ -1,6 +1,8 @@
 //! Fixed current-process BASE snapshot, acquired before guest publication.
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, CsrMetadata};
+use crate::user::windows::object_namespace::csr::{
+    ARM64_PLAIN_STARTUP_KERNEL, BASE_NLS_BYTES, BaseNlsReply, CsrMetadata,
+};
 use crate::user::windows::object_namespace::installed::{check, invalid};
 use std::ffi::c_void;
 use std::io;
@@ -52,7 +54,8 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Option<BaseNlsReply>
     if unsafe { CsrGetProcessId() } != metadata.server_pid as usize {
         return Err(invalid("CSR BASE query server identity differs"));
     }
-    let amd64 = metadata.arch == WinArch::X64;
+    let verify_output =
+        metadata.arch == WinArch::X64 || metadata.kernel == ARM64_PLAIN_STARTUP_KERNEL;
     let mut samples = Vec::with_capacity(2);
     for pattern in [0xA5, 0x5A] {
         // SAFETY: fixed measured allocation sizes; no guest inputs/callbacks.
@@ -75,7 +78,7 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Option<BaseNlsReply>
         if allocated != BASE_NLS_BYTES as u32 || information == 0 {
             return Err(invalid("CSR BASE capture allocation differs"));
         }
-        if amd64 {
+        if verify_output {
             // SAFETY: the checked pointer owns the full fixed output. Native
             // controls show two different inputs produce identical output.
             unsafe { std::ptr::write_bytes(information as *mut u8, pattern, BASE_NLS_BYTES) };
@@ -93,12 +96,12 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Option<BaseNlsReply>
         {
             return Err(invalid("CSR BASE reply status, pointer or server differs"));
         }
-        if amd64
+        if verify_output
             && (message.0[..4] != [40, 0, 80, 0]
                 || message.0[48..52] != API.to_le_bytes()
                 || message.0[72..76] != bytes)
         {
-            return Err(invalid("CSR BASE AMD64 reply geometry differs"));
+            return Err(invalid("CSR BASE reply geometry differs"));
         }
         if status == 0xC000_0001 && metadata.kernel == (10, 0, 29698) {
             samples.push(BaseNlsReply::Unsuccessful);
