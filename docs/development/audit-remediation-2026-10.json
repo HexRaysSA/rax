@@ -200159,6 +200159,17 @@
       "full_goal_complete": false
     },
     {
+      "id": "ioapic-nmi-trigger-bit-2026-11-20",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Software IOAPIC NMI delivery uses edges for either programmed trigger bit. A detached record retains a queued pulse after deassertion and through a destination rewrite, with no remote IRR or maskable vector on acceptance. Two baseline failures reproduced and all 183 model/controller/routing tests passed. Native Intel NMI injection remains open.",
+      "qualification": "docs/development/hvf-ioapic/README.md#vmm-composition-and-remaining-gates",
+      "full_goal_complete": false
+    },
+    {
       "id": "kvm-halted-timer-and-pc-interrupts-2026-11-20",
       "findings": [
         "C-STATE",

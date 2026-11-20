@@ -67,6 +67,11 @@ const RTE_TRIGGER_MODE: u64 = 1 << 15;
 const RTE_MASK: u64 = 1 << 16;
 const RTE_DEST_SHIFT: u64 = 56;
 
+/// The 82093AA delivers NMI on an edge even when IOREDTBL.TM is set.
+fn source_level_triggered(rte: u64) -> bool {
+    rte & RTE_TRIGGER_MODE != 0 && (rte >> RTE_DELIVERY_MODE_SHIFT) & 7 != 4
+}
+
 /// Bits within a redirection-table entry that software may write. The delivery
 /// status (bit 12) and remote IRR (bit 14) bits are read-only.
 const RTE_WRITABLE_MASK: u64 = !(RTE_DELIVERY_STATUS | RTE_REMOTE_IRR);
@@ -83,7 +88,7 @@ pub struct PendingIrq {
     pub vector: u8,
     /// Destination field (physical APIC ID or logical destination).
     pub destination: u8,
-    /// Trigger mode: false = edge, true = level.
+    /// Programmed trigger bit. NMI uses edge delivery even when this is set.
     pub level_triggered: bool,
 }
 
@@ -167,7 +172,7 @@ impl IoApic {
                     (old & 0x0000_0000_FFFF_FFFF) | ((value as u64) << 32)
                 };
                 // Switching to edge mode clears the old level's EOI wait.
-                if new & RTE_TRIGGER_MODE == 0 {
+                if !source_level_triggered(new) {
                     new &= !RTE_REMOTE_IRR;
                 }
                 self.redirection_table[entry] = new;
@@ -177,9 +182,7 @@ impl IoApic {
                 self.refresh_pending(entry);
                 // An asserted level can be delivered after unmasking. A masked
                 // edge was lost and requires a new inactive->active transition.
-                if self.redirection_table[entry] & RTE_TRIGGER_MODE != 0
-                    && self.line_asserted[entry]
-                {
+                if source_level_triggered(new) && self.line_asserted[entry] {
                     self.evaluate_entry(entry);
                 }
             }
@@ -195,7 +198,7 @@ impl IoApic {
             return;
         }
         let previous = std::mem::replace(&mut self.line_asserted[entry], asserted);
-        let level = self.redirection_table[entry] & RTE_TRIGGER_MODE != 0;
+        let level = source_level_triggered(self.redirection_table[entry]);
         if !asserted && level {
             self.cancel_pending(entry);
         }
@@ -208,7 +211,7 @@ impl IoApic {
     fn evaluate_entry(&mut self, entry: usize) {
         let rte = self.redirection_table[entry];
         if rte & RTE_MASK != 0
-            || (rte & RTE_TRIGGER_MODE != 0 && rte & RTE_REMOTE_IRR != 0)
+            || (source_level_triggered(rte) && rte & RTE_REMOTE_IRR != 0)
             || self
                 .pending
                 .iter()

@@ -65,7 +65,7 @@ and EOI paths. These sources have separate platform/implementation scopes.
 ## VMM composition and remaining gates
 
 The VMM now consumes the software IOAPIC queue for fixed, lowest-priority and
-edge-NMI messages, including physical/logical destinations and disabled-target
+NMI messages, including physical/logical destinations and disabled-target
 backpressure. Accepted vectors retain their trigger mode in each local APIC.
 Level EOIs create owned per-CPU broadcast FIFOs; routing transfers those
 broadcasts back to the IOAPIC without holding model locks across CPU callbacks.
@@ -84,9 +84,20 @@ The controller/routing/LAPIC/timing source-module harness passes175tests with no
 failures,ignored or filtered tests. The first combined Cargo library check also
 passes; these results do not replace the owning binaries or full library gate.
 
-High impact: SMI/INIT/ExtINT and level-NMI delivery profiles still require their
-complete platform contracts. Remaining
-PC peripheral sources, physical Intel macOS Hypervisor.framework execution,
+The 82093AA delivers an NMI on an edge for either programmed trigger bit.
+The controller keeps that bit in register reads and checkpoint records. A
+captured pulse survives pin deassertion and a detached checkpoint round trip.
+A destination rewrite can redirect a queued pulse. Acceptance into the local
+NMI latch never sets remote IRR or a maskable vector. Masked pulses are
+discarded, and a held input does not generate another NMI.
+[Intel 82093AA datasheet, section 3.2.4](https://pdos.csail.mit.edu/6.828/2017/readings/ia32/ioapic.pdf).
+
+| ID | Assumption | Dependent result | Stress test and falsification probe | Status |
+|---|---|---|---|---|
+| IRQ3 | The modeled source follows 82093AA NMI trigger semantics | A queued pulse with the raw trigger bit set can resume on a new controller | Deassert before acceptance, rewrite the destination, restore the image and check the selected NMI latch. A lost or duplicated NMI, a maskable vector or a nonzero remote IRR falsifies the modeled transition. | Both added regressions failed on the parent and passed with the fix in the 183-test controller, routing and timing harness |
+
+SMI, INIT and ExtINT still require their platform contracts. Other PC
+peripheral sources, physical Intel macOS Hypervisor.framework execution,
 remaining native profiles and whole-VM checkpoint completion remain open.
 
 ## Backend source ownership

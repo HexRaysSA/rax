@@ -37,11 +37,6 @@ pub(super) fn route_messages(
                 message.delivery_mode
             )));
         }
-        if message.delivery_mode == 4 && request.level_triggered {
-            return Err(Error::Emulator(
-                "level-triggered I/O APIC NMI requires its complete platform contract".into(),
-            ));
-        }
         let selected = |apic: &LocalApic| {
             apic.is_enabled()
                 && matches_destination(apic, request.destination, message.logical_destination)
@@ -257,6 +252,76 @@ mod tests {
         assert!(controllers[1].lock().unwrap().has_pending_nmi());
         assert_eq!(controllers[1].lock().unwrap().get_pending_vector(), None);
         assert!(!remote(&mut io, 21));
+    }
+
+    #[test]
+    fn nmi_pulse_survives_checkpoint_with_either_programmed_trigger_bit() {
+        for level in [false, true] {
+            let controllers = [Mutex::new(LocalApic::new(0)), Mutex::new(LocalApic::new(1))];
+            let mut io = IoApic::new();
+            program(&mut io, 20, 0x51, 4, 0, false, level);
+            io.set_irq(20, true);
+            io.set_irq(20, false);
+            assert_eq!(io.pending().len(), 1, "NMI pulse with TM={level}");
+            // A destination write while the pin is low preserves the pulse.
+            program(&mut io, 20, 0x51, 4, 1, false, level);
+            assert_eq!(io.pending().len(), 1);
+            assert_eq!(io.pending()[0].level_triggered, level);
+            let image = io.checkpoint_state().unwrap();
+            let bytes = crate::codec::serialize(&image).unwrap();
+            let image: crate::devices::ioapic::IoApicCheckpoint =
+                crate::codec::deserialize_strict(&bytes).unwrap();
+            let mut restored = IoApic::new();
+            image.prepare().unwrap().commit(&mut restored);
+
+            route(&mut restored, &controllers).unwrap();
+            assert!(restored.pending().is_empty());
+            assert!(!remote(&mut restored, 20));
+            let mut low = [0; 4];
+            restored.read(0xfec0_0010, &mut low);
+            assert_eq!(u32::from_le_bytes(low), 0x451 | (u32::from(level) << 15));
+            assert!(!controllers[0].lock().unwrap().has_pending_nmi());
+            let mut target = controllers[1].lock().unwrap();
+            assert!(target.has_pending_nmi());
+            assert_eq!(target.get_pending_vector(), None);
+            target.clear_pending_nmi();
+            drop(target);
+            route(&mut restored, &controllers).unwrap();
+            assert!(!controllers[1].lock().unwrap().has_pending_nmi());
+        }
+    }
+
+    #[test]
+    fn nmi_ignores_masked_edges_and_requires_a_new_edge_after_reprogramming() {
+        let controllers = [Mutex::new(LocalApic::new(0))];
+        let mut io = IoApic::new();
+        program(&mut io, 20, 0x51, 0, 0, false, true);
+        io.set_irq(20, true);
+        route(&mut io, &controllers).unwrap();
+        assert!(remote(&mut io, 20));
+
+        program(&mut io, 20, 0, 4, 0, false, true);
+        assert!(!remote(&mut io, 20));
+        io.set_irq(20, true);
+        assert!(io.pending().is_empty());
+        assert!(!controllers[0].lock().unwrap().has_pending_nmi());
+
+        // Mask the reprogrammed NMI line, then generate an edge under the mask.
+        io.write(0xfec0_0010, &0x1_8400u32.to_le_bytes());
+        io.set_irq(20, false);
+        io.set_irq(20, true);
+        program(&mut io, 20, 0, 4, 0, false, true);
+        assert!(io.pending().is_empty());
+
+        io.set_irq(20, false);
+        io.set_irq(20, true);
+        route(&mut io, &controllers).unwrap();
+        assert!(!remote(&mut io, 20));
+        assert!(controllers[0].lock().unwrap().has_pending_nmi());
+        controllers[0].lock().unwrap().clear_pending_nmi();
+        io.set_irq(20, true);
+        route(&mut io, &controllers).unwrap();
+        assert!(!controllers[0].lock().unwrap().has_pending_nmi());
     }
 
     #[test]

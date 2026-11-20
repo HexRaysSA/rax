@@ -53,7 +53,7 @@ impl IoApic {
 
     pub(super) fn refresh_pending(&mut self, entry: usize) {
         let rte = self.redirection_table[entry];
-        if rte & RTE_MASK != 0 || (rte & RTE_TRIGGER_MODE != 0 && !self.line_asserted[entry]) {
+        if rte & RTE_MASK != 0 || (source_level_triggered(rte) && !self.line_asserted[entry]) {
             self.cancel_pending(entry);
             return;
         }

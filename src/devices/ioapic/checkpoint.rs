@@ -1,7 +1,7 @@
 //! Modeled controller image; publication never replays register-write effects.
 use super::{
     IOAPIC_NUM_RTE, IoApic, PendingIrq, RTE_DELIVERY_MODE_SHIFT, RTE_DELIVERY_STATUS,
-    RTE_DEST_SHIFT, RTE_MASK, RTE_REMOTE_IRR, RTE_TRIGGER_MODE,
+    RTE_DEST_SHIFT, RTE_MASK, RTE_REMOTE_IRR, RTE_TRIGGER_MODE, source_level_triggered,
 };
 use crate::error::{Error, Result};
 use serde::de::{Error as _, SeqAccess, Visitor};
@@ -117,7 +117,7 @@ impl IoApicCheckpoint {
                 || request.vector != rte as u8
                 || request.destination != (rte >> RTE_DEST_SHIFT) as u8
                 || request.level_triggered != (rte & RTE_TRIGGER_MODE != 0)
-                || (request.level_triggered && !self.line_asserted[pin])
+                || (source_level_triggered(rte) && !self.line_asserted[pin])
             {
                 return Err(invalid("ambiguous or inconsistent pending message"));
             }
