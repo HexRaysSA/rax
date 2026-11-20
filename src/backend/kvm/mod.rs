@@ -497,6 +497,18 @@ impl VCpu for KvmVcpu {
         self.run_native_host_slice(limit)
     }
 
+    fn run_coordinated_host_slice(
+        &mut self,
+        limit: std::time::Duration,
+        _pending_maskable_irq: bool,
+    ) -> Result<Option<VcpuExit>> {
+        let exit = self.run_native_host_slice(limit)?;
+        if matches!(exit, Some(VcpuExit::Hlt)) {
+            self.resume_idle_clock()?;
+        }
+        Ok(exit)
+    }
+
     fn post_host_slice(&mut self, limit: std::time::Duration) -> Result<()> {
         self.post_native_host_slice(limit)
     }

@@ -1,4 +1,4 @@
-//! A restored common clock starts at managed entry, after stopped publication.
+//! Start the restored common clock when managed execution resumes.
 use super::{KvmVcpu, MemoryOwner, NativeCore, deadline};
 use crate::error::{Error, Result};
 use crate::vm::timing::TimingContext;
@@ -57,6 +57,21 @@ impl KvmVcpu {
     pub(super) fn run_native_host_slice(&mut self, limit: Duration) -> Result<Option<VcpuExit>> {
         self.post_native_host_slice(limit)?;
         self.collect_native_host_slice()
+    }
+
+    /// A scheduled userspace HLT advances VM time so that a device timer can
+    /// wake the CPU. Raw CPU polling still leaves the restored clock stopped.
+    pub(super) fn resume_idle_clock(&self) -> Result<()> {
+        let owner = &self.memory_owner;
+        if !owner.resume_clock_pending()? {
+            return Ok(());
+        }
+        let _exclusive = owner.exclusive_entry()?;
+        let mut core = run_core(owner, &self.core)?;
+        if core.userspace_halted && !owner.powered_off.load(Ordering::Acquire) {
+            core.activate_resume_clock()?;
+        }
+        Ok(())
     }
 
     pub(super) fn post_native_host_slice(&mut self, limit: Duration) -> Result<()> {
@@ -136,8 +151,7 @@ impl NativeCore {
         Ok(self.io.event().map_err(Error::Emulator)?.is_none())
     }
 
-    /// Only the private deadline worker calls this with VM write exclusion
-    /// and this CPU's guard held. All other managed CPU guards
+    /// The caller holds VM write exclusion and this CPU's guard. All other managed CPU guards
     /// are therefore free: ordinary SDK borrows and state operations retain a
     /// VM read lease before taking a CPU guard. This exceptional all-CPU path
     /// may lock the selected CPU first without a competing lock-order cycle.

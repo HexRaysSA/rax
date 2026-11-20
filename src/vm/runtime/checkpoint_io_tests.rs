@@ -8,6 +8,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use vm_memory::{Bytes, GuestAddress};
 
+#[path = "checkpoint_io_timer_tests.rs"]
+mod timer;
+
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const MMIO: u64 = 0xf000_0000;
 const TAIL: &[u8] = &[0xc6, 0x06, 0x00, 0x20, 0xaa, 0xf4];

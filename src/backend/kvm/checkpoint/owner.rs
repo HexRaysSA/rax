@@ -484,8 +484,8 @@ impl Image {
     }
 
     /// Couple the retained software-device clock to this native epoch. The
-    /// incoming phase stays frozen until actual guest entry, including across
-    /// HLT polling, readiness probes and a second stopped checkpoint capture.
+    /// incoming phase stays frozen across raw HLT polling, readiness probes
+    /// and stopped capture. Managed guest entry or coordinated idle resumes it.
     pub(crate) fn stage_resume_clock_with_timing(
         &self,
         vm: &KvmVm,
