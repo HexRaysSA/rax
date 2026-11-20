@@ -201,16 +201,30 @@ fn selected_mui(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked<Optio
     confined_child(c, &locale, &filename, STATUS_OBJECT_NAME_NOT_FOUND).map(Some)
 }
 
-fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<PathBuf>> {
+fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
     let Some(runtime) = &c.p.native else {
         return Ok(None);
     };
+    let windows = runtime.guest_root.trim_end_matches('\\');
+    let sort_table: Vec<_> = format!(r"{windows}\Globalization\Sorting\SortDefault.nls")
+        .encode_utf16()
+        .collect();
+    if equal(c, path, &sort_table) {
+        let root = runtime
+            .directory
+            .parent()
+            .ok_or_else(|| c.unsupported("installed Windows directory has no parent"))?;
+        let global = confined_child(c, root, "Globalization", STATUS_OBJECT_PATH_NOT_FOUND)?;
+        let base = confined_child(c, &global, "Sorting", STATUS_OBJECT_PATH_NOT_FOUND)?;
+        let file = confined_child(c, &base, "SortDefault.nls", STATUS_OBJECT_NAME_NOT_FOUND)?;
+        if !file.is_file() {
+            return status(STATUS_OBJECT_NAME_NOT_FOUND);
+        }
+        return Ok(Some((base, file)));
+    }
     let mut prefixes = vec![runtime.guest_directory.clone()];
     if c.arch() == WinArch::X86 {
-        prefixes.push(format!(
-            "{}\\System32",
-            runtime.guest_root.trim_end_matches('\\')
-        ));
+        prefixes.push(format!(r"{windows}\System32"));
     }
     for prefix in prefixes {
         let prefix: Vec<u16> = prefix.encode_utf16().collect();
@@ -222,7 +236,8 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<PathBuf>> {
         }
         let basename = &path[prefix.len() + 1..];
         if !c.p.cfg.host_filesystem && basename.contains(&u16::from(b'\\')) {
-            return selected_mui(c, runtime, basename);
+            return selected_mui(c, runtime, basename)
+                .map(|file| file.map(|path| (runtime.directory.clone(), path)));
         }
         if basename.len() < 5 || !equal(c, &basename[basename.len() - 4..], &[46, 100, 108, 108]) {
             continue;
@@ -233,7 +248,7 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<PathBuf>> {
         let name = String::from_utf16(basename)
             .map_err(|_| c.unsupported("selected DLL basename is not Unicode"))?;
         return match runtime.dll_paths(&name) {
-            Ok(Some((spelling, _))) => Ok(Some(spelling)),
+            Ok(Some((spelling, _))) => Ok(Some((runtime.directory.clone(), spelling))),
             Ok(None) => status(STATUS_OBJECT_NAME_NOT_FOUND),
             Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
                 status(STATUS_ACCESS_DENIED)
@@ -371,9 +386,9 @@ fn resolve_kind(
     } else {
         path
     };
-    if let Some(host) = selected(c, selected_path)? {
+    if let Some((base, host)) = selected(c, selected_path)? {
         return Ok(Resolved {
-            base: c.p.native.as_ref().unwrap().directory.clone(),
+            base,
             host,
             root: None,
             relative: None,

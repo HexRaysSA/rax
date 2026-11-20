@@ -380,6 +380,55 @@ fn native_file_open_mui_satellites_require_an_installed_owner_and_read_only_acce
 }
 
 #[test]
+fn native_file_open_confines_the_default_sort_table_to_read_only_access() {
+    use crate::user::windows::nt::status::STATUS_ACCESS_DENIED;
+    use crate::user::windows::objects::Object;
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        selection(&mut h);
+        let sorting = h.directory.0.join("Globalization").join("Sorting");
+        std::fs::create_dir_all(&sorting).unwrap();
+        std::fs::write(sorting.join("SortDefault.nls"), b"installed sort data").unwrap();
+        std::fs::write(sorting.join("Other.nls"), b"unselected data").unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let guest = r"\??\C:\WINDOWS\GLOBALIZATION\SORTING";
+        h.name(&format!(r"{guest}\sortdefault.nls"));
+        assert_eq!(
+            h.open_with(output, io, 0x100001, 7, 0x60),
+            STATUS_SUCCESS,
+            "{arch}"
+        );
+        let p = h.process.state_mut();
+        let handle = p.space.ptr(output, arch.ptr_size()).unwrap();
+        assert!(p.objects.runtime_library(handle));
+        let Some(Object::File(file)) = p.objects.get(handle) else {
+            panic!("sort table must open a file");
+        };
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut file.host.as_ref().unwrap(), &mut bytes).unwrap();
+        assert_eq!(bytes, b"installed sort data");
+        p.objects.close(handle).unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100002, 7, 0x60),
+            STATUS_ACCESS_DENIED
+        );
+        h.name(&format!(r"{guest}\Other.nls"));
+        assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED);
+        #[cfg(unix)]
+        {
+            let table = sorting.join("SortDefault.nls");
+            std::fs::remove_file(&table).unwrap();
+            std::os::unix::fs::symlink(h.directory.0.join("fixture.bin"), table).unwrap();
+            h.name(&format!(r"{guest}\SortDefault.nls"));
+            assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED);
+        }
+        assert!(!h.process.state().cfg.host_filesystem);
+    }
+}
+
+#[test]
 fn native_file_open_every_iosb_prefix_has_measured_ownership_and_atomic_store_effects() {
     use crate::user::windows::objects::Object;
     for arch in WinArch::ALL {
