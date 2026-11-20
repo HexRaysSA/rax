@@ -146,3 +146,16 @@ records each handler visit. Its restored case covers a stopped CPU record
 and reused guest RAM. The coordinator and SDK-model tests exercise selected
 CPU routing, VMX controls and publication without executing guest instructions.
 [Intel SDM, Vol. 3C, Sections 27.2, 27.3, 28.2.1.1 and 28.6.1.1](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+### Maskable IRQ control at the virtual-NMI revision
+
+The three maskable IRQ cases repeated at `14207bec0fd12e03bc6dcb168b0bb261a3867ffb`
+on a virtualized Intel macOS 15.7.9 runner. The unarmed IRQ remained pending.
+The direct and restored cases delivered one handler visit each and accepted
+EOI. Their observation file is byte-for-byte identical to the earlier control.
+The receipt verifies both workflow archives, the signature on the x86-64
+consumer and the fingerprints of 4,878 engine inputs. This evidence covers
+maskable IRQ behavior on the revision that enables virtual NMIs.
+[Hosted job](https://github.com/HexRaysSA/rax/actions/runs/44650128989/job/136002666451)
+[Verified receipt](native-irq-window-virtual-nmi-revision.json)
+[Guest observations](native-irq-window-observations.jsonl)
