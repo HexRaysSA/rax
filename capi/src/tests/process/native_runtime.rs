@@ -203,6 +203,17 @@ fn installed_findstr_matches_native_through_closed_c_abi() {
 }
 
 #[cfg(windows)]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_sort_matches_native_through_closed_c_abi() {
+    let native =
+        compare_windows_installed_program("sort.exe", &[], Some(b"delta\r\nalpha\r\ncharlie\r\n"));
+    assert_eq!(native.status.code(), Some(0));
+    assert_eq!(native.stdout, b"alpha\r\ncharlie\r\ndelta\r\n");
+    assert!(native.stderr.is_empty());
+}
+
+#[cfg(windows)]
 fn check_native_extension_point_policy() {
     use std::ffi::c_void;
 
