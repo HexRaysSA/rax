@@ -234,6 +234,8 @@ pub(crate) struct Namespace {
     cache_server: Option<Arc<cache::CacheServer>>,
     security_device: Option<security_device::SecurityDevice>,
     cng_device: Option<security_device::SecurityDevice>,
+    /// An exact launch-time observation for the selected native SRP open.
+    pub(crate) srp_device_absent: bool,
 }
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum LookupError {
@@ -495,6 +497,7 @@ impl Namespace {
             cache_server: None,
             security_device: None,
             cng_device: None,
+            srp_device_absent: false,
             native_machine: None,
             image_extension_query: None,
         })

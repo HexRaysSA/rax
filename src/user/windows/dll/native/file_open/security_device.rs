@@ -4,8 +4,12 @@ use super::super::named_object::{Checked, status};
 use super::Request;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::Ctx;
-use crate::user::windows::nt::status::STATUS_INSUFFICIENT_RESOURCES;
-use crate::user::windows::object_namespace::security_device::{CNG_NAME, NAME, SecurityDevice};
+use crate::user::windows::nt::status::{
+    STATUS_INSUFFICIENT_RESOURCES, STATUS_OBJECT_NAME_NOT_FOUND,
+};
+use crate::user::windows::object_namespace::security_device::{
+    CNG_NAME, NAME, SRP_NAME, SecurityDevice, supports_srp_device_absence,
+};
 use crate::user::windows::objects::Object;
 
 pub(super) fn open(
@@ -27,6 +31,29 @@ pub(super) fn open(
         });
     }
     let name = name?;
+    if let Some(exact) = device_name(c, name, SRP_NAME) {
+        let version = &c.p.cfg.version;
+        return Some(
+            if exact
+                && creation.is_none()
+                && attributes.flags == 0x40
+                && !attributes.custom_security
+                && (request.access, request.share, request.options) == (1, 7, 0)
+                && supports_srp_device_absence(
+                    (version.major, version.minor, version.build),
+                    c.arch(),
+                    c.p.object_namespace.native_machine,
+                )
+                && c.p.object_namespace.srp_device_absent
+            {
+                status(STATUS_OBJECT_NAME_NOT_FOUND)
+            } else {
+                Err(c
+                    .unsupported("SRP device open is outside the captured absence profile")
+                    .into())
+            },
+        );
+    }
     if let Some(exact) = device_name(c, name, CNG_NAME) {
         return Some(open_cng(c, request, attributes, creation, exact));
     }

@@ -146,6 +146,75 @@ impl Harness {
     }
 }
 
+#[test]
+fn srp_device_open_replays_captured_absence_and_preserves_outputs() {
+    let evidence: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-srp-device/arm64-26200-open.json"
+    ))
+    .unwrap();
+    let name = evidence["name"].as_str().unwrap();
+    let request = &evidence["guest_request"];
+    let flags = request["flags"].as_u64().unwrap() as u32;
+    let access = request["access"].as_u64().unwrap();
+    let share = request["share"].as_u64().unwrap();
+    let options = request["options"].as_u64().unwrap();
+    let exact = &evidence["exact_control"];
+    assert_eq!(exact["opened"], false);
+    for field in ["access", "share", "options", "flags"] {
+        assert_eq!(request[field], exact[field]);
+    }
+    assert_eq!(exact["status"], STATUS_OBJECT_NAME_NOT_FOUND);
+
+    for (arch, build, machine, absent, request_flags, request_access, expected) in [
+        (WinArch::Arm64, 26200, 0xaa64, true, flags, access, true),
+        (WinArch::Arm64, 26200, 0xaa64, false, flags, access, false),
+        (WinArch::Arm64, 26201, 0xaa64, true, flags, access, false),
+        (WinArch::Arm64, 26200, 0x8664, true, flags, access, false),
+        (WinArch::X64, 26200, 0xaa64, true, flags, access, false),
+        (WinArch::Arm64, 26200, 0xaa64, true, 0, access, false),
+        (WinArch::Arm64, 26200, 0xaa64, true, flags, 0x80, false),
+    ] {
+        let mut h = Harness::new(arch);
+        h.name(name);
+        let (output, io, attrs) = (h.base, h.base + 32, h.attrs());
+        let p = h.process.state_mut();
+        let cfg = Arc::make_mut(&mut p.cfg);
+        cfg.host_filesystem = false;
+        cfg.version.major = 10;
+        cfg.version.minor = 0;
+        cfg.version.build = build;
+        p.object_namespace.native_machine = Some(machine);
+        p.object_namespace.srp_device_absent = absent;
+        p.space
+            .w32(attrs + 3 * p.arch.ptr_size(), request_flags)
+            .unwrap();
+        p.space
+            .wptr(io, 8, exact["iosb_status"].as_u64().unwrap())
+            .unwrap();
+        p.space
+            .wptr(io + 8, 8, exact["iosb_information"].as_u64().unwrap())
+            .unwrap();
+        let handles = p.objects.iter().count();
+        let before = p.space.bytes(output, 48).unwrap();
+
+        arguments(
+            p,
+            &mut h.thread,
+            &[output, request_access, attrs, io, share, options],
+        );
+        let result = handle_stop(p, &mut h.thread, stop(arch, 0x33));
+        if expected {
+            assert_eq!(result, Outcome::Continue);
+            assert_eq!(h.thread.cpu.gpr(0), u64::from(STATUS_OBJECT_NAME_NOT_FOUND));
+        } else {
+            assert!(matches!(result, Outcome::Fail(reason)
+                             if reason.contains("outside the captured absence profile")));
+        }
+        assert_eq!(p.space.bytes(output, 48).unwrap(), before);
+        assert_eq!(p.objects.iter().count(), handles);
+    }
+}
+
 pub(super) fn selection(h: &mut Harness) -> PathBuf {
     let directory = h.directory.0.join("runtime");
     std::fs::create_dir(&directory).unwrap();

@@ -1,6 +1,9 @@
 //! Capture only fixed device identity; no guest argument reaches a native API.
 use super::{Attributes, Handle, Owned, Unicode};
-use crate::user::windows::object_namespace::security_device::{CNG_NAME, NAME, SecurityDevice};
+use crate::user::windows::nt::status::STATUS_OBJECT_NAME_NOT_FOUND;
+use crate::user::windows::object_namespace::security_device::{
+    CNG_NAME, NAME, SRP_NAME, SecurityDevice,
+};
 use crate::user::windows::object_namespace::{Namespace, invalid};
 use std::ffi::c_void;
 use std::io;
@@ -89,11 +92,7 @@ pub(in super::super) fn select(
     Ok(())
 }
 
-fn capture(
-    path: &'static str,
-    kernel: (u32, u32, u32),
-    revision: u32,
-) -> io::Result<SecurityDevice> {
+fn open_readonly(path: &'static str, access: u32, options: u32, io: &mut IoStatus) -> (i32, Owned) {
     let mut units: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
     let mut name = Unicode {
         length: ((units.len() - 1) * 2) as u16,
@@ -109,17 +108,36 @@ fn capture(
         qos: std::ptr::null_mut(),
     };
     let mut handle = std::ptr::null_mut();
+    // SAFETY: initialized native records, a fixed counted device name and
+    // exclusive outputs. Callers supply fixed read-only access and options.
+    let status = unsafe { NtOpenFile(&mut handle, access, &attributes, io, 7, options) };
+    (status, Owned(handle))
+}
+
+pub(in super::super) fn srp_device_absent() -> bool {
+    (0..2).all(|_| {
+        let mut io = IoStatus {
+            status: usize::MAX - 1,
+            information: usize::MAX - 2,
+        };
+        let (status, handle) = open_readonly(SRP_NAME, 1, 0, &mut io);
+        status.cast_unsigned() == STATUS_OBJECT_NAME_NOT_FOUND
+            && handle.0.is_null()
+            && io.status == usize::MAX - 1
+            && io.information == usize::MAX - 2
+    })
+}
+
+fn capture(
+    path: &'static str,
+    kernel: (u32, u32, u32),
+    revision: u32,
+) -> io::Result<SecurityDevice> {
     let mut io = IoStatus {
         status: 0,
         information: 0,
     };
-    // SAFETY: initialized exact native ABI records, live bounded counted name
-    // and exclusive outputs. Fixed read/synchronize access, share-all, synchronous
-    // completion; guest paths, flags and pointers never enter this call.
-    let status = unsafe { NtOpenFile(&mut handle, 0x100001, &attributes, &mut io, 7, 0x20) };
-    // Acquire any transferred handle before validating the selected result so
-    // an unexpected native response cannot leak the host resource.
-    let handle = Owned(handle);
+    let (status, handle) = open_readonly(path, 0x100001, 0x20, &mut io);
     if status != 0 || handle.0.is_null() {
         return Err(invalid("selected kernel security-device open failed"));
     }

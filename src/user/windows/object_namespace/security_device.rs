@@ -1,11 +1,21 @@
 //! A selected kernel security device supplies guest-owned file objects.
 use super::{Namespace, invalid};
+use crate::user::windows::arch::WinArch;
 use std::io;
 
 pub(crate) const NAME: &str = "\\Device\\KsecDD";
 pub(crate) const CNG_NAME: &str = "\\Device\\CNG";
+pub(crate) const SRP_NAME: &str = "\\Device\\SrpDevice";
 pub(crate) const KSEC_DEVICE_TYPE: u32 = 0x39;
 pub(crate) const CNG_DEVICE_TYPE: u32 = 0x3f;
+
+pub(crate) fn supports_srp_device_absence(
+    kernel: (u32, u32, u32),
+    arch: WinArch,
+    machine: Option<u16>,
+) -> bool {
+    kernel == (10, 0, 26200) && arch == WinArch::Arm64 && machine == Some(0xaa64)
+}
 
 /// Fixed native identity, captured before guest execution without retaining a HANDLE.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,14 +89,21 @@ impl Namespace {
         self.cng_device
     }
 
-    pub(crate) fn capture_security_device(&mut self, kernel: (u32, u32, u32)) -> io::Result<()> {
+    pub(crate) fn capture_security_device(
+        &mut self,
+        kernel: (u32, u32, u32),
+        arch: WinArch,
+    ) -> io::Result<()> {
         #[cfg(windows)]
         {
+            if supports_srp_device_absence(kernel, arch, self.native_machine) {
+                self.srp_device_absent = super::installed::security_device::srp_device_absent();
+            }
             super::installed::security_device::select(self, kernel)
         }
         #[cfg(not(windows))]
         {
-            let _ = kernel;
+            let _ = (kernel, arch);
             Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "installed kernel security-device identity requires Windows",

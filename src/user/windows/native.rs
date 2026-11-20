@@ -204,11 +204,14 @@ impl NativeRuntime {
             ),
             arch,
         )?;
-        runtime.object_namespace.capture_security_device((
-            runtime.version.major,
-            runtime.version.minor,
-            runtime.version.build,
-        ))?;
+        runtime.object_namespace.capture_security_device(
+            (
+                runtime.version.major,
+                runtime.version.minor,
+                runtime.version.build,
+            ),
+            arch,
+        )?;
         if arch == WinArch::X86 {
             // SysWOW64 NTDLL and its pinned KnownDlls32 image select Windows'
             // pure x86 process profile. ARM64's default CHPE redirect would mix

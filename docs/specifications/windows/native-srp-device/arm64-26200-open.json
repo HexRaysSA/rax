@@ -1,0 +1,73 @@
+{
+  "source_commit": "8f21fef298ac5373da6b535d33d27789a9e8e17e",
+  "kernel": "10.0.26200.0",
+  "target": "aarch64-pc-windows-msvc",
+  "ntdll_sha256": "3a1617c63d3a69f7f4d740bdbbe65c3d34ec28c2a7254902dc130e5b2bbe7209",
+  "cmd_sha256": "7e49d8fdc5a4c1c3c8a3f7fb762163a50aa1487acc1353cd81c45e9b3a71e4a5",
+  "installed_images_unchanged": true,
+  "run": 44738107844,
+  "archive_sha256": "sha256:9c43c90c0ac38fd3378416af4ec338808c930a20cc5ff96dc7ea7a850f80bc7d",
+  "stop": [
+    "guest \"arm64\" stopped after 1201 scheduler turns: \"emulator failure: native NTDLL service NtOpenFile: Unimplemented(\\\"NtOpenFile: NT metadata name outside mapped DOS drive namespace\\\")\""
+  ],
+  "name": "\\Device\\SrpDevice",
+  "observation_source_sha256": "67c639a95c060a81a9eb0e791f458bc7389c8457f26bde40603b6251cb9d9654",
+  "guest_request": {
+    "access": 1,
+    "share": 7,
+    "options": 0,
+    "flags": 64
+  },
+  "native_controls": [
+    {
+      "access": 1048577,
+      "share": 7,
+      "options": 32,
+      "flags": 64,
+      "status": 3221225524,
+      "opened": false,
+      "iosb_status": 18446744073709551614,
+      "iosb_information": 18446744073709551613
+    },
+    {
+      "access": 1048704,
+      "share": 7,
+      "options": 32,
+      "flags": 64,
+      "status": 3221225524,
+      "opened": false,
+      "iosb_status": 18446744073709551614,
+      "iosb_information": 18446744073709551613
+    },
+    {
+      "access": 1048576,
+      "share": 7,
+      "options": 32,
+      "flags": 64,
+      "status": 3221225524,
+      "opened": false,
+      "iosb_status": 18446744073709551614,
+      "iosb_information": 18446744073709551613
+    },
+    {
+      "access": 1,
+      "share": 7,
+      "options": 0,
+      "flags": 64,
+      "status": 3221225524,
+      "opened": false,
+      "iosb_status": 18446744073709551614,
+      "iosb_information": 18446744073709551613
+    }
+  ],
+  "exact_control": {
+    "access": 1,
+    "share": 7,
+    "options": 0,
+    "flags": 64,
+    "status": 3221225524,
+    "opened": false,
+    "iosb_status": 18446744073709551614,
+    "iosb_information": 18446744073709551613
+  }
+}
