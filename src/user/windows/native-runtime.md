@@ -1461,6 +1461,12 @@ query is forwarded. Existing six-argument transports and explicit unsupported
 class/relationship stops remain. Construction uses fixed O(1) scratch/time;
 declared-span probes retain the owning page-walk behavior.
 
+The installed x86 NTDLL service `NtWow64GetCurrentProcessorNumber` takes no
+arguments. On Windows ARM64 build 29708 it returned 0 and 1 when the caller was
+pinned to those CPUs, matching the Win32 processor queries and preserving last
+error. The emulated entry returns CPU 0 from the single-CPU guest topology
+without changing last error.
+
 Native64 retains DWORD alignment, whole-output probing and direct ReturnLength
 preprobe. WoW64 publishes node DWORD, reserved SIMD16/WORD, count WORD, zero
 affinity QWORD/DWORD, group WORD, folded-mask DWORD, header8, then length4.

@@ -616,6 +616,13 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         &[Ptr, I32, Ptr, I32, Ptr],
         alpc::query_information,
     ),
+    Export::func(
+        "NtWow64GetCurrentProcessorNumber",
+        Stdcall,
+        &[],
+        topology::current_processor,
+    )
+    .only(Archs::X86),
 ];
 
 // Tail family preserves existing synthetic export ordinals and trap slots.

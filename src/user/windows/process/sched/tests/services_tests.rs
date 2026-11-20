@@ -614,6 +614,44 @@ fn wow64_close_consumes_only_its_internal_return_and_keeps_callee_cleanup_in_gue
 }
 
 #[test]
+fn wow64_current_processor_returns_guest_cpu_and_preserves_the_caller() {
+    use crate::user::windows::{dll, layout};
+
+    const NAME: &str = "NtWow64GetCurrentProcessorNumber";
+    const SERVICE: u32 = 0x1fc;
+    const GATE: u64 = 0x1234_0000;
+    const RESUME: u32 = 0x1234_0004;
+    const CALLER_RETURN: u32 = 0x1234_1000;
+    const LAST_ERROR: u32 = 0x1234_5678;
+
+    let api = dll::nt_service(NAME, WinArch::X86).unwrap();
+    assert!(api.args.is_empty());
+    assert!(dll::nt_service(NAME, WinArch::X64).is_none());
+    assert!(dll::nt_service(NAME, WinArch::Arm64).is_none());
+
+    let (mut process, mut thread) = fixture(WinArch::X86, NAME, SERVICE);
+    let p = process.state_mut();
+    let sp = thread.cpu.sp();
+    let last_error = thread.teb + layout::offsets(WinArch::X86).teb_last_error;
+    p.space.w32(last_error, LAST_ERROR).unwrap();
+    p.space.w32(sp, RESUME).unwrap();
+    p.space.w32(sp + 4, CALLER_RETURN).unwrap();
+    thread.cpu.set_pc(GATE);
+    thread.cpu.set_gpr(0, SERVICE.into());
+
+    assert_eq!(
+        super::super::super::services::wow64(p, &mut thread, GATE),
+        Outcome::Continue
+    );
+    assert_eq!(thread.cpu.gpr(0), 0);
+    assert_eq!(thread.cpu.pc(), u64::from(RESUME));
+    assert_eq!(thread.cpu.sp(), sp + 4);
+    assert_eq!(p.space.u32(sp + 4).unwrap(), CALLER_RETURN);
+    assert_eq!(p.space.u32(last_error).unwrap(), LAST_ERROR);
+    assert!(thread.frames.is_empty());
+}
+
+#[test]
 fn wow64_stack_arguments_faults_and_unknown_numbers_have_distinct_results() {
     let (mut process, mut t) = fixture(WinArch::X86, "NtAllocateVirtualMemory", 0x18);
     let p = process.state_mut();

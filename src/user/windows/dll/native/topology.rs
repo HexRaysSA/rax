@@ -28,6 +28,11 @@ fn user_span(c: &Ctx, address: u64, bytes: u32) -> bool {
         .is_some_and(|end| end <= c.p.vm.high())
 }
 
+pub(super) fn current_processor(_c: &mut Ctx) -> ApiResult {
+    // The Windows guest scheduler and topology expose a single logical CPU.
+    Flow::ret(0)
+}
+
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
     let result = query(c);
     guard_result(c, result)
