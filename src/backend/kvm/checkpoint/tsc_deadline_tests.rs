@@ -101,6 +101,11 @@ fn armed_deadline_keeps_its_vcpu_and_waits_for_the_restored_clock() {
         };
         let image = native_source.capture_native_banks(&boundary).unwrap();
         assert_eq!(recorded_deadline(&image, index), deadline);
+        let public = image
+            .clone()
+            .into_checkpoint_capture()
+            .expect("future deadline must be admitted into the public checkpoint projection");
+        assert_eq!(public.contexts.len(), usize::from(count));
         let encoded = crate::codec::serialize(&image).unwrap();
         drop(boundary);
         drop(handles);
@@ -123,13 +128,11 @@ fn armed_deadline_keeps_its_vcpu_and_waits_for_the_restored_clock() {
         image.restore_stored(native_target, &boundary).unwrap();
         image.stage_resume_clock(native_target, &boundary).unwrap();
         std::thread::sleep(Duration::from_millis(TIMER_DELAY_MS + 100));
-        assert_eq!(
-            recorded_deadline(
-                &native_target.capture_native_banks(&boundary).unwrap(),
-                index
-            ),
-            deadline,
-        );
+        let captured = native_target.capture_native_banks(&boundary).unwrap();
+        assert_eq!(recorded_deadline(&captured, index), deadline);
+        captured
+            .into_checkpoint_capture()
+            .expect("recapture before first entry must retain the same deadline frontier");
         assert_eq!(
             read_msr(&handles[index].lock().unwrap().vcpu_fd, TSC_DEADLINE),
             0

@@ -413,17 +413,29 @@ impl Image {
     }
 
     /// Check timer admission and read the native TPR for its public projection.
-    pub(super) fn checkpoint_priority(&self) -> Result<Option<u8>> {
+    pub(super) fn checkpoint_priority(&self, clock: &super::clock::Image) -> Result<Option<u8>> {
         let Some(lapic) = &self.lapic else {
             return Ok(None);
         };
-        if self.special.decode().map_err(invalid)?.apic_base & (1 << 11) == 0 {
+        let apic_base = self.special.decode().map_err(invalid)?.apic_base;
+        if apic_base & (1 << 11) == 0 {
             return Err(invalid("disabled LAPIC can conceal a TSC deadline"));
         }
-        if self.deadline().is_some_and(|deadline| deadline != 0) {
-            return Err(invalid("armed TSC deadline requires verified expiry state"));
-        }
         let lapic = lapic.decode().map_err(invalid)?;
+        if let Some(deadline) = self.deadline().filter(|deadline| *deadline != 0) {
+            if !msrs::deadline_mode(&lapic, apic_base) {
+                return Err(invalid(
+                    "armed TSC deadline outside enabled LAPIC deadline mode",
+                ));
+            }
+            // KVM writes IRR before clearing the deadline MSR on delivery.
+            // While all CPUs are stopped no new guest can arm the timer. A
+            // deadline after the capture cut cannot be a previously delivered
+            // copy or an overdue private expiry that has yet to enter IRR.
+            clock
+                .validate_armed_deadline(self.id, deadline)
+                .map_err(invalid)?;
+        }
         if super::lapic_timer::has_countdown(&lapic) {
             return Err(invalid(
                 "programmed LAPIC countdown requires verified expiry state",

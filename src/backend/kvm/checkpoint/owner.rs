@@ -164,6 +164,10 @@ impl KvmVm {
         }
         let pending_clock = pending.clone();
         drop(pending);
+        // No guest can enter while these banks are sampled. Record the start
+        // of the interval so a counter wrap cannot disguise a reached deadline
+        // as a future one at the common clock cut below.
+        let capture_started = clock::host_tsc();
         let mut cpus = Vec::with_capacity(cores.len());
         for (index, core) in cores.iter().enumerate() {
             let mut image = cpu::Image::capture(
@@ -192,6 +196,13 @@ impl KvmVm {
                 let (clock, sampled_at) =
                     clock::Image::capture(&self.memory.vm_fd, &descriptors, native_khz)
                         .map_err(invalid)?;
+                for image in &cpus {
+                    if image.deadline().is_some_and(|deadline| deadline != 0) {
+                        clock
+                            .validate_capture_window(image.id, capture_started)
+                            .map_err(invalid)?;
+                    }
+                }
                 (clock, Some(sampled_at))
             }
         };

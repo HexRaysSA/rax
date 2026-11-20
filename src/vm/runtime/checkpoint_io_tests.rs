@@ -22,6 +22,10 @@ impl Fixture {
     }
 
     fn with_memory(count: u8, memory: u64) -> Self {
+        Self::with_construction(count, memory, ConstructionMode::RestoreTarget)
+    }
+
+    fn with_construction(count: u8, memory: u64, mode: ConstructionMode) -> Self {
         let kernel = std::env::temp_dir().join(format!(
             "rax-kvm-checkpoint-service-{}-{}",
             std::process::id(),
@@ -45,7 +49,7 @@ impl Fixture {
         .unwrap();
         config.memory = MemorySize(memory);
         Self {
-            vm: Vmm::new_resume(config).unwrap(),
+            vm: Vmm::build(config, mode).unwrap(),
             kernel,
         }
     }
@@ -572,4 +576,103 @@ fn failed_second_cpu_setter_rolls_back_first_cpu_and_preserves_target_ram() {
         0x5a
     );
     assert!(matches!(target.exit(0), VcpuExit::Hlt));
+}
+
+#[test]
+#[ignore = "requires native Linux KVM with TSC deadline support"]
+fn future_native_deadline_survives_a_source_free_vmm_checkpoint() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    // NASM, BITS 16. Program SVR and LVTT through the native LAPIC, arm
+    // IA32_TSC_DEADLINE at guest RDTSC + 0x70000000, and save that absolute
+    // deadline at 0x5000. OUT 21h is the capture marker. OUT 32h follows
+    // re-entry with IF=1. HLT waits for the timer before OUT 33h.
+    const GUEST: &[u8] = &[
+        0x66, 0xbf, 0x00, 0x00, 0xe0, 0xfe, 0x67, 0x66, 0xc7, 0x87, 0xf0, 0x00, 0x00, 0x00, 0xff,
+        0x01, 0x00, 0x00, 0x67, 0x66, 0xc7, 0x87, 0x20, 0x03, 0x00, 0x00, 0x41, 0x00, 0x04, 0x00,
+        0x0f, 0x31, 0x66, 0x05, 0x00, 0x00, 0x00, 0x70, 0x66, 0x83, 0xd2, 0x00, 0x66, 0xa3, 0x00,
+        0x50, 0x66, 0x89, 0x16, 0x04, 0x50, 0x66, 0xb9, 0xe0, 0x06, 0x00, 0x00, 0x0f, 0x30, 0xfb,
+        0xb0, 0x21, 0xe6, 0xe9, 0xb0, 0x32, 0xe6, 0xe9, 0xf4, 0xfa, 0xb0, 0x33, 0xe6, 0xe9, 0xf4,
+    ];
+    // Store handler-entry TSC at 0x5008. Write EOI, output A1h, and IRET.
+    const HANDLER: &[u8] = &[
+        0x0f, 0x31, 0x66, 0xa3, 0x08, 0x50, 0x66, 0x89, 0x16, 0x0c, 0x50, 0x67, 0x66, 0xc7, 0x87,
+        0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xb0, 0xa1, 0xe6, 0xe9, 0xcf,
+    ];
+    fn timer_marker(event: VcpuExit, expected: u8) {
+        assert!(
+            matches!(&event, VcpuExit::IoOut { port: 0xe9, data } if data == &[expected]),
+            "unexpected event before marker {expected:#x}: {event:?}"
+        );
+    }
+
+    for count in [1, 2, 4] {
+        let mut source = Fixture::with_construction(
+            count,
+            128 << 20,
+            ConstructionMode::Checkpoint {
+                initialize_kvm_irqchip: true,
+            },
+        );
+        source.prepare(0, GUEST);
+        let memory = source.vm.guest_mem.memory();
+        memory.write_slice(HANDLER, GuestAddress(0x2000)).unwrap();
+        memory.write_obj(0x2000u32, GuestAddress(0x41 * 4)).unwrap();
+        let CpuState::X86_64(mut state) = source.vm.vcpus[0].get_state().unwrap() else {
+            unreachable!()
+        };
+        state.regs.rsp = 0x9000;
+        state.sregs.ss.base = 0;
+        state.sregs.ss.selector = 0;
+        state.sregs.idt.base = 0;
+        state.sregs.idt.limit = 0x3ff;
+        source.vm.vcpus[0]
+            .set_state(&CpuState::X86_64(state))
+            .unwrap();
+        timer_marker(source.exit(0), 0x21);
+        let deadline = source
+            .vm
+            .guest_mem
+            .memory()
+            .read_obj::<u64>(GuestAddress(0x5000))
+            .unwrap();
+        assert_ne!(deadline, 0);
+        let bundle = source
+            .vm
+            .take_snapshot_bundle(0)
+            .expect("public VMM capture must admit the future deadline");
+        assert_eq!(bundle.saved_kvm_irqchip(), Some(true));
+        let path = source.kernel.with_extension("rxc");
+        bundle.save(&path).unwrap();
+        drop(bundle);
+        let original_kernel = source.kernel.clone();
+        drop(source);
+        assert!(!original_kernel.exists());
+        std::thread::sleep(Duration::from_secs(2));
+        let bundle = SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        assert_eq!(
+            target.take_snapshot_bundle(0).unwrap().vm_context(),
+            bundle.vm_context()
+        );
+        let cpu = &mut target.vcpus[0];
+        for expected in [0x32, 0xa1, 0x33] {
+            let event = (0..300)
+                .find_map(|_| cpu.run_host_slice(Duration::from_millis(10)).unwrap())
+                .expect("resumed VCPU did not produce its next marker");
+            timer_marker(event, expected);
+            cpu.complete_io_out().unwrap();
+        }
+        let received = target
+            .guest_mem
+            .memory()
+            .read_obj::<u64>(GuestAddress(0x5008))
+            .unwrap();
+        assert!(
+            received >= deadline,
+            "native IRQ entered before programmed guest TSC"
+        );
+    }
 }

@@ -284,6 +284,37 @@ source destruction, a paused recapture and guest entry on the selected vCPU.
 The complete public KVM checkpoint transaction and the expired and periodic
 LAPIC timer cases have additional ownership requirements.
 
+## Public checkpoint admission of a future TSC deadline
+
+Capture compares each armed absolute deadline to that vCPU's guest TSC at
+the common native clock cut, using the vCPU's retained offset. A deadline
+in the future can be staged with the clock and re-armed after rebasing the
+destination. A reached deadline can still be waiting in a private KVM
+expiry latch. Capture therefore rejects a nonzero MSR whose deadline has
+been reached. Native entry stays excluded while sampling the CPU banks and
+clock. A TSC wrap in that interval also rejects an armed deadline.
+
+Existing records with an idle deadline retain their representation.
+Admitting an armed record requires an enabled native LAPIC in deadline
+mode. The runtime still rejects capture of a programmed LAPIC countdown.
+The common clock sample uses O(N) storage and O(N) native samples for N
+vCPUs. Deadline admission uses the sorted vCPU clock records and costs
+O(log N) per armed CPU with constant extra storage.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The same clock cut can be compared in each vCPU's TSC coordinates. | Give two vCPUs different offsets and use a deadline that is future on one and reached on the other. |
+| Stopped recapture retains the armed state. | Restore into an independently constructed VM, wait longer than the saved timer interval, and compare the repeated stopped checkpoint. |
+| A resumed deadline produces one correctly ordered guest IRQ. | Require a guest marker before the handler, verify the handler's TSC is at least the saved deadline, and require a second guest marker after IRET. |
+
+The Linux x86-64 library test binary cross-builds with the checkpoint
+regressions. The isolated public-admission replay observes rejection at
+the parent revision and preserves TPR with the fix. Its reached-deadline,
+wrong timer mode, and countdown controls still reject. The native VMM
+regression is registered in the hosted KVM workflow. Native runtime
+qualification, already-expired timer phases, and private kernel timer
+state remain separate evidence requirements.
+
 ## Remaining full checkpoint work
 
 High impact: raw LAPIC banks do not serialize all timer phase and pending-source

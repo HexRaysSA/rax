@@ -70,7 +70,7 @@ impl Image {
             .zip(self.terminal)
             .enumerate()
         {
-            priorities.push(state.checkpoint_priority()?);
+            priorities.push(state.checkpoint_priority(&self.clock)?);
             let (public, emulator) = state.public()?;
             cpus.push(CpuSnapshot {
                 state: CpuState::X86_64(public),
@@ -135,11 +135,15 @@ impl Image {
                 .ok_or_else(|| invalid("missing KVM CPU record"))?;
             let row: CpuRecord = decode::<_, CPU_LIMIT>(record, KVM_CPU_TAG, id as u8)?;
             let (state, emulator) = row.state.public()?;
-            let priority_differs = row.state.checkpoint_priority()?.is_some_and(|priority| {
-                let priority = u32::from(priority);
-                priority != apic.registers.priority_handle().load()
-                    || (id == 0 && priority != bundle.base().devices.lapic.priority_handle().load())
-            });
+            let priority_differs =
+                row.state
+                    .checkpoint_priority(&image.clock)?
+                    .is_some_and(|priority| {
+                        let priority = u32::from(priority);
+                        priority != apic.registers.priority_handle().load()
+                            || (id == 0
+                                && priority != bundle.base().devices.lapic.priority_handle().load())
+                    });
             if row.state.id != id as u32
                 || priority_differs
                 || projection(&CpuState::X86_64(state), &emulator)?
@@ -187,7 +191,7 @@ impl Image {
         boundary: &CheckpointBoundary<'_>,
     ) -> Result<()> {
         for cpu in &self.cpus {
-            cpu.checkpoint_priority()?;
+            cpu.checkpoint_priority(&self.clock)?;
         }
         self.admit_public_restore(vm, boundary, false)
     }

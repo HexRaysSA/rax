@@ -41,7 +41,7 @@ fn invalid(message: impl fmt::Display) -> String {
     format!("native KVM clock: {message}")
 }
 
-fn host_tsc() -> u64 {
+pub(super) fn host_tsc() -> u64 {
     // SAFETY: this module is x86-64-only, where SSE2 and RDTSC are architectural
     // baseline instructions. Its native profile requires permitted user TSC
     // reads. Fences order this sample around synchronous KVM transfers; no
@@ -207,6 +207,34 @@ impl Image {
         Ok(self.clock.decode()?.clock)
     }
 
+    fn vcpu_clock(&self, id: u32) -> Result<&CpuClock, String> {
+        self.cpus
+            .binary_search_by_key(&id, |cpu| cpu.id)
+            .map(|index| &self.cpus[index])
+            .map_err(|_| invalid(format_args!("missing CPU {id} clock")))
+    }
+
+    pub(super) fn validate_capture_window(&self, id: u32, started: u64) -> Result<(), String> {
+        let offset = self.vcpu_clock(id)?.offset;
+        if started > self.anchor || started.wrapping_add(offset) > self.anchor.wrapping_add(offset)
+        {
+            return Err(invalid(format_args!(
+                "CPU {id} TSC wrapped while capturing an armed deadline"
+            )));
+        }
+        Ok(())
+    }
+
+    pub(super) fn validate_armed_deadline(&self, id: u32, deadline: u64) -> Result<(), String> {
+        let at_capture = self.anchor.wrapping_add(self.vcpu_clock(id)?.offset);
+        if deadline <= at_capture {
+            return Err(invalid(format_args!(
+                "CPU {id} deadline {deadline:#x} reached captured TSC {at_capture:#x} before expiry was materialized"
+            )));
+        }
+        Ok(())
+    }
+
     /// Call at the common resume gate while every CPU remains excluded, on a
     /// disposable graph or inside a complete rollback transaction. A failed
     /// native setter can leave a changed prefix. This helper neither provides
@@ -289,4 +317,36 @@ fn bounded_cpus<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<CpuClo
         }
     }
     deserializer.deserialize_seq(Cpus)
+}
+
+#[cfg(test)]
+mod deadline_tests {
+    use super::*;
+
+    #[test]
+    fn one_cpu_deadline_is_compared_to_its_own_clock_at_the_shared_cut() {
+        let clock = Image {
+            version: 1,
+            clock: Bank::capture(&kvm_clock_data::default()).unwrap(),
+            clock_before: 90,
+            anchor: 100,
+            cpus: [(-10i64 as u64, 0), (25, 1)]
+                .into_iter()
+                .map(|(offset, id)| CpuClock {
+                    id,
+                    khz: 1_000_000,
+                    offset,
+                })
+                .collect(),
+        };
+        assert!(clock.validate_capture_window(0, 20).is_ok());
+        assert!(clock.validate_capture_window(0, 5).is_err());
+        assert!(clock.validate_capture_window(1, 101).is_err());
+        assert!(clock.validate_armed_deadline(0, 90).is_err());
+        assert!(clock.validate_armed_deadline(0, 91).is_ok());
+        assert!(clock.validate_armed_deadline(1, 91).is_err());
+        assert!(clock.validate_armed_deadline(1, 125).is_err());
+        assert!(clock.validate_armed_deadline(1, 126).is_ok());
+        assert!(clock.validate_armed_deadline(2, 126).is_err());
+    }
 }
