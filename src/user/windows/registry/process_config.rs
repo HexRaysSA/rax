@@ -1,6 +1,8 @@
 //! Fixed registry leaves and named values read by installed process startup.
 use super::*;
 
+pub(super) const LEGACY_EXTENSION_FLAG: &str = "LoadAppInit_DLLs";
+
 pub(super) const SYSTEM_SETUP_VALUES: &[&str] = &[SYSTEM_SETUP_IN_PROGRESS, "OOBEInProgress"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -9,6 +11,7 @@ pub(crate) enum ProcessConfigKey {
     RpcPolicy,
     ActiveComputerName,
     Ccg,
+    DisabledLegacyExtensions,
 }
 
 impl ProcessConfigKey {
@@ -27,6 +30,9 @@ impl ProcessConfigKey {
                 r"\Registry\Machine\System\CurrentControlSet\Control\ComputerName\ActiveComputerName"
             }
             Self::Ccg => r"\Registry\Machine\System\CurrentControlSet\Services\CCG",
+            Self::DisabledLegacyExtensions => {
+                r"\Registry\Machine\Software\Microsoft\Windows NT\CurrentVersion\Windows"
+            }
         }
     }
 
@@ -44,6 +50,7 @@ impl ProcessConfigKey {
             ],
             Self::ActiveComputerName => &["ComputerName"],
             Self::Ccg => &[],
+            Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
         }
     }
 
@@ -53,7 +60,14 @@ impl ProcessConfigKey {
             Self::RpcPolicy => "RPC policy",
             Self::ActiveComputerName => "active computer name",
             Self::Ccg => "CCG service",
+            Self::DisabledLegacyExtensions => "disabled legacy extensions",
         }
+    }
+
+    pub(super) fn accepts_values(self, view: RegistryView, values: &[Value]) -> bool {
+        self != Self::DisabledLegacyExtensions
+            || view == RegistryView::Native64
+                && matches!(values, [value] if value.kind == 4 && value.data == [0; 4])
     }
 
     pub(super) fn check_name(
@@ -102,6 +116,7 @@ pub(super) fn covered_values(path: &[u16]) -> Option<&'static [&'static str]> {
     }
     ProcessConfigKey::ALL
         .into_iter()
+        .chain([ProcessConfigKey::DisabledLegacyExtensions])
         .find(|root| path.iter().copied().eq(root.path().encode_utf16()))
         .map(ProcessConfigKey::values)
 }
