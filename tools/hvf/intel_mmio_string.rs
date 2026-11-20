@@ -344,11 +344,8 @@ fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
         ScanBoundary::DebugTrap => (1, 0x100),
         ScanBoundary::Interrupt => (0x31, 0x200),
     };
-    word(
-        &memory,
-        IDT + vector * 16,
-        HANDLER | (8 << 16) | (0x8e << 40),
-    );
+    let gate = (HANDLER & 0xffff) | (8 << 16) | (0x8e << 40) | ((HANDLER >> 16) << 48);
+    word(&memory, IDT + vector * 16, gate);
     // Following the fault stop, skip the error code and return from the interrupt.
     let handler = [0xf4, 0x48, 0x83, 0xc4, 0x08, 0x48, 0xcf];
     memory
@@ -379,7 +376,10 @@ fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
         assert!(cpu.inject_interrupt(vector as u8).unwrap());
     }
     let exit = event(cpu.as_mut());
-    assert!(matches!(exit, VcpuExit::Hlt), "{exit:?}");
+    assert!(
+        matches!(exit, VcpuExit::Hlt),
+        "{prefix:#x} {boundary:?}: {exit:?}"
+    );
     let regs = state(cpu.as_ref()).regs;
     assert_eq!(
         (regs.rip, regs.rdi, regs.rcx, regs.rax, regs.r10),
