@@ -952,6 +952,69 @@ fn nmi_handler_and_pending_nmi_continue_from_a_detached_checkpoint() {
 }
 
 #[test]
+fn restored_ioapic_nmi_reaches_the_target_with_its_lapic_software_disabled() {
+    for count in [1, 2, 4] {
+        let mut fixture = Fixture::with_retired_cpus(count);
+        let cpu_index = usize::from(count - 1);
+        let power_off = [0x66, 0xba, 4, 6, 0x66, 0xb8, 0, 0x20, 0x66, 0xef];
+        prepare_retired_timer_guest(&mut fixture, cpu_index, 2, &power_off);
+        fixture.write(0xa000, &[0x8b, 0x04, 0x24, 0xa3, 0, 0x70, 0, 0, 0x41, 0xcf]); // Record interrupted EIP, increment ECX, IRETD.
+        let source = &mut fixture.vm;
+        source.coordinator.online.fill(true);
+        source.coordinator.cursor = cpu_index;
+        source.local_apics[cpu_index]
+            .lock()
+            .unwrap()
+            .write_register(0xf0, 0xff);
+        program(source, 20, 0, cpu_index as u8, false);
+        source
+            .mmio_bus
+            .write(0xfec0_0010, &0x400u32.to_le_bytes())
+            .unwrap(); // Delivery mode NMI, independent of the vector field.
+        program(source, 21, 0x51, cpu_index as u8, false);
+        {
+            let mut ioapic = source.pc_devices.as_ref().unwrap().ioapic.lock().unwrap();
+            for pin in [20, 21] {
+                ioapic.set_irq(pin, true);
+                ioapic.set_irq(pin, false);
+            }
+        }
+        let file = RemoveFile::new();
+        source
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&file.0)
+            .unwrap();
+        drop(fixture);
+
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        target.route_pc_interrupts().unwrap();
+        for (index, lapic) in target.local_apics.iter().enumerate() {
+            let lapic = lapic.lock().unwrap();
+            assert_eq!(lapic.has_pending_nmi(), index == cpu_index, "count={count}");
+            assert_eq!(lapic.get_pending_vector(), None);
+        }
+        target.run().unwrap();
+        let CpuState::X86_64(after) = target.vcpus[cpu_index].get_state().unwrap() else {
+            unreachable!();
+        };
+        assert_eq!(after.regs.rcx, 1);
+        let mut interrupted_eip = [0; 4];
+        target
+            .guest_mem
+            .memory()
+            .read_slice(&mut interrupted_eip, vm_memory::GuestAddress(0x7000))
+            .unwrap();
+        assert_eq!(u64::from(u32::from_le_bytes(interrupted_eip)), BSP);
+        let ioapic = target.pc_devices.as_ref().unwrap().ioapic.lock().unwrap();
+        assert_eq!(ioapic.pending().len(), 1);
+        assert_eq!(ioapic.pending()[0].gsi, 21);
+    }
+}
+
+#[test]
 fn i8042_irq12_reaches_the_guest_interrupt_controller_on_normal_port_output() {
     let mut fixture = Fixture::new(1);
     program(&mut fixture.vm, 12, 0x5c, 0, false);

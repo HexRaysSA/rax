@@ -200220,6 +200220,18 @@
       "scope": "Direct x86 execution and lifted SMIR interpretation preserve entry arithmetic flags and completed element progress on REPE/REPNE CMPS and SCAS operand faults. Both new tests reproduced the mismatch on the parent. The corrected code passed 247 C API, 5 lifted string, and 28560 x86 integration tests on Apple Silicon.",
       "qualification": "docs/development/guest-fault-recovery.md#contract-and-evidence",
       "full_goal_complete": false
+    },
+    {
+      "id": "software-ioapic-nmi-with-disabled-lapic-2026-11-20",
+      "findings": [
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "An I/O APIC NMI can transfer to a software-disabled local APIC. Detached software x86 VMM execution on one, two and four vCPUs verifies the destination, actual handler entry and return, and conservation of a separate pending fixed interrupt. The parent failed at the NMI transfer.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#io-apic-nmi-routing-with-lapic-software-disable",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

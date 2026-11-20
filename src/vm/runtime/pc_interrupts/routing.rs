@@ -37,8 +37,11 @@ pub(super) fn route_messages(
                 message.delivery_mode
             )));
         }
+        let nmi = message.delivery_mode == 4;
         let selected = |apic: &LocalApic| {
-            apic.is_enabled()
+            // Clearing SVR[8] blocks ordinary fixed interrupts, but the
+            // local APIC continues to accept NMIs (Intel SDM 3A 12.4.7.2).
+            (nmi || apic.is_enabled())
                 && matches_destination(apic, request.destination, message.logical_destination)
         };
         let lowest = (message.delivery_mode == 1)
@@ -56,7 +59,7 @@ pub(super) fn route_messages(
             if !selected(apic) || (message.delivery_mode == 1 && lowest != Some(id)) {
                 continue;
             }
-            if message.delivery_mode == 4 {
+            if nmi {
                 apic.set_pending_nmi();
                 accepted = true;
             } else {

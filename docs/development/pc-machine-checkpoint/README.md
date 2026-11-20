@@ -233,3 +233,23 @@ cycles. The detached VMM test saves a pending divisor in each mode, then
 checks the active count, OUT, NULL COUNT, and IRQ0 through the I/O APIC after
 the source VM is destroyed. See the [device section
 encoding](../checkpoint-format.md#pit-periodic-state).
+
+## I/O APIC NMI routing with LAPIC software disable
+
+An I/O APIC NMI retains its destination and can transfer to the local NMI
+latch with `SVR[8]` clear. Ordinary fixed and lowest-priority messages
+continue to require an enabled local APIC. The detached test saves both
+messages in the I/O APIC and destroys the source VM. With one, two and four
+vCPUs, only the selected CPU accepts the NMI. Its handler records the
+interrupted PC, executes IRETD and reaches the guest continuation once.
+The fixed message remains queued at the I/O APIC.
+[Intel SDM Volume 3A, sections 12.4.7.2 and 12.8.1](https://cdrdv2-public.intel.com/835781/325462-sdm-vol-1-2abcd-3abcd-4.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Software disable permits messages in NMI delivery mode to reach the selected APIC. | Restore one NMI pulse and one fixed pulse targeting a software-disabled LAPIC. Check the destination latch, the guest handler's return address, the quiet peers and the remaining fixed pulse. |
+
+The parent failed at the NMI transfer. All 35 PC interrupt tests passed
+after the fix on Apple Silicon, exercising the shared software controller
+and the software x86 guest backend. Native HVF event injection and the
+separate global APIC disable control require their own validation.
