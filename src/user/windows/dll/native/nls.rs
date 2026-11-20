@@ -9,6 +9,23 @@ use std::sync::Arc;
 pub(super) mod initialize;
 pub(super) mod mui;
 
+#[cfg(debug_assertions)]
+pub(super) fn collation_fixture(c: &Ctx<'_>) -> bool {
+    c.p.cfg
+        .guest_image_path
+        .as_deref()
+        .is_some_and(|path| path.ends_with("\\rax-collation.exe"))
+}
+
+#[cfg(debug_assertions)]
+pub(super) fn collation_name(c: &Ctx<'_>, units: &[u16]) -> Option<String> {
+    if !collation_fixture(c) || units.len() > 512 {
+        return None;
+    }
+    let path = String::from_utf16(units).ok()?.to_ascii_lowercase();
+    (path.ends_with(".nls") || path.starts_with("\\nls\\")).then_some(path)
+}
+
 pub(super) fn get(c: &mut Ctx) -> ApiResult {
     let result = get_checked(c);
     match guard_result(c, result) {
@@ -18,6 +35,13 @@ pub(super) fn get(c: &mut Ctx) -> ApiResult {
 }
 fn get_checked(c: &mut Ctx) -> ApiResult {
     let (kind, data, context, out, size) = (c.u32(0)?, c.u32(1)?, c.ptr(2)?, c.ptr(3)?, c.ptr(4)?);
+    #[cfg(debug_assertions)]
+    if collation_fixture(c) {
+        eprintln!(
+            "guest collation NtGetNlsSectionPtr: kind={kind} data={data} context={}",
+            context != 0
+        );
+    }
     let wow = c.arch() == WinArch::X86;
     if wow && context != 0 {
         c.read_ptr(context)?;

@@ -256,6 +256,10 @@ fn open_object(c: &mut Ctx, access: u32, attrs: Option<Attributes>, kind: Kind) 
             .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES));
     }
     if kind == Kind::Section {
+        #[cfg(debug_assertions)]
+        if let Some(spelling) = super::nls::collation_name(c, &units) {
+            eprintln!("guest collation NtOpenSection: {spelling:?}");
+        }
         let section = match c.p.object_namespace.lookup_installed_section(
             root,
             &units,

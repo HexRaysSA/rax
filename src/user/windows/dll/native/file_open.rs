@@ -221,7 +221,28 @@ pub(super) fn kernel(
     {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let resolved = path::resolve_open(c, &attrs, name.as_deref())?;
+    let resolved = path::resolve_open(c, &attrs, name.as_deref());
+    #[cfg(debug_assertions)]
+    if let Some(spelling) = name
+        .as_deref()
+        .and_then(|units| super::nls::collation_name(c, units))
+    {
+        match &resolved {
+            Ok(file) => {
+                eprintln!(
+                    "guest collation file lookup: {spelling:?} selected={}",
+                    file.runtime_library
+                );
+            }
+            Err(Failure::Status(code)) => {
+                eprintln!("guest collation file lookup: {spelling:?} status={code:08x}");
+            }
+            Err(Failure::Api(_)) => {
+                eprintln!("guest collation file lookup: {spelling:?} API failure");
+            }
+        }
+    }
+    let resolved = resolved?;
     let mut access = mapped_access(r.access);
     if access & 0x0200_0000 != 0 {
         access = (access & !0x0200_0000)
