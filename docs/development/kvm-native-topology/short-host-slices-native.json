@@ -1,0 +1,184 @@
+{
+  "revision": "b7046c44b7b42428f3688678a69ce26db3e6160c",
+  "production_source_sha256": "b2940e21c8206e5d865010c96d04525723e0fdc8112cc07aa9dc4861f2306f6a",
+  "host": {
+    "kernel": "6.8.0-138-generic",
+    "architecture": "x86_64",
+    "cpu": "Intel Xeon E5-1650 v3",
+    "native_kvm": true
+  },
+  "short_entry_probe_source_sha256": "298bf807d47588a20f90e648ac678b45c9fc1977161cee0f5c5bc7182fb4071c",
+  "short_entry_probe": [
+    {
+      "bind_before_timer": 0,
+      "timer_ns": 100000,
+      "slices": 128,
+      "io_exits": 1,
+      "interrupted": 127,
+      "mean_run_ns": 6966833,
+      "max_run_ns": 18884139
+    },
+    {
+      "bind_before_timer": 1,
+      "timer_ns": 100000,
+      "slices": 128,
+      "io_exits": 128,
+      "interrupted": 0,
+      "mean_run_ns": 19287,
+      "max_run_ns": 72349
+    },
+    {
+      "bind_before_timer": 0,
+      "timer_ns": 1000000,
+      "slices": 128,
+      "io_exits": 1,
+      "interrupted": 127,
+      "mean_run_ns": 7185037,
+      "max_run_ns": 13912290
+    },
+    {
+      "bind_before_timer": 1,
+      "timer_ns": 1000000,
+      "slices": 128,
+      "io_exits": 128,
+      "interrupted": 0,
+      "mean_run_ns": 19593,
+      "max_run_ns": 54723
+    }
+  ],
+  "stalled_cpu_checkpoints": {
+    "captures": [
+      {
+        "rip": "0xffffffff81eb7176",
+        "rflags": "0x46",
+        "pit_ticks": 11979,
+        "elapsed_ns": 181660621671
+      },
+      {
+        "rip": "0xffffffff81eb7176",
+        "rflags": "0x46",
+        "pit_ticks": 64968,
+        "elapsed_ns": 234641909177
+      },
+      {
+        "rip": "0xffffffff81eb7176",
+        "rflags": "0x46",
+        "pit_ticks": 118180,
+        "elapsed_ns": 287845667164
+      }
+    ],
+    "elapsed_ns_delta": 106185045493,
+    "pit_ticks_delta": 106201,
+    "observed_pit_tick_hz": 1000.1502519203709,
+    "programmed_pit_tick_hz": 1000.1525565800503
+  },
+  "regression": {
+    "native_parent_failure": "No progress after the first I/O marker. The child stopped before 0xa8.",
+    "owning_test_gates": {
+      "kvm_host_slices": 16,
+      "kvm_minimal": 15,
+      "kvm_smp": 32
+    }
+  },
+  "linux_boot": {
+    "floor_1ms": {
+      "source": "4b2bff026 with recorded variation",
+      "binary_sha256": "096230337de2129161eaa8df37eb2509d0647c1f0341921472555a8818a2fee7",
+      "kernel_sha256": "d74be574189057a036866309fd5546724a92390a4f6ba086e93ddab2f6e0e01d",
+      "host_kernel": "6.8.0-138-generic",
+      "completed": [
+        {
+          "label": "pit-floor-1ms",
+          "command_line": "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr panic=-1 loglevel=7 apic=verbose clearcpuid=152",
+          "elapsed_seconds": 325.077,
+          "console_sha256": "2e823ed8f4cbd4164e89e72f3e1e611edebd18a3ff4ed5847c1482713f15795c",
+          "harness_exit_code": -15,
+          "configured_cpus_observed": null,
+          "periodic_apic_jiffies_delta": null,
+          "periodic_apic_verified": false,
+          "terminal_event": "no terminal line; time limit"
+        }
+      ]
+    },
+    "io_delay_none": {
+      "source": "4b2bff026 with recorded variation",
+      "binary_sha256": "d3f5eb335f27d30ea38e51427acad8a62514690fa39d3a87549880e36cfb135e",
+      "kernel_sha256": "d74be574189057a036866309fd5546724a92390a4f6ba086e93ddab2f6e0e01d",
+      "host_kernel": "6.8.0-138-generic",
+      "completed": [
+        {
+          "label": "io-delay-none",
+          "command_line": "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr panic=-1 loglevel=7 apic=verbose clearcpuid=152 io_delay=none",
+          "elapsed_seconds": 325.802,
+          "console_sha256": "121c06b874b4719211a8b7b54d765ca3920977ed62547b1e66043cc8f2467032",
+          "harness_exit_code": -15,
+          "configured_cpus_observed": null,
+          "periodic_apic_jiffies_delta": null,
+          "periodic_apic_verified": false,
+          "terminal_event": "no terminal line; time limit"
+        }
+      ]
+    },
+    "association_experiment": {
+      "source": "4b2bff026 with recorded variation",
+      "binary_sha256": "1461f7f51bcea0c0d75e3b1593486858508a35b392b632b5305d033f7bfd49c2",
+      "kernel_sha256": "d74be574189057a036866309fd5546724a92390a4f6ba086e93ddab2f6e0e01d",
+      "host_kernel": "6.8.0-138-generic",
+      "completed": [
+        {
+          "label": "worker-before-timer",
+          "command_line": "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr panic=-1 loglevel=7 apic=verbose clearcpuid=152",
+          "elapsed_seconds": 201.817,
+          "console_sha256": "dcc846f11884b79e1ad79e9ed6ff534d03efe1bfbd2a74e8541707f6cc1d22ca",
+          "harness_exit_code": 0,
+          "configured_cpus_observed": 1,
+          "periodic_apic_jiffies_delta": 100,
+          "periodic_apic_verified": true,
+          "terminal_event": "smp: Brought up 1 node, 1 CPU"
+        }
+      ]
+    },
+    "product": {
+      "source": "3f560f6fd with exact product overlay",
+      "binary_sha256": "13c12760b585a191add2befd682b54a1d291ce53a8f6424b1b8c2f08e0ea68d5",
+      "kernel_sha256": "d74be574189057a036866309fd5546724a92390a4f6ba086e93ddab2f6e0e01d",
+      "host_kernel": "6.8.0-138-generic",
+      "completed": [
+        {
+          "label": "forced-one",
+          "command_line": "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr panic=-1 loglevel=7 apic=verbose clearcpuid=152",
+          "elapsed_seconds": 189.223,
+          "console_sha256": "c5df7f5c788c9c82826e1ac31c733de1e1235bc6f7548f36cc872839945041d7",
+          "harness_exit_code": 0,
+          "configured_cpus_observed": 1,
+          "periodic_apic_jiffies_delta": 100,
+          "periodic_apic_verified": true,
+          "terminal_event": "smp: Brought up 1 node, 1 CPU"
+        },
+        {
+          "label": "forced-two",
+          "command_line": "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr panic=-1 loglevel=7 apic=verbose clearcpuid=152",
+          "elapsed_seconds": 210.009,
+          "console_sha256": "13c068a3f0d8aee219f80d381c81a091e4b795b1760b70b370ff29dd0cd59898",
+          "harness_exit_code": 0,
+          "configured_cpus_observed": 2,
+          "periodic_apic_jiffies_delta": 100,
+          "periodic_apic_verified": true,
+          "terminal_event": "smp: Brought up 1 node, 2 CPU"
+        },
+        {
+          "label": "forced-four",
+          "command_line": "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 nokaslr panic=-1 loglevel=7 apic=verbose clearcpuid=152",
+          "elapsed_seconds": 257.147,
+          "console_sha256": "b95689b1e15093c758ed7c67223bd66d28cd2e89a29f0d83daa31dcb7427c792",
+          "harness_exit_code": 0,
+          "configured_cpus_observed": 4,
+          "periodic_apic_jiffies_delta": 100,
+          "periodic_apic_verified": true,
+          "terminal_event": "smp: Brought up 1 node, 4 CPU"
+        }
+      ]
+    }
+  },
+  "qualification_boundary": "Single Intel/KVM host and Linux guest. The harness exits at observed CPU bring-up. Later guest startup, physical Intel HVF, and other platform profiles remain outside this qualification."
+}

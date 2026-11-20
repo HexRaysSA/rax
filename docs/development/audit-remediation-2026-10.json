@@ -200063,6 +200063,17 @@
       "full_goal_complete": false
     },
     {
+      "id": "kvm-worker-association-and-periodic-apic-2026-11-20",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Native Linux KVM associates a fresh vCPU worker before its short execution timer. The parent stops making guest progress and the fix passes all 63 tests in the three complete owning suites. Native source-free checkpoint continuation passed with one, two and four vCPUs. The Linux CLI brought up each configured CPU count with TSC-deadline disabled and verified the periodic APIC at 100 jiffies in each run. Qualification stops at CPU bring-up on the recorded host and guest.",
+      "qualification": "docs/development/kvm-native-topology/short-host-slices-native.json",
+      "full_goal_complete": false
+    },
+    {
       "id": "x86-pc-interrupt-arbitration-2026-11-20",
       "findings": [
         "C-SMP"

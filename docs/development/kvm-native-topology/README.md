@@ -147,9 +147,21 @@ does not bound kernel scheduling or grace-period latency.
 | A checkpoint still commits an in-flight operation at its stopped boundary. | High | Save and restore the physical file on fresh 1-, 2-, and 4-vCPU owners. Require exact RAM and UART continuation. |
 | The kernel timer retains its previous signal ownership. | Medium | Repeat timed slices while a foreign caller handler is installed. Check the caller mask, disposition, and timer inventory. |
 
-An exact production-overlay build on native Intel KVM also reached the
-single-vCPU Linux bring-up marker. Linux verified the periodic APIC timer
-with a delta of 100 jiffies. The harness stopped on the SMP marker.
+A build with the committed worker change on native Intel KVM reached
+the Linux CPU bring-up marker in each configuration. Linux verified the
+periodic APIC timer with a delta of 100 jiffies in every run.
+
+| Configured vCPUs | CPUs brought up | Verification interval (jiffies) | Time to marker (s) |
+| ---: | ---: | ---: | ---: |
+| 1 | 1 | 100 | 189.223 |
+| 2 | 2 | 100 | 210.009 |
+| 4 | 4 | 100 | 257.147 |
+
+The harness stopped on the SMP marker. The build used source revision
+`3f560f6fd` with the worker source from `b7046c44b`. The
+[native receipt](short-host-slices-native.json) records the source,
+kernel and binary hashes, command line, and control observations.
+
 The complete native `kvm_host_slices`, `kvm_minimal`, and `kvm_smp`
 targets passed 16, 15, and 32 tests respectively. The runs enabled the
 KVM-gated cases and reported zero failures, ignored cases, or filters.
