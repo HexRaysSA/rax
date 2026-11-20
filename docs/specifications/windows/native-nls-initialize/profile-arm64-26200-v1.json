@@ -1,0 +1,50 @@
+{
+  "kernel": [
+    10,
+    0,
+    26200
+  ],
+  "native_machine": 43620,
+  "caller_machine": 43620,
+  "run": 44722025758,
+  "commit": "592958c58c24c2d9bfe8f3ccdc049ff54d58dec4",
+  "archive": "sha256:6fe9bfc2aba18f6ca44008a5d5bc014eb4c6b325338a6ad87eec43c7b04a6981",
+  "ntdll_sha256": "3a1617c63d3a69f7f4d740bdbbe65c3d34ec28c2a7254902dc130e5b2bbe7209",
+  "cmd_sha256": "7e49d8fdc5a4c1c3c8a3f7fb762163a50aa1487acc1353cd81c45e9b3a71e4a5",
+  "locale_bytes": 862808,
+  "locale_sha256": "00d972d678db02525b731e1286e8daf53e87e5cbc58edcaf90de4222470a639a",
+  "initialize": {
+    "rows": 79,
+    "canonical_sha256": "d476bd44bcf21014e53ddcef1dc5b2531b421230e9a9d620ef7bbd46baecdf75",
+    "stdout_sha256": "ffd3255c5d71ffeb65e9db7c8d12ca6b79d495e19c638c3f7ffaa351cee62d31"
+  },
+  "protect": {
+    "rows": 12,
+    "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+    "stdout_sha256": "9c256344f6ef9d19ff64c36ae918580de4ba471dd22903afc3fc3596c90f170c"
+  },
+  "leaves": [
+    {
+      "name": "NtInitializeNlsFiles",
+      "pointer-bytes": "8",
+      "hex": "012100D4C0035FD60000000000000000212100D4C0035FD60000000000000000"
+    },
+    {
+      "name": "NtGetNlsSectionPtr",
+      "pointer-bytes": "8",
+      "hex": "412000D4C0035FD60000000000000000612000D4C0035FD60000000000000000"
+    },
+    {
+      "name": "NtUnmapViewOfSection",
+      "pointer-bytes": "8",
+      "hex": "410500D4C0035FD60000000000000000410500D4C0035FD60000000000000000"
+    }
+  ],
+  "startup": {
+    "calls": 1,
+    "status": 0,
+    "mapping_bytes": 864256,
+    "exit": 41,
+    "stdout_sha256": "379e8c450ea962356fc5375fea3060ebb618a92af29f988b7b2a608f35828793"
+  }
+}

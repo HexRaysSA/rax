@@ -5,8 +5,8 @@ for Windows 10.0.29683.1000, using an immutable snapshot of the installed
 `locale.nls` mapping and its native locale ID. Guest outputs, handles and paths
 never enter host acquisition. The independently qualified 29695 profile is
 recorded in [the later kernel qualification](../native-nls-build-29695/README.md).
-Other Windows builds remain explicitly unsupported for this service while
-existing NLS services retain their behavior.
+Builds outside the measured initialization profiles return an explicit
+unsupported result for this service.
 
 Four independently inspected ARM64/x64/x86/x86-LAA producers supply 316 calls:
 140 succeed and 176 fail without caller SEH. The third and fourth declared
@@ -106,3 +106,13 @@ initialization, mapping protection/free, installed export and first-call
 controls. The artifacts record source, PE, output, installed NTDLL and
 `locale.nls` identities. The same runner separately exercises the installed
 command through RAX's C ABI.
+
+[Run 44722025758](https://github.com/HexRaysSA/rax/actions/runs/44722025758)
+qualified Windows 10.0.26200 for native ARM64 guest initialization on a
+physical ARM64 host. The [observation record](profile-arm64-26200-v1.json)
+binds the 79 initialization cases, 12 mapping protection and free cases,
+three export leaves, and successful first-call control to the installed
+images. The initialization and protection projections match the existing
+ARM64 controls. The measured 862808-byte file occupied 211 pages of 4096
+bytes, for a readonly 864256-byte mapping. The runtime acquires the installed
+mapping at selection time. This profile is specific to initialization.

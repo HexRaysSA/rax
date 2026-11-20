@@ -43,8 +43,7 @@ fn native_nls_initialize_installed_leaves_map_locale_file_and_preserve_ignored_o
             native_host_profile::build(),
             "installed profile must report the current host build"
         );
-        // Initialization admission is separate from MUI and binds the actual
-        // native machine for the independently measured AMD64 kernel profiles.
+        // Initialization and MUI qualify their native kernel profiles independently.
         if !crate::user::windows::nls::supports_initialize_profile(
             &p.cfg.version,
             p.object_namespace.native_machine,

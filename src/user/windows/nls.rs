@@ -40,18 +40,31 @@ pub(crate) fn supports_amd64_mui_profile(
         )
 }
 
-/// Initialization has independent AMD64 controls; MUI retains its own admission.
+/// Initialization has independent controls for the installed AMD64 and ARM64 profiles.
 pub(crate) fn supports_initialize_profile(
     version: &super::process::WinVersion,
     native_machine: Option<u16>,
     arch: super::arch::WinArch,
 ) -> bool {
+    use super::arch::WinArch;
+
     supports_startup_profile(version, native_machine)
-        || version.major == 10
-            && version.minor == 0
-            && matches!(version.build, 20348 | 26100)
-            && native_machine == Some(0x8664)
-            && matches!(arch, super::arch::WinArch::X64 | super::arch::WinArch::X86)
+        || matches!(
+            (
+                version.major,
+                version.minor,
+                version.build,
+                native_machine,
+                arch
+            ),
+            (
+                10,
+                0,
+                20348 | 26100,
+                Some(0x8664),
+                WinArch::X64 | WinArch::X86
+            ) | (10, 0, 26200, Some(0xAA64), WinArch::Arm64)
+        )
 }
 
 #[derive(Debug, Clone)]
@@ -160,6 +173,36 @@ mod tests {
                     version.minor = 0;
                     version.major = 11;
                     assert!(!supports_initialize_profile(&version, machine, arch));
+                    assert!(!supports_amd64_mui_profile(&version, machine, arch));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn arm64_26200_initialization_does_not_admit_other_machines_views_or_mui() {
+        use super::super::arch::WinArch;
+        for (major, minor, build) in [
+            (10, 0, 26199),
+            (10, 0, 26200),
+            (10, 0, 26201),
+            (10, 1, 26200),
+            (11, 0, 26200),
+        ] {
+            let version = super::super::process::WinVersion {
+                major,
+                minor,
+                build,
+                ..Default::default()
+            };
+            for machine in [None, Some(0x14C), Some(0x8664), Some(0xAA64)] {
+                assert!(!supports_startup_profile(&version, machine));
+                for arch in WinArch::ALL {
+                    assert_eq!(
+                        supports_initialize_profile(&version, machine, arch),
+                        (major, minor, build, machine, arch)
+                            == (10, 0, 26200, Some(0xAA64), WinArch::Arm64)
+                    );
                     assert!(!supports_amd64_mui_profile(&version, machine, arch));
                 }
             }

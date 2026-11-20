@@ -54,6 +54,7 @@ fn native_nls_initialize_mapping_is_distinct_readonly_owned_and_unmaps_by_interi
     for (arch, build) in WinArch::ALL
         .into_iter()
         .flat_map(|arch| [29683, 29695, 29698, 29704, 29708].map(|build| (arch, build)))
+        .chain([(WinArch::Arm64, 26200)])
     {
         let (mut process, mut thread, base) = setup(arch, build);
         let p = process.state_mut();
@@ -122,6 +123,10 @@ fn native_nls_initialize_mapping_is_distinct_readonly_owned_and_unmaps_by_interi
 fn native_nls_initialize_unselected_or_unmeasured_profile_publishes_no_mapping_or_output() {
     for arch in WinArch::ALL {
         for (major, minor, build, missing, machine) in [
+            (10, 0, 26199, false, Some(0xAA64)),
+            (10, 0, 26200, true, Some(0xAA64)),
+            (10, 0, 26200, false, Some(0x8664)),
+            (10, 0, 26201, false, Some(0xAA64)),
             (10, 0, 29683, true, Some(0xAA64)),
             (10, 0, 29695, true, Some(0xAA64)),
             (10, 0, 29698, true, Some(0xAA64)),
