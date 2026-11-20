@@ -97,3 +97,12 @@ for raw hashes, fourteen final code inputs, all source epochs, actual test
 counts, exact known failures, native installed-leaf positives and scoped archive
 proof. Runtime errors, source/native/package limits and retained failures are
 not converted into an all-tests-pass claim.
+
+## Hosted ARM64 observation
+
+The installed-process workflow accepts `measure_arm64_nls_initialize`.
+It builds the four existing producers as native ARM64 and runs their original
+initialization, mapping protection/free, installed export and first-call
+controls. The artifacts record source, PE, output, installed NTDLL and
+`locale.nls` identities. The same runner separately exercises the installed
+command through RAX's C ABI.
