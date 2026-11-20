@@ -34,3 +34,12 @@ The standalone AMD64 comparator produced the same 512 bytes as Windows for
 the 16 replay cases. The original CRT-linked probe also matched all 144 bytes
 of expected output, empty standard error and exit code 0 with the installed
 Windows libraries.
+
+The [native64 producer](probe-native64.rs) measures these two names on native
+x64 and ARM64. It checks each exact and lowercase spelling with both
+counted-string maximum lengths, with and without the type output, and with
+capacities of 0, 3, 4, and 16 bytes. The zero-capacity cases use both a null
+and a valid data pointer. Each of the 80 rows records the status, type,
+required size, and guarded destination bytes. Run the installed-process
+workflow with `measure_startup_queries` to record the kernel version and
+hashes of the producer, executable, and NTDLL.

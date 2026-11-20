@@ -15,6 +15,12 @@ remains unknown. Build 29695 is independently qualified in
 large-address-awareness controls and fresh generation observations. Other
 Windows builds remain unmeasured.
 
+The installed-process workflow's `measure_startup_queries` input runs the
+existing 1,680-case producer on AMD64 Server 2022 and Server 2025. It records the query rows, payload length
+and hash, and the producer, executable and NTDLL identities. The producer
+uses flags 0 and 1 and the invalid bit 4. It never sends the cache clear or
+commit bits.
+
 ## Query behavior
 
 Flags `0` and `1` select the measured query behavior. Recognized cache clear or

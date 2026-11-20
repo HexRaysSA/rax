@@ -21,6 +21,11 @@ on:
       - src/**
       - vendor/vm-memory/**
   workflow_dispatch:
+    inputs:
+      measure_startup_queries:
+        description: Capture native startup license and MUI observations
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -61,6 +66,7 @@ jobs:
           targets: ${{ matrix.target }}
           cache-key: windows-installed-process-${{ matrix.os }}
       - name: Compare installed cmd.exe through the closed C ABI
+        id: stock
         shell: pwsh
         env:
           RAX_TEST_TARGET: ${{ matrix.target }}
@@ -95,6 +101,74 @@ jobs:
           if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
             exit 1
           }
+      - name: Measure the native startup license queries
+        if: ${{ !cancelled() && inputs.measure_startup_queries && steps.stock.outcome != 'skipped' }}
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-startup-license/probe-native64.rs'
+          $exe = Join-Path $env:TMPDIR 'startup-license-probe.exe'
+          $data = Join-Path $root 'startup-license.json'
+          rustc --edition 2024 --target $env:RAX_TEST_TARGET $source -o $exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $native = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+          & $exe | Set-Content -LiteralPath $data -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $result = Get-Content -Raw -LiteralPath $data | ConvertFrom-Json
+          if ($result.rows.Count -ne 80) { throw 'Expected 80 native startup license observations' }
+          $identity = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            source_sha256 = (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant()
+            probe_sha256 = (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
+            ntdll_sha256 = $native
+            ntdll_unchanged = $native -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+          }
+          $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'startup-license-identity.json') -Encoding utf8
+          if (!$identity.ntdll_unchanged) { throw 'Native ntdll changed during measurement' }
+      - name: Measure native AMD64 MUI registry queries
+        if: ${{ !cancelled() && inputs.measure_startup_queries && steps.stock.outcome != 'skipped' && matrix.target == 'x86_64-pc-windows-msvc' }}
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-mui-query/native-mui-query-v2.cpp'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $install = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or !$install) { throw 'Visual Studio x64 compiler is unavailable' }
+          Import-Module (Join-Path $install 'Common7/Tools/Microsoft.VisualStudio.DevShell.dll')
+          Enter-VsDevShell -VsInstallPath $install -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          $scratch = Join-Path $env:TMPDIR 'mui-query'
+          New-Item -ItemType Directory -Path $scratch -Force | Out-Null
+          $exe = Join-Path $scratch 'native-mui-query.exe'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $native = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+          $log = Join-Path $root 'native-mui-query.log'
+          Push-Location -LiteralPath $scratch
+          try {
+            & cl.exe /nologo /EHsc /std:c++17 "/Fe$exe" $source
+            if ($LASTEXITCODE -ne 0) { throw "MUI probe compilation failed with exit code $LASTEXITCODE" }
+            & $exe | Set-Content -LiteralPath $log -Encoding utf8
+            if ($LASTEXITCODE -ne 0) { throw "MUI probe failed with exit code $LASTEXITCODE" }
+            $payload = Join-Path $scratch 'mui.bin'
+            if ((Select-String -LiteralPath $log -Pattern '^row ').Count -ne 1680) {
+              throw 'Expected 1680 native MUI observations'
+            }
+            $identity = [ordered]@{
+              source_commit = $env:GITHUB_SHA
+              source_sha256 = (Get-FileHash -LiteralPath $source).Hash.ToLowerInvariant()
+              probe_sha256 = (Get-FileHash -LiteralPath $exe).Hash.ToLowerInvariant()
+              ntdll_sha256 = $native
+              ntdll_unchanged = $native -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+              payload_bytes = (Get-Item -LiteralPath $payload).Length
+              payload_sha256 = (Get-FileHash -LiteralPath $payload).Hash.ToLowerInvariant()
+            }
+            $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'native-mui-query-identity.json') -Encoding utf8
+            if (!$identity.ntdll_unchanged) { throw 'Native ntdll changed during measurement' }
+          } finally {
+            Pop-Location
+          }
       - name: Preserve native process evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -103,4 +177,8 @@ jobs:
           path: |
             target/windows-installed-process/receipt.json
             target/windows-installed-process/capi.log
+            target/windows-installed-process/startup-license.json
+            target/windows-installed-process/startup-license-identity.json
+            target/windows-installed-process/native-mui-query.log
+            target/windows-installed-process/native-mui-query-identity.json
           if-no-files-found: error
