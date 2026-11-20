@@ -200181,6 +200181,16 @@
       "full_goal_complete": false
     },
     {
+      "id": "pc-uart-input-interrupt-frontier-2026-11-20",
+      "findings": [
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "UART reads republish the output IRQ level at the PIO completion boundary. Detached restore rebinds the held PIC input without duplicating an acknowledged edge. Both baseline failures reproduced and all 32 PC interrupt tests passed. Hosted Linux KVM at 0f9a84f77 restored a pending level IRQ4 and the guest read COM1, issued EOI and returned to its continuation once.",
+      "qualification": "docs/development/kvm-native-topology/README.md#halted-checkpoints-and-pc-interrupt-delivery",
+      "full_goal_complete": false
+    },
+    {
       "id": "original-arm-audit-replay-2026-11-19",
       "findings": [
         "A32-FP"

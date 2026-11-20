@@ -265,6 +265,16 @@ runner. Each check required the named test to execute successfully.
 | Userspace interrupt controller, one vCPU | A stopped guest UART `OUT` enabled a pending receive interrupt. Settling the PIO completion presented vector `0x24` through the userspace PIC. |
 | Kernel interrupt controller, one vCPU | Real-mode code routed IOAPIC pin 12 to vector `0x2c`, then generated an i8042 auxiliary byte through PIO. Capture settled the outstanding write, and a fresh VM ran the handler once. It reported `0x5a`, then returned to the interrupted code and reported `0xbe`. |
 
+At `0f9a84f77`, hosted Linux KVM also passed detached restoration of a
+pending UART receive interrupt routed through level-triggered IOAPIC pin 4.
+The restored real-mode guest took vector `0x24`, read byte `0x5a` at COM1,
+acknowledged the local APIC, returned with IRET and reached the `0xbe`
+continuation without taking the handler again. Two software regressions
+failed on the parent and passed with the fix. They require an IIR read to
+release a level PIC input at the PIO boundary and detached restoration to
+preserve an acknowledged edge while the UART line is still held. All 32
+PC interrupt tests passed. [Hosted KVM run](https://github.com/HexRaysSA/rax/actions/runs/44779244703/job/136437434975)
+
 The userspace LAPIC stores the countdown age. A separate kernel-owned LAPIC
 probe observed identical 1,024-byte APIC images with current count zero
 before an armed timer fired and after the interrupt was serviced. The
