@@ -159,3 +159,29 @@ maskable IRQ behavior on the revision that enables virtual NMIs.
 [Hosted job](https://github.com/HexRaysSA/rax/actions/runs/44650128989/job/136002666451)
 [Verified receipt](native-irq-window-virtual-nmi-revision.json)
 [Guest observations](native-irq-window-observations.jsonl)
+
+### Hosted virtual-NMI entry failure
+
+Attempt 2 of the NMI run used the same signed revision and a virtualized
+Intel host with macOS 15.7.9 and SDK 15.5. Framework availability and the
+signed consumer passed verification. The first NMI returned exit reason
+`0x80000021` before the handler's port exit. Bit 31 denotes VM-entry
+failure and the basic reason `0x21` denotes invalid guest state. The run
+completed zero of its three NMI cases. The failing field is unknown.
+[Hosted job](https://github.com/HexRaysSA/rax/actions/runs/44648442574/job/136020341962)
+[Verified failure receipt](native-nmi-window-failure-verified.json)
+[Intel SDM, Vol. 3C, section 28.8](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+On a first-handler failure, the probe creates a fresh VM per control
+and reports the request result, guest RIP and RFLAGS, and observed exit.
+Each control changes one input used by the failing case.
+
+| Assumption under test | Control and falsification probe |
+| --- | --- |
+| The guest enters successfully with its configured state and no event. | Skip the NMI request and require the initial guest's HLT. |
+| The public state projection does not alter VM-entry admission. | Supply the explicit initial state instead of projecting it from the vCPU. Compare the first handler exit. |
+| An NMI can enter before the first guest instruction. | Complete a guest OUT first, then inject with IF clear. Compare the first handler exit. |
+| IF does not gate NMIs. | Set IF for the cold entry and compare the first handler exit. |
+
+The controls run only after a failure and produce no successful-case
+records. The verified failure blocks native NMI qualification in C-HVF.

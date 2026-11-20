@@ -4588,7 +4588,8 @@
         "Legacy MOVBE scalar MMIO decode, byte order, and portable pending-read codec are component-qualified. All six baseline forms failed at metadata decode. The later 12-case MOVBE native run verifies the selected pending-read and direct cases on a virtualized Intel runner. Remaining MMIO and interrupt profiles stay open.",
         "Native Intel HVF on a virtualized Intel runner passed all 16 first-page address cases and all 12 legacy CMPXCHG8B cases. Following-page and concurrent code authority, remaining MMIO families, full interrupt conservation and bare-metal Intel validation remain open.",
         "Two native cases confirm exactly-once delivery of the selected LAPIC timer event, direct and after a CPU-entry-slot restore on a virtualized Intel runner. General vectoring and cross-CPU interrupt conservation remain open.",
-        "Hosted Intel HVF yielded before CLI in both direct and stopped-restore IRQ cases and delivered the queued vector once. The unarmed control retained its pending event. Remaining MMIO and cross-CPU interrupt profiles and bare-metal Intel validation stay open."
+        "Hosted Intel HVF yielded before CLI in both direct and stopped-restore IRQ cases and delivered the queued vector once. The unarmed control retained its pending event. Remaining MMIO and cross-CPU interrupt profiles and bare-metal Intel validation stay open.",
+        "The hosted virtual-NMI profile on the same signed revision failed its first NMI entry with VMX reason 0x80000021 and zero completed cases. See hvf-interrupt-window/native-nmi-window-failure-verified.json. The guest-state field responsible and bare-metal Intel behavior remain unknown."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",

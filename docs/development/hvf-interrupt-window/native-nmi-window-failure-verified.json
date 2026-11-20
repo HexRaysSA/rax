@@ -1,0 +1,42 @@
+{
+  "run_id": 44648442574,
+  "run_attempt": 2,
+  "job_id": 136020341962,
+  "revision": "14207bec0fd12e03bc6dcb168b0bb261a3867ffb",
+  "profile": "nmi-window",
+  "archive_digests": {
+    "14594059368": "sha256:c6721b3ed311d5f5c1cbf7cc0b62f21e1bf7e0346eacf5c5e1522737ee6d2cc9",
+    "14594319254": "sha256:8622a0cc5c877d45d6453b4bf1d9698574d471058779ef75d92e9669369200a6"
+  },
+  "engine_source_digest": "5c80c27ac7adaad6fce05b37e3d2f36d194d205c3c4a6b8a952ac7117b22360d",
+  "engine_files_verified": 4878,
+  "consumer_files_verified": 15,
+  "executable_sha256": "c8fa958579db99ffdc66007c3dd7160fbd7b4bc7daa6b7f2a1bee8ac7d53ca22",
+  "strict_codesign_verified": true,
+  "host": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "macos": "ProductName:\t\tmacOS\nProductVersion:\t\t15.7.9\nBuildVersion:\t\t24G830",
+  "sdk": "15.5",
+  "guest_exit_code": 101,
+  "vmx_exit_reason": "0x80000021",
+  "completed_cases": 0,
+  "expected_cases": 3,
+  "guest_stderr_sha256": "c4cf6c10577b2787c583285e764ed6ae462d09965fa0b2d9e3c3396cdfda4bf7",
+  "guest_failure": "expected an NMI handler port exit: FailEntry { reason: 2147483681 }",
+  "guest_execution_qualified": false
+}

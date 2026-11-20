@@ -4,6 +4,7 @@ use super::*;
 const IDT: u64 = 0xc000;
 const HANDLER: u64 = 0xb000;
 const PORT: u16 = 0x80;
+const START_PORT: u16 = 0x81;
 
 #[derive(Clone, Copy)]
 enum Watch {
@@ -12,8 +13,7 @@ enum Watch {
     Restored,
 }
 
-fn handler_exit(cpu: &mut dyn VCpu, visits: u64) {
-    let exit = event(cpu);
+fn complete_handler_exit(cpu: &mut dyn VCpu, exit: VcpuExit, visits: u64) {
     assert!(
         matches!(exit, VcpuExit::IoOut { port: PORT, .. }),
         "expected an NMI handler port exit: {exit:?}"
@@ -24,11 +24,10 @@ fn handler_exit(cpu: &mut dyn VCpu, visits: u64) {
     assert_eq!(regs.rflags & 0x200, 0);
 }
 
-fn observe(watch: Watch) -> u64 {
-    let memory = guest_memory(&[]);
+fn install_handler(memory: &GuestMemoryWrapper) {
     let gate = HANDLER | (8 << 16) | (0x8e << 40);
-    word(&memory, IDT + 2 * 16, gate);
-    word(&memory, IDT + 2 * 16 + 8, 0);
+    word(memory, IDT + 2 * 16, gate);
+    word(memory, IDT + 2 * 16 + 8, 0);
     // INC R11; OUT 80h, AL; IRETQ. The port exit precedes the unblock.
     memory
         .memory()
@@ -37,13 +36,90 @@ fn observe(watch: Watch) -> u64 {
             GuestAddress(HANDLER),
         )
         .unwrap();
+}
+
+fn set_handler_state(cpu: &mut dyn VCpu, mut input: X86_64CpuState) {
+    input.sregs.idt.base = IDT;
+    input.sregs.idt.limit = 3 * 16 - 1;
+    cpu.set_state(&CpuState::X86_64(input)).unwrap();
+}
+
+/// Split a failed first entry into controls that change one input each.
+/// These diagnostic exits do not count toward successful NMI observations.
+fn diagnose_first_entry() {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum Control {
+        NoNmi,
+        ExplicitState,
+        PriorPortExit,
+        InterruptFlagSet,
+    }
+    for control in [
+        Control::NoNmi,
+        Control::ExplicitState,
+        Control::PriorPortExit,
+        Control::InterruptFlagSet,
+    ] {
+        let code: &[u8] = if control == Control::PriorPortExit {
+            &[0xe6, START_PORT as u8]
+        } else {
+            &[]
+        };
+        let memory = guest_memory(code);
+        install_handler(&memory);
+        let (_vm, mut cpu) = machine(&memory);
+        let mut input = if control == Control::ExplicitState {
+            let CpuState::X86_64(input) = initial() else {
+                unreachable!();
+            };
+            input
+        } else {
+            state(cpu.as_ref())
+        };
+        if control == Control::InterruptFlagSet {
+            input.regs.rflags |= 1 << 9;
+        }
+        set_handler_state(cpu.as_mut(), input);
+        if control == Control::PriorPortExit {
+            let exit = event(cpu.as_mut());
+            eprintln!("nmi-window {control:?} initial exit: {exit:?}");
+            if !matches!(
+                exit,
+                VcpuExit::IoOut {
+                    port: START_PORT,
+                    ..
+                }
+            ) {
+                continue;
+            }
+            cpu.complete_io_out().unwrap();
+        }
+        let before = state(cpu.as_ref());
+        let accepted = (control != Control::NoNmi).then(|| cpu.inject_nmi());
+        let exit = event(cpu.as_mut());
+        eprintln!(
+            "nmi-window {control:?}: request={accepted:?} exit={exit:?} rip={:#x} rflags={:#x}",
+            before.regs.rip, before.regs.rflags
+        );
+    }
+}
+
+fn observe(watch: Watch) -> u64 {
+    let memory = guest_memory(&[]);
+    install_handler(&memory);
     let (mut vm, mut cpu) = machine(&memory);
-    let mut initial = state(cpu.as_ref());
-    initial.sregs.idt.base = IDT;
-    initial.sregs.idt.limit = 3 * 16 - 1;
-    cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+    let input = state(cpu.as_ref());
+    set_handler_state(cpu.as_mut(), input);
     assert!(cpu.inject_nmi().unwrap());
-    handler_exit(cpu.as_mut(), 1);
+    let first_exit = event(cpu.as_mut());
+    if !matches!(first_exit, VcpuExit::IoOut { port: PORT, .. }) {
+        drop(cpu);
+        drop(vm);
+        eprintln!("nmi-window first handler entry failed: {first_exit:?}");
+        diagnose_first_entry();
+        panic!("expected an NMI handler port exit: {first_exit:?}");
+    }
+    complete_handler_exit(cpu.as_mut(), first_exit, 1);
     assert!(!cpu.inject_nmi().unwrap(), "NMI admitted before IRET");
 
     if matches!(watch, Watch::Restored) {
@@ -80,7 +156,8 @@ fn observe(watch: Watch) -> u64 {
         }
         assert!(reached_window, "no window at the IRET return address");
         assert!(cpu.inject_nmi().unwrap());
-        handler_exit(cpu.as_mut(), 2);
+        let exit = event(cpu.as_mut());
+        complete_handler_exit(cpu.as_mut(), exit, 2);
     }
     assert!(matches!(event(cpu.as_mut()), VcpuExit::Hlt));
     let regs = state(cpu.as_ref()).regs;
