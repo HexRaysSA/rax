@@ -14,13 +14,17 @@ pub(crate) struct Limits([u64; 11]);
 impl Limits {
     pub(crate) fn select(runtime: Option<&NativeRuntime>, arch: WinArch) -> Option<Self> {
         let runtime = runtime?;
-        if !matches!(arch, WinArch::Arm64 | WinArch::X86)
-            || runtime.object_namespace.native_machine != Some(0xAA64)
-            || (
-                runtime.version.major,
-                runtime.version.minor,
-                runtime.version.build,
-            ) != (10, 0, 29708)
+        let host_arch = runtime
+            .object_namespace
+            .native_machine
+            .and_then(WinArch::from_machine);
+        if (runtime.version.major, runtime.version.minor) != (10, 0)
+            || !matches!(
+                (arch, host_arch, runtime.version.build),
+                (WinArch::Arm64, Some(WinArch::Arm64), 26200 | 29708)
+                    | (WinArch::X86, Some(WinArch::Arm64), 29708)
+                    | (WinArch::X64, Some(WinArch::X64), 26100)
+            )
         {
             return None;
         }

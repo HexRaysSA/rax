@@ -208,6 +208,41 @@ fn native_process_quota_replays_lengths_rights_fault_precedence_and_aliases() {
 }
 
 #[test]
+fn amd64_process_quota_replays_basic_and_extended_current_process_queries() {
+    use crate::user::windows::nt::status::{STATUS_INFO_LENGTH_MISMATCH, STATUS_SUCCESS};
+    use crate::user::windows::process::quota::{BASIC_BYTES, EXTENDED_BYTES};
+
+    let (mut process, mut t, output) = setup(WinArch::X64);
+    let p = process.state_mut();
+    let snapshot = Limits::replay([0, 0, 204_800, 1_413_120, u64::MAX, 0, 1, 2, 3, 4, 5]);
+    let expected = snapshot.encoded();
+    p.quota_limits = Some(snapshot);
+    let returned = output + 112;
+    let sentinel = [0xa5; 112];
+
+    for (size, status, written) in [
+        (BASIC_BYTES, STATUS_SUCCESS, BASIC_BYTES),
+        (EXTENDED_BYTES, STATUS_SUCCESS, EXTENDED_BYTES),
+        (BASIC_BYTES - 1, STATUS_INFO_LENGTH_MISMATCH, 0),
+        (EXTENDED_BYTES + 1, STATUS_INFO_LENGTH_MISMATCH, 0),
+    ] {
+        p.space.wr(output, &sentinel).unwrap();
+        p.space.w32(returned, u32::MAX).unwrap();
+        arguments(p, &mut t, u64::MAX, CLASS, output, size, returned);
+        assert_eq!(dispatch(p, &mut t), Outcome::Continue);
+        assert_eq!(t.cpu.gpr(0), u64::from(status));
+        let actual = p.space.bytes(output, sentinel.len()).unwrap();
+        let (prefix, tail) = actual.split_at(written as usize);
+        assert_eq!(prefix, &expected[..written as usize]);
+        assert_eq!(tail, &sentinel[written as usize..]);
+        assert_eq!(
+            p.space.u32(returned).unwrap(),
+            if written == 0 { u32::MAX } else { written }
+        );
+    }
+}
+
+#[test]
 fn wow64_process_quota_replays_lengths_rights_padding_and_aliases() {
     let corpus = wow64_corpus();
     assert_eq!(corpus.geometry.cases.len(), 30);

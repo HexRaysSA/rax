@@ -1,4 +1,4 @@
-//! Native ARM64 and WoW64 ProcessQuotaLimits for the selected current process.
+//! ProcessQuotaLimits for the selected current process on measured Windows builds.
 
 use super::super::query::{probe_write, return_length};
 use super::{PROCESS_QUERY_RIGHTS, current_process_status, wow64_copy};
