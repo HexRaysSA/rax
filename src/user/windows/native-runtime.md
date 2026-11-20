@@ -3985,6 +3985,16 @@ process. A native WoW64 caller on build 29708 returned those flags for the
 and the optional ReturnLength value.
 [Windows process mitigation policy](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-process_mitigation_dynamic_code_policy)
 
+### Process extension-point policy query
+
+Class 52 selector 6 reports the default guest extension-point policy as zero
+flags. The 8-byte record preserves both the input selector and the optional
+return length. The four execution views in the retained native 29683
+selector matrix returned these bytes with and without a return-length
+pointer. The installed Windows filter comparison also checks the policy of
+its native test process. The guest query makes no host call.
+[Windows extension-point policy](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-process_mitigation_extension_point_disable_policy)
+
 ### Selected token pointer records
 
 The installed Windows provider reads `TokenOwner`, `TokenPrimaryGroup`,

@@ -5,7 +5,7 @@ fn native_process_mitigation_preserves_selector_return_length_and_padding_all_ab
     for arch in WinArch::ALL {
         let (mut process, mut t, scratch) = setup(arch);
         let p = process.state_mut();
-        for policy in [2, 11] {
+        for policy in [2, 6, 11] {
             for returned in [0, scratch + 64, scratch + 65, scratch, scratch + 4] {
                 p.space.wr(scratch, &[0xA5; 128]).unwrap();
                 p.space.w32(scratch, policy).unwrap();
