@@ -206,7 +206,7 @@ fn installed_findstr_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_sort_matches_native_through_closed_c_abi() {
-    check_native_process_quota();
+    check_native_process_memory_queries();
     let native =
         compare_windows_installed_program("sort.exe", &[], Some(b"delta\r\nalpha\r\ncharlie\r\n"));
     assert_eq!(native.status.code(), Some(0));
@@ -215,7 +215,7 @@ fn installed_sort_matches_native_through_closed_c_abi() {
 }
 
 #[cfg(windows)]
-fn check_native_process_quota() {
+fn check_native_process_memory_queries() {
     use std::ffi::c_void;
 
     #[link(name = "ntdll")]
@@ -239,13 +239,19 @@ fn check_native_process_quota() {
     }
 
     let process = (-1isize) as *mut c_void;
-    let query = |size| {
+    let query = |class, size| {
         const CANARY: usize = usize::MAX - 1;
         let mut data = [CANARY; 24];
         let mut returned = u32::MAX;
         // The query is read-only and both outputs are valid for all tested sizes.
         let status = unsafe {
-            NtQueryInformationProcess(process, 1, data.as_mut_ptr().cast(), size, &mut returned)
+            NtQueryInformationProcess(
+                process,
+                class,
+                data.as_mut_ptr().cast(),
+                size,
+                &mut returned,
+            )
         };
         (status as u32, returned, data)
     };
@@ -254,10 +260,10 @@ fn check_native_process_quota() {
     } else {
         (32, 56)
     };
-    let (basic_status, basic_written, basic) = query(basic_size);
-    let (extended_status, extended_written, extended) = query(extended_size);
-    let (short_status, short_written, _) = query(basic_size - 1);
-    let (long_status, long_written, _) = query(extended_size + 1);
+    let (basic_status, basic_written, basic) = query(1, basic_size);
+    let (extended_status, extended_written, extended) = query(1, extended_size);
+    let (short_status, short_written, _) = query(1, basic_size - 1);
+    let (long_status, long_written, _) = query(1, extended_size + 1);
     let (mut min, mut max, mut flags) = (0, 0, 0);
     // Each pointer addresses a live scalar written only by the current-process query.
     let public = unsafe { GetProcessWorkingSetSizeEx(process, &mut min, &mut max, &mut flags) };
@@ -266,6 +272,25 @@ fn check_native_process_quota() {
     eprintln!(
         "native current-process quota: basic={basic_status:08x}/{basic_written} extended={extended_status:08x}/{extended_written} short={short_status:08x}/{short_written} long={long_status:08x}/{long_written} working_set_agrees={working_set_agrees}"
     );
+
+    let (basic_size, private_size, extended_size) = if cfg!(target_pointer_width = "64") {
+        (88, 96, 112)
+    } else {
+        (44, 48, 64)
+    };
+    for size in [
+        basic_size - 1,
+        basic_size,
+        private_size,
+        extended_size,
+        extended_size + 1,
+    ] {
+        let (status, written, data) = query(3, size);
+        let peaks_cover_current = status == 0 && data[0] >= data[1] && data[3] >= data[4];
+        eprintln!(
+            "native current-process VM counters: size={size} status={status:08x} written={written} peaks_cover_current={peaks_cover_current}"
+        );
+    }
 }
 
 #[cfg(windows)]
