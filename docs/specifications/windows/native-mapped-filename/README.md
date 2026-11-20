@@ -185,6 +185,7 @@ spoofable guest version fields:
 | Kernel | Native64 padding on success | High-address/output-alignment order | WoW64 string stores |
 | --- | --- | --- | --- |
 | ARM64 10.0.29695 / 10.0.29698 | Preserve four bytes | Address first | Length-dependent ARM64 vector stores, including overlapping tail stores |
+| ARM64 10.0.26200, native local-volume filenames | Zero four bytes | Output alignment first | Unmeasured |
 | AMD64 10.0.20348 / 10.0.26100 | Zero four bytes | Output alignment first | First vector, destination-aligned vectors, then final-tail/remaining-vector order |
 
 Short native results preserve padding on both families. The common synthetic
@@ -225,6 +226,25 @@ arena's private extents with `MEM_COMMIT`; two simultaneous default-size
 oracles request 32 GiB of host commitment and can exhaust a CI runner's limit.
 The bounded filename fixture preserves every exit/status/byte assertion and
 its 60 s timeout; the original hardware-fault fixture is unchanged.
+
+## ARM64 kernel 26200 local-volume qualification
+
+The native ARM64 comparison queries the installed `KERNEL32.dll` image in
+the observer and a read-only image view of the installed `cmd.exe`. The
+probe compares every declared length from zero through one byte beyond each
+complete record, plus null optional outputs and alignment controls, under
+both `0xA5` and `0x5A` fills. The projection retains all 500 rows from
+[the hosted capture](https://github.com/HexRaysSA/rax/actions/runs/44729495789).
+Each replay checks the exact status, ReturnLength, output bytes and relative
+inline Buffer pointer. Native success zeros the four header padding bytes.
+Short results retain them. When both the address and output alignment are
+invalid, native ARM64 checks output alignment first on this build.
+
+This selection requires a native ARM64 guest, the installed ARM64 kernel
+identity and a canonical `\Device\HarddiskVolumeN\...` filename. Registry
+copy and compatibility execution views retain their independent profile
+checks. The query reads allocation-owned mappings using the existing guest
+authorization checks.
 
 ## ARM64 kernel 29698 qualification
 

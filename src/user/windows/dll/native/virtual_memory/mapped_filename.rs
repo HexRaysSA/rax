@@ -17,6 +17,7 @@ pub(super) fn query(
 ) -> ApiResult {
     let wow = c.arch() == WinArch::X86;
     let profile = profile(c, ProfileUse::MappedFilename)?;
+    let check_alignment_first = matches!(profile, Profile::Amd64 | Profile::Arm64Local26200);
     // The filename converter reads its optional slot before dispatch. A read
     // fault consumes its guard and disables publication. A readable readonly
     // slot instead survives capture and can fail at the final caller store.
@@ -31,7 +32,7 @@ pub(super) fn query(
     } else {
         returned
     };
-    if address >= c.p.vm.high() && (wow || profile != Profile::Amd64) {
+    if address >= c.p.vm.high() && (wow || !check_alignment_first) {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
     if !wow {
@@ -87,6 +88,9 @@ pub(super) fn query(
     else {
         return finish(c, STATUS_FILE_INVALID, unchanged);
     };
+    if profile == Profile::Arm64Local26200 && !local_disk_name(&name) {
+        return Err(c.unsupported("mapped filename local-volume profile excludes this device"));
+    }
     if name.is_empty() || name.len() > 32766 || name.contains(&0) {
         return Err(c.unsupported("mapped filename exceeds the NT string profile"));
     }
@@ -113,7 +117,7 @@ pub(super) fn query(
     if wow {
         copy_wow(c, output, length, &name, profile)?;
     } else {
-        if profile == Profile::Amd64 {
+        if matches!(profile, Profile::Amd64 | Profile::Arm64Local26200) {
             c.mem().w32(output + 4, 0)?;
         }
         write_inline(c, output, &name)?;
@@ -125,6 +129,7 @@ pub(super) fn query(
 enum Profile {
     Arm64,
     Arm64MupBytes,
+    Arm64Local26200,
     Amd64,
 }
 
@@ -157,6 +162,9 @@ fn profile(c: &Ctx, operation: ProfileUse) -> Result<Profile, crate::user::windo
         native.object_namespace.native_machine,
         operation,
     ) {
+        (10, 0, 26200, Some(0xaa64), ProfileUse::MappedFilename) if c.arch() == WinArch::Arm64 => {
+            Ok(Profile::Arm64Local26200)
+        }
         (10, 0, 29695 | 29698, Some(0xaa64), _) => Ok(Profile::Arm64),
         (10, 0, 29704, Some(0xaa64), _)
         | (10, 0, 29708, Some(0xaa64), ProfileUse::MappedFilename) => Ok(Profile::Arm64MupBytes),
@@ -381,6 +389,24 @@ fn short_native(
         c.write_ptr(returned, required)?;
     }
     Flow::ret(STATUS_BUFFER_OVERFLOW.into())
+}
+
+fn local_disk_name(name: &[u16]) -> bool {
+    let prefix = br"\Device\HarddiskVolume";
+    if name.len() <= prefix.len()
+        || !name
+            .iter()
+            .zip(prefix)
+            .all(|(&unit, &byte)| unit == u16::from(byte))
+    {
+        return false;
+    }
+    let suffix = &name[prefix.len()..];
+    let digits = suffix
+        .iter()
+        .take_while(|&&unit| (48..=57).contains(&unit))
+        .count();
+    digits != 0 && suffix.get(digits) == Some(&92) && suffix.len() > digits + 1
 }
 
 fn device_length(name: &[u16]) -> usize {

@@ -4,6 +4,9 @@ use crate::user::windows::mapped_filename::Filename;
 use crate::user::windows::memory::AllocKind;
 use crate::user::windows::objects::Object;
 
+#[path = "mapped_filename_26200_tests.rs"]
+mod profile_26200;
+
 #[path = "mapped_filename_29704_tests.rs"]
 mod profile_29704;
 
