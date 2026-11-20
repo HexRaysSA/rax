@@ -1,15 +1,16 @@
 //! Finite KVM entry without installing a process-global signal handler.
 //!
 //! A private worker blocks signals in userspace and gives KVM an entry-only
-//! mask that unmasks its thread-directed monotonic timer. KVM returns EINTR
-//! before delivering that signal. The pending timer notification expires with
-//! the worker; the caller's mask and process dispositions remain untouched.
+//! mask that unmasks its thread-directed monotonic timer. A stopped KVM_RUN
+//! can associate a fresh worker with the vCPU before starting its timed entry.
+//! KVM returns EINTR before delivering the signal. The pending notification
+//! expires with the worker; the caller's mask and dispositions are untouched.
 use super::NativeCore;
 use crate::error::{Error, Result};
 use crate::vm::vcpu::VcpuExit;
 use kvm_ioctls::VcpuFd;
 use std::os::fd::{AsRawFd, RawFd};
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
@@ -45,6 +46,40 @@ fn interval(limit: Duration) -> Result<libc::timespec> {
         tv_sec: seconds,
         tv_nsec: limit.subsec_nanos().into(),
     })
+}
+
+fn native_deadline(value_ns: i128) -> Result<i64> {
+    let mut now = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: initialized, exclusive output for a synchronous clock query.
+    checked(unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut now) })?;
+    if now.tv_sec < 0 || !(0..1_000_000_000).contains(&now.tv_nsec) {
+        return Err(Error::Emulator(
+            "invalid native monotonic clock sample".into(),
+        ));
+    }
+    let now_ns = i128::from(now.tv_sec) * 1_000_000_000 + i128::from(now.tv_nsec);
+    let deadline_ns = i64::try_from(now_ns + value_ns)
+        .map_err(|_| Error::InvalidConfig("KVM host deadline exceeds native ktime_t".into()))?;
+    // Linux v6.8 timespec64_to_ktime saturates at the last whole-second
+    // quotient, even when the original nanosecond sum fits in i64.
+    if deadline_ns / 1_000_000_000 >= i64::MAX / 1_000_000_000 {
+        return Err(Error::InvalidConfig(
+            "KVM host deadline reaches the native saturation boundary".into(),
+        ));
+    }
+    Ok(deadline_ns)
+}
+
+fn bounded_nanos(value: libc::timespec) -> Result<i128> {
+    let requested = i128::from(value.tv_sec) * 1_000_000_000 + i128::from(value.tv_nsec);
+    // Validate the requested interval before any stopped kernel operation.
+    native_deadline(requested)?;
+    // Bound the timed entry for VM writer exclusion even when an SDK caller
+    // requests a longer host slice.
+    Ok(requested.min(10_000_000))
 }
 
 struct Deadline {
@@ -94,7 +129,7 @@ impl Deadline {
         Ok(signal)
     }
 
-    fn arm(&mut self, value: libc::timespec) -> Result<()> {
+    fn prepare(&mut self) -> Result<()> {
         let signal = self.install_mask()?;
         // SAFETY: all-zero sigevent is a valid initialized starting value.
         // SIGEV_THREAD_ID selects the documented Linux union member. gettid
@@ -110,38 +145,12 @@ impl Deadline {
         // not a pointer into Rust storage. CLOCK_MONOTONIC excludes wall jumps.
         checked(unsafe { libc::timer_create(libc::CLOCK_MONOTONIC, &mut event, &mut timer) })?;
         self.timer = Some(timer);
-        let mut now = libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        };
-        // SAFETY: this initialized, exclusive output remains live for the
-        // synchronous monotonic clock query; libc retains no reference.
-        checked(unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut now) })?;
-        if now.tv_sec < 0 || !(0..1_000_000_000).contains(&now.tv_nsec) {
-            return Err(Error::Emulator(
-                "invalid native monotonic clock sample".into(),
-            ));
-        }
-        let now_ns = i128::from(now.tv_sec) * 1_000_000_000 + i128::from(now.tv_nsec);
-        let deadline_ns =
-            now_ns + i128::from(value.tv_sec) * 1_000_000_000 + i128::from(value.tv_nsec);
-        let deadline_ns = i64::try_from(deadline_ns)
-            .map_err(|_| Error::InvalidConfig("KVM host deadline exceeds native ktime_t".into()))?;
-        // Linux v6.8 ktime_set/timespec64_to_ktime saturate even at the
-        // final whole-second quotient. Reject that boundary explicitly.
-        if deadline_ns / 1_000_000_000 >= i64::MAX / 1_000_000_000 {
-            return Err(Error::InvalidConfig(
-                "KVM host deadline reaches the native saturation boundary".into(),
-            ));
-        }
-        // A requested interval is an upper bound: a host interrupt may yield
-        // earlier. Keep each native entry finite for VM writer exclusion even
-        // when an SDK caller requests a long host slice. Validate the original
-        // deadline above so oversized/saturating requests still reject.
-        let writer_deadline_ns = i64::try_from(now_ns + 10_000_000).map_err(|_| {
-            Error::InvalidConfig("KVM writer deadline exceeds native ktime_t".into())
-        })?;
-        let deadline_ns = deadline_ns.min(writer_deadline_ns);
+        Ok(())
+    }
+
+    fn arm(&self, value_ns: i128) -> Result<()> {
+        let timer = self.timer.expect("private entry timer was prepared");
+        let deadline_ns = native_deadline(value_ns)?;
         let spec = libc::itimerspec {
             it_interval: libc::timespec {
                 tv_sec: 0,
@@ -203,6 +212,19 @@ impl Drop for Deadline {
     }
 }
 
+/// KVM can associate the worker and finish an earlier I/O transaction at
+/// an immediate-exit entry, before starting the native slice's timer.
+fn associate_worker(cpu: &mut NativeCore) -> Result<Option<VcpuExit>> {
+    cpu.vcpu_fd.set_kvm_immediate_exit(1);
+    let result = catch_unwind(AssertUnwindSafe(|| cpu.run_native()));
+    cpu.vcpu_fd.set_kvm_immediate_exit(0);
+    match result {
+        Ok(Err(Error::Kvm(error))) if error.errno() == libc::EINTR => Ok(None),
+        Ok(result) => result.map(Some),
+        Err(panic) => resume_unwind(panic),
+    }
+}
+
 fn worker(
     cpu: &mut NativeCore,
     value: libc::timespec,
@@ -213,18 +235,28 @@ fn worker(
         mask_installed: false,
         timer: None,
     };
-    let result = match deadline.arm(value) {
-        Ok(()) => catch_unwind(AssertUnwindSafe(|| {
-            if activate_resume {
-                // The parent retains VM write exclusion through this worker.
-                // Start clocks after worker/signal setup, immediately before
-                // the first authorized native attempt.
-                cpu.activate_resume_clock()?;
-            }
-            cpu.run_native()
-        })),
-        Err(error) => Ok(Err(error)),
-    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let limit_ns = bounded_nanos(value)?;
+        deadline.prepare()?;
+        if !activate_resume
+            && cpu.vcpu_fd.get_kvm_run().immediate_exit == 0
+            && cpu
+                .memory_owner
+                .vm_fd
+                .check_extension_raw(kvm_bindings::KVM_CAP_IMMEDIATE_EXIT.into())
+                > 0
+            && let Some(exit) = associate_worker(cpu)?
+        {
+            return Ok(exit);
+        }
+        deadline.arm(limit_ns)?;
+        if activate_resume {
+            // The parent retains VM write exclusion through this worker.
+            // Start clocks after signal setup for the first native attempt.
+            cpu.activate_resume_clock()?;
+        }
+        cpu.run_native()
+    }));
     if let Err(cleanup) = deadline.finish() {
         if activate_resume {
             cpu.memory_owner.poisoned.store(true, Ordering::Release);

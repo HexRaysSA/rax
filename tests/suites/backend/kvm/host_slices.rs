@@ -89,6 +89,39 @@ fn next_exit(cpu: &mut dyn VCpu) -> VcpuExit {
     panic!("guest did not reach its next exit after100 bounded entries");
 }
 
+#[test]
+#[ignore = "requires native Linux KVM; selected by KVM CI"]
+fn short_slices_progress_after_another_worker_ran_the_cpu() {
+    in_child(
+        "short_slices_progress_after_another_worker_ran_the_cpu",
+        || {
+            // MOV AL,0xa7; OUT 0x80,AL; INC AX; JMP back to OUT.
+            let (_memory, mut cpu) = fixture(&[0xb0, 0xa7, 0xe6, 0x80, 0x40, 0xeb, 0xfb]);
+            assert!(matches!(
+                next_exit(&mut *cpu),
+                VcpuExit::IoOut { port: 0x80, data } if data == [0xa7]
+            ));
+            cpu.complete_io_out().unwrap();
+
+            let mut next = 0xa8;
+            for _ in 0..128 {
+                if let Some(exit) = cpu.run_host_slice(Duration::from_micros(100)).unwrap() {
+                    assert!(
+                        matches!(&exit, VcpuExit::IoOut { port: 0x80, data } if data == &[next]),
+                        "unexpected native exit for marker {next:#x}: {exit:?}"
+                    );
+                    cpu.complete_io_out().unwrap();
+                    if next == 0xaf {
+                        return;
+                    }
+                    next += 1;
+                }
+            }
+            panic!("short KVM slices stopped making guest-visible progress at marker {next:#x}");
+        },
+    );
+}
+
 fn signal_mask() -> libc::sigset_t {
     // SAFETY: the output is valid initialized libc signal storage. Null input
     // queries only this calling thread's mask and retains no reference.

@@ -99,11 +99,60 @@ marker. Linux skips legacy LAPIC calibration when it enables
 TSC-deadline. With `clearcpuid=152` masking that feature, the one-vCPU
 control stopped emitting serial output after disabling its early
 console. It reached neither legacy calibration nor SMP bring-up within
-325 s. The point of failure inside the guest remains unknown. The startup
-evidence covers a single Linux guest and Intel KVM host.
+325 s. The startup evidence covers a single Linux guest and Intel KVM host.
 [Linux LAPIC calibration](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kernel/apic/apic.c)
 [Linux CPU feature indices](https://github.com/torvalds/linux/blob/v6.8/arch/x86/include/asm/cpufeatures.h)
 [Native boot observations](linux-startup-native.json)
+
+## Short native entries during legacy timer setup
+
+Three live checkpoints found the stalled vCPU at the same instruction,
+`pit_set_periodic+0x36`, just after writing the PIT divisor. RFLAGS.IF was
+clear. During 106.185045493 s of VM wall time the modeled PIT advanced by
+106,201 ticks, or 1,000.150 ticks/s, consistent with the programmed divider.
+These samples establish PIT progress and the CPU's repeated stop location.
+
+The host repeatedly changed the worker TID associated with the vCPU. A
+sampled worker was blocked in `synchronize_rcu` inside `kvm_vcpu_ioctl`.
+Linux 6.8 waits for that grace period on a KVM_RUN thread change before
+processing the architecture-specific request. The RAX timer could expire
+during that wait even when the guest had a runnable instruction.
+
+| Requested timer | Guest I/O exits with timer already armed | Guest I/O exits with worker bound first |
+| ---: | ---: | ---: |
+| 100 us | 1/128 | 128/128 |
+| 1 ms | 1/128 | 128/128 |
+
+The table comes from an independent KVM UAPI guest that repeatedly writes
+port `0x80`. Both conditions created a fresh worker before each timed run.
+Only the worker association order changed. A separate RAX experiment with
+the Linux guest reproduced the 325 s stall after increasing the slice floor
+to 1 ms. Disabling Linux's I/O delay also reproduced the stall. Binding the
+worker first reached bring-up of one CPU, and Linux accepted a measured
+100-jiffy periodic APIC verification interval.
+
+With `KVM_CAP_IMMEDIATE_EXIT`, ordinary managed slices now associate the
+worker with the vCPU using a stopped KVM_RUN before arming the timer. The
+ordinary I/O adapter owns any preceding I/O completion or reported exit.
+The worker continues to own its timer and signal mask until it exits. The
+association adds O(1) operations and requires O(1) additional storage. It
+does not bound kernel scheduling or grace-period latency.
+[Linux 6.8 KVM_RUN dispatch](https://github.com/torvalds/linux/blob/v6.8/virt/kvm/kvm_main.c#L4144-L4169)
+[Linux KVM UAPI immediate-exit and I/O completion semantics](https://github.com/torvalds/linux/blob/v6.8/Documentation/virt/kvm/api.rst#L5984-L5995)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Short entries can make progress once worker association precedes the timer. | High | Retain a previous KVM_RUN worker, then require eight ordered guest port markers across 100 us entries. The parent stopped before the first short-entry marker. |
+| An immediate-exit association can complete owned I/O without executing another instruction. | High | Require exact port and MMIO completion, then observe the next guest event and its operand once. |
+| A checkpoint still commits an in-flight operation at its stopped boundary. | High | Save and restore the physical file on fresh 1-, 2-, and 4-vCPU owners. Require exact RAM and UART continuation. |
+| The kernel timer retains its previous signal ownership. | Medium | Repeat timed slices while a foreign caller handler is installed. Check the caller mask, disposition, and timer inventory. |
+
+An exact production-overlay build on native Intel KVM also reached the
+single-vCPU Linux bring-up marker. Linux verified the periodic APIC timer
+with a delta of 100 jiffies. The harness stopped on the SMP marker.
+The complete native `kvm_host_slices`, `kvm_minimal`, and `kvm_smp`
+targets passed 16, 15, and 32 tests respectively. The runs enabled the
+KVM-gated cases and reported zero failures, ignored cases, or filters.
 
 `native-profile.S`, `encoding.json`, and `queries.json` retain the guest witness.
 The adjacent primary Linux references preserve their original notices. Intel
