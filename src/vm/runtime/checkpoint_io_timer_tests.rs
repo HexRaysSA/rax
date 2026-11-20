@@ -24,7 +24,7 @@ fn write_lapic(code: &mut Vec<u8>, offset: u32, value: u32) {
 #[ignore = "requires native Linux KVM with userspace interrupt ownership"]
 fn software_lapic_timer_wakes_an_all_halted_vmm_after_detached_restore() {
     for cpus in [1, 2, 4] {
-        let mut source = Fixture::new(cpus);
+        let mut source = Fixture::with_memory(cpus, 128 << 20);
         // The fixture sets up each real-mode context in place of guest SIPI.
         source.vm.coordinator.online.fill(true);
         let timer_cpu = usize::from(cpus - 1);
@@ -97,6 +97,7 @@ fn software_lapic_timer_wakes_an_all_halted_vmm_after_detached_restore() {
             republished.execution().unwrap().local_apics[timer_cpu].timer_age_nanos,
             Some(age)
         );
+        drop(republished);
         let turn = target.execute_turn().unwrap().unwrap();
         assert!(matches!(turn.exit, VcpuExit::Hlt));
         assert_eq!(target.vcpus[timer_cpu].current_pc(), halted_pc);
@@ -108,13 +109,13 @@ fn software_lapic_timer_wakes_an_all_halted_vmm_after_detached_restore() {
         let stop = Instant::now() + Duration::from_secs(4);
         let mut eoi_seen = false;
         loop {
-            let turn = target.execute_turn().unwrap().unwrap();
-            match turn.exit {
-                VcpuExit::Hlt if eoi_seen && turn.cpu_index == timer_cpu => break,
-                VcpuExit::Hlt => {}
-                VcpuExit::MmioWrite { addr, .. } => {
+            let turn = target.execute_turn().unwrap();
+            match turn.map(|turn| (turn.cpu_index, turn.exit)) {
+                Some((id, VcpuExit::Hlt)) if eoi_seen && id == timer_cpu => break,
+                Some((_, VcpuExit::Hlt)) | None => {}
+                Some((id, VcpuExit::MmioWrite { addr, .. })) => {
                     assert_eq!(addr, LAPIC_BASE + 0xb0);
-                    assert_eq!(turn.cpu_index, timer_cpu);
+                    assert_eq!(id, timer_cpu);
                     assert!(!eoi_seen);
                     assert_eq!(
                         target.vcpus[timer_cpu]
@@ -126,7 +127,7 @@ fn software_lapic_timer_wakes_an_all_halted_vmm_after_detached_restore() {
                     );
                     eoi_seen = true;
                 }
-                exit => panic!("unexpected exit from CPU {}: {exit:?}", turn.cpu_index),
+                Some((id, exit)) => panic!("unexpected exit from CPU {id}: {exit:?}"),
             }
             assert!(
                 Instant::now() < stop,
