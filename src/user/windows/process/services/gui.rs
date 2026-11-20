@@ -52,6 +52,24 @@ pub(super) fn initialize(
     convert(p, t, sp, resume, wow64, None)
 }
 
+pub(super) fn initialize_legacy(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    wow64: bool,
+) -> Outcome {
+    if wow64
+        || !p
+            .native
+            .as_ref()
+            .is_some_and(|runtime| runtime.uses_legacy_gdi_init(p.arch))
+    {
+        return failure("not implemented for unmeasured native NtGdiInit profile");
+    }
+    convert(p, t, sp, resume, false, Some(Completion::Value(1)))
+}
+
 fn wow64_inputs(p: &Proc, wow64: bool) -> Option<Arc<crate::user::windows::gui::Inputs>> {
     if p.arch == WinArch::X86
         && wow64

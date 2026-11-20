@@ -125,7 +125,8 @@ fn enter(
     if source == "Win32u"
         && matches!(
             name.as_str(),
-            "NtGdiInit2"
+            "NtGdiInit"
+                | "NtGdiInit2"
                 | "NtUserGetDpiForCurrentProcess"
                 | "NtUserRemoteConnectState"
                 | "NtUserFindExistingCursorIcon"
@@ -169,6 +170,7 @@ fn enter(
         )
     {
         let outcome = match name.as_str() {
+            "NtGdiInit" => gui::initialize_legacy(p, t, sp, resume, wow64_return),
             "NtGdiInit2" => gui::initialize(p, t, sp, resume, wow64_return),
             "NtUserGetDpiForCurrentProcess" => gui::process_dpi(p, t, sp, resume, wow64_return),
             "NtUserRemoteConnectState" => gui::remote_connect_state(p, t, sp, resume, wow64_return),

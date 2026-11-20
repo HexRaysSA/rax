@@ -294,14 +294,26 @@ fn guest_callback_dispatcher_reads_kernel_frame_and_returns_through_native_servi
     for arch in [WinArch::Arm64, WinArch::X64] {
         for (name, number) in [
             ("NtGdiInit2", 0x12fdu32),
+            ("NtGdiInit", 0x12e1),
             ("NtUserRemoteConnectState", 0x1528),
             ("NtUserGetThreadDesktop", 0x107b),
             ("NtUserRegisterLPK", 0x1513),
             ("NtUserGetProcessUIContextInformation", 0x147f),
-        ] {
+        ]
+        .into_iter()
+        .filter(|(name, _)| *name != "NtGdiInit" || arch == WinArch::X64)
+        {
             let (mut process, mut t, entry) = setup(arch);
             let p = process.state_mut();
-            let Availability::Available(inputs) = &mut p.native.as_mut().unwrap().gui else {
+            let runtime = p.native.as_mut().unwrap();
+            if name == "NtGdiInit" {
+                runtime.version.major = 10;
+                runtime.version.minor = 0;
+                runtime.version.build = 20348;
+                runtime.version.product_type = 3;
+                runtime.object_namespace.native_machine = Some(arch.machine());
+            }
+            let Availability::Available(inputs) = &mut runtime.gui else {
                 unreachable!();
             };
             let inputs = std::sync::Arc::get_mut(inputs).unwrap();
@@ -401,7 +413,7 @@ fn guest_callback_dispatcher_reads_kernel_frame_and_returns_through_native_servi
                     };
                     u64::from(p.objects.desktop_handle(&inputs.assigned_desktop).unwrap())
                 }
-                "NtUserRegisterLPK" | "NtUserGetProcessUIContextInformation" => 1,
+                "NtGdiInit" | "NtUserRegisterLPK" | "NtUserGetProcessUIContextInformation" => 1,
                 _ => 0,
             };
             let boundary = run_cpu(p, &mut t.cpu, 64);
@@ -438,6 +450,23 @@ fn guest_callback_dispatcher_reads_kernel_frame_and_returns_through_native_servi
             }
         }
     }
+}
+
+#[test]
+fn legacy_gdi_init_rejects_an_unmeasured_kernel_before_thread_conversion() {
+    let arch = WinArch::X64;
+    let (mut process, mut thread, _) = setup(arch);
+    let p = process.state_mut();
+    let module = p.modules.win32u_services.as_ref().unwrap().0;
+    let number = 0x12e1;
+    p.modules.win32u_services = Some((module, named_table(arch, "NtGdiInit", number)));
+    thread.cpu.set_gpr(0, u64::from(number));
+    thread.cpu.set_pc(0x1234_0004);
+    assert!(matches!(
+        handle_stop(p, &mut thread, stop(arch, number)),
+        Outcome::Fail(reason) if reason.contains("unmeasured native NtGdiInit profile")
+    ));
+    assert!(p.gui.threads.is_empty());
 }
 
 #[test]

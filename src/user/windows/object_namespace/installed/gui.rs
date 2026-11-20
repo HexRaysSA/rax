@@ -199,7 +199,12 @@ fn keyboard_layout(user: &Module) -> Option<NonZeroU64> {
     NonZeroU64::new(unsafe { query(0) } as u64)
 }
 
-pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<Arc<Inputs>> {
+pub(crate) fn snapshot(
+    arch: WinArch,
+    user: &Path,
+    win32u: &Path,
+    legacy_gdi32: Option<&Path>,
+) -> io::Result<Arc<Inputs>> {
     let native = if cfg!(target_arch = "aarch64") {
         WinArch::Arm64
     } else if cfg!(target_arch = "x86_64") {
@@ -215,18 +220,35 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
     }
     let _user = Module::open(user)?;
     let win32u = Module::open(win32u)?;
-    // SAFETY: live owned selected Win32u module and a static terminated export
-    // name. The fixed zero-argument ABI was measured on native ARM64/x86 views.
-    let address = unsafe { GetProcAddress(win32u.0, c"NtGdiInit2".as_ptr()) };
-    if address.is_null() {
-        return Err(invalid("selected Win32u has no NtGdiInit2"));
-    }
-    // SAFETY: selected installed export, fixed no-argument native ABI; this
-    // private host helper never executes guest code or supplies guest pointers.
-    let initialize: unsafe extern "system" fn() -> usize = unsafe { std::mem::transmute(address) };
-    if unsafe { initialize() } == 0 {
-        return Err(invalid("native GUI initialization returned zero"));
-    }
+    let _gdi32 = if let Some(path) = legacy_gdi32 {
+        let gdi32 = Module::open(path)?;
+        // SAFETY: live selected module and a fixed Win32 GDI32 export.
+        let address = unsafe { GetProcAddress(gdi32.0, c"GetStockObject".as_ptr()) };
+        if address.is_null() {
+            return Err(invalid("selected GDI32 has no GetStockObject"));
+        }
+        let get_stock: unsafe extern "system" fn(i32) -> Handle =
+            unsafe { std::mem::transmute(address) };
+        // SAFETY: WHITE_BRUSH (0) is a fixed stock object index on the
+        // private host helper thread. The object is system-owned.
+        if unsafe { get_stock(0) }.is_null() {
+            return Err(invalid("native GDI did not initialize the stock brush"));
+        }
+        Some(gdi32)
+    } else {
+        // SAFETY: live selected Win32u module and a fixed export name. The
+        // zero-argument installed ABI was measured on native ARM64/x86 views.
+        let address = unsafe { GetProcAddress(win32u.0, c"NtGdiInit2".as_ptr()) };
+        if address.is_null() {
+            return Err(invalid("selected Win32u has no NtGdiInit2"));
+        }
+        let initialize: unsafe extern "system" fn() -> usize =
+            unsafe { std::mem::transmute(address) };
+        if unsafe { initialize() } == 0 {
+            return Err(invalid("native GUI initialization returned zero"));
+        }
+        None
+    };
     // SAFETY: fixed no-argument, query-only installed Win32u export. This is
     // acquired once on the owned native helper, never from guest arguments.
     let address = unsafe { GetProcAddress(win32u.0, c"NtUserRemoteConnectState".as_ptr()) };

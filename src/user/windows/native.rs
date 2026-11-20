@@ -81,6 +81,13 @@ pub(crate) fn read_image_file(file: &mut File) -> io::Result<Vec<u8>> {
 }
 
 impl NativeRuntime {
+    pub(crate) fn uses_legacy_gdi_init(&self, arch: WinArch) -> bool {
+        arch == WinArch::X64
+            && self.object_namespace.native_machine == Some(arch.machine())
+            && (self.version.major, self.version.minor, self.version.build) == (10, 0, 20348)
+            && self.version.product_type == 3
+    }
+
     pub(crate) fn supports_secure_boot_policy(&self, arch: WinArch) -> bool {
         arch == WinArch::Arm64
             && (self.version.major, self.version.minor, self.version.build) == (10, 0, 29708)
@@ -264,18 +271,28 @@ impl NativeRuntime {
                 );
             }
         };
+        if self.uses_legacy_gdi_init(arch) {
+            let gdi32 = match self.dll("gdi32.dll") {
+                Ok(Some(path)) => path,
+                Ok(None) => {
+                    return Availability::Unavailable("selected GDI32 runtime is absent".into());
+                }
+                Err(error) => return Availability::Unavailable(error.to_string()),
+            };
+            return Availability::select(arch, user, win32u, Some(gdi32));
+        }
         if arch != WinArch::X86
             || session != 1
             || self.object_namespace.native_machine != Some(WinArch::Arm64.machine())
             || (self.version.major, self.version.minor, self.version.build) != (10, 0, 29708)
         {
-            return Availability::select(arch, user, win32u);
+            return Availability::select(arch, user, win32u, None);
         }
         let (user, win32u) = match wow64_gui_libraries(&user, &win32u, native_directory) {
             Ok(pair) => pair,
             Err(error) => return Availability::Unavailable(error.to_string()),
         };
-        let availability = Availability::select(WinArch::Arm64, user, win32u);
+        let availability = Availability::select(WinArch::Arm64, user, win32u, None);
         let Availability::Available(inputs) = availability else {
             return availability;
         };

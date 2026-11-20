@@ -23,6 +23,23 @@ The frozen compiler frame is
 3,983 source inputs. Those consumers use ABI184; current-root ABI274 plugin,
 GUI and package CI is a separate boundary.
 
+## Windows Server 2022 legacy GDI initialization
+
+Two fresh native AMD64 `findstr.exe` children on build 20348 each made one
+USER callback at index 84 with a zero-byte payload. Each returned `1` from
+`NtGdiInit` and populated the previously zero GDI table, desktop view, process
+marker and thread marker. The GDI view committed 1,576,960 bytes. The desktop
+view had 167,936 committed bytes followed by 20,807,680 reserved bytes. A
+separate call to the documented `GetStockObject(WHITE_BRUSH)` API in the
+disposable observer produced the same mapping geometry.
+[Native observations](https://github.com/HexRaysSA/rax/actions/runs/44766099612)
+
+The selected installed AMD64 server profile uses those views and the guest's
+own callback table to perform thread conversion. The host metadata helper
+initializes GDI through the fixed stock-brush query. The guest leaf returns
+`1` after callback completion. The `NtGdiInit2` service retains its process-value
+return ABI.
+
 ## Admission and dispatch
 
 `loader::load_image` admits a Win32u table only when the loaded DLL's host path

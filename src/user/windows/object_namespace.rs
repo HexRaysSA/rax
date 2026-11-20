@@ -146,8 +146,9 @@ pub(crate) fn gui_snapshot(
     arch: super::arch::WinArch,
     user: &std::path::Path,
     win32u: &std::path::Path,
+    legacy_gdi32: Option<&std::path::Path>,
 ) -> io::Result<Arc<super::gui::Inputs>> {
-    installed::gui::snapshot(arch, user, win32u)
+    installed::gui::snapshot(arch, user, win32u, legacy_gdi32)
 }
 
 #[cfg(not(windows))]
@@ -155,6 +156,7 @@ pub(crate) fn gui_snapshot(
     _: super::arch::WinArch,
     _: &std::path::Path,
     _: &std::path::Path,
+    _: Option<&std::path::Path>,
 ) -> io::Result<Arc<super::gui::Inputs>> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,

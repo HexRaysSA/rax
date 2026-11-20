@@ -229,10 +229,13 @@ impl Availability {
         arch: WinArch,
         user: std::path::PathBuf,
         win32u: std::path::PathBuf,
+        legacy_gdi32: Option<std::path::PathBuf>,
     ) -> Self {
         let acquired = std::thread::Builder::new()
             .name("rax-gui-inputs".into())
-            .spawn(move || super::object_namespace::gui_snapshot(arch, &user, &win32u));
+            .spawn(move || {
+                super::object_namespace::gui_snapshot(arch, &user, &win32u, legacy_gdi32.as_deref())
+            });
         match acquired {
             Ok(thread) => match thread.join() {
                 Ok(Ok(inputs)) => Self::Available(inputs),
