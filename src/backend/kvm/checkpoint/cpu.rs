@@ -293,8 +293,9 @@ impl Image {
         {
             return Err(invalid("CPU identity or controller profile differs"));
         }
-        let saved_profile = native_cpuid(&self.profile)?;
-        let observed = native_cpuid(&self.observed_cpuid)?;
+        let mut saved_profile = native_cpuid(&self.profile)?;
+        let mut observed = native_cpuid(&self.observed_cpuid)?;
+        profile::project_legacy_v2_id(&mut saved_profile, &mut observed, id);
         if let Some(difference) =
             profile::destination_difference(&saved_profile, configured, &observed, || {
                 Ok(cpu.get_cpuid2(KVM_MAX_CPUID_ENTRIES)?)

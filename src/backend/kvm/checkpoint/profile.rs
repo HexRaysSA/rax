@@ -100,6 +100,30 @@ pub(in crate::backend::kvm) fn destination_difference(
     .map(|difference| format!("observed CPUID {difference}")))
 }
 
+/// Repair the host identity in the old producer's inactive 1FH subleaf.
+/// Only a matching pair of zero-domain entries can be a captured legacy
+/// record. The destination profile comparison still checks all other fields.
+pub(super) fn project_legacy_v2_id(configured: &mut CpuId, observed: &mut CpuId, id: u32) {
+    for (configured, observed) in configured
+        .as_mut_slice()
+        .iter_mut()
+        .zip(observed.as_mut_slice())
+    {
+        if configured == observed
+            && (
+                configured.function,
+                configured.index,
+                configured.eax,
+                configured.ebx,
+                configured.ecx,
+            ) == (0x1f, 0, 0, 0, 0)
+        {
+            configured.edx = id;
+            observed.edx = id;
+        }
+    }
+}
+
 /// Validate observed fields, rather than masking arbitrary differences and
 /// silently accepting a forged profile. O(n + c), with n bounded CPUID entries
 /// and c at most 61 architectural user-state component descriptors.
@@ -219,5 +243,47 @@ mod tests {
             .unwrap();
         assert!(diagnostic.starts_with("observed CPUID entry 0"));
         assert!(diagnostic.contains("eax: 42"));
+    }
+
+    #[test]
+    fn legacy_v2_host_id_projection_keeps_all_other_profile_checks() {
+        let inactive = kvm_cpuid_entry2 {
+            function: 0x1f,
+            flags: kvm_bindings::KVM_CPUID_FLAG_SIGNIFCANT_INDEX,
+            edx: 2,
+            ..Default::default()
+        };
+        let expected = kvm_cpuid_entry2 { edx: 3, ..inactive };
+        let current = CpuId::from_entries(&[expected]).unwrap();
+        let saved = CpuId::from_entries(&[inactive]).unwrap();
+        assert!(
+            destination_difference(&saved, &current, &saved, || Ok(current.clone()))
+                .unwrap()
+                .is_some()
+        );
+        let mut configured = saved.clone();
+        let mut observed = saved;
+        project_legacy_v2_id(&mut configured, &mut observed, 3);
+        assert_eq!(configured.as_slice(), &[expected]);
+        assert_eq!(observed.as_slice(), &[expected]);
+        assert!(
+            destination_difference(&configured, &current, &observed, || Ok(current.clone()))
+                .unwrap()
+                .is_none()
+        );
+
+        let active = kvm_cpuid_entry2 {
+            ebx: 1,
+            ecx: 0x100,
+            ..inactive
+        };
+        let inconsistent = kvm_cpuid_entry2 { edx: 0, ..inactive };
+        for (configured_entry, observed_entry) in [(active, active), (inactive, inconsistent)] {
+            let mut configured = CpuId::from_entries(&[configured_entry]).unwrap();
+            let mut observed = CpuId::from_entries(&[observed_entry]).unwrap();
+            project_legacy_v2_id(&mut configured, &mut observed, 3);
+            assert_eq!(configured.as_slice(), &[configured_entry]);
+            assert_eq!(observed.as_slice(), &[observed_entry]);
+        }
     }
 }

@@ -213,10 +213,21 @@ fn zero_count_outside_id_and_missing_vendor_record_reject_without_mutation() {
 #[test]
 fn unavailable_optional_topology_leaves_remain_unadvertised() {
     let mut entries = fixture(b"GenuineIntel").as_slice().to_vec();
-    entries.push(entry(0x1f, 0, [0; 4]));
-    let base = CpuId::from_entries(&entries).unwrap();
-    let projected = Topology::new(4).unwrap().project(&base, 3).unwrap();
-    assert_eq!(values(&projected, 0x1f, 0), [0; 4]);
-    assert_eq!(values(&projected, 0x15, 0), values(&base, 0x15, 0));
-    assert_eq!(values(&projected, 0, 0)[0], 0x16);
+    entries.push(kvm_cpuid_entry2 {
+        flags: KVM_CPUID_FLAG_SIGNIFCANT_INDEX,
+        ..entry(0x1f, 0, [0; 4])
+    });
+    let source = CpuId::from_entries(&entries).unwrap();
+    entries.last_mut().unwrap().edx = 2; // Host APIC ID from the restore runner.
+    let target = CpuId::from_entries(&entries).unwrap();
+    for count in [1, 2, 4] {
+        let topology = Topology::new(count).unwrap();
+        for id in 0..u32::from(count) {
+            let projected = topology.project(&source, id).unwrap();
+            assert_eq!(projected, topology.project(&target, id).unwrap());
+            assert_eq!(values(&projected, 0x1f, 0), [0, 0, 0, id]);
+            assert_eq!(values(&projected, 0x15, 0), values(&source, 0x15, 0));
+            assert_eq!(values(&projected, 0, 0)[0], 0x16);
+        }
+    }
 }

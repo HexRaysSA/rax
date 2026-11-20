@@ -37,6 +37,30 @@ CPU creation. Invalid pure profiles/IDs reject before native allocation; after
 allocation the configuration stays closed even if later setup fails. Stateful
 CPUID records, unrelated ISA features and unavailable optional leaves are retained.
 
+## Checkpoint identity for an invalid topology level
+
+The Linux KVM checkpoint witness at `190b4929b` rejected a restore when the
+source and destination exposed different host x2APIC IDs in a CPUID leaf
+`0x1f`, subleaf 0 record. Both records had a zero logical-processor count and
+an invalid domain. Only EDX differed, from `0` to `2`. The configured RAX
+profile now writes the virtual CPU's ID to EDX even when that level is
+invalid. Its validity fields and the maximum CPUID leaf are preserved.
+[Native failure](https://github.com/HexRaysSA/rax/actions/runs/44669442871/job/136066614970)
+[Intel SDM, Volume 2A, CPUID leaf 1FH](https://cdrdv2-public.intel.com/835781/325462-sdm-vol-1-2abcd-3abcd-4.pdf)
+
+Existing version-4 records can restore when the saved configured and
+observed profiles agree on that exact invalid subleaf. Restore projects
+their EDX to the destination vCPU ID before the existing profile checks.
+The wire format and the runtime checks for other CPUID fields are preserved.
+The legacy projection takes O(E) time and O(1) additional space for E entries.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| A zero-domain subleaf carries x2APIC identity without advertising a valid topology level. | High | Project the two observed host IDs at each vCPU in 1-, 2-, and 4-vCPU configurations. Require equal profiles, unchanged validity, and EDX equal to the vCPU ID. |
+| The legacy producer retained the same invalid subleaf in both saved banks. | High | Vary EDX between the banks and vary domain validity. Require strict comparison in both cases. |
+
+## Guest discovery and startup evidence
+
 The final guest records 38 CPUID queries per CPU, starts every configured CPU,
 performs two fixed-IPI/EOI/halt-wake rounds, and enables an independent native KVM
 clock page for each CPU. It checks complete versioned publication and derives

@@ -114,6 +114,9 @@ impl Topology {
                         | ((self.cache_sharing(entry.eax) - 1) << 14)
                         | ((self.cores - 1) << 26);
                 }
+                // An invalid 1FH topology level still carries an x2APIC ID
+                // in EDX. Preserve the level's validity and report guest ID.
+                0x1f => entry.edx = id,
                 0x8000_0001 if amd => {
                     entry.ecx = (entry.ecx & !(1 << 1)) | (u32::from(self.cores > 1) << 1);
                 }
