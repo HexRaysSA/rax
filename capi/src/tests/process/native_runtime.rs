@@ -183,6 +183,7 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_findstr_matches_native_through_closed_c_abi() {
+    check_native_extension_point_policy();
     let arguments = &["/l", "/c:rax-witness"];
     let matched = compare_windows_installed_program(
         "findstr.exe",
@@ -198,6 +199,35 @@ fn installed_findstr_matches_native_through_closed_c_abi() {
     assert_eq!(unmatched.status.code(), Some(1));
     assert!(unmatched.stdout.is_empty());
     assert!(unmatched.stderr.is_empty());
+}
+
+#[cfg(windows)]
+fn check_native_extension_point_policy() {
+    use std::ffi::c_void;
+
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GetCurrentProcess() -> *mut c_void;
+        fn GetProcessMitigationPolicy(
+            process: *mut c_void,
+            selector: u32,
+            output: *mut c_void,
+            length: usize,
+        ) -> i32;
+    }
+
+    let mut flags = u32::MAX;
+    let ok = unsafe {
+        GetProcessMitigationPolicy(
+            GetCurrentProcess(),
+            6,
+            (&raw mut flags).cast(),
+            std::mem::size_of::<u32>(),
+        )
+    };
+    assert_ne!(ok, 0, "{}", std::io::Error::last_os_error());
+    assert_eq!(flags, 0, "installed process extension-point policy");
+    eprintln!("native extension-point policy: flags=0x{flags:x}");
 }
 
 #[cfg(windows)]

@@ -8,6 +8,7 @@ use crate::user::windows::nt::status::{
 use crate::user::windows::objects::Object;
 
 const DYNAMIC_CODE_POLICY: u32 = 2;
+const EXTENSION_POINT_DISABLE_POLICY: u32 = 6;
 const SYSTEM_CALL_FILTER_POLICY: u32 = 11;
 
 pub(super) fn query(c: &mut Ctx, process: u64, output: u64, length: u32) -> ApiResult {
@@ -39,12 +40,15 @@ pub(super) fn query(c: &mut Ctx, process: u64, output: u64, length: u32) -> ApiR
             return Err(c.unsupported("mitigation policy for an unmodeled peer process"));
         }
     }
-    if !matches!(policy, DYNAMIC_CODE_POLICY | SYSTEM_CALL_FILTER_POLICY) {
+    if !matches!(
+        policy,
+        DYNAMIC_CODE_POLICY | EXTENSION_POINT_DISABLE_POLICY | SYSTEM_CALL_FILTER_POLICY
+    ) {
         return Err(c.unsupported(format!("ProcessMitigationPolicy selector {policy}")));
     }
-    // Guest creation permits dynamic code and installs the unfiltered native
-    // service table. The model accepts no creation attribute or setter that
-    // changes these two policies. Both selectors report the guest's own state.
+    // Guest creation selects the default policies for dynamic code, legacy
+    // extension points, and the native service table. These queries read the
+    // guest defaults without changing policy or admitting a host extension.
     let flags = output.checked_add(4).ok_or(MemFault {
         addr: output,
         write: true,
