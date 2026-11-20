@@ -42,9 +42,10 @@ impl AArch64Cpu {
             let fp_system = matches!(cp, 10 | 11);
             let fp_control = scalar
                 && cp == 15
-                && ((opc1, crn, crm, opc2) == (0, 1, 0, 2)
-                    || (opc1, crn, crm, opc2) == (4, 1, 1, 2)
-                    || (opc1, crn, crm, opc2) == (4, 1, 1, 0));
+                && matches!(
+                    (opc1, crn, crm, opc2),
+                    (0, 1, 0, 2) | (0, 1, 1, 2) | (4, 1, 1, 0 | 2)
+                );
             let fp_instruction_id = insn.mnemonic == Mnemonic::MRC
                 && cp == 15
                 && matches!((opc1, crn, crm, opc2), (0, 0, 2, 5 | 7));

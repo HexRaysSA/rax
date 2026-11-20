@@ -109,6 +109,98 @@ fn checkpoint_before_and_after_fp_delivery_preserves_exact_handler_frontier() {
 }
 
 #[test]
+fn aarch32_nsacr_reads_the_nonsecure_default_and_preserves_fault_boundaries() {
+    const LOWER_ENTRY: u64 = 0x200;
+    const EL1_VBAR: u64 = 0x2000;
+    const EL2_VBAR: u64 = 0x3000;
+    const EL3_VBAR: u64 = 0x1000;
+    const SENTINEL: u64 = 0xfeed_face;
+    for (have_el3, secure, hyp) in [
+        (false, false, false),
+        (true, false, false),
+        (true, true, false),
+        (true, false, true),
+    ] {
+        for thumb in [false, true] {
+            for read in [true, false] {
+                let (mut cpu, memory) = machine(false);
+                memory
+                    .write_slice(&0xd69f_03e0u32.to_le_bytes(), GuestAddress(ENTRY))
+                    .unwrap();
+                let instruction = 0xee01_0f51u32 | (u32::from(read) << 20);
+                let word = if thumb {
+                    instruction.rotate_left(16)
+                } else {
+                    instruction
+                };
+                memory
+                    .write_slice(&word.to_le_bytes(), GuestAddress(LOWER_ENTRY))
+                    .unwrap();
+                let CpuState::Aarch64(mut state) = cpu.get_state().unwrap() else {
+                    panic!()
+                };
+                let from_el3 = secure || hyp;
+                state.regs.pstate = if from_el3 { 0x3cd } else { 0x3c9 };
+                state.regs.x[0] = SENTINEL;
+                state.sregs.vbar_el1 = EL1_VBAR;
+                let sys = &mut state.sregs.execution.as_mut().unwrap().sysregs;
+                sys.id_aa64pfr0_el1 &= !(15 << 12);
+                sys.id_aa64pfr0_el1 |= u64::from(have_el3) << 12;
+                if hyp {
+                    sys.id_aa64pfr0_el1 = (sys.id_aa64pfr0_el1 & !(15 << 8)) | (2 << 8);
+                }
+                sys.scr_el3 = if secure {
+                    0
+                } else if hyp {
+                    0x101
+                } else {
+                    0x501
+                };
+                sys.hcr_el2 = 0;
+                sys.el1.vbar = EL1_VBAR;
+                sys.el2.vbar = EL2_VBAR;
+                sys.el3.vbar = EL3_VBAR;
+                let source = if from_el3 { &mut sys.el3 } else { &mut sys.el2 };
+                source.elr = LOWER_ENTRY;
+                let lower_pstate = (if hyp { 0x1da } else { 0x1d3 }) | (u64::from(thumb) << 5);
+                source.spsr = lower_pstate;
+                cpu.set_state(&CpuState::Aarch64(state)).unwrap();
+                assert_eq!(cpu.run_retirement_budget(1).unwrap().retired, 1);
+                assert_eq!(cpu.current_pc(), LOWER_ENTRY);
+                let CpuState::Aarch64(lower) = cpu.get_state().unwrap() else {
+                    panic!()
+                };
+                assert_eq!(lower.regs.pstate & 0x3f, lower_pstate & 0x3f);
+
+                let result = cpu.run_retirement_budget(1).unwrap();
+                let CpuState::Aarch64(state) = cpu.get_state().unwrap() else {
+                    panic!()
+                };
+                if !secure && read {
+                    assert!(matches!(result.stop, RetirementStop::BudgetExhausted));
+                    assert_eq!(result.retired, 1);
+                    assert_eq!(cpu.current_pc(), LOWER_ENTRY + 4);
+                    assert_eq!(state.regs.x[0], 0xc00);
+                } else {
+                    assert!(matches!(result.stop, RetirementStop::StateChange));
+                    assert_eq!(result.retired, 0);
+                    assert_eq!(state.regs.x[0], SENTINEL);
+                    if secure {
+                        assert_eq!(cpu.current_pc(), EL3_VBAR + 0x600);
+                        let el3 = &state.sregs.execution.as_ref().unwrap().sysregs.el3;
+                        assert_eq!(el3.elr, LOWER_ENTRY);
+                        assert_eq!(el3.esr, 0x0fe4_0402 | u64::from(read));
+                    } else {
+                        let vbar = if hyp { EL2_VBAR } else { EL1_VBAR };
+                        assert_eq!(cpu.current_pc(), vbar + 4);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn fp_sysreg_higher_trap_controls_survive_private_checkpoint_and_retirement_boundary() {
     let (mut source, mem) = machine(false);
     mem.write_slice(&0xd53b_4400u32.to_le_bytes(), GuestAddress(ENTRY))

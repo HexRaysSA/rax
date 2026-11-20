@@ -6,6 +6,8 @@ use crate::isa::arm::common::sysreg::Cp15Encoding;
 
 const CPACR: (u8, u8, u8, u8) = (1, 0, 0, 2);
 const HCPTR: (u8, u8, u8, u8) = (1, 4, 1, 2);
+const NSACR: (u8, u8, u8, u8) = (1, 0, 1, 2);
+const NSACR_NONSECURE_DEFAULT: u32 = (1 << 10) | (1 << 11);
 
 fn key(enc: Cp15Encoding) -> (u8, u8, u8, u8) {
     (enc.crn, enc.op1, enc.crm, enc.op2)
@@ -48,6 +50,18 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     ) -> Option<ExecResult> {
         let k = key(enc);
         let context = self.cpu.fp_control_context();
+        if k == NSACR && context.el3_aarch64 {
+            // The mixed-width PE has no AArch32 EL3 register bank. Its
+            // Non-secure reads expose the architected default at EL1/EL2.
+            return match context.current_el {
+                1 if context.secure && context.el2_enabled && context.el2_aarch64 => {
+                    Some(self.fp_cp15_trap(insn, 2, true))
+                }
+                1 if context.secure => Some(self.fp_cp15_trap(insn, 3, true)),
+                1 | 2 if read && !context.secure => None,
+                _ => Some(ExecResult::Undefined),
+            };
+        }
         let hyp = matches!(
             k,
             (1, 4, 1, 0) | (1, 4, 1, 2) | (1, 4, 0, 0) | (12, 4, 0, 0) | (5, 4, 2, 0)
@@ -59,10 +73,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 return Some(ExecResult::Undefined);
             }
         }
-        if matches!(k, (1, 0, 1, 0) | (1, 0, 1, 1) | (1, 0, 1, 2)) {
-            if !context.have_el3
-                || context.el3_aarch64
-                || !context.secure && (k != (1, 0, 1, 2) || !read)
+        if matches!(k, (1, 0, 1, 0) | (1, 0, 1, 1) | NSACR) {
+            if !context.have_el3 || context.el3_aarch64 || !context.secure && (k != NSACR || !read)
             {
                 return Some(ExecResult::Undefined);
             }
@@ -137,6 +149,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let mut value = self.cpu.cp15.read(enc)?;
         let vfp = &self.cpu.vfp;
         value = match key(enc) {
+            NSACR if self.cpu.fp_control_context().el3_aarch64 => NSACR_NONSECURE_DEFAULT,
             (0, 0, 2, 5) => effective_id_isar5(value, vfp.mvfr0, vfp.mvfr1),
             (0, 0, 2, 7) => effective_id_isar6(value, vfp.mvfr0, vfp.mvfr1),
             _ => value,

@@ -15,7 +15,7 @@ close the broader A32-FP finding.
 | CPACR.cp10 | Denied, privileged-only, and full-access values; ignored in Hyp mode |
 | CPACR.ASEDIS | AdvSIMD denial outside Hyp mode |
 | FPEXC.EN | Ordinary data-access gating; system-register exceptions; effective EN=1 at A32 EL0 under A64 EL1 |
-| NSACR | Non-secure CPACR/HCPTR read/write clamps and effective access restrictions |
+| NSACR | Non-secure CPACR/HCPTR clamps, mixed-width defaults and privilege traps |
 | HCPTR.TCP10/TASE | Lower-EL Hyp trap or same-Hyp Undefined Instruction entry, with EC=7 syndrome |
 | HCPTR/CPTR_EL2.TCPAC | Valid EL1 CPACR access traps to EL2, with EC=3 syndrome |
 | CPTR_EL2.TFP/FPEN | Ordinary and VHE higher-EL FP controls |
@@ -59,6 +59,42 @@ Instruction taken in Hyp or HVBAR+0x14 for a lower-EL trap. An A32 Undefined
 Instruction taken to ordinary Undefined mode uses LR=PC+4; T32 uses LR=PC+2,
 including a 32-bit T32 instruction. EL0 Undefined Instruction is routed to Hyp
 when HCR.TGE requires it. Fault entry does not retire the faulting instruction.
+
+## Mixed-width NSACR access
+
+An AArch32 Non-secure read at EL1 or EL2 returns `0x00000c00` when the
+enclosing PE has no EL3 or implements EL3 in AArch64. A write takes Undefined
+Instruction. In Secure EL1, an access traps to an enabled AArch64 Secure
+EL2, or to AArch64 EL3 when Secure EL2 is absent. The trap reports EC
+`0x03`, the transfer direction and the mapped register number. The access
+check takes O(1) time and space.
+[Arm NSACR access pseudocode](https://df.lth.se/~getz/ARM/SysReg/AArch32-nsacr.html)
+
+The software-vCPU test enters AArch32 with ERET and checks 16 read/write
+cases across ARM and Thumb. The partitions are Non-secure EL1 with EL3
+absent, Non-secure EL1 under AArch64 EL3, Secure EL1 trapping to AArch64 EL3,
+and Non-secure EL2. The test checks execution state, handler PC, retirement,
+destination register preservation and, for the Secure trap, ELR and ESR.
+On the parent revision the mixed-width executor returned an unsupported
+coprocessor-transfer error.
+
+The seven owning ARM integration targets passed 47,632 tests. The full
+library suite passed 13,215 with five ignored. Both runs were unfiltered
+and reported zero failures.
+
+| Assumption or boundary | Impact | Falsification probe |
+| --- | --- | --- |
+| The enclosing PE implements EL3 in AArch64 or omits EL3. | High | Run both configurations and verify identical Non-secure read and write outcomes. |
+| Selecting the fallback does not change the standalone Armv7 NSACR bank. | High | Compare the standalone bank behavior and the complete owning A32 targets. |
+| HSTR.T1 interception precedes these defaults on profiles that implement it. | High | Set HSTR.T1 and require an EL2 trap. HSTR is unimplemented in this PE. |
+| Secure EL2 routing follows the represented security controls. | Medium | Toggle SCR_EL3.EEL2 with FEAT_SEL2 enabled. The public-vCPU and QEMU probes observed the corresponding EL3 and EL2 vectors. |
+
+QEMU 11.1.2 independently reproduced the Non-secure read value, the
+Undefined write, and the Secure EL3 syndromes `0x0fe40403` (read) and
+`0x0fe40402` (write). Its no-security Armv7 Cortex-A15 returned Undefined
+for both operations. Eight further public-vCPU cases switch the Secure
+trap between EL2 and EL3 in ARM and Thumb. QEMU independently confirms
+both destinations and ESR values for ARM. Physical Arm remains untested.
 
 ## Register-pair admission and data routing
 
