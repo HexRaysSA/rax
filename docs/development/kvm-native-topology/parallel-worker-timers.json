@@ -1,0 +1,313 @@
+{
+  "identity": {
+    "utc": "2026-11-20T09:21:09.855604+00:00",
+    "event": "identity",
+    "binary_sha256": "93af999b20cec406b3600de89722fad4d5e8e9a131e3e6d618ee0f5d9d52f3c0",
+    "guest_sha256": "d74be574189057a036866309fd5546724a92390a4f6ba086e93ddab2f6e0e01d",
+    "init_binary_sha256": "a3eea5bf5b53f62b4a142f1a8b9e51af4a408a52f0ff054754021ffc9f9c4b15",
+    "initramfs_sha256": "102eeed08fef1cda0efa4642fb7279bcf439ffb88e9628c27096ad9f0d4fbe2c"
+  },
+  "experiment_binary_sha256": "066dec80407d718337be40bc4df2d9579ae88fc4e26d8160d42ad5304e77de50",
+  "native_source_sha256": {
+    "tests/suites/backend/kvm/host_slices.rs": "3abb90275ff748cf294d2d8a5e30a41f12131f30b5b844887ea193a7110d8ffa",
+    "src/backend/kvm/deadline.rs": "4b8a1eeca6ac0b61ad02f83d83c69a8659004e91bf839e289a65345f9eb925b8",
+    "src/backend/kvm/checkpoint_io.rs": "a616d77c86c575406373e2347770b51df6bebbb8b36bb3f467f0fb9013947912",
+    "src/backend/kvm/clock_gate.rs": "d02b0794da1cd0e7d785ed41e2dbe23c1f2e8d3d7a76cff1a13e5a4ca3f7377d",
+    "src/backend/kvm/mod.rs": "8ab6edee24aa2f0666fe83a0cbb2e87ead48fd77fc8b64331a6575b7bd74c73f",
+    "src/devices/i8042.rs": "a260e3f6bdb270b509d7b0eee7831e9e94af3951fb8735931a0b6ddb54e8d97a",
+    "src/devices/i8042/checkpoint.rs": "54cb8408bbe8a2ec9df3080dafee852fe831111e613478474d2929460ba18b78",
+    "src/machine/pc/devices/tests.rs": "e89a94e6d8a8ce736c35d076c4c6dc6268fab508a28298b43e9f4f01e706fa4f",
+    "src/vm/runtime/coordinator.rs": "ce6d82fb598eb002119b7d6e5ac85f1b545d664538a7a15384b802d2e24ebfa6",
+    "src/vm/runtime/execution.rs": "396a20a95d2c0ba278698d0dd73a516bf2ececa1ec692ee81d40fb2e82656d1a",
+    "src/vm/vcpu/mod.rs": "9a70ca7846c29ec0aecc2763fc0480a008d0332662637538aa6648815fa226d1"
+  },
+  "native_log_sha256": "ba62c83475bc65d17423c65f747ca7efb43636f0a6aca50977535747f9b09399",
+  "native_trace_owner_log_sha256": "685787d74a23a511ddcb4d61cc946c7ee64422a2711fcc347050af511b184f43",
+  "initial_experiment_log_sha256": "2949aeb532c3f7f735abab8bfeed0230bb58f7a31fea3514fad7f6202a9cb49f",
+  "repeated_experiment_log_sha256": "14b846eaac16ffa66bc06d1c9a2393970263c6cff17532dac9e57f830c2675ee",
+  "guest_sleep_interval_ns": 20000000,
+  "physical_host": "Intel Xeon E5-1650 v3, Linux 6.8.0-138-generic, KVM",
+  "production_slice_us": 1000,
+  "production": [
+    {
+      "profile": "deadline",
+      "wall_elapsed_s": 35.141648188233376,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20074374,
+      "guest_delay_ns_max": 50054232,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "guest_cmdline": "rdinit=/init console=ttyS0,115200 nokaslr panic=-1 loglevel=4",
+      "overlap": {
+        "completed_entry_intervals": 695,
+        "per_vcpu": {
+          "2": 614,
+          "0": 62,
+          "1": 9,
+          "3": 10
+        },
+        "pair_overlaps_minimum_5us": {
+          "(1, 2)": 1,
+          "(1, 3)": 2
+        },
+        "trace_log_sha256": "29b5052e75d13183141ffe3a2dc84bba5f737de21131985a72367c52606df28b",
+        "capture_start_utc": "2026-11-20T08:54:22.345667+00:00",
+        "separate_guest_execution": true,
+        "distinct_physical_core_overlap_minimum_5us": {
+          "(1, 2)": 1
+        },
+        "distinct_physical_core_overlap_count": 1,
+        "topology_sha256": "89588b6528d1ba2c23b02357a787e27d1658854c45acde3c0df47e344cd81785"
+      }
+    },
+    {
+      "profile": "legacy",
+      "wall_elapsed_s": 43.100253311917186,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20018228,
+      "guest_delay_ns_max": 65992959,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "guest_cmdline": "rdinit=/init console=ttyS0,115200 nokaslr panic=-1 loglevel=4 clearcpuid=152",
+      "overlap": {
+        "completed_entry_intervals": 5123,
+        "per_vcpu": {
+          "0": 2288,
+          "2": 2198,
+          "3": 616,
+          "1": 21
+        },
+        "pair_overlaps_minimum_5us": {
+          "(0, 2)": 114,
+          "(0, 3)": 16,
+          "(2, 3)": 24,
+          "(1, 2)": 3
+        },
+        "trace_log_sha256": "2c65301aeba026931083e5bae62a84a622c33d73b760c6ba628e53c7113609b6",
+        "capture_start_utc": "2026-11-20T08:54:51.252615+00:00",
+        "separate_guest_execution": true,
+        "distinct_physical_core_overlap_minimum_5us": {
+          "(0, 3)": 15,
+          "(2, 3)": 27,
+          "(0, 2)": 107,
+          "(1, 2)": 3
+        },
+        "distinct_physical_core_overlap_count": 152,
+        "topology_sha256": "89588b6528d1ba2c23b02357a787e27d1658854c45acde3c0df47e344cd81785"
+      }
+    }
+  ],
+  "experiment": [
+    {
+      "profile": "deadline",
+      "wall_elapsed_s": 60.48300283122808,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20075417,
+      "guest_delay_ns_max": 35369928,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 1000,
+      "repetition": 0
+    },
+    {
+      "profile": "legacy",
+      "wall_elapsed_s": 58.90921971574426,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20031666,
+      "guest_delay_ns_max": 46221650,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 1000,
+      "repetition": 0
+    },
+    {
+      "profile": "deadline",
+      "wall_elapsed_s": 52.58564737904817,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20090364,
+      "guest_delay_ns_max": 44112694,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 250,
+      "repetition": 0
+    },
+    {
+      "profile": "legacy",
+      "wall_elapsed_s": 68.97803763020784,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20022647,
+      "guest_delay_ns_max": 57330973,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 250,
+      "repetition": 0
+    },
+    {
+      "profile": "deadline",
+      "wall_elapsed_s": 139.44890604540706,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 30,
+        "3": 32
+      },
+      "intact_samples": 126,
+      "guest_delay_ns_min": 20085393,
+      "guest_delay_ns_max": 37322314,
+      "rcu_stall": true,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 10000,
+      "repetition": 0
+    },
+    {
+      "profile": "legacy",
+      "wall_elapsed_s": 60.906176617369056,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20050383,
+      "guest_delay_ns_max": 51732934,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 10000,
+      "repetition": 0
+    },
+    {
+      "profile": "deadline",
+      "wall_elapsed_s": 59.65926430001855,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20085420,
+      "guest_delay_ns_max": 46773998,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 1000,
+      "repetition": 1
+    },
+    {
+      "profile": "legacy",
+      "wall_elapsed_s": 58.37398343253881,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20021583,
+      "guest_delay_ns_max": 43684885,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 1000,
+      "repetition": 1
+    },
+    {
+      "profile": "deadline",
+      "wall_elapsed_s": 58.98819985892624,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20079882,
+      "guest_delay_ns_max": 57619654,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 1000,
+      "repetition": 2
+    },
+    {
+      "profile": "legacy",
+      "wall_elapsed_s": 64.24513788986951,
+      "returncode": 0,
+      "per_cpu_intact_uart_samples": {
+        "0": 32,
+        "1": 32,
+        "2": 32,
+        "3": 32
+      },
+      "intact_samples": 128,
+      "guest_delay_ns_min": 20061472,
+      "guest_delay_ns_max": 93233520,
+      "rcu_stall": false,
+      "workers_marker": true,
+      "final_marker": true,
+      "slice_us": 1000,
+      "repetition": 2
+    }
+  ],
+  "limits": [
+    "The observations cover the recorded executable, guest kernel, initramfs, and KVM host.",
+    "Entry-to-exit overlap does not identify the cycles the host spent executing guest instructions.",
+    "The native runs do not qualify all interrupt modes or checkpoints with opaque LAPIC expiration state."
+  ]
+}

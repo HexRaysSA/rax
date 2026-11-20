@@ -416,9 +416,31 @@ pub(super) fn run_on_entry_thread(
     worker(cpu, value, activate_resume, next_signal)
 }
 
+type EntryResult = (Result<Option<VcpuExit>>, bool);
+
 struct EntryRequest {
     limit: Duration,
-    reply: mpsc::SyncSender<(Result<Option<VcpuExit>>, bool)>,
+    reply: mpsc::SyncSender<EntryResult>,
+}
+
+/// A queued request whose result is independent of the collector's thread.
+pub(super) struct PendingEntry(Mutex<mpsc::Receiver<EntryResult>>);
+
+impl PendingEntry {
+    pub(super) fn complete(self, owner: &MemoryOwner) -> EntryResult {
+        // Request completion consumes the receiver, so this mutex is
+        // never acquired. It preserves the managed vCPU's Sync contract.
+        if let Ok(result) = self.0.into_inner().expect("entry received once").recv() {
+            return result;
+        }
+        owner.poisoned.store(true, Ordering::Release);
+        (
+            Err(Error::Emulator(
+                "KVM host worker stopped during native entry; guest entry disabled".into(),
+            )),
+            false,
+        )
+    }
 }
 
 /// One private thread at most per managed CPU. It leaves any prior timer's
@@ -470,29 +492,23 @@ impl EntryWorker {
         })
     }
 
-    pub(super) fn run(
-        &self,
-        owner: &MemoryOwner,
-        limit: Duration,
-    ) -> (Result<Option<VcpuExit>>, bool) {
-        let (reply, receive) = mpsc::sync_channel(0);
+    pub(super) fn post(&self, owner: &MemoryOwner, limit: Duration) -> Result<PendingEntry> {
+        // Let workers finish while another CPU's reply is being collected.
+        // A receiver that is dropped never blocks worker retirement or Drop.
+        let (reply, receive) = mpsc::sync_channel(1);
         if self
             .requests
             .as_ref()
             .expect("entry worker is live")
             .send(EntryRequest { limit, reply })
-            .is_ok()
-            && let Ok(result) = receive.recv()
+            .is_err()
         {
-            return result;
+            owner.poisoned.store(true, Ordering::Release);
+            return Err(Error::Emulator(
+                "KVM host worker unavailable for native entry; guest entry disabled".into(),
+            ));
         }
-        owner.poisoned.store(true, Ordering::Release);
-        (
-            Err(Error::Emulator(
-                "KVM host worker stopped during native entry; guest entry disabled".into(),
-            )),
-            false,
-        )
+        Ok(PendingEntry(Mutex::new(receive)))
     }
 }
 

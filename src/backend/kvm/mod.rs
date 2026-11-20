@@ -337,6 +337,7 @@ impl Vm for KvmVm {
             .insert(id, Arc::downgrade(&core));
         Ok(Box::new(KvmVcpu {
             entry_worker: None,
+            pending_entry: None,
             core,
             memory_owner: self.memory.clone(),
             id,
@@ -363,6 +364,7 @@ impl Vm for KvmVm {
 /// KVM vCPU.
 pub struct KvmVcpu {
     entry_worker: Option<deadline::EntryWorker>,
+    pending_entry: Option<deadline::PendingEntry>,
     core: Arc<Mutex<NativeCore>>,
     memory_owner: Arc<MemoryOwner>,
     id: u32,
@@ -493,6 +495,14 @@ impl VCpu for KvmVcpu {
 
     fn run_host_slice(&mut self, limit: std::time::Duration) -> Result<Option<VcpuExit>> {
         self.run_native_host_slice(limit)
+    }
+
+    fn post_host_slice(&mut self, limit: std::time::Duration) -> Result<()> {
+        self.post_native_host_slice(limit)
+    }
+
+    fn collect_host_slice(&mut self) -> Result<Option<VcpuExit>> {
+        self.collect_native_host_slice()
     }
 
     fn run(&mut self) -> Result<VcpuExit> {

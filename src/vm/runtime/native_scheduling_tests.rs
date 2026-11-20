@@ -15,6 +15,9 @@ struct Calls {
     outgoing: Option<Arc<Mutex<LocalApic>>>,
     init_attempts: Vec<u32>,
     reject_init_once: Option<u32>,
+    posted: Vec<u32>,
+    collected: Vec<u32>,
+    reject_post: Option<u32>,
 }
 
 struct Native {
@@ -48,6 +51,31 @@ impl VCpu for Native {
             // Model a fixed all-excluding-self IPI produced during native entry.
             apic.lock().unwrap().write_register(0x300, 0x000c_0041);
         }
+        Ok(self.prepared_input.then_some(VcpuExit::IoIn {
+            port: 0x3f8 + self.id as u16,
+            size: 1,
+        }))
+    }
+
+    fn post_host_slice(&mut self, limit: Duration) -> Result<()> {
+        assert!(!limit.is_zero() && limit <= Duration::from_millis(1));
+        let mut calls = self.calls.lock().unwrap();
+        if calls.reject_post == Some(self.id) {
+            return Err(Error::Emulator("test host entry post failed".into()));
+        }
+        assert!(
+            calls.collected.is_empty(),
+            "collected a CPU before posting all eligible entries"
+        );
+        calls.posted.push(self.id);
+        Ok(())
+    }
+
+    fn collect_host_slice(&mut self) -> Result<Option<VcpuExit>> {
+        let mut calls = self.calls.lock().unwrap();
+        assert!(calls.posted.contains(&self.id));
+        assert!(!calls.collected.contains(&self.id));
+        calls.collected.push(self.id);
         Ok(self.prepared_input.then_some(VcpuExit::IoIn {
             port: 0x3f8 + self.id as u16,
             size: 1,
@@ -148,6 +176,49 @@ fn public_states(vm: &Vmm) -> Vec<Vec<u8>> {
         .iter()
         .map(|cpu| crate::codec::serialize(&cpu.get_state().unwrap()).unwrap())
         .collect()
+}
+
+#[test]
+fn native_round_posts_every_online_cpu_before_collecting_owned_exits() {
+    let (mut fixture, calls) = fixture(4, true);
+    let vm = &mut fixture.vm;
+    vm.coordinator.cursor = 2;
+    vm.coordinator.online[1] = false;
+    let mut turns = Vec::new();
+    let mut pending = Vec::new();
+    vm.execute_native_round(&mut turns, &mut pending).unwrap();
+    let calls = calls.lock().unwrap();
+    assert_eq!(calls.posted, [2, 3, 0]);
+    assert_eq!(calls.collected, [2, 3, 0]);
+    assert!(pending.is_empty());
+    assert_eq!(vm.coordinator.retired, 17);
+    assert_eq!(vm.coordinator.cursor, 3);
+    for (turn, id) in turns.iter().zip([2, 3, 0]) {
+        assert_eq!(turn.cpu_index, id);
+        assert!(matches!(
+            turn.exit,
+            VcpuExit::IoIn { port, size: 1 } if port == 0x3f8 + id as u16
+        ));
+    }
+    assert_eq!(turns.len(), 3);
+}
+
+#[test]
+fn native_round_joins_partial_dispatch_before_returning_a_post_error() {
+    let (mut fixture, calls) = fixture(4, true);
+    let vm = &mut fixture.vm;
+    calls.lock().unwrap().reject_post = Some(2);
+    let mut turns = Vec::new();
+    let mut pending = Vec::new();
+    let error = vm
+        .execute_native_round(&mut turns, &mut pending)
+        .unwrap_err();
+    assert!(error.to_string().contains("test host entry post failed"));
+    let calls = calls.lock().unwrap();
+    assert_eq!(calls.posted, [0, 1]);
+    assert_eq!(calls.collected, [0, 1]);
+    assert!(pending.is_empty());
+    assert_eq!(turns.len(), 2);
 }
 
 #[test]

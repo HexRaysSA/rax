@@ -222,3 +222,25 @@ restoration at that boundary remain open.
 `native-profile.S`, `encoding.json`, and `queries.json` retain the guest witness.
 The adjacent primary Linux references preserve their original notices. Intel
 SDM and AMD APM section/page provenance is in `references/provenance.json`.
+
+## Concurrent KVM worker rounds
+
+For multiple x86 vCPUs with the KVM interrupt controller, the VMM posts a
+bounded entry to every online CPU before collecting results. It collects
+all posted entries before device dispatch and checkpoint capture, including
+when a later post fails. The entry allowance is capped at 1 ms. An active
+GDB session uses the serial coordinator to preserve debugger stop and step
+semantics.
+
+On a physical Intel Xeon E5-1650 v3 running Linux 6.8, the stock four-vCPU
+Linux guest completed 128 pinned timer measurements in each of TSC-deadline
+and legacy LAPIC modes. Each vCPU completed 32 waits of at least 20 ms.
+Separate trace runs using the same artifacts recorded 1 and 152 pairs of
+entry-to-exit intervals, respectively, that overlapped by at least 5 µs on
+distinct physical cores. The intervals include host work inside KVM.
+
+Replay both guest configurations and require all 128 unique CPU/sample
+pairs to check the timer result. For the overlap result, match the
+executable and guest digests, then reconstruct entry-to-exit intervals from
+the host CPU topology and discard migrating or sibling-core pairs.
+[Native qualification receipt](parallel-worker-timers.json)

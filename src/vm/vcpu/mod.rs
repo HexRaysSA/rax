@@ -116,6 +116,25 @@ pub trait VCpu: Send {
         ))
     }
 
+    /// Begin a bounded host slice for a coordinator that manages several
+    /// native CPUs. A successful post must be collected before checkpoint,
+    /// device dispatch, or another post on the same CPU.
+    #[doc(hidden)]
+    fn post_host_slice(&mut self, _limit: std::time::Duration) -> Result<()> {
+        Err(Error::InvalidConfig(
+            "asynchronous host entry is not supported by this backend".into(),
+        ))
+    }
+
+    /// Wait for the CPU's previously posted entry. Its exit and I/O ownership
+    /// have the same semantics as the synchronous host-slice path.
+    #[doc(hidden)]
+    fn collect_host_slice(&mut self) -> Result<Option<VcpuExit>> {
+        Err(Error::InvalidConfig(
+            "no asynchronous host entry is available for this backend".into(),
+        ))
+    }
+
     /// A coordinated host slice may yield early when the guest can accept a
     /// pending controller-owned maskable interrupt. The caller retains the
     /// interrupt and retries normal arbitration after a yield.

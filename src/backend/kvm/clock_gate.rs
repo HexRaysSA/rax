@@ -55,6 +55,14 @@ impl MemoryOwner {
 
 impl KvmVcpu {
     pub(super) fn run_native_host_slice(&mut self, limit: Duration) -> Result<Option<VcpuExit>> {
+        self.post_native_host_slice(limit)?;
+        self.collect_native_host_slice()
+    }
+
+    pub(super) fn post_native_host_slice(&mut self, limit: Duration) -> Result<()> {
+        if self.pending_entry.is_some() {
+            return Err(invalid("native host slice is already in flight"));
+        }
         if self.entry_worker.is_none() {
             self.entry_worker = Some(deadline::EntryWorker::new(
                 self.memory_owner.clone(),
@@ -65,7 +73,16 @@ impl KvmVcpu {
             .entry_worker
             .as_ref()
             .expect("entry worker was started");
-        let (result, reusable) = worker.run(&self.memory_owner, limit);
+        self.pending_entry = Some(worker.post(&self.memory_owner, limit)?);
+        Ok(())
+    }
+
+    pub(super) fn collect_native_host_slice(&mut self) -> Result<Option<VcpuExit>> {
+        let request = self
+            .pending_entry
+            .take()
+            .ok_or_else(|| invalid("native host slice is not in flight"))?;
+        let (result, reusable) = request.complete(&self.memory_owner);
         if !reusable {
             self.entry_worker.take();
         }

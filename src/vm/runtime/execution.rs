@@ -1,4 +1,5 @@
 //! Host console and shared device servicing around coordinated CPU turns.
+use super::coordinator::ExecutionTurn;
 use super::*;
 
 impl Vmm {
@@ -180,7 +181,21 @@ impl Vmm {
             libc::signal(libc::SIGUSR1, sigusr1_handler as libc::sighandler_t);
         }
 
-        loop {
+        let native_smp = self.backend_kind == BackendKind::Kvm
+            && self.vm.uses_native_x86_irqchip()
+            && self.vcpus.len() > 1;
+        let mut turns = Vec::new();
+        let mut pending = Vec::new();
+        if native_smp {
+            turns
+                .try_reserve_exact(self.vcpus.len())
+                .map_err(|error| Error::Emulator(format!("host turn allocation: {error}")))?;
+            pending
+                .try_reserve_exact(self.vcpus.len())
+                .map_err(|error| Error::Emulator(format!("host entry allocation: {error}")))?;
+        }
+
+        'execution: loop {
             #[cfg(feature = "debug")]
             self.debugger.ready()?;
             if self.service_console(&mut console) {
@@ -232,221 +247,23 @@ impl Vmm {
                 }
             }
 
-            let turn = self.execute_turn()?;
-
-            let Some(turn) = turn else {
+            let parallel = native_smp;
+            #[cfg(feature = "debug")]
+            let parallel = parallel && self.gdb_channels.is_none();
+            if parallel {
+                self.execute_native_round(&mut turns, &mut pending)?;
+                for turn in turns.drain(..) {
+                    if self.apply_execution_turn(turn, false)? {
+                        break 'execution;
+                    }
+                }
                 self.maybe_snapshot(self.coordinator.retired)?;
-                continue;
-            };
-            let mut shutdown = false;
-            #[cfg(feature = "debug")]
-            let mut debug_stop = turn.debug_step_completed;
-            let vcpu = self
-                .vcpus
-                .get_mut(turn.cpu_index)
-                .ok_or_else(|| Error::InvalidConfig("selected vCPU is missing".into()))?;
-
-            match turn.exit {
-                VcpuExit::Hlt => {
-                    // HLT is normal - kernel waits for interrupts
+            } else if let Some(turn) = self.execute_turn()? {
+                if self.apply_execution_turn(turn, true)? {
+                    break;
                 }
-                VcpuExit::Shutdown => {
-                    match vcpu.get_state()? {
-                        CpuState::X86_64(state) => {
-                            let regs = state.regs;
-                            let sregs = state.sregs;
-                            info!(
-                                rip = format!("{:#x}", regs.rip),
-                                rsp = format!("{:#x}", regs.rsp),
-                                rsi = format!("{:#x}", regs.rsi),
-                                rflags = format!("{:#x}", regs.rflags),
-                                cr0 = format!("{:#x}", sregs.cr0),
-                                cr3 = format!("{:#x}", sregs.cr3),
-                                cr4 = format!("{:#x}", sregs.cr4),
-                                cs_sel = format!("{:#x}", sregs.cs.selector),
-                                cs_base = format!("{:#x}", sregs.cs.base),
-                                ds_sel = format!("{:#x}", sregs.ds.selector),
-                                gdt_base = format!("{:#x}", sregs.gdt.base),
-                                gdt_limit = format!("{:#x}", sregs.gdt.limit),
-                                "vCPU shutdown"
-                            );
-                        }
-                        CpuState::Hexagon(state) => {
-                            let regs = state.regs;
-                            let sp = regs.r[29];
-                            info!(
-                                pc = format!("{:#x}", regs.pc()),
-                                sp = format!("{:#x}", sp),
-                                usr = format!("{:#x}", regs.usr()),
-                                "vCPU shutdown"
-                            );
-                        }
-                        CpuState::Aarch64(state) => {
-                            let regs = state.regs;
-                            info!(
-                                pc = format!("{:#x}", regs.pc),
-                                sp = format!("{:#x}", regs.sp),
-                                pstate = format!("{:#x}", regs.pstate),
-                                "vCPU shutdown"
-                            );
-                        }
-                        _ => {
-                            info!("vCPU shutdown (unsupported architecture)");
-                        }
-                    }
-                    shutdown = true;
-                }
-                VcpuExit::IoIn { port, size } => {
-                    debug!(port = port, size = size, "PIO read");
-                    let data = port_io::read(
-                        self.io_bus.get_mut()?,
-                        &self.serial,
-                        self.backend_kind,
-                        port,
-                        size,
-                        1,
-                    )?;
-                    vcpu.complete_io_in(&data);
-                    vcpu.io_completion_result()?;
-                }
-                VcpuExit::IoInString { port, size, count } => {
-                    let data = port_io::read(
-                        self.io_bus.get_mut()?,
-                        &self.serial,
-                        self.backend_kind,
-                        port,
-                        size,
-                        count,
-                    )?;
-                    vcpu.complete_io_in(&data);
-                    vcpu.io_completion_result()?;
-                }
-                VcpuExit::IoOut { port, data } => {
-                    debug!(port = port, size = data.len(), "PIO write");
-
-                    shutdown = port_io::write(
-                        self.io_bus.get_mut()?,
-                        &self.serial,
-                        &self.pic,
-                        &*self.vm,
-                        self.backend_kind,
-                        self.serial_irq,
-                        port,
-                        &data,
-                    )?;
-                    vcpu.complete_io_out()?;
-                }
-                VcpuExit::MmioRead { addr, size } => {
-                    let mut data = vec![0u8; size as usize];
-                    mmio::read(
-                        self.mmio_bus.get_mut()?,
-                        &self.local_apics,
-                        turn.cpu_index,
-                        addr,
-                        &mut data,
-                    )?;
-                    vcpu.complete_io_in(&data);
-                    let completion = vcpu.io_completion_result();
-                    // The device has consumed the input even if the native reply
-                    // must be retried. Publish the line before any checkpoint.
-                    let irq = self.publish_serial_mmio_irq(addr);
-                    completion?;
-                    irq?;
-                }
-                VcpuExit::MmioWrite { addr, data } => {
-                    self.dispatch_mmio_write(turn.cpu_index, addr, &data)?;
-                }
-                VcpuExit::MmioRmw {
-                    addr,
-                    size,
-                    operation,
-                } => {
-                    let old = mmio::rmw(
-                        self.mmio_bus.get_mut()?,
-                        &self.local_apics,
-                        turn.cpu_index,
-                        addr,
-                        size,
-                        operation,
-                    )?;
-                    // Device locks are released before native register/flag
-                    // callbacks or instruction completion can reenter the VM.
-                    vcpu.complete_io_in(&old);
-                    let completion = vcpu.io_completion_result();
-                    let irq = self.publish_serial_mmio_irq(addr);
-                    completion?;
-                    irq?;
-                }
-                VcpuExit::SystemEvent { .. } => shutdown = true,
-                VcpuExit::FailEntry { reason } => {
-                    return Err(Error::KernelLoad(format!(
-                        "vCPU fail entry: reason={reason:#x}"
-                    )));
-                }
-                VcpuExit::InternalError => {
-                    return Err(Error::KernelLoad("vCPU internal error".to_string()));
-                }
-                VcpuExit::Debug => {
-                    // INT3 breakpoint - kernel debugging, just continue
-                }
-                VcpuExit::Exception(vector) => {
-                    // Check for breakpoint exception (vector 3) when GDB is attached
-                    #[cfg(feature = "debug")]
-                    if vector == 3 && self.gdb_channels.is_some() {
-                        // INT3 was hit - RIP is now AFTER the INT3, back up 1 byte
-                        let bp_addr = vcpu.get_regs().map(|r| r.rip).unwrap_or(0) - 1;
-
-                        if self.gdb_breakpoints.contains(&bp_addr) {
-                            debug!(addr = format!("{:#x}", bp_addr), "Software breakpoint hit");
-                            let mut regs = vcpu.get_regs().unwrap_or_default();
-                            regs.rip = bp_addr;
-                            let _ = vcpu.set_regs(&regs);
-
-                            debug_stop = true;
-                        } else {
-                            debug!(
-                                addr = format!("{:#x}", bp_addr),
-                                "Natural INT3 instruction hit"
-                            );
-                        }
-                    }
-                    // Other exceptions - just continue for now
-                }
-                #[cfg(feature = "debug")]
-                VcpuExit::GdbBreakpoint { addr } => {
-                    debug!(addr = format!("{:#x}", addr), "GDB breakpoint hit");
-                    debug_stop = true;
-                }
-                #[cfg(feature = "debug")]
-                VcpuExit::GdbStep => {
-                    debug!("GDB single step complete");
-
-                    debug_stop = true;
-                }
-                exit => return Err(Error::KernelLoad(format!("unhandled exit: {exit:?}"))),
-            }
-
-            self.route_interprocessor_requests()?;
-
-            // Publish only a completed instruction boundary. In particular, an
-            // input exit advances RIP before complete_io_in installs its value.
-            self.maybe_snapshot(self.coordinator.retired)?;
-            #[cfg(feature = "debug")]
-            if debug_stop {
-                self.stop_debugger(turn.cpu_index, 5)?;
-                if let Some(ref channels) = self.gdb_channels {
-                    let _ = channels.resp_tx.send(GdbResponse::ThreadStop {
-                        signal: 5,
-                        index: turn.cpu_index,
-                    });
-                }
-            }
-            if shutdown {
-                #[cfg(feature = "debug")]
-                if let Some(ref channels) = self.gdb_channels {
-                    let _ = channels.resp_tx.send(GdbResponse::Exited(0));
-                }
-                break;
+            } else {
+                self.maybe_snapshot(self.coordinator.retired)?;
             }
         }
 
@@ -455,5 +272,224 @@ impl Vmm {
         crate::observability::trace::close();
 
         Ok(())
+    }
+
+    fn apply_execution_turn(
+        &mut self,
+        turn: ExecutionTurn,
+        checkpoint_after_turn: bool,
+    ) -> Result<bool> {
+        let mut shutdown = false;
+        #[cfg(feature = "debug")]
+        let mut debug_stop = turn.debug_step_completed;
+        let vcpu = self
+            .vcpus
+            .get_mut(turn.cpu_index)
+            .ok_or_else(|| Error::InvalidConfig("selected vCPU is missing".into()))?;
+
+        match turn.exit {
+            VcpuExit::Hlt => {
+                // HLT is normal - kernel waits for interrupts
+            }
+            VcpuExit::Shutdown => {
+                match vcpu.get_state()? {
+                    CpuState::X86_64(state) => {
+                        let regs = state.regs;
+                        let sregs = state.sregs;
+                        info!(
+                            rip = format!("{:#x}", regs.rip),
+                            rsp = format!("{:#x}", regs.rsp),
+                            rsi = format!("{:#x}", regs.rsi),
+                            rflags = format!("{:#x}", regs.rflags),
+                            cr0 = format!("{:#x}", sregs.cr0),
+                            cr3 = format!("{:#x}", sregs.cr3),
+                            cr4 = format!("{:#x}", sregs.cr4),
+                            cs_sel = format!("{:#x}", sregs.cs.selector),
+                            cs_base = format!("{:#x}", sregs.cs.base),
+                            ds_sel = format!("{:#x}", sregs.ds.selector),
+                            gdt_base = format!("{:#x}", sregs.gdt.base),
+                            gdt_limit = format!("{:#x}", sregs.gdt.limit),
+                            "vCPU shutdown"
+                        );
+                    }
+                    CpuState::Hexagon(state) => {
+                        let regs = state.regs;
+                        let sp = regs.r[29];
+                        info!(
+                            pc = format!("{:#x}", regs.pc()),
+                            sp = format!("{:#x}", sp),
+                            usr = format!("{:#x}", regs.usr()),
+                            "vCPU shutdown"
+                        );
+                    }
+                    CpuState::Aarch64(state) => {
+                        let regs = state.regs;
+                        info!(
+                            pc = format!("{:#x}", regs.pc),
+                            sp = format!("{:#x}", regs.sp),
+                            pstate = format!("{:#x}", regs.pstate),
+                            "vCPU shutdown"
+                        );
+                    }
+                    _ => {
+                        info!("vCPU shutdown (unsupported architecture)");
+                    }
+                }
+                shutdown = true;
+            }
+            VcpuExit::IoIn { port, size } => {
+                debug!(port = port, size = size, "PIO read");
+                let data = port_io::read(
+                    self.io_bus.get_mut()?,
+                    &self.serial,
+                    self.backend_kind,
+                    port,
+                    size,
+                    1,
+                )?;
+                vcpu.complete_io_in(&data);
+                vcpu.io_completion_result()?;
+            }
+            VcpuExit::IoInString { port, size, count } => {
+                let data = port_io::read(
+                    self.io_bus.get_mut()?,
+                    &self.serial,
+                    self.backend_kind,
+                    port,
+                    size,
+                    count,
+                )?;
+                vcpu.complete_io_in(&data);
+                vcpu.io_completion_result()?;
+            }
+            VcpuExit::IoOut { port, data } => {
+                debug!(port = port, size = data.len(), "PIO write");
+
+                shutdown = port_io::write(
+                    self.io_bus.get_mut()?,
+                    &self.serial,
+                    &self.pic,
+                    &*self.vm,
+                    self.backend_kind,
+                    self.serial_irq,
+                    port,
+                    &data,
+                )?;
+                vcpu.complete_io_out()?;
+            }
+            VcpuExit::MmioRead { addr, size } => {
+                let mut data = vec![0u8; size as usize];
+                mmio::read(
+                    self.mmio_bus.get_mut()?,
+                    &self.local_apics,
+                    turn.cpu_index,
+                    addr,
+                    &mut data,
+                )?;
+                vcpu.complete_io_in(&data);
+                let completion = vcpu.io_completion_result();
+                // The device has consumed the input even if the native reply
+                // must be retried. Publish the line before any checkpoint.
+                let irq = self.publish_serial_mmio_irq(addr);
+                completion?;
+                irq?;
+            }
+            VcpuExit::MmioWrite { addr, data } => {
+                self.dispatch_mmio_write(turn.cpu_index, addr, &data)?;
+            }
+            VcpuExit::MmioRmw {
+                addr,
+                size,
+                operation,
+            } => {
+                let old = mmio::rmw(
+                    self.mmio_bus.get_mut()?,
+                    &self.local_apics,
+                    turn.cpu_index,
+                    addr,
+                    size,
+                    operation,
+                )?;
+                // Device locks are released before native register/flag
+                // callbacks or instruction completion can reenter the VM.
+                vcpu.complete_io_in(&old);
+                let completion = vcpu.io_completion_result();
+                let irq = self.publish_serial_mmio_irq(addr);
+                completion?;
+                irq?;
+            }
+            VcpuExit::SystemEvent { .. } => shutdown = true,
+            VcpuExit::FailEntry { reason } => {
+                return Err(Error::KernelLoad(format!(
+                    "vCPU fail entry: reason={reason:#x}"
+                )));
+            }
+            VcpuExit::InternalError => {
+                return Err(Error::KernelLoad("vCPU internal error".to_string()));
+            }
+            VcpuExit::Debug => {
+                // INT3 breakpoint - kernel debugging, just continue
+            }
+            VcpuExit::Exception(vector) => {
+                // Check for breakpoint exception (vector 3) when GDB is attached
+                #[cfg(feature = "debug")]
+                if vector == 3 && self.gdb_channels.is_some() {
+                    // INT3 was hit - RIP is now AFTER the INT3, back up 1 byte
+                    let bp_addr = vcpu.get_regs().map(|r| r.rip).unwrap_or(0) - 1;
+
+                    if self.gdb_breakpoints.contains(&bp_addr) {
+                        debug!(addr = format!("{:#x}", bp_addr), "Software breakpoint hit");
+                        let mut regs = vcpu.get_regs().unwrap_or_default();
+                        regs.rip = bp_addr;
+                        let _ = vcpu.set_regs(&regs);
+
+                        debug_stop = true;
+                    } else {
+                        debug!(
+                            addr = format!("{:#x}", bp_addr),
+                            "Natural INT3 instruction hit"
+                        );
+                    }
+                }
+                // Other exceptions - just continue for now
+            }
+            #[cfg(feature = "debug")]
+            VcpuExit::GdbBreakpoint { addr } => {
+                debug!(addr = format!("{:#x}", addr), "GDB breakpoint hit");
+                debug_stop = true;
+            }
+            #[cfg(feature = "debug")]
+            VcpuExit::GdbStep => {
+                debug!("GDB single step complete");
+
+                debug_stop = true;
+            }
+            exit => return Err(Error::KernelLoad(format!("unhandled exit: {exit:?}"))),
+        }
+
+        self.route_interprocessor_requests()?;
+
+        // Publish only a completed instruction boundary. In particular, an
+        // input exit advances RIP before complete_io_in installs its value.
+        if checkpoint_after_turn {
+            self.maybe_snapshot(self.coordinator.retired)?;
+        }
+        #[cfg(feature = "debug")]
+        if debug_stop {
+            self.stop_debugger(turn.cpu_index, 5)?;
+            if let Some(ref channels) = self.gdb_channels {
+                let _ = channels.resp_tx.send(GdbResponse::ThreadStop {
+                    signal: 5,
+                    index: turn.cpu_index,
+                });
+            }
+        }
+        if shutdown {
+            #[cfg(feature = "debug")]
+            if let Some(ref channels) = self.gdb_channels {
+                let _ = channels.resp_tx.send(GdbResponse::Exited(0));
+            }
+        }
+        Ok(shutdown)
     }
 }

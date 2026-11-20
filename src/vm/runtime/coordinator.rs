@@ -5,6 +5,10 @@ use crate::vm::timing::ClockMode;
 use crate::vm::vcpu::{ClockIdle, DEFAULT_HOST_SLICE, DEFAULT_RETIREMENT_QUANTUM, RetirementStop};
 use std::collections::VecDeque;
 
+// A vCPU that reaches a device exit waits for its round peers. Bound that
+// delay independently of the single-vCPU host slice to keep PIO responsive.
+const KVM_PARALLEL_HOST_SLICE: std::time::Duration = std::time::Duration::from_millis(1);
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct ExecutionCoordinator {
     pub(super) cursor: usize,
@@ -245,6 +249,65 @@ impl Vmm {
             }
         }
         Ok(None)
+    }
+
+    /// Let the kernel run all online KVM CPUs during each bounded round.
+    /// Dispatch devices and observe stopped state only after every posted
+    /// request has been collected, including after a partial posting failure.
+    pub(super) fn execute_native_round(
+        &mut self,
+        turns: &mut Vec<ExecutionTurn>,
+        pending: &mut Vec<usize>,
+    ) -> Result<()> {
+        self.route_interprocessor_requests()?;
+        self.poll_vm_clocks()?;
+        let count = self.vcpus.len();
+        let cursor = self.coordinator.cursor;
+        pending.extend(
+            (0..count)
+                .map(|offset| (offset + cursor) % count)
+                .filter(|&index| self.coordinator.online[index]),
+        );
+        if pending.is_empty() {
+            self.service_pc_pit()?;
+            return Ok(());
+        }
+        for &index in pending.iter() {
+            self.service_pc_interrupts(index)?;
+        }
+        let limit = self.host_slice_limit()?.min(KVM_PARALLEL_HOST_SLICE);
+        self.coordinator.cursor = (cursor + 1) % count;
+        let mut error = None;
+        let mut posted = 0;
+        for &index in pending.iter() {
+            match self.vcpus[index].post_host_slice(limit) {
+                Ok(()) => posted += 1,
+                Err(cause) => {
+                    error = Some(cause);
+                    break;
+                }
+            }
+        }
+        pending.truncate(posted);
+        for cpu_index in pending.drain(..) {
+            match self.vcpus[cpu_index].collect_host_slice() {
+                Ok(Some(exit)) => turns.push(ExecutionTurn {
+                    cpu_index,
+                    exit,
+                    #[cfg(feature = "debug")]
+                    debug_step_completed: false,
+                }),
+                Ok(None) => (),
+                Err(cause) => {
+                    error.get_or_insert(cause);
+                }
+            }
+        }
+        if let Some(cause) = error {
+            return Err(cause);
+        }
+        self.route_interprocessor_requests()?;
+        self.poll_vm_clocks()
     }
 
     fn host_slice_limit(&self) -> Result<std::time::Duration> {
