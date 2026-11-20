@@ -183,7 +183,7 @@ jobs:
             throw 'Native current-process token duplication control did not pass'
           }
       - name: Compare installed findstr.exe through the closed C ABI
-        if: ${{ !cancelled() && inputs.compare_installed_filter && steps.stock.outcome != 'skipped' }}
+        if: ${{ !cancelled() && steps.stock.outcome != 'skipped' && (github.event_name != 'workflow_dispatch' || inputs.compare_installed_filter) }}
         shell: pwsh
         env:
           RAX_TEST_TARGET: ${{ matrix.target }}
