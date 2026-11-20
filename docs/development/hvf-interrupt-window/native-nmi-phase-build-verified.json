@@ -1,0 +1,21 @@
+{
+  "revision": "4b2bff02656ebd511c7650551e526978e077ebcf",
+  "run_id": "44673875789",
+  "job_id": 136080967265,
+  "artifact_id": 14601566730,
+  "engine_files_verified": 4879,
+  "consumer_files_verified": 15,
+  "engine_source_digest": "840b94476c1d3b5ceec8d88e06a277bb0ceaeefc2fae9f34ee18458a2a47faa3",
+  "archive_sha256": "97762387da755255d88a285962686ec9278817b7b00e783fb56962a44ea17d99",
+  "executable_sha256": "0823b1d09187bf9f94d75329667eea28cb6951aa4c1be1152d6d11adcd59fc2c",
+  "host_architecture": "x86_64",
+  "strict_codesign_verified": true,
+  "hypervisor_entitlement": true,
+  "guest_execution_qualified": false,
+  "job_conclusion": "failure",
+  "execution_step_started_at": "2026-11-20T04:29:31Z",
+  "runner_report": "Lost communication during the execution step",
+  "runtime_archive_published": false,
+  "guest_case_outcomes": null,
+  "binary_matches_cold_entry_control": true
+}

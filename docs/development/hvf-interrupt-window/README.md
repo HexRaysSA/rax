@@ -214,3 +214,21 @@ the Git tree. The host reported an untranslated GenuineIntel process inside a
 macOS 15.7.9 guest. This verifies the cold setup without an injected event.
 Virtual NMI delivery and bare-metal Intel execution remain open.
 [Native control](https://github.com/HexRaysSA/rax/actions/runs/44671968208/job/136074789095)
+
+### Phase diagnostics on the hosted runner
+
+The phased `nmi-window` run at `4b2bff026` preserved the signed guest
+consumer before entering the execution step. The hosted runner then lost
+communication. GitHub retained one build archive and did not publish a
+runtime archive. The build archive matched the service's digest. Its
+4,879 engine inputs and 15 consumer inputs matched the commit, and the
+x86-64 executable passed strict signature verification with the hypervisor
+entitlement.
+
+The cold-entry control and the phased probe used byte-identical guest
+executables. The control verified entry with an empty event slot. The
+phased run yielded no handler count or phase observation, so whether the
+first injection or a subsequent diagnostic ran is unknown. Native
+virtual-NMI delivery remains unqualified.
+[Hosted job](https://github.com/HexRaysSA/rax/actions/runs/44673875789/job/136080967265)
+[Verified build receipt](native-nmi-phase-build-verified.json)
