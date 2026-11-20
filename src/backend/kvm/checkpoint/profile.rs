@@ -65,8 +65,39 @@ fn size(layout: &Layout, xcr0: u64, compact: bool) -> Result<u32> {
     Ok(size)
 }
 
-pub(in crate::backend::kvm) fn immutable_equal(left: &CpuId, right: &CpuId) -> bool {
-    runtime_canonical(left, false) == runtime_canonical(right, false)
+fn first_difference(saved: &[kvm_cpuid_entry2], current: &[kvm_cpuid_entry2]) -> Option<String> {
+    if saved.len() != current.len() {
+        return Some(format!(
+            "entry count saved={}, current={}",
+            saved.len(),
+            current.len()
+        ));
+    }
+    saved
+        .iter()
+        .zip(current)
+        .enumerate()
+        .find(|(_, (saved, current))| saved != current)
+        .map(|(position, (saved, current))| {
+            format!("entry {position} (hex) saved={saved:x?}, current={current:x?}")
+        })
+}
+
+pub(in crate::backend::kvm) fn destination_difference(
+    saved_profile: &CpuId,
+    configured: &CpuId,
+    observed: &CpuId,
+    destination: impl FnOnce() -> Result<CpuId>,
+) -> Result<Option<String>> {
+    if let Some(difference) = first_difference(saved_profile.as_slice(), configured.as_slice()) {
+        return Ok(Some(format!("configured CPUID {difference}")));
+    }
+    let current = destination()?;
+    Ok(first_difference(
+        &runtime_canonical(observed, false),
+        &runtime_canonical(&current, false),
+    )
+    .map(|difference| format!("observed CPUID {difference}")))
 }
 
 /// Validate observed fields, rather than masking arbitrary differences and
@@ -144,4 +175,49 @@ pub(in crate::backend::kvm) fn validate(
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn destination_diagnostic_retains_cpuid_equality_and_comparison_order() {
+        let saved_entry = kvm_cpuid_entry2 {
+            function: 1,
+            edx: 1 << 9,
+            ..Default::default()
+        };
+        let saved = CpuId::from_entries(&[saved_entry]).unwrap();
+        let empty = CpuId::from_entries(&[]).unwrap();
+        let diagnostic = destination_difference(&saved, &empty, &saved, || {
+            panic!("configured mismatch must precede the native CPUID read")
+        })
+        .unwrap();
+        assert_eq!(
+            diagnostic.as_deref(),
+            Some("configured CPUID entry count saved=1, current=0")
+        );
+
+        let current_entry = kvm_cpuid_entry2 {
+            edx: 0,
+            ..saved_entry
+        };
+        let current = CpuId::from_entries(&[current_entry]).unwrap();
+        assert!(
+            destination_difference(&saved, &saved, &saved, || Ok(current))
+                .unwrap()
+                .is_none()
+        );
+        let current = CpuId::from_entries(&[kvm_cpuid_entry2 {
+            eax: 0x42,
+            ..current_entry
+        }])
+        .unwrap();
+        let diagnostic = destination_difference(&saved, &saved, &saved, || Ok(current))
+            .unwrap()
+            .unwrap();
+        assert!(diagnostic.starts_with("observed CPUID entry 0"));
+        assert!(diagnostic.contains("eax: 42"));
+    }
 }

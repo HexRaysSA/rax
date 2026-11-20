@@ -295,12 +295,14 @@ impl Image {
         }
         let saved_profile = native_cpuid(&self.profile)?;
         let observed = native_cpuid(&self.observed_cpuid)?;
-        if saved_profile.as_slice() != configured.as_slice()
-            || !profile::immutable_equal(&observed, &cpu.get_cpuid2(KVM_MAX_CPUID_ENTRIES)?)
+        if let Some(difference) =
+            profile::destination_difference(&saved_profile, configured, &observed, || {
+                Ok(cpu.get_cpuid2(KVM_MAX_CPUID_ENTRIES)?)
+            })?
         {
-            return Err(invalid(
-                "destination CPUID differs from the saved CPU profile",
-            ));
+            return Err(invalid(format_args!(
+                "destination CPUID differs from the saved CPU profile for vCPU {id}: {difference}"
+            )));
         }
         self.regs.decode().map_err(invalid)?;
         self.debug.decode().map_err(invalid)?;
