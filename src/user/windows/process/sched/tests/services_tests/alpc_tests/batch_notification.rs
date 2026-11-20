@@ -96,9 +96,18 @@ fn native_cmd_batch_notification_rejects_unmeasured_packets_and_peer_profiles() 
         let args = request(p, base, port, CONSOLE, 1);
         p.space.w64(base + offset, value).unwrap();
         let original = p.space.bytes(base, 136).unwrap();
+        let Outcome::Fail(reason) = invoke(p, &mut t, &args) else {
+            panic!("unmeasured CSR packet was accepted");
+        };
         assert!(
-            matches!(invoke(p, &mut t, &args), Outcome::Fail(reason) if reason.contains("unmeasured CSR message/profile"))
+            reason.contains("unmeasured CSR message/profile"),
+            "{reason}"
         );
+        assert!(
+            reason.contains("message_bytes=80, wire_api=0x10010"),
+            "{reason}"
+        );
+        assert!(reason.contains("receive_capacity=952"), "{reason}");
         assert_eq!(p.space.bytes(base, 136).unwrap(), original);
     }
     for unmeasured in [other_session, other_kernel] {

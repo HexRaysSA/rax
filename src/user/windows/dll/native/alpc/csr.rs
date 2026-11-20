@@ -57,7 +57,25 @@ pub(super) fn client_connect(
         || timeout != 0
         || !(base_nls || user || batch_notification)
     {
-        return Err(c.unsupported("NtAlpcSendWaitReceivePort unmeasured CSR message/profile"));
+        let wire_api = match (c.arch(), message.get(48..52)) {
+            (WinArch::Arm64 | WinArch::X64, Some([a, b, c, d])) => {
+                format!("{:#x}", u32::from_le_bytes([*a, *b, *c, *d]))
+            }
+            _ => String::from("unavailable"),
+        };
+        return Err(c.unsupported(format!(
+            "NtAlpcSendWaitReceivePort unmeasured CSR message/profile \
+             (arch={}, kernel={}.{}.{}, message_bytes={}, wire_api={wire_api}, \
+             receive_capacity={capacity}, send_attributes={}, receive_attributes={}, timeout={})",
+            c.arch(),
+            kernel.0,
+            kernel.1,
+            kernel.2,
+            message.len(),
+            send_attributes != 0,
+            receive_attributes != 0,
+            timeout != 0,
+        )));
     }
     if batch_notification {
         if kernel != (10, 0, 29708) || length == 0 || capacity != 952 {
