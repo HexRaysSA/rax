@@ -74,6 +74,24 @@ jobs:
       - name: cargo test (KVM-gated, default features)
         run: cargo test --features x86_64-suite --test kvm_minimal -- --include-ignored --nocapture
 
+      - name: Native RTC IRQ8 acknowledgement after detached restore
+        run: |
+          set -o pipefail
+          case_name=vm::runtime::checkpoint_io::tests::native_rtc_irq8_acknowledgement_updates_the_restored_kernel_line
+          witness="$RUNNER_TEMP/rax-kvm-rtc-irq8.out"
+          cargo test --locked --features x86_64-suite --lib "$case_name" -- \
+            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test $case_name ... ok" "$witness"
+
+      - name: Native parallel PIO continuation after detached restore
+        run: |
+          set -o pipefail
+          case_name=vm::runtime::checkpoint_io::tests::parallel_native_pio_continues_once_on_each_vcpu_after_detached_restore
+          witness="$RUNNER_TEMP/rax-kvm-parallel-pio.out"
+          cargo test --locked --features x86_64-suite --lib "$case_name" -- \
+            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test $case_name ... ok" "$witness"
+
       - name: Native RAX public-state, rollback, and RAM lifetime regressions
         run: |
           cargo test --features x86_64-suite --lib backend::intel_hvf_xsave::tests:: -- --test-threads=1 --nocapture
@@ -88,15 +106,6 @@ jobs:
           case_name=vm::runtime::checkpoint_io::tests::future_native_deadline_survives_a_source_free_vmm_checkpoint
           witness="$RUNNER_TEMP/rax-kvm-future-deadline.out"
           cargo test --features x86_64-suite --lib "$case_name" -- \
-            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
-          grep -F -x "test $case_name ... ok" "$witness"
-
-      - name: Native RTC IRQ8 acknowledgement after detached restore
-        run: |
-          set -o pipefail
-          case_name=vm::runtime::checkpoint_io::tests::native_rtc_irq8_acknowledgement_updates_the_restored_kernel_line
-          witness="$RUNNER_TEMP/rax-kvm-rtc-irq8.out"
-          cargo test --locked --features x86_64-suite --lib "$case_name" -- \
             --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
           grep -F -x "test $case_name ... ok" "$witness"
 

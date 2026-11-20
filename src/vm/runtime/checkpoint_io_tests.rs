@@ -755,3 +755,112 @@ fn future_native_deadline_survives_a_source_free_vmm_checkpoint() {
         );
     }
 }
+
+#[test]
+#[ignore = "requires the managed native KVM irqchip"]
+fn parallel_native_pio_continues_once_on_each_vcpu_after_detached_restore() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    // 16-bit BSP sets SVR, sends INIT assert, INIT deassert and SIPI 04h
+    // to every AP, emits the startup marker, then reads one UART byte.
+    const BSP: &[u8] = &[
+        0xfa, 0x31, 0xc0, 0x66, 0xbf, 0x00, 0x00, 0xe0, 0xfe, 0x67, 0x66, 0xc7, 0x87, 0xf0, 0x00,
+        0x00, 0x00, 0xff, 0x01, 0x00, 0x00, 0x67, 0x66, 0xc7, 0x87, 0x00, 0x03, 0x00, 0x00, 0x00,
+        0x45, 0x0c, 0x00, 0xe6, 0x80, 0x67, 0x66, 0xc7, 0x87, 0x00, 0x03, 0x00, 0x00, 0x00, 0x85,
+        0x0c, 0x00, 0xe6, 0x80, 0x67, 0x66, 0xc7, 0x87, 0x00, 0x03, 0x00, 0x00, 0x04, 0x46, 0x0c,
+        0x00, 0xb0, 0x21, 0xe6, 0x80, 0xba, 0xf8, 0x03, 0xec, 0xe6, 0x80, 0xf4,
+    ];
+    // CLI; MOV DX, 3F8h; IN AL, DX; OUT 80h, AL; HLT.
+    const AP: &[u8] = &[0xfa, 0xba, 0xf8, 0x03, 0xec, 0xe6, 0x80, 0xf4];
+
+    for count in [2, 4] {
+        let mut source = Fixture::with_construction(
+            count,
+            128 << 20,
+            ConstructionMode::Checkpoint {
+                initialize_kvm_irqchip: true,
+            },
+        );
+        source.prepare(0, BSP);
+        source
+            .vm
+            .guest_mem
+            .memory()
+            .write_slice(AP, GuestAddress(0x4000))
+            .unwrap();
+        for marker in [0, 0, 0x21] {
+            assert!(
+                matches!(source.exit(0), VcpuExit::IoOut { port: 0x80, data } if data == [marker])
+            );
+            source.vm.vcpus[0].complete_io_out().unwrap();
+        }
+
+        let mut arrived = vec![false; usize::from(count)];
+        let mut turns = Vec::new();
+        let mut pending = Vec::new();
+        for _ in 0..100 {
+            source
+                .vm
+                .execute_native_round(&mut turns, &mut pending)
+                .unwrap();
+            assert!(pending.is_empty());
+            for turn in turns.drain(..) {
+                assert!(matches!(
+                    turn.exit,
+                    VcpuExit::IoIn {
+                        port: 0x3f8,
+                        size: 1
+                    }
+                ));
+                assert!(!std::mem::replace(&mut arrived[turn.cpu_index], true));
+                // A transient host yield may leave a peer behind. Hold the
+                // exposed input buffers until every CPU owns a pending IN.
+                source.vm.coordinator.online[turn.cpu_index] = false;
+            }
+            if arrived.iter().all(|&ready| ready) {
+                break;
+            }
+        }
+        assert!(arrived.iter().all(|&ready| ready));
+        source.vm.coordinator.online.fill(true);
+        let mut bytes = (0..count).map(|id| 0x41 + id).collect::<Vec<_>>();
+        bytes.push(0x94);
+        {
+            let mut uart = source.vm.serial.lock().unwrap();
+            IoDevice::write(&mut *uart, 0x3fa, 1);
+            uart.queue_input(&bytes);
+        }
+
+        let path = source.kernel.with_extension("rxc");
+        let image = source.vm.take_snapshot_bundle(0).unwrap();
+        assert_eq!(image.saved_kvm_irqchip(), Some(true));
+        assert!(image.execution().unwrap().online().iter().all(|&cpu| cpu));
+        for (id, record) in image.cpus().unwrap().entries().iter().enumerate() {
+            let CpuState::X86_64(state) = &record.state else {
+                unreachable!()
+            };
+            assert_eq!(state.regs.rax & 0xff, u64::from(bytes[id]));
+        }
+        image.save(&path).unwrap();
+        drop(image);
+        let source_path = source.kernel.clone();
+        drop(source);
+        assert!(!source_path.exists());
+
+        let image = SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&image, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &image).unwrap();
+        for (id, expected) in bytes.iter().copied().take(usize::from(count)).enumerate() {
+            let cpu = &mut target.vcpus[id];
+            let event = (0..100)
+                .find_map(|_| cpu.run_host_slice(Duration::from_millis(10)).unwrap())
+                .expect("resumed vCPU did not report its saved UART byte");
+            assert!(matches!(event, VcpuExit::IoOut { port: 0x80, data } if data == [expected]));
+            cpu.complete_io_out().unwrap();
+        }
+        let mut uart = target.serial.lock().unwrap();
+        assert_eq!(IoDevice::read(&mut *uart, 0x3f8), 0x94);
+        assert!(!uart.has_input());
+    }
+}
