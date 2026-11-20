@@ -58,13 +58,13 @@ impl AArch64Cpu {
                 && cp == 15
                 && (insn.raw >> 4) & 15 <= 1
                 && crm == 14;
-            // A selected HSTR bit can intercept a scalar CP15 transfer
-            // even when its ordinary register effects are unimplemented.
-            // Execution still owns the EL0 check and trap delivery.
-            let hstr_trap = scalar
-                && cp == 15
+            // A selected HSTR bit can intercept a CP15 transfer even when
+            // its ordinary effects are unimplemented. Execution owns the EL0
+            // and operand checks. Pair transfers index HSTR by CRm.
+            let selector = if scalar { crn } else { crm };
+            let hstr_trap = cp == 15
                 && insn.raw >> 28 != 15
-                && self.aarch32_fp_context().traps_cp15(crn as u8);
+                && self.aarch32_fp_context().traps_cp15(selector as u8);
             if !(fp_system
                 || fp_control
                 || fp_instruction_id

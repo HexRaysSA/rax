@@ -374,7 +374,7 @@ impl SystemRegisters {
         let el2 = (self.id_aa64pfr0_el1 >> 8) & 15;
         let aarch32 = (0..=2).any(|el| (self.id_aa64pfr0_el1 >> (4 * el)) & 15 == 2);
         if aarch32 && matches!(el2, 1 | 2) {
-            0xbfef // All T<n> fields except RES0 bits 14 and 4.
+            crate::isa::arm::common::sysreg::HSTR_TRAP_MASK
         } else {
             0
         }

@@ -283,6 +283,86 @@ fn aarch32_nsacr_hstr_trap_survives_checkpoint() {
 }
 
 #[test]
+fn aarch32_hstr_intercepts_cp15_pairs_using_crm_and_both_registers() {
+    const LOWER_ENTRY: u64 = 0x200;
+    const EL2_VBAR: u64 = 0x3000;
+    const FIRST_VALUE: u64 = 0xfeed_face;
+    const SECOND_VALUE: u64 = 0xcafe_f00d;
+    for (bits, first, second, mode) in [(0x10000, 0, 1, 0x13), (0x98000, 24, 25, 0x11)] {
+        for option in [0, 1] {
+            for read in [false, true] {
+                let instruction = 0xec40_0f02u32 | bits | (option << 4) | (u32::from(read) << 20);
+                let syndrome = 0x13e0_0004
+                    | (u64::from(option) << 16)
+                    | ((second as u64) << 10)
+                    | ((first as u64) << 5)
+                    | u64::from(read);
+                for thumb in [false, true] {
+                    for (selector, trap) in [(1 << 2, true), (1 << 1, false), (0, false)] {
+                        let (mut cpu, memory) = machine(false);
+                        for (address, word) in [
+                            (ENTRY, 0xd51c_1163),     // MSR HSTR_EL2, X3
+                            (ENTRY + 4, 0xd69f_03e0), // ERET
+                            (
+                                LOWER_ENTRY,
+                                if thumb {
+                                    instruction.rotate_left(16)
+                                } else {
+                                    instruction
+                                },
+                            ),
+                        ] {
+                            memory
+                                .write_slice(&word.to_le_bytes(), GuestAddress(address))
+                                .unwrap();
+                        }
+                        let CpuState::Aarch64(mut state) = cpu.get_state().unwrap() else {
+                            panic!();
+                        };
+                        state.regs.pstate = 0x3c9;
+                        state.regs.x[first] = FIRST_VALUE;
+                        state.regs.x[second] = SECOND_VALUE;
+                        state.regs.x[3] = selector;
+                        let sys = &mut state.sregs.execution.as_mut().unwrap().sysregs;
+                        sys.scr_el3 = 0x501;
+                        sys.hcr_el2 = 0;
+                        sys.el2.vbar = EL2_VBAR;
+                        sys.el2.elr = LOWER_ENTRY;
+                        sys.el2.spsr = 0x1c0 | mode | (u64::from(thumb) << 5);
+                        cpu.set_state(&CpuState::Aarch64(state)).unwrap();
+                        assert_eq!(cpu.run_retirement_budget(2).unwrap().retired, 2);
+                        let result = cpu.run_retirement_budget(1).unwrap();
+                        assert_eq!(result.retired, 0);
+                        let CpuState::Aarch64(state) = cpu.get_state().unwrap() else {
+                            panic!();
+                        };
+                        assert_eq!(state.regs.x[first], FIRST_VALUE);
+                        assert_eq!(state.regs.x[second], SECOND_VALUE);
+                        if trap {
+                            assert!(
+                                matches!(result.stop, RetirementStop::StateChange),
+                                "{result:?}"
+                            );
+                            assert_eq!(cpu.current_pc(), EL2_VBAR + 0x600);
+                            let el2 = &state.sregs.execution.as_ref().unwrap().sysregs.el2;
+                            assert_eq!(el2.esr, syndrome);
+                            assert_eq!(el2.elr, LOWER_ENTRY);
+                        } else {
+                            assert!(
+                                matches!(result.stop, RetirementStop::Exit(VcpuExit::Unknown(ref error))
+                                if error.contains("unsupported execution state: AArch32 coprocessor transfer")),
+                                "{result:?}"
+                            );
+                            assert_eq!(cpu.current_pc(), LOWER_ENTRY);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn aarch32_hstr_intercepts_unimplemented_scalar_cp15_before_wait_or_write() {
     const LOWER_ENTRY: u64 = 0x200;
     const EL2_VBAR: u64 = 0x3000;

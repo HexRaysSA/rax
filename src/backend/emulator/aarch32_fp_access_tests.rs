@@ -122,3 +122,126 @@ fn unsupported_decoded_instruction_retains_host_error_and_no_retirement() {
     assert_eq!(vcpu.current_pc(), CODE);
     assert_eq!(vcpu.instruction_count(), 0);
 }
+
+#[test]
+fn standalone_hstr_controls_cp15_after_detached_restore() {
+    const HSTR_WRITE: u32 = 0xee81_0f71; // MCR p15, 4, R0, c1, c1, 3
+    const HSTR_READ: u32 = 0xee91_2f71; // MRC p15, 4, R2, c1, c1, 3
+    const CP15_WFI: u32 = 0xee07_0f90;
+    const HVBAR: u32 = 0x3000;
+    for thumb in [false, true] {
+        for hstr in [0, 1 << 7, 1 << 2, u32::MAX] {
+            let words = [HSTR_WRITE, HSTR_READ, CP15_WFI];
+            let fixture = || {
+                if thumb {
+                    let bytes = words.map(|instruction| instruction.rotate_left(16).to_le_bytes());
+                    thumb_vcpu(bytes.as_flattened()).0
+                } else {
+                    new_vcpu(&words).0
+                }
+            };
+            let mut source = fixture();
+            source.cpu.change_mode(ProcessorMode::Hyp);
+            source.cpu.cp15.hvbar = HVBAR;
+            source.cpu.regs[0] = hstr;
+            assert!(source.step_insn().unwrap().is_none());
+            assert!(source.step_insn().unwrap().is_none());
+            assert_eq!(source.cpu.regs[2], hstr & 0xbfef, "guest HSTR readback");
+            source.cpu.change_mode(ProcessorMode::Supervisor);
+            source.cpu.set_nonsecure(true);
+            source.excl.address = Some(DATA as u32);
+            source.excl.size = 4;
+            let saved_status = source.cpu.cpsr.to_u32();
+            let checkpoint = source.save_context().unwrap();
+            drop(source);
+            let mut target = fixture();
+            target.restore_context(&checkpoint).unwrap();
+            let exit = target.step_insn().unwrap();
+            if hstr & (1 << 7) != 0 {
+                assert!(exit.is_none());
+                assert_eq!(target.current_pc(), u64::from(HVBAR + 0x14));
+                assert_eq!(target.cpu.cpsr.mode, ProcessorMode::Hyp as u8);
+                assert_eq!(target.cpu.cp15.hsr, 0x0fe8_1c00);
+                assert_eq!(target.cpu.cp15.elr_hyp, CODE as u32 + 8);
+                assert_eq!(target.cpu.spsr_hyp.to_u32(), saved_status);
+                assert_eq!(target.instruction_count(), 2);
+                assert_eq!(target.excl.address, None);
+                assert!(!target.cpu.is_halted, "trap must precede WFI");
+            } else {
+                assert!(matches!(exit, Some(VcpuExit::Hlt)));
+                assert_eq!(target.current_pc(), CODE + 12);
+                assert_eq!(target.instruction_count(), 3);
+            }
+        }
+    }
+}
+
+#[test]
+fn standalone_hstr_checkpoint_rejects_invalid_bits_and_imports_idle_v2() {
+    let words = [0xee81_0f71, 0xee91_2f71];
+    let (mut vcpu, _) = new_vcpu(&words);
+    vcpu.cpu.change_mode(ProcessorMode::Hyp);
+    let idle = vcpu.save_context().unwrap();
+    assert!(idle.starts_with(b"RAXA3202"));
+    vcpu.cpu.regs[0] = 1 << 7;
+    assert!(vcpu.step_insn().unwrap().is_none());
+
+    let armed = vcpu.save_context().unwrap();
+    assert!(armed.starts_with(b"RAXA3203"));
+    assert_eq!(armed.len(), idle.len() + 4);
+    assert_eq!(&armed[armed.len() - 4..], &(1u32 << 7).to_le_bytes());
+    let mut corrupt = armed.clone();
+    let end = corrupt.len();
+    corrupt[end - 4..].copy_from_slice(&(1u32 << 14).to_le_bytes());
+    assert!(vcpu.restore_context(&corrupt).is_err());
+    assert_eq!(vcpu.save_context().unwrap(), armed);
+
+    vcpu.restore_context(&idle).unwrap();
+    assert_eq!(vcpu.save_context().unwrap(), idle);
+    vcpu.set_current_pc(CODE + 4).unwrap();
+    vcpu.cpu.regs[2] = u32::MAX;
+    assert!(vcpu.step_insn().unwrap().is_none());
+    assert_eq!(vcpu.cpu.regs[2], 0);
+}
+
+#[test]
+fn standalone_hstr_direct_access_obeys_mode_and_feature() {
+    const HSTR_READ: u32 = 0xee91_2f71;
+    for (mode, el2, scr_ns, admitted, own_hyp) in [
+        (ProcessorMode::Hyp, true, false, true, false),
+        (ProcessorMode::Hyp, false, false, false, true),
+        (ProcessorMode::Monitor, true, true, true, false),
+        (ProcessorMode::Monitor, false, true, true, false),
+        (ProcessorMode::Monitor, true, false, false, false),
+        (ProcessorMode::Supervisor, true, true, false, false),
+        (ProcessorMode::User, true, true, false, false),
+    ] {
+        let (mut vcpu, _) = new_vcpu(&[HSTR_READ]);
+        vcpu.cpu.change_mode(mode);
+        vcpu.cpu.cp15.scr = u32::from(scr_ns);
+        if !el2 {
+            vcpu.cpu.cp15.id_pfr1 &= !(15 << 12);
+        }
+        vcpu.cpu.regs[2] = u32::MAX;
+        assert!(vcpu.step_insn().unwrap().is_none());
+        assert_eq!(vcpu.instruction_count(), u64::from(admitted));
+        assert_eq!(vcpu.cpu.regs[2], if admitted { 0 } else { u32::MAX });
+        assert_eq!(
+            vcpu.current_pc(),
+            if admitted { CODE + 4 } else { 4 },
+            "{mode:?}, EL2={el2}, SCR.NS={scr_ns}"
+        );
+        assert_eq!(
+            vcpu.cpu.cpsr.mode,
+            if admitted || own_hyp {
+                mode
+            } else {
+                ProcessorMode::Undefined
+            } as u8
+        );
+        if own_hyp {
+            assert_eq!(vcpu.cpu.cp15.hsr, 1 << 25);
+            assert_eq!(vcpu.cpu.cp15.elr_hyp, CODE as u32);
+        }
+    }
+}

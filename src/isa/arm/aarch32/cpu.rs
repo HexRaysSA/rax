@@ -631,6 +631,10 @@ pub struct Armv7Cpu {
     pub(crate) pstate_features: crate::isa::arm::common::features::ArmFeatures,
     pub(crate) nonsecure: bool,
     pub(crate) fp_access_context: Option<super::fp_controls::FpAccessContext>,
+    /// Live HSTR state for the standalone AArch32 adapter.
+    /// Its private checkpoint envelope carries the versioned value.
+    #[serde(skip)]
+    pub(crate) standalone_hstr: Option<u32>,
     pub(crate) instruction_size: u8,
     /// Current register values R0-R15 (R15 = PC)
     pub regs: [u32; 16],
@@ -699,6 +703,7 @@ impl Armv7Cpu {
             pstate_features: crate::isa::arm::common::features::ArmFeatures::empty(),
             nonsecure: false,
             fp_access_context: None,
+            standalone_hstr: None,
             instruction_size: 4,
             regs: [0; 16],
             cpsr: Psr::default(),

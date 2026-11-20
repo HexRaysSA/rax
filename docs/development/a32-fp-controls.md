@@ -136,12 +136,72 @@ QEMU Cortex-A53 run reproduced the T1 and T7 cases with ESR values
 disabled cases. The RAX parent stopped with an unsupported execution state
 for an enabled legacy CP15 wait. With the trap selected, the candidate
 delivered all six ARM and Thumb exceptions. The candidate's six disabled
-controls preserved the parent boundary. General double-register CP15
-traps, standalone AArch32 HSTR and physical Arm qualification remain open.
+controls preserved the parent boundary. Other CP15 forms and physical Arm qualification remain open.
 
 The seven complete owning integration targets passed 47,598 tests. The full
 library passed 14,145 with 5 ignored. Both runs reported zero failures
 and zero filtered cases.
+
+### HSTR traps paired CP15 accesses
+
+An AArch32 `MCRR p15` or `MRRC p15` uses the `CRm` field to select
+the `HSTR_EL2.T<n>` bit. Scalar coprocessor transfers select the bit from
+`CRn`. The mixed-width AArch64 backend checks the paired trap after the
+instruction predicate and operand admission. This applies to A32 and T32
+encodings. It leaves each underlying CP15 register's existing behavior in
+place when the HSTR trap does not apply.
+
+The paired exception class is 0x04. Its syndrome preserves the transfer
+direction, option, CRm and both register numbers. AArch64 EL2 observes the
+enclosing register numbers for banked AArch32 operands. The product probe
+checks SVC and FIQ banks. An admitted trap retires zero instructions and
+preserves the source pair. The selector and syndrome checks take constant
+time and require no additional checkpoint state.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Paired transfers use CRm. | High | Select an MRRC/MCRR with CRm=2 and compare T2, T1 and no trap bit in both encodings. |
+| Both register identifiers survive entry to AArch64 EL2. | High | Use banked R8/R9 in FIQ and require X24/X25 in the syndrome. |
+| An intercepted write does not change the underlying register. | High | Use a paired write which reports an unsupported operation with T2 clear and require an architectural trap with T2 armed. |
+
+The scalar-only baseline returned unsupported on the first intercepted
+paired operation. The paired candidate passed the focused regression's
+48 combinations. Separate QEMU 11.1.2 probes produced 24 AArch64 EL2
+observations, 48 AArch32 Hyp observations across two QEMU targets, and
+eight additional banked-register observations. Other CP15 encodings and the full A32-FP finding remain open.
+
+## Standalone AArch32 HSTR and checkpoint ownership
+
+The standalone adapter retains guest HSTR writes when AArch32 Hyp is
+implemented. Hyp can read and write the register. Monitor access follows
+SCR.NS and reads zero when EL2 is absent. Eligible Non-secure lower modes
+use the HSTR selector for scalar and paired CP15 traps. A trapped transfer
+preserves its operand and retirement frontier.
+
+An active value is stored in the standalone `RAXA3203` context, whose
+four-byte extension follows the previous CPU record. A reset value retains
+the `RAXA3202` representation. Both older record versions import with the
+control cleared. Restore rejects reserved bits before publishing any CPU
+state. The enclosing AArch64 PE continues to own the mixed-width register.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The stopped CPU owns its trap control. | High | Write HSTR in Hyp, restore into a separately constructed VM, and require a precise trap at the next lower-mode CP15 instruction. |
+| A malformed control cannot change an admitted CPU. | High | Import an image with a reserved bit set and compare the destination's checkpoint before and after rejection. |
+| Older records cannot inherit the target's active control. | High | Restore a version-2 idle record onto an armed target and read HSTR through the guest ABI. |
+| HSTR reserved bits are RES0 in the represented profile. | Medium | Write all ones and require 0xbfef. Compare trap delivery separately from QEMU readback. |
+
+The pre-fix guest read back zero after writing T7. The candidate passed all
+three focused tests, 47,632 tests across seven owning
+integration targets, and 13,230 tests with 5 ignored in the full
+macOS library. The QEMU guest executed the Hyp-to-SVC transition and agreed
+with all 24 trap outcomes. In eight runs QEMU read back bits 4 or 14 that
+the Arm register specification marks RES0. The RAX control follows the
+specified mask. Physical Arm and remaining privilege and instruction
+profiles stay open.
+
+[Arm Architecture Reference Manual, EL2 configurable controls](https://support.arm.com/documentation/ddi0487/md/-Part-G-The-AArch32-System-Level-Architecture/-Chapter-G1-The-AArch32-System-Level-Programmers--Model/-G1-22-Configurable-instruction-controls/-G1-22-5-EL2-configurable-controls?lang=en)
+[Arm AArch32 HSTR register description](https://df.lth.se/~getz/ARM/SysReg/AArch32-hstr.html)
 
 ## Register-pair admission and data routing
 

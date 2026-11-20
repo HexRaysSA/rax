@@ -200073,6 +200073,17 @@
       "full_goal_complete": false
     },
     {
+      "id": "a32-standalone-hstr-2026-11-20",
+      "findings": [
+        "A32-FP",
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Mixed-width paired CP15 trap admission and standalone AArch32 Hyp HSTR checkpoint ownership. The active value takes a versioned suffix, older records import idle, and malformed controls reject before publication. The full macOS library passed 13,230 tests with 5 ignored. Physical Arm and broader profiles remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#standalone-aarch32-hstr-and-checkpoint-ownership",
+      "full_goal_complete": false
+    },
+    {
       "id": "x86-software-nmi-blocking-2026-11-20",
       "findings": [
         "C-STATE",

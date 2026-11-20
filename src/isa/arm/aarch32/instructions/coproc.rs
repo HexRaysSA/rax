@@ -62,9 +62,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if cp == 15 {
             let crm = (insn.raw & 0xF) as u8;
             let opc2 = ((insn.raw >> 5) & 0x7) as u8;
-            if !self.cpu.is_privileged() && !self.pl0_cp15(insn, false, reg, opc1, crm, opc2) {
-                return ExecResult::Undefined;
-            }
             let enc = crate::isa::arm::common::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
             if let Some(fault) = self.fp_cp15_fault(insn, enc, false) {
                 return fault;
@@ -133,9 +130,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if cp == 15 {
             let crm = (insn.raw & 0xF) as u8;
             let opc2 = ((insn.raw >> 5) & 0x7) as u8;
-            if !self.cpu.is_privileged() && !self.pl0_cp15(insn, true, reg, opc1, crm, opc2) {
-                return ExecResult::Undefined;
-            }
             let enc = crate::isa::arm::common::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
             if let Some(fault) = self.fp_cp15_fault(insn, enc, true) {
                 return fault;
@@ -168,20 +162,17 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// TPIDRURO, writing TPIDRURW, and the CP15DMB/CP15DSB/CP15ISB
     /// barriers when SCTLR.CP15BEN is set. The MCR2/MRC2 forms (bits
     /// 31:28 = 0b1111 in both A32 and T32) are none of them.
-    fn pl0_cp15(
+    pub(super) fn pl0_cp15(
         &self,
         insn: &DecodedInsn,
         read: bool,
-        crn: u8,
-        opc1: u8,
-        crm: u8,
-        opc2: u8,
+        enc: crate::isa::arm::common::sysreg::Cp15Encoding,
     ) -> bool {
-        if insn.raw >> 28 == 0xF || opc1 != 0 {
+        if insn.raw >> 28 == 0xF || enc.op1 != 0 {
             return false;
         }
         let kctl = self.cpu.cp15.cntkctl;
-        match (crn, crm, opc2) {
+        match (enc.crn, enc.crm, enc.op2) {
             (13, 0, 2) => true,
             (13, 0, 3) => read,
             (7, 10, 4) | (7, 10, 5) | (7, 5, 4) => !read && self.cpu.cp15.sctlr.cp15ben(),
@@ -206,6 +197,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
         let pl0 = !self.cpu.is_privileged();
+        if !pl0 && let Some(fault) = self.fp_cp15_pair_fault(insn) {
+            return fault;
+        }
         let kctl = self.cpu.cp15.cntkctl;
         let value = match (opc1, crm) {
             (0, 14) if !pl0 || kctl & CNTKCTL_PL0PCTEN != 0 => self.cpu.cp15.cntpct,
@@ -220,7 +214,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// MCRR: no 64-bit CP15 register is written here (the timers' compare
     /// values and the translation table bases are not modelled), and PL0
     /// may write none: UNDEFINED.
-    pub(crate) fn exec_mcrr(&mut self, _insn: &DecodedInsn) -> ExecResult {
-        ExecResult::Undefined
+    pub(crate) fn exec_mcrr(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let t = (insn.raw >> 12) & 15;
+        let t2 = (insn.raw >> 16) & 15;
+        let cp = (insn.raw >> 8) & 15;
+        if cp != 15 || t == 15 || t2 == 15 || insn.raw >> 28 == 15 || !self.cpu.is_privileged() {
+            return ExecResult::Undefined;
+        }
+        self.fp_cp15_pair_fault(insn)
+            .unwrap_or(ExecResult::Undefined)
     }
 }

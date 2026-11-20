@@ -806,3 +806,7 @@ mod tests {
         assert_eq!(enc, decoded);
     }
 }
+
+/// Represented HSTR trap selectors shared by AArch64 EL2 and AArch32 Hyp.
+/// Bits [31:16], 14, and 4 are RES0 in the represented profiles.
+pub(crate) const HSTR_TRAP_MASK: u32 = 0xbfef;

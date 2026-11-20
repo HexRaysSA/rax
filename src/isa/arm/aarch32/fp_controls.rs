@@ -49,11 +49,11 @@ pub(crate) struct FpAccessContext {
 }
 
 impl FpAccessContext {
-    pub(in crate::isa::arm) fn traps_cp15(self, crn: u8) -> bool {
+    pub(in crate::isa::arm) fn traps_cp15(self, selector: u8) -> bool {
         const HOST: u64 = (1 << 34) | (1 << 27); // HCR_EL2.{E2H,TGE}
         self.current_el <= 1
             && self.el2_enabled
-            && self.hstr & (1 << crn) != 0
+            && self.hstr & (1 << selector) != 0
             && !(self.vhe && self.hcr & HOST == HOST)
     }
 
@@ -531,6 +531,14 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
 }
 
 impl super::cpu::Armv7Cpu {
+    pub(crate) fn standalone_hstr_mask(&self) -> u32 {
+        if (self.cp15.id_pfr1 >> 12) & 15 != 0 {
+            crate::isa::arm::common::sysreg::HSTR_TRAP_MASK
+        } else {
+            0
+        }
+    }
+
     pub(crate) fn fp_control_context(&self) -> FpAccessContext {
         if let Some(context) = self.fp_access_context {
             return context;
@@ -559,7 +567,7 @@ impl super::cpu::Armv7Cpu {
             nsacr: self.cp15.nsacr,
             hcptr: self.cp15.hcptr,
             hcr: u64::from(self.cp15.hcr),
-            hstr: 0,
+            hstr: self.standalone_hstr.unwrap_or(0) & self.standalone_hstr_mask(),
             cptr_el2: 0,
             cptr_el3: 0,
         }

@@ -6,6 +6,7 @@ use crate::isa::arm::instructions::ExclusiveMonitor;
 use crate::isa::arm::{Armv7Cpu, ProcessorMode};
 use serde::{Deserialize, Serialize};
 
+const HSTR_TAG: &[u8; 8] = b"RAXA3203";
 const TAG: &[u8; 8] = b"RAXA3202";
 const LEGACY_TAG: &[u8; 8] = b"RAXA3201";
 const MAX_PAYLOAD: usize = 64 * 1024;
@@ -71,15 +72,22 @@ impl Context {
         if raw.len() > TAG.len() + MAX_PAYLOAD {
             return Err(invalid("context exceeds budget"));
         }
-        if let Some(payload) = raw.strip_prefix(TAG) {
-            crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)
+        let (mut context, hstr): (Self, u32) = if let Some(payload) = raw.strip_prefix(HSTR_TAG) {
+            crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?
+        } else if let Some(payload) = raw.strip_prefix(TAG) {
+            (
+                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?,
+                0,
+            )
         } else if let Some(payload) = raw.strip_prefix(LEGACY_TAG) {
             let old: Context<crate::isa::arm::aarch32::checkpoint::legacy::LegacyArmv7Cpu> =
                 crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
-            Ok(old.into_current())
+            (old.into_current(), 0)
         } else {
-            Err(invalid("invalid context tag"))
-        }
+            return Err(invalid("invalid context tag"));
+        };
+        context.cpu.standalone_hstr = Some(hstr);
+        Ok(context)
     }
 
     fn validate(&self, id: u32) -> Result<()> {
@@ -87,6 +95,9 @@ impl Context {
             return Err(invalid("vCPU identity differs from target"));
         }
         validate_cpu(&self.cpu)?;
+        if self.cpu.standalone_hstr.unwrap_or_default() & !self.cpu.standalone_hstr_mask() != 0 {
+            return Err(invalid("HSTR contains bits outside the saved CPU profile"));
+        }
         if self.exclusive_address.is_some() && !matches!(self.exclusive_size, 1 | 2 | 4 | 8) {
             return Err(invalid("invalid exclusive reservation width"));
         }
@@ -124,9 +135,19 @@ impl Aarch32Vcpu {
             instruction_count: self.insn_count,
         };
         context.validate(self.id)?;
-        let payload = crate::codec::serialize_limited(&context, MAX_PAYLOAD).map_err(invalid)?;
-        let mut raw = Vec::with_capacity(TAG.len() + payload.len());
-        raw.extend_from_slice(TAG);
+        let hstr = self.cpu.standalone_hstr.unwrap_or_default();
+        // Keep the existing byte format when no live control needs a new field.
+        let (tag, payload) = if hstr == 0 {
+            (TAG, crate::codec::serialize_limited(&context, MAX_PAYLOAD))
+        } else {
+            (
+                HSTR_TAG,
+                crate::codec::serialize_limited(&(&context, hstr), MAX_PAYLOAD),
+            )
+        };
+        let payload = payload.map_err(invalid)?;
+        let mut raw = Vec::with_capacity(tag.len() + payload.len());
+        raw.extend_from_slice(tag);
         raw.extend_from_slice(&payload);
         Ok(raw)
     }

@@ -234,9 +234,11 @@ impl Aarch32Vcpu {
     /// Creates a vCPU over `mem` in the ARMv7 reset state (Supervisor mode,
     /// ARM state, MMU off).
     pub fn new(id: u32, mem: Arc<GuestMemoryMmap>) -> Self {
+        let mut cpu = Armv7Cpu::new();
+        cpu.standalone_hstr = Some(0);
         Aarch32Vcpu {
             id,
-            cpu: Armv7Cpu::new(),
+            cpu,
             bridge: EmbedBridge {
                 mem,
                 state: RefCell::new(BridgeState::default()),

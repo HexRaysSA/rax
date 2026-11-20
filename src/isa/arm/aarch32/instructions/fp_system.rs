@@ -23,24 +23,40 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             insn.cond.map_or(14, |value| value as u32)
         };
         let read = raw & (1 << 20) != 0;
-        let mut rt = ((raw >> 12) & 15) as u8;
-        if target_aarch64 {
-            rt = system_trap_rt(rt, self.cpu.cpsr.mode, read);
-        }
-        // Arm AArch32/AArch64 system-access trap syndrome, EC=0b000011.
+        let register = |shift: u32| {
+            let r = ((raw >> shift) & 15) as u8;
+            u32::from(if target_aarch64 {
+                system_trap_rt(r, self.cpu.cpsr.mode, read)
+            } else {
+                r
+            })
+        };
+        let (class, fields) = if matches!(insn.mnemonic, Mnemonic::MRRC | Mnemonic::MCRR) {
+            (4, (((raw >> 4) & 15) << 16) | (register(16) << 10))
+        } else {
+            (
+                3,
+                (((raw >> 5) & 7) << 17) | (((raw >> 21) & 7) << 14) | (((raw >> 16) & 15) << 10),
+            )
+        };
         let iss = (1 << 24)
             | (cond << 20)
-            | (((raw >> 5) & 7) << 17)
-            | (((raw >> 21) & 7) << 14)
-            | (((raw >> 16) & 15) << 10)
-            | (u32::from(rt) << 5)
+            | fields
+            | (register(12) << 5)
             | ((raw & 15) << 1)
             | u32::from(read);
         ExecResult::FpAccessTrap {
             target_el,
-            syndrome: (3 << 26) | (1 << 25) | iss,
+            syndrome: (class << 26) | (1 << 25) | iss,
             undefined: false,
         }
+    }
+
+    pub(super) fn fp_cp15_pair_fault(&self, insn: &DecodedInsn) -> Option<ExecResult> {
+        let context = self.cpu.fp_control_context();
+        context
+            .traps_cp15((insn.raw & 15) as u8)
+            .then(|| self.fp_cp15_trap(insn, 2, context.el2_aarch64))
     }
 
     pub(super) fn fp_cp15_fault(
@@ -51,10 +67,26 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     ) -> Option<ExecResult> {
         let k = key(enc);
         let context = self.cpu.fp_control_context();
+        let standalone_hstr = k == HSTR && self.cpu.standalone_hstr.is_some();
+        if !self.cpu.is_privileged() && !self.pl0_cp15(insn, read, enc) {
+            return Some(if standalone_hstr {
+                ExecResult::Exception(ExceptionType::UndefinedInstruction)
+            } else {
+                ExecResult::Undefined
+            });
+        }
         if context.traps_cp15(enc.crn) {
             // The scalar transfer already passed its predicate and EL0
             // privilege checks. The selector precedes register-specific traps.
             return Some(self.fp_cp15_trap(insn, 2, context.el2_aarch64));
+        }
+        if standalone_hstr {
+            let monitor = context.current_el == 3 && context.have_el3 && self.cpu.cp15.scr & 1 != 0;
+            return if (context.current_el == 2 && context.have_el2) || monitor {
+                None
+            } else {
+                Some(ExecResult::Exception(ExceptionType::UndefinedInstruction))
+            };
         }
         if k == HSTR && context.el3_aarch64 && context.current_el != 2 {
             return Some(ExecResult::Undefined);
@@ -155,8 +187,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(super) fn fp_cp15_read(&self, enc: Cp15Encoding) -> Option<u32> {
-        if key(enc) == HSTR {
-            return self.cpu.fp_access_context.map(|context| context.hstr);
+        if key(enc) == HSTR
+            && (self.cpu.fp_access_context.is_some() || self.cpu.standalone_hstr.is_some())
+        {
+            return Some(self.cpu.fp_control_context().hstr);
         }
         let mut value = self.cpu.cp15.read(enc)?;
         let vfp = &self.cpu.vfp;
@@ -171,11 +205,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     pub(super) fn fp_cp15_write(&mut self, enc: Cp15Encoding, value: u32) -> bool {
-        if key(enc) == HSTR
-            && let Some(context) = &mut self.cpu.fp_access_context
-        {
-            context.hstr = value;
-            return true;
+        if key(enc) == HSTR {
+            if let Some(context) = &mut self.cpu.fp_access_context {
+                context.hstr = value;
+                return true;
+            }
+            let mask = self.cpu.standalone_hstr_mask();
+            if let Some(hstr) = &mut self.cpu.standalone_hstr {
+                *hstr = value & mask;
+                return true;
+            }
         }
         let (zero, one) = self.fp_ns_cp15_clamp(enc);
         // RAZ/WI and RAO/WI views leave the underlying shared register intact.
