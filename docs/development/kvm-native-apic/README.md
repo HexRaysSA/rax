@@ -34,12 +34,20 @@ timer in every run; the complete serial observations are in
 `linux-startup.json`. Observation ends at CPU activation, before a full
 operating-system boot.
 
-The assembly witness starts every configured CPU and requests two periodic or
-deadline IRQs per CPU, with EOI and secondary CPU halt/wake. A BSP TSC bound and
-an outer 40 s owned-process limit prevent a missing IRQ from hanging the test.
-The three unchanged periodic controls pass at 1/2/4 CPUs. This does not explain
-Linux's separate periodic calibration failure or establish timer migration,
-clock continuity, native private/shared state or coordinated restoration.
+The assembly witness starts every configured CPU and exercises periodic and
+TSC-deadline delivery, EOI, and secondary CPU halt/wake. In periodic mode it
+waits for a third vector to enter IRR while the second vector is in service.
+It captures IRR before and after masking, then requires the queued vector to
+be delivered after EOI. Deadline mode requires two deliveries and an empty
+IRR at the mask. The final count in both modes follows a quiet window of
+100,000,000 guest TSC cycles. A BSP TSC bound and an outer 40 s owned-process
+limit prevent a missing event from hanging the test.
+
+QEMU 11.1.2 delivered exactly three periodic IRQs per CPU for the revised
+guest with 1, 2, and 4 vCPUs. Removing the mask produced extra IRQs in all
+three cases. The Linux x86-64 SMP test binary cross-built with the exact
+guest bytes. Native KVM deadline delivery, timer migration, and checkpoint
+clock continuity require separate evidence.
 
 Primary API requirements are in the adjacent topic's archived
 `../kvm-public-state/references/kvm-api-v6.8.rst`, sections 4.46 and 9.1.

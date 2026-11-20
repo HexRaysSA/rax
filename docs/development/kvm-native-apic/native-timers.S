@@ -28,6 +28,74 @@
     movl $1, 0x220000(,%ebp,4)
 .Larmed\@:
 .endm
+
+.macro timer_irq slot
+    movl $0xfee00000, %esi
+    incl 0x200004(,\slot,8)
+    cmpl $1, 0x200004(,\slot,8)
+    je .Lfirst\@
+    cmpl $2, 0x200004(,\slot,8)
+    jne .Leoi\@
+    cmpl $0, 0x210008
+    jne .Ldeadline_mask\@
+
+    # With vector 0x42 still in service and IF clear, the next periodic
+    # expiry can set IRR[2]. An I/O exit gives KVM a chance to synchronize
+    # posted interrupts into the virtual LAPIC before the next observation.
+    rdtsc
+    movl %eax, %edi
+.Lwait_irr\@:
+    testl $4, 0x220(%esi)
+    jnz .Lperiodic_mask\@
+    outb %al, $0x80
+    rdtsc
+    subl %edi, %eax
+    cmpl $1000000000, %eax
+    jb .Lwait_irr\@
+    movl $2, 0x220000(,\slot,4)
+.Lperiodic_mask\@:
+    movl $0x30042, %edi
+    jmp .Lmask\@
+
+.Ldeadline_mask\@:
+    movl $0x50042, %edi
+.Lmask\@:
+    movl 0x220(%esi), %eax
+    andl $4, %eax
+    movl %eax, 0x221000(,\slot,4)
+    movl %edi, 0x320(%esi)
+    outb %al, $0x80
+    movl 0x220(%esi), %eax
+    andl $4, %eax
+    movl %eax, 0x222000(,\slot,4)
+    movl 0x320(%esi), %eax
+    movl %eax, 0x223000(,\slot,4)
+    jmp .Leoi\@
+
+.Lfirst\@:
+    cmpl $0, 0x210008
+    je .Leoi\@
+    rdtsc
+    addl $100000000, %eax
+    adcl $0, %edx
+    movl $0x6e0, %ecx
+    wrmsr
+
+.Leoi\@:
+    movl $0, 0x0b0(%esi)
+    # Enter a bounded quiet period only once each CPU has acknowledged the
+    # last expected event. Extra events still increment the original count.
+    movl $3, %eax
+    cmpl $0, 0x210008
+    je .Lcompletion\@
+    movl $2, %eax
+.Lcompletion\@:
+    cmpl %eax, 0x200004(,\slot,8)
+    jne .Ldone\@
+    movl $1, 0x224000(,\slot,4)
+.Ldone\@:
+.endm
+
 .section .text.bsp,"ax"
 .code64
 .global bsp_start
@@ -92,11 +160,25 @@ bsp_check:
     jne missing
     cmpl $0xa5a55a5a, 0x200000(,%rbx,8)
     jne bsp_wait
-    cmpl $2, 0x200004(,%rbx,8)
-    jb bsp_wait
+    cmpl $1, 0x224000(,%rbx,4)
+    jne bsp_wait
     incl %ebx
     cmpl %ecx, %ebx
     jb bsp_check
+
+    # During the following guest-TSC interval the workers remain in HLT
+    # with IF set. A newly generated interrupt after masking is visible.
+    rdtsc
+    shlq $32, %rdx
+    orq %rdx, %rax
+    leaq 100000000(%rax), %r9
+bsp_quiet:
+    outb %al, $0x80
+    rdtsc
+    shlq $32, %rdx
+    orq %rdx, %rax
+    cmpq %r9, %rax
+    jb bsp_quiet
     movl $0x600d0042, 0x210004
     jmp shutdown
 bsp_wait:
@@ -121,23 +203,9 @@ bsp_isr:
     pushq %rcx
     pushq %rdx
     pushq %rsi
-    incl 0x200004
-    cmpl $2, 0x200004
-    jb bsp_rearm
-    movl $0xfee00000, %esi
-    movl $0x10042, 0x320(%esi)
-    jmp bsp_eoi
-bsp_rearm:
-    cmpl $0, 0x210008
-    je bsp_eoi
-    rdtsc
-    addl $100000000, %eax
-    adcl $0, %edx
-    movl $0x6e0, %ecx
-    wrmsr
-bsp_eoi:
-    movl $0xfee00000, %esi
-    movl $0, 0x0b0(%esi)
+    pushq %rdi
+    timer_irq %rbp
+    popq %rdi
     popq %rsi
     popq %rdx
     popq %rcx
@@ -178,22 +246,6 @@ ap_halt:
     jmp ap_halt
 ap_isr:
     pushal
-    incl 0x200004(,%ebp,8)
-    cmpl $2, 0x200004(,%ebp,8)
-    jb ap_rearm
-    movl $0xfee00000, %esi
-    movl $0x10042, 0x320(%esi)
-    jmp ap_eoi
-ap_rearm:
-    cmpl $0, 0x210008
-    je ap_eoi
-    rdtsc
-    addl $100000000, %eax
-    adcl $0, %edx
-    movl $0x6e0, %ecx
-    wrmsr
-ap_eoi:
-    movl $0xfee00000, %esi
-    movl $0, 0x0b0(%esi)
+    timer_irq %ebp
     popal
     iretl

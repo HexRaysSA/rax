@@ -278,6 +278,39 @@ fn profile_cpuid(vm: &Vmm, id: u8, leaf: u32, index: u32) -> [u32; 4] {
     })
 }
 
+fn validate_topology(
+    basic_max: u32,
+    id: u8,
+    count: u8,
+    mut cpuid: impl FnMut(u32, u32) -> [u32; 4],
+) -> bool {
+    assert!(basic_max >= 0xb, "native topology enumeration is missing");
+    let shift = u8::BITS - (count - 1).leading_zeros();
+    let id = u32::from(id);
+    let available_v2 = basic_max >= 0x1f && cpuid(0x1f, 0)[1] & 0xffff != 0;
+    for leaf in [0xb, 0x1f] {
+        if leaf == 0x1f && !available_v2 {
+            if basic_max >= leaf {
+                // The maximum basic leaf does not establish that 1FH exists.
+                // KVM can return all zeroes for an absent leaf and the
+                // virtual x2APIC ID for an explicitly invalid subleaf zero.
+                let unsupported = cpuid(leaf, 0);
+                assert_eq!(&unsupported[..3], &[0; 3]);
+                assert!(unsupported[3] == 0 || unsupported[3] == id);
+            }
+            continue;
+        }
+        assert_eq!(cpuid(leaf, 0), [0, 1, 0x100, id], "single thread per core");
+        assert_eq!(
+            cpuid(leaf, 1),
+            [shift, u32::from(count), 0x201, id],
+            "configured cores per package"
+        );
+        assert_eq!(cpuid(leaf, 2), [0, 0, 2, id], "topology terminator");
+    }
+    available_v2
+}
+
 fn run_profile(count: u8, name: &str, clock_only: bool) {
     if std::env::var(CHILD).as_deref() != Ok(name) {
         let output = Command::new(std::env::current_exe().unwrap())
@@ -355,7 +388,7 @@ fn run_profile(count: u8, name: &str, clock_only: bool) {
         .downcast_ref::<rax::backend::kvm::KvmVm>()
         .unwrap();
     let native_khz = raw_vm.create_vcpu_fd(0).unwrap().get_tsc_khz().unwrap();
-    let shift = u8::BITS - (count - 1).leading_zeros();
+    let mut topology_v2 = None;
     for id in 0..count {
         let basic = profile_cpuid(&vm, id, 0, 0);
         if !clock_only {
@@ -371,24 +404,14 @@ fn run_profile(count: u8, name: &str, clock_only: bool) {
                 u32::from(count > 1),
                 "HTT topology flag"
             );
-            assert!(basic[0] >= 0xb, "native topology enumeration is missing");
-            for leaf in [0xb, 0x1f].into_iter().filter(|leaf| *leaf <= basic[0]) {
-                assert_eq!(
-                    profile_cpuid(&vm, id, leaf, 0),
-                    [0, 1, 0x100, u32::from(id)],
-                    "single thread per core"
-                );
-                assert_eq!(
-                    profile_cpuid(&vm, id, leaf, 1),
-                    [shift, u32::from(count), 0x201, u32::from(id)],
-                    "configured cores per package"
-                );
-                assert_eq!(
-                    profile_cpuid(&vm, id, leaf, 2),
-                    [0, 0, 2, u32::from(id)],
-                    "topology terminator"
-                );
-            }
+            let available_v2 = validate_topology(basic[0], id, count, |leaf, index| {
+                profile_cpuid(&vm, id, leaf, index)
+            });
+            assert_eq!(
+                available_v2,
+                *topology_v2.get_or_insert(available_v2),
+                "all vCPUs must expose the same topology leaves"
+            );
             for index in 0..8 {
                 let cache = profile_cpuid(&vm, id, 4, index);
                 if cache[0] & 31 == 0 {
