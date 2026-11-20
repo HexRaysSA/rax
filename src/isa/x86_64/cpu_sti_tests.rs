@@ -174,3 +174,42 @@ fn sti_shadow_round_trips_snapshots_but_external_state_injection_clears_it() {
     restored.reset_state();
     assert!(!restored.interrupt_inhibit);
 }
+
+fn vcpu_in_nmi() -> X86_64Vcpu {
+    let mut vcpu = vcpu_with_code(&[0xf4]);
+    let memory = vcpu.mmu.checkpoint_memory();
+    install_real_mode_vector(&memory, 0x1000, 2, 0x2000);
+    memory
+        .write_slice(&[0x90, 0xcf], GuestAddress(0x2000))
+        .unwrap();
+    vcpu.sregs.idt.base = 0x1000;
+    vcpu.sregs.idt.limit = 0x03ff;
+    vcpu.regs.rsp = 0x3800;
+    assert!(vcpu.inject_nmi().unwrap());
+    vcpu
+}
+
+#[test]
+fn nmi_blocks_reentry_until_iret() {
+    let mut vcpu = vcpu_in_nmi();
+    assert!(vcpu.step().unwrap().is_none()); // NOP within the NMI handler.
+    let handler_rsp = vcpu.regs.rsp;
+    assert!(!vcpu.inject_nmi().unwrap());
+    assert_eq!((vcpu.regs.rip, vcpu.regs.rsp), (0x2001, handler_rsp));
+    assert!(vcpu.step().unwrap().is_none()); // IRET.
+    assert_eq!((vcpu.regs.rip, vcpu.regs.rsp), (0, 0x3800));
+    assert!(vcpu.inject_nmi().unwrap());
+}
+
+#[test]
+fn nmi_block_releases_on_faulting_iret() {
+    let mut vcpu = vcpu_in_nmi();
+    assert!(vcpu.step().unwrap().is_none());
+    assert!(!vcpu.inject_nmi().unwrap());
+    // Stack begins immediately above RAM, so IRET faults on its first pop.
+    vcpu.regs.rsp = 0x4000;
+    assert!(vcpu.step().is_err());
+    assert_eq!(vcpu.regs.rip, 0x2001);
+    vcpu.regs.rsp = 0x3800;
+    assert!(vcpu.inject_nmi().unwrap());
+}

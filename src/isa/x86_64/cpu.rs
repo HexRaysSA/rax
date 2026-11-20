@@ -313,6 +313,8 @@ pub struct X86_64Vcpu {
     /// attempting that instruction; a qualifying instruction can establish a
     /// fresh shadow while it executes.
     pub(super) interrupt_inhibit: bool,
+    /// After accepting an NMI, block further NMIs until IRET starts.
+    pub(super) nmi_blocked: bool,
     io_pending: Option<IoPending>,
     /// IA32_KERNEL_GS_BASE MSR (0xC0000102) for SWAPGS
     pub(super) kernel_gs_base: u64,

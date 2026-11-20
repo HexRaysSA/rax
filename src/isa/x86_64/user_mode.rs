@@ -184,6 +184,7 @@ impl X86_64Vcpu {
         self.xcr0 = XCR0_X87 | XCR0_SSE | XCR0_AVX | XCR0_AVX512;
         self.halted = false;
         self.interrupt_inhibit = false;
+        self.nmi_blocked = false;
         self.mmu.set_flat_translation(Some(translation));
         self.install_user_gdt();
         self.user = Some(Box::new(UserMode {

@@ -725,3 +725,66 @@ fn base_capture_and_base_file_publication_reject_unrepresented_eoi_broadcasts() 
     assert!(base.save(&file.0).is_err());
     assert_eq!(std::fs::read(&file.0).unwrap(), b"existing checkpoint");
 }
+
+#[test]
+fn nmi_handler_and_pending_nmi_continue_from_a_detached_checkpoint() {
+    const HANDLER: u64 = 0xa000;
+    const RETURN_PCS: u64 = 0x7060;
+    for count in [1, 2, 4] {
+        let mut fixture = Fixture::with_retired_cpus(count);
+        let cpu_index = usize::from(count - 1);
+        let power_off = [0x66, 0xba, 4, 6, 0x66, 0xb8, 0, 0x20, 0x66, 0xef];
+        prepare_retired_timer_guest(&mut fixture, cpu_index, 2, &power_off);
+        // Record each handler's interrupted EIP at [0x7060 + ECX*4].
+        // The guest starts with ECX=0, increments after each record, then IRETDs.
+        fixture.write(
+            HANDLER,
+            &[
+                0x8b, 0x04, 0x24, 0x89, 0x04, 0x8d, 0x60, 0x70, 0, 0, 0x41, 0xcf,
+            ],
+        );
+        let source = &mut fixture.vm;
+        source.coordinator.online.fill(true);
+        source.coordinator.cursor = cpu_index;
+        assert!(source.vcpus[cpu_index].inject_nmi().unwrap());
+        source.local_apics[cpu_index]
+            .lock()
+            .unwrap()
+            .set_pending_nmi();
+        let file = RemoveFile::new();
+        source
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&file.0)
+            .unwrap();
+        drop(fixture);
+
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        target.poll_local_apic(cpu_index).unwrap();
+        assert!(
+            target.local_apics[cpu_index]
+                .lock()
+                .unwrap()
+                .has_pending_nmi()
+        );
+        assert_eq!(target.vcpus[cpu_index].current_pc(), HANDLER);
+        target.run().unwrap();
+        assert!(
+            !target.local_apics[cpu_index]
+                .lock()
+                .unwrap()
+                .has_pending_nmi()
+        );
+        let mut return_pcs = [0; 8];
+        target
+            .guest_mem
+            .memory()
+            .read_slice(&mut return_pcs, vm_memory::GuestAddress(RETURN_PCS))
+            .unwrap();
+        let expected = (BSP as u32).to_le_bytes();
+        assert_eq!(return_pcs[..4], expected);
+        assert_eq!(return_pcs[4..], expected);
+    }
+}

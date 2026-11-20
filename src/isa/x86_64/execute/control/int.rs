@@ -130,6 +130,8 @@ pub fn into(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
 pub fn iret(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     use crate::isa::x86_64::cpu::log_if_transition;
 
+    // Intel SDM 086 Vol. 3A, 7.7.1. IRET unmasks NMI even when the return faults.
+    vcpu.nmi_blocked = false;
     let op_size = ctx.op_size;
     let old_cpl = vcpu.sregs.cs.selector & 0x3;
 

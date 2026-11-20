@@ -6,10 +6,13 @@ impl Context {
         if raw.len() > TAG.len() + MAX_PAYLOAD {
             return Err(invalid("invalid tag or length"));
         }
-        let ioapic_mmio = raw.starts_with(IOAPIC_TAG) || raw.starts_with(IOAPIC_SHADOW_TAG);
+        let nmi_blocked =
+            raw.starts_with(NMI_BLOCKED_TAG) || raw.starts_with(IOAPIC_NMI_BLOCKED_TAG);
         let (mut context, status, apic_base, shadow) = if let Some(payload) = raw
             .strip_prefix(IOAPIC_SHADOW_TAG)
             .or_else(|| raw.strip_prefix(SHADOW_TAG))
+            .or_else(|| raw.strip_prefix(NMI_BLOCKED_TAG))
+            .or_else(|| raw.strip_prefix(IOAPIC_NMI_BLOCKED_TAG))
         {
             let version = crate::codec::deserialize_limited::<Version5<Self>, MAX_PAYLOAD>(payload)
                 .map_err(invalid)?;
@@ -61,7 +64,8 @@ impl Context {
         }
         context.apic_base = apic_base
             .unwrap_or_else(|| crate::isa::x86_64::identity::initial_apic_base(context.id));
-        context.mmu.ioapic_mmio = ioapic_mmio;
+        context.nmi_blocked = nmi_blocked;
+        context.mmu.ioapic_mmio = X86_64Vcpu::context_requires_ioapic(raw);
         context.validate(target)?;
         Ok(context)
     }
@@ -78,11 +82,11 @@ impl Context {
             .user
             .as_ref()
             .is_some_and(|user| user.instruction_debug_inhibit);
-        let payload = if shadow {
+        let payload = if shadow || self.nmi_blocked {
             crate::codec::serialize_limited(
                 &Version5 {
                     base: version,
-                    instruction_debug_inhibit: true,
+                    instruction_debug_inhibit: shadow,
                 },
                 MAX_PAYLOAD,
             )
@@ -91,11 +95,13 @@ impl Context {
         }
         .map_err(invalid)?;
         let mut raw = Vec::with_capacity(TAG.len() + payload.len());
-        raw.extend_from_slice(match (shadow, self.mmu.ioapic_mmio) {
-            (true, true) => IOAPIC_SHADOW_TAG,
-            (true, false) => SHADOW_TAG,
-            (false, true) => IOAPIC_TAG,
-            (false, false) => TAG,
+        raw.extend_from_slice(match (self.nmi_blocked, shadow, self.mmu.ioapic_mmio) {
+            (true, _, true) => IOAPIC_NMI_BLOCKED_TAG,
+            (true, _, false) => NMI_BLOCKED_TAG,
+            (false, true, true) => IOAPIC_SHADOW_TAG,
+            (false, true, false) => SHADOW_TAG,
+            (false, false, true) => IOAPIC_TAG,
+            (false, false, false) => TAG,
         });
         raw.extend_from_slice(&payload);
         Ok(raw)

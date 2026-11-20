@@ -16,6 +16,8 @@ const TAG: &[u8; 8] = b"RAXX8603";
 const IOAPIC_TAG: &[u8; 8] = b"RAXX8604";
 const SHADOW_TAG: &[u8; 8] = b"RAXX8605";
 const IOAPIC_SHADOW_TAG: &[u8; 8] = b"RAXX8606";
+const NMI_BLOCKED_TAG: &[u8; 8] = b"RAXX8607";
+const IOAPIC_NMI_BLOCKED_TAG: &[u8; 8] = b"RAXX8608";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
 
 #[derive(Serialize, Deserialize)]
@@ -62,6 +64,9 @@ struct Context {
     // Carried by the version3 envelope, preserving version1/2 base layout.
     #[serde(skip)]
     apic_base: u64,
+    // Implied by the envelope tag, keeping all previous bodies unchanged.
+    #[serde(skip)]
+    nmi_blocked: bool,
     id: u32,
     insn_count: u64,
     instruction_faulted: bool,
@@ -133,6 +138,7 @@ impl Context {
         let mut cpu = X86_64Vcpu::new(self.id, target.mmu.checkpoint_memory());
         cpu.mmu = self.mmu.prepare(&target.mmu)?;
         cpu.apic_base = self.apic_base;
+        cpu.nmi_blocked = self.nmi_blocked;
         cpu.regs = self.regs;
         cpu.sregs = self.sregs;
         cpu.restore_emulator_state(&self.emulator)?;
@@ -186,6 +192,12 @@ mod identity_tests;
 mod ioapic_tests;
 
 impl X86_64Vcpu {
+    pub(crate) fn context_requires_ioapic(raw: &[u8]) -> bool {
+        [IOAPIC_TAG, IOAPIC_SHADOW_TAG, IOAPIC_NMI_BLOCKED_TAG]
+            .iter()
+            .any(|tag| raw.starts_with(*tag))
+    }
+
     /// Selected optional instruction capabilities, independent of register state.
     pub fn x86_configuration(&self) -> X86_64Config {
         X86_64Config {
@@ -257,6 +269,7 @@ impl X86_64Vcpu {
             fpu: _,
             halted: _,
             interrupt_inhibit: _,
+            nmi_blocked,
             io_pending,
             kernel_gs_base: _,
             tsc_adjust: _,
@@ -350,6 +363,7 @@ impl X86_64Vcpu {
             .transpose()?;
         let context = Context {
             apic_base: *apic_base,
+            nmi_blocked: *nmi_blocked,
             id: *id,
             insn_count: *insn_count,
             instruction_faulted: *instruction_faulted,

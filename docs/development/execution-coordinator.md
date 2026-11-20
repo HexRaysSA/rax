@@ -197,3 +197,42 @@ selects it for opted-in non-stepping CPUs, preserving guest exit and
 retirement boundaries. See [Intel native host scheduling](hvf-native-scheduling/README.md)
 for separate coordinator/SDK-model evidence and physical/native-profile limits.
 KVM and native Arm retain their existing entry contract in this component.
+
+## Software x86 NMI blocking and checkpoint continuation
+
+A successful NMI delivery records a block on the selected software vCPU. A
+later request returns false while the block is set, so the local APIC keeps
+its pending NMI. IRET releases the block before reading the return frame.
+This also allows pending NMIs after a faulting return. A host register edit
+preserves the block, while RESET and INIT clear it. Intel specifies the
+handler and faulting-IRET behavior in SDM revision 086, Volume 3A, section
+7.7.1. [Pinned Intel SDM provenance](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.provenance.md)
+
+The private context emits `RAXX8607` or `RAXX8608` when the CPU is blocked.
+Both reuse the existing `RAXX8605` body with its user-debug-shadow flag.
+`RAXX8608` also requires the I/O APIC policy and matching PC controller
+image. Existing tags and base projections import as unblocked. The LAPIC
+record already contains the queued NMI. A complete VMM file retains both
+owners alongside the handler's RAM and register state. The latch and its
+admission check cost O(1) space and time per vCPU.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Delivery establishes the block before the next event can enter. | Inject again after a handler NOP and compare RIP and RSP. |
+| IRET releases the block even when the stack is inaccessible. | Fault the first IRET pop and verify the next NMI is admitted. |
+| A complete file retains the handler block and the selected controller request independently. | Destroy the source VM, load files with 1, 2 and 4 configured vCPUs, offer the pending NMI before IRET, and verify both handler entries save the original guest PC. |
+
+Both direct regressions and the detached VMM regression exposed the nested
+delivery on the parent. On Apple Silicon, the complete library and eight
+integration binaries passed 41,870 tests with eight ignored and none failed
+or filtered. The feature-minimal library compile check passed. The software
+witness covers retired-clock scheduling. Full native SMP interrupt ordering
+and bare-metal Intel HVF qualification remain open.
+
+```sh
+cargo +stable test --locked --no-default-features --features x86_64-suite,smir-jit,debug \
+  --lib --test x86_64 --test controller_checkpoint --test runtime_checkpoint_bundle \
+  --test checkpoint_cpus --test checkpoint_resume --test restore_admission \
+  --test x86_fault_retirement --test retirement_budget
+cargo +stable check --locked --no-default-features --lib
+```

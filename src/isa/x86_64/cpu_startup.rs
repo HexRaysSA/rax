@@ -70,6 +70,7 @@ impl X86_64Vcpu {
         sregs.dr6 = 0xffff_0ff0;
         sregs.dr7 = 0x400;
         self.set_state(&CpuState::X86_64(X86_64CpuState { regs, sregs }))?;
+        self.nmi_blocked = false;
         self.halted = false;
         self.io_pending = None;
         self.mmu.flush_tlb();

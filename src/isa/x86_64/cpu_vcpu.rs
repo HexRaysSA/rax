@@ -327,9 +327,11 @@ impl VCpu for X86_64Vcpu {
     }
 
     fn inject_nmi(&mut self) -> Result<bool> {
-        // NMI is vector 2 and ignores IF flag
-        // TODO: Track NMI blocking (NMIs are blocked until IRET after an NMI)
+        if self.nmi_blocked {
+            return Ok(false);
+        }
         self.inject_external_event(2, None)?;
+        self.nmi_blocked = true;
         self.halted = false;
         tracing::debug!("Injected NMI");
         Ok(true)
@@ -473,7 +475,10 @@ impl VCpu for X86_64Vcpu {
     }
 
     fn set_emulator_state(&mut self, state: &crate::vm::snapshot::EmulatorState) -> Result<()> {
-        self.restore_emulator_state(state)
+        self.restore_emulator_state(state)?;
+        // The legacy emulator projection predates private interrupt state.
+        self.nmi_blocked = false;
+        Ok(())
     }
 }
 

@@ -2948,7 +2948,8 @@
         "Software AArch64 retains CPU_ON and CPU_OFF until coordinator acknowledgement. The three-CPU file regression restores both scheduling frontiers and executes the new secondary through Vmm.run. Complete backend/private/in-flight restore and remaining platform SMP/IRQ/clock profiles remain open.",
         "The configured software x86 file retains unresolved xAPIC destinations. Native Intel HVF restores selected pending MOVBE and CMPXCHG8B transactions in fresh vCPUs. Public KVM checkpoint production still requires complete private, deferred-I/O, platform and first-entry restore composition.",
         "Native Intel HVF restores a queued LAPIC timer event into a fresh vCPU and executes its handler once without reinjection. This exercises the private CPU record and its retained controller model. Full coordinated VM publication remains open.",
-        "Three hosted Intel cases qualify an unarmed pending IRQ, direct delivery, and delivery after restoring a fresh vCPU with caller-held LAPIC state. Full coordinated file restoration stays open."
+        "Three hosted Intel cases qualify an unarmed pending IRQ, direct delivery, and delivery after restoring a fresh vCPU with caller-held LAPIC state. Full coordinated native file restoration stays open.",
+        "Software x86 preserves the CPU's NMI block and the local APIC's independently queued NMI in detached VM files with 1, 2 and 4 configured CPUs. Complete backend and native interrupt restoration stays open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3064,7 +3065,8 @@
         "hvf-native-entry-irq-2026-11-18",
         "hvf-native-controller-irq-window-2026-11-19",
         "hvf-mmio-movnti-2026-11-19",
-        "hvf-mmio-implicit-divide-2026-11-20"
+        "hvf-mmio-implicit-divide-2026-11-20",
+        "x86-software-nmi-blocking-2026-11-20"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -3839,7 +3841,8 @@
         "Kernel-LAPIC-dependent admission of KVM asynchronous-PF bits 4/10/14 and PV-IPI bit 11 for managed configured/SDK-profile CPUs; raw SDK CPUID ownership retained. Native compilation reuses one complete immutable export via three exactly reconstructible module dispatchers. No post-integration Linux Cargo workspace run or additional unfiltered native root execution is claimed. Native root lint reports four existing unrelated numeric-literal warnings. No physical Intel macOS evidence. Complete native CPU/private/shared/in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required.",
         "Software AArch64 retains CPU_ON and CPU_OFF until coordinator acknowledgement. The three-CPU file regression restores both scheduling frontiers and executes the new secondary through Vmm.run. Complete backend/private/in-flight restore and remaining platform SMP/IRQ/clock profiles remain open.",
         "Four configured software x86 CPUs restore an in-flight xAPIC logical fanout after a target error and retain the unresolved destination set. Full platform startup, native IRQ/clock coordination and replay remain open.",
-        "A four-vCPU coordinator witness checks selected PIC/LAPIC arming, LAPIC priority, and a disabled controller. The hosted Intel window probe uses one vCPU. Full native SMP interrupt ordering remains open."
+        "A four-vCPU coordinator witness checks selected PIC/LAPIC arming, LAPIC priority, and a disabled controller. The hosted Intel window probe uses one vCPU. Full native SMP interrupt ordering remains open.",
+        "The retired-clock software VMM resumes a blocked NMI handler on the last configured CPU and consumes the queued local APIC request after IRET. Detached 1, 2 and 4 CPU files verify both guest handler return PCs."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3918,7 +3921,8 @@
         "native-intel-firmware-discovery-206-2026-11-05",
         "aarch64-software-psci-acknowledgement-2026-11-18",
         "x86-ipi-delivery-resume-2026-11-18",
-        "hvf-native-controller-irq-window-2026-11-19"
+        "hvf-native-controller-irq-window-2026-11-19",
+        "x86-software-nmi-blocking-2026-11-20"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -200032,6 +200036,17 @@
       "status": "locally_qualified_full_findings_open",
       "scope": "The standalone and mixed-width AArch32 ID views now require supported binary64 arithmetic for JSCVT. Both baseline regressions fail with absent FPDP. All five owning suites pass on Apple Silicon. Physical AArch32 qualification remains open.",
       "qualification": "docs/development/a32-fp-controls.md#aarch32-jscvt-capability-readback",
+      "full_goal_complete": false
+    },
+    {
+      "id": "x86-software-nmi-blocking-2026-11-20",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Software x86 blocks nested NMIs, releases the block at the start of IRET, and retains it in stopped contexts. Detached 1, 2 and 4 CPU files exercise the selected CPU and its independently queued controller event.",
+      "qualification": "docs/development/execution-coordinator.md#software-x86-nmi-blocking-and-checkpoint-continuation",
       "full_goal_complete": false
     },
     {

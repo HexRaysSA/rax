@@ -31,6 +31,7 @@ impl X86_64Vcpu {
             fpu: FpuState::default(),
             halted: false,
             interrupt_inhibit: false,
+            nmi_blocked: false,
             io_pending: None,
             kernel_gs_base: 0,
             tsc_adjust: 0,
@@ -144,6 +145,7 @@ impl X86_64Vcpu {
         self.lazy_flags = LazyFlags::default();
         self.halted = false;
         self.interrupt_inhibit = false;
+        self.nmi_blocked = false;
         self.io_pending = None;
         self.kernel_gs_base = 0;
         self.tsc_adjust = 0;
