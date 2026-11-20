@@ -46,6 +46,17 @@ payloads dumped by the controller while its child is stopped remain the byte
 oracle. The native child also compares successful results and checks that a
 failed request leaves its input unchanged before exiting41.
 
+## AMD64 fixed-query observer
+
+The failed installed-command comparison reaches the same 80-byte BASE NLS
+request on physical AMD64 Windows Server 2022 and 2025. The installed-process
+workflow's `measure_amd64_base_nls` input records six fixed native calls,
+three before the observer calls the public locale API and three afterward.
+The output records results, request/capture sizes and initialized output
+bytes. The producer checks physical AMD64, uses only its own capture and
+accepts no guest input. The artifact binds the source, executable, log and
+installed NTDLL. The observer does not enable an emulator reply profile.
+
 ## Implementation contract
 
 The installed adapter performs only a fixed current-process query during native
