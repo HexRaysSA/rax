@@ -96,7 +96,7 @@ pub(super) fn write(
             pic.lock()
                 .map_err(|_| Error::Emulator("serial interrupt controller lock poisoned".into()))?
                 .set_irq(irq as u8, pending);
-            if backend == BackendKind::Kvm {
+            if vm.uses_native_x86_irqchip() {
                 vm.set_irq_line(irq, pending)?;
             }
         }

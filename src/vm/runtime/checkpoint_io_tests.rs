@@ -122,6 +122,32 @@ impl Drop for Fixture {
 }
 
 #[test]
+#[ignore = "requires native Linux KVM with userspace interrupt ownership"]
+fn stopped_native_uart_output_uses_the_userspace_irq_controller() {
+    let mut fixture = Fixture::new(1);
+    assert!(!fixture.vm.vm.uses_native_x86_irqchip());
+    // MOV DX, 3F9h; MOV AL, 1; OUT DX, AL; HLT.
+    fixture.prepare(0, &[0xba, 0xf9, 0x03, 0xb0, 0x01, 0xee, 0xf4]);
+    let mut uart = fixture.vm.serial.lock().unwrap();
+    IoDevice::write(&mut *uart, 0x3fc, 8); // Enable the PC UART OUT2 IRQ gate.
+    uart.queue_input(&[0x9a]);
+    drop(uart);
+    fixture.vm.io_bus.write(0x21, &[!0x10]).unwrap(); // Unmask PIC IRQ4.
+
+    assert!(matches!(
+        fixture.exit(0),
+        VcpuExit::IoOut { port: 0x3f9, data } if data == [1]
+    ));
+    assert_eq!(fixture.settle(0), CheckpointIoState::Complete);
+    assert!(fixture.vm.serial.lock().unwrap().has_pending_interrupt());
+    assert_eq!(
+        fixture.vm.pic.lock().unwrap().get_pending_vector(),
+        Some(0x24)
+    );
+    assert!(matches!(fixture.exit(0), VcpuExit::Hlt));
+}
+
+#[test]
 #[ignore = "requires native Linux KVM; selected by KVM CI"]
 fn stopped_native_uart_input_services_one_two_four_actual_cpu_owners() {
     for count in [1, 2, 4] {

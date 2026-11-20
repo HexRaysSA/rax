@@ -120,6 +120,15 @@ jobs:
           cargo test --locked --features x86_64-suite --lib \
             backend::kvm::checkpoint::owner::tests::device_clock:: -- --include-ignored --test-threads=1
 
+      - name: Native UART output with userspace interrupt ownership
+        run: |
+          set -o pipefail
+          case_name=vm::runtime::checkpoint_io::tests::stopped_native_uart_output_uses_the_userspace_irq_controller
+          witness="$RUNNER_TEMP/rax-kvm-software-uart-irq.out"
+          cargo test --locked --features x86_64-suite --lib "$case_name" -- \
+            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test $case_name ... ok" "$witness"
+
       - name: Native finite entry, signal ownership, and PIO/MMIO continuation
         run: cargo test --features x86_64-suite --test kvm_host_slices -- --include-ignored --test-threads=1 --nocapture
 

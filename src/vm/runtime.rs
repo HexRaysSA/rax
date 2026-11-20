@@ -112,6 +112,7 @@ mod tests {
     #[derive(Default)]
     struct RecordingVm {
         irq_calls: std::sync::Mutex<Vec<(u32, bool)>>,
+        native_irqchip: bool,
     }
 
     impl Vm for RecordingVm {
@@ -124,17 +125,24 @@ mod tests {
             Ok(())
         }
 
+        fn uses_native_x86_irqchip(&self) -> bool {
+            self.native_irqchip
+        }
+
         fn as_any(&self) -> &dyn Any {
             self
         }
     }
 
     #[test]
-    fn legacy_serial_irq_drives_pic_and_kvm_irq_line() {
-        let vm = RecordingVm::default();
+    fn legacy_serial_irq_drives_pic_and_native_irq_line() {
+        let vm = RecordingVm {
+            native_irqchip: true,
+            ..Default::default()
+        };
         let pic = Arc::new(std::sync::Mutex::new(DualPic::new()));
 
-        drive_legacy_serial_irq(&vm, BackendKind::Kvm, &pic, Some(4), true);
+        drive_legacy_serial_irq(&vm, &pic, Some(4), true);
 
         assert_eq!(vm.irq_calls.lock().unwrap().as_slice(), &[(4, true)]);
         let (master_irr, _, _, _, _, _) = pic.lock().unwrap().debug_info();
@@ -142,11 +150,11 @@ mod tests {
     }
 
     #[test]
-    fn legacy_serial_irq_does_not_call_backend_for_emulator() {
+    fn legacy_serial_irq_uses_pic_with_userspace_interrupt_ownership() {
         let vm = RecordingVm::default();
         let pic = Arc::new(std::sync::Mutex::new(DualPic::new()));
 
-        drive_legacy_serial_irq(&vm, BackendKind::Emulator, &pic, Some(4), true);
+        drive_legacy_serial_irq(&vm, &pic, Some(4), true);
 
         assert!(vm.irq_calls.lock().unwrap().is_empty());
         let (master_irr, _, _, _, _, _) = pic.lock().unwrap().debug_info();
@@ -320,7 +328,6 @@ pub struct Vmm {
 
 fn drive_legacy_serial_irq(
     vm: &dyn Vm,
-    backend_kind: BackendKind,
     pic: &Arc<std::sync::Mutex<DualPic>>,
     serial_irq: Option<u32>,
     pending: bool,
@@ -333,7 +340,7 @@ fn drive_legacy_serial_irq(
         pic.set_irq(irq as u8, pending);
     }
 
-    if backend_kind == BackendKind::Kvm {
+    if vm.uses_native_x86_irqchip() {
         if let Err(e) = vm.set_irq_line(irq, pending) {
             debug!(irq, pending, error = %e, "failed to drive serial irq line");
         }

@@ -79,13 +79,7 @@ impl Vmm {
             } else {
                 false
             };
-            drive_legacy_serial_irq(
-                &*self.vm,
-                self.backend_kind,
-                &self.pic,
-                self.serial_irq,
-                pending,
-            );
+            drive_legacy_serial_irq(&*self.vm, &self.pic, self.serial_irq, pending);
         }
     }
 
