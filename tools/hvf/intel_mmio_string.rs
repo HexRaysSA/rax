@@ -398,6 +398,7 @@ fn scan_ram_boundary(prefix: u8, boundary: ScanBoundary) -> u64 {
         assert_eq!(flags & STATUS, initial_flags & STATUS);
         assert_eq!(read_word(&memory, regs.rsp), 0);
         word(&memory, PT + 8, SECOND_RAM | 3);
+        cpu.wake();
         let exit = event(cpu.as_mut());
         assert!(matches!(exit, VcpuExit::Hlt), "{exit:?}");
         let after = state(cpu.as_ref()).regs;
