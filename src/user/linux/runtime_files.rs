@@ -3,6 +3,8 @@
 //! fallback, host descriptor exposure, or separate sysroot requirement.
 use crate::user::supplied_fs::Files;
 use std::io;
+#[cfg(any(target_os = "linux", all(test, unix)))]
+use std::path::Path;
 #[cfg(any(target_os = "linux", test))]
 use std::{collections::BTreeMap, path::PathBuf};
 #[cfg(any(target_os = "linux", test))]
@@ -15,13 +17,7 @@ mod ld_cache;
 pub fn native(files: &Files) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     {
-        let mut roots = BTreeMap::new();
-        for name in ["/lib", "/lib64", "/usr/lib", "/usr/lib64", "/usr/local/lib"] {
-            let path = PathBuf::from(name);
-            if path.is_dir() {
-                roots.insert(name.to_owned(), path);
-            }
-        }
+        let roots = installed_roots(Path::new("/"));
         if roots.is_empty() {
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,
@@ -39,6 +35,27 @@ pub fn native(files: &Files) -> io::Result<Files> {
             "native Linux runtime selection requires a Linux host",
         ))
     }
+}
+
+#[cfg(any(target_os = "linux", all(test, unix)))]
+fn installed_roots(root: &Path) -> BTreeMap<String, PathBuf> {
+    // A biarch glibc installation can put the i386 interpreter in lib32
+    // while ELF PT_INTERP still names /lib/ld-linux.so.2.
+    [
+        "/lib",
+        "/lib32",
+        "/lib64",
+        "/usr/lib",
+        "/usr/lib32",
+        "/usr/lib64",
+        "/usr/local/lib",
+    ]
+    .into_iter()
+    .filter_map(|name| {
+        let host = root.join(name.trim_start_matches('/'));
+        host.is_dir().then(|| (name.to_owned(), host))
+    })
+    .collect()
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -157,6 +174,41 @@ mod tests {
         )
         .unwrap();
         assert!(selected.lookup("/etc/ld.so.cache").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_roots_resolve_the_i386_interpreter_across_lib32_layouts() {
+        use std::os::unix::fs::symlink;
+
+        for (lib, lib32) in [("lib", "lib32"), ("usr/lib", "usr/lib32")] {
+            let fixture = crate::user::supplied_fs::test_backing::TestFile::new(b"outside", 7);
+            let root = &fixture.dir;
+            let lib = root.join(lib);
+            let lib32 = root.join(lib32);
+            std::fs::create_dir_all(&lib).unwrap();
+            std::fs::create_dir_all(&lib32).unwrap();
+            if !root.join("lib").exists() {
+                symlink("usr/lib", root.join("lib")).unwrap();
+            }
+            std::fs::write(lib32.join("ld-linux.so.2"), b"interpreter").unwrap();
+            symlink("../lib32/ld-linux.so.2", lib.join("ld-linux.so.2")).unwrap();
+            symlink(&fixture.path, lib32.join("outside")).unwrap();
+
+            let selected = select(&Files::default(), installed_roots(root), None).unwrap();
+            assert_eq!(
+                &*selected.read("/lib/ld-linux.so.2").unwrap(),
+                b"interpreter"
+            );
+            let runtime_path = format!("/{}", lib32.strip_prefix(root).unwrap().display());
+            assert_eq!(
+                &*selected
+                    .read(&format!("{runtime_path}/ld-linux.so.2"))
+                    .unwrap(),
+                b"interpreter"
+            );
+            assert!(selected.lookup(&format!("{runtime_path}/outside")).is_err());
+        }
     }
 
     #[cfg(target_os = "linux")]

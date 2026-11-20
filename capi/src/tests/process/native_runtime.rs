@@ -98,38 +98,7 @@ fn installed_dynamic_programs_run_without_supplied_dependencies_or_general_host_
                 "x86_64"
             }
         );
-        let mut result = RaxProcessResult::default();
-        // Bound guest work independently of host speed or descheduling. The
-        // separate timeout/cancellation tests exercise those API contracts.
-        const MAX_TURNS: u64 = 16_384;
-        let mut remaining = MAX_TURNS;
-        loop {
-            assert!(
-                remaining != 0,
-                "{path}: exceeded {MAX_TURNS} scheduler turns"
-            );
-            let turns = remaining.min(256);
-            assert_eq!(
-                rax_process_run(process.0, turns, 0, &mut result),
-                RaxStatus::Ok
-            );
-            assert!(result.turns_started <= turns);
-            remaining -= result.turns_started;
-            if result.reason != RAX_PROCESS_BUDGET {
-                break;
-            }
-            assert_ne!(result.turns_started, 0, "{path}: budget made no progress");
-        }
-        eprintln!(
-            "{path}: completed within {} scheduler turns",
-            MAX_TURNS - remaining
-        );
-        assert_eq!(
-            result.reason,
-            RAX_PROCESS_EXITED,
-            "{path}: {}",
-            info(&process)
-        );
+        let result = run_installed_posix(&process, path);
         assert_eq!(result.exit_code, 0);
         let mut output = vec![0; 65536];
         let mut size = 0;
@@ -167,6 +136,93 @@ fn installed_dynamic_programs_run_without_supplied_dependencies_or_general_host_
         };
         let message = refused(&image, &options, &[supplied], RaxStatus::Format);
         assert!(!message.is_empty());
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn run_installed_posix(process: &Owned, path: &str) -> RaxProcessResult {
+    // Bound guest work independently of host speed or descheduling.
+    const MAX_TURNS: u64 = 16_384;
+    let mut remaining = MAX_TURNS;
+    let mut result = RaxProcessResult::default();
+    loop {
+        assert!(
+            remaining != 0,
+            "{path}: exceeded {MAX_TURNS} scheduler turns"
+        );
+        let turns = remaining.min(256);
+        assert_eq!(
+            rax_process_run(process.0, turns, 0, &mut result),
+            RaxStatus::Ok
+        );
+        assert!(result.turns_started <= turns);
+        remaining -= result.turns_started;
+        if result.reason != RAX_PROCESS_BUDGET {
+            break;
+        }
+        assert_ne!(result.turns_started, 0, "{path}: budget made no progress");
+    }
+    eprintln!(
+        "{path}: completed within {} scheduler turns",
+        MAX_TURNS - remaining
+    );
+    assert_eq!(
+        result.reason,
+        RAX_PROCESS_EXITED,
+        "{path}: {}",
+        info(process)
+    );
+    result
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+#[ignore = "run explicitly with the Linux x64 CI multilib program and installed i386 libc"]
+fn installed_i386_glibc_matches_native_through_closed_c_abi() {
+    let path = std::env::var("RAX_LINUX_MULTILIB_PROGRAM").expect("path to the i386 fixture");
+    let image = std::fs::read(&path).expect("read i386 fixture");
+    let elf = rax_engine::user::image::elf::ElfImage::parse_self_described(&image).unwrap();
+    assert_eq!(elf.interpreter(), Some(b"/lib/ld-linux.so.2".as_slice()));
+    let loader = std::fs::canonicalize("/lib/ld-linux.so.2").expect("installed i386 loader");
+    assert!(
+        loader.starts_with("/lib32") || loader.starts_with("/usr/lib32"),
+        "expected a biarch glibc loader under lib32, got {loader:?}"
+    );
+    let native = std::process::Command::new(&path)
+        .env_clear()
+        .output()
+        .expect("run the i386 fixture natively");
+    assert_eq!(native.status.code(), Some(23));
+    assert_eq!(native.stdout, b"installed i386 libc\n");
+    assert!(native.stderr.is_empty());
+
+    let process = open(
+        &image,
+        r#"{"personality":"linux","native_runtime":true,"memory_bytes":268435456,"slice_instructions":4096}"#,
+    );
+    let before = info(&process);
+    assert_eq!(before["architecture"], "x86");
+    assert_eq!(before["capabilities"]["native_runtime"], true);
+    assert_eq!(before["capabilities"]["host_filesystem"], false);
+    assert_eq!(before["capabilities"]["host_services"], false);
+    assert_eq!(run_installed_posix(&process, &path).exit_code, 23);
+    for (stream, expected) in [
+        (RAX_PROCESS_STDOUT, native.stdout.as_slice()),
+        (RAX_PROCESS_STDERR, native.stderr.as_slice()),
+    ] {
+        let mut bytes = [0u8; 4096];
+        let mut size = 0;
+        assert_eq!(
+            rax_process_output_read(
+                process.0,
+                stream,
+                bytes.as_mut_ptr(),
+                bytes.len(),
+                &mut size
+            ),
+            RaxStatus::Ok
+        );
+        assert_eq!(&bytes[..size], expected);
     }
 }
 
