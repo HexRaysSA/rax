@@ -4,7 +4,7 @@ use crate::error::{Error, Result};
 use crate::vm::timing::TimingContext;
 use crate::vm::vcpu::VcpuExit;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -54,32 +54,55 @@ impl MemoryOwner {
 }
 
 impl KvmVcpu {
-    fn run_core(&self) -> Result<MutexGuard<'_, NativeCore>> {
-        self.core.lock().map_err(|_| {
-            self.memory_owner.poisoned.store(true, Ordering::Release);
-            Error::Emulator("native KVM CPU owner lock poisoned; guest entry disabled".into())
-        })
+    pub(super) fn run_native_host_slice(&mut self, limit: Duration) -> Result<Option<VcpuExit>> {
+        if self.entry_worker.is_none() {
+            self.entry_worker = Some(deadline::EntryWorker::new(
+                self.memory_owner.clone(),
+                self.core.clone(),
+            )?);
+        }
+        let worker = self
+            .entry_worker
+            .as_ref()
+            .expect("entry worker was started");
+        let (result, reusable) = worker.run(&self.memory_owner, limit);
+        if !reusable {
+            self.entry_worker.take();
+        }
+        result
     }
+}
 
-    pub(super) fn run_native_host_slice(&self, limit: Duration) -> Result<Option<VcpuExit>> {
-        let entry = self.memory_owner.entry()?;
-        let mut core = self.run_core()?;
-        if !self.memory_owner.resume_clock_pending()? || !core.will_enter_native()? {
-            return core.run_host_slice(limit);
-        }
-        // Never upgrade a read lock while retaining it or a CPU guard.
-        drop(core);
-        drop(entry);
-        let _exclusive = self.memory_owner.exclusive_entry()?;
-        let mut core = self.run_core()?;
-        // A competing entry may already have consumed the epoch, or a stopped
-        // writer may have changed this CPU into a non-entry state.
-        if self.memory_owner.resume_clock_pending()? && core.will_enter_native()? {
-            deadline::run_at_resume(&mut core, limit)
-        } else {
-            core.run_host_slice(limit)
-        }
+fn run_core<'a>(
+    owner: &MemoryOwner,
+    core: &'a Mutex<NativeCore>,
+) -> Result<MutexGuard<'a, NativeCore>> {
+    core.lock().map_err(|_| {
+        owner.poisoned.store(true, Ordering::Release);
+        Error::Emulator("native KVM CPU owner lock poisoned; guest entry disabled".into())
+    })
+}
+
+pub(super) fn enter_managed(
+    owner: &MemoryOwner,
+    cpu: &Mutex<NativeCore>,
+    limit: Duration,
+    next_signal: &mut Option<libc::c_int>,
+) -> Result<Option<VcpuExit>> {
+    let entry = owner.entry()?;
+    let mut core = run_core(owner, cpu)?;
+    if !owner.resume_clock_pending()? || !core.will_enter_native()? {
+        return deadline::run_on_entry_thread(&mut core, limit, false, next_signal);
     }
+    // Never upgrade a read lock while retaining it or a CPU guard.
+    drop(core);
+    drop(entry);
+    let _exclusive = owner.exclusive_entry()?;
+    let mut core = run_core(owner, cpu)?;
+    // A competing entry may already have consumed the epoch, or a stopped
+    // writer may have changed this CPU into a non-entry state.
+    let resume = owner.resume_clock_pending()? && core.will_enter_native()?;
+    deadline::run_on_entry_thread(&mut core, limit, resume, next_signal)
 }
 
 impl NativeCore {
@@ -96,8 +119,8 @@ impl NativeCore {
         Ok(self.io.event().map_err(Error::Emulator)?.is_none())
     }
 
-    /// Only the private deadline worker calls this, while its parent retains
-    /// VM write exclusion and this CPU's guard. All other managed CPU guards
+    /// Only the private deadline worker calls this with VM write exclusion
+    /// and this CPU's guard held. All other managed CPU guards
     /// are therefore free: ordinary SDK borrows and state operations retain a
     /// VM read lease before taking a CPU guard. This exceptional all-CPU path
     /// may lock the selected CPU first without a competing lock-order cycle.

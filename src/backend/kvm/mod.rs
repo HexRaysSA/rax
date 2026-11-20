@@ -336,6 +336,7 @@ impl Vm for KvmVm {
             .map_err(|_| Error::Emulator("native CPU membership lock poisoned".into()))?
             .insert(id, Arc::downgrade(&core));
         Ok(Box::new(KvmVcpu {
+            entry_worker: None,
             core,
             memory_owner: self.memory.clone(),
             id,
@@ -361,6 +362,7 @@ impl Vm for KvmVm {
 
 /// KVM vCPU.
 pub struct KvmVcpu {
+    entry_worker: Option<deadline::EntryWorker>,
     core: Arc<Mutex<NativeCore>>,
     memory_owner: Arc<MemoryOwner>,
     id: u32,
@@ -398,8 +400,8 @@ struct NativeCore {
 // SAFETY: the only raw pointer names the run mapping retained by this core's
 // VcpuFd. Every access requires an exclusive mutable core borrow. The wrapper
 // and VM registry share the core through one Mutex; no native buffer reference
-// escapes the lock or crosses a native entry. Moving the locked core to a
-// scoped host-entry worker retains the FD and RAM owners for the whole call.
+// escapes the lock or crosses a native entry. The owning worker either borrows the
+// locked core or acquires its guard before touching the FD and RAM owners.
 unsafe impl Send for NativeCore {}
 
 impl VCpu for KvmVcpu {

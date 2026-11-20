@@ -1,5 +1,5 @@
 //! Close native I/O through real device service, outside CPU/VM entry locks.
-use super::{KvmVcpu, NativeCore, deadline, run};
+use super::{KvmVcpu, NativeCore, run};
 use crate::error::{Error, Result};
 use crate::vm::vcpu::{CheckpointIoReply, CheckpointIoState, VcpuExit};
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
@@ -77,7 +77,7 @@ impl NativeCore {
         // Reuse the private worker's blocked userspace signals and entry-only
         // KVM mask. A caller-thread signal must not interrupt the ioctl before
         // the kernel has reached its native I/O completion path.
-        let result = deadline::run(self, std::time::Duration::from_millis(10));
+        let result = self.run_host_slice(std::time::Duration::from_millis(10));
         drop(restore);
         match result {
             Ok(None) => {

@@ -122,6 +122,96 @@ fn short_slices_progress_after_another_worker_ran_the_cpu() {
     );
 }
 
+fn entry_worker_ids() -> Vec<u32> {
+    std::fs::read_dir("/proc/self/task")
+        .unwrap()
+        .filter_map(|entry| {
+            let entry = entry.unwrap();
+            let name = std::fs::read_to_string(entry.path().join("comm")).ok()?;
+            (name.trim() == "rax-kvm-entry")
+                .then(|| entry.file_name().to_str().unwrap().parse().unwrap())
+        })
+        .collect()
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; selected by KVM CI"]
+fn managed_cpu_reuses_worker_across_io_and_bounded_timeouts() {
+    in_child(
+        "managed_cpu_reuses_worker_across_io_and_bounded_timeouts",
+        || {
+            // The ordinary port exit can precede the timer. The next two guest
+            // instructions loop indefinitely after completing that output.
+            let (_memory, mut cpu) = fixture(&[0xb0, 0x59, 0xe6, 0x80, 0xeb, 0xfe]);
+            assert!(entry_worker_ids().is_empty());
+            assert!(matches!(
+                next_exit(&mut *cpu),
+                VcpuExit::IoOut { port: 0x80, data } if data == [0x59]
+            ));
+            // A preemption between the exit and timer deletion can retire
+            // the first thread. An owned output returns before timer arming,
+            // so these two pending-output entries can reliably reuse it.
+            assert!(matches!(
+                next_exit(&mut *cpu),
+                VcpuExit::IoOut { port: 0x80, data } if data == [0x59]
+            ));
+            let worker = entry_worker_ids();
+            assert_eq!(worker.len(), 1);
+            assert!(matches!(
+                next_exit(&mut *cpu),
+                VcpuExit::IoOut { port: 0x80, data } if data == [0x59]
+            ));
+            assert_eq!(entry_worker_ids(), worker);
+
+            drop(cpu);
+            assert!(entry_worker_ids().is_empty());
+
+            // KVM leaves the thread-directed timer signal pending. Each
+            // successful timeout leaves one more private signal blocked,
+            // while the same worker serves a later request.
+            let (_memory, mut cpu) = fixture(&[0xeb, 0xfe]);
+            let mut previous = Vec::new();
+            let mut completed = 0;
+            for _ in 0..=32 {
+                assert!(
+                    cpu.run_host_slice(Duration::from_millis(2))
+                        .unwrap()
+                        .is_none()
+                );
+                assert_eq!(cpu.current_pc(), 0x1000);
+                let workers = entry_worker_ids();
+                if workers.is_empty() {
+                    break;
+                }
+                assert_eq!(workers.len(), 1);
+                if !previous.is_empty() {
+                    assert_eq!(workers, previous);
+                }
+                let status =
+                    std::fs::read_to_string(format!("/proc/self/task/{}/status", workers[0]))
+                        .unwrap();
+                let pending = status
+                    .lines()
+                    .find_map(|line| line.strip_prefix("SigPnd:"))
+                    .unwrap();
+                assert_eq!(
+                    u64::from_str_radix(pending.trim(), 16)
+                        .unwrap()
+                        .count_ones(),
+                    completed + 1
+                );
+                previous = workers;
+                completed += 1;
+            }
+            assert!(
+                completed >= 2,
+                "worker was retired before reusing its native association"
+            );
+            assert!(entry_worker_ids().is_empty());
+        },
+    );
+}
+
 fn signal_mask() -> libc::sigset_t {
     // SAFETY: the output is valid initialized libc signal storage. Null input
     // queries only this calling thread's mask and retains no reference.
