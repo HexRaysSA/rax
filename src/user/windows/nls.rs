@@ -26,18 +26,32 @@ pub(crate) fn supports_startup_profile(
         }
 }
 
-/// The physical AMD64 cohort probes the full output range before clearing it.
-pub(crate) fn supports_amd64_mui_profile(
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MuiProfile {
+    PartialClear,
+    ProbeDestination,
+}
+
+/// Profile selection is shared by guest dispatch and installed acquisition.
+pub(crate) fn mui_profile(
     version: &super::process::WinVersion,
     native_machine: Option<u16>,
     arch: super::arch::WinArch,
-) -> bool {
-    arch == super::arch::WinArch::X64
-        && native_machine == Some(0x8664)
-        && matches!(
-            (version.major, version.minor, version.build),
-            (10, 0, 20348 | 26100)
-        )
+) -> Option<MuiProfile> {
+    use super::arch::WinArch;
+
+    match (
+        version.major,
+        version.minor,
+        version.build,
+        native_machine,
+        arch,
+    ) {
+        (10, 0, 20348 | 26100, Some(0x8664), WinArch::X64)
+        | (10, 0, 26200, Some(0xAA64), WinArch::Arm64) => Some(MuiProfile::ProbeDestination),
+        _ if supports_startup_profile(version, native_machine) => Some(MuiProfile::PartialClear),
+        _ => None,
+    }
 }
 
 /// Initialization has independent controls for the installed AMD64 and ARM64 profiles.
@@ -160,8 +174,8 @@ mod tests {
                         expected
                     );
                     assert_eq!(
-                        supports_amd64_mui_profile(&version, machine, arch),
-                        expected && arch == WinArch::X64
+                        mui_profile(&version, machine, arch),
+                        (expected && arch == WinArch::X64).then_some(MuiProfile::ProbeDestination)
                     );
                     assert!(
                         !supports_startup_profile(&version, machine),
@@ -169,18 +183,18 @@ mod tests {
                     );
                     version.minor = 1;
                     assert!(!supports_initialize_profile(&version, machine, arch));
-                    assert!(!supports_amd64_mui_profile(&version, machine, arch));
+                    assert_eq!(mui_profile(&version, machine, arch), None);
                     version.minor = 0;
                     version.major = 11;
                     assert!(!supports_initialize_profile(&version, machine, arch));
-                    assert!(!supports_amd64_mui_profile(&version, machine, arch));
+                    assert_eq!(mui_profile(&version, machine, arch), None);
                 }
             }
         }
     }
 
     #[test]
-    fn arm64_26200_initialization_does_not_admit_other_machines_views_or_mui() {
+    fn arm64_26200_nls_and_mui_profiles_bind_the_kernel_machine_and_process_view() {
         use super::super::arch::WinArch;
         for (major, minor, build) in [
             (10, 0, 26199),
@@ -198,12 +212,16 @@ mod tests {
             for machine in [None, Some(0x14C), Some(0x8664), Some(0xAA64)] {
                 assert!(!supports_startup_profile(&version, machine));
                 for arch in WinArch::ALL {
+                    let expected = (major, minor, build, machine, arch)
+                        == (10, 0, 26200, Some(0xAA64), WinArch::Arm64);
                     assert_eq!(
                         supports_initialize_profile(&version, machine, arch),
-                        (major, minor, build, machine, arch)
-                            == (10, 0, 26200, Some(0xAA64), WinArch::Arm64)
+                        expected
                     );
-                    assert!(!supports_amd64_mui_profile(&version, machine, arch));
+                    assert_eq!(
+                        mui_profile(&version, machine, arch),
+                        expected.then_some(MuiProfile::ProbeDestination)
+                    );
                 }
             }
         }
@@ -250,6 +268,10 @@ mod tests {
                     assert_eq!(
                         supports_initialize_profile(&version, machine, arch),
                         expected
+                    );
+                    assert_eq!(
+                        mui_profile(&version, machine, arch),
+                        expected.then_some(MuiProfile::PartialClear)
                     );
                 }
             }

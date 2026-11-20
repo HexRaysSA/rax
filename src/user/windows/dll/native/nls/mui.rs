@@ -46,10 +46,8 @@ fn checked(c: &mut Ctx) -> ApiResult {
 
     let version = &c.p.cfg.version;
     let machine = c.p.object_namespace.native_machine;
-    let amd64 = nls::supports_amd64_mui_profile(version, machine, c.arch());
-    if !amd64 && !nls::supports_startup_profile(version, machine) {
-        return Err(c.unsupported("NtGetMUIRegistryInfo native build profile is unmeasured"));
-    }
+    let profile = nls::mui_profile(version, machine, c.arch())
+        .ok_or_else(|| c.unsupported("NtGetMUIRegistryInfo native build profile is unmeasured"))?;
     let (flags, size, output) = (c.u32(0)?, c.ptr(1)?, c.ptr(2)?);
     if flags & !0x0b == 0 && flags & 0x0a != 0 {
         return Err(
@@ -76,7 +74,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if length < required {
         return Flow::ret(STATUS_BUFFER_TOO_SMALL.into());
     }
-    if amd64 {
+    if profile == nls::MuiProfile::ProbeDestination {
         // Validate the whole destination after publishing the requirement.
         // A fault leaves the destination as it was after size publication.
         super::super::query::probe_write(c, output, length as usize)?;

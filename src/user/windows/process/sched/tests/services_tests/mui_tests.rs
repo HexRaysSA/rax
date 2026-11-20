@@ -24,6 +24,10 @@ const CORPORA: [(WinArch, &str); 3] = [
     ),
 ];
 
+const AMD64_26100_CORPUS: &str = include_str!(
+    "../../../../../../../docs/specifications/windows/native-mui-query/amd64-26100-native.log"
+);
+
 const AMD64_CORPORA: [(u32, &str); 2] = [
     (
         20348,
@@ -31,13 +35,12 @@ const AMD64_CORPORA: [(u32, &str); 2] = [
             "../../../../../../../docs/specifications/windows/native-mui-query/amd64-20348-native.log"
         ),
     ),
-    (
-        26100,
-        include_str!(
-            "../../../../../../../docs/specifications/windows/native-mui-query/amd64-26100-native.log"
-        ),
-    ),
+    (26100, AMD64_26100_CORPUS),
 ];
+
+// The native ARM64 capture has the same SHA-256 as both AMD64 query logs.
+// Its independent provider and artifact identities are recorded in arm64-26200-inputs.json.
+const ARM64_26200_CORPUS: &str = AMD64_26100_CORPUS;
 
 fn field(line: &str, key: &str, radix: u32) -> u32 {
     let prefix = format!("{key}=");
@@ -191,7 +194,8 @@ fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
     let amd64_hosts = AMD64_CORPORA
         .into_iter()
         .map(|(build, raw)| (WinArch::X64, raw, build, 0x8664));
-    for (arch, raw, build, machine) in arm64_hosts.chain(amd64_hosts) {
+    let arm64_26200 = [(WinArch::Arm64, ARM64_26200_CORPUS, 26200, 0xAA64)];
+    for (arch, raw, build, machine) in arm64_hosts.chain(amd64_hosts).chain(arm64_26200) {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
         p.object_namespace.native_machine = Some(machine);
@@ -315,18 +319,23 @@ fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
         assert_eq!(count, 1680);
         total += count;
     }
-    assert_eq!(total, 28560);
+    assert_eq!(total, 30240);
 }
 
 #[test]
 fn mui_cache_mutations_report_unavailable_without_query_argument_side_effects() {
-    for (arch, build) in WinArch::ALL
+    let legacy_hosts = WinArch::ALL
         .into_iter()
-        .flat_map(|arch| [29683, 29695, 29698, 29704, 29708].map(|build| (arch, build)))
-    {
+        .flat_map(|arch| [29683, 29695, 29698, 29704, 29708].map(|build| (arch, build, 0xAA64)));
+    let probe_hosts = [
+        (WinArch::X64, 20348, 0x8664),
+        (WinArch::X64, 26100, 0x8664),
+        (WinArch::Arm64, 26200, 0xAA64),
+    ];
+    for (arch, build, machine) in legacy_hosts.chain(probe_hosts) {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
-        p.object_namespace.native_machine = Some(0xAA64);
+        p.object_namespace.native_machine = Some(machine);
         Arc::make_mut(&mut p.cfg).version.build = build;
         let sp = thread.cpu.sp();
         let before = p.vm.committed_bytes();

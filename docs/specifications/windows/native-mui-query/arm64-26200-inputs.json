@@ -1,0 +1,22 @@
+{
+  "profile": "arm64-26200-native",
+  "source_commit": "4a429879f6ede83e95a90a32deb20f33821d6594",
+  "kernel": "10.0.26200.0",
+  "target": "aarch64-pc-windows-msvc",
+  "machine": 43620,
+  "runner": "windows-11-arm",
+  "workflow_run": 44733720381,
+  "artifact_sha256": "38155b28ec0ed4bdd9260670e71352ff2c8ac9b28922010dcfd14b88e31257ab",
+  "source_sha256": "5fbe3f68518c144e46147bfe06b7ed30f455de664cf7427d30800578a0b95ce1",
+  "probe_sha256": "7720823152f199e03cb935bac47e76d6db5c793bde993d66a72f768ec06eb307",
+  "ntdll_sha256": "3a1617c63d3a69f7f4d740bdbbe65c3d34ec28c2a7254902dc130e5b2bbe7209",
+  "source_unchanged": true,
+  "probe_unchanged": true,
+  "ntdll_unchanged": true,
+  "payload_bytes": 1232,
+  "payload_sha256": "fd1340629799e5a927f48636dd116002a7505c6ad099cb9b77dd447347b030e2",
+  "native_log": "amd64-26100-native.log",
+  "native_log_sha256": "ca8c79278cc0ca5e96b46b8dec99b890814403700f929e4b3378225256043426",
+  "rows": 1680,
+  "different_rows_from_legacy_arm64": 40
+}
