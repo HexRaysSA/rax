@@ -3873,8 +3873,13 @@ session on the host.
 
 Native ARM64, x64, and WoW64 on Windows ARM64 build 29708 agreed on the
 connection status, output publication, handle access, optional-pointer cases,
-and read-only output failures. Untested endpoint names remain outside the
-model.
+and read-only output failures for flags `0x00020000`. The installed WoW64
+account-lookup client supplied `0x40020000` at the guest entry. A direct
+x86 replay on the same build required 8-byte alignment for the optional
+receive-attribute header with that flag, after the server SID check. The
+handle output could be unaligned. A mismatched SID or a misaligned attribute
+header left both outputs unchanged. The emulator selects this variant only
+for the WoW64 entry. Untested endpoint names remain outside the model.
 
 The stock account-lookup client queries class 0 with a 16-byte output. The
 selected endpoint reports flags `0x02090000`, sequence 1, and its original

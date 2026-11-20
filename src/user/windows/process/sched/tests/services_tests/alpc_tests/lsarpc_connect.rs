@@ -56,6 +56,14 @@ fn native_lsarpc_connection_replays_selected_input_and_output_profiles() {
         STATUS_ACCESS_VIOLATION,
         STATUS_SUCCESS,
     ];
+    let wow64_expected = [
+        STATUS_SUCCESS,               // aligned receive attributes
+        STATUS_SERVER_SID_MISMATCH,   // wrong SID, aligned attributes
+        STATUS_DATATYPE_MISALIGNMENT, // receive attributes aligned to 4 bytes
+        STATUS_SERVER_SID_MISMATCH,   // wrong SID, misaligned attributes
+        STATUS_SUCCESS,               // no receive attributes
+        STATUS_SUCCESS,               // unaligned handle destination
+    ];
     for arch in WinArch::ALL {
         let (mut process, mut thread) = fixture(arch, "NtClose", CONNECT);
         let p = process.state_mut();
@@ -98,21 +106,48 @@ fn native_lsarpc_connection_replays_selected_input_and_output_profiles() {
         // different profile when the caller does not zero that padding.
         p.space.w16(port + 14, 0x5a5a).unwrap();
         let count = p.objects.handle_count();
-        for (case, expected_status) in expected.into_iter().enumerate() {
+        let extra = if arch == WinArch::X86 {
+            wow64_expected.as_slice()
+        } else {
+            &[]
+        };
+        for (case, &expected_status) in expected.iter().chain(extra).enumerate() {
             let context = format!("{arch} row {case}");
             p.vm.protect(out, PAGE_SIZE, prot::READWRITE).unwrap();
             p.vm.protect(recv, PAGE_SIZE, prot::READWRITE).unwrap();
-            let sid_rid = if case == 1 { 19 } else { 18 };
+            let sid_rid = if matches!(case, 1 | 10 | 12) { 19 } else { 18 };
+            let flags = if case >= expected.len() {
+                0x4002_0000
+            } else {
+                0x20000
+            };
+            let receive_storage = if matches!(case, 11 | 12) {
+                recv + 4
+            } else {
+                recv
+            };
+            let receive = if matches!(case, 3 | 13) {
+                0
+            } else {
+                receive_storage
+            };
+            let handle_storage = if case == 14 { out + 1 } else { out };
             p.space
                 .wr(sid, &[1, 1, 0, 0, 0, 0, 0, 5, sid_rid, 0, 0, 0])
                 .unwrap();
             p.space
                 .w32(object, if case == 5 { 0 } else { 6 * width as u32 })
                 .unwrap();
-            let valid = u32::from(case == 4);
-            p.space.w64(recv, u64::from(valid) << 32).unwrap();
-            p.space.wr(recv + 8, &[0xa5; 16]).unwrap();
-            p.space.wptr(out, width, 0x1122_3344).unwrap();
+            let valid = if case >= 11 {
+                0x1234_5678
+            } else {
+                u32::from(case == 4)
+            };
+            p.space
+                .w64(receive_storage, u64::from(valid) << 32)
+                .unwrap();
+            p.space.wr(receive_storage + 8, &[0xa5; 16]).unwrap();
+            p.space.wptr(handle_storage, width, 0x1122_3344).unwrap();
             if case == 6 {
                 p.vm.protect(out, PAGE_SIZE, prot::READONLY).unwrap();
             }
@@ -126,16 +161,16 @@ fn native_lsarpc_connection_replays_selected_input_and_output_profiles() {
                     "NtAlpcConnectPort",
                     CONNECT,
                     &[
-                        out,
+                        handle_storage,
                         name,
                         if case == 8 { 0 } else { object },
                         port,
-                        0x20000,
+                        flags,
                         if case == 2 { 0 } else { sid },
                         0,
                         0,
                         0,
-                        if case == 3 { 0 } else { recv },
+                        receive,
                         0,
                     ],
                 ),
@@ -143,19 +178,23 @@ fn native_lsarpc_connection_replays_selected_input_and_output_profiles() {
                 "{context}",
             );
             assert_eq!(thread.cpu.gpr(0), u64::from(expected_status), "{context}");
-            assert_eq!(p.space.u32(recv).unwrap(), 0, "{context}");
-            let expected_valid = if expected_status == STATUS_SUCCESS {
+            assert_eq!(p.space.u32(receive_storage).unwrap(), 0, "{context}");
+            let expected_valid = if expected_status == STATUS_SUCCESS && receive != 0 {
                 0
             } else {
                 valid
             };
-            assert_eq!(p.space.u32(recv + 4).unwrap(), expected_valid, "{context}");
             assert_eq!(
-                p.space.bytes(recv + 8, 16).unwrap(),
+                p.space.u32(receive_storage + 4).unwrap(),
+                expected_valid,
+                "{context}"
+            );
+            assert_eq!(
+                p.space.bytes(receive_storage + 8, 16).unwrap(),
                 [0xa5; 16],
                 "{context}"
             );
-            let handle = p.space.ptr(out, width).unwrap();
+            let handle = p.space.ptr(handle_storage, width).unwrap();
             if expected_status == STATUS_SUCCESS {
                 assert!(
                     matches!(p.objects.get(handle), Some(Object::LpcPort(peer)) if peer.is_lsarpc())

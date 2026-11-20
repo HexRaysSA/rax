@@ -1,5 +1,6 @@
 //! Process-local connection for the installed account-lookup RPC client.
 use super::{Connection, Ctx, Flow, Mem, Object, SYNCHRONOUS, probe_write};
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::ApiResult;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{LpcPort, LsarpcInterface};
@@ -18,9 +19,12 @@ mod translate;
 pub(super) use exchange::exchange;
 pub(super) const MAX_MESSAGE: usize = 4096;
 pub(super) const PORT_FLAGS: u32 = 0x0209_0000;
+const WOW64_SYNCHRONOUS: u32 = SYNCHRONOUS | 0x4000_0000;
 
 pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
-    if connection.flags != SYNCHRONOUS
+    // The installed x86 RPC client supplies this flag at the WoW64 entry.
+    let wow64_synchronous = c.arch() == WinArch::X86 && connection.flags == WOW64_SYNCHRONOUS;
+    if (connection.flags != SYNCHRONOUS && !wow64_synchronous)
         || connection.message != 0
         || connection.length != 0
         || connection.send != 0
@@ -53,6 +57,11 @@ pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
     // SID is a constraint on the endpoint and grants no rights to the caller.
     if connection.sid != 0 && c.mem().bytes(connection.sid, LOCAL_SYSTEM.len())? != LOCAL_SYSTEM {
         return Flow::ret(STATUS_SERVER_SID_MISMATCH.into());
+    }
+    // Under this flag the kernel checks the optional attribute header after
+    // validating the server SID and before publishing either output.
+    if wow64_synchronous && !connection.receive.is_multiple_of(8) {
+        return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
     }
     open(
         c,
