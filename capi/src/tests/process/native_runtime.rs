@@ -298,6 +298,11 @@ fn stopped_native_request(
         "NtOpenKey" if diagnostic.contains("registry key outside selected runtime snapshot") => {
             ("NtOpenKey", 2)
         }
+        "NtOpenFile"
+            if diagnostic.contains("NT metadata name outside mapped DOS drive namespace") =>
+        {
+            ("NtOpenFile", 2)
+        }
         "NtQueryLicenseValue" if diagnostic.contains("unmeasured NtQueryLicenseValue profile") => {
             ("NtQueryLicenseValue", 0)
         }
@@ -328,8 +333,8 @@ fn stopped_native_request(
     let read = |address, bytes: &mut [u8]| {
         rax_process_mem_read(process.0, address, bytes.as_mut_ptr(), bytes.len()) == RaxStatus::Ok
     };
-    if service == "NtOpenKey" {
-        // This stop is only expected for absolute keys. Resolve the native64
+    if matches!(service, "NtOpenKey" | "NtOpenFile") {
+        // These stops are expected for absolute names. Resolve the native64
         // OBJECT_ATTRIBUTES.ObjectName only when RootDirectory is null.
         let mut attributes = [0; 48];
         if !read(descriptor, &mut attributes)
