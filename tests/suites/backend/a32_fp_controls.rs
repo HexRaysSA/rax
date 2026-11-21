@@ -220,6 +220,70 @@ fn mixed_a32_fpexc_disable_precedes_higher_fp_trap() {
 }
 
 #[test]
+fn nonsecure_el2_without_el3_uses_hcr_for_lower_aarch32_fp_state() {
+    for thumb in [false, true] {
+        for mode in [ProcessorMode::Supervisor, ProcessorMode::User] {
+            for fpexc in [false, true] {
+                let mut cpu = AArch64Cpu::new(
+                    AArch64Config {
+                        initial_el: 2,
+                        gic_config: None,
+                        ..AArch64Config::default()
+                    },
+                    Box::new(Memory64::new(0, 0x4000)),
+                );
+                let mut state = cpu.export_sregs();
+                let sys = &mut state.execution.as_mut().unwrap().sysregs;
+                sys.id_aa64pfr0_el1 &= !(15 << 12); // EL3 is absent.
+                sys.scr_el3 = 0; // A raw value in the absent EL3's saved slot.
+                sys.hcr_el2 = 0; // EL1 and EL0 execute in AArch32.
+                sys.el1.cpacr = 3 << 20;
+                sys.el2.elr = 0x100;
+                let pstate = 0x1c0 | u64::from(mode as u8) | (u64::from(thumb) << 5);
+                sys.el2.spsr = pstate;
+                sys.impl_defined.insert(
+                    Aarch64SysRegEncoding::new(3, 4, 5, 3, 0).encode(),
+                    u64::from(fpexc) << 30,
+                );
+                sys.impl_defined.insert(
+                    Aarch64SysRegEncoding::new(3, 4, 1, 1, 2).encode(),
+                    1 << 10, // CPTR_EL2.TFP.
+                );
+                cpu.import_sregs(&state).unwrap();
+                cpu.write_memory(0, &0xd69f_03e0u32.to_le_bytes()).unwrap(); // ERET.
+                let word = if thumb { VADD.rotate_left(16) } else { VADD };
+                cpu.write_memory(0x100, &word.to_le_bytes()).unwrap();
+                cpu.set_pc(0);
+                assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+                assert_eq!(
+                    (cpu.get_pc(), cpu.pstate_bits() & 0x3f),
+                    (0x100, pstate & 0x3f),
+                    "Thumb={thumb} mode={mode:?} fpexc={fpexc}"
+                );
+                let before = cpu.get_simd(0);
+                let retirement = cpu.instruction_count();
+                let result = cpu.step();
+                if fpexc {
+                    assert!(matches!(
+                        result,
+                        Err(ArmError::ArchitecturalException {
+                            ec: 7,
+                            target_el: Some(2),
+                            ..
+                        })
+                    ));
+                } else {
+                    assert!(matches!(result, Err(ArmError::UndefinedInstruction(VADD))));
+                }
+                assert_eq!(cpu.get_pc(), 0x100);
+                assert_eq!(cpu.get_simd(0), before);
+                assert_eq!(cpu.instruction_count(), retirement);
+            }
+        }
+    }
+}
+
+#[test]
 fn mixed_a32_absent_simd_extensions_are_undefined_before_fp_access_traps() {
     for thumb in [false, true] {
         for raw in [

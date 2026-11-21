@@ -21,15 +21,15 @@ pub(crate) fn uses_aarch32(controls: PauthControls, pfr0: u64, el: u8) -> Option
     if !has_aarch32(pfr0, el) {
         return Some(false);
     }
-    let secure = controls.scr_el3 & 1 == 0;
+    // The modeled PE without EL3 is Non-secure. SCR_EL3 storage can still
+    // exist in its context, but it does not select the lower-EL state.
+    let have_el3 = controls.implemented_els & 8 != 0;
+    let secure = have_el3 && controls.scr_el3 & 1 == 0;
     if el == 3 || (el == 2 && secure) {
         return Some(false);
     }
     let secure_el2 = controls.secure_el2 && controls.scr_el3 & (1 << 18) != 0;
-    if controls.implemented_els & 8 != 0
-        && controls.scr_el3 & (1 << 10) == 0
-        && (!secure || !secure_el2)
-    {
+    if have_el3 && controls.scr_el3 & (1 << 10) == 0 && (!secure || !secure_el2) {
         return Some(true);
     }
     if el == 2 {
@@ -77,7 +77,6 @@ pub fn classify_exception_return(
         || el > controls.current_el
         || (el == 2 && !controls.el2_enabled())
         || (aarch32 && !has_aarch32(pfr0, el))
-        || (aarch32 && el == 2 && controls.scr_el3 & 1 == 0)
         || (el == 1 && controls.el2_enabled() && controls.hcr_el2 & (1 << 27) != 0)
     {
         return ExceptionReturnMode::Illegal;

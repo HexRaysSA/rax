@@ -579,6 +579,47 @@ software CPU passed 512 standalone and 32 mixed-width configurations.
 All 47,679 tests passed across the five owning targets on Apple Silicon
 with `smir-jit`. Physical AArch32 qualification remains open.
 
+## AArch32 execution below EL2 without EL3
+
+On the represented Non-secure PE without EL3, `HCR_EL2.RW` selects the
+EL1 execution width. With `RW=0`, guest `ERET` can enter AArch32 EL1 or
+EL0. The saved `SCR_EL3` slot has no effect on either decision. The FP
+access path uses this same EL1 width when interpreting `FPEXC.EN`. With
+EL1 in AArch32, arithmetic first checks `FPEXC.EN`, then checks
+`CPTR_EL2.TFP`. The width check uses constant time and space.
+[Arm ELStateUsingAArch32K](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L45817),
+[Arm IsSecureBelowEL3](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L46678),
+[Arm AArch32 FP access ordering](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L2086)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The no-EL3 PE implements Non-secure EL2. | Confirm that ID_AA64PFR0_EL1 reports absent EL3 and that ERET enters A32 and T32 at both lower levels with HCR_EL2.RW=0. |
+| FPEXC.EN has priority over the higher FP trap when EL1 uses AArch32. | Arm CPTR_EL2.TFP, vary FPEXC.EN, and check the exception class, destination EL, original PC, FP state, and retirement count. |
+
+On the parent, ERET loaded the expected PC but remained in AArch64 EL2h
+when the saved SCR_EL3 slot held zero. The corrected software backend
+passed all eight combinations of ARM or Thumb, EL0 or EL1, and FPEXC.EN
+clear or set. The denied FP instruction retains its PC, state, and
+retirement count in every case. The complete `a32_fp_controls`,
+`a32_fp_pairs`, `arm`, `arm_vfp_a32`, and `isa_oracle` binaries passed
+47,682 tests on Apple Silicon.
+[Owning regression](../../tests/suites/backend/a32_fp_controls.rs)
+
+QEMU 11.1.2 confirmed entry in both encodings and modes. Twelve of
+sixteen probes matched the pinned access order or its controls. QEMU
+selected the EL2 FP trap in the four combined cases with FPEXC.EN clear
+and CPTR_EL2.TFP set. With CPTR_EL2.TFP clear, QEMU distinguished local
+Undefined Instruction from a completed FP operation in all eight cases.
+The pinned QEMU translator tests the exception target before the enable
+bit, which accounts for the observed priority. The pinned Arm access order
+governs the priority case. Physical AArch32 qualification remains open.
+[QEMU v11.1.2 VFP access check](a32-fp-controls/references/qemu-11.1.2/target/arm/tcg/translate-vfp.c#L219)
+
+The unfiltered Apple Silicon library run passed 13,277 tests with zero
+failures and five ignored. It tested these source files over
+`b8e1c9b8e0a3d0023187594616c06a0756210f42` with the PC virtual-wire and
+software-disable LVT masking changes also applied.
+
 ## Original ARM audit replay
 
 The audit author's `audit_arm/repro_full_cpu.rs` ran unchanged against the

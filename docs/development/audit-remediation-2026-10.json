@@ -200255,6 +200255,16 @@
       "scope": "Software-owned PIC requests and Intel HVF window admission respect BSP LINT0 masking and ExtINT mode. Managed userspace KVM selects the direct route when its live APIC global enable is clear. The parent delivered through masked LINT0. Corrected detached software guest tests, all 36 PC interrupt tests, 12 CPU checkpoint integration tests, 10 Rosetta real-mode boot tests, and the unfiltered 13277-pass library qualify the local paths. The Linux KVM and Intel HVF owner targets type-checked.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#legacy-pic-routing-through-lapic-lint0",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-width-without-el3-2026-11-21",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Treat a PE without EL3 as Non-secure when selecting the lower execution width, ignoring the saved SCR_EL3 slot. Guest ERET enters ARM or Thumb at EL0 or EL1 under the saved HCR_EL2.RW, and FP admission applies FPEXC.EN before CPTR_EL2.TFP when EL1 uses AArch32. The parent stayed in AArch64 EL2h. The five complete ARM integration executables passed 47682 tests and the complete Apple Silicon library passed 13277 with five ignored. The pinned Arm priority controls the four QEMU differences. Physical AArch32 remains unverified.",
+      "qualification": "docs/development/a32-fp-controls.md#aarch32-execution-below-el2-without-el3",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
