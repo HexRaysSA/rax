@@ -415,6 +415,43 @@ fn pc_bsp_nmi_precedes_pic_and_lapic_at_the_same_boundary() {
 }
 
 #[test]
+fn bsp_pic_request_waits_for_unmasked_lint0_extint_when_apic_is_globally_enabled() {
+    let mut fixture = Fixture::with_retired_cpus(1);
+    prepare_retired_timer_guest(&mut fixture, 0, 0x40, &[0xf4]);
+    let vm = &mut fixture.vm;
+    for (port, byte) in [(0x20, 0x13), (0x21, 0x40), (0x21, 0x01), (0x21, 0xfe)] {
+        vm.io_bus.write(port, &[byte]).unwrap();
+    }
+    vm.pic.lock().unwrap().pulse_irq(0);
+    let set_lint0 = |vm: &mut Vmm, value: u32| {
+        vm.mmio_bus
+            .write(0xfee0_0350, &value.to_le_bytes())
+            .unwrap();
+    };
+    for lint0 in [0x1_0700, 0x51] {
+        set_lint0(vm, lint0);
+        vm.service_pc_interrupts(0).unwrap();
+        assert_eq!(vm.vcpus[0].current_pc(), BSP, "LINT0={lint0:#x}");
+        assert!(vm.pic.lock().unwrap().has_pending());
+    }
+    set_lint0(vm, 0x1_0700);
+    let file = RemoveFile::new();
+    vm.take_snapshot_bundle(0).unwrap().save(&file.0).unwrap();
+    drop(fixture);
+
+    let bundle = SnapshotBundle::load(&file.0).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut restored = Vmm::new_resume_bundle(config, &bundle).unwrap();
+    restored.service_pc_interrupts(0).unwrap();
+    assert_eq!(restored.vcpus[0].current_pc(), BSP);
+    assert!(restored.pic.lock().unwrap().has_pending());
+    set_lint0(&mut restored, 0x700);
+    restored.service_pc_interrupts(0).unwrap();
+    assert_eq!(restored.vcpus[0].current_pc(), 0xa000);
+    assert!(!restored.pic.lock().unwrap().has_pending());
+}
+
+#[test]
 fn pc_ap_nmi_precedes_lapic_at_the_same_boundary() {
     assert_pc_nmi_delivery_priority(1);
 }

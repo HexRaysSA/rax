@@ -200243,6 +200243,18 @@
       "scope": "Shared and inline LAPICs latch LVT masks on software disable and legacy checkpoint publication. Writes while disabled preserve the masks. A restored masked deadline disarms without publishing another vector, while existing IRR and ISR state survives. The shared and inline parent tests reproduced missing masks. The unfiltered Apple Silicon library passed 13277 tests with zero failures and five ignored.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#local-vector-masks-across-lapic-software-disable",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-pic-virtual-wire-lint0-2026-11-21",
+      "findings": [
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Software-owned PIC requests and Intel HVF window admission respect BSP LINT0 masking and ExtINT mode. Managed userspace KVM selects the direct route when its live APIC global enable is clear. The parent delivered through masked LINT0. Corrected detached software guest tests, all 36 PC interrupt tests, 12 CPU checkpoint integration tests, 10 Rosetta real-mode boot tests, and the unfiltered 13277-pass library qualify the local paths. The Linux KVM and Intel HVF owner targets type-checked.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#legacy-pic-routing-through-lapic-lint0",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

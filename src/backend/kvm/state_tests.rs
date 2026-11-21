@@ -129,6 +129,31 @@ fn cpu_with_irqchip_and_id(irqchip: bool, id: u32) -> (Kvm, Arc<MemoryOwner>, Na
 
 #[test]
 #[ignore = "requires native Linux KVM; executed by the KVM CI job"]
+fn userspace_pic_bypasses_virtual_wire_only_with_global_apic_disabled() {
+    let backend = KvmBackend::new().unwrap();
+    let vm = backend.create_vm().unwrap();
+    let memory = GuestMemoryWrapper::new(0x2000).unwrap();
+    let cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    let native = vm.as_any().downcast_ref::<KvmVm>().unwrap();
+    let core = native.memory.managed_cpus.lock().unwrap()[&0]
+        .upgrade()
+        .unwrap();
+    let baseline = core.lock().unwrap().vcpu_fd.get_sregs().unwrap();
+    assert_ne!(baseline.apic_base & irq::APIC_BASE_ENABLE, 0);
+    for global_enabled in [true, false, true] {
+        let mut desired = baseline;
+        if !global_enabled {
+            desired.apic_base &= !irq::APIC_BASE_ENABLE;
+        }
+        core.lock().unwrap().vcpu_fd.set_sregs(&desired).unwrap();
+        assert_eq!(cpu.pc_pic_bypasses_lint0().unwrap(), !global_enabled);
+    }
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; executed by the KVM CI job"]
 fn public_state_roundtrip_preserves_native_apic_base_and_pending_vector() {
     let (_kvm, _vm, mut cpu) = cpu();
     let mut original = cpu.vcpu_fd.get_sregs().unwrap();

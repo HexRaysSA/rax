@@ -98,12 +98,7 @@ impl Vmm {
         {
             return Ok((false, false));
         }
-        let pic_waiting = index == 0
-            && self
-                .pic
-                .lock()
-                .map_err(|_| Error::Emulator("PIC lock poisoned".into()))?
-                .has_pending();
+        let pic_waiting = index == 0 && self.bsp_pic_pending()?;
         let lapic = self
             .local_apics
             .get(index)

@@ -571,6 +571,12 @@ impl VCpu for KvmVcpu {
             .unwrap_or(false)
     }
 
+    fn pc_pic_bypasses_lint0(&self) -> Result<bool> {
+        self.with_native(
+            |core| Ok(core.vcpu_fd.get_sregs()?.apic_base & irq::APIC_BASE_ENABLE == 0),
+        )
+    }
+
     fn inject_interrupt(&mut self, vector: u8) -> Result<bool> {
         self.with_native(|core| core.native_inject_interrupt(vector))
     }

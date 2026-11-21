@@ -382,6 +382,14 @@ pub trait VCpu: Send {
         false
     }
 
+    /// Whether the PC's PIC signal bypasses the virtual-wire LINT0 route.
+    /// The fixed xAPIC profile keeps global APIC enable set. Backends admitting
+    /// writes to IA32_APIC_BASE's global enable bit report that state here.
+    #[doc(hidden)]
+    fn pc_pic_bypasses_lint0(&self) -> Result<bool> {
+        Ok(false)
+    }
+
     /// Inject a Non-Maskable Interrupt (NMI).
     /// NMIs are delivered regardless of the IF flag.
     /// Returns Ok(true) if delivered, Ok(false) if blocked (e.g., during NMI handling).

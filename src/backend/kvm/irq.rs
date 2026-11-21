@@ -15,7 +15,7 @@ const LAPIC_LVT_LINT0: usize = 0x350;
 const LVT_MASKED: u32 = 1 << 16;
 const LVT_DELIVERY_MODE: u32 = 7 << 8;
 const LVT_NMI: u32 = 4 << 8;
-const APIC_BASE_ENABLE: u64 = 1 << 11;
+pub(super) const APIC_BASE_ENABLE: u64 = 1 << 11;
 
 #[derive(Default)]
 pub(super) struct Lines {

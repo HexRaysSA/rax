@@ -281,3 +281,28 @@ The unfiltered Apple Silicon library run passed 13,277 tests with zero
 failures and five ignored. It tested these source files over
 `b8e1c9b8e0a3d0023187594616c06a0756210f42` with the virtual-wire and
 AArch32 no-EL3 changes also applied.
+
+## Legacy PIC routing through LAPIC LINT0
+
+For a software-owned PIC, the BSP accepts its IRQ through unmasked LINT0
+in ExtINT mode. In the userspace KVM profile, disabling the APIC globally
+routes the PIC directly to the BSP. Intel HVF uses the same software
+routing decision when deciding whether to request an interrupt window.
+Checking the route leaves the PIC request pending. The controller
+acknowledges it only when the BSP accepts the vector.
+[Linux v6.8 KVM virtual-wire acceptance rule](../kvm-native-private-state/references/linux-lapic-v6.8.c#L2868)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A pending PIC IRQ cannot pass masked or non-ExtINT LINT0 with the global APIC enabled. | Hold IRQ0 pending through both LINT0 settings and a detached restore. Unmask ExtINT and check the guest handler PC and the consumed PIC request. |
+| The KVM direct route follows the live APIC base. | Toggle the native global enable bit and query the BSP route through the managed vCPU. |
+
+The parent delivered IRQ0 through masked LINT0. The corrected source
+passed all 36 PC interrupt tests and all 12 CPU checkpoint integration tests
+on Apple Silicon. The Linux KVM tests and the Intel HVF owner target
+type-checked. The 10 x86-64 real-mode boot tests also passed
+under Rosetta. The unfiltered Apple Silicon library passed 13,277 tests
+with zero failures and five ignored. It tested these source files over
+`b8e1c9b8e0a3d0023187594616c06a0756210f42` with the software-disable LVT
+masking and AArch32 no-EL3 changes also applied. Native KVM execution of
+the global-enable probe is tracked separately.

@@ -27,6 +27,9 @@ impl Vmm {
         if self.poll_bsp_nmi()? {
             return Ok(true);
         }
+        if !self.bsp_pic_pending()? {
+            return Ok(false);
+        }
         let bsp = self
             .vcpus
             .first_mut()
@@ -37,6 +40,36 @@ impl Vmm {
             return pic.try_deliver_pending(|vector| bsp.inject_interrupt(vector));
         }
         Ok(false)
+    }
+
+    /// Observe both the pending source and the PC virtual-wire destination.
+    /// Release device locks before consulting native CPU state.
+    pub(super) fn bsp_pic_pending(&self) -> Result<bool> {
+        if !self
+            .pic
+            .lock()
+            .map_err(|_| Error::Emulator("BSP PIC lock poisoned".into()))?
+            .has_pending()
+        {
+            return Ok(false);
+        }
+        let controller = self
+            .local_apics
+            .first()
+            .ok_or_else(|| Error::InvalidConfig("no BSP local APIC available".into()))?;
+        let lint0 = {
+            let apic = controller
+                .lock()
+                .map_err(|_| Error::Emulator("BSP local APIC lock poisoned".into()))?;
+            routing::accepts_pic_on_lint0(&apic)
+        };
+        if lint0 {
+            return Ok(true);
+        }
+        self.vcpus
+            .first()
+            .ok_or_else(|| Error::InvalidConfig("no BSP vcpu available".into()))?
+            .pc_pic_bypasses_lint0()
     }
 
     pub(super) fn service_pc_interrupts(&mut self, index: usize) -> Result<()> {

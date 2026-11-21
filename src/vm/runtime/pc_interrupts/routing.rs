@@ -2,6 +2,13 @@
 use crate::devices::{ioapic::IoApic, lapic::LocalApic};
 use crate::error::{Error, Result};
 
+pub(super) fn accepts_pic_on_lint0(apic: &LocalApic) -> bool {
+    const LINT0: u64 = 0x350;
+    const MASK_AND_MODE: u32 = (1 << 16) | (7 << 8);
+    const EXTINT: u32 = 7 << 8;
+    apic.read_register(LINT0) & MASK_AND_MODE == EXTINT
+}
+
 fn matches_destination(apic: &LocalApic, destination: u8, logical: bool) -> bool {
     if !logical {
         return destination == 0xff || apic.apic_id() == destination;
