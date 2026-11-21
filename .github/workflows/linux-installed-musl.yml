@@ -1,0 +1,47 @@
+name: Linux installed musl
+
+on:
+  push:
+    paths:
+      - '.github/workflows/linux-installed-musl.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'capi/Cargo.toml'
+      - 'capi/src/process/**'
+      - 'capi/src/tests/process/native_runtime.rs'
+      - 'src/user/image/elf/**'
+      - 'src/user/linux/**'
+      - 'src/user/mm/**'
+      - 'src/user/supplied_fs.rs'
+      - 'src/user/supplied_fs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-musl:
+    name: Closed installed musl process (linux-x64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: linux-installed-musl
+      - name: Compare native and emulated musl execution
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+          dpkg-query -W musl musl-tools
+          work="$PWD/target/ci-linux-installed-musl"
+          mkdir -p "$work"
+          export TMPDIR="$work"
+          export RAX_LINUX_MUSL_PROGRAM="$work/musl-puts"
+          printf '%s\n' '#include <stdio.h>' 'int main(void) { puts("installed musl libc"); return 24; }' |
+            musl-gcc -x c - -o "$RAX_LINUX_MUSL_PROGRAM"
+          readlink -f /lib/ld-musl-x86_64.so.1
+          readelf -l -d "$RAX_LINUX_MUSL_PROGRAM"
+          cargo test --locked -p rax-capi --no-default-features installed_musl_matches_native_through_closed_c_abi -- --ignored --nocapture
