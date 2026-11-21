@@ -277,6 +277,19 @@ The 48-case native consumer type-checked, including four widths and
 direct and restored device reads across the fault, debug and interrupt
 boundaries above.
 
+Hosted Intel macOS 15.7.9 passed all 48 string-MMIO cases at
+`f5226139dde9541c7e7433bd2ae7dac4507c568f`. The run added eight
+two-element direct or detached device cases and twelve direct or detached
+device cases at a fault, guest debug trap, or monitor-trap and injected
+interrupt boundary. The arithmetic bits and complete observed RFLAGS
+values matched the corresponding RAM observations above. The guest
+retried each repaired page fault and completed the next element.
+The runner reported an untranslated GenuineIntel process and
+`hypervisor_guest=1`. The execution artifact SHA-256
+`73962ef0a67d6e9360ed76caf42b03d513495982d100b07d2c6ace805ec7abcd`
+and all 4,884 engine and 17 consumer and runner source hashes matched.
+[Hosted Intel device execution](https://github.com/HexRaysSA/rax/actions/runs/44811578736/job/136549223944)
+
 | Assumption | Falsification probe |
 | --- | --- |
 | A continuing element preserves entry arithmetic flags at the tested guest and host boundaries. | Start with status bits distinct from the first compare. Inspect the guest fault, debug and interrupt frames and the host monitor-trap stop after one element. |
