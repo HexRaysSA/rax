@@ -64,6 +64,62 @@ fn test_apic_enable_disable() {
     assert!(lapic.is_enabled(), "APIC should be re-enabled");
 }
 
+#[test]
+fn software_disabled_lapic_keeps_lvt_masks_and_suppresses_a_future_deadline() {
+    let lvts = [
+        LAPIC_LVT_TIMER,
+        LAPIC_LVT_THERMAL,
+        LAPIC_LVT_PMC,
+        LAPIC_LVT_LINT0,
+        LAPIC_LVT_LINT1,
+        LAPIC_LVT_ERROR,
+    ];
+    for legacy in [false, true] {
+        let mut source = LocalApic::new(0);
+        for register in lvts {
+            source.write_register(register, 0x51);
+        }
+        source.write_register(LAPIC_LVT_TIMER, 0x4_0051);
+        source.deadline_handle().write(25);
+        source.set_irr(0x62);
+        source.set_irr(0x63);
+        source.ack_interrupt(0x63);
+        if legacy {
+            // A historical producer retained the unmasked LVTs under SVR=0xff.
+            source.svr = 0xff;
+        } else {
+            source.write_register(LAPIC_SVR, 0xff);
+            for register in lvts {
+                assert_ne!(
+                    source.read_register(register) & LVT_MASK,
+                    0,
+                    "{register:#x}"
+                );
+            }
+        }
+        let snapshot = source.checkpoint_at(Instant::now());
+        let mut restored = LocalApic::new(0);
+        let bound_deadline = restored.deadline_handle();
+        restored.replace_state(snapshot.prepare(Instant::now()));
+        assert_eq!(bound_deadline.read(), 25);
+        for register in lvts {
+            let masked = restored.read_register(register);
+            assert_ne!(masked & LVT_MASK, 0, "{register:#x}");
+            restored.write_register(register, masked & !LVT_MASK);
+            assert_eq!(restored.read_register(register), masked);
+        }
+        bound_deadline.expire(25);
+        assert_eq!(bound_deadline.read(), 0);
+        assert_eq!(bound_deadline.take_pending(), [0; 4]);
+        restored.write_register(LAPIC_SVR, 0x1ff);
+        for register in lvts {
+            assert_ne!(restored.read_register(register) & LVT_MASK, 0);
+        }
+        assert_eq!(restored.get_pending_vector(), Some(0x62));
+        assert_eq!(restored.isr[3], 1 << (0x63 % 32));
+    }
+}
+
 // ============================================================================
 // REGISTER READ/WRITE TESTS
 // ============================================================================

@@ -200232,6 +200232,17 @@
       "scope": "An I/O APIC NMI can transfer to a software-disabled local APIC. Detached software x86 VMM execution on one, two and four vCPUs verifies the destination, actual handler entry and return, and conservation of a separate pending fixed interrupt. The parent failed at the NMI transfer.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#io-apic-nmi-routing-with-lapic-software-disable",
       "full_goal_complete": false
+    },
+    {
+      "id": "lapic-software-disable-lvt-masks-2026-11-20",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Shared and inline LAPICs latch LVT masks on software disable and legacy checkpoint publication. Writes while disabled preserve the masks. A restored masked deadline disarms without publishing another vector, while existing IRR and ISR state survives. The shared and inline parent tests reproduced missing masks. The unfiltered Apple Silicon library passed 13277 tests with zero failures and five ignored.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#local-vector-masks-across-lapic-software-disable",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

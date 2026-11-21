@@ -284,6 +284,9 @@ impl LocalApic {
 
     /// Keep CPU bindings live when replacing captured controller state.
     pub(crate) fn replace_state(&mut self, mut restored: Self) {
+        if !restored.is_enabled() {
+            restored.mask_local_vectors();
+        }
         restored
             .timer_clock
             .retain_target_binding(&self.timer_clock);
@@ -292,6 +295,15 @@ impl LocalApic {
         std::mem::swap(&mut restored.lvt_timer, &mut self.lvt_timer);
         restored.lvt_timer.restore_from(&self.lvt_timer);
         *self = restored;
+    }
+
+    fn mask_local_vectors(&mut self) {
+        self.lvt_timer.mask();
+        self.lvt_thermal |= LVT_MASK;
+        self.lvt_pmc |= LVT_MASK;
+        self.lvt_lint0 |= LVT_MASK;
+        self.lvt_lint1 |= LVT_MASK;
+        self.lvt_error |= LVT_MASK;
     }
 
     /// Get the timer divisor from the divide configuration register
@@ -826,6 +838,7 @@ impl LocalApic {
     }
 
     pub(crate) fn write_register(&mut self, offset: u64, value: u32) {
+        let lvt_mask = if self.is_enabled() { 0 } else { LVT_MASK };
         match offset {
             LAPIC_ID => {
                 // ID is in bits 24-31
@@ -847,7 +860,10 @@ impl LocalApic {
             LAPIC_SVR => {
                 let was_enabled = self.is_enabled();
                 self.svr = value;
-                if !was_enabled && self.is_enabled() {
+                if !self.is_enabled() {
+                    // Intel SDM 3A 12.4.7.2: software disable latches every LVT mask.
+                    self.mask_local_vectors();
+                } else if !was_enabled {
                     // APIC just got enabled
                     tracing::debug!("LAPIC enabled, SVR={:#x}", value);
                 }
@@ -865,6 +881,7 @@ impl LocalApic {
                 self.icr = (self.icr & 0x00000000FFFFFFFF) | ((value as u64) << 32);
             }
             LAPIC_LVT_TIMER => {
+                let value = value | lvt_mask;
                 let old_mode = self.timer_mode();
                 self.lvt_timer.write(value);
                 if old_mode != self.timer_mode()
@@ -883,19 +900,19 @@ impl LocalApic {
                 );
             }
             LAPIC_LVT_THERMAL => {
-                self.lvt_thermal = value;
+                self.lvt_thermal = value | lvt_mask;
             }
             LAPIC_LVT_PMC => {
-                self.lvt_pmc = value;
+                self.lvt_pmc = value | lvt_mask;
             }
             LAPIC_LVT_LINT0 => {
-                self.lvt_lint0 = value;
+                self.lvt_lint0 = value | lvt_mask;
             }
             LAPIC_LVT_LINT1 => {
-                self.lvt_lint1 = value;
+                self.lvt_lint1 = value | lvt_mask;
             }
             LAPIC_LVT_ERROR => {
-                self.lvt_error = value;
+                self.lvt_error = value | lvt_mask;
             }
             LAPIC_TIMER_ICR => {
                 if self.timer_mode() == TIMER_MODE_TSC_DEADLINE {

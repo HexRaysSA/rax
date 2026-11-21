@@ -253,3 +253,31 @@ The parent failed at the NMI transfer. All 35 PC interrupt tests passed
 after the fix on Apple Silicon, exercising the shared software controller
 and the software x86 guest backend. Native HVF event injection and the
 separate global APIC disable control require their own validation.
+
+## Local vector masks across LAPIC software disable
+
+Clearing the software-enable bit sets every modeled LVT mask. LVT writes
+while disabled preserve the mask, and re-enabling leaves the LVT masked
+until the guest explicitly unmasks it. This applies to the shared controller
+and the inline x86 controller. Restoring an older disabled controller also
+sets its masks at publication. An armed TSC deadline that expires after
+publication clears without creating a new pending vector.
+[Intel SDM Volume 3A, section 12.4.7.2](https://cdrdv2-public.intel.com/835781/325462-sdm-vol-1-2abcd-3abcd-4.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| LVT masks survive disable, a write while disabled, and subsequent enable. | Read each modeled LVT across all three transitions. Repeat with a restored legacy image that contains unmasked entries. |
+| A future masked deadline cannot generate an interrupt. | Bind the deadline handle before restoring, expire the saved deadline after publication, and require the existing IRR and ISR bits to remain intact without a new timer vector. |
+
+The register updates use constant time and storage. Both mask regressions
+failed on the parent. The corrected sources passed all 130 LAPIC tests,
+six inline checkpoint tests, three deadline codec tests and 12 CPU checkpoint
+integration tests. The 10 x86-64 real-mode boot tests passed under Rosetta
+with the virtual-wire routing change also applied. The Intel HVF library and
+owner target type-checked for `x86_64-apple-darwin`. Independent native
+countdown phase and bare-metal Intel timing remain open.
+
+The unfiltered Apple Silicon library run passed 13,277 tests with zero
+failures and five ignored. It tested these source files over
+`b8e1c9b8e0a3d0023187594616c06a0756210f42` with the virtual-wire and
+AArch32 no-EL3 changes also applied.

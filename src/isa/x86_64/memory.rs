@@ -203,6 +203,7 @@ impl InlineLapic {
     }
 
     fn write(&mut self, offset: u64, value: u32) {
+        let lvt_mask = if self.is_enabled() { 0 } else { LVT_MASK };
         match offset {
             LAPIC_ID => self.id = value & 0xFF000000,
             LAPIC_TPR => self.tpr.store(value & 0xFF),
@@ -221,11 +222,17 @@ impl InlineLapic {
             }
             LAPIC_LDR => self.ldr = value,
             LAPIC_DFR => self.dfr = value,
-            LAPIC_SVR => self.svr = value,
+            LAPIC_SVR => {
+                self.svr = value;
+                if !self.is_enabled() {
+                    self.mask_local_vectors();
+                }
+            }
             LAPIC_ESR => self.esr = 0,
             LAPIC_ICR_LOW => self.icr = (self.icr & 0xFFFFFFFF00000000) | (value as u64),
             LAPIC_ICR_HIGH => self.icr = (self.icr & 0x00000000FFFFFFFF) | ((value as u64) << 32),
             LAPIC_LVT_TIMER => {
+                let value = value | lvt_mask;
                 tracing::debug!(
                     "LAPIC LVT_TIMER write: value={:#x}, vector={}, mode={}, masked={}",
                     value,
@@ -235,9 +242,9 @@ impl InlineLapic {
                 );
                 self.lvt_timer = value;
             }
-            LAPIC_LVT_LINT0 => self.lvt_lint0 = value,
-            LAPIC_LVT_LINT1 => self.lvt_lint1 = value,
-            LAPIC_LVT_ERROR => self.lvt_error = value,
+            LAPIC_LVT_LINT0 => self.lvt_lint0 = value | lvt_mask,
+            LAPIC_LVT_LINT1 => self.lvt_lint1 = value | lvt_mask,
+            LAPIC_LVT_ERROR => self.lvt_error = value | lvt_mask,
             LAPIC_TIMER_ICR => {
                 eprintln!(
                     "[LAPIC] TIMER_ICR write: count={:#x}, lvt_timer={:#x}, divisor={}, masked={}",
@@ -258,6 +265,13 @@ impl InlineLapic {
             LAPIC_TIMER_DCR => self.timer_divide_config = value & 0xB,
             _ => {}
         }
+    }
+
+    fn mask_local_vectors(&mut self) {
+        self.lvt_timer |= LVT_MASK;
+        self.lvt_lint0 |= LVT_MASK;
+        self.lvt_lint1 |= LVT_MASK;
+        self.lvt_error |= LVT_MASK;
     }
 
     fn is_enabled(&self) -> bool {

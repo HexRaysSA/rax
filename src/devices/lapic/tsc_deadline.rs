@@ -126,6 +126,10 @@ impl TimerLvt {
         state.lvt = value;
     }
 
+    pub(crate) fn mask(&self) {
+        self.0.state().lvt |= MASK;
+    }
+
     pub(crate) fn handle(&self) -> Handle {
         self.0.clone()
     }

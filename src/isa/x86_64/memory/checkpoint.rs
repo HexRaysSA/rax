@@ -167,6 +167,9 @@ impl MmuContext {
         result.refresh_ram_fast_limit();
         result.flat = target.flat.clone();
         let mut lapic = self.lapic;
+        if !lapic.is_enabled() {
+            lapic.mask_local_vectors();
+        }
         if let Some(age) = self.timer_age_nanos {
             lapic.timer_start_nanos = Some(crate::vm::timing::elapsed_nanos());
             lapic.timer_elapsed_base = age;

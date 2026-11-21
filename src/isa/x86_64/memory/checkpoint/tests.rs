@@ -39,6 +39,39 @@ fn inline_lapic_restores_over_cold_target_ram_bindings() {
 }
 
 #[test]
+fn software_disabled_inline_lapic_keeps_lvt_masks_across_checkpoint_restore() {
+    const SVR: u64 = 0xf0;
+    const MASK: u32 = 1 << 16;
+    let registers = [0x320, 0x350, 0x360, 0x370];
+    for legacy in [false, true] {
+        let source = mmu();
+        for register in registers {
+            write_register(&source, register, 0x51);
+        }
+        if legacy {
+            source.lapic.borrow_mut().svr = 0xff;
+        } else {
+            write_register(&source, SVR, 0xff);
+            for register in registers {
+                assert_eq!(read_register(&source, register), MASK | 0x51);
+            }
+        }
+        let restored = decode(&encoded(&source)).prepare(&mmu()).unwrap();
+        for register in registers {
+            assert_eq!(read_register(&restored, register), MASK | 0x51);
+            write_register(&restored, register, 0x53);
+            assert_eq!(read_register(&restored, register), MASK | 0x53);
+        }
+        write_register(&restored, SVR, 0x1ff);
+        for register in registers {
+            assert_eq!(read_register(&restored, register), MASK | 0x53);
+            write_register(&restored, register, 0x55);
+            assert_eq!(read_register(&restored, register), 0x55);
+        }
+    }
+}
+
+#[test]
 fn buffered_guest_accesses_keep_order_and_are_drained_once() {
     let mut source = mmu();
     source.set_mem_recording(true);
