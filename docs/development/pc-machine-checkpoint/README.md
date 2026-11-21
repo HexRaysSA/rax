@@ -304,5 +304,12 @@ type-checked. The 10 x86-64 real-mode boot tests also passed
 under Rosetta. The unfiltered Apple Silicon library passed 13,277 tests
 with zero failures and five ignored. It tested these source files over
 `b8e1c9b8e0a3d0023187594616c06a0756210f42` with the software-disable LVT
-masking and AArch32 no-EL3 changes also applied. Native KVM execution of
-the global-enable probe is tracked separately.
+masking and AArch32 no-EL3 changes also applied.
+
+The hosted Linux x64 KVM job on
+`e216d408230714d8a7b3023ca8fa221db39b1134` exercised the managed vCPU
+with the hardware APIC global-enable bit set, clear, and set again.
+The probe passed alongside all 18 KVM state tests. The job also passed
+all 15 native minimal and 32 native SMP cases. The job log SHA-256 is
+`0270d48adc189dc17740b868825055997164393ce17ed4656ba7c96efe6a472d`.
+[Hosted KVM execution](https://github.com/HexRaysSA/rax/actions/runs/44902538835/job/136841268421)

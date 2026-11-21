@@ -200252,7 +200252,7 @@
         "C-HVF"
       ],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Software-owned PIC requests and Intel HVF window admission respect BSP LINT0 masking and ExtINT mode. Managed userspace KVM selects the direct route when its live APIC global enable is clear. The parent delivered through masked LINT0. Corrected detached software guest tests, all 36 PC interrupt tests, 12 CPU checkpoint integration tests, 10 Rosetta real-mode boot tests, and the unfiltered 13277-pass library qualify the local paths. The Linux KVM and Intel HVF owner targets type-checked.",
+      "scope": "Software-owned PIC requests and Intel HVF window admission respect BSP LINT0 masking and ExtINT mode. Managed userspace KVM selects the direct route when its live APIC global enable is clear. The parent delivered through masked LINT0. Corrected detached software guest tests, all 36 PC interrupt tests, 12 CPU checkpoint integration tests, 10 Rosetta real-mode boot tests, and the unfiltered 13277-pass library qualify the local paths. The Linux KVM and Intel HVF owner targets type-checked. Hosted KVM run 44902538835 at e216d408 verified the global APIC enable switch and passed all 18 KVM state, 15 minimal and 32 SMP cases.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#legacy-pic-routing-through-lapic-lint0",
       "full_goal_complete": false
     },
