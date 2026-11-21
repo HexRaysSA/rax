@@ -200265,6 +200265,17 @@
       "scope": "Treat a PE without EL3 as Non-secure when selecting the lower execution width, ignoring the saved SCR_EL3 slot. Guest ERET enters ARM or Thumb at EL0 or EL1 under the saved HCR_EL2.RW, and FP admission applies FPEXC.EN before CPTR_EL2.TFP when EL1 uses AArch32. The parent stayed in AArch64 EL2h. The five complete ARM integration executables passed 47682 tests and the complete Apple Silicon library passed 13277 with five ignored. The pinned Arm priority controls the four QEMU differences. Physical AArch32 remains unverified.",
       "qualification": "docs/development/a32-fp-controls.md#aarch32-execution-below-el2-without-el3",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-repeated-scas-2026-11-21",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "REPE and REPNE SCAS complete one translated MMIO read per iteration. Continuation preserves entry arithmetic flags and retains the updated address-sized index and count. A detached pending read validates the saved continuation. The parent portable planner rejected the encoding. The candidate passed 120 portable MMIO, 16 workflow, and 99 simulated Intel owner tests. Hosted Intel run 44811578736 at f5226139d passed all 48 native cases with matching source and archive hashes. Guest page-fault and single-step frames, the host monitor-trap state, and a post-monitor injected interrupt matched full observed RFLAGS for RAM, direct MMIO, and detached MMIO. Bare-metal Intel macOS, compatibility-mode device exits, and free-running interrupt timing remain open.",
+      "qualification": "docs/development/hvf-mmio-alu-read.md#device-read-continuation",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
