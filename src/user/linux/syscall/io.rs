@@ -57,6 +57,11 @@ pub(super) fn wait_ready(c: &mut Ctx<'_>, file: &OpenFile, write: bool, resume: 
     if c.signal_pending() {
         return Errno(ERESTARTSYS);
     }
+    if let FileObject::GuestPipe(end) = &file.object {
+        let mut wait = Wait::event();
+        wait.pipes.push(end.wait());
+        return c.block(wait, resume);
+    }
     match raw_fd(file) {
         Some(fd) => c.block(Wait::fd(fd, !write, write), resume),
         None => Errno(EAGAIN),
@@ -105,6 +110,7 @@ fn pipe_moved(ok: u64, total: u64) -> u64 {
 /// An empty pipe keeps `room`, so the read waits for data as usual.
 fn pipe_read_room(file: &OpenFile, room: u64, count: u64) -> u64 {
     let avail: Result<i32, Errno> = match &file.object {
+        FileObject::GuestPipe(end) => return end.read_room(room, count),
         #[cfg(unix)]
         FileObject::PipeRead(p) => host::bytes_readable(p),
         #[cfg(unix)]
@@ -179,6 +185,9 @@ fn read_into(
     count: u64,
     pos: Option<u64>,
 ) -> SysResult {
+    if matches!(file.object, FileObject::GuestPipe(_)) {
+        check_pipe_access(file.readable(), pos)?;
+    }
     if let Some(device) = file.device() {
         let count = device_transfer(c, file.readable(), buf, count, pos)?;
         return match device {
@@ -204,6 +213,7 @@ fn read_into(
 /// slept; a signal ends the write with the bytes written so far, or
 /// `-ERESTARTSYS` when there are none.
 fn write_bytes(c: &mut Ctx<'_>, file: &OpenFile, data: &[u8], pos: Option<u64>) -> SysResult {
+    let guest_pipe = matches!(file.object, FileObject::GuestPipe(_));
     let waits =
         pos.is_none() && may_block(file) && matches!(file.ftype, FileType::Fifo | FileType::Socket);
     let mut done = match c.resume.take() {
@@ -226,7 +236,12 @@ fn write_bytes(c: &mut Ctx<'_>, file: &OpenFile, data: &[u8], pos: Option<u64>) 
             }
             return Err(wait_ready(c, file, true, Resume::Written(done as u64)));
         }
-        let chunk = &data[done..(done + CHUNK).min(data.len())];
+        let end = if guest_pipe {
+            data.len()
+        } else {
+            (done + CHUNK).min(data.len())
+        };
+        let chunk = &data[done..end];
         let n = match pos {
             Some(p) => file.write_at(chunk, p + done as u64),
             None => file.write(chunk),
@@ -244,7 +259,17 @@ fn write_bytes(c: &mut Ctx<'_>, file: &OpenFile, data: &[u8], pos: Option<u64>) 
                 continue;
             }
             // The room another writer took: wait for more.
+            Err(Errno(EAGAIN)) if waits && guest_pipe => {
+                if (c.nowait || c.signal_pending()) && done > 0 {
+                    return Ok(done as u64);
+                }
+                return Err(wait_ready(c, file, true, Resume::Written(done as u64)));
+            }
             Err(Errno(EAGAIN)) if waits => continue,
+            Err(Errno(EPIPE)) if guest_pipe && done > 0 => {
+                c.send_sigpipe();
+                return Ok(done as u64);
+            }
             Err(e) if done > 0 && e.0 != EPIPE => return Ok(done as u64),
             Err(e) => return Err(e),
         };
@@ -265,6 +290,9 @@ fn write_from(
     count: u64,
     pos: Option<u64>,
 ) -> SysResult {
+    if matches!(file.object, FileObject::GuestPipe(_)) {
+        check_pipe_access(file.writable(), pos)?;
+    }
     if file.device().is_some() {
         return device_transfer(c, file.writable(), buf, count, pos);
     }
@@ -281,6 +309,16 @@ fn write_from(
     }
     let data = c.read_mem(buf, readable as usize)?;
     write_bytes(c, file, &data, pos)
+}
+
+fn check_pipe_access(allowed: bool, pos: Option<u64>) -> Result<(), Errno> {
+    if !allowed {
+        return Err(Errno(EBADF));
+    }
+    if pos.is_some() {
+        return Err(Errno(ESPIPE));
+    }
+    Ok(())
 }
 
 /// Checks the VFS address range and positional limit before calling a device.
@@ -484,6 +522,9 @@ pub(super) fn readv_file(
     iovecs: &[(u64, u64)],
     pos: Option<u64>,
 ) -> SysResult {
+    if matches!(file.object, FileObject::GuestPipe(_)) {
+        check_pipe_access(file.readable(), pos)?;
+    }
     let total: u64 = iovecs.iter().map(|&(_, l)| l).sum();
     if let Some(device) = file.device() {
         if !file.readable() {
@@ -543,6 +584,9 @@ pub(super) fn writev_file(
     vecs: &[(u64, u64)],
     pos: Option<u64>,
 ) -> SysResult {
+    if matches!(file.object, FileObject::GuestPipe(_)) {
+        check_pipe_access(file.writable(), pos)?;
+    }
     #[cfg(unix)]
     if file.is_socket() {
         return super::net::io::write(c, file, vecs);
@@ -839,7 +883,6 @@ pub fn dup3(c: &mut Ctx<'_>, old: i32, new: i32, flags: u32) -> SysResult {
 }
 
 /// `pipe`/`pipe2`.
-#[cfg(unix)]
 pub fn pipe2(c: &mut Ctx<'_>, fds: u64, flags: u32) -> SysResult {
     let (rf, wf) = pipe_files(c, flags)?;
     let cloexec = flags & O_CLOEXEC != 0;
@@ -867,7 +910,6 @@ pub fn pipe2(c: &mut Ctx<'_>, fds: u64, flags: u32) -> SysResult {
 /// a new pipe, for `O_CLOEXEC`, `O_NONBLOCK`, `O_DIRECT`, and
 /// `O_NOTIFICATION_PIPE` (others are `EINVAL`). A notification pipe needs
 /// `CONFIG_WATCH_QUEUE`, which the kernel modelled lacks (`ENOPKG`).
-#[cfg(unix)]
 pub(super) fn pipe_files(c: &Ctx<'_>, flags: u32) -> Result<(Arc<OpenFile>, Arc<OpenFile>), Errno> {
     let direct = c.p.abi.open_flags().direct;
     let notification = O_EXCL;
@@ -877,6 +919,21 @@ pub(super) fn pipe_files(c: &Ctx<'_>, flags: u32) -> Result<(Arc<OpenFile>, Arc<
     if flags & notification != 0 {
         return Err(Errno(ENOPKG));
     }
+    if !c.p.config.host_services {
+        return c.p.fds.open_pipe(
+            flags & (O_NONBLOCK | direct),
+            direct,
+            (c.p.creds.1, c.p.creds.3),
+        );
+    }
+    #[cfg(unix)]
+    return host_pipe_files(flags);
+    #[cfg(not(unix))]
+    Err(Errno(EPERM))
+}
+
+#[cfg(unix)]
+fn host_pipe_files(flags: u32) -> Result<(Arc<OpenFile>, Arc<OpenFile>), Errno> {
     let (r, w) = std::io::pipe()?;
     // The guest's O_NONBLOCK lives in the status flags; the host ends
     // never block (see set_host_nonblocking).

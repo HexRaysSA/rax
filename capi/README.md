@@ -743,6 +743,11 @@ Darwin uses those records for `/usr/lib/dyld` and shared caches too. Missing
 interpreters fail during open. There is no host file, socket, process, or IPC
 fallback in the default supplied profile.
 
+Closed Linux supports anonymous `pipe` and `pipe2` descriptors, including
+packet mode, blocking and nonblocking I/O, close-on-exec, and readiness through
+`poll` and `epoll`. Buffers are guest-owned and reserve up to 64 MiB per guest
+process. Individual pipes default to 64 KiB and can be resized up to 1 MiB.
+
 ABI 1.11 adds `"native_runtime":true`. It explicitly selects read-only installed
 runtime files on the matching host OS: Linux library roots and optional
 `/etc/ld.so.cache`, macOS `/usr/lib/dyld`, installed split shared caches and

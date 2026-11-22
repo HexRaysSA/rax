@@ -227,6 +227,20 @@ fn installed_cat_reads_guest_null_through_closed_c_abi() {
     compare_installed_posix_output("linux", "/bin/cat", &["/dev/null"], b"");
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "run explicitly with a dynamically linked fixture on Linux"]
+fn installed_libc_pipe_matches_native_through_closed_c_abi() {
+    let path = std::env::var("RAX_LINUX_INSTALLED_PIPE").expect("path to the pipe fixture");
+    let elf = std::fs::read(&path).unwrap();
+    let elf = rax_engine::user::image::elf::ElfImage::parse_self_described(&elf).unwrap();
+    assert!(
+        elf.interpreter().is_some(),
+        "fixture must be dynamically linked"
+    );
+    compare_installed_posix_output("linux", &path, &[], b"guest pipe through installed libc\n");
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn installed_head_reads_guest_zero_through_closed_c_abi() {

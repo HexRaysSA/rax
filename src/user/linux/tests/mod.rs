@@ -14,6 +14,7 @@ mod bounded;
 #[cfg(unix)]
 mod console;
 mod debug_step;
+mod embedded_pipes;
 mod entry;
 #[cfg(unix)]
 mod epoll;

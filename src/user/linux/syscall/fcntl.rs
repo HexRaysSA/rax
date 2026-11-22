@@ -115,6 +115,13 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
         F_SETOWN | F_SETSIG => c.p.fds.get(fd).map(|_| 0),
         F_GETPIPE_SZ | F_SETPIPE_SZ => {
             let file = c.p.fds.file(fd)?;
+            if let FileObject::GuestPipe(end) = &file.object {
+                return if cmd == F_GETPIPE_SZ {
+                    Ok(end.capacity() as u64)
+                } else {
+                    end.resize(arg as u32).map(|size| size as u64)
+                };
+            }
             if file.ftype != FileType::Fifo {
                 return Err(Errno(EBADF));
             }
@@ -148,7 +155,7 @@ pub(super) fn set_host_nonblocking(file: &OpenFile, on: bool) -> Result<(), Errn
         FileObject::Host(_) => Err(Errno(EPERM)),
         #[cfg(unix)]
         FileObject::Host(f) => host::set_nonblocking(f, on),
-        FileObject::PipeRead(_) | FileObject::PipeWrite(_) => Ok(()),
+        FileObject::PipeRead(_) | FileObject::PipeWrite(_) | FileObject::GuestPipe(_) => Ok(()),
         #[cfg(unix)]
         FileObject::Socket(_) => Ok(()),
         FileObject::Console { .. }
@@ -260,6 +267,7 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
                 FileObject::Host(f) => host::bytes_readable(f)?,
                 #[cfg(unix)]
                 FileObject::PipeRead(p) => host::bytes_readable(p)?,
+                FileObject::GuestPipe(end) => end.queued() as i32,
                 FileObject::Console {
                     console,
                     stream: None,

@@ -220,15 +220,22 @@ pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
             let h = file.host_path.as_ref().ok_or(Errno(EBADF))?;
             Ok(fs::stat_from_metadata(&std::fs::symlink_metadata(h)?))
         }
-        FileObject::PipeRead(_) | FileObject::PipeWrite(_) => Ok(Stat {
-            dev_minor: 0xe,
-            mode: mode::S_IFIFO | 0o600,
-            nlink: 1,
-            uid: ids.0,
-            gid: ids.1,
-            blksize: 4096,
-            ..Default::default()
-        }),
+        FileObject::PipeRead(_) | FileObject::PipeWrite(_) | FileObject::GuestPipe(_) => {
+            let (ino, (uid, gid)) = match &file.object {
+                FileObject::GuestPipe(end) => (end.inode(), end.owner()),
+                _ => (0, ids),
+            };
+            Ok(Stat {
+                dev_minor: 0xe,
+                ino,
+                mode: mode::S_IFIFO | 0o600,
+                nlink: 1,
+                uid,
+                gid,
+                blksize: 4096,
+                ..Default::default()
+            })
+        }
         // pidfs_init_inode: mode 0700 shown without a file type
         // (anon_inode_getattr), owned by root, one inode per task.
         FileObject::Anon(super::super::fs::anon::Anon::Pid(t)) => Ok(Stat {
@@ -1231,6 +1238,8 @@ const EXT4_SUPER_MAGIC: u64 = 0xEF53;
 const PROC_SUPER_MAGIC: u64 = 0x9fa0;
 /// `RAMFS_MAGIC` (`include/uapi/linux/magic.h`), mounted read-only here.
 const RAMFS_MAGIC: u64 = 0x8584_58f6;
+/// `PIPEFS_MAGIC` for guest-owned anonymous pipes.
+const PIPEFS_MAGIC: u64 = 0x5049_5045;
 /// `ST_VALID` (`f_flags` is meaningful).
 const ST_VALID: u64 = 0x20;
 
@@ -1300,6 +1309,7 @@ pub(super) fn statfs_fd(c: &Ctx<'_>, fd: i32) -> Result<Kstatfs, Errno> {
         None if super::pidfd::target_of(&file).is_some() => {
             synthetic_fs(super::pidfd::PID_FS_MAGIC)
         }
+        None if matches!(file.object, FileObject::GuestPipe(_)) => synthetic_fs(PIPEFS_MAGIC),
         None => synthetic_fs(PROC_SUPER_MAGIC),
     })
 }

@@ -142,6 +142,7 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
                 let (polled, w) = super::events::poll(c, anon, events);
                 out[i] = polled;
                 wait.fds.extend(w.fds);
+                wait.pipes.extend(w.pipes);
                 wait.signals |= w.signals;
                 wait.deadline = earlier(wait.deadline, w.deadline);
             }
@@ -160,6 +161,11 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
                 };
             }
             FileObject::PathOnly => out[i].mask = ev::NVAL,
+            FileObject::GuestPipe(end) => {
+                let (polled, changed) = end.poll();
+                out[i] = polled;
+                wait.pipes.push(changed);
+            }
             FileObject::Mqueue(h) => {
                 let (polled, w) = super::mqueue::poll(h);
                 out[i] = polled;

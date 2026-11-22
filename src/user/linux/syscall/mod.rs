@@ -457,9 +457,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Dup3 => r(io::dup3(c, fd(a[0]), fd(a[1]), a[2] as u32)),
         S::Fcntl => r(fcntl::fcntl(c, fd(a[0]), a[1] as u32, a[2])),
         S::Ioctl => r(fcntl::ioctl(c, fd(a[0]), a[1] as u32, a[2])),
-        #[cfg(unix)]
         S::Pipe => r(io::pipe2(c, a[0], 0)),
-        #[cfg(unix)]
         S::Pipe2 => r(io::pipe2(c, a[0], a[1] as u32)),
         S::Poll => io::poll(c, a[0], a[1], a[2] as i32 as i64),
         S::Ppoll => io::ppoll(c, a[0], a[1], a[2], a[3], a[4]),

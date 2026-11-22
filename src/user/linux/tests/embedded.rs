@@ -84,7 +84,6 @@ fn closed_linux_identity_console_and_external_service_denial_all_abis() {
             Sysno::Mount,
             Sysno::Fork,
             Sysno::Vfork,
-            Sysno::Pipe2,
         ] {
             if abi.number(syscall).is_some() {
                 assert_eq!(

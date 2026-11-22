@@ -192,7 +192,7 @@ fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
         }
         #[cfg(not(unix))]
         FileObject::PathOnly => Err(Errno(EPERM)),
-        FileObject::PipeRead(_) | FileObject::PipeWrite(_) => {
+        FileObject::PipeRead(_) | FileObject::PipeWrite(_) | FileObject::GuestPipe(_) => {
             pseudo(Pseudo::Pipe, mode::S_IFIFO | 0o600)
         }
         #[cfg(unix)]

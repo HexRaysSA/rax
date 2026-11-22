@@ -48,7 +48,9 @@ fn mount_id(file: &OpenFile) -> i32 {
         FileObject::Host(_) if file.memfd.is_some() => mnt::SHM,
         FileObject::Host(_) | FileObject::PathOnly | FileObject::Console { .. } => mnt::ROOT,
         FileObject::Synthetic(_) | FileObject::Supplied(_) => mnt::PROC,
-        FileObject::PipeRead(_) | FileObject::PipeWrite(_) => mnt::PIPEFS,
+        FileObject::PipeRead(_) | FileObject::PipeWrite(_) | FileObject::GuestPipe(_) => {
+            mnt::PIPEFS
+        }
         #[cfg(unix)]
         FileObject::Socket(_) => mnt::SOCKFS,
         FileObject::Anon(Anon::Pid(_)) => mnt::PIDFS,

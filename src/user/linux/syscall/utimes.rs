@@ -72,6 +72,7 @@ fn file_times(c: &Ctx<'_>, file: &OpenFile, t: [SetTime; 2]) -> SysResult {
         FileObject::Socket(_) => {}
         FileObject::PipeRead(_)
         | FileObject::PipeWrite(_)
+        | FileObject::GuestPipe(_)
         | FileObject::Synthetic(_)
         | FileObject::Supplied(_) => {}
     }

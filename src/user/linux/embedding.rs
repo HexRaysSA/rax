@@ -70,6 +70,8 @@ pub fn permits(s: Sysno) -> bool {
             | S::Dup
             | S::Dup2
             | S::Dup3
+            | S::Pipe
+            | S::Pipe2
             | S::Fcntl
             | S::Fcntl64
             | S::Ioctl

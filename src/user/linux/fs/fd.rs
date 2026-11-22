@@ -15,6 +15,10 @@ use super::super::abi::errno_table::*;
 use super::super::abi::open::*;
 
 mod mapping;
+mod pipe;
+
+pub use pipe::PipeEnd;
+pub(crate) use pipe::PipeWait;
 
 /// A directory entry captured for `getdents64`.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,6 +66,8 @@ pub enum FileObject {
     PipeRead(std::io::PipeReader),
     /// The write end of a pipe.
     PipeWrite(std::io::PipeWriter),
+    /// One end of an anonymous pipe with guest-owned storage.
+    GuestPipe(PipeEnd),
     /// Synthesized read-only content (`/proc` files and directories).
     Synthetic(Arc<[u8]>),
     /// Guest namespace entry, including demand-read selected backing and the
@@ -164,6 +170,7 @@ impl Drop for OpenFile {
         match self.object {
             FileObject::PipeWrite(_) => self.wake_peer(0x010),
             FileObject::PipeRead(_) => self.wake_peer(0x008),
+            FileObject::GuestPipe(ref end) => self.wake_peer(end.close()),
             _ => {}
         }
     }
@@ -338,6 +345,13 @@ impl OpenFile {
                 self.wake_peer(0x004 | 0x100);
                 Ok(n)
             }
+            FileObject::GuestPipe(end) => {
+                let n = end.read(buf)?;
+                if n != 0 {
+                    self.wake_peer(0x004 | 0x100);
+                }
+                Ok(n)
+            }
             FileObject::PipeWrite(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
@@ -437,6 +451,13 @@ impl OpenFile {
                 let n = (&*p).write(data)?;
                 // Data for readers (EPOLLIN | EPOLLRDNORM).
                 self.wake_peer(0x001 | 0x040);
+                Ok(n)
+            }
+            FileObject::GuestPipe(end) => {
+                let n = end.write(data, self.flags() & end.packet_flag() != 0)?;
+                if n != 0 {
+                    self.wake_peer(0x001 | 0x040);
+                }
                 Ok(n)
             }
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
@@ -673,12 +694,22 @@ pub const NOFILE_HARD: u64 = 1 << 20;
 #[derive(Clone, Debug, Default)]
 pub struct FdTable {
     slots: Vec<Option<Fd>>,
+    pipes: Arc<pipe::PipePool>,
 }
 
 impl FdTable {
     /// An empty table.
     pub fn new() -> Self {
         FdTable::default()
+    }
+
+    pub(crate) fn open_pipe(
+        &self,
+        status: u32,
+        packet_flag: u32,
+        owner: (u32, u32),
+    ) -> Result<(Arc<OpenFile>, Arc<OpenFile>), Errno> {
+        self.pipes.open(status, packet_flag, owner)
     }
 
     /// The descriptor `fd`.

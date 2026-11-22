@@ -156,6 +156,7 @@ fn host_fd(f: &OpenFile) -> Option<RawFd> {
         FileObject::Socket(s) if s.netlink.is_some() => None,
         FileObject::Socket(s) => Some(s.raw()),
         FileObject::Console { .. }
+        | FileObject::GuestPipe(_)
         | FileObject::Synthetic(_)
         | FileObject::Supplied(_)
         | FileObject::PathOnly
