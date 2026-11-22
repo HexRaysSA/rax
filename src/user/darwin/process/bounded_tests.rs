@@ -531,18 +531,24 @@ fn native_null_device_has_guest_only_path_and_descriptor_semantics() {
 #[test]
 fn native_zero_device_reads_into_guest_memory_on_both_abis() {
     use crate::user::darwin::{
-        abi::Errno,
+        abi::{Errno, tables::nr},
         arch::Rv,
         host::AT_FDCWD,
         io::{O_RDONLY, O_RDWR},
         syscall::{
             Ctx,
-            bsd::{file, path},
+            bsd::{self, file, path},
         },
     };
     use crate::user::supplied_fs::{Device, Files};
 
-    let files = Files::default().with_device(Device::Zero).unwrap();
+    let files = Files::default()
+        .with_device(Device::Zero)
+        .unwrap()
+        .with_device(Device::Null)
+        .unwrap()
+        .with_file("/regular".into(), Arc::from(&b"supplied"[..]))
+        .unwrap();
     for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
         let mut p = process_with_profile(abi, true);
         p.proc.vfs = Vfs::supplied(files.clone());
@@ -581,13 +587,42 @@ fn native_zero_device_reads_into_guest_memory_on_both_abis() {
         assert_eq!(file::lseek(&mut ctx, duplicate, 0, 1), Ok(Rv::one(4)));
         assert_eq!(file::write(&mut ctx, fd, 1, 5, None), Ok(Rv::one(5)));
         assert_eq!(file::lseek(&mut ctx, duplicate, 0, 1), Ok(Rv::one(9)));
-        assert_eq!(file::fsync(&mut ctx, fd), Ok(Rv::one(0)));
-        assert_eq!(file::ftruncate(&mut ctx, fd, 3), Ok(Rv::one(0)));
-        assert_eq!(file::ftruncate(&mut ctx, fd, -1), Err(Errno::EINVAL));
+        let args = |fd: i32, len: i64| [fd as u64, len as u64, 0, 0, 0, 0, 0, 0];
+        for number in [nr::FSYNC, nr::FSYNC_NOCANCEL, nr::FDATASYNC] {
+            assert_eq!(bsd::call(&mut ctx, number, &args(fd, 0)), Ok(Rv::one(0)));
+        }
+        assert_eq!(
+            bsd::call(&mut ctx, nr::FTRUNCATE, &args(fd, 3)),
+            Ok(Rv::one(0))
+        );
+        assert_eq!(
+            bsd::call(&mut ctx, nr::FTRUNCATE, &args(fd, -1)),
+            Err(Errno::EINVAL)
+        );
         let readonly = path::openat(&mut ctx, AT_FDCWD, name, O_RDONLY, 0)
             .unwrap()
             .0 as i32;
-        assert_eq!(file::ftruncate(&mut ctx, readonly, 3), Err(Errno::EINVAL));
+        assert_eq!(
+            bsd::call(&mut ctx, nr::FTRUNCATE, &args(readonly, 3)),
+            Err(Errno::EINVAL)
+        );
+        ctx.write(name, b"/dev/null\0").unwrap();
+        let null = path::openat(&mut ctx, AT_FDCWD, name, O_RDWR, 0).unwrap().0 as i32;
+        assert_eq!(
+            bsd::call(&mut ctx, nr::FSYNC, &args(null, 0)),
+            Ok(Rv::one(0))
+        );
+        ctx.write(name, b"/regular\0").unwrap();
+        let regular = path::openat(&mut ctx, AT_FDCWD, name, O_RDONLY, 0)
+            .unwrap()
+            .0 as i32;
+        for number in [nr::FSYNC, nr::FSYNC_NOCANCEL, nr::FDATASYNC, nr::FTRUNCATE] {
+            assert_eq!(
+                bsd::call(&mut ctx, number, &args(regular, 3)),
+                Err(Errno::EPERM)
+            );
+            assert_eq!(bsd::call(&mut ctx, number, &args(-1, 3)), Err(Errno::EPERM));
+        }
     }
 }
 

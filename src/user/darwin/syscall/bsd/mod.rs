@@ -44,6 +44,7 @@ use super::Ctx;
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::abi::tables::nr;
 use crate::user::darwin::arch::{Rv, SysResult};
+use crate::user::darwin::fd::FileKind;
 use crate::user::darwin::host::AT_FDCWD;
 use crate::user::darwin::kevent;
 use crate::user::darwin::psynch;
@@ -95,6 +96,11 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         match number {
             nr::PROC_INFO => return proc::closed_pidinfo(ctx, a, false),
             nr::PROC_INFO_EXTENDED_ID => return proc::closed_pidinfo(ctx, a, true),
+            nr::FTRUNCATE | nr::FSYNC | nr::FSYNC_NOCANCEL | nr::FDATASYNC
+                if ctx.proc.fds.file(a[0] as i32).is_ok_and(|file| {
+                    matches!(&file.kind, FileKind::Embedded(object) if object.device_access().is_some())
+                }) =>
+            {}
             _ if !crate::user::darwin::process::embedding::bsd_allowed(number) => {
                 return Err(Errno::EPERM);
             }
