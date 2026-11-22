@@ -22,6 +22,7 @@ use crate::user::image::macho::{
     self, EntryCommand, ImageRole, LoadOptions, MachOError, MachOImage, ThreadState,
 };
 use crate::user::mm::{AddressSpace, Backing, BytesSource, Mapping, MmError, Perms};
+use crate::user::supplied_fs::Entry;
 
 /// `DFLSSIZ`: the default `RLIMIT_STACK` soft limit (8 MiB, less one
 /// 16 KiB page on Apple silicon).
@@ -91,6 +92,10 @@ impl ImageFile {
     /// The stable namespace inode identifies repeated reads of the same file.
     pub fn from_supplied(path: &str, vfs: &Vfs) -> std::io::Result<Self> {
         let (path, entry) = vfs.lookup(path.as_bytes(), b"/")?;
+        Self::from_entry(path, entry)
+    }
+
+    pub(super) fn from_entry(path: String, entry: Entry) -> std::io::Result<Self> {
         Ok(Self {
             vnode_path: path.clone(),
             path,

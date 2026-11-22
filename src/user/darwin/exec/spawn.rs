@@ -696,7 +696,12 @@ pub fn posix_spawn(
             // it is.
             set_session(pgroup, setsid).ok();
         }
-        return swap_or_kill(ctx, built, dir, suspend);
+        let built = built.map(|proc| super::Swap {
+            proc,
+            chdir: dir,
+            suspend,
+        });
+        return swap_or_kill(ctx, built);
     }
     let new = build(ctx.proc, act, strings, carried).map_err(|e| build_errno(&e))?;
     fork_child(ctx, new, dir, suspend, pgroup, setsid, pid_addr)

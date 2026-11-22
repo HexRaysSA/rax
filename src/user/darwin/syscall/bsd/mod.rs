@@ -133,7 +133,6 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::WAIT4 | nr::WAIT4_NOCANCEL => wait::wait4(ctx, i(0), a[1], i(2), a[3]),
         #[cfg(unix)]
         nr::WAITID | nr::WAITID_NOCANCEL => wait::waitid(ctx, i(0), u(1), a[2], i(3)),
-        #[cfg(unix)]
         nr::EXECVE => crate::user::darwin::exec::execve(ctx, a[0], a[1], a[2]),
         #[cfg(unix)]
         nr::POSIX_SPAWN => {

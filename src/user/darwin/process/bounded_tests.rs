@@ -1060,7 +1060,7 @@ fn embedded_process_runs_with_virtual_identity_and_denies_host_syscalls() {
         };
         assert_eq!(bsd::call(&mut ctx, nr::GETPID, &[0; 8]), Ok(Rv::one(1000)));
         assert_eq!(bsd::call(&mut ctx, nr::GETPPID, &[0; 8]), Ok(Rv::one(0)));
-        for number in [nr::FORK, nr::EXECVE, nr::SOCKET] {
+        for number in [nr::FORK, nr::POSIX_SPAWN, nr::SOCKET] {
             assert_eq!(
                 bsd::call(&mut ctx, number, &[u64::MAX; 8]),
                 Err(Errno::EPERM)
@@ -1068,6 +1068,98 @@ fn embedded_process_runs_with_virtual_identity_and_denies_host_syscalls() {
         }
         p.proc.threads.insert(tid, thread);
         finish(&mut p);
+    }
+}
+
+#[test]
+fn embedded_exec_uses_supplied_images_and_inherits_guest_state() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr},
+        io::O_CLOEXEC,
+        syscall::{Ctx, bsd},
+    };
+    use crate::user::supplied_fs::Device;
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process(abi);
+        let (_, original) = p.proc.vfs.lookup(b"/bounded-test", b"/").unwrap();
+        let mut image = original.bytes().unwrap().to_vec();
+        // Change the exit status in the fixture's existing `exit` sequence.
+        match abi {
+            DarwinAbi::X86_64 => image[0x1006] = 52,
+            DarwinAbi::Arm64 => {
+                image[0x1004..0x1008].copy_from_slice(&(0xd280_0000u32 | (52 << 5)).to_le_bytes())
+            }
+        }
+        let files = p
+            .proc
+            .vfs
+            .files()
+            .unwrap()
+            .with_file("/work/next".into(), Arc::from(image))
+            .unwrap()
+            .with_file("/work/start".into(), Arc::from(&b"#!/work/next -arg\n"[..]))
+            .unwrap()
+            .with_file("/work/empty".into(), Arc::from(&b""[..]))
+            .unwrap()
+            .with_device(Device::Null)
+            .unwrap();
+        p.proc.vfs = Vfs::supplied(files);
+        p.proc.cwd = b"/work".to_vec();
+        let pid = p.proc.pid;
+        let output = p.proc.fds.file(1).unwrap();
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let name = thread.cpu.sp() - 4096;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::EXECVE),
+            pc: ENTRY,
+        };
+        for (path, errno) in [
+            (&b"/usr/bin/printf\0"[..], Errno::ENOENT),
+            (&b".\0"[..], Errno::EACCES),
+            (&b"/dev/null\0"[..], Errno::EACCES),
+            (&b"empty\0"[..], Errno::ENOEXEC),
+        ] {
+            ctx.write(name, path).unwrap();
+            assert_eq!(
+                bsd::call(&mut ctx, nr::EXECVE, &[name, 0, 0, 0, 0, 0, 0, 0]),
+                Err(errno)
+            );
+            assert!(ctx.proc.exec.is_none());
+        }
+        ctx.write(name, b"next\0").unwrap();
+        let closed = bsd::call(
+            &mut ctx,
+            nr::OPEN,
+            &[name, u64::from(O_CLOEXEC), 0, 0, 0, 0, 0, 0],
+        )
+        .unwrap()
+        .0 as i32;
+        ctx.write(name, b"start\0").unwrap();
+        assert_eq!(
+            bsd::call(&mut ctx, nr::EXECVE, &[name, 0, 0, 0, 0, 0, 0, 0]),
+            Err(Errno::EJUSTRETURN)
+        );
+        let swap = ctx.proc.exec.take().unwrap();
+        assert!(!ctx.proc.bridge.allows_host_services());
+        p.swap(*swap);
+        assert_eq!(p.proc.pid, pid);
+        assert_eq!(p.proc.cwd, b"/work");
+        assert!(p.proc.vfs.lookup(b"/bounded-test", b"/").is_ok());
+        assert_eq!(p.proc.config.exec_path, "/work/next");
+        assert_eq!(
+            p.proc.config.argv,
+            [b"/work/next".to_vec(), b"-arg".to_vec(), b"start".to_vec()]
+        );
+        assert!(Arc::ptr_eq(&p.proc.fds.file(1).unwrap(), &output));
+        assert!(p.proc.fds.file(closed).is_err());
+        assert!(!p.proc.bridge.allows_host_services());
+        assert_eq!(
+            p.run_slice(100, &AtomicBool::new(false)),
+            RunStatus::Complete(ExitStatus::Exited(52))
+        );
     }
 }
 

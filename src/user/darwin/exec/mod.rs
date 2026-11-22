@@ -36,7 +36,6 @@
 //! new. The audit token's pid version changes, as a new `proc` gets one.
 
 pub mod args;
-#[cfg(unix)]
 pub mod image;
 #[cfg(unix)]
 pub mod spawn;
@@ -52,8 +51,9 @@ use super::mach::task::TaskState;
 use super::process::{self, Carried, ExitStatus, Proc, SpawnError, Thread};
 use super::signal::{self, SIGCONT, SigActs};
 use super::syscall::Ctx;
+use image::Activated;
 #[cfg(unix)]
-use image::{Activated, Binprefs, Dir};
+use image::{Binprefs, Dir};
 
 /// A new image to run in place of the process once the current call
 /// returns.
@@ -69,47 +69,55 @@ pub struct Swap {
 }
 
 /// `execve(path, argv, envp)`.
-#[cfg(unix)]
 pub fn execve(ctx: &mut Ctx<'_>, path: u64, argv: u64, envp: u64) -> SysResult {
-    let act = image::activate(ctx, path, Dir::Cwd, &Binprefs::default())?;
+    let act = if ctx.proc.config.host_services {
+        #[cfg(not(unix))]
+        {
+            return Err(Errno::EPERM);
+        }
+        #[cfg(unix)]
+        {
+            image::activate(ctx, path, Dir::Cwd, &Binprefs::default())?
+        }
+    } else {
+        image::activate_supplied(ctx, path)?
+    };
     let strings = args::extract(ctx, &act.interp, &act.user_path, argv, envp)?;
     let fds = fdt_fork(&ctx.proc.fds, true);
     let carried = carry(ctx.proc, ctx.thread, fds, None);
-    let built = build(ctx.proc, act, strings, carried);
-    swap_or_kill(ctx, built, None, false)
+    let built = build(ctx.proc, act, strings, carried).map(|proc| Swap {
+        proc,
+        #[cfg(unix)]
+        chdir: None,
+        suspend: false,
+    });
+    swap_or_kill(ctx, built)
 }
 
 /// Swaps the built image in when the call returns; past the point of no
 /// return, a failure to build it kills the process.
-#[cfg(unix)]
-fn swap_or_kill(
-    ctx: &mut Ctx<'_>,
-    built: Result<Proc, SpawnError>,
-    chdir: Option<OwnedFd>,
-    suspend: bool,
-) -> SysResult {
+fn swap_or_kill(ctx: &mut Ctx<'_>, built: Result<Swap, SpawnError>) -> SysResult {
     match built {
-        Ok(mut proc) => {
+        Ok(mut swap) => {
+            let proc = &mut swap.proc;
             // Only an exec replaces this process. A true spawn builds its
             // child separately and must not inherit the tracing flags.
             #[cfg(unix)]
-            super::syscall::bsd::ptrace::remote_before_exec(ctx.proc);
-            proc.tracing = ctx.proc.tracing.for_exec();
-            proc.tracing.take_connections(&mut ctx.proc.tracing);
-            proc.tracing
-                .update_children_parent_credentials((proc.creds.0, proc.creds.1));
-            if proc.tracing.tracer.is_some() {
-                super::codesign::prepare_traced_exec(&mut proc);
+            if ctx.proc.config.host_services {
+                super::syscall::bsd::ptrace::remote_before_exec(ctx.proc);
+                proc.tracing = ctx.proc.tracing.for_exec();
+                proc.tracing.take_connections(&mut ctx.proc.tracing);
+                proc.tracing
+                    .update_children_parent_credentials((proc.creds.0, proc.creds.1));
+                if proc.tracing.tracer.is_some() {
+                    super::codesign::prepare_traced_exec(proc);
+                }
             }
-            // The same host process: its host rights stay; the old image's
-            // exported ports go with it.
-            proc.bridge = std::mem::take(&mut ctx.proc.bridge);
+            // Carry the process's bridge configuration across image replacement.
+            proc.bridge =
+                std::mem::replace(&mut ctx.proc.bridge, super::bridge::Bridge::isolated());
             proc.bridge.exec();
-            ctx.proc.exec = Some(Box::new(Swap {
-                proc,
-                chdir,
-                suspend,
-            }));
+            ctx.proc.exec = Some(Box::new(swap));
         }
         Err(e) => {
             if ctx.proc.config.strace {
@@ -128,7 +136,6 @@ fn swap_or_kill(
 
 /// Loads the activated image into a new process image carrying
 /// `carried` (`load_machfile` onward).
-#[cfg(unix)]
 fn build(
     old: &Proc,
     act: Activated,
@@ -141,7 +148,8 @@ fn build(
     config.exec_path = act.image.path.clone();
     config.abi = Some(act.abi);
     config.inherited = None;
-    process::start(config, act.image, Some(carried))
+    let supplied_vfs = old.vfs.is_closed().then_some(&old.vfs);
+    process::start(config, act.image, Some(carried), supplied_vfs)
 }
 
 /// The errno a failure to build a spawned image reports.

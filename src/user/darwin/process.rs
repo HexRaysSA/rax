@@ -676,7 +676,7 @@ impl DarwinProcess {
                 .map_err(|e| SpawnError::Io(path.display().to_string(), e))?;
         }
         Ok(DarwinProcess {
-            proc: start(config, image, None)?,
+            proc: start(config, image, None, None)?,
             last: 0,
             terminal: None,
         })
@@ -1163,17 +1163,17 @@ impl DarwinProcess {
 
 /// Builds a process running `image`: a new one (`exec` of the first
 /// program), or with `carried`, the process that execs `image`.
+/// A closed exec reuses its validated `supplied_vfs`.
 pub(crate) fn start(
     config: DarwinConfig,
     mut image: ImageFile,
     carried: Option<Carried>,
+    supplied_vfs: Option<&Vfs>,
 ) -> Result<Proc, SpawnError> {
-    let vfs = embedding::prepare(&config, &mut image)?;
-    if !config.host_services && carried.is_some() {
-        return Err(SpawnError::Configuration(
-            "embedded exec inheritance is not implemented",
-        ));
-    }
+    let vfs = match supplied_vfs {
+        Some(vfs) => vfs.clone(),
+        None => embedding::prepare(&config, &mut image)?,
+    };
     let abi = loader::choose_abi(&image.bytes, config.abi)
         .map_err(|e| SpawnError::Load(LoadError::Image(e)))?;
     let reserved = match abi {
@@ -1300,6 +1300,11 @@ pub(crate) fn start(
         Some(c) => c.cwd.clone(),
         None => config.cwd.clone().into_bytes(),
     };
+    let bridge = if config.host_services {
+        Default::default()
+    } else {
+        super::bridge::Bridge::isolated()
+    };
     let mut proc = match carried {
         Some(c) => Proc {
             abi,
@@ -1344,7 +1349,7 @@ pub(crate) fn start(
             exec: None,
             execed: true,
             tracing: Default::default(),
-            bridge: Default::default(),
+            bridge,
             codesign: None,
         },
         None => {
@@ -1400,11 +1405,6 @@ pub(crate) fn start(
                     0,
                     1,
                 ]
-            };
-            let bridge = if config.host_services {
-                Default::default()
-            } else {
-                super::bridge::Bridge::isolated()
             };
             let fds = match &config.console {
                 #[cfg(unix)]

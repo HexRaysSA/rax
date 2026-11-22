@@ -68,6 +68,7 @@ pub(crate) fn bsd_allowed(number: u32) -> bool {
     matches!(
         number,
         nr::EXIT
+            | nr::EXECVE
             | nr::READ
             | nr::READ_NOCANCEL
             | nr::WRITE

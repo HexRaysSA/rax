@@ -17,13 +17,17 @@
 //! executes x86-64 images only, x86_64h first. The slice chosen is the one
 //! the loader maps.
 
-use std::ffi::CString;
-use std::io::Read;
-use std::os::fd::{FromRawFd, OwnedFd, RawFd};
-use std::os::unix::ffi::OsStrExt;
-use std::sync::Arc;
+#[cfg(unix)]
+use std::{
+    ffi::CString,
+    io::Read,
+    os::fd::{FromRawFd, OwnedFd, RawFd},
+    os::unix::ffi::OsStrExt,
+    sync::Arc,
+};
 
 use crate::user::darwin::abi::{DarwinAbi, Errno};
+#[cfg(unix)]
 use crate::user::darwin::host;
 use crate::user::darwin::loader::ImageFile;
 use crate::user::darwin::syscall::Ctx;
@@ -46,6 +50,7 @@ pub const NBINPREFS: usize = 4;
 /// Where relative paths are resolved: the working directory, or the
 /// directory a spawn's file actions changed to (a host descriptor).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(unix)]
 pub enum Dir {
     /// The process's working directory (the host's).
     Cwd,
@@ -53,6 +58,7 @@ pub enum Dir {
     Fd(RawFd),
 }
 
+#[cfg(unix)]
 impl Dir {
     /// The host `*at` directory argument.
     pub fn raw(self) -> RawFd {
@@ -175,6 +181,7 @@ pub struct Activated {
 }
 
 /// Activates the image at the path `path_addr` names.
+#[cfg(unix)]
 pub fn activate(
     ctx: &Ctx<'_>,
     path_addr: u64,
@@ -187,6 +194,7 @@ pub fn activate(
 }
 
 /// [`activate`] for a path already copied in.
+#[cfg(unix)]
 pub fn activate_path(
     ctx: &Ctx<'_>,
     user_path: &[u8],
@@ -194,11 +202,48 @@ pub fn activate_path(
     prefs: &Binprefs,
 ) -> Result<Activated, Errno> {
     let machine = Machine { abi: ctx.proc.abi };
+    activate_image(machine, user_path, prefs, |path| {
+        open_checked(ctx, path, dir)
+    })
+}
+
+/// Activates an image from the process's existing supplied namespace.
+pub(super) fn activate_supplied(ctx: &Ctx<'_>, path_addr: u64) -> Result<Activated, Errno> {
+    let user_path = ctx.cstr(path_addr, MAXPATHLEN)?;
+    let machine = Machine { abi: ctx.proc.abi };
+    let activated = activate_image(machine, &user_path, &Binprefs::default(), |path| {
+        let (path, entry) = ctx
+            .proc
+            .vfs
+            .lookup(path, &ctx.proc.cwd)
+            .map_err(Errno::from)?;
+        if entry.is_dir() || entry.device().is_some() {
+            return Err(Errno::EACCES);
+        }
+        let image = ImageFile::from_entry(path, entry).map_err(Errno::from)?;
+        if image.bytes.is_empty() {
+            return Err(Errno::ENOEXEC);
+        }
+        Ok(image)
+    })?;
+    // The supplied dyld and shared cache were selected for the current ABI.
+    if activated.abi != machine.abi {
+        return Err(Errno::EBADARCH);
+    }
+    Ok(activated)
+}
+
+fn activate_image(
+    machine: Machine,
+    user_path: &[u8],
+    prefs: &Binprefs,
+    mut open: impl FnMut(&[u8]) -> Result<ImageFile, Errno>,
+) -> Result<Activated, Errno> {
     let mut saved = user_path.to_vec();
     let mut interp: Vec<Vec<u8>> = Vec::new();
     let mut iterations = 0;
     'lookup: loop {
-        let file = open_checked(ctx, &saved, dir)?;
+        let file = open(&saved)?;
         // The view the activators see: the whole file, then a slice.
         let (mut offset, mut size) = (0usize, file.bytes.len());
         // The fat table's CPU type for the slice (ip_origcputype).
@@ -429,6 +474,7 @@ fn interpreter_name(words: &[Vec<u8>]) -> Vec<u8> {
 }
 
 /// `namei` and `exec_check_permissions`, then the file's contents.
+#[cfg(unix)]
 fn open_checked(ctx: &Ctx<'_>, guest: &[u8], dir: Dir) -> Result<ImageFile, Errno> {
     if guest.is_empty() {
         return Err(Errno::ENOENT);
@@ -453,6 +499,7 @@ fn open_checked(ctx: &Ctx<'_>, guest: &[u8], dir: Dir) -> Result<ImageFile, Errn
 }
 
 /// Reads the whole executable.
+#[cfg(unix)]
 fn read_image(
     vfs: &crate::user::darwin::vfs::Vfs,
     guest: &[u8],
