@@ -30,6 +30,22 @@ The workflow separately limits compilation to 2,100 s and native verification to
 upload and cleanup. These are supervision limits; process creation, host I/O and
 OS scheduling do not constitute a hard real-time guarantee.
 
+A repeat of the combined 968-case profile on
+`d186b56e5f3d79b9d50e01fa22528b449b0cb5d4` also retained its signed build
+before guest entry. Artifact `14772756462` matched published SHA-256
+`f6103613736aa56688b84f009bcc96ac5fba7d4ebcf01820b8306a01ca9ea2c5`.
+Its 4,884 engine inputs and 17 consumer inputs matched that revision.
+The executable passed strict signature verification and carried the
+Hypervisor entitlement.
+
+GitHub marked the job failed 2,898 s after the guest step started and
+reported that the runner lost communication with the server. The guest
+step retained its last in-progress status. The execution observations
+upload remained pending and the job log returned HTTP 404. The last guest
+case, native failure mechanism, and firing of the local deadline are
+unknown. The run qualifies zero guest cases.
+[GitHub Actions job and runner annotation](https://github.com/HexRaysSA/rax/actions/runs/45068548473/job/137350093187)
+
 | ID | Assumption | Basis / dependent result | Stress test | Falsification probe | Status |
 |---|---|---|---|---|---|
 | D1 | A stderr writer may outlive its parent or move to a separate session | Owned subprocess fixture; old timeout path | Parent exits, descendant retains stderr | Supervisor remains live beyond the outer observation bound | Confirmed counterexample; corrected complete harness passes |
