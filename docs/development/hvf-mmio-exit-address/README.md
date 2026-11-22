@@ -267,3 +267,23 @@ job log has no guest launch marker, and the execution artifact is absent.
 Guest entry and the cause of the runner loss are unknown. This repeat
 qualifies zero guest cases.
 [Standalone repeat and runner annotation](https://github.com/HexRaysSA/rax/actions/runs/45072817649/job/137363381542#step:8:29)
+
+The next standalone repeat at `51cf0733f2e3b0d1fd9d82b036844b77ac6a07d4`
+passed all 16 cases in 0.176 s of guest command time. Each of the four
+concurrent peers observed the guest reply and exited through HLT after
+234,319 to 268,971 page-table update iterations. In those four concurrent
+cases, both `0x40000080` and `0x40200080` appeared as the second exit GPA
+and each transaction completed at the expected RIP. The page-table entry
+at the instant of each exit is unknown.
+
+Verification matched both archive digests, the signed executable, 4,886
+engine inputs and 17 consumer inputs. It hashed all 16 CPU records and
+confirmed the same 164 case-and-stage pairs as the preceding qualified run.
+Some peer stages and observer stages appeared in a different order. The
+consumer ran in an untranslated Intel process on virtualized macOS 15.7.9
+with SDK 15.5.
+
+- Execution artifact `14779475270`, SHA-256 `36fda11cfccf1807017ad859d820929a78991a425c04b7e03c5cd50fd84cc54a`
+- Observation stream SHA-256 `56cb271ec4ea2805ec125fb9f911aa36c549d2c5a1ccd0f0c900c83144f92e63`
+
+[Qualified standalone repeat](https://github.com/HexRaysSA/rax/actions/runs/45084575714/job/137400156874)
