@@ -1,4 +1,4 @@
-name: Linux installed musl
+name: Linux installed processes
 
 on:
   push:
@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   installed-musl:
-    name: Closed installed musl process (linux-x64)
+    name: Closed installed processes (linux-x64)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -45,3 +45,15 @@ jobs:
           readlink -f /lib/ld-musl-x86_64.so.1
           readelf -l -d "$RAX_LINUX_MUSL_PROGRAM"
           cargo test --locked -p rax-capi --no-default-features installed_musl_matches_native_through_closed_c_abi -- --ignored --nocapture
+      - name: Compare native and emulated system Python
+        shell: bash
+        env:
+          # The x86-64 interpreter uses timed slices. Optimize the test binary
+          # so Python startup can make useful progress within its turn bound.
+          CARGO_PROFILE_TEST_OPT_LEVEL: '2'
+          RAX_LINUX_SYSTEM_PYTHON: /usr/bin/python3
+        run: |
+          "$RAX_LINUX_SYSTEM_PYTHON" --version
+          "$RAX_LINUX_SYSTEM_PYTHON" -I -S -c 'import _sqlite3; print(_sqlite3.__file__)'
+          readlink -f "$RAX_LINUX_SYSTEM_PYTHON"
+          cargo test --locked -p rax-capi --no-default-features installed_system_python_matches_native_through_closed_c_abi -- --ignored --nocapture

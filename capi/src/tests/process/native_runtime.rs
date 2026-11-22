@@ -175,14 +175,22 @@ fn installed_uname_matches_native_kernel_version_through_closed_c_abi() {
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn run_installed_posix(process: &Owned, path: &str) -> RaxProcessResult {
-    // Bound guest work independently of host speed or descheduling.
-    const MAX_TURNS: u64 = 16_384;
-    let mut remaining = MAX_TURNS;
+    run_installed_posix_with_turn_limit(process, path, 16_384)
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn run_installed_posix_with_turn_limit(
+    process: &Owned,
+    path: &str,
+    max_turns: u64,
+) -> RaxProcessResult {
+    let mut remaining = max_turns;
     let mut result = RaxProcessResult::default();
     loop {
         assert!(
             remaining != 0,
-            "{path}: exceeded {MAX_TURNS} scheduler turns"
+            "{path}: exceeded {max_turns} scheduler turns: {}",
+            info(process)
         );
         let turns = remaining.min(256);
         assert_eq!(
@@ -198,7 +206,7 @@ fn run_installed_posix(process: &Owned, path: &str) -> RaxProcessResult {
     }
     eprintln!(
         "{path}: completed within {} scheduler turns",
-        MAX_TURNS - remaining
+        max_turns - remaining
     );
     assert_eq!(
         result.reason,
@@ -314,6 +322,62 @@ fn installed_musl_matches_native_through_closed_c_abi() {
         "musl guest stderr: {}",
         String::from_utf8_lossy(&stderr)
     );
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+#[ignore = "run explicitly with the distribution's installed Python on Linux x64"]
+fn installed_system_python_matches_native_through_closed_c_abi() {
+    let path = std::env::var("RAX_LINUX_SYSTEM_PYTHON")
+        .expect("path to the distribution's installed Python");
+    let image = std::fs::read(&path).expect("installed Python image");
+    let elf = rax_engine::user::image::elf::ElfImage::parse_self_described(&image).unwrap();
+    assert!(
+        elf.interpreter().is_some(),
+        "Python must be dynamically linked"
+    );
+    let script = r#"import _sqlite3, json, math, sqlite3, zlib
+assert _sqlite3.__file__.endswith(".so")
+assert sqlite3.connect(":memory:").execute("select 6 * 7").fetchone() == (42,)
+payload = b"installed python libraries"
+restored = zlib.decompress(zlib.compress(payload))
+print(json.dumps({"root": math.isqrt(1764), "round_trip": restored.decode("ascii")}, sort_keys=True))
+"#;
+    let arguments = ["-I", "-S", "-c", script];
+    let native = std::process::Command::new(&path)
+        .args(arguments)
+        .env_clear()
+        .output()
+        .unwrap();
+    assert!(
+        native.status.success(),
+        "native Python stderr: {}",
+        String::from_utf8_lossy(&native.stderr)
+    );
+    assert_eq!(
+        native.stdout,
+        b"{\"root\": 42, \"round_trip\": \"installed python libraries\"}\n",
+    );
+    assert!(native.stderr.is_empty());
+    let options = serde_json::json!({
+        "personality": "linux",
+        "guest_path": path,
+        "arguments": arguments,
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    let process = open(&image, &options.to_string());
+    let state = info(&process);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    // Allow enough timed x86-64 slices for Python startup and extension loading.
+    let result = run_installed_posix_with_turn_limit(&process, &path, 131_072);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
     assert_eq!(stdout, native.stdout);
     assert_eq!(stderr, native.stderr);
 }
