@@ -145,6 +145,23 @@ jobs:
           if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
             exit 1
           }
+      - name: Compare installed cmd.exe reads and writes through NUL
+        if: steps.stock.outcome == 'success'
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
+          $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
+          $test = 'tests::process::native_runtime::installed_cmd_null_device_matches_native_through_closed_c_abi'
+          $log = Join-Path $root 'null-capi.log'
+          $PSNativeCommandUseErrorActionPreference = $false
+          cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
+            $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0 -or
+              !(Select-String -LiteralPath $log -Quiet -Pattern '^test result: ok\. 1 passed; 0 failed; 0 ignored;')) {
+            exit 1
+          }
       - name: Observe duplication of the native test process token
         if: ${{ !cancelled() && inputs.measure_native_token_duplicate && steps.stock.outcome != 'skipped' }}
         shell: pwsh

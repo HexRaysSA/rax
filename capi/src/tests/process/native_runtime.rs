@@ -490,6 +490,21 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
 #[cfg(windows)]
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_cmd_null_device_matches_native_through_closed_c_abi() {
+    for arguments in [
+        ["/d", "/c", "type", "NUL"],
+        ["/d", "/c", "echo", "discarded>NUL"],
+    ] {
+        let native = compare_windows_installed_program("cmd.exe", &arguments, None);
+        assert!(native.status.success(), "{arguments:?}");
+        assert!(native.stdout.is_empty(), "{arguments:?}");
+        assert!(native.stderr.is_empty(), "{arguments:?}");
+    }
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_findstr_matches_native_through_closed_c_abi() {
     check_native_extension_point_policy();
     let arguments = &["/l", "/c:rax-witness"];
