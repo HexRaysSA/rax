@@ -104,7 +104,7 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         ],
     )?;
     let files = select_system_version(files, root)?;
-    let files = files.with_darwin_null_device().map_err(io::Error::other)?;
+    let files = files.with_null_device().map_err(io::Error::other)?;
     let roots = [
         "/usr/lib",
         "/System/Library/Frameworks",

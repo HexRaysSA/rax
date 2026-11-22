@@ -178,6 +178,9 @@ fn read_into(
     count: u64,
     pos: Option<u64>,
 ) -> SysResult {
+    if file.is_null_device() {
+        return null_transfer(c, file.readable(), buf, count, pos).map(|_| 0);
+    }
     let count = count.min(MAX_RW_COUNT);
     let mut room = writable_prefix(c, buf, count);
     if file.ftype == FileType::Fifo && room < count && room > 0 {
@@ -257,6 +260,9 @@ fn write_from(
     count: u64,
     pos: Option<u64>,
 ) -> SysResult {
+    if file.is_null_device() {
+        return null_transfer(c, file.writable(), buf, count, pos);
+    }
     let count = count.min(MAX_RW_COUNT);
     let mut readable = readable_prefix(c, buf, count);
     if file.ftype == FileType::Fifo {
@@ -270,6 +276,25 @@ fn write_from(
     }
     let data = c.read_mem(buf, readable as usize)?;
     write_bytes(c, file, &data, pos)
+}
+
+/// The VFS checks the user address range, but the null device moves no bytes
+/// between guest memory and the emulator.
+fn null_transfer(c: &Ctx<'_>, allowed: bool, buf: u64, count: u64, pos: Option<u64>) -> SysResult {
+    if !allowed {
+        return Err(Errno(EBADF));
+    }
+    if !super::events::access_ok(c, buf, count) {
+        return Err(Errno(EFAULT));
+    }
+    null_transfer_size(count, pos)
+}
+
+fn null_transfer_size(count: u64, pos: Option<u64>) -> SysResult {
+    if pos.is_some_and(|pos| pos.saturating_add(count) > i64::MAX as u64) {
+        return Err(Errno(EINVAL));
+    }
+    Ok(count.min(MAX_RW_COUNT))
 }
 
 /// `comm_write`: a thread of this process takes the first 15 bytes as its
@@ -306,7 +331,7 @@ pub fn read(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     if file.is_socket() {
         return super::net::io::read(c, &file, &[(buf, count.min(MAX_RW_COUNT))]);
     }
-    if count == 0 {
+    if count == 0 && !file.is_null_device() {
         return if file.readable() {
             Ok(0)
         } else {
@@ -328,7 +353,7 @@ pub fn write(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     if file.is_socket() {
         return super::net::io::write(c, &file, &[(buf, count.min(MAX_RW_COUNT))]);
     }
-    if count == 0 {
+    if count == 0 && !file.is_null_device() {
         return if file.writable() {
             Ok(0)
         } else {
@@ -414,6 +439,13 @@ pub(super) fn readv_file(
     pos: Option<u64>,
 ) -> SysResult {
     let total: u64 = iovecs.iter().map(|&(_, l)| l).sum();
+    if file.is_null_device() {
+        return if file.readable() {
+            null_transfer_size(total, pos).map(|_| 0)
+        } else {
+            Err(Errno(EBADF))
+        };
+    }
     if matches!(file.object, FileObject::Anon(_)) {
         return super::events::read(c, file, iovecs);
     }
@@ -474,6 +506,13 @@ pub(super) fn writev_file(
     }
     // The bytes before the first fault, up to MAX_RW_COUNT.
     let total = vecs.iter().map(|&(_, l)| l).sum::<u64>().min(MAX_RW_COUNT);
+    if file.is_null_device() {
+        return if file.writable() {
+            null_transfer_size(total, pos)
+        } else {
+            Err(Errno(EBADF))
+        };
+    }
     let mut data = Vec::new();
     for &(base, len) in vecs {
         let len = len.min(MAX_RW_COUNT - data.len() as u64);
@@ -594,6 +633,10 @@ pub fn preadv(
     }
     let file = c.p.fds.file(fd)?;
     check_rw_flags(&file, flags)?;
+    if file.is_null_device() {
+        let vectors = import_iovec(c, iov, cnt)?;
+        return readv_file(c, &file, &vectors, pos.map(|offset| offset as u64));
+    }
     if matches!(
         file.object,
         FileObject::Anon(_) | FileObject::Console { .. }
@@ -649,6 +692,10 @@ pub fn pwritev(
     let file = c.p.fds.file(fd)?;
     check_rw_flags(&file, flags)?;
     c.nosignal = flags & rwf::NOSIGNAL != 0;
+    if file.is_null_device() {
+        let vectors = import_iovec(c, iov, cnt)?;
+        return writev_file(c, &file, &vectors, pos.map(|offset| offset as u64));
+    }
     if matches!(
         file.object,
         FileObject::Anon(_) | FileObject::Console { .. }

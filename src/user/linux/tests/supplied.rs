@@ -58,6 +58,84 @@ fn program(abi: LinuxAbi) -> Vec<u8> {
 }
 
 #[test]
+fn supplied_null_uses_linux_device_semantics_on_all_guest_abis() {
+    use crate::user::linux::abi::open::{
+        O_ACCMODE, O_NONBLOCK, O_PATH, O_RDONLY, O_RDWR, O_WRONLY,
+    };
+    use crate::user::linux::syscall::{path::stat_open, ready::raw_fd};
+
+    let files = Files::default().with_null_device().unwrap();
+    assert!(matches!(
+        files.read("/dev/null"),
+        Err(crate::user::supplied_fs::Error::NotRegular)
+    ));
+    let override_files = Files::default()
+        .with_file("/dev/null".into(), Arc::from(&b"caller file"[..]))
+        .unwrap()
+        .with_null_device()
+        .unwrap();
+    assert_eq!(&*override_files.read("/dev/null").unwrap(), b"caller file");
+    for abi in ABIS {
+        let mut h = Harness::with_supplied(abi, files.clone());
+        let (name, buf, iov) = (h.scratch, h.scratch + 512, h.scratch + 1024);
+        path(&h, name, "/dev/null");
+        assert_eq!(h.ok(Sysno::Faccessat2, &[AT_FDCWD, name, 6, 0]), 0);
+        assert_eq!(h.err(Sysno::Faccessat2, &[AT_FDCWD, name, 1, 0]), EACCES);
+        let fd = h.ok(Sysno::Openat, &[AT_FDCWD, name, u64::from(O_RDWR), 0]);
+        let file = h.proc.state.fds.file(fd as i32).unwrap();
+        assert!(file.host_path.is_none());
+        assert!(raw_fd(&file).is_none());
+        let st = stat_open(&file, (0, 0)).unwrap();
+        assert_eq!(
+            (st.mode, st.rdev_major, st.rdev_minor, st.blksize, st.size),
+            (0o020666, 1, 3, 4096, 0)
+        );
+
+        put(&h, buf, b"keep");
+        assert_eq!(h.ok(Sysno::Read, &[fd, buf, 4]), 0);
+        assert_eq!(get(&h, buf, 4), b"keep");
+        assert_eq!(h.ok(Sysno::Pread64, &[fd, buf, 4, 0, 0, 0]), 0);
+        assert_eq!(h.ok(Sysno::Write, &[fd, buf, 4]), 4);
+        assert_eq!(h.ok(Sysno::Pwrite64, &[fd, buf, 4, 0, 0, 0]), 4);
+        let word = if abi.is_compat() { 4 } else { 8 };
+        put(&h, iov, &buf.to_le_bytes()[..word]);
+        put(&h, iov + word as u64, &4u64.to_le_bytes()[..word]);
+        assert_eq!(h.ok(Sysno::Readv, &[fd, iov, 1]), 0);
+        assert_eq!(h.ok(Sysno::Writev, &[fd, iov, 1]), 4);
+        for whence in 0..=4 {
+            assert_eq!(h.ok(Sysno::Lseek, &[fd, 9, whence]), 0);
+        }
+        assert_eq!(h.err(Sysno::Lseek, &[fd, 0, 5]), EINVAL);
+
+        assert_eq!(h.err(Sysno::Ioctl, &[fd, 0x541b, buf]), ENOTTY);
+        put(&h, buf, &1u32.to_le_bytes());
+        assert_eq!(h.ok(Sysno::Ioctl, &[fd, 0x5421, buf]), 0);
+        assert_ne!(file.flags() & O_NONBLOCK, 0);
+        put(&h, buf, &(fd as u32).to_le_bytes());
+        put(&h, buf + 4, &5u32.to_le_bytes());
+        assert_eq!(h.ok(Sysno::Ppoll, &[buf, 1, 0, 0, 0]), 1);
+        assert_eq!(get(&h, buf + 6, 2), 5u16.to_le_bytes());
+        let ep = h.ok(Sysno::EpollCreate1, &[0]);
+        put(&h, buf, &1u128.to_le_bytes());
+        assert_eq!(h.err(Sysno::EpollCtl, &[ep, 1, fd, buf]), EPERM);
+        assert_eq!(mmap(&mut h, fd, 1, 2), -i64::from(ENODEV));
+        assert_eq!(h.err(Sysno::Fsync, &[fd]), EINVAL);
+
+        let input = h.ok(Sysno::Openat, &[AT_FDCWD, name, u64::from(O_RDONLY), 0]);
+        let output = h.ok(Sysno::Openat, &[AT_FDCWD, name, u64::from(O_WRONLY), 0]);
+        assert_eq!(h.err(Sysno::Write, &[input, buf, 1]), EBADF);
+        assert_eq!(h.err(Sysno::Read, &[output, buf, 1]), EBADF);
+        for flags in [O_ACCMODE, O_PATH] {
+            let restricted = h.ok(Sysno::Openat, &[AT_FDCWD, name, u64::from(flags), 0]);
+            assert_eq!(h.err(Sysno::Read, &[restricted, buf, 1]), EBADF);
+            assert_eq!(h.err(Sysno::Write, &[restricted, buf, 1]), EBADF);
+        }
+        path(&h, name, "/dev/null/..");
+        assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, name, 0, 0]), ENOTDIR);
+    }
+}
+
+#[test]
 fn selected_host_files_use_demand_reads_and_guest_local_descriptors_all_abis() {
     let fixture =
         crate::user::supplied_fs::test_backing::TestFile::new(b"native-library", (64 << 20) + 1);

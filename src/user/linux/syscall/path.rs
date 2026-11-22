@@ -153,8 +153,7 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
     }
 }
 
-/// Metadata of a read-only supplied entry. All entries are readable and
-/// executable/searchable; no guest identity has write permission.
+/// Metadata of a supplied entry, including the synthetic null device.
 fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
     let size = entry.len().min(i64::MAX as u64) as i64;
     Stat {
@@ -162,11 +161,14 @@ fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
         mode: match &entry.kind {
             crate::user::supplied_fs::Kind::Directory => mode::S_IFDIR | 0o555,
             crate::user::supplied_fs::Kind::Symlink(_) => mode::S_IFLNK | 0o777,
+            crate::user::supplied_fs::Kind::NullDevice => mode::S_IFCHR | 0o666,
             _ => mode::S_IFREG | 0o555,
         },
         nlink: if entry.is_dir() { 2 } else { 1 },
         uid: 0,
         gid: 0,
+        rdev_major: if entry.is_null_device() { 1 } else { 0 },
+        rdev_minor: if entry.is_null_device() { 3 } else { 0 },
         size,
         blksize: 4096,
         blocks: (size as u64).div_ceil(512) as i64,
@@ -365,13 +367,15 @@ pub(super) fn open_target(
         }
         Target::Fd(file) => Ok(file),
         Target::Supplied(entry, guest) => {
+            let null_device = entry.is_null_device();
             if flags & (O_CREAT | O_EXCL) == (O_CREAT | O_EXCL) {
                 return Err(Errno(EEXIST));
             }
             if entry.link_target().is_some() && flags & O_PATH == 0 {
                 return Err(Errno(ELOOP));
             }
-            if flags & O_PATH == 0
+            if !null_device
+                && flags & O_PATH == 0
                 && (accmode != O_RDONLY || flags & (O_TRUNC | O_TMPFILE_BIT) != 0)
             {
                 return Err(Errno(EROFS));
@@ -379,8 +383,18 @@ pub(super) fn open_target(
             if flags & layout.directory != 0 && !entry.is_dir() {
                 return Err(Errno(ENOTDIR));
             }
+            if null_device && flags & O_PATH == 0 && flags & layout.direct != 0 {
+                return Err(Errno(EINVAL));
+            }
             let mut directory = None;
-            let (object, kind) = if entry.is_dir() {
+            let (object, kind) = if null_device {
+                let object = if flags & O_PATH == 0 {
+                    FileObject::Supplied(entry.clone())
+                } else {
+                    FileObject::PathOnly
+                };
+                (object, FileType::CharDevice)
+            } else if entry.is_dir() {
                 let files = c.p.vfs.supplied().expect("supplied target has a namespace");
                 let parent = files.lookup(&format!("{guest}/.."))?.1;
                 let mut entries = vec![
@@ -401,6 +415,7 @@ pub(super) fn open_target(
                         dtype: match entry.kind {
                             crate::user::supplied_fs::Kind::Directory => fs::fd::dt::DT_DIR,
                             crate::user::supplied_fs::Kind::Symlink(_) => fs::fd::dt::DT_LNK,
+                            crate::user::supplied_fs::Kind::NullDevice => fs::fd::dt::DT_CHR,
                             _ => fs::fd::dt::DT_REG,
                         },
                         name: name.into_bytes(),
@@ -766,20 +781,10 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             }
             Ok(0)
         }
-        Target::Supplied(..) => {
-            if amode & 2 != 0 {
-                Err(Errno(EACCES))
-            } else {
-                Ok(0)
-            }
-        }
+        Target::Supplied(entry, _) => supplied_access(amode, entry.is_null_device()),
         Target::Proc(..) => Ok(0),
         Target::Fd(f) if f.supplied_stat.is_some() => {
-            if amode & 2 != 0 {
-                Err(Errno(EACCES))
-            } else {
-                Ok(0)
-            }
+            supplied_access(amode, f.ftype == FileType::CharDevice)
         }
         Target::Fd(f) => match &f.host_path {
             #[cfg(unix)]
@@ -796,6 +801,15 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
         Target::Host { host, .. } => {
             super::super::host::access(&host, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
         }
+    }
+}
+
+fn supplied_access(amode: u32, null_device: bool) -> SysResult {
+    let denied = if null_device { 1 } else { 2 };
+    if amode & denied != 0 {
+        Err(Errno(EACCES))
+    } else {
+        Ok(0)
     }
 }
 

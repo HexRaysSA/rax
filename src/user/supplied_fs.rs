@@ -54,7 +54,7 @@ pub enum Kind {
     /// Read-only backing selected by the embedder, never by a guest pathname.
     Backed(Arc<HostFileSource>),
     Directory,
-    /// The Darwin closed runtime's synthetic null character device.
+    /// The closed runtime's synthetic null character device.
     NullDevice,
     /// Metadata for an installed Linux runtime link selected without following it.
     Symlink(Arc<[u8]>),
@@ -269,8 +269,8 @@ impl Files {
         self.with_kind(path, Kind::File(bytes))
     }
 
-    #[cfg(any(target_os = "macos", test))]
-    pub(super) fn with_darwin_null_device(&self) -> Result<Self, Error> {
+    #[cfg(any(target_os = "linux", target_os = "macos", test))]
+    pub(super) fn with_null_device(&self) -> Result<Self, Error> {
         const PATH: &str = "/dev/null";
         if self.caller_roots.as_ref().is_some_and(|roots| {
             roots

@@ -11,7 +11,8 @@ use std::{collections::BTreeMap, path::PathBuf};
 mod ld_cache;
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
-/// installed ELF libraries that cache names outside the roots. Explicit
+/// installed ELF libraries that cache names outside the roots. Include a
+/// synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
 pub fn native(files: &Files) -> io::Result<Files> {
@@ -66,6 +67,7 @@ fn select(
 ) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     let root_names = roots.keys().cloned().collect::<Vec<_>>();
+    let files = files.with_null_device().map_err(io::Error::other)?;
     let files = files.with_linux_library_roots(roots)?;
     let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
         return Ok(files);
@@ -166,6 +168,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(&*selected.read("/etc/ld.so.cache").unwrap(), b"installed");
+        assert!(selected.lookup("/dev/null").unwrap().1.is_null_device());
         assert!(selected.lookup("/etc/passwd").is_err());
         let selected = select(
             &Files::default(),

@@ -425,7 +425,7 @@ fn native_null_device_has_guest_only_path_and_descriptor_semantics() {
         .unwrap();
     assert_eq!(
         supplied
-            .with_darwin_null_device()
+            .with_null_device()
             .unwrap()
             .read("/dev/null")
             .unwrap()
@@ -435,7 +435,7 @@ fn native_null_device_has_guest_only_path_and_descriptor_semantics() {
     assert!(files.lookup("/dev/null").is_err());
     for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
         let mut p = process_with_profile(abi, true);
-        p.proc.vfs = Vfs::supplied(files.with_darwin_null_device().unwrap());
+        p.proc.vfs = Vfs::supplied(files.with_null_device().unwrap());
         let (_, mut thread) = p.proc.threads.pop_first().unwrap();
         let buffer = thread.cpu.sp() - 4096;
         let name = buffer + 512;

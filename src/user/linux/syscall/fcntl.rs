@@ -208,6 +208,12 @@ fn is_tty(file: &OpenFile) -> bool {
 pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
     use tio::*;
     let file = c.p.fds.file(fd)?;
+    if matches!(file.object, FileObject::PathOnly)
+        && file.ftype == FileType::CharDevice
+        && file.supplied_stat.is_some()
+    {
+        return Err(Errno(EBADF));
+    }
     #[cfg(unix)]
     if let FileObject::Socket(s) = &file.object
         && !matches!(req, FIOCLEX | FIONCLEX | FIONBIO)
@@ -258,7 +264,7 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
                     console,
                     stream: None,
                 } => console.pending()?.0.min(i32::MAX as usize) as i32,
-                FileObject::Supplied(entry) => {
+                FileObject::Supplied(entry) if !entry.is_null_device() => {
                     let pos = file.state.lock().unwrap().synth_pos;
                     entry.len().saturating_sub(pos).min(i32::MAX as u64) as i32
                 }

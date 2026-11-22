@@ -217,6 +217,40 @@ fn installed_sqlite_matches_native_through_closed_c_abi() {
     assert_eq!(stderr, native.stderr);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn installed_cat_reads_guest_null_through_closed_c_abi() {
+    let path = "/bin/cat";
+    let arguments = ["/dev/null"];
+    let native = std::process::Command::new(path)
+        .args(arguments)
+        .env_clear()
+        .output()
+        .unwrap();
+    assert!(native.status.success());
+    assert!(native.stdout.is_empty());
+    assert!(native.stderr.is_empty());
+
+    let options = serde_json::json!({
+        "personality": "linux",
+        "guest_path": path,
+        "arguments": arguments,
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    let process = open(&std::fs::read(path).unwrap(), &options.to_string());
+    let state = info(&process);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    let result = run_installed_posix(&process, path);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn run_installed_posix(process: &Owned, path: &str) -> RaxProcessResult {
     run_installed_posix_with_turn_limit(process, path, 16_384)
@@ -426,7 +460,7 @@ print(json.dumps({"root": math.isqrt(1764), "round_trip": restored.decode("ascii
     assert_eq!(stderr, native.stderr);
 }
 
-#[cfg(any(all(target_os = "linux", target_arch = "x86_64"), target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn capture_installed_posix_stream(process: &Owned, stream: u32) -> Vec<u8> {
     let mut bytes = vec![0u8; 65536];
     let mut size = 0;

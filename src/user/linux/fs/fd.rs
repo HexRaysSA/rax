@@ -63,8 +63,8 @@ pub enum FileObject {
     PipeWrite(std::io::PipeWriter),
     /// Synthesized read-only content (`/proc` files and directories).
     Synthetic(Arc<[u8]>),
-    /// Read-only guest namespace entry, including demand-read selected backing.
-    /// Its host handle is never an ordinary guest descriptor.
+    /// Guest namespace entry, including demand-read selected backing and the
+    /// synthetic null device. No ordinary guest descriptor exposes a host handle.
     Supplied(crate::user::supplied_fs::Entry),
     /// An `O_PATH` reference: identifies a file without I/O capability.
     PathOnly,
@@ -285,14 +285,22 @@ impl OpenFile {
         self.flags() & O_ACCMODE
     }
 
+    pub(crate) fn is_null_device(&self) -> bool {
+        matches!(&self.object, FileObject::Supplied(entry) if entry.is_null_device())
+    }
+
     /// Whether the description permits reading.
     pub fn readable(&self) -> bool {
-        self.flags() & O_PATH == 0 && self.access_mode() != O_WRONLY
+        let flags = self.flags();
+        let access = flags & O_ACCMODE;
+        flags & O_PATH == 0 && access != O_WRONLY && (access != O_ACCMODE || !self.is_null_device())
     }
 
     /// Whether the description permits writing.
     pub fn writable(&self) -> bool {
-        self.flags() & O_PATH == 0 && self.access_mode() != O_RDONLY
+        let flags = self.flags();
+        let access = flags & O_ACCMODE;
+        flags & O_PATH == 0 && access != O_RDONLY && (access != O_ACCMODE || !self.is_null_device())
     }
 
     /// `read(2)` at the current position.
@@ -326,6 +334,7 @@ impl OpenFile {
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
             FileObject::Socket(s) => Ok((&s.file).read(buf)?),
+            FileObject::Supplied(entry) if entry.is_null_device() => Ok(0),
             FileObject::Supplied(entry) => {
                 let mut st = self.state.lock().unwrap();
                 let n = entry.source()?.read_at(st.synth_pos, buf)?;
@@ -421,6 +430,7 @@ impl OpenFile {
                 Ok(n)
             }
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
+            FileObject::Supplied(entry) if entry.is_null_device() => Ok(data.len()),
             FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
@@ -448,6 +458,7 @@ impl OpenFile {
                 Ok(f.read_at(buf, offset)?)
             }
             FileObject::Host(_) if self.ftype == FileType::Directory => Err(Errno(EISDIR)),
+            FileObject::Supplied(entry) if entry.is_null_device() => Ok(0),
             FileObject::Supplied(entry) => Ok(entry.source()?.read_at(offset, buf)?),
             FileObject::Synthetic(data) => {
                 let pos = offset.min(data.len() as u64) as usize;
@@ -481,6 +492,7 @@ impl OpenFile {
                 let n = self.sealed_len(f, Some(offset), data.len())?;
                 Ok(f.write_at(&data[..n], offset)?)
             }
+            FileObject::Supplied(entry) if entry.is_null_device() => Ok(data.len()),
             FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Mqueue(_) if !self.fmode().1 => Err(Errno(EBADF)),
             FileObject::Mqueue(_) => Err(Errno(EINVAL)),
@@ -568,6 +580,14 @@ impl OpenFile {
             }
             // noop_llseek: the position stays 0.
             FileObject::Anon(_) => Ok(0),
+            FileObject::Supplied(entry) if entry.is_null_device() => {
+                // null_lseek resets the position for every valid seek origin.
+                if whence <= 4 {
+                    Ok(0)
+                } else {
+                    Err(Errno(EINVAL))
+                }
+            }
             FileObject::Supplied(entry) => {
                 let mut st = self.state.lock().unwrap();
                 let base = match whence {
