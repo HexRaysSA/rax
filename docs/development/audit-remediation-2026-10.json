@@ -200276,6 +200276,26 @@
       "scope": "REPE and REPNE SCAS complete one translated MMIO read per iteration. Continuation preserves entry arithmetic flags and retains the updated address-sized index and count. A detached pending read validates the saved continuation. The parent portable planner rejected the encoding. The candidate passed 120 portable MMIO, 16 workflow, and 99 simulated Intel owner tests. Hosted Intel run 44811578736 at f5226139d passed all 48 native cases with matching source and archive hashes. Guest page-fault and single-step frames, the host monitor-trap state, and a post-monitor injected interrupt matched full observed RFLAGS for RAM, direct MMIO, and detached MMIO. Bare-metal Intel macOS, compatibility-mode device exits, and free-running interrupt timing remain open.",
       "qualification": "docs/development/hvf-mmio-alu-read.md#device-read-continuation",
       "full_goal_complete": false
+    },
+    {
+      "id": "kvm-differential-exception-gdt-2026-11-22",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "fixture_regression_qualified_full_findings_open",
+      "scope": "The interpreter side of the x86-64 KVM differential now installs the same 64-bit handler code descriptor and GDTR as the KVM exception fixture. The parent stopped at the missing selector. One regression executes long and compatibility modes and verifies both #UD handler markers on the repaired fixture. This changes the differential setup only.",
+      "assumption_probe": "A present IDT gate needs a valid target code descriptor. Execute UD2 and require the handler marker in both IA-32e modes.",
+      "unfiltered_limitation": "The direct Intel Linux run completed the unfiltered binary with 231 passed and 39 failed. 37 failures report KVM_SET_XCRS EINVAL on a host without AVX-512. Two corpus cardinality assertions also fail in the unchanged hosted run. AVX-512 silicon parity, native HVF vectoring, and complete checkpoint restoration remain open.",
+      "hosted_baseline": "https://github.com/HexRaysSA/rax/actions/runs/44988175367/job/137103237296",
+      "qualification_parent": "e0c83ee4e6ae82f046638028e2e4e40f8650d741",
+      "candidate_source_sha256": "4b87a2cee11053e4bf3a776fc1cc4502c5d951680366e05776ab44fc56130620",
+      "regression_logs_sha256": {
+        "fixture-baseline": "dbef214c5c25cf5f6551fbff8e515d8664618984c17fc2cebafa7e64230ae59c",
+        "fixture-candidate": "d276a403a6c5d9a3df7ea9b1643dc1c9dabff41320990ce95861fbebed6d5832",
+        "native-kvm-avx512": "6e5c384e3ea3c20dbf717c2f923ec8bb1818a9c42995b47f8ebb7e6edaa4b645"
+      },
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

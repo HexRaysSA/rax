@@ -861,6 +861,7 @@ const CODE_ADDR: u64 = 0x30000;
 const COMPAT_CODE_ADDR: u64 = 0x3000;
 const STACK_ADDR: u64 = 0x20000;
 const EXCEPTION_GDT_ADDR: u64 = 0x27000;
+const EXCEPTION_CODE_DESCRIPTOR: [u8; 8] = [0, 0, 0, 0, 0, 0x9a, 0x20, 0];
 const EXCEPTION_IDT_ADDR: u64 = 0x28000;
 const EXCEPTION_HANDLER_ADDR: u64 = 0x29000;
 const EXCEPTION_TSS_ADDR: u64 = 0x2a000;
@@ -1071,13 +1072,12 @@ fn write_exception_tss_interp(mem: &GuestMemoryMmap) -> Result<(), String> {
 
 fn write_user_exception_gdt_kvm(mem: &KvmMem) {
     let null_descriptor = [0u8; 8];
-    let code64_descriptor = [0x00, 0x00, 0x00, 0x00, 0x00, 0x9a, 0x20, 0x00];
     let user_code64_descriptor = [0x00, 0x00, 0x00, 0x00, 0x00, 0xfa, 0x20, 0x00];
     let user_data_descriptor = [0xff, 0xff, 0x00, 0x00, 0x00, 0xf2, 0xcf, 0x00];
     let tss_descriptor = tss64_descriptor(EXCEPTION_TSS_ADDR, 0x67);
 
     mem.write(EXCEPTION_GDT_ADDR, &null_descriptor);
-    mem.write(EXCEPTION_GDT_ADDR + 8, &code64_descriptor);
+    mem.write(EXCEPTION_GDT_ADDR + 8, &EXCEPTION_CODE_DESCRIPTOR);
     mem.write(EXCEPTION_GDT_ADDR + 16, &null_descriptor);
     mem.write(EXCEPTION_GDT_ADDR + 24, &user_code64_descriptor);
     mem.write(EXCEPTION_GDT_ADDR + 32, &user_data_descriptor);
@@ -1087,14 +1087,13 @@ fn write_user_exception_gdt_kvm(mem: &KvmMem) {
 
 fn write_user_exception_gdt_interp(mem: &GuestMemoryMmap) -> Result<(), String> {
     let null_descriptor = [0u8; 8];
-    let code64_descriptor = [0x00, 0x00, 0x00, 0x00, 0x00, 0x9a, 0x20, 0x00];
     let user_code64_descriptor = [0x00, 0x00, 0x00, 0x00, 0x00, 0xfa, 0x20, 0x00];
     let user_data_descriptor = [0xff, 0xff, 0x00, 0x00, 0x00, 0xf2, 0xcf, 0x00];
     let tss_descriptor = tss64_descriptor(EXCEPTION_TSS_ADDR, 0x67);
 
     for (offset, descriptor) in [
         (0, null_descriptor.as_slice()),
-        (8, code64_descriptor.as_slice()),
+        (8, EXCEPTION_CODE_DESCRIPTOR.as_slice()),
         (16, null_descriptor.as_slice()),
         (24, user_code64_descriptor.as_slice()),
         (32, user_data_descriptor.as_slice()),
@@ -1125,9 +1124,8 @@ fn store_marker_code(marker: u32) -> [u8; 18] {
 fn install_exception_trap_kvm(mem: &KvmMem, vector: usize) {
     assert!(vector < 256);
     let null_descriptor = [0u8; 8];
-    let code64_descriptor = [0x00, 0x00, 0x00, 0x00, 0x00, 0x9a, 0x20, 0x00];
     mem.write(EXCEPTION_GDT_ADDR, &null_descriptor);
-    mem.write(EXCEPTION_GDT_ADDR + 8, &code64_descriptor);
+    mem.write(EXCEPTION_GDT_ADDR + 8, &EXCEPTION_CODE_DESCRIPTOR);
 
     let gate = idt_gate64(EXCEPTION_HANDLER_ADDR, EXCEPTION_CODE_SELECTOR);
     mem.write(EXCEPTION_IDT_ADDR + (vector as u64) * 16, &gate);
@@ -1139,6 +1137,11 @@ fn install_exception_trap_kvm(mem: &KvmMem, vector: usize) {
 
 fn install_exception_trap_interp(mem: &GuestMemoryMmap, vector: usize) -> Result<(), String> {
     assert!(vector < 256);
+    mem.write_slice(
+        &EXCEPTION_CODE_DESCRIPTOR,
+        GuestAddress(EXCEPTION_GDT_ADDR + u64::from(EXCEPTION_CODE_SELECTOR)),
+    )
+    .map_err(|e| format!("write exception GDT code descriptor: {e:?}"))?;
     let gate = idt_gate64(EXCEPTION_HANDLER_ADDR, EXCEPTION_CODE_SELECTOR);
     mem.write_slice(
         &gate,
@@ -1906,6 +1909,8 @@ fn run_interp_with_exception_trap(
         .get_sregs()
         .map_err(|e| format!("interp get sregs: {e:?}"))?;
     interp_sregs.cr4 = CR4_VAL;
+    interp_sregs.gdt.base = EXCEPTION_GDT_ADDR;
+    interp_sregs.gdt.limit = 0x0f;
     interp_sregs.idt.base = EXCEPTION_IDT_ADDR;
     interp_sregs.idt.limit = ((vector + 1) * 16 - 1) as u16;
     vcpu.set_sregs(&interp_sregs)
@@ -2101,6 +2106,8 @@ fn run_interp_compat_state_inner(
     sregs.fs.db = true;
     sregs.gs.db = true;
     if let Some(vector) = trap_vector {
+        sregs.gdt.base = EXCEPTION_GDT_ADDR;
+        sregs.gdt.limit = 0x0f;
         sregs.idt.base = EXCEPTION_IDT_ADDR;
         sregs.idt.limit = ((vector + 1) * 16 - 1) as u16;
         install_exception_trap_interp(&mem, vector)?;
@@ -2194,6 +2201,21 @@ fn kvm_reaches_exception_marker(oracle: &KvmOracle, op: &[u8], vector: usize) ->
         Ok(KvmOutcome::Ran(out)) => scratch_marker(&out.scratch) == exception_marker(vector),
         Ok(KvmOutcome::Faulted) | Err(_) => false,
     }
+}
+
+#[test]
+fn interpreter_exception_probe_reaches_the_handler_in_both_ia32e_modes() {
+    let ud2 = [0x0f, 0x0b];
+    let code = build_fault_probe_code(&ud2);
+    let expected = exception_marker(UD_VECTOR);
+
+    let long = run_interp_with_exception_trap(&code, &input_for(InputProfile::Int), UD_VECTOR)
+        .expect("long-mode #UD delivery");
+    assert_eq!(scratch_marker(&long.scratch), expected);
+
+    let compat = run_interp_compat_state_with_exception_trap(&ud2, &compat_state_seed(), UD_VECTOR)
+        .expect("compatibility-mode #UD delivery");
+    assert_eq!(scratch_marker(&compat.scratch), expected);
 }
 
 // ---------------------------------------------------------------------------
