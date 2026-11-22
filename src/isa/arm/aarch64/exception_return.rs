@@ -29,7 +29,14 @@ pub(crate) fn uses_aarch32(controls: PauthControls, pfr0: u64, el: u8) -> Option
         return Some(false);
     }
     let secure_el2 = controls.secure_el2 && controls.scr_el3 & (1 << 18) != 0;
-    if have_el3 && controls.scr_el3 & (1 << 10) == 0 && (!secure || !secure_el2) {
+    // EffectiveSCR_EL3_RW forces AArch64 if neither lower privileged EL
+    // supports AArch32, or if Non-secure EL2 is AArch64-only.
+    let scr_can_select_aarch32 = has_aarch32(pfr0, 2) || (secure && has_aarch32(pfr0, 1));
+    if have_el3
+        && scr_can_select_aarch32
+        && controls.scr_el3 & (1 << 10) == 0
+        && (!secure || !secure_el2)
+    {
         return Some(true);
     }
     if el == 2 {

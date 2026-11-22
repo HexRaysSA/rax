@@ -1016,3 +1016,73 @@ mod thumb_fp_predicate;
 
 #[path = "a32_fp_controls/javascript_convert.rs"]
 mod javascript_convert;
+
+#[test]
+fn nonsecure_aarch64_only_el2_makes_scr_rw_effectively_one() {
+    for thumb in [false, true] {
+        for mode in [ProcessorMode::Supervisor, ProcessorMode::User] {
+            for secure in [false, true] {
+                for hcr_rw in [false, true] {
+                    let mut cpu = AArch64Cpu::new(
+                        AArch64Config {
+                            initial_el: 3,
+                            gic_config: None,
+                            ..AArch64Config::default()
+                        },
+                        Box::new(Memory64::new(0, 0x4000)),
+                    );
+                    let mut state = cpu.export_sregs();
+                    let sys = &mut state.execution.as_mut().unwrap().sysregs;
+                    sys.id_aa64pfr0_el1 = (sys.id_aa64pfr0_el1 & !(15 << 8)) | (1 << 8);
+                    sys.scr_el3 = u64::from(!secure); // Raw SCR_EL3.RW=0.
+                    sys.hcr_el2 = u64::from(hcr_rw) << 31;
+                    sys.el1.cpacr = 3 << 20;
+                    sys.el3.elr = 0x100;
+                    let pstate = 0x1c0 | u64::from(mode as u8) | (u64::from(thumb) << 5);
+                    sys.el3.spsr = pstate;
+                    sys.impl_defined.insert(
+                        Aarch64SysRegEncoding::new(3, 4, 5, 3, 0).encode(),
+                        0, // FPEXC.EN=0 is effective only below AArch32 EL1.
+                    );
+                    cpu.import_sregs(&state).unwrap();
+                    cpu.write_memory(0, &0xd69f_03e0u32.to_le_bytes()).unwrap(); // ERET.
+                    let word = if thumb { VADD.rotate_left(16) } else { VADD };
+                    cpu.write_memory(0x100, &word.to_le_bytes()).unwrap();
+                    cpu.set_simd(0, (0x3f80_0000u128 << 64) | 0x1234_5678);
+                    cpu.set_simd(1, 0x4000_0000);
+                    cpu.set_pc(0);
+
+                    let a64_parent = !secure && hcr_rw;
+                    let illegal = a64_parent && mode == ProcessorMode::Supervisor;
+                    let case =
+                        format!("Thumb={thumb} mode={mode:?} secure={secure} hcr_rw={hcr_rw}");
+                    assert_eq!(cpu.step().unwrap(), CpuExit::Continue, "{case}");
+                    assert_eq!(cpu.get_pc(), 0x100, "{case}");
+                    let actual = cpu.pstate_bits();
+                    if illegal {
+                        assert_eq!(actual & ((1 << 20) | 0x3f), (1 << 20) | 0xd, "{case}");
+                        continue;
+                    }
+                    assert_eq!(actual & 0x3f, pstate & 0x3f, "{case}");
+                    let before = cpu.get_simd(0);
+                    let retirement = cpu.instruction_count();
+                    let result = cpu.step();
+                    if a64_parent {
+                        assert_eq!(result.unwrap(), CpuExit::Continue, "{case}");
+                        assert_eq!(cpu.get_pc(), 0x104, "{case}");
+                        assert_eq!(cpu.get_simd(0) as u32, 0x4040_0000, "{case}");
+                        assert_eq!(cpu.instruction_count(), retirement + 1, "{case}");
+                    } else {
+                        assert!(
+                            matches!(result, Err(ArmError::UndefinedInstruction(VADD))),
+                            "{case}: {result:?}"
+                        );
+                        assert_eq!(cpu.get_pc(), 0x100, "{case}");
+                        assert_eq!(cpu.get_simd(0), before, "{case}");
+                        assert_eq!(cpu.instruction_count(), retirement, "{case}");
+                    }
+                }
+            }
+        }
+    }
+}

@@ -620,6 +620,39 @@ failures and five ignored. It tested these source files over
 `b8e1c9b8e0a3d0023187594616c06a0756210f42` with the PC virtual-wire and
 software-disable LVT masking changes also applied.
 
+## Effective SCR_EL3.RW and AArch32 below EL2
+
+On the modeled PE with EL3, a Non-secure EL2 that supports only
+AArch64 makes `SCR_EL3.RW` effectively 1. EL1 still follows
+`HCR_EL2.RW`. If both privileged lower levels are AArch64-only,
+`SCR_EL3.RW` is also effectively 1. These width decisions leave the
+stored register intact. When EL1 is AArch64, AArch32 EL0 ignores the
+stored `FPEXC.EN` value. Selection takes constant time and space.
+[Arm EffectiveSCR_EL3_RW](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L46017),
+[Arm ELStateUsingAArch32K](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L45817),
+[Arm AArch32 FP access ordering](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L2086)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Non-secure EL1 follows HCR_EL2.RW when the stored SCR_EL3.RW bit is clear and EL2 supports only AArch64. | Attempt ERET to ARM and Thumb Supervisor mode. With HCR_EL2.RW set, require IL and the original EL3h. With it clear, require AArch32 EL1. |
+| AArch32 EL0 under an AArch64 EL1 treats FPEXC.EN as enabled. | Execute VADD after guest ERET with FPEXC.EN clear. Require its binary32 result, advanced PC and one retirement. Repeat with AArch32 EL1 and require the denied instruction to preserve registers, PC and retirement. |
+| Secure EL1 without Secure EL2 follows the stored SCR_EL3.RW selection when AArch32 EL1 is present. | Repeat the guest transitions with SCR_EL3.NS clear and both HCR_EL2.RW values. |
+
+The parent entered AArch32 Supervisor mode where ERET should have set IL.
+The corrected CPU passed all 16 mixed-width and FP-access configurations.
+The five complete A32 and ISA oracle test binaries passed 47,683 tests on
+Apple Silicon. QEMU 11.1.2 separately ran six A64, ARM and Thumb EL0
+controls on Cortex-A76 and Neoverse-N1 models with AArch64-only EL1 and EL2.
+Each model retired the FP instruction before the following Undefined.
+Those model controls cover the all-AArch64 privileged profile. The mixed
+EL1 profile uses the pinned Arm pseudocode and the RAX regression.
+
+The unfiltered native Intel Linux KVM library passed 14,231 tests with zero
+failures and 99 ignored. It tested these source files over
+`e0c83ee4e6ae82f046638028e2e4e40f8650d741` with the other
+checkpoint and exception-return changes applied. The raw log SHA-256 is
+`f48aed218dd82309d1c21e32172419db29f73e214e282f9b31a2e1890a619e04`.
+
 ## Original ARM audit replay
 
 The audit author's `audit_arm/repro_full_cpu.rs` ran unchanged against the
