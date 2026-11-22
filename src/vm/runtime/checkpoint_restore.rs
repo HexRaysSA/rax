@@ -506,7 +506,7 @@ impl Vmm {
                 }
                 .commit(physical, memory.as_deref())?;
             } else {
-                let publish_ram = || {
+                let publish_ram = || -> Result<()> {
                     if let Some(physical) = physical {
                         physical.commit_in_scope(scope)?;
                     } else if let Some(memory) = memory {
