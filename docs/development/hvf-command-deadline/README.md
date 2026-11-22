@@ -112,3 +112,17 @@ The build verification checked 4,884 engine inputs and 17 consumer
 inputs against Git, confirmed the strict signature and hypervisor
 entitlement, and matched executable SHA-256
 `cdd2580c832ef103027369b070853110a0b00c6043d94264fc10ac753eac1398`.
+
+## Standalone port-I/O debug profile
+
+The `port-debug` profile runs the existing port matrix independently. Its
+446 cases cover 12 encodings, 384 debug-priority cases, 48 negative controls,
+and 14 malformed-input completions. Both the standalone and combined consumers
+log the first case ordinal, direction, width, and I/O port for each encoding
+before running its cases. These markers diagnose the last visible boundary.
+Qualification requires the complete execution artifact.
+
+An independent replay of the retained 952-case observations verified the 12
+encoding boundaries and their exact marker fields. The complete native Intel
+consumer type-checked. All 54 Python harness tests and all 16 unfiltered
+`ci_actions_pinned` cases passed. New native observations are pending.

@@ -522,7 +522,7 @@ fn run_legacy_mmio(encodings: &[&[u8]], output: &Path, case: &mut usize) {
     }
 }
 
-fn run_ports(output: &Path, case: &mut usize) {
+pub(super) fn run_ports(output: &Path, case: &mut usize) {
     let encodings: &[(bool, u8, u16, &[u8])] = &[
         (true, 1, PORT, &[0xec]),
         (true, 2, PORT, &[0x66, 0xed]),
@@ -538,6 +538,10 @@ fn run_ports(output: &Path, case: &mut usize) {
         (false, 4, 0xf8, &[0xe7, 0xf8]),
     ];
     for (action, &(input, size, port, code)) in encodings.iter().enumerate() {
+        eprintln!(
+            "{{\"profile\":\"port-debug\",\"case\":{},\"action\":{action},\"input\":{input},\"size\":{size},\"port\":{port}}}",
+            *case
+        );
         let access = PortAccess {
             input,
             size,
