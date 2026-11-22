@@ -223,6 +223,9 @@ impl InlineLapic {
             LAPIC_LDR => self.ldr = value,
             LAPIC_DFR => self.dfr = value,
             LAPIC_SVR => {
+                if self.is_enabled() && value & SVR_APIC_ENABLED == 0 {
+                    self.advance_timer();
+                }
                 self.svr = value;
                 if !self.is_enabled() {
                     self.mask_local_vectors();
@@ -232,6 +235,7 @@ impl InlineLapic {
             LAPIC_ICR_LOW => self.icr = (self.icr & 0xFFFFFFFF00000000) | (value as u64),
             LAPIC_ICR_HIGH => self.icr = (self.icr & 0x00000000FFFFFFFF) | ((value as u64) << 32),
             LAPIC_LVT_TIMER => {
+                self.advance_timer();
                 let value = value | lvt_mask;
                 tracing::debug!(
                     "LAPIC LVT_TIMER write: value={:#x}, vector={}, mode={}, masked={}",
@@ -280,12 +284,16 @@ impl InlineLapic {
 
     /// Check if there's a pending interrupt that hasn't been delivered yet
     fn has_pending(&self) -> bool {
-        self.pending_timer_vector.is_some()
+        self.get_pending().is_some()
     }
 
-    /// Get pending interrupt vector without clearing it
+    /// Get a deliverable interrupt vector without clearing the pending latch.
     fn get_pending(&self) -> Option<u8> {
-        self.pending_timer_vector
+        if self.is_enabled() {
+            self.pending_timer_vector
+        } else {
+            None
+        }
     }
 
     /// Clear the pending interrupt (called after successful injection)
@@ -296,21 +304,17 @@ impl InlineLapic {
     /// Check if timer interrupt should fire and return vector if so.
     /// If an interrupt fires but can't be delivered, it becomes pending.
     fn tick_timer(&mut self) -> Option<u8> {
-        // If there's already a pending interrupt, return it
-        if let Some(vector) = self.pending_timer_vector {
-            return Some(vector);
-        }
+        self.advance_timer();
+        self.get_pending()
+    }
 
-        if !self.is_enabled() || self.timer_initial_count == 0 {
-            return None;
-        }
-        // Check if timer is masked
-        if (self.lvt_timer & LVT_MASK) != 0 {
-            return None;
-        }
+    fn advance_timer(&mut self) {
         let Some(start_nanos) = self.timer_start_nanos else {
-            return None;
+            return;
         };
+        if self.timer_initial_count == 0 {
+            return;
+        }
 
         let current_nanos = timing::elapsed_nanos();
         let elapsed_nanos = self
@@ -323,31 +327,21 @@ impl InlineLapic {
         let elapsed_ticks = elapsed_nanos / divisor;
         let initial = self.timer_initial_count as u64;
 
-        let mode = (self.lvt_timer >> 17) & 0x3; // Timer mode bits
-        let vector = (self.lvt_timer & 0xFF) as u8;
-
-        match mode {
-            0 => {
-                // One-shot: fire once when count reaches 0
-                if elapsed_ticks >= initial {
-                    self.timer_start_nanos = None; // Stop timer
-                    self.pending_timer_vector = Some(vector);
-                    return Some(vector);
-                }
-            }
-            1 => {
-                // Periodic: fire and restart
-                if elapsed_ticks >= initial {
-                    // Restart timer from current time
-                    self.timer_start_nanos = Some(current_nanos);
-                    self.timer_elapsed_base = 0;
-                    self.pending_timer_vector = Some(vector);
-                    return Some(vector);
-                }
-            }
-            _ => {}
+        if elapsed_ticks < initial {
+            return;
         }
-        None
+        match (self.lvt_timer >> 17) & 3 {
+            0 => self.timer_start_nanos = None,
+            1 => {
+                self.timer_start_nanos = Some(current_nanos);
+                self.timer_elapsed_base = elapsed_nanos % (initial * divisor);
+            }
+            _ => return,
+        }
+        if self.is_enabled() && self.lvt_timer & LVT_MASK == 0 {
+            let vector = (self.lvt_timer & 0xff) as u8;
+            self.pending_timer_vector.get_or_insert(vector);
+        }
     }
 }
 

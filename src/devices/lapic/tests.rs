@@ -1086,39 +1086,47 @@ fn test_timer_mode_change_while_running() {
 
 #[test]
 fn test_timer_vector_change_while_running() {
-    let mut lapic = LocalApic::new(0);
+    use crate::vm::timing::{ClockMode, TimingContext};
 
-    lapic.write_register(LAPIC_LVT_TIMER, 0x00000020);
-    lapic.write_register(LAPIC_TIMER_DCR, 0b1011);
-    lapic.write_register(LAPIC_TIMER_ICR, 1);
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _current = clock.enter();
+    for expired in [false, true] {
+        let mut lapic = LocalApic::new(0);
+        lapic.write_register(LAPIC_LVT_TIMER, 0x20);
+        lapic.write_register(LAPIC_TIMER_DCR, 0b1011);
+        lapic.write_register(LAPIC_TIMER_ICR, 100);
 
-    // Change vector while timer is expiring
-    lapic.write_register(LAPIC_LVT_TIMER, 0x00000030);
+        clock
+            .advance_retired(if expired { 300 } else { 297 })
+            .unwrap();
+        lapic.write_register(LAPIC_LVT_TIMER, 0x30);
+        assert_eq!(lapic.get_pending_vector(), expired.then_some(0x20));
 
-    thread::sleep(Duration::from_millis(10));
-    let vector = lapic.tick();
-
-    // Should fire with new vector
-    assert_eq!(vector, Some(0x30));
+        clock.advance_retired(3).unwrap();
+        assert_eq!(lapic.tick(), (!expired).then_some(0x30));
+    }
 }
 
 #[test]
 fn test_timer_mask_while_pending() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _current = clock.enter();
     let mut lapic = LocalApic::new(0);
-
-    // Set up and let timer expire
-    lapic.write_register(LAPIC_LVT_TIMER, 0x00000020);
+    lapic.write_register(LAPIC_LVT_TIMER, 0x20);
     lapic.write_register(LAPIC_TIMER_DCR, 0b1011);
-    lapic.write_register(LAPIC_TIMER_ICR, 1);
+    lapic.write_register(LAPIC_TIMER_ICR, 100);
 
-    thread::sleep(Duration::from_millis(10));
-    lapic.tick(); // This sets pending
+    clock.advance_retired(300).unwrap();
+    assert_eq!(lapic.tick(), Some(0x20));
+    lapic.write_register(LAPIC_LVT_TIMER, LVT_MASK | 0x30);
+    assert_eq!(lapic.get_pending_vector(), Some(0x20));
+    lapic.ack_interrupt(0x20);
 
-    // Mask the timer
-    lapic.write_register(LAPIC_LVT_TIMER, 0x00010020);
-
-    // Pending flag should still be set (masking doesn't clear pending)
-    assert!(lapic.has_pending_timer());
+    lapic.write_register(LAPIC_LVT_TIMER, 0x30);
+    assert_eq!(lapic.tick(), None);
+    assert_eq!(lapic.get_pending_vector(), None);
 }
 
 #[test]
@@ -1839,4 +1847,31 @@ fn test_mmio_device_boundary_addresses() {
 
     // Read at end of LAPIC region
     device.read(LAPIC_BASE + 0xFFC, &mut data);
+}
+#[test]
+fn masked_lvt_countdown_suppresses_elapsed_edges_and_preserves_periodic_phase() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+
+    let clock = std::sync::Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _current = clock.enter();
+    for periodic in [false, true] {
+        let mut lapic = LocalApic::new(0);
+        let mode = u32::from(periodic) << 17;
+        lapic.write_register(LAPIC_TIMER_DCR, 0xb);
+        lapic.write_register(LAPIC_LVT_TIMER, LVT_MASK | mode | 0x40);
+        lapic.write_register(LAPIC_TIMER_ICR, 100);
+        clock.advance_retired(375).unwrap(); // 125 ns, one expiry under the mask.
+        assert_eq!(
+            lapic.read_register(LAPIC_TIMER_CCR),
+            if periodic { 75 } else { 0 }
+        );
+
+        lapic.write_register(LAPIC_LVT_TIMER, mode | 0x40);
+        assert_eq!(lapic.tick(), None, "an expiry under the mask reached IRR");
+        assert_eq!(lapic.get_pending_vector(), None);
+        clock.advance_retired(222).unwrap(); // 199 ns since the reload.
+        assert_eq!(lapic.tick(), None);
+        clock.advance_retired(3).unwrap();
+        assert_eq!(lapic.tick(), periodic.then_some(0x40));
+    }
 }

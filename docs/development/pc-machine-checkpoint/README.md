@@ -313,3 +313,40 @@ The probe passed alongside all 18 KVM state tests. The job also passed
 all 15 native minimal and 32 native SMP cases. The job log SHA-256 is
 `0270d48adc189dc17740b868825055997164393ce17ed4656ba7c96efe6a472d`.
 [Hosted KVM execution](https://github.com/HexRaysSA/rax/actions/runs/44902538835/job/136841268421)
+
+## Countdown expiry while the local timer is masked
+
+The local APIC countdown advances while the timer LVT is masked. Writing
+the LVT settles elapsed periods against the previous mask and vector.
+An expired masked one-shot reaches zero. A masked periodic timer retains
+the remainder of its current period. Expiries already admitted by an
+unmasked LVT remain assigned to their original vector.
+[Intel SDM Volume 3A, section 12.5.4](https://cdrdv2-public.intel.com/835754/253668-sdm-vol-3a.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The LVT mask controls delivery at expiry. | Start a 100-tick timer at 1 tick/ns. Advance 125 ns with the mask set, unmask without an intermediate timer poll, and require an empty interrupt frontier. |
+| Unmasking preserves periodic phase. | At 125 ns require the count to read 75. Sample at 199 ns and 200 ns and require only the latter to produce the periodic vector. |
+| A detached inline checkpoint retains countdown phase. | Serialize the masked timer at 125 ns, destroy the source, and run the same unmask and boundary checks after import into a fresh clock. |
+
+The shared and inline parent tests both returned stale vector 0x40.
+Both corrected tests pass in one-shot and periodic mode. Independent
+QEMU 11.1.2 controls on the PC and Q35 machines observed that a one-shot
+expiry under the mask stayed absent from IRR after unmasking. The two
+unmasked controls retained the expired vector in IRR across the LVT
+write. Local phase advancement takes constant time and auxiliary space.
+
+The unfiltered native Intel Linux KVM library passed 14,231 tests with zero
+failures and 99 ignored. It tested these source files over
+`e0c83ee4e6ae82f046638028e2e4e40f8650d741` with the other
+checkpoint and exception-return changes applied. The raw log SHA-256 is
+`f48aed218dd82309d1c21e32172419db29f73e214e282f9b31a2e1890a619e04`.
+A deterministic mask-write test checks preservation of the original
+request through acknowledgement, and a boundary test writes the
+vector just before and at expiry. Only test-source line wrapping
+changed after this build.
+
+All 12 CPU checkpoint integration tests and all 10 x86-64
+real-mode boot tests passed on both Apple Silicon with Rosetta and
+physical Intel Linux with KVM. Native kernel countdown phase and
+bare-metal Intel HVF still require separate qualification.

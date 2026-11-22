@@ -355,8 +355,16 @@ impl LocalApic {
         self.tick_at(Instant::now())
     }
 
+    pub(crate) fn poll_countdown(&mut self) {
+        self.tick();
+        if self.has_pending_timer() {
+            self.set_irr(self.timer_vector());
+            self.clear_timer_pending();
+        }
+    }
+
     fn tick_at(&mut self, now: Instant) -> Option<u8> {
-        if !self.is_enabled() || self.timer_initial_count == 0 || self.timer_masked() {
+        if self.timer_initial_count == 0 {
             return None;
         }
 
@@ -375,6 +383,7 @@ impl LocalApic {
 
         let initial = u128::from(self.timer_initial_count);
         let mode = self.timer_mode();
+        let unmasked = self.is_enabled() && !self.timer_masked();
 
         match mode {
             TIMER_MODE_ONESHOT => {
@@ -382,7 +391,7 @@ impl LocalApic {
                     // Timer expired
                     self.timer_current_count = 0;
                     self.timer_start = None; // Stop the timer
-                    if !self.timer_pending {
+                    if unmasked && !self.timer_pending {
                         self.timer_pending = true;
                         return Some(self.timer_vector());
                     }
@@ -404,7 +413,7 @@ impl LocalApic {
                     self.timer_elapsed_base_nanos = elapsed_nanos % period_nanos;
                     self.timer_start = Some(now);
                     self.timer_clock.rebase_to(sample);
-                    if !self.timer_pending {
+                    if unmasked && !self.timer_pending {
                         self.timer_pending = true;
                         return Some(self.timer_vector());
                     }
@@ -859,6 +868,9 @@ impl LocalApic {
             }
             LAPIC_SVR => {
                 let was_enabled = self.is_enabled();
+                if was_enabled && value & SVR_APIC_ENABLED == 0 {
+                    self.poll_countdown();
+                }
                 self.svr = value;
                 if !self.is_enabled() {
                     // Intel SDM 3A 12.4.7.2: software disable latches every LVT mask.
@@ -881,6 +893,8 @@ impl LocalApic {
                 self.icr = (self.icr & 0x00000000FFFFFFFF) | ((value as u64) << 32);
             }
             LAPIC_LVT_TIMER => {
+                // Advance elapsed edges under the previous mask and vector.
+                self.poll_countdown();
                 let value = value | lvt_mask;
                 let old_mode = self.timer_mode();
                 self.lvt_timer.write(value);

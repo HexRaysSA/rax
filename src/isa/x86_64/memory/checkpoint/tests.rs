@@ -176,3 +176,29 @@ fn incompatible_binding_and_invalid_record_fail_before_target_changes() {
     assert!(source.checkpoint_state().is_err());
     drop(held);
 }
+#[test]
+fn restored_masked_countdown_cannot_raise_an_old_expiry_on_unmask() {
+    for periodic in [false, true] {
+        let source_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+        let _source = source_clock.enter();
+        let source = mmu();
+        let mode = u32::from(periodic) << 17;
+        write_register(&source, 0x3e0, 0xb);
+        write_register(&source, 0x320, (1 << 16) | mode | 0x40);
+        write_register(&source, 0x380, 100);
+        source_clock.advance_retired(375).unwrap(); // 125 ns.
+        assert_eq!(read_register(&source, 0x390), if periodic { 75 } else { 0 });
+        let raw = encoded(&source);
+        drop(source);
+
+        let target_clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+        let _target = target_clock.enter();
+        let restored = decode(&raw).prepare(&mmu()).unwrap();
+        write_register(&restored, 0x320, mode | 0x40);
+        assert_eq!(restored.tick_lapic_timer(), None);
+        target_clock.advance_retired(222).unwrap();
+        assert_eq!(restored.tick_lapic_timer(), None);
+        target_clock.advance_retired(3).unwrap();
+        assert_eq!(restored.tick_lapic_timer(), periodic.then_some(0x40));
+    }
+}

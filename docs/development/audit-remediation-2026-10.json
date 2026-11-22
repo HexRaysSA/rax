@@ -200332,6 +200332,17 @@
       "scope": "AArch64-only Non-secure EL2 forces the effective SCR_EL3.RW width selector while the stored register persists. AArch32 EL0 below AArch64 EL1 applies the effective FPEXC.EN rule. The parent entered Supervisor mode for an illegal return. All 16 ARM and Thumb transition controls, 47683 ARM and oracle integration tests, and 14231 unfiltered direct Intel Linux library tests passed with 99 ignored. QEMU confirmed the AArch64-only EL1 and EL2 subprofile. Physical AArch32 remains unverified.",
       "qualification": "docs/development/a32-fp-controls.md#effective-scr_el3rw-and-aarch32-below-el2",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-lapic-masked-countdown-2026-11-21",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Shared and inline local APICs advance countdown phase while masked and preserve the original vector of admitted expiries. Parent tests produced a stale vector when unmasking after 125 ns. Both new regressions, 12 CPU checkpoint integration tests, 10 Rosetta real-mode boots, and 14231 unfiltered direct Intel Linux library tests passed with 99 ignored. Four independent QEMU one-shot controls confirmed delivery gating. Native Intel phase remains open.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#countdown-expiry-while-the-local-timer-is-masked",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -39,13 +39,8 @@ impl Vmm {
             let mut lapic = controller
                 .lock()
                 .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?;
-            if lapic.tick().is_some() || lapic.has_pending_timer() {
-                let vector = lapic.timer_vector();
-                // Transfer the timer latch to IRR before dropping the lock.
-                // A blocked CPU leaves the interrupt queued in that same IRR.
-                lapic.set_irr(vector);
-                lapic.clear_timer_pending();
-            }
+            // A blocked CPU leaves the transferred timer vector queued in IRR.
+            lapic.poll_countdown();
             (lapic.has_pending_nmi(), deliverable_vector(&lapic))
         };
         if delivered {
