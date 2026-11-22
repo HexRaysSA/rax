@@ -200288,6 +200288,32 @@
       "assumption_probe": "A present IDT gate needs a valid target code descriptor. Execute UD2 and require the handler marker in both IA-32e modes.",
       "unfiltered_limitation": "The direct Intel Linux run completed the unfiltered binary with 231 passed and 39 failed. 37 failures report KVM_SET_XCRS EINVAL on a host without AVX-512. Two corpus cardinality assertions also fail in the unchanged hosted run. AVX-512 silicon parity, native HVF vectoring, and complete checkpoint restoration remain open.",
       "hosted_baseline": "https://github.com/HexRaysSA/rax/actions/runs/44988175367/job/137103237296",
+      "hosted_followup": {
+        "commit": "0da8539a1ede9bb7dca70d9ed378f70de28baf36",
+        "run": "https://github.com/HexRaysSA/rax/actions/runs/45045801881/job/137280023990",
+        "log_sha256": "a5f626af12872b005086dd3db368e94668ab95eec4054fd8bd0591be4adc4e54",
+        "before": {
+          "passed": 230,
+          "failed": 39,
+          "ignored": 0,
+          "filtered": 0
+        },
+        "after": {
+          "passed": 265,
+          "failed": 5,
+          "ignored": 0,
+          "filtered": 0
+        },
+        "comparison": "34 previously failing tests passed, all baseline passing tests passed again, and the new paired-mode regression passed. The missing accessible code-segment diagnostic went from 1141 to zero.",
+        "remaining_failures": [
+          "avx512_kvm_descriptor_access_corpus",
+          "avx512_kvm_descriptor_status_compat_corpus",
+          "avx512_kvm_fp16_edge_corpus",
+          "avx512_kvm_generated_corpus",
+          "avx512_kvm_profile_matrix_corpus"
+        ],
+        "scope": "Hosted Intel Linux KVM ran the AVX-512 differential. The remaining suites require separate diagnosis. This run provides no native Intel macOS HVF evidence."
+      },
       "qualification_parent": "e0c83ee4e6ae82f046638028e2e4e40f8650d741",
       "candidate_source_sha256": "4b87a2cee11053e4bf3a776fc1cc4502c5d951680366e05776ab44fc56130620",
       "regression_logs_sha256": {
