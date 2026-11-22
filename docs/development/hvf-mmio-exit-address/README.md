@@ -254,3 +254,16 @@ in a native Intel process on virtualized macOS 15.7.9 with SDK 15.5.
 This run covers the standalone coherence profile. Bare-metal Intel execution
 and the combined profile remain open.
 [Standalone run](https://github.com/HexRaysSA/rax/actions/runs/44550052955/job/135651033256)
+
+A standalone repeat at `073b92a644424b12b593a5cfe9ee62660c689776` retained a
+signed build verified against 4,884 engine inputs and 17 consumer inputs.
+The executable SHA-256
+`3097b3207dd5f0f6a37a6398d0a1100b33ab4bfe36b24519f1c82450a735115c`
+matches the executable from combined run `45068548473`.
+
+GitHub reported lost runner communication 2,702 s after the execution step
+started. The final visible line records successful capability probing. The
+job log has no guest launch marker, and the execution artifact is absent.
+Guest entry and the cause of the runner loss are unknown. This repeat
+qualifies zero guest cases.
+[Standalone repeat and runner annotation](https://github.com/HexRaysSA/rax/actions/runs/45072817649/job/137363381542#step:8:29)
