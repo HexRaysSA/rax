@@ -89,3 +89,26 @@ A standalone Rust control parsed all 17 diagnostic marker names and validated
 their fields. The complete Intel-target consumer type-checked, and all 54
 Python harness tests passed. Native execution of the instrumented consumer
 requires a separate hosted run.
+
+## Instrumented combined repeat
+
+Run `45076954543` used the instrumented 968-case combined consumer at
+`e0be5c9b78251667ecab9749a131860a727d8cfc`. The job transcript retains 15
+MMIO case-group markers. The last marks the start of the port-I/O debug
+matrix at case ordinal 482. The next expected marker, at ordinal 928, is
+absent. The number of completed cases within the port group is unknown.
+[Guest step transcript](https://github.com/HexRaysSA/rax/actions/runs/45076954543/job/137376216372#step:8:45)
+
+GitHub reported that the runner lost communication with the server. The
+job ended 2,899 s after the guest step started. No execution artifact was
+retained, so this repeat qualifies zero guest cases. The runner-loss
+cause is unknown. The previous standalone MMIO run completed the same
+port matrix within its 952 verified observations.
+[Standalone MMIO run](https://github.com/HexRaysSA/rax/actions/runs/45074482995/job/137368539126)
+
+Build artifact `14775922260` matched its published SHA-256
+`74bf3387276e60061d9e361142b13de1d849e2a1fd2d4f648acd7ef8b2040ba5`.
+The build verification checked 4,884 engine inputs and 17 consumer
+inputs against Git, confirmed the strict signature and hypervisor
+entitlement, and matched executable SHA-256
+`cdd2580c832ef103027369b070853110a0b00c6043d94264fc10ac753eac1398`.
