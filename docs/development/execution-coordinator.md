@@ -49,10 +49,12 @@ Internal breakpoints apply before attempted instructions; a halted CPU does not
 attempt the instruction at its next RIP. Host single-step completion follows
 PIO/MMIO completion, including input-register writeback, and can stop after a
 retired HLT. Automatic checkpoints also follow device completion and outgoing
-IPI routing. These host controls do not change guest RFLAGS.TF. The existing GDB
-stub still selects BSP registers; AP thread selection remains an SMP consumer
-requirement. Other CPUs may execute while the BSP actively steps, as permitted
-by GDB all-stop mode.
+IPI routing. These host controls preserve guest RFLAGS.TF. On software x86,
+GDB enumerates application CPUs, selects their registers, and can step a
+selected online CPU. When restoring prepared CPUs, the VMM rebinds the
+current session's controls before publication. Compound resume requests may
+run peer CPUs while the selected CPU steps.
+[Software SMP debugger controls](software-smp-debugger/README.md)
 
 Direct x86 attempts distinguish inline delivered faults from successful traps.
 A fault changes handler state without retiring the faulting instruction. ICEBP
@@ -149,6 +151,28 @@ The task retains raw inputs, binaries, command output, source hashes, tool
 versions, and QEMU output under `rax-audit-work/four-findings-coordinator`.
 Complete affected test binaries and broader gates are required before this
 semantic group is committed.
+
+## Native Intel HVF startup and file continuation
+
+The full 952-case standalone MMIO run exercised the production VMM with one,
+two, and four native vCPUs. It verified each AP's startup flag, CPUID identity,
+and two delivered fixed IPIs. A second guest phase was placed at the saved BSP
+PC before capture. The probe saved the bundle, discarded the source VM and
+kernel, rebuilt native CPU owners from the file, and confirmed equality of
+their public CPU records before entering the guest.
+
+| vCPUs | Cold IPI counts by CPU ID | Counts after file continuation |
+| --- | --- | --- |
+| 1 | `[0]` | `[0]` |
+| 2 | `[0, 2]` | `[0, 4]` |
+| 4 | `[0, 2, 2, 2]` | `[0, 4, 4, 4]` |
+
+Each run reached the corresponding BSP success marker, and each restored AP
+handled two new guest-generated IPIs and acknowledged them with EOI. The
+consumer ran in an untranslated Intel process on virtualized macOS 15.7.9
+with SDK 15.5. Bare-metal Intel macOS and broader IRQ/control profiles remain
+unverified.
+[Runtime observations and signed build provenance](hvf-mmio-exit-address/README.md#standalone-mmio-requalification)
 
 ## Complexity and remaining boundaries
 
