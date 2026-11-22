@@ -45,6 +45,26 @@ struct Image {
     xsave: xsave::Image,
 }
 
+pub(super) struct PublicUpdate {
+    before: Image,
+    desired: Image,
+    mp_state: kvm_mp_state,
+    events: kvm_vcpu_events,
+    run_cr8: u64,
+}
+
+impl PublicUpdate {
+    pub(super) fn publish(&self, cpu: &mut NativeCore) -> Result<()> {
+        self.desired.write(cpu, self.mp_state, &self.events)
+    }
+
+    pub(super) fn rollback(&self, cpu: &mut NativeCore) -> Result<()> {
+        self.before.write(cpu, self.mp_state, &self.events)?;
+        cpu.vcpu_fd.get_kvm_run().cr8 = self.run_cr8;
+        Ok(())
+    }
+}
+
 impl Image {
     fn read(cpu: &NativeCore) -> Result<Self> {
         let entries: Vec<_> = MSRS
@@ -194,7 +214,7 @@ impl NativeCore {
         Ok(CpuState::X86_64(Image::read(self)?.public()?))
     }
 
-    pub(super) fn set_public_state(&mut self, state: &CpuState) -> Result<()> {
+    pub(super) fn prepare_public_state(&mut self, state: &CpuState) -> Result<PublicUpdate> {
         self.state_ready()?;
         let CpuState::X86_64(state) = state else {
             return Err(Error::InvalidConfig(
@@ -208,12 +228,23 @@ impl NativeCore {
         }
         // Observe MP and events first. The backup registers must describe
         // the same boundary, including any legacy event-getter side effects.
-        let mp = self.vcpu_fd.get_mp_state()?;
+        let mp_state = self.vcpu_fd.get_mp_state()?;
         let events = self.vcpu_fd.get_vcpu_events()?;
-        let backup = Image::read(self)?;
-        let desired = backup.overlay(state)?;
-        if let Err(error) = desired.write(self, mp, &events) {
-            if let Err(rollback) = backup.write(self, mp, &events) {
+        let before = Image::read(self)?;
+        let desired = before.overlay(state)?;
+        Ok(PublicUpdate {
+            before,
+            desired,
+            mp_state,
+            events,
+            run_cr8: self.vcpu_fd.get_kvm_run().cr8,
+        })
+    }
+
+    pub(super) fn set_public_state(&mut self, state: &CpuState) -> Result<()> {
+        let update = self.prepare_public_state(state)?;
+        if let Err(error) = update.publish(self) {
+            if let Err(rollback) = update.rollback(self) {
                 let failure = format!(
                     "KVM public state publication failed: {error}; rollback failed: {rollback}; guest entry disabled"
                 );

@@ -124,3 +124,49 @@ A later Windows session-namespace change was fast-forwarded at d548e62f. Its
 files are outside this group and were not retested by these earlier gates. All
 KVM inputs and Cargo manifests remained unchanged; staged and next-group file
 hashes were verified before and after the fast-forward.
+
+## Coordinated legacy public-bundle restoration
+
+Historical KVM bundles with a complete public CPU table use all managed
+vCPU owners under one stopped boundary. The restore prepares each native
+register bank before writing any CPU. A rejected native write reverses the
+attempted CPU prefix, including the failing CPU. If rollback fails, the VM
+rejects future guest entry. RAM publication begins after all CPU setters pass.
+Current private KVM bundles continue through the native producer transaction.
+
+The source baseline used the actual KVM library on physical Intel Linux.
+A reserved CR4 bit in the final processor record caused KVM_SET_SREGS2 to
+return EINVAL after the BSP's public projection had already changed. The
+same test fixture with a valid final record successfully published both CPU
+records and RAM.
+
+The repaired witness passed both topologies. The full checkpoint-I/O and
+KVM native state modules passed all 15 and 18 cases respectively on the
+same physical Intel Linux host with the ordinarily ignored cases enabled.
+The unfiltered `kvm_minimal` target passed 15 cases with zero failures
+and zero ignored. Its log SHA-256 is
+`264244efa9274570e019fd887a29d4e7146cc27f9cde81c95993fd8e9aaacd5a`.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| An admitted legacy bundle has a public record for every CPU. | Reject the same topology without the additional CPU records and verify state and RAM are unchanged. |
+| A late native setter can fail after earlier CPUs have changed. | Submit a reserved CR4 bit on the final CPU of a 2- and 4-vCPU KVM VM. Require the native rejection and compare each CPU's public and emulator state byte for byte, including distinct GPR and XMM canaries. |
+| An ordinary rollback allows a later valid restore. | Repeat with the valid CR4 value. Require every CPU and the original RAM to match the admitted bundle. |
+
+Staging takes O(V × (B + C²)) time and O(V × (B + C)) space for V
+stopped CPUs, B bytes of native register image and C XSAVE component
+descriptors per CPU. The projection covers represented CPU records and the
+ordered RAM publication boundary. Opaque native execution, pending I/O
+and pending resume-clock restoration require the corresponding private
+producer. The native rejection test exercises the CPU rollback before RAM
+publication and does not inject a RAM write failure.
+[Linux v6.8 KVM API](references/kvm-api-v6.8.rst)
+
+The complete unfiltered Linux library passed 14,231 tests with zero
+failures, 100 ignored and zero filtered. The four exact source overlays
+ran over `748b0a5937bb098d146d114e9de56cd5c35ae197` on physical Intel Linux.
+The full log SHA-256 is
+`c45aa14f205af5d69b678333872beb7ea7614750772617efdafb085c64dea0ac`.
+The separate native module runs executed the normally ignored rollback
+witness. Both GSC checkpoint cases that lost child processes in the
+Apple Silicon run passed in this run.

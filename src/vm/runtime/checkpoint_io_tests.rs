@@ -15,6 +15,77 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 const MMIO: u64 = 0xf000_0000;
 const TAIL: &[u8] = &[0xc6, 0x06, 0x00, 0x20, 0xaa, 0xf4];
 
+#[test]
+#[ignore = "requires native Linux KVM; executed by the KVM CI job"]
+fn late_projected_cpu_rejection_rolls_back_the_entire_stopped_cpu_set() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let encode = |entries: &[crate::vm::snapshot::CpuSnapshot]| {
+        entries
+            .iter()
+            .map(|entry| crate::codec::serialize(&(&entry.state, &entry.emulator)).unwrap())
+            .collect::<Vec<_>>()
+    };
+    for count in [2, 4] {
+        let mut fixture = Fixture::new(count);
+        let vm = &mut fixture.vm;
+        let original = vm.capture_cpu_states().unwrap();
+        let pci = vm.pci_devices.as_ref().unwrap().checkpoint().unwrap();
+        let original_ram = vm.guest_mem.try_read_all().unwrap();
+        let mut rejected_base = vm.take_snapshot(31).unwrap();
+        let mut valid_base = vm.take_snapshot(31).unwrap();
+        let projected_bsp = vm.take_snapshot(31).unwrap();
+        let mut desired = original.clone();
+        for (index, entry) in desired.iter_mut().enumerate() {
+            let CpuState::X86_64(cpu) = &mut entry.state else {
+                unreachable!()
+            };
+            cpu.regs.rax = 0x1234_5678 + index as u64;
+            cpu.regs.xmm[0] = [0x2468, 0x1357];
+        }
+        rejected_base.cpu_state = desired[0].state.clone();
+        valid_base.cpu_state = desired[0].state.clone();
+        let mut rejected = desired.clone();
+        let CpuState::X86_64(last) = &mut rejected.last_mut().unwrap().state else {
+            unreachable!()
+        };
+        last.sregs.cr4 |= 1 << 63; // Reserved CR4 bit rejected by KVM_SET_SREGS.
+        let rejected = SnapshotBundle::new(rejected_base)
+            .with_cpus(rejected)
+            .unwrap()
+            .with_pci(pci.clone())
+            .unwrap();
+        let replacement_ram = vec![0xa5; original_ram.len()];
+        vm.guest_mem.write_all(&replacement_ram).unwrap();
+        let error = vm.restore_snapshot_bundle(&rejected).unwrap_err();
+        assert!(error.to_string().contains("SET_SREGS"), "{error}");
+        assert_eq!(
+            encode(&vm.capture_cpu_states().unwrap()),
+            encode(&original),
+            "{count} CPUs: a rejected restore published a register prefix"
+        );
+        assert_eq!(vm.guest_mem.try_read_all().unwrap(), replacement_ram);
+
+        let valid = SnapshotBundle::new(valid_base)
+            .with_cpus(desired.clone())
+            .unwrap()
+            .with_pci(pci.clone())
+            .unwrap();
+        vm.restore_snapshot_bundle(&valid).unwrap();
+        assert_eq!(encode(&vm.capture_cpu_states().unwrap()), encode(&desired));
+        assert_eq!(vm.guest_mem.try_read_all().unwrap(), original_ram);
+
+        let base_only = SnapshotBundle::new(projected_bsp).with_pci(pci).unwrap();
+        let error = vm.restore_snapshot_bundle(&base_only).unwrap_err();
+        assert!(
+            error.to_string().contains("missing additional CPU state"),
+            "{error}"
+        );
+        assert_eq!(encode(&vm.capture_cpu_states().unwrap()), encode(&desired));
+        assert_eq!(vm.guest_mem.try_read_all().unwrap(), original_ram);
+    }
+}
+
 fn store32(code: &mut Vec<u8>, address: u32, value: u32) {
     code.extend_from_slice(&[0x67, 0x66, 0xc7, 0x05]);
     code.extend_from_slice(&address.to_le_bytes());

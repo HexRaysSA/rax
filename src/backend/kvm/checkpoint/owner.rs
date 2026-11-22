@@ -91,6 +91,63 @@ fn lock_cpus<'a>(
 }
 
 impl KvmVm {
+    /// Publish a historical register projection and RAM under the complete
+    /// stopped owner set. Roll back native banks for each attempted CPU.
+    pub(crate) fn restore_public_cpu_set<'a>(
+        &self,
+        boundary: &CheckpointBoundary<'_>,
+        states: impl ExactSizeIterator<Item = &'a crate::vm::vcpu::CpuState>,
+        publish_ram: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        let handles = self.checkpoint_cpu_handles(boundary)?;
+        if states.len() != handles.len() {
+            return Err(invalid(
+                "projected CPU set differs from the managed topology",
+            ));
+        }
+        if self.memory.resume_clock_pending()? {
+            return Err(invalid(
+                "projected restore requires the complete pending resume clock",
+            ));
+        }
+        let mut cores = lock_cpus(self, &handles)?;
+        for core in &cores {
+            core.state_ready()?;
+            if core.native_io_unsettled || core.io.has_native_completion() {
+                return Err(invalid("projected restore requires native I/O completion"));
+            }
+        }
+        let updates = cores
+            .iter_mut()
+            .zip(states)
+            .map(|(core, state)| core.prepare_public_state(state))
+            .collect::<Result<Vec<_>>>()?;
+        let mut attempted = 0;
+        let result = (|| {
+            for (core, update) in cores.iter_mut().zip(&updates) {
+                attempted += 1;
+                update.publish(core)?;
+            }
+            publish_ram()
+        })();
+        if let Err(error) = result {
+            let mut rollback_error = None;
+            for (core, update) in cores.iter_mut().zip(&updates).take(attempted).rev() {
+                if let Err(failure) = update.rollback(core) {
+                    rollback_error.get_or_insert(failure);
+                }
+            }
+            if let Some(rollback) = rollback_error {
+                self.memory.poisoned.store(true, Ordering::Release);
+                return Err(Error::Emulator(format!(
+                    "KVM public checkpoint failed: {error}; rollback failed: {rollback}; guest entry disabled"
+                )));
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
+
     fn checkpoint_cpu_handles(
         &self,
         boundary: &CheckpointBoundary<'_>,

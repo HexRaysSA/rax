@@ -434,6 +434,12 @@ impl Vmm {
         let mut legacy_publication = None;
         let mut backend_publication = None;
         let vm = &*self.vm;
+        #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+        let projected_kvm = vm.as_any().downcast_ref::<crate::backend::kvm::KvmVm>();
+        #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+        let stopped_kvm_projection = projected_kvm.is_some();
+        #[cfg(not(all(feature = "kvm", target_os = "linux", target_arch = "x86_64")))]
+        let stopped_kvm_projection = false;
         let guest_memory = self.guest_mem.memory();
         let coordinator = &mut self.coordinator;
         let last_snapshot_insn = &mut self.last_snapshot_insn;
@@ -465,7 +471,7 @@ impl Vmm {
             let boundary = backend_publication
                 .as_ref()
                 .expect("backend exclusion installed");
-            if bundle.vm_context().is_none() {
+            if bundle.vm_context().is_none() && !stopped_kvm_projection {
                 for ((vcpu, (state, emulator, context)), replacement) in
                     vcpus.iter_mut().zip(&states).zip(&replacements)
                 {
@@ -500,11 +506,26 @@ impl Vmm {
                 }
                 .commit(physical, memory.as_deref())?;
             } else {
-                if let Some(physical) = physical {
-                    physical.commit_in_scope(scope)?;
-                } else if let Some(memory) = memory {
-                    scope.write(0, &memory)?;
+                let publish_ram = || {
+                    if let Some(physical) = physical {
+                        physical.commit_in_scope(scope)?;
+                    } else if let Some(memory) = memory {
+                        scope.write(0, &memory)?;
+                    }
+                    Ok(())
+                };
+                #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+                if let Some(kvm) = projected_kvm {
+                    kvm.restore_public_cpu_set(
+                        boundary,
+                        states.iter().map(|(state, _, _)| *state),
+                        publish_ram,
+                    )?;
+                } else {
+                    publish_ram()?;
                 }
+                #[cfg(not(all(feature = "kvm", target_os = "linux", target_arch = "x86_64")))]
+                publish_ram()?;
                 // RAM invalidates old rights before admitted source rights
                 // are installed under the same controller/writer boundary.
                 for permit in permits {
