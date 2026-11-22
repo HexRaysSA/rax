@@ -271,6 +271,10 @@ fn record(output: &Path, case: usize, name: &str, width: usize, value: u64) {
     writeln!(file, "{{\"case\":{case},\"name\":\"{name}\",\"width\":{width},\"value\":{value},\"passed\":true}}").unwrap();
 }
 
+fn mmio_progress(case: usize, stage: &str) {
+    eprintln!("{{\"profile\":\"mmio\",\"case\":{case},\"guest_stage\":\"{stage}\"}}");
+}
+
 fn movnti_cases(output: &Path) {
     const EXTENDED: u64 = 0x8877_6655_4433_2211;
 
@@ -1499,6 +1503,7 @@ fn main() {
     assert!(!output.exists(), "observations must be new");
     let mut case = 0;
     // This independent RAM-only entry distinguishes invalid setup from MMIO defects.
+    mmio_progress(case, "ram-control");
     let memory = guest_memory(&[]);
     let (vm, mut cpu) = machine(&memory);
     halted(&mut *cpu, 0, SEED);
@@ -1506,6 +1511,7 @@ fn main() {
     drop(vm);
     record(&output, case, "ram-control", 0, MARKER);
     case += 1;
+    mmio_progress(case, "scalar-moves");
     for (width, load, store) in [
         (1, &b"\x8a\x07"[..], &b"\x88\x07"[..]),
         (2, &b"\x66\x8b\x07"[..], &b"\x66\x89\x07"[..]),
@@ -1550,6 +1556,7 @@ fn main() {
             case += 1;
         }
     }
+    mmio_progress(case, "extending-moves");
     for (name, instruction, width, signed, wide) in [
         ("movzx32-byte", &b"\x0f\xb6\x07"[..], 1, false, false),
         ("movzx32-word", &b"\x0f\xb7\x07"[..], 2, false, false),
@@ -1574,6 +1581,7 @@ fn main() {
             case += 1;
         }
     }
+    mmio_progress(case, "invalid-replies");
     for (width, instruction) in [
         (1, &b"\x8a\x07"[..]),
         (2, &b"\x66\x8b\x07"[..]),
@@ -1609,6 +1617,7 @@ fn main() {
             case += 1;
         }
     }
+    mmio_progress(case, "pat-msr");
     for restore in [false, true] {
         for pat in [
             0,
@@ -1631,6 +1640,7 @@ fn main() {
             case += 1;
         }
     }
+    mmio_progress(case, "reserved-msrs");
     for msr in [0xffff_ffff, 0xffff_fffe, 0xdead_beef, 0x2000_0000] {
         for write in [false, true] {
             let observed = reserved_msr_case(msr, write);
@@ -1638,6 +1648,7 @@ fn main() {
             case += 1;
         }
     }
+    mmio_progress(case, "deadline");
     for scenario in 0..11 {
         deadline::scenario(scenario);
         record(
@@ -1667,11 +1678,13 @@ fn main() {
     deadline::tsc_domain();
     record(&output, case, "deadline-tsc-domain", 8, 1_000_000);
     case += 1;
+    mmio_progress(case, "native-vmm-startup");
     for count in [1, 2, 4] {
         startup::run(count);
         record(&output, case, "native-vmm-startup-ipi", 0, u64::from(count));
         case += 1;
     }
+    mmio_progress(case, "native-vmm-file-continuation");
     for count in [1, 2, 4] {
         startup::file_resume(count, output.parent().expect("observations directory"));
         record(
@@ -1683,12 +1696,15 @@ fn main() {
         );
         case += 1;
     }
+    mmio_progress(case, "native-cpuid-topology");
     for count in [1, 2, 4] {
         topology::run(count);
         record(&output, case, "native-cpuid-topology", 0, u64::from(count));
         case += 1;
     }
+    mmio_progress(case, "double-shift");
     double_shift::run(&output, &mut case);
+    mmio_progress(case, "native-firmware-discovery");
     for count in [1, 2, 4] {
         startup::discovery(count);
         record(
@@ -1702,6 +1718,7 @@ fn main() {
     }
     guest_debug::run(&output, &mut case);
     assert_eq!(case, 952);
+    mmio_progress(case, "complete");
     let failed = if std::env::args_os().nth(2).as_deref()
         == Some(std::ffi::OsStr::new("--with-coherence"))
     {

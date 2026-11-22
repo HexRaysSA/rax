@@ -72,3 +72,20 @@ C-STATE, C-SMP and C-HVF requirements. Medium-impact limits: kernel/host failure
 can prevent reaping, and escaped sessions require their explicit owner's cleanup.
 No low-impact adjacent implementation is included. All four findings remain
 partial.
+
+## MMIO case progression
+
+The combined run's job page retains the supervisor's guest-start marker at
+line 30. It has no individual guest case marker. The native consumer now
+emits the first case ordinal of each MMIO case group to stderr before it
+enters that group. The existing supervisor streams this diagnostic output
+to the job log as well as recording it beside the observation file.
+The final MMIO marker follows all 952 cases and precedes the optional
+coherence profile. The execution artifact and complete verified observations
+remain the qualification boundary.
+[Combined guest step](https://github.com/HexRaysSA/rax/actions/runs/45068548473/job/137350093187#step:8:30)
+
+A standalone Rust control parsed all 17 diagnostic marker names and validated
+their fields. The complete Intel-target consumer type-checked, and all 54
+Python harness tests passed. Native execution of the instrumented consumer
+requires a separate hosted run.

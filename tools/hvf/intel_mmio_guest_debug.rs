@@ -388,6 +388,7 @@ fn scenario(code: &[u8], action: usize, case: DebugCase) -> ([u64; 7], u64) {
 }
 
 pub(super) fn run(output: &Path, case: &mut usize) {
+    mmio_progress(*case, "guest-debug-priority");
     let encodings: &[&[u8]] = &[
         &[0x48, 0x8b, 0x07],          // MOV RAX,[RDI].
         &[0x48, 0x89, 0x07],          // MOV [RDI],RAX.
@@ -420,6 +421,7 @@ pub(super) fn run(output: &Path, case: &mut usize) {
             }
         }
     }
+    mmio_progress(*case, "data-debug-priority");
     let data_encodings = [
         encodings[0],
         encodings[1],
@@ -455,7 +457,9 @@ pub(super) fn run(output: &Path, case: &mut usize) {
             }
         }
     }
+    mmio_progress(*case, "port-debug");
     run_ports(output, case);
+    mmio_progress(*case, "legacy-mmio-debug");
     run_legacy_mmio(&data_encodings, output, case);
 }
 
