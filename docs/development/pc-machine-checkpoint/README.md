@@ -350,3 +350,13 @@ All 12 CPU checkpoint integration tests and all 10 x86-64
 real-mode boot tests passed on both Apple Silicon with Rosetta and
 physical Intel Linux with KVM. Native kernel countdown phase and
 bare-metal Intel HVF still require separate qualification.
+
+The unfiltered Apple Silicon library on the same frozen base and timer
+and exception-return overlays recorded 13,279 passes, two failures, five
+ignored, and zero filtered. Both failed GSC checkpoint tests lost their
+first child to SIGKILL. The sender is unknown. Both cases passed together
+on the same executable SHA-256
+`c5b495a4e2cd7c0728b794c88cc2695ebbfe6d69a00de9ac946fdecc168a3f3d`.
+The full and paired log SHA-256 values are
+`15af91d13d2c28676bc6f13885cd0312afe1b0640ce968eebe56dbc7ce880cdf`
+and `cc36d008ef47bea37c9ff557db315603921cbba331d81dbeee22871fea24d883`.
