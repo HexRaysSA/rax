@@ -199,6 +199,18 @@ executed signed binary, and all 4,825 engine inputs to this result. The
 guest consumer used a native Intel process on virtualized macOS 15.7.9
 with SDK 15.5. [Native MMIO run](https://github.com/HexRaysSA/rax/actions/runs/44529227554)
 
+Run `45074482995` repeated all 952 cases at
+`adf0865cccaf5312451f95655b66188cc5beaac6` with zero failures in 409.09 s.
+The observations were byte-for-byte identical to run `44529227554`.
+Verification matched both published archive digests, 4,884 engine inputs,
+17 consumer inputs, and the executed, signed and entitled binary. The
+consumer ran in an untranslated Intel process on virtualized macOS 15.7.9
+with SDK 15.5.
+[Standalone repeat](https://github.com/HexRaysSA/rax/actions/runs/45074482995/job/137368539126)
+
+- Execution artifact `14774983100`, SHA-256 `90d4e9a3cb3d40df3a5aef18bf3c0c18eb3c40d9459d17ac9ea98552db146d19`
+- Observation stream SHA-256 `f316c6b261debf8afb68c175859bfc438d4f71098ee3fae282361d71df7faec1`
+
 During the earlier 968-case combined run at
 `89085226695e30d0f6e63887d25075be59d9555a`, GitHub reported loss of runner
 communication in the guest step. The signed build artifact verifies against
