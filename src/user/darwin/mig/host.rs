@@ -98,7 +98,11 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             if !is_host(req) {
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
-            let mut v = kernel_version(ctx.proc.config.host_services);
+            let config = &ctx.proc.config;
+            let mut v = config.native_kernel_info.as_ref().map_or_else(
+                || kernel_version(config.host_services),
+                |info| info.version.clone(),
+            );
             v.truncate(511);
             v.push(0);
             let cnt = v.len() as u32;

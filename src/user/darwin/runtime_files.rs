@@ -14,6 +14,60 @@ mod dylibs;
 #[cfg(any(target_os = "macos", test))]
 const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.plist";
 
+/// Public kernel version strings collected when selecting the installed runtime.
+#[derive(Clone, Debug)]
+pub struct NativeKernelInfo {
+    pub(crate) release: Vec<u8>,
+    pub(crate) version: Vec<u8>,
+}
+
+impl NativeKernelInfo {
+    pub(crate) fn capture() -> io::Result<Self> {
+        #[cfg(target_os = "macos")]
+        {
+            Ok(Self {
+                release: native_kernel_string(libc::KERN_OSRELEASE)?,
+                version: native_kernel_string(libc::KERN_VERSION)?,
+            })
+        }
+        #[cfg(not(target_os = "macos"))]
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "native Darwin kernel information requires a macOS host",
+        ))
+    }
+}
+
+/// Capture one fixed, public CTL_KERN string before execution.
+#[cfg(target_os = "macos")]
+fn native_kernel_string(node: libc::c_int) -> io::Result<Vec<u8>> {
+    let mut mib = [libc::CTL_KERN, node];
+    let mut output = [0u8; 1024];
+    let mut size = output.len();
+    // SAFETY: mib and output have the respective lengths passed to sysctl.
+    let status = unsafe {
+        libc::sysctl(
+            mib.as_mut_ptr(),
+            mib.len() as libc::c_uint,
+            output.as_mut_ptr().cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if status != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let value = output
+        .get(..size)
+        .and_then(|bytes| std::ffi::CStr::from_bytes_with_nul(bytes).ok())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidData, "invalid Darwin kernel string")
+        })?;
+    Ok(value.to_bytes().to_vec())
+}
+
 /// Add the native macOS runtime, preserving explicit supplied-file overrides.
 /// A different host cannot supply its own runtime for a Darwin guest.
 pub fn native(files: &Files) -> io::Result<Files> {

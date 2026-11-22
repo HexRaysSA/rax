@@ -64,12 +64,11 @@ impl Config {
             Backend::Darwin(c) => {
                 let files = rax_engine::user::supplied_fs::Files::new(files)
                     .map_err(|e| bad(e.to_string()))?;
-                c.supplied_files = Some(if native {
-                    rax_engine::user::darwin::runtime_files::native(&files)
-                        .map_err(runtime_error)?
+                if native {
+                    c.select_native_runtime(&files).map_err(runtime_error)?;
                 } else {
-                    files
-                });
+                    c.supplied_files = Some(files);
+                }
             }
             Backend::Linux(c) => {
                 let files = rax_engine::user::supplied_fs::Files::new(files)

@@ -75,6 +75,8 @@ pub struct DarwinConfig {
     pub host_services: bool,
     /// Immutable guest namespace for a process without host services.
     pub supplied_files: Option<crate::user::supplied_fs::Files>,
+    /// Public version strings from the same host as the installed runtime.
+    pub native_kernel_info: Option<super::runtime_files::NativeKernelInfo>,
     /// Host standard streams or caller-owned captured streams.
     pub console: crate::user::console::Console,
     /// `argv`, including `argv[0]`.
@@ -149,6 +151,19 @@ impl DarwinConfig {
         config
     }
 
+    /// Select installed files and snapshot the public kernel version for a closed guest.
+    /// Caller-supplied files take precedence in the resulting namespace.
+    pub fn select_native_runtime(
+        &mut self,
+        files: &crate::user::supplied_fs::Files,
+    ) -> std::io::Result<()> {
+        let selected = super::runtime_files::native(files)?;
+        let kernel_info = super::runtime_files::NativeKernelInfo::capture()?;
+        self.supplied_files = Some(selected);
+        self.native_kernel_info = Some(kernel_info);
+        Ok(())
+    }
+
     pub(crate) fn warn_unhandled(&self) -> bool {
         self.host_services && (self.strace || std::env::var_os("RAX_DARWIN_WARN").is_some())
     }
@@ -157,6 +172,7 @@ impl DarwinConfig {
         DarwinConfig {
             host_services: true,
             supplied_files: None,
+            native_kernel_info: None,
             console: Default::default(),
             argv,
             envp,

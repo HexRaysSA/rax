@@ -301,12 +301,11 @@ fn system(ctx: &mut Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
         None
     }
     .or_else(|| {
-        OVERRIDES
-            .iter()
+        system_overrides(ctx)
             .find(|o| o.oid == oid)
             .map(|o| o.name.to_string())
     });
-    if let Some(o) = name.and_then(|n| OVERRIDES.iter().find(|o| o.name == n)) {
+    if let Some(o) = name.and_then(|n| system_overrides(ctx).find(|o| o.name == n)) {
         if req.newptr != 0 {
             return Err(Errno::EPERM);
         }
@@ -413,8 +412,7 @@ fn oid_of_name(ctx: &Ctx<'_>, name: &str) -> Result<Vec<i32>, Errno> {
     };
     host_oid.or_else(|e| {
         let n = name.strip_suffix('.').unwrap_or(name);
-        OVERRIDES
-            .iter()
+        system_overrides(ctx)
             .find(|o| o.name == n)
             .map(|o| o.oid.to_vec())
             .ok_or(e)
@@ -441,7 +439,7 @@ fn meta_next(ctx: &Ctx<'_>, args: &[i32], req: &mut Req) -> Result<(), Errno> {
         return Err(Errno::EPERM);
     }
     let emulated = tree::next(tree::rows(ctx.proc.abi), args).map(<[i32]>::to_vec);
-    let system = system_next(args, ctx.proc.config.host_services);
+    let system = system_next(ctx, args);
     let next = match (emulated, system) {
         (Some(a), Some(b)) => Some(a.min(b)),
         (a, b) => a.or(b),
@@ -450,11 +448,13 @@ fn meta_next(ctx: &Ctx<'_>, args: &[i32], req: &mut Req) -> Result<(), Errno> {
 }
 
 /// The operating system's leaf after `oid`, past the emulated subtrees.
-fn system_next(oid: &[i32], host_services: bool) -> Option<Vec<i32>> {
-    if !host_services || !host::AVAILABLE {
-        let mut own: Vec<&[i32]> = OVERRIDES.iter().map(|o| o.oid).collect();
-        own.sort();
-        return own.into_iter().find(|o| *o > oid).map(<[i32]>::to_vec);
+fn system_next(ctx: &Ctx<'_>, oid: &[i32]) -> Option<Vec<i32>> {
+    if !ctx.proc.config.host_services || !host::AVAILABLE {
+        return system_overrides(ctx)
+            .map(|o| o.oid)
+            .filter(|o| *o > oid)
+            .min()
+            .map(<[i32]>::to_vec);
     }
     let mut n = host::next(oid)?;
     while tree::owns(n[0]) {
@@ -510,6 +510,28 @@ struct Override {
     value: fn(&Ctx<'_>) -> Value,
 }
 
+fn system_overrides(ctx: &Ctx<'_>) -> impl Iterator<Item = &'static Override> + use<> {
+    let config = &ctx.proc.config;
+    let installed = !config.host_services && config.native_kernel_info.is_some();
+    OVERRIDES
+        .iter()
+        .chain(installed.then_some(&NATIVE_OS_RELEASE))
+}
+
+static NATIVE_OS_RELEASE: Override = Override {
+    name: "kern.osrelease",
+    oid: &[1, 2],
+    value: |ctx| {
+        ctx.proc
+            .config
+            .native_kernel_info
+            .as_ref()
+            .map_or(Value::Err(Errno::ENOENT), |info| {
+                Value::string(&info.release)
+            })
+    },
+};
+
 static OVERRIDES: &[Override] = &[
     Override {
         name: "sysctl.proc_translated",
@@ -528,7 +550,15 @@ static OVERRIDES: &[Override] = &[
             if ctx.proc.config.host_services {
                 Value::Host
             } else {
-                Value::string(crate::user::darwin::abi::CLOSED_KERNEL_VERSION)
+                let version = ctx
+                    .proc
+                    .config
+                    .native_kernel_info
+                    .as_ref()
+                    .map_or(crate::user::darwin::abi::CLOSED_KERNEL_VERSION, |info| {
+                        info.version.as_slice()
+                    });
+                Value::string(version)
             }
         },
     },
