@@ -31,7 +31,14 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
     {
         return Err(Errno::EINVAL);
     }
-    lookup(ctx, dirfd, path)?;
+    let (_, entry) = lookup(ctx, dirfd, path)?;
+    if entry.is_null_device() {
+        return if mode & 1 == 0 {
+            Ok(Rv::one(0))
+        } else {
+            Err(Errno::EACCES)
+        };
+    }
     // Every supplied node grants read/search/execute to every virtual identity.
     // No identity can make the immutable supplied filesystem writable.
     if mode & 2 != 0 {
@@ -42,7 +49,7 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
 
 pub(super) fn readlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64) -> SysResult {
     lookup(ctx, dirfd, path)?;
-    // The supplied namespace contains regular files and directories only.
+    // The supplied namespace has no symbolic links of its own.
     Err(Errno::EINVAL)
 }
 
@@ -95,14 +102,21 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> Sy
     if flags & (O_CREAT | O_EXCL) == O_CREAT | O_EXCL {
         return Err(Errno::EEXIST);
     }
-    if flags & O_ACCMODE != O_RDONLY || flags & O_TRUNC != 0 {
+    let null = entry.is_null_device();
+    if !null && (flags & O_ACCMODE != O_RDONLY || flags & O_TRUNC != 0) {
         return Err(Errno::EROFS);
     }
     if flags & O_DIRECTORY != 0 && !entry.is_dir() {
         return Err(Errno::ENOTDIR);
     }
-    let file = OpenFile::supplied(path, entry);
-    *file.flags.lock().map_err(|_| Errno::EIO)? = flags & (O_STATUS_FLAGS | O_DIRECTORY);
+    let status = flags & (O_STATUS_FLAGS | O_DIRECTORY | O_ACCMODE);
+    let file = if null {
+        OpenFile::null(path, entry.ino, status)
+    } else {
+        let file = OpenFile::supplied(path, entry);
+        *file.flags.lock().map_err(|_| Errno::EIO)? = status;
+        file
+    };
     let fd = ctx.proc.fds.install_with(
         Arc::new(file),
         flags & O_CLOEXEC != 0,
@@ -119,10 +133,15 @@ pub(super) fn statat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32)
         return Err(Errno::EINVAL);
     }
     let (_, entry) = lookup(ctx, dirfd, path)?;
-    let file = EmbeddedFile::Supplied {
-        entry,
-        cursor: Mutex::new(0),
+    let stat = if entry.is_null_device() {
+        EmbeddedFile::null_stat(entry.ino)
+    } else {
+        EmbeddedFile::Supplied {
+            entry,
+            cursor: Mutex::new(0),
+        }
+        .stat()?
     };
-    ctx.write(buf, &file.stat()?.bytes())?;
+    ctx.write(buf, &stat.bytes())?;
     Ok(Rv::one(0))
 }

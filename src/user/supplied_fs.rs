@@ -1,7 +1,7 @@
 //! Read-only POSIX guest files selected by an embedder, independent of host paths.
 //!
 //! File keys are canonical absolute UTF-8 guest paths. Directories are inferred;
-//! there is no unselected host fallback or writable object. Explicit directory
+//! there is no unselected host fallback or writable backing. Explicit directory
 //! roots allow on-demand lookup; their host symlinks must target selected roots.
 //! Selected open files can back entries without copying their complete contents. Lookup walks
 //! components before interpreting `..`, so `/file/../other` is `NotDirectory`.
@@ -25,6 +25,7 @@ pub enum Error {
     NotFound,
     NotDirectory,
     IsDirectory,
+    NotRegular,
     LinkLoop,
     Io,
     TooLarge,
@@ -38,6 +39,7 @@ impl std::fmt::Display for Error {
             Self::NotFound => "guest path is not supplied",
             Self::NotDirectory => "guest path component is not a directory",
             Self::IsDirectory => "guest path is a directory",
+            Self::NotRegular => "guest path does not refer to a regular file",
             Self::LinkLoop => "guest pathname encountered a symbolic link without following it",
             Self::Io => "selected guest backing file read failed",
             Self::TooLarge => "selected guest backing exceeds its image or namespace limit",
@@ -52,6 +54,8 @@ pub enum Kind {
     /// Read-only backing selected by the embedder, never by a guest pathname.
     Backed(Arc<HostFileSource>),
     Directory,
+    /// The Darwin closed runtime's synthetic null character device.
+    NullDevice,
     /// Metadata for an installed Linux runtime link selected without following it.
     Symlink(Arc<[u8]>),
 }
@@ -65,6 +69,9 @@ pub struct Entry {
 impl Entry {
     pub fn is_dir(&self) -> bool {
         matches!(self.kind, Kind::Directory)
+    }
+    pub(crate) fn is_null_device(&self) -> bool {
+        matches!(self.kind, Kind::NullDevice)
     }
     pub(crate) fn link_target(&self) -> Option<&[u8]> {
         match &self.kind {
@@ -101,6 +108,7 @@ impl Entry {
                 Ok(bytes.into())
             }
             Kind::Directory => Err(Error::IsDirectory),
+            Kind::NullDevice => Err(Error::NotRegular),
             Kind::Symlink(_) => Err(Error::LinkLoop),
         }
     }
@@ -110,7 +118,7 @@ impl Entry {
         match &self.kind {
             Kind::File(bytes) => bytes.len() as u64,
             Kind::Backed(source) => source.len(),
-            Kind::Directory => 0,
+            Kind::Directory | Kind::NullDevice => 0,
             Kind::Symlink(target) => target.len() as u64,
         }
     }
@@ -134,6 +142,7 @@ impl Entry {
             Kind::File(bytes) => Arc::new(BytesSource::new(bytes.clone())),
             Kind::Backed(source) => source.clone(),
             Kind::Directory => return Err(Error::IsDirectory),
+            Kind::NullDevice => return Err(Error::NotRegular),
             Kind::Symlink(_) => return Err(Error::LinkLoop),
         };
         Ok(Arc::new(GuestSource {
@@ -258,6 +267,23 @@ impl Files {
     /// executable itself before starting a process; existing paths are refused.
     pub fn with_file(&self, path: String, bytes: Arc<[u8]>) -> Result<Self, Error> {
         self.with_kind(path, Kind::File(bytes))
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(super) fn with_darwin_null_device(&self) -> Result<Self, Error> {
+        const PATH: &str = "/dev/null";
+        if self.caller_roots.as_ref().is_some_and(|roots| {
+            roots
+                .paths()
+                .any(|root| matches!(root, "/" | "/dev" | PATH))
+        }) {
+            return Ok(self.clone());
+        }
+        match self.lookup(PATH) {
+            Err(Error::NotFound) => self.with_kind(PATH.into(), Kind::NullDevice),
+            Ok(_) | Err(Error::NotDirectory) => Ok(self.clone()),
+            Err(error) => Err(error),
+        }
     }
 
     /// Select exactly one host file as read-only guest backing. No host path is

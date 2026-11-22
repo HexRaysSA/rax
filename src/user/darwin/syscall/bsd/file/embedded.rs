@@ -48,6 +48,9 @@ pub(super) fn read(
     // Validate descriptor direction and positional semantics even for an empty
     // transfer, without consuming bytes.
     file.read(&mut [], offset)?;
+    if matches!(file, EmbeddedFile::Null { .. }) {
+        return Ok(Rv::one(0));
+    }
     ctx.space()
         .probe(buf, nbyte as usize, MemoryAccessKind::Write)
         .map_err(|_| Errno::EFAULT)?;
@@ -77,6 +80,9 @@ pub(super) fn write(
     nbyte: u64,
     offset: Option<i64>,
 ) -> SysResult {
+    if matches!(file, EmbeddedFile::Null { .. }) {
+        return file.discard_null(nbyte, offset).map(Rv::one);
+    }
     file.write(&[], offset)?;
     let mut done = 0;
     while done < nbyte {

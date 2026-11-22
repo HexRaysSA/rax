@@ -406,6 +406,129 @@ fn embedded_vectored_io_preserves_offsets_limits_and_partial_prefixes() {
 }
 
 #[test]
+fn native_null_device_has_guest_only_path_and_descriptor_semantics() {
+    use crate::user::darwin::{
+        abi::Errno,
+        arch::Rv,
+        host::AT_FDCWD,
+        io::*,
+        syscall::{
+            Ctx,
+            bsd::{file, path},
+        },
+    };
+    use crate::user::supplied_fs::Files;
+
+    let files = Files::default();
+    let supplied = files
+        .with_file("/dev/null".into(), Arc::<[u8]>::from(&b"caller"[..]))
+        .unwrap();
+    assert_eq!(
+        supplied
+            .with_darwin_null_device()
+            .unwrap()
+            .read("/dev/null")
+            .unwrap()
+            .as_ref(),
+        b"caller"
+    );
+    assert!(files.lookup("/dev/null").is_err());
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process_with_profile(abi, true);
+        p.proc.vfs = Vfs::supplied(files.with_darwin_null_device().unwrap());
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let buffer = thread.cpu.sp() - 4096;
+        let name = buffer + 512;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: 5,
+            pc: ENTRY,
+        };
+        ctx.write(name, b"/dev/null\0").unwrap();
+        assert_eq!(
+            path::faccessat(&mut ctx, AT_FDCWD, name, 6, 0),
+            Ok(Rv::one(0))
+        );
+        assert_eq!(
+            path::faccessat(&mut ctx, AT_FDCWD, name, 1, 0),
+            Err(Errno::EACCES)
+        );
+        assert_eq!(
+            path::openat(&mut ctx, AT_FDCWD, name, O_DIRECTORY, 0),
+            Err(Errno::ENOTDIR)
+        );
+        assert_eq!(
+            path::openat(&mut ctx, AT_FDCWD, name, O_CREAT | O_EXCL, 0),
+            Err(Errno::EEXIST)
+        );
+        let fd = path::openat(&mut ctx, AT_FDCWD, name, O_RDWR, 0).unwrap().0 as i32;
+        assert!(ctx.proc.fds.file(fd).unwrap().host_fd().is_none());
+        assert_eq!(
+            file::fcntl(&mut ctx, fd, file::cmd::F_GETFL, 0),
+            Ok(Rv::one(O_RDWR.into()))
+        );
+        assert_eq!(path::stat64(&mut ctx, name, buffer), Ok(Rv::one(0)));
+        let stat = ctx.read(buffer, 144).unwrap();
+        assert_eq!(u16::from_le_bytes(stat[4..6].try_into().unwrap()), 0o020666);
+        assert_eq!(
+            u32::from_le_bytes(stat[24..28].try_into().unwrap()),
+            0x0300_0002
+        );
+        assert_eq!(file::fstat64(&mut ctx, fd, buffer), Ok(Rv::one(0)));
+        assert_eq!(ctx.read(buffer, 144).unwrap(), stat);
+        assert_eq!(file::read(&mut ctx, fd, 1, 5, Some(-1)), Ok(Rv::one(0)));
+        assert_eq!(file::write(&mut ctx, fd, 1, 5, None), Ok(Rv::one(5)));
+        assert_eq!(file::write(&mut ctx, fd, 1, 7, Some(10)), Ok(Rv::one(7)));
+        let duplicate = file::dup(&mut ctx, fd).unwrap().0 as i32;
+        assert_eq!(file::lseek(&mut ctx, duplicate, 0, 1), Ok(Rv::one(5)));
+        assert_eq!(file::lseek(&mut ctx, duplicate, 2, 2), Ok(Rv::one(2)));
+        assert_eq!(file::lseek(&mut ctx, fd, 0, 1), Ok(Rv::one(2)));
+        assert_eq!(file::lseek(&mut ctx, fd, 0, 3), Err(Errno::ENODEV));
+        assert_eq!(file::lseek(&mut ctx, fd, 0, 4), Err(Errno::ENODEV));
+        assert_eq!(
+            file::ioctl(&mut ctx, fd, 0x4004_667f, buffer),
+            Err(Errno::ENODEV)
+        );
+        ctx.write_u32(buffer, 1).unwrap();
+        assert_eq!(
+            file::ioctl(&mut ctx, fd, 0x8004_667d, buffer),
+            Ok(Rv::one(0))
+        );
+        assert_eq!(
+            file::ioctl(&mut ctx, fd, 0x8004_667e, buffer),
+            Ok(Rv::one(0))
+        );
+        assert_eq!(
+            file::fcntl(&mut ctx, duplicate, file::cmd::F_GETFL, 0),
+            Ok(Rv::one((O_RDWR | O_ASYNC | O_NONBLOCK).into()))
+        );
+        ctx.write_u32(buffer, 0).unwrap();
+        assert_eq!(
+            file::ioctl(&mut ctx, duplicate, 0x8004_667d, buffer),
+            Ok(Rv::one(0))
+        );
+        assert_eq!(
+            file::fcntl(&mut ctx, fd, file::cmd::F_GETFL, 0),
+            Ok(Rv::one((O_RDWR | O_NONBLOCK).into()))
+        );
+        let input = path::openat(&mut ctx, AT_FDCWD, name, O_RDONLY, 0)
+            .unwrap()
+            .0 as i32;
+        assert_eq!(file::write(&mut ctx, input, 1, 5, None), Err(Errno::EBADF));
+        let output = path::openat(&mut ctx, AT_FDCWD, name, O_WRONLY, 0)
+            .unwrap()
+            .0 as i32;
+        assert_eq!(file::read(&mut ctx, output, 1, 5, None), Err(Errno::EBADF));
+        ctx.write(name, b"/dev/null/..\0").unwrap();
+        assert_eq!(
+            path::openat(&mut ctx, AT_FDCWD, name, O_RDONLY, 0),
+            Err(Errno::ENOTDIR)
+        );
+    }
+}
+
+#[test]
 fn supplied_openat_metadata_and_flags_use_only_the_guest_namespace() {
     use crate::user::darwin::{
         abi::Errno,

@@ -2,8 +2,8 @@
 //! system version metadata.
 //!
 //! Selection happens before guest execution. Only these selected files enter
-//! the supplied namespace; this does not enable host-service forwarding. Cache
-//! pages are read on demand through retained handles rather than copied in full.
+//! the supplied namespace alongside a synthetic null character device. Cache
+//! pages are read on demand through retained read-only handles.
 use crate::user::supplied_fs::Files;
 use std::io;
 
@@ -104,6 +104,7 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         ],
     )?;
     let files = select_system_version(files, root)?;
+    let files = files.with_darwin_null_device().map_err(io::Error::other)?;
     let roots = [
         "/usr/lib",
         "/System/Library/Frameworks",

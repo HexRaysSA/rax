@@ -1092,15 +1092,17 @@ const IOC_IN: u32 = 0x8000_0000;
 /// `FIOCLEX`, `FIONCLEX`.
 const FIOCLEX: u32 = 0x2000_6601;
 const FIONCLEX: u32 = 0x2000_6602;
-// sys/filio.h: _IOR('f', 127, int), _IOW('f', 126, int).
+// sys/filio.h: _IOR('f', 127, int), _IOW('f', 126, int), _IOW('f', 125, int).
 const FIONREAD: u32 = 0x4004_667f;
 const FIONBIO: u32 = 0x8004_667e;
+const FIOASYNC: u32 = 0x8004_667d;
 
 #[test]
 #[cfg(target_os = "macos")]
 fn embedded_ioctl_requests_match_native_darwin_headers() {
     assert_eq!(FIONREAD as libc::c_ulong, libc::FIONREAD);
     assert_eq!(FIONBIO as libc::c_ulong, libc::FIONBIO);
+    assert_eq!(FIOASYNC as libc::c_ulong, libc::FIOASYNC);
 }
 
 /// `ioctl(fd, request, arg)`: the request encodes the argument's size and
@@ -1117,18 +1119,24 @@ pub fn ioctl(ctx: &mut Ctx<'_>, fd: i32, request: u64, arg: u64) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
     if let FileKind::Embedded(object) = &file.kind {
         match req {
-            FIONREAD => {
+            FIONREAD if !matches!(object, EmbeddedFile::Null { .. }) => {
                 ctx.write_u32(arg, object.available()?.min(i32::MAX as u64) as u32)?;
             }
-            FIONBIO => {
+            FIONBIO | FIOASYNC if req == FIONBIO || matches!(object, EmbeddedFile::Null { .. }) => {
+                let flag = if req == FIONBIO {
+                    O_NONBLOCK
+                } else {
+                    io::O_ASYNC
+                };
                 let enabled = ctx.read_u32(arg)? != 0;
                 let mut flags = file.flags.lock().map_err(|_| Errno::EIO)?;
                 *flags = if enabled {
-                    *flags | O_NONBLOCK
+                    *flags | flag
                 } else {
-                    *flags & !O_NONBLOCK
+                    *flags & !flag
                 };
             }
+            _ if matches!(object, EmbeddedFile::Null { .. }) => return Err(Errno::ENODEV),
             _ => return Err(Errno::ENOTTY),
         }
         return Ok(Rv::one(0));

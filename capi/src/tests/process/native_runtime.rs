@@ -173,6 +173,50 @@ fn installed_uname_matches_native_kernel_version_through_closed_c_abi() {
     );
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn installed_sqlite_matches_native_through_closed_c_abi() {
+    let path = "/usr/bin/sqlite3";
+    let arguments = [
+        "-batch",
+        "-init",
+        "/dev/null",
+        "-csv",
+        ":memory:",
+        "select 'installed sqlite', 6 * 7;",
+    ];
+    let native = std::process::Command::new(path)
+        .args(arguments)
+        .env_clear()
+        .env("LC_ALL", "C")
+        .output()
+        .unwrap();
+    assert!(native.status.success());
+    assert_eq!(native.stdout, b"\"installed sqlite\",42\r\n");
+    assert!(native.stderr.is_empty());
+
+    let options = serde_json::json!({
+        "personality": "darwin",
+        "guest_path": path,
+        "arguments": arguments,
+        "environment": {"LC_ALL": "C"},
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    let process = open(&std::fs::read(path).unwrap(), &options.to_string());
+    let state = info(&process);
+    assert_eq!(state["loaded_program"]["has_dyld"], true);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    let result = run_installed_posix(&process, path);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn run_installed_posix(process: &Owned, path: &str) -> RaxProcessResult {
     run_installed_posix_with_turn_limit(process, path, 16_384)
