@@ -44,5 +44,39 @@
     "guest_execution_performed": false
   },
   "direct": 1,
-  "fresh_native_vcpu_with_cpu_entry_event": 1
+  "fresh_native_vcpu_with_cpu_entry_event": 1,
+  "repeat": {
+    "run_id": 45064920436,
+    "job_id": 137338825983,
+    "attempt": 1,
+    "revision": "748b0a5937bb098d146d114e9de56cd5c35ae197",
+    "guest_execution_qualified": true,
+    "passed": 2,
+    "failed": 0,
+    "engine_source_digest": "98d89a44cb9bb95a22664b1e37dd56394201e63ac29d42bd0064e3c2783cf5ef",
+    "engine_source_files_verified": 4884,
+    "executable_sha256": "17182e6ce1b70483c362a4aabedefd017e92d5433dbc284841be5a7279069dfe",
+    "strict_codesign_verified": true,
+    "build": {
+      "artifact_id": 14772005893,
+      "sha256": "3b025eab1df846fb2115da6244e0500c5079317a110ac02c04cdcd7545e6f130",
+      "cleanup_verified": true
+    },
+    "execution": {
+      "artifact_id": 14771911239,
+      "sha256": "ca69c0078705d032abcc7b2981fb886366836d96837bdb9bd2531fe5068337c4",
+      "result_sha256": "0f79a8948ff89f5f3736f30c6effee0ea9e1c6cbcbaedb662b5614b21793e2dd",
+      "observations_sha256": "3ea3bbd661c8934a229dd56529084483729d6a579310ad7d758fcf95b8ecca36",
+      "cleanup_verified": true
+    },
+    "host": {
+      "os": "macOS 15.7.9 (24G830)",
+      "sdk": "15.5",
+      "native_intel_process": true,
+      "translated": false,
+      "hypervisor_guest": true
+    },
+    "direct": 1,
+    "fresh_native_vcpu_with_cpu_entry_event": 1
+  }
 }

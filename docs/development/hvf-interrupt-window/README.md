@@ -58,6 +58,12 @@ engine inputs matched the recorded source.
 [Artifact verification](native-entry-irq-verified.json)
 [Observations](native-entry-irq-observations.jsonl)
 
+Both cases passed again at `748b0a5937bb098d146d114e9de56cd5c35ae197` on
+hosted Intel macOS. The direct and restored observation records match the
+earlier run byte for byte. The downloaded executable passed strict signature
+verification, and all 4,884 engine inputs matched the source revision.
+[Repeat native job](https://github.com/HexRaysSA/rax/actions/runs/45064920436/job/137338825983)
+
 This exercises the native CPU record and its relationship with the caller-owned
 LAPIC. The profile uses one CPU and in-memory records. Full VM checkpoint
 publication, concurrent interrupt sources and general interrupted-event
