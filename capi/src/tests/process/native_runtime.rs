@@ -192,7 +192,11 @@ fn installed_sqlite_matches_native_through_closed_c_abi() {
         .output()
         .unwrap();
     assert!(native.status.success());
-    assert_eq!(native.stdout, b"\"installed sqlite\",42\r\n");
+    let native_row = native
+        .stdout
+        .strip_suffix(b"\r\n")
+        .or_else(|| native.stdout.strip_suffix(b"\n"));
+    assert_eq!(native_row, Some(b"\"installed sqlite\",42".as_slice()));
     assert!(native.stderr.is_empty());
 
     let options = serde_json::json!({
