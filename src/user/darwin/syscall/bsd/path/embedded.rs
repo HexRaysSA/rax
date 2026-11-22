@@ -32,7 +32,7 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
         return Err(Errno::EINVAL);
     }
     let (_, entry) = lookup(ctx, dirfd, path)?;
-    if entry.is_null_device() {
+    if entry.device().is_some() {
         return if mode & 1 == 0 {
             Ok(Rv::one(0))
         } else {
@@ -102,16 +102,16 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> Sy
     if flags & (O_CREAT | O_EXCL) == O_CREAT | O_EXCL {
         return Err(Errno::EEXIST);
     }
-    let null = entry.is_null_device();
-    if !null && (flags & O_ACCMODE != O_RDONLY || flags & O_TRUNC != 0) {
+    let device = entry.device();
+    if device.is_none() && (flags & O_ACCMODE != O_RDONLY || flags & O_TRUNC != 0) {
         return Err(Errno::EROFS);
     }
     if flags & O_DIRECTORY != 0 && !entry.is_dir() {
         return Err(Errno::ENOTDIR);
     }
     let status = flags & (O_STATUS_FLAGS | O_DIRECTORY | O_ACCMODE);
-    let file = if null {
-        OpenFile::null(path, entry.ino, status)
+    let file = if let Some(device) = device {
+        OpenFile::device(path, device, entry.ino, status)
     } else {
         let file = OpenFile::supplied(path, entry);
         *file.flags.lock().map_err(|_| Errno::EIO)? = status;
@@ -133,8 +133,8 @@ pub(super) fn statat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32)
         return Err(Errno::EINVAL);
     }
     let (_, entry) = lookup(ctx, dirfd, path)?;
-    let stat = if entry.is_null_device() {
-        EmbeddedFile::null_stat(entry.ino)
+    let stat = if let Some(device) = entry.device() {
+        EmbeddedFile::device_stat(device, entry.ino)
     } else {
         EmbeddedFile::Supplied {
             entry,

@@ -242,6 +242,22 @@ pub fn mmap(
                     (backing, name) = shmem(len)?;
                 }
             }
+            (FileObject::Supplied(entry), FileType::CharDevice)
+                if entry.device() == Some(crate::user::supplied_fs::Device::Zero) =>
+            {
+                if !file.readable() {
+                    return Err(Errno(EACCES));
+                }
+                if shared && !file.writable() {
+                    if prot & PROT_WRITE != 0 {
+                        return Err(Errno(EACCES));
+                    }
+                    vm_flags |= vma_flags::DENY_WRITE;
+                }
+                if shared {
+                    (backing, name) = shmem(len)?;
+                }
+            }
             // io_uring_mmap: the ring or SQE region itself, shared
             // (VM_DONTEXPAND, VM_MIXEDMAP).
             (FileObject::Anon(super::super::fs::anon::Anon::Uring(r)), _) => {

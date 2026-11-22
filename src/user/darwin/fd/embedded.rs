@@ -9,7 +9,7 @@ use crate::user::darwin::abi::Errno;
 use crate::user::darwin::abi::types::Stat;
 use crate::user::darwin::io::{O_ACCMODE, O_RDONLY, O_WRONLY};
 use crate::user::mm::{PageSource, SourceIdentity};
-use crate::user::supplied_fs::Entry;
+use crate::user::supplied_fs::{Device, Entry};
 
 #[derive(Debug)]
 pub enum EmbeddedFile {
@@ -22,11 +22,23 @@ pub enum EmbeddedFile {
         access: u32,
         cursor: Mutex<u64>,
     },
+    Zero {
+        ino: u64,
+        access: u32,
+        cursor: Mutex<u64>,
+    },
     Input(CapturedConsole),
     Output(CapturedConsole, OutputStream),
 }
 
 impl EmbeddedFile {
+    pub(crate) fn device_access(&self) -> Option<u32> {
+        match self {
+            Self::Null { access, .. } | Self::Zero { access, .. } => Some(*access),
+            _ => None,
+        }
+    }
+
     /// Bytes available without consuming input or changing the file offset.
     pub fn available(&self) -> Result<u64, Errno> {
         match self {
@@ -39,7 +51,7 @@ impl EmbeddedFile {
                     .saturating_sub(*cursor.lock().map_err(|_| Errno::EIO)?))
             }
             Self::Input(console) => Ok(console.pending()?.0 as u64),
-            Self::Output(..) | Self::Null { .. } => Ok(0),
+            Self::Output(..) | Self::Null { .. } | Self::Zero { .. } => Ok(0),
         }
     }
 
@@ -62,7 +74,8 @@ impl EmbeddedFile {
             Self::Input(_) => (1, 0o020444, 0),
             Self::Output(_, OutputStream::Stdout) => (2, 0o020222, 0),
             Self::Output(_, OutputStream::Stderr) => (3, 0o020222, 0),
-            Self::Null { ino, .. } => return Ok(Self::null_stat(*ino)),
+            Self::Null { ino, .. } => return Ok(Self::device_stat(Device::Null, *ino)),
+            Self::Zero { ino, .. } => return Ok(Self::device_stat(Device::Zero, *ino)),
         };
         Ok(Stat {
             dev: if matches!(self, Self::Supplied { .. }) {
@@ -80,13 +93,16 @@ impl EmbeddedFile {
         })
     }
 
-    pub(crate) fn null_stat(ino: u64) -> Stat {
+    pub(crate) fn device_stat(device: Device, ino: u64) -> Stat {
         Stat {
             dev: 0x524159,
             ino,
             mode: 0o020666,
             nlink: 1,
-            rdev: 0x0300_0002,
+            rdev: match device {
+                Device::Null => 0x0300_0002,
+                Device::Zero => 0x0300_0003,
+            },
             blksize: 65_536,
             ..Default::default()
         }
@@ -118,8 +134,16 @@ impl EmbeddedFile {
                     .map_err(Errno::from)
             }
             Self::Output(..) => Err(Errno::EBADF),
-            Self::Null { access, .. } if *access == O_WRONLY => Err(Errno::EBADF),
+            Self::Null { access, .. } | Self::Zero { access, .. } if *access == O_WRONLY => {
+                Err(Errno::EBADF)
+            }
             Self::Null { .. } => Ok(0),
+            Self::Zero { cursor, .. } => {
+                if offset.is_none() {
+                    Self::advance_device_cursor(cursor, out.len() as u64)?;
+                }
+                Ok(Device::Zero.read(out))
+            }
         }
     }
 
@@ -134,16 +158,20 @@ impl EmbeddedFile {
                 Ok(bytes.len())
             }
             Self::Input(_) | Self::Supplied { .. } => Err(Errno::EBADF),
-            Self::Null { .. } => self
-                .discard_null(bytes.len() as u64, offset)
+            Self::Null { .. } | Self::Zero { .. } => self
+                .discard_device_write(bytes.len() as u64, offset)
                 .map(|n| n as usize),
         }
     }
 
-    /// Null writes accept the byte count without reading the guest buffer.
+    /// Device writes accept the count without reading the guest buffer.
     /// Positional writes leave the open description's cursor unchanged.
-    pub(crate) fn discard_null(&self, length: u64, offset: Option<i64>) -> Result<u64, Errno> {
-        let Self::Null { access, cursor, .. } = self else {
+    pub(crate) fn discard_device_write(
+        &self,
+        length: u64,
+        offset: Option<i64>,
+    ) -> Result<u64, Errno> {
+        let (Self::Null { access, cursor, .. } | Self::Zero { access, cursor, .. }) = self else {
             return Err(Errno::EBADF);
         };
         if offset.is_some_and(|n| n < 0) {
@@ -153,13 +181,18 @@ impl EmbeddedFile {
             return Err(Errno::EBADF);
         }
         if offset.is_none() {
-            let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
-            *cursor = cursor
-                .checked_add(length)
-                .filter(|&end| i64::try_from(end).is_ok())
-                .ok_or(Errno::EOVERFLOW)?;
+            Self::advance_device_cursor(cursor, length)?;
         }
         Ok(length)
+    }
+
+    fn advance_device_cursor(cursor: &Mutex<u64>, length: u64) -> Result<(), Errno> {
+        let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
+        *cursor = cursor
+            .checked_add(length)
+            .filter(|&end| i64::try_from(end).is_ok())
+            .ok_or(Errno::EOVERFLOW)?;
+        Ok(())
     }
 
     /// Darwin `SEEK_SET` (0), `SEEK_CUR` (1), and `SEEK_END` (2). An
@@ -168,7 +201,7 @@ impl EmbeddedFile {
         let (cursor, entry) = match self {
             Self::Supplied { entry, .. } if entry.is_dir() => return Err(Errno::EISDIR),
             Self::Supplied { entry, cursor } => (cursor, Some(entry)),
-            Self::Null { cursor, .. } => (cursor, None),
+            Self::Null { cursor, .. } | Self::Zero { cursor, .. } => (cursor, None),
             _ => return Err(Errno::ESPIPE),
         };
         let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
@@ -176,7 +209,7 @@ impl EmbeddedFile {
             0 => 0,
             1 => i64::try_from(*cursor).map_err(|_| Errno::EOVERFLOW)?,
             2 => i64::try_from(entry.map_or(0, Entry::len)).map_err(|_| Errno::EOVERFLOW)?,
-            3 | 4 if matches!(self, Self::Null { .. }) => return Err(Errno::ENODEV),
+            3 | 4 if self.device_access().is_some() => return Err(Errno::ENODEV),
             _ => return Err(Errno::EINVAL),
         };
         let result = base.checked_add(offset).ok_or(Errno::EOVERFLOW)?;
@@ -186,13 +219,23 @@ impl EmbeddedFile {
 }
 
 impl OpenFile {
-    pub(crate) fn null(path: String, ino: u64, flags: u32) -> Self {
-        Self {
-            kind: FileKind::Embedded(EmbeddedFile::Null {
+    pub(crate) fn device(path: String, device: Device, ino: u64, flags: u32) -> Self {
+        let access = flags & O_ACCMODE;
+        let cursor = Mutex::new(0);
+        let file = match device {
+            Device::Null => EmbeddedFile::Null {
                 ino,
-                access: flags & O_ACCMODE,
-                cursor: Mutex::new(0),
-            }),
+                access,
+                cursor,
+            },
+            Device::Zero => EmbeddedFile::Zero {
+                ino,
+                access,
+                cursor,
+            },
+        };
+        Self {
+            kind: FileKind::Embedded(file),
             path: Some(path.into_bytes()),
             flags: Mutex::new(flags),
         }

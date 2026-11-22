@@ -153,7 +153,7 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
     }
 }
 
-/// Metadata of a supplied entry, including the synthetic null device.
+/// Metadata of a supplied entry, including guest character devices.
 fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
     let size = entry.len().min(i64::MAX as u64) as i64;
     Stat {
@@ -161,14 +161,19 @@ fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
         mode: match &entry.kind {
             crate::user::supplied_fs::Kind::Directory => mode::S_IFDIR | 0o555,
             crate::user::supplied_fs::Kind::Symlink(_) => mode::S_IFLNK | 0o777,
-            crate::user::supplied_fs::Kind::NullDevice => mode::S_IFCHR | 0o666,
+            crate::user::supplied_fs::Kind::NullDevice
+            | crate::user::supplied_fs::Kind::ZeroDevice => mode::S_IFCHR | 0o666,
             _ => mode::S_IFREG | 0o555,
         },
         nlink: if entry.is_dir() { 2 } else { 1 },
         uid: 0,
         gid: 0,
-        rdev_major: if entry.is_null_device() { 1 } else { 0 },
-        rdev_minor: if entry.is_null_device() { 3 } else { 0 },
+        rdev_major: u32::from(entry.device().is_some()),
+        rdev_minor: match entry.device() {
+            Some(crate::user::supplied_fs::Device::Null) => 3,
+            Some(crate::user::supplied_fs::Device::Zero) => 5,
+            None => 0,
+        },
         size,
         blksize: 4096,
         blocks: (size as u64).div_ceil(512) as i64,
@@ -367,14 +372,14 @@ pub(super) fn open_target(
         }
         Target::Fd(file) => Ok(file),
         Target::Supplied(entry, guest) => {
-            let null_device = entry.is_null_device();
+            let device = entry.device().is_some();
             if flags & (O_CREAT | O_EXCL) == (O_CREAT | O_EXCL) {
                 return Err(Errno(EEXIST));
             }
             if entry.link_target().is_some() && flags & O_PATH == 0 {
                 return Err(Errno(ELOOP));
             }
-            if !null_device
+            if !device
                 && flags & O_PATH == 0
                 && (accmode != O_RDONLY || flags & (O_TRUNC | O_TMPFILE_BIT) != 0)
             {
@@ -383,11 +388,11 @@ pub(super) fn open_target(
             if flags & layout.directory != 0 && !entry.is_dir() {
                 return Err(Errno(ENOTDIR));
             }
-            if null_device && flags & O_PATH == 0 && flags & layout.direct != 0 {
+            if device && flags & O_PATH == 0 && flags & layout.direct != 0 {
                 return Err(Errno(EINVAL));
             }
             let mut directory = None;
-            let (object, kind) = if null_device {
+            let (object, kind) = if device {
                 let object = if flags & O_PATH == 0 {
                     FileObject::Supplied(entry.clone())
                 } else {
@@ -415,7 +420,8 @@ pub(super) fn open_target(
                         dtype: match entry.kind {
                             crate::user::supplied_fs::Kind::Directory => fs::fd::dt::DT_DIR,
                             crate::user::supplied_fs::Kind::Symlink(_) => fs::fd::dt::DT_LNK,
-                            crate::user::supplied_fs::Kind::NullDevice => fs::fd::dt::DT_CHR,
+                            crate::user::supplied_fs::Kind::NullDevice
+                            | crate::user::supplied_fs::Kind::ZeroDevice => fs::fd::dt::DT_CHR,
                             _ => fs::fd::dt::DT_REG,
                         },
                         name: name.into_bytes(),
@@ -781,7 +787,7 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             }
             Ok(0)
         }
-        Target::Supplied(entry, _) => supplied_access(amode, entry.is_null_device()),
+        Target::Supplied(entry, _) => supplied_access(amode, entry.device().is_some()),
         Target::Proc(..) => Ok(0),
         Target::Fd(f) if f.supplied_stat.is_some() => {
             supplied_access(amode, f.ftype == FileType::CharDevice)
@@ -804,8 +810,8 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
     }
 }
 
-fn supplied_access(amode: u32, null_device: bool) -> SysResult {
-    let denied = if null_device { 1 } else { 2 };
+fn supplied_access(amode: u32, device: bool) -> SysResult {
+    let denied = if device { 1 } else { 2 };
     if amode & denied != 0 {
         Err(Errno(EACCES))
     } else {

@@ -47,6 +47,8 @@ jobs:
           cargo test --locked -p rax-capi --no-default-features installed_musl_matches_native_through_closed_c_abi -- --ignored --nocapture
       - name: Compare native and emulated cat with the null device
         run: cargo test --locked -p rax-capi --no-default-features installed_cat_reads_guest_null_through_closed_c_abi -- --nocapture
+      - name: Compare native and emulated head with the zero device
+        run: cargo test --locked -p rax-capi --no-default-features installed_head_reads_guest_zero_through_closed_c_abi -- --nocapture
       - name: Compare native and emulated system Python
         shell: bash
         env:

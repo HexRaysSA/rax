@@ -652,9 +652,13 @@ pub fn fstat64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
 
 /// `fsync(fd)`, `fdatasync(fd)`.
 pub fn fsync(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
+    let file = ctx.proc.fds.file(fd)?;
+    if matches!(&file.kind, FileKind::Embedded(object) if object.device_access().is_some()) {
+        return Ok(Rv::one(0));
+    }
     #[cfg(unix)]
     {
-        let (_, h) = host_fd(ctx, fd)?;
+        let h = file.host_fd().ok_or(Errno::EBADF)?;
         // SAFETY: fsync on a live descriptor.
         check(unsafe { libc::fsync(h) })?;
         Ok(Rv::one(0))
@@ -667,9 +671,19 @@ pub fn fsync(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
 
 /// `ftruncate(fd, length)`.
 pub fn ftruncate(ctx: &mut Ctx<'_>, fd: i32, length: i64) -> SysResult {
+    let file = ctx.proc.fds.file(fd)?;
+    if let FileKind::Embedded(object) = &file.kind {
+        if let Some(access) = object.device_access() {
+            return if access == io::O_RDONLY || length < 0 {
+                Err(Errno::EINVAL)
+            } else {
+                Ok(Rv::one(0))
+            };
+        }
+    }
     #[cfg(unix)]
     {
-        let (_, h) = host_fd(ctx, fd)?;
+        let h = file.host_fd().ok_or(Errno::EBADF)?;
         // SAFETY: ftruncate on a live descriptor.
         check(unsafe { libc::ftruncate(h, length as libc::off_t) })?;
         Ok(Rv::one(0))
@@ -1119,10 +1133,10 @@ pub fn ioctl(ctx: &mut Ctx<'_>, fd: i32, request: u64, arg: u64) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
     if let FileKind::Embedded(object) = &file.kind {
         match req {
-            FIONREAD if !matches!(object, EmbeddedFile::Null { .. }) => {
+            FIONREAD if object.device_access().is_none() => {
                 ctx.write_u32(arg, object.available()?.min(i32::MAX as u64) as u32)?;
             }
-            FIONBIO | FIOASYNC if req == FIONBIO || matches!(object, EmbeddedFile::Null { .. }) => {
+            FIONBIO | FIOASYNC if req == FIONBIO || object.device_access().is_some() => {
                 let flag = if req == FIONBIO {
                     O_NONBLOCK
                 } else {
@@ -1136,7 +1150,7 @@ pub fn ioctl(ctx: &mut Ctx<'_>, fd: i32, request: u64, arg: u64) -> SysResult {
                     *flags & !flag
                 };
             }
-            _ if matches!(object, EmbeddedFile::Null { .. }) => return Err(Errno::ENODEV),
+            _ if object.device_access().is_some() => return Err(Errno::ENODEV),
             _ => return Err(Errno::ENOTTY),
         }
         return Ok(Rv::one(0));

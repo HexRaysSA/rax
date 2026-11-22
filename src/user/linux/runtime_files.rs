@@ -1,7 +1,7 @@
 //! Native Linux runtime selection for a closed process. Installed loader and
 //! library directories are mounted read-only; there is no general host path
 //! fallback, host descriptor exposure, or separate sysroot requirement.
-use crate::user::supplied_fs::Files;
+use crate::user::supplied_fs::{Device, Files};
 use std::io;
 #[cfg(any(target_os = "linux", all(test, unix)))]
 use std::path::Path;
@@ -67,7 +67,10 @@ fn select(
 ) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     let root_names = roots.keys().cloned().collect::<Vec<_>>();
-    let files = files.with_null_device().map_err(io::Error::other)?;
+    let files = files
+        .with_device(Device::Null)
+        .and_then(|files| files.with_device(Device::Zero))
+        .map_err(io::Error::other)?;
     let files = files.with_linux_library_roots(roots)?;
     let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
         return Ok(files);
@@ -168,7 +171,14 @@ mod tests {
         )
         .unwrap();
         assert_eq!(&*selected.read("/etc/ld.so.cache").unwrap(), b"installed");
-        assert!(selected.lookup("/dev/null").unwrap().1.is_null_device());
+        assert_eq!(
+            selected.lookup("/dev/null").unwrap().1.device(),
+            Some(Device::Null)
+        );
+        assert_eq!(
+            selected.lookup("/dev/zero").unwrap().1.device(),
+            Some(Device::Zero)
+        );
         assert!(selected.lookup("/etc/passwd").is_err());
         let selected = select(
             &Files::default(),

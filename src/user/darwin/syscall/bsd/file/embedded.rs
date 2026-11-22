@@ -80,8 +80,8 @@ pub(super) fn write(
     nbyte: u64,
     offset: Option<i64>,
 ) -> SysResult {
-    if matches!(file, EmbeddedFile::Null { .. }) {
-        return file.discard_null(nbyte, offset).map(Rv::one);
+    if file.device_access().is_some() {
+        return file.discard_device_write(nbyte, offset).map(Rv::one);
     }
     file.write(&[], offset)?;
     let mut done = 0;

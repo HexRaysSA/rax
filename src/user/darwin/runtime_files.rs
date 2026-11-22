@@ -4,7 +4,7 @@
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
 //! pages are read on demand through retained read-only handles.
-use crate::user::supplied_fs::Files;
+use crate::user::supplied_fs::{Device, Files};
 use std::io;
 
 #[cfg(any(target_os = "macos", test))]
@@ -104,7 +104,10 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         ],
     )?;
     let files = select_system_version(files, root)?;
-    let files = files.with_null_device().map_err(io::Error::other)?;
+    let files = files
+        .with_device(Device::Null)
+        .and_then(|files| files.with_device(Device::Zero))
+        .map_err(io::Error::other)?;
     let roots = [
         "/usr/lib",
         "/System/Library/Frameworks",

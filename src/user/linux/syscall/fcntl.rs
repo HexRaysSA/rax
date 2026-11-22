@@ -264,7 +264,7 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
                     console,
                     stream: None,
                 } => console.pending()?.0.min(i32::MAX as usize) as i32,
-                FileObject::Supplied(entry) if !entry.is_null_device() => {
+                FileObject::Supplied(entry) if entry.device().is_none() => {
                     let pos = file.state.lock().unwrap().synth_pos;
                     entry.len().saturating_sub(pos).min(i32::MAX as u64) as i32
                 }

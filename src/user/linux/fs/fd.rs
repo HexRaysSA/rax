@@ -6,6 +6,7 @@
 //! close-on-exec flag belongs to the descriptor. This mirrors
 //! `include/linux/fdtable.h`.
 
+use crate::user::supplied_fs::Device;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 
@@ -285,22 +286,29 @@ impl OpenFile {
         self.flags() & O_ACCMODE
     }
 
-    pub(crate) fn is_null_device(&self) -> bool {
-        matches!(&self.object, FileObject::Supplied(entry) if entry.is_null_device())
+    pub(crate) fn device(&self) -> Option<Device> {
+        match &self.object {
+            FileObject::Supplied(entry) => entry.device(),
+            _ => None,
+        }
     }
 
     /// Whether the description permits reading.
     pub fn readable(&self) -> bool {
         let flags = self.flags();
         let access = flags & O_ACCMODE;
-        flags & O_PATH == 0 && access != O_WRONLY && (access != O_ACCMODE || !self.is_null_device())
+        flags & O_PATH == 0
+            && access != O_WRONLY
+            && (access != O_ACCMODE || self.device().is_none())
     }
 
     /// Whether the description permits writing.
     pub fn writable(&self) -> bool {
         let flags = self.flags();
         let access = flags & O_ACCMODE;
-        flags & O_PATH == 0 && access != O_RDONLY && (access != O_ACCMODE || !self.is_null_device())
+        flags & O_PATH == 0
+            && access != O_RDONLY
+            && (access != O_ACCMODE || self.device().is_none())
     }
 
     /// `read(2)` at the current position.
@@ -334,8 +342,10 @@ impl OpenFile {
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
             FileObject::Socket(s) => Ok((&s.file).read(buf)?),
-            FileObject::Supplied(entry) if entry.is_null_device() => Ok(0),
             FileObject::Supplied(entry) => {
+                if let Some(device) = entry.device() {
+                    return Ok(device.read(buf));
+                }
                 let mut st = self.state.lock().unwrap();
                 let n = entry.source()?.read_at(st.synth_pos, buf)?;
                 st.synth_pos = st.synth_pos.checked_add(n as u64).ok_or(Errno(EOVERFLOW))?;
@@ -430,7 +440,7 @@ impl OpenFile {
                 Ok(n)
             }
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
-            FileObject::Supplied(entry) if entry.is_null_device() => Ok(data.len()),
+            FileObject::Supplied(entry) if entry.device().is_some() => Ok(data.len()),
             FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
@@ -458,8 +468,10 @@ impl OpenFile {
                 Ok(f.read_at(buf, offset)?)
             }
             FileObject::Host(_) if self.ftype == FileType::Directory => Err(Errno(EISDIR)),
-            FileObject::Supplied(entry) if entry.is_null_device() => Ok(0),
-            FileObject::Supplied(entry) => Ok(entry.source()?.read_at(offset, buf)?),
+            FileObject::Supplied(entry) => match entry.device() {
+                Some(device) => Ok(device.read(buf)),
+                None => Ok(entry.source()?.read_at(offset, buf)?),
+            },
             FileObject::Synthetic(data) => {
                 let pos = offset.min(data.len() as u64) as usize;
                 let n = buf.len().min(data.len() - pos);
@@ -492,7 +504,7 @@ impl OpenFile {
                 let n = self.sealed_len(f, Some(offset), data.len())?;
                 Ok(f.write_at(&data[..n], offset)?)
             }
-            FileObject::Supplied(entry) if entry.is_null_device() => Ok(data.len()),
+            FileObject::Supplied(entry) if entry.device().is_some() => Ok(data.len()),
             FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Mqueue(_) if !self.fmode().1 => Err(Errno(EBADF)),
             FileObject::Mqueue(_) => Err(Errno(EINVAL)),
@@ -580,7 +592,7 @@ impl OpenFile {
             }
             // noop_llseek: the position stays 0.
             FileObject::Anon(_) => Ok(0),
-            FileObject::Supplied(entry) if entry.is_null_device() => {
+            FileObject::Supplied(entry) if entry.device().is_some() => {
                 // null_lseek resets the position for every valid seek origin.
                 if whence <= 4 {
                     Ok(0)

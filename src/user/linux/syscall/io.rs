@@ -15,6 +15,7 @@ use super::iov::import_iovec;
 use super::ready::raw_fd;
 use super::{Ctx, Outcome, RestartBlock, SysResult, is_blocked};
 use crate::error::MemoryAccessKind;
+use crate::user::supplied_fs::Device;
 
 /// `MAX_RW_COUNT`: `INT_MAX & PAGE_MASK`.
 pub const MAX_RW_COUNT: u64 = 0x7fff_f000;
@@ -178,8 +179,12 @@ fn read_into(
     count: u64,
     pos: Option<u64>,
 ) -> SysResult {
-    if file.is_null_device() {
-        return null_transfer(c, file.readable(), buf, count, pos).map(|_| 0);
+    if let Some(device) = file.device() {
+        let count = device_transfer(c, file.readable(), buf, count, pos)?;
+        return match device {
+            Device::Null => Ok(0),
+            Device::Zero => read_zero(c, &[(buf, count)], count),
+        };
     }
     let count = count.min(MAX_RW_COUNT);
     let mut room = writable_prefix(c, buf, count);
@@ -260,8 +265,8 @@ fn write_from(
     count: u64,
     pos: Option<u64>,
 ) -> SysResult {
-    if file.is_null_device() {
-        return null_transfer(c, file.writable(), buf, count, pos);
+    if file.device().is_some() {
+        return device_transfer(c, file.writable(), buf, count, pos);
     }
     let count = count.min(MAX_RW_COUNT);
     let mut readable = readable_prefix(c, buf, count);
@@ -278,23 +283,64 @@ fn write_from(
     write_bytes(c, file, &data, pos)
 }
 
-/// The VFS checks the user address range, but the null device moves no bytes
-/// between guest memory and the emulator.
-fn null_transfer(c: &Ctx<'_>, allowed: bool, buf: u64, count: u64, pos: Option<u64>) -> SysResult {
+/// Checks the VFS address range and positional limit before calling a device.
+/// Null reads and device writes require no mapped guest buffer.
+fn device_transfer(
+    c: &Ctx<'_>,
+    allowed: bool,
+    buf: u64,
+    count: u64,
+    pos: Option<u64>,
+) -> SysResult {
     if !allowed {
         return Err(Errno(EBADF));
     }
     if !super::events::access_ok(c, buf, count) {
         return Err(Errno(EFAULT));
     }
-    null_transfer_size(count, pos)
+    device_transfer_size(count, pos)
 }
 
-fn null_transfer_size(count: u64, pos: Option<u64>) -> SysResult {
+fn device_transfer_size(count: u64, pos: Option<u64>) -> SysResult {
     if pos.is_some_and(|pos| pos.saturating_add(count) > i64::MAX as u64) {
         return Err(Errno(EINVAL));
     }
     Ok(count.min(MAX_RW_COUNT))
+}
+
+/// Fill mapped guest memory up to the first fault, using one page of zeros
+/// regardless of the request size (`clear_user` and `iov_iter_zero`).
+fn read_zero(c: &mut Ctx<'_>, iovecs: &[(u64, u64)], count: u64) -> SysResult {
+    const ZERO_PAGE: [u8; 4096] = [0; 4096];
+    let mut done = 0;
+    for &(base, len) in iovecs {
+        let len = len.min(count - done);
+        if len == 0 {
+            continue;
+        }
+        let writable = writable_prefix(c, base, len);
+        let mut offset = 0;
+        while offset < writable {
+            let size = (writable - offset).min(ZERO_PAGE.len() as u64);
+            c.write_mem(base + offset, &ZERO_PAGE[..size as usize])?;
+            offset += size;
+            if c.signal_pending() {
+                return Ok(done + offset);
+            }
+        }
+        done += writable;
+        if writable < len {
+            return if done == 0 {
+                Err(Errno(EFAULT))
+            } else {
+                Ok(done)
+            };
+        }
+        if done == count {
+            break;
+        }
+    }
+    Ok(done)
 }
 
 /// `comm_write`: a thread of this process takes the first 15 bytes as its
@@ -331,7 +377,7 @@ pub fn read(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     if file.is_socket() {
         return super::net::io::read(c, &file, &[(buf, count.min(MAX_RW_COUNT))]);
     }
-    if count == 0 && !file.is_null_device() {
+    if count == 0 && file.device().is_none() {
         return if file.readable() {
             Ok(0)
         } else {
@@ -353,7 +399,7 @@ pub fn write(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     if file.is_socket() {
         return super::net::io::write(c, &file, &[(buf, count.min(MAX_RW_COUNT))]);
     }
-    if count == 0 && !file.is_null_device() {
+    if count == 0 && file.device().is_none() {
         return if file.writable() {
             Ok(0)
         } else {
@@ -439,11 +485,14 @@ pub(super) fn readv_file(
     pos: Option<u64>,
 ) -> SysResult {
     let total: u64 = iovecs.iter().map(|&(_, l)| l).sum();
-    if file.is_null_device() {
-        return if file.readable() {
-            null_transfer_size(total, pos).map(|_| 0)
-        } else {
-            Err(Errno(EBADF))
+    if let Some(device) = file.device() {
+        if !file.readable() {
+            return Err(Errno(EBADF));
+        }
+        let count = device_transfer_size(total, pos)?;
+        return match device {
+            Device::Null => Ok(0),
+            Device::Zero => read_zero(c, iovecs, count),
         };
     }
     if matches!(file.object, FileObject::Anon(_)) {
@@ -506,9 +555,9 @@ pub(super) fn writev_file(
     }
     // The bytes before the first fault, up to MAX_RW_COUNT.
     let total = vecs.iter().map(|&(_, l)| l).sum::<u64>().min(MAX_RW_COUNT);
-    if file.is_null_device() {
+    if file.device().is_some() {
         return if file.writable() {
-            null_transfer_size(total, pos)
+            device_transfer_size(total, pos)
         } else {
             Err(Errno(EBADF))
         };
@@ -633,7 +682,7 @@ pub fn preadv(
     }
     let file = c.p.fds.file(fd)?;
     check_rw_flags(&file, flags)?;
-    if file.is_null_device() {
+    if file.device().is_some() {
         let vectors = import_iovec(c, iov, cnt)?;
         return readv_file(c, &file, &vectors, pos.map(|offset| offset as u64));
     }
@@ -692,7 +741,7 @@ pub fn pwritev(
     let file = c.p.fds.file(fd)?;
     check_rw_flags(&file, flags)?;
     c.nosignal = flags & rwf::NOSIGNAL != 0;
-    if file.is_null_device() {
+    if file.device().is_some() {
         let vectors = import_iovec(c, iov, cnt)?;
         return writev_file(c, &file, &vectors, pos.map(|offset| offset as u64));
     }

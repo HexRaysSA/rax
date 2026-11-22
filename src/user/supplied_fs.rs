@@ -56,9 +56,29 @@ pub enum Kind {
     Directory,
     /// The closed runtime's synthetic null character device.
     NullDevice,
+    /// The closed runtime's synthetic zero-filled character device.
+    ZeroDevice,
     /// Metadata for an installed Linux runtime link selected without following it.
     Symlink(Arc<[u8]>),
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum Device {
+    Null,
+    Zero,
+}
+
+impl Device {
+    pub(crate) fn read(self, buffer: &mut [u8]) -> usize {
+        match self {
+            Self::Null => 0,
+            Self::Zero => {
+                buffer.fill(0);
+                buffer.len()
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Entry {
     /// Stable within this namespace; static entries use sorted path order and
@@ -70,8 +90,12 @@ impl Entry {
     pub fn is_dir(&self) -> bool {
         matches!(self.kind, Kind::Directory)
     }
-    pub(crate) fn is_null_device(&self) -> bool {
-        matches!(self.kind, Kind::NullDevice)
+    pub(crate) fn device(&self) -> Option<Device> {
+        match self.kind {
+            Kind::NullDevice => Some(Device::Null),
+            Kind::ZeroDevice => Some(Device::Zero),
+            _ => None,
+        }
     }
     pub(crate) fn link_target(&self) -> Option<&[u8]> {
         match &self.kind {
@@ -108,7 +132,7 @@ impl Entry {
                 Ok(bytes.into())
             }
             Kind::Directory => Err(Error::IsDirectory),
-            Kind::NullDevice => Err(Error::NotRegular),
+            Kind::NullDevice | Kind::ZeroDevice => Err(Error::NotRegular),
             Kind::Symlink(_) => Err(Error::LinkLoop),
         }
     }
@@ -118,7 +142,7 @@ impl Entry {
         match &self.kind {
             Kind::File(bytes) => bytes.len() as u64,
             Kind::Backed(source) => source.len(),
-            Kind::Directory | Kind::NullDevice => 0,
+            Kind::Directory | Kind::NullDevice | Kind::ZeroDevice => 0,
             Kind::Symlink(target) => target.len() as u64,
         }
     }
@@ -142,7 +166,7 @@ impl Entry {
             Kind::File(bytes) => Arc::new(BytesSource::new(bytes.clone())),
             Kind::Backed(source) => source.clone(),
             Kind::Directory => return Err(Error::IsDirectory),
-            Kind::NullDevice => return Err(Error::NotRegular),
+            Kind::NullDevice | Kind::ZeroDevice => return Err(Error::NotRegular),
             Kind::Symlink(_) => return Err(Error::LinkLoop),
         };
         Ok(Arc::new(GuestSource {
@@ -270,17 +294,20 @@ impl Files {
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos", test))]
-    pub(super) fn with_null_device(&self) -> Result<Self, Error> {
-        const PATH: &str = "/dev/null";
+    pub(super) fn with_device(&self, device: Device) -> Result<Self, Error> {
+        let (path, kind) = match device {
+            Device::Null => ("/dev/null", Kind::NullDevice),
+            Device::Zero => ("/dev/zero", Kind::ZeroDevice),
+        };
         if self.caller_roots.as_ref().is_some_and(|roots| {
             roots
                 .paths()
-                .any(|root| matches!(root, "/" | "/dev" | PATH))
+                .any(|root| root == "/" || root == "/dev" || root == path)
         }) {
             return Ok(self.clone());
         }
-        match self.lookup(PATH) {
-            Err(Error::NotFound) => self.with_kind(PATH.into(), Kind::NullDevice),
+        match self.lookup(path) {
+            Err(Error::NotFound) => self.with_kind(path.into(), kind),
             Ok(_) | Err(Error::NotDirectory) => Ok(self.clone()),
             Err(error) => Err(error),
         }

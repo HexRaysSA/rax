@@ -224,19 +224,43 @@ fn installed_sqlite_matches_native_through_closed_c_abi() {
 #[cfg(target_os = "linux")]
 #[test]
 fn installed_cat_reads_guest_null_through_closed_c_abi() {
-    let path = "/bin/cat";
-    let arguments = ["/dev/null"];
+    compare_installed_posix_output("linux", "/bin/cat", &["/dev/null"], b"");
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn installed_head_reads_guest_zero_through_closed_c_abi() {
+    let personality = if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "darwin"
+    };
+    compare_installed_posix_output(
+        personality,
+        "/usr/bin/head",
+        &["-c", "16", "/dev/zero"],
+        &[0; 16],
+    );
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn compare_installed_posix_output(
+    personality: &str,
+    path: &str,
+    arguments: &[&str],
+    expected_stdout: &[u8],
+) {
     let native = std::process::Command::new(path)
         .args(arguments)
         .env_clear()
         .output()
         .unwrap();
     assert!(native.status.success());
-    assert!(native.stdout.is_empty());
+    assert_eq!(native.stdout, expected_stdout);
     assert!(native.stderr.is_empty());
 
     let options = serde_json::json!({
-        "personality": "linux",
+        "personality": personality,
         "guest_path": path,
         "arguments": arguments,
         "native_runtime": true,

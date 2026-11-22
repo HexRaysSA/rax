@@ -417,7 +417,7 @@ fn native_null_device_has_guest_only_path_and_descriptor_semantics() {
             bsd::{file, path},
         },
     };
-    use crate::user::supplied_fs::Files;
+    use crate::user::supplied_fs::{Device, Files};
 
     let files = Files::default();
     let supplied = files
@@ -425,7 +425,7 @@ fn native_null_device_has_guest_only_path_and_descriptor_semantics() {
         .unwrap();
     assert_eq!(
         supplied
-            .with_null_device()
+            .with_device(Device::Null)
             .unwrap()
             .read("/dev/null")
             .unwrap()
@@ -435,7 +435,7 @@ fn native_null_device_has_guest_only_path_and_descriptor_semantics() {
     assert!(files.lookup("/dev/null").is_err());
     for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
         let mut p = process_with_profile(abi, true);
-        p.proc.vfs = Vfs::supplied(files.with_null_device().unwrap());
+        p.proc.vfs = Vfs::supplied(files.with_device(Device::Null).unwrap());
         let (_, mut thread) = p.proc.threads.pop_first().unwrap();
         let buffer = thread.cpu.sp() - 4096;
         let name = buffer + 512;
@@ -525,6 +525,69 @@ fn native_null_device_has_guest_only_path_and_descriptor_semantics() {
             path::openat(&mut ctx, AT_FDCWD, name, O_RDONLY, 0),
             Err(Errno::ENOTDIR)
         );
+    }
+}
+
+#[test]
+fn native_zero_device_reads_into_guest_memory_on_both_abis() {
+    use crate::user::darwin::{
+        abi::Errno,
+        arch::Rv,
+        host::AT_FDCWD,
+        io::{O_RDONLY, O_RDWR},
+        syscall::{
+            Ctx,
+            bsd::{file, path},
+        },
+    };
+    use crate::user::supplied_fs::{Device, Files};
+
+    let files = Files::default().with_device(Device::Zero).unwrap();
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process_with_profile(abi, true);
+        p.proc.vfs = Vfs::supplied(files.clone());
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let buffer = thread.cpu.sp() - 4096;
+        let name = buffer + 512;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: 5,
+            pc: ENTRY,
+        };
+        ctx.write(name, b"/dev/zero\0").unwrap();
+        let fd = path::openat(&mut ctx, AT_FDCWD, name, O_RDWR, 0).unwrap().0 as i32;
+        assert!(ctx.proc.fds.file(fd).unwrap().host_fd().is_none());
+        assert_eq!(file::fstat64(&mut ctx, fd, buffer), Ok(Rv::one(0)));
+        let stat = ctx.read(buffer, 144).unwrap();
+        assert_eq!(u16::from_le_bytes(stat[4..6].try_into().unwrap()), 0o020666);
+        assert_eq!(
+            u32::from_le_bytes(stat[24..28].try_into().unwrap()),
+            0x0300_0003
+        );
+
+        ctx.write(buffer, &[0xa5; 12]).unwrap();
+        assert_eq!(file::read(&mut ctx, fd, 1, 4, None), Err(Errno::EFAULT));
+        assert_eq!(file::read(&mut ctx, fd, buffer, 4, None), Ok(Rv::one(4)));
+        assert_eq!(
+            file::read(&mut ctx, fd, buffer + 4, 4, Some(-1)),
+            Ok(Rv::one(4))
+        );
+        assert_eq!(
+            ctx.read(buffer, 12).unwrap(),
+            [&[0; 8][..], &[0xa5; 4]].concat()
+        );
+        let duplicate = file::dup(&mut ctx, fd).unwrap().0 as i32;
+        assert_eq!(file::lseek(&mut ctx, duplicate, 0, 1), Ok(Rv::one(4)));
+        assert_eq!(file::write(&mut ctx, fd, 1, 5, None), Ok(Rv::one(5)));
+        assert_eq!(file::lseek(&mut ctx, duplicate, 0, 1), Ok(Rv::one(9)));
+        assert_eq!(file::fsync(&mut ctx, fd), Ok(Rv::one(0)));
+        assert_eq!(file::ftruncate(&mut ctx, fd, 3), Ok(Rv::one(0)));
+        assert_eq!(file::ftruncate(&mut ctx, fd, -1), Err(Errno::EINVAL));
+        let readonly = path::openat(&mut ctx, AT_FDCWD, name, O_RDONLY, 0)
+            .unwrap()
+            .0 as i32;
+        assert_eq!(file::ftruncate(&mut ctx, readonly, 3), Err(Errno::EINVAL));
     }
 }
 
