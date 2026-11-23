@@ -386,6 +386,29 @@ the unchanged register with the actual input. That first run did not
 qualify the six YMM fault cases. Runtime artifact `14789082181` has
 SHA-256 `b75f09c05cfeba237afde432489a16824b801e26abf8b6d98b9c9b4b58cc74ce`.
 
+### VEX.256 on hosted Intel macOS
+
+After the fixture correction, hosted run
+[45110104241](https://github.com/HexRaysSA/rax/actions/runs/45110104241)
+passed all 80 cases at revision
+`7aa582e930482130d5386e9148b78e2a246b5b5b` on Intel macOS 15.7.9
+(24G830), SDK 15.5, inside a hosted VM. The 256-bit cases account for 12
+direct transfers, 12 transfers after restoring the pending request into
+a fresh CPU, and six #GP(0) cases. Each fault verified one handler
+visit and the saved fault RIP, and checked the continuation marker,
+RDI, RFLAGS and vector banks after IRET. The six 128-bit alignment
+controls and all 44 other transfers also passed.
+
+Independent verification matched all 4,895 engine inputs and 19
+consumer inputs against Git, checked all observation rows, and verified
+the Intel executable's signature and hypervisor entitlement. Runtime
+artifact `14789423250` has SHA-256
+`f76825086d7ae99c73e14578a1b67b1ae516bfd5232c315f013ba8d1a0b718db`.
+Its observation SHA-256 is
+`4e71f004e31b07850d41f6ef347a6f7160984c4be26bd356c444ffaf4d8b4abe`.
+The signed executable SHA-256 is
+`30adf73b5b75863f78f887a45ba03e4211a9df35142e61afaf7d9e4334705f74`.
+
 ## IA-32e compatibility-mode MMIO
 
 The 32-bit compatibility profile enters with CS.L=0, CS.D=1, and
