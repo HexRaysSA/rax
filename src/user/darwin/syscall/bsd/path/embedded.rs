@@ -2,6 +2,7 @@
 
 use super::{Ctx, Errno, Rv, SysResult};
 use crate::user::darwin::{
+    abi::types::Stat,
     fd::{EmbeddedFile, FileKind, OpenFile},
     host::{
         AT_EACCESS, AT_FDCWD, AT_REMOVEDIR, AT_SYMLINK_FOLLOW, AT_SYMLINK_NOFOLLOW,
@@ -554,16 +555,19 @@ pub(super) fn statat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32)
         return Err(Errno::EINVAL);
     }
     let (_, entry) = lookup(ctx, dirfd, path, link_policy(flags))?;
-    let stat = if let Some(device) = entry.device() {
-        EmbeddedFile::device_stat(device, entry.ino)
+    ctx.write(buf, &entry_stat(entry)?.bytes())?;
+    Ok(Rv::one(0))
+}
+
+pub(in crate::user::darwin::syscall::bsd) fn entry_stat(entry: Entry) -> Result<Stat, Errno> {
+    if let Some(device) = entry.device() {
+        Ok(EmbeddedFile::device_stat(device, entry.ino))
     } else {
         EmbeddedFile::Supplied {
             entry,
             cursor: Mutex::new(0),
             access: O_RDONLY,
         }
-        .stat()?
-    };
-    ctx.write(buf, &stat.bytes())?;
-    Ok(Rv::one(0))
+        .stat()
+    }
 }

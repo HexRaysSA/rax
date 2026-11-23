@@ -11,6 +11,7 @@
 
 use std::ffi::CString;
 
+use super::filesec::{FILESEC_HEADER, FILESEC_MAGIC, FILESEC_NOACL};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FileKind, OpenFile};
@@ -19,15 +20,8 @@ use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::syscall::bsd::path::put_stat;
 
-/// `KAUTH_FILESEC_MAGIC`.
-const FILESEC_MAGIC: u32 = 0x012c_c16d;
-/// `KAUTH_FILESEC_NOACL`: a filesec without a list.
-const FILESEC_NOACL: u32 = u32::MAX;
 /// `KAUTH_ACL_MAX_ENTRIES`.
 const ACL_MAX_ENTRIES: u32 = 128;
-/// `KAUTH_FILESEC_SIZE(0)`: magic, owner and group GUIDs, entry count,
-/// flags.
-const FILESEC_HEADER: usize = 44;
 /// `sizeof(struct kauth_ace)`.
 const ACE_SIZE: usize = 24;
 /// The largest filesec (`KAUTH_FILESEC_SIZE(KAUTH_ACL_MAX_ENTRIES)`).

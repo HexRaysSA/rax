@@ -16,6 +16,7 @@ mod embedded_metadata;
 mod embedded_xattr;
 pub mod event;
 pub mod file;
+mod filesec;
 pub(crate) mod guarded;
 pub mod mac;
 pub mod misc;
@@ -110,6 +111,9 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                 nr::FCHMOD => return embedded_metadata::fchmod(ctx, i(0), u(1)),
                 nr::FCHMODAT => {
                     return embedded_metadata::fchmodat(ctx, i(0), a[1], u(2), u(3));
+                }
+                nr::STAT64_EXTENDED | nr::LSTAT64_EXTENDED | nr::FSTAT64_EXTENDED => {
+                    return filesec::stat(ctx, number, a);
                 }
                 nr::UTIMES => return embedded_metadata::utimes(ctx, None, a[0], a[1]),
                 nr::FUTIMES => return embedded_metadata::utimes(ctx, Some(i(0)), 0, a[1]),
