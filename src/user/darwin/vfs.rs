@@ -13,7 +13,7 @@ use std::path::PathBuf;
 #[cfg(unix)]
 use std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
 
-use crate::user::supplied_fs::{Entry, Error, Files};
+use crate::user::supplied_fs::{Entry, Error, Files, LinkPolicy};
 
 /// Path resolution for one process.
 #[derive(Clone, Debug, Default)]
@@ -51,6 +51,15 @@ impl Vfs {
     /// Resolve guest path components against the immutable supplied namespace.
     /// Separators and `..` are guest POSIX syntax on every host.
     pub fn lookup(&self, path: &[u8], cwd: &[u8]) -> io::Result<(String, Entry)> {
+        self.lookup_with_policy(path, cwd, LinkPolicy::Follow)
+    }
+
+    pub(super) fn lookup_with_policy(
+        &self,
+        path: &[u8],
+        cwd: &[u8],
+        policy: LinkPolicy,
+    ) -> io::Result<(String, Entry)> {
         let files = self.supplied.as_ref().ok_or(io::ErrorKind::Unsupported)?;
         let parse = |bytes| {
             std::str::from_utf8(bytes)
@@ -65,7 +74,9 @@ impl Vfs {
         } else {
             format!("{}/{path}", parse(cwd)?.trim_end_matches('/'))
         };
-        files.lookup(&absolute).map_err(io::Error::other)
+        files
+            .lookup_with_policy(&absolute, policy)
+            .map_err(io::Error::other)
     }
 
     fn require_host(&self) -> io::Result<()> {

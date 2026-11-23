@@ -58,7 +58,7 @@ pub enum Kind {
     NullDevice,
     /// The closed runtime's synthetic zero-filled character device.
     ZeroDevice,
-    /// Metadata for an installed Linux runtime link selected without following it.
+    /// Link bytes from a selected runtime namespace.
     Symlink(Arc<[u8]>),
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -222,6 +222,14 @@ fn validate(path: &str) -> Result<(), Error> {
     Ok(())
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum LinkPolicy {
+    Follow,
+    NoFollowLast,
+    NoFollowAny,
+    NoFollowAncestors,
+}
+
 impl Files {
     /// File keys must be canonical: absolute, no empty, `.` or `..` components,
     /// no trailing slash. Reject file/directory collisions before publication.
@@ -308,6 +316,30 @@ impl Files {
         }
         match self.lookup(path) {
             Err(Error::NotFound) => self.with_kind(path.into(), kind),
+            Ok(_) | Err(Error::NotDirectory) => Ok(self.clone()),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Add an installed link whose absolute target is resolved in the guest.
+    #[cfg(any(target_os = "macos", test))]
+    pub(super) fn with_native_symlink(&self, path: &str, target: &str) -> Result<Self, Error> {
+        validate(target)?;
+        if self.caller_roots.as_ref().is_some_and(|roots| {
+            roots.paths().any(|root| {
+                root == "/"
+                    || root == path
+                    || path
+                        .strip_prefix(root)
+                        .is_some_and(|tail| tail.starts_with('/'))
+            })
+        }) {
+            return Ok(self.clone());
+        }
+        match self.lookup_with_follow(path, false) {
+            Err(Error::NotFound) => {
+                self.with_kind(path.into(), Kind::Symlink(Arc::from(target.as_bytes())))
+            }
             Ok(_) | Err(Error::NotDirectory) => Ok(self.clone()),
             Err(error) => Err(error),
         }
@@ -556,7 +588,36 @@ impl Files {
         path: &str,
         follow_last: bool,
     ) -> Result<(String, Entry), Error> {
+        let policy = if follow_last {
+            LinkPolicy::Follow
+        } else {
+            LinkPolicy::NoFollowLast
+        };
+        self.lookup_with_policy(path, policy)
+    }
+
+    pub(super) fn lookup_with_policy(
+        &self,
+        path: &str,
+        policy: LinkPolicy,
+    ) -> Result<(String, Entry), Error> {
+        const MAX_SYMLINKS: u8 = 32;
+        let mut links_left = MAX_SYMLINKS;
+        self.walk(path, policy, &mut links_left)
+    }
+
+    fn walk(
+        &self,
+        path: &str,
+        policy: LinkPolicy,
+        links_left: &mut u8,
+    ) -> Result<(String, Entry), Error> {
         validate(path)?;
+        let reject_traversal = matches!(
+            policy,
+            LinkPolicy::NoFollowAny | LinkPolicy::NoFollowAncestors
+        );
+        let follow_last = matches!(policy, LinkPolicy::Follow | LinkPolicy::NoFollowAny);
         let mut current = String::from("/");
         let mut entry = self.entry("/", true)?;
         let mut components = path.split('/').filter(|c| !c.is_empty()).peekable();
@@ -586,7 +647,18 @@ impl Files {
                     follow_last || components.peek().is_some() || path.ends_with('/')
                 }
             };
-            entry = self.entry(&current, follow)?;
+            if current.len() >= PATH_MAX {
+                return Err(Error::TooLong);
+            }
+            entry = self.entry(&current, follow && !reject_traversal)?;
+            if follow && let Some(target) = entry.link_target() {
+                if reject_traversal {
+                    return Err(Error::LinkLoop);
+                }
+                *links_left = links_left.checked_sub(1).ok_or(Error::LinkLoop)?;
+                let target = std::str::from_utf8(target).map_err(|_| Error::InvalidPath)?;
+                (current, entry) = self.walk(target, LinkPolicy::Follow, links_left)?;
+            }
         }
         if path.ends_with('/') && !entry.is_dir() {
             return Err(Error::NotDirectory);

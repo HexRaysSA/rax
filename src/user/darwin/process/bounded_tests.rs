@@ -781,6 +781,141 @@ fn supplied_openat_metadata_and_flags_use_only_the_guest_namespace() {
 }
 
 #[test]
+fn supplied_symlink_syscalls_follow_only_the_guest_namespace() {
+    use crate::user::darwin::{
+        abi::Errno,
+        arch::Rv,
+        host::{AT_FDCWD, AT_SYMLINK_NOFOLLOW, AT_SYMLINK_NOFOLLOW_ANY},
+        io::*,
+        syscall::{
+            Ctx,
+            bsd::{file, path},
+        },
+    };
+    use crate::user::supplied_fs::Files;
+
+    let files = Files::default()
+        .with_file("/bin/dash".into(), Arc::from(b"guest".as_slice()))
+        .unwrap()
+        .with_native_symlink("/private/var/select/sh", "/bin/dash")
+        .unwrap()
+        .with_native_symlink("/alias", "/private/var/select")
+        .unwrap()
+        .with_native_symlink("/unsupplied", "/bin/cat")
+        .unwrap()
+        .with_native_symlink("/loop", "/loop")
+        .unwrap();
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process(abi);
+        p.proc.vfs = Vfs::supplied(files.clone());
+        p.proc.fds = FdTable::new();
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let buffer = thread.cpu.sp() - 4096;
+        let name = buffer + 2048;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: 58,
+            pc: ENTRY,
+        };
+        ctx.write(name, b"/alias\0").unwrap();
+        let dirfd = path::openat(&mut ctx, AT_FDCWD, name, O_DIRECTORY, 0)
+            .unwrap()
+            .0 as i32;
+        ctx.write(name, b"sh\0").unwrap();
+        ctx.write(buffer, &[0xa5; 16]).unwrap();
+        assert_eq!(
+            path::readlinkat(&mut ctx, dirfd, name, buffer, 4),
+            Ok(Rv::one(4))
+        );
+        assert_eq!(ctx.read(buffer, 5).unwrap(), b"/bin\xa5");
+        assert_eq!(
+            path::readlinkat(&mut ctx, dirfd, name, 0, 0),
+            Ok(Rv::one(0))
+        );
+        assert_eq!(
+            path::readlinkat(&mut ctx, dirfd, name, 0, 1),
+            Err(Errno::EFAULT)
+        );
+        assert_eq!(
+            path::readlinkat(&mut ctx, dirfd, name, buffer, i32::MAX as u64),
+            Ok(Rv::one(9))
+        );
+        assert_eq!(
+            path::readlinkat(&mut ctx, dirfd, name, buffer, i32::MAX as u64 + 1),
+            Err(Errno::EINVAL)
+        );
+        assert_eq!(ctx.read(buffer, 10).unwrap(), b"/bin/dash\xa5");
+        assert_eq!(
+            path::readlinkat(&mut ctx, -99, name, buffer, 10),
+            Err(Errno::EBADF)
+        );
+
+        for (flags, mode, size) in [
+            (0, 0o100000, 5),
+            (AT_SYMLINK_NOFOLLOW, 0o120000, 9),
+            (AT_SYMLINK_NOFOLLOW_ANY, 0o120000, 9),
+        ] {
+            assert_eq!(
+                path::fstatat64(&mut ctx, dirfd, name, buffer, flags),
+                Ok(Rv::one(0))
+            );
+            let stat = ctx.read(buffer, 144).unwrap();
+            assert_eq!(
+                u16::from_le_bytes(stat[4..6].try_into().unwrap()) & 0o170000,
+                mode
+            );
+            assert_eq!(u64::from_le_bytes(stat[96..104].try_into().unwrap()), size);
+        }
+
+        assert_eq!(
+            path::openat(&mut ctx, dirfd, name, O_NOFOLLOW, 0),
+            Err(Errno::ELOOP)
+        );
+        assert_eq!(
+            path::openat(&mut ctx, dirfd, name, O_CREAT | O_EXCL, 0),
+            Err(Errno::EEXIST)
+        );
+        let fd = path::openat(&mut ctx, dirfd, name, O_RDONLY, 0).unwrap().0 as i32;
+        assert_eq!(file::read(&mut ctx, fd, buffer, 5, None), Ok(Rv::one(5)));
+        assert_eq!(ctx.read(buffer, 5).unwrap(), b"guest");
+        assert_eq!(
+            path::faccessat(&mut ctx, dirfd, name, 0, AT_SYMLINK_NOFOLLOW_ANY),
+            Ok(Rv::one(0))
+        );
+        ctx.write(name, b"/alias/sh\0").unwrap();
+        assert_eq!(
+            path::faccessat(&mut ctx, AT_FDCWD, name, 0, AT_SYMLINK_NOFOLLOW_ANY),
+            Err(Errno::ELOOP)
+        );
+        assert_eq!(
+            path::fstatat64(&mut ctx, AT_FDCWD, name, buffer, AT_SYMLINK_NOFOLLOW_ANY),
+            Err(Errno::ELOOP)
+        );
+        assert_eq!(
+            path::openat(&mut ctx, AT_FDCWD, name, O_NOFOLLOW_ANY, 0),
+            Err(Errno::ELOOP)
+        );
+        ctx.write(name, b"/alias/sh/\0").unwrap();
+        assert_eq!(
+            path::readlinkat(&mut ctx, AT_FDCWD, name, buffer, 9),
+            Err(Errno::ENOTDIR)
+        );
+
+        ctx.write(name, b"/unsupplied\0").unwrap();
+        assert_eq!(
+            path::readlinkat(&mut ctx, AT_FDCWD, name, buffer, 9),
+            Ok(Rv::one(8))
+        );
+        assert_eq!(ctx.read(buffer, 8).unwrap(), b"/bin/cat");
+        assert_eq!(path::stat64(&mut ctx, name, buffer), Err(Errno::ENOENT));
+        ctx.write(name, b"/loop\0").unwrap();
+        assert_eq!(path::stat64(&mut ctx, name, buffer), Err(Errno::ELOOP));
+        assert_eq!(path::lstat64(&mut ctx, name, buffer), Ok(Rv::one(0)));
+    }
+}
+
+#[test]
 fn supplied_mmap_preserves_copy_on_write_eof_and_guest_page_granularity() {
     use crate::user::darwin::{
         abi::Errno,

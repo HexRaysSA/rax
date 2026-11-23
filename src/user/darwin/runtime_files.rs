@@ -1,5 +1,5 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
-//! system version metadata.
+//! system metadata.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -13,6 +13,9 @@ mod dylibs;
 
 #[cfg(any(target_os = "macos", test))]
 const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.plist";
+
+#[cfg(any(target_os = "macos", test))]
+const SHELL_SELECTOR: &str = "/private/var/select/sh";
 
 /// Public kernel version strings collected when selecting the installed runtime.
 #[derive(Clone, Debug)]
@@ -71,13 +74,19 @@ fn native_kernel_string(node: libc::c_int) -> io::Result<Vec<u8>> {
 /// Add the native macOS runtime, preserving explicit supplied-file overrides.
 /// A different host cannot supply its own runtime for a Darwin guest.
 pub fn native(files: &Files) -> io::Result<Files> {
+    native_for_executable(files, None)
+}
+
+pub(super) fn native_for_executable(files: &Files, executable: Option<&str>) -> io::Result<Files> {
     #[cfg(target_os = "macos")]
     {
-        select_native_root(files, std::path::Path::new("/"))
+        let root = std::path::Path::new("/");
+        let selected = select_native_root(files, root)?;
+        select_shell_variant(selected, root, executable)
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = files;
+        let _ = (files, executable);
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "native Darwin runtime files require a macOS host",
@@ -145,6 +154,36 @@ fn select_system_version(files: Files, root: &std::path::Path) -> io::Result<Fil
         Ok(_) => Ok(files),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(files),
         Err(error) => Err(error),
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn select_shell_variant(
+    files: Files,
+    root: &std::path::Path,
+    executable: Option<&str>,
+) -> io::Result<Files> {
+    let descends = |path: &str, parent: &str| {
+        path.strip_prefix(parent)
+            .is_some_and(|tail| tail.starts_with('/'))
+    };
+    // The executable is inserted after runtime selection and has priority.
+    if executable.is_some_and(|path| {
+        path == SHELL_SELECTOR || descends(path, SHELL_SELECTOR) || descends(SHELL_SELECTOR, path)
+    }) {
+        return Ok(files);
+    }
+    // The installed /bin/sh wrapper recognizes these guest paths. Retain
+    // the link bytes alone. The destination must be supplied separately.
+    let host = root.join(SHELL_SELECTOR.trim_start_matches('/'));
+    let Ok(target) = std::fs::read_link(host) else {
+        return Ok(files);
+    };
+    match target.to_str() {
+        Some(target @ ("/bin/bash" | "/bin/dash" | "/bin/zsh")) => files
+            .with_native_symlink(SHELL_SELECTOR, target)
+            .map_err(io::Error::other),
+        _ => Ok(files),
     }
 }
 
@@ -247,6 +286,84 @@ mod tests {
                 .lookup("/System/Library/dyld/dyld_shared_cache_arm64e.map")
                 .is_err()
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_selector_admits_only_stock_link_metadata_and_preserves_overrides() {
+        use crate::user::supplied_fs::Error;
+
+        let fixture = TestFile::new(b"host bytes", 10);
+        let selector = fixture.dir.join(SHELL_SELECTOR.trim_start_matches('/'));
+        std::fs::create_dir_all(selector.parent().unwrap()).unwrap();
+        let link = |target: &str| std::os::unix::fs::symlink(target, &selector).unwrap();
+        link("/bin/dash");
+        for executable in ["/private", SHELL_SELECTOR, "/private/var/select/sh/tool"] {
+            let files = select_shell_variant(Files::default(), &fixture.dir, Some(executable))
+                .unwrap()
+                .with_file(executable.into(), Arc::from(b"entry image".as_slice()))
+                .unwrap();
+            assert_eq!(&*files.read(executable).unwrap(), b"entry image");
+        }
+        let selected = select_shell_variant(Files::default(), &fixture.dir, None).unwrap();
+        let metadata = selected
+            .lookup_with_follow(SHELL_SELECTOR, false)
+            .unwrap()
+            .1;
+        assert_eq!(metadata.link_target(), Some(b"/bin/dash".as_slice()));
+        assert!(matches!(
+            selected.lookup(SHELL_SELECTOR),
+            Err(Error::NotFound)
+        ));
+        let supplied = selected
+            .with_file("/bin/dash".into(), Arc::from(b"guest image".as_slice()))
+            .unwrap();
+        assert_eq!(&*supplied.read(SHELL_SELECTOR).unwrap(), b"guest image");
+
+        let override_file = Files::default()
+            .with_file(SHELL_SELECTOR.into(), Arc::from(b"override".as_slice()))
+            .unwrap();
+        let selected = select_shell_variant(override_file, &fixture.dir, None).unwrap();
+        assert_eq!(&*selected.read(SHELL_SELECTOR).unwrap(), b"override");
+
+        let mount = TestFile::new(b"mount", 5);
+        let mounted = Files::default()
+            .with_host_roots(std::collections::BTreeMap::from([(
+                "/private/var".into(),
+                mount.dir.clone(),
+            )]))
+            .unwrap();
+        let selected = select_shell_variant(mounted, &fixture.dir, None).unwrap();
+        assert!(matches!(
+            selected.lookup_with_follow(SHELL_SELECTOR, false),
+            Err(Error::NotFound)
+        ));
+
+        let blocked = Files::default()
+            .with_file("/private/var".into(), Arc::from(b"regular".as_slice()))
+            .unwrap();
+        let selected = select_shell_variant(blocked, &fixture.dir, None).unwrap();
+        assert!(matches!(
+            selected.lookup(SHELL_SELECTOR),
+            Err(Error::NotDirectory)
+        ));
+
+        std::fs::remove_file(&selector).unwrap();
+        for rejected in ["/bin/cat", "../bin/bash", "/bin/./bash"] {
+            link(rejected);
+            let selected = select_shell_variant(Files::default(), &fixture.dir, None).unwrap();
+            assert!(matches!(
+                selected.lookup_with_follow(SHELL_SELECTOR, false),
+                Err(Error::NotFound)
+            ));
+            std::fs::remove_file(&selector).unwrap();
+        }
+        std::fs::write(selector, b"/bin/bash").unwrap();
+        let selected = select_shell_variant(Files::default(), &fixture.dir, None).unwrap();
+        assert!(matches!(
+            selected.lookup_with_follow(SHELL_SELECTOR, false),
+            Err(Error::NotFound)
+        ));
     }
 
     #[test]

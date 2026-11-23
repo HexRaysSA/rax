@@ -3,13 +3,18 @@
 use super::{Ctx, Errno, Rv, SysResult};
 use crate::user::darwin::{
     fd::{EmbeddedFile, FileKind, OpenFile},
-    host::AT_FDCWD,
+    host::{AT_EACCESS, AT_FDCWD, AT_SYMLINK_NOFOLLOW, AT_SYMLINK_NOFOLLOW_ANY},
     io::*,
 };
-use crate::user::supplied_fs::Entry;
+use crate::user::supplied_fs::{Entry, LinkPolicy};
 use std::sync::{Arc, Mutex};
 
-fn lookup(ctx: &Ctx<'_>, dirfd: i32, path: u64) -> Result<(String, Entry), Errno> {
+fn lookup(
+    ctx: &Ctx<'_>,
+    dirfd: i32,
+    path: u64,
+    policy: LinkPolicy,
+) -> Result<(String, Entry), Errno> {
     let path = ctx.path(path)?;
     let base = if path.starts_with(b"/") || dirfd == AT_FDCWD {
         ctx.proc.cwd.clone()
@@ -22,16 +27,29 @@ fn lookup(ctx: &Ctx<'_>, dirfd: i32, path: u64) -> Result<(String, Entry), Errno
             _ => return Err(Errno::ENOTDIR),
         }
     };
-    ctx.proc.vfs.lookup(&path, &base).map_err(Errno::from)
+    ctx.proc
+        .vfs
+        .lookup_with_policy(&path, &base, policy)
+        .map_err(Errno::from)
+}
+
+fn link_policy(flags: u32) -> LinkPolicy {
+    if flags & AT_SYMLINK_NOFOLLOW_ANY != 0 {
+        // The *at metadata calls allow inspecting a terminal link.
+        LinkPolicy::NoFollowAncestors
+    } else if flags & AT_SYMLINK_NOFOLLOW != 0 {
+        LinkPolicy::NoFollowLast
+    } else {
+        LinkPolicy::Follow
+    }
 }
 
 pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u32) -> SysResult {
-    use crate::user::darwin::host::{AT_EACCESS, AT_SYMLINK_NOFOLLOW, AT_SYMLINK_NOFOLLOW_ANY};
     if mode & !7 != 0 || flags & !(AT_EACCESS | AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY) != 0
     {
         return Err(Errno::EINVAL);
     }
-    let (_, entry) = lookup(ctx, dirfd, path)?;
+    let (_, entry) = lookup(ctx, dirfd, path, link_policy(flags))?;
     if entry.device().is_some() {
         return if mode & 1 == 0 {
             Ok(Rv::one(0))
@@ -47,14 +65,19 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
     Ok(Rv::one(0))
 }
 
-pub(super) fn readlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64) -> SysResult {
-    lookup(ctx, dirfd, path)?;
-    // The supplied namespace has no symbolic links of its own.
-    Err(Errno::EINVAL)
+pub(super) fn readlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -> SysResult {
+    if size > i32::MAX as u64 {
+        return Err(Errno::EINVAL);
+    }
+    let (_, entry) = lookup(ctx, dirfd, path, LinkPolicy::NoFollowLast)?;
+    let target = entry.link_target().ok_or(Errno::EINVAL)?;
+    let count = size.min(target.len() as u64) as usize;
+    ctx.write(buf, &target[..count])?;
+    Ok(Rv::one(count as u64))
 }
 
 pub(super) fn chdir(ctx: &mut Ctx<'_>, path: u64) -> SysResult {
-    let (path, entry) = lookup(ctx, AT_FDCWD, path)?;
+    let (path, entry) = lookup(ctx, AT_FDCWD, path, LinkPolicy::Follow)?;
     if !entry.is_dir() {
         return Err(Errno::ENOTDIR);
     }
@@ -79,7 +102,7 @@ pub(crate) fn directory_descriptor(file: &OpenFile) -> Result<Vec<u8>, Errno> {
 }
 
 pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult {
-    let file = open_file(flags, || lookup(ctx, dirfd, path))?;
+    let file = open_file(flags, |policy| lookup(ctx, dirfd, path, policy))?;
     let fd = ctx.proc.fds.install_with(
         file,
         flags & O_CLOEXEC != 0,
@@ -92,7 +115,7 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> Sy
 
 pub(crate) fn open_file(
     flags: u32,
-    lookup: impl FnOnce() -> Result<(String, Entry), Errno>,
+    lookup: impl FnOnce(LinkPolicy) -> Result<(String, Entry), Errno>,
 ) -> Result<Arc<OpenFile>, Errno> {
     if flags & O_ACCMODE == O_ACCMODE {
         return Err(Errno::EINVAL);
@@ -111,15 +134,26 @@ pub(crate) fn open_file(
     if flags & !supported != 0 {
         return Err(Errno::ENOTSUP);
     }
-    let (path, entry) = lookup().map_err(|error| {
+    let exclusive = flags & (O_CREAT | O_EXCL) == O_CREAT | O_EXCL;
+    let policy = if flags & O_NOFOLLOW_ANY != 0 {
+        LinkPolicy::NoFollowAny
+    } else if flags & O_NOFOLLOW != 0 || exclusive {
+        LinkPolicy::NoFollowLast
+    } else {
+        LinkPolicy::Follow
+    };
+    let (path, entry) = lookup(policy).map_err(|error| {
         if error == Errno::ENOENT && flags & O_CREAT != 0 {
             Errno::EROFS
         } else {
             error
         }
     })?;
-    if flags & (O_CREAT | O_EXCL) == O_CREAT | O_EXCL {
+    if exclusive {
         return Err(Errno::EEXIST);
+    }
+    if entry.link_target().is_some() {
+        return Err(Errno::ELOOP);
     }
     let device = entry.device();
     if device.is_none() && (flags & O_ACCMODE != O_RDONLY || flags & O_TRUNC != 0) {
@@ -140,11 +174,10 @@ pub(crate) fn open_file(
 }
 
 pub(super) fn statat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32) -> SysResult {
-    use crate::user::darwin::host::{AT_SYMLINK_NOFOLLOW, AT_SYMLINK_NOFOLLOW_ANY};
     if flags & !(AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY) != 0 {
         return Err(Errno::EINVAL);
     }
-    let (_, entry) = lookup(ctx, dirfd, path)?;
+    let (_, entry) = lookup(ctx, dirfd, path, link_policy(flags))?;
     let stat = if let Some(device) = entry.device() {
         EmbeddedFile::device_stat(device, entry.ino)
     } else {

@@ -390,8 +390,11 @@ fn open_action(
     nofile: u64,
 ) -> Result<i32, Errno> {
     let file = if ctx.proc.vfs.is_closed() {
-        embedded::open_file(oflag, || {
-            ctx.proc.vfs.lookup(path, &s.cwd).map_err(Errno::from)
+        embedded::open_file(oflag, |policy| {
+            ctx.proc
+                .vfs
+                .lookup_with_policy(path, &s.cwd, policy)
+                .map_err(Errno::from)
         })?
     } else {
         #[cfg(unix)]

@@ -507,6 +507,84 @@ fn installed_shell_pipeline_matches_native_through_closed_c_abi() {
     assert_eq!(info(&process)["loaded_program"]["path"], shell);
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn installed_darwin_sh_selects_a_supplied_variant_through_closed_c_abi() {
+    let shell = "/bin/sh";
+    let selector = "/private/var/select/sh";
+    let selected = std::fs::read_link(selector).ok();
+    let variant = match selected.as_deref().and_then(std::path::Path::to_str) {
+        Some(path @ ("/bin/dash" | "/bin/zsh")) => path,
+        _ => "/bin/bash",
+    };
+    let arguments = ["-c", r"printf 'selected shell:%s\n' installed"];
+    let native = std::process::Command::new(shell)
+        .args(arguments)
+        .env_clear()
+        .env("LC_ALL", "C")
+        .output()
+        .unwrap();
+    assert!(native.status.success());
+    assert_eq!(native.stdout, b"selected shell:installed\n");
+    assert!(native.stderr.is_empty());
+
+    let options = serde_json::json!({
+        "personality": "darwin",
+        "guest_path": shell,
+        "arguments": arguments,
+        "environment": {"LC_ALL": "C"},
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    })
+    .to_string();
+    let image = std::fs::read(shell).unwrap();
+    let variant_image = std::fs::read(variant).unwrap();
+    let supplied = RaxProcessImage {
+        path: variant.as_ptr().cast(),
+        path_size: variant.len(),
+        data: variant_image.as_ptr(),
+        data_size: variant_image.len(),
+    };
+    let mut handle = ptr::null_mut();
+    assert_eq!(
+        rax_process_open_image(
+            image.as_ptr(),
+            image.len(),
+            options.as_ptr().cast(),
+            options.len(),
+            &supplied,
+            1,
+            &mut handle,
+        ),
+        RaxStatus::Ok,
+        "{}",
+        error()
+    );
+    assert!(!handle.is_null());
+    let process = Owned(handle);
+    let start = info(&process);
+    assert_eq!(start["capabilities"]["native_runtime"], true);
+    assert_eq!(start["capabilities"]["host_filesystem"], false);
+    assert_eq!(start["capabilities"]["host_services"], false);
+    let result = run_installed_posix_with_turn_limit(&process, shell, 131_072);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+    assert_eq!(info(&process)["loaded_program"]["path"], variant);
+
+    // A valid installed link must be visible even if no shell image was supplied.
+    if matches!(
+        selected.as_deref().and_then(std::path::Path::to_str),
+        Some("/bin/bash" | "/bin/dash" | "/bin/zsh")
+    ) {
+        let mut target = variant.as_bytes().to_vec();
+        target.push(b'\n');
+        compare_installed_posix_output("darwin", "/usr/bin/readlink", &[selector], &target);
+    }
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn compare_installed_posix_output(
     personality: &str,

@@ -66,9 +66,14 @@ impl EmbeddedFile {
                 if entry.is_dir() {
                     (entry.ino, 0o040555, 0)
                 } else {
+                    let mode = if entry.link_target().is_some() {
+                        0o120755
+                    } else {
+                        0o100555
+                    };
                     (
                         entry.ino,
-                        0o100555,
+                        mode,
                         i64::try_from(entry.len()).map_err(|_| Errno::EOVERFLOW)?,
                     )
                 }

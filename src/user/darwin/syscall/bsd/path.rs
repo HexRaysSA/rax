@@ -298,7 +298,7 @@ pub fn faccessat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, amode: i32, flag: u32
 /// `readlinkat(fd, path, buf, bufsize)` (`readlink` with `AT_FDCWD`).
 pub fn readlinkat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -> SysResult {
     if ctx.proc.vfs.is_closed() {
-        return embedded::readlinkat(ctx, dirfd, path);
+        return embedded::readlinkat(ctx, dirfd, path, buf, size);
     }
 
     #[cfg(unix)]

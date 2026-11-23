@@ -158,7 +158,7 @@ impl DarwinConfig {
         &mut self,
         files: &crate::user::supplied_fs::Files,
     ) -> std::io::Result<()> {
-        let selected = super::runtime_files::native(files)?;
+        let selected = super::runtime_files::native_for_executable(files, Some(&self.exec_path))?;
         let kernel_info = super::runtime_files::NativeKernelInfo::capture()?;
         self.supplied_files = Some(selected);
         self.native_kernel_info = Some(kernel_info);
