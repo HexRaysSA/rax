@@ -121,12 +121,20 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         "/usr/lib",
         "/System/Library/Frameworks",
         "/System/Library/PrivateFrameworks",
+        // Perl installs its dylib beside its versioned language runtime.
+        "/System/Library/Perl",
         "/System/Cryptexes/OS/usr/lib",
+        "/System/Cryptexes/OS/System/Library/Perl",
         "/System/Volumes/Preboot/Cryptexes/OS/usr/lib",
+        "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Perl",
         "/System/Cryptexes/Rosetta/usr/lib",
+        "/System/Cryptexes/Rosetta/System/Library/Perl",
         "/System/Volumes/Preboot/Cryptexes/Rosetta/usr/lib",
+        "/System/Volumes/Preboot/Cryptexes/Rosetta/System/Library/Perl",
         "/System/Cryptexes/Rosetta/System/x86Support/usr/lib",
+        "/System/Cryptexes/Rosetta/System/x86Support/System/Library/Perl",
         "/System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/usr/lib",
+        "/System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/System/Library/Perl",
     ]
     .into_iter()
     .filter_map(|guest| {
@@ -530,10 +538,14 @@ mod tests {
         let lib = root.join("usr/lib");
         let framework = root.join("System/Library/Frameworks/Example.framework");
         let version = framework.join("Versions/A");
+        let runtime_path = "/System/Library/Perl/5.0/CORE";
+        let runtime = root.join(runtime_path.trim_start_matches('/'));
+        let cryptex_path = "/System/Cryptexes/OS/System/Library/Perl/CORE";
+        let cryptex = root.join(cryptex_path.trim_start_matches('/'));
         let rosetta_path = "/System/Cryptexes/Rosetta/usr/lib";
         let rosetta = root.join(rosetta_path.trim_start_matches('/'));
         let cache = root.join("System/Library/dyld");
-        for dir in [&lib, &version, &rosetta, &cache] {
+        for dir in [&lib, &version, &runtime, &cryptex, &rosetta, &cache] {
             std::fs::create_dir_all(dir).unwrap();
         }
         std::fs::write(lib.join("dyld"), b"dyld").unwrap();
@@ -544,12 +556,16 @@ mod tests {
         thin[12..16].copy_from_slice(&MH_DYLIB.to_le_bytes());
         std::fs::write(lib.join("libonly.dylib"), thin).unwrap();
         std::fs::write(version.join("Example"), thin).unwrap();
+        std::fs::write(runtime.join("liblanguage.dylib"), thin).unwrap();
+        std::fs::write(runtime.join("settings.txt"), b"unrelated runtime metadata").unwrap();
+        std::fs::write(cryptex.join("libalternate.dylib"), thin).unwrap();
         std::fs::write(rosetta.join("libextra.dylib"), thin).unwrap();
         std::os::unix::fs::symlink("A", framework.join("Versions/Current")).unwrap();
         std::os::unix::fs::symlink("Versions/Current/Example", framework.join("Example")).unwrap();
         let outside = root.join("secret.dylib");
         std::fs::write(&outside, thin).unwrap();
-        std::os::unix::fs::symlink(outside, lib.join("escape.dylib")).unwrap();
+        std::os::unix::fs::symlink(&outside, lib.join("escape.dylib")).unwrap();
+        std::os::unix::fs::symlink(&outside, runtime.join("escape.dylib")).unwrap();
         std::fs::write(lib.join("text.dylib"), b"unrelated text").unwrap();
         let mut executable = thin;
         executable[12..16].copy_from_slice(&MH_EXECUTE.to_le_bytes());
@@ -602,6 +618,20 @@ mod tests {
                 .unwrap(),
             &thin
         );
+        for path in [
+            format!("{runtime_path}/liblanguage.dylib"),
+            format!("{cryptex_path}/libalternate.dylib"),
+        ] {
+            let entry = selected.lookup(&path).unwrap().1;
+            assert!(entry.host_file().is_some(), "{path}");
+            assert_eq!(&*selected.read(&path).unwrap(), &thin);
+        }
+        for path in [
+            format!("{runtime_path}/settings.txt"),
+            format!("{runtime_path}/escape.dylib"),
+        ] {
+            assert!(selected.lookup(&path).is_err(), "{path}");
+        }
         assert_eq!(
             &*selected
                 .read(&format!(

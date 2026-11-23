@@ -175,6 +175,17 @@ fn installed_uname_matches_native_kernel_version_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_perl_loads_its_on_disk_dylib_through_closed_c_abi() {
+    compare_installed_posix_output(
+        "darwin",
+        "/usr/bin/perl",
+        &["-e", "print qq(installed Perl\\n);"],
+        b"installed Perl\n",
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_sqlite_matches_native_through_closed_c_abi() {
     let path = "/usr/bin/sqlite3";
     let arguments = [
