@@ -1,4 +1,4 @@
-# Scalar XMM transfers through Intel HVF MMIO
+# XMM transfers through Intel HVF MMIO
 
 ## Legacy SSE2
 
@@ -84,3 +84,52 @@ runner inputs matched Git blobs at the tested revision.
 - Runtime artifact `14646035309`, SHA-256 `21898e68b7d06c64c02e2c6943a0b06489489719e13d59a08f8d709a268e1fa3`
 
 [Hosted VEX execution](https://github.com/HexRaysSA/rax/actions/runs/44763145540)
+
+## Unaligned 16-byte transfers
+
+The Intel HVF planner admits legacy `MOVDQU` and VEX.128 `VMOVDQU` for
+ordinary translated device operands. Each accepted exit carries the full
+16-byte operand. Legacy loads preserve upper vector state. VEX loads zero
+the destination's upper lanes. Stores preserve both the source register and
+flags. The pending CPU record uses distinct, appended variants for whole-XMM
+reads and writes. Older scalar packets retain their established ordinals and
+width constraints.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The unaligned guest operand maps to a contiguous device range. | Reverse the exit direction, alter the reported GPA, or put RAM within the extent. A device callback before validation falsifies admission. |
+| The load updates only the architectural destination. | Use independent low and upper lane patterns and compare all 16 registers after completion. Require the VEX form to clear the selected register's upper lanes. |
+| The restored transaction retains its full data and retirement point. | Destroy the source after a 16-byte request, restore the native CPU record, send the complete response once, and verify data, RIP and flags after re-entry. |
+
+The metadata baseline at `748b0a593` rejected the newly tested legacy memory
+form before device dispatch. The complete repaired MMIO, Intel SDK-model
+owner, and ISA oracle executables passed 122, 99, and 102 cases respectively.
+Both pending-record codec regressions passed. The 21 prepared-consumer
+tests and the 247 tests in the unfiltered ARM64 macOS C API suite passed.
+Four independent RAM controls on physical Intel Linux validated the exact
+guest encodings at an unaligned address, including preserved and cleared
+upper YMM bits and adjacent store bytes. Device-hole behavior requires
+native HVF execution.
+[Intel Software Developer's Manual, Volume 2, MOVDQU and VMOVDQU](https://cdrdv2-public.intel.com/835757/325383-sdm-vol-2abcd.pdf)
+
+The first unfiltered Intel-target library invocation ended with SIGKILL
+before libtest produced a summary. The log records a process-broker
+failure and failure of the x86-64 Darwin `/usr/bin/true` guest at
+`0x10005024c` before the kill. The 42-test broker module passed on the same
+executable. A clean `748b0a593` parent and an exact candidate rerun both
+reproduced the Darwin guest failure at that PC. Host logs did not identify
+the SIGKILL sender. The interrupted log SHA-256 is
+`4b54784cc26149a0ba3a07cad8b62da1130cb54415d99fd9fe4aeba8a35750e9`.
+
+A separate native Intel Linux run timed out after 3,600 seconds before
+libtest printed a summary. The retry used the unfiltered root library
+target with optimization level 1 and KVM enabled. The six user-mode
+failures observed by the time of publication reproduced in a separate
+run at clean parent `11b9a053d3b31ad4456b76e57160d6a812de4b47` on the
+same host. On the clean parent, five Darwin ptrace tests reached a
+finished-child assertion and the Linux procfs test expected PID 101
+and observed 102.
+The clean-parent log SHA-256 is
+`b7793ca4abcd2d2d565e133bb0c8b22477170a3b386b7a2e31743ee75307fced`.
+The unfiltered retry and the hosted Intel macOS device-hole witnesses
+remain in progress at publication.

@@ -211,7 +211,8 @@ pub(crate) struct XmmTransfer {
 
 impl XmmTransfer {
     fn validate(&self) -> Result<(), String> {
-        if self.index >= 16 || !matches!(self.size, 4 | 8) || !(1..=15).contains(&self.length) {
+        if self.index >= 16 || !matches!(self.size, 4 | 8 | 16) || !(1..=15).contains(&self.length)
+        {
             return Err("invalid HVF MMIO XMM transfer descriptor".into());
         }
         Ok(())
@@ -404,10 +405,14 @@ fn prepare_xmm<M: PhysicalMemory>(
     } else {
         (source, destination)
     };
-    let size = if matches!(instruction.mnemonic.as_str(), "movd" | "vmovd") {
-        4
-    } else {
-        8
+    let (size, zero_upper) = match instruction.mnemonic.as_str() {
+        "movd" => (4, false),
+        "movq" => (8, false),
+        "movdqu" => (16, false),
+        "vmovd" => (4, true),
+        "vmovq" => (8, true),
+        "vmovdqu" => (16, true),
+        _ => return Err("unsupported XMM MMIO transfer".into()),
     };
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
@@ -422,7 +427,7 @@ fn prepare_xmm<M: PhysicalMemory>(
         || xmm.write != read
         || xmm.conditional
     {
-        return Err("wrong operands or direction for scalar XMM MMIO transfer".into());
+        return Err("wrong operands or direction for XMM MMIO transfer".into());
     }
     let index = xmm
         .reg
@@ -444,7 +449,7 @@ fn prepare_xmm<M: PhysicalMemory>(
         action: if read {
             Action::XmmRead {
                 input: transfer,
-                zero_upper: matches!(instruction.mnemonic.as_str(), "vmovd" | "vmovq"),
+                zero_upper,
             }
         } else {
             Action::XmmWrite(transfer)
@@ -486,7 +491,7 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     }
     if matches!(
         instruction.mnemonic.as_str(),
-        "movd" | "movq" | "vmovd" | "vmovq"
+        "movd" | "movq" | "movdqu" | "vmovd" | "vmovq" | "vmovdqu"
     ) {
         return prepare_xmm(context, memory, record, &instruction, read);
     }

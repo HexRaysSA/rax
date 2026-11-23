@@ -1296,8 +1296,18 @@ impl run_loop::ExitHandler for HvfCore {
                 let layout = &self.native_profile()?.xsave;
                 let bytes = intel_fp::read(self.vcpu_id, layout)?;
                 let value = layout.read_xmm(&bytes, input.index)?;
-                let data = value[..usize::from(input.size)].to_vec();
-                self.begin_mmio_write(plan.physical, plan.length, data)
+                if input.size == 16 {
+                    self.begin_output(
+                        Packet::XmmWrite {
+                            address: plan.physical,
+                            data: value,
+                        },
+                        plan.length,
+                    )
+                } else {
+                    let data = value[..usize::from(input.size)].to_vec();
+                    self.begin_mmio_write(plan.physical, plan.length, data)
+                }
             }
             mmio::Action::Rmw(input) => {
                 let size = input.size;

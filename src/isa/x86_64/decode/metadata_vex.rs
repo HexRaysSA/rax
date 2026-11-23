@@ -1,7 +1,7 @@
-//! Stateless projection of AVX scalar XMM transfer encodings.
+//! Stateless projection of AVX XMM transfer encodings.
 use super::*;
 
-pub(super) fn decode_scalar_xmm(
+pub(super) fn decode_xmm_transfer(
     ctx: &mut InsnContext,
     lead: u8,
     bits: u32,
@@ -35,13 +35,19 @@ pub(super) fn decode_scalar_xmm(
         (1, 0x7e) => (false, if wide { 8 } else { 4 }, false),
         (2, 0x7e) => (true, 8, true),
         (1, 0xd6) => (false, 8, true),
+        (2, 0x6f | 0x7f) => (opcode == 0x6f, 16, true),
         _ => {
             *unsupported = true;
             return None;
         }
     };
-    if flags & 0x7c != 0x78 {
-        // Reserved inverted vvvv=1111b and L=0 for all four encodings.
+    if flags & 0x78 != 0x78 {
+        // These encodings reserve the inverted vvvv field.
+        return None;
+    }
+    if flags & 4 != 0 {
+        // L=1 is reserved for the scalar forms and selects YMM for VMOVDQU.
+        *unsupported = size == 16;
         return None;
     }
     ctx.rex = (bits == 64).then_some(0x40 | extensions);
@@ -64,6 +70,11 @@ pub(super) fn decode_scalar_xmm(
     } else {
         vec![read_write(rm, false, true), xmm]
     };
-    out.mnemonic = if size == 8 { "vmovq" } else { "vmovd" }.into();
+    out.mnemonic = match size {
+        16 => "vmovdqu",
+        8 => "vmovq",
+        _ => "vmovd",
+    }
+    .into();
     Some(())
 }

@@ -173,7 +173,7 @@ fn fixture(code: &[u8]) -> (Context, Ram, ExitRecord) {
 }
 
 #[test]
-fn legacy_movd_and_movq_plan_the_guest_width_and_xmm_lane() {
+fn legacy_xmm_moves_plan_the_guest_width_and_xmm_lane() {
     for (code, size, index, read) in [
         (&[0x66, 0x0f, 0x6e, 0x07][..], 4, 0, true),
         (&[0x66, 0x44, 0x0f, 0x7e, 0x3f], 4, 15, false),
@@ -181,9 +181,15 @@ fn legacy_movd_and_movq_plan_the_guest_width_and_xmm_lane() {
         (&[0x66, 0x48, 0x0f, 0x7e, 0x07], 8, 0, false),
         (&[0xf3, 0x44, 0x0f, 0x7e, 0x3f], 8, 15, true),
         (&[0x66, 0x0f, 0xd6, 0x07], 8, 0, false),
+        (&[0xf3, 0x44, 0x0f, 0x6f, 0x7f, 3], 16, 15, true),
+        (&[0xf3, 0x0f, 0x7f, 0x47, 3], 16, 0, false),
     ] {
         let (context, mut ram, mut record) = fixture(code);
         record.qualification = if read { 0x181 } else { 0x182 };
+        if size == 16 {
+            record.linear += 3;
+            record.physical += 3;
+        }
         let plan = prepare(&context, &mut ram, record).unwrap();
         let transfer = match plan.action {
             Action::XmmRead {
@@ -208,7 +214,7 @@ fn legacy_movd_and_movq_plan_the_guest_width_and_xmm_lane() {
 }
 
 #[test]
-fn xmm_reply_is_zero_extended_and_retired_once_after_publication() {
+fn xmm_reply_is_published_and_retired_once() {
     #[derive(Default)]
     struct Host {
         xmm: Vec<(u8, [u8; 16], bool)>,
@@ -243,7 +249,7 @@ fn xmm_reply_is_zero_extended_and_retired_once_after_publication() {
     }
 
     for zero_upper in [false, true] {
-        for size in [4, 8] {
+        for size in [4, 8, 16] {
             for (reply_size, fail_write) in [(size, false), (size - 1, false), (size, true)] {
                 let mut pending = mmio::InputState::default();
                 pending
@@ -262,7 +268,8 @@ fn xmm_reply_is_zero_extended_and_retired_once_after_publication() {
                 };
                 assert_eq!(pending.descriptor(), Some((size, None)));
                 assert!(pending.validate_checkpoint().is_ok());
-                let reply = &0x8877_6655_4433_2211u64.to_le_bytes()[..usize::from(reply_size)];
+                let reply = &0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211u128.to_le_bytes()
+                    [..usize::from(reply_size)];
                 pending.complete(&mut host, reply);
                 if reply_size != size || fail_write {
                     assert!(pending.ready().is_err());
@@ -1054,7 +1061,7 @@ fn vex_movd_memory_read_has_a_native_mmio_plan() {
 }
 
 #[test]
-fn vex_scalar_xmm_access_width_direction_and_upper_lane_policy() {
+fn vex_xmm_access_width_direction_and_upper_lane_policy() {
     for (code, size, index, read, bits) in [
         (&[0xc5, 0xf9, 0x6e, 0x07][..], 4, 0, true, 64),
         (&[0xc5, 0x79, 0x7e, 0x3f], 4, 15, false, 64),
@@ -1062,11 +1069,17 @@ fn vex_scalar_xmm_access_width_direction_and_upper_lane_policy() {
         (&[0xc4, 0xe1, 0xf9, 0x7e, 0x07], 8, 0, false, 64),
         (&[0xc5, 0x7a, 0x7e, 0x3f], 8, 15, true, 64),
         (&[0xc5, 0xf9, 0xd6, 0x07], 8, 0, false, 64),
+        (&[0xc5, 0x7a, 0x6f, 0x7f, 3], 16, 15, true, 64),
+        (&[0xc5, 0xfa, 0x7f, 0x47, 3], 16, 0, false, 64),
         (&[0xc4, 0xe1, 0xf9, 0x6e, 0x07], 4, 0, true, 32),
         (&[0xc4, 0x01, 0xf9, 0x6e, 0x7c, 0xa5, 0x10], 8, 15, true, 64),
     ] {
         let (mut context, mut ram, mut exit) = fixture(code);
         context.code_bits = bits;
+        if size == 16 {
+            exit.linear += 3;
+            exit.physical += 3;
+        }
         context.registers[12] = 0x10;
         context.registers[13] = exit.linear - 0x50;
         exit.qualification = if read { 0x181 } else { 0x182 };
@@ -1097,6 +1110,58 @@ fn vex_scalar_xmm_access_width_direction_and_upper_lane_policy() {
             ..exit
         };
         assert!(prepare(&context, &mut ram, wrong_address).is_err());
+    }
+}
+
+#[test]
+fn whole_ymm_moves_are_outside_the_xmm_device_profile() {
+    use rax::isa::x86_64::instruction_metadata::{self, DecodeFailure};
+    let code = [0xc5, 0xfe, 0x6f, 0x07];
+    assert_eq!(
+        instruction_metadata::decode(64, 0x1000, &code).unwrap_err(),
+        DecodeFailure::Unsupported
+    );
+    let (context, mut ram, exit) = fixture(&code);
+    assert!(prepare(&context, &mut ram, exit).is_err());
+}
+
+#[test]
+fn movdqu_metadata_identifies_both_xmm_registers_and_operand_roles() {
+    use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
+    for (code, name, destination, source) in [
+        (
+            &[0xf3, 0x45, 0x0f, 0x6f, 0xc7][..],
+            "movdqu",
+            "xmm8",
+            "xmm15",
+        ),
+        (&[0xf3, 0x45, 0x0f, 0x7f, 0xc7], "movdqu", "xmm15", "xmm8"),
+        (&[0xc4, 0x41, 0xfa, 0x6f, 0xc7], "vmovdqu", "xmm8", "xmm15"),
+        (&[0xc4, 0x41, 0xfa, 0x7f, 0xc7], "vmovdqu", "xmm15", "xmm8"),
+    ] {
+        let instruction = instruction_metadata::decode(64, 0x1000, code).unwrap();
+        assert_eq!(instruction.mnemonic, name);
+        assert_eq!(instruction.size as usize, code.len());
+        let [dst, src] = instruction.operands.as_slice() else {
+            panic!("expected two operands for {code:02x?}");
+        };
+        assert_eq!(
+            (dst.kind, dst.reg.as_str(), dst.width_bits),
+            (OperandKind::Register, destination, 128)
+        );
+        assert_eq!(
+            (src.kind, src.reg.as_str(), src.width_bits),
+            (OperandKind::Register, source, 128)
+        );
+        assert!(dst.write && !dst.read && src.read && !src.write);
+        let (context, mut ram, exit) = fixture(code);
+        assert!(prepare(&context, &mut ram, exit).is_err());
+    }
+    for invalid in [
+        &[0xf0, 0xf3, 0x0f, 0x6f, 0x07][..], // LOCK MOVDQU
+        &[0xc5, 0xf2, 0x6f, 0x07],           // reserved VEX.vvvv
+    ] {
+        assert!(instruction_metadata::decode(64, 0x1000, invalid).is_err());
     }
 }
 

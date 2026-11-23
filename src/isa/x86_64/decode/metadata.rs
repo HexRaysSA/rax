@@ -336,7 +336,7 @@ fn decode_inner(bits: u32, pc: u64, bytes: &[u8], unsupported: &mut bool) -> Opt
     let mut lockable = false;
     match opcode {
         0xc4 | 0xc5 if bits == 64 || ctx.peek_u8().ok()? & 0xc0 == 0xc0 => {
-            vex::decode_scalar_xmm(&mut ctx, opcode, bits, address_bits, &mut out, unsupported)?;
+            vex::decode_xmm_transfer(&mut ctx, opcode, bits, address_bits, &mut out, unsupported)?;
         }
         0xc3 | 0xc2 | 0xcb | 0xca | 0xcf => {
             out.mnemonic = match opcode {

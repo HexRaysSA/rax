@@ -228,6 +228,13 @@ pub(crate) enum Packet {
         data: Vec<u8>,
         progress: mmio::StringProgress,
     },
+    XmmRead {
+        address: u64,
+    },
+    XmmWrite {
+        address: u64,
+        data: [u8; 16],
+    },
 }
 impl Packet {
     pub fn from_exit(exit: &VcpuExit) -> Result<Self> {
@@ -240,9 +247,14 @@ impl Packet {
                 port: *port,
                 data: data.clone(),
             },
+            VcpuExit::MmioRead { addr, size: 16 } => Self::XmmRead { address: *addr },
             VcpuExit::MmioRead { addr, size } => Self::Read {
                 address: *addr,
                 size: *size,
+            },
+            VcpuExit::MmioWrite { addr, data } if data.len() == 16 => Self::XmmWrite {
+                address: *addr,
+                data: data.as_slice().try_into().expect("16-byte operand"),
             },
             VcpuExit::MmioWrite { addr, data } => Self::Write {
                 address: *addr,
@@ -280,6 +292,14 @@ impl Packet {
                     data: data.clone(),
                 }
             }
+            Self::XmmRead { address } => VcpuExit::MmioRead {
+                addr: *address,
+                size: 16,
+            },
+            Self::XmmWrite { address, data } => VcpuExit::MmioWrite {
+                addr: *address,
+                data: data.to_vec(),
+            },
             Self::Rmw {
                 address,
                 size,
@@ -297,6 +317,9 @@ impl Packet {
             Self::PortWrite { data, .. } => (None, data.len(), true),
             Self::Read { address, size } => (Some(*address), usize::from(*size), false),
             Self::Write { address, data } => (Some(*address), data.len(), false),
+            Self::XmmRead { address } | Self::XmmWrite { address, .. } => {
+                (Some(*address), 16, false)
+            }
             Self::StringWrite {
                 address,
                 data,
@@ -315,7 +338,8 @@ impl Packet {
             }
         };
         let wide_rmw = matches!(self, Self::Rmw { size: 16, address, .. } if address & 15 == 0);
-        if !(matches!(size, 1 | 2 | 4 | 8) || wide_rmw)
+        let whole_xmm = matches!(self, Self::XmmRead { .. } | Self::XmmWrite { .. });
+        if !(matches!(size, 1 | 2 | 4 | 8) || wide_rmw || whole_xmm)
             || (port && size == 8)
             || address.is_some_and(|address| address.checked_add(size as u64).is_none())
         {
@@ -488,6 +512,9 @@ impl Context {
             {
                 ()
             }
+            (Some(Packet::XmmRead { .. }), None, Some((16, None))) if self.mmio_debug_complete => {
+                ()
+            }
             (
                 Some(Packet::Rmw {
                     size, operation, ..
@@ -541,9 +568,15 @@ impl Context {
                     return Err(invalid("native STOS differs from its saved CPU boundary"));
                 }
             }
+            if matches!(packet, Packet::XmmWrite { .. }) && !self.mmio_debug_complete {
+                return Err(invalid("whole-XMM output lacks native MMIO provenance"));
+            }
             if !matches!(
                 packet,
-                Packet::PortWrite { .. } | Packet::Write { .. } | Packet::StringWrite { .. }
+                Packet::PortWrite { .. }
+                    | Packet::Write { .. }
+                    | Packet::StringWrite { .. }
+                    | Packet::XmmWrite { .. }
             ) || !(1..=15).contains(length)
                 || self.request.is_some()
             {

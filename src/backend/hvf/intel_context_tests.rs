@@ -479,7 +479,7 @@ fn pending_input_and_retained_failure_require_the_exported_request() {
 fn pending_xmm_input_roundtrips_with_its_exported_request() {
     let mut encoded = Vec::new();
     for zero_upper in [false, true] {
-        for size in [4, 8] {
+        for size in [4, 8, 16] {
             let mut saved = context();
             let input = mmio::XmmTransfer {
                 index: 15,
@@ -488,11 +488,27 @@ fn pending_xmm_input_roundtrips_with_its_exported_request() {
             };
             saved.mmio_input.begin_xmm(input, zero_upper).unwrap();
             assert!(saved.validate().is_err());
-            saved.request = Some(Packet::Read {
-                address: 0xfee0_0000,
-                size,
-            });
-            let data = &0x8877_6655_4433_2211u64.to_le_bytes()[..usize::from(size)];
+            let address = 0xfee0_0003;
+            saved.request = Some(
+                Packet::from_exit(&VcpuExit::MmioRead {
+                    addr: address,
+                    size,
+                })
+                .unwrap(),
+            );
+            if size == 16 {
+                saved.mmio_debug_complete = false;
+                assert!(saved.validate().is_err());
+                saved.mmio_debug_complete = true;
+                saved.request = Some(Packet::Read { address, size });
+                assert!(
+                    saved.validate().is_err(),
+                    "old packet admitted a 16-byte input"
+                );
+                saved.request = Some(Packet::XmmRead { address });
+            }
+            let data =
+                &0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211u128.to_le_bytes()[..usize::from(size)];
             saved
                 .mmio_input
                 .hold_failure(data, "test owner failure".into());
@@ -509,8 +525,34 @@ fn pending_xmm_input_roundtrips_with_its_exported_request() {
             assert!(saved.validate().is_err());
         }
     }
-    assert_ne!(encoded[0], encoded[2]);
-    assert_ne!(encoded[1], encoded[3]);
+    for variant in 0..3 {
+        assert_ne!(encoded[variant], encoded[variant + 3]);
+    }
+}
+
+#[test]
+fn whole_xmm_output_has_a_distinct_canonical_checkpoint_packet() {
+    let mut saved = context();
+    let data = 0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211u128.to_le_bytes();
+    let address = 0xfee0_0003;
+    let packet = Packet::XmmWrite { address, data };
+    assert_eq!(Packet::from_exit(&packet.exit()).unwrap(), packet);
+    saved.mmio_debug_complete = true;
+    saved.output = Some((packet.clone(), 4));
+    let encoded = saved.encode().unwrap();
+    let restored = Context::decode(&encoded).unwrap();
+    assert_eq!(restored.output, Some((packet, 4)));
+    saved.mmio_debug_complete = false;
+    assert!(saved.validate().is_err());
+    saved.mmio_debug_complete = true;
+    saved.output = Some((
+        Packet::Write {
+            address,
+            data: data.to_vec(),
+        },
+        4,
+    ));
+    assert!(saved.validate().is_err());
 }
 
 #[test]

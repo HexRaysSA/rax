@@ -1,4 +1,4 @@
-//! Native SSE2 and AVX scalar memory transfers and source-free CPU continuation through EPT.
+//! Native SSE2 and AVX XMM memory transfers and source-free CPU continuation through EPT.
 use super::*;
 
 fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
@@ -31,11 +31,11 @@ fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
 }
 
 pub(super) fn run(output: &Path, vex: bool) {
-    const REPLY: u64 = 0x8877_6655_4433_2211;
+    const REPLY: u128 = 0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211;
     const FLAGS: u64 = 0x8d7;
     assert!(!output.exists(), "observations must be new");
     let mut case = 0;
-    let cases: [(&[u8], usize, usize, bool); 6] = if vex {
+    let cases: [(&[u8], usize, usize, bool); 8] = if vex {
         [
             (&[0xc5, 0xf9, 0x6e, 0x07], 4, 0, true),
             (&[0xc5, 0x79, 0x7e, 0x3f], 4, 15, false),
@@ -43,6 +43,8 @@ pub(super) fn run(output: &Path, vex: bool) {
             (&[0xc4, 0xe1, 0xf9, 0x7e, 0x07], 8, 0, false),
             (&[0xc5, 0x7a, 0x7e, 0x3f], 8, 15, true),
             (&[0xc5, 0xf9, 0xd6, 0x07], 8, 0, false),
+            (&[0xc5, 0x7a, 0x6f, 0x7f, 3], 16, 15, true),
+            (&[0xc5, 0xfa, 0x7f, 0x47, 3], 16, 0, false),
         ]
     } else {
         [
@@ -52,6 +54,8 @@ pub(super) fn run(output: &Path, vex: bool) {
             (&[0x66, 0x48, 0x0f, 0x7e, 0x07], 8, 0, false),
             (&[0xf3, 0x44, 0x0f, 0x7e, 0x3f], 8, 15, true),
             (&[0x66, 0x0f, 0xd6, 0x07], 8, 0, false),
+            (&[0xf3, 0x44, 0x0f, 0x6f, 0x7f, 3], 16, 15, true),
+            (&[0xf3, 0x0f, 0x7f, 0x47, 3], 16, 0, false),
         ]
     };
     for (code, size, index, read) in cases {
@@ -65,6 +69,7 @@ pub(super) fn run(output: &Path, vex: bool) {
             let mut initial = state(cpu.as_ref());
             initial.regs.rip = CODE;
             initial.regs.rax = SEED;
+            let address = if size == 16 { MMIO + 3 } else { MMIO };
             if vex {
                 initial.regs.ymm_high = std::array::from_fn(|lane| {
                     let low = MARKER.wrapping_add(lane as u64);
@@ -78,20 +83,18 @@ pub(super) fn run(output: &Path, vex: bool) {
             initial.regs.rflags = FLAGS;
             let mut lanes = initial.regs.xmm;
             let mut upper = initial.regs.ymm_high;
-            let store = lanes[index][0].to_le_bytes();
+            let mut store = [0; 16];
+            store[..8].copy_from_slice(&lanes[index][0].to_le_bytes());
+            store[8..].copy_from_slice(&lanes[index][1].to_le_bytes());
             cpu.set_state(&CpuState::X86_64(initial)).unwrap();
 
             let pending = |cpu: &mut dyn VCpu| {
                 let exit = event(cpu);
                 match exit {
-                    VcpuExit::MmioRead {
-                        addr: MMIO,
-                        size: width,
-                    } if read && usize::from(width) == size => {}
-                    VcpuExit::MmioWrite {
-                        addr: MMIO,
-                        ref data,
-                    } if !read && data == &store[..size] => {}
+                    VcpuExit::MmioRead { addr, size: width }
+                        if read && addr == address && usize::from(width) == size => {}
+                    VcpuExit::MmioWrite { addr, ref data }
+                        if !read && addr == address && data == &store[..size] => {}
                     _ => panic!("unexpected XMM MMIO exit for {code:02x?}: {exit:?}"),
                 }
                 assert!(cpu.get_state().is_err());
@@ -111,17 +114,18 @@ pub(super) fn run(output: &Path, vex: bool) {
                     .unwrap();
                 pending(cpu.as_mut());
             }
-            let mask = u64::MAX >> (64 - 8 * size);
+            let mask = u64::MAX >> (64 - 8 * size.min(8));
             let value = if read {
                 cpu.complete_io_in(&REPLY.to_le_bytes()[..size]);
-                lanes[index] = [REPLY & mask, 0];
+                let upper_reply = if size == 16 { (REPLY >> 64) as u64 } else { 0 };
+                lanes[index] = [REPLY as u64 & mask, upper_reply];
                 if vex {
                     upper[index] = [0; 2];
                 }
-                REPLY & mask
+                REPLY as u64 & mask
             } else {
                 cpu.complete_io_out().unwrap();
-                u64::from_le_bytes(store) & mask
+                lanes[index][0] & mask
             };
             cpu.io_completion_result().unwrap();
             let finished = state(cpu.as_ref());
