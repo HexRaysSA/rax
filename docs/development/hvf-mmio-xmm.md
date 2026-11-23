@@ -166,3 +166,32 @@ hosted Intel HVF profiles separately exercise Hypervisor.framework.
 
 - Physical Intel RAM log SHA-256 `ff7b7c8844402513015663ac5de4206a72efe5b87b1250c56a418e07f9f9e0b7`
 - KVM device-hole log SHA-256 `b559a75016c7604e4633a4f4c657aa1b9bbfe2ef8777f959a58018a7a5f4ce8c`
+
+## Hosted Intel macOS execution
+
+All 76 cases passed on Intel macOS 15.7.9 with SDK 15.5. The runners
+reported an untranslated Intel process and a hypervisor guest. The
+unaligned commit was `79cd65ea38adee94c316f4d649f9d04320ed7b81`.
+The aligned commit was `8be5c610f84c67b90aa893d2e1d3687321d27240`.
+
+| Profile | Direct transfers | Transfers after restore | Guest alignment faults | Hosted run |
+| --- | ---: | ---: | ---: | --- |
+| Unaligned legacy | 8 | 8 | 0 | [45100578896](https://github.com/HexRaysSA/rax/actions/runs/45100578896) |
+| Unaligned VEX.128 | 8 | 8 | 0 | [45100578487](https://github.com/HexRaysSA/rax/actions/runs/45100578487) |
+| Aligned legacy | 10 | 10 | 2 | [45100739580](https://github.com/HexRaysSA/rax/actions/runs/45100739580) |
+| Aligned VEX.128 | 10 | 10 | 2 | [45100739545](https://github.com/HexRaysSA/rax/actions/runs/45100739545) |
+
+Each restored transfer resumed the outstanding request from a saved
+native CPU record after destroying the source VM. The aligned profiles
+included four misaligned guest accesses across the two encodings.
+Each reached the guest #GP handler once, observed error code zero, and
+continued through IRET without an MMIO exit. The verifier matched the
+archived executable's signature and hypervisor entitlement, all 4,894
+engine inputs and 18 consumer inputs to Git, and the exact guest rows.
+
+| Run | Runtime artifact ID | Artifact SHA-256 |
+| --- | ---: | --- |
+| 45100578896 | 14785961487 | `f0119c58bfcd5c520cfd920cba3185ee4ee2391f3b2dc61d5ee45bf7776aa4fd` |
+| 45100578487 | 14785706347 | `7f09f38e8777c67b3bfb86b0c63039bb2af6bc465261807eb0659ee751e0c19b` |
+| 45100739580 | 14785273262 | `c506fe3c85790f7632901db8c920173aba63622c95db6ae5223efab709b20907` |
+| 45100739545 | 14785449261 | `48dcc8ff89f6310d2007bc5aec3a360f6042649f5b78ebc37445e1eb4c9b0c2b` |
