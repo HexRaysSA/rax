@@ -10,7 +10,7 @@ permissions:
 jobs:
   native:
     runs-on: macos-15-intel
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       CARGO_INCREMENTAL: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
@@ -51,7 +51,7 @@ jobs:
           codesign -d --entitlements :- "$binary" > "$EVIDENCE/entitlements.plist"
           shasum -a 256 "$binary" > "$EVIDENCE/executable.sha256"
       - name: Resume pending MMIO from real VMM files on fresh owners
-        timeout-minutes: 5
+        timeout-minutes: 20
         env:
           RAX_NATIVE_CHECKPOINT_EVIDENCE: ${{ runner.temp }}/rax-hvf-checkpoint-evidence/checkpoints
         shell: bash

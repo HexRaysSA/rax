@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use vm_memory::{Bytes, GuestAddress};
 
-const RAM: u64 = 16 << 20;
+const RAM: u64 = 128 << 20;
 const CODE: u64 = 0x10_0000;
 const MMIO: u64 = 0x4000_0103;
 const LOW: u64 = 0x1122_3344_5566_7788;
@@ -30,19 +30,18 @@ impl Paths {
     }
 
     fn config(&self, count: u8) -> VmConfig {
-        let mut config = VmConfig::from_sources(
+        VmConfig::from_sources(
             CliConfig {
                 arch: Some(ArchKind::X86_64),
                 backend: Some(BackendKind::Hvf),
                 kernel: Some(self.0.join("kernel")),
+                memory: Some(MemorySize(RAM)),
                 vcpus: Some(count),
                 ..Default::default()
             },
             None,
         )
-        .unwrap();
-        config.memory = MemorySize(RAM);
-        config
+        .unwrap()
     }
 }
 

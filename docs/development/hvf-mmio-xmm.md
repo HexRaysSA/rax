@@ -645,6 +645,18 @@ and listed the exact pending-XMM test. The cross-build Cargo log
 SHA-256 is `4d252cad70768fdd5a844ae92306d8e49c6deb8cface8247cd0d891ad64c3be1`.
 [Hosted build timeout](https://github.com/HexRaysSA/rax/actions/runs/45134222791)
 
+Two later hosted Intel runs reached checkpoint capture. The artifact from
+`349dc81a9` contains a two-vCPU VMM file with AP1 stopped at the pending
+read and the original guest instruction replaced by UD2. The file
+SHA-256 is `b5d92a20abef91d1d72828779daa1e32f3a4daaec3da2ac106ef7a09a36408fc`.
+Both runs stopped at restore configuration validation because the fixture
+set 16 MiB after constructing the configuration. The fixture now supplies
+128 MiB through `VmConfig::from_sources`, which enforces the same minimum
+as the restore path. The updated Intel macOS harness cross-built and
+passed strict signature verification. All 16 workflow policy tests passed.
+[First stopped AP1 capture](https://github.com/HexRaysSA/rax/actions/runs/45140821048)
+[Second restore-validation failure](https://github.com/HexRaysSA/rax/actions/runs/45141965732)
+
 ## Packed logical reads
 
 Intel HVF handles device reads for the packed AND, AND-NOT, OR, and XOR
