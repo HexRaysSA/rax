@@ -18,6 +18,7 @@ pub(crate) struct Member {
     pid: i32,
     // The proposed identity is used only when publishing a new child.
     initial: Identity,
+    stopped: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -35,6 +36,7 @@ struct Registry {
     next_pid: i32,
     children: BTreeMap<i32, Child>,
     pending_signals: Vec<Delivery>,
+    job_changes: Vec<JobChange>,
 }
 
 struct Delivery {
@@ -43,11 +45,42 @@ struct Delivery {
     origin: signal::Origin,
 }
 
+struct JobChange {
+    parent: i32,
+    origin: signal::Origin,
+}
+
 struct Child {
     parent: i32,
     identity: Identity,
     execed: bool,
     report: Option<Report>,
+    job: Job,
+}
+
+#[derive(Clone, Copy)]
+enum Job {
+    Running,
+    Stopped {
+        signal: signal::Signal,
+        waited: bool,
+    },
+    Continued,
+}
+
+impl Job {
+    fn report(self, wanted: WaitFor) -> Option<Report> {
+        match self {
+            Self::Stopped {
+                signal,
+                waited: false,
+            } if wanted.stopped => Some(Report::job(signal, code::CLD_STOPPED)),
+            Self::Continued if wanted.continued => {
+                Some(Report::job(signal::SIGCONT, code::CLD_CONTINUED))
+            }
+            _ => None,
+        }
+    }
 }
 
 impl Registry {
@@ -84,6 +117,32 @@ impl Registry {
         }
         false
     }
+
+    fn has_job_control(&self, pid: i32) -> Result<bool, Errno> {
+        let identity = self.identity(pid)?;
+        // A live member with a parent in another group of the same session
+        // keeps this group from becoming orphaned.
+        Ok(self.children.values().any(|child| {
+            child.report.is_none()
+                && child.identity.group == identity.group
+                && self.identity(child.parent).is_ok_and(|parent| {
+                    parent.session == identity.session && parent.group != identity.group
+                })
+        }))
+    }
+
+    fn record_job(&mut self, pid: i32, job: Job, origin: Option<signal::Origin>) {
+        let Some(child) = self.children.get_mut(&pid) else {
+            return;
+        };
+        child.job = job;
+        if let Some(origin) = origin {
+            self.job_changes.push(JobChange {
+                parent: child.parent,
+                origin,
+            });
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -104,6 +163,13 @@ impl Selector {
 }
 
 #[derive(Clone, Copy)]
+pub(crate) struct WaitFor {
+    pub(crate) exited: bool,
+    pub(crate) stopped: bool,
+    pub(crate) continued: bool,
+}
+
+#[derive(Clone, Copy)]
 pub(crate) struct Report {
     pub(crate) status: i32,
     pub(crate) code: i32,
@@ -119,9 +185,11 @@ impl Member {
                 next_pid: ROOT_PID + 1,
                 children: BTreeMap::new(),
                 pending_signals: Vec::new(),
+                job_changes: Vec::new(),
             })),
             pid: ROOT_PID,
             initial: ROOT_IDENTITY,
+            stopped: false,
         }
     }
 
@@ -173,6 +241,7 @@ impl Member {
                 registry: Arc::clone(&self.registry),
                 pid,
                 initial: identity,
+                stopped: false,
             },
         ))
     }
@@ -185,6 +254,7 @@ impl Member {
                 identity: self.initial,
                 execed,
                 report: None,
+                job: Job::Running,
             },
         );
         debug_assert!(previous.is_none());
@@ -194,7 +264,7 @@ impl Member {
         &self,
         parent: i32,
         selector: Selector,
-        exited: bool,
+        wanted: WaitFor,
     ) -> Result<Option<(i32, Report)>, Errno> {
         let registry = self.registry.lock().unwrap();
         let mut found = false;
@@ -203,11 +273,25 @@ impl Member {
                 continue;
             }
             found = true;
-            if exited && let Some(report) = child.report {
+            let report = match child.report {
+                Some(report) => wanted.exited.then_some(report),
+                None => child.job.report(wanted),
+            };
+            if let Some(report) = report {
                 return Ok(Some((pid, report)));
             }
         }
         if found { Ok(None) } else { Err(Errno::ECHILD) }
+    }
+
+    pub(crate) fn consume_job(&self, pid: i32, report: Report) {
+        let mut registry = self.registry.lock().unwrap();
+        let child = registry.children.get_mut(&pid).expect("reported child");
+        match (&mut child.job, report.code) {
+            (Job::Stopped { waited, .. }, code::CLD_STOPPED) => *waited = true,
+            (Job::Continued, code::CLD_CONTINUED) => child.job = Job::Running,
+            _ => unreachable!("wait report no longer belongs to the child"),
+        }
     }
 
     /// Returns whether any children remain after reaping.
@@ -269,17 +353,56 @@ impl Member {
         if !matched {
             return Err(Errno::EPERM);
         }
-        if !deliveries.is_empty()
-            && signal::props(sig) & (signal::prop::STOP | signal::prop::CONT) != 0
-        {
-            return Err(Errno::ENOTSUP);
-        }
         registry.pending_signals.extend(deliveries);
         Ok(local)
     }
 
+    pub(crate) fn job_stopped(&self) -> bool {
+        self.stopped
+    }
+
+    pub(crate) fn stop_job(&mut self, uid: u32, sig: signal::Signal) {
+        if self.stopped {
+            return;
+        }
+        let mut registry = self.registry.lock().unwrap();
+        if sig != signal::SIGSTOP && !registry.has_job_control(self.pid).unwrap_or(false) {
+            return;
+        }
+        self.stopped = true;
+        let report = Report::job(sig, code::CLD_STOPPED);
+        registry.record_job(
+            self.pid,
+            Job::Stopped {
+                signal: sig,
+                waited: false,
+            },
+            Some(report.origin(self.pid, uid)),
+        );
+    }
+
+    pub(crate) fn resume_job(&mut self, uid: u32, sig: signal::Signal) {
+        if !std::mem::take(&mut self.stopped) {
+            return;
+        }
+        let (state, origin) = if sig == signal::SIGCONT {
+            let report = Report::job(sig, code::CLD_CONTINUED);
+            (Job::Continued, Some(report.origin(self.pid, uid)))
+        } else {
+            (Job::Running, None)
+        };
+        self.registry
+            .lock()
+            .unwrap()
+            .record_job(self.pid, state, origin);
+    }
+
     fn take_signals(&self) -> Vec<Delivery> {
         std::mem::take(&mut self.registry.lock().unwrap().pending_signals)
+    }
+
+    fn take_job_changes(&self) -> Vec<JobChange> {
+        std::mem::take(&mut self.registry.lock().unwrap().job_changes)
     }
 
     pub(crate) fn setpgid(&self, pid: i32, group: i32) -> Result<(), Errno> {
@@ -364,6 +487,32 @@ impl Member {
 }
 
 impl Report {
+    fn job(signal: signal::Signal, code: i32) -> Self {
+        Self {
+            status: (signal << 8) | 0x7f,
+            code,
+            value: signal,
+            user_ns: 0,
+            system_ns: 0,
+        }
+    }
+
+    pub(crate) fn is_exit(self) -> bool {
+        matches!(
+            self.code,
+            code::CLD_EXITED | code::CLD_KILLED | code::CLD_DUMPED
+        )
+    }
+
+    fn origin(self, pid: i32, uid: u32) -> signal::Origin {
+        signal::Origin {
+            pid,
+            uid,
+            status: self.status,
+            code: self.code,
+        }
+    }
+
     fn exit(proc: &Proc, status: ExitStatus) -> Self {
         let (status, code, value) = match status {
             ExitStatus::Exited(value) => ((value & 0xff) << 8, code::CLD_EXITED, value),
@@ -453,6 +602,27 @@ impl Scheduler {
                 };
                 signal::psignal(&mut target.proc, None, delivery.signal, delivery.origin);
             }
+            let changes = root
+                .proc
+                .family
+                .as_ref()
+                .expect("closed root")
+                .take_job_changes();
+            for change in changes {
+                let parent = if change.parent == root.proc.pid {
+                    Some(&mut *root)
+                } else {
+                    self.active.get_mut(&change.parent)
+                };
+                if let Some(parent) = parent {
+                    self.blocked = 0;
+                    parent.proc.post(wait::WaitKey::Child);
+                    if change.origin.code == code::CLD_STOPPED && !parent.proc.sigacts.nocldstop {
+                        parent.proc.sigacts.origin = change.origin;
+                        signal::psignal(&mut parent.proc, None, signal::SIGCHLD, change.origin);
+                    }
+                }
+            }
             match outcome {
                 RunStatus::Complete(status) if pid == root.proc.pid => {
                     self.active.clear();
@@ -520,12 +690,7 @@ impl Scheduler {
         if let Some(parent) = parent {
             parent.proc.post(wait::WaitKey::Child);
             if !parent.proc.sigacts.nocldwait {
-                let origin = signal::Origin {
-                    pid,
-                    uid: process.proc.creds.0,
-                    status: report.status,
-                    code: report.code,
-                };
+                let origin = report.origin(pid, process.proc.creds.0);
                 signal::psignal(&mut parent.proc, None, signal::SIGCHLD, origin);
             }
         }

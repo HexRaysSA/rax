@@ -1,6 +1,7 @@
 // Compare guest-owned process groups, sessions, and signals with the native kernel.
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdio.h>
@@ -136,6 +137,59 @@ static void group_signals(void) {
     close(release[1]);
 }
 
+static void wait_job(pid_t child, int options, int signal, int code) {
+    siginfo_t info = {0};
+    check(waitid(P_PID, child, &info, options) == 0, "waitid job change");
+    check(info.si_pid == child && info.si_signo == SIGCHLD &&
+          info.si_status == signal && info.si_code == code, "waitid job status");
+}
+
+static void stop_and_continue(void) {
+    int ready[2], release[2];
+    check(pipe(ready) == 0 && pipe(release) == 0, "job pipes");
+    pid_t child = fork();
+    check(child >= 0, "job fork");
+    if (child == 0) {
+        close(ready[0]);
+        close(release[1]);
+        send_byte(ready[1]);
+        receive_byte(release[0]);
+        send_byte(ready[1]);
+        char byte;
+        check(read(release[0], &byte, 1) == 0, "job release");
+        _exit(0);
+    }
+    close(ready[1]);
+    close(release[0]);
+    receive_byte(ready[0]);
+    check(kill(child, SIGSTOP) == 0, "stop child");
+    wait_job(child, WSTOPPED | WNOWAIT, SIGSTOP, CLD_STOPPED);
+    wait_job(child, WSTOPPED | WNOWAIT, SIGSTOP, CLD_STOPPED);
+    int status = 0;
+    check(waitpid(child, &status, WUNTRACED) == child, "consume stop");
+    check(WIFSTOPPED(status) && WSTOPSIG(status) == SIGSTOP, "stopped status");
+    check(waitpid(child, &status, WUNTRACED | WNOHANG) == 0, "stop already consumed");
+    send_byte(release[1]);
+    struct pollfd ack = {.fd = ready[0], .events = POLLIN};
+    for (int i = 0; i < 4; ++i) {
+        check(poll(&ack, 1, 0) == 0, "stopped child must not acknowledge");
+    }
+    check(kill(child, SIGCONT) == 0, "continue child");
+    wait_job(child, WCONTINUED | WNOWAIT, SIGCONT, CLD_CONTINUED);
+    wait_job(child, WCONTINUED | WNOWAIT, SIGCONT, CLD_CONTINUED);
+    check(waitpid(child, &status, WCONTINUED) == child, "consume continue");
+    check(WIFCONTINUED(status), "continued status");
+    check(waitpid(child, &status, WCONTINUED | WNOHANG) == 0, "continue already consumed");
+    receive_byte(ready[0]);
+    check(kill(child, SIGSTOP) == 0, "stop child again");
+    check(waitpid(child, &status, WUNTRACED) == child && WIFSTOPPED(status), "stopped again");
+    check(kill(child, SIGKILL) == 0, "kill stopped child");
+    check(waitpid(child, &status, 0) == child && WIFSIGNALED(status) &&
+          WTERMSIG(status) == SIGKILL, "killed status");
+    close(ready[0]);
+    close(release[1]);
+}
+
 static void executed_child(const char *image, int spawn) {
     int ready[2], release[2];
     check(pipe(ready) == 0 && pipe(release) == 0, "exec pipes");
@@ -175,6 +229,7 @@ int main(int argc, char **argv) {
     group_change();
     session_change();
     group_signals();
+    stop_and_continue();
     executed_child(argv[0], 0);
     executed_child(argv[0], 1);
     puts("groups, sessions, signals, and post-exec rules match");

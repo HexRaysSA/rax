@@ -633,9 +633,14 @@ enum Target {
     TryThread(u64),
 }
 
-/// Apply the optional host job-control policy. Closed processes reject this
-/// policy at construction; their stop signals never stop the embedding host.
+/// Stop the process under its guest session or the optional host policy.
 pub(crate) fn stop(proc: &mut Proc, signal: Signal, thread: u64) {
+    if !proc.config.host_job_control
+        && let Some(member) = &mut proc.family
+    {
+        member.stop_job(proc.creds.0, signal);
+        return;
+    }
     #[cfg(unix)]
     if !super::syscall::bsd::ptrace::stop_job(proc, thread, signal) {
         host::stop(proc);
@@ -726,6 +731,13 @@ fn post(
     origin: Origin,
 ) {
     debug_assert!((1..NSIG).contains(&sig));
+    if matches!(sig, SIGCONT | SIGKILL)
+        && proc.exit.is_none()
+        && !proc.config.host_job_control
+        && let Some(member) = &mut proc.family
+    {
+        member.resume_job(proc.creds.0, sig);
+    }
     let b = bit(sig);
     let p = props(sig);
     #[cfg(unix)]
@@ -909,6 +921,13 @@ pub fn sleep_interruption(
 /// dropped, and a stop signal's default action stops the process.
 fn issignal(proc: &mut Proc, thread: &mut Thread) -> Option<Signal> {
     loop {
+        if proc
+            .family
+            .as_ref()
+            .is_some_and(|member| member.job_stopped())
+        {
+            return None;
+        }
         #[cfg(unix)]
         if super::syscall::bsd::ptrace::job_stopped(&proc.tracing)
             && proc.task.suspension.is_stopped()

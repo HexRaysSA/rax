@@ -2,7 +2,7 @@
 
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
-use crate::user::darwin::process::family::{Member, Selector};
+use crate::user::darwin::process::family::{Member, Report, Selector, WaitFor};
 use crate::user::darwin::signal::{self, SIGCHLD};
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{Wait, WaitKey};
@@ -10,7 +10,6 @@ use crate::user::darwin::wait::{Wait, WaitKey};
 /// `wait4` and `waitid` options (`bsd/sys/wait.h`).
 pub mod opt {
     pub const WNOHANG: i32 = 0x01;
-    #[cfg(unix)]
     pub const WUNTRACED: i32 = 0x02;
     pub const WEXITED: i32 = 0x04;
     pub const WSTOPPED: i32 = 0x08;
@@ -42,13 +41,18 @@ pub(super) fn wait4(
         1.. => Selector::Pid(pid),
         _ => Selector::Group(-pid),
     };
-    let Some((child, report)) = member.report(ctx.proc.pid, selector, true)? else {
+    let wanted = WaitFor {
+        exited: true,
+        stopped: options & opt::WUNTRACED != 0,
+        continued: options & opt::WCONTINUED != 0,
+    };
+    let Some((child, report)) = member.report(ctx.proc.pid, selector, wanted)? else {
         return no_report(ctx, options);
     };
     if status != 0 {
         ctx.write_u32(status, report.status as u32)?;
     }
-    if rusage != 0 {
+    if rusage != 0 && report.is_exit() {
         let mut bytes = [0; RUSAGE_SIZE];
         for (at, ns) in [(0, report.user_ns), (16, report.system_ns)] {
             let seconds = ns / 1_000_000_000;
@@ -58,7 +62,7 @@ pub(super) fn wait4(
         }
         ctx.write(rusage, &bytes)?;
     }
-    reap(ctx, child);
+    consume(ctx, child, report);
     Ok(Rv::one(child as u64))
 }
 
@@ -74,9 +78,12 @@ pub(super) fn waitid(ctx: &mut Ctx<'_>, kind: i32, id: i32, info: u64, options: 
         _ => Selector::Any,
     };
     let member = ctx.proc.family.as_ref().expect("closed process");
-    let Some((child, report)) =
-        member.report(ctx.proc.pid, selector, options & opt::WEXITED != 0)?
-    else {
+    let wanted = WaitFor {
+        exited: options & opt::WEXITED != 0,
+        stopped: options & opt::WSTOPPED != 0,
+        continued: options & opt::WCONTINUED != 0,
+    };
+    let Some((child, report)) = member.report(ctx.proc.pid, selector, wanted)? else {
         return no_report(ctx, options);
     };
     let mut bytes = [0; 104];
@@ -86,7 +93,7 @@ pub(super) fn waitid(ctx: &mut Ctx<'_>, kind: i32, id: i32, info: u64, options: 
     bytes[20..24].copy_from_slice(&report.value.to_le_bytes());
     ctx.write(info, &bytes)?;
     if options & opt::WNOWAIT == 0 {
-        reap(ctx, child);
+        consume(ctx, child, report);
     }
     Ok(Rv::one(0))
 }
@@ -98,8 +105,12 @@ fn no_report(ctx: &mut Ctx<'_>, options: i32) -> SysResult {
     syscall::sleep(ctx, Wait::key(WaitKey::Child, None))
 }
 
-fn reap(ctx: &mut Ctx<'_>, child: i32) {
+fn consume(ctx: &mut Ctx<'_>, child: i32, report: Report) {
     let member = ctx.proc.family.as_ref().expect("closed process");
+    if !report.is_exit() {
+        member.consume_job(child, report);
+        return;
+    }
     let sig = signal::bit(SIGCHLD);
     if !member.reap(ctx.proc.pid, child) && ctx.thread.sig.mask & sig != 0 {
         ctx.thread.sig.pending &= !sig;

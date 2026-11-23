@@ -877,7 +877,7 @@ impl DarwinProcess {
                     || (thread.resume.is_none() && thread.sig.pending & !thread.sig.mask != 0))
             {
                 signal::ast(&mut self.proc, &mut thread);
-                if self.proc.task.suspension.is_stopped()
+                if self.execution_suspended()
                     || syscall::bsd::ptrace::thread_suspended(&self.proc.tracing, &thread)
                     || thread.wait.is_some()
                     || self.proc.exit.is_some()
@@ -1020,9 +1020,18 @@ impl DarwinProcess {
         }
     }
 
+    fn execution_suspended(&self) -> bool {
+        self.proc.task.suspension.is_stopped()
+            || self
+                .proc
+                .family
+                .as_ref()
+                .is_some_and(family::Member::job_stopped)
+    }
+
     /// The next runnable thread after the one that ran last.
     fn next_runnable(&self) -> Option<u64> {
-        if self.proc.task.suspension.is_stopped() {
+        if self.execution_suspended() {
             return None;
         }
         let runnable = |thread: &Thread| {
@@ -1127,9 +1136,15 @@ impl DarwinProcess {
     }
 
     fn idle_deadline(&self) -> Option<Instant> {
+        let stopped = self
+            .proc
+            .family
+            .as_ref()
+            .is_some_and(family::Member::job_stopped);
         self.proc
             .threads
             .values()
+            .filter(|_| !stopped)
             .filter_map(|thread| thread.wait.as_ref().and_then(|wait| wait.deadline))
             .chain(self.proc.itimers.real_at)
             .chain(self.proc.mk_timers.next_deadline())
