@@ -115,7 +115,9 @@ static int observe_cr0_ne(hv_vcpuid_t cpu, uint64_t slice)
     const uint64_t requested[] = {original & ~ne, original};
     printf("{\"event\":\"cr0-ne\",\"mask\":%" PRIu64 ",\"backing\":%" PRIu64
            ",\"shadow\":%" PRIu64 ",\"writes\":[", mask, original, shadow);
-    bool accepted = mask == ne && shadow == original && (original & ne) != 0;
+    // The SDK can add its own masks on entry. The guest changes only NE,
+    // and full initial shadow agreement keeps the other bits out of scope.
+    bool accepted = (mask & ne) != 0 && shadow == original && (original & ne) != 0;
     unsigned published = 0;
     for (size_t i = 0; accepted && i < sizeof(offsets) / sizeof(offsets[0]); i++) {
         uint64_t reason = enter(cpu, slice);
