@@ -93,9 +93,6 @@ pub(super) fn base_nls(c: &mut Ctx) -> ApiResult {
 
 fn write_base_nls(c: &mut Ctx) -> ApiResult {
     let server = selected(c)?;
-    if server.metadata.kernel == ARM64_PLAIN_STARTUP_KERNEL {
-        return Err(c.unsupported("WoW64 BASE NLS profile is unmeasured on Windows 11 ARM64"));
-    }
     if !c.p.wow64.as_ref().is_some_and(|state| state.csr.is_some()) {
         return Err(c.unsupported("WoW64 BASE NLS requires the selected process CSR connection"));
     }

@@ -129,7 +129,8 @@ static uintptr_t discover(HANDLE process, uintptr_t base) {
 
 static uintptr_t native_peb = 0, wow_peb = 0;
 
-static PROCESS_INFORMATION create_pure(wchar_t *path, HANDLE *debug_object) {
+static PROCESS_INFORMATION create_pure(wchar_t *path, HANDLE *debug_object,
+                                       const wchar_t *arguments = L"") {
   HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
   auto create_parameters = reinterpret_cast<CreateParameters>(
       GetProcAddress(ntdll, "RtlCreateProcessParametersEx"));
@@ -152,6 +153,7 @@ static PROCESS_INFORMATION create_pure(wchar_t *path, HANDLE *debug_object) {
   std::wstring image = L"\\??\\";
   image += path;
   std::wstring command = L"\"" + std::wstring(path) + L"\"";
+  command += arguments;
   UNICODE_STRING image_string{};
   image_string.Length = static_cast<USHORT>(image.size() * 2);
   image_string.MaximumLength = image_string.Length + 2;
