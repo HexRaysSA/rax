@@ -21,6 +21,33 @@ fn absent_owned(h: &Harness, path: &str) {
     assert!(procfs::owned(&h.proc.state, &threads, path), "{path}");
 }
 
+fn clone_thread_at(h: &mut Harness, tid: u32) -> u64 {
+    let args = h.scratch + 0x100;
+    let requested = h.scratch + 0x200;
+    h.proc
+        .state
+        .space
+        .write_raw(requested, &tid.to_le_bytes())
+        .unwrap();
+    let mut words = [0u64; 11];
+    words[0] = THREAD;
+    words[8] = requested;
+    words[9] = 1;
+    for (index, value) in words.into_iter().enumerate() {
+        h.proc
+            .state
+            .space
+            .write_raw(args + index as u64 * 8, &value.to_le_bytes())
+            .unwrap();
+    }
+    // Only the guest's effective identity changes for the requested TID.
+    let euid = h.proc.state.creds.1;
+    h.proc.state.creds.1 = 0;
+    let tid = h.ok(Sysno::Clone3, &[args, 88]);
+    h.proc.state.creds.1 = euid;
+    tid
+}
+
 #[test]
 fn procfs_lifetime_retires_numeric_and_task_aliases_and_accepts_live_id_reuse() {
     each_abi(|abi| {
@@ -41,8 +68,7 @@ fn procfs_lifetime_retires_numeric_and_task_aliases_and_accepts_live_id_reuse() 
         }
         assert!(!owned(&h, &format!("/proc/{}/status", tid + 1)));
         // A reused virtual ID is live again; history is not a negative cache.
-        h.proc.state.next_tid = tid;
-        assert_eq!(h.ok(Sysno::Clone, &[THREAD, 0, 0, 0, 0]), tid as u64);
+        assert_eq!(clone_thread_at(&mut h, tid as u32), tid as u64);
         let threads: Vec<_> = h.proc.threads.iter().collect();
         assert!(matches!(
             procfs::lookup(
@@ -63,27 +89,7 @@ fn procfs_lifetime_retires_numeric_and_task_aliases_and_accepts_live_id_reuse() 
 fn procfs_lifetime_sparse_clone3_ids_never_claim_unassigned_gaps() {
     each_abi(|abi| {
         let mut h = Harness::embedded(abi);
-        // Guest credentials only: no host identity or token is changed.
-        h.proc.state.creds.1 = 0;
-        let args = h.scratch + 0x100;
-        let requested = h.scratch + 0x200;
-        h.proc
-            .state
-            .space
-            .write_raw(requested, &4_000_000u32.to_le_bytes())
-            .unwrap();
-        let mut words = [0u64; 11];
-        words[0] = THREAD;
-        words[8] = requested;
-        words[9] = 1;
-        for (index, value) in words.into_iter().enumerate() {
-            h.proc
-                .state
-                .space
-                .write_raw(args + index as u64 * 8, &value.to_le_bytes())
-                .unwrap();
-        }
-        assert_eq!(h.ok(Sysno::Clone3, &[args, 88]), 4_000_000);
+        assert_eq!(clone_thread_at(&mut h, 4_000_000), 4_000_000);
         let child = h.index_of(4_000_000);
         h.start(child, Sysno::Exit, &[0]);
         absent_owned(&h, "/proc/4000000/status");
