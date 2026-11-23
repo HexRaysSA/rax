@@ -395,7 +395,7 @@ pub(crate) fn open_file(
         flags,
         owner,
         |policy| lookup_as(ctx, path, base, directory, allow_search, policy, owner),
-        |exclusive| {
+        |policy, exclusive| {
             let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
             if !files.has_workspace() {
                 return Err(Errno::EROFS);
@@ -408,13 +408,28 @@ pub(crate) fn open_file(
                 return Err(Errno::ENOENT);
             }
             let mode = mode & !ctx.proc.umask;
-            let absolute = if exclusive || flags & (O_NOFOLLOW | O_NOFOLLOW_ANY | O_SYMLINK) != 0 {
-                absolute
-            } else {
+            if allow_search
+                && let Some(directory) = directory.filter(|directory| directory.linked())
+            {
+                let relative = std::str::from_utf8(path).map_err(|_| Errno::EINVAL)?;
+                return files
+                    .create_from_workspace_search(
+                        &absolute,
+                        (relative, directory),
+                        policy,
+                        mode,
+                        owner,
+                        exclusive,
+                    )
+                    .map_err(Errno::from);
+            }
+            let absolute = if policy == LinkPolicy::Follow {
                 files.workspace_create_path(&absolute, owner, &[])?
+            } else {
+                absolute
             };
             files
-                .create_workspace_file(&absolute, mode, owner, &[], exclusive)
+                .create_workspace_file_with_status(&absolute, mode, owner, &[], exclusive)
                 .map_err(Errno::from)
         },
     )?;
@@ -432,7 +447,7 @@ fn open_or_create(
     flags: u32,
     owner: (u32, u32),
     lookup: impl FnOnce(LinkPolicy) -> Result<(String, Entry), Errno>,
-    create: impl FnOnce(bool) -> Result<(String, Entry), Errno>,
+    create: impl FnOnce(LinkPolicy, bool) -> Result<(String, Entry, bool), Errno>,
 ) -> Result<Arc<OpenFile>, Errno> {
     let search = flags & O_SEARCH == O_SEARCH;
     if flags & O_ACCMODE == O_ACCMODE || (search && flags & (O_ACCMODE | O_CREAT) != 0) {
@@ -465,10 +480,7 @@ fn open_or_create(
     let (path, entry, created) = match lookup(policy) {
         Ok(_) if exclusive => return Err(Errno::EEXIST),
         Ok((path, entry)) => (path, entry, false),
-        Err(Errno::ENOENT) if flags & O_CREAT != 0 => {
-            let (path, entry) = create(exclusive)?;
-            (path, entry, true)
-        }
+        Err(Errno::ENOENT) if flags & O_CREAT != 0 => create(policy, exclusive)?,
         Err(error) => return Err(error),
     };
     if entry.link_target().is_some() {

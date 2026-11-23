@@ -328,12 +328,12 @@ impl Workspace {
         owner: (u32, u32),
         exclusive: bool,
         parent: &Arc<Directory>,
-    ) -> Result<Arc<WorkspaceFile>, Error> {
+    ) -> Result<(Arc<WorkspaceFile>, bool), Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
         if let Some(entry) = namespace.directory(parent)?.get(&name) {
             return match (exclusive, entry) {
                 (true, _) => Err(Error::Exists),
-                (false, Node::File(file)) => Ok(file.clone()),
+                (false, Node::File(file)) => Ok((file.clone(), false)),
                 (false, Node::Directory(_)) => Err(Error::IsDirectory),
                 (false, Node::Symlink(_)) => Err(Error::LinkLoop),
             };
@@ -353,7 +353,7 @@ impl Workspace {
         if self.flavor == WorkspaceFlavor::Darwin {
             parent.links.fetch_add(1, Ordering::Relaxed);
         }
-        Ok(file)
+        Ok((file, true))
     }
 
     pub(super) fn create_symlink(
@@ -918,7 +918,7 @@ mod tests {
         let workspace = Workspace::new(WorkspaceFlavor::Linux);
         let root = &workspace.root;
         let owner = (101, 102);
-        let original = workspace
+        let (original, _) = workspace
             .create("source".into(), 0o600, owner, true, root)
             .unwrap();
         original.write(None, b"data").unwrap();
@@ -980,19 +980,20 @@ mod tests {
     fn removed_storage_survives_recreation_until_the_last_descriptor_closes() {
         let files = Workspace::new(WorkspaceFlavor::Linux);
         let name = "value";
-        let before = files
+        let (before, created) = files
             .create(name.into(), 0o600, (101, 102), true, &files.root)
             .unwrap();
+        assert!(created);
         assert!(matches!(
             files.create(name.into(), 0o600, (103, 104), true, &files.root),
             Err(Error::Exists)
         ));
-        assert!(Arc::ptr_eq(
-            &files
-                .create(name.into(), 0, (103, 104), false, &files.root)
-                .unwrap(),
-            &before
-        ));
+        let (existing, created) = files
+            .create(name.into(), 0, (103, 104), false, &files.root)
+            .unwrap();
+        assert!(!created);
+        assert!(Arc::ptr_eq(&existing, &before));
+        drop(existing);
         assert_eq!(before.mode(), 0o600);
         assert_eq!(before.write(Some(2), b"first").unwrap(), 7);
         assert_eq!(before.write(None, b"!").unwrap(), 8);
@@ -1008,7 +1009,7 @@ mod tests {
         files.unlink(name, 101, &files.root).unwrap();
         assert_eq!(before.link_count(), 0);
         assert!(files.get(name).unwrap().is_none());
-        let after = files
+        let (after, _) = files
             .create(name.into(), 0o640, (103, 104), true, &files.root)
             .unwrap();
         assert_eq!(after.link_count(), 1);

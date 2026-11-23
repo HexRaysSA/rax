@@ -30,6 +30,20 @@ enum MissingLast {
     Directory,
 }
 
+enum WalkEnd {
+    Found(Entry),
+    Missing { parent: Entry },
+}
+
+impl WalkEnd {
+    fn found(self) -> Result<Entry, Error> {
+        match self {
+            Self::Found(entry) => Ok(entry),
+            Self::Missing { .. } => Err(Error::NotFound),
+        }
+    }
+}
+
 /// Maximum path bytes, including the terminating NUL in a guest syscall.
 pub const PATH_MAX: usize = 4096;
 /// Maximum UTF-8 bytes in one guest filename component.
@@ -806,7 +820,32 @@ impl Files {
         groups: &[u32],
         exclusive: bool,
     ) -> Result<(String, Entry), Error> {
+        let (path, entry, _) =
+            self.create_workspace_file_with_status(path, mode, ids, groups, exclusive)?;
+        Ok((path, entry))
+    }
+
+    pub(super) fn create_workspace_file_with_status(
+        &self,
+        path: &str,
+        mode: u32,
+        ids: (u32, u32),
+        groups: &[u32],
+        exclusive: bool,
+    ) -> Result<(String, Entry, bool), Error> {
         let (workspace, path, directory) = self.workspace_destination(path, ids, groups)?;
+        self.publish_workspace_file(workspace, path, &directory, mode, ids, exclusive)
+    }
+
+    fn publish_workspace_file(
+        &self,
+        workspace: &Workspace,
+        path: String,
+        directory: &Arc<WorkspaceDirectory>,
+        mode: u32,
+        ids: (u32, u32),
+        exclusive: bool,
+    ) -> Result<(String, Entry, bool), Error> {
         if self.entries.contains_key(&path) {
             return Err(if exclusive {
                 Error::Exists
@@ -816,13 +855,15 @@ impl Files {
         }
         let owner = directory.child_owner(workspace.flavor, ids);
         let name = workspace_name(&path);
-        let file = workspace.create(name.to_owned(), mode, owner, exclusive, &directory)?;
+        let (file, created) =
+            workspace.create(name.to_owned(), mode, owner, exclusive, directory)?;
         Ok((
             path,
             Entry {
                 ino: file.ino(),
                 kind: Kind::Workspace(file),
             },
+            created,
         ))
     }
 
@@ -1208,7 +1249,7 @@ impl Files {
             MissingLast::Reject,
             None,
         )?;
-        Ok((path, entry.ok_or(Error::NotFound)?))
+        Ok((path, entry.found()?))
     }
 
     /// A Darwin search descriptor authorizes the first traversal from its held
@@ -1230,7 +1271,39 @@ impl Files {
             MissingLast::Reject,
             Some((relative, directory)),
         )?;
-        Ok((path, entry.ok_or(Error::NotFound)?))
+        Ok((path, entry.found()?))
+    }
+
+    pub(super) fn create_from_workspace_search(
+        &self,
+        path: &str,
+        search_from: (&str, &Arc<WorkspaceDirectory>),
+        policy: LinkPolicy,
+        mode: u32,
+        ids: (u32, u32),
+        exclusive: bool,
+    ) -> Result<(String, Entry, bool), Error> {
+        let mut links_left = self.symlink_limit();
+        let (path, end) = self.walk(
+            path,
+            policy,
+            &mut links_left,
+            Some((ids, &[])),
+            MissingLast::File,
+            Some(search_from),
+        )?;
+        let parent = match end {
+            WalkEnd::Found(_) if exclusive => return Err(Error::Exists),
+            WalkEnd::Found(entry) => return Ok((path, entry, false)),
+            WalkEnd::Missing { parent } => parent,
+        };
+        let directory = parent.workspace_directory().ok_or(Error::ReadOnly)?;
+        // The walk has already applied the search permission (or the descriptor's grant).
+        if !directory.permits(2, ids, &[]) {
+            return Err(Error::AccessDenied);
+        }
+        let workspace = self.workspace_at(&path).ok_or(Error::ReadOnly)?;
+        self.publish_workspace_file(workspace, path, directory, mode, ids, exclusive)
     }
 
     /// Resolve the final component of a followed create, including a dangling link target.
@@ -1282,7 +1355,7 @@ impl Files {
         access: Option<WorkspaceAccess<'_>>,
         missing_last: MissingLast,
         search_from: Option<(&str, &Arc<WorkspaceDirectory>)>,
-    ) -> Result<(String, Option<Entry>), Error> {
+    ) -> Result<(String, WalkEnd), Error> {
         validate(path)?;
         let reject_traversal = matches!(
             policy,
@@ -1353,7 +1426,7 @@ impl Files {
             };
             entry = match self.entry(&current, follow && !reject_traversal) {
                 Err(Error::NotFound) if missing != MissingLast::Reject => {
-                    return Ok((current, None));
+                    return Ok((current, WalkEnd::Missing { parent: entry }));
                 }
                 result => result?,
             };
@@ -1382,15 +1455,15 @@ impl Files {
                 )?;
                 current = resolved;
                 match target {
-                    Some(target) => entry = target,
-                    None => return Ok((current, None)),
+                    WalkEnd::Found(target) => entry = target,
+                    missing @ WalkEnd::Missing { .. } => return Ok((current, missing)),
                 }
             }
         }
         if path.ends_with('/') && !entry.is_dir() {
             return Err(Error::NotDirectory);
         }
-        Ok((current, Some(entry)))
+        Ok((current, WalkEnd::Found(entry)))
     }
 
     pub fn read(&self, path: &str) -> Result<Arc<[u8]>, Error> {
