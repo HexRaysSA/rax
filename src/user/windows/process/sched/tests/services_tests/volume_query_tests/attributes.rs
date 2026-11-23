@@ -136,6 +136,16 @@ pub(super) fn hex(raw: &str) -> Vec<u8> {
         .collect()
 }
 
+fn starts_with_captured_attributes(bytes: &[u8]) -> bool {
+    let Some((header, name)) = bytes.split_at_checked(12) else {
+        return false;
+    };
+    let name_bytes = u32::from_le_bytes(header[8..12].try_into().unwrap()) as usize;
+    header[..8] == NTFS[..8]
+        && (4..=8).contains(&name_bytes)
+        && name.starts_with(&NTFS[12..12 + name_bytes])
+}
+
 pub(super) fn bind_payload(
     windows: &mut [(u64, Vec<u8>)],
     output: u64,
@@ -149,8 +159,8 @@ pub(super) fn bind_payload(
         || windows.iter().any(|(at, bytes)| {
             output
                 .checked_sub(*at)
-                .and_then(|offset| bytes.get(offset as usize..offset as usize + 20))
-                == Some(NTFS.as_slice())
+                .and_then(|offset| bytes.get(offset as usize..))
+                .is_some_and(starts_with_captured_attributes)
         });
     if !reached {
         return;
@@ -167,6 +177,41 @@ pub(super) fn bind_payload(
             }
         }
     }
+}
+
+#[test]
+fn binds_host_filesystem_fields_after_truncated_async_output_precedes_status_fault() {
+    const OUTPUT: u64 = 0x1000;
+    const HOST: [u8; 8] = [0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0];
+    for name_bytes in [4u8, 5, 7, 8] {
+        let written = 12 + usize::from(name_bytes);
+        let mut record = vec![0xa5; 20];
+        record[..written].copy_from_slice(&NTFS[..written]);
+        record[8] = name_bytes;
+        let mut windows = [(OUTPUT, record.clone())];
+        bind_payload(
+            &mut windows,
+            OUTPUT,
+            0x2000,
+            WinArch::X64,
+            false,
+            STATUS_ACCESS_VIOLATION,
+            HOST,
+        );
+        record[..8].copy_from_slice(&HOST);
+        assert_eq!(windows, [(OUTPUT, record)]);
+    }
+    let mut windows = [(OUTPUT, vec![0xa5; 20])];
+    bind_payload(
+        &mut windows,
+        OUTPUT,
+        0x2000,
+        WinArch::X64,
+        false,
+        STATUS_ACCESS_VIOLATION,
+        HOST,
+    );
+    assert_eq!(windows, [(OUTPUT, vec![0xa5; 20])]);
 }
 
 #[test]
