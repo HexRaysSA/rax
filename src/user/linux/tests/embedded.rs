@@ -14,6 +14,43 @@ const ABIS: [LinuxAbi; 5] = [
 ];
 
 #[test]
+fn closed_linux_flock_locks_private_workspace_on_all_abis() {
+    use crate::user::linux::abi::open::{O_CREAT, O_PATH, O_RDWR};
+    use crate::user::supplied_fs::{Files, WorkspaceFlavor};
+
+    const AT_FDCWD: u64 = -100i64 as u64;
+    const LOCK_SH: u64 = 1;
+    const LOCK_EX: u64 = 2;
+    const LOCK_NB: u64 = 4;
+    const LOCK_UN: u64 = 8;
+
+    for abi in ABIS {
+        let files = Files::default()
+            .with_file("/read-only".into(), std::sync::Arc::from(&b"input"[..]))
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Linux);
+        let mut h = Harness::embedded_with_supplied(abi, files);
+        let path = h.scratch;
+        h.proc.space().write_raw(path, b"/read-only\0").unwrap();
+        let input = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        assert_eq!(h.err(Sysno::Flock, &[input, LOCK_EX | LOCK_NB]), EPERM);
+        assert_eq!(h.err(Sysno::Flock, &[99, 0]), EINVAL);
+        assert_eq!(h.err(Sysno::Flock, &[99, LOCK_EX]), EBADF);
+
+        h.proc.space().write_raw(path, b"/tmp/lock\0").unwrap();
+        let flags = u64::from(O_CREAT | O_RDWR);
+        let holder = h.ok(Sysno::Openat, &[AT_FDCWD, path, flags, 0o600]);
+        let other = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        let restricted = h.ok(Sysno::Openat, &[AT_FDCWD, path, u64::from(O_PATH), 0]);
+        assert_eq!(h.err(Sysno::Flock, &[restricted, LOCK_UN]), EBADF);
+        assert_eq!(h.ok(Sysno::Flock, &[holder, LOCK_EX]), 0);
+        assert_eq!(h.err(Sysno::Flock, &[other, LOCK_SH | LOCK_NB]), EAGAIN);
+        h.ok(Sysno::Close, &[holder]);
+        assert_eq!(h.ok(Sysno::Flock, &[other, LOCK_EX | LOCK_NB]), 0);
+    }
+}
+
+#[test]
 fn closed_linux_identity_console_and_external_service_denial_all_abis() {
     for abi in ABIS {
         let mut h = Harness::embedded(abi);

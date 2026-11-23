@@ -478,7 +478,6 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[2] as i64,
             a[3] as u32,
         )),
-        #[cfg(unix)]
         S::Flock => r(locks::flock(c, fd(a[0]), a[1] as u32)),
         S::Getdents64 => r(dirents::getdents(c, fd(a[0]), a[1], a[2], Dirent::Dirent64)),
         S::Getdents => r(dirents::getdents(c, fd(a[0]), a[1], a[2], Dirent::Long)),

@@ -309,5 +309,6 @@ pub(super) fn permits_workspace(s: Sysno) -> bool {
             | Sysno::Ftruncate64
             | Sysno::Fsync
             | Sysno::Fdatasync
+            | Sysno::Flock
     )
 }

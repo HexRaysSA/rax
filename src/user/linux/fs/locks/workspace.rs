@@ -1,9 +1,9 @@
-//! Record locks on regular files in the closed Linux workspace.
+//! Advisory locks on regular files in the closed Linux workspace.
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
-use super::{Conflict, F_UNLCK, F_WRLCK, Owner, Range};
+use super::{Conflict, F_UNLCK, F_WRLCK, OFFSET_MAX, Owner, Range};
 use crate::user::linux::abi::errno::Errno;
 use crate::user::linux::abi::errno_table::{EAGAIN, EDEADLK};
 use crate::user::linux::fs::fd::{FileObject, OpenFile};
@@ -27,7 +27,10 @@ impl LockOwner {
     }
 
     pub(crate) fn close(&self, ino: u64) {
-        self.locks.lock().unwrap().release(ino, self.id());
+        self.locks
+            .lock()
+            .unwrap()
+            .release(LockKey::Record(ino), self.id());
     }
 
     fn claimant(&self, file: &OpenFile, owner: Owner) -> usize {
@@ -55,7 +58,7 @@ impl LockOwner {
         self.locks
             .lock()
             .unwrap()
-            .conflict(ino, owner, kind, range)
+            .conflict(LockKey::Record(ino), owner, kind, range)
             .map(|(_, lock)| lock)
     }
 
@@ -67,10 +70,26 @@ impl LockOwner {
         lock: Conflict,
     ) -> Request {
         Request {
-            ino,
+            key: LockKey::Record(ino),
             owner: self.claimant(file, ownership),
             ownership,
             lock,
+        }
+    }
+
+    pub(crate) fn flock(&self, file: &OpenFile, ino: u64, kind: i16) -> Request {
+        Request {
+            key: LockKey::Flock(ino),
+            owner: self.claimant(file, Owner::Description),
+            ownership: Owner::Description,
+            lock: Conflict {
+                kind,
+                range: Range {
+                    start: 0,
+                    end: OFFSET_MAX,
+                },
+                pid: -1,
+            },
         }
     }
 
@@ -82,9 +101,17 @@ impl LockOwner {
     ) -> Result<Option<Waiting>, Errno> {
         let mut locks = self.locks.lock().unwrap();
         let lock = request.lock;
+        if matches!(request.key, LockKey::Flock(_)) {
+            if locks.held_kind(request.key, request.owner) == Some(lock.kind) {
+                return Ok(None);
+            }
+            // Linux drops an existing flock before trying a different mode,
+            // including a nonblocking conversion that will fail.
+            locks.release(request.key, request.owner);
+        }
         if lock.kind != F_UNLCK
             && let Some((blocker, _)) =
-                locks.conflict(request.ino, request.owner, lock.kind, lock.range)
+                locks.conflict(request.key, request.owner, lock.kind, lock.range)
         {
             if !sleep {
                 return Err(Errno(EAGAIN));
@@ -116,14 +143,14 @@ impl Drop for LockOwner {
     fn drop(&mut self) {
         let mut locks = self.locks.lock().unwrap();
         let mut released = Vec::new();
-        locks.files.retain(|&ino, holders| {
+        locks.files.retain(|&key, holders| {
             if remove_owner(holders, self.id()) {
-                released.push(ino);
+                released.push(key);
             }
             !holders.is_empty()
         });
-        for ino in released {
-            locks.wake(ino);
+        for key in released {
+            locks.wake(key);
         }
     }
 }
@@ -137,15 +164,35 @@ pub(crate) fn inode(file: &OpenFile) -> Option<u64> {
     Some(entry.ino)
 }
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct Request {
-    pub(crate) ino: u64,
-    owner: usize,
-    pub(crate) ownership: Owner,
-    pub(crate) lock: Conflict,
+/// Linux applies flock and fcntl locks independently, even on one inode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum LockKey {
+    Record(u64),
+    Flock(u64),
 }
 
-/// The copied request and file reference survive until the fcntl resumes.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Request {
+    key: LockKey,
+    owner: usize,
+    ownership: Owner,
+    lock: Conflict,
+}
+
+impl Request {
+    pub(crate) fn posix_acquisition(self) -> Option<u64> {
+        if self.ownership == Owner::Process
+            && self.lock.kind != F_UNLCK
+            && let LockKey::Record(ino) = self.key
+        {
+            Some(ino)
+        } else {
+            None
+        }
+    }
+}
+
+/// The copied request and file reference survive until the lock call resumes.
 #[derive(Clone, Debug)]
 pub struct Waiting {
     pub(crate) request: Request,
@@ -188,20 +235,20 @@ impl Drop for Event {
 
 #[derive(Debug, Default)]
 struct Locks {
-    files: BTreeMap<u64, Vec<Holder>>,
+    files: BTreeMap<LockKey, Vec<Holder>>,
     waiting: BTreeMap<usize, (Request, Weak<AtomicBool>)>,
 }
 
 impl Locks {
     fn conflict(
         &self,
-        ino: u64,
+        key: LockKey,
         owner: usize,
         kind: i16,
         range: Range,
     ) -> Option<(usize, Conflict)> {
         self.files
-            .get(&ino)?
+            .get(&key)?
             .iter()
             .filter(|holder| holder.owner != owner)
             .find_map(|holder| {
@@ -214,14 +261,23 @@ impl Locks {
             })
     }
 
+    fn held_kind(&self, key: LockKey, owner: usize) -> Option<i16> {
+        self.files
+            .get(&key)?
+            .iter()
+            .find(|holder| holder.owner == owner)
+            .and_then(|holder| holder.ranges.first())
+            .map(|lock| lock.kind)
+    }
+
     fn set(&mut self, request: Request) {
         let Request {
-            ino, owner, lock, ..
+            key, owner, lock, ..
         } = request;
-        if lock.kind == F_UNLCK && !self.files.contains_key(&ino) {
+        if lock.kind == F_UNLCK && !self.files.contains_key(&key) {
             return;
         }
-        let holders = self.files.entry(ino).or_default();
+        let holders = self.files.entry(key).or_default();
         if let Some(index) = holders.iter().position(|holder| holder.owner == owner) {
             holders[index].replace(lock);
             if holders[index].ranges.is_empty() {
@@ -234,26 +290,26 @@ impl Locks {
             });
         }
         if holders.is_empty() {
-            self.files.remove(&ino);
+            self.files.remove(&key);
         }
-        self.wake(ino);
+        self.wake(key);
     }
 
-    fn release(&mut self, ino: u64, owner: usize) {
-        if let Some(holders) = self.files.get_mut(&ino) {
+    fn release(&mut self, key: LockKey, owner: usize) {
+        if let Some(holders) = self.files.get_mut(&key) {
             let released = remove_owner(holders, owner);
             if holders.is_empty() {
-                self.files.remove(&ino);
+                self.files.remove(&key);
             }
             if released {
-                self.wake(ino);
+                self.wake(key);
             }
         }
     }
 
-    fn wake(&self, ino: u64) {
+    fn wake(&self, key: LockKey) {
         for (request, flag) in self.waiting.values() {
-            if request.ino == ino
+            if request.key == key
                 && let Some(flag) = flag.upgrade()
             {
                 flag.store(true, Ordering::Release);
@@ -272,7 +328,7 @@ impl Locks {
                     request.owner == blocker && request.ownership == Owner::Process
                 })
                 .find_map(|(request, _)| {
-                    self.conflict(request.ino, blocker, request.lock.kind, request.lock.range)
+                    self.conflict(request.key, blocker, request.lock.kind, request.lock.range)
                 });
             let Some((next, _)) = next else { return false };
             if next == owner {
@@ -348,11 +404,11 @@ impl Holder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::user::linux::fs::locks::{F_RDLCK, OFFSET_MAX};
+    use crate::user::linux::fs::locks::F_RDLCK;
 
     fn claim(owner: usize, pid: i32, kind: i16, start: i64, end: i64) -> Request {
         Request {
-            ino: 1,
+            key: LockKey::Record(1),
             owner,
             ownership: Owner::Process,
             lock: Conflict {
@@ -366,12 +422,13 @@ mod tests {
     #[test]
     fn splits_ranges_and_keeps_the_pid_of_the_first_merged_lock() {
         let mut locks = Locks::default();
+        let key = LockKey::Record(1);
         locks.set(claim(1, 100, F_WRLCK, 0, OFFSET_MAX));
         locks.set(claim(1, 101, F_UNLCK, 8, 15));
         let query = |start| Range { start, end: start };
-        assert!(locks.conflict(1, 2, F_RDLCK, query(8)).is_none());
-        let left = locks.conflict(1, 2, F_RDLCK, query(7)).unwrap().1;
-        let right = locks.conflict(1, 2, F_RDLCK, query(16)).unwrap().1;
+        assert!(locks.conflict(key, 2, F_RDLCK, query(8)).is_none());
+        let left = locks.conflict(key, 2, F_RDLCK, query(7)).unwrap().1;
+        let right = locks.conflict(key, 2, F_RDLCK, query(16)).unwrap().1;
         assert_eq!(left.range, Range { start: 0, end: 7 });
         assert_eq!(
             right.range,
@@ -382,7 +439,7 @@ mod tests {
         );
         assert_eq!((left.pid, right.pid), (100, 100));
         locks.set(claim(1, 101, F_WRLCK, 8, 16));
-        let joined = locks.conflict(1, 2, F_RDLCK, query(8)).unwrap().1;
+        let joined = locks.conflict(key, 2, F_RDLCK, query(8)).unwrap().1;
         assert_eq!(
             joined.range,
             Range {
@@ -391,7 +448,7 @@ mod tests {
             }
         );
         assert_eq!(joined.pid, 100);
-        assert!(locks.conflict(1, 1, F_WRLCK, query(8)).is_none());
+        assert!(locks.conflict(key, 1, F_WRLCK, query(8)).is_none());
     }
 
     #[test]
@@ -411,7 +468,7 @@ mod tests {
             .insert(2, (claim(2, 101, F_WRLCK, 24, 31), Arc::downgrade(&b)));
         assert!(locks.deadlock(3, 1));
         assert!(!a.load(Ordering::Acquire) && !b.load(Ordering::Acquire));
-        locks.release(1, 2);
+        locks.release(LockKey::Record(1), 2);
         assert!(!locks.deadlock(3, 1));
         assert!(a.load(Ordering::Acquire) && b.load(Ordering::Acquire));
     }

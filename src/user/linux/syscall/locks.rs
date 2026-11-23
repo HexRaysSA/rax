@@ -1,17 +1,10 @@
-//! File-lock calls: `flock` and the record-lock commands of `fcntl`
-//! (`fs/locks.c`, `fs/fcntl.c`), on host locks ([`fs::locks`]).
+//! Linux advisory file locks (`fs/locks.c`, `fs/fcntl.c`). The private
+//! workspace owns its locks and wakes waiters when their inode's locks change.
 //!
-//! Each call checks its arguments in the kernel's order, then tries the
-//! host lock without sleeping. A call that must wait (`flock` without
-//! `LOCK_NB`, `F_SETLKW`, `F_OFD_SETLKW`) sleeps and tries again every
-//! [`RETRY`] until the lock is granted or a signal ends the wait with
-//! `-ERESTARTSYS`, as `wait_event_interruptible` does; other guest threads
-//! run meanwhile. Waiting this way detects no deadlocks: where Linux fails a
-//! POSIX wait that would deadlock with `EDEADLK`, the wait lasts until a
-//! signal. Private workspace files use guest-owned record locks and wake
-//! their waiters when locks change. Other descriptions the host cannot lock
-//! (anonymous inodes, synthesized `/proc` files, and on macOS pipes and
-//! sockets) are granted every lock.
+//! With host services, the call tries a host lock ([`fs::locks`]) without
+//! sleeping and retries blocking requests every [`RETRY`]. The host retry
+//! path does not detect POSIX deadlocks. In both modes a signal interrupts
+//! the wait with `-ERESTARTSYS` while other guest threads can keep running.
 //!
 //! [`fs::locks`]: super::super::fs::locks
 
@@ -43,39 +36,61 @@ fn wait(c: &mut Ctx<'_>) -> Errno {
 }
 
 /// `flock` (`SYSCALL_DEFINE2(flock)`).
-#[cfg(unix)]
 pub fn flock(c: &mut Ctx<'_>, fd: i32, cmd: u32) -> SysResult {
     const LOCK_SH: u32 = 1;
     const LOCK_EX: u32 = 2;
     const LOCK_NB: u32 = 4;
     const LOCK_UN: u32 = 8;
     const LOCK_MAND: u32 = 32;
+    if cfg!(not(unix)) && c.p.config.host_services {
+        return Err(Errno(ENOSYS));
+    }
     // LOCK_MAND requests are ignored, as since Linux 5.15.
     if cmd & LOCK_MAND != 0 {
         return Ok(0);
     }
-    let op = match cmd & !LOCK_NB {
-        LOCK_SH => libc::LOCK_SH,
-        LOCK_EX => libc::LOCK_EX,
-        LOCK_UN => libc::LOCK_UN,
+    let kind = match cmd & !LOCK_NB {
+        LOCK_SH => F_RDLCK,
+        LOCK_EX => F_WRLCK,
+        LOCK_UN => F_UNLCK,
         _ => return Err(Errno(EINVAL)),
     };
+    let sleep = cmd & LOCK_NB == 0;
+    if let Some(result) = resume_workspace(c, fd, sleep) {
+        return result;
+    }
     // fdget: an O_PATH descriptor is no descriptor here.
     let file = c.p.fds.file(fd)?;
     if file.flags() & O_PATH != 0 {
         return Err(Errno(EBADF));
     }
-    if op != libc::LOCK_UN && !file.readable() && !file.writable() {
+    if kind != F_UNLCK && !file.readable() && !file.writable() {
         return Err(Errno(EBADF));
     }
-    let Some(host) = locks::host_fd(&file) else {
-        return Ok(0);
-    };
-    match locks::flock(host, op) {
-        Ok(()) => Ok(0),
-        Err(Errno(EAGAIN)) if cmd & LOCK_NB == 0 => Err(wait(c)),
-        Err(e) => Err(e),
+    if !c.p.config.host_services {
+        let ino = workspace::inode(&file).ok_or(Errno(EPERM))?;
+        let table = c.p.fds.workspace_lock_owner.clone();
+        let request = table.flock(&file, ino, kind);
+        return set_workspace(c, fd, &table, &file, request, sleep);
     }
+    #[cfg(unix)]
+    {
+        let Some(host) = locks::host_fd(&file) else {
+            return Ok(0);
+        };
+        let op = match kind {
+            F_RDLCK => libc::LOCK_SH,
+            F_WRLCK => libc::LOCK_EX,
+            _ => libc::LOCK_UN,
+        };
+        match locks::flock(host, op) {
+            Ok(()) => Ok(0),
+            Err(Errno(EAGAIN)) if sleep => Err(wait(c)),
+            Err(e) => Err(e),
+        }
+    }
+    #[cfg(not(unix))]
+    Err(Errno(ENOSYS))
 }
 
 /// The `struct flock` layouts of the record-lock commands.
@@ -303,15 +318,8 @@ pub fn setlk(
     if owner == Owner::Description && c.p.config.host_services {
         return Err(Errno(EINVAL));
     }
-    if let Some(Resume::WorkspaceRecordLock(waiting)) = c.resume.take() {
-        if c.signal_pending() {
-            return Err(Errno(ERESTARTSYS));
-        }
-        let request = waiting.request;
-        let file = waiting.file.clone();
-        let table = waiting.table.clone();
-        drop(waiting);
-        return set_workspace(c, fd, &table, &file, request, sleep);
+    if let Some(result) = resume_workspace(c, fd, sleep) {
+        return result;
     }
     let (file, fl) = setup(c, fd, arg, layout)?;
     let range = fl.range(&file)?;
@@ -360,6 +368,20 @@ pub fn setlk(
     Ok(0)
 }
 
+fn resume_workspace(c: &mut Ctx<'_>, fd: i32, sleep: bool) -> Option<SysResult> {
+    let Some(Resume::WorkspaceFileLock(waiting)) = c.resume.take() else {
+        return None;
+    };
+    if c.signal_pending() {
+        return Some(Err(Errno(ERESTARTSYS)));
+    }
+    let request = waiting.request;
+    let file = waiting.file.clone();
+    let table = waiting.table.clone();
+    drop(waiting);
+    Some(set_workspace(c, fd, &table, &file, request, sleep))
+}
+
 fn set_workspace(
     c: &mut Ctx<'_>,
     fd: i32,
@@ -372,13 +394,12 @@ fn set_workspace(
         return if c.signal_pending() {
             Err(Errno(ERESTARTSYS))
         } else {
-            Err(c.block(Wait::event(), Resume::WorkspaceRecordLock(waiting)))
+            Err(c.block(Wait::event(), Resume::WorkspaceFileLock(waiting)))
         };
     }
     // Linux checks the original slot after an entered POSIX acquisition. If
     // close or dup2 replaced it while asleep, it removes this table's locks.
-    if request.ownership == Owner::Process
-        && request.lock.kind != F_UNLCK
+    if let Some(ino) = request.posix_acquisition()
         && (!std::sync::Arc::ptr_eq(&c.p.fds.workspace_lock_owner, table)
             || !c
                 .p
@@ -386,7 +407,7 @@ fn set_workspace(
                 .file(fd)
                 .is_ok_and(|current| std::sync::Arc::ptr_eq(&current, file)))
     {
-        table.close(request.ino);
+        table.close(ino);
         return Err(Errno(EBADF));
     }
     Ok(0)
