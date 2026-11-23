@@ -33,6 +33,8 @@ pub struct Wait {
     pub fds: Vec<(Descriptor, bool, bool)>,
     /// Changes to guest-owned pipes observed since this call slept.
     pub(crate) pipes: Vec<super::fs::fd::PipeWait>,
+    /// Guest task exits that make pidfds readable.
+    pub(crate) guest_pidfds: Vec<super::fs::pidfd::GuestWait>,
     /// When the call's timeout expires.
     pub deadline: Option<Instant>,
     /// A signal ends the wait (`TASK_INTERRUPTIBLE`); otherwise only the
@@ -54,6 +56,7 @@ impl Wait {
         Wait {
             fds: Vec::new(),
             pipes: Vec::new(),
+            guest_pidfds: Vec::new(),
             deadline,
             interruptible: true,
             signals: 0,
@@ -65,6 +68,7 @@ impl Wait {
         Wait {
             fds,
             pipes: Vec::new(),
+            guest_pidfds: Vec::new(),
             deadline,
             interruptible: true,
             signals: 0,
@@ -81,6 +85,7 @@ impl Wait {
         Wait {
             fds: Vec::new(),
             pipes: Vec::new(),
+            guest_pidfds: Vec::new(),
             deadline: None,
             interruptible: false,
             signals: 0,
@@ -206,6 +211,7 @@ impl Blocked {
         self.woken
             || self.ready
             || self.wait.pipes.iter().any(|p| p.changed())
+            || self.wait.guest_pidfds.iter().any(|task| task.ready())
             || (sigpending && self.wait.interruptible)
             || self.wait.deadline.is_some_and(|d| now >= d)
     }

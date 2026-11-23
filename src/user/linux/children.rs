@@ -24,6 +24,7 @@ use std::sync::{Arc, Mutex};
 use self::groups::GroupMember;
 use super::abi::errno::Errno;
 use super::abi::errno_table::{EAGAIN, EEXIST};
+use super::fs::pidfd::Target;
 use super::process::{ExitStatus, LinuxProcess};
 
 const PID_LIMIT: i32 = 4 * 1024 * 1024;
@@ -37,8 +38,9 @@ const GUEST_CHILD_ARENA_LIMIT: u64 = 2 << 30;
 #[derive(Debug)]
 struct Namespace {
     next: i32,
-    tasks: BTreeMap<i32, i32>,
+    tasks: BTreeMap<i32, Arc<Target>>,
     processes: BTreeMap<i32, GroupMember>,
+    next_pidfd_ino: u64,
     children: usize,
     arena_bytes: u64,
     last_selected_process: Option<i32>,
@@ -67,7 +69,10 @@ impl GuestTid {
 impl Drop for GuestTid {
     fn drop(&mut self) {
         let mut ns = self.namespace.lock().unwrap();
-        ns.tasks.remove(&self.id);
+        ns.tasks
+            .remove(&self.id)
+            .expect("allocated guest task")
+            .end(None);
         if let Some(bytes) = self.arena_bytes {
             ns.processes.remove(&self.id);
             ns.children -= 1;
@@ -162,8 +167,12 @@ impl Children {
         Self {
             namespace: Some(Arc::new(Mutex::new(Namespace {
                 next: pid + 1,
-                tasks: BTreeMap::from([(1, 1), (pid, pid)]),
+                tasks: BTreeMap::from([
+                    (1, Target::new_guest(1, 1, 1)),
+                    (pid, Target::new_guest(pid, pid, 2)),
+                ]),
                 processes: BTreeMap::from([(pid, GroupMember::initial(pid))]),
+                next_pidfd_ino: 3,
                 children: 0,
                 arena_bytes: 0,
                 last_selected_process: None,
@@ -179,6 +188,14 @@ impl Children {
             owner: pid,
             ..Self::default()
         }
+    }
+
+    pub(super) fn guest_pidfd_target(&self, tid: i32) -> Option<Arc<Target>> {
+        // PID 1 is the synthetic reparenting identity, with no runnable task.
+        if tid == 1 {
+            return None;
+        }
+        self.guest_namespace().tasks.get(&tid).cloned()
     }
 
     pub(super) fn select_guest_process(&self, pid: i32) -> bool {
@@ -217,15 +234,20 @@ impl Children {
             ns.next = next(id);
             id
         };
+        let ino = ns.next_pidfd_ino;
+        ns.next_pidfd_ino = ino.checked_add(1).ok_or(Errno(EAGAIN))?;
         if let Some(bytes) = arena_bytes {
             let member = ns.processes[&self.owner].forked();
             ns.processes.insert(id, member);
-            ns.tasks.insert(id, id);
             ns.children += 1;
             ns.arena_bytes += bytes;
-        } else {
-            ns.tasks.insert(id, self.owner);
         }
+        let tgid = if arena_bytes.is_some() {
+            id
+        } else {
+            self.owner
+        };
+        ns.tasks.insert(id, Target::new_guest(tgid, id, ino));
         Ok(GuestTid {
             id,
             namespace: namespace.clone(),
@@ -396,7 +418,6 @@ impl Children {
 impl Child {
     pub(super) fn finish_guest(&mut self, exit: ExitStatus) -> Children {
         let mut guest = self.guest.take().expect("running child");
-        guest.state.children.mark_guest_zombie();
         self.guest_uid = Some(guest.state.creds.0);
         let status = match exit {
             ExitStatus::Exited(code) => exited_status(code),
@@ -406,6 +427,7 @@ impl Child {
                 unreachable!("scheduler reports internal errors to the owner")
             }
         };
+        guest.state.children.mark_guest_zombie(status);
         self.zombie = Some((status, (0, 0, 0)));
         self.released = true;
         let descendants = std::mem::take(&mut guest.state.children);

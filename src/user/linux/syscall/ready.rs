@@ -143,6 +143,7 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
                 out[i] = polled;
                 wait.fds.extend(w.fds);
                 wait.pipes.extend(w.pipes);
+                wait.guest_pidfds.extend(w.guest_pidfds);
                 wait.signals |= w.signals;
                 wait.deadline = earlier(wait.deadline, w.deadline);
             }

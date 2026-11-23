@@ -76,7 +76,6 @@ fn closed_linux_identity_console_and_external_service_denial_all_abis() {
             Sysno::IoSetup,
             Sysno::IoUringSetup,
             Sysno::Ptrace,
-            Sysno::PidfdOpen,
             Sysno::ProcessVmReadv,
             Sysno::ProcessVmWritev,
             Sysno::Mount,
@@ -89,6 +88,9 @@ fn closed_linux_identity_console_and_external_service_denial_all_abis() {
                 );
             }
         }
+        assert_eq!(h.err(Sysno::PidfdOpen, &[123456, 0]), ESRCH);
+        assert_eq!(h.err(Sysno::PidfdOpen, &[1, 0]), ESRCH);
+        assert_eq!(h.err(Sysno::PidfdOpen, &[0, 0]), EINVAL);
         assert_eq!(h.call(Sysno::Kill, &[123456, 0]), -(ESRCH as i64));
         assert_eq!(h.call(Sysno::Kill, &[100, 0]), 0);
     }
@@ -160,6 +162,125 @@ fn closed_linux_process_groups_isolate_signals_and_select_waiters_all_abis() {
         }
         assert_eq!(h.err(Sysno::Kill, &[group, 0]), ESRCH);
         assert_eq!(h.err(Sysno::Getpgid, &[first]), ESRCH);
+    }
+}
+
+#[test]
+fn closed_linux_pidfds_poll_wait_and_keep_identity_across_pid_reuse_all_abis() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::Call;
+    use crate::user::linux::syscall::thread::cf::CLONE_PIDFD;
+
+    const POLLIN: u16 = 1;
+    const POLLHUP: u16 = 0x10;
+    const P_PIDFD: u64 = 3;
+    const WEXITED: u64 = 4;
+    const WNOWAIT: u64 = 0x0100_0000;
+    const FD_CLOEXEC: u64 = 1;
+    const F_GETFD: u64 = 1;
+
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let entry = super::harness::CODE + 0x1000;
+        h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+        let root_pid = h.ok(Sysno::Getpid, &[]);
+        let root_fd = h.ok(Sysno::PidfdOpen, &[root_pid, 0]);
+        let at = h.scratch;
+        let args_at = at + 64;
+        let mut clone_args = [0; 88];
+        clone_args[..8].copy_from_slice(&CLONE_PIDFD.to_le_bytes());
+        clone_args[8..16].copy_from_slice(&at.to_le_bytes());
+        clone_args[32..40].copy_from_slice(&(SIGCHLD as u64).to_le_bytes());
+        h.proc.space().write_raw(args_at, &clone_args).unwrap();
+        assert_eq!(
+            h.err(Sysno::Clone, &[CLONE_PIDFD | SIGCHLD as u64, 0, 0, 0, 0]),
+            EFAULT
+        );
+        assert!(h.proc.state.children.list.is_empty());
+        let pid = h.ok(Sysno::Clone3, &[args_at, clone_args.len() as u64]);
+        let mut fd_number = [0; 4];
+        h.proc.space().read(at, &mut fd_number).unwrap();
+        let fd = u64::from(u32::from_le_bytes(fd_number));
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, F_GETFD]), FD_CLOEXEC);
+        let alias = h.ok(Sysno::PidfdOpen, &[pid, 0]);
+        let original_file = h.proc.state.fds.file(fd as i32).unwrap();
+        let original = crate::user::linux::syscall::pidfd::target_of(&original_file).unwrap();
+        let alias_file = h.proc.state.fds.file(alias as i32).unwrap();
+        assert!(std::sync::Arc::ptr_eq(
+            original,
+            crate::user::linux::syscall::pidfd::target_of(&alias_file).unwrap()
+        ));
+        {
+            let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+            assert!(child.state.fds.file(fd as i32).is_err());
+            let nr = abi.number(Sysno::PidfdSendSignal).unwrap();
+            child.syscall(0, Call::new(nr, [root_fd, 0, 0, 0, 0, 0]));
+            assert_eq!(child.threads[0].cpu.syscall_return_value(), 0, "{abi:?}");
+        }
+
+        let poll_at = at + 192;
+        let mut poll_record = [0; 8];
+        poll_record[..4].copy_from_slice(&(fd as u32).to_le_bytes());
+        poll_record[4..6].copy_from_slice(&POLLIN.to_le_bytes());
+        h.proc.space().write_raw(poll_at, &poll_record).unwrap();
+        assert_eq!(h.start(0, Sysno::Ppoll, &[poll_at, 1, 0, 0, 0]), None);
+        let cancel = AtomicBool::new(false);
+        for _ in 0..16 {
+            assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+            if h.proc.threads[0].blocked.is_none() {
+                break;
+            }
+        }
+        assert!(h.proc.threads[0].blocked.is_none(), "{abi:?}");
+        assert_eq!(h.result(0), 1);
+        h.proc.space().read(poll_at, &mut poll_record).unwrap();
+        assert_eq!(
+            u16::from_le_bytes(poll_record[6..].try_into().unwrap()),
+            POLLIN
+        );
+
+        let siginfo = at + 256;
+        assert_eq!(
+            h.ok(Sysno::Waitid, &[P_PIDFD, fd, siginfo, WEXITED | WNOWAIT, 0]),
+            0
+        );
+        assert!(
+            matches!(original.guest_state(), Some(crate::user::linux::syscall::pidfd::Task::Zombie(s)) if s == 37 << 8)
+        );
+        assert_eq!(
+            h.ok(Sysno::Waitid, &[P_PIDFD, alias, siginfo, WEXITED, 0]),
+            0
+        );
+        assert_eq!(
+            h.err(Sysno::Waitid, &[P_PIDFD, fd, siginfo, WEXITED, 0]),
+            ECHILD
+        );
+        assert_eq!(h.err(Sysno::PidfdOpen, &[pid, 0]), ESRCH);
+        assert_eq!(h.ok(Sysno::Ppoll, &[poll_at, 1, 0, 0, 0]), 1);
+        h.proc.space().read(poll_at, &mut poll_record).unwrap();
+        assert_eq!(
+            u16::from_le_bytes(poll_record[6..].try_into().unwrap()),
+            POLLIN | POLLHUP
+        );
+
+        clone_args[..16].fill(0);
+        clone_args[64..72].copy_from_slice(&(at + 160).to_le_bytes());
+        clone_args[72..80].copy_from_slice(&1u64.to_le_bytes());
+        h.proc.space().write_raw(args_at, &clone_args).unwrap();
+        h.proc
+            .space()
+            .write_raw(at + 160, &(pid as u32).to_le_bytes())
+            .unwrap();
+        assert_eq!(
+            h.ok(Sysno::Clone3, &[args_at, clone_args.len() as u64]),
+            pid
+        );
+        let replacement_fd = h.ok(Sysno::PidfdOpen, &[pid, 0]);
+        let replacement_file = h.proc.state.fds.file(replacement_fd as i32).unwrap();
+        let replacement = crate::user::linux::syscall::pidfd::target_of(&replacement_file).unwrap();
+        assert_ne!(original.ino(), replacement.ino());
+        assert_eq!(h.err(Sysno::PidfdSendSignal, &[fd, 0, 0, 0]), ESRCH);
+        assert_eq!(h.ok(Sysno::PidfdSendSignal, &[replacement_fd, 0, 0, 0]), 0);
     }
 }
 

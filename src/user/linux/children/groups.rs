@@ -79,7 +79,7 @@ impl Namespace {
 }
 
 impl Children {
-    fn guest_namespace(&self) -> std::sync::MutexGuard<'_, Namespace> {
+    pub(super) fn guest_namespace(&self) -> std::sync::MutexGuard<'_, Namespace> {
         self.namespace
             .as_ref()
             .expect("closed guest namespace")
@@ -89,7 +89,7 @@ impl Children {
 
     pub(in super::super) fn guest_group(&self, tid: i32) -> Option<(i32, i32)> {
         let ns = self.guest_namespace();
-        let group = ns.processes.get(ns.tasks.get(&tid)?)?;
+        let group = ns.processes.get(&ns.tasks.get(&tid)?.tgid)?;
         Some((group.pgid, group.sid))
     }
 
@@ -101,7 +101,7 @@ impl Children {
         }
         let mut ns = self.guest_namespace();
         let owner = ns.tasks.get(&pid).ok_or(Errno(ESRCH))?;
-        if *owner != pid {
+        if owner.tgid != pid {
             return Err(Errno(EINVAL));
         }
         let target = ns.processes.get(&pid).ok_or(Errno(ESRCH))?;
@@ -165,8 +165,9 @@ impl Children {
         }
     }
 
-    pub(super) fn mark_guest_zombie(&self) {
+    pub(super) fn mark_guest_zombie(&self, status: i32) {
         let mut ns = self.guest_namespace();
+        ns.tasks[&self.owner].guest_exit(status);
         let current = ns.processes.get_mut(&self.owner).unwrap();
         current.zombie = true;
         current.signals.clear();
@@ -183,7 +184,7 @@ impl Children {
         let mut ns = self.guest_namespace();
         let sender = &ns.processes[&self.owner];
         let (pgid, sid, uid, euid) = (sender.pgid, sender.sid, sender.uid, sender.euid);
-        let task = ns.tasks.get(&pid).copied();
+        let task = ns.tasks.get(&pid).map(|task| task.tgid);
         let matching = |id, group: &GroupMember| match pid {
             1.. => task == Some(id),
             0 => group.pgid == pgid,

@@ -37,7 +37,8 @@ use super::super::abi::errno_table::*;
 use super::super::abi::open::{O_NONBLOCK, O_RDWR};
 use super::super::fs::anon::Anon;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
-use super::super::fs::pidfd::{PIDFD_THREAD, Target};
+pub use super::super::fs::pidfd::Task;
+use super::super::fs::pidfd::{GuestWait, PIDFD_THREAD, Target};
 use super::super::host;
 use super::super::process::ProcState;
 use super::super::signal::{SigInfo, code, valid_signal};
@@ -62,21 +63,12 @@ pub const PIDFD_SELF_THREAD_GROUP: i32 = -10001;
 /// on it.
 const PROBE_INTERVAL: Duration = Duration::from_millis(10);
 
-/// What a pidfd's task is now.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Task {
-    /// Running (for a thread-group leader: while any thread of its group
-    /// runs).
-    Alive,
-    /// Exited but not reaped, with its wait status.
-    Zombie(i32),
-    /// Reaped, with its wait status when known.
-    Gone(Option<i32>),
-}
-
 /// The task `t` names, seen from process `p` whose thread IDs `own`
 /// recognizes.
 pub fn state_of(p: &ProcState, own: &dyn Fn(i32) -> bool, t: &Target) -> Task {
+    if !p.config.host_services {
+        return t.guest_state().unwrap_or(Task::Gone(None));
+    }
     if let Some(status) = t.ended() {
         return Task::Gone(status);
     }
@@ -132,6 +124,13 @@ fn pidfd_file(target: Arc<Target>, flags: u32) -> Arc<OpenFile> {
 /// was reaped), `ENOENT` for a thread other than a leader without
 /// `thread`.
 fn find(c: &Ctx<'_>, pid: i32, thread: bool) -> Result<Arc<Target>, Errno> {
+    if !c.p.config.host_services {
+        let target = c.p.children.guest_pidfd_target(pid).ok_or(Errno(ESRCH))?;
+        if !thread && target.tid != target.tgid {
+            return Err(Errno(ENOENT));
+        }
+        return Ok(target);
+    }
     if pid == c.p.pid {
         return Target::new(pid, pid, false);
     }
@@ -159,7 +158,9 @@ pub fn pidfd_open(c: &mut Ctx<'_>, pid: i32, flags: u32) -> SysResult {
         return Err(Errno(EINVAL));
     }
     let target = find(c, pid, flags & PIDFD_THREAD != 0)?;
-    c.p.pidfds.add(&target);
+    if c.p.config.host_services {
+        c.p.pidfds.add(&target);
+    }
     super::io::install(c, pidfd_file(target, flags), true)
 }
 
@@ -178,8 +179,14 @@ pub fn clone_check(c: &Ctx<'_>, addr: u64) -> Result<(), Errno> {
 /// `PIDFD_THREAD`), installed close-on-exec, its number stored at `addr`.
 pub fn clone_install(c: &mut Ctx<'_>, tgid: i32, tid: i32, addr: u64) -> Result<(), Errno> {
     let thread = tid != tgid;
-    let target = Target::new(tgid, tid, false)?;
-    c.p.pidfds.add(&target);
+    let target = if c.p.config.host_services {
+        Target::new(tgid, tid, false)?
+    } else {
+        c.p.children.guest_pidfd_target(tid).ok_or(Errno(ESRCH))?
+    };
+    if c.p.config.host_services {
+        c.p.pidfds.add(&target);
+    }
     let flags = if thread { PIDFD_THREAD } else { 0 };
     let fd = super::io::install(c, pidfd_file(target, flags), true)?;
     if let Err(e) = c.write_u32(addr, fd as u32) {
@@ -202,13 +209,15 @@ pub fn wait_target(c: &Ctx<'_>, fd: i32) -> Result<(Option<i32>, bool), Errno> {
 
 /// `pidfd_poll`: `EPOLLIN | EPOLLRDNORM` once the task has exited, with
 /// `EPOLLHUP` once it is gone; and what a sleeper waits on until then.
-pub fn poll(c: &Ctx<'_>, t: &Target) -> (Polled, Wait) {
+pub fn poll(c: &Ctx<'_>, t: &Arc<Target>) -> (Polled, Wait) {
     let mut wait = Wait::event();
     let mask = match state(c, t) {
         Task::Alive => {
             // A thread's exit and a child's end wake sleepers directly;
             // another process's end comes through its host watch.
-            if t.tgid != c.p.pid && !c.p.children.list.iter().any(|ch| ch.pid == t.tgid) {
+            if !c.p.config.host_services {
+                wait.guest_pidfds.push(GuestWait(Arc::clone(t)));
+            } else if t.tgid != c.p.pid && !c.p.children.list.iter().any(|ch| ch.pid == t.tgid) {
                 if let Some(fd) = t.watch_fd() {
                     wait.fds.push((fd, true, false));
                 } else if t.probed() {
@@ -240,8 +249,8 @@ pub fn fdinfo(p: &ProcState, own: &dyn Fn(i32) -> bool, t: &Target) -> String {
 fn signal_target(c: &Ctx<'_>, pidfd: i32) -> Result<(Arc<Target>, Scope), Errno> {
     let me = c.p.pid;
     match pidfd {
-        PIDFD_SELF_THREAD => return Ok((Target::new(me, c.t.tid, false)?, Scope::Thread)),
-        PIDFD_SELF_THREAD_GROUP => return Ok((Target::new(me, me, false)?, Scope::Group)),
+        PIDFD_SELF_THREAD => return Ok((find(c, c.t.tid, true)?, Scope::Thread)),
+        PIDFD_SELF_THREAD_GROUP => return Ok((find(c, me, false)?, Scope::Group)),
         _ => {}
     }
     let file = c.p.fds.file(pidfd)?;
@@ -264,7 +273,7 @@ fn signal_target(c: &Ctx<'_>, pidfd: i32) -> Result<(Arc<Target>, Scope), Errno>
         if let Some(pid) = pid
             && (pid == me || c.is_own_tid(pid))
         {
-            return Ok((Target::new(me, pid, false)?, Scope::Group));
+            return Ok((find(c, pid, true)?, Scope::Group));
         }
     }
     Err(Errno(EBADF))
@@ -325,7 +334,7 @@ pub fn pidfd_send_signal(
         super::signal::kill_info(c, sig, code)
     };
     match kind {
-        Scope::ProcessGroup => process_group(c, t.tid, sig, info),
+        Scope::ProcessGroup => process_group(c, &t, sig, info),
         Scope::Group | Scope::Thread => task(c, &t, kind, sig, info),
     }
 }
@@ -336,6 +345,16 @@ pub fn pidfd_send_signal(
 /// another process is signaled through the host (as `kill` does), its
 /// leader alone being nameable.
 fn task(c: &mut Ctx<'_>, t: &Target, kind: Scope, sig: i32, info: SigInfo) -> SysResult {
+    if !c.p.config.host_services && t.tgid != c.p.pid {
+        if matches!(state(c, t), Task::Gone(_)) {
+            return Err(Errno(ESRCH));
+        }
+        if kind == Scope::Thread {
+            return Err(Errno(ENOSYS));
+        }
+        c.p.children.guest_kill(t.tgid, info)?;
+        return Ok(0);
+    }
     let checked = || {
         if !valid_signal(sig) && sig != 0 {
             Err(Errno(EINVAL))
@@ -362,7 +381,18 @@ fn task(c: &mut Ctx<'_>, t: &Target, kind: Scope, sig: i32, info: SigInfo) -> Sy
 
 /// `kill_pgrp_info`: the process group `pgid` (the pidfd's task ID as a
 /// group ID); `ESRCH` when it has no member.
-fn process_group(c: &mut Ctx<'_>, pgid: i32, sig: i32, info: SigInfo) -> SysResult {
+fn process_group(c: &mut Ctx<'_>, target: &Target, sig: i32, info: SigInfo) -> SysResult {
+    let pgid = target.tid;
+    if !c.p.config.host_services {
+        if pgid <= 1 || matches!(state(c, target), Task::Gone(_)) {
+            return Err(Errno(ESRCH));
+        }
+        if c.p.children.guest_kill(-pgid, info)? {
+            let me = c.p.pid;
+            super::signal::send_process(c, info, me);
+        }
+        return Ok(0);
+    }
     if !c.p.config.processes {
         if pgid != c.p.pid {
             return Err(Errno(ESRCH));
@@ -561,6 +591,9 @@ fn pidfd_info(c: &mut Ctx<'_>, t: &Target, usize: usize, arg: u64) -> SysResult 
         let (ppid, uids, gids) = if own {
             (c.p.ppid, (u, e, e), (g, eg, eg))
         } else {
+            if !c.p.config.host_services {
+                return Err(Errno(EOPNOTSUPP));
+            }
             #[cfg(not(unix))]
             return Err(Errno(ESRCH));
             #[cfg(unix)]

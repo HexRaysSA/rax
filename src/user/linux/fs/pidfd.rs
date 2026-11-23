@@ -1,7 +1,6 @@
 //! pidfds (`fs/pidfs.c`): descriptors that name a process or a thread.
 //!
-//! A pidfd names a task by its thread-group ID (the host PID of its
-//! process) and its own ID: the thread-group ID again for a process (or its
+//! A pidfd names a task by its thread-group ID and its own ID: the thread-group ID again for a process (or its
 //! leader thread), a thread ID of that process otherwise. The task is the
 //! kernel's `struct pid`: it stays named after the task ends, and a new
 //! process that reuses the number is not it.
@@ -29,6 +28,8 @@ pub const PIDFD_THREAD: u32 = super::super::abi::open::O_EXCL;
 /// How the end of a task of another process is seen.
 #[derive(Debug)]
 enum Watch {
+    /// Stable identity in a closed guest namespace.
+    Guest(Task),
     /// Not needed yet: the task is in this process or is its child.
     None,
     /// A host watch (made by this process, or inherited where usable).
@@ -38,6 +39,37 @@ enum Watch {
     Probe,
 }
 
+/// Lifecycle of a task named by a pidfd.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Task {
+    /// The task can run (or is stopped but not exited).
+    Alive,
+    /// Exited and waitable, with its Linux wait status.
+    Zombie(i32),
+    /// The identifier was released, with its wait status if known.
+    Gone(Option<i32>),
+}
+
+/// A scheduler subscription to an unreadable guest pidfd.
+#[derive(Clone, Debug)]
+pub(crate) struct GuestWait(pub Arc<Target>);
+
+impl PartialEq for GuestWait {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for GuestWait {}
+
+impl GuestWait {
+    pub(crate) fn ready(&self) -> bool {
+        self.0
+            .guest_state()
+            .is_some_and(|state| state != Task::Alive)
+    }
+}
+
 /// The task a pidfd names (the kernel's `struct pid`).
 #[derive(Debug)]
 pub struct Target {
@@ -45,12 +77,36 @@ pub struct Target {
     pub tgid: i32,
     /// Its ID: `tgid` for the process or its leader.
     pub tid: i32,
+    guest_ino: Option<u64>,
     /// It ended, with its wait status when known (`pidfs_exit`).
     ended: Mutex<Option<Option<i32>>>,
     watch: Mutex<Watch>,
 }
 
 impl Target {
+    pub(crate) fn new_guest(tgid: i32, tid: i32, ino: u64) -> Arc<Self> {
+        Arc::new(Self {
+            tgid,
+            tid,
+            ended: Mutex::new(None),
+            guest_ino: Some(ino),
+            watch: Mutex::new(Watch::Guest(Task::Alive)),
+        })
+    }
+
+    pub(crate) fn guest_state(&self) -> Option<Task> {
+        match *self.watch.lock().unwrap() {
+            Watch::Guest(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    pub(in super::super) fn guest_exit(&self, status: i32) {
+        let mut watch = self.watch.lock().unwrap();
+        debug_assert!(matches!(*watch, Watch::Guest(Task::Alive)));
+        *watch = Watch::Guest(Task::Zombie(status));
+    }
+
     /// The task `tid` of process `tgid`. `watch` watches its end through
     /// the host (a task of another process); `ESRCH` when it has ended.
     pub fn new(tgid: i32, tid: i32, watch: bool) -> Result<Arc<Self>, Errno> {
@@ -74,6 +130,7 @@ impl Target {
             tgid,
             tid,
             ended: Mutex::new(None),
+            guest_ino: None,
             watch: Mutex::new(watch),
         }))
     }
@@ -82,7 +139,9 @@ impl Target {
     /// PID of a process or leader, the thread ID beside its process's PID
     /// for another thread.
     pub fn ino(&self) -> u64 {
-        if self.tid == self.tgid {
+        if let Some(ino) = self.guest_ino {
+            ino
+        } else if self.tid == self.tgid {
             self.tgid as u32 as u64
         } else {
             (u64::from(self.tgid as u32) << 32) | u64::from(self.tid as u32)
@@ -91,11 +150,27 @@ impl Target {
 
     /// Whether it ended, and its wait status then if known.
     pub fn ended(&self) -> Option<Option<i32>> {
-        *self.ended.lock().unwrap()
+        match self.guest_state() {
+            Some(Task::Gone(status)) => Some(status),
+            Some(_) => None,
+            None => *self.ended.lock().unwrap(),
+        }
     }
 
     /// Records its end; a known status replaces an unknown one.
     pub fn end(&self, status: Option<i32>) {
+        {
+            let mut watch = self.watch.lock().unwrap();
+            if let Watch::Guest(state) = &mut *watch {
+                let known = match *state {
+                    Task::Gone(known) => known,
+                    Task::Zombie(status) => Some(status),
+                    Task::Alive => None,
+                };
+                *state = Task::Gone(known.or(status));
+                return;
+            }
+        }
         let mut e = self.ended.lock().unwrap();
         if e.is_none_or(|s| s.is_none()) {
             *e = Some(status);
@@ -106,6 +181,9 @@ impl Target {
     #[cfg(unix)]
     pub fn exited(&self) -> bool {
         let mut w = self.watch.lock().unwrap();
+        if let Watch::Guest(state) = &*w {
+            return *state != Task::Alive;
+        }
         if let Watch::Host(x) = &*w
             && let Some(done) = x.exited()
         {
@@ -197,7 +275,10 @@ impl Registry {
                 continue;
             }
             let mut w = t.watch.lock().unwrap();
-            if t.ended().is_some() || matches!(&*w, Watch::Host(x) if x.fd().is_some()) {
+            if matches!(&*w, Watch::Guest(_))
+                || t.ended.lock().unwrap().is_some()
+                || matches!(&*w, Watch::Host(x) if x.fd().is_some())
+            {
                 continue;
             }
             match ExitWatch::new(t.tgid) {

@@ -7,12 +7,11 @@ use std::sync::{Arc, Mutex};
 pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     let flags = args.flags;
     let shared = flags & CLONE_VM != 0;
-    if flags & CLONE_PIDFD != 0
-        || shared
-            && (flags & CLONE_VFORK == 0
-                || c.p.shares_mm()
-                || !c.peers.lo.is_empty()
-                || !c.peers.hi.is_empty())
+    if shared
+        && (flags & CLONE_VFORK == 0
+            || c.p.shares_mm()
+            || !c.peers.lo.is_empty()
+            || !c.peers.hi.is_empty())
     {
         return Err(Errno(ENOSYS));
     }
@@ -20,6 +19,9 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         return Err(Errno(EINVAL));
     }
     let requested = super::super::thread::requested_tid(c, &args.set_tid)?;
+    if flags & CLONE_PIDFD != 0 {
+        super::super::pidfd::clone_check(c, args.pidfd)?;
+    }
     let sched = c.t.sched.forked(flags & CLONE_IO != 0)?;
     let tls = if flags & CLONE_SETTLS != 0 {
         Some(super::super::thread::NewTls::new(c, args.tls)?)
@@ -132,6 +134,11 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         threads: vec![leader],
         scheduler: Default::default(),
     };
+    // The child's descriptor table and private memory snapshot precede the
+    // parent-only fd installation and copyback.
+    if flags & CLONE_PIDFD != 0 {
+        super::super::pidfd::clone_install(c, pid, pid, args.pidfd)?;
+    }
     if flags & CLONE_PARENT_SETTID != 0 {
         let _ = c.write_u32(args.parent_tid, pid as u32);
     }

@@ -55,6 +55,9 @@ pub fn permits(s: Sysno) -> bool {
             | S::Wait4
             | S::Waitid
             | S::Waitpid
+            | S::PidfdOpen
+            | S::PidfdSendSignal
+            | S::PidfdGetfd
             | S::SchedYield
             | S::Execve
             | S::Execveat
