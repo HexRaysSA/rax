@@ -43,6 +43,10 @@ impl Fixture {
     }
 
     fn with_clock(count: u8, mode: ClockMode) -> Self {
+        Self::with_memory(count, mode, 128 * 1024 * 1024)
+    }
+
+    fn with_memory(count: u8, mode: ClockMode, memory_bytes: u64) -> Self {
         let kernel = std::env::temp_dir().join(format!(
             "rax-arm-cluster-{}-{}",
             std::process::id(),
@@ -60,7 +64,7 @@ impl Fixture {
             None,
         )
         .unwrap();
-        config.memory = MemorySize(128 * 1024 * 1024);
+        config.memory = MemorySize(memory_bytes);
         let mut vm = Vmm::new_resume_with_clock(config, mode).unwrap();
         vm.vcpus[0]
             .set_state(&CpuState::aarch64(
@@ -489,6 +493,116 @@ fn retained_psci_requests_restore_and_run_the_right_secondaries() {
         let started = target.vm.vcpus[2].get_state().unwrap();
         let regs = &started.as_aarch64().unwrap().regs;
         assert_eq!((regs.x[9], regs.x[0]), (0x1234, 0x8400_0008));
+    }
+}
+
+#[test]
+fn aarch32_cpu_on_keeps_data_endianness_through_pending_checkpoint() {
+    const ENTRY: u64 = CODE + 0x100;
+    const DATA: u64 = CODE + 0x200;
+    const CPSR_E: u64 = 1 << 9;
+    const CPSR_T: u64 = 1 << 5;
+    const RAM_BYTES: u64 = 8 * 1024 * 1024;
+
+    for caller_thumb in [false, true] {
+        let entry_thumb = !caller_thumb;
+        let hvc = if caller_thumb {
+            [0xe0, 0xf7, 0x00, 0x80]
+        } else {
+            0xe140_0070u32.to_le_bytes()
+        };
+        for big_endian in [true, false] {
+            let mut source = Fixture::with_memory(2, ClockMode::Wall, RAM_BYTES);
+            let memory = source.vm.guest_mem.memory();
+            memory.write_slice(&hvc, GuestAddress(CODE)).unwrap();
+            // LDR R4, [R0] in the secondary's instruction set.
+            let arm_load = 0xe590_4000u32.to_le_bytes();
+            let thumb_load = 0x6804u16.to_le_bytes();
+            memory
+                .write_slice(
+                    if entry_thumb { &thumb_load } else { &arm_load },
+                    GuestAddress(ENTRY),
+                )
+                .unwrap();
+            memory
+                .write_slice(&[0x01, 0x23, 0x45, 0x67], GuestAddress(DATA))
+                .unwrap();
+
+            let CpuState::Aarch64(mut state) = source.vm.vcpus[0].get_state().unwrap() else {
+                panic!("expected an Arm vCPU");
+            };
+            state.regs.pstate =
+                0x1d3 | (u64::from(caller_thumb) * CPSR_T) | (u64::from(big_endian) * CPSR_E);
+            state.regs.x[..4].copy_from_slice(&[
+                0x8400_0003, // PSCI CPU_ON, SMC32 calling convention.
+                1,
+                ENTRY | u64::from(entry_thumb),
+                DATA,
+            ]);
+            state.sregs.execution.as_mut().unwrap().sysregs.hcr_el2 &= !(1 << 31);
+            source.vm.vcpus[0]
+                .update_state(&CpuState::Aarch64(state))
+                .unwrap();
+
+            let result = source.vm.vcpus[0].run_retirement_budget(1).unwrap();
+            assert_eq!(result.retired, 1, "{result:?}");
+            let caller = source.vm.vcpus[0].get_state().unwrap();
+            assert_eq!(caller.as_aarch64().unwrap().regs.x[0], 0);
+            assert_eq!(source.cluster().affinity_info(1, 0).unwrap(), 2);
+            assert_eq!(source.vm.coordinator.online, [true, false]);
+            let pending = source.vm.vm.take_cpu_power_requests().unwrap();
+            let [crate::vm::vcpu::CpuPowerRequest::Start { pstate, .. }] = pending.as_slice()
+            else {
+                panic!("expected one pending CPU_ON: {pending:?}");
+            };
+            let expected = (u64::from(big_endian) * CPSR_E) | (u64::from(entry_thumb) * CPSR_T);
+            assert_eq!(
+                *pstate & (CPSR_E | CPSR_T),
+                expected,
+                "caller_thumb={caller_thumb}, big_endian={big_endian}"
+            );
+
+            let verify_start = |vm: &mut Vmm| {
+                vm.route_interprocessor_requests().unwrap();
+                assert_eq!(vm.coordinator.online, [true, true]);
+                let secondary = vm.vcpus[1].get_state().unwrap();
+                let regs = &secondary.as_aarch64().unwrap().regs;
+                assert_eq!(regs.pc, ENTRY);
+                assert_eq!(regs.x[0], DATA);
+                assert_eq!(
+                    regs.pstate & (CPSR_E | CPSR_T),
+                    expected,
+                    "caller_thumb={caller_thumb}, big_endian={big_endian}"
+                );
+                let result = vm.vcpus[1].run_retirement_budget(1).unwrap();
+                assert_eq!(result.retired, 1, "{result:?}");
+                let secondary = vm.vcpus[1].get_state().unwrap();
+                assert_eq!(
+                    secondary.as_aarch64().unwrap().regs.x[4],
+                    if big_endian { 0x0123_4567 } else { 0x6745_2301 },
+                    "caller_thumb={caller_thumb}, big_endian={big_endian}"
+                );
+            };
+
+            let source_kernel = source.kernel.clone();
+            let path = source_kernel.with_extension("rxc");
+            source
+                .vm
+                .take_snapshot_bundle(1)
+                .unwrap()
+                .save(&path)
+                .unwrap();
+            verify_start(&mut source.vm);
+            drop(source);
+            assert!(!source_kernel.exists());
+
+            let bundle = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
+            std::fs::remove_file(path).unwrap();
+            let mut restored = Fixture::with_memory(2, ClockMode::Wall, RAM_BYTES);
+            restored.vm.restore_snapshot_bundle(&bundle).unwrap();
+            assert_eq!(restored.cluster().affinity_info(1, 0).unwrap(), 2);
+            verify_start(&mut restored.vm);
+        }
     }
 }
 

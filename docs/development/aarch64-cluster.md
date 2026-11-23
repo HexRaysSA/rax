@@ -104,3 +104,38 @@ local SEVL, atomic WFE consumption and conditional ARM/Thumb publication. It
 retains the serialized Boolean and each target's stable handle across admitted
 CPU restoration. Native PAuth writeback preserves a signal received in a helper.
 Its event qualification does not close the remaining full audit findings.
+
+## AArch32 CPU_ON data endianness
+
+The software cluster includes the calling core's CPSR.E in the AArch32
+secondary's requested PSTATE. The entry address still selects ARM or
+Thumb independently. The existing pending CPU_ON record already carries
+this PSTATE, so the same bit reaches the destination on direct startup
+and after reloading a pending checkpoint. Older records retain the
+endianness in their saved PSTATE. Setting the bit takes constant time
+and adds no storage to the request.
+[Arm DEN 0022D, section 6.4.3](../specifications/arm/psci-den0022.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The pending request carries CPSR.E from the cold-start caller. | Queue CPU_ON from little- and big-endian ARM and Thumb callers. Restore the pending request from disk and run the target in the opposite instruction set. |
+| The bit governs real memory access. | Have the started core execute LDR on bytes `01 23 45 67`. Require `0x01234567` with E=1 and `0x67452301` with E=0. |
+
+QEMU 11.1.2 on a two-core Cortex-A15 model provides an independent
+encoding and data-order check. Both instruction sets loaded the expected
+value when the secondary selected its data order with SETEND. Its
+firmware CPU_ON loaded the little-endian value even when the caller used
+SETEND BE. Arm DEN 0022D specifies caller endianness for the inherited
+state. The QEMU result establishes the data-order control and the model's
+firmware divergence.
+
+On physical Intel Linux, the software-cluster regression failed before
+the fix with saved PSTATE `0x20` instead of `0x220` for the big-endian
+ARM caller. It passed after the fix for all four combinations of caller
+instruction set and byte order, along both the direct and restored
+paths. All 68 tests across the unfiltered `aarch64_cluster`,
+`runtime_checkpoint_bundle`, `checkpoint_resume`, and
+`checkpoint_cpus` targets passed. These runs qualify the software
+cluster. The focused and integration logs have SHA-256 digests
+`9d071376493059e00c0e2323db3221cdf3246d6ae027e93bc9b222b7c18f6fe9`
+and `855ce17d7ca5bbbb27d4072caa8af2c151c21c9000c53a34cde8fe91126001b3`.

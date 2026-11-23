@@ -62,6 +62,7 @@ impl Aarch64Vcpu {
                     let pstate = if aarch32 {
                         0x1c0
                             | (if caller & 31 == 0x1a { 0x1a } else { 0x13 })
+                            | (caller & (1 << 9)) // Preserve CPSR.E across CPU_ON.
                             | ((raw_entry & 1) << 5)
                     } else {
                         0x3c1 | (caller & 0xc)
