@@ -644,6 +644,48 @@ fn installed_gzip_matches_native_binary_output_through_closed_c_abi() {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn installed_mktemp_creates_a_guest_owned_regular_file() {
+    let path = "/usr/bin/mktemp";
+    let prefix = format!("/tmp/.rax-closed-mktemp-{}-", std::process::id());
+    let template = format!("{prefix}XXXXXX");
+    let installed_image = std::fs::read(path).unwrap();
+    let personality = if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "darwin"
+    };
+    for _ in 0..2 {
+        let options = serde_json::json!({
+            "personality": personality,
+            "guest_path": path,
+            "arguments": [&template],
+            "environment": {"LC_ALL": "C"},
+            "native_runtime": true,
+            "memory_bytes": 268435456,
+        });
+        let process = open(&installed_image, &options.to_string());
+        let state = info(&process);
+        assert_eq!(state["capabilities"]["native_runtime"], true);
+        assert_eq!(state["capabilities"]["host_filesystem"], false);
+        assert_eq!(state["capabilities"]["host_services"], false);
+        let result = run_installed_posix(&process, path);
+        let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+        assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+        assert!(stderr.is_empty());
+        let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+        let reported = std::str::from_utf8(&stdout)
+            .unwrap()
+            .strip_suffix('\n')
+            .unwrap();
+        let suffix = reported.strip_prefix(&prefix).unwrap();
+        assert_eq!(suffix.len(), 6);
+        assert!(suffix.bytes().all(|byte| byte.is_ascii_alphanumeric()));
+        assert!(!std::path::Path::new(reported).exists(), "{reported}");
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn compare_installed_posix_output(
     personality: &str,
     path: &str,

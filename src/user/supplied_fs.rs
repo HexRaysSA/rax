@@ -10,7 +10,12 @@ use std::sync::Arc;
 
 use crate::user::mm::{BytesSource, HostFileSource, PageSource, SourceIdentity};
 mod roots;
+mod workspace;
 use roots::Roots;
+use workspace::Workspace;
+pub use workspace::WorkspaceFile;
+
+const TEMP_DIRECTORY: &str = "/tmp";
 
 /// Maximum path bytes, including the terminating NUL in a guest syscall.
 pub const PATH_MAX: usize = 4096;
@@ -29,6 +34,9 @@ pub enum Error {
     LinkLoop,
     Io,
     TooLarge,
+    ReadOnly,
+    PermissionDenied,
+    NoSpace,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -42,7 +50,10 @@ impl std::fmt::Display for Error {
             Self::NotRegular => "guest path does not refer to a regular file",
             Self::LinkLoop => "guest pathname encountered a symbolic link without following it",
             Self::Io => "selected guest backing file read failed",
-            Self::TooLarge => "selected guest backing exceeds its image or namespace limit",
+            Self::TooLarge => "guest file exceeds its size limit",
+            Self::ReadOnly => "the selected guest backing is read-only",
+            Self::PermissionDenied => "guest identity cannot remove the workspace file",
+            Self::NoSpace => "the private guest workspace is full",
         })
     }
 }
@@ -53,6 +64,8 @@ pub enum Kind {
     File(Arc<[u8]>),
     /// Read-only backing selected by the embedder, never by a guest pathname.
     Backed(Arc<HostFileSource>),
+    /// A regular file created by this guest session.
+    Workspace(Arc<WorkspaceFile>),
     Directory,
     /// The closed runtime's synthetic null character device.
     NullDevice,
@@ -97,6 +110,21 @@ impl Entry {
             _ => None,
         }
     }
+    pub(crate) fn workspace_file(&self) -> Option<&WorkspaceFile> {
+        match &self.kind {
+            Kind::Workspace(file) => Some(file),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn workspace_mode(&self) -> Option<u32> {
+        if self.ino == workspace::ROOT_INODE {
+            Some(0o1777)
+        } else {
+            self.workspace_file().map(WorkspaceFile::mode)
+        }
+    }
+
     pub(crate) fn link_target(&self) -> Option<&[u8]> {
         match &self.kind {
             Kind::Symlink(target) => Some(target),
@@ -106,6 +134,7 @@ impl Entry {
     pub fn bytes(&self) -> Result<Arc<[u8]>, Error> {
         match &self.kind {
             Kind::File(bytes) => Ok(bytes.clone()),
+            Kind::Workspace(file) => file.snapshot(),
             Kind::Backed(source) => {
                 // Image parsers require contiguous bytes; mapping and descriptor
                 // reads use source() instead and do not impose this copy bound.
@@ -142,6 +171,7 @@ impl Entry {
         match &self.kind {
             Kind::File(bytes) => bytes.len() as u64,
             Kind::Backed(source) => source.len(),
+            Kind::Workspace(file) => file.len(),
             Kind::Directory | Kind::NullDevice | Kind::ZeroDevice => 0,
             Kind::Symlink(target) => target.len() as u64,
         }
@@ -165,6 +195,7 @@ impl Entry {
         let source: Arc<dyn PageSource> = match &self.kind {
             Kind::File(bytes) => Arc::new(BytesSource::new(bytes.clone())),
             Kind::Backed(source) => source.clone(),
+            Kind::Workspace(file) => return Ok(file.clone()),
             Kind::Directory => return Err(Error::IsDirectory),
             Kind::NullDevice | Kind::ZeroDevice => return Err(Error::NotRegular),
             Kind::Symlink(_) => return Err(Error::LinkLoop),
@@ -202,6 +233,7 @@ pub struct Files {
     entries: Arc<BTreeMap<String, Entry>>,
     caller_roots: Option<Arc<Roots>>,
     native_libraries: Option<Arc<Roots>>,
+    workspace: Option<Arc<Workspace>>,
 }
 impl Default for Files {
     fn default() -> Self {
@@ -292,6 +324,7 @@ impl Files {
             entries: Arc::new(entries),
             caller_roots: None,
             native_libraries: None,
+            workspace: None,
         })
     }
 
@@ -399,6 +432,7 @@ impl Files {
         let mut next = Self::from_kinds(files).map_err(std::io::Error::other)?;
         next.caller_roots = self.caller_roots.clone();
         next.native_libraries = self.native_libraries.clone();
+        next.workspace = self.workspace.clone();
         next.restore_roots().map_err(std::io::Error::other)?;
         Ok(next)
     }
@@ -442,6 +476,7 @@ impl Files {
         let mut next = Self::from_kinds(files)?;
         next.caller_roots = self.caller_roots.clone();
         next.native_libraries = self.native_libraries.clone();
+        next.workspace = self.workspace.clone();
         next.restore_roots()?;
         Ok(next)
     }
@@ -554,7 +589,106 @@ impl Files {
         Ok(())
     }
 
+    /// Enable ephemeral storage for closed native-runtime sessions.
+    /// Explicit files and mounts retain their contents and precedence.
+    pub(crate) fn with_temp_workspace(&self) -> Self {
+        Self {
+            workspace: Some(Arc::new(Workspace::new())),
+            ..self.clone()
+        }
+    }
+
+    pub(crate) fn fresh_session(&self) -> Self {
+        if self.has_workspace() {
+            self.with_temp_workspace()
+        } else {
+            self.clone()
+        }
+    }
+
+    pub(crate) fn has_workspace(&self) -> bool {
+        self.workspace.is_some()
+    }
+
+    fn workspace_at(&self, path: &str) -> Option<&Workspace> {
+        self.workspace.as_deref().filter(|_| {
+            !self
+                .caller_roots
+                .iter()
+                .chain(&self.native_libraries)
+                .flat_map(|mounts| mounts.paths())
+                .any(|mount| {
+                    mount == "/"
+                        || path == mount
+                        || path
+                            .strip_prefix(mount)
+                            .is_some_and(|tail| tail.starts_with('/'))
+                })
+        })
+    }
+
+    pub(crate) fn create_workspace_file(
+        &self,
+        path: &str,
+        mode: u32,
+        owner: (u32, u32),
+        exclusive: bool,
+    ) -> Result<(String, Entry), Error> {
+        validate(path)?;
+        let (parent, name) = path.rsplit_once('/').expect("validated absolute path");
+        if name.is_empty() {
+            return Err(Error::IsDirectory);
+        }
+        let parent = if parent.is_empty() { "/" } else { parent };
+        let (parent, entry) = self.lookup(parent)?;
+        if !entry.is_dir() {
+            return Err(Error::NotDirectory);
+        }
+        if parent != TEMP_DIRECTORY || matches!(name, "." | "..") {
+            return Err(Error::ReadOnly);
+        }
+        let path = format!("{parent}/{name}");
+        let scratch = self.workspace_at(&path).ok_or(Error::ReadOnly)?;
+        if self.entries.contains_key(&path) {
+            return Err(if exclusive {
+                Error::Exists
+            } else {
+                Error::ReadOnly
+            });
+        }
+        let file = scratch.create(name.to_owned(), mode, owner, exclusive)?;
+        Ok((
+            path,
+            Entry {
+                ino: file.ino,
+                kind: Kind::Workspace(file),
+            },
+        ))
+    }
+
+    pub(crate) fn unlink_workspace_file(&self, path: &str, uid: u32) -> Result<(), Error> {
+        let (path, entry) = self.lookup_with_follow(path, false)?;
+        if entry.is_dir() {
+            return Err(Error::IsDirectory);
+        }
+        if entry.workspace_file().is_none() {
+            return Err(Error::ReadOnly);
+        }
+        let scratch = self.workspace_at(&path).ok_or(Error::ReadOnly)?;
+        let name = path.strip_prefix("/tmp/").expect("private workspace file");
+        scratch.unlink(name, uid)
+    }
+
     fn entry(&self, path: &str, follow: bool) -> Result<Entry, Error> {
+        if path == TEMP_DIRECTORY
+            && self.workspace_at(path).is_some()
+            && self.entries.get(path).is_none_or(Entry::is_dir)
+        {
+            return Ok(Entry {
+                ino: workspace::ROOT_INODE,
+                kind: Kind::Directory,
+            });
+        }
         if let Some(entry) = self.entries.get(path) {
             if !follow
                 && let Some(roots) = &self.native_libraries
@@ -564,6 +698,15 @@ impl Files {
                 return Ok(link);
             }
             return Ok(entry.clone());
+        }
+        if let Some(name) = path.strip_prefix("/tmp/")
+            && let Some(scratch) = self.workspace_at(path)
+            && let Some(file) = scratch.get(name)?
+        {
+            return Ok(Entry {
+                ino: file.ino,
+                kind: Kind::Workspace(file),
+            });
         }
         for roots in self.caller_roots.iter().chain(&self.native_libraries) {
             if !follow && let Some(link) = roots.symlink(path)? {
@@ -677,7 +820,7 @@ impl Files {
             return Err(Error::NotDirectory);
         }
         let prefix = if canonical == "/" {
-            canonical
+            "/".to_owned()
         } else {
             format!("{canonical}/")
         };
@@ -690,6 +833,15 @@ impl Files {
                 (!name.is_empty() && !name.contains('/')).then(|| name.to_string())
             })
             .collect();
+        if let Some(scratch) = self.workspace_at(TEMP_DIRECTORY) {
+            match canonical.as_str() {
+                "/" => {
+                    names.insert("tmp".to_owned());
+                }
+                TEMP_DIRECTORY => names.extend(scratch.children()?),
+                _ => {}
+            }
+        }
         for roots in self.caller_roots.iter().chain(&self.native_libraries) {
             names.extend(roots.children(prefix.trim_end_matches('/'))?);
         }
@@ -708,6 +860,62 @@ impl Files {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_workspace_preserves_supplied_names_and_starts_each_session_empty() {
+        let inputs = Files::new(BTreeMap::from([(
+            "/tmp/owned".into(),
+            Arc::from(&b"caller bytes"[..]),
+        )]))
+        .unwrap()
+        .with_temp_workspace();
+        let first = inputs.fresh_session();
+        let second = inputs.fresh_session();
+        assert_eq!(
+            first.lookup("/tmp").unwrap().1.workspace_mode(),
+            Some(0o1777)
+        );
+        assert!(matches!(
+            first.create_workspace_file("/tmp/owned", 0o600, (0, 0), true),
+            Err(Error::Exists)
+        ));
+        assert!(matches!(
+            first.unlink_workspace_file("/tmp/owned", 0),
+            Err(Error::ReadOnly)
+        ));
+        assert!(matches!(
+            first.create_workspace_file("/outside", 0o600, (0, 0), true),
+            Err(Error::ReadOnly)
+        ));
+        let (_, entry) = first
+            .create_workspace_file("/tmp/created", 0o600, (0, 0), true)
+            .unwrap();
+        entry
+            .workspace_file()
+            .unwrap()
+            .write(None, b"guest bytes")
+            .unwrap();
+        assert_eq!(first.read("/tmp/created").unwrap().as_ref(), b"guest bytes");
+        assert!(matches!(
+            second.lookup("/tmp/created"),
+            Err(Error::NotFound)
+        ));
+        assert!(matches!(
+            inputs.lookup("/tmp/created"),
+            Err(Error::NotFound)
+        ));
+        assert_eq!(first.read("/tmp/owned").unwrap().as_ref(), b"caller bytes");
+        assert_eq!(
+            first
+                .children("/tmp")
+                .unwrap()
+                .into_iter()
+                .map(|(name, _)| name)
+                .collect::<Vec<_>>(),
+            ["created", "owned"]
+        );
+    }
+
     fn files() -> Files {
         Files::new(BTreeMap::from([
             ("/bin/prog".into(), Arc::from(&b"program"[..])),

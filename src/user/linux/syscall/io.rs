@@ -1398,6 +1398,9 @@ pub(super) fn fsync_file(file: &OpenFile) -> SysResult {
     match (&file.object, file.ftype) {
         // fdget: an O_PATH descriptor is none.
         (FileObject::PathOnly, _) => Err(Errno(EBADF)),
+        (FileObject::Supplied(entry), FileType::Regular) if entry.workspace_file().is_some() => {
+            Ok(0)
+        }
         (FileObject::Host(f), FileType::Regular | FileType::Directory | FileType::BlockDevice) => {
             // Some hosts reject fsync on directories; the data is durable
             // either way for the guest's purposes.
@@ -1535,6 +1538,13 @@ pub(super) fn ftruncate_file(c: &mut Ctx<'_>, file: &OpenFile, len: i64) -> SysR
     }
     match &file.object {
         FileObject::Mqueue(h) => super::mqueue::truncate(file, h, len),
+        FileObject::Supplied(entry) if entry.workspace_file().is_some() => {
+            let workspace = entry.workspace_file().expect("checked workspace file");
+            workspace.resize(len as u64)?;
+            c.p.space
+                .truncated(crate::user::mm::PageSource::identity(workspace), len as u64);
+            Ok(0)
+        }
         #[cfg(not(unix))]
         FileObject::Host(_) => Err(Errno(EPERM)),
         #[cfg(unix)]

@@ -271,3 +271,17 @@ pub fn permits(s: Sysno) -> bool {
             | S::EpollPwait2
     )
 }
+
+/// The closed namespace handles these calls only when installed mode owns
+/// writable storage. The call handlers still enforce path and descriptor type.
+pub(super) fn permits_workspace(s: Sysno) -> bool {
+    matches!(
+        s,
+        Sysno::Unlink
+            | Sysno::Unlinkat
+            | Sysno::Ftruncate
+            | Sysno::Ftruncate64
+            | Sysno::Fsync
+            | Sysno::Fdatasync
+    )
+}

@@ -1,13 +1,16 @@
 //! Descriptor storage for embedding. Duplicates share the open description's
 //! cursor; positional reads do not change it. No operation opens a host file.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use super::{FdTable, FileKind, OpenFile};
 use crate::user::console::{CapturedConsole, Console, OutputStream};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::abi::types::Stat;
-use crate::user::darwin::io::{O_ACCMODE, O_RDONLY, O_WRONLY};
+use crate::user::darwin::io::{O_ACCMODE, O_APPEND, O_RDONLY, O_WRONLY};
 use crate::user::mm::{PageSource, SourceIdentity};
 use crate::user::supplied_fs::{Device, Entry};
 
@@ -16,6 +19,12 @@ pub enum EmbeddedFile {
     Supplied {
         entry: Entry,
         cursor: Mutex<u64>,
+    },
+    Workspace {
+        entry: Entry,
+        cursor: Mutex<u64>,
+        access: u32,
+        append: AtomicBool,
     },
     Null {
         ino: u64,
@@ -33,6 +42,26 @@ pub enum EmbeddedFile {
 }
 
 impl EmbeddedFile {
+    pub(crate) fn entry(&self) -> Option<&Entry> {
+        match self {
+            Self::Supplied { entry, .. } | Self::Workspace { entry, .. } => Some(entry),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn workspace(&self) -> Option<(&crate::user::supplied_fs::WorkspaceFile, u32)> {
+        match self {
+            Self::Workspace { entry, access, .. } => Some((entry.workspace_file()?, *access)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn set_append(&self, flags: u32) {
+        if let Self::Workspace { append, .. } = self {
+            append.store(flags & O_APPEND != 0, Ordering::Relaxed);
+        }
+    }
+
     pub(crate) fn device_access(&self) -> Option<u32> {
         match self {
             Self::Null { access, .. } | Self::Zero { access, .. } => Some(*access),
@@ -43,7 +72,7 @@ impl EmbeddedFile {
     /// Bytes available without consuming input or changing the file offset.
     pub fn available(&self) -> Result<u64, Errno> {
         match self {
-            Self::Supplied { entry, cursor } => {
+            Self::Supplied { entry, cursor } | Self::Workspace { entry, cursor, .. } => {
                 if entry.is_dir() {
                     return Err(Errno::EISDIR);
                 }
@@ -57,19 +86,21 @@ impl EmbeddedFile {
         }
     }
 
-    /// Stable virtual metadata. Supplied files are readable/executable and
-    /// immutable; directories are searchable. Timestamps and ownership are
-    /// virtual zero values, never taken from the embedding host.
+    /// Virtual metadata. Supplied files are immutable, and guest-created
+    /// files retain the mode and ownership of their creation.
     pub fn stat(&self) -> Result<Stat, Errno> {
+        let workspace = self.entry().and_then(Entry::workspace_file);
+        let (uid, gid) = workspace.map_or((0, 0), |file| file.ownership());
         let (ino, mode, size) = match self {
-            Self::Supplied { entry, .. } => {
+            Self::Supplied { entry, .. } | Self::Workspace { entry, .. } => {
+                let permissions = entry.workspace_mode().unwrap_or(0o555) as u16;
                 if entry.is_dir() {
-                    (entry.ino, 0o040555, 0)
+                    (entry.ino, 0o040000 | permissions, 0)
                 } else {
                     let mode = if entry.link_target().is_some() {
                         0o120755
                     } else {
-                        0o100555
+                        0o100000 | permissions
                     };
                     (
                         entry.ino,
@@ -86,7 +117,7 @@ impl EmbeddedFile {
             Self::Pipe(end) => return Ok(end.stat()),
         };
         Ok(Stat {
-            dev: if matches!(self, Self::Supplied { .. }) {
+            dev: if self.entry().is_some() {
                 0x524158
             } else {
                 0x524159
@@ -94,7 +125,9 @@ impl EmbeddedFile {
             ino,
             mode,
             size,
-            nlink: 1,
+            uid,
+            gid,
+            nlink: u16::from(workspace.is_none_or(|file| file.linked())),
             blksize: 4096,
             blocks: (size as u64).div_ceil(512) as i64,
             ..Default::default()
@@ -120,7 +153,8 @@ impl EmbeddedFile {
     /// captured streams reject positional operations with `ESPIPE`.
     pub fn read(&self, out: &mut [u8], offset: Option<i64>) -> Result<usize, Errno> {
         match self {
-            Self::Supplied { entry, cursor } => {
+            Self::Workspace { access, .. } if *access == O_WRONLY => Err(Errno::EBADF),
+            Self::Supplied { entry, cursor } | Self::Workspace { entry, cursor, .. } => {
                 let source = entry.source()?;
                 let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
                 let start = match offset {
@@ -170,6 +204,30 @@ impl EmbeddedFile {
                     return Err(Errno::ESPIPE);
                 }
                 Console::Captured(console.clone()).write_all(*stream, bytes)?;
+                Ok(bytes.len())
+            }
+            Self::Workspace {
+                entry,
+                cursor,
+                access,
+                append,
+            } => {
+                if *access == O_RDONLY {
+                    return Err(Errno::EBADF);
+                }
+                let file = entry.workspace_file().expect("guest workspace descriptor");
+                let offset = offset
+                    .map(|value| u64::try_from(value).map_err(|_| Errno::EINVAL))
+                    .transpose()?;
+                if bytes.is_empty() {
+                    return Ok(0);
+                }
+                let mut position = cursor.lock().map_err(|_| Errno::EIO)?;
+                let at = offset.or_else(|| (!append.load(Ordering::Relaxed)).then_some(*position));
+                let end = file.write(at, bytes)?;
+                if offset.is_none() {
+                    *position = end;
+                }
                 Ok(bytes.len())
             }
             Self::Input(_) | Self::Supplied { .. } => Err(Errno::EBADF),
@@ -224,7 +282,9 @@ impl EmbeddedFile {
     pub fn seek(&self, offset: i64, whence: i32) -> Result<u64, Errno> {
         let (cursor, entry) = match self {
             Self::Supplied { entry, .. } if entry.is_dir() => return Err(Errno::EISDIR),
-            Self::Supplied { entry, cursor } => (cursor, Some(entry)),
+            Self::Supplied { entry, cursor } | Self::Workspace { entry, cursor, .. } => {
+                (cursor, Some(entry))
+            }
             Self::Null { cursor, .. } | Self::Zero { cursor, .. } => (cursor, None),
             _ => return Err(Errno::ESPIPE),
         };
@@ -260,6 +320,19 @@ impl OpenFile {
         };
         Self {
             kind: FileKind::Embedded(file),
+            path: Some(path.into_bytes()),
+            flags: Mutex::new(flags),
+        }
+    }
+
+    pub(crate) fn workspace(path: String, entry: Entry, flags: u32) -> Self {
+        Self {
+            kind: FileKind::Embedded(EmbeddedFile::Workspace {
+                entry,
+                cursor: Mutex::new(0),
+                access: flags & O_ACCMODE,
+                append: AtomicBool::new(flags & O_APPEND != 0),
+            }),
             path: Some(path.into_bytes()),
             flags: Mutex::new(flags),
         }

@@ -1134,10 +1134,12 @@ RAX_API rax_status rax_analyze(int arch, uint32_t mode, uint64_t pc,
  *
  * The embedded profile has no host filesystem access or inherited host streams.
  * Supply dependency bytes explicitly; missing dependencies do not search the
- * host. Windows disk operations are denied; Linux and Darwin use closed
- * immutable supplied-file namespaces with guest-local descriptors. stdin is
- * finite: empty input is
- * EOF, not a pending read. stdout/stderr share one bounded captured-output pool.
+ * host. Windows disk operations are denied. Linux and Darwin use guest-local
+ * descriptors and immutable supplied files. Native-runtime Linux and Darwin
+ * sessions can also create regular files directly under a private /tmp with
+ * a 16 MiB logical byte quota and 1024 live file objects. The session discards
+ * these files on close. stdin is finite and empty stdin returns EOF.
+ * stdout/stderr share one bounded captured-output pool.
  * There is no process checkpoint/fork API in this version.
  */
 typedef struct rax_process rax_process;

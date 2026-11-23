@@ -898,6 +898,7 @@ impl LinuxProcess {
                 ));
             }
             let files = files
+                .fresh_session()
                 .with_file(exe_guest.clone(), image.bytes.clone())
                 .map_err(|e| SpawnError::Unsupported(e.to_string()))?;
             let vfs = Vfs::closed(files, config.cwd.clone())

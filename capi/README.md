@@ -760,6 +760,16 @@ the denial of general host filesystem, sockets, processes and IPC remain in
 force. Inspection reports `capabilities.native_runtime`; this is a selected
 mode, not a guarantee that every runtime API or application is supported.
 
+On Linux and Darwin, native-runtime sessions start with a private guest
+/tmp for regular files. A session can create, read, append, truncate, and
+unlink files directly in that directory. Open descriptors keep an unlinked
+file alive, including across recreation of its former name. The namespace
+is shared within the guest process family and discarded on session close.
+It holds up to 16 MiB of logical file data and 1,024 live file objects.
+Supplied files and selected runtime libraries stay read-only. File operations
+in /tmp never open or mutate the host directory. Directory creation, renames,
+and writable shared file mappings are outside this profile.
+
 Windows associates a supplied main image with an installed backing file when
 its guest path identifies a file in the selected system directory and its bytes
 match that file exactly.

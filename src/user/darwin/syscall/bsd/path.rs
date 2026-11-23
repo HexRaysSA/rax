@@ -39,7 +39,7 @@ fn nofile(ctx: &Ctx<'_>) -> u64 {
 /// `openat(fd, path, flags, mode)` (`open` with `AT_FDCWD`).
 pub fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, mode: u32) -> SysResult {
     if ctx.proc.vfs.is_closed() {
-        return embedded::openat(ctx, dirfd, path, flags);
+        return embedded::openat(ctx, dirfd, path, flags, mode);
     }
 
     #[cfg(unix)]
@@ -322,6 +322,9 @@ pub fn readlinkat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64)
 /// `unlinkat(fd, path, flag)` (`unlink` with `AT_FDCWD`, `rmdir` with
 /// `AT_REMOVEDIR`).
 pub fn unlinkat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flag: u32) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        return embedded::unlinkat(ctx, dirfd, path, flag);
+    }
     #[cfg(unix)]
     {
         let (_, cpath) = guest_path(ctx, path)?;

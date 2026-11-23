@@ -156,18 +156,27 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
 /// Metadata of a supplied entry, including guest character devices.
 fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
     let size = entry.len().min(i64::MAX as u64) as i64;
+    let workspace = entry.workspace_file();
+    let (uid, gid) = workspace.map_or((0, 0), |file| file.ownership());
     Stat {
         ino: entry.ino,
         mode: match &entry.kind {
-            crate::user::supplied_fs::Kind::Directory => mode::S_IFDIR | 0o555,
+            crate::user::supplied_fs::Kind::Directory => {
+                mode::S_IFDIR | entry.workspace_mode().unwrap_or(0o555)
+            }
+            crate::user::supplied_fs::Kind::Workspace(file) => mode::S_IFREG | file.mode(),
             crate::user::supplied_fs::Kind::Symlink(_) => mode::S_IFLNK | 0o777,
             crate::user::supplied_fs::Kind::NullDevice
             | crate::user::supplied_fs::Kind::ZeroDevice => mode::S_IFCHR | 0o666,
             _ => mode::S_IFREG | 0o555,
         },
-        nlink: if entry.is_dir() { 2 } else { 1 },
-        uid: 0,
-        gid: 0,
+        nlink: if entry.is_dir() {
+            2
+        } else {
+            u64::from(workspace.is_none_or(|file| file.linked()))
+        },
+        uid,
+        gid,
         rdev_major: u32::from(entry.device().is_some()),
         rdev_minor: match entry.device() {
             Some(crate::user::supplied_fs::Device::Null) => 3,
@@ -380,6 +389,7 @@ pub(super) fn open_target(
         Target::Fd(file) => Ok(file),
         Target::Supplied(entry, guest) => {
             let device = entry.device().is_some();
+            let workspace = entry.workspace_file();
             if flags & (O_CREAT | O_EXCL) == (O_CREAT | O_EXCL) {
                 return Err(Errno(EEXIST));
             }
@@ -387,6 +397,7 @@ pub(super) fn open_target(
                 return Err(Errno(ELOOP));
             }
             if !device
+                && workspace.is_none()
                 && flags & O_PATH == 0
                 && (accmode != O_RDONLY || flags & (O_TRUNC | O_TMPFILE_BIT) != 0)
             {
@@ -395,8 +406,17 @@ pub(super) fn open_target(
             if flags & layout.directory != 0 && !entry.is_dir() {
                 return Err(Errno(ENOTDIR));
             }
-            if device && flags & O_PATH == 0 && flags & layout.direct != 0 {
+            if (device || workspace.is_some()) && flags & O_PATH == 0 && flags & layout.direct != 0
+            {
                 return Err(Errno(EINVAL));
+            }
+            if let Some(file) = workspace
+                && flags & O_PATH == 0
+                && flags & O_TRUNC != 0
+            {
+                file.resize(0)?;
+                c.p.space
+                    .truncated(crate::user::mm::PageSource::identity(file), 0);
             }
             let mut directory = None;
             let (object, kind) = if device {
@@ -640,6 +660,9 @@ pub fn compat_openat(
 }
 
 fn open_at(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, create_mode: u32) -> SysResult {
+    if flags & (O_CREAT | O_TRUNC) != 0 && c.p.vfs.supplied().is_some_and(|f| f.has_workspace()) {
+        c.p.fds.free_fds(1, super::io::nofile(c))?;
+    }
     let file = open_file(c, dirfd, path, flags, create_mode)?;
     super::io::install(c, file, flags & O_CLOEXEC != 0)
 }
@@ -664,9 +687,68 @@ pub(super) fn open_file(
         );
         return open_target(c, target, request.flags, request.create_mode);
     }
+    let create = flags & (O_CREAT | O_PATH) == O_CREAT;
+    let exclusive = create && flags & O_EXCL != 0;
     let nofollow = flags & c.p.abi.open_flags().nofollow != 0;
-    let target = resolve(c, dirfd, path, 0, !nofollow)?;
+    let target = match resolve(c, dirfd, path, 0, !(nofollow || exclusive)) {
+        Err(Errno(ENOENT))
+            if create
+                && c.p
+                    .vfs
+                    .supplied()
+                    .is_some_and(|files| files.has_workspace()) =>
+        {
+            if flags
+                & (c.p.abi.open_flags().directory | O_TMPFILE_BIT | c.p.abi.open_flags().direct)
+                != 0
+            {
+                return Err(Errno(EINVAL));
+            }
+            let absolute = supplied_path(c, dirfd, path)?;
+            let files = c.p.vfs.supplied().expect("checked supplied namespace");
+            let mode = create_mode & !c.p.file_creation_mask();
+            let owner = (c.p.creds.1, c.p.creds.3);
+            let (path, entry) = files.create_workspace_file(&absolute, mode, owner, exclusive)?;
+            return open_target(
+                c,
+                Target::Supplied(entry, path),
+                flags & !O_EXCL,
+                create_mode,
+            );
+        }
+        result => result?,
+    };
+    if let Target::Supplied(entry, _) = &target
+        && let Some(file) = entry.workspace_file()
+        && flags & O_PATH == 0
+        && !exclusive
+    {
+        let mut need = match flags & O_ACCMODE {
+            O_RDONLY => 4,
+            O_WRONLY => 2,
+            _ => 6,
+        };
+        if flags & O_TRUNC != 0 {
+            need |= 2;
+        }
+        if !file.permits(need, (c.p.creds.1, c.p.creds.3), &c.p.groups) {
+            return Err(Errno(EACCES));
+        }
+    }
     open_target(c, target, flags, create_mode)
+}
+
+fn supplied_path(c: &Ctx<'_>, dirfd: i32, address: u64) -> Result<String, Errno> {
+    let raw = c.read_cstr_raw(address, fs::PATH_MAX - 1)?;
+    if raw.is_empty() {
+        return Err(Errno(ENOENT));
+    }
+    let path = fs::Vfs::path_str(&raw)?;
+    Ok(if path.starts_with('/') {
+        path.to_owned()
+    } else {
+        format!("{}/{path}", base_dir(c, dirfd)?.trim_end_matches('/'))
+    })
 }
 
 /// `openat2` with `struct open_how` (resolution restrictions are not
@@ -794,11 +876,13 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             }
             Ok(0)
         }
-        Target::Supplied(entry, _) => supplied_access(amode, entry.device().is_some()),
+        Target::Supplied(entry, _) => supplied_entry_access(c, &entry, amode, flags),
         Target::Proc(..) => Ok(0),
-        Target::Fd(f) if f.supplied_stat.is_some() => {
-            supplied_access(amode, f.ftype == FileType::CharDevice)
-        }
+        Target::Fd(f) if f.supplied_stat.is_some() => match &f.object {
+            FileObject::Supplied(entry) => supplied_entry_access(c, entry, amode, flags),
+            _ if f.supplied_stat.is_some_and(|st| st.mode & 0o1777 == 0o1777) => Ok(0),
+            _ => supplied_access(amode, f.ftype == FileType::CharDevice),
+        },
         Target::Fd(f) => match &f.host_path {
             #[cfg(unix)]
             Some(h) => {
@@ -815,6 +899,31 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             super::super::host::access(&host, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
         }
     }
+}
+
+fn supplied_entry_access(
+    c: &Ctx<'_>,
+    entry: &crate::user::supplied_fs::Entry,
+    amode: u32,
+    flags: u32,
+) -> SysResult {
+    if let Some(file) = entry.workspace_file() {
+        let (uid, euid, gid, egid) = c.p.creds;
+        let ids = if flags & AT_EACCESS != 0 {
+            (euid, egid)
+        } else {
+            (uid, gid)
+        };
+        return if file.permits(amode, ids, &c.p.groups) {
+            Ok(0)
+        } else {
+            Err(Errno(EACCES))
+        };
+    }
+    if entry.is_dir() && entry.workspace_mode().is_some() {
+        return Ok(0);
+    }
+    supplied_access(amode, entry.device().is_some())
 }
 
 fn supplied_access(amode: u32, device: bool) -> SysResult {
@@ -1015,24 +1124,39 @@ pub fn mknodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, dev: u32) -> S
 }
 
 /// `unlinkat` (and `unlink`, `rmdir`).
-#[cfg(unix)]
 pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult {
     if flags & !AT_REMOVEDIR != 0 {
         return Err(Errno(EINVAL));
     }
-    let host = host_target(c, dirfd, path, false)?;
-    let was = super::notify::before(c, &host);
-    if flags & AT_REMOVEDIR != 0 {
-        std::fs::remove_dir(&host)?;
-    } else {
-        // Linux reports EISDIR for unlink(dir); some hosts report EPERM.
-        if std::fs::symlink_metadata(&host)?.is_dir() {
-            return Err(Errno(EISDIR));
+    if let Some(files) = c.p.vfs.supplied() {
+        let path = supplied_path(c, dirfd, path)?;
+        if flags == AT_REMOVEDIR {
+            let (_, entry) = files.lookup_with_follow(&path, false)?;
+            return Err(Errno(if entry.is_dir() { EROFS } else { ENOTDIR }));
         }
-        std::fs::remove_file(&host)?;
+        files.unlink_workspace_file(&path, c.p.creds.1)?;
+        return Ok(0);
     }
-    super::notify::removed(c, &host, was);
-    Ok(0)
+    #[cfg(not(unix))]
+    {
+        Err(Errno(ENOSYS))
+    }
+    #[cfg(unix)]
+    {
+        let host = host_target(c, dirfd, path, false)?;
+        let was = super::notify::before(c, &host);
+        if flags & AT_REMOVEDIR != 0 {
+            std::fs::remove_dir(&host)?;
+        } else {
+            // Linux reports EISDIR for unlink(dir); some hosts report EPERM.
+            if std::fs::symlink_metadata(&host)?.is_dir() {
+                return Err(Errno(EISDIR));
+            }
+            std::fs::remove_file(&host)?;
+        }
+        super::notify::removed(c, &host, was);
+        Ok(0)
+    }
 }
 
 /// `renameat2` (and `rename`, `renameat`).

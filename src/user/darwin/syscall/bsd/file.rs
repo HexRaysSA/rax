@@ -695,7 +695,8 @@ pub fn fstat64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
 /// `fsync(fd)`, `fdatasync(fd)`.
 pub fn fsync(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
-    if matches!(&file.kind, FileKind::Embedded(object) if object.device_access().is_some()) {
+    if matches!(&file.kind, FileKind::Embedded(object) if object.device_access().is_some() || object.workspace().is_some())
+    {
         return Ok(Rv::one(0));
     }
     #[cfg(unix)]
@@ -715,6 +716,17 @@ pub fn fsync(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
 pub fn ftruncate(ctx: &mut Ctx<'_>, fd: i32, length: i64) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
     if let FileKind::Embedded(object) = &file.kind {
+        if let Some((workspace, access)) = object.workspace() {
+            if access == io::O_RDONLY || length < 0 {
+                return Err(Errno::EINVAL);
+            }
+            workspace.resize(length as u64)?;
+            ctx.space().truncated(
+                crate::user::mm::PageSource::identity(workspace),
+                length as u64,
+            );
+            return Ok(Rv::one(0));
+        }
         if let Some(access) = object.device_access() {
             return if access == io::O_RDONLY || length < 0 {
                 Err(Errno::EINVAL)
@@ -929,6 +941,9 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
             let mut flags = file.flags.lock().map_err(|_| Errno::EIO)?;
             if c == F_SETFL {
                 *flags = (*flags & !O_STATUS_FLAGS) | (arg as u32 & O_STATUS_FLAGS);
+                if let FileKind::Embedded(object) = &file.kind {
+                    object.set_append(*flags);
+                }
                 return Ok(Rv::one(0));
             }
             return Ok(Rv::one(u64::from(*flags)));

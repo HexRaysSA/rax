@@ -45,6 +45,9 @@ impl From<crate::user::supplied_fs::Error> for Errno {
             E::LinkLoop => linux::ELOOP,
             E::Io => linux::EIO,
             E::TooLarge => linux::EFBIG,
+            E::ReadOnly => linux::EROFS,
+            E::PermissionDenied => linux::EPERM,
+            E::NoSpace => linux::ENOSPC,
         })
     }
 }

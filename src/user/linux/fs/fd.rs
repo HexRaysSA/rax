@@ -462,6 +462,15 @@ impl OpenFile {
             }
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Supplied(entry) if entry.device().is_some() => Ok(data.len()),
+            FileObject::Supplied(entry) if entry.workspace_file().is_some() => {
+                let file = entry.workspace_file().expect("checked workspace file");
+                let mut state = self.state.lock().unwrap();
+                if !data.is_empty() {
+                    let offset = (state.flags & O_APPEND == 0).then_some(state.synth_pos);
+                    state.synth_pos = file.write(offset, data)?;
+                }
+                Ok(data.len())
+            }
             FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
@@ -526,6 +535,11 @@ impl OpenFile {
                 Ok(f.write_at(&data[..n], offset)?)
             }
             FileObject::Supplied(entry) if entry.device().is_some() => Ok(data.len()),
+            FileObject::Supplied(entry) if entry.workspace_file().is_some() => {
+                let file = entry.workspace_file().expect("checked workspace file");
+                file.write((self.flags() & O_APPEND == 0).then_some(offset), data)?;
+                Ok(data.len())
+            }
             FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Mqueue(_) if !self.fmode().1 => Err(Errno(EBADF)),
             FileObject::Mqueue(_) => Err(Errno(EINVAL)),

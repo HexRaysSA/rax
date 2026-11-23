@@ -31,7 +31,7 @@ use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FdTable, OpenFile};
 #[cfg(unix)]
 use crate::user::darwin::host::{self, check};
-use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
+use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK, O_CREAT, O_TRUNC};
 use crate::user::darwin::mach::exception::Handler;
 use crate::user::darwin::mach::ipc::{MACH_PORT_DEAD, MACH_PORT_NULL, Port};
 use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, PORT_REGISTER_MAX, TaskState, special};
@@ -390,12 +390,12 @@ fn open_action(
     nofile: u64,
 ) -> Result<i32, Errno> {
     let file = if ctx.proc.vfs.is_closed() {
-        embedded::open_file(oflag, |policy| {
-            ctx.proc
-                .vfs
-                .lookup_with_policy(path, &s.cwd, policy)
-                .map_err(Errno::from)
-        })?
+        if oflag & (O_CREAT | O_TRUNC) != 0
+            && ctx.proc.vfs.files().is_some_and(|f| f.has_workspace())
+        {
+            s.fds.lowest_free(0, nofile)?;
+        }
+        embedded::open_file(ctx, path, &s.cwd, oflag, mode)?
     } else {
         #[cfg(unix)]
         {

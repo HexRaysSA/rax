@@ -43,6 +43,7 @@ pub(super) fn prepare(config: &DarwinConfig, image: &mut ImageFile) -> Result<Vf
             "embedded processes require a supplied namespace",
         ))?;
     let files = files
+        .fresh_session()
         .with_file(config.exec_path.clone(), image.bytes.clone())
         .map_err(|e| SpawnError::Io(config.exec_path.clone(), std::io::Error::other(e)))?;
     let vfs = Vfs::supplied(files);

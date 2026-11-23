@@ -541,9 +541,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Mkdirat => r(path::mkdirat(c, fd(a[0]), a[1], a[2] as u32)),
         #[cfg(unix)]
         S::Rmdir => r(path::unlinkat(c, path::AT_FDCWD, a[0], path::AT_REMOVEDIR)),
-        #[cfg(unix)]
         S::Unlink => r(path::unlinkat(c, path::AT_FDCWD, a[0], 0)),
-        #[cfg(unix)]
         S::Unlinkat => r(path::unlinkat(c, fd(a[0]), a[1], a[2] as u32)),
         #[cfg(unix)]
         S::Rename => r(path::renameat2(
@@ -1221,7 +1219,17 @@ pub fn dispatch(
         uring::drive(&mut c);
     }
     let result = match sysno {
-        Some(s) if !c.p.config.host_services && !super::embedding::permits(s) => Err(Errno(EPERM)),
+        Some(s)
+            if !c.p.config.host_services
+                && !super::embedding::permits(s)
+                && !(super::embedding::permits_workspace(s)
+                    && c.p
+                        .vfs
+                        .supplied()
+                        .is_some_and(|files| files.has_workspace())) =>
+        {
+            Err(Errno(EPERM))
+        }
         Some(s) if c.compat => compat::call(&mut c, s, args),
         Some(s) => call_handler(&mut c, s, args),
         // do_ni_syscall: an ARM task's number past the table.

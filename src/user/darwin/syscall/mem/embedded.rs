@@ -16,7 +16,13 @@ pub(super) fn mmap(
     pos: u64,
     inherit: u32,
 ) -> SysResult {
-    let EmbeddedFile::Supplied { entry, .. } = object else {
+    if object
+        .workspace()
+        .is_some_and(|(_, access)| access == crate::user::darwin::io::O_WRONLY)
+    {
+        return Err(Errno::EACCES);
+    }
+    let Some(entry) = object.entry() else {
         return Err(Errno::ENODEV);
     };
     if entry.is_dir() {

@@ -27,6 +27,7 @@ pub fn native(files: &Files) -> io::Result<Files> {
         }
         let cache = PathBuf::from("/etc/ld.so.cache");
         select(files, roots, cache.is_file().then_some(cache))
+            .map(|files| files.with_temp_workspace())
     }
     #[cfg(not(target_os = "linux"))]
     {

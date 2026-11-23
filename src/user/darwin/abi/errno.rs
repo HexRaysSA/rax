@@ -140,6 +140,9 @@ impl From<crate::user::supplied_fs::Error> for Errno {
             E::LinkLoop => Self::ELOOP,
             E::Io => Self::EIO,
             E::TooLarge => Self::EFBIG,
+            E::ReadOnly => Self::EROFS,
+            E::PermissionDenied => Self::EPERM,
+            E::NoSpace => Self::ENOSPC,
         }
     }
 }

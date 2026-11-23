@@ -61,6 +61,13 @@ impl Vfs {
         policy: LinkPolicy,
     ) -> io::Result<(String, Entry)> {
         let files = self.supplied.as_ref().ok_or(io::ErrorKind::Unsupported)?;
+        let absolute = Self::absolute_guest_path(path, cwd)?;
+        files
+            .lookup_with_policy(&absolute, policy)
+            .map_err(io::Error::other)
+    }
+
+    pub(crate) fn absolute_guest_path(path: &[u8], cwd: &[u8]) -> io::Result<String> {
         let parse = |bytes| {
             std::str::from_utf8(bytes)
                 .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, Error::InvalidPath))
@@ -69,14 +76,11 @@ impl Vfs {
         if path.is_empty() {
             return Err(io::Error::new(io::ErrorKind::NotFound, Error::NotFound));
         }
-        let absolute = if path.starts_with('/') {
+        Ok(if path.starts_with('/') {
             path.to_owned()
         } else {
             format!("{}/{path}", parse(cwd)?.trim_end_matches('/'))
-        };
-        files
-            .lookup_with_policy(&absolute, policy)
-            .map_err(io::Error::other)
+        })
     }
 
     fn require_host(&self) -> io::Result<()> {
