@@ -164,21 +164,23 @@ jobs:
             ntdll_sha256 = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
             debugger_version = (Get-Item -LiteralPath $cdb).VersionInfo.ProductVersion
           }
-          $commands = @'
+          $breakpoint = @'
           .effmach arm64
           bu0 ntdll!NtApphelpCacheControl ".if (@w0 != 0n11) { gc }"
+          '@
+          $sample = @'
           g
-          bc 0
           r $t0=@x1
           r $t1=poi(@$t0+0x178)
           .printf "\nRAX_APPHELP_ENTRY mask=%x flags=%x name_bytes=%u capacity=%u\n", dwo(@$t0), dwo(@$t0+4), wo(@$t0+0x30), dwo(@$t0+0x180)
           gu
           .printf "\nRAX_APPHELP_RETURN status=%x bytes=%u\n", @w0, dwo(@$t0+0x180)
-          .if (@w0==0 && dwo(@$t0+0x180)==0n64 && @$t1!=0) { .for (r $t2=0; @$t2<0n64; r $t2=@$t2+4) { .printf "\nRAX_APPHELP_WORD offset=%u value=%08x\n", @$t2, dwo(@$t1+@$t2) } }
-          g
+          .if (@w0==0 && dwo(@$t0+0x180)>0 && dwo(@$t0+0x180)<=0n256 && (dwo(@$t0+0x180)&3)==0 && @$t1!=0) { .for (r $t2=0; @$t2<dwo(@$t0+0x180); r $t2=@$t2+4) { .printf "\nRAX_APPHELP_WORD offset=%u value=%08x\n", @$t2, dwo(@$t1+@$t2) } }
           '@
+          $commands = @($breakpoint, $sample, $sample, $sample, 'g') -join "`n"
           $raw = Join-Path $scratch 'debugger.log'
           $PSNativeCommandUseErrorActionPreference = $false
+          Set-Location -LiteralPath (Split-Path -Parent $cmd)
           $commands -split '\r?\n' | & $cdb -G -noshell -sins -netsyms:no -y $scratch $cmd /d /c $cmd /d /c echo rax-child 2>&1 |
             Set-Content -LiteralPath $raw -Encoding utf8
           $identity.debugger_exit = $LASTEXITCODE
