@@ -28,6 +28,7 @@ on:
           - legacy-ntstore
           - vex-ntstore
           - xmm-lanes
+          - vector-logic
           - compat-mmio
           - compat16-mmio
           - port-debug

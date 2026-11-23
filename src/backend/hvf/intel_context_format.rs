@@ -513,6 +513,14 @@ impl Context {
                 "saved YMM access lacks AVX state or native MMIO provenance",
             ));
         }
+        if let Some(encoding) = self.mmio_input.vector_logic_encoding()
+            && (!self.mmio_debug_complete
+                || (encoding.needs_avx() && !mmio::ymm_enabled(self.public.sregs.cr4, xcr0)))
+        {
+            return Err(invalid(
+                "saved vector logic input lacks native MMIO provenance or AVX state",
+            ));
+        }
         if self.halted && self.vmcs(V::VMCS_GUEST_ACTIVITY_STATE as u32)? != 1 {
             return Err(invalid("halted owner differs from guest HLT activity"));
         }

@@ -405,6 +405,155 @@ fn lane_case(code: &[u8], lane: usize, vex: bool, read: bool, restore: bool) -> 
     }
 }
 
+pub(super) fn run_logic(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    for (prefix, opcode, name) in [
+        (0, 0x54, "andps"),
+        (0, 0x55, "andnps"),
+        (0, 0x56, "orps"),
+        (0, 0x57, "xorps"),
+        (1, 0x54, "andpd"),
+        (1, 0x55, "andnpd"),
+        (1, 0x56, "orpd"),
+        (1, 0x57, "xorpd"),
+        (1, 0xdb, "pand"),
+        (1, 0xdf, "pandn"),
+        (1, 0xeb, "por"),
+        (1, 0xef, "pxor"),
+    ] {
+        let legacy = [0x66, 0x44, 0x0f, opcode, 0x3f];
+        let legacy = &legacy[usize::from(prefix == 0)..];
+        let vex = 0x38 | prefix;
+        for (code, encoding, width, vex) in [
+            (legacy, "legacy", 16, false),
+            (&[0xc5, vex, opcode, 0x7f, 3], "vex2-128", 16, true),
+            (&[0xc4, 0x61, vex, opcode, 0x7f, 3], "vex3-128", 16, true),
+            (&[0xc5, vex | 4, opcode, 0x7f, 3], "vex2-256", 32, true),
+            (
+                &[0xc4, 0x61, vex | 4, opcode, 0x7f, 3],
+                "vex3-256",
+                32,
+                true,
+            ),
+        ] {
+            for restore in [false, true] {
+                let value = logic_case(code, opcode, width, vex, restore);
+                let phase = if restore { "restored" } else { "direct" };
+                record(
+                    output,
+                    case,
+                    &format!("vector-logic-{encoding}-{name}-{phase}"),
+                    width,
+                    value,
+                );
+                case += 1;
+            }
+        }
+        let fault_pc = alignment_fault(legacy, false, 3);
+        record(
+            output,
+            case,
+            &format!("vector-logic-legacy-{name}-misaligned"),
+            16,
+            fault_pc,
+        );
+        case += 1;
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn logic_case(code: &[u8], opcode: u8, width: usize, vex: bool, restore: bool) -> u64 {
+    const FLAGS: u64 = 0x8d7;
+    const REPLY: [u64; 4] = [
+        0x1608_a460_3d32_5a17,
+        0x0033_ee86_b407_a9de,
+        0x7bcd_ff42_ea16_70af,
+        0xec73_3584_8dc6_bf0a,
+    ];
+    let memory = guest_memory(code);
+    word(&memory, 0x4000, 0x4000_009b);
+    let (mut vm, mut cpu) = machine(&memory);
+    enable_guest_avx(&memory, cpu.as_mut());
+    let mut initial = state(cpu.as_ref());
+    let device_address = MMIO + if vex { 3 } else { 0 };
+    initial.regs.rip = CODE;
+    initial.regs.rdi = MMIO;
+    initial.regs.rax = SEED;
+    initial.regs.rflags = FLAGS;
+    initial.regs.xmm = std::array::from_fn(|index| [SEED + index as u64, MARKER - index as u64]);
+    initial.regs.ymm_high =
+        std::array::from_fn(|index| [!SEED - index as u64, !MARKER + index as u64]);
+    let mut xmm = initial.regs.xmm;
+    let mut upper = initial.regs.ymm_high;
+    let source = if vex { 8 } else { 15 };
+    cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+
+    let pending = |cpu: &mut dyn VCpu| {
+        let exit = event(cpu);
+        assert!(
+            matches!(exit, VcpuExit::MmioRead { addr, size } if addr == device_address && usize::from(size) == width),
+            "unexpected packed logic exit for {code:02x?}: {exit:?}",
+        );
+        assert!(cpu.io_completion_result().is_err());
+    };
+    pending(cpu.as_mut());
+    if restore {
+        // Re-execution would fault on UD2. Only the recorded transaction can retire.
+        memory
+            .memory()
+            .write_slice(&[0x0f, 0x0b], GuestAddress(CODE))
+            .unwrap();
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let (saved, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+        assert_eq!(saved.state.pc(), CODE);
+        drop(boundary);
+        drop(cpu);
+        drop(vm);
+        (vm, cpu) = machine(&memory);
+        cpu.restore_checkpoint_context(&saved.state, &saved.emulator, Some(&context.unwrap()))
+            .unwrap();
+        pending(cpu.as_mut());
+    }
+    let result = |left: u64, right: u64| match opcode {
+        0x54 | 0xdb => left & right,
+        0x55 | 0xdf => !left & right,
+        0x56 | 0xeb => left | right,
+        0x57 | 0xef => left ^ right,
+        _ => unreachable!(),
+    };
+    xmm[15] = [
+        result(xmm[source][0], REPLY[0]),
+        result(xmm[source][1], REPLY[1]),
+    ];
+    if width == 32 {
+        upper[15] = [
+            result(upper[source][0], REPLY[2]),
+            result(upper[source][1], REPLY[3]),
+        ];
+    } else if vex {
+        upper[15] = [0; 2];
+    }
+    let reply = REPLY.map(u64::to_le_bytes).concat();
+    cpu.complete_io_in(&reply[..width]);
+    cpu.io_completion_result().unwrap();
+    let retired = state(cpu.as_ref());
+    assert_eq!(retired.regs.rip, CODE + code.len() as u64);
+    assert_eq!(retired.regs.rdi, MMIO);
+    assert_eq!(retired.regs.rflags, FLAGS);
+    assert_eq!(retired.regs.xmm, xmm);
+    assert_eq!(retired.regs.ymm_high, upper);
+    halted_with_flags(cpu.as_mut(), code.len(), SEED, FLAGS);
+    let final_state = state(cpu.as_ref());
+    assert_eq!(final_state.regs.xmm, xmm);
+    assert_eq!(final_state.regs.ymm_high, upper);
+    drop(cpu);
+    drop(vm);
+    let [low0, low1] = retired.regs.xmm[15];
+    let [high0, high1] = retired.regs.ymm_high[15];
+    low0 ^ low1.rotate_left(7) ^ high0.rotate_left(23) ^ high1.rotate_left(41)
+}
+
 fn run_cases(output: &Path, vex: bool, profile: &str, transfers: Vec<MoveCase<'_>>) {
     const REPLY: u128 = 0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211;
     const HIGH_REPLY: u128 = 0x99aa_2233_4567_dead_babe_1111_7777_cafe;

@@ -635,3 +635,49 @@ continuation and CPUID at 1, 2 and 4 vCPUs. The VMM-file cases capture
 after guest shutdown. Whole-VMM restore of a pending XMM lane transfer
 and bare-metal Intel macOS execution remain unverified.
 [Broad execution artifacts](https://github.com/HexRaysSA/rax/actions/runs/45123636232)
+
+## Packed logical reads
+
+Intel HVF handles device reads for the packed AND, AND-NOT, OR, and XOR
+forms with PS, PD, and integer operands. Legacy SSE reads an aligned
+16-byte operand, updates its destination XMM register and preserves the
+upper YMM state. VEX.128 reads 16 bytes and clears the upper destination
+state. VEX.256 reads 32 bytes and writes the full YMM result. Both VEX
+encodings use the explicit vvvv source and accept unaligned operands.
+The completion leaves RFLAGS and other registers unchanged. The pending
+record retains the source bytes alongside the operation and width and
+appends its discriminant after the existing wire variants. Bytewise
+completion takes O(width) time and O(width) space, with width bounded at
+32 bytes.
+[Intel SDM Volume 2, ANDPS/ANDPD/PAND, ANDNPS/ANDNPD/PANDN, ORPS/ORPD/POR, XORPS/XORPD/PXOR](https://cdrdv2-public.intel.com/843829/325383-sdm-vol-2abcd-dec-24.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The memory operand is read-only and the vector length determines its width. | High | Plan legacy, VEX2 and VEX3 encodings with both VEX lengths. Check the exact address, width and operand roles. Test a write exit, register-only instructions and illegal prefixes. |
+| Legacy alignment and destination preservation differ from VEX. | High | Run all 12 legacy operations on aligned RAM and require a fault at offset 3. Run all 48 VEX forms at offset 3, using distinct source and destination registers and populated upper lanes. |
+| The pending input can retire once without refetching the instruction. | High | Restore into a fresh owner after replacing the original opcode with UD2. Check the re-emitted request, result bytes, PC and untouched flags and vector registers. Reject short and long replies without publishing a write or retiring. |
+
+All 60 MMIO planning cases rejected the source operand before the fix.
+The failing log SHA-256 is
+`8f5041f624f46b5a28c222a96d6ac3991c9bcfb6487b92c94663a2f9f2598b11`.
+An independent test on a physical Intel Xeon E5-1650 v3 executed all
+60 encodings against ordinary RAM, verified every destination byte and
+unchanged flags, and observed SIGSEGV for all 12 misaligned legacy
+controls. The 60 ordered hardware result fingerprints have SHA-256
+`a028d8357966a7cd97eac40c6f75410cb87f527661e572c8b78903228b1ffc2c`.
+
+The complete Intel Linux runs passed 133 `hvf_mmio`, 102 `isa_oracle`,
+and 28,561 `x86_64` tests. The x86-64 suite reported three ignored
+cases. All three suites reported zero failures and zero filtered tests.
+The combined log SHA-256 is
+`07720149f7d9a637605658409f86991c88125a8e3a5afbf64f1c85da5d79b40b`.
+
+On Apple Silicon the Intel-target tests passed all 351 cases, including
+100 simulated SDK owner cases and 16 CI pinning cases. The consumer
+linked for Intel macOS and passed strict signature verification with
+the Hypervisor entitlement. All 54 Python tooling tests passed.
+The test log SHA-256 is
+`c1be95f8a566ce29ec9a3a121adcf9d62f8e556e98610a02c611488750cff505`.
+The hosted `vector-logic` profile runs 60 direct cases, 60 fresh-owner
+restores and 12 guest alignment faults. Hosted execution of this profile
+is pending.

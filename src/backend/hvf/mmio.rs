@@ -29,6 +29,8 @@ use divide::DivideInput;
 #[path = "mmio/string.rs"]
 mod string;
 pub(crate) use string::{Load as StringLoad, Progress as StringProgress};
+#[path = "mmio/vector_logic.rs"]
+pub(crate) mod vector_logic;
 #[path = "mmio/xmm_lane.rs"]
 pub(crate) mod xmm_lane;
 
@@ -274,6 +276,10 @@ pub(crate) enum Action {
         zero_upper: bool,
     },
     XmmLaneWrite(xmm_lane::Transfer),
+    VectorLogic {
+        input: vector_logic::Input,
+        source: u8,
+    },
     YmmRead(YmmTransfer),
     YmmWrite(YmmTransfer),
     StringLoad(StringLoad),
@@ -575,6 +581,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if let Some(plan) = xmm_lane::prepare(context, memory, record, &instruction, read)? {
         return Ok(plan);
     }
+    if let Some(plan) = vector_logic::prepare(context, memory, record, &instruction, read)? {
+        return Ok(plan);
+    }
     if matches!(instruction.mnemonic.as_str(), "div" | "idiv") {
         return divide::prepare(context, memory, record, &instruction);
     }
@@ -823,6 +832,10 @@ enum Pending {
         preserved: [u8; 8],
         zero_upper: bool,
     },
+    VectorLogic {
+        input: vector_logic::Input,
+        left: [u8; 32],
+    },
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
@@ -856,6 +869,7 @@ impl InputState {
             Pending::Xmm(input) | Pending::VexXmm(input) => (input.size, None),
             Pending::Ymm(_) => (YMM_BYTES, None),
             Pending::XmmLane { .. } => (xmm_lane::BYTES, None),
+            Pending::VectorLogic { input, .. } => (input.encoding.size(), None),
         })
     }
     pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {
@@ -874,6 +888,7 @@ impl InputState {
             Some(Pending::Xmm(input) | Pending::VexXmm(input)) => input.validate()?,
             Some(Pending::Ymm(input)) => input.validate()?,
             Some(Pending::XmmLane { transfer, .. }) => transfer.validate()?,
+            Some(Pending::VectorLogic { input, .. }) => input.validate()?,
             Some(Pending::Divide { input, data_causes }) => {
                 Self::validate_divide(input, *data_causes)?;
             }
@@ -889,6 +904,12 @@ impl InputState {
     }
     pub(crate) fn pending(&self) -> bool {
         self.pending.is_some()
+    }
+    pub(crate) fn vector_logic_encoding(&self) -> Option<vector_logic::Encoding> {
+        match self.pending.as_ref() {
+            Some(Pending::VectorLogic { input, .. }) => Some(input.encoding),
+            _ => None,
+        }
     }
     pub(crate) fn ready(&self) -> Result<(), &str> {
         if let Some(error) = self.failure.as_deref() {
@@ -966,6 +987,16 @@ impl InputState {
         });
         Ok(())
     }
+    pub(crate) fn begin_vector_logic(
+        &mut self,
+        input: vector_logic::Input,
+        left: [u8; 32],
+    ) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        input.validate()?;
+        self.pending = Some(Pending::VectorLogic { input, left });
+        Ok(())
+    }
     fn validate_divide(input: &DivideInput, data_causes: u64) -> Result<(), String> {
         input.validate()?;
         // Pending-debug B0–B3 plus the enabled-breakpoint bit. Every
@@ -1036,6 +1067,7 @@ impl InputState {
                     zero_upper: *zero_upper,
                     length: transfer.length,
                 }),
+            Pending::VectorLogic { input, left } => input.effect(left, data),
             Pending::Ymm(transfer) => data
                 .try_into()
                 .map(|value| Effect::Ymm {

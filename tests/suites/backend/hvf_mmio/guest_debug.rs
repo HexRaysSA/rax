@@ -188,6 +188,7 @@ fn pending(action: Action) -> mmio::InputState {
         | Action::XmmWrite(_)
         | Action::XmmLaneRead { .. }
         | Action::XmmLaneWrite(_)
+        | Action::VectorLogic { .. }
         | Action::YmmWrite(_)
         | Action::StringStore { .. } => {
             panic!("write has an output acknowledgment")

@@ -1233,16 +1233,20 @@ impl run_loop::ExitHandler for HvfCore {
     fn mmio(&mut self) -> Result<VcpuExit> {
         self.io_ready()?;
         let plan = self.prepare_mmio()?;
-        if matches!(
-            &plan.action,
-            mmio::Action::YmmRead(_) | mmio::Action::YmmWrite(_)
-        ) {
+        let avx_error = match &plan.action {
+            mmio::Action::YmmRead(_) | mmio::Action::YmmWrite(_) => {
+                Some("HVF YMM MMIO requires enabled guest AVX state")
+            }
+            mmio::Action::VectorLogic { input, .. } if input.encoding.needs_avx() => {
+                Some("HVF vector logic MMIO requires enabled guest AVX state")
+            }
+            _ => None,
+        };
+        if let Some(error) = avx_error {
             let cr4 = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_CR4)?;
             let xcr0 = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_XCR0)?;
             if !mmio::ymm_enabled(cr4, xcr0) {
-                return Err(Error::Emulator(
-                    "HVF YMM MMIO requires enabled guest AVX state".into(),
-                ));
+                return Err(Error::Emulator(error.into()));
             }
         }
         let mut data_causes = self.data_breakpoint_causes(&plan)?;
@@ -1347,6 +1351,25 @@ impl run_loop::ExitHandler for HvfCore {
                     plan.length,
                     transfer.lane.bytes(&value).to_vec(),
                 )
+            }
+            mmio::Action::VectorLogic { input, source } => {
+                let layout = &self.native_profile()?.xsave;
+                let image = intel_fp::read(self.vcpu_id, layout)?;
+                let size = input.encoding.size();
+                let left = if size == mmio::YMM_BYTES {
+                    layout.read_ymm(&image, source)?
+                } else {
+                    let mut left = [0; 32];
+                    left[..16].copy_from_slice(&layout.read_xmm(&image, source)?);
+                    left
+                };
+                self.mmio_input
+                    .begin_vector_logic(input, left)
+                    .map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size,
+                })
             }
             mmio::Action::YmmRead(input) => {
                 self.mmio_input.begin_ymm(input).map_err(Error::Emulator)?;

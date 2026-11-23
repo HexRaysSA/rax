@@ -690,3 +690,20 @@ mod legacy;
 #[path = "metadata_vex.rs"]
 mod vex;
 use legacy::{decode_0f, fixed_legacy};
+fn packed_logic_mnemonics(prefix: u8, opcode: u8) -> Option<(&'static str, &'static str)> {
+    Some(match (prefix, opcode) {
+        (0, 0x54) => ("andps", "vandps"),
+        (0, 0x55) => ("andnps", "vandnps"),
+        (0, 0x56) => ("orps", "vorps"),
+        (0, 0x57) => ("xorps", "vxorps"),
+        (1, 0x54) => ("andpd", "vandpd"),
+        (1, 0x55) => ("andnpd", "vandnpd"),
+        (1, 0x56) => ("orpd", "vorpd"),
+        (1, 0x57) => ("xorpd", "vxorpd"),
+        (1, 0xdb) => ("pand", "vpand"),
+        (1, 0xdf) => ("pandn", "vpandn"),
+        (1, 0xeb) => ("por", "vpor"),
+        (1, 0xef) => ("pxor", "vpxor"),
+        _ => return None,
+    })
+}

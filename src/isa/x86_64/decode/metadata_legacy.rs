@@ -264,6 +264,32 @@ pub(super) fn decode_0f(
             out.operands = vec![dst, rm];
             CMOV[(op & 15) as usize]
         }
+        0x54..=0x57 | 0xdb | 0xdf | 0xeb | 0xef => {
+            let names = packed_logic_mnemonics(u8::from(ctx.operand_size_override), op);
+            let Some((name, _)) = names.filter(|_| ctx.rep_prefix.is_none() && !ctx.has_rex2())
+            else {
+                *unsupported = true;
+                return None;
+            };
+            let raw_rm = ctx.peek_u8().ok()? & 7;
+            let (group, _, mut rm) = modrm(ctx, address_bits, 16, *branch_bits == 64)?;
+            if rm.kind == OperandKind::Register {
+                rm.reg = format!("xmm{}", raw_rm | ctx.rex_b());
+                rm.width_bits = 128;
+            }
+            out.operands = vec![
+                Operand {
+                    kind: OperandKind::Register,
+                    reg: format!("xmm{}", group | ctx.rex_r()),
+                    width_bits: 128,
+                    read: true,
+                    write: true,
+                    ..Operand::default()
+                },
+                rm,
+            ];
+            name
+        }
         0x10..=0x13
         | 0x16
         | 0x17

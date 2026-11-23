@@ -29,8 +29,10 @@ pub(super) fn decode_xmm_transfer(
         ((!vex >> 5) & 4, vex & 0x7f)
     };
     let opcode = ctx.consume_u8().ok()?;
+    let logic = packed_logic_mnemonics(flags & 3, opcode).map(|(_, vex)| vex);
     let wide = bits == 64 && flags & 0x80 != 0;
     let (load, mut size, vector_rm) = match (flags & 3, opcode) {
+        _ if logic.is_some() => (true, 16, true),
         (1, 0x6e) => (true, if wide { 8 } else { 4 }, false),
         (1, 0x7e) => (false, if wide { 8 } else { 4 }, false),
         (2, 0x7e) => (true, 8, true),
@@ -58,9 +60,9 @@ pub(super) fn decode_xmm_transfer(
         *unsupported = load && flags & 3 == 0;
         return None;
     }
-    let lane_load = lane_move && load;
+    let explicit_source = lane_move && load || logic.is_some();
     let vvvv = !flags >> 3 & 15;
-    if lane_load && bits != 64 && vvvv >= 8 || !lane_load && vvvv != 0 {
+    if explicit_source && bits != 64 && vvvv >= 8 || !explicit_source && vvvv != 0 {
         return None;
     }
     if flags & 4 != 0 {
@@ -94,9 +96,9 @@ pub(super) fn decode_xmm_transfer(
         write: load,
         ..Operand::default()
     };
-    out.operands = if lane_load {
+    out.operands = if explicit_source {
         let source = Operand {
-            reg: format!("xmm{vvvv}"),
+            reg: format!("{bank}{vvvv}"),
             read: true,
             write: false,
             ..vector.clone()
@@ -108,6 +110,7 @@ pub(super) fn decode_xmm_transfer(
         vec![read_write(rm, false, true), vector]
     };
     out.mnemonic = match (opcode, size, flags & 3) {
+        _ if let Some(name) = logic => name,
         (0x10 | 0x11, 4, 2) => "vmovss",
         (0x10 | 0x11, 8, 3) => "vmovsd",
         (0x10 | 0x11, 16 | 32, 0) => "vmovups",
