@@ -236,7 +236,7 @@ fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
         } else if entry.is_dir() {
             2
         } else {
-            u64::from(entry.workspace_leaf_linked().unwrap_or(true))
+            u64::from(entry.workspace_leaf_links().unwrap_or(1))
         },
         uid,
         gid,
@@ -1296,7 +1296,6 @@ pub fn renameat2(
 }
 
 /// `linkat` (and `link`).
-#[cfg(unix)]
 pub fn linkat(
     c: &mut Ctx<'_>,
     olddir: i32,
@@ -1308,11 +1307,34 @@ pub fn linkat(
     if flags & !(AT_SYMLINK_FOLLOW | AT_EMPTY_PATH) != 0 {
         return Err(Errno(EINVAL));
     }
-    let from = host_target(c, olddir, old, flags & AT_SYMLINK_FOLLOW != 0)?;
-    let to = host_target(c, newdir, new, false)?;
-    std::fs::hard_link(&from, &to)?;
-    super::notify::linked(c, &to);
-    Ok(0)
+    let follow = flags & AT_SYMLINK_FOLLOW != 0;
+    if let Some(files) = c.p.vfs.supplied() {
+        let ids = (c.p.creds.1, c.p.creds.3);
+        let allow_empty = if ids.0 == 0 { flags & AT_EMPTY_PATH } else { 0 };
+        let source = match resolve(c, olddir, old, allow_empty, follow)? {
+            Target::Supplied(entry, _) => entry,
+            Target::Fd(file) => match &file.object {
+                FileObject::Supplied(entry) => entry.clone(),
+                _ => return Err(Errno(EXDEV)),
+            },
+            _ => return Err(Errno(EXDEV)),
+        };
+        let to = supplied_path(c, newdir, new)?;
+        files.link_workspace_entry(source, &to, ids, &c.p.groups)?;
+        return Ok(0);
+    }
+    #[cfg(unix)]
+    {
+        let from = host_target(c, olddir, old, follow)?;
+        let to = host_target(c, newdir, new, false)?;
+        std::fs::hard_link(&from, &to)?;
+        super::notify::linked(c, &to);
+        Ok(0)
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno(ENOSYS))
+    }
 }
 
 /// `symlinkat` (and `symlink`). The target is stored verbatim.

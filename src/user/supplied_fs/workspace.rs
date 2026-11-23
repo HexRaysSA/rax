@@ -69,19 +69,19 @@ enum LeafLocation {
 struct Placement {
     namespace: Weak<Mutex<Namespace>>,
     location: Mutex<LeafLocation>,
-    linked: AtomicBool,
+    budget: Arc<Mutex<Budget>>,
 }
 
 impl Placement {
-    fn new(namespace: &Arc<Mutex<Namespace>>, parent: &Arc<Directory>, name: &str) -> Self {
+    fn new(workspace: &Workspace, parent: &Arc<Directory>, name: &str) -> Self {
         let location = Location {
             parent: parent.clone(),
             name: name.to_owned(),
         };
         Self {
-            namespace: Arc::downgrade(namespace),
+            namespace: Arc::downgrade(&workspace.namespace),
             location: Mutex::new(LeafLocation::Linked(location)),
-            linked: AtomicBool::new(true),
+            budget: workspace.budget.clone(),
         }
     }
 
@@ -101,11 +101,18 @@ impl Placement {
             unreachable!("named workspace leaf");
         };
         *placement = LeafLocation::Detached(location.clone().path());
-        self.linked.store(false, Ordering::Relaxed);
     }
 
     fn relocate(&self, location: Location) {
         *self.location.lock().expect("workspace leaf location") = LeafLocation::Linked(location);
+    }
+}
+
+impl Drop for Placement {
+    fn drop(&mut self) {
+        if let Ok(mut budget) = self.budget.lock() {
+            budget.nodes -= 1;
+        }
     }
 }
 
@@ -185,23 +192,36 @@ impl Directory {
 /// A regular file in the guest's private temporary workspace.
 #[derive(Debug)]
 pub struct WorkspaceFile {
-    pub(super) ino: u64,
+    inode: Arc<RegularFile>,
+    placement: Placement,
+}
+
+#[derive(Debug)]
+struct Inode {
+    ino: u64,
     mode: u32,
     owner: (u32, u32),
+    links: AtomicU32,
     budget: Arc<Mutex<Budget>>,
+}
+
+#[derive(Debug)]
+struct RegularFile {
+    metadata: Inode,
     contents: Mutex<Vec<u8>>,
-    placement: Placement,
 }
 
 /// A symbolic link created in the guest's private temporary workspace.
 #[derive(Debug)]
 pub struct WorkspaceSymlink {
-    pub(super) ino: u64,
-    pub(super) mode: u32,
-    pub(super) owner: (u32, u32),
-    pub(super) target: Vec<u8>,
-    budget: Arc<Mutex<Budget>>,
+    inode: Arc<SymbolicLink>,
     placement: Placement,
+}
+
+#[derive(Debug)]
+struct SymbolicLink {
+    metadata: Inode,
+    target: Vec<u8>,
 }
 
 impl Workspace {
@@ -310,12 +330,11 @@ impl Workspace {
         let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
         let ino = allocate_inode(&mut namespace, &mut budget)?;
         let file = Arc::new(WorkspaceFile {
-            ino,
-            mode: mode & 0o7777,
-            owner,
-            budget: self.budget.clone(),
-            contents: Mutex::new(Vec::new()),
-            placement: Placement::new(&self.namespace, parent, &name),
+            inode: Arc::new(RegularFile {
+                metadata: self.inode(ino, mode & 0o7777, owner),
+                contents: Mutex::new(Vec::new()),
+            }),
+            placement: Placement::new(self, parent, &name),
         });
         namespace
             .directory_mut(parent)
@@ -345,16 +364,76 @@ impl Workspace {
         let ino = allocate_inode(&mut namespace, &mut budget)?;
         budget.bytes += target.len();
         let link = Arc::new(WorkspaceSymlink {
-            ino,
-            mode,
-            owner,
-            target,
-            budget: self.budget.clone(),
-            placement: Placement::new(&self.namespace, parent, &name),
+            inode: Arc::new(SymbolicLink {
+                metadata: self.inode(ino, mode, owner),
+                target,
+            }),
+            placement: Placement::new(self, parent, &name),
         });
         namespace
             .directory_mut(parent)
             .insert(name, Node::Symlink(link));
+        if self.flavor == WorkspaceFlavor::Darwin {
+            parent.links.fetch_add(1, Ordering::Relaxed);
+        }
+        Ok(())
+    }
+
+    fn inode(&self, ino: u64, mode: u32, owner: (u32, u32)) -> Inode {
+        Inode {
+            ino,
+            mode,
+            owner,
+            links: AtomicU32::new(1),
+            budget: self.budget.clone(),
+        }
+    }
+
+    pub(super) fn link(
+        &self,
+        source: &Node,
+        parent: &Arc<Directory>,
+        name: String,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(), Error> {
+        let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if namespace.directory(parent)?.contains_key(&name) {
+            return Err(Error::Exists);
+        }
+        let (metadata, placement) = source.leaf().ok_or(Error::PermissionDenied)?;
+        if !placement.namespace.ptr_eq(&Arc::downgrade(&self.namespace)) {
+            return Err(Error::CrossDevice);
+        }
+        if metadata.links.load(Ordering::Relaxed) == 0 {
+            return Err(Error::NotFound);
+        }
+        if self.flavor == WorkspaceFlavor::Linux
+            && ids.0 != 0
+            && ids.0 != metadata.owner.0
+            && !source.permits_unowned_link(ids, groups)
+        {
+            return Err(Error::PermissionDenied);
+        }
+        let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
+        if budget.nodes >= MAX_NODES {
+            return Err(Error::NoSpace);
+        }
+        budget.nodes += 1;
+        let location = Placement::new(self, parent, &name);
+        let node = match source {
+            Node::File(file) => Node::File(Arc::new(WorkspaceFile {
+                inode: file.inode.clone(),
+                placement: location,
+            })),
+            Node::Symlink(link) => Node::Symlink(Arc::new(WorkspaceSymlink {
+                inode: link.inode.clone(),
+                placement: location,
+            })),
+            Node::Directory(_) => unreachable!("hard-link source is a leaf"),
+        };
+        metadata.links.fetch_add(1, Ordering::Relaxed);
+        namespace.directory_mut(parent).insert(name, node);
         if self.flavor == WorkspaceFlavor::Darwin {
             parent.links.fetch_add(1, Ordering::Relaxed);
         }
@@ -423,6 +502,12 @@ impl Workspace {
             return Err(Error::Exists);
         }
         if same {
+            return Ok(());
+        }
+        if target.is_some_and(|target| source.same_inode(target))
+            && (how == Rename::Replace
+                || (how == Rename::Exchange && self.flavor == WorkspaceFlavor::Linux))
+        {
             return Ok(());
         }
         old_parent.check_sticky(uid, source.uid())?;
@@ -496,8 +581,14 @@ impl Namespace {
                 self.children.remove(&directory.ino);
                 directory.linked.store(false, Ordering::Relaxed);
             }
-            Node::File(file) => file.placement.detach(),
-            Node::Symlink(link) => link.placement.detach(),
+            Node::File(file) => {
+                file.placement.detach();
+                file.inode.metadata.links.fetch_sub(1, Ordering::Relaxed);
+            }
+            Node::Symlink(link) => {
+                link.placement.detach();
+                link.inode.metadata.links.fetch_sub(1, Ordering::Relaxed);
+            }
         }
     }
 }
@@ -527,12 +618,33 @@ impl Location {
 impl Node {
     fn uid(&self) -> u32 {
         match self {
-            Self::File(file) => file.owner.0,
-            Self::Symlink(link) => link.owner.0,
+            Self::File(file) => file.ownership().0,
+            Self::Symlink(link) => link.owner().0,
             Self::Directory(directory) => directory.owner.0,
         }
     }
 
+    fn leaf(&self) -> Option<(&Inode, &Placement)> {
+        match self {
+            Self::File(file) => Some((&file.inode.metadata, &file.placement)),
+            Self::Symlink(link) => Some((&link.inode.metadata, &link.placement)),
+            Self::Directory(_) => None,
+        }
+    }
+
+    fn permits_unowned_link(&self, ids: (u32, u32), groups: &[u32]) -> bool {
+        matches!(self, Self::File(file)
+            if file.mode() & 0o4000 == 0
+                && file.mode() & 0o2010 != 0o2010
+                && file.permits(6, ids, groups))
+    }
+
+    fn same_inode(&self, other: &Self) -> bool {
+        match (self.leaf(), other.leaf()) {
+            (Some((left, _)), Some((right, _))) => std::ptr::eq(left, right),
+            _ => false,
+        }
+    }
     fn reject_ancestor(&self, new_parent: &Arc<Directory>) -> Result<(), Error> {
         if let Self::Directory(directory) = self {
             let mut ancestor = Some(new_parent.clone());
@@ -597,32 +709,36 @@ impl WorkspaceFile {
     }
 
     pub(crate) fn mode(&self) -> u32 {
-        self.mode
+        self.inode.metadata.mode
     }
 
     pub(crate) fn ownership(&self) -> (u32, u32) {
-        self.owner
+        self.inode.metadata.owner
     }
 
-    pub(crate) fn linked(&self) -> bool {
-        self.placement.linked.load(Ordering::Relaxed)
+    pub(super) fn ino(&self) -> u64 {
+        self.inode.metadata.ino
+    }
+
+    pub(super) fn link_count(&self) -> u32 {
+        self.inode.metadata.links.load(Ordering::Relaxed)
     }
 
     pub(crate) fn permits(&self, need: u32, ids: (u32, u32), groups: &[u32]) -> bool {
         if ids.0 == 0 {
-            return need & 1 == 0 || self.mode & 0o111 != 0;
+            return need & 1 == 0 || self.mode() & 0o111 != 0;
         }
-        permitted(self.mode, self.owner, need, ids, groups)
+        permitted(self.mode(), self.ownership(), need, ids, groups)
     }
 
     pub(super) fn snapshot(&self) -> Result<Arc<[u8]>, Error> {
-        let contents = self.contents.lock().map_err(|_| Error::Io)?;
+        let contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
         Ok(Arc::from(contents.as_slice()))
     }
 
     pub(crate) fn resize(&self, len: u64) -> Result<(), Error> {
         let len = usize::try_from(len).map_err(|_| Error::TooLarge)?;
-        let mut bytes = self.contents.lock().map_err(|_| Error::Io)?;
+        let mut bytes = self.inode.contents.lock().map_err(|_| Error::Io)?;
         self.resize_locked(&mut bytes, len)
     }
 
@@ -634,7 +750,7 @@ impl WorkspaceFile {
         if len == old {
             return Ok(());
         }
-        let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
+        let mut budget = self.inode.metadata.budget.lock().map_err(|_| Error::Io)?;
         if len > old {
             let additional = len - old;
             if additional > MAX_BYTES - budget.bytes {
@@ -658,7 +774,7 @@ impl WorkspaceFile {
     /// Positional or append writes return the end offset. Selecting the end of
     /// file and writing happen under the same lock for distinct descriptions.
     pub(crate) fn write(&self, offset: Option<u64>, input: &[u8]) -> Result<u64, Error> {
-        let mut bytes = self.contents.lock().map_err(|_| Error::Io)?;
+        let mut bytes = self.inode.contents.lock().map_err(|_| Error::Io)?;
         let offset = offset.unwrap_or(bytes.len() as u64);
         if input.is_empty() {
             return Ok(offset);
@@ -678,8 +794,24 @@ impl WorkspaceSymlink {
         self.placement.path()
     }
 
-    pub(super) fn linked(&self) -> bool {
-        self.placement.linked.load(Ordering::Relaxed)
+    pub(super) fn ino(&self) -> u64 {
+        self.inode.metadata.ino
+    }
+
+    pub(super) fn owner(&self) -> (u32, u32) {
+        self.inode.metadata.owner
+    }
+
+    pub(super) fn mode(&self) -> u32 {
+        self.inode.metadata.mode
+    }
+
+    pub(super) fn target(&self) -> &[u8] {
+        &self.inode.target
+    }
+
+    pub(super) fn link_count(&self) -> u32 {
+        self.inode.metadata.links.load(Ordering::Relaxed)
     }
 }
 
@@ -704,31 +836,30 @@ impl Drop for Directory {
     }
 }
 
-impl Drop for WorkspaceFile {
+impl Drop for RegularFile {
     fn drop(&mut self) {
-        if let Ok(mut budget) = self.budget.lock() {
+        if let Ok(mut budget) = self.metadata.budget.lock() {
             let bytes = self
                 .contents
                 .get_mut()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             budget.bytes -= bytes.len();
-            budget.nodes -= 1;
         }
     }
 }
 
-impl Drop for WorkspaceSymlink {
+impl Drop for SymbolicLink {
     fn drop(&mut self) {
-        if let Ok(mut budget) = self.budget.lock() {
+        if let Ok(mut budget) = self.metadata.budget.lock() {
             budget.bytes -= self.target.len();
-            budget.nodes -= 1;
         }
     }
 }
 
 impl PageSource for WorkspaceFile {
     fn len(&self) -> u64 {
-        self.contents
+        self.inode
+            .contents
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .len() as u64
@@ -736,6 +867,7 @@ impl PageSource for WorkspaceFile {
 
     fn read_at(&self, offset: u64, out: &mut [u8]) -> io::Result<usize> {
         let bytes = self
+            .inode
             .contents
             .lock()
             .map_err(|_| io::Error::other(Error::Io))?;
@@ -751,7 +883,7 @@ impl PageSource for WorkspaceFile {
     fn identity(&self) -> SourceIdentity {
         SourceIdentity {
             dev: 0x524158,
-            ino: self.ino,
+            ino: self.ino(),
         }
     }
 }
@@ -759,6 +891,69 @@ impl PageSource for WorkspaceFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hard_link_names_consume_entry_quota_and_share_data_until_last_close() {
+        let workspace = Workspace::new(WorkspaceFlavor::Linux);
+        let root = &workspace.root;
+        let owner = (101, 102);
+        let original = workspace
+            .create("source".into(), 0o600, owner, true, root)
+            .unwrap();
+        original.write(None, b"data").unwrap();
+        let source = Node::File(original.clone());
+        assert_eq!(
+            workspace.link(&source, root, "blocked".into(), (103, 102), &[]),
+            Err(Error::PermissionDenied)
+        );
+        workspace
+            .link(&source, root, "alias".into(), owner, &[])
+            .unwrap();
+        let Node::File(alias) = workspace.get("alias").unwrap().unwrap() else {
+            panic!("expected a file hard link");
+        };
+        assert_eq!(original.ino(), alias.ino());
+        assert_eq!(original.link_count(), 2);
+        assert_eq!(
+            workspace.capacity().unwrap().nodes_available,
+            MAX_NODES as u64 - 2
+        );
+        assert_eq!(
+            workspace.capacity().unwrap().bytes_available,
+            MAX_BYTES as u64 - 4
+        );
+        workspace.unlink("source", owner.0, root).unwrap();
+        alias.write(None, b"!").unwrap();
+        assert_eq!(original.snapshot().unwrap().as_ref(), b"data!");
+        assert_eq!(original.link_count(), 1);
+        drop(source);
+        drop(original);
+        workspace.unlink("alias", owner.0, root).unwrap();
+        assert_eq!(alias.link_count(), 0);
+        assert_eq!(
+            workspace.link(
+                &Node::File(alias.clone()),
+                root,
+                "revived".into(),
+                owner,
+                &[]
+            ),
+            Err(Error::NotFound)
+        );
+        assert_eq!(
+            workspace.capacity().unwrap().bytes_available,
+            MAX_BYTES as u64 - 5
+        );
+        drop(alias);
+        assert_eq!(
+            workspace.capacity().unwrap().nodes_available,
+            MAX_NODES as u64
+        );
+        assert_eq!(
+            workspace.capacity().unwrap().bytes_available,
+            MAX_BYTES as u64
+        );
+    }
 
     #[test]
     fn removed_storage_survives_recreation_until_the_last_descriptor_closes() {
@@ -790,14 +985,14 @@ mod tests {
             Err(Error::PermissionDenied)
         ));
         files.unlink(name, 101, &files.root).unwrap();
-        assert!(!before.linked());
+        assert_eq!(before.link_count(), 0);
         assert!(files.get(name).unwrap().is_none());
         let after = files
             .create(name.into(), 0o640, (103, 104), true, &files.root)
             .unwrap();
-        assert!(after.linked());
+        assert_eq!(after.link_count(), 1);
         assert!(after.permits(4, (101, 102), &[104]));
-        assert_ne!(before.ino, after.ino);
+        assert_ne!(before.ino(), after.ino());
         assert_eq!(after.len(), 0);
         assert_eq!(before.len(), 8);
         assert_eq!(files.children(&files.root).unwrap(), [name]);

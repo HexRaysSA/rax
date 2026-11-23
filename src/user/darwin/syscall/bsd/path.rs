@@ -437,6 +437,9 @@ pub fn linkat(
     path2: u64,
     flag: u32,
 ) -> SysResult {
+    if ctx.proc.vfs.files().is_some() {
+        return embedded::linkat(ctx, fd1, path1, fd2, path2, flag);
+    }
     #[cfg(unix)]
     {
         let (_, c1) = guest_path(ctx, path1)?;

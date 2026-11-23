@@ -3,7 +3,10 @@
 use super::{Ctx, Errno, Rv, SysResult};
 use crate::user::darwin::{
     fd::{EmbeddedFile, FileKind, OpenFile},
-    host::{AT_EACCESS, AT_FDCWD, AT_REMOVEDIR, AT_SYMLINK_NOFOLLOW, AT_SYMLINK_NOFOLLOW_ANY},
+    host::{
+        AT_EACCESS, AT_FDCWD, AT_REMOVEDIR, AT_SYMLINK_FOLLOW, AT_SYMLINK_NOFOLLOW,
+        AT_SYMLINK_NOFOLLOW_ANY,
+    },
     io::*,
 };
 use crate::user::supplied_fs::{
@@ -270,6 +273,31 @@ pub(super) fn symlinkat(ctx: &Ctx<'_>, target: u64, dirfd: i32, path: u64) -> Sy
         return Err(Errno::ENOENT);
     }
     files.create_workspace_symlink(&absolute, target, ctx.proc.umask, ids, &[])?;
+    Ok(Rv::one(0))
+}
+
+pub(super) fn linkat(
+    ctx: &Ctx<'_>,
+    fromfd: i32,
+    from: u64,
+    tofd: i32,
+    to: u64,
+    flags: u32,
+) -> SysResult {
+    let policy = match flags {
+        0 => LinkPolicy::NoFollowLast,
+        AT_SYMLINK_FOLLOW => LinkPolicy::Follow,
+        _ => return Err(Errno::EINVAL),
+    };
+    let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
+    let (_, source) = lookup(ctx, fromfd, from, policy)?;
+    let (path, (base, directory)) = path_and_base(ctx, tofd, to)?;
+    let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
+    let (absolute, retained) = path_with_workspace_base(&path, &base, directory.as_ref(), ids)?;
+    if retained.is_some() {
+        return Err(Errno::ENOENT);
+    }
+    files.link_workspace_entry(source, &absolute, ids, &[])?;
     Ok(Rv::one(0))
 }
 

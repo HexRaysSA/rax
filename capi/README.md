@@ -764,7 +764,8 @@ On Linux and Darwin, native-runtime sessions start with a private guest
 /tmp. A session can create named directories and create, read, append,
 truncate, and unlink regular files anywhere in that tree. It can create
 symbolic links, read their target bytes, and follow relative and absolute
-targets within its guest namespace. Directory
+targets within its guest namespace. Hard-linked names share file contents,
+inode metadata, and link counts. Directory
 descriptions support listing and rewinding, including entries created since
 the last scan. A session can remove empty guest-created directories. Open
 descriptors keep their original identity through removal and recreation of
@@ -775,7 +776,8 @@ workspace. Open descriptors keep their inode, and an open directory's current
 path follows ancestor moves.
 The namespace is shared within the guest process family and discarded on
 session close. It holds up to 16 MiB of logical file data and link targets and
-1,024 guest-created entries. Supplied files and selected runtime libraries stay
+1,024 guest-created entries. An alias uses an entry without duplicating
+the inode's data. Supplied files and selected runtime libraries stay
 read-only. Workspace operations use guest memory. Whiteouts and writable shared
 file mappings remain outside this profile.
 

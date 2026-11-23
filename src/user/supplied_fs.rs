@@ -40,6 +40,7 @@ pub enum Error {
     NotDirectory,
     NotEmpty,
     Busy,
+    CrossDevice,
     IsDirectory,
     NotRegular,
     LinkLoop,
@@ -60,6 +61,7 @@ impl std::fmt::Display for Error {
             Self::NotDirectory => "guest path component is not a directory",
             Self::NotEmpty => "guest directory contains entries",
             Self::Busy => "guest mount or root directory is busy",
+            Self::CrossDevice => "hard links cannot cross guest filesystems",
             Self::IsDirectory => "guest path is a directory",
             Self::NotRegular => "guest path does not refer to a regular file",
             Self::LinkLoop => "guest pathname encountered a symbolic link without following it",
@@ -154,7 +156,7 @@ impl Entry {
         match &self.kind {
             Kind::WorkspaceDirectory(directory) => Some(directory.mode),
             Kind::Workspace(file) => Some(file.mode()),
-            Kind::WorkspaceSymlink(link) => Some(link.mode),
+            Kind::WorkspaceSymlink(link) => Some(link.mode()),
             _ => None,
         }
     }
@@ -163,7 +165,7 @@ impl Entry {
         match &self.kind {
             Kind::WorkspaceDirectory(directory) => Some(directory.owner),
             Kind::Workspace(file) => Some(file.ownership()),
-            Kind::WorkspaceSymlink(link) => Some(link.owner),
+            Kind::WorkspaceSymlink(link) => Some(link.owner()),
             _ => None,
         }
     }
@@ -171,15 +173,15 @@ impl Entry {
     pub(crate) fn link_target(&self) -> Option<&[u8]> {
         match &self.kind {
             Kind::Symlink(target) => Some(target),
-            Kind::WorkspaceSymlink(link) => Some(&link.target),
+            Kind::WorkspaceSymlink(link) => Some(link.target()),
             _ => None,
         }
     }
 
-    pub(crate) fn workspace_leaf_linked(&self) -> Option<bool> {
+    pub(crate) fn workspace_leaf_links(&self) -> Option<u32> {
         match &self.kind {
-            Kind::Workspace(file) => Some(file.linked()),
-            Kind::WorkspaceSymlink(link) => Some(link.linked()),
+            Kind::Workspace(file) => Some(file.link_count()),
+            Kind::WorkspaceSymlink(link) => Some(link.link_count()),
             _ => None,
         }
     }
@@ -228,7 +230,7 @@ impl Entry {
                 0
             }
             Kind::Symlink(target) => target.len() as u64,
-            Kind::WorkspaceSymlink(link) => link.target.len() as u64,
+            Kind::WorkspaceSymlink(link) => link.target().len() as u64,
         }
     }
 
@@ -789,7 +791,7 @@ impl Files {
         Ok((
             path,
             Entry {
-                ino: file.ino,
+                ino: file.ino(),
                 kind: Kind::Workspace(file),
             },
         ))
@@ -905,11 +907,54 @@ impl Files {
         if entry.is_dir() {
             return Err(Error::IsDirectory);
         }
-        if entry.workspace_leaf_linked().is_none() {
+        if entry.workspace_leaf_links().is_none() {
             return Err(Error::ReadOnly);
         }
         let (workspace, path, directory) = self.workspace_destination(&path, ids, groups)?;
         workspace.unlink(workspace_name(&path), ids.0, &directory)
+    }
+
+    pub(super) fn link_workspace_entry(
+        &self,
+        source: Entry,
+        path: &str,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(), Error> {
+        let source = match source.kind {
+            Kind::Workspace(file) => Node::File(file),
+            Kind::WorkspaceSymlink(link) => Node::Symlink(link),
+            Kind::Directory | Kind::WorkspaceDirectory(_) => {
+                return Err(Error::PermissionDenied);
+            }
+            _ => return Err(Error::CrossDevice),
+        };
+        validate(path)?;
+        let linux = self
+            .workspace
+            .as_ref()
+            .is_some_and(|ws| ws.flavor == WorkspaceFlavor::Linux);
+        let lookup = if linux && !path.trim_end_matches('/').is_empty() {
+            path.trim_end_matches('/')
+        } else {
+            path
+        };
+        match self.lookup_for_guest(lookup, LinkPolicy::NoFollowLast, ids, groups) {
+            Ok(_) => return Err(Error::Exists),
+            Err(Error::NotFound) => {}
+            Err(error) => return Err(error),
+        }
+        if path.ends_with('/') {
+            return Err(Error::NotFound);
+        }
+        let (workspace, path, directory) = self.workspace_destination(path, ids, groups)?;
+        workspace.link(
+            &source,
+            &directory,
+            workspace_name(&path).into(),
+            ids,
+            groups,
+        )
     }
 
     pub(crate) fn remove_workspace_directory(
@@ -988,7 +1033,7 @@ impl Files {
         if !entry.is_dir() && from.ends_with('/') {
             return Err(Error::NotDirectory);
         }
-        if entry.workspace_leaf_linked().is_none() && entry.workspace_directory().is_none() {
+        if entry.workspace_leaf_links().is_none() && entry.workspace_directory().is_none() {
             return Err(Error::ReadOnly);
         }
         if !entry.is_dir() && to.ends_with('/') {
@@ -1057,11 +1102,11 @@ impl Files {
         {
             return Ok(match entry {
                 Node::File(file) => Entry {
-                    ino: file.ino,
+                    ino: file.ino(),
                     kind: Kind::Workspace(file),
                 },
                 Node::Symlink(link) => Entry {
-                    ino: link.ino,
+                    ino: link.ino(),
                     kind: Kind::WorkspaceSymlink(link),
                 },
                 Node::Directory(directory) => Entry {

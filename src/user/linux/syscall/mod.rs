@@ -558,7 +558,6 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[3],
             a[4] as u32,
         )),
-        #[cfg(unix)]
         S::Link => r(path::linkat(
             c,
             path::AT_FDCWD,
@@ -567,7 +566,6 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[1],
             0,
         )),
-        #[cfg(unix)]
         S::Linkat => r(path::linkat(c, fd(a[0]), a[1], fd(a[2]), a[3], a[4] as u32)),
         S::Symlink => r(path::symlinkat(c, a[0], path::AT_FDCWD, a[1])),
         S::Symlinkat => r(path::symlinkat(c, a[0], fd(a[1]), a[2])),

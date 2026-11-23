@@ -135,11 +135,9 @@ impl EmbeddedFile {
                 .and_then(Entry::workspace_directory)
                 .map_or_else(
                     || {
-                        u16::from(
-                            self.entry()
-                                .and_then(Entry::workspace_leaf_linked)
-                                .unwrap_or(true),
-                        )
+                        self.entry()
+                            .and_then(Entry::workspace_leaf_links)
+                            .unwrap_or(1) as u16
                     },
                     |directory| {
                         directory.link_count(crate::user::supplied_fs::WorkspaceFlavor::Darwin)

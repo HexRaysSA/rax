@@ -958,9 +958,11 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
         }
         F_GETPATH | F_GETPATH_NOFIRMLINK if matches!(file.kind, FileKind::Embedded(_)) => {
             let current = match &file.kind {
-                FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) => {
-                    entry.workspace_path()?
-                }
+                FileKind::Embedded(object) => object
+                    .entry()
+                    .map(|entry| entry.workspace_path())
+                    .transpose()?
+                    .flatten(),
                 _ => None,
             };
             let path = current

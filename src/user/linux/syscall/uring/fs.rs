@@ -95,7 +95,6 @@ fn run(c: &mut Ctx<'_>, req: &Req) -> SysResult {
         op::MKDIRAT => path::mkdirat(c, dfd, sqe.addr, sqe.len),
         // do_symlinkat: the target at `addr`, the link at `addr2` in `fd`.
         op::SYMLINKAT => path::symlinkat(c, sqe.addr, dfd, sqe.off),
-        #[cfg(unix)]
         op::LINKAT => path::linkat(c, dfd, sqe.addr, sqe.len as i32, sqe.off, sqe.op_flags),
         // do_statx: the mask in `len`, the buffer at `addr2`.
         op::STATX => path::statx(c, dfd, sqe.addr, sqe.op_flags, sqe.len, sqe.off),

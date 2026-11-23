@@ -116,6 +116,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
             }
             nr::UNLINK | nr::UNLINKAT | nr::RMDIR | nr::MKDIR | nr::MKDIRAT
             | nr::SYMLINK | nr::SYMLINKAT
+            | nr::LINK | nr::LINKAT
             | nr::RENAME | nr::RENAMEAT | nr::RENAMEATX_NP | nr::FSTATFS64
                 if ctx.proc.vfs.files().is_some_and(|files| files.has_workspace()) =>
             {}

@@ -42,6 +42,7 @@ impl From<crate::user::supplied_fs::Error> for Errno {
             E::NotDirectory => linux::ENOTDIR,
             E::NotEmpty => linux::ENOTEMPTY,
             E::Busy => linux::EBUSY,
+            E::CrossDevice => linux::EXDEV,
             E::IsDirectory => linux::EISDIR,
             E::NotRegular => linux::EACCES,
             E::LinkLoop => linux::ELOOP,
