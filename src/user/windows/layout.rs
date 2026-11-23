@@ -45,6 +45,9 @@ pub const PEB_ADDRESS: u64 = 0x7FFD_F000;
 /// on Windows 10.0.29683.1000 with a native x86 TEB and export-byte probe.
 pub(crate) const WOW64_TEB_TRANSITION: u64 = 0xC0;
 
+/// TLS slot 8 of the native companion TEB on the qualified WoW64 builds.
+pub(crate) const WOW64_TEB_FS_REDIRECTION: u64 = 0x14c0;
+
 /// Page-rounded extent reserved and committed for one TEB. Installed x86
 /// NTDLL on build 29695 writes its scheduler data slot at offset 0x1018;
 /// placing the PEB after one page aliases that slot with PEB.ProcessHeap.

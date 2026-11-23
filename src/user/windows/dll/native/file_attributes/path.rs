@@ -9,6 +9,8 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::fs::find_case_insensitive;
 use crate::user::windows::hle::Ctx;
+use crate::user::windows::layout::WOW64_TEB_FS_REDIRECTION;
+use crate::user::windows::memory::Mem;
 use crate::user::windows::native::NativeRuntime;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_INVALID_HANDLE, STATUS_INVALID_PARAMETER,
@@ -158,7 +160,12 @@ fn confined_child(c: &Ctx, directory: &Path, name: &str, missing: u32) -> Checke
     Ok(canonical)
 }
 
-fn selected_mui(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked<Option<PathBuf>> {
+fn selected_mui(
+    c: &Ctx,
+    runtime: &NativeRuntime,
+    path: &[u16],
+    system32_alias: bool,
+) -> Checked<Option<(PathBuf, PathBuf)>> {
     let Some(separator) = path.iter().position(|&unit| unit == u16::from(b'\\')) else {
         return Ok(None);
     };
@@ -197,9 +204,35 @@ fn selected_mui(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked<Optio
     if !installed_executable && !installed_dll {
         return Ok(None);
     }
+    let version = &c.p.cfg.version;
+    let qualified_profile = matches!(
+        (
+            version.major,
+            version.minor,
+            version.build,
+            c.p.object_namespace.native_machine
+        ),
+        (10, 0, 20348 | 26100, Some(0x8664)) | (10, 0, 26200, Some(0xaa64))
+    );
+    let native_system32 = system32_alias
+        && qualified_profile
+        && c.t
+            .teb_allocation
+            .companion()
+            .is_some_and(|teb| matches!(c.mem().ptr(teb + WOW64_TEB_FS_REDIRECTION, 8), Ok(1)));
+    let directory = if native_system32 {
+        let parent = runtime
+            .directory
+            .parent()
+            .ok_or_else(|| c.unsupported("installed Windows directory has no parent"))?;
+        confined_child(c, parent, "System32", STATUS_OBJECT_PATH_NOT_FOUND)?
+    } else {
+        runtime.directory.clone()
+    };
     let locale = String::from_utf16(locale).expect("validated ASCII locale name");
-    let locale = confined_child(c, &runtime.directory, &locale, STATUS_OBJECT_PATH_NOT_FOUND)?;
-    confined_child(c, &locale, &filename, STATUS_OBJECT_NAME_NOT_FOUND).map(Some)
+    let locale = confined_child(c, &directory, &locale, STATUS_OBJECT_PATH_NOT_FOUND)?;
+    let file = confined_child(c, &locale, &filename, STATUS_OBJECT_NAME_NOT_FOUND)?;
+    Ok(Some((directory, file)))
 }
 
 pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
@@ -223,11 +256,11 @@ pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathB
         }
         return Ok(Some((base, file)));
     }
-    let mut prefixes = vec![runtime.guest_directory.clone()];
+    let mut prefixes = vec![(runtime.guest_directory.clone(), false)];
     if c.arch() == WinArch::X86 {
-        prefixes.push(format!(r"{windows}\System32"));
+        prefixes.push((format!(r"{windows}\System32"), true));
     }
-    for prefix in prefixes {
+    for (prefix, system32_alias) in prefixes {
         let prefix: Vec<u16> = prefix.encode_utf16().collect();
         if path.len() <= prefix.len()
             || !equal(c, &path[..prefix.len()], &prefix)
@@ -237,8 +270,7 @@ pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathB
         }
         let basename = &path[prefix.len() + 1..];
         if !c.p.cfg.host_filesystem && basename.contains(&u16::from(b'\\')) {
-            return selected_mui(c, runtime, basename)
-                .map(|file| file.map(|path| (runtime.directory.clone(), path)));
+            return selected_mui(c, runtime, basename, system32_alias);
         }
         if basename.len() < 5 {
             continue;

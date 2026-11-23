@@ -782,6 +782,71 @@ fn native_file_open_mui_satellites_require_an_installed_owner_and_read_only_acce
 }
 
 #[test]
+fn native_file_open_wow64_mui_uses_the_calling_threads_redirection_state() {
+    use crate::user::windows::layout::WOW64_TEB_FS_REDIRECTION;
+    use crate::user::windows::objects::Object;
+    use crate::user::windows::process::{thread, wow64};
+
+    let mut h = Harness::new(WinArch::X86);
+    let p = h.process.state_mut();
+    let version = &mut Arc::make_mut(&mut p.cfg).version;
+    (version.major, version.minor, version.build) = (10, 0, 26200);
+    p.object_namespace.native_machine = Some(WinArch::Arm64.machine());
+    wow64::initialize_test_profile(p, WinArch::Arm64.machine()).unwrap();
+    let thread_id = thread::create(p, p.modules.exe().entry, 0, 0x10000, false).unwrap();
+    h.thread = p.threads.remove(&thread_id).unwrap();
+    let redirection = h.thread.teb_allocation.companion().unwrap() + WOW64_TEB_FS_REDIRECTION;
+    let directory = selection(&mut h);
+    let native_directory = directory.parent().unwrap().join("System32");
+    for (root, contents) in [
+        (&directory, b"x86 resource".as_slice()),
+        (&native_directory, b"native resource".as_slice()),
+    ] {
+        let locale = root.join("en-US");
+        std::fs::create_dir_all(&locale).unwrap();
+        std::fs::write(locale.join("fixture.dll.mui"), contents).unwrap();
+    }
+    let output = h.base;
+    let iosb = h.base + PAGE_SIZE;
+    for (state, path, expected) in [
+        (
+            0,
+            r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
+            b"x86 resource".as_slice(),
+        ),
+        (
+            1,
+            r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
+            b"native resource".as_slice(),
+        ),
+        (
+            1,
+            r"\??\C:\Windows\SysWOW64\en-US\fixture.dll.mui",
+            b"x86 resource".as_slice(),
+        ),
+        (
+            0,
+            r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
+            b"x86 resource".as_slice(),
+        ),
+    ] {
+        h.name(path);
+        h.process.state().space.w64(redirection, state).unwrap();
+        assert_eq!(h.open_with(output, iosb, 0x100001, 7, 0x60), STATUS_SUCCESS);
+        let p = h.process.state_mut();
+        let handle = p.space.ptr(output, 4).unwrap();
+        assert!(p.objects.runtime_library(handle));
+        let Some(Object::File(file)) = p.objects.get(handle) else {
+            panic!("MUI handle must own a file");
+        };
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut file.host.as_ref().unwrap(), &mut bytes).unwrap();
+        assert_eq!(bytes, expected, "{state}/{path}");
+        p.objects.close(handle).unwrap();
+    }
+}
+
+#[test]
 fn native_file_open_confines_the_default_sort_table_to_read_only_access() {
     use crate::user::windows::nt::status::STATUS_ACCESS_DENIED;
     use crate::user::windows::objects::Object;
