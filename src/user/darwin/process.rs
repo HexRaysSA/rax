@@ -529,7 +529,7 @@ impl Proc {
             .family
             .as_ref()
             .expect("closed child")
-            .publish(child.pid, self.pid);
+            .publish(self.pid, child.execed);
         self.spawned.push(child);
     }
 
@@ -993,6 +993,9 @@ impl DarwinProcess {
         }
         let old = std::mem::replace(&mut self.proc, swap.proc);
         drop(old);
+        if let Some(member) = &self.proc.family {
+            member.mark_execed();
+        }
         self.last = 0;
         #[cfg(unix)]
         if self.proc.tracing.tracer.is_some() {

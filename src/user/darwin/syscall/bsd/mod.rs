@@ -97,6 +97,15 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         match number {
             nr::PROC_INFO => return proc::closed_pidinfo(ctx, a, false),
             nr::PROC_INFO_EXTENDED_ID => return proc::closed_pidinfo(ctx, a, true),
+            nr::SETPGID | nr::SETSID => {
+                let member = ctx.proc.family.as_ref().ok_or(Errno::EPERM)?;
+                return if number == nr::SETPGID {
+                    member.setpgid(a[0] as i32, a[1] as i32)?;
+                    Ok(Rv::one(0))
+                } else {
+                    Ok(Rv::one(member.setsid()? as u64))
+                };
+            }
             nr::FTRUNCATE | nr::FSYNC | nr::FSYNC_NOCANCEL | nr::FDATASYNC
                 if ctx.proc.fds.file(a[0] as i32).is_ok_and(|file| {
                     matches!(&file.kind, FileKind::Embedded(object) if object.device_access().is_some())
@@ -322,7 +331,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETEGID => Ok(Rv::one(u64::from(ctx.proc.creds.3))),
         nr::ISSETUGID => Ok(Rv::one(0)),
         nr::GETPGRP | nr::GETPGID | nr::GETSID if let Some(member) = &ctx.proc.family => {
-            child_wait::identity(member, number, ctx.proc.pid, i(0))
+            child_wait::identity(member, number, i(0))
         }
         #[cfg(unix)]
         nr::GETPGRP => proc::host_id(|| unsafe { libc::getpgrp() }),

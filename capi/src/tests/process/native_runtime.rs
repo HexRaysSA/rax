@@ -221,6 +221,52 @@ fn installed_sqlite_matches_native_through_closed_c_abi() {
     assert_eq!(stderr, native.stderr);
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "run with a locally built closed_job_control.c fixture"]
+fn installed_darwin_job_control_matches_native_through_closed_c_abi() {
+    let path = std::env::var("RAX_DARWIN_INSTALLED_JOB_CONTROL")
+        .expect("absolute path to a dynamically linked closed_job_control fixture");
+    let architecture = std::env::var("RAX_DARWIN_INSTALLED_JOB_CONTROL_ARCH")
+        .expect("fixture architecture: aarch64 or x86_64");
+    let native = std::process::Command::new(&path)
+        .env_clear()
+        .output()
+        .unwrap();
+    assert!(
+        native.status.success(),
+        "{}",
+        String::from_utf8_lossy(&native.stderr)
+    );
+    assert_eq!(
+        native.stdout,
+        b"groups, sessions, and post-exec rules match\n"
+    );
+    assert!(native.stderr.is_empty());
+
+    let image = std::fs::read(&path).unwrap();
+    let guest_path = "/closed_job_control";
+    let options = serde_json::json!({
+        "personality": "darwin",
+        "architecture": architecture,
+        "guest_path": guest_path,
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    let process = open(&image, &options.to_string());
+    let state = info(&process);
+    assert_eq!(state["loaded_program"]["has_dyld"], true);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    let status = run_installed_posix_with_turn_limit(&process, guest_path, 32_768);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(status.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 fn installed_cat_reads_guest_null_through_closed_c_abi() {

@@ -38,7 +38,7 @@ pub(super) fn wait4(
     let selector = match pid {
         i32::MIN => return Err(Errno::EINVAL),
         -1 => Selector::Any,
-        0 => Selector::Group(member.group),
+        0 => Selector::Group(member.identity(0)?.group),
         1.. => Selector::Pid(pid),
         _ => Selector::Group(-pid),
     };
@@ -106,13 +106,12 @@ fn reap(ctx: &mut Ctx<'_>, child: i32) {
     }
 }
 
-pub(super) fn identity(member: &Member, number: u32, caller: i32, pid: i32) -> SysResult {
+pub(super) fn identity(member: &Member, number: u32, pid: i32) -> SysResult {
     use crate::user::darwin::abi::tables::nr;
-    if number == nr::GETPGRP {
-        return Ok(Rv::one(member.group as u64));
-    }
-    let (group, session) = member.identity(caller, pid)?;
-    Ok(Rv::one(
-        if number == nr::GETSID { session } else { group } as u64
-    ))
+    let identity = member.identity(if number == nr::GETPGRP { 0 } else { pid })?;
+    Ok(Rv::one(if number == nr::GETSID {
+        identity.session
+    } else {
+        identity.group
+    } as u64))
 }

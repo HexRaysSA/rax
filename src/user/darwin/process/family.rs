@@ -15,9 +15,21 @@ const CHILD_ARENA_BUDGET: u64 = 2 << 30;
 #[derive(Clone)]
 pub(crate) struct Member {
     registry: Arc<Mutex<Registry>>,
+    pid: i32,
+    // The proposed identity is used only when publishing a new child.
+    initial: Identity,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct Identity {
     pub(crate) group: i32,
     pub(crate) session: i32,
 }
+
+const ROOT_IDENTITY: Identity = Identity {
+    group: ROOT_PID,
+    session: ROOT_PID,
+};
 
 struct Registry {
     next_pid: i32,
@@ -26,9 +38,45 @@ struct Registry {
 
 struct Child {
     parent: i32,
-    group: i32,
-    session: i32,
+    identity: Identity,
+    execed: bool,
     report: Option<Report>,
+}
+
+impl Registry {
+    fn live_child(&self, pid: i32) -> Result<&Child, Errno> {
+        self.children
+            .get(&pid)
+            .filter(|child| child.report.is_none())
+            .ok_or(Errno::ESRCH)
+    }
+
+    fn identity(&self, pid: i32) -> Result<Identity, Errno> {
+        if pid == ROOT_PID {
+            return Ok(ROOT_IDENTITY);
+        }
+        Ok(self.live_child(pid)?.identity)
+    }
+
+    fn group_session(&self, group: i32) -> Option<i32> {
+        if group == ROOT_PID {
+            return Some(ROOT_PID);
+        }
+        self.children
+            .values()
+            .find(|child| child.identity.group == group)
+            .map(|child| child.identity.session)
+    }
+
+    fn descends_from(&self, mut pid: i32, ancestor: i32) -> bool {
+        while let Some(child) = self.children.get(&pid) {
+            if child.parent == ancestor {
+                return true;
+            }
+            pid = child.parent;
+        }
+        false
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -54,8 +102,8 @@ impl Member {
                 next_pid: ROOT_PID + 1,
                 children: BTreeMap::new(),
             })),
-            group: ROOT_PID,
-            session: ROOT_PID,
+            pid: ROOT_PID,
+            initial: ROOT_IDENTITY,
         }
     }
 
@@ -79,41 +127,45 @@ impl Member {
             return Err(Errno::EAGAIN);
         }
         let pid = registry.next_pid;
-        let mut child = self.clone();
+        let mut identity = registry.identity(self.pid)?;
         if let Some(group) = group {
             if group < 0 {
                 return Err(Errno::EINVAL);
             }
-            child.group = if group == 0 { pid } else { group };
-            if child.group != pid
-                && child.group != self.group
-                && (child.group, child.session) != (ROOT_PID, ROOT_PID)
-                && !registry
-                    .children
-                    .values()
-                    .any(|other| other.group == child.group && other.session == child.session)
+            identity.group = if group == 0 { pid } else { group };
+            if identity.group != pid
+                && registry.group_session(identity.group) != Some(identity.session)
             {
                 return Err(Errno::EPERM);
             }
         }
         if setsid {
-            if child.group == pid {
+            if identity.group == pid {
                 return Err(Errno::EPERM);
             }
-            child.group = pid;
-            child.session = pid;
+            identity = Identity {
+                group: pid,
+                session: pid,
+            };
         }
         registry.next_pid = pid.checked_add(1).ok_or(Errno::EAGAIN)?;
-        Ok((pid, child))
+        Ok((
+            pid,
+            Self {
+                registry: Arc::clone(&self.registry),
+                pid,
+                initial: identity,
+            },
+        ))
     }
 
-    pub(crate) fn publish(&self, pid: i32, parent: i32) {
+    pub(crate) fn publish(&self, parent: i32, execed: bool) {
         let previous = self.registry.lock().unwrap().children.insert(
-            pid,
+            self.pid,
             Child {
                 parent,
-                group: self.group,
-                session: self.session,
+                identity: self.initial,
+                execed,
                 report: None,
             },
         );
@@ -133,7 +185,7 @@ impl Member {
                 || !match selector {
                     Selector::Any => true,
                     Selector::Pid(wanted) => wanted == pid,
-                    Selector::Group(wanted) => wanted == child.group,
+                    Selector::Group(wanted) => wanted == child.identity.group,
                 }
             {
                 continue;
@@ -154,21 +206,72 @@ impl Member {
         registry.children.values().any(|c| c.parent == parent)
     }
 
-    pub(crate) fn identity(&self, caller: i32, pid: i32) -> Result<(i32, i32), Errno> {
-        if pid == 0 || pid == caller {
-            return Ok((self.group, self.session));
+    pub(crate) fn identity(&self, pid: i32) -> Result<Identity, Errno> {
+        let pid = if pid == 0 { self.pid } else { pid };
+        self.registry.lock().unwrap().identity(pid)
+    }
+
+    pub(crate) fn setpgid(&self, pid: i32, group: i32) -> Result<(), Errno> {
+        let mut registry = self.registry.lock().unwrap();
+        let caller_session = registry.identity(self.pid)?.session;
+        let pid = if pid == 0 { self.pid } else { pid };
+        let target = registry.identity(pid)?;
+        if pid != self.pid {
+            if !registry.descends_from(pid, self.pid) {
+                return Err(Errno::ESRCH);
+            }
+            if target.session != caller_session {
+                return Err(Errno::EPERM);
+            }
+            if registry.live_child(pid)?.execed {
+                return Err(Errno::EACCES);
+            }
         }
-        if pid == ROOT_PID {
-            return Ok((ROOT_PID, ROOT_PID));
+        if target.session == pid {
+            return Err(Errno::EPERM);
         }
-        self.registry
-            .lock()
-            .unwrap()
+        if group < 0 {
+            return Err(Errno::EINVAL);
+        }
+        let group = if group == 0 { pid } else { group };
+        if group != pid && registry.group_session(group) != Some(caller_session) {
+            return Err(Errno::EPERM);
+        }
+        registry
             .children
-            .get(&pid)
-            .filter(|c| c.report.is_none())
-            .map(|c| (c.group, c.session))
-            .ok_or(Errno::ESRCH)
+            .get_mut(&pid)
+            .expect("live child")
+            .identity
+            .group = group;
+        Ok(())
+    }
+
+    pub(crate) fn setsid(&self) -> Result<i32, Errno> {
+        let mut registry = self.registry.lock().unwrap();
+        if registry.group_session(self.pid).is_some() {
+            return Err(Errno::EPERM);
+        }
+        registry
+            .children
+            .get_mut(&self.pid)
+            .expect("live child")
+            .identity = Identity {
+            group: self.pid,
+            session: self.pid,
+        };
+        Ok(self.pid)
+    }
+
+    pub(super) fn mark_execed(&self) {
+        if self.pid != ROOT_PID {
+            self.registry
+                .lock()
+                .unwrap()
+                .children
+                .get_mut(&self.pid)
+                .expect("live child")
+                .execed = true;
+        }
     }
 
     fn exit(&self, pid: i32, report: Option<Report>) {

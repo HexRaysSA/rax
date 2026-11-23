@@ -309,15 +309,21 @@ fn take_host_signals(ctx: &mut Ctx<'_>) {
 /// process group that includes this process reaches it through
 /// host-signal forwarding. `kill(-1)`
 /// ("every process the user may signal") signals only this process.
-/// An embedded process is its own virtual process group; other targets
-/// return `EPERM` before any host process lookup or signal forwarding.
+/// Closed group signals address the current guest process when it belongs
+/// to that group. Other targets return `EPERM` before any host lookup.
 pub fn kill(ctx: &mut Ctx<'_>, pid: i32, sig: i32, posix: i32) -> SysResult {
     let _ = posix;
     if !(0..NSIG).contains(&sig) {
         return Err(Errno::EINVAL);
     }
     let own = Origin::own(ctx.proc);
-    let local_group = !ctx.proc.config.host_services && (pid == 0 || pid == -ctx.proc.pid);
+    let local_group = !ctx.proc.config.host_services
+        && (pid == 0
+            || ctx.proc.family.as_ref().is_some_and(|member| {
+                member
+                    .identity(0)
+                    .is_ok_and(|identity| pid == -identity.group)
+            }));
     if pid == ctx.proc.pid || pid == -1 || local_group {
         if sig != 0 {
             signal::psignal(ctx.proc, Some(ctx.thread), sig, own);
