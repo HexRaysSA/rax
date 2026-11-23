@@ -685,25 +685,49 @@ fn installed_cmd_child_matches_native_through_closed_c_abi() {
     let system_cmd = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
         .join("System32")
         .join("cmd.exe");
-    for child in [system_cmd.to_str().unwrap(), "cmd.exe"] {
-        let native = compare_windows_installed_program(
-            "cmd.exe",
-            &["/d", "/c", child, "/d", "/c", "echo", "rax-child"],
-            None,
-        );
-        assert!(native.status.success(), "{child}");
-        assert_eq!(native.stdout, b"rax-child\r\n");
-        assert!(native.stderr.is_empty());
+    let mut failures = Vec::new();
+    for (label, args, exit_code, stdout) in [
+        (
+            "absolute child image",
+            &[
+                "/d",
+                "/c",
+                system_cmd.to_str().unwrap(),
+                "/d",
+                "/c",
+                "echo",
+                "rax-child",
+            ][..],
+            0,
+            &b"rax-child\r\n"[..],
+        ),
+        (
+            "child image basename",
+            &["/d", "/c", "cmd.exe", "/d", "/c", "echo", "rax-child"][..],
+            0,
+            &b"rax-child\r\n"[..],
+        ),
+        (
+            "child exit status",
+            &["/d", "/c", "cmd.exe", "/d", "/c", "exit", "/b", "23"][..],
+            23,
+            &b""[..],
+        ),
+    ] {
+        let result = std::panic::catch_unwind(|| {
+            let native = compare_windows_installed_program("cmd.exe", args, None);
+            assert_eq!(native.status.code(), Some(exit_code), "{label}");
+            assert_eq!(native.stdout, stdout, "{label}");
+            assert!(native.stderr.is_empty(), "{label}");
+        });
+        if result.is_err() {
+            failures.push(label);
+        }
     }
-
-    let native = compare_windows_installed_program(
-        "cmd.exe",
-        &["/d", "/c", "cmd.exe", "/d", "/c", "exit", "/b", "23"],
-        None,
+    assert!(
+        failures.is_empty(),
+        "installed child cases failed: {failures:?}"
     );
-    assert_eq!(native.status.code(), Some(23));
-    assert!(native.stdout.is_empty());
-    assert!(native.stderr.is_empty());
 }
 
 #[cfg(windows)]

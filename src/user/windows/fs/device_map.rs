@@ -1,4 +1,4 @@
-//! Drive types and logon visibility belong to mapped guest roots.
+//! Drive types and logon visibility belong to mapped or virtual guest roots.
 use super::DriveMap;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,6 +39,17 @@ impl DeviceMap {
 }
 
 impl DriveMap {
+    /// Advertise the installed runtime's system drive without mapping its
+    /// volume into the guest filesystem.
+    pub(crate) fn expose_installed_system_drive(&mut self, root: &str) -> Result<(), &'static str> {
+        let [letter @ (b'A'..=b'Z' | b'a'..=b'z'), b':', b'\\', ..] = root.as_bytes() else {
+            return Err("installed Windows root has no DOS drive letter");
+        };
+        self.devices
+            .map_fixed(char::from(letter.to_ascii_uppercase()));
+        Ok(())
+    }
+
     /// O(1) time and storage: the native record contains a mask and 32 types.
     pub(crate) fn device_map(&self, logon_only: bool) -> [u8; 36] {
         if logon_only {

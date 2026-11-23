@@ -448,6 +448,12 @@ fn spawn_image_file(
     let native = if config.native_libraries {
         let runtime =
             crate::user::windows::native::NativeRuntime::select(arch).map_err(SpawnError::Io)?;
+        if !config.host_filesystem {
+            config
+                .drives
+                .expose_installed_system_drive(&runtime.guest_root)
+                .map_err(|reason| SpawnError::BadImage(reason.into()))?;
+        }
         config.version = runtime.version.clone();
         Some(runtime)
     } else {
