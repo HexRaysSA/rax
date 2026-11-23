@@ -37,6 +37,8 @@
 use crate::isa::arm::common::sysreg::Cp15Encoding;
 use std::fmt;
 
+// AES (including PMULL.P64), SHA1, SHA2 are absent in the A32 executor.
+pub(crate) const ID_ISAR5_CRYPTO: u32 = 0x0000_fff0;
 pub(crate) const ID_ISAR5_VCMA: u32 = 15 << 28;
 pub(crate) const ID_ISAR5_RDM: u32 = 15 << 24;
 pub(crate) const ID_ISAR6_JSCVT: u32 = 15;
@@ -326,7 +328,7 @@ impl Cp15State {
             (0, 0, 2, 3) => Some(self.id_isar[3]),
             (0, 0, 2, 4) => Some(self.id_isar[4]),
             (0, 0, 2, 5) => {
-                let mut value = self.id_isar[5];
+                let mut value = self.id_isar[5] & !ID_ISAR5_CRYPTO;
                 if value & ID_ISAR5_VCMA > 1 << 28 {
                     value &= !ID_ISAR5_VCMA;
                 }

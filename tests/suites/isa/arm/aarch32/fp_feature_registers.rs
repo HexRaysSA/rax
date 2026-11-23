@@ -120,9 +120,9 @@ fn id_isar6_exposes_only_implemented_fhm_and_remains_read_only() {
 #[test]
 fn standalone_id_reads_hide_unsupported_advsimd_fields_after_state_roundtrip() {
     let mut memory = FlatMemory::new(4096, 0);
-    // Set a reserved VCMA value and every bit in the absent ISAR6 fields.
-    // Keep nearby RDM, FHM, and JSCVT set.
-    let raw_isar5 = 0xf100_0000;
+    // Request unsupported AES/PMULL, SHA1 and SHA256 alongside a reserved VCMA
+    // value. Keep nearby implemented RDM, FHM and JSCVT set.
+    let raw_isar5 = 0xf100_1120;
     let raw_isar6 = 0x0ff0_01f1;
     for thumb in [false, true] {
         let mut cpu = Armv7Cpu::new();
@@ -165,7 +165,9 @@ fn mixed_id_reads_agree_without_masking_native_aarch64_features() {
     sys.hcr_el2 = 0;
     let isar5 = Aarch64SysRegEncoding::new(3, 0, 0, 2, 5);
     let isar6 = Aarch64SysRegEncoding::new(3, 0, 0, 2, 7);
-    let raw_isar5 = 0xf000_0001;
+    let native_crypto = sys.id_aa64isar0_el1 & 0xfff0;
+    assert_ne!(native_crypto, 0);
+    let raw_isar5 = 0xf000_fff1;
     let raw_isar6 = 0x0ff0_00f0;
     sys.impl_defined.insert(isar5.encode(), raw_isar5);
     sys.impl_defined.insert(isar6.encode(), raw_isar6);
@@ -175,6 +177,7 @@ fn mixed_id_reads_agree_without_masking_native_aarch64_features() {
     let sys = &restored.execution.as_ref().unwrap().sysregs;
     assert_eq!(sys.impl_defined.get(&isar5.encode()), Some(&raw_isar5));
     assert_eq!(sys.impl_defined.get(&isar6.encode()), Some(&raw_isar6));
+    assert_eq!(sys.id_aa64isar0_el1 & 0xfff0, native_crypto);
     assert_eq!((sys.id_aa64isar0_el1 >> 44) & 0xff, 0x11); // DP and FHM.
     assert_eq!((sys.id_aa64isar1_el1 >> 12) & 0xff, 0x11); // JSCVT and FCMA.
     assert_eq!((sys.id_aa64isar1_el1 >> 44) & 0xf, 1); // BF16.

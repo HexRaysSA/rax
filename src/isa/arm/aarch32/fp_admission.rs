@@ -4,7 +4,8 @@
 //! archived Arm ASL guards and feature-admission reference provenance.
 use super::{
     cp15::{
-        ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16, ID_ISAR6_DP, ID_ISAR6_I8MM, ID_ISAR6_JSCVT,
+        ID_ISAR5_CRYPTO, ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16, ID_ISAR6_DP, ID_ISAR6_I8MM,
+        ID_ISAR6_JSCVT,
     },
     vfp::VfpState,
 };
@@ -427,7 +428,7 @@ pub(crate) fn effective_id_isar5(mut id_isar5: u32, mvfr0: u32, mvfr1: u32) -> u
     if !(has_integer_simd && has_simd_single) || id_isar5 & ID_ISAR5_VCMA != 1 << 28 {
         id_isar5 &= !ID_ISAR5_VCMA;
     }
-    id_isar5
+    id_isar5 & !ID_ISAR5_CRYPTO
 }
 
 /// Project the optional SIMD and FP fields through the active AArch32 profile.

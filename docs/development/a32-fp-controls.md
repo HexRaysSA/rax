@@ -732,3 +732,40 @@ The five unfiltered owning targets passed 47,651 tests on native Intel
 Linux with `smir-jit`. The runs reported zero failures, ignored cases,
 and filters. The complete Cargo test log SHA-256 is
 `760df3090fd5fb1689726e04baae1fd0132c474e60e531bf06d43d66b70e28eb`.
+
+## AArch32 crypto capability readback
+
+The AArch32 ID_ISAR5 projection clears the AES, SHA1 and SHA2 fields.
+The AES field also governs the 64-bit polynomial multiply form. The
+software AArch32 decoder has no execution support for these encodings.
+The projection preserves other represented AArch32 capabilities and
+the raw checkpoint fields. AArch64 ID_AA64ISAR0 crypto reporting uses
+its own feature view. The mask takes constant time and storage.
+[Arm DDI0487B.a, ID_ISAR5_EL1 field descriptions](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Disabled AArch32 crypto forms stay Undefined even with nonzero saved ID fields. | Assemble the raw instruction families with LLVM. Execute each A32/T32 encoding with the raw ID values enabled and require Undefined and unchanged SIMD data. |
+| Readback masks the same fields through CP15 and AArch64's AArch32 alias. | Import feature images with both defined and reserved values. Read from ARM and Thumb, then compare the AArch64 alias and unchanged AArch64 crypto controls. |
+| Narrow polynomial multiplication has a separate allocation. | Execute VMULL.P8 in ARM and Thumb under the same setup and require completion. |
+
+The unchanged decoder rejected 30 encodings for AArch32 AES, SHA and
+VMULL.P64 across the two instruction sets, and executed both VMULL.P8
+controls. Its output SHA-256 is
+`c0a04cf7442941ba28aa0a89ec44c8aa872440254755cc24c4fb4712fd7c62a0`.
+QEMU 11.1.2 Cortex-A15 rejected the same 30 inputs and ran both P8
+controls with AArch32 ID_ISAR5=0. The QEMU max model reported nonzero
+fields and ran all 32 inputs. These runs exercise decoded allocation
+and the feature contrast on an independent model. The Cortex-A15 and
+max output SHA-256 digests are
+`0ad4da6178bbdcff3b5ab5d6f54e2fc7194d5a4873fb70cc183c18cb29eecbd4`
+and `a38f6623d1ebc218a93fb38ba2b38d11f172c3dfcf6ccdf208ec6aa3d29cbba9`.
+
+Before the fix, both restored-profile readback tests failed on physical
+Intel Linux. The standalone test read `0x01001120` instead of
+`0x01000000`. The mixed-width test read `0x1100fff1` instead of
+`0x11000001`. Both passed with the projection in place. The five
+unfiltered owners passed all 47,651 tests across `a32_fp_controls`,
+`a32_fp_pairs`, `arm`, `arm_vfp_a32`, and `isa_oracle`. The combined
+passing log SHA-256 is
+`022553e1317fdde2e83e2ac3c1f46fdd53623cfa41a12367eb7b97a6b11adda5`.
