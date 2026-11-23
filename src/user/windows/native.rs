@@ -200,9 +200,8 @@ impl NativeRuntime {
             ) == (10, 0, 29708)
             && runtime.object_namespace.native_machine == Some(0xAA64)
         {
-            runtime.object_namespace.policy_lookup_account =
-                super::object_namespace::policy_lookup::capture(&subject.user)
-                    .map(std::sync::Arc::new);
+            runtime.object_namespace.policy_lookup_names =
+                super::object_namespace::policy_lookup::capture(&subject).map(std::sync::Arc::new);
             runtime.object_namespace.privilege_display_names =
                 super::security::privilege_names::capture().map(std::sync::Arc::new);
         }

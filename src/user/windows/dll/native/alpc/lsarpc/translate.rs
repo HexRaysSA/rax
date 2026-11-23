@@ -1,13 +1,13 @@
-//! The observed NDR64 request and successful reply for one primary account SID.
+//! The observed NDR64 request and successful reply for one selected token SID.
 
-use crate::user::windows::object_namespace::policy_lookup::{Name, PrimaryAccount};
+use crate::user::windows::object_namespace::policy_lookup::{Name, Translation};
 use crate::user::windows::objects::LsarpcPolicyContext;
 use crate::user::windows::security;
 
 const SID_AT: usize = 128;
 const DOMAIN_LIMIT: u32 = 32;
-const SID_TYPE_USER: u32 = 1;
 const REVISION: u32 = 2;
+const UNIQUE_REFERENT: u64 = 0x20000;
 
 fn read_u64(request: &[u8], at: usize) -> u64 {
     u64::from_le_bytes(request[at..at + 8].try_into().expect("checked request"))
@@ -47,11 +47,11 @@ fn u64_field(body: &mut Vec<u8>, value: u64) {
     body.extend_from_slice(&value.to_le_bytes());
 }
 
-fn name_header(body: &mut Vec<u8>, name: &Name, referent: u64) {
+fn name_header(body: &mut Vec<u8>, name: &Name) {
     body.resize(body.len().next_multiple_of(8), 0);
     body.extend_from_slice(&(name.units.len() as u16 * 2).to_le_bytes());
     body.extend_from_slice(&(name.maximum_units * 2).to_le_bytes());
-    u64_field(body, referent);
+    u64_field(body, UNIQUE_REFERENT);
 }
 
 fn name_buffer(body: &mut Vec<u8>, name: &Name) {
@@ -63,29 +63,30 @@ fn name_buffer(body: &mut Vec<u8>, name: &Name) {
     }
 }
 
-pub(super) fn append_success(body: &mut Vec<u8>, account: &PrimaryAccount) {
+pub(super) fn append_success(body: &mut Vec<u8>, translation: &Translation) {
     // One referenced domain and its deferred name and SID.
-    u64_field(body, 0x20000);
+    u64_field(body, UNIQUE_REFERENT);
     u32_field(body, 1);
-    u64_field(body, 0x20004);
+    u64_field(body, UNIQUE_REFERENT);
     u32_field(body, DOMAIN_LIMIT);
     u64_field(body, 1);
-    name_header(body, &account.domain, 0x20008);
-    u64_field(body, 0x2000c);
-    name_buffer(body, &account.domain);
-    u64_field(body, u64::from(account.domain_sid[1]));
-    body.extend_from_slice(&account.domain_sid);
+    name_header(body, &translation.domain);
+    u64_field(body, UNIQUE_REFERENT);
+    name_buffer(body, &translation.domain);
+    u64_field(body, u64::from(translation.domain_sid[1]));
+    body.extend_from_slice(&translation.domain_sid);
 
     // One translated name, bound to the first referenced domain.
+    body.resize(body.len().next_multiple_of(8), 0);
     u32_field(body, 1);
-    u64_field(body, 0x20010);
+    u64_field(body, UNIQUE_REFERENT);
     u64_field(body, 1);
-    u32_field(body, SID_TYPE_USER);
-    name_header(body, &account.account, 0x20014);
+    u32_field(body, translation.kind);
+    name_header(body, &translation.account);
     u32_field(body, 0); // DomainIndex
     u32_field(body, 0); // Flags
-    name_buffer(body, &account.account);
-    body.resize(body.len().next_multiple_of(8), 0);
+    name_buffer(body, &translation.account);
+    body.resize(body.len().next_multiple_of(4), 0);
     u32_field(body, 1); // MappedCount
     u32_field(body, 0); // STATUS_SUCCESS
     body.resize(body.len() + 32, 0);

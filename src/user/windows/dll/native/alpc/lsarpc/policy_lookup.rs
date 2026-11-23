@@ -37,19 +37,17 @@ fn translate_sid(c: &Ctx, payload: &[u8], contexts: &LsarpcPolicies) -> Option<R
     if !contexts.contains(&context) {
         return None;
     }
-    let account =
+    let catalog =
         c.p.native
             .as_ref()?
             .object_namespace
-            .policy_lookup_account
+            .policy_lookup_names
             .as_ref()?;
     let subject = c.p.objects.primary_token_subject()?;
-    if sid != account.user_sid || sid != subject.user {
-        return None;
-    }
+    let translation = catalog.translate(&subject, sid)?;
 
     let mut response = policy::reply(24);
-    translate::append_success(&mut response.body, account);
+    translate::append_success(&mut response.body, translation);
     Some(response)
 }
 

@@ -1,9 +1,9 @@
 use super::lsarpc_connect::invoke;
 use super::*;
 use crate::user::windows::nt::status::{STATUS_INVALID_HANDLE, STATUS_SERVER_SID_MISMATCH};
-use crate::user::windows::object_namespace::policy_lookup::{Name, PrimaryAccount};
+use crate::user::windows::object_namespace::policy_lookup::{Catalog as Names, Name, Translation};
 use crate::user::windows::objects::LsarpcInterface;
-use crate::user::windows::security::Subject;
+use crate::user::windows::security::{Group, Subject};
 use crate::user::windows::wnf::Catalog;
 use std::sync::Arc;
 
@@ -148,13 +148,25 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         let mut user_sid = domain_sid.clone();
         user_sid[1] = 5;
         user_sid.extend(1001u32.to_le_bytes());
+        let group_sid = |rid: u32| {
+            let mut sid = vec![1, 1, 0, 0, 0, 0, 0, 5];
+            sid.extend(rid.to_le_bytes());
+            sid
+        };
+        let group_kinds = [2, 4, 5, 10];
         let subject = Subject {
             statistics: None,
             user_attributes: 0,
             token_pointer_records: Default::default(),
             empty_claims: Default::default(),
             user: user_sid.clone(),
-            groups: Vec::new(),
+            groups: group_kinds
+                .into_iter()
+                .map(|kind| Group {
+                    sid: group_sid(100 + kind),
+                    attributes: 0,
+                })
+                .collect(),
             restricted: Vec::new(),
             app_container: false,
             privileges: Vec::new(),
@@ -162,12 +174,8 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         };
         p.objects
             .select_wnf_catalog(Catalog::selected(Vec::new(), subject).unwrap());
-        p.native
-            .as_mut()
-            .unwrap()
-            .object_namespace
-            .policy_lookup_account = Some(Arc::new(PrimaryAccount {
-            user_sid: user_sid.clone(),
+        let user_account = Translation {
+            kind: 1,
             domain_sid: domain_sid.clone(),
             domain: Name {
                 units: "TESTPC1".encode_utf16().collect(),
@@ -177,6 +185,35 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
                 units: "abc".encode_utf16().collect(),
                 maximum_units: 4,
             },
+        };
+        let group_domain_sid = group_sid(42);
+        let mut entries = [(user_sid.clone(), user_account)]
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for kind in group_kinds.into_iter().chain([99]) {
+            entries.insert(
+                group_sid(100 + kind),
+                Translation {
+                    kind,
+                    domain_sid: group_domain_sid.clone(),
+                    domain: Name {
+                        units: Vec::new(),
+                        maximum_units: 1,
+                    },
+                    account: Name {
+                        units: "xy".encode_utf16().collect(),
+                        maximum_units: 3,
+                    },
+                },
+            );
+        }
+        p.native
+            .as_mut()
+            .unwrap()
+            .object_namespace
+            .policy_lookup_names = Some(Arc::new(Names {
+            primary_sid: user_sid.clone(),
+            entries,
         }));
 
         let mut lookup = [0; 188];
@@ -221,6 +258,48 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         assert_eq!(read_word(&translated, 248), 1);
         assert_eq!(&translated[252..], &[0; 36]);
 
+        let mut lookup_group = [0; 172];
+        words(
+            &mut lookup_group,
+            &[
+                (12, 21),
+                (16, 1),
+                (20, 2),
+                (88, 1),
+                (96, 0x20000),
+                (104, 1),
+                (112, 0x20004),
+                (120, 1),
+                (168, 2),
+            ],
+        );
+        lookup_group[64..84].copy_from_slice(context);
+        // The catalog contains this SID, but it does not belong to the token.
+        lookup_group[128..140].copy_from_slice(&group_sid(199));
+        assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup_group);
+        for kind in group_kinds {
+            lookup_group[128..140].copy_from_slice(&group_sid(100 + kind));
+            let reply = exchange(p, &mut thread, base + 0x400, handle, 0, &lookup_group);
+            assert_eq!(reply.len(), 260);
+            assert_eq!(read_word(&reply, 12), 21);
+            for offset in [24, 40, 72, 80, 144, 176] {
+                assert_eq!(&reply[offset..offset + 8], &0x20000u64.to_le_bytes());
+            }
+            assert_eq!(read_word(&reply, 64), 2 << 16);
+            assert_eq!(read_word(&reply, 88), 1);
+            assert_eq!(read_word(&reply, 104), 0);
+            assert_eq!(&reply[120..132], &group_domain_sid);
+            assert_eq!(&reply[132..136], &[0; 4]);
+            assert_eq!(read_word(&reply, 136), 1);
+            assert_eq!(read_word(&reply, 160), kind);
+            assert_eq!(read_word(&reply, 168), (6 << 16) | 4);
+            assert_eq!(read_word(&reply, 192), 3);
+            assert_eq!(read_word(&reply, 208), 2);
+            assert_eq!(&reply[216..220], b"x\0y\0");
+            assert_eq!(read_word(&reply, 220), 1);
+            assert_eq!(&reply[224..], &[0; 36]);
+        }
+
         let mut close = [0; 84];
         words(&mut close, &[(12, 11), (16, 1), (20, 1)]);
         close[64..84].copy_from_slice(context);
@@ -234,6 +313,7 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         assert_eq!(read_word(&reply, 12), 12);
         assert_eq!(read_word(&reply, 44), STATUS_INVALID_HANDLE);
         assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup);
+        assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup_group);
     }
 }
 

@@ -1,34 +1,59 @@
-//! Fixed primary-subject input for the local Policy Lookup compatibility profile.
+//! Captured account names for the local Policy Lookup compatibility profile.
 
-#[derive(Clone)]
+use crate::user::windows::security::Subject;
+use std::collections::BTreeMap;
+
 pub(crate) struct Name {
     pub(crate) units: Vec<u16>,
     pub(crate) maximum_units: u16,
 }
 
-pub(crate) struct PrimaryAccount {
-    pub(crate) user_sid: Vec<u8>,
+pub(crate) struct Translation {
+    pub(crate) kind: u32,
     pub(crate) domain_sid: Vec<u8>,
     pub(crate) domain: Name,
     pub(crate) account: Name,
 }
 
-impl std::fmt::Debug for PrimaryAccount {
+pub(crate) struct Catalog {
+    pub(crate) primary_sid: Vec<u8>,
+    pub(crate) entries: BTreeMap<Vec<u8>, Translation>,
+}
+
+impl Catalog {
+    pub(crate) fn translate(&self, subject: &Subject, sid: &[u8]) -> Option<&Translation> {
+        if self.primary_sid != subject.user {
+            return None;
+        }
+        let translation = self.entries.get(sid)?;
+        (sid == subject.user || subject.groups.iter().any(|group| group.sid == sid))
+            .then_some(translation)
+    }
+}
+
+impl std::fmt::Debug for Catalog {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PrimaryAccount").finish_non_exhaustive()
+        f.debug_struct("Catalog").finish_non_exhaustive()
     }
 }
 
 #[cfg(windows)]
 mod installed {
-    use super::{Name, PrimaryAccount};
+    use super::{BTreeMap, Catalog, Name, Subject, Translation};
     use crate::user::windows::security;
     use std::ffi::c_void;
     use std::ptr::{null, null_mut};
 
     const POLICY_LOOKUP_NAMES: u32 = 0x0800;
+    const STATUS_SOME_NOT_MAPPED: i32 = 0x107;
     const SID_TYPE_USER: u32 = 1;
+    const SID_TYPE_GROUP: u32 = 2;
+    const SID_TYPE_ALIAS: u32 = 4;
+    const SID_TYPE_WELL_KNOWN_GROUP: u32 = 5;
+    const SID_TYPE_LABEL: u32 = 10;
     const MAX_NAME_BYTES: u16 = 1024;
+    // The SID fixed header and its maximum of 15 four-byte subauthorities.
+    const MAX_SID_WORDS: usize = 17;
 
     #[repr(C)]
     struct Unicode {
@@ -110,7 +135,7 @@ mod installed {
 
     // The counted buffer is borrowed only while its owning LSA allocation lives.
     fn copy_name(value: &Unicode) -> Option<Name> {
-        if value.length == 0
+        if value.maximum == 0
             || value.length > value.maximum
             || value.maximum > MAX_NAME_BYTES
             || value.length % 2 != 0
@@ -132,49 +157,7 @@ mod installed {
         })
     }
 
-    /// Look up the selected process primary subject once during host selection.
-    /// No guest request can supply a SID or a system name to this API.
-    pub(super) fn capture(user_sid: &[u8]) -> Option<PrimaryAccount> {
-        if security::sid(user_sid)? != user_sid {
-            return None;
-        }
-        // A Windows SID contains at most 15 DWORD subauthorities after its
-        // eight-byte header. Preserve DWORD alignment for the native input.
-        let mut input = [0u32; 17];
-        let sid = input.as_mut_ptr().cast::<u8>();
-        // SAFETY: the SID length was bounded above and input is disjoint.
-        unsafe { std::ptr::copy_nonoverlapping(user_sid.as_ptr(), sid, user_sid.len()) };
-        let sid = sid.cast_const();
-        let attributes = ObjectAttributes {
-            length: std::mem::size_of::<ObjectAttributes>() as u32,
-            root: null_mut(),
-            name: null(),
-            flags: 0,
-            security: null(),
-            qos: null(),
-        };
-        let mut policy = Policy(null_mut());
-        // SAFETY: local policy and exclusive output storage with the documented layout.
-        if unsafe { LsaOpenPolicy(null(), &attributes, POLICY_LOOKUP_NAMES, &mut policy.0) } != 0
-            || policy.0.is_null()
-        {
-            return None;
-        }
-        let mut domains = Allocation::<Domains>(null_mut());
-        let mut names = Allocation::<TranslatedName>(null_mut());
-        // SAFETY: one live input SID and independent outputs scoped to this call.
-        if unsafe { LsaLookupSids2(policy.0, 0, 1, &sid, &mut domains.0, &mut names.0) } != 0 {
-            return None;
-        }
-        // SAFETY: successful lookup returns one translated record per input SID.
-        let name = unsafe { names.0.as_ref() }?;
-        // SAFETY: the returned domain list remains owned by domains.
-        let referenced = unsafe { domains.0.as_ref() }?;
-        if name.kind != SID_TYPE_USER || name.domain_index != 0 || referenced.count != 1 {
-            return None;
-        }
-        // SAFETY: the successful one-entry list owns its first entry and its SID.
-        let domain = unsafe { referenced.entries.as_ref() }?;
+    fn copy_translation(name: &TranslatedName, domain: &Domain) -> Option<Translation> {
         if domain.sid.is_null() {
             return None;
         }
@@ -184,24 +167,137 @@ mod installed {
         if count > 15 {
             return None;
         }
+        // SAFETY: the native allocation owns the previously bounded SID.
         let sid = unsafe { std::slice::from_raw_parts(domain.sid, 8 + 4 * usize::from(count)) };
-        Some(PrimaryAccount {
-            user_sid: user_sid.to_vec(),
+        let account = copy_name(&name.name)?;
+        if account.units.is_empty() {
+            return None;
+        }
+        Some(Translation {
+            kind: name.kind,
             domain_sid: security::sid(sid)?.to_vec(),
             domain: copy_name(&domain.name)?,
-            account: copy_name(&name.name)?,
+            account,
+        })
+    }
+
+    fn add_translations(
+        policy: &Policy,
+        sids: &[&[u8]],
+        accepts: impl Fn(u32) -> bool,
+        entries: &mut BTreeMap<Vec<u8>, Translation>,
+    ) {
+        if sids.is_empty() {
+            return;
+        }
+        // Use DWORD-aligned native storage for the already validated SID bytes.
+        let mut inputs = vec![[0u32; MAX_SID_WORDS]; sids.len()];
+        for (input, sid) in inputs.iter_mut().zip(sids) {
+            // SAFETY: every input SID fits and has storage disjoint from inputs.
+            unsafe {
+                std::ptr::copy_nonoverlapping(sid.as_ptr(), input.as_mut_ptr().cast(), sid.len())
+            };
+        }
+        let pointers: Vec<_> = inputs.iter().map(|input| input.as_ptr().cast()).collect();
+        let mut domains = Allocation::<Domains>(null_mut());
+        let mut names = Allocation::<TranslatedName>(null_mut());
+        // SAFETY: input pointers name live, aligned SIDs and the outputs are exclusive.
+        let status = unsafe {
+            LsaLookupSids2(
+                policy.0,
+                0,
+                pointers.len() as u32,
+                pointers.as_ptr(),
+                &mut domains.0,
+                &mut names.0,
+            )
+        };
+        if !matches!(status, 0 | STATUS_SOME_NOT_MAPPED) || names.0.is_null() {
+            return;
+        }
+        // SAFETY: the returned domain list remains owned by domains.
+        let Some(referenced) = (unsafe { domains.0.as_ref() }) else {
+            return;
+        };
+        if referenced.count as usize > sids.len() || referenced.entries.is_null() {
+            return;
+        }
+        // SAFETY: LSA returns one name per input and a counted domain array.
+        let translated = unsafe { std::slice::from_raw_parts(names.0, sids.len()) };
+        let referenced =
+            unsafe { std::slice::from_raw_parts(referenced.entries, referenced.count as usize) };
+        for (&sid, name) in sids.iter().zip(translated) {
+            if !accepts(name.kind) {
+                continue;
+            }
+            let Ok(index) = usize::try_from(name.domain_index) else {
+                continue;
+            };
+            if let Some(translation) = referenced
+                .get(index)
+                .and_then(|domain| copy_translation(name, domain))
+            {
+                entries.entry(sid.to_vec()).or_insert(translation);
+            }
+        }
+    }
+
+    /// Resolve only the selected host token during runtime selection.
+    pub(super) fn capture(subject: &Subject) -> Option<Catalog> {
+        let user = subject.user.as_slice();
+        if security::sid(user)? != user {
+            return None;
+        }
+        let attributes = ObjectAttributes {
+            length: std::mem::size_of::<ObjectAttributes>() as u32,
+            root: null_mut(),
+            name: null(),
+            flags: 0,
+            security: null(),
+            qos: null(),
+        };
+        let mut policy = Policy(null_mut());
+        // SAFETY: this opens the local query policy into exclusive output storage.
+        if unsafe { LsaOpenPolicy(null(), &attributes, POLICY_LOOKUP_NAMES, &mut policy.0) } != 0
+            || policy.0.is_null()
+        {
+            return None;
+        }
+        let mut entries = BTreeMap::new();
+        // Mixed batches can change the primary user's counted name metadata.
+        add_translations(&policy, &[user], |kind| kind == SID_TYPE_USER, &mut entries);
+        let groups: Vec<_> = subject
+            .groups
+            .iter()
+            .map(|group| group.sid.as_slice())
+            .filter(|&sid| security::sid(sid) == Some(sid))
+            .collect();
+        add_translations(
+            &policy,
+            &groups,
+            |kind| {
+                matches!(
+                    kind,
+                    SID_TYPE_GROUP | SID_TYPE_ALIAS | SID_TYPE_WELL_KNOWN_GROUP | SID_TYPE_LABEL
+                )
+            },
+            &mut entries,
+        );
+        (!entries.is_empty()).then(|| Catalog {
+            primary_sid: user.to_vec(),
+            entries,
         })
     }
 }
 
-pub(crate) fn capture(user_sid: &[u8]) -> Option<PrimaryAccount> {
+pub(crate) fn capture(subject: &Subject) -> Option<Catalog> {
     #[cfg(windows)]
     {
-        installed::capture(user_sid)
+        installed::capture(subject)
     }
     #[cfg(not(windows))]
     {
-        let _ = user_sid;
+        let _ = subject;
         None
     }
 }

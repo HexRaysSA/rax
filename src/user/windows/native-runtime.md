@@ -4012,14 +4012,18 @@ This port binds interface `fb8a0729-2d04-4658-be93-27b4ad553fac` version 1.0.
 The installed ARM64 client negotiates NDR64. Operation 0 returns a policy
 context for a measured `POLICY_LOOKUP_NAMES` request and operation 1 closes
 it. The same association owns the context across duplicate port handles.
-Operation 2 translates one SID when it matches the selected primary token
-and the caller holds the live policy context. On the observed ARM64 build,
-the installed provider obtains the account and domain once using the local
-policy lookup for its own primary token. The lookup uses a query-only grant
-and closes the host policy handle during selection. The response preserves
-the counted UTF-16 names and referenced domain SID. The guest call never
-passes a SID or a system name to a host API.
+Operation 2 translates one SID belonging to the selected primary user or
+its token groups while the caller holds the live policy context. During
+selection the installed provider resolves the primary user alone and the
+token groups in a separate batch under a query-only policy grant. The policy
+handle closes before guest execution. Supported group translations are Group,
+Alias, WellKnownGroup and Label. The response preserves the counted UTF-16
+names, including a present but empty domain name, and the referenced domain
+SID. The NDR64 translated-name array begins at an 8-byte boundary, and its
+mapped count follows the deferred name at a 4-byte boundary. The guest call
+reads the captured names and cannot submit SIDs or system names to host APIs.
 [Windows LsaLookupSids2](https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/nf-ntsecapi-lsalookupsids2)
+[Windows SID_NAME_USE](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ne-winnt-sid_name_use)
 [MS-RPCE NDR64 conformant varying arrays](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rpce/0559c108-7705-448c-82a7-1c1a56e02650)
 
 ### Process dynamic-code policy query
