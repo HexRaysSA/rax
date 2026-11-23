@@ -278,5 +278,18 @@ and RFLAGS. The control archives the signed executable and raw output.
 | The interrupt gate read produces a recoverable EPT exit during event delivery. | Require a valid type-0 vectoring record for vector `0x40`, a read of the gate, the original guest RIP and RSP, and zero handler visits before replay. |
 | The selected external interrupt can be restaged after the mapping is restored. | Require one handler visit and the original guest continuation after IRET. |
 
-This control observes SDK behavior. RAX retains its current admission
-policy for interrupted event delivery.
+Hosted run `45088917371` at `9f583c7460b8f039ecb28c81c19264bc32bf47c7`
+observed exit reason `48`, qualification `0x581`, GPA `0xc400`, and
+vectoring information `0x80000040`. The stopped guest had RIP `0x10002`,
+RSP `0x1ff000`, and zero handler visits. Reoffering the external
+interrupt after mapping the gate reached the handler port once and
+returned through IRET to the original HLT. Artifact `14780238652` matched
+its published SHA-256. Verification matched all three compiler inputs to
+Git and checked the archived x86-64 executable signature and hypervisor
+entitlement. The host reported an untranslated Intel process in a VM.
+[Hosted SDK control](https://github.com/HexRaysSA/rax/actions/runs/45088917371/job/137413778124)
+
+This case establishes the public SDK replay mechanism for an external
+interrupt when the host can repair the mapping. RAX still requires a
+production policy for repairing or resolving the underlying exit and
+transferring ownership of the interrupted event.
