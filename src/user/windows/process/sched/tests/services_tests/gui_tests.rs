@@ -1,5 +1,5 @@
 use super::*;
-use crate::user::windows::gui::{Availability, Completion, State};
+use crate::user::windows::gui::{Availability, Completion, State, Wow64Gdi};
 use crate::user::windows::loader::services::tests::named_table;
 
 fn arguments(p: &mut Proc, t: &mut Thread, values: [u64; 3]) {
@@ -90,6 +90,12 @@ fn setup(arch: WinArch) -> (super::super::super::super::WindowsProcess, Thread, 
 
 #[test]
 fn wow64_gui_initialization_updates_only_the_companion_and_reuses_guest_views() {
+    for (profile, high_bit) in [(Wow64Gdi::Insider, 0x8000_0000), (Wow64Gdi::Released, 0)] {
+        check_wow64_gui_initialization(profile, high_bit);
+    }
+}
+
+fn check_wow64_gui_initialization(profile: Wow64Gdi, high_bit: u64) {
     use crate::user::windows::memory::{mem, prot};
     use crate::user::windows::object_namespace::csr::client_data::native_fixture;
     use crate::user::windows::process::{services, thread, wow64};
@@ -101,8 +107,10 @@ fn wow64_gui_initialization_updates_only_the_companion_and_reuses_guest_views() 
     version.minor = 0;
     version.build = 29708;
     wow64::initialize_test_profile(p, WinArch::Arm64.machine()).unwrap();
-    p.native.as_mut().unwrap().gui =
-        Availability::Wow64Companion(crate::user::windows::gui::tests::wow64_companion_fixture());
+    p.native.as_mut().unwrap().gui = Availability::Wow64Companion(
+        crate::user::windows::gui::tests::wow64_companion_fixture(),
+        profile,
+    );
 
     let id = thread::create(p, p.modules.exe().entry, 0, 0x10000, false).unwrap();
     let mut thread = p.threads.remove(&id).unwrap();
@@ -139,7 +147,8 @@ fn wow64_gui_initialization_updates_only_the_companion_and_reuses_guest_views() 
     );
     let value = thread.cpu.gpr(0);
     assert_eq!(value, u64::from(p.space.u32(peb + 0x108).unwrap()));
-    assert_ne!(value & 0x8000_0000, 0);
+    assert_ne!(value, 0);
+    assert_eq!(value & 0x8000_0000, high_bit);
     assert_eq!(thread.cpu.sp(), original_sp + 4);
     assert_eq!(thread.cpu.pc(), 0x1234_000c);
     assert!(thread.frames.is_empty());

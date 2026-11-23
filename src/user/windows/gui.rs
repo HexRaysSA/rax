@@ -61,12 +61,12 @@ fn invalid(message: &str) -> io::Error {
 }
 
 impl Inputs {
-    pub(crate) fn qualify_wow64_companion(&self) -> io::Result<()> {
+    pub(crate) fn qualify_wow64_companion(&self, native_arch: WinArch) -> io::Result<()> {
         let views = [&self.gdi, &self.desktop];
         // Inputs::selected checks that the desktop has a committed prefix
         // containing the client records followed by a nonempty reserved tail.
         // The boundary can move as the native desktop heap grows.
-        if self.arch != WinArch::Arm64
+        if self.arch != native_arch
             || views.iter().any(|view| view.base < 1 << 32)
             || self.desktop.section.size != 0x1401000
             || self.client[18] > u64::from(u32::MAX)
@@ -214,8 +214,23 @@ impl Inputs {
 #[derive(Debug)]
 pub(crate) enum Availability {
     Available(Arc<Inputs>),
-    Wow64Companion(Arc<Inputs>),
+    Wow64Companion(Arc<Inputs>, Wow64Gdi),
     Unavailable(String),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Wow64Gdi {
+    Insider,
+    Released,
+}
+
+impl Wow64Gdi {
+    pub(crate) fn process_value(self, random: u32) -> u32 {
+        match self {
+            Self::Insider => random | 0x8000_0000,
+            Self::Released => (random & 0x7fff_ffff).max(1),
+        }
+    }
 }
 
 impl Default for Availability {
