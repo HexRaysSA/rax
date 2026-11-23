@@ -236,9 +236,12 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn native_imported_file_section_maps_the_final_partial_page() {
-        let mut file = anonymous_file().unwrap();
         let bytes = vec![0x6a; 65537];
-        file.write_all(&bytes).unwrap();
+        // Match a native cached file section whose source still has a name
+        // after the original file handle is closed.
+        let source =
+            crate::user::supplied_fs::test_backing::TestFile::new(&bytes, bytes.len() as u64);
+        let file = std::fs::File::open(&source.path).unwrap();
         let (handle, size) = native::create(&file, 0, prot::READONLY).unwrap();
         assert_eq!(size, bytes.len() as u64);
         let imported = FileSection::from_cache(handle, size).unwrap();
