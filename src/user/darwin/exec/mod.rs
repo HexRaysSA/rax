@@ -37,7 +37,6 @@
 
 pub mod args;
 pub mod image;
-#[cfg(unix)]
 pub mod spawn;
 
 use std::collections::BTreeSet;
@@ -51,9 +50,9 @@ use super::mach::task::TaskState;
 use super::process::{self, Carried, ExitStatus, Proc, SpawnError, Thread};
 use super::signal::{self, SIGCONT, SigActs};
 use super::syscall::Ctx;
-use image::Activated;
 #[cfg(unix)]
-use image::{Binprefs, Dir};
+use image::Dir;
+use image::{Activated, Binprefs};
 
 /// A new image to run in place of the process once the current call
 /// returns.
@@ -80,7 +79,7 @@ pub fn execve(ctx: &mut Ctx<'_>, path: u64, argv: u64, envp: u64) -> SysResult {
             image::activate(ctx, path, Dir::Cwd, &Binprefs::default())?
         }
     } else {
-        image::activate_supplied(ctx, path)?
+        image::activate_supplied(ctx, path, &ctx.proc.cwd, &Binprefs::default())?
     };
     let strings = args::extract(ctx, &act.interp, &act.user_path, argv, envp)?;
     let fds = fdt_fork(&ctx.proc.fds, true);
@@ -153,7 +152,6 @@ fn build(
 }
 
 /// The errno a failure to build a spawned image reports.
-#[cfg(unix)]
 fn build_errno(e: &SpawnError) -> Errno {
     match e {
         SpawnError::Io(_, io) => Errno::from_io(io),
@@ -273,6 +271,7 @@ pub fn carry(
         pending: thread.sig.pending,
         itimers: proc.itimers,
         children: proc.children.clone(),
+        family: proc.family.clone(),
         task: exec_task(&proc.task),
         host_port: proc.host_port.clone(),
         started: proc.started,

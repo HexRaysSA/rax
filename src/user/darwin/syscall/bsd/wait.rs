@@ -8,30 +8,13 @@
 //! until the host's `SIGCHLD` wakes it (see `signal::host`), its wait
 //! interruptible by signals as XNU's `msleep(PCATCH)` is.
 
+use super::child_wait::RUSAGE_SIZE;
+pub use super::child_wait::{idtype, opt};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::signal::{self, SIGCHLD};
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{Wait, WaitKey};
-
-/// `wait4` and `waitid` options (`bsd/sys/wait.h`).
-pub mod opt {
-    pub const WNOHANG: i32 = 0x01;
-    pub const WUNTRACED: i32 = 0x02;
-    pub const WEXITED: i32 = 0x04;
-    pub const WSTOPPED: i32 = 0x08;
-    pub const WCONTINUED: i32 = 0x10;
-    pub const WNOWAIT: i32 = 0x20;
-}
-
-/// `idtype_t`.
-pub mod idtype {
-    pub const P_PID: i32 = 1;
-    pub const P_PGID: i32 = 2;
-}
-
-/// `sizeof(struct user64_rusage)`.
-const RUSAGE_SIZE: usize = 144;
 
 /// A child's state change as the host reports it.
 struct Reaped {

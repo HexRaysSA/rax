@@ -36,6 +36,7 @@ use super::wait::{self, Resume, Wait, WaitKey};
 use crate::user::mm::{AddressSpace, MmError, SpaceConfig};
 
 pub(crate) mod embedding;
+pub(crate) mod family;
 
 #[cfg(test)]
 pub(crate) mod bounded_tests;
@@ -305,6 +306,13 @@ impl Entropy {
         Entropy { state: seed }
     }
 
+    pub(crate) fn for_child(&self, pid: i32) -> Self {
+        Self::new(
+            self.state
+                .map(|seed| seed ^ (pid as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)),
+        )
+    }
+
     /// Checked entropy for architectural keys. Host failure aborts image
     /// activation rather than silently installing zero or partial keys.
     pub(crate) fn try_fill(&mut self, buf: &mut [u8]) -> std::io::Result<()> {
@@ -433,7 +441,7 @@ pub struct Proc {
     /// Descriptors.
     pub fds: FdTable,
     pub(crate) closers: syscall::bsd::file::lifetime::Closers,
-    /// Process ID (the host's).
+    /// Process ID, virtual when host services are disabled.
     pub pid: i32,
     /// Parent process ID.
     pub ppid: i32,
@@ -481,6 +489,8 @@ pub struct Proc {
     pub wq: super::workq::Workqueue,
     /// Children not yet reaped, by pid (host processes).
     pub children: std::collections::BTreeSet<i32>,
+    pub(crate) family: Option<family::Member>,
+    pub(crate) spawned: Vec<Proc>,
     /// Children the kernel reaped itself (a spawn that failed in the
     /// child): the host's `SIGCHLD` for them is not the guest's.
     pub hidden: std::collections::BTreeSet<i32>,
@@ -598,6 +608,7 @@ pub struct DarwinProcess {
     /// The thread that ran last (the scheduler continues after it).
     last: u64,
     terminal: Option<ExitStatus>,
+    family: family::Scheduler,
 }
 
 /// A different selected guest thread discards its Arm local reservation,
@@ -653,6 +664,7 @@ pub struct Carried {
     pub itimers: signal::timer::ITimers,
     /// Children.
     pub children: std::collections::BTreeSet<i32>,
+    pub(crate) family: Option<family::Member>,
     /// The new task's inherited special ports and exception actions.
     pub task: TaskState,
     /// The host port.
@@ -675,16 +687,21 @@ impl DarwinProcess {
             crate::user::trace::init(path)
                 .map_err(|e| SpawnError::Io(path.display().to_string(), e))?;
         }
-        Ok(DarwinProcess {
-            proc: start(config, image, None, None)?,
+        Ok(Self::from_proc(start(config, image, None, None)?))
+    }
+
+    fn from_proc(proc: Proc) -> Self {
+        Self {
+            proc,
             last: 0,
             terminal: None,
-        })
+            family: family::Scheduler::default(),
+        }
     }
 
     /// Runs the process until it exits, sleeping on the host while guests wait.
     pub fn run(&mut self) -> ExitStatus {
-        match self.drive(None, None) {
+        match self.drive_session(None, None) {
             RunStatus::Complete(status) => status,
             _ => unreachable!("unbounded scheduler only returns a terminal status"),
         }
@@ -703,7 +720,17 @@ impl DarwinProcess {
                 .map(RunStatus::Complete)
                 .unwrap_or(RunStatus::BudgetExhausted);
         }
-        self.drive(Some(max_turns), Some(cancelled))
+        self.drive_session(Some(max_turns), Some(cancelled))
+    }
+
+    fn drive_session(&mut self, turns: Option<u64>, cancelled: Option<&AtomicBool>) -> RunStatus {
+        if self.proc.family.is_none() {
+            return self.drive(turns, cancelled);
+        }
+        let mut family = std::mem::take(&mut self.family);
+        let status = family.drive(self, turns, cancelled);
+        self.family = family;
+        status
     }
 
     fn drive(&mut self, mut turns: Option<u64>, cancelled: Option<&AtomicBool>) -> RunStatus {
@@ -1087,6 +1114,17 @@ impl DarwinProcess {
         self.wake_ready(&fds, &ready);
     }
 
+    fn idle_deadline(&self) -> Option<Instant> {
+        self.proc
+            .threads
+            .values()
+            .filter_map(|thread| thread.wait.as_ref().and_then(|wait| wait.deadline))
+            .chain(self.proc.itimers.real_at)
+            .chain(self.proc.mk_timers.next_deadline())
+            .chain(super::kevent::autonomous_wait(&self.proc).1)
+            .min()
+    }
+
     /// Wakes, while other threads keep running, the sleeping threads whose
     /// waits are over: their deadlines passed or their descriptors ready
     /// (a poll that does not block). `idle` does the same when no thread
@@ -1198,7 +1236,7 @@ pub(crate) fn start(
             if config.host_services {
                 std::process::id() as i32
             } else {
-                1000
+                family::ROOT_PID
             }
         },
         |c| c.pid,
@@ -1341,6 +1379,8 @@ pub(crate) fn start(
             kq: Default::default(),
             wq: Default::default(),
             children: c.children,
+            family: c.family,
+            spawned: Vec::new(),
             hidden: Default::default(),
             machine,
             shared_region: None,
@@ -1426,6 +1466,7 @@ pub(crate) fn start(
                 .inherited
                 .as_ref()
                 .map_or_else(signal::SigActs::default, signal::SigActs::inherited);
+            let family = (!config.host_services).then(family::Member::root);
             let mut proc = Proc {
                 abi,
                 space,
@@ -1458,6 +1499,8 @@ pub(crate) fn start(
                 kq: Default::default(),
                 wq: Default::default(),
                 children: Default::default(),
+                family,
+                spawned: Vec::new(),
                 hidden: Default::default(),
                 machine,
                 shared_region: None,

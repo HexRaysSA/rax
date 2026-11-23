@@ -4,6 +4,8 @@ use crate::user::image::macho::*;
 
 #[path = "closed_pipe_tests.rs"]
 mod closed_pipe_tests;
+#[path = "closed_spawn_tests.rs"]
+mod closed_spawn_tests;
 
 const TEXT: u64 = 0x1_0000_0000;
 const ENTRY: u64 = TEXT + 0x1000;
@@ -1063,12 +1065,16 @@ fn embedded_process_runs_with_virtual_identity_and_denies_host_syscalls() {
         };
         assert_eq!(bsd::call(&mut ctx, nr::GETPID, &[0; 8]), Ok(Rv::one(1000)));
         assert_eq!(bsd::call(&mut ctx, nr::GETPPID, &[0; 8]), Ok(Rv::one(0)));
-        for number in [nr::FORK, nr::POSIX_SPAWN, nr::SOCKET] {
+        for number in [nr::FORK, nr::PTRACE, nr::SOCKET] {
             assert_eq!(
                 bsd::call(&mut ctx, number, &[u64::MAX; 8]),
                 Err(Errno::EPERM)
             );
         }
+        assert_eq!(
+            bsd::call(&mut ctx, nr::POSIX_SPAWN, &[u64::MAX; 8]),
+            Err(Errno::EFAULT)
+        );
         p.proc.threads.insert(tid, thread);
         finish(&mut p);
     }

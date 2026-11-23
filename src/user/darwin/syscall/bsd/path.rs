@@ -22,7 +22,7 @@ use crate::user::darwin::io::{O_EXLOCK, O_SHLOCK};
 use crate::user::darwin::syscall::Ctx;
 
 mod dev_fd;
-mod embedded;
+pub(crate) mod embedded;
 pub(crate) use dev_fd::open_descriptor;
 
 #[cfg(unix)]

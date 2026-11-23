@@ -11,6 +11,7 @@ pub mod acl;
 pub mod attr;
 #[cfg(target_os = "macos")]
 pub mod audit;
+mod child_wait;
 pub mod event;
 pub mod file;
 pub(crate) mod guarded;
@@ -129,12 +130,17 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::EXIT => proc::exit(ctx, i(0)),
         #[cfg(unix)]
         nr::FORK => crate::user::darwin::fork::fork(ctx),
+        nr::WAIT4 | nr::WAIT4_NOCANCEL if ctx.proc.family.is_some() => {
+            child_wait::wait4(ctx, i(0), a[1], i(2), a[3])
+        }
+        nr::WAITID | nr::WAITID_NOCANCEL if ctx.proc.family.is_some() => {
+            child_wait::waitid(ctx, i(0), i(1), a[2], i(3))
+        }
         #[cfg(unix)]
         nr::WAIT4 | nr::WAIT4_NOCANCEL => wait::wait4(ctx, i(0), a[1], i(2), a[3]),
         #[cfg(unix)]
         nr::WAITID | nr::WAITID_NOCANCEL => wait::waitid(ctx, i(0), u(1), a[2], i(3)),
         nr::EXECVE => crate::user::darwin::exec::execve(ctx, a[0], a[1], a[2]),
-        #[cfg(unix)]
         nr::POSIX_SPAWN => {
             crate::user::darwin::exec::spawn::posix_spawn(ctx, a[0], a[1], a[2], a[3], a[4])
         }
@@ -316,6 +322,9 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GETGID => Ok(Rv::one(u64::from(ctx.proc.creds.2))),
         nr::GETEGID => Ok(Rv::one(u64::from(ctx.proc.creds.3))),
         nr::ISSETUGID => Ok(Rv::one(0)),
+        nr::GETPGRP | nr::GETPGID | nr::GETSID if let Some(member) = &ctx.proc.family => {
+            child_wait::identity(member, number, ctx.proc.pid, i(0))
+        }
         #[cfg(unix)]
         nr::GETPGRP => proc::host_id(|| unsafe { libc::getpgrp() }),
         #[cfg(unix)]

@@ -63,7 +63,7 @@ mod flags {
 }
 
 /// `si_code` values (`bsd/sys/signal.h`).
-pub(super) mod code {
+pub(in crate::user::darwin) mod code {
     pub const ILL_ILLOPC: i32 = 1;
     pub const ILL_ILLTRP: i32 = 2;
     pub const FPE_FLTDIV: i32 = 1;

@@ -13,31 +13,36 @@
 //! caller before anything is forked, on a copy of its descriptor table and
 //! with a directory descriptor standing in for a changed working
 //! directory, so that a failed spawn (`posix_spawnp` tries every `PATH`
-//! entry) creates no child at all, as XNU's reaps its half-made child
-//! without a trace. The new image is built in the caller too; the host
-//! fork then carries it into the child, which takes it up at once. Only
-//! setting the process group or session can fail in the child: it
-//! reports the error through a pipe, the caller reaps it, and its
-//! `SIGCHLD` never reaches the guest.
+//! entry) creates no visible child. The new image is built in the caller
+//! and handed to the guest scheduler or the host-backed fork path.
 
 use crate::host::time::Instant;
 use std::collections::BTreeSet;
+#[cfg(unix)]
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::sync::Arc;
 
-use super::image::{self, Binprefs, Dir, NBINPREFS};
+#[cfg(unix)]
+use super::image::Dir;
+use super::image::{self, Binprefs, NBINPREFS};
 use super::{Swap, args, build, build_errno, carry, exec_task, fdt_fork, swap_or_kill};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FdTable, OpenFile};
+#[cfg(unix)]
 use crate::user::darwin::host::{self, check};
 use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
 use crate::user::darwin::mach::exception::Handler;
 use crate::user::darwin::mach::ipc::{MACH_PORT_DEAD, MACH_PORT_NULL, Port};
 use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, PORT_REGISTER_MAX, TaskState, special};
-use crate::user::darwin::process::{self, Proc};
+#[cfg(any(unix, test))]
+use crate::user::darwin::process;
+#[cfg(unix)]
+use crate::user::darwin::process::Proc;
 use crate::user::darwin::signal::{self, SigAction};
 use crate::user::darwin::syscall::Ctx;
+use crate::user::darwin::syscall::bsd::path::embedded;
+#[cfg(unix)]
 use crate::user::darwin::syscall::bsd::path::normalize;
 use crate::user::darwin::syscall::util::MAXPATHLEN;
 
@@ -292,11 +297,13 @@ struct Scratch {
     /// The guest working directory.
     cwd: Vec<u8>,
     /// The host directory standing for it, once an action changed it.
+    #[cfg(unix)]
     dir: Option<OwnedFd>,
     /// `UF_INHERIT` marks (`POSIX_SPAWN_CLOEXEC_DEFAULT`).
     inherit: Option<BTreeSet<i32>>,
 }
 
+#[cfg(unix)]
 impl Scratch {
     fn dir(&self) -> Dir {
         self.dir
@@ -334,7 +341,7 @@ fn file_actions(
                 path,
             } => {
                 let path = path.clone()?;
-                let orig = open(ctx, s, &path, *oflag, *mode, nofile)?;
+                let orig = open_action(ctx, s, &path, *oflag, *mode, nofile)?;
                 if orig != *fd {
                     dup2(s, orig, *fd, nofile)?;
                     s.fds.remove(orig)?;
@@ -349,34 +356,19 @@ fn file_actions(
             FileAction::FileportDup2(..) => return Err(Errno::EINVAL),
             FileAction::Chdir(path) => {
                 let path = path.clone()?;
-                let d = open_dir(ctx, s.dir(), &path)?;
-                s.cwd = s.absolute(&path);
-                s.dir = Some(d);
+                chdir_action(ctx, s, &path)?;
             }
             FileAction::Fchdir(fd) => {
                 // fchdir resolves the descriptor in the caller's table.
                 let file = ctx.proc.fds.file(*fd)?;
-                let h = file.host_fd().ok_or(Errno::EINVAL)?;
-                let st = host::fstat(h)?;
-                if st.st_mode & libc::S_IFMT != libc::S_IFDIR {
-                    return Err(if is_vnode(h, &st) {
-                        Errno::ENOTDIR
-                    } else {
-                        Errno::EINVAL
-                    });
+                if ctx.proc.vfs.is_closed() {
+                    s.cwd = embedded::directory_descriptor(&file)?;
+                } else {
+                    #[cfg(unix)]
+                    fchdir_host(s, &file)?;
+                    #[cfg(not(unix))]
+                    return Err(Errno::ENOTSUP);
                 }
-                // SAFETY: "." is NUL-terminated; `h` is a live descriptor.
-                check(unsafe { libc::faccessat(h, c".".as_ptr(), libc::X_OK, libc::AT_EACCESS) })?;
-                // SAFETY: F_DUPFD_CLOEXEC takes an integer argument.
-                let dup = check(unsafe { libc::fcntl(h, libc::F_DUPFD_CLOEXEC, 0) })?;
-                // SAFETY: `dup` was just created and is owned here.
-                s.dir = Some(unsafe { OwnedFd::from_raw_fd(dup) });
-                s.cwd = file
-                    .path
-                    .clone()
-                    .map(|p| normalize(&p))
-                    .or_else(|| host::fd_path(h))
-                    .unwrap_or_else(|| s.cwd.clone());
             }
             FileAction::Unknown => return Err(Errno::EINVAL),
         }
@@ -389,7 +381,7 @@ fn file_actions(
 
 /// `open1` for a file action: the lowest free descriptor, the mode less
 /// the file-creation mask.
-fn open(
+fn open_action(
     ctx: &Ctx<'_>,
     s: &mut Scratch,
     path: &[u8],
@@ -397,6 +389,38 @@ fn open(
     mode: u32,
     nofile: u64,
 ) -> Result<i32, Errno> {
+    let file = if ctx.proc.vfs.is_closed() {
+        embedded::open_file(oflag, || {
+            ctx.proc.vfs.lookup(path, &s.cwd).map_err(Errno::from)
+        })?
+    } else {
+        #[cfg(unix)]
+        {
+            open_host(ctx, s, path, oflag, mode)?
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = mode;
+            return Err(Errno::ENOTSUP);
+        }
+    };
+    s.fds.install_with(
+        file,
+        oflag & O_CLOEXEC != 0,
+        oflag & O_CLOFORK != 0,
+        0,
+        nofile,
+    )
+}
+
+#[cfg(unix)]
+fn open_host(
+    ctx: &Ctx<'_>,
+    s: &Scratch,
+    path: &[u8],
+    oflag: u32,
+    mode: u32,
+) -> Result<Arc<OpenFile>, Errno> {
     let cpath = host::path(&ctx.proc.vfs, path)?;
     let mode = mode & 0o777 & !ctx.proc.umask;
     let hflags = host::open_flags(oflag) | libc::O_CLOEXEC;
@@ -406,18 +430,11 @@ fn open(
     })?;
     // SAFETY: `fd` was just returned by the host and is owned here.
     let owned = unsafe { OwnedFd::from_raw_fd(fd) };
-    let file = Arc::new(OpenFile::host(
+    Ok(Arc::new(OpenFile::host(
         owned,
         oflag & !(O_CLOEXEC | O_CLOFORK),
         Some(s.absolute(path)),
-    ));
-    s.fds.install_with(
-        file,
-        oflag & O_CLOEXEC != 0,
-        oflag & O_CLOFORK != 0,
-        0,
-        nofile,
-    )
+    )))
 }
 
 /// `dup2` in the child's table: the new descriptor is not close-on-exec.
@@ -434,6 +451,29 @@ fn dup2(s: &mut Scratch, from: i32, to: i32, nofile: u64) -> Result<(), Errno> {
 
 /// A directory to change to (`chdir_internal`): search permission on it
 /// is required.
+fn chdir_action(ctx: &Ctx<'_>, s: &mut Scratch, path: &[u8]) -> Result<(), Errno> {
+    if ctx.proc.vfs.is_closed() {
+        let (path, entry) = ctx.proc.vfs.lookup(path, &s.cwd).map_err(Errno::from)?;
+        if !entry.is_dir() {
+            return Err(Errno::ENOTDIR);
+        }
+        s.cwd = path.into_bytes();
+        return Ok(());
+    }
+    #[cfg(unix)]
+    {
+        let dir = open_dir(ctx, s.dir(), path)?;
+        s.cwd = s.absolute(path);
+        s.dir = Some(dir);
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::ENOTSUP)
+    }
+}
+
+#[cfg(unix)]
 fn open_dir(ctx: &Ctx<'_>, dir: Dir, path: &[u8]) -> Result<OwnedFd, Errno> {
     if path.is_empty() {
         return Err(Errno::ENOENT);
@@ -452,9 +492,35 @@ fn open_dir(ctx: &Ctx<'_>, dir: Dir, path: &[u8]) -> Result<OwnedFd, Errno> {
     Ok(owned)
 }
 
+#[cfg(unix)]
+fn fchdir_host(s: &mut Scratch, file: &OpenFile) -> Result<(), Errno> {
+    let h = file.host_fd().ok_or(Errno::EINVAL)?;
+    let st = host::fstat(h)?;
+    if st.st_mode & libc::S_IFMT != libc::S_IFDIR {
+        return Err(if is_vnode(h, &st) {
+            Errno::ENOTDIR
+        } else {
+            Errno::EINVAL
+        });
+    }
+    // SAFETY: "." is NUL-terminated and `h` is a live descriptor.
+    check(unsafe { libc::faccessat(h, c".".as_ptr(), libc::X_OK, libc::AT_EACCESS) })?;
+    // SAFETY: F_DUPFD_CLOEXEC takes an integer argument; the result is owned.
+    let dup = check(unsafe { libc::fcntl(h, libc::F_DUPFD_CLOEXEC, 0) })?;
+    s.dir = Some(unsafe { OwnedFd::from_raw_fd(dup) });
+    s.cwd = file
+        .path
+        .clone()
+        .map(|p| normalize(&p))
+        .or_else(|| host::fd_path(h))
+        .unwrap_or_else(|| s.cwd.clone());
+    Ok(())
+}
+
 /// Whether a host descriptor is a vnode (`DTYPE_VNODE`: a file, a
 /// directory, a device, a named pipe) rather than a pipe, socket, or other
 /// object, for `file_vnode`'s `EINVAL`.
+#[cfg(unix)]
 fn is_vnode(h: RawFd, st: &libc::stat) -> bool {
     match st.st_mode & libc::S_IFMT {
         libc::S_IFSOCK => false,
@@ -618,6 +684,13 @@ pub fn posix_spawn(
         return Err(Errno::EPERM);
     }
     let setexec = a.flags & flag::SETEXEC != 0;
+    let suspend = a.flags & flag::START_SUSPENDED != 0;
+    let pgroup = (a.flags & flag::SETPGROUP != 0).then_some(a.pgroup);
+    let setsid = a.flags & flag::SETSID != 0;
+    let closed = ctx.proc.vfs.is_closed();
+    if closed && (suspend || (setexec && (pgroup.is_some() || setsid))) {
+        return Err(Errno::ENOTSUP);
+    }
     if !setexec && attrs.is_some() && desc.coal_info != 0 {
         let n = desc.coal_info_size.min(COALITION_INFO_SIZE) as usize;
         let mut info = ctx.read(desc.coal_info, n)?;
@@ -633,6 +706,7 @@ pub fn posix_spawn(
         // A spawn is a fork then an exec, unless it sets the exec.
         fds: fdt_fork(&ctx.proc.fds, setexec),
         cwd: ctx.proc.cwd.clone(),
+        #[cfg(unix)]
         dir: None,
         inherit: None,
     };
@@ -649,12 +723,22 @@ pub fn posix_spawn(
         creds.1 = creds.0;
         creds.3 = creds.2;
     }
-    let act = image::activate(ctx, path, scratch.dir(), &a.binprefs)?;
+    let act = if closed {
+        image::activate_supplied(ctx, path, &scratch.cwd, &a.binprefs)?
+    } else {
+        #[cfg(unix)]
+        {
+            image::activate(ctx, path, scratch.dir(), &a.binprefs)?
+        }
+        #[cfg(not(unix))]
+        return Err(Errno::ENOTSUP);
+    };
     let strings = args::extract(ctx, &act.interp, &act.user_path, argv, envp)?;
 
     let Scratch {
         fds,
         cwd,
+        #[cfg(unix)]
         dir,
         inherit,
     } = scratch;
@@ -672,7 +756,24 @@ pub fn posix_spawn(
         carried.pending = 0;
         carried.mask = ctx.thread.sig.oldmask.unwrap_or(ctx.thread.sig.mask);
         carried.started = Instant::now();
-        ctx.proc.next_tid += 1;
+        if let Some(member) = &ctx.proc.family {
+            let (pid, child) = member.prepare_child(
+                ctx.proc.config.arena_bytes,
+                ctx.proc.rlimits[7].0,
+                pgroup,
+                setsid,
+            )?;
+            carried.pid = pid;
+            carried.tid = ((pid as u64) << 20) | 1;
+            carried.audit[1] = carried.creds.1;
+            carried.audit[2] = carried.creds.3;
+            carried.audit[5] = pid as u32;
+            carried.audit[7] = 1;
+            carried.entropy = ctx.proc.entropy.for_child(pid);
+            carried.family = Some(child);
+        } else {
+            ctx.proc.next_tid += 1;
+        }
     }
     if a.flags & flag::SETSIGMASK != 0 {
         carried.mask = a.sigmask & !signal::CANTMASK;
@@ -686,28 +787,44 @@ pub fn posix_spawn(
             }
         }
     }
-    let suspend = a.flags & flag::START_SUSPENDED != 0;
-    let pgroup = (a.flags & flag::SETPGROUP != 0).then_some(a.pgroup);
-    let setsid = a.flags & flag::SETSID != 0;
     if setexec {
         let built = build(ctx.proc, act, strings, carried);
-        if built.is_ok() {
+        #[cfg(unix)]
+        if !closed && built.is_ok() {
             // After the switch: a failure leaves the new image running as
             // it is.
             set_session(pgroup, setsid).ok();
         }
-        let built = built.map(|proc| super::Swap {
+        let built = built.map(|proc| Swap {
             proc,
+            #[cfg(unix)]
             chdir: dir,
             suspend,
         });
         return swap_or_kill(ctx, built);
     }
     let new = build(ctx.proc, act, strings, carried).map_err(|e| build_errno(&e))?;
-    fork_child(ctx, new, dir, suspend, pgroup, setsid, pid_addr)
+    if let Some(member) = &new.family {
+        let pid = new.pid;
+        member.publish(pid, ctx.proc.pid);
+        ctx.proc.spawned.push(new);
+        if pid_addr != 0 {
+            let _ = ctx.write_u32(pid_addr, pid as u32);
+        }
+        return Ok(Rv::one(0));
+    }
+    #[cfg(unix)]
+    {
+        fork_child(ctx, new, dir, suspend, pgroup, setsid, pid_addr)
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::ENOTSUP)
+    }
 }
 
 /// `setpgid(0, pgroup)` and `setsid()` for the calling (new) process.
+#[cfg(unix)]
 fn set_session(pgroup: Option<i32>, setsid: bool) -> Result<(), Errno> {
     if let Some(pg) = pgroup {
         // SAFETY: setpgid takes integer arguments.
@@ -722,6 +839,7 @@ fn set_session(pgroup: Option<i32>, setsid: bool) -> Result<(), Errno> {
 
 /// Forks the child that runs `new`; returns in the caller with the
 /// child's pid stored at `pid_addr`.
+#[cfg(unix)]
 fn fork_child(
     ctx: &mut Ctx<'_>,
     mut new: Proc,
@@ -805,6 +923,7 @@ fn fork_child(
 }
 
 /// The child's report: an errno, or `None` when the pipe closed empty.
+#[cfg(unix)]
 fn read_report(rd: &OwnedFd) -> Option<Errno> {
     let mut b = [0u8; 4];
     loop {
@@ -818,6 +937,7 @@ fn read_report(rd: &OwnedFd) -> Option<Errno> {
 }
 
 /// Waits for the child that failed.
+#[cfg(unix)]
 fn reap(pid: i32) {
     let mut status = 0;
     // SAFETY: `status` is valid for the host to write.
@@ -876,6 +996,7 @@ mod tests {
                 let mut scratch = Scratch {
                     fds: fdt_fork(&ctx.proc.fds, native["setexec"].as_bool().unwrap()),
                     cwd: b"/".to_vec(),
+                    #[cfg(unix)]
                     dir: None,
                     inherit: None,
                 };

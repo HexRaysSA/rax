@@ -64,10 +64,14 @@ pub(super) fn chdir(ctx: &mut Ctx<'_>, path: u64) -> SysResult {
 
 pub(super) fn fchdir(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
+    ctx.proc.cwd = directory_descriptor(&file)?;
+    Ok(Rv::one(0))
+}
+
+pub(crate) fn directory_descriptor(file: &OpenFile) -> Result<Vec<u8>, Errno> {
     match &file.kind {
         FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) if entry.is_dir() => {
-            ctx.proc.cwd = file.path.clone().ok_or(Errno::ENOTDIR)?;
-            Ok(Rv::one(0))
+            file.path.clone().ok_or(Errno::ENOTDIR)
         }
         FileKind::Embedded(_) => Err(Errno::ENOTDIR),
         _ => Err(Errno::EPERM),
@@ -75,6 +79,21 @@ pub(super) fn fchdir(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
 }
 
 pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult {
+    let file = open_file(flags, || lookup(ctx, dirfd, path))?;
+    let fd = ctx.proc.fds.install_with(
+        file,
+        flags & O_CLOEXEC != 0,
+        flags & O_CLOFORK != 0,
+        0,
+        ctx.proc.rlimits[8].0,
+    )?;
+    Ok(Rv::one(fd as u64))
+}
+
+pub(crate) fn open_file(
+    flags: u32,
+    lookup: impl FnOnce() -> Result<(String, Entry), Errno>,
+) -> Result<Arc<OpenFile>, Errno> {
     if flags & O_ACCMODE == O_ACCMODE {
         return Err(Errno::EINVAL);
     }
@@ -92,7 +111,7 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> Sy
     if flags & !supported != 0 {
         return Err(Errno::ENOTSUP);
     }
-    let (path, entry) = lookup(ctx, dirfd, path).map_err(|error| {
+    let (path, entry) = lookup().map_err(|error| {
         if error == Errno::ENOENT && flags & O_CREAT != 0 {
             Errno::EROFS
         } else {
@@ -117,14 +136,7 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> Sy
         *file.flags.lock().map_err(|_| Errno::EIO)? = status;
         file
     };
-    let fd = ctx.proc.fds.install_with(
-        Arc::new(file),
-        flags & O_CLOEXEC != 0,
-        flags & O_CLOFORK != 0,
-        0,
-        ctx.proc.rlimits[8].0,
-    )?;
-    Ok(Rv::one(fd as u64))
+    Ok(Arc::new(file))
 }
 
 pub(super) fn statat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32) -> SysResult {

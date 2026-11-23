@@ -69,6 +69,14 @@ pub(crate) fn bsd_allowed(number: u32) -> bool {
         number,
         nr::EXIT
             | nr::EXECVE
+            | nr::POSIX_SPAWN
+            | nr::WAIT4
+            | nr::WAIT4_NOCANCEL
+            | nr::WAITID
+            | nr::WAITID_NOCANCEL
+            | nr::GETPGRP
+            | nr::GETPGID
+            | nr::GETSID
             | nr::READ
             | nr::READ_NOCANCEL
             | nr::WRITE

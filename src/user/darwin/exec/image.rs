@@ -208,15 +208,16 @@ pub fn activate_path(
 }
 
 /// Activates an image from the process's existing supplied namespace.
-pub(super) fn activate_supplied(ctx: &Ctx<'_>, path_addr: u64) -> Result<Activated, Errno> {
+pub(super) fn activate_supplied(
+    ctx: &Ctx<'_>,
+    path_addr: u64,
+    cwd: &[u8],
+    prefs: &Binprefs,
+) -> Result<Activated, Errno> {
     let user_path = ctx.cstr(path_addr, MAXPATHLEN)?;
     let machine = Machine { abi: ctx.proc.abi };
-    let activated = activate_image(machine, &user_path, &Binprefs::default(), |path| {
-        let (path, entry) = ctx
-            .proc
-            .vfs
-            .lookup(path, &ctx.proc.cwd)
-            .map_err(Errno::from)?;
+    let activated = activate_image(machine, &user_path, prefs, |path| {
+        let (path, entry) = ctx.proc.vfs.lookup(path, cwd).map_err(Errno::from)?;
         if entry.is_dir() || entry.device().is_some() {
             return Err(Errno::EACCES);
         }
