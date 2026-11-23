@@ -358,7 +358,7 @@ impl OpenFile {
             FileObject::Socket(s) => Ok((&s.file).read(buf)?),
             FileObject::Supplied(entry) => {
                 if let Some(device) = entry.device() {
-                    return Ok(device.read(buf));
+                    return device.read_constant(buf).ok_or(Errno(EOPNOTSUPP));
                 }
                 let mut st = self.state.lock().unwrap();
                 let n = entry.source()?.read_at(st.synth_pos, buf)?;
@@ -499,7 +499,7 @@ impl OpenFile {
             }
             FileObject::Host(_) if self.ftype == FileType::Directory => Err(Errno(EISDIR)),
             FileObject::Supplied(entry) => match entry.device() {
-                Some(device) => Ok(device.read(buf)),
+                Some(device) => device.read_constant(buf).ok_or(Errno(EOPNOTSUPP)),
                 None => Ok(entry.source()?.read_at(offset, buf)?),
             },
             FileObject::Synthetic(data) => {

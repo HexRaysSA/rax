@@ -181,6 +181,56 @@ fn supplied_zero_reads_and_maps_guest_only_memory_on_all_abis() {
 }
 
 #[test]
+fn supplied_urandom_shares_guest_entropy_on_all_abis() {
+    use crate::user::linux::abi::open::{O_PATH, O_WRONLY};
+    use crate::user::linux::syscall::{path::stat_open, ready::raw_fd};
+
+    let files = Files::default().with_device(Device::Urandom).unwrap();
+    for abi in ABIS {
+        let mut h = Harness::with_supplied(abi, files.clone());
+        let (name, buf, iov) = (h.scratch, h.scratch + 512, h.scratch + 1024);
+        path(&h, name, "/dev/urandom");
+        let fd = h.ok(Sysno::Openat, &[AT_FDCWD, name, 0, 0]);
+        let file = h.proc.state.fds.file(fd as i32).unwrap();
+        assert!(raw_fd(&file).is_none());
+        let st = stat_open(&file, (0, 0)).unwrap();
+        assert_eq!((st.mode, st.rdev_major, st.rdev_minor), (0o020666, 1, 9));
+        assert_eq!(mmap(&mut h, fd, 1, 2), -i64::from(ENODEV));
+
+        let mut entropy = h.proc.state.entropy.clone();
+        let mut expected = [0; 8];
+        assert_eq!(h.err(Sysno::Read, &[fd, 1, 8]), EFAULT);
+        assert_eq!(h.ok(Sysno::Read, &[fd, buf, 8]), 8);
+        entropy.fill(&mut expected).unwrap();
+        assert_eq!(get(&h, buf, 8), expected);
+
+        let word = if abi.is_compat() { 4 } else { 8 };
+        for (index, base) in [buf, buf + 32].into_iter().enumerate() {
+            let at = iov + (index * 2 * word) as u64;
+            put(&h, at, &base.to_le_bytes()[..word]);
+            put(&h, at + word as u64, &8u64.to_le_bytes()[..word]);
+        }
+        assert_eq!(h.ok(Sysno::Readv, &[fd, iov, 2]), 16);
+        for base in [buf, buf + 32] {
+            entropy.fill(&mut expected).unwrap();
+            assert_eq!(get(&h, base, 8), expected);
+        }
+
+        assert_eq!(h.ok(Sysno::Pread64, &[fd, buf, 8, 0, 0, 0]), 8);
+        entropy.fill(&mut expected).unwrap();
+        assert_eq!(get(&h, buf, 8), expected);
+        assert_eq!(h.ok(Sysno::Getrandom, &[buf, 8, 0]), 8);
+        entropy.fill(&mut expected).unwrap();
+        assert_eq!(get(&h, buf, 8), expected);
+
+        for flags in [O_PATH, O_WRONLY] {
+            let restricted = h.ok(Sysno::Openat, &[AT_FDCWD, name, flags.into(), 0]);
+            assert_eq!(h.err(Sysno::Read, &[restricted, buf, 8]), EBADF);
+        }
+    }
+}
+
+#[test]
 fn selected_host_files_use_demand_reads_and_guest_local_descriptors_all_abis() {
     let fixture =
         crate::user::supplied_fs::test_backing::TestFile::new(b"native-library", (64 << 20) + 1);

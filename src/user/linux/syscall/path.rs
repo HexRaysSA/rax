@@ -234,7 +234,8 @@ fn supplied_stat(entry: &Entry) -> Stat {
             crate::user::supplied_fs::Kind::Symlink(_)
             | crate::user::supplied_fs::Kind::WorkspaceSymlink(_) => mode::S_IFLNK | 0o777,
             crate::user::supplied_fs::Kind::NullDevice
-            | crate::user::supplied_fs::Kind::ZeroDevice => mode::S_IFCHR | 0o666,
+            | crate::user::supplied_fs::Kind::ZeroDevice
+            | crate::user::supplied_fs::Kind::UrandomDevice => mode::S_IFCHR | 0o666,
             _ => mode::S_IFREG | 0o555,
         },
         nlink: if let Some(directory) = entry.workspace_directory() {
@@ -250,6 +251,7 @@ fn supplied_stat(entry: &Entry) -> Stat {
         rdev_minor: match entry.device() {
             Some(crate::user::supplied_fs::Device::Null) => 3,
             Some(crate::user::supplied_fs::Device::Zero) => 5,
+            Some(crate::user::supplied_fs::Device::Urandom) => 9,
             None => 0,
         },
         size,

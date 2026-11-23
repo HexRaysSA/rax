@@ -258,6 +258,7 @@ impl EmbeddedFile {
             rdev: match device {
                 Device::Null => 0x0300_0002,
                 Device::Zero => 0x0300_0003,
+                Device::Urandom => 0x1100_0001,
             },
             blksize: 65_536,
             ..Default::default()
@@ -316,7 +317,8 @@ impl EmbeddedFile {
                 if offset.is_none() {
                     Self::advance_device_cursor(cursor, out.len() as u64)?;
                 }
-                Ok(Device::Zero.read(out))
+                out.fill(0);
+                Ok(out.len())
             }
         }
     }
@@ -479,7 +481,12 @@ impl EmbeddedFile {
 }
 
 impl OpenFile {
-    pub(crate) fn device(path: String, device: Device, ino: u64, flags: u32) -> Self {
+    pub(crate) fn device(
+        path: String,
+        device: Device,
+        ino: u64,
+        flags: u32,
+    ) -> Result<Self, Errno> {
         let access = flags & O_ACCMODE;
         let cursor = Mutex::new(0);
         let file = match device {
@@ -493,12 +500,13 @@ impl OpenFile {
                 access,
                 cursor,
             },
+            Device::Urandom => return Err(Errno::ENOTSUP),
         };
-        Self {
+        Ok(Self {
             kind: FileKind::Embedded(file),
             path: Some(path.into_bytes()),
             flags: Mutex::new(flags),
-        }
+        })
     }
 
     pub(crate) fn workspace(path: String, entry: Entry, flags: u32) -> Self {

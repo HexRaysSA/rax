@@ -81,7 +81,7 @@ pub(super) fn supplied_entries(
             let dtype = match entry.kind {
                 Kind::Directory | Kind::WorkspaceDirectory(_) => dt::DT_DIR,
                 Kind::Symlink(_) | Kind::WorkspaceSymlink(_) => dt::DT_LNK,
-                Kind::NullDevice | Kind::ZeroDevice => dt::DT_CHR,
+                Kind::NullDevice | Kind::ZeroDevice | Kind::UrandomDevice => dt::DT_CHR,
                 _ => dt::DT_REG,
             };
             DirEntry {

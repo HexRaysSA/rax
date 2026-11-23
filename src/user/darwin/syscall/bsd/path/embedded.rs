@@ -583,7 +583,7 @@ fn open_or_create(
     }
     let status = flags & (O_STATUS_FLAGS | O_DIRECTORY | O_ACCMODE);
     let file = if let Some(device) = device {
-        OpenFile::device(path, device, entry.ino, status)
+        OpenFile::device(path, device, entry.ino, status)?
     } else if let Some(file) = workspace {
         let mut need = match flags & O_ACCMODE {
             O_RDONLY => 4,

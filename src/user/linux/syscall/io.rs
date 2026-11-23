@@ -190,10 +190,7 @@ fn read_into(
     }
     if let Some(device) = file.device() {
         let count = device_transfer(c, file.readable(), buf, count, pos)?;
-        return match device {
-            Device::Null => Ok(0),
-            Device::Zero => read_zero(c, &[(buf, count)], count),
-        };
+        return read_device(c, device, &[(buf, count)], count);
     }
     let count = count.min(MAX_RW_COUNT);
     let mut room = writable_prefix(c, buf, count);
@@ -346,10 +343,12 @@ fn device_transfer_size(count: u64, pos: Option<u64>) -> SysResult {
     Ok(count.min(MAX_RW_COUNT))
 }
 
-/// Fill mapped guest memory up to the first fault, using one page of zeros
-/// regardless of the request size (`clear_user` and `iov_iter_zero`).
-fn read_zero(c: &mut Ctx<'_>, iovecs: &[(u64, u64)], count: u64) -> SysResult {
-    const ZERO_PAGE: [u8; 4096] = [0; 4096];
+/// Fill mapped guest memory up to the first fault with a bounded buffer.
+fn read_device(c: &mut Ctx<'_>, device: Device, iovecs: &[(u64, u64)], count: u64) -> SysResult {
+    if device == Device::Null {
+        return Ok(0);
+    }
+    let mut bytes = [0; 4096];
     let mut done = 0;
     for &(base, len) in iovecs {
         let len = len.min(count - done);
@@ -359,8 +358,12 @@ fn read_zero(c: &mut Ctx<'_>, iovecs: &[(u64, u64)], count: u64) -> SysResult {
         let writable = writable_prefix(c, base, len);
         let mut offset = 0;
         while offset < writable {
-            let size = (writable - offset).min(ZERO_PAGE.len() as u64);
-            c.write_mem(base + offset, &ZERO_PAGE[..size as usize])?;
+            let size = (writable - offset).min(bytes.len() as u64);
+            let chunk = &mut bytes[..size as usize];
+            if device == Device::Urandom {
+                c.p.entropy.fill(chunk)?;
+            }
+            c.write_mem(base + offset, chunk)?;
             offset += size;
             if c.signal_pending() {
                 return Ok(done + offset);
@@ -531,10 +534,7 @@ pub(super) fn readv_file(
             return Err(Errno(EBADF));
         }
         let count = device_transfer_size(total, pos)?;
-        return match device {
-            Device::Null => Ok(0),
-            Device::Zero => read_zero(c, iovecs, count),
-        };
+        return read_device(c, device, iovecs, count);
     }
     if matches!(file.object, FileObject::Anon(_)) {
         return super::events::read(c, file, iovecs);

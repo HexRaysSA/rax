@@ -109,6 +109,8 @@ pub enum Kind {
     NullDevice,
     /// The closed runtime's synthetic zero-filled character device.
     ZeroDevice,
+    /// The closed Linux runtime's synthetic guest entropy device.
+    UrandomDevice,
     /// Link bytes from a selected runtime namespace.
     Symlink(Arc<[u8]>),
 }
@@ -116,16 +118,18 @@ pub enum Kind {
 pub(crate) enum Device {
     Null,
     Zero,
+    Urandom,
 }
 
 impl Device {
-    pub(crate) fn read(self, buffer: &mut [u8]) -> usize {
+    pub(crate) fn read_constant(self, buffer: &mut [u8]) -> Option<usize> {
         match self {
-            Self::Null => 0,
+            Self::Null => Some(0),
             Self::Zero => {
                 buffer.fill(0);
-                buffer.len()
+                Some(buffer.len())
             }
+            Self::Urandom => None,
         }
     }
 }
@@ -145,6 +149,7 @@ impl Entry {
         match self.kind {
             Kind::NullDevice => Some(Device::Null),
             Kind::ZeroDevice => Some(Device::Zero),
+            Kind::UrandomDevice => Some(Device::Urandom),
             _ => None,
         }
     }
@@ -276,7 +281,7 @@ impl Entry {
                 Ok(bytes.into())
             }
             Kind::Directory | Kind::WorkspaceDirectory(_) => Err(Error::IsDirectory),
-            Kind::NullDevice | Kind::ZeroDevice => Err(Error::NotRegular),
+            Kind::NullDevice | Kind::ZeroDevice | Kind::UrandomDevice => Err(Error::NotRegular),
             Kind::Symlink(_) | Kind::WorkspaceSymlink(_) => Err(Error::LinkLoop),
         }
     }
@@ -287,9 +292,11 @@ impl Entry {
             Kind::File(bytes) => bytes.len() as u64,
             Kind::Backed(source) => source.len(),
             Kind::Workspace(file) => file.len(),
-            Kind::Directory | Kind::WorkspaceDirectory(_) | Kind::NullDevice | Kind::ZeroDevice => {
-                0
-            }
+            Kind::Directory
+            | Kind::WorkspaceDirectory(_)
+            | Kind::NullDevice
+            | Kind::ZeroDevice
+            | Kind::UrandomDevice => 0,
             Kind::Symlink(target) => target.len() as u64,
             Kind::WorkspaceSymlink(link) => link.target().len() as u64,
         }
@@ -315,7 +322,9 @@ impl Entry {
             Kind::Backed(source) => source.clone(),
             Kind::Workspace(file) => return Ok(file.clone()),
             Kind::Directory | Kind::WorkspaceDirectory(_) => return Err(Error::IsDirectory),
-            Kind::NullDevice | Kind::ZeroDevice => return Err(Error::NotRegular),
+            Kind::NullDevice | Kind::ZeroDevice | Kind::UrandomDevice => {
+                return Err(Error::NotRegular);
+            }
             Kind::Symlink(_) | Kind::WorkspaceSymlink(_) => return Err(Error::LinkLoop),
         };
         Ok(Arc::new(GuestSource {
@@ -510,6 +519,7 @@ impl Files {
         let (path, kind) = match device {
             Device::Null => ("/dev/null", Kind::NullDevice),
             Device::Zero => ("/dev/zero", Kind::ZeroDevice),
+            Device::Urandom => ("/dev/urandom", Kind::UrandomDevice),
         };
         if self.caller_roots.as_ref().is_some_and(|roots| {
             roots

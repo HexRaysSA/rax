@@ -73,6 +73,7 @@ fn select(
     let files = files
         .with_device(Device::Null)
         .and_then(|files| files.with_device(Device::Zero))
+        .and_then(|files| files.with_device(Device::Urandom))
         .map_err(io::Error::other)?;
     let files = files.with_linux_library_roots(roots)?;
     let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
@@ -181,6 +182,10 @@ mod tests {
         assert_eq!(
             selected.lookup("/dev/zero").unwrap().1.device(),
             Some(Device::Zero)
+        );
+        assert_eq!(
+            selected.lookup("/dev/urandom").unwrap().1.device(),
+            Some(Device::Urandom)
         );
         assert!(selected.lookup("/etc/passwd").is_err());
         let selected = select(
