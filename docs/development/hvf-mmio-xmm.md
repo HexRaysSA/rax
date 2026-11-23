@@ -195,3 +195,17 @@ engine inputs and 18 consumer inputs to Git, and the exact guest rows.
 | 45100578487 | 14785706347 | `7f09f38e8777c67b3bfb86b0c63039bb2af6bc465261807eb0659ee751e0c19b` |
 | 45100739580 | 14785273262 | `c506fe3c85790f7632901db8c920173aba63622c95db6ae5223efab709b20907` |
 | 45100739545 | 14785449261 | `48dcc8ff89f6310d2007bc5aec3a360f6042649f5b78ebc37445e1eb4c9b0c2b` |
+
+### Full library result on Intel Linux
+
+The unfiltered library run for the unaligned MOVDQU and VMOVDQU change
+finished with 14,246 passed, six failed and 100 ignored. The clean parent
+`11b9a053d3b31ad4456b76e57160d6a812de4b47` reproduced all six failure names,
+locations and assertion results on the same Intel host and profile. Five
+Darwin ptrace cases stopped at the child-status guard in `family.rs:311`.
+The Linux procfs lifetime case observed PID 102 when it expected PID 101.
+
+| Run | Log SHA-256 |
+| --- | --- |
+| Unfiltered library with the unaligned change | `b27c4a3dd848b853eef9de1b295c6c4c8ac186277d8204586d9789200b5a3f42` |
+| Same six tests on the clean parent | `b7793ca4abcd2d2d565e133bb0c8b22477170a3b386b7a2e31743ee75307fced` |
