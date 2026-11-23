@@ -310,3 +310,25 @@ cargo test --locked --no-default-features --features x86_64-suite,smir-jit,debug
 | --- | --- |
 | High | The native scheduling fixture checks arbitration at the guest-entry API. Physical Intel HVF qualification of this scheduling path remains open. |
 | Medium | Wall-clock software checks for controller events at turns. Retired-clock software checks at instruction boundaries. |
+
+## Software VMM secondary execution replay
+
+Five live software-VMM controls ran on physical Intel Linux using
+revision `8be5c610f84c67b90aa893d2e1d3687321d27240` plus the AArch32
+CPU_ON endianness change. The tests enter the production run loop and
+inspect guest effects from each configured CPU.
+
+| Guest | vCPU counts exercised | Required guest effect |
+| --- | --- | --- |
+| x86-64 | 1, 2, 4 | The BSP sets its RAM flag. Each application processor sets its own flag after guest INIT/SIPI. Unconfigured flags stay clear. |
+| RV64 | 2, 4 | Each hart retires instructions, publishes a distinct register value, and contributes one increment to the shared RAM counter. |
+
+All five controls passed. The test executable SHA-256 is
+`ab91f85913c9031ddaa8195e633d475792fae28e025a5c35f0cb351371f998df`.
+The combined log SHA-256 is
+`0754642c50baed583c0ba4679e93fa64c5f8c3e3c5f3a86cc6f66dbc1b2330fa`.
+The same build also passed the existing three-PE AArch64 continuation
+case. The restored VM runs its pending PSCI start/stop through the
+coordinator, leaves the stopped PE parked, and obtains the expected
+register marker from the newly started secondary.
+[Software AArch64 cluster results](aarch64-cluster.md)
