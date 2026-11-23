@@ -29,10 +29,13 @@ impl VCpu for X86_64Vcpu {
         state: &CpuState,
         emulator: &crate::vm::snapshot::EmulatorState,
     ) -> Result<()> {
-        if !matches!(state, CpuState::X86_64(_)) {
+        let CpuState::X86_64(state) = state else {
             return Err(Error::Emulator(
                 "expected x86_64 state for x86_64 vCPU".to_string(),
             ));
+        };
+        if state.sregs.cr8 > 15 {
+            return Err(Error::InvalidConfig("invalid CR8 priority class".into()));
         }
         Self::validate_emulator_state(emulator)
     }

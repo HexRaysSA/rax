@@ -263,6 +263,53 @@ fn late_invalid_private_state_precedes_every_cpu_and_ram_assignment() {
     }
 }
 #[test]
+fn projected_cpu_set_validates_every_cr8_before_publication() {
+    let f = Fixture::new();
+    for n in [2, 4] {
+        let b = f.bundle(n);
+        let mut vm = Vmm::new_resume(f.config(n)).unwrap();
+        vm.guest_mem().write_all(&[0xa5; RAM]).unwrap();
+        let before_cpus = all_bytes(&vm.capture_cpu_states().unwrap());
+        let before = vm.take_snapshot(0).unwrap();
+        let before_devices = rax::codec::serialize(&before.devices).unwrap();
+
+        for cr8 in [16, u64::MAX, 15] {
+            let mut entries = b.cpus().unwrap().entries().to_vec();
+            let CpuState::X86_64(cpu) = &mut entries.last_mut().unwrap().state else {
+                unreachable!()
+            };
+            cpu.sregs.cr8 = cr8;
+            let input = SnapshotBundle::new(f.base(n))
+                .with_cpus(entries)
+                .unwrap()
+                .with_pci(b.pci().unwrap().to_devices().unwrap())
+                .unwrap();
+            let result = vm.restore_snapshot_bundle(&input);
+            if cr8 > 15 {
+                assert!(result.unwrap_err().to_string().contains("CR8"));
+                let after_cpus = all_bytes(&vm.capture_cpu_states().unwrap());
+                assert_eq!(after_cpus.len(), before_cpus.len());
+                for (id, (after, before)) in after_cpus.iter().zip(&before_cpus).enumerate() {
+                    assert!(after == before, "CR8={cr8}, {n} vCPUs: CPU {id} changed");
+                }
+                assert_eq!(vm.guest_mem().try_read_all().unwrap(), [0xa5; RAM]);
+                let after = vm.take_snapshot(0).unwrap();
+                assert_eq!(
+                    rax::codec::serialize(&after.devices).unwrap(),
+                    before_devices
+                );
+            } else {
+                result.unwrap();
+                assert_eq!(
+                    all_bytes(&vm.capture_cpu_states().unwrap()),
+                    all_bytes(input.cpus().unwrap().entries())
+                );
+                assert_eq!(vm.guest_mem().try_read_all().unwrap(), [0x33; RAM]);
+            }
+        }
+    }
+}
+#[test]
 fn legacy_multi_cpu_bundle_is_not_silently_treated_as_complete() {
     let f = Fixture::new();
     let b = SnapshotBundle::new(f.base(2));

@@ -29,7 +29,7 @@ its independent bounds. These are algorithmic bounds, not measured latencies.
 |---|---|---|
 | U1 | Ordered entries correspond to stable constructed vCPU IDs. | Runtime iterates its existing vector; distinct 1/2/4-context markers and the exact 255-count codec boundary expose omission/order errors. |
 | U2 | Payloads mean exactly the existing backend representation. | Public x86 APX, XMM/YMM/ZMM, opmask/MMX/system and represented x87/lazy/private fields are compared bytewise; actual x86/AArch64/RISC-V context getters are also compared. Missing backend-private fields remain outside this contract. |
-| U3 | Admission precedes mutation for represented emulator errors. | An invalid final x86 MXCSR and reserved final RISC-V privilege must preserve every earlier CPU and RAM. The RISC-V pure validator also probes the tohost lock before assignment. |
+| U3 | Admission precedes mutation for represented emulator errors. | An invalid final x86 MXCSR or CR8 and reserved final RISC-V privilege must preserve every earlier CPU and RAM. The RISC-V pure validator also probes the tohost lock before assignment. |
 | U4 | Required state cannot disappear during parsing/extraction. | Malformed count/table/schema/order/alias/duplicate/truncation cases, CPU-0 conflict and base-only header rejection; independent literal packing checks every modeled payload byte. |
 | U5 | Independent writers remain quiescent. | Explicit capture/restore caller contract; captures occur before guest execution in fixtures. Concurrent scheduling/DMA coordination remains open. |
 | U6 | Native host setters can fail after admission. | Native rollback is unknown; emulator and codec evidence cannot establish KVM/HVF transactions. |
@@ -42,6 +42,16 @@ Independent Python fixed-width packing covers all bytes of seven x86 contexts
 across 1/2/4-context files and compares live restored register markers. A separate
 file-resume oracle retains full physical/projection byte comparison and actual
 missing-kernel RISC-V UART/shutdown execution, with the added CPU section checked.
+
+The software x86 restore validator checks every projected CR8 before CPU
+publication. Legacy bundles can carry the CPU table without an execution
+record or its CR8/TPR cross-check. With two vCPUs, the predecessor returned a
+CR8 error for the final CPU after changing CPU 0. The regression uses two and
+four vCPUs and sets the final CR8 to 16 or `u64::MAX`. Both cases must preserve
+every CPU projection, the legacy devices, and all reported RAM. Class 15
+must restore every CPU and the incoming RAM. The extra check takes O(1) time
+and space per vCPU. The full execution record still validates the CR8/TPR
+relationship for each vCPU.
 
 High impact: full backend-private/platform/interrupt-controller/scheduler state,
 per-VM timing, quiescence, native failure transactions, replay and actual SMP
