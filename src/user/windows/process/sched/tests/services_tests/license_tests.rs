@@ -494,3 +494,183 @@ fn wow64_startup_license_replays_the_observed_stock_cmd_queries() {
         assert_eq!(p.space.u8(data + expected.len() as u64).unwrap(), 0xa5);
     }
 }
+
+#[test]
+fn wow64_startup_license_replays_measured_release_builds() {
+    use crate::user::windows::policy::{APP_SERVER_MODE_NAME, WOW64_STARTUP_NAMES};
+    use crate::user::windows::process::wow64;
+
+    #[derive(serde::Deserialize)]
+    struct Capture {
+        build: u32,
+        machine: u16,
+        rows: usize,
+        values: std::collections::BTreeMap<String, String>,
+    }
+
+    const GUARD: u64 = 8;
+    const CAPACITY: u32 = 1024;
+    const UNCHANGED_KIND: u32 = 0xA5A5_A5A5;
+    const UNCHANGED_LENGTH: u32 = 0x5A5A_5A5A;
+    let input = include_str!(
+        "../../../../../../../docs/specifications/windows/native-startup-license/wow64-release-profiles.json"
+    );
+    let profiles: Vec<Capture> = serde_json::from_str(input).unwrap();
+    assert_eq!(
+        profiles
+            .iter()
+            .map(|row| (row.build, row.machine))
+            .collect::<Vec<_>>(),
+        [(20348, 0x8664), (26100, 0x8664), (26200, 0xaa64)]
+    );
+    let initial: Vec<_> = (0..CAPACITY + 2 * GUARD as u32)
+        .map(|index| b'A' + (index % 26) as u8)
+        .collect();
+    let names = [
+        (DEVICE_FAMILY_NAME, Some(4)),
+        (APP_SERVER_MODE_NAME, Some(4)),
+    ]
+    .into_iter()
+    .chain(WOW64_STARTUP_NAMES);
+
+    for profile in profiles {
+        let values: std::collections::BTreeMap<_, _> = names
+            .clone()
+            .filter_map(|(name, kind)| {
+                let kind = kind?;
+                let raw = &profile.values[name];
+                let bytes = raw
+                    .as_bytes()
+                    .chunks_exact(2)
+                    .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(bytes.len() * 2, raw.len());
+                Some((name, (kind, bytes)))
+            })
+            .collect();
+        assert_eq!(profile.values.len(), values.len());
+        let (mut process, mut thread) =
+            super::fixture(WinArch::X86, "NtQueryLicenseValue", SERVICE);
+        let p = process.state_mut();
+        native_profile::kernel_profile(p, profile.build, profile.machine);
+        Arc::make_mut(&mut p.cfg).version.build = profile.build;
+        wow64::initialize_test_profile(p, profile.machine).unwrap();
+        // The guest version can differ from the installed kernel captured by the loader.
+        Arc::make_mut(&mut p.cfg).version.build = 12345;
+        p.native.as_mut().unwrap().policy_catalog =
+            Ok(Arc::new(Catalog::fixture(values.iter().map(
+                |(&name, (kind, bytes))| (name, *kind, bytes.clone()),
+            ))));
+        let (base, _) =
+            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap();
+        let (name, storage, kind, required) = (base, base + 128, base + 1280, base + 1284);
+        let descriptor = base + PAGE_SIZE - 8;
+        let stack = thread.cpu.sp();
+        let mut count = 0;
+        for (selected, value_kind) in names.clone() {
+            let value = values.get(selected).map(|(_, bytes)| bytes.as_slice());
+            let lowercase = selected.to_ascii_lowercase();
+            for spelling in [selected, lowercase.as_str()] {
+                let units: Vec<_> = spelling.encode_utf16().chain(Some(0)).collect();
+                let length = 2 * (units.len() - 1) as u16;
+                p.space.w16(descriptor, length).unwrap();
+                p.space.w32(descriptor + 4, name as u32).unwrap();
+                p.space.put_wunits(name, &units).unwrap();
+                for maximum in [length, length + 2] {
+                    p.space.w16(descriptor + 2, maximum).unwrap();
+                    for (capacity, null_data) in [
+                        (0, true),
+                        (0, false),
+                        (3, false),
+                        (4, false),
+                        (12, false),
+                        (16, false),
+                        (770, false),
+                        (CAPACITY, false),
+                    ] {
+                        for has_type in [false, true] {
+                            count += 1;
+                            p.space.wr(storage, &initial).unwrap();
+                            p.space.w32(kind, UNCHANGED_KIND).unwrap();
+                            p.space.w32(required, UNCHANGED_LENGTH).unwrap();
+                            let args = [
+                                descriptor,
+                                if has_type { kind } else { 0 },
+                                if null_data { 0 } else { storage + GUARD },
+                                capacity.into(),
+                                required,
+                            ];
+                            super::nls_tests::arguments(p, &mut thread, &args);
+                            thread.cpu.set_gpr(0, SERVICE.into());
+                            assert_eq!(
+                                super::nls_tests::dispatch(p, &mut thread),
+                                Outcome::Continue
+                            );
+                            assert_eq!(thread.cpu.pc(), 0x1234_0004);
+                            assert_eq!(thread.cpu.sp(), stack + 4);
+                            thread.cpu.set_sp(stack);
+                            let mut expected = initial.clone();
+                            let (status, length, output_kind) = match value {
+                                Some(value) if spelling == selected => {
+                                    let kind = if has_type {
+                                        value_kind.unwrap()
+                                    } else {
+                                        UNCHANGED_KIND
+                                    };
+                                    let size = value.len() as u32;
+                                    let status = if capacity >= size {
+                                        let start = GUARD as usize;
+                                        expected[start..start + value.len()].copy_from_slice(value);
+                                        STATUS_SUCCESS
+                                    } else {
+                                        STATUS_BUFFER_TOO_SMALL
+                                    };
+                                    (status, size, kind)
+                                }
+                                _ => (
+                                    STATUS_OBJECT_NAME_NOT_FOUND,
+                                    UNCHANGED_LENGTH,
+                                    UNCHANGED_KIND,
+                                ),
+                            };
+                            let case = (
+                                profile.build,
+                                spelling,
+                                maximum,
+                                capacity,
+                                null_data,
+                                has_type,
+                            );
+                            assert_eq!(thread.cpu.gpr(0), u64::from(status), "{case:?}");
+                            assert_eq!(p.space.u32(required).unwrap(), length, "{case:?}");
+                            assert_eq!(p.space.u32(kind).unwrap(), output_kind, "{case:?}");
+                            assert_eq!(
+                                p.space.bytes(storage, initial.len()).unwrap(),
+                                expected,
+                                "{case:?}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(count, profile.rows);
+
+        // Refuse stale WoW64 metadata even if the installed license catalog exists.
+        p.wow64.as_mut().unwrap().kernel.2 += 1;
+        super::nls_tests::arguments(
+            p,
+            &mut thread,
+            &[descriptor, kind, storage + GUARD, 4, required],
+        );
+        thread.cpu.set_gpr(0, SERVICE.into());
+        assert!(matches!(
+            super::nls_tests::dispatch(p, &mut thread),
+            Outcome::Fail(reason) if reason.contains("unmeasured NtQueryLicenseValue profile")
+        ));
+        assert_eq!(p.space.u32(required).unwrap(), UNCHANGED_LENGTH);
+        assert_eq!(p.space.u32(kind).unwrap(), UNCHANGED_KIND);
+        assert_eq!(p.space.bytes(storage, initial.len()).unwrap(), initial);
+    }
+}

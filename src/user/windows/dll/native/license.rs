@@ -21,24 +21,28 @@ fn query(c: &mut Ctx) -> ApiResult {
     let version = &runtime.version;
     let kernel = (version.major, version.minor, version.build);
     let wow64 = c.arch() == WinArch::X86;
-    let arm64 = runtime.object_namespace.native_machine == Some(0xaa64);
-    // These native release profiles preserve the outputs on a missing name.
-    let native_release_profile = match (c.arch(), runtime.object_namespace.native_machine) {
-        (WinArch::X64, Some(0x8664)) => matches!(kernel, (10, 0, 20348 | 26100)),
-        (WinArch::Arm64, Some(0xaa64)) => kernel == (10, 0, 26200),
+    let machine = runtime.object_namespace.native_machine;
+    let arm64 = machine == Some(0xaa64);
+    let wow64_state =
+        c.p.wow64
+            .as_ref()
+            .filter(|state| machine == Some(state.machine) && state.kernel == kernel);
+    // These release builds preserve all outputs for the measured missing names
+    // through both the native64 and WoW64 query leaves.
+    let preserves_missing_outputs = match (c.arch(), machine, kernel) {
+        (WinArch::X64, Some(0x8664), (10, 0, 20348 | 26100))
+        | (WinArch::Arm64, Some(0xaa64), (10, 0, 26200)) => true,
+        (WinArch::X86, Some(0x8664), (10, 0, 20348 | 26100))
+        | (WinArch::X86, Some(0xaa64), (10, 0, 26200)) => wow64_state.is_some(),
         _ => false,
     };
-    let selected = match c.arch() {
-        WinArch::Arm64 => true,
-        WinArch::X64 => arm64,
-        WinArch::X86 => {
-            arm64
-                && c.p.wow64.as_ref().is_some_and(|state| {
-                    state.machine == 0xaa64 && state.kernel == kernel && state.session == 1
-                })
-        }
-    };
-    if !native_release_profile && (kernel != (10, 0, 29708) || !selected) {
+    let legacy_profile = kernel == (10, 0, 29708)
+        && match c.arch() {
+            WinArch::Arm64 => true,
+            WinArch::X64 => arm64,
+            WinArch::X86 => arm64 && wow64_state.is_some_and(|state| state.session == 1),
+        };
+    if !preserves_missing_outputs && !legacy_profile {
         return Err(c.unsupported("unmeasured NtQueryLicenseValue profile"));
     }
 
@@ -62,7 +66,7 @@ fn query(c: &mut Ctx) -> ApiResult {
     .find(|(candidate, _)| 2 * candidate.len() == length)
     .ok_or_else(|| c.unsupported("NtQueryLicenseValue startup name is not captured"))?;
 
-    if selected == APP_SERVER_MODE_NAME && !arm64 && !native_release_profile {
+    if selected == APP_SERVER_MODE_NAME && !arm64 && !preserves_missing_outputs {
         return Err(c.unsupported("NtQueryLicenseValue AppServerMode profile is not captured"));
     }
 
@@ -75,8 +79,8 @@ fn query(c: &mut Ctx) -> ApiResult {
         .chunks_exact(2)
         .map(|unit| u16::from_le_bytes([unit[0], unit[1]]))
         .collect();
-    let clear_missing = selected == EXCLUDED_PROCESSES_NAME
-        || (selected == DEVICE_FAMILY_NAME && !native_release_profile);
+    let clear_missing = !preserves_missing_outputs
+        && matches!(selected, EXCLUDED_PROCESSES_NAME | DEVICE_FAMILY_NAME);
     if !units.iter().copied().eq(selected.encode_utf16()) {
         if !String::from_utf16(&units).is_ok_and(|name| name.eq_ignore_ascii_case(selected)) {
             return Err(c.unsupported("NtQueryLicenseValue startup name is not captured"));

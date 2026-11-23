@@ -60,3 +60,32 @@ Lowercase names preserve every output. The emulator uses each installation's
 snapshot for the matching native ARM64 guest profile.
 [Native observations](arm64-26200-native.json).
 [Runner and NTDLL identity](https://github.com/HexRaysSA/rax/actions/runs/45117962053/job/137505031615).
+
+## WoW64 on Windows Server 2022 and 2025 and Windows 11 ARM64
+
+The [installed matrix](https://github.com/HexRaysSA/rax/actions/runs/45149678732)
+measured Windows Server 2022 build 20348 and Server 2025 build 26100 on AMD64,
+and Windows 11 build 26200 on ARM64. Each runner returned identical results
+for all 448 queries through the x86 and native64 leaves. Missing
+`WindowsExcludedProcs` and lowercase names preserve the type, length and
+destination. Short buffers for present names return the required length and
+optional type, with the entire destination preserved. The successful calls
+write one DWORD or one counted number of UTF-16 bytes, including the measured
+770-byte SKU language string.
+
+The build and machine must agree with the installed-runtime and WoW64
+metadata. The query reads the installation's immutable startup policy
+snapshot. The [replay fixture](wow64-release-profiles.json) contains the
+captured values and the digests of the native inputs and output streams.
+
+The [producer](probe-startup-matrix.rs) checks its execution architecture
+through `IsWow64Process2`. It measures both spellings, both counted-string
+maximum lengths, optional type output, null and valid zero-capacity
+pointers and capacities up to 1,024 bytes. Eight guard bytes surround the
+output. Each row stores the changed span and its offset in the initialized
+buffer. Download the three `startup-policy-windows-*` artifacts from the
+installed matrix into one directory and project them with:
+
+```sh
+python3 -B docs/specifications/windows/native-startup-license/project-wow64-release.py path/to/artifacts
+```
