@@ -121,7 +121,7 @@ not advertise unknown features or copy host capabilities.
 | W2 | The installed base API-set schema supplies the hash identities needed by the selected application. | Version-6 file from Windows 10.0.29683.1000, 987 entries. | Import/forwarder redirects. | Compare live PEB contracts; absent major/minor identities and empty hosts must fail. | Confirmed for tested base redirects; seven Hyper-V hosts differ in the live PEB |
 | W3 | Admitted NTDLL leaves use a recognized encoding. | Installed ARM64 and x86 NtClose bytes; controlled x64 stubs. | Service identity and argument ABI. | Change a CALL target, truncate a stub, collide numbers, unload the table owner or call an unknown operation. | Confirmed for exercised leaves; other encodings remain explicit failures |
 | W4 | Modern PEB and x86 transition fields have the recorded layout. | Native ARM64, x64 and x86 probes on Windows 10.0.29683.1000. | PEB schema and x86 TEB transition pointer. | Native probe on another Windows build; compare header and export bytes. | Confirmed on this installation; broader builds unverified |
-| W5 | Version-6 loader resolution uses the recorded hash identity while accepting numeric final revisions. | All 987 installed entries hash their name without that revision; native `LoadLibraryExW` resolves rtlsupport l1-1 revisions 0, 1 and 65535 to NTDLL. | Older imported spellings in installed KERNEL32. | Nonnumeric revision, missing identity, conflicting schema keys, importer alias and unavailable override. | Confirmed on Windows 10.0.29683.1000; compare another Windows build with the native-loader regression test |
+| W5 | Version-6 loader resolution uses the recorded hash identity. The final revision syntax is selected by the installed loader profile. | Native `LoadLibraryExW` resolves rtlsupport revisions 0, 1 and 65535 on the tested hosts. The Server 2022 and Server 2025 controls also accept the tested nonnumeric and empty revisions. | Installed import and forwarder lookup. | Overflowing or nonnumeric revision, missing identity, conflicting keys, importer alias and unavailable override. | Confirmed for Windows Server builds 20348 and 26100, Windows ARM64 build 26200 and the earlier numeric controls on build 29683 |
 
 The native loader resolves `api-ms-win-core-rtlsupport-l1-1-0.dll` and
 `...-l1-1-65535.dll` through the installed `...-l1-1-1` entry. It similarly
@@ -129,6 +129,17 @@ resolves l1-2 revisions 0, 3 and 65535 through the l1-2-3 entry, while rejecting
 nonnumeric revision `banana` and absent l1-3/l2-1 identities with Win32 error 126.
 This is observed loader behavior on the recorded build, not an API availability
 or compatibility guarantee for a requested immutable version identifier.
+
+Windows Server 2022 and Server 2025 resolve empty, nonnumeric and overflowing
+final components in the three tested contract families. The preceding hash
+identity still has to match a recorded entry. A suffix containing another dash
+changes that identity and fails when the resulting key is absent. The selected
+x86 and x64 Server build profiles accept ASCII alphanumeric and underscore
+suffixes, including the empty suffix. The default profile requires a decimal
+`u32` revision. Windows 11 ARM64 build 26200 refused the nonnumeric, empty,
+and overflowing cases. The controls also showed that `IsApiSetImplemented`
+rejects the tested nonnumeric names on both Server releases.
+[Native loader controls](https://github.com/HexRaysSA/rax/actions/runs/45139515825).
 Microsoft's public API-set documentation distinguishes contract identifiers
 from DLL files and states that successful loading does not establish API
 availability. The native regression test compares the selected host with

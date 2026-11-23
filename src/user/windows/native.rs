@@ -126,6 +126,20 @@ impl NativeRuntime {
                 .get(start..end)
                 .ok_or_else(|| invalid("API-set section outside image"))?,
         )?;
+        // These installed Server loaders resolve the recorded identity even
+        // when the final component is empty or contains nondigits.
+        let apisets = match (
+            version.major,
+            version.minor,
+            version.build,
+            version.product_type,
+            arch,
+        ) {
+            (10, 0, 20348 | 26100, 3, WinArch::X64 | WinArch::X86) => {
+                apisets.with_legacy_revision_lookup()
+            }
+            _ => apisets,
+        };
         let mut runtime = Self {
             directory,
             guest_root,
@@ -595,7 +609,7 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn installed_numeric_revisions_match_native_windows_loader_resolution() {
+    fn installed_api_set_revisions_match_native_windows_loader_resolution() {
         use std::ffi::c_void;
         #[link(name = "kernel32")]
         unsafe extern "system" {
@@ -611,14 +625,32 @@ mod tests {
             WinArch::X86
         };
         let runtime = NativeRuntime::select(arch).unwrap();
-        for revision in ["0", "1", "65535"] {
-            let name = format!("api-ms-win-core-rtlsupport-l1-1-{revision}.dll");
+        for (name, numeric_control) in [
+            ("api-ms-win-core-rtlsupport-l1-1-0.dll", true),
+            ("api-ms-win-core-rtlsupport-l1-1-1.dll", true),
+            ("api-ms-win-core-rtlsupport-l1-1-65535.dll", true),
+            ("api-ms-win-core-rtlsupport-l1-1-4294967296.dll", false),
+            ("api-ms-win-core-rtlsupport-l1-1-banana.dll", false),
+            ("api-ms-win-core-rtlsupport-l1-1-0abc.dll", false),
+            ("api-ms-win-core-rtlsupport-l1-1-_.dll", false),
+            ("api-ms-win-core-rtlsupport-l1-1-.dll", false),
+            ("api-ms-win-core-rtlsupport-l1-1-0-0.dll", false),
+            ("api-ms-win-core-rtlsupport-l65535-65535-0.dll", false),
+        ] {
             let wide = name.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
             // SAFETY: the UTF-16 name is terminated and retained for this call,
             // the reserved file handle is null, and 0x800 limits search to the
             // system directory. The resulting loader reference is released below.
             let module = unsafe { LoadLibraryExW(wide.as_ptr(), std::ptr::null_mut(), 0x800) };
-            assert!(!module.is_null(), "native loader refused {name}");
+            let guest = runtime.apisets.host(name, None);
+            if module.is_null() {
+                assert_eq!(guest, None, "native loader refused {name}");
+                assert!(
+                    !numeric_control,
+                    "native loader refused the numeric control {name}"
+                );
+                continue;
+            }
             let mut path = vec![0u16; 32768];
             // SAFETY: module is the live reference obtained above; path contains
             // 32,768 writable initialized UTF-16 units and remains live in the call.
@@ -635,25 +667,7 @@ mod tests {
                     .to_ascii_lowercase(),
                 "ntdll.dll"
             );
-            assert_eq!(runtime.apisets.host(&name, None), Some("ntdll.dll"));
-        }
-        for name in [
-            "api-ms-win-core-rtlsupport-l1-1-banana.dll",
-            "api-ms-win-core-rtlsupport-l65535-65535-0.dll",
-        ] {
-            let wide = name.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
-            // SAFETY: terminated UTF-16 input and null reserved handle, as above.
-            let module = unsafe { LoadLibraryExW(wide.as_ptr(), std::ptr::null_mut(), 0x800) };
-            // Balance even an unexpected native success before reporting failure.
-            if !module.is_null() {
-                // SAFETY: this is the live loader reference just acquired.
-                unsafe { FreeLibrary(module) };
-            }
-            assert!(
-                module.is_null(),
-                "native loader unexpectedly resolved {name}"
-            );
-            assert_eq!(runtime.apisets.host(name, None), None);
+            assert_eq!(guest, Some("ntdll.dll"), "{name}");
         }
     }
 }

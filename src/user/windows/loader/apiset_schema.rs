@@ -2,7 +2,7 @@
 //!
 //! Layout is decoded from the installed `.apiset` section. Contract semantics:
 //! <https://learn.microsoft.com/windows/win32/apiindex/windows-apisets>.
-//! Lookup uses the schema's hash identity, excluding the numeric final revision.
+//! Lookup uses the schema's recorded hash identity, excluding the final revision.
 //! Parent aliases take precedence over the default value; no family inference.
 
 use std::collections::BTreeMap;
@@ -15,6 +15,7 @@ const MAX_ENTRIES: usize = 1 << 16;
 pub(crate) struct ApiSetSchema {
     pub(crate) bytes: Arc<[u8]>,
     contracts: BTreeMap<String, BTreeMap<String, String>>,
+    legacy_revision_lookup: bool,
 }
 
 fn malformed() -> std::io::Error {
@@ -141,13 +142,30 @@ impl ApiSetSchema {
         Ok(Self {
             bytes: Arc::from(bytes),
             contracts,
+            legacy_revision_lookup: false,
         })
+    }
+
+    pub(crate) fn with_legacy_revision_lookup(mut self) -> Self {
+        self.legacy_revision_lookup = true;
+        self
     }
 
     pub(crate) fn host(&self, name: &str, parent: Option<&str>) -> Option<&str> {
         let lower = name.to_ascii_lowercase();
         let contract = lower.strip_suffix(".dll").unwrap_or(&lower);
-        let hosts = self.contracts.get(identity(contract)?)?;
+        let (identity, revision) = contract.rsplit_once('-')?;
+        let valid_revision = if self.legacy_revision_lookup {
+            revision
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        } else {
+            revision.bytes().all(|b| b.is_ascii_digit()) && revision.parse::<u32>().is_ok()
+        };
+        if !valid_revision {
+            return None;
+        }
+        let hosts = self.contracts.get(identity)?;
         let parent = parent.map(str::to_ascii_lowercase);
         let host = parent
             .as_ref()
@@ -224,12 +242,39 @@ mod tests {
         for name in [
             "api-test-core-l1-1-banana",
             "api-test-core-l1-1-",
+            "api-test-core-l1-1-4294967296",
             "api-test-core-l2-1-0",
             "api-test-core-l1-1-0.dll:stream",
         ] {
             assert_eq!(s.host(name, None), None, "accepted {name}");
         }
         assert_eq!(&*s.bytes, &b);
+    }
+
+    #[test]
+    fn measured_legacy_loader_uses_the_exact_prefix_before_the_last_dash() {
+        let schema = ApiSetSchema::parse(&fixture())
+            .unwrap()
+            .with_legacy_revision_lookup();
+        for revision in ["0", "4294967296", "banana", "0abc", "_", ""] {
+            let name = format!("api-test-core-l1-1-{revision}.dll");
+            assert_eq!(schema.host(&name, None), Some("default.dll"), "{name}");
+            assert_eq!(
+                schema.host(&name, Some("CALLER.DLL")),
+                Some("redirect.dll"),
+                "{name}"
+            );
+            assert_eq!(schema.host(&name, Some("absent.dll")), None, "{name}");
+        }
+        for name in [
+            "api-test-core-l1-2-banana.dll",
+            "api-test-core-l1-1-0-0.dll",
+            "api-test-core-l1-1-c:ntdll.dll",
+            "api-test-core-l1-1-0.dll:stream",
+            "api-test-core-l1-1-../fallback.dll",
+        ] {
+            assert_eq!(schema.host(name, None), None, "{name}");
+        }
     }
     #[test]
     fn truncated_overflowing_invalid_utf16_and_unsupported_namespaces_fail() {
