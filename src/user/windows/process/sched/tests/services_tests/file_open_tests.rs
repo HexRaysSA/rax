@@ -375,6 +375,77 @@ fn native_file_open_closed_directories_only_resolve_selected_runtime_files() {
 }
 
 #[test]
+fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
+    use crate::user::windows::nt::status::{STATUS_NO_MORE_FILES, STATUS_NO_SUCH_FILE};
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        std::fs::write(installed.join("CMD.exe"), b"selected image").unwrap();
+        std::fs::write(installed.join("foreign.exe"), b"unselected image").unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let width = arch.ptr_size();
+        for (full, relative) in [
+            (r"\??\C:\", r"\"),
+            (r"\??\C:\Windows\System32\", r"\Windows\System32"),
+        ] {
+            h.name(full);
+            assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+            let directory = h.process.state().space.ptr(output, width).unwrap();
+            assert_eq!(
+                h.invoke_api("NtQueryInformationFile", &[directory, io, output, 256, 9]),
+                STATUS_SUCCESS
+            );
+            let space = &h.process.state().space;
+            let length = space.u32(output).unwrap();
+            assert_eq!(length as usize, relative.encode_utf16().count() * 2);
+            let name = space.bytes(output + 4, length as usize).unwrap();
+            let text: Vec<u16> = name
+                .chunks_exact(2)
+                .map(|b| u16::from_le_bytes([b[0], b[1]]))
+                .collect();
+            assert_eq!(
+                String::from_utf16_lossy(&text).to_ascii_lowercase(),
+                relative.to_ascii_lowercase()
+            );
+            if relative == r"\" {
+                h.process.state_mut().objects.close(directory).unwrap();
+                continue;
+            }
+
+            let query_name = h.attrs() + 64;
+            h.name("foreign.exe");
+            assert_eq!(
+                h.invoke_api(
+                    "NtQueryDirectoryFileEx",
+                    &[directory, 0, 0, 0, io, output, 256, 12, 1, query_name]
+                ),
+                STATUS_NO_SUCH_FILE
+            );
+            h.name("cMd.EXE");
+            let args = [directory, 0, 0, 0, io, output, 256, 12, 1, query_name];
+            assert_eq!(
+                h.invoke_api("NtQueryDirectoryFileEx", &args),
+                STATUS_SUCCESS
+            );
+            let space = &h.process.state().space;
+            assert_eq!(space.u32(output + 8).unwrap(), 14);
+            assert_eq!(
+                space.bytes(output + 12, 14).unwrap(),
+                b"c\0m\0d\0.\0e\0x\0e\0"
+            );
+            let second = [directory, 0, 0, 0, io, output, 256, 12, 0, 0];
+            assert_eq!(
+                h.invoke_api("NtQueryDirectoryFileEx", &second),
+                STATUS_NO_MORE_FILES
+            );
+            h.process.state_mut().objects.close(directory).unwrap();
+        }
+    }
+}
+
+#[test]
 fn native_file_open_mui_satellites_require_an_installed_owner_and_read_only_access() {
     use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_OBJECT_PATH_NOT_FOUND};
     for arch in WinArch::ALL {

@@ -9,7 +9,7 @@ use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::Ctx;
 use std::fs::File;
 
-pub(super) struct Acquired {
+pub(in super::super) struct Acquired {
     pub file: File,
     pub path: std::path::PathBuf,
     pub identity: FileIdentity,
@@ -52,7 +52,7 @@ pub(super) fn create(
     }
 }
 
-pub(super) fn open(
+pub(in super::super) fn open(
     c: &Ctx,
     path: &Resolved,
     access: u32,

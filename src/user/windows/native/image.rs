@@ -16,8 +16,11 @@ pub(crate) struct SelectedImage {
 }
 
 /// Installed executables admitted by the closed child process profile.
+pub(crate) const SELECTED_CHILD_EXECUTABLES: &[&str] = &["cmd.exe", "findstr.exe", "sort.exe"];
+
+/// Whether the basename belongs to the closed child process profile.
 pub(crate) fn selected_child_executable(basename: &str) -> bool {
-    ["cmd.exe", "findstr.exe", "sort.exe"]
+    SELECTED_CHILD_EXECUTABLES
         .iter()
         .any(|name| basename.eq_ignore_ascii_case(name))
 }

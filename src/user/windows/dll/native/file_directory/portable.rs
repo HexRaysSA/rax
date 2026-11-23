@@ -1,20 +1,32 @@
-//! Mapped-volume enumeration state; native Windows uses the retained NT cursor.
+//! Directory cursors for closed installed directories and mapped POSIX volumes.
 mod encode;
+mod installed;
 
 mod pattern;
-#[cfg(test)]
+#[cfg(all(test, unix))]
 #[path = "portable/replay.rs"]
 mod replay;
+#[cfg(unix)]
 mod snapshot;
 
 use super::{Checked, Completion, Ctx, Layout, Request};
+use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::ApiErr;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::DirectoryScan;
+use crate::user::windows::objects::{DirectoryScan, Object};
 
 pub(super) fn query(c: &mut Ctx, request: Request) -> Checked<Completion> {
     if c.p.objects.directory_scan(request.handle).is_none() {
-        let entries = snapshot::collect(c, request.handle)?;
+        let entries = match c.p.objects.get(request.handle) {
+            Some(Object::File(file)) => match &file.lifetime.identity {
+                FileIdentity::GuestDirectory(directory) => installed::collect(c, directory)?,
+                #[cfg(unix)]
+                _ => snapshot::collect(c, request.handle)?,
+                #[cfg(not(unix))]
+                _ => return Err(c.unsupported("directory has no emulated cursor").into()),
+            },
+            _ => return Err(c.unsupported("directory disappeared before capture").into()),
+        };
         let scan = DirectoryScan {
             entries,
             pattern: vec![42],

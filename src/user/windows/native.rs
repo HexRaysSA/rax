@@ -18,7 +18,7 @@ mod image;
 pub(crate) mod processor_power;
 mod secure_boot_policy;
 mod system;
-pub(crate) use image::{SelectedImage, selected_child_executable};
+pub(crate) use image::{SELECTED_CHILD_EXECUTABLES, SelectedImage, selected_child_executable};
 pub(crate) use system::{SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2, SupportedArchitectures};
 
 pub(crate) fn supported_architectures(

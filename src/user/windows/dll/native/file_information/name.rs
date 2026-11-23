@@ -1,13 +1,17 @@
 //! Variable UTF-16 names retain the full required byte length on overflow.
 use super::super::named_object::{Checked, status};
 use super::records::{Publication, Record};
-use crate::user::windows::fs::FileNameOrigin;
+use crate::user::windows::fs::{FileIdentity, FileNameOrigin};
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
 pub(super) fn query(c: &Ctx, handle: u64, object: &Object, length: u32) -> Checked<Record> {
     let name = match object {
+        Object::File(file) if matches!(file.lifetime.identity, FileIdentity::GuestDirectory(_)) => {
+            let (_, volume_path) = file.path.split_once(':').expect("guest DOS directory");
+            volume_path.encode_utf16().collect()
+        }
         Object::File(file) if !file.null => {
             let reopened;
             let retained = if let Some(file) = &file.host {

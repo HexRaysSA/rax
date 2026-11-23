@@ -1,7 +1,6 @@
 //! Directory queries through retained file objects and private host buffers.
 //! The native ordinary-call corpus owns packing, cursor, and restart behavior.
 mod host;
-#[cfg(unix)]
 mod portable;
 mod records;
 
@@ -155,11 +154,6 @@ fn checked(c: &mut Ctx, legacy: bool, caller_store: &mut bool) -> Checked<u32> {
                     .unsupported("asynchronous directory completion scheduling")
                     .into());
             }
-            if matches!(file.lifetime.identity, FileIdentity::GuestDirectory(_)) {
-                return Err(c
-                    .unsupported("enumeration of the closed installed namespace")
-                    .into());
-            }
         }
         Some(Object::File(_)) | Some(Object::Console(_) | Object::Null | Object::Pipe { .. }) => {
             return status(STATUS_INVALID_PARAMETER);
@@ -195,7 +189,14 @@ fn checked(c: &mut Ctx, legacy: bool, caller_store: &mut bool) -> Checked<u32> {
     if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {
         *signaled = 0;
     }
-    let completion = host::query(c, request)?;
+    let completion = if matches!(
+        c.p.objects.get(handle),
+        Some(Object::File(file)) if matches!(file.lifetime.identity, FileIdentity::GuestDirectory(_))
+    ) {
+        portable::query(c, request)?
+    } else {
+        host::query(c, request)?
+    };
     records::validate(c, layout, &completion)?;
     if completion.status.is_some() || completion.information.is_some() {
         if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {

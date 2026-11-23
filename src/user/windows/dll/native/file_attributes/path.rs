@@ -202,7 +202,7 @@ fn selected_mui(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked<Optio
     confined_child(c, &locale, &filename, STATUS_OBJECT_NAME_NOT_FOUND).map(Some)
 }
 
-fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
+pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
     let Some(runtime) = &c.p.native else {
         return Ok(None);
     };
