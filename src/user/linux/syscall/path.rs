@@ -1537,16 +1537,29 @@ fn synthetic_fs(kind: u64) -> Kstatfs {
     }
 }
 
-fn supplied_statfs() -> Kstatfs {
+fn supplied_statfs(
+    c: &Ctx<'_>,
+    entry: Option<&crate::user::supplied_fs::Entry>,
+) -> Result<Kstatfs, Errno> {
     let mut stat = synthetic_fs(RAMFS_MAGIC);
-    stat.flags |= 1; // ST_RDONLY
-    stat
+    if !entry.is_some_and(|entry| entry.workspace_mode().is_some()) {
+        stat.flags |= 1; // ST_RDONLY
+        return Ok(stat);
+    }
+    let capacity = c.p.vfs.supplied().ok_or(Errno(EIO))?.workspace_capacity()?;
+    stat.blocks = capacity.bytes_total / stat.bsize;
+    stat.bfree = capacity.bytes_available / stat.bsize;
+    stat.bavail = stat.bfree;
+    stat.files = capacity.nodes_total;
+    stat.ffree = capacity.nodes_available;
+    stat.fsid = [0x524158, 0];
+    Ok(stat)
 }
 
 /// `user_statfs`: the statistics of the file system holding `path`.
 pub(super) fn statfs_path(c: &mut Ctx<'_>, path: u64) -> Result<Kstatfs, Errno> {
     match resolve(c, AT_FDCWD, path, 0, true)? {
-        Target::Supplied(..) => Ok(supplied_statfs()),
+        Target::Supplied(entry, _) => supplied_statfs(c, Some(&entry)),
         Target::Proc(..) => Ok(synthetic_fs(PROC_SUPER_MAGIC)),
         #[cfg(not(unix))]
         Target::Host { .. } => Err(Errno(EPERM)),
@@ -1563,7 +1576,11 @@ pub(super) fn statfs_path(c: &mut Ctx<'_>, path: u64) -> Result<Kstatfs, Errno> 
 pub(super) fn statfs_fd(c: &Ctx<'_>, fd: i32) -> Result<Kstatfs, Errno> {
     let file = c.p.fds.file(fd)?;
     if file.supplied_stat.is_some() {
-        return Ok(supplied_statfs());
+        let entry = match &file.object {
+            FileObject::Supplied(entry) => Some(entry),
+            _ => None,
+        };
+        return supplied_statfs(c, entry);
     }
     Ok(match &file.host_path {
         #[cfg(unix)]

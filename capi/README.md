@@ -778,7 +778,9 @@ The namespace is shared within the guest process family and discarded on
 session close. It holds up to 16 MiB of logical file data and link targets and
 1,024 guest-created entries. An alias uses an entry without duplicating
 the inode's data. Supplied files and selected runtime libraries stay
-read-only. Workspace operations use guest memory. Whiteouts and writable shared
+read-only. Linux and Darwin report the private workspace's writable capacity
+through path and descriptor filesystem queries. Workspace operations use
+guest memory. Whiteouts and writable shared
 file mappings remain outside this profile.
 
 Windows associates a supplied main image with an installed backing file when

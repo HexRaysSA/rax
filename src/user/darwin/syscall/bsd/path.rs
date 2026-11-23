@@ -829,9 +829,39 @@ fn host_fsgetpath(_: [u8; 8], _: u64, _: usize, _: u32) -> Result<Vec<u8>, Errno
     Err(Errno::ENOTSUP)
 }
 
-/// `statfs64(path, buf)`: the host's statistics of the volume holding
-/// `path` (following symbolic links).
+pub(super) fn write_workspace_statfs(ctx: &mut Ctx<'_>, buf: u64) -> SysResult {
+    use crate::user::darwin::abi::types::Statfs;
+
+    let files = ctx.proc.vfs.files().ok_or(Errno::ENOTSUP)?;
+    let capacity = files.workspace_capacity()?;
+    const BLOCK_SIZE: u32 = 4096;
+    const MNT_LOCAL: u32 = 0x1000;
+    let free_blocks = capacity.bytes_available / u64::from(BLOCK_SIZE);
+    let stat = Statfs {
+        bsize: BLOCK_SIZE,
+        iosize: BLOCK_SIZE as i32,
+        blocks: capacity.bytes_total / u64::from(BLOCK_SIZE),
+        bfree: free_blocks,
+        bavail: free_blocks,
+        files: capacity.nodes_total,
+        ffree: capacity.nodes_available,
+        fsid: [0x524158, 0],
+        flags: MNT_LOCAL,
+        fstypename: b"raxfs".to_vec(),
+        mntonname: b"/tmp".to_vec(),
+        mntfromname: b"raxfs".to_vec(),
+        ..Default::default()
+    };
+    ctx.write(buf, &stat.bytes())?;
+    Ok(Rv::one(0))
+}
+
+/// `statfs64(path, buf)` returns the statistics of the volume holding the path.
 pub fn statfs64(ctx: &mut Ctx<'_>, path: u64, buf: u64) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        return embedded::statfs64(ctx, path, buf);
+    }
+
     #[cfg(unix)]
     {
         let (_, cpath) = guest_path(ctx, path)?;
