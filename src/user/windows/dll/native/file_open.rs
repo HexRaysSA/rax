@@ -201,6 +201,21 @@ pub(super) fn kernel(
         return status(STATUS_INVALID_PARAMETER);
     }
     let name = attributes::validate(c, &attrs)?;
+    if !c.p.cfg.host_filesystem
+        && c.p.native.is_some()
+        && tracing::enabled!(target: "rax::windows::ntstatus", tracing::Level::TRACE)
+    {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            path = ?name.as_deref().map(String::from_utf16_lossy),
+            root = attrs.root,
+            access = %format_args!("{:#010x}", r.access),
+            share = r.share,
+            options = %format_args!("{:#010x}", r.options),
+            "guest file open request"
+        );
+    }
     if creation.is_none()
         && let Some(result) = super::file_pipe::open(c, r, &attrs, name.as_deref())
     {
