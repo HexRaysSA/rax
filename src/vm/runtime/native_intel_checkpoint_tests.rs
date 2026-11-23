@@ -204,7 +204,6 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
                 matches!(turn.exit, VcpuExit::MmioWrite { addr: MMIO, data } if data == HIGH.to_le_bytes())
             );
         }
-        assert_eq!(source.vcpus[ap].current_pc(), CODE);
         assert!(source.vcpus[ap].io_completion_result().is_err());
         assert!(accesses.lock().unwrap().is_empty());
 
@@ -246,7 +245,16 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
         let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
         let mut target = Vmm::new_resume_bundle(config, &loaded).unwrap();
         attach(&mut target, &accesses);
-        assert_eq!(target.vcpus[ap].current_pc(), CODE);
+        // The public live-state accessor is fenced while I/O is pending.
+        // Inspect the stopped CPU through the checkpoint interface.
+        {
+            let boundary = target.vm.checkpoint_boundary().unwrap();
+            let (saved, private) = target.vcpus[ap]
+                .capture_checkpoint_record(&boundary, None)
+                .unwrap();
+            assert_eq!(saved.state.pc(), CODE);
+            assert_eq!(private.unwrap().kind, HVF_INTEL_CONTEXT);
+        }
         assert!(target.vcpus[ap].io_completion_result().is_err());
         assert!(accesses.lock().unwrap().is_empty());
         target.run().unwrap();
