@@ -800,6 +800,8 @@ jobs:
         with:
           name: windows-installed-process-${{ matrix.os }}-${{ github.sha }}
           path: |
+            target/windows-installed-process/released-wow64-gdi.log
+            target/windows-installed-process/released-wow64-gdi-identity.json
             target/windows-installed-process/receipt.json
             target/windows-installed-process/capi.log
             target/windows-installed-process/null-capi.log

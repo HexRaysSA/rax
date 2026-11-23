@@ -23,6 +23,12 @@ private:
 
 using ProcessQuery = NTSTATUS(NTAPI *)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
 
+struct InitResult {
+    std::uint32_t present;
+    std::uint32_t first;
+    std::uint32_t second;
+};
+
 bool process_peb(HANDLE process, std::uintptr_t &peb)
 {
     auto query = reinterpret_cast<ProcessQuery>(
@@ -70,7 +76,7 @@ bool report_view(HANDLE process, const char *kind, std::uintptr_t base)
     return false;
 }
 
-bool snapshot(HANDLE process, HANDLE thread, const char *phase)
+bool snapshot(HANDLE process, HANDLE thread, const char *phase, std::uint32_t &process_value)
 {
     using ThreadQuery = NTSTATUS(NTAPI *)(HANDLE, ULONG, PVOID, ULONG, PULONG);
     auto query = reinterpret_cast<ThreadQuery>(
@@ -78,17 +84,19 @@ bool snapshot(HANDLE process, HANDLE thread, const char *phase)
     std::uint64_t info[6]{};
     ULONG size = 0;
     std::uintptr_t peb = 0, gdi = 0, thread_info = 0;
-    std::uint32_t process_value = 0;
     std::uint64_t client[20]{};
     if (!process_peb(process, peb) || !query ||
         query(thread, 0, info, sizeof(info), &size) < 0 || size != sizeof(info) || !info[1] ||
         !read(process, peb + 0xf8, gdi) || !read(process, peb + 0x108, process_value) ||
         !read(process, info[1] + 0x78, thread_info) || !read(process, info[1] + 0x800, client))
         return false;
-    std::printf("companion=%s gdi=%u process=%u process_high_bit=%u thread=%u "
-                "client_flags=%016llx client_views=%u record=%u\n",
-        phase, unsigned(gdi != 0), unsigned(process_value != 0), process_value >> 31,
+    DWORD session = 0;
+    if (!ProcessIdToSessionId(GetProcessId(process), &session)) return false;
+    std::printf("companion=%s session=%lu gdi=%u process=%u process_high_bit=%u thread=%u "
+                "client_flags=%016llx client_thread_flags=%016llx client_views=%u record=%u\n",
+        phase, session, unsigned(gdi != 0), unsigned(process_value != 0), process_value >> 31,
         unsigned(thread_info != 0), static_cast<unsigned long long>(client[0]),
+        static_cast<unsigned long long>(client[3]),
         unsigned(client[4] != 0 && client[5] != 0), unsigned(client[12] != 0));
     return report_view(process, "gdi", gdi) && report_view(process, "desktop", client[5]);
 }
@@ -112,36 +120,54 @@ int wmain(int argc, wchar_t **argv)
     SECURITY_ATTRIBUTES security{sizeof(security), nullptr, TRUE};
     OwnedHandle ready(CreateEventW(&security, FALSE, FALSE, nullptr));
     OwnedHandle proceed(CreateEventW(&security, FALSE, FALSE, nullptr));
-    if (!ready.get() || !proceed.get()) return 3;
+    HANDLE read_end = nullptr, write_end = nullptr;
+    if (!CreatePipe(&read_end, &write_end, &security, sizeof(InitResult))) return 3;
+    OwnedHandle input(read_end), output(write_end);
+    if (!ready.get() || !proceed.get() ||
+        !SetHandleInformation(input.get(), HANDLE_FLAG_INHERIT, 0)) return 3;
     std::wstring command = L"\"" + std::wstring(argv[1]) + L"\" " +
         std::to_wstring(reinterpret_cast<std::uintptr_t>(ready.get())) + L" " +
-        std::to_wstring(reinterpret_cast<std::uintptr_t>(proceed.get()));
+        std::to_wstring(reinterpret_cast<std::uintptr_t>(proceed.get())) + L" " +
+        std::to_wstring(reinterpret_cast<std::uintptr_t>(output.get()));
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);
     PROCESS_INFORMATION child{};
     if (!CreateProcessW(argv[1], command.data(), nullptr, nullptr, TRUE, 0, nullptr, nullptr,
                         &startup, &child)) return 4;
     OwnedHandle process(child.hProcess), thread(child.hThread);
-    const auto phase = [&](const char *name) {
+    const auto phase = [&](const char *name, std::uint32_t &value) {
         HANDLE events[] = {ready.get(), process.get()};
         return WaitForMultipleObjects(2, events, FALSE, timeout_ms) == WAIT_OBJECT_0 &&
-            snapshot(process.get(), thread.get(), name) && SetEvent(proceed.get());
+            snapshot(process.get(), thread.get(), name, value) && SetEvent(proceed.get());
     };
-    const bool complete = phase("before") && phase("after");
+    std::uint32_t before = 0, after_stock = 0, after_repeat = 0;
+    const bool complete = phase("before", before) && phase("after", after_stock) &&
+        phase("repeated", after_repeat);
     if (!complete) SetEvent(proceed.get());
     DWORD exit_code = 0;
     if (WaitForSingleObject(process.get(), timeout_ms * 2) != WAIT_OBJECT_0 ||
         !GetExitCodeProcess(process.get(), &exit_code)) return 5;
     std::printf("measurement=%u child_exit=%lu\n", unsigned(complete), exit_code);
-    return complete && !exit_code ? 0 : 6;
+    if (!complete || exit_code) return 6;
+    DWORD available = 0, count = 0;
+    InitResult result{};
+    if (!PeekNamedPipe(input.get(), nullptr, 0, nullptr, &available, nullptr) ||
+        available != sizeof(result) ||
+        !ReadFile(input.get(), &result, sizeof(result), &count, nullptr) ||
+        count != sizeof(result)) return 8;
+    std::printf("init2_queried=%u equals_companion=%u stable=%u preserves_stock_value=%u\n",
+        result.present, result.present && result.first == after_repeat,
+        result.present && result.first == result.second, after_stock == after_repeat);
+    return 0;
 }
 #else
 int wmain(int argc, wchar_t **argv)
 {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    if (argc != 3) return 2;
+    if (argc != 4) return 2;
     auto ready = reinterpret_cast<HANDLE>(static_cast<std::uintptr_t>(std::wcstoull(argv[1], nullptr, 10)));
     auto proceed = reinterpret_cast<HANDLE>(static_cast<std::uintptr_t>(std::wcstoull(argv[2], nullptr, 10)));
+    auto output = reinterpret_cast<HANDLE>(static_cast<std::uintptr_t>(std::wcstoull(argv[3], nullptr, 10)));
     const auto sync = [&] { return SetEvent(ready) && WaitForSingleObject(proceed, timeout_ms) == WAIT_OBJECT_0; };
     if (!snapshot_x86("before") || !sync()) return 3;
     auto gdi = LoadLibraryExW(L"gdi32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
@@ -150,10 +176,29 @@ int wmain(int argc, wchar_t **argv)
     if (!stock || !stock(WHITE_BRUSH)) return 5;
     auto win32u = GetModuleHandleW(L"win32u.dll");
     if (!win32u) return 6;
-    const bool legacy = GetProcAddress(win32u, "NtGdiInit") != nullptr;
-    const bool init2 = GetProcAddress(win32u, "NtGdiInit2") != nullptr;
-    std::printf("x86_stock=1 legacy=%u init2=%u\n", unsigned(legacy), unsigned(init2));
+    const auto legacy = GetProcAddress(win32u, "NtGdiInit");
+    const auto init2 = GetProcAddress(win32u, "NtGdiInit2");
+    std::printf("x86_stock=1 legacy=%u init2=%u\n", unsigned(legacy != nullptr),
+        unsigned(init2 != nullptr));
     if (!snapshot_x86("after") || !sync()) return 7;
+    if (legacy) {
+        const auto bytes = reinterpret_cast<const unsigned char *>(legacy);
+        std::printf("legacy_prefix=");
+        for (unsigned i = 0; i < 16; ++i) std::printf("%02x", unsigned(bytes[i]));
+        std::putchar('\n');
+    }
+    InitResult result{};
+    if (init2) {
+        // Only call the observed parameterless x86 transition stub shape.
+        const auto bytes = reinterpret_cast<const unsigned char *>(init2);
+        if (bytes[0] != 0xb8 || bytes[5] != 0xba || bytes[10] != 0xff ||
+            bytes[11] != 0xd2 || bytes[12] != 0xc3) return 8;
+        const auto init = reinterpret_cast<std::uint32_t(WINAPI *)()>(init2);
+        result = {1, init(), init()};
+    }
+    DWORD count = 0;
+    if (!WriteFile(output, &result, sizeof(result), &count, nullptr) || count != sizeof(result) ||
+        !snapshot_x86("repeated") || !sync()) return 9;
     return 0;
 }
 #endif
