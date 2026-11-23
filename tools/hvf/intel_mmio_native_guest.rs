@@ -1365,10 +1365,17 @@ fn main() {
         xmm::run(&output, profile == "--vex-xmm");
         return;
     }
-    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--compat-mmio")) {
+    if let Some(profile) = std::env::args_os()
+        .nth(1)
+        .filter(|profile| profile == "--compat-mmio" || profile == "--compat16-mmio")
+    {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        compat::run(&output);
+        if profile == "--compat16-mmio" {
+            compat::run16(&output);
+        } else {
+            compat::run(&output);
+        }
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--crc32")) {
