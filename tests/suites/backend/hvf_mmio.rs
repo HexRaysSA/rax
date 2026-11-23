@@ -44,6 +44,8 @@ mod shift_tests;
 mod vector_bit_test_tests;
 #[path = "hvf_mmio/vector_logic.rs"]
 mod vector_logic_tests;
+#[path = "hvf_mmio/xlat.rs"]
+mod xlat_tests;
 #[path = "hvf_mmio/xmm_lanes.rs"]
 mod xmm_lane_tests;
 #[derive(Default)]

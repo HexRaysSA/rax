@@ -298,3 +298,34 @@ and all 4,884 engine and 17 consumer and runner source hashes matched.
 
 Bare-metal Intel macOS, compatibility-mode device exits and free-running
 interrupt timing at a repeat boundary remain open.
+
+## XLAT byte-table reads
+
+Intel HVF resolves the implicit address using unsigned `AL` and the
+address-size-selected `BX`, `EBX`, or `RBX`. It applies offset wrapping before
+the selected segment base, then checks the translated exit address and device
+range. A valid exit exposes one byte read. Completion replaces `AL`, preserves
+the rest of `RAX` and the arithmetic flags, and advances the saved instruction
+once. The existing scalar input record carries the pending byte and destination
+through detached restore. Decode and planning use constant auxiliary storage
+with the existing 15-byte instruction limit. [Intel SDM, Volume 2D, XLAT](https://cdrdv2-public.intel.com/874247/334569-090-sdm-vol-2d.pdf)
+
+The parent rejected the positive MMIO regression as unsupported. The corrected
+portable MMIO, guest-translation, and port-I/O suites passed 156 tests.
+QEMU 11.1.2 TCG executed 96 RAM-backed XLAT cases and preserved all observed
+registers and flags except the destination byte. The reference sampled six
+index bytes, two flag images, and eight encodings, including 32-bit offset
+wrap, FS/GS, and ignored repeat prefixes on the selected CPU model. The raw
+register stream SHA-256 is
+`87664bb97e7c682c3cdf238cb57aa077edf44936d4e5d2aa65f53d67f3ae09b0`.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The offset wraps at the selected address size before segmentation. | Exercise 16- and 32-bit wrap, nonzero FS/GS, and a synthetic exit at the wrong address. |
+| The device read completes one instruction. | Serialize the pending input, restore it, and check the exact byte width, accumulator, flags, and single retirement. |
+| The native guest observes the same result using RAM or a device. | The `string-mmio` profile compares the post-instruction state for RAM, direct device reads, and detached pending reads. |
+
+The Apple Silicon host cross-built and signed the 60-case Intel consumer.
+Hosted guest execution and bare-metal Intel validation are separate gates.
+Compatibility and legacy address calculations are covered by the portable
+tests, with actual Intel HVF XLAT exits in those modes unverified.

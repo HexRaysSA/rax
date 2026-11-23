@@ -1,4 +1,4 @@
-//! Real EPT exits and detached continuations for one-memory string operations.
+//! Real EPT exits for string operations and implicit byte-table reads.
 use super::*;
 
 fn string_registers(regs: &rax::vm::vcpu::Registers, load: bool) -> (u64, u64) {
@@ -155,7 +155,75 @@ pub(super) fn run(output: &Path) {
     }
     let case = run_scan_reference(output, run_scalar_scan(output, case));
     let case = run_scan_mmio_boundaries(output, run_repeated_scan(output, case));
+    let case = run_xlat(output, case);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn run_xlat(output: &Path, mut case: usize) -> usize {
+    const TABLE_BYTE: u8 = 0x39;
+    const RAM_BYTE: u64 = 0x18080;
+    const FLAGS: u64 = 0x0ed7;
+    const COUNT: u64 = 0x1234_5678_9abc_def0;
+    for (code, index) in [
+        (&[0xd7][..], 0x00u8),
+        (&[0x4f, 0xd7], 0x80),
+        (&[0x64, 0xd7], 0xf0),
+        (&[0x65, 0x67, 0xd7], 0xff),
+    ] {
+        let original = (SEED & !0xff) | u64::from(index);
+        let expected = (original & !0xff) | u64::from(TABLE_BYTE);
+        for (name, addr, restore) in [
+            ("xlat-ram", RAM_BYTE, false),
+            ("xlat-mmio-direct", MMIO, false),
+            ("xlat-mmio-restored", MMIO, true),
+        ] {
+            let memory = guest_memory(code);
+            word(&memory, RAM_BYTE, u64::from(TABLE_BYTE));
+            let (mut vm, mut cpu) = machine(&memory);
+            let mut initial = state(cpu.as_ref());
+            initial.regs.rax = original;
+            initial.regs.rcx = COUNT;
+            initial.regs.rflags = FLAGS;
+            let base = match code[0] {
+                0x64 => {
+                    initial.sregs.fs.base = addr - 0x1000;
+                    0x1000 - u64::from(index)
+                }
+                0x65 => {
+                    initial.sregs.gs.base = addr - 0x7f;
+                    0x1234_5678_ffff_ff80
+                }
+                _ => addr - u64::from(index),
+            };
+            initial.regs.rbx = base;
+            cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+            if addr == MMIO {
+                expect_device_read(cpu.as_mut(), addr, 1);
+                assert!(cpu.io_completion_result().is_err());
+                if restore {
+                    (vm, cpu) = detach_pending_read(&memory, vm, cpu);
+                    expect_device_read(cpu.as_mut(), addr, 1);
+                }
+                cpu.complete_io_in(&[TABLE_BYTE]);
+                cpu.io_completion_result().unwrap();
+                let frontier = state(cpu.as_ref()).regs;
+                assert_eq!(frontier.rip, CODE + code.len() as u64);
+                assert_eq!(frontier.r10, 0);
+                assert_eq!(frontier.rax, expected);
+            }
+            assert!(matches!(event(cpu.as_mut()), VcpuExit::Hlt));
+            let ended = state(cpu.as_ref()).regs;
+            assert_eq!(ended.rip, CODE + code.len() as u64 + 11);
+            assert_eq!(ended.r10, MARKER);
+            assert_eq!(ended.rax, expected);
+            assert_eq!((ended.rbx, ended.rcx, ended.rflags), (base, COUNT, FLAGS));
+            record(output, case, name, 1, ended.rax);
+            case += 1;
+            drop(cpu);
+            drop(vm);
+        }
+    }
+    case
 }
 
 fn run_scalar_scan(output: &Path, mut case: usize) -> usize {
@@ -302,7 +370,7 @@ const SCAN_UNEQUAL: u64 = 0x95;
 const SCAN_DF: u64 = 1 << 10;
 const SCAN_RF: u64 = 1 << 16;
 
-fn expect_scan_read(cpu: &mut dyn VCpu, address: u64, width: usize) {
+fn expect_device_read(cpu: &mut dyn VCpu, address: u64, width: usize) {
     let exit = event(cpu);
     assert!(
         matches!(exit, VcpuExit::MmioRead { addr, size } if addr == address
@@ -311,7 +379,7 @@ fn expect_scan_read(cpu: &mut dyn VCpu, address: u64, width: usize) {
     );
 }
 
-fn detach_scan(
+fn detach_pending_read(
     memory: &GuestMemoryWrapper,
     vm: Box<dyn Vm>,
     cpu: Box<dyn VCpu>,
@@ -364,10 +432,10 @@ fn run_repeated_scan(output: &Path, mut case: usize) -> usize {
 
             let mut address = MMIO;
             for (iteration, reply) in [first, second].into_iter().enumerate() {
-                expect_scan_read(cpu.as_mut(), address, width);
+                expect_device_read(cpu.as_mut(), address, width);
                 if restored {
-                    (vm, cpu) = detach_scan(&memory, vm, cpu);
-                    expect_scan_read(cpu.as_mut(), address, width);
+                    (vm, cpu) = detach_pending_read(&memory, vm, cpu);
+                    expect_device_read(cpu.as_mut(), address, width);
                 }
                 cpu.complete_io_in(&reply.to_le_bytes()[..width]);
                 cpu.io_completion_result().unwrap();
@@ -511,10 +579,10 @@ fn scan_boundary(prefix: u8, boundary: ScanBoundary, operand: ScanOperand) -> u6
     initial.sregs.idt.limit = (vector * 16 + 15) as u16;
     cpu.set_state(&CpuState::X86_64(initial)).unwrap();
     if operand != ScanOperand::Ram {
-        expect_scan_read(cpu.as_mut(), FIRST, 1);
+        expect_device_read(cpu.as_mut(), FIRST, 1);
         if operand == ScanOperand::RestoredMmio {
-            (vm, cpu) = detach_scan(&memory, vm, cpu);
-            expect_scan_read(cpu.as_mut(), FIRST, 1);
+            (vm, cpu) = detach_pending_read(&memory, vm, cpu);
+            expect_device_read(cpu.as_mut(), FIRST, 1);
         }
         if boundary == ScanBoundary::Interrupt {
             cpu.set_single_step(true);

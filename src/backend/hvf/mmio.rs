@@ -302,6 +302,26 @@ pub(crate) struct Plan {
     pub(crate) action: Action,
 }
 
+fn address_bits(code_bits: u32, prefixes: &[u8]) -> u32 {
+    if prefixes.contains(&0x67) {
+        if code_bits == 32 { 16 } else { 32 }
+    } else {
+        code_bits
+    }
+}
+
+fn segment_override(prefixes: &[u8]) -> Option<&'static str> {
+    prefixes.iter().rev().find_map(|prefix| match prefix {
+        0x26 => Some("es"),
+        0x2e => Some("cs"),
+        0x36 => Some("ss"),
+        0x3e => Some("ds"),
+        0x64 => Some("fs"),
+        0x65 => Some("gs"),
+        _ => None,
+    })
+}
+
 fn memory_address(context: &Context, operand: &Operand) -> Result<u64, String> {
     let mask = match operand.address_bits {
         16 => 0xffff,
@@ -431,6 +451,62 @@ fn validate_memory<M: PhysicalMemory>(
         }
     }
     Ok(())
+}
+
+fn prepare_xlat<M: PhysicalMemory>(
+    context: &Context,
+    memory: &mut M,
+    record: ExitRecord,
+    encoded: &[u8],
+    read: bool,
+) -> Result<Plan, String> {
+    let Some((&0xd7, prefixes)) = encoded.split_last() else {
+        return Err("MMIO XLAT requires the legacy byte-table opcode".into());
+    };
+    if !read
+        || prefixes.iter().any(|&byte| {
+            !matches!(byte, 0x26 | 0x2e | 0x36 | 0x3e | 0x64..=0x67 | 0xf2 | 0xf3)
+                && !(context.code_bits == 64 && matches!(byte, 0x40..=0x4f))
+        })
+    {
+        return Err("MMIO XLAT requires a translated byte read".into());
+    }
+    let width = address_bits(context.code_bits, prefixes);
+    let base = match width {
+        16 => "bx",
+        32 => "ebx",
+        64 => "rbx",
+        _ => return Err("invalid MMIO XLAT address size".into()),
+    };
+    let operand = Operand {
+        kind: OperandKind::Memory,
+        width_bits: 8,
+        address_bits: width,
+        base: base.into(),
+        index: "al".into(),
+        scale: 1,
+        segment: segment_override(prefixes).unwrap_or("ds").into(),
+        read: true,
+        ..Operand::default()
+    };
+    validate_memory(context, memory, record, &operand, 1)?;
+    let length = encoded.len() as u64;
+    Ok(Plan {
+        physical: record.physical,
+        linear: record.linear,
+        length,
+        action: Action::Read(Input {
+            destination: RegisterPart {
+                index: 0,
+                bits: 8,
+                shift: 0,
+            },
+            original: context.registers[0],
+            size: 1,
+            extension: Extension::Plain,
+            length,
+        }),
+    })
 }
 
 struct VectorMove {
@@ -577,6 +653,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     }
     if read == write {
         return Err("scalar MMIO direction disagrees with instruction effects".into());
+    }
+    if instruction.mnemonic == "xlat" {
+        return prepare_xlat(context, memory, record, &encoded, read);
     }
     if let Some(plan) = string::prepare(context, memory, record, &instruction, &encoded, read)? {
         return Ok(plan);

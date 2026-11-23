@@ -1,7 +1,7 @@
 //! One device access per scalar or repeated LODS, STOS or SCAS iteration.
 use super::{
     Action, Context, ExitRecord, Extension, Input, Instruction, Operand, OperandKind,
-    PhysicalMemory, Plan, RegisterPart, validate_memory,
+    PhysicalMemory, Plan, RegisterPart, address_bits, segment_override, validate_memory,
 };
 use serde::{Deserialize, Serialize};
 
@@ -159,25 +159,9 @@ pub(super) fn prepare<M: PhysicalMemory>(
     {
         return Err("MMIO string encoding or direction differs from the access".into());
     }
-    let width = if prefixes.contains(&0x67) {
-        if context.code_bits == 32 { 16 } else { 32 }
-    } else {
-        context.code_bits
-    };
+    let width = address_bits(context.code_bits, prefixes);
     let segment = if load {
-        prefixes
-            .iter()
-            .rev()
-            .find_map(|byte| match byte {
-                0x26 => Some("es"),
-                0x2e => Some("cs"),
-                0x36 => Some("ss"),
-                0x3e => Some("ds"),
-                0x64 => Some("fs"),
-                0x65 => Some("gs"),
-                _ => None,
-            })
-            .unwrap_or("ds")
+        segment_override(prefixes).unwrap_or("ds")
     } else {
         "es"
     };
