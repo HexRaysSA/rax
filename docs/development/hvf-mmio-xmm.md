@@ -242,3 +242,24 @@ The Intel macOS target executed under Rosetta with 99 `hvf_intel_owner`,
 124 `hvf_mmio`, and 102 `isa_oracle` passes. A separate signed Intel
 consumer linked successfully, and all 54 harness tests passed. The Cargo
 log SHA-256 is `d0ed3fdae3851dd4f6c56bc3e7558570734dd2728d1e869dd078040394bae0e0`.
+
+### Packed moves on hosted Intel macOS
+
+Both profiles passed at `fe94eaf17b034575179b4a3b6a4fbed1ece32a52`
+on Intel macOS 15.7.9 (24G830) with SDK 15.5, inside hosted VMs.
+Each profile ran 18 direct transfers, 18 transfers after restoring the
+outstanding request, and six guest #GP(0) cases. The newly admitted
+packed moves account for eight direct transfers and eight restored
+transfers in each profile. The full transfer set covered
+all 16 destination bytes and the architectural upper YMM state. Each
+alignment case entered the guest handler without a device access.
+
+| Profile | Hosted run | Runtime artifact ID | Artifact SHA-256 |
+| --- | --- | ---: | --- |
+| Legacy | [45105063520](https://github.com/HexRaysSA/rax/actions/runs/45105063520) | 14787347682 | `6aba4a0d0c2f7b66a5239def51d2166aa1c289058370b565a3454fd7e321bd54` |
+| VEX.128 | [45105064902](https://github.com/HexRaysSA/rax/actions/runs/45105064902) | 14787268668 | `b386157a4b4124b4c14d4e578fe082f91a18b133b64aba7d355d11dbbf00e937` |
+
+The independent verifier checked 4,895 engine and 18 consumer inputs
+against Git, the complete guest result rows, and the archived signed
+consumer's hypervisor entitlement. The signed executable SHA-256 was
+`3aa79d8ffeecb3df1dae4f82ed8df59222551d317287965b048bb386fee9e254`.
