@@ -169,7 +169,19 @@ impl Aarch32Decoder {
         }
 
         let coproc = (raw >> 8) & 0xF;
-        if coproc == 0b1010 && ((raw >> 21) & 0x7) >= 0b110 {
+        let opcode = (raw >> 21) & 7;
+        if coproc == 0b1010 && opcode != 0 {
+            // This space allocates only the single-register VMOV (opcode 0)
+            // and the special-register transfers (opcode 7). Unallocated
+            // opcodes must not fall through to generic coprocessor metadata.
+            if opcode != 7 {
+                return Some(DecodedInsn::new(
+                    Mnemonic::UNDEFINED,
+                    ExecutionState::Aarch32,
+                    raw,
+                    4,
+                ));
+            }
             let l = (raw >> 20) & 1;
             let mnemonic = if l == 1 {
                 Mnemonic::VMRS

@@ -678,3 +678,31 @@ and public memory fault fields. Replay stdout SHA-256 is
 `fad241e33c6369474152d55111d72d2a2baab8baa7cb3d1a3f711526e99d9716`.
 Optional profiles, security and debug controls, and physical A32 execution
 remain open.
+
+## A32 and T32 CP10 transfer allocation
+
+The decoder returns Undefined for opcodes 1 through 6 in the conditional
+CP10 core-transfer space. Opcode 0 selects the single-register VMOV
+encoding. Opcode 7 selects the floating-point system-register transfer.
+The check takes constant time and storage.
+[Arm DDI 0597 ID032025, pages 1492 and 1525](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Opcodes 1 through 6 are unallocated for both transfer directions. | Vary all extension and core register fields in both ARM and Thumb. Require the Undefined decode for all 6,144 combinations. |
+| The allocation decision precedes higher-level FP permission checks. | Attempt both transfer directions in a mixed-width PE with CPTR_EL2.TFP armed. Require the Undefined diagnostic, unchanged register state and PC, and zero retirement. |
+| The allocated transfers still reach their intended decode. | Compare both single-register VMOV directions and VMRS/VMSR against LLVM MC and a Cortex-A15 QEMU guest in both instruction sets. |
+
+The parent classified `0xee200a10` as a generic MCR. The independent
+LLVM MC and QEMU 11.1.2 controls each matched 32 cases, including the
+24 rejected encodings and eight allocated transfers. In QEMU the
+rejected cases entered the guest Undefined vector with the expected
+ARM or Thumb state.
+
+On macOS arm64, the five complete Cargo targets passed with no ignored
+or filtered cases. The results were 198 in `a32_fp_controls`, 5 in
+`a32_fp_pairs`, 46,850 in `arm`, 529 in `arm_vfp_a32`, and 102 in
+`isa_oracle`. The complete run log has SHA-256
+`1f60cb5ef4a2fa844f37642b5b0307797883acd6a39f073a9f65b7b41f477ab7`.
+The independent 64-result oracle log has SHA-256
+`fb85f24e1f7418943cc3ee90cbfff7f1aacda6dc0b94a0d3e1ad74e5cb50806c`.

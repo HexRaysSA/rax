@@ -51,6 +51,53 @@ fn reserved_unconditional_fp_transfer_register_fields_are_undefined() {
 }
 
 #[test]
+fn conditional_cp10_transfer_opcodes_do_not_resolve_to_system_operations() {
+    for thumb in [false, true] {
+        for opcode in 1..=6 {
+            for read in [0, 1] {
+                for extension in 0..16 {
+                    for core in 0..16 {
+                        let raw =
+                            0xee00_0a10 | opcode << 21 | read << 20 | extension << 16 | core << 12;
+                        assert_eq!(
+                            decode(raw, thumb).mnemonic,
+                            Mnemonic::UNDEFINED,
+                            "raw={raw:08x}, thumb={thumb}"
+                        );
+                    }
+                }
+
+                let raw = 0xee01_0a10 | opcode << 21 | read << 20;
+                let mut cpu = super::mixed(raw, thumb, 2, false, true);
+                let registers = (cpu.get_gpr(0), cpu.get_simd(0), cpu.export_sregs());
+                assert!(
+                    matches!(cpu.step(), Err(ArmError::UndefinedInstruction(value)) if value == raw),
+                    "raw={raw:08x}, thumb={thumb}"
+                );
+                assert_eq!(cpu.get_pc(), 0x100);
+                assert_eq!(cpu.instruction_count(), 0);
+                assert_eq!(
+                    (cpu.get_gpr(0), cpu.get_simd(0), cpu.export_sregs()),
+                    registers
+                );
+            }
+        }
+        for (raw, mnemonic) in [
+            (0xee01_0a10, Mnemonic::VMOV),
+            (0xee11_0a10, Mnemonic::VMOV),
+            (0xeee1_0a10, Mnemonic::VMSR),
+            (0xeef1_0a10, Mnemonic::VMRS),
+        ] {
+            assert_eq!(
+                decode(raw, thumb).mnemonic,
+                mnemonic,
+                "{raw:08x}, thumb={thumb}"
+            );
+        }
+    }
+}
+
+#[test]
 fn generic_unconditional_families_and_conditional_svc_keep_their_allocation() {
     for thumb in [false, true] {
         for coprocessor in (0..8).chain(12..16) {
