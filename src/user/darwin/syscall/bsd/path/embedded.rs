@@ -13,7 +13,8 @@ use crate::user::darwin::{
     workspace_locks,
 };
 use crate::user::supplied_fs::{
-    Entry, LinkPolicy, WorkspaceDirectory, WorkspaceRename, relative_workspace_path,
+    Entry, LinkPolicy, WorkspaceCloneDestination, WorkspaceDirectory, WorkspaceRename,
+    relative_workspace_path,
 };
 use std::sync::{Arc, Mutex};
 
@@ -431,6 +432,113 @@ pub(super) fn linkat(
     }
     files.link_workspace_entry(source, &absolute, ids, &[])?;
     Ok(Rv::one(0))
+}
+
+const CLONE_NOFOLLOW: u32 = 1;
+const CLONE_NOOWNERCOPY: u32 = 2;
+const CLONE_ACL: u32 = 4;
+const CLONE_NOFOLLOW_ANY: u32 = 8;
+const CLONE_RESOLVE_BENEATH: u32 = 16;
+
+fn clone_policy(flags: u32) -> Result<LinkPolicy, Errno> {
+    let known =
+        CLONE_NOFOLLOW | CLONE_NOOWNERCOPY | CLONE_ACL | CLONE_NOFOLLOW_ANY | CLONE_RESOLVE_BENEATH;
+    if flags & !known != 0 {
+        return Err(Errno::EINVAL);
+    }
+    // A confined workspace still cannot satisfy the caller's separate
+    // constraint on traversal relative to the selected directory descriptor.
+    if flags & CLONE_RESOLVE_BENEATH != 0 {
+        return Err(Errno::ENOTSUP);
+    }
+    Ok(
+        match (flags & CLONE_NOFOLLOW != 0, flags & CLONE_NOFOLLOW_ANY != 0) {
+            (false, false) => LinkPolicy::Follow,
+            (true, false) => LinkPolicy::NoFollowLast,
+            (false, true) => LinkPolicy::NoFollowAny,
+            (true, true) => LinkPolicy::NoFollowAncestors,
+        },
+    )
+}
+
+pub(in crate::user::darwin::syscall::bsd) fn clonefileat(
+    ctx: &Ctx<'_>,
+    fromfd: i32,
+    from: u64,
+    tofd: i32,
+    to: u64,
+    flags: u32,
+) -> SysResult {
+    let policy = clone_policy(flags)?;
+    let (_, source) = lookup(ctx, fromfd, from, policy)?;
+    clone_file(ctx, &source, tofd, to, flags, policy, false)
+}
+
+pub(in crate::user::darwin::syscall::bsd) fn fclonefileat(
+    ctx: &Ctx<'_>,
+    fromfd: i32,
+    tofd: i32,
+    to: u64,
+    flags: u32,
+) -> SysResult {
+    let policy = clone_policy(flags)?;
+    let file = ctx.proc.fds.file(fromfd)?;
+    let open_flags = *file.flags.lock().map_err(|_| Errno::EIO)?;
+    if open_flags & O_ACCMODE == O_WRONLY || open_flags & (O_EXEC | O_EVTONLY) != 0 {
+        return Err(Errno::EBADF);
+    }
+    let FileKind::Embedded(object) = &file.kind else {
+        return Err(Errno::EINVAL);
+    };
+    if object.resource().is_some() {
+        return Err(Errno::ENOTSUP);
+    }
+    let source = object.entry().ok_or(Errno::EINVAL)?;
+    clone_file(ctx, source, tofd, to, flags, policy, true)
+}
+
+fn clone_file(
+    ctx: &Ctx<'_>,
+    source: &Entry,
+    tofd: i32,
+    to: u64,
+    flags: u32,
+    policy: LinkPolicy,
+    opened_for_read: bool,
+) -> SysResult {
+    let files = ctx.proc.vfs.files().ok_or(Errno::ENOTSUP)?;
+    let (path, (base, directory)) = path_and_base(ctx, tofd, to)?;
+    if path.is_empty() {
+        return Err(Errno::ENOENT);
+    }
+    let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
+    let (absolute, retained) = path_with_workspace_base(&path, &base, directory.as_ref(), ids)?;
+    if retained.is_some() {
+        return Err(Errno::EEXIST);
+    }
+    let search_from = if allows_initial_search(ctx, tofd, &path)
+        && let Some(directory) = directory.as_ref().filter(|directory| directory.linked())
+    {
+        Some((
+            std::str::from_utf8(&path).map_err(|_| Errno::EINVAL)?,
+            directory,
+        ))
+    } else {
+        None
+    };
+    let target = WorkspaceCloneDestination {
+        path: &absolute,
+        policy,
+        search_from,
+        ids,
+        copy_owner: flags & CLONE_NOOWNERCOPY == 0,
+    };
+    match files.clone_workspace_leaf(source, target, opened_for_read) {
+        Ok(()) => Ok(Rv::one(0)),
+        Err(crate::user::supplied_fs::Error::IsDirectory) => Err(Errno::ENOTSUP),
+        Err(crate::user::supplied_fs::Error::NotRegular) => Err(Errno::EINVAL),
+        Err(error) => Err(error.into()),
+    }
 }
 
 pub(super) fn renameat(

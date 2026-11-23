@@ -1141,6 +1141,15 @@ fn installed_darwin_workspace_open_locks_match_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "requires a locally built closed_darwin_workspace_clonefile.c fixture on APFS"]
+fn installed_darwin_workspace_clonefile_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_CLONEFILE_CONTROL")
+        .expect("absolute path to the dynamically linked Darwin clonefile fixture");
+    compare_installed_workspace_fixture(&binary, "closed_darwin_workspace_clonefile", None);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 #[ignore = "requires a locally built closed_darwin_spawn_open_locks.c fixture"]
 fn installed_darwin_spawn_open_locks_match_native_through_closed_c_abi() {
     let binary = std::env::var("RAX_DARWIN_INSTALLED_SPAWN_OPEN_LOCK_CONTROL")

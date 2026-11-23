@@ -395,6 +395,14 @@ pub(super) enum LinkPolicy {
     NoFollowAncestors,
 }
 
+pub(super) struct WorkspaceCloneDestination<'a> {
+    pub(super) path: &'a str,
+    pub(super) policy: LinkPolicy,
+    pub(super) search_from: Option<(&'a str, &'a Arc<WorkspaceDirectory>)>,
+    pub(super) ids: (u32, u32),
+    pub(super) copy_owner: bool,
+}
+
 type WorkspaceAccess<'a> = ((u32, u32), &'a [u32]);
 
 /// Form an absolute guest path while preserving a removed base directory's
@@ -1012,6 +1020,48 @@ impl Files {
         }
         let (workspace, path, directory) = self.workspace_destination(&path, ids, groups)?;
         workspace.unlink(workspace_name(&path), ids.0, &directory)
+    }
+
+    pub(super) fn clone_workspace_leaf(
+        &self,
+        source: &Entry,
+        target: WorkspaceCloneDestination<'_>,
+        opened_for_read: bool,
+    ) -> Result<(), Error> {
+        let source = match &source.kind {
+            Kind::Workspace(file) => Node::File(file.clone()),
+            Kind::WorkspaceSymlink(link) => Node::Symlink(link.clone()),
+            Kind::WorkspaceDirectory(_) => return Err(Error::IsDirectory),
+            Kind::Directory | Kind::File(_) | Kind::Backed(_) | Kind::Symlink(_) => {
+                return Err(Error::CrossDevice);
+            }
+            _ => return Err(Error::NotRegular),
+        };
+        let mut links_left = self.symlink_limit();
+        let (path, end) = self.walk(
+            target.path,
+            target.policy,
+            &mut links_left,
+            Some((target.ids, &[])),
+            MissingLast::File,
+            target.search_from,
+        )?;
+        let WalkEnd::Missing { parent } = end else {
+            return Err(Error::Exists);
+        };
+        let directory = parent.workspace_directory().ok_or(Error::CrossDevice)?;
+        let workspace = self.workspace_at(&path).ok_or(Error::CrossDevice)?;
+        if !directory.permits(2, target.ids, &[]) {
+            return Err(Error::AccessDenied);
+        }
+        workspace.clone_leaf(
+            &source,
+            directory,
+            workspace_name(&path).into(),
+            target.ids,
+            target.copy_owner,
+            opened_for_read,
+        )
     }
 
     pub(super) fn link_workspace_entry(

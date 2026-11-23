@@ -115,6 +115,12 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                 nr::STAT64_EXTENDED | nr::LSTAT64_EXTENDED | nr::FSTAT64_EXTENDED => {
                     return filesec::stat(ctx, number, a);
                 }
+                nr::CLONEFILEAT => {
+                    return path::embedded::clonefileat(ctx, i(0), a[1], i(2), a[3], u(4));
+                }
+                nr::FCLONEFILEAT => {
+                    return path::embedded::fclonefileat(ctx, i(0), i(1), a[2], u(3));
+                }
                 nr::UTIMES => return embedded_metadata::utimes(ctx, None, a[0], a[1]),
                 nr::FUTIMES => return embedded_metadata::utimes(ctx, Some(i(0)), 0, a[1]),
                 nr::GETXATTR

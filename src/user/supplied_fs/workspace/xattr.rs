@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 pub(in crate::user) const MAX_VALUE: usize = MAX_BYTES;
 pub(in crate::user) const RESOURCE_FORK: &[u8] = b"com.apple.ResourceFork";
 
-type Values = BTreeMap<Vec<u8>, Arc<[u8]>>;
+pub(super) type Values = BTreeMap<Vec<u8>, Arc<[u8]>>;
 
 #[derive(Debug, Default)]
 struct State {
@@ -32,6 +32,32 @@ impl Xattrs {
     pub(super) fn new(budget: Arc<Mutex<Budget>>) -> Self {
         Self {
             state: Mutex::default(),
+            budget,
+        }
+    }
+
+    pub(super) fn clone_values(&self) -> Result<(Values, usize), Error> {
+        let state = self.state.lock().map_err(|_| Error::Io)?;
+        let values: Values = state
+            .values
+            .iter()
+            .filter(|(name, value)| visible(name, value))
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect();
+        let bytes = values
+            .iter()
+            .map(|(name, value)| charge(name, value.len()))
+            .sum();
+        Ok((values, bytes))
+    }
+
+    /// The caller reserves the charge for these values before publication.
+    pub(super) fn from_charged_values(values: Values, budget: Arc<Mutex<Budget>>) -> Self {
+        Self {
+            state: Mutex::new(State {
+                values,
+                resource_handles: 0,
+            }),
             budget,
         }
     }

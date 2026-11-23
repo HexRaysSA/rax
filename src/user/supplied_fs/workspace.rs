@@ -225,7 +225,7 @@ struct Inode {
 #[derive(Debug)]
 struct RegularFile {
     metadata: Inode,
-    contents: Mutex<Vec<u8>>,
+    contents: Mutex<Arc<Vec<u8>>>,
 }
 
 /// A symbolic link created in the guest's private temporary workspace.
@@ -348,7 +348,7 @@ impl Workspace {
         let file = Arc::new(WorkspaceFile {
             inode: Arc::new(RegularFile {
                 metadata: self.inode(ino, mode & 0o7777, owner),
-                contents: Mutex::new(Vec::new()),
+                contents: Mutex::new(Arc::new(Vec::new())),
             }),
             placement: Placement::new(self, parent, &name),
         });
@@ -392,6 +392,90 @@ impl Workspace {
         if self.flavor == WorkspaceFlavor::Darwin {
             parent.links.fetch_add(1, Ordering::Relaxed);
         }
+        Ok(())
+    }
+
+    /// Clone one guest leaf and publish it only after its full quota charge.
+    pub(super) fn clone_leaf(
+        &self,
+        source: &Node,
+        parent: &Arc<Directory>,
+        name: String,
+        ids: (u32, u32),
+        copy_owner: bool,
+        opened_for_read: bool,
+    ) -> Result<(), Error> {
+        enum Data {
+            File(Arc<Vec<u8>>),
+            Symlink(Vec<u8>),
+        }
+        let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if namespace.directory(parent)?.contains_key(&name) {
+            return Err(Error::Exists);
+        }
+        let (data, attributes, size) = match source {
+            Node::File(file) => {
+                if !opened_for_read && !file.permits(4, ids, &[]) {
+                    return Err(Error::AccessDenied);
+                }
+                let contents = file.inode.contents.lock().map_err(|_| Error::Io)?;
+                (
+                    Data::File(contents.clone()),
+                    file.attributes(),
+                    contents.len(),
+                )
+            }
+            Node::Symlink(link) => {
+                let target = link.target();
+                (
+                    Data::Symlink(target.to_vec()),
+                    link.attributes(),
+                    target.len(),
+                )
+            }
+            Node::Directory(_) => return Err(Error::IsDirectory),
+        };
+        let (mode, times, values, extra_bytes) = attributes.clone_values()?;
+        let charge = size + extra_bytes;
+        let owner = if copy_owner && ids.0 == 0 {
+            attributes.owner()
+        } else {
+            parent.child_owner(self.flavor, ids)
+        };
+        let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
+        if charge > MAX_BYTES - budget.bytes {
+            return Err(Error::NoSpace);
+        }
+        let ino = allocate_inode(&mut namespace, &mut budget)?;
+        budget.bytes += charge;
+        drop(budget);
+        let metadata = Inode {
+            ino,
+            attributes: Attributes::from_clone(
+                mode,
+                times,
+                owner,
+                Xattrs::from_charged_values(values, self.budget.clone()),
+            ),
+            links: AtomicU32::new(1),
+            budget: self.budget.clone(),
+        };
+        let placement = Placement::new(self, parent, &name);
+        let node = match data {
+            Data::File(contents) => Node::File(Arc::new(WorkspaceFile {
+                inode: Arc::new(RegularFile {
+                    metadata,
+                    contents: Mutex::new(contents),
+                }),
+                placement,
+            })),
+            Data::Symlink(target) => Node::Symlink(Arc::new(WorkspaceSymlink {
+                inode: Arc::new(SymbolicLink { metadata, target }),
+                placement,
+            })),
+        };
+        namespace.directory_mut(parent).insert(name, node);
+        parent.links.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 
@@ -763,11 +847,11 @@ impl WorkspaceFile {
         Ok(())
     }
 
-    fn resize_locked(&self, bytes: &mut Vec<u8>, len: usize) -> Result<(), Error> {
+    fn resize_locked(&self, shared: &mut Arc<Vec<u8>>, len: usize) -> Result<(), Error> {
         if len > MAX_BYTES {
             return Err(Error::TooLarge);
         }
-        let old = bytes.len();
+        let old = shared.len();
         if len == old {
             return Ok(());
         }
@@ -777,16 +861,21 @@ impl WorkspaceFile {
             if additional > MAX_BYTES - budget.bytes {
                 return Err(Error::NoSpace);
             }
+            let bytes = Arc::make_mut(shared);
             bytes
                 .try_reserve_exact(additional)
                 .map_err(|_| Error::NoSpace)?;
             bytes.resize(len, 0);
             budget.bytes += additional;
         } else {
-            bytes.truncate(len);
-            // Give the allocator an opportunity to release spare capacity;
-            // the quota accounts for logical bytes.
-            bytes.shrink_to_fit();
+            if len == 0 {
+                *shared = Arc::default();
+            } else {
+                let bytes = Arc::make_mut(shared);
+                bytes.truncate(len);
+                // Give the allocator an opportunity to release spare capacity.
+                bytes.shrink_to_fit();
+            }
             budget.bytes -= old - len;
         }
         Ok(())
@@ -805,7 +894,7 @@ impl WorkspaceFile {
         if end > bytes.len() {
             self.resize_locked(&mut bytes, end)?;
         }
-        bytes[start..end].copy_from_slice(input);
+        Arc::make_mut(&mut bytes)[start..end].copy_from_slice(input);
         self.attributes().modified();
         Ok(end as u64)
     }
@@ -978,6 +1067,54 @@ mod tests {
         assert_eq!(
             workspace.capacity().unwrap().bytes_available,
             MAX_BYTES as u64
+        );
+    }
+
+    #[test]
+    fn clone_reserves_quota_atomically_and_detaches_contents_on_write() {
+        let workspace = Workspace::new(WorkspaceFlavor::Darwin);
+        let root = &workspace.root;
+        let owner = (101, 102);
+        let (source, _) = workspace
+            .create("source".into(), 0o600, owner, true, root)
+            .unwrap();
+        let node = Node::File(source.clone());
+        let source_len = (3 * MAX_BYTES / 4) as u64;
+        source.resize(source_len).unwrap();
+        let before = workspace.capacity().unwrap();
+        assert_eq!(
+            workspace.clone_leaf(&node, root, "copy".into(), owner, false, false),
+            Err(Error::NoSpace)
+        );
+        assert!(workspace.get("copy").unwrap().is_none());
+        let after = workspace.capacity().unwrap();
+        assert_eq!(after.bytes_available, before.bytes_available);
+        assert_eq!(after.nodes_available, before.nodes_available);
+
+        source.resize(4).unwrap();
+        source.write(Some(0), b"data").unwrap();
+        workspace
+            .clone_leaf(&node, root, "copy".into(), owner, false, false)
+            .unwrap();
+        let Node::File(copy) = workspace.get("copy").unwrap().unwrap() else {
+            panic!("expected a file clone");
+        };
+        assert_ne!(source.ino(), copy.ino());
+        assert!(Arc::ptr_eq(
+            &source.inode.contents.lock().unwrap(),
+            &copy.inode.contents.lock().unwrap()
+        ));
+        source.write(Some(0), b"next").unwrap();
+        assert_eq!(copy.snapshot().unwrap().as_ref(), b"data");
+        assert_eq!(
+            workspace.capacity().unwrap().bytes_available,
+            MAX_BYTES as u64 - 8
+        );
+        source.resize(0).unwrap();
+        assert_eq!(copy.snapshot().unwrap().as_ref(), b"data");
+        assert_eq!(
+            workspace.capacity().unwrap().bytes_available,
+            MAX_BYTES as u64 - 4
         );
     }
 

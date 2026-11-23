@@ -97,6 +97,28 @@ impl Attributes {
         }
     }
 
+    pub(super) fn clone_values(
+        &self,
+    ) -> Result<(u32, Timestamps, super::xattr::Values, usize), Error> {
+        let values = self.values.lock().map_err(|_| Error::Io)?;
+        let (xattrs, bytes) = self.xattrs.clone_values()?;
+        Ok((values.mode, values.times, xattrs, bytes))
+    }
+
+    pub(super) fn from_clone(
+        mode: u32,
+        mut times: Timestamps,
+        owner: (u32, u32),
+        xattrs: super::Xattrs,
+    ) -> Self {
+        times.changed = Timestamp::now();
+        Self {
+            owner,
+            values: Mutex::new(Values { mode, times }),
+            xattrs: std::sync::Arc::new(xattrs),
+        }
+    }
+
     pub(in crate::user::supplied_fs) fn owner(&self) -> (u32, u32) {
         self.owner
     }
