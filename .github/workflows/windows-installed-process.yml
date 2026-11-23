@@ -158,7 +158,7 @@ jobs:
           if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
             exit 1
           }
-      - name: Compare installed x86 cmd.exe through the closed C ABI
+      - name: Compare installed x86 cmd.exe version and NUL I/O
         if: ${{ !cancelled() && steps.stock.outcome == 'success' &&
           (matrix.target == 'x86_64-pc-windows-msvc' || inputs.compare_installed_wow64_arm64) }}
         shell: pwsh
@@ -168,13 +168,39 @@ jobs:
         run: |
           $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
           $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
-          $test = 'tests::process::native_runtime::installed_wow64_cmd_ver_matches_native_through_closed_c_abi'
-          $log = Join-Path $root 'wow64-capi.log'
+          $ntdll = Join-Path $env:SystemRoot 'SysWOW64/ntdll.dll'
+          $cmd = Join-Path $env:SystemRoot 'SysWOW64/cmd.exe'
+          $receipt = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            target = $env:RAX_TEST_TARGET
+            ntdll_sha256 = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+            cmd_sha256 = (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
+            tests = @()
+          }
+          $comparisons = [ordered]@{
+            'wow64-capi.log' = 'tests::process::native_runtime::installed_wow64_cmd_ver_matches_native_through_closed_c_abi'
+            'wow64-null-capi.log' = 'tests::process::native_runtime::installed_wow64_cmd_null_device_matches_native_through_closed_c_abi'
+          }
           $PSNativeCommandUseErrorActionPreference = $false
-          cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
-            $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log
-          if ($LASTEXITCODE -ne 0 -or
-              !(Select-String -LiteralPath $log -Quiet -Pattern '^test result: ok\. 1 passed; 0 failed; 0 ignored;')) {
+          foreach ($comparison in $comparisons.GetEnumerator()) {
+            $log = Join-Path $root $comparison.Key
+            $test = $comparison.Value
+            cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
+              $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log
+            $receipt.tests += @{
+              name = $test
+              exit_code = $LASTEXITCODE
+              completed_one_test = Select-String -LiteralPath $log -Quiet -Pattern '^test result: ok\. 1 passed; 0 failed; 0 ignored;'
+            }
+          }
+          $receipt.installed_images_unchanged = (
+            $receipt.ntdll_sha256 -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant() -and
+            $receipt.cmd_sha256 -eq (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
+          )
+          $receipt | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'wow64-receipt.json') -Encoding utf8
+          if (!$receipt.installed_images_unchanged -or
+              ($receipt.tests | Where-Object { $_.exit_code -ne 0 -or !$_.completed_one_test })) {
             exit 1
           }
       - name: Compare installed cmd.exe reads and writes through NUL
@@ -704,7 +730,10 @@ jobs:
           path: |
             target/windows-installed-process/receipt.json
             target/windows-installed-process/capi.log
+            target/windows-installed-process/null-capi.log
+            target/windows-installed-process/wow64-receipt.json
             target/windows-installed-process/wow64-capi.log
+            target/windows-installed-process/wow64-null-capi.log
             target/windows-installed-process/child-capi.log
             target/windows-installed-process/filter-receipt.json
             target/windows-installed-process/filter-capi.log

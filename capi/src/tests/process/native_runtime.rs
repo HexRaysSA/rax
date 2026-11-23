@@ -1088,14 +1088,7 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_wow64_cmd_ver_matches_native_through_closed_c_abi() {
-    if std::env::var("RAX_TEST_WINDOWS_NTSTATUS").as_deref() == Ok("true") {
-        tracing_subscriber::fmt()
-            .with_env_filter("rax::windows::ntstatus=trace")
-            .without_time()
-            .with_ansi(false)
-            .try_init()
-            .expect("install guest NT service status trace");
-    }
+    trace_windows_installed_ntstatus();
     let native =
         compare_windows_installed_program_in("SysWOW64", "cmd.exe", &["/d", "/c", "ver"], None);
     assert!(native.status.success());
@@ -1107,11 +1100,24 @@ fn installed_wow64_cmd_ver_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_cmd_null_device_matches_native_through_closed_c_abi() {
+    compare_installed_cmd_null_device("System32");
+}
+
+#[cfg(all(windows, target_pointer_width = "64"))]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_wow64_cmd_null_device_matches_native_through_closed_c_abi() {
+    trace_windows_installed_ntstatus();
+    compare_installed_cmd_null_device("SysWOW64");
+}
+
+#[cfg(windows)]
+fn compare_installed_cmd_null_device(directory: &str) {
     for arguments in [
         ["/d", "/c", "type", "NUL"],
         ["/d", "/c", "echo", "discarded>NUL"],
     ] {
-        let native = compare_windows_installed_program("cmd.exe", &arguments, None);
+        let native = compare_windows_installed_program_in(directory, "cmd.exe", &arguments, None);
         assert!(native.status.success(), "{arguments:?}");
         assert!(native.stdout.is_empty(), "{arguments:?}");
         assert!(native.stderr.is_empty(), "{arguments:?}");
@@ -1122,14 +1128,7 @@ fn installed_cmd_null_device_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_cmd_child_matches_native_through_closed_c_abi() {
-    if std::env::var("RAX_TEST_WINDOWS_NTSTATUS").as_deref() == Ok("true") {
-        tracing_subscriber::fmt()
-            .with_env_filter("rax::windows::ntstatus=trace")
-            .without_time()
-            .with_ansi(false)
-            .try_init()
-            .expect("install guest NT service status trace");
-    }
+    trace_windows_installed_ntstatus();
     let system_cmd = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
         .join("System32")
         .join("cmd.exe");
@@ -1227,6 +1226,18 @@ fn check_native_extension_point_policy() {
     assert_ne!(ok, 0, "{}", std::io::Error::last_os_error());
     assert_eq!(flags, 0, "installed process extension-point policy");
     eprintln!("native extension-point policy: flags=0x{flags:x}");
+}
+
+#[cfg(windows)]
+fn trace_windows_installed_ntstatus() {
+    if std::env::var("RAX_TEST_WINDOWS_NTSTATUS").as_deref() == Ok("true") {
+        tracing_subscriber::fmt()
+            .with_env_filter("rax::windows::ntstatus=trace")
+            .without_time()
+            .with_ansi(false)
+            .try_init()
+            .expect("install guest NT service status trace");
+    }
 }
 
 #[cfg(windows)]
