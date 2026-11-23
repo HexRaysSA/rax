@@ -21,6 +21,7 @@ struct Calls {
     collected: Vec<u32>,
     reject_post: Option<u32>,
     reject_collect: Option<u32>,
+    fail_entry: Option<(u32, u64)>,
     serial_round: bool,
     reject_input_width: Option<u32>,
     reject_reply: Option<u32>,
@@ -98,6 +99,11 @@ impl VCpu for Native {
         calls.collected.push(self.id);
         if calls.reject_collect == Some(self.id) {
             return Err(Error::Emulator("test host entry collection failed".into()));
+        }
+        if let Some((cpu, reason)) = calls.fail_entry
+            && cpu == self.id
+        {
+            return Ok(Some(VcpuExit::FailEntry { reason }));
         }
         Ok(self.prepared_input.then_some(VcpuExit::IoIn {
             port: if calls.serial_round {
@@ -292,6 +298,37 @@ fn native_run_dispatches_successful_peer_exits_before_returning_worker_error() {
         assert_eq!(calls.posted, expected_collected);
         assert_eq!(calls.collected, expected_collected);
         assert_eq!(calls.input_completions, expected_completed);
+    }
+}
+
+#[test]
+fn native_run_dispatches_peer_io_after_failed_cpu_entry() {
+    for (failed_cpu, expected_replies) in [
+        (0, [(1, b'a'), (2, b'b'), (3, b'c')]),
+        (2, [(0, b'a'), (1, b'b'), (3, b'c')]),
+    ] {
+        let (mut fixture, calls) = fixture(4, true);
+        let vm = &mut fixture.vm;
+        vm.hvf_parallel_vcpus = true;
+        {
+            let mut calls = calls.lock().unwrap();
+            calls.serial_round = true;
+            calls.fail_entry = Some((failed_cpu, 0x8000_0021));
+        }
+        {
+            let mut serial = vm.serial.lock().unwrap();
+            serial.write(0x3fa, 1);
+            serial.queue_input(b"abcd");
+        }
+
+        let error = vm.run().unwrap_err();
+        assert!(matches!(error, Error::KernelLoad(message)
+            if message == "vCPU fail entry: reason=0x80000021"));
+        let calls = calls.lock().unwrap();
+        assert_eq!(calls.posted, [0, 1, 2, 3]);
+        assert_eq!(calls.collected, [0, 1, 2, 3]);
+        assert_eq!(calls.serial_replies, expected_replies);
+        assert_eq!(vm.serial.lock().unwrap().read(0x3f8), b'd');
     }
 }
 

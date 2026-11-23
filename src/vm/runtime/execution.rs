@@ -4,8 +4,8 @@ use super::*;
 
 #[derive(Debug)]
 pub(super) enum TurnFailure {
-    /// The device transaction and its notification have been published.
-    CpuReply(Error),
+    /// Entry failed, or only the CPU reply failed after device publication.
+    CpuLocal(Error),
     /// Device or VM state might be incomplete, or the exit was terminal.
     Round(Error),
 }
@@ -19,7 +19,7 @@ impl From<Error> for TurnFailure {
 impl From<TurnFailure> for Error {
     fn from(failure: TurnFailure) -> Self {
         match failure {
-            TurnFailure::CpuReply(error) | TurnFailure::Round(error) => error,
+            TurnFailure::CpuLocal(error) | TurnFailure::Round(error) => error,
         }
     }
 }
@@ -31,7 +31,7 @@ impl TurnFailure {
     ) -> std::result::Result<(), Self> {
         match (completion, notification) {
             (Ok(()), result) => result.map_err(Self::Round),
-            (Err(error), Ok(())) => Err(Self::CpuReply(error)),
+            (Err(error), Ok(())) => Err(Self::CpuLocal(error)),
             (Err(error), Err(notification_error)) => {
                 tracing::warn!(%notification_error, "device notification also failed");
                 Err(Self::Round(error))
@@ -326,7 +326,7 @@ impl Vmm {
             && turns
                 .iter()
                 .any(|turn| matches!(turn.exit, VcpuExit::Shutdown));
-        let mut first_reply_error = None;
+        let mut first_cpu_error = None;
         for turn in turns.drain(..) {
             if arm_hvf_shutdown
                 && matches!(
@@ -340,19 +340,18 @@ impl Vmm {
             }
             match self.apply_execution_turn(turn, false) {
                 Ok(false) => {}
-                Ok(true) => return first_reply_error.map_or(Ok(true), Err),
-                Err(TurnFailure::CpuReply(error)) => {
-                    // Some backend failures fence the shared owner even if
-                    // the endpoint operation itself completed. Release the
-                    // stopped boundary before a peer's device callback.
+                Ok(true) => return first_cpu_error.map_or(Ok(true), Err),
+                Err(TurnFailure::CpuLocal(error)) => {
+                    // Verify that the failure did not fence the shared owner.
+                    // Release the boundary before a peer's device callback.
                     if let Err(boundary_error) = self.vm.checkpoint_boundary() {
                         tracing::warn!(%boundary_error, "peer dispatch requires a healthy stopped VM");
-                        return Err(first_reply_error.unwrap_or(error));
+                        return Err(first_cpu_error.unwrap_or(error));
                     }
-                    first_reply_error.get_or_insert(error);
+                    first_cpu_error.get_or_insert(error);
                 }
                 Err(TurnFailure::Round(error)) => {
-                    if let Some(first) = first_reply_error {
+                    if let Some(first) = first_cpu_error {
                         tracing::warn!(%error, "peer exit dispatch also failed");
                         return Err(first);
                     }
@@ -360,7 +359,7 @@ impl Vmm {
                 }
             }
         }
-        if let Some(error) = first_reply_error {
+        if let Some(error) = first_cpu_error {
             return Err(error);
         }
         // Every exit in this round predates the effects of a delivered INIT.
@@ -487,7 +486,7 @@ impl Vmm {
                     if shutdown {
                         TurnFailure::Round(error)
                     } else {
-                        TurnFailure::CpuReply(error)
+                        TurnFailure::CpuLocal(error)
                     }
                 })?;
             }
@@ -532,9 +531,9 @@ impl Vmm {
             }
             VcpuExit::SystemEvent { .. } => shutdown = true,
             VcpuExit::FailEntry { reason } => {
-                return Err(
-                    Error::KernelLoad(format!("vCPU fail entry: reason={reason:#x}")).into(),
-                );
+                return Err(TurnFailure::CpuLocal(Error::KernelLoad(format!(
+                    "vCPU fail entry: reason={reason:#x}"
+                ))));
             }
             VcpuExit::InternalError => {
                 return Err(Error::KernelLoad("vCPU internal error".to_string()).into());
