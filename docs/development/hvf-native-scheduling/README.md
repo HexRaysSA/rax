@@ -74,19 +74,34 @@ successful submission. A host yield does not advance the retirement count.
 
 A posted slice reserves its CPU until collection. The owner holds the VM's
 shared execution lock while admitting and executing the slice. Stopped VM
-capture also checks the reservation count under exclusive access, so it
-rejects a queued or completed slice whose caller has yet to collect it.
+capture checks the reservation count before waiting for exclusive access.
+A waiting writer can delay a posted peer that still needs its shared lock
+to enter the SDK. Capture checks again under exclusive access to catch
+a post that acquired a shared lease after the first check. These are
+constant-time checks. The reservation spans queued, running, and completed
+SDK entries until the caller collects them.
 Neither the reservation nor the host deadline enters the checkpoint file.
 
 | Assumption | Falsification probe |
 | --- | --- |
 | The configured owners can enter the SDK independently. | Hold each modeled SDK call open until all two or four owners have reported entry. Check creator-thread identity. |
+| Capture rejects a published reservation without waiting for SDK owners to return. | Hold all modeled SDK owners after entry and require the capture error within 2 s before releasing them. |
 | The collector is the checkpoint publication boundary. | Release the SDK calls, then attempt VM capture, CPU state access and a duplicate post before collection. Repeat capture after the last collection. |
 | A peer retains its exit through round dispatch. | Collect a BSP INIT write and a secondary input in one round. Require the input reply before the secondary observes INIT. |
 
 The SDK overlap regression failed on the parent before posting its first CPU.
 Its baseline log SHA-256 is
 `551c85ba8a6e159a8a63125265dd316cc882ad0e96b49bfa53cf37c4facc7dee`.
+The capture regression on `40dd035bf` timed out after 2 s while the
+SDK owners were still held. The corrected regression passed 12 runs
+with both two and four owners in every run. These Rosetta tests exercise
+the Intel backend with modeled SDK entry. The baseline and repeated-run
+log SHA-256 digests are
+`ee497cac12d83d27ca15e62bce75a7c366daa80e29b5eb31545da278461a3fcd`
+and `b9b7ad4c000aee49a28e76a347e87b9bd117e7e14748892f34861b039d555c88`.
+All 101 tests in the unfiltered `hvf_intel_owner` target passed under
+Rosetta in 367.61 s. The log SHA-256 is
+`5bc2365e16f441198bfe0b5f67bf50ea9344a02cbb7a4b6f0f2edefd8a714c00`.
 With per-exit INIT delivery restored in the parallel dispatcher, the input
 callback observed one prior INIT. The Linux baseline log SHA-256 is
 `2a5e0397da5dee287951dfa6981b983c1575d5a1b9028d59e06badbaa8e282b5`.

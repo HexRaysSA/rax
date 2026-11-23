@@ -57,9 +57,27 @@ fn posted_host_slices_overlap_on_two_and_four_permanent_owners() {
             assert!(active.insert(id), "an SDK owner entered twice");
         }
         assert_eq!(active, (0..count).collect());
-        for release in releases {
-            release.send(()).unwrap();
-        }
+        let (attempted, rejection) = mpsc::channel();
+        let result = std::thread::scope(|scope| {
+            let vm = vm.as_ref();
+            scope.spawn(move || {
+                attempted.send(vm.checkpoint_boundary().map(drop)).unwrap();
+            });
+            let result = rejection.recv_timeout(Duration::from_secs(2));
+            // Release the owners even when capture is waiting for the write lock.
+            for release in releases {
+                release.send(()).unwrap();
+            }
+            result
+        });
+        let error = result
+            .expect("checkpoint waited for the posted SDK owners")
+            .expect_err("checkpoint admitted with posted SDK owners");
+        assert!(
+            error
+                .to_string()
+                .contains("requires collecting all posted host slices")
+        );
         for (index, cpu) in cpus.iter_mut().enumerate() {
             assert!(vm.checkpoint_boundary().is_err());
             assert!(cpu.get_state().is_err());

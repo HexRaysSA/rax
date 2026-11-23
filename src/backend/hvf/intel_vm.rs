@@ -42,19 +42,27 @@ impl Lifetime {
     }
 
     pub(super) fn stopped(&self) -> Result<CheckpointBoundary<'_>> {
+        // A waiting writer can prevent posted peers from entering the SDK.
+        self.require_collected_entries()?;
         let guard = self
             .quiescence
             .write()
             .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
         self.ready()?;
+        // A post can reserve an entry while holding a read lease after the first check.
+        self.require_collected_entries()?;
+        self.capture_clock
+            .store(super::intel_clock::Api::load()?.now(), Ordering::Release);
+        Ok(CheckpointBoundary::held(self.identity(), guard))
+    }
+
+    fn require_collected_entries(&self) -> Result<()> {
         if self.pending_entries.load(Ordering::Acquire) != 0 {
             return Err(Error::InvalidConfig(
                 "Intel HVF checkpoint requires collecting all posted host slices".into(),
             ));
         }
-        self.capture_clock
-            .store(super::intel_clock::Api::load()?.now(), Ordering::Release);
-        Ok(CheckpointBoundary::held(self.identity(), guard))
+        Ok(())
     }
 }
 
