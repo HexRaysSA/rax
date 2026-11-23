@@ -22,7 +22,7 @@ fn prepare(p: &mut Proc, input: u64, row: &Observation) -> (u64, u64) {
     let bytes: Vec<_> = path.encode_utf16().flat_map(u16::to_le_bytes).collect();
     p.space.wr(input, &[0; 392]).unwrap();
     p.space.wr(name, &bytes).unwrap();
-    p.space.wr(output, &[0xa5; 128]).unwrap();
+    p.space.wr(output, &[0xa5; 177]).unwrap();
     p.space.w32(input, row.request).unwrap();
     p.space.w32(input + 4, row.flags).unwrap();
     p.space.w16(input + 0x30, bytes.len() as u16).unwrap();
@@ -85,6 +85,35 @@ fn apphelp_executable_process_returns_the_captured_amd64_server_cmd_record() {
             }
             assert_eq!(p.space.u8(output + 64).unwrap(), 0xa5);
         }
+    }
+}
+
+#[test]
+fn apphelp_executable_process_returns_the_captured_windows_11_arm_cmd_record() {
+    let mut cmd = observations()
+        .into_iter()
+        .find(|row| row.image == "cmd.exe")
+        .unwrap();
+    let observed_group = [2, 0, 8, 8, 0, 0, 4, 8, 0, 0, 16, 8, 0, 0];
+    let expected: Vec<_> = observed_group
+        .repeat(3)
+        .into_iter()
+        .chain([1, 0])
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    assert_eq!(expected.len(), 176);
+    for flags in [0x10, 0x14, 0x30, 0x34] {
+        let (mut process, mut thread) = fixture(WinArch::Arm64, "NtApphelpCacheControl", SERVICE);
+        let p = process.state_mut();
+        super::super::native_profile::kernel_profile(p, 26200, WinArch::Arm64.machine());
+        p.registry = creator_compat_layer_fixture(None);
+        let input = scratch(p);
+        cmd.flags = flags;
+        let (_, output) = prepare(p, input, &cmd);
+        assert_eq!(call(p, &mut thread, 11, input), STATUS_SUCCESS);
+        assert_eq!(p.space.u32(input + 0x180).unwrap(), 176);
+        assert_eq!(p.space.bytes(output, 176).unwrap(), expected);
+        assert_eq!(p.space.u8(output + 176).unwrap(), 0xa5);
     }
 }
 

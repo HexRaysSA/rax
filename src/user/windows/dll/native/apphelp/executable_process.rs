@@ -15,7 +15,9 @@ const MAX_NAME_BYTES: usize = 512;
 
 // Each item has a u32 type and byte length, followed by its payload.
 // The three eight-byte payloads are zero in the observed stock replies.
-const STOCK_RECORD: [u32; 16] = [2, 0, 8, 8, 0, 0, 4, 8, 0, 0, 16, 8, 0, 0, 1, 0];
+const STOCK_GROUP: [u32; 14] = [2, 0, 8, 8, 0, 0, 4, 8, 0, 0, 16, 8, 0, 0];
+const STOCK_TERMINATOR: [u32; 2] = [1, 0];
+const GROUP_BYTES: usize = STOCK_GROUP.len() * 4;
 
 pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let wow = c.arch() == WinArch::X86;
@@ -37,6 +39,7 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
                             native.version.build
                         ),
                         (WinArch::X86 | WinArch::Arm64, Some(0xaa64), 29708)
+                            | (WinArch::Arm64, Some(0xaa64), 26200)
                             | (WinArch::X64, Some(0x8664), 20348 | 26100)
                     )
             })
@@ -59,15 +62,22 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
         );
     }
     let native = native?;
+    let windows_11_arm = native.version.build == 26200;
     let input = c.ptr(1)?;
     c.mem().rd(input, &mut packet[..packet_bytes])?;
     let flags = number(&packet, 4);
-    let supported_flags = if arch == WinArch::X64 {
-        // Hosted Server CMD supplied 0x30. Closed CMD reached the same
-        // installed lookup with bit 2 set.
-        matches!(flags, 0x30 | 0x34)
+    // Closed CMD reaches the same installed lookup with bit 2 set on
+    // the hosted profiles. The native ARM64 replies for 0x10 and 0x30
+    // have identical contents.
+    let request_flags = if arch == WinArch::X64 || windows_11_arm {
+        flags & !0x04
     } else {
-        matches!(flags, 0x10 | 0x30)
+        flags
+    };
+    let supported_flags = if arch == WinArch::X64 {
+        request_flags == 0x30
+    } else {
+        matches!(request_flags, 0x10 | 0x30)
     };
     if number(&packet, 0) != 0x1f
         || !supported_flags
@@ -130,7 +140,7 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
                     .all(|view| c.p.registry.creator_compat_layer_absent(&units, view))
             })
     } else {
-        let images: &[_] = if arch == WinArch::X64 {
+        let images: &[_] = if arch == WinArch::X64 || windows_11_arm {
             &["cmd.exe"]
         } else {
             &[
@@ -152,8 +162,15 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
         return Err(c.unsupported("AppHelp executable-cache result is not captured for this image"));
     }
 
-    let mut record = [0; 64];
-    for (slot, value) in record.chunks_exact_mut(4).zip(STOCK_RECORD) {
+    let groups = if windows_11_arm { 3 } else { 1 };
+    let mut record = [0; 3 * GROUP_BYTES + STOCK_TERMINATOR.len() * 4];
+    let record = &mut record[..groups * GROUP_BYTES + STOCK_TERMINATOR.len() * 4];
+    let words = STOCK_GROUP
+        .into_iter()
+        .cycle()
+        .take(groups * STOCK_GROUP.len())
+        .chain(STOCK_TERMINATOR);
+    for (slot, value) in record.chunks_exact_mut(4).zip(words) {
         slot.copy_from_slice(&value.to_le_bytes());
     }
     let destination = pointer(&packet, output_buffer_at, wow);
@@ -165,7 +182,7 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     }
     super::super::query::probe_write(c, destination, record.len())?;
     super::super::query::probe_write(c, size, 4)?;
-    c.mem().wr(destination, &record)?;
+    c.mem().wr(destination, record)?;
     c.mem().w32(size, record.len() as u32)?;
     Flow::ret(STATUS_SUCCESS.into())
 }
