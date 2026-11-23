@@ -832,6 +832,51 @@ fn closed_linux_shared_vfork_preserves_child_memory_and_brk_all_abis() {
 }
 
 #[test]
+fn closed_linux_clone_vm_shares_memory_without_suspending_the_parent() {
+    use crate::user::linux::signal::{AltStack, SIGCHLD};
+    use crate::user::linux::syscall::thread::cf::CLONE_VM;
+
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let at = h.scratch;
+        let parent_stack = AltStack {
+            sp: at,
+            size: 8192,
+            flags: 0,
+        };
+        h.proc.threads[0].altstack = parent_stack;
+        let entry = super::harness::CODE + 0x1000;
+        h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+        let child_pid = h.ok(Sysno::Clone, &[CLONE_VM | SIGCHLD as u64, 0, 0, 0, 0]);
+        assert_eq!(child_pid, 101);
+        assert!(h.proc.threads[0].blocked.is_none());
+        assert!(h.proc.state.shares_mm());
+        let child = h.proc.state.children.list[0].guest.as_ref().unwrap();
+        assert_eq!(child.threads[0].altstack, AltStack::DISABLED);
+        assert_eq!(h.proc.threads[0].altstack, parent_stack);
+        h.proc.space().write(at + 8, &[9]).unwrap();
+        let mut byte = [0];
+        child.space().read(at + 8, &mut byte).unwrap();
+        assert_eq!(byte, [9]);
+        child.space().write(at + 8, &[3]).unwrap();
+        assert_eq!(h.byte(at + 8), 3);
+
+        assert_eq!(h.start(0, Sysno::Wait4, &[child_pid, at, 0, 0]), None);
+        let cancel = AtomicBool::new(false);
+        for _ in 0..8 {
+            if h.proc.threads[0].blocked.is_none() {
+                break;
+            }
+            assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+        }
+        assert_eq!(h.result(0), child_pid as i64);
+        assert!(h.proc.state.children.list.is_empty());
+        assert!(!h.proc.state.shares_mm());
+        assert_eq!(h.byte(at + 1), 37);
+    }
+}
+
+#[test]
 fn closed_linux_shared_vfork_wakes_a_sibling_futex_waiter_all_abis() {
     use crate::user::linux::signal::SIGCHLD;
     use crate::user::linux::syscall::{Call, thread::cf::*};
@@ -844,7 +889,6 @@ fn closed_linux_shared_vfork_wakes_a_sibling_futex_waiter_all_abis() {
         let at = h.scratch;
         let vm = CLONE_VM | SIGCHLD as u64;
         let vfork = vm | CLONE_VFORK;
-        assert_eq!(h.err(Sysno::Clone, &[vm, 0, 0, 0, 0]), ENOSYS);
         let thread = CLONE_VM | CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_THREAD;
         assert_eq!(h.ok(Sysno::Clone, &[thread, 0, 0, 0, 0]), 101);
         h.proc.space().write_raw(at, &9u32.to_le_bytes()).unwrap();
@@ -865,6 +909,10 @@ fn closed_linux_shared_vfork_wakes_a_sibling_futex_waiter_all_abis() {
         assert_eq!(h.proc.wake_sleepers(), 1);
         assert_eq!(h.result(1), 0);
         assert!(h.proc.threads[0].blocked.is_some());
+        assert_eq!(
+            h.start(1, Sysno::Clone, &[vm, 0, 0, 0, 0]),
+            Some(-i64::from(ENOSYS))
+        );
         assert_eq!(h.start(1, Sysno::Futex, &args(at, WAIT_PRIVATE, 3)), None);
 
         let cancel = AtomicBool::new(false);

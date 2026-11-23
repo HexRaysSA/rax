@@ -7,10 +7,11 @@
 //! [`children`](crate::user::linux::children)). Its memory is a copy, so a
 //! `CLONE_VM | CLONE_VFORK` child (as `posix_spawn` makes) runs with copy
 //! semantics: the parent sleeps until the child calls `execve` or ends, but
-//! does not see the child's stores. Processes that share memory without
-//! `CLONE_VFORK`, a descriptor table, a file-system context, or handlers
-//! with their parent, and `CLONE_PARENT`, are not supported. Closed guests
-//! support private forks and shared-VM vfork.
+//! does not see the child's stores. Closed guests support private forks
+//! and children that share the parent's address space. An address space can
+//! be shared by two processes, with or without vfork. Sharing a descriptor
+//! table, a file-system context or signal handlers across processes and
+//! `CLONE_PARENT` remain unsupported.
 
 mod guest;
 

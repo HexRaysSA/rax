@@ -1,13 +1,14 @@
 //! Process creation in the closed Linux personality.
 
 use super::super::super::process::{LinuxProcess, Thread};
+use super::super::super::signal::AltStack;
 use super::*;
 use std::sync::{Arc, Mutex};
 
 pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     let flags = args.flags;
     let shared = flags & CLONE_VM != 0;
-    if shared && (flags & CLONE_VFORK == 0 || c.p.shares_mm()) {
+    if shared && c.p.shares_mm() {
         return Err(Errno(ENOSYS));
     }
     if flags & (CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
@@ -46,7 +47,11 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
     let mut leader = Thread::new(pid, cpu);
     leader.sigmask = c.t.sigmask;
-    leader.altstack = c.t.altstack;
+    leader.altstack = if shared && flags & CLONE_VFORK == 0 {
+        AltStack::DISABLED
+    } else {
+        c.t.altstack
+    };
     leader.comm = c.t.comm.clone();
     leader.no_new_privs = c.t.no_new_privs;
     leader.notsc = c.t.notsc;

@@ -1,6 +1,9 @@
-#define _POSIX_C_SOURCE 200809L
+#define _GNU_SOURCE
 #include <errno.h>
+#include <sched.h>
+#include <signal.h>
 #include <spawn.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -35,6 +38,59 @@ static int spawn_group(const char *path, char *const envp[])
     return 0;
 }
 
+struct vm_case {
+    int fds[2];
+    pid_t parent;
+    atomic_int value;
+};
+
+static int shared_vm_child(void *argument)
+{
+    struct vm_case *test = argument;
+    close(test->fds[1]);
+    char byte;
+    if (read(test->fds[0], &byte, 1) != 1 || byte != 'x' ||
+        atomic_load(&test->value) != 1 || getppid() != test->parent ||
+        getpid() == test->parent)
+        return 31;
+    stack_t alternate;
+    if (sigaltstack(NULL, &alternate) != 0 || alternate.ss_flags != SS_DISABLE)
+        return 32;
+    atomic_store(&test->value, 2);
+    return 23;
+}
+
+static int check_shared_vm(void)
+{
+    static _Alignas(16) unsigned char child_stack[65536];
+    static unsigned char signal_stack[65536];
+    stack_t alternate = {.ss_sp = signal_stack, .ss_size = sizeof(signal_stack)};
+    stack_t previous;
+    if (sigaltstack(&alternate, &previous) != 0)
+        return errno;
+    struct vm_case test = {.parent = getpid()};
+    if (pipe(test.fds) != 0)
+        return errno;
+    pid_t child = clone(shared_vm_child, child_stack + sizeof(child_stack),
+                        CLONE_VM | SIGCHLD, &test);
+    int error = child < 0 ? errno : 0;
+    close(test.fds[0]);
+    atomic_store(&test.value, 1);
+    if (error == 0 && write(test.fds[1], "x", 1) != 1)
+        error = EIO;
+    close(test.fds[1]);
+    int status;
+    if (child > 0 && (waitpid(child, &status, 0) != child ||
+                      !WIFEXITED(status) || WEXITSTATUS(status) != 23))
+        error = ECHILD;
+    stack_t parent_stack;
+    if (sigaltstack(&previous, &parent_stack) != 0 ||
+        parent_stack.ss_sp != alternate.ss_sp || parent_stack.ss_size != alternate.ss_size ||
+        parent_stack.ss_flags != 0 || atomic_load(&test.value) != 2)
+        return error != 0 ? error : EINVAL;
+    return error;
+}
+
 static int check_spawn(void)
 {
     const char *path = "/usr/bin/printf";
@@ -62,6 +118,12 @@ static int check_spawn(void)
         return 3;
     }
     puts("missing:ENOENT");
+    error = check_shared_vm();
+    if (error != 0) {
+        fprintf(stderr, "clone with shared memory failed: %d\n", error);
+        return 8;
+    }
+    puts("clone:shared-vm");
     return 0;
 }
 
