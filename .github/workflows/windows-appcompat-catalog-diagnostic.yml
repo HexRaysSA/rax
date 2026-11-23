@@ -16,10 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-2022, target: x86_64-pc-windows-msvc }
-          - { os: windows-2025, target: x86_64-pc-windows-msvc }
-          - { os: windows-2025, target: i686-pc-windows-msvc }
-          - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
+          - { os: windows-11-arm, target: i686-pc-windows-msvc }
     defaults:
       run:
         shell: bash
@@ -35,7 +32,7 @@ jobs:
           native_tmp=$(cygpath -w "$PWD/.tmp-appcompat-catalogs")
           printf 'TMPDIR=%s\nTMP=%s\nTEMP=%s\n' "$native_tmp" "$native_tmp" "$native_tmp" >> "$GITHUB_ENV"
       - name: Select native Windows ARM64 Rust host
-        if: matrix.target == 'aarch64-pc-windows-msvc'
+        if: matrix.os == 'windows-11-arm'
         run: rustup set default-host aarch64-pc-windows-msvc
       - uses: ./.github/actions/setup-rust
         with:
