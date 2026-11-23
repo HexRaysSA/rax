@@ -222,13 +222,14 @@ pub(crate) enum Availability {
 pub(crate) enum Wow64Gdi {
     Insider,
     Released,
+    Legacy,
 }
 
 impl Wow64Gdi {
     pub(crate) fn process_value(self, random: u32) -> u32 {
         match self {
             Self::Insider => random | 0x8000_0000,
-            Self::Released => (random & 0x7fff_ffff).max(1),
+            Self::Released | Self::Legacy => (random & 0x7fff_ffff).max(1),
         }
     }
 }

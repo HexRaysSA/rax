@@ -90,12 +90,16 @@ fn setup(arch: WinArch) -> (super::super::super::super::WindowsProcess, Thread, 
 
 #[test]
 fn wow64_gui_initialization_updates_only_the_companion_and_reuses_guest_views() {
-    for (profile, high_bit) in [(Wow64Gdi::Insider, 0x8000_0000), (Wow64Gdi::Released, 0)] {
-        check_wow64_gui_initialization(profile, high_bit);
+    for (profile, arch, build, committed) in [
+        (Wow64Gdi::Insider, WinArch::Arm64, 29708, 0x34000),
+        (Wow64Gdi::Released, WinArch::X64, 26100, 0x21000),
+        (Wow64Gdi::Legacy, WinArch::X64, 20348, 0x25000),
+    ] {
+        check_wow64_gui_initialization(profile, arch, build, committed);
     }
 }
 
-fn check_wow64_gui_initialization(profile: Wow64Gdi, high_bit: u64) {
+fn check_wow64_gui_initialization(profile: Wow64Gdi, arch: WinArch, build: u32, committed: u64) {
     use crate::user::windows::memory::{mem, prot};
     use crate::user::windows::object_namespace::csr::client_data::native_fixture;
     use crate::user::windows::process::{services, thread, wow64};
@@ -105,10 +109,10 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, high_bit: u64) {
     let version = &mut std::sync::Arc::make_mut(&mut p.cfg).version;
     version.major = 10;
     version.minor = 0;
-    version.build = 29708;
-    wow64::initialize_test_profile(p, WinArch::Arm64.machine()).unwrap();
+    version.build = build;
+    wow64::initialize_test_profile(p, arch.machine()).unwrap();
     p.native.as_mut().unwrap().gui = Availability::Wow64Companion(
-        crate::user::windows::gui::tests::wow64_companion_fixture(),
+        crate::user::windows::gui::tests::wow64_companion_fixture(arch, committed),
         profile,
     );
 
@@ -128,8 +132,21 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, high_bit: u64) {
         thread.cpu.set_gpr(0, u64::from(number));
         services::wow64(p, thread, 0x1234_0000)
     };
+    let (leaf, number) = match profile {
+        Wow64Gdi::Insider => ("NtGdiInit2", 0x1308),
+        Wow64Gdi::Released => ("NtGdiInit2", 0x12e8),
+        Wow64Gdi::Legacy => ("NtGdiInit", 0x112e1),
+    };
+    let (unselected, unselected_number) = match profile {
+        Wow64Gdi::Legacy => ("NtGdiInit2", 0x1308),
+        _ => ("NtGdiInit", 0x112e1),
+    };
     assert!(matches!(
-        call(p, &mut thread, "NtGdiInit2", 0x1308),
+        call(p, &mut thread, unselected, unselected_number),
+        Outcome::Fail(reason) if reason.contains("unmeasured native NtGdiInit")
+    ));
+    assert!(matches!(
+        call(p, &mut thread, leaf, number),
         Outcome::Fail(reason) if reason.contains("requires the selected USER startup connection")
     ));
     assert!(matches!(
@@ -141,13 +158,20 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, high_bit: u64) {
     let views = native_fixture(0).map_wow64(&mut p.vm).unwrap();
     p.wow64.as_mut().unwrap().user_data = Some(views);
 
-    assert_eq!(
-        call(p, &mut thread, "NtGdiInit2", 0x1308),
-        Outcome::Continue
-    );
-    let value = thread.cpu.gpr(0);
-    assert_eq!(value, u64::from(p.space.u32(peb + 0x108).unwrap()));
+    assert_eq!(call(p, &mut thread, leaf, number), Outcome::Continue);
+    let value = u64::from(p.space.u32(peb + 0x108).unwrap());
     assert_ne!(value, 0);
+    let result = if matches!(profile, Wow64Gdi::Legacy) {
+        1
+    } else {
+        value
+    };
+    assert_eq!(thread.cpu.gpr(0), result);
+    let high_bit = if matches!(profile, Wow64Gdi::Insider) {
+        0x8000_0000
+    } else {
+        0
+    };
     assert_eq!(value & 0x8000_0000, high_bit);
     assert_eq!(thread.cpu.sp(), original_sp + 4);
     assert_eq!(thread.cpu.pc(), 0x1234_000c);
@@ -161,7 +185,7 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, high_bit: u64) {
     assert_eq!(client(p, 2), 0x602);
     assert_eq!(client(p, 3), 0x100 << 32);
     assert_eq!(client(p, 4), desktop + 0x1040);
-    assert_eq!(record, desktop + 0x34000);
+    assert_eq!(record, desktop + committed);
     for base in [gdi, desktop, record] {
         assert!(base < 1 << 32);
         let region = p.vm.query(base).unwrap();
@@ -172,11 +196,8 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, high_bit: u64) {
 
     let rng = p.rng;
     let committed = p.vm.committed_bytes();
-    assert_eq!(
-        call(p, &mut thread, "NtGdiInit2", 0x1308),
-        Outcome::Continue
-    );
-    assert_eq!(thread.cpu.gpr(0), value);
+    assert_eq!(call(p, &mut thread, leaf, number), Outcome::Continue);
+    assert_eq!(thread.cpu.gpr(0), result);
     assert_eq!(
         call(p, &mut thread, "NtUserRemoteConnectState", 0x1234),
         Outcome::Continue
@@ -194,7 +215,7 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, high_bit: u64) {
     assert_eq!(client(p, 12), record);
     p.vm.release(gdi).unwrap();
     assert!(
-        matches!(call(p, &mut thread, "NtGdiInit2", 0x1308), Outcome::Fail(reason)
+        matches!(call(p, &mut thread, leaf, number), Outcome::Fail(reason)
         if reason.contains("WoW64 GUI views or thread record"))
     );
     assert_eq!(p.rng, rng);

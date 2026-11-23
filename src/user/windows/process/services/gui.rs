@@ -47,6 +47,9 @@ pub(super) fn initialize(
     wow64: bool,
 ) -> Outcome {
     if let Some((inputs, gdi)) = wow64_inputs(p, wow64) {
+        if matches!(gdi, Wow64Gdi::Legacy) {
+            return failure("not implemented for unmeasured native NtGdiInit2 profile");
+        }
         return initialize_wow64(p, t, sp, resume, inputs, gdi, None);
     }
     convert(p, t, sp, resume, wow64, None)
@@ -59,6 +62,9 @@ pub(super) fn initialize_legacy(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
+    if let Some((inputs, gdi @ Wow64Gdi::Legacy)) = wow64_inputs(p, wow64) {
+        return initialize_wow64(p, t, sp, resume, inputs, gdi, Some(1));
+    }
     if wow64
         || !p
             .native
@@ -103,8 +109,8 @@ fn initialize_wow64(
         return failure("WoW64 GUI lost the selected USER startup views");
     }
 
-    // On the measured pair, native USER initializes the companion TEB only.
-    // Repeated leaf calls return the process value without another callback.
+    // On the measured pairs, native USER initializes the companion TEB only.
+    // Repeated leaf calls preserve the process value and the thread record.
     let peb = state.native_peb;
     let first = !p
         .gui
