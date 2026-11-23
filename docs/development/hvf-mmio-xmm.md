@@ -758,3 +758,40 @@ Hypervisor entitlement. The executable SHA-256 was
 The ordered observations SHA-256 was
 `ae35bd61e771aa6164af072a1ed2823931b41d7bdbb90cf6de19332d62fa9ba0`.
 [Hosted packed bit-test execution](https://github.com/HexRaysSA/rax/actions/runs/45139966944)
+
+## Packed integer comparisons
+
+Legacy SSE and VEX encodings of packed integer equality and signed
+greater-than comparisons now admit one vector input from the device.
+The decoder identifies the distinct legacy and VEX source registers
+and the opcode map. Each 8-, 16-, 32- or 64-bit element becomes all ones
+or all zeroes. Legacy forms preserve the upper YMM half, VEX.128 clears
+it, and VEX.256 writes both halves. RFLAGS is unchanged. The existing
+pending vector record appends a typed comparison operation after its
+original operation values. Completion takes O(width) time and bounded
+storage for a maximum width of 32 B.
+[Intel SDM Volume 2B, PCMPEQB through PCMPEQQ and PCMPGTB through PCMPGTQ](https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-2b-manual.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Legacy and VEX operands have different source roles. | High | Compare a device reply with distinct XMM15 and XMM8 seeds. Check the destination, upper half, unchanged flags and exact next RIP. |
+| Signed order is determined per element. | High | Rotate equal, negative, boundary and opposite-sign pairs through every vector position. Compare each lane against the hardware mask. |
+| The pending read retains the original comparison. | High | Serialize the pending read and complete it once after restore, then require a duplicate reply to make no further writes. Replace the original opcode with UD2 in the native restore fixture. |
+
+The parent rejected the metadata for all 24 selected legacy and VEX3
+encodings. The regression log SHA-256 is
+`e487208b2f63d435c3babc07add2618a6723fb8e28fd38e3000428c07c5a7d63`.
+The physical Intel RAM oracle recorded 96 correct masks with unchanged
+flags and eight legacy misalignment faults. Its ordered results have
+SHA-256 `c7c15dbc88300b974e3f2c647a6d7526a8ed01063d9249980b3d824bc88be5ed`.
+
+The unfiltered Intel Linux targets passed 137 `hvf_mmio`, 102
+`isa_oracle` and 28,562 `x86_64` cases, with three ignored x86-64
+cases. The Cargo log SHA-256 is
+`4ae02b53c5cf1a4a9dc32962a3c4e5830a9988118f7b425f7ede4d2c9fa97ed2`.
+On Apple Silicon the Intel macOS target passed 355 modeled and portable
+tests, including 100 SDK-owner and 16 CI policy tests. The Cargo log
+SHA-256 is `2f1c310b8a912252a6f1d632a50c2eadf0658eb51866e2ac0279f45493d119ec`.
+All 55 Python tests passed and the Intel guest executable passed strict
+signature verification. Native execution of the new profile is a separate
+qualification.

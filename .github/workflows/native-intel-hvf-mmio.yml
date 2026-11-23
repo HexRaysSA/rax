@@ -29,6 +29,7 @@ on:
           - vex-ntstore
           - xmm-lanes
           - vector-logic
+          - vector-compare
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

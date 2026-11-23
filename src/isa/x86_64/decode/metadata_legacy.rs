@@ -1,5 +1,28 @@
 use super::*;
 
+fn packed_xmm_operands(
+    ctx: &mut InsnContext,
+    address_bits: u32,
+    long_mode: bool,
+    writes: bool,
+) -> Option<Vec<Operand>> {
+    let raw_rm = ctx.peek_u8().ok()? & 7;
+    let (group, _, mut rm) = modrm(ctx, address_bits, 16, long_mode)?;
+    if rm.kind == OperandKind::Register {
+        rm.reg = format!("xmm{}", raw_rm | ctx.rex_b());
+        rm.width_bits = 128;
+    }
+    let xmm = Operand {
+        kind: OperandKind::Register,
+        reg: format!("xmm{}", group | ctx.rex_r()),
+        width_bits: 128,
+        read: true,
+        write: writes,
+        ..Operand::default()
+    };
+    Some(vec![xmm, rm])
+}
+
 pub(super) fn fixed_legacy(
     ctx: &mut InsnContext,
     op: u8,
@@ -264,30 +287,14 @@ pub(super) fn decode_0f(
             out.operands = vec![dst, rm];
             CMOV[(op & 15) as usize]
         }
-        0x54..=0x57 | 0xdb | 0xdf | 0xeb | 0xef => {
-            let names = packed_logic_mnemonics(u8::from(ctx.operand_size_override), op);
+        0x54..=0x57 | 0x64..=0x66 | 0x74..=0x76 | 0xdb | 0xdf | 0xeb | 0xef => {
+            let names = packed_binary_mnemonics(1, u8::from(ctx.operand_size_override), op);
             let Some((name, _)) = names.filter(|_| ctx.rep_prefix.is_none() && !ctx.has_rex2())
             else {
                 *unsupported = true;
                 return None;
             };
-            let raw_rm = ctx.peek_u8().ok()? & 7;
-            let (group, _, mut rm) = modrm(ctx, address_bits, 16, *branch_bits == 64)?;
-            if rm.kind == OperandKind::Register {
-                rm.reg = format!("xmm{}", raw_rm | ctx.rex_b());
-                rm.width_bits = 128;
-            }
-            out.operands = vec![
-                Operand {
-                    kind: OperandKind::Register,
-                    reg: format!("xmm{}", group | ctx.rex_r()),
-                    width_bits: 128,
-                    read: true,
-                    write: true,
-                    ..Operand::default()
-                },
-                rm,
-            ];
+            out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
             name
         }
         0x10..=0x13
@@ -398,24 +405,12 @@ pub(super) fn decode_0f(
             "bswap"
         }
         0x38 => match ctx.consume_u8().ok()? {
-            0x17 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() => {
-                let raw_rm = ctx.peek_u8().ok()? & 7;
-                let (group, _, mut rm) = modrm(ctx, address_bits, 16, *branch_bits == 64)?;
-                if rm.kind == OperandKind::Register {
-                    rm.reg = format!("xmm{}", raw_rm | ctx.rex_b());
-                    rm.width_bits = 128;
-                }
-                out.operands = vec![
-                    Operand {
-                        kind: OperandKind::Register,
-                        reg: format!("xmm{}", group | ctx.rex_r()),
-                        width_bits: 128,
-                        read: true,
-                        ..Operand::default()
-                    },
-                    rm,
-                ];
-                "ptest"
+            map_opcode @ (0x17 | 0x29 | 0x37)
+                if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
+            {
+                let writes = map_opcode != 0x17;
+                out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, writes)?;
+                packed_binary_mnemonics(2, 1, map_opcode).map_or("ptest", |(name, _)| name)
             }
             0xf6 if ctx.rex2.is_none() => {
                 let mnemonic = match ctx.rep_prefix {

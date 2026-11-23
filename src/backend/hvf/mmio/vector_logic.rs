@@ -1,5 +1,46 @@
-//! Legacy SSE and VEX packed logical operations with a device source.
+//! Legacy SSE and VEX packed logical operations and comparisons with a device source.
 use super::*;
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum Element {
+    Byte,
+    Word,
+    Doubleword,
+    Quadword,
+}
+
+impl Element {
+    fn bytes(self) -> usize {
+        match self {
+            Self::Byte => 1,
+            Self::Word => 2,
+            Self::Doubleword => 4,
+            Self::Quadword => 8,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum Comparison {
+    Equal,
+    SignedGreater,
+}
+
+impl Comparison {
+    fn matches(self, left: &[u8], right: &[u8]) -> bool {
+        match self {
+            Self::Equal => left == right,
+            Self::SignedGreater => {
+                let (&left_high, left_low) = left.split_last().unwrap();
+                let (&right_high, right_low) = right.split_last().unwrap();
+                (left_high as i8)
+                    .cmp(&(right_high as i8))
+                    .then_with(|| left_low.iter().rev().cmp(right_low.iter().rev()))
+                    .is_gt()
+            }
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
@@ -7,6 +48,8 @@ enum Operation {
     AndNot,
     Or,
     Xor,
+    // Appended after the four original wire discriminants.
+    Compare(Comparison, Element),
 }
 
 impl Operation {
@@ -16,16 +59,40 @@ impl Operation {
             "andnps" | "andnpd" | "pandn" => Self::AndNot,
             "orps" | "orpd" | "por" => Self::Or,
             "xorps" | "xorpd" | "pxor" => Self::Xor,
+            "pcmpeqb" => Self::Compare(Comparison::Equal, Element::Byte),
+            "pcmpeqw" => Self::Compare(Comparison::Equal, Element::Word),
+            "pcmpeqd" => Self::Compare(Comparison::Equal, Element::Doubleword),
+            "pcmpeqq" => Self::Compare(Comparison::Equal, Element::Quadword),
+            "pcmpgtb" => Self::Compare(Comparison::SignedGreater, Element::Byte),
+            "pcmpgtw" => Self::Compare(Comparison::SignedGreater, Element::Word),
+            "pcmpgtd" => Self::Compare(Comparison::SignedGreater, Element::Doubleword),
+            "pcmpgtq" => Self::Compare(Comparison::SignedGreater, Element::Quadword),
             _ => return None,
         })
     }
 
-    fn apply(self, left: u8, right: u8) -> u8 {
+    fn result<const N: usize>(self, left: &[u8; 32], right: &[u8]) -> [u8; N] {
         match self {
-            Self::And => left & right,
-            Self::AndNot => !left & right,
-            Self::Or => left | right,
-            Self::Xor => left ^ right,
+            Self::And => std::array::from_fn(|i| left[i] & right[i]),
+            Self::AndNot => std::array::from_fn(|i| !left[i] & right[i]),
+            Self::Or => std::array::from_fn(|i| left[i] | right[i]),
+            Self::Xor => std::array::from_fn(|i| left[i] ^ right[i]),
+            Self::Compare(comparison, element) => {
+                let width = element.bytes();
+                let mut result = [0; N];
+                for ((left, right), target) in left
+                    .chunks_exact(width)
+                    .zip(right.chunks_exact(width))
+                    .zip(result.chunks_exact_mut(width))
+                {
+                    target.fill(if comparison.matches(left, right) {
+                        0xff
+                    } else {
+                        0
+                    });
+                }
+                result
+            }
         }
     }
 }
@@ -71,17 +138,16 @@ impl Input {
                 data.len()
             ));
         }
-        let byte = |index: usize| self.operation.apply(left[index], data[index]);
         if self.encoding == Encoding::Vex256 {
             Ok(Effect::Ymm {
                 index: self.index,
-                value: std::array::from_fn(byte),
+                value: self.operation.result(left, data),
                 length: self.length,
             })
         } else {
             Ok(Effect::Xmm {
                 index: self.index,
-                value: std::array::from_fn(byte),
+                value: self.operation.result(left, data),
                 zero_upper: self.encoding == Encoding::Vex128,
                 length: self.length,
             })

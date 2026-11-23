@@ -103,12 +103,15 @@ fn vector_logical_device_inputs_plan_legacy_vex128_and_vex256() {
 #[test]
 fn vector_logic_rejects_misaligned_legacy_and_encodings_without_a_device_operand() {
     for code in [
-        &[0x44, 0x0f, 0x54, 0x7f, 3][..], // Misaligned ANDPS.
-        &[0x66, 0x0f, 0xeb, 0x47, 3],     // Misaligned POR.
-        &[0x0f, 0x54, 0xc7],              // Register-only ANDPS.
-        &[0xc5, 0x3d, 0xef, 0xff],        // Register-only VPXOR.
-        &[0xc5, 0x3a, 0x54, 0x3f],        // Reserved mandatory prefix for VAND.
-        &[0xc4, 0x62, 0x38, 0x54, 0x3f],  // Opcode outside VEX map 0F.
+        &[0x44, 0x0f, 0x54, 0x7f, 3][..],   // Misaligned ANDPS.
+        &[0x66, 0x0f, 0xeb, 0x47, 3],       // Misaligned POR.
+        &[0x0f, 0x54, 0xc7],                // Register-only ANDPS.
+        &[0xc5, 0x3d, 0xef, 0xff],          // Register-only VPXOR.
+        &[0xc5, 0x3a, 0x54, 0x3f],          // Reserved mandatory prefix for VAND.
+        &[0xc4, 0x62, 0x38, 0x54, 0x3f],    // Opcode outside VEX map 0F.
+        &[0x66, 0x0f, 0x38, 0x37, 0x47, 3], // Misaligned PCMPGTQ.
+        &[0x0f, 0x74, 0x07],                // MMX PCMPEQB.
+        &[0xc4, 0x62, 0x3a, 0x29, 0x3f],    // Reserved VPCMPEQQ mandatory prefix.
     ] {
         let (context, mut memory, mut exit) = fixture(code);
         exit.qualification = 0x181;
@@ -129,45 +132,164 @@ fn vector_logic_rejects_misaligned_legacy_and_encodings_without_a_device_operand
     assert!(instruction_metadata::decode(32, 0x1000, &[0xc5, 0xbd, 0xef, 0x07]).is_err());
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum Write {
+    Xmm(u8, [u8; 16], bool),
+    Ymm(u8, [u8; 32]),
+    Retire(u64),
+}
+
+#[derive(Default)]
+struct Host(Vec<Write>);
+
+impl mmio::CompletionAccess for Host {
+    type Error = &'static str;
+
+    fn write_gpr(&mut self, _: usize, _: u64) -> Result<(), Self::Error> {
+        panic!("packed logical read changed a GPR");
+    }
+
+    fn write_rflags(&mut self, _: u64) -> Result<(), Self::Error> {
+        panic!("packed logical read changed RFLAGS");
+    }
+
+    fn write_xmm(&mut self, index: u8, value: [u8; 16], zero: bool) -> Result<(), String> {
+        self.0.push(Write::Xmm(index, value, zero));
+        Ok(())
+    }
+
+    fn write_ymm(&mut self, index: u8, value: [u8; 32]) -> Result<(), String> {
+        self.0.push(Write::Ymm(index, value));
+        Ok(())
+    }
+
+    fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error> {
+        self.0.push(Write::Retire(length));
+        Ok(())
+    }
+}
+
+fn assert_comparison_completion(
+    input: &mmio::vector_logic::Input,
+    element: usize,
+    equal: bool,
+    mnemonic: &str,
+) {
+    let width = usize::from(input.encoding.size());
+    let max = i64::MAX >> (64 - element * 8);
+    let boundary = if element == 1 { 8 } else { 0x100 };
+    let pairs = [
+        (7, 7, true, false),
+        (-6, 3, false, false),
+        (0, -1, false, true),
+        (!max, max, false, false),
+        (-2, -3, false, true),
+        (boundary, boundary - 1, false, true),
+        (boundary - 1, boundary, false, false),
+        (!max, !max, true, false),
+    ];
+    for rotation in 0..pairs.len() {
+        let mut left = [0; 32];
+        let mut reply = [0; 32];
+        let mut result = [0; 32];
+        for start in (0..width).step_by(element) {
+            let (x, y, matches, greater) = pairs[(start / element + rotation) % pairs.len()];
+            let lane = start..start + element;
+            let applies = if equal { matches } else { greater };
+            left[lane.clone()].copy_from_slice(&x.to_le_bytes()[..element]);
+            reply[lane.clone()].copy_from_slice(&y.to_le_bytes()[..element]);
+            result[lane].fill(if applies { 0xff } else { 0 });
+        }
+        let mut pending = mmio::InputState::default();
+        pending.begin_vector_logic(input.clone(), left).unwrap();
+        let record = rax::codec::serialize(&pending).unwrap();
+        let mut restored: mmio::InputState = rax::codec::deserialize_strict(&record).unwrap();
+        restored.validate_checkpoint().unwrap();
+        let mut host = Host::default();
+        restored.complete(&mut host, &reply[..width]);
+        let write = if width == 32 {
+            Write::Ymm(15, result)
+        } else {
+            let clear_upper = input.encoding == Encoding::Vex128;
+            Write::Xmm(15, result[..16].try_into().unwrap(), clear_upper)
+        };
+        assert_eq!(
+            host.0,
+            [write, Write::Retire(input.length)],
+            "{mnemonic}, {:?}, rotation {rotation}",
+            input.encoding
+        );
+        assert!(restored.ready().is_ok());
+        restored.complete(&mut host, &reply[..width]);
+        assert_eq!(host.0.len(), 2);
+    }
+}
+
+#[test]
+fn packed_integer_comparisons_plan_and_complete_device_reads() {
+    let mut failures = Vec::new();
+    for (map, opcode, mnemonic, element, equal) in [
+        (1, 0x74, "pcmpeqb", 1, true),
+        (1, 0x75, "pcmpeqw", 2, true),
+        (1, 0x76, "pcmpeqd", 4, true),
+        (2, 0x29, "pcmpeqq", 8, true),
+        (1, 0x64, "pcmpgtb", 1, false),
+        (1, 0x65, "pcmpgtw", 2, false),
+        (1, 0x66, "pcmpgtd", 4, false),
+        (2, 0x37, "pcmpgtq", 8, false),
+    ] {
+        let mut legacy = vec![0x66, 0x44, 0x0f];
+        if map == 2 {
+            legacy.push(0x38);
+        }
+        legacy.extend([opcode, 0x3f]);
+        for (code, encoding) in [
+            (legacy.as_slice(), Encoding::Legacy),
+            (&[0xc4, 0x60 | map, 0x39, opcode, 0x7f, 3], Encoding::Vex128),
+            (&[0xc4, 0x60 | map, 0x3d, opcode, 0x7f, 3], Encoding::Vex256),
+        ] {
+            let (context, mut memory, mut exit) = fixture(code);
+            exit.qualification = 0x181;
+            let vex = encoding != Encoding::Legacy;
+            if vex {
+                exit.linear += 3;
+                exit.physical += 3;
+            }
+            let own_mnemonic = if vex {
+                format!("v{mnemonic}")
+            } else {
+                mnemonic.into()
+            };
+            match prepare(&context, &mut memory, exit) {
+                Ok(plan) => {
+                    let meta = instruction_metadata::decode(64, context.rip, code).unwrap();
+                    assert_eq!(meta.mnemonic, own_mnemonic, "{code:02x?}");
+                    let Action::VectorLogic { input, source } = plan.action else {
+                        panic!("wrong action for {code:02x?}: {:?}", plan.action);
+                    };
+                    assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+                    assert_eq!(
+                        (input.encoding, input.index, input.length),
+                        (encoding, 15, code.len() as u64)
+                    );
+                    assert_eq!(source, if vex { 8 } else { 15 });
+                    assert!(
+                        memory
+                            .reads
+                            .iter()
+                            .all(|&(address, _)| address != exit.physical)
+                    );
+                    assert_comparison_completion(&input, element, equal, &own_mnemonic);
+                }
+                Err(error) => failures.push(format!("{own_mnemonic} {code:02x?} {error}")),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 #[test]
 fn vector_logic_retires_a_serialized_input_once_with_the_encoded_upper_lane_rule() {
-    #[derive(Debug, PartialEq, Eq)]
-    enum Write {
-        Xmm(u8, [u8; 16], bool),
-        Ymm(u8, [u8; 32]),
-        Retire(u64),
-    }
-
-    #[derive(Default)]
-    struct Host(Vec<Write>);
-
-    impl mmio::CompletionAccess for Host {
-        type Error = &'static str;
-
-        fn write_gpr(&mut self, _: usize, _: u64) -> Result<(), Self::Error> {
-            panic!("packed logical read changed a GPR");
-        }
-
-        fn write_rflags(&mut self, _: u64) -> Result<(), Self::Error> {
-            panic!("packed logical read changed RFLAGS");
-        }
-
-        fn write_xmm(&mut self, index: u8, value: [u8; 16], zero: bool) -> Result<(), String> {
-            self.0.push(Write::Xmm(index, value, zero));
-            Ok(())
-        }
-
-        fn write_ymm(&mut self, index: u8, value: [u8; 32]) -> Result<(), String> {
-            self.0.push(Write::Ymm(index, value));
-            Ok(())
-        }
-
-        fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error> {
-            self.0.push(Write::Retire(length));
-            Ok(())
-        }
-    }
-
     let left: [u8; 8] = [0x5a, 0xa5, 0xf0, 0x0f, 0x73, 0x48, 0xbe, 0x19];
     let right: [u8; 8] = [0x33, 0x77, 0xaa, 0x55, 0x86, 0xb1, 0xc3, 0xed];
     let left = std::array::from_fn(|i| left[i % 8].rotate_left((i / 8) as u32));

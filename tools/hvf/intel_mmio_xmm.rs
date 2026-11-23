@@ -541,6 +541,162 @@ fn logic_case(code: &[u8], opcode: u8, width: usize, vex: bool, restore: bool) -
     low0 ^ low1.rotate_left(7) ^ high0.rotate_left(23) ^ high1.rotate_left(41)
 }
 
+pub(super) fn run_integer_comparisons(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    for (map, opcode, mnemonic, element, equal) in [
+        (1, 0x74, "pcmpeqb", 1, true),
+        (1, 0x75, "pcmpeqw", 2, true),
+        (1, 0x76, "pcmpeqd", 4, true),
+        (2, 0x29, "pcmpeqq", 8, true),
+        (1, 0x64, "pcmpgtb", 1, false),
+        (1, 0x65, "pcmpgtw", 2, false),
+        (1, 0x66, "pcmpgtd", 4, false),
+        (2, 0x37, "pcmpgtq", 8, false),
+    ] {
+        let mut legacy = vec![0x66, 0x44, 0x0f];
+        if map == 2 {
+            legacy.push(0x38);
+        }
+        legacy.extend([opcode, 0x3f]);
+        for (code, encoding, width, vex) in [
+            (legacy.as_slice(), "legacy", 16, false),
+            (
+                &[0xc4, 0x60 | map, 0x39, opcode, 0x7f, 3],
+                "vex128",
+                16,
+                true,
+            ),
+            (
+                &[0xc4, 0x60 | map, 0x3d, opcode, 0x7f, 3],
+                "vex256",
+                32,
+                true,
+            ),
+        ] {
+            for rotation in [0, 1] {
+                let (left, reply, expected) = comparison_vectors(element, equal, rotation, width);
+                for restore in [false, true] {
+                    let value = comparison_case(code, width, vex, restore, left, reply, expected);
+                    let phase = if restore { "restored" } else { "direct" };
+                    record(
+                        output,
+                        case,
+                        &format!("vector-compare-{encoding}-{mnemonic}-{rotation}-{phase}"),
+                        width,
+                        value,
+                    );
+                    case += 1;
+                }
+            }
+        }
+        record(
+            output,
+            case,
+            &format!("vector-compare-legacy-{mnemonic}-misaligned"),
+            16,
+            alignment_fault(&legacy, false, 3),
+        );
+        case += 1;
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn comparison_vectors(
+    element: usize,
+    equal: bool,
+    rotation: usize,
+    width: usize,
+) -> ([u64; 4], [u8; 32], [u64; 4]) {
+    let max = i64::MAX >> (64 - element * 8);
+    let values = [(7, 7), (-6, 3), (0, -1), (!max, max)];
+    let mut left = [0; 32];
+    let mut reply = [0; 32];
+    let mut expected = [0; 32];
+    for start in (0..32).step_by(element) {
+        let (x, y) = values[(start / element + rotation) % values.len()];
+        let lane = start..start + element;
+        left[lane.clone()].copy_from_slice(&x.to_le_bytes()[..element]);
+        reply[lane.clone()].copy_from_slice(&y.to_le_bytes()[..element]);
+        let matches = if equal { x == y } else { x > y };
+        if start < width && matches {
+            expected[lane].fill(0xff);
+        }
+    }
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    (qwords(left), reply, qwords(expected))
+}
+
+fn comparison_case(
+    code: &[u8],
+    width: usize,
+    vex: bool,
+    restore: bool,
+    left: [u64; 4],
+    reply: [u8; 32],
+    expected: [u64; 4],
+) -> u64 {
+    const FLAGS: u64 = 0x8d7;
+    let memory = guest_memory(code);
+    word(&memory, 0x4000, 0x4000_009b);
+    let (mut vm, mut cpu) = machine(&memory);
+    enable_guest_avx(&memory, cpu.as_mut());
+    let mut initial = state(cpu.as_ref());
+    initial.regs.rip = CODE;
+    initial.regs.rdi = MMIO;
+    initial.regs.rax = SEED;
+    initial.regs.rflags = FLAGS;
+    initial.regs.xmm = std::array::from_fn(|index| [SEED + index as u64, MARKER - index as u64]);
+    initial.regs.ymm_high =
+        std::array::from_fn(|index| [!SEED - index as u64, !MARKER + index as u64]);
+    let source = if vex { 8 } else { 15 };
+    let [a, b, c, d] = left;
+    initial.regs.xmm[source] = [a, b];
+    initial.regs.ymm_high[source] = [c, d];
+    let mut xmm = initial.regs.xmm;
+    let mut upper = initial.regs.ymm_high;
+    cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+
+    let address = MMIO + if vex { 3 } else { 0 };
+    let pending = |cpu: &mut dyn VCpu| {
+        let exit = event(cpu);
+        assert!(
+            matches!(exit, VcpuExit::MmioRead { addr, size } if addr == address && usize::from(size) == width),
+            "unexpected packed comparison exit for {code:02x?}: {exit:?}",
+        );
+        assert!(cpu.io_completion_result().is_err());
+    };
+    pending(cpu.as_mut());
+    if restore {
+        (vm, cpu) = restore_vector_read(&memory, vm, cpu);
+        pending(cpu.as_mut());
+    }
+    let [a, b, c, d] = expected;
+    xmm[15] = [a, b];
+    if vex {
+        upper[15] = [c, d];
+    }
+    cpu.complete_io_in(&reply[..width]);
+    cpu.io_completion_result().unwrap();
+    let retired = state(cpu.as_ref());
+    assert_eq!(retired.regs.rip, CODE + code.len() as u64);
+    assert_eq!(retired.regs.rdi, MMIO);
+    assert_eq!(retired.regs.rflags, FLAGS);
+    assert_eq!(retired.regs.xmm, xmm);
+    assert_eq!(retired.regs.ymm_high, upper);
+    halted_with_flags(cpu.as_mut(), code.len(), SEED, FLAGS);
+    let final_state = state(cpu.as_ref());
+    assert_eq!(final_state.regs.xmm, xmm);
+    assert_eq!(final_state.regs.ymm_high, upper);
+    drop(cpu);
+    drop(vm);
+    let [low0, low1] = xmm[15];
+    let [high0, high1] = upper[15];
+    low0 ^ low1.rotate_left(7) ^ high0.rotate_left(23) ^ high1.rotate_left(41)
+}
+
 fn restore_vector_read(
     memory: &GuestMemoryWrapper,
     vm: Box<dyn Vm>,

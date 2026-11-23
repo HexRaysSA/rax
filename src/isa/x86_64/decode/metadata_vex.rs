@@ -30,27 +30,20 @@ pub(super) fn decode_xmm_transfer(
         ((!vex >> 5) & 4, vex & 0x7f, 1)
     };
     let opcode = ctx.consume_u8().ok()?;
-    let bit_test = if map == 2 {
-        Some(match (flags & 3, opcode) {
-            (1, 0x17) => "vptest",
-            (1, 0x0e) if flags & 0x80 == 0 => "vtestps",
-            (1, 0x0f) if flags & 0x80 == 0 => "vtestpd",
-            _ => {
-                *unsupported = true;
-                return None;
-            }
-        })
-    } else {
-        None
-    };
-    let logic = if map == 1 {
-        packed_logic_mnemonics(flags & 3, opcode).map(|(_, vex)| vex)
-    } else {
-        None
+    let binary = packed_binary_mnemonics(map, flags & 3, opcode).map(|(_, vex)| vex);
+    let bit_test = match (map, flags & 3, opcode) {
+        (2, 1, 0x17) => Some("vptest"),
+        (2, 1, 0x0e) if flags & 0x80 == 0 => Some("vtestps"),
+        (2, 1, 0x0f) if flags & 0x80 == 0 => Some("vtestpd"),
+        _ => None,
     };
     let wide = bits == 64 && flags & 0x80 != 0;
     let (load, mut size, vector_rm) = match (flags & 3, opcode) {
-        _ if logic.is_some() || bit_test.is_some() => (true, 16, true),
+        _ if binary.is_some() || bit_test.is_some() => (true, 16, true),
+        _ if map != 1 => {
+            *unsupported = true;
+            return None;
+        }
         (1, 0x6e) => (true, if wide { 8 } else { 4 }, false),
         (1, 0x7e) => (false, if wide { 8 } else { 4 }, false),
         (2, 0x7e) => (true, 8, true),
@@ -78,7 +71,7 @@ pub(super) fn decode_xmm_transfer(
         *unsupported = load && flags & 3 == 0;
         return None;
     }
-    let explicit_source = lane_move && load || logic.is_some();
+    let explicit_source = lane_move && load || binary.is_some();
     let vvvv = !flags >> 3 & 15;
     if explicit_source && bits != 64 && vvvv >= 8 || !explicit_source && vvvv != 0 {
         return None;
@@ -129,7 +122,7 @@ pub(super) fn decode_xmm_transfer(
     };
     out.mnemonic = match (opcode, size, flags & 3) {
         _ if let Some(name) = bit_test => name,
-        _ if let Some(name) = logic => name,
+        _ if let Some(name) = binary => name,
         (0x10 | 0x11, 4, 2) => "vmovss",
         (0x10 | 0x11, 8, 3) => "vmovsd",
         (0x10 | 0x11, 16 | 32, 0) => "vmovups",
