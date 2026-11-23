@@ -606,6 +606,63 @@ fn native_file_open_closed_directory_metadata_and_volume_are_guest_local() {
 }
 
 #[test]
+fn native_file_open_server_2022_bcrypt_keeps_the_captured_device_guest_owned() {
+    use crate::user::windows::object_namespace::security_device::SecurityDevice;
+    use crate::user::windows::objects::Object;
+
+    let arch = WinArch::X64;
+    let mut h = Harness::new(arch);
+    let device = SecurityDevice {
+        kernel: (10, 0, 20348),
+        revision: 1,
+        native_machine: arch.machine(),
+        device_type: 0x39,
+        characteristics: 0x100,
+    };
+    let width = arch.ptr_size();
+    let (output, io, attrs) = (h.base, h.base + 64, h.attrs());
+    let p = h.process.state_mut();
+    Arc::make_mut(&mut p.cfg).host_filesystem = false;
+    p.object_namespace.native_machine = Some(arch.machine());
+    p.object_namespace.select_security_device(device).unwrap();
+
+    h.name(r"\Device\KsecDD");
+    h.process.state().space.w32(attrs + 3 * width, 0).unwrap();
+    assert_eq!(h.open_with(output, io, 0x100003, 7, 0x20), STATUS_SUCCESS);
+    let p = h.process.state();
+    let handle = p.space.ptr(output, width).unwrap();
+    assert!(matches!(p.objects.get(handle), Some(Object::SecurityFile(value)) if *value == device));
+    assert_eq!(p.objects.access(handle), Some(0x100003));
+    assert_eq!(p.space.ptr(io + width, width).unwrap(), 0);
+    assert_eq!(
+        h.invoke_api("NtQueryVolumeInformationFile", &[handle, io, output, 8, 4]),
+        STATUS_SUCCESS
+    );
+    let p = h.process.state();
+    assert_eq!(p.space.u32(output).unwrap(), device.device_type);
+    assert_eq!(p.space.u32(output + 4).unwrap(), device.characteristics);
+    assert_eq!(h.invoke_api("NtClose", &[handle]), STATUS_SUCCESS);
+
+    for (name, access) in [
+        (r"\Device\KsecDD\child", 0x100003),
+        (r"\Device\KsecDD", 0x100001),
+    ] {
+        h.name(name);
+        let p = h.process.state_mut();
+        p.space.w32(attrs + 3 * width, 0).unwrap();
+        let module = p.modules.nt_services.as_ref().unwrap().0;
+        p.modules.nt_services = Some((module, table(arch, "NtOpenFile", 0x33)));
+        let count = p.objects.handle_count();
+        arguments(p, &mut h.thread, &[output, access, attrs, io, 7, 0x20]);
+        assert!(
+            matches!(handle_stop(p, &mut h.thread, stop(arch, 0x33)), Outcome::Fail(reason)
+            if reason.contains("Server 2022 security-device open parameters are not selected"))
+        );
+        assert_eq!(p.objects.handle_count(), count);
+    }
+}
+
+#[test]
 fn native_file_open_mui_satellites_require_an_installed_owner_and_read_only_access() {
     use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_OBJECT_PATH_NOT_FOUND};
     for arch in WinArch::ALL {

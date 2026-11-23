@@ -211,6 +211,7 @@ pub(super) fn kernel(
             pid = c.p.pid,
             path = ?name.as_deref().map(String::from_utf16_lossy),
             root = attrs.root,
+            attributes = %format_args!("{:#010x}", attrs.flags),
             access = %format_args!("{:#010x}", r.access),
             share = r.share,
             options = %format_args!("{:#010x}", r.options),

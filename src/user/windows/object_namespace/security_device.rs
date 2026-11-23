@@ -39,11 +39,19 @@ impl SecurityDevice {
         }
     }
 
+    pub(super) fn supports_server_2022(kernel: (u32, u32, u32), native_machine: u16) -> bool {
+        kernel == (10, 0, 20348) && native_machine == WinArch::X64.machine()
+    }
+
+    pub(crate) fn server_2022_profile(self) -> bool {
+        Self::supports_server_2022(self.kernel, self.native_machine)
+    }
+
     pub(crate) fn selected(self) -> io::Result<Self> {
-        if Self::expected_revision(self.kernel, Some(self.native_machine)) != Some(self.revision)
-            || self.device_type != KSEC_DEVICE_TYPE
-            || self.characteristics != 0x100
-        {
+        let measured = Self::expected_revision(self.kernel, Some(self.native_machine))
+            == Some(self.revision)
+            && self.characteristics == 0x100;
+        if self.device_type != KSEC_DEVICE_TYPE || !(measured || self.server_2022_profile()) {
             return Err(invalid("kernel security-device profile is not measured"));
         }
         Ok(self)
