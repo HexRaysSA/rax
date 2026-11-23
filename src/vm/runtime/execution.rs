@@ -250,7 +250,17 @@ impl Vmm {
             #[cfg(feature = "debug")]
             let parallel = parallel && self.gdb_channels.is_none();
             if parallel {
-                self.execute_native_round(&mut turns, &mut pending)?;
+                if let Err(error) = self.execute_native_round(&mut turns, &mut pending) {
+                    // The round joins all posted owners, including after a
+                    // partial posting failure. Successful peers can already
+                    // own device exits that require completion.
+                    if !turns.is_empty()
+                        && let Err(dispatch_error) = self.apply_native_round(&mut turns)
+                    {
+                        tracing::warn!(%dispatch_error, "peer exit dispatch also failed");
+                    }
+                    return Err(error);
+                }
                 if self.apply_native_round(&mut turns)? {
                     break;
                 }

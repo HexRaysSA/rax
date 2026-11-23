@@ -19,6 +19,7 @@ struct Calls {
     posted: Vec<u32>,
     collected: Vec<u32>,
     reject_post: Option<u32>,
+    reject_collect: Option<u32>,
 }
 
 struct Native {
@@ -91,6 +92,9 @@ impl VCpu for Native {
         assert!(calls.posted.contains(&self.id));
         assert!(!calls.collected.contains(&self.id));
         calls.collected.push(self.id);
+        if calls.reject_collect == Some(self.id) {
+            return Err(Error::Emulator("test host entry collection failed".into()));
+        }
         Ok(self.prepared_input.then_some(VcpuExit::IoIn {
             port: 0x3f8 + self.id as u16,
             size: 1,
@@ -237,6 +241,36 @@ fn native_round_joins_partial_dispatch_before_returning_a_post_error() {
     assert_eq!(calls.collected, [0, 1]);
     assert!(pending.is_empty());
     assert_eq!(turns.len(), 2);
+}
+
+#[test]
+fn native_run_dispatches_successful_peer_exits_before_returning_worker_error() {
+    for (reject_post, expected_collected, expected_completed, expected_error) in [
+        (true, &[0, 1][..], &[(0, 0), (1, 0)][..], "post failed"),
+        (
+            false,
+            &[0, 1, 2, 3][..],
+            &[(0, 0), (1, 0), (3, 0)][..],
+            "collection failed",
+        ),
+    ] {
+        let (mut fixture, calls) = fixture(4, true);
+        fixture.vm.hvf_parallel_vcpus = true;
+        {
+            let mut calls = calls.lock().unwrap();
+            if reject_post {
+                calls.reject_post = Some(2);
+            } else {
+                calls.reject_collect = Some(2);
+            }
+        }
+        let error = fixture.vm.run().unwrap_err();
+        assert!(error.to_string().contains(expected_error), "{error}");
+        let calls = calls.lock().unwrap();
+        assert_eq!(calls.posted, expected_collected);
+        assert_eq!(calls.collected, expected_collected);
+        assert_eq!(calls.input_completions, expected_completed);
+    }
 }
 
 #[test]

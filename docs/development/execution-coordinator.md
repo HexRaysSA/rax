@@ -152,6 +152,21 @@ versions, and QEMU output under `rax-audit-work/four-findings-coordinator`.
 Complete affected test binaries and broader gates are required before this
 semantic group is committed.
 
+## Native worker errors
+
+When posting or collecting a native entry fails, the coordinator still joins
+every posted worker. `Vmm::run` dispatches the exits returned by successful
+peers through the normal round handler before returning the original worker
+error. The ordinary terminal shutdown policy applies. A secondary dispatch
+error is logged. Coordinator overhead is O(C) for C configured vCPUs, with
+the existing round buffers.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Work already collected from successful peers requires completion. | High | Force a post failure at CPU 2 in a four-vCPU `Vmm::run`. Require ordered input completions from CPUs 0 and 1. The predecessor collected their exits and completed neither. |
+| A collection failure can leave valid exits from both earlier and later peers. | High | Return a collection error at CPU 2. Require collection of all four submissions, input completions from CPUs 0, 1, and 3, and the original error. |
+| This evidence covers runtime orchestration. | Medium | Inject worker failures through a scripted vCPU adapter. Native SDK faults and device-dispatch failures have separate backend and endpoint boundaries. |
+
 ## Native Intel HVF startup and file continuation
 
 The full 952-case standalone MMIO run exercised the production VMM with one,
