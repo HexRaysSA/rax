@@ -641,7 +641,44 @@ fn native_file_open_server_2022_bcrypt_keeps_the_captured_device_guest_owned() {
     let p = h.process.state();
     assert_eq!(p.space.u32(output).unwrap(), device.device_type);
     assert_eq!(p.space.u32(output + 4).unwrap(), device.characteristics);
+    let observation: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-ksecdd/bcrypt-sha256-arm64.json"
+    )))
+    .unwrap();
+    let hex = observation["watch"]["input_prefix"].as_str().unwrap();
+    let request: Vec<_> = (0..hex.len())
+        .step_by(2)
+        .map(|offset| u8::from_str_radix(&hex[offset..offset + 2], 16).unwrap())
+        .collect();
+    assert_eq!(request.len(), 96);
+    assert_eq!(
+        h.invoke_api("NtCreateEvent", &[output, 0x1f0003, 0, 1, 0]),
+        STATUS_SUCCESS
+    );
+    let p = h.process.state();
+    let event = p.space.u64(output).unwrap();
+    let event_id = p.objects.id(event).unwrap();
+    let input = h.base + 256;
+    p.space.wr(input, &request).unwrap();
+    p.space.w64(input + 96, event).unwrap();
+    p.space.wr(output, &[0xa5; 8]).unwrap();
+    let args = [handle, 0, 0, 0, io, 0x390400, input, 104, output, 8];
+    assert_eq!(h.invoke_api("NtDeviceIoControlFile", &args), STATUS_SUCCESS);
+    let p = h.process.state();
+    assert_eq!(p.space.bytes(io, 16).unwrap(), [0; 16]);
+    assert_eq!(p.space.bytes(output, 8).unwrap(), [0xa5; 8]);
+    assert_eq!(
+        p.objects
+            .file_state(handle)
+            .unwrap()
+            .security_provider_event,
+        Some(event_id)
+    );
+    assert_eq!(h.invoke_api("NtClose", &[event]), STATUS_SUCCESS);
+    assert!(h.process.state().objects.obj(event_id).is_some());
     assert_eq!(h.invoke_api("NtClose", &[handle]), STATUS_SUCCESS);
+    assert!(h.process.state().objects.obj(event_id).is_none());
 
     for (name, access) in [
         (r"\Device\KsecDD\child", 0x100003),

@@ -1,5 +1,5 @@
 //! Selected synchronous controls on guest-owned security-device files.
-//! Request and reply layouts are scoped to measured installed ARM64 callers.
+//! Each provider profile selects only a bounded guest request and reply layout.
 
 use super::named_object::{Checked, finish_with, status};
 use super::query::probe_write;
@@ -73,9 +73,10 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
 }
 
 fn provider(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Checked<u32> {
-    if c.arch() != WinArch::Arm64
-        || device.kernel != (10, 0, 29708)
-        || device.revision != 1003
+    let sha256_profile =
+        c.arch() == WinArch::Arm64 && device.kernel == (10, 0, 29708) && device.revision == 1003;
+    let amd64_registration = c.arch() == WinArch::X64 && device.server_2022_profile();
+    if !(sha256_profile || amd64_registration)
         || code != PROVIDER_CONTROL
         || c.p.objects.file_mode(handle) != Some(0x20)
         || (c.ptr(1)?, c.ptr(2)?, c.ptr(3)?) != (0, 0, 0)
@@ -97,10 +98,16 @@ fn provider(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Chec
         c.ptr(8)?,
         c.u32(9)? as usize,
     );
-    if !matches!(
-        (input_len, output_len),
-        (WATCH_BYTES, 8) | (LOOKUP_BYTES, 384)
-    ) {
+    tracing::trace!(
+        target: "rax::windows::ntstatus",
+        pid = c.p.pid,
+        input_len,
+        output_len,
+        "guest KsecDD provider request"
+    );
+    if (input_len, output_len) != (WATCH_BYTES, 8)
+        && !(sha256_profile && (input_len, output_len) == (LOOKUP_BYTES, 384))
+    {
         return Err(c
             .unsupported("KsecDD provider message sizes are not selected")
             .into());
