@@ -22,9 +22,12 @@ fn query(c: &mut Ctx) -> ApiResult {
     let kernel = (version.major, version.minor, version.build);
     let wow64 = c.arch() == WinArch::X86;
     let arm64 = runtime.object_namespace.native_machine == Some(0xaa64);
-    let amd64_profile = c.arch() == WinArch::X64
-        && runtime.object_namespace.native_machine == Some(0x8664)
-        && matches!(kernel, (10, 0, 20348 | 26100));
+    // These native release profiles preserve the outputs on a missing name.
+    let native_release_profile = match (c.arch(), runtime.object_namespace.native_machine) {
+        (WinArch::X64, Some(0x8664)) => matches!(kernel, (10, 0, 20348 | 26100)),
+        (WinArch::Arm64, Some(0xaa64)) => kernel == (10, 0, 26200),
+        _ => false,
+    };
     let selected = match c.arch() {
         WinArch::Arm64 => true,
         WinArch::X64 => arm64,
@@ -35,7 +38,7 @@ fn query(c: &mut Ctx) -> ApiResult {
                 })
         }
     };
-    if !amd64_profile && (kernel != (10, 0, 29708) || !selected) {
+    if !native_release_profile && (kernel != (10, 0, 29708) || !selected) {
         return Err(c.unsupported("unmeasured NtQueryLicenseValue profile"));
     }
 
@@ -59,7 +62,7 @@ fn query(c: &mut Ctx) -> ApiResult {
     .find(|(candidate, _)| 2 * candidate.len() == length)
     .ok_or_else(|| c.unsupported("NtQueryLicenseValue startup name is not captured"))?;
 
-    if selected == APP_SERVER_MODE_NAME && !arm64 && !amd64_profile {
+    if selected == APP_SERVER_MODE_NAME && !arm64 && !native_release_profile {
         return Err(c.unsupported("NtQueryLicenseValue AppServerMode profile is not captured"));
     }
 
@@ -72,8 +75,8 @@ fn query(c: &mut Ctx) -> ApiResult {
         .chunks_exact(2)
         .map(|unit| u16::from_le_bytes([unit[0], unit[1]]))
         .collect();
-    let clear_missing =
-        selected == EXCLUDED_PROCESSES_NAME || (selected == DEVICE_FAMILY_NAME && !amd64_profile);
+    let clear_missing = selected == EXCLUDED_PROCESSES_NAME
+        || (selected == DEVICE_FAMILY_NAME && !native_release_profile);
     if !units.iter().copied().eq(selected.encode_utf16()) {
         if !String::from_utf16(&units).is_ok_and(|name| name.eq_ignore_ascii_case(selected)) {
             return Err(c.unsupported("NtQueryLicenseValue startup name is not captured"));

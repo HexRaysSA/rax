@@ -52,3 +52,11 @@ and preserve the length, type and data outputs for both names. The emulator
 selects this profile for an AMD64 guest on those two AMD64 kernels and
 uses the selected host policy snapshot. [Capture identities](amd64-inputs.json)
 bind the native results.
+
+Windows 11 ARM64 build 26200 returns the same status, type, length and
+guarded-output behavior for these two names across the 80 native64 cases.
+The selected host's DWORDs were 3 for DeviceFamilyID and 0 for AppServerMode.
+Lowercase names preserve every output. The emulator uses each installation's
+snapshot for the matching native ARM64 guest profile.
+[Native observations](arm64-26200-native.json).
+[Runner and NTDLL identity](https://github.com/HexRaysSA/rax/actions/runs/45117962053/job/137505031615).

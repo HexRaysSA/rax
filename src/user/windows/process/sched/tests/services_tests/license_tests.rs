@@ -279,7 +279,7 @@ fn amd64_startup_license_replays_the_native64_queries_on_windows_arm() {
 }
 
 #[test]
-fn amd64_startup_license_replays_both_native_server_builds() {
+fn native_startup_license_replays_measured_release_builds() {
     use crate::user::windows::policy::APP_SERVER_MODE_NAME;
 
     #[derive(serde::Deserialize)]
@@ -305,15 +305,27 @@ fn amd64_startup_license_replays_both_native_server_builds() {
 
     let captures = [
         (
+            WinArch::X64,
+            0x8664,
             20348,
             include_str!(
                 "../../../../../../../docs/specifications/windows/native-startup-license/amd64-20348-native.json"
             ),
         ),
         (
+            WinArch::X64,
+            0x8664,
             26100,
             include_str!(
                 "../../../../../../../docs/specifications/windows/native-startup-license/amd64-26100-native.json"
+            ),
+        ),
+        (
+            WinArch::Arm64,
+            0xaa64,
+            26200,
+            include_str!(
+                "../../../../../../../docs/specifications/windows/native-startup-license/arm64-26200-native.json"
             ),
         ),
     ];
@@ -324,10 +336,10 @@ fn amd64_startup_license_replays_both_native_server_builds() {
             .collect::<Vec<_>>()
     };
 
-    for (build, source) in captures {
+    for (arch, machine, build, source) in captures {
         let capture: Capture = serde_json::from_str(source).unwrap();
         assert_eq!(capture.kernel, [10, 0, build]);
-        assert_eq!(capture.machine, 0x8664);
+        assert_eq!(capture.machine, machine);
         assert_eq!(capture.rows.len(), 80);
         let values = [DEVICE_FAMILY_NAME, APP_SERVER_MODE_NAME].map(|name| {
             let row = capture
@@ -341,12 +353,9 @@ fn amd64_startup_license_replays_both_native_server_builds() {
             (name, 4, decode_hex(&row.storage)[4..8].to_vec())
         });
 
-        let (mut process, mut thread, module) = terminal_fixture(WinArch::X64);
+        let (mut process, mut thread, module) = terminal_fixture(arch);
         let p = process.state_mut();
-        p.modules.nt_services = Some((
-            module,
-            named_table(WinArch::X64, "NtQueryLicenseValue", SERVICE),
-        ));
+        p.modules.nt_services = Some((module, named_table(arch, "NtQueryLicenseValue", SERVICE)));
         native_profile::kernel_profile(p, build, capture.machine);
         p.native.as_mut().unwrap().policy_catalog = Ok(Arc::new(Catalog::fixture(values)));
         let (base, _) =
@@ -366,27 +375,29 @@ fn amd64_startup_license_replays_both_native_server_builds() {
             p.space.w32(kind, 0xA5A5_A5A5).unwrap();
             p.space.w32(required, 0x5A5A_5A5A).unwrap();
 
-            super::nls_tests::arguments(
-                p,
-                &mut thread,
-                &[
-                    base,
-                    if row.has_type { kind } else { 0 },
-                    if row.null_data { 0 } else { storage + 4 },
-                    row.capacity.into(),
-                    required,
-                ],
-            );
-            thread.cpu.set_gpr(0, u64::from(SERVICE));
-            assert_eq!(
-                handle_stop(p, &mut thread, stop(WinArch::X64, SERVICE)),
-                Outcome::Continue
-            );
-            assert_eq!(thread.cpu.pc(), 0x1234_0004);
-            assert_eq!(thread.cpu.sp(), stack);
-            assert!(thread.frames.is_empty());
+            let args = [
+                base,
+                if row.has_type { kind } else { 0 },
+                if row.null_data { 0 } else { storage + 4 },
+                row.capacity.into(),
+                required,
+            ];
+            let status = if arch == WinArch::Arm64 {
+                call(p, &mut thread, args)
+            } else {
+                super::nls_tests::arguments(p, &mut thread, &args);
+                thread.cpu.set_gpr(0, u64::from(SERVICE));
+                assert_eq!(
+                    handle_stop(p, &mut thread, stop(arch, SERVICE)),
+                    Outcome::Continue
+                );
+                assert_eq!(thread.cpu.pc(), 0x1234_0004);
+                assert_eq!(thread.cpu.sp(), stack);
+                assert!(thread.frames.is_empty());
+                thread.cpu.gpr(0) as u32
+            };
             let case = (build, row.name.as_str(), row.maximum, row.capacity);
-            assert_eq!(thread.cpu.gpr(0) as u32, row.status, "{case:?}");
+            assert_eq!(status, row.status, "{case:?}");
             assert_eq!(p.space.u32(kind).unwrap(), row.kind, "{case:?}");
             assert_eq!(p.space.u32(required).unwrap(), row.required, "{case:?}");
             assert_eq!(
