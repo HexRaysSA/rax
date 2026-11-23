@@ -411,6 +411,8 @@ The signed executable SHA-256 is
 
 ## IA-32e compatibility-mode MMIO
 
+### 32-bit code segments
+
 The 32-bit compatibility profile enters with CS.L=0, CS.D=1, and
 IA32_EFER.LMA=1. It uses nonzero DS or FS bases, general-purpose
 register and moffs encodings, both address sizes, and scalar and
@@ -446,3 +448,37 @@ ordinary RAM and verified eight device-hole forms. KVM split each
 emulation error 1 for both MOVSD hole accesses before dispatch. Both
 MOVSD RAM controls completed. The witness output SHA-256 is
 `bba2954cb814e1bd7b12e006da3ae314a3531ab6242f5f3f0b54f6f27a1bb67c`.
+
+### 16-bit code segments
+
+This profile uses CS.L=0, CS.D=0, CS.base=`0xe000`, and a guest entry
+offset of `0x2000`. The instruction fetch resolves to `0x10000`. It
+checks DS, the implicit SS selection for BP+SI, a GS override, and a
+32-bit address override with an offset beyond 16 bits. The expected
+operand GPA is `0x40000080`. The same continuation and held-request
+checks apply to the scalar and packed operands.
+
+| Operand width | Native direct | Native after restore |
+| --- | ---: | ---: |
+| 1 byte | 2 | 2 |
+| 2 bytes | 2 | 2 |
+| 4 bytes | 2 | 2 |
+| 8 bytes | 1 | 1 |
+| 16 bytes | 1 | 1 |
+
+Hosted run [45110996856](https://github.com/HexRaysSA/rax/actions/runs/45110996856)
+passed all 16 cases at revision
+`172afefd95f52c1bce725d6b76fa4095aa930d87` on Intel macOS 15.7.9
+(24G830), SDK 15.5, inside a hosted VM. Independent verification
+matched all 4,895 engine inputs and 19 consumer inputs against Git,
+verified the signed executable and hypervisor entitlement, and
+checked all observation rows. Runtime artifact `14790161199` has
+SHA-256 `ac14ed84fdf7c45853d398bab8be19b2fbf1396d1bd0485844ba187123e8142d`.
+Its observation digest is
+`5f2696c080e5f3411150277c7e445adf124788c19193bcc105988a81bdb1fb7c`.
+
+The physical Intel Linux KVM witness completed all eight forms against RAM
+and seven against a device hole. The MOVSD load from the hole reported
+KVM internal emulation error 1 before device dispatch. The same MOVSD
+form completed on both hosted HVF paths. The KVM witness output SHA-256 is
+`28ab44a169011735a21ea4011cb9cd35c1d1782258cdeac4bfe9c0df85ee56e4`.
