@@ -805,5 +805,16 @@ On Apple Silicon the Intel macOS target passed 355 modeled and portable
 tests, including 100 SDK-owner and 16 CI policy tests. The Cargo log
 SHA-256 is `2f1c310b8a912252a6f1d632a50c2eadf0658eb51866e2ac0279f45493d119ec`.
 All 55 Python tests passed and the Intel guest executable passed strict
-signature verification. Native execution of the new profile is a separate
-qualification.
+signature verification.
+
+Hosted Intel macOS passed all 104 cases at
+`c01cfd0b0b6c2357035781cb40904b6b8bd3a0de`. The 48 direct and 48
+fresh-owner pending read cases matched the independent physical Intel
+RAM results. Eight legacy misalignment controls reached the guest fault
+handler at the original instruction. Verification matched 4,902 engine
+inputs, 19 consumer inputs and the signed, entitled executable with
+SHA-256 `9990814b59bfb91ebf441be0f1a2965a58d897ac6d9f03c47b4e95e7ac6ab4ad`.
+The ordered observations SHA-256 is
+`0dc1462173443300f5058ee7a47ec027ae1f533be678513b4b07ed319e9de211`.
+The process ran untranslated on Intel inside a hosting hypervisor.
+[Hosted packed comparison execution](https://github.com/HexRaysSA/rax/actions/runs/45148267711)
