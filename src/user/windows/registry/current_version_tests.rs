@@ -302,6 +302,73 @@ fn current_version_projects_only_the_disabled_native_extension_flag() {
 }
 
 #[test]
+fn current_version_routes_the_selected_native_appcompat_header() {
+    let subject = ProcessConfigKey::MachineAppCompatFlags;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let path = units(subject.path());
+    let native = RegistryView::Native64;
+    let wow = RegistryView::Wow32;
+    let version = |path: &str, child_present: bool| {
+        let entries = child_present
+            .then(|| BasicChild {
+                name: units("AppCompatFlags"),
+                last_write: 0,
+            })
+            .into_iter()
+            .collect();
+        header_with_entries(units(path), entries, 0)
+    };
+    for present in [true, false] {
+        let selected = if present {
+            Ok((
+                CommandHeader {
+                    canonical: path.clone(),
+                    children: 1,
+                    enumeration: None,
+                    values: vec![],
+                    access: KeyAccess {
+                        maximum_access: 0x20019,
+                        system_security_status: 0xC0000061,
+                    },
+                },
+                None,
+            ))
+        } else {
+            Err(0xC000_0034)
+        };
+        let registry = registry()
+            .with_snapshot_selection(root, &[], native, selected)
+            .unwrap()
+            .with_current_version(native, Ok(version(CURRENT_VERSION_KEY, present)))
+            .unwrap()
+            .with_current_version(wow, Ok(version(CURRENT_VERSION_WOW_KEY, true)))
+            .unwrap()
+            .with_current_version_parent(native, Ok(parent_header(units(WINDOWS_NT_KEY))))
+            .unwrap();
+
+        let direct = registry.lookup_view(&path, native);
+        let parent = registry.key(&units(CURRENT_VERSION_KEY)).unwrap();
+        let from_parent = parent.relative(&units("appcompatflags"));
+        let grandparent = registry.key(&units(WINDOWS_NT_KEY)).unwrap();
+        let from_grandparent = grandparent.relative(&units(r"CurrentVersion\AppCompatFlags"));
+        match (present, direct, from_parent, from_grandparent) {
+            (true, Lookup::Present(key), Lookup::Present(child), Lookup::Present(descendant)) => {
+                assert!(Arc::ptr_eq(&key, &child));
+                assert!(Arc::ptr_eq(&key, &descendant));
+                assert!(matches!(key.relative(&units("Layers")), Lookup::Unselected));
+                assert!(!key.covers_value(&units("DisableEngine")));
+            }
+            (false, Lookup::Missing, Lookup::Missing, Lookup::Missing) => {}
+            _ => panic!("CurrentVersion path lost its selected AppCompatFlags result"),
+        }
+        assert!(matches!(
+            registry.lookup_view(&path, wow),
+            Lookup::Unselected
+        ));
+    }
+}
+
+#[test]
 fn current_version_retained_roots_own_shared_routes_without_cycles() {
     let registry = paired();
     let Lookup::Present(key) =

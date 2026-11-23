@@ -101,16 +101,20 @@ impl Registry {
                         .map_or(Lookup::Missing, Lookup::Present),
                 );
             }
-            let extension_root = ProcessConfigKey::DisabledLegacyExtensions;
-            if let Some(Some(key)) = self
-                .views
-                .roots
-                .get(&(ViewRoot::ProcessConfig(extension_root), view))
-            {
-                routes.insert(
-                    fold(&"Windows".encode_utf16().collect::<Vec<_>>()),
-                    Lookup::Present(key.clone()),
-                );
+            for (child, subject) in [
+                ("Windows", ProcessConfigKey::DisabledLegacyExtensions),
+                ("AppCompatFlags", ProcessConfigKey::MachineAppCompatFlags),
+            ] {
+                let selection = (ViewRoot::ProcessConfig(subject), view);
+                let Some(selected) = self.views.roots.get(&selection) else {
+                    continue;
+                };
+                let route = match selected {
+                    Some(key) => Lookup::Present(key.clone()),
+                    None if self.views.missing_paths.contains(&selection) => Lookup::MissingPath,
+                    None => Lookup::Missing,
+                };
+                routes.insert(fold(&child.encode_utf16().collect::<Vec<_>>()), route);
             }
         }
         let missing_path = matches!(&header, Err(STATUS_OBJECT_PATH_NOT_FOUND));
