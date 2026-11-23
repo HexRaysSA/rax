@@ -823,6 +823,57 @@ fn closed_linux_clone_sighand_shares_dispositions_all_abis() {
 }
 
 #[test]
+fn closed_linux_unshare_checks_live_sharing_all_abis() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::thread::cf::{
+        CLONE_FILES, CLONE_FS, CLONE_SETTLS, CLONE_SIGHAND, CLONE_SYSVSEM, CLONE_THREAD, CLONE_VM,
+    };
+
+    for abi in ABIS {
+        let shared_contexts = CLONE_THREAD | CLONE_SIGHAND | CLONE_VM;
+        let mut h = Harness::embedded(abi);
+        h.ok(Sysno::Unshare, &[shared_contexts | CLONE_SYSVSEM]);
+        assert_eq!(h.err(Sysno::Unshare, &[CLONE_SETTLS]), EINVAL);
+
+        for flags in [CLONE_VM, CLONE_VM | CLONE_SIGHAND] {
+            let pid = h.ok(Sysno::Clone, &[flags | SIGCHLD as u64, 0, 0, 0, 0]);
+            h.ok(Sysno::Unshare, &[CLONE_THREAD]);
+            assert_eq!(h.err(Sysno::Unshare, &[CLONE_VM]), EINVAL);
+            if flags & CLONE_SIGHAND != 0 {
+                assert_eq!(h.err(Sysno::Unshare, &[CLONE_SIGHAND]), EINVAL);
+            } else {
+                h.ok(Sysno::Unshare, &[CLONE_SIGHAND]);
+            }
+
+            let entry = super::harness::CODE + 0x1000;
+            h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+            let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+            child.threads[0].cpu.set_pc(entry);
+            assert_eq!(h.start(0, Sysno::Wait4, &[pid, 0, 0, 0]), None);
+            let cancel = AtomicBool::new(false);
+            for _ in 0..8 {
+                if h.proc.state.children.list.is_empty() {
+                    break;
+                }
+                assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+            }
+            assert!(h.proc.state.children.list.is_empty(), "{abi:?}");
+            assert_eq!(h.result(0), pid as i64);
+            h.ok(Sysno::Unshare, &[shared_contexts]);
+        }
+
+        h.ok(
+            Sysno::Clone,
+            &[shared_contexts | CLONE_FILES | CLONE_FS, 0, 0, 0, 0],
+        );
+        for flag in [CLONE_THREAD, CLONE_SIGHAND, CLONE_VM] {
+            assert_eq!(h.err(Sysno::Unshare, &[flag]), EINVAL);
+        }
+        h.ok(Sysno::Unshare, &[CLONE_SYSVSEM]);
+    }
+}
+
+#[test]
 fn closed_linux_close_range_splits_shared_table_before_changes_all_abis() {
     use crate::user::linux::signal::SIGCHLD;
     use crate::user::linux::syscall::thread::cf::CLONE_FILES;

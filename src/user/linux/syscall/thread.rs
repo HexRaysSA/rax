@@ -514,17 +514,17 @@ pub(super) fn copy_semundo(c: &mut Ctx<'_>, flags: u64) -> Option<UndoList> {
 /// `unshare` (`ksys_unshare`): the flags a request implies are added
 /// (`CLONE_NEWUSER` needs `CLONE_THREAD` and `CLONE_FS`, `CLONE_VM`
 /// `CLONE_SIGHAND`, which needs `CLONE_THREAD`, and `CLONE_NEWNS`
-/// `CLONE_FS`); unknown flags are `EINVAL`, and so is unsharing the thread
-/// group, signal handlers, or address space while other threads exist
-/// (`check_unshare_flags`). A process's threads share their descriptor
+/// `CLONE_FS`); unknown flags are `EINVAL`. Unsharing the thread group,
+/// signal dispositions, or address space succeeds as a no-op only when
+/// each selected resource is private (`check_unshare_flags`).
+/// A process's threads share their descriptor
 /// table and file-system context, which a single thread need not unshare;
 /// a thread of several cannot have its own (`EINVAL`, as for `clone`).
 /// Namespaces need privileges the emulated process does not have
 /// (`EPERM`). `CLONE_SYSVSEM` leaves the caller's semaphore undo list as
 /// an exit would (`exit_sem`).
 pub fn unshare(c: &mut Ctx<'_>, flags: u64) -> SysResult {
-    // Closed processes can detach guest-owned descriptor and filesystem state.
-    if !c.p.config.host_services && flags & !(CLONE_FILES | CLONE_FS) != 0 {
+    if !c.p.config.host_services && flags & NAMESPACES != 0 {
         return Err(Errno(EPERM));
     }
     const ALLOWED: u64 = CLONE_THREAD
@@ -560,7 +560,18 @@ pub fn unshare(c: &mut Ctx<'_>, flags: u64) -> SysResult {
     let others = !c.peers.lo.is_empty() || !c.peers.hi.is_empty();
     // thread_group_empty: the leader, alone.
     let group_empty = c.t.tid == c.p.pid && !others;
-    if flags & (CLONE_THREAD | CLONE_SIGHAND | CLONE_VM) != 0 && !group_empty {
+    if flags & CLONE_THREAD != 0 && !group_empty {
+        return Err(Errno(EINVAL));
+    }
+    if flags & CLONE_SIGHAND != 0
+        && c.p
+            .shared_sigactions
+            .as_ref()
+            .is_some_and(|table| std::sync::Arc::strong_count(table) > 1)
+    {
+        return Err(Errno(EINVAL));
+    }
+    if flags & CLONE_VM != 0 && c.p.shares_mm() {
         return Err(Errno(EINVAL));
     }
     // unshare_fs, unshare_fd: tables other threads share.
