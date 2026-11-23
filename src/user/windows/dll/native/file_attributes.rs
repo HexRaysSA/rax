@@ -57,8 +57,21 @@ fn checked(c: &mut Ctx, full: bool) -> Checked<u32> {
         return status(STATUS_INVALID_PARAMETER);
     };
     let name = attributes::validate(c, &attrs)?;
-    let resolved = path::resolve(c, &attrs, name.as_deref())?;
-    let info = metadata::query(c, &resolved, attrs.flags & 0x1000 != 0)?;
+    let info = if name
+        .as_deref()
+        .and_then(|name| path::guest_directory(c, attrs.root, name))
+        .is_some()
+    {
+        metadata::Information {
+            times: [0; 4],
+            allocation: 0,
+            size: 0,
+            attributes: 0x10, // FILE_ATTRIBUTE_DIRECTORY
+        }
+    } else {
+        let resolved = path::resolve(c, &attrs, name.as_deref())?;
+        metadata::query(c, &resolved, attrs.flags & 0x1000 != 0)?
+    };
     let mut raw = [0u8; 56];
     for (field, value) in raw[..32].chunks_exact_mut(8).zip(info.times) {
         field.copy_from_slice(&value.to_le_bytes());

@@ -299,6 +299,32 @@ pub(in super::super) fn dos_tail<'a>(c: &Ctx, name: &'a [u16]) -> Option<&'a [u1
     }
 }
 
+/// Names with a guest directory object in the closed installed runtime.
+pub(in super::super) fn guest_directory(c: &Ctx, root: u64, name: &[u16]) -> Option<String> {
+    if c.p.cfg.host_filesystem || root != 0 {
+        return None;
+    }
+    let runtime = c.p.native.as_ref()?;
+    let dos = dos_tail(c, name)?;
+    let drive = runtime.guest_root.split_once(':')?.0;
+    let root = format!("{drive}:\\");
+    if equal(c, dos, &root.encode_utf16().collect::<Vec<_>>()) {
+        return Some(root);
+    }
+    let dos = dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(dos);
+    let runtime_dir = runtime.guest_directory.trim_end_matches('\\');
+    if equal(c, dos, &runtime_dir.encode_utf16().collect::<Vec<_>>()) {
+        return Some(runtime_dir.to_owned());
+    }
+    if c.arch() == WinArch::X86 {
+        let system32 = format!(r"{}\System32", runtime.guest_root.trim_end_matches('\\'));
+        if equal(c, dos, &system32.encode_utf16().collect::<Vec<_>>()) {
+            return Some(system32);
+        }
+    }
+    None
+}
+
 fn resolve_kind(
     c: &Ctx,
     attrs: &Attributes,

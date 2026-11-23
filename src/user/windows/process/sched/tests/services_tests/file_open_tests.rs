@@ -446,6 +446,76 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
 }
 
 #[test]
+fn native_file_open_closed_directory_metadata_and_volume_are_guest_local() {
+    use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_BUFFER_OVERFLOW};
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        std::fs::create_dir(installed.join("unselected")).unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let attrs = h.attrs();
+        let width = arch.ptr_size();
+
+        h.name(r"\??\C:\Windows\System32\unselected\");
+        assert_eq!(
+            h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+            STATUS_ACCESS_DENIED
+        );
+        for name in [r"\??\C:\", r"\??\C:\Windows\System32\"] {
+            h.name(name);
+            for (service, attribute_offset) in [
+                ("NtQueryAttributesFile", 32),
+                ("NtQueryFullAttributesFile", 48),
+            ] {
+                assert_eq!(
+                    h.invoke_api(service, &[attrs, output]),
+                    STATUS_SUCCESS,
+                    "{arch}/{name}/{service}"
+                );
+                let space = &h.process.state().space;
+                assert_eq!(
+                    space.bytes(output, attribute_offset as usize).unwrap(),
+                    vec![0; attribute_offset as usize]
+                );
+                assert_eq!(space.u32(output + attribute_offset).unwrap(), 0x10);
+            }
+            assert_eq!(h.open_with(output, io, 0x100000, 3, 0x4021), STATUS_SUCCESS);
+            let handle = h.process.state().space.ptr(output, width).unwrap();
+            for (class, length, status, data) in [
+                (1, 24, STATUS_SUCCESS, &[0; 18][..]),
+                (
+                    5,
+                    16,
+                    STATUS_BUFFER_OVERFLOW,
+                    b"\x06\0\x08\0\xff\0\0\0\x06\0\0\0R\0A\0",
+                ),
+                (
+                    5,
+                    24,
+                    STATUS_SUCCESS,
+                    b"\x06\0\x08\0\xff\0\0\0\x06\0\0\0R\0A\0X\0",
+                ),
+            ] {
+                assert_eq!(
+                    h.invoke_api(
+                        "NtQueryVolumeInformationFile",
+                        &[handle, io, output, length, class]
+                    ),
+                    status,
+                    "{arch}/{name}/{class}"
+                );
+                let space = &h.process.state().space;
+                assert_eq!(space.bytes(output, data.len()).unwrap(), data);
+                assert_eq!(space.ptr(io + width, width).unwrap(), data.len() as u64);
+            }
+            h.process.state_mut().objects.close(handle).unwrap();
+        }
+    }
+}
+
+#[test]
 fn native_file_open_mui_satellites_require_an_installed_owner_and_read_only_access() {
     use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_OBJECT_PATH_NOT_FOUND};
     for arch in WinArch::ALL {

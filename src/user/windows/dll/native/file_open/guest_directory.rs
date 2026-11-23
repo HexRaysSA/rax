@@ -2,35 +2,12 @@
 use super::super::file_attributes::{attributes, path};
 use super::super::named_object::{Checked, status};
 use super::{Request, host, mapped_access, shared_lifetime};
-use crate::user::windows::arch::WinArch;
 use crate::user::windows::fs::{FileIdentity, FileLifetime};
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{FileObj, Object};
 use std::path::PathBuf;
 use std::sync::Arc;
-
-fn selected(c: &Ctx, name: &[u16]) -> Option<String> {
-    let runtime = c.p.native.as_ref()?;
-    let dos = path::dos_tail(c, name)?;
-    let drive = runtime.guest_root.split_once(':')?.0;
-    let root = format!("{drive}:\\");
-    if path::equal(c, dos, &root.encode_utf16().collect::<Vec<_>>()) {
-        return Some(root);
-    }
-    let dos = dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(dos);
-    let runtime_dir = runtime.guest_directory.trim_end_matches('\\');
-    if path::equal(c, dos, &runtime_dir.encode_utf16().collect::<Vec<_>>()) {
-        return Some(runtime_dir.to_owned());
-    }
-    if c.arch() == WinArch::X86 {
-        let system32 = format!(r"{}\System32", runtime.guest_root.trim_end_matches('\\'));
-        if path::equal(c, dos, &system32.encode_utf16().collect::<Vec<_>>()) {
-            return Some(system32);
-        }
-    }
-    None
-}
 
 pub(super) fn open(
     c: &mut Ctx,
@@ -39,10 +16,7 @@ pub(super) fn open(
     name: Option<&[u16]>,
     creation: Option<&host::Creation>,
 ) -> Option<Checked<(u64, u64)>> {
-    if c.p.cfg.host_filesystem || attrs.root != 0 {
-        return None;
-    }
-    let directory = selected(c, name?)?;
+    let directory = path::guest_directory(c, attrs.root, name?)?;
     let access = mapped_access(request.access);
     // LIST_DIRECTORY, TRAVERSE, READ_ATTRIBUTES, READ_CONTROL and SYNCHRONIZE.
     const DIRECTORY_READ: u32 = 0x0012_00a1;
