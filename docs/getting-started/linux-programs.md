@@ -322,9 +322,13 @@ corresponding mechanisms. The operational boundaries are:
 
 - `--sysroot` is an overlay: paths absent from it fall back to the host.
   Files, pipes, locks, sockets, and guest child processes use host resources.
-- `CLONE_VM` child processes use copied private memory; `vfork` sleeps the
-  parent but does not expose child stores. Non-thread sharing of descriptor,
-  file-system, or signal-handler tables, namespaces, and requeue-PI futexes
+- The standalone host-backed runner copies private memory for `CLONE_VM`
+  child processes, with no visibility of child stores. The closed embedding
+  runner supports shared memory, descriptor tables, and filesystem context
+  within a guest process family. With `CLONE_FS`, working-directory and
+  umask changes are visible to sharing processes across `execve`. A
+  single-threaded process can detach its filesystem context with `unshare`.
+  Cross-process shared signal handlers, namespaces, and requeue-PI futexes
   are unsupported. Guest threads require `CLONE_FILES | CLONE_FS`.
 - CPU-time timers measure emulator host CPU time, including emulation overhead.
   `TFD_TIMER_CANCEL_ON_SET` does not observe host-clock changes. Epoll instances

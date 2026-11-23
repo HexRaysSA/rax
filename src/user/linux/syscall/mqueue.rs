@@ -296,7 +296,7 @@ pub fn mq_open(c: &mut Ctx<'_>, name: u64, oflag: i32, perm: u32, uattr: u64) ->
     mqueue::check_name(&name)?;
     let oflag = oflag as u32;
     let create = (oflag & O_CREAT != 0).then(|| Create {
-        mode: perm & !c.p.umask,
+        mode: perm & !c.p.file_creation_mask(),
         attr,
         ruid: c.p.creds.0,
         rlimit: c.p.rlimits[RLIMIT_MSGQUEUE].0,

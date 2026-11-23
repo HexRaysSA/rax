@@ -7,6 +7,7 @@
 //! process exits, routing each CPU event to the system-call layer or to
 //! signal handling.
 
+use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -359,8 +360,9 @@ pub struct ProcState {
     pub abi: LinuxAbi,
     /// The address space.
     pub space: AddressSpace,
-    /// Path resolution.
+    /// Path resolution. Use [Self::working_directory] for the active directory.
     pub vfs: Vfs,
+    pub(super) shared_fs: Option<Arc<Mutex<SharedFsContext>>>,
     /// Descriptors.
     pub fds: FdTable,
     /// Bind spellings for pathname sockets in this personality.
@@ -378,7 +380,8 @@ pub struct ProcState {
     pub(super) mm: Arc<Mutex<MmState>>,
     /// Resource limits.
     pub rlimits: Rlimits,
-    /// File-creation mask.
+    /// Private file-creation mask. Use [Self::file_creation_mask] to include
+    /// a shared filesystem context.
     pub umask: u32,
     /// Signal dispositions, indexed by signal number minus one.
     pub sigactions: [SigAction; 64],
@@ -622,7 +625,84 @@ pub struct Threads<'a> {
     hi: &'a mut [Thread],
 }
 
+/// Mutable filesystem attributes of processes created with CLONE_FS.
+#[derive(Debug)]
+pub(super) struct SharedFsContext {
+    cwd: String,
+    umask: u32,
+}
+
 impl ProcState {
+    /// Current guest directory, including changes by tasks that share it.
+    pub fn working_directory(&self) -> Cow<'_, str> {
+        match &self.shared_fs {
+            Some(fs) => Cow::Owned(
+                fs.lock()
+                    .expect("Linux filesystem context lock")
+                    .cwd
+                    .clone(),
+            ),
+            None => Cow::Borrowed(self.vfs.cwd()),
+        }
+    }
+
+    pub(super) fn set_working_directory(&mut self, cwd: String) {
+        match &self.shared_fs {
+            Some(fs) => fs.lock().expect("Linux filesystem context lock").cwd = cwd,
+            None => self.vfs.set_cwd(cwd),
+        }
+    }
+
+    /// Current guest file-creation mask, including changes by sharing tasks.
+    pub fn file_creation_mask(&self) -> u32 {
+        match &self.shared_fs {
+            Some(fs) => fs.lock().expect("Linux filesystem context lock").umask,
+            None => self.umask,
+        }
+    }
+
+    pub(super) fn set_file_creation_mask(&mut self, mask: u32) -> u32 {
+        match &self.shared_fs {
+            Some(fs) => {
+                let mut fs = fs.lock().expect("Linux filesystem context lock");
+                std::mem::replace(&mut fs.umask, mask)
+            }
+            None => std::mem::replace(&mut self.umask, mask),
+        }
+    }
+
+    /// Capture a closed child's private filesystem attributes and the
+    /// optional shared context. Both mappings retain the immutable namespace.
+    pub(super) fn fork_filesystem(
+        &self,
+        share: bool,
+    ) -> (Vfs, u32, Option<Arc<Mutex<SharedFsContext>>>) {
+        let mut vfs = self.vfs.clone();
+        let mut umask = self.umask;
+        if let Some(fs) = &self.shared_fs {
+            let fs = fs.lock().expect("Linux filesystem context lock");
+            vfs.set_cwd(fs.cwd.clone());
+            umask = fs.umask;
+        }
+        let shared = share.then(|| {
+            self.shared_fs.clone().unwrap_or_else(|| {
+                Arc::new(Mutex::new(SharedFsContext {
+                    cwd: vfs.cwd().to_owned(),
+                    umask,
+                }))
+            })
+        });
+        (vfs, umask, shared)
+    }
+
+    pub(super) fn unshare_filesystem(&mut self) {
+        if let Some(fs) = self.shared_fs.take() {
+            let fs = fs.lock().expect("Linux filesystem context lock");
+            self.vfs.set_cwd(fs.cwd.clone());
+            self.umask = fs.umask;
+        }
+    }
+
     /// Memory bookkeeping for the current address space.
     pub fn mm(&self) -> MutexGuard<'_, MmState> {
         self.mm
@@ -898,6 +978,7 @@ impl LinuxProcess {
             abi: img.abi,
             space: img.space,
             vfs,
+            shared_fs: None,
             fds,
             #[cfg(unix)]
             socket_paths: Default::default(),

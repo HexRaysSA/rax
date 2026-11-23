@@ -52,7 +52,7 @@ pub enum Target {
 /// The guest directory a relative path is resolved against.
 fn base_dir(c: &Ctx<'_>, dirfd: i32) -> Result<String, Errno> {
     if dirfd == AT_FDCWD {
-        return Ok(c.p.vfs.cwd().to_string());
+        return Ok(c.p.working_directory().into_owned());
     }
     let file = c.p.fds.file(dirfd)?;
     if file.ftype != FileType::Directory {
@@ -112,7 +112,7 @@ pub fn resolve(
     if raw.is_empty() {
         if flags & AT_EMPTY_PATH != 0 {
             if dirfd == AT_FDCWD {
-                let cwd = c.p.vfs.cwd().to_string();
+                let cwd = c.p.working_directory().into_owned();
                 return resolve_str(c, AT_FDCWD, &cwd, true);
             }
             return Ok(Target::Fd(c.p.fds.file(dirfd)?));
@@ -546,7 +546,7 @@ pub(super) fn open_target(
                 } else {
                     custom |= libc::O_CREAT;
                 }
-                opts.mode(create_mode & 0o7777 & !c.p.umask);
+                opts.mode(create_mode & 0o7777 & !c.p.file_creation_mask());
             }
             if flags & O_TRUNC != 0 && !size_checked {
                 custom |= libc::O_TRUNC;
@@ -573,7 +573,7 @@ pub(super) fn open_target(
                     truncate_opened(&file, &host, accmode)?;
                 }
             }
-            let bits = create_mode & 0o7777 & !c.p.umask;
+            let bits = create_mode & 0o7777 & !c.p.file_creation_mask();
             if creates && bits & super::super::host::umask() != 0 {
                 file.set_permissions(std::fs::Permissions::from_mode(bits))?;
             }
@@ -854,7 +854,7 @@ pub fn readlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -
 
 /// `getcwd`: returns the length including the NUL.
 pub fn getcwd(c: &mut Ctx<'_>, buf: u64, size: u64) -> SysResult {
-    let mut cwd = c.p.vfs.cwd().as_bytes().to_vec();
+    let mut cwd = c.p.working_directory().as_bytes().to_vec();
     cwd.push(0);
     if (size as usize) < cwd.len() {
         return Err(Errno(ERANGE));
@@ -869,7 +869,7 @@ fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
             if !entry.is_dir() {
                 return Err(Errno(ENOTDIR));
             }
-            c.p.vfs.set_cwd(guest);
+            c.p.set_working_directory(guest);
             Ok(0)
         }
         Target::Host { host, .. } => {
@@ -879,11 +879,11 @@ fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
             }
             let canonical = std::fs::canonicalize(&host)?;
             let guest = c.p.vfs.guest_path_of(&canonical);
-            c.p.vfs.set_cwd(guest);
+            c.p.set_working_directory(guest);
             Ok(0)
         }
         Target::Proc(ProcEntry::Dir(_), guest) => {
-            c.p.vfs.set_cwd(guest);
+            c.p.set_working_directory(guest);
             Ok(0)
         }
         Target::Proc(ProcEntry::Link(link), _) => {
@@ -898,7 +898,7 @@ fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
                 set_cwd_from(c, t)
             }
             None if f.ftype == FileType::Directory => {
-                c.p.vfs.set_cwd(f.path.clone());
+                c.p.set_working_directory(f.path.clone());
                 Ok(0)
             }
             None => Err(Errno(ENOTDIR)),
@@ -934,7 +934,7 @@ fn host_target(c: &Ctx<'_>, dirfd: i32, path: u64, follow: bool) -> Result<PathB
 #[cfg(unix)]
 pub fn mkdirat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32) -> SysResult {
     let host = host_target(c, dirfd, path, false)?;
-    let bits = perm & 0o7777 & !c.p.umask;
+    let bits = perm & 0o7777 & !c.p.file_creation_mask();
     std::fs::DirBuilder::new().mode(bits).create(&host)?;
     fs::created_mode(&host, bits)?;
     super::notify::created(c, &host, true);
@@ -968,7 +968,7 @@ pub fn mknodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, dev: u32) -> S
     if raw.ends_with(b"/") {
         return Err(Errno(ENOENT));
     }
-    let bits = perm & 0o7777 & !c.p.umask;
+    let bits = perm & 0o7777 & !c.p.file_creation_mask();
     let host_mode = |t: libc::mode_t| u32::from(t) | bits;
     match kind {
         0 | S_IFREG => {
@@ -1330,7 +1330,5 @@ pub fn fstatfs(c: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
 
 /// `umask`.
 pub fn umask(c: &mut Ctx<'_>, mask: u32) -> SysResult {
-    let old = c.p.umask;
-    c.p.umask = mask & 0o777;
-    Ok(u64::from(old))
+    Ok(u64::from(c.p.set_file_creation_mask(mask & 0o777)))
 }

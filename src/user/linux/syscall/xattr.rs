@@ -276,7 +276,7 @@ fn node_for_value(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<N
         if dirfd != AT_FDCWD {
             return Err(Errno(EBADF));
         }
-        let cwd = c.p.vfs.cwd().to_string();
+        let cwd = c.p.working_directory().into_owned();
         let t = resolve_str(c, AT_FDCWD, &cwd, true)?;
         return match t {
             #[cfg(unix)]

@@ -705,6 +705,79 @@ fn closed_linux_clone_files_shares_slots_across_processes_all_abis() {
 }
 
 #[test]
+fn closed_linux_clone_fs_shares_cwd_and_umask_all_abis() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::{
+        Call,
+        thread::cf::{CLONE_FILES, CLONE_FS, CLONE_NEWNET},
+    };
+    use crate::user::supplied_fs::Files;
+    use std::sync::Arc;
+
+    for abi in ABIS {
+        let files = Files::default()
+            .with_file("/work/value".into(), Arc::from(&b"w"[..]))
+            .unwrap();
+        let mut h = Harness::embedded_with_supplied(abi, files);
+        let cwd = h.scratch;
+        h.proc.space().write_raw(cwd, b"/work\0").unwrap();
+        let flags = CLONE_FS | CLONE_FILES | SIGCHLD as u64;
+        assert_eq!(h.ok(Sysno::Clone, &[flags, 0, 0, 0, 0]), 101);
+        let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+        child.syscall(
+            0,
+            Call::new(abi.number(Sysno::Chdir).unwrap(), [cwd, 0, 0, 0, 0, 0]),
+        );
+        assert_eq!(child.threads[0].cpu.syscall_return_value(), 0, "{abi:?}");
+        child.syscall(
+            0,
+            Call::new(abi.number(Sysno::Umask).unwrap(), [0o123, 0, 0, 0, 0, 0]),
+        );
+        assert_eq!(
+            child.threads[0].cpu.syscall_return_value(),
+            0o022,
+            "{abi:?}"
+        );
+
+        assert_eq!(h.ok(Sysno::Getcwd, &[cwd, 16]), 6);
+        let mut observed = [0; 6];
+        h.proc.space().read(cwd, &mut observed).unwrap();
+        assert_eq!(&observed, b"/work\0");
+        const AT_FDCWD: u64 = -100i64 as u64;
+        h.proc.space().write_raw(cwd, b"value\0").unwrap();
+        let fd = h.ok(Sysno::Openat, &[AT_FDCWD, cwd, 0, 0]);
+        h.ok(Sysno::Close, &[fd]);
+        assert_eq!(h.ok(Sysno::Umask, &[0o027]), 0o123);
+
+        assert_eq!(
+            h.err(Sysno::Unshare, &[CLONE_FS | CLONE_FILES | CLONE_NEWNET]),
+            EPERM
+        );
+        assert!(h.proc.state.fds.is_shared());
+        let child = h.proc.state.children.list[0].guest.as_ref().unwrap();
+        assert_eq!(child.state.file_creation_mask(), 0o027);
+
+        // A private child takes the live values before the sharing tasks split.
+        let mut args = [0; 88];
+        args[32..40].copy_from_slice(&(SIGCHLD as u64).to_le_bytes());
+        h.proc.space().write_raw(cwd, &args).unwrap();
+        assert_eq!(h.ok(Sysno::Clone3, &[cwd, args.len() as u64]), 102);
+        h.ok(Sysno::Unshare, &[CLONE_FS | CLONE_FILES]);
+        assert!(!h.proc.state.fds.is_shared());
+        assert_eq!(h.proc.state.working_directory(), "/work");
+        assert_eq!(h.ok(Sysno::Umask, &[0o077]), 0o027);
+        h.proc.space().write_raw(cwd, b"/\0").unwrap();
+        h.ok(Sysno::Chdir, &[cwd]);
+
+        for child in &h.proc.state.children.list {
+            let state = &child.guest.as_ref().unwrap().state;
+            assert_eq!(state.working_directory(), "/work");
+            assert_eq!(state.file_creation_mask(), 0o027);
+        }
+    }
+}
+
+#[test]
 fn closed_linux_close_range_splits_shared_table_before_changes_all_abis() {
     use crate::user::linux::signal::SIGCHLD;
     use crate::user::linux::syscall::thread::cf::CLONE_FILES;

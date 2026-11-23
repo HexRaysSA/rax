@@ -11,7 +11,7 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     if shared && c.p.shares_mm() {
         return Err(Errno(ENOSYS));
     }
-    if flags & (CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
+    if flags & (CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
         return Err(Errno(EINVAL));
     }
     let requested = super::super::thread::requested_tid(c, &args.set_tid)?;
@@ -73,10 +73,12 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
 
     let p = &mut *c.p;
+    let (vfs, umask, shared_fs) = p.fork_filesystem(flags & CLONE_FS != 0);
     let state = ProcState {
         abi: p.abi,
         space,
-        vfs: p.vfs.clone(),
+        vfs,
+        shared_fs,
         fds: if flags & CLONE_FILES != 0 {
             p.fds.share()
         } else {
@@ -90,7 +92,7 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         groups: p.groups.clone(),
         mm,
         rlimits: p.rlimits,
-        umask: p.umask,
+        umask,
         sigactions,
         comm: leader.comm.clone(),
         exe_path: p.exe_path.clone(),
@@ -149,6 +151,9 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
     if flags & CLONE_PARENT_SETTID != 0 {
         let _ = c.write_u32(args.parent_tid, pid as u32);
+    }
+    if flags & CLONE_FS != 0 {
+        c.p.shared_fs.clone_from(&child.state.shared_fs);
     }
     c.p.children
         .add_guest(child, tid, args.exit_signal as i32, c.t.tid, c.p.exec_id);

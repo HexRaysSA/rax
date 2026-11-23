@@ -235,7 +235,7 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let rss_kb = p.space.resident_pages() * 4;
     let mut s = String::new();
     let _ = writeln!(s, "Name:\t{comm}");
-    let _ = writeln!(s, "Umask:\t{:04o}", p.umask);
+    let _ = writeln!(s, "Umask:\t{:04o}", p.file_creation_mask());
     let _ = writeln!(s, "State:\t{}", state(t).1);
     let _ = writeln!(s, "Tgid:\t{}", p.pid);
     let _ = writeln!(s, "Ngid:\t0");
@@ -593,7 +593,7 @@ fn thread_entry(
             Some(dir(&names))
         }
         "exe" => Some(ProcEntry::Link(p.exe_path.clone())),
-        "cwd" => Some(ProcEntry::Link(p.vfs.cwd().to_string())),
+        "cwd" => Some(ProcEntry::Link(p.working_directory().into_owned())),
         "root" => Some(ProcEntry::Link("/".into())),
         "maps" => file(maps(p)),
         "auxv" => file(auxv(p)),

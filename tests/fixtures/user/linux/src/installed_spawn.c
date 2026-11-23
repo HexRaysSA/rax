@@ -7,6 +7,8 @@
 #include <spawn.h>
 #include <stdatomic.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -166,6 +168,51 @@ static int check_shared_files(void)
     return error;
 }
 
+static int update_fs(void *argument)
+{
+    (void)argument;
+    if (chdir("/usr/bin") != 0)
+        return 1;
+    umask(0123);
+    return 0;
+}
+
+static int exec_with_shared_fs(void *argument)
+{
+    (void)argument;
+    char *const argv[] = {"installed-spawn", "--update-fs", NULL};
+    char *const envp[] = {"LC_ALL=C", NULL};
+    execve("/proc/self/exe", argv, envp);
+    return 2;
+}
+
+static int check_shared_fs(void)
+{
+    static _Alignas(16) unsigned char stack[65536];
+    int original = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (original < 0)
+        return errno;
+    mode_t saved = umask(0022);
+    int error = 0;
+    int (*const cases[])(void *) = {update_fs, exec_with_shared_fs};
+    for (size_t index = 0; error == 0 && index < sizeof(cases) / sizeof(cases[0]); ++index) {
+        pid_t child = clone(cases[index], stack + sizeof(stack), CLONE_FS | SIGCHLD, NULL);
+        int status;
+        char cwd[64];
+        if (child < 0)
+            error = errno;
+        else if (waitpid(child, &status, 0) != child || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+            error = ECHILD;
+        else if (getcwd(cwd, sizeof(cwd)) == NULL || strcmp(cwd, "/usr/bin") || umask(0022) != 0123)
+            error = EIO;
+        if (fchdir(original) != 0 && error == 0)
+            error = errno;
+    }
+    umask(saved);
+    close(original);
+    return error;
+}
+
 static int check_spawn(void)
 {
     const char *path = "/usr/bin/printf";
@@ -205,6 +252,12 @@ static int check_spawn(void)
         return 9;
     }
     puts("clone:shared-files");
+    error = check_shared_fs();
+    if (error != 0) {
+        fprintf(stderr, "clone with shared filesystem context failed: %d\n", error);
+        return 10;
+    }
+    puts("clone:shared-fs");
     return 0;
 }
 
@@ -218,8 +271,10 @@ static void *wait_during_spawn(void *arg)
 }
 #endif
 
-int main(void)
+int main(int argc, char **argv)
 {
+    if (argc == 2 && strcmp(argv[1], "--update-fs") == 0)
+        return update_fs(NULL);
 #ifdef RAX_THREADED_SPAWN
     pthread_barrier_t barrier;
     pthread_t worker;

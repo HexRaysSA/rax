@@ -338,7 +338,7 @@ fn bind_unix(c: &mut Ctx<'_>, s: &Socket, b: &[u8]) -> SysResult {
             st.path_binding = c.p.socket_paths.remember(&host, s, &p);
             // The node's mode: every permission the umask leaves.
             use std::os::unix::fs::PermissionsExt;
-            let mode = 0o777 & !c.p.umask;
+            let mode = 0o777 & !c.p.file_creation_mask();
             let _ = std::fs::set_permissions(&host, std::fs::Permissions::from_mode(mode));
             st.name = Some(UnixName::Path(p));
             // vfs_mknod.
