@@ -1,0 +1,159 @@
+{
+  "kernel": [
+    10,
+    0,
+    26200
+  ],
+  "native_machine": 43620,
+  "run": 45156726419,
+  "providers_sha256": {
+    "System32": "3a1617c63d3a69f7f4d740bdbbe65c3d34ec28c2a7254902dc130e5b2bbe7209",
+    "SysWOW64": "9c7dbc587db93e8294aced6c2571c1122726aeccfda8b5969c278cbd81d6b509",
+    "SyChpe32": "a892a10cec2e93f3983acc2eb031faa108154ddabb4b9d6e19f2497a46db08a1"
+  },
+  "locale_nls": {
+    "bytes": 862808,
+    "sha256": "00d972d678db02525b731e1286e8daf53e87e5cbc58edcaf90de4222470a639a"
+  },
+  "launcher_sha256": "6a124fbc10450c4bf2dd8fb3119e20a13ae30eeb87b418eb7c8a9847f19fd711",
+  "source_sha256": {
+    "initialize": {
+      "native-nls-initialize.cpp": "b51a47f4bfaf3b322589ca56ec79f0fbd140c57faae18e3d11ad8aeec3d1394b",
+      "observer.cpp": "a2701c58ecf82f8720792c976d7ccad58d319d706d6ce73c2bc4b866d69fb675",
+      "large.exe": "5126438f5c83c96aaa49e1522715506a464d5e562e7c217cbad7ba81d66693e1",
+      "standard.exe": "4baa2bec0b5a58187709883acf56b86b885a26c56aa277b47bce3b909f61d129"
+    },
+    "initialize-protection": {
+      "native-nls-initialize-protection.cpp": "d6f5106167585faa539beb4491405a52c57f9b5ff3b4583c8b5a54a8e93aa7c8",
+      "observer.cpp": "510a9e597fe0e7c163250198edd0b1b54ade2943bcf597bb914d8dc2b669e14e",
+      "standard.exe": "e3ca93f054cee31db866495a96b115fe2b7051ec167a086165f19a9fd33b7f76"
+    },
+    "initialize-leaf": {
+      "native-nls-initialize-leaf.cpp": "ebe55cfcf126e95b7160818a3e76c21353f47fe306abd986272c1d3d729dd7df",
+      "observer.cpp": "7fe6c27ab97226f16ea7ba3eeec9b766ee9019a03fdd6a6f3bcc16468ddbe018",
+      "standard.exe": "2948be22154e2ab3ac1f743082526cd3602feb09e4e6dcfcee2d5f12feab6698"
+    }
+  },
+  "observations": [
+    {
+      "kind": "initialize",
+      "process": "x86",
+      "mode": "default",
+      "provider": "SysWOW64",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "stdout_sha256": "5021d3102cd938716b8a1128f67f1b129bfad2a0ecb6fa33e3b0bda3349071c3",
+      "executable_sha256": "4baa2bec0b5a58187709883acf56b86b885a26c56aa277b47bce3b909f61d129"
+    },
+    {
+      "kind": "initialize",
+      "process": "x86",
+      "mode": "disabled",
+      "provider": "SysWOW64",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "stdout_sha256": "7b56ac86afdd412f50b9b7e47119dc5de4fcae45f91ec934bcccd730a8d24d09",
+      "executable_sha256": "4baa2bec0b5a58187709883acf56b86b885a26c56aa277b47bce3b909f61d129"
+    },
+    {
+      "kind": "initialize",
+      "process": "x86",
+      "mode": "enabled",
+      "provider": "SyChpe32",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "stdout_sha256": "3f59968e8199f623e6e32be240e8e1b3e1d1bbd792726ca917d418fe8bcb3f30",
+      "executable_sha256": "4baa2bec0b5a58187709883acf56b86b885a26c56aa277b47bce3b909f61d129"
+    },
+    {
+      "kind": "initialize",
+      "process": "x86-laa",
+      "mode": "default",
+      "provider": "SysWOW64",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "stdout_sha256": "e5d53aeaebd3f0d070e03df41f9b49738c825560e01cb85e1b5e76e34c57e48c",
+      "executable_sha256": "5126438f5c83c96aaa49e1522715506a464d5e562e7c217cbad7ba81d66693e1"
+    },
+    {
+      "kind": "initialize",
+      "process": "x86-laa",
+      "mode": "disabled",
+      "provider": "SysWOW64",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "stdout_sha256": "41b11ec4d67dddf9360bf721425003028983163c1050f6109bd520627678d5af",
+      "executable_sha256": "5126438f5c83c96aaa49e1522715506a464d5e562e7c217cbad7ba81d66693e1"
+    },
+    {
+      "kind": "initialize",
+      "process": "x86-laa",
+      "mode": "enabled",
+      "provider": "SyChpe32",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "stdout_sha256": "7f8efdd79867b5ad889f83203bf35af5b2e489079cabfba11d64384ec2b42010",
+      "executable_sha256": "5126438f5c83c96aaa49e1522715506a464d5e562e7c217cbad7ba81d66693e1"
+    },
+    {
+      "kind": "initialize-protection",
+      "process": "x86",
+      "mode": "default",
+      "provider": "SysWOW64",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "stdout_sha256": "76fdd1248262adfefb6bd22fa274584d17e4d29ade4deffcbc7402abad45f17e",
+      "executable_sha256": "e3ca93f054cee31db866495a96b115fe2b7051ec167a086165f19a9fd33b7f76"
+    },
+    {
+      "kind": "initialize-protection",
+      "process": "x86",
+      "mode": "disabled",
+      "provider": "SysWOW64",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "stdout_sha256": "473cd784e2249777c366c4da82cb715d6e3fdb85e51a00f757db1eb2d8d47e3a",
+      "executable_sha256": "e3ca93f054cee31db866495a96b115fe2b7051ec167a086165f19a9fd33b7f76"
+    },
+    {
+      "kind": "initialize-protection",
+      "process": "x86",
+      "mode": "enabled",
+      "provider": "SyChpe32",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "stdout_sha256": "7f2b239d4163033d2aff03b7bb3bdc8cd9ee9bf11eeefca3280f1bda7afc9128",
+      "executable_sha256": "e3ca93f054cee31db866495a96b115fe2b7051ec167a086165f19a9fd33b7f76"
+    },
+    {
+      "kind": "initialize-leaf",
+      "process": "x86",
+      "mode": "default",
+      "provider": "SysWOW64",
+      "rows": 3,
+      "canonical_sha256": "3fc0e836f0e5925424cc37f4c47cfdc8b51da53394de5f29cc614271e4ae0e90",
+      "stdout_sha256": "5c8833ce3af089b2cc00137f0dd8ae0e8d2950dc5711c51c0ce14b51bc9a185c",
+      "executable_sha256": "2948be22154e2ab3ac1f743082526cd3602feb09e4e6dcfcee2d5f12feab6698"
+    },
+    {
+      "kind": "initialize-leaf",
+      "process": "x86",
+      "mode": "disabled",
+      "provider": "SysWOW64",
+      "rows": 3,
+      "canonical_sha256": "3fc0e836f0e5925424cc37f4c47cfdc8b51da53394de5f29cc614271e4ae0e90",
+      "stdout_sha256": "5c8833ce3af089b2cc00137f0dd8ae0e8d2950dc5711c51c0ce14b51bc9a185c",
+      "executable_sha256": "2948be22154e2ab3ac1f743082526cd3602feb09e4e6dcfcee2d5f12feab6698"
+    },
+    {
+      "kind": "initialize-leaf",
+      "process": "x86",
+      "mode": "enabled",
+      "provider": "SyChpe32",
+      "rows": 3,
+      "canonical_sha256": "3fe6097639be25cb0e04b7bea8b6bd4d2ef153a0ac55d55c1e7162a70b985887",
+      "stdout_sha256": "0b22376af99ec654e63b0f85813a63a2b20a6aa4fd3973088337460562a24f01",
+      "executable_sha256": "2948be22154e2ab3ac1f743082526cd3602feb09e4e6dcfcee2d5f12feab6698"
+    }
+  ]
+}

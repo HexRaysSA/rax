@@ -77,7 +77,7 @@ pub(crate) fn supports_initialize_profile(
                 20348 | 26100,
                 Some(0x8664),
                 WinArch::X64 | WinArch::X86
-            ) | (10, 0, 26200, Some(0xAA64), WinArch::Arm64)
+            ) | (10, 0, 26200, Some(0xAA64), WinArch::Arm64 | WinArch::X86)
         )
 }
 
@@ -218,15 +218,14 @@ mod tests {
             for machine in [None, Some(0x14C), Some(0x8664), Some(0xAA64)] {
                 assert!(!supports_startup_profile(&version, machine));
                 for arch in WinArch::ALL {
-                    let expected = (major, minor, build, machine, arch)
-                        == (10, 0, 26200, Some(0xAA64), WinArch::Arm64);
+                    let kernel = (major, minor, build, machine) == (10, 0, 26200, Some(0xAA64));
                     assert_eq!(
                         supports_initialize_profile(&version, machine, arch),
-                        expected
+                        kernel && matches!(arch, WinArch::Arm64 | WinArch::X86)
                     );
                     assert_eq!(
                         mui_profile(&version, machine, arch),
-                        expected.then_some(MuiProfile::ProbeDestination)
+                        (kernel && arch == WinArch::Arm64).then_some(MuiProfile::ProbeDestination)
                     );
                 }
             }

@@ -116,3 +116,33 @@ images. The initialization and protection projections match the existing
 ARM64 controls. The measured 862808-byte file occupied 211 pages of 4096
 bytes, for a readonly 864256-byte mapping. The runtime acquires the installed
 mapping at selection time. This profile is specific to initialization.
+
+## Hosted WoW64 observation on Windows ARM64 26200
+
+The [native run](https://github.com/HexRaysSA/rax/actions/runs/45156726419)
+observed the installed pure x86 `SysWOW64/ntdll.dll` and translated x86
+`SyChpe32/ntdll.dll` on an ARM64 host. All 79 initialization rows matched
+the original x86 corpus in three launch modes with and without large-address
+awareness. Each profile acquired 35 call-published views and retained four
+additional views on late pointer-copy faults. The 12 protection and free
+cases matched the earlier x86 controls, and installed `NtInitializeNlsFiles`
+uses service `0x108` and `RET 12` in each mode.
+
+The installed 862808-byte `locale.nls` and the native ARM64 `ntdll.dll`
+match the separately captured native ARM64 installation. RAX acquires the
+page-rounded 864256-byte read-only host snapshot and maps its bytes in the
+guest. The existing x86 copy order and guest view lifetime apply to this
+profile. The [projection](profile-wow64-arm64-26200-v1.json) records the
+installed providers, producer identities and canonical replay results.
+Regenerate it by passing the extracted native artifact directory to
+`python3 -B docs/specifications/windows/native-nls-initialize/project-wow64-26200.py`.
+
+| ID | Assumption and basis | Dependent result | Stress test and falsification probe | Status |
+| --- | --- | --- | --- | --- |
+| NLS-WOW64-26200-1 | The x86 output and mapping behavior matches the retained corpus on the measured ARM64 installation. | Admit x86 initialization on ARM64 build 26200. | Compare pure and translated x86, large-address awareness, aliased pointers, late mapping ownership and installed leaf cleanup. Any changed status, copyback or mapping lifetime would invalidate the shared replay. | Confirmed for the captured installation. |
+| NLS-WOW64-26200-2 | Both caller ABIs select the same installed locale file. | Acquire the immutable locale bytes through the existing host snapshot. | Compare the mapped file name and extent against the independently identified native ARM64 file and validate guest bytes through the installed x86 leaf. | Native observations confirmed. |
+
+Initialization takes O(N) time and O(N) guest storage for an N-byte mapping.
+High-impact remaining scope includes the x64 compatibility initialization
+profile on this kernel and the remaining stock x86 application startup
+services.

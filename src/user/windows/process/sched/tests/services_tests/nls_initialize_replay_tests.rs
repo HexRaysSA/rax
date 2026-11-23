@@ -62,8 +62,13 @@ fn native_nls_initialize_replays_measured_builds_outputs_guards_and_retained_vie
     for (arch, raw, build) in CORPORA
         .into_iter()
         .flat_map(|(arch, raw)| [29683, 29695, 29698, 29704, 29708].map(|build| (arch, raw, build)))
-        // The hosted 26200 initialization projection matches this ARM64 corpus.
-        .chain([(WinArch::Arm64, ARM64_CORPUS, 26200)])
+        // Hosted 26200 projections match the corresponding ARM64 and x86 corpora.
+        .chain(
+            CORPORA
+                .into_iter()
+                .filter(|(arch, _)| *arch != WinArch::X64)
+                .map(|(arch, raw)| (arch, raw, 26200)),
+        )
     {
         let lines: Vec<_> = raw.lines().collect();
         let mut profile_cases = 0;
@@ -154,6 +159,6 @@ fn native_nls_initialize_replays_measured_builds_outputs_guards_and_retained_vie
         assert_eq!(profile_cases, 79);
         cases += profile_cases;
     }
-    assert_eq!(cases, 1659);
-    assert_eq!(late_retained, 40);
+    assert_eq!(cases, 1817);
+    assert_eq!(late_retained, 48);
 }
