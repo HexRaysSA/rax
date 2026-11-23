@@ -586,6 +586,64 @@ fn installed_darwin_sh_selects_a_supplied_variant_through_closed_c_abi() {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn installed_gzip_matches_native_binary_output_through_closed_c_abi() {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let path = "/usr/bin/gzip";
+    let arguments = ["-n", "-c"];
+    let input =
+        b"closed installed runtime\ngzip stock gzip stock gzip stock\n\x00\x01\x02\x03 end\n";
+    let mut native = Command::new(path)
+        .args(arguments)
+        .env_clear()
+        .env("LC_ALL", "C")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    native.stdin.take().unwrap().write_all(input).unwrap();
+    let native = native.wait_with_output().unwrap();
+    assert!(native.status.success());
+    assert!(native.stderr.is_empty());
+    assert!(native.stdout.starts_with(&[0x1f, 0x8b, 0x08]));
+
+    let personality = if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "darwin"
+    };
+    let options = serde_json::json!({
+        "personality": personality,
+        "guest_path": path,
+        "arguments": arguments,
+        "environment": {"LC_ALL": "C"},
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    let process = open(&std::fs::read(path).unwrap(), &options.to_string());
+    let state = info(&process);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    assert_eq!(
+        rax_process_stdin_feed(process.0, input.as_ptr(), input.len()),
+        RaxStatus::Ok
+    );
+    assert_eq!(run_installed_posix(&process, path).exit_code, 0);
+    assert_eq!(
+        capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT),
+        native.stdout
+    );
+    assert_eq!(
+        capture_installed_posix_stream(&process, RAX_PROCESS_STDERR),
+        native.stderr
+    );
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn compare_installed_posix_output(
     personality: &str,
     path: &str,

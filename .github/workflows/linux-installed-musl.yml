@@ -55,6 +55,8 @@ jobs:
         run: cargo test --locked -p rax-capi --no-default-features installed_shell_replaces_its_image_through_closed_c_abi -- --nocapture
       - name: Compare native and emulated shell pipelines
         run: cargo test --locked -p rax-capi --no-default-features installed_shell_pipeline_matches_native_through_closed_c_abi -- --nocapture
+      - name: Compare native and emulated gzip byte streams
+        run: cargo test --locked -p rax-capi --no-default-features installed_gzip_matches_native_binary_output_through_closed_c_abi -- --nocapture
       - name: Compare native and emulated installed glibc posix_spawn
         shell: bash
         run: |
