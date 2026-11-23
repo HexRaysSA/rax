@@ -143,7 +143,7 @@ descriptors for both APs. [Run 45180604600](https://github.com/HexRaysSA/rax/act
 | Two-vCPU AP1 file | `9eeb9701aaace4a737081e09faaa58e160c17b8647cff15d05d739be494e7dd7` |
 | Four-vCPU AP3 file | `9311b7c62092a975da359db25874dcd0f4d6e3529e2b95019424811ecb93a778` |
 
-### Hosted Intel combined profile interruption
+### Hosted Intel profile interruptions
 
 The combined MMIO and coherence run at
 `238489518de0713f21e236a0766a28bacc5d2b30` preserved a signed build. Its
@@ -154,6 +154,14 @@ no execution archive, so it contributes no verified observation rows.
 The build archive SHA-256 is
 `8bb7a952ca6138e673337ba29f0eaa7a2b510ae94d897acd6b1ed4bd662c3498`.
 [Run 45180605252](https://github.com/HexRaysSA/rax/actions/runs/45180605252)
+
+The standalone 952-case MMIO rerun at
+`8d3117ad584b8e95a1671fc866f98d7cea0f458c` also lost runner contact. The last
+marker inspected in the live log was `legacy-mmio-debug` at case 928.
+Verification was limited to the signed build archive with SHA-256
+`9eaa1d3249d52fd0b5a336bf8adebdf65d12a3906e703aab746cc881f795c79b`.
+The cause of the runner loss is unknown.
+[Run 45186720218](https://github.com/HexRaysSA/rax/actions/runs/45186720218)
 
 ### Hosted Intel first-page MMIO coherence
 
