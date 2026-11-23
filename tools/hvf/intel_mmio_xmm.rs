@@ -70,11 +70,100 @@ pub(super) fn run(output: &Path, vex: bool) {
             (&[0x66, 0x44, 0x0f, 0x7f, 0x3f], 16, 15, false),
         ]
     };
+    // Unaligned memory forms encode [RDI+3]. Aligned forms use [RDI].
+    let packed_cases: [((&[u8], usize, usize, bool), bool, &str); 8] = if vex {
+        [
+            (
+                (&[0xc5, 0x78, 0x10, 0x7f, 0x03], 16, 15, true),
+                false,
+                "packed-ups-",
+            ),
+            (
+                (&[0xc5, 0xf8, 0x11, 0x47, 0x03], 16, 0, false),
+                false,
+                "packed-ups-",
+            ),
+            (
+                (&[0xc4, 0x61, 0xf9, 0x10, 0x7f, 0x03], 16, 15, true),
+                false,
+                "packed-upd-",
+            ),
+            (
+                (&[0xc4, 0x61, 0xf9, 0x11, 0x7f, 0x03], 16, 15, false),
+                false,
+                "packed-upd-",
+            ),
+            (
+                (&[0xc5, 0x78, 0x28, 0x3f], 16, 15, true),
+                true,
+                "packed-aps-",
+            ),
+            (
+                (&[0xc5, 0xf8, 0x29, 0x07], 16, 0, false),
+                true,
+                "packed-aps-",
+            ),
+            (
+                (&[0xc4, 0x61, 0xf9, 0x28, 0x3f], 16, 15, true),
+                true,
+                "packed-apd-",
+            ),
+            (
+                (&[0xc4, 0x61, 0xf9, 0x29, 0x3f], 16, 15, false),
+                true,
+                "packed-apd-",
+            ),
+        ]
+    } else {
+        [
+            (
+                (&[0x0f, 0x10, 0x47, 0x03], 16, 0, true),
+                false,
+                "packed-ups-",
+            ),
+            (
+                (&[0x44, 0x0f, 0x11, 0x7f, 0x03], 16, 15, false),
+                false,
+                "packed-ups-",
+            ),
+            (
+                (&[0x66, 0x44, 0x0f, 0x10, 0x7f, 0x03], 16, 15, true),
+                false,
+                "packed-upd-",
+            ),
+            (
+                (&[0x66, 0x44, 0x0f, 0x11, 0x7f, 0x03], 16, 15, false),
+                false,
+                "packed-upd-",
+            ),
+            ((&[0x0f, 0x28, 0x07], 16, 0, true), true, "packed-aps-"),
+            (
+                (&[0x44, 0x0f, 0x29, 0x3f], 16, 15, false),
+                true,
+                "packed-aps-",
+            ),
+            (
+                (&[0x66, 0x44, 0x0f, 0x28, 0x3f], 16, 15, true),
+                true,
+                "packed-apd-",
+            ),
+            (
+                (&[0x66, 0x44, 0x0f, 0x29, 0x3f], 16, 15, false),
+                true,
+                "packed-apd-",
+            ),
+        ]
+    };
     let transfers = existing_cases
         .into_iter()
-        .map(|entry| (entry, false))
-        .chain(aligned_cases.into_iter().map(|entry| (entry, true)));
-    for ((code, size, index, read), aligned) in transfers {
+        .map(|entry| (entry, false, ""))
+        .chain(
+            aligned_cases
+                .into_iter()
+                .map(|entry| (entry, true, "aligned-")),
+        )
+        .chain(packed_cases);
+    for ((code, size, index, read), aligned, form) in transfers {
         for restore in [false, true] {
             let memory = guest_memory(code);
             word(&memory, 0x4000, 0x4000_009b);
@@ -164,24 +253,28 @@ pub(super) fn run(output: &Path, vex: bool) {
                 (false, false) => "write",
                 (false, true) => "write-restored",
             };
-            let operation = if aligned { "aligned-" } else { "" };
             record(
                 output,
                 case,
-                &format!("{profile}-{operation}{suffix}"),
+                &format!("{profile}-{form}{suffix}"),
                 size,
                 value,
             );
             case += 1;
         }
     }
-    for (code, size, _, read) in aligned_cases {
+    let faults = aligned_cases.into_iter().map(|entry| (entry, "")).chain(
+        packed_cases
+            .into_iter()
+            .filter_map(|(entry, aligned, name)| aligned.then_some((entry, name))),
+    );
+    for ((code, size, _, read), form) in faults {
         let fault_pc = alignment_fault(code, vex);
         let direction = if read { "read" } else { "write" };
         record(
             output,
             case,
-            &format!("{profile}-misaligned-{direction}"),
+            &format!("{profile}-{form}misaligned-{direction}"),
             size,
             fault_pc,
         );

@@ -35,6 +35,7 @@ pub(super) fn decode_xmm_transfer(
         (1, 0x7e) => (false, if wide { 8 } else { 4 }, false),
         (2, 0x7e) => (true, 8, true),
         (1, 0xd6) => (false, 8, true),
+        (0 | 1, 0x10 | 0x11 | 0x28 | 0x29) => (opcode & 1 == 0, 16, true),
         (1 | 2, 0x6f | 0x7f) => (opcode == 0x6f, 16, true),
         _ => {
             *unsupported = true;
@@ -70,10 +71,14 @@ pub(super) fn decode_xmm_transfer(
     } else {
         vec![read_write(rm, false, true), xmm]
     };
-    out.mnemonic = match size {
-        16 if flags & 3 == 1 => "vmovdqa",
-        16 => "vmovdqu",
-        8 => "vmovq",
+    out.mnemonic = match (opcode, size, flags & 3) {
+        (0x10 | 0x11, 16, 0) => "vmovups",
+        (0x10 | 0x11, 16, 1) => "vmovupd",
+        (0x28 | 0x29, 16, 0) => "vmovaps",
+        (0x28 | 0x29, 16, 1) => "vmovapd",
+        (_, 16, 1) => "vmovdqa",
+        (_, 16, _) => "vmovdqu",
+        (_, 8, _) => "vmovq",
         _ => "vmovd",
     }
     .into();

@@ -209,3 +209,36 @@ The Linux procfs lifetime case observed PID 102 when it expected PID 101.
 | --- | --- |
 | Unfiltered library with the unaligned change | `b27c4a3dd848b853eef9de1b295c6c4c8ac186277d8204586d9789200b5a3f42` |
 | Same six tests on the clean parent | `b7793ca4abcd2d2d565e133bb0c8b22477170a3b386b7a2e31743ee75307fced` |
+
+## Packed floating-point moves
+
+Legacy MOVUPS, MOVUPD, MOVAPS and MOVAPD and their VEX.128 forms use the
+same full-XMM request and completion records. Loads replace all 16 bytes
+of the XMM destination. Legacy loads preserve the upper YMM half, and
+VEX loads clear it. Stores publish exactly 16 bytes and preserve the
+source register. The APS and APD forms check 16-byte alignment of the
+guest linear address before preparing a device request.
+[Intel Software Developer's Manual, Volume 2, MOVUPS, MOVUPD, MOVAPS and MOVAPD](https://cdrdv2-public.intel.com/835757/325383-sdm-vol-2abcd.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The SIMD element type leaves the 16-byte transfer unchanged. | Check byte identity and surrounding canaries for both element types, both directions, high XMM indices and VEX2/VEX3. |
+| Aligned forms fault before device I/O. | Use the same encoding with nonzero low address bits. The Intel control requires #GP(0) at the transfer RIP and no modification. The native profile requires uninterrupted progress through the guest handler with no device request. |
+| A pending checkpoint retains the width and retirement frontier. | Destroy the producer before restoring the native record. Check exactly one re-emitted request, one completion, preserved flags and the first following RIP. |
+
+On a physical Intel Xeon E5-1650 v3, 24 operand-form and direction
+combinations matched 204 ordinary RAM transfers and 180 #GP(0) controls.
+The control checked all input and output bytes and both halves of YMM15.
+Its log SHA-256 is
+`5a2e9ad941fd9d82a27e1a4fb2c6fd2bbdecfde90a8f219e4cd121083ab9460b`.
+
+The preceding source rejected the new packed-move test with
+`Unsupported`. With both decoders and native planning updated, the
+unfiltered `hvf_mmio` and `isa_oracle` binaries passed 124 and 102
+cases on Intel Linux. Their combined terminal log SHA-256 is
+`58147b088ca49f4f21f94d1e07b74ae72abb2b8c9e8caab30a225a605c718a58`.
+
+The Intel macOS target executed under Rosetta with 99 `hvf_intel_owner`,
+124 `hvf_mmio`, and 102 `isa_oracle` passes. A separate signed Intel
+consumer linked successfully, and all 54 harness tests passed. The Cargo
+log SHA-256 is `d0ed3fdae3851dd4f6c56bc3e7558570734dd2728d1e869dd078040394bae0e0`.

@@ -461,7 +461,7 @@ fn malformed_ept_or_unrepresented_instruction_never_becomes_device_io() {
         &[0xf0, 0x01, 0x07],
         &[0xa4],
         &[0x8c, 0x07],
-        &[0x0f, 0x10, 0x07],
+        &[0x0f, 0x58, 0x07], // ADDPS remains outside the MMIO move profile.
     ] {
         let (c, mut r, e) = fixture(code);
         assert!(prepare(&c, &mut r, e).is_err());
@@ -1271,5 +1271,93 @@ fn string_load_and_store_plan_the_current_element() {
         assert_eq!(plan.physical, exit.physical);
         assert_eq!(plan.linear, exit.linear);
         assert_eq!(plan.length, code.len() as u64);
+    }
+}
+
+#[test]
+fn packed_float_xmm_moves_keep_direction_alignment_and_register_width() {
+    use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
+    for (double, aligned, legacy_name, vex_name) in [
+        (false, false, "movups", "vmovups"),
+        (true, false, "movupd", "vmovupd"),
+        (false, true, "movaps", "vmovaps"),
+        (true, true, "movapd", "vmovapd"),
+    ] {
+        for read in [true, false] {
+            let opcode = if aligned { 0x28 } else { 0x10 } | u8::from(!read);
+            for (prefix, mnemonic, vex) in [
+                (vec![0x44, 0x0f], legacy_name, false),
+                (vec![0xc5, 0x78 | u8::from(double)], vex_name, true),
+                (vec![0xc4, 0x61, 0xf8 | u8::from(double)], vex_name, true),
+            ] {
+                // The legacy packed-double prefix precedes any REX.
+                let mut bytes = prefix;
+                if double && !vex {
+                    bytes.insert(0, 0x66);
+                }
+                bytes.extend_from_slice(&[opcode, 0x3f]); // XMM15 and [RDI].
+                let meta = instruction_metadata::decode(64, 0x1000, &bytes).unwrap();
+                let (dst, src) = (&meta.operands[0], &meta.operands[1]);
+                let (reg, mem) = if read { (dst, src) } else { (src, dst) };
+                assert_eq!(meta.mnemonic, mnemonic);
+                assert_eq!(meta.size, bytes.len() as u32);
+                assert_eq!(
+                    (reg.kind, reg.reg.as_str(), reg.width_bits),
+                    (OperandKind::Register, "xmm15", 128)
+                );
+                assert_eq!(
+                    (mem.kind, mem.width_bits, mem.read, mem.write),
+                    (OperandKind::Memory, 128, read, !read)
+                );
+
+                let (mut context, mut ram, mut exit) = fixture(&bytes);
+                exit.qualification = if read { 0x181 } else { 0x182 };
+                for offset in [0, 1, 15] {
+                    context.registers[7] = exit.linear + offset;
+                    let plan = prepare(
+                        &context,
+                        &mut ram,
+                        ExitRecord {
+                            linear: exit.linear + offset,
+                            physical: exit.physical + offset,
+                            ..exit
+                        },
+                    );
+                    if aligned && offset != 0 {
+                        assert_eq!(plan.unwrap_err(), "misaligned XMM MMIO transfer");
+                        continue;
+                    }
+                    let plan = plan.unwrap();
+                    let transfer = match plan.action {
+                        Action::XmmRead { input, zero_upper } if read => {
+                            assert_eq!(zero_upper, vex);
+                            input
+                        }
+                        Action::XmmWrite(transfer) if !read => transfer,
+                        action => panic!("unexpected {mnemonic} MMIO action: {action:?}"),
+                    };
+                    assert_eq!(
+                        (transfer.index, transfer.size, transfer.length),
+                        (15, 16, bytes.len() as u64)
+                    );
+                    assert_eq!(plan.physical, exit.physical + offset);
+                }
+                assert!(
+                    ram.reads
+                        .iter()
+                        .all(|&(address, _)| address < exit.physical
+                            || address >= exit.physical + 31)
+                );
+            }
+        }
+    }
+    for bytes in [
+        &[0xf2, 0x0f, 0x10, 0x07][..], // Scalar MOVSD.
+        &[0xf3, 0x0f, 0x10, 0x07],     // Scalar MOVSS.
+        &[0xc5, 0xfc, 0x10, 0x07],     // YMM VMOVUPS.
+        &[0xc5, 0xf1, 0x28, 0x07],     // Reserved VEX.vvvv.
+    ] {
+        let (context, mut ram, record) = fixture(bytes);
+        assert!(prepare(&context, &mut ram, record).is_err(), "{bytes:02x?}");
     }
 }

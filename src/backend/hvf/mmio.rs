@@ -390,13 +390,42 @@ fn validate_memory<M: PhysicalMemory>(
     Ok(())
 }
 
+struct XmmMove {
+    size: u8,
+    zero_upper: bool,
+    aligned: bool,
+}
+
+impl XmmMove {
+    fn for_mnemonic(mnemonic: &str) -> Option<Self> {
+        let (size, aligned) = match mnemonic {
+            "movd" | "vmovd" => (4, false),
+            "movq" | "vmovq" => (8, false),
+            "movdqu" | "vmovdqu" | "movups" | "vmovups" | "movupd" | "vmovupd" => (16, false),
+            "movdqa" | "vmovdqa" | "movaps" | "vmovaps" | "movapd" | "vmovapd" => (16, true),
+            _ => return None,
+        };
+        Some(Self {
+            size,
+            zero_upper: mnemonic.starts_with('v'),
+            aligned,
+        })
+    }
+}
+
 fn prepare_xmm<M: PhysicalMemory>(
     context: &Context,
     memory: &mut M,
     record: ExitRecord,
     instruction: &Instruction,
     read: bool,
+    operation: XmmMove,
 ) -> Result<Plan, String> {
+    let XmmMove {
+        size,
+        zero_upper,
+        aligned,
+    } = operation;
     let [destination, source] = instruction.operands.as_slice() else {
         return Err("XMM MMIO transfer requires two operands".into());
     };
@@ -404,15 +433,6 @@ fn prepare_xmm<M: PhysicalMemory>(
         (destination, source)
     } else {
         (source, destination)
-    };
-    let (size, zero_upper) = match instruction.mnemonic.as_str() {
-        "movd" => (4, false),
-        "movq" => (8, false),
-        "movdqa" | "movdqu" => (16, false),
-        "vmovd" => (4, true),
-        "vmovq" => (8, true),
-        "vmovdqa" | "vmovdqu" => (16, true),
-        _ => return Err("unsupported XMM MMIO transfer".into()),
     };
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
@@ -443,7 +463,7 @@ fn prepare_xmm<M: PhysicalMemory>(
     transfer.validate()?;
     // A VMX exit can reach this handler only with a device operand. The
     // aligned instructions have no MMIO transaction at a misaligned address.
-    if matches!(instruction.mnemonic.as_str(), "movdqa" | "vmovdqa") && record.linear & 15 != 0 {
+    if aligned && record.linear & 15 != 0 {
         return Err("misaligned XMM MMIO transfer".into());
     }
     validate_memory(context, memory, record, operand, size)?;
@@ -494,11 +514,8 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if let Some(plan) = string::prepare(context, memory, record, &instruction, &encoded, read)? {
         return Ok(plan);
     }
-    if matches!(
-        instruction.mnemonic.as_str(),
-        "movd" | "movq" | "movdqa" | "movdqu" | "vmovd" | "vmovq" | "vmovdqa" | "vmovdqu"
-    ) {
-        return prepare_xmm(context, memory, record, &instruction, read);
+    if let Some(operation) = XmmMove::for_mnemonic(&instruction.mnemonic) {
+        return prepare_xmm(context, memory, record, &instruction, read, operation);
     }
     if matches!(instruction.mnemonic.as_str(), "div" | "idiv") {
         return divide::prepare(context, memory, record, &instruction);

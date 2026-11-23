@@ -264,8 +264,9 @@ pub(super) fn decode_0f(
             out.operands = vec![dst, rm];
             CMOV[(op & 15) as usize]
         }
-        0x6e | 0x6f | 0x7e | 0x7f | 0xd6 if !ctx.has_rex2() => {
+        0x10 | 0x11 | 0x28 | 0x29 | 0x6e | 0x6f | 0x7e | 0x7f | 0xd6 if !ctx.has_rex2() => {
             let (load, size, vector_rm) = match (op, ctx.operand_size_override, ctx.rep_prefix) {
+                (0x10 | 0x11 | 0x28 | 0x29, _, None) => (op & 1 == 0, 16, true),
                 (0x6e | 0x7e, true, None) => (op == 0x6e, if ctx.rex_w() { 8 } else { 4 }, false),
                 (0x7e, false, Some(0xf3)) => (true, 8, true),
                 (0xd6, true, None) => (false, 8, true),
@@ -297,10 +298,14 @@ pub(super) fn decode_0f(
             } else {
                 out.operands = vec![read_write(rm, false, true), xmm];
             }
-            match size {
-                16 if ctx.operand_size_override => "movdqa",
-                16 => "movdqu",
-                8 => "movq",
+            match (op, size, ctx.operand_size_override) {
+                (0x10 | 0x11, 16, false) => "movups",
+                (0x10 | 0x11, 16, true) => "movupd",
+                (0x28 | 0x29, 16, false) => "movaps",
+                (0x28 | 0x29, 16, true) => "movapd",
+                (_, 16, true) => "movdqa",
+                (_, 16, false) => "movdqu",
+                (_, 8, _) => "movq",
                 _ => "movd",
             }
         }
