@@ -4,6 +4,7 @@ use super::{Entry, Error, Kind, validate};
 use crate::user::mm::HostFileSource;
 use std::{
     collections::BTreeMap,
+    ffi::OsStr,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -109,26 +110,15 @@ impl Roots {
         if !self.roots.values().any(|root| canonical.starts_with(root)) {
             return Err(Error::NotFound);
         }
-        // POSIX guest names remain byte-case-sensitive even on a host volume
-        // whose native lookup folds case. Native symlink targets are checked by
-        // canonical containment above; this checks each guest-requested name.
-        #[cfg(any(target_os = "macos", windows))]
-        {
-            let mut parent = host.to_path_buf();
-            for name in guest[root.len()..]
-                .split('/')
-                .filter(|name| !name.is_empty())
-            {
-                let found = std::fs::read_dir(&parent)
-                    .map_err(|_| Error::Io)?
-                    .any(|entry| {
-                        entry.is_ok_and(|entry| entry.file_name() == std::ffi::OsStr::new(name))
-                    });
-                if !found {
-                    return Err(Error::NotFound);
-                }
-                parent.push(name);
+        // Compare the guest spelling with the directory entries even when
+        // native lookup folds case. Canonical containment above checks the
+        // resolved target independently of its guest-visible name.
+        let mut parent = host.to_path_buf();
+        for name in relative.split('/').filter(|name| !name.is_empty()) {
+            if !host_entry_has_name(&parent, name).map_err(|_| Error::Io)? {
+                return Err(Error::NotFound);
             }
+            parent.push(name);
         }
         Ok(canonical)
     }
@@ -241,11 +231,7 @@ impl Roots {
             Err(Error::NotFound) => return Ok(None),
             Err(error) => return Err(error),
         };
-        #[cfg(any(target_os = "macos", windows))]
-        if !std::fs::read_dir(&parent)
-            .map_err(path_error)?
-            .any(|item| item.is_ok_and(|item| item.file_name() == std::ffi::OsStr::new(name)))
-        {
+        if !host_entry_has_name(&parent, name).map_err(path_error)? {
             return Ok(None);
         }
         link_target(&parent.join(name))?
@@ -307,6 +293,19 @@ impl Roots {
         }
         Ok(names)
     }
+}
+
+fn host_entry_has_name(parent: &Path, name: &str) -> std::io::Result<bool> {
+    let mut entries = match std::fs::read_dir(parent) {
+        Ok(entries) => entries,
+        // Search-only Linux directories can resolve a known name even when
+        // they cannot be listed. Preserve native lookup in that case.
+        #[cfg(target_os = "linux")]
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => return Ok(true),
+        Err(error) => return Err(error),
+    };
+    let name = OsStr::new(name);
+    Ok(entries.any(|entry| entry.is_ok_and(|entry| entry.file_name() == name)))
 }
 
 fn path_error(error: std::io::Error) -> Error {

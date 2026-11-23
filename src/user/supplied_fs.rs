@@ -675,6 +675,8 @@ impl Files {
     /// Select read-only library directory roots. Missing names outside these
     /// roots still have no host fallback. Symlink targets must stay within the
     /// union of canonical selected roots. Explicit files take precedence.
+    /// Exact guest spelling is checked against host directory entries. Linux
+    /// search-only directories retain native name lookup if listing is denied.
     pub fn with_host_roots(
         &self,
         roots: BTreeMap<String, std::path::PathBuf>,
@@ -1911,6 +1913,14 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["backing", "later"]
         );
+        let nested = fixture.dir.join("subdir");
+        std::fs::create_dir(&nested).unwrap();
+        std::fs::write(nested.join("library"), b"nested").unwrap();
+        assert_eq!(&*files.read("/usr/lib/subdir/library").unwrap(), b"nested");
+        assert!(matches!(
+            files.lookup("/usr/lib/SUBDIR/library"),
+            Err(Error::NotFound)
+        ));
         assert!(files.with_host_roots(BTreeMap::new()).is_err());
         assert!(
             Files::default()
@@ -1923,6 +1933,24 @@ mod tests {
                 .is_err()
         );
         assert!(files.with_file("/usr".into(), Arc::from([])).is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn selected_roots_keep_linux_search_only_directories_readable() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let fixture = super::test_backing::TestFile::new(b"allowed", 7);
+        let nested = fixture.dir.join("subdir");
+        std::fs::create_dir(&nested).unwrap();
+        std::fs::write(nested.join("library"), b"known").unwrap();
+        let files = Files::default()
+            .with_host_roots(BTreeMap::from([("/lib".into(), fixture.dir.clone())]))
+            .unwrap();
+        std::fs::set_permissions(&nested, std::fs::Permissions::from_mode(0o100)).unwrap();
+        let result = files.read("/lib/subdir/library");
+        std::fs::set_permissions(&nested, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(&*result.unwrap(), b"known");
     }
 
     #[cfg(unix)]
@@ -1958,6 +1986,21 @@ mod tests {
             ]))
             .unwrap();
         assert_eq!(&*both.read("/lib/escape").unwrap(), b"outside");
+        let installed = Files::default()
+            .with_linux_library_roots(BTreeMap::from([("/lib".into(), fixture.dir.clone())]))
+            .unwrap();
+        assert!(
+            installed
+                .lookup_with_follow("/lib/alias", false)
+                .unwrap()
+                .1
+                .link_target()
+                .is_some()
+        );
+        assert!(matches!(
+            installed.lookup_with_follow("/lib/ALIAS", false),
+            Err(Error::NotFound)
+        ));
     }
     #[test]
     fn selected_backing_is_demand_read_and_survives_namespace_extension() {
