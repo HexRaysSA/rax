@@ -1,0 +1,25 @@
+{
+  "kernel": "10.0.26200",
+  "guest_machine": "0x014c",
+  "native_machine": "0xaa64",
+  "pointer_bits": 32,
+  "run": 45182760087,
+  "trials": 8,
+  "source_sha256": "579fa4ef776a2565f8de7f3fd4bd72e2c135da6e6dcaf986c8d583cae020b6c2",
+  "report_sha256": "0e41038150fe6e2e3f436898d3931618ba804d08f35a030633317bab945e1dcc",
+  "name": "\\Device\\SrpDevice",
+  "request": {
+    "access": 1,
+    "share": 7,
+    "options": 0,
+    "flags": 64
+  },
+  "observed": {
+    "status": 3221225524,
+    "opened": false,
+    "iosb_status": 4294967294,
+    "iosb_information": 4294967293,
+    "handle_before": 1431655764,
+    "handle_after": 0
+  }
+}

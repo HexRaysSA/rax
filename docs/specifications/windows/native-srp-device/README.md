@@ -9,10 +9,16 @@ both fields of the I/O status block untouched. Three read-only controls also
 observed absence. [Guest request and native controls](arm64-26200-open.json)
 [Windows observer](https://github.com/HexRaysSA/rax/actions/runs/44738107844)
 
+The installed x86 command on the same ARM64 build submits the same request.
+Eight native WoW64 controls recorded the same status, stored zero in the
+32-bit handle output, and left both 32-bit I/O status fields untouched.
+[WoW64 capture](arm64-26200-wow64-open.json)
+[Windows WoW64 observer](https://github.com/HexRaysSA/rax/actions/runs/45182760087)
+
 Runtime selection checks the fixed request twice on the qualified native
 kernel. Both calls must produce the observed status with no handle and an
 unchanged I/O status block. An acquired native handle is closed immediately.
-The common emulator serves the captured result for the matching ARM64 open.
+The common emulator serves the captured result for the matching ARM64 and x86 WoW64 opens.
 The guest never supplies host arguments or receives a native handle. The
 capture performs no device reads, writes or control operations.
 [Native file-open contract](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwopenfile)

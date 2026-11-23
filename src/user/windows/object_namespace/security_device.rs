@@ -14,7 +14,9 @@ pub(crate) fn supports_srp_device_absence(
     arch: WinArch,
     machine: Option<u16>,
 ) -> bool {
-    kernel == (10, 0, 26200) && arch == WinArch::Arm64 && machine == Some(0xaa64)
+    kernel == (10, 0, 26200)
+        && matches!(arch, WinArch::Arm64 | WinArch::X86)
+        && machine == Some(0xaa64)
 }
 
 /// Fixed native identity, captured before guest execution without retaining a HANDLE.

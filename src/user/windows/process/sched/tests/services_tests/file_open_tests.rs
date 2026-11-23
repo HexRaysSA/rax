@@ -152,7 +152,16 @@ fn srp_device_open_replays_captured_absence_and_preserves_outputs() {
         "../../../../../../../docs/specifications/windows/native-srp-device/arm64-26200-open.json"
     ))
     .unwrap();
+    let wow64: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-srp-device/arm64-26200-wow64-open.json"
+    ))
+    .unwrap();
     let name = evidence["name"].as_str().unwrap();
+    assert_eq!(wow64["name"], name);
+    assert_eq!(wow64["request"], evidence["guest_request"]);
+    assert_eq!(wow64["observed"]["status"], STATUS_OBJECT_NAME_NOT_FOUND);
+    assert_eq!(wow64["observed"]["opened"], false);
+    assert_eq!(wow64["trials"], 8);
     let request = &evidence["guest_request"];
     let flags = request["flags"].as_u64().unwrap() as u32;
     let access = request["access"].as_u64().unwrap();
@@ -171,6 +180,10 @@ fn srp_device_open_replays_captured_absence_and_preserves_outputs() {
         (WinArch::Arm64, 26201, 0xaa64, true, flags, access, false),
         (WinArch::Arm64, 26200, 0x8664, true, flags, access, false),
         (WinArch::X64, 26200, 0xaa64, true, flags, access, false),
+        (WinArch::X86, 26200, 0xaa64, true, flags, access, true),
+        (WinArch::X86, 26200, 0xaa64, false, flags, access, false),
+        (WinArch::X86, 26200, 0x8664, true, flags, access, false),
+        (WinArch::X86, 26200, 0xaa64, true, 0, access, false),
         (WinArch::Arm64, 26200, 0xaa64, true, 0, access, false),
         (WinArch::Arm64, 26200, 0xaa64, true, flags, 0x80, false),
     ] {
@@ -188,29 +201,52 @@ fn srp_device_open_replays_captured_absence_and_preserves_outputs() {
         p.space
             .w32(attrs + 3 * p.arch.ptr_size(), request_flags)
             .unwrap();
+        let width = arch.ptr_size();
+        let control = if arch == WinArch::X86 {
+            &wow64["observed"]
+        } else {
+            exact
+        };
+        if arch == WinArch::X86 {
+            p.space
+                .wptr(output, width, control["handle_before"].as_u64().unwrap())
+                .unwrap();
+        }
         p.space
-            .wptr(io, 8, exact["iosb_status"].as_u64().unwrap())
+            .wptr(io, width, control["iosb_status"].as_u64().unwrap())
             .unwrap();
         p.space
-            .wptr(io + 8, 8, exact["iosb_information"].as_u64().unwrap())
+            .wptr(
+                io + width,
+                width,
+                control["iosb_information"].as_u64().unwrap(),
+            )
             .unwrap();
         let handles = p.objects.iter().count();
-        let before = p.space.bytes(output, 48).unwrap();
+        let mut copyback = p.space.bytes(output, 48).unwrap();
 
         arguments(
             p,
             &mut h.thread,
             &[output, request_access, attrs, io, share, options],
         );
-        let result = handle_stop(p, &mut h.thread, stop(arch, 0x33));
+        let result = if arch == WinArch::X86 {
+            crate::user::windows::process::services::wow64(p, &mut h.thread, 0x1234_0000)
+        } else {
+            handle_stop(p, &mut h.thread, stop(arch, 0x33))
+        };
         if expected {
             assert_eq!(result, Outcome::Continue);
             assert_eq!(h.thread.cpu.gpr(0), u64::from(STATUS_OBJECT_NAME_NOT_FOUND));
+            if arch == WinArch::X86 {
+                let handle = control["handle_after"].as_u64().unwrap() as u32;
+                copyback[..4].copy_from_slice(&handle.to_le_bytes());
+            }
         } else {
             assert!(matches!(result, Outcome::Fail(reason)
                              if reason.contains("outside the captured absence profile")));
         }
-        assert_eq!(p.space.bytes(output, 48).unwrap(), before);
+        assert_eq!(p.space.bytes(output, 48).unwrap(), copyback);
         assert_eq!(p.objects.iter().count(), handles);
     }
 }
