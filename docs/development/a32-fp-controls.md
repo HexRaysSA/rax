@@ -706,3 +706,29 @@ or filtered cases. The results were 198 in `a32_fp_controls`, 5 in
 `1f60cb5ef4a2fa844f37642b5b0307797883acd6a39f073a9f65b7b41f477ab7`.
 The independent 64-result oracle log has SHA-256
 `fb85f24e1f7418943cc3ee90cbfff7f1aacda6dc0b94a0d3e1ad74e5cb50806c`.
+
+## CP10 and CP11 pair and memory allocation
+
+Reserved encodings in the conditional CP10/CP11 64-bit transfer and
+load/store space select Undefined Instruction after the allocated VFP
+decoder paths. The shared decoder applies the same allocation rules to
+T32. The selected check takes constant time and storage.
+[Arm DDI 0597 ID032025, pages 1490–1491 and 1523–1524](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A reserved FP prefix cannot execute a generic coprocessor operation. | Vary the reserved D, o3, opc2 and P/U/W partitions across ARM, Thumb, CP10 and CP11. The rejected encoding must preserve CPU state and retirement even with an FP trap armed. |
+| Allocated neighboring transfers retain their decode. | Compare two-core-register VMOV, scalar VLDR and VSTR, and CP15 MCRR/MRRC in both instruction sets. |
+
+The parent decoded `0xec400a00` as MCRR. The regression exercises
+14,336 reserved decode combinations, 56 mixed-width executions and 12
+neighboring decode controls. LLVM MC and QEMU 11.1.2 agreed on all 64
+independent cases. QEMU ran 56 guest Undefined Instruction cases and eight
+allocated transfer controls on Cortex-A15. Its data-address controls used
+mapped, aligned RAM. The independent log SHA-256 is
+`ead7065e7f4638fbb9c4e0b297b141832c88fa0cc45c1b63c44aed48a7f8dd97`.
+
+The five unfiltered owning targets passed 47,651 tests on native Intel
+Linux with `smir-jit`. The runs reported zero failures, ignored cases,
+and filters. The complete Cargo test log SHA-256 is
+`760df3090fd5fb1689726e04baae1fd0132c474e60e531bf06d43d66b70e28eb`.

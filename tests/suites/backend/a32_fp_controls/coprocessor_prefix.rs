@@ -246,3 +246,62 @@ fn mixed_width_invalid_transfers_do_not_select_fp_or_svc_or_retire() {
         }
     }
 }
+
+#[test]
+fn reserved_cp10_cp11_pair_and_memory_encodings_are_undefined() {
+    const RESERVED: &[u32] = &[
+        0xec40_0a00, // Pair, D=1 but o3=0.
+        0xec00_0a10, // Pair, D=0.
+        0xec40_0a50, // Pair, opc2=01.
+        0xec40_0a90, // Pair, opc2=10.
+        0xec40_0ad0, // Pair, opc2=11.
+        0xec20_0a00, // Memory, P=0 U=0 W=1.
+        0xeda0_0a00, // Memory, P=1 U=1 W=1.
+    ];
+    for thumb in [false, true] {
+        for &template in RESERVED {
+            for coproc_low in [0, 1] {
+                for read in [0, 1] {
+                    let base = template | coproc_low << 8 | read << 20;
+                    for first in 0..16 {
+                        for second in 0..16 {
+                            let raw = base | first << 12 | second << 16;
+                            assert_eq!(
+                                decode(raw, thumb).mnemonic,
+                                Mnemonic::UNDEFINED,
+                                "raw={raw:08x}, thumb={thumb}"
+                            );
+                        }
+                    }
+                    let raw = base | 1 << 16;
+                    let mut cpu = super::mixed(raw, thumb, 2, false, true);
+                    let before = (cpu.get_gpr(0), cpu.get_simd(0), cpu.export_sregs());
+                    assert!(
+                        matches!(cpu.step(), Err(ArmError::UndefinedInstruction(value)) if value == raw),
+                        "raw={raw:08x}, thumb={thumb}"
+                    );
+                    assert_eq!(cpu.get_pc(), 0x100);
+                    assert_eq!(cpu.instruction_count(), 0);
+                    assert_eq!(
+                        (cpu.get_gpr(0), cpu.get_simd(0), cpu.export_sregs()),
+                        before
+                    );
+                }
+            }
+        }
+        for (raw, mnemonic) in [
+            (0xec41_0a10, Mnemonic::VMOV),
+            (0xec51_0b10, Mnemonic::VMOV),
+            (0xed90_0a04, Mnemonic::VLDR),
+            (0xed80_0b04, Mnemonic::VSTR),
+            (0xec41_0f10, Mnemonic::MCRR),
+            (0xec51_0f10, Mnemonic::MRRC),
+        ] {
+            assert_eq!(
+                decode(raw, thumb).mnemonic,
+                mnemonic,
+                "raw={raw:08x}, thumb={thumb}"
+            );
+        }
+    }
+}

@@ -1080,6 +1080,16 @@ impl Aarch32Decoder {
         if let Some(insn) = Self::decode_vfp_load_store(raw) {
             return Ok(insn);
         }
+        if matches!((raw >> 8) & 15, 10 | 11) {
+            // CP10/CP11 allocate only FP operations in this encoding space.
+            // Reserved transfer prefixes cannot fall through to a coprocessor.
+            return Ok(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
 
         let l = (raw >> 20) & 1;
         // op1 0b00010x: the two-register transfers (the coprocessors other
