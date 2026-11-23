@@ -387,7 +387,7 @@ pub fn refresh(p: &mut ProcState, th: &mut Threads<'_>) {
     if events.is_empty() {
         return;
     }
-    let chld = p.sigactions[(SIGCHLD - 1) as usize];
+    let chld = p.signal_action(SIGCHLD);
     // A child named by a pidfd became readable: its pollers look again.
     let polled = events
         .iter()

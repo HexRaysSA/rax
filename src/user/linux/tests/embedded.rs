@@ -778,6 +778,51 @@ fn closed_linux_clone_fs_shares_cwd_and_umask_all_abis() {
 }
 
 #[test]
+fn closed_linux_clone_sighand_shares_dispositions_all_abis() {
+    use crate::user::linux::signal::{SIG_DFL, SIG_IGN, SIGCHLD, SIGUSR1};
+    use crate::user::linux::syscall::{
+        Call,
+        thread::cf::{CLONE_SIGHAND, CLONE_VM},
+    };
+
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let action = h.scratch;
+        h.fill(action, 64, 0);
+        h.proc.space().write_raw(action, &[SIG_IGN as u8]).unwrap();
+        let flags = CLONE_SIGHAND | SIGCHLD as u64;
+        assert_eq!(h.err(Sysno::Clone, &[flags, 0, 0, 0, 0]), EINVAL);
+        assert_eq!(h.ok(Sysno::Clone, &[flags | CLONE_VM, 0, 0, 0, 0]), 101);
+        let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+        child.syscall(
+            0,
+            Call::new(
+                abi.number(Sysno::RtSigaction).unwrap(),
+                [SIGUSR1 as u64, action, 0, 8, 0, 0],
+            ),
+        );
+        assert_eq!(child.threads[0].cpu.syscall_return_value(), 0, "{abi:?}");
+        assert_eq!(h.proc.state.signal_action(SIGUSR1).handler, SIG_IGN);
+
+        // An ordinary process clone copies the current shared disposition.
+        assert_eq!(h.ok(Sysno::Clone, &[SIGCHLD as u64, 0, 0, 0, 0]), 102);
+        h.fill(action, 64, 0);
+        h.ok(Sysno::RtSigaction, &[SIGUSR1 as u64, action, 0, 8]);
+        let handler = |index: usize| {
+            h.proc.state.children.list[index]
+                .guest
+                .as_ref()
+                .unwrap()
+                .state
+                .signal_action(SIGUSR1)
+                .handler
+        };
+        assert_eq!(handler(0), SIG_DFL);
+        assert_eq!(handler(1), SIG_IGN);
+    }
+}
+
+#[test]
 fn closed_linux_close_range_splits_shared_table_before_changes_all_abis() {
     use crate::user::linux::signal::SIGCHLD;
     use crate::user::linux::syscall::thread::cf::CLONE_FILES;

@@ -388,7 +388,7 @@ fn installed_libc_spawn_matches_native_through_closed_c_abi() {
     );
     assert_eq!(
         native.stdout,
-        b"spawn:installed-libc\nspawn:isolated-group\nmissing:ENOENT\nclone:shared-vm\nclone:shared-files\nclone:shared-fs\n"
+        b"spawn:installed-libc\nspawn:isolated-group\nmissing:ENOENT\nclone:shared-vm\nclone:shared-files\nclone:shared-fs\nclone:shared-sighand\n"
     );
     assert!(native.stderr.is_empty());
 

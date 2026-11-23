@@ -262,7 +262,7 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let queued = t.pending.queued() + p.shared_pending.queued();
     let _ = writeln!(s, "SigQ:\t{queued}/{}", p.rlimits[11].0);
     let (mut ignored, mut caught) = (0u64, 0u64);
-    for (i, a) in p.sigactions.iter().enumerate() {
+    for (i, a) in p.signal_actions_snapshot().iter().enumerate() {
         match a.handler {
             super::signal::SIG_DFL => {}
             super::signal::SIG_IGN => ignored |= 1 << i,

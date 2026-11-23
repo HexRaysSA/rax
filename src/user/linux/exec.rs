@@ -332,6 +332,8 @@ impl LinuxProcess {
         t.real_blocked = 0;
         t.fault = Default::default();
         t.comm = image.comm.clone();
+        // Detach before flushing handlers so a sharing process keeps its own actions.
+        p.detach_signal_actions();
         // flush_signal_handlers: ignored signals stay ignored.
         for a in p.sigactions.iter_mut() {
             *a = SigAction {
