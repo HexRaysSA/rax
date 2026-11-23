@@ -6,7 +6,9 @@ use crate::user::darwin::{
     host::{AT_EACCESS, AT_FDCWD, AT_REMOVEDIR, AT_SYMLINK_NOFOLLOW, AT_SYMLINK_NOFOLLOW_ANY},
     io::*,
 };
-use crate::user::supplied_fs::{Entry, LinkPolicy, WorkspaceDirectory, relative_workspace_path};
+use crate::user::supplied_fs::{
+    Entry, LinkPolicy, WorkspaceDirectory, WorkspaceRename, relative_workspace_path,
+};
 use std::sync::{Arc, Mutex};
 
 type DirectoryBase = (Vec<u8>, Option<Arc<WorkspaceDirectory>>);
@@ -263,10 +265,14 @@ pub(super) fn renameat(
     to: u64,
     flags: u32,
 ) -> SysResult {
+    const RENAME_SWAP: u32 = 2;
     const RENAME_EXCL: u32 = 4;
-    if flags & !RENAME_EXCL != 0 {
-        return Err(Errno::EINVAL);
-    }
+    let how = match flags {
+        0 => WorkspaceRename::Replace,
+        RENAME_SWAP => WorkspaceRename::Exchange,
+        RENAME_EXCL => WorkspaceRename::Exclusive,
+        _ => return Err(Errno::EINVAL),
+    };
     let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
     let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
     let read_path = |fd, address| {
@@ -282,7 +288,7 @@ pub(super) fn renameat(
     };
     let from = read_path(fromfd, from)?;
     let to = read_path(tofd, to)?;
-    files.rename_workspace_entry(&from, &to, ids, &[], flags == RENAME_EXCL)?;
+    files.rename_workspace_entry(&from, &to, ids, &[], how)?;
     Ok(Rv::one(0))
 }
 

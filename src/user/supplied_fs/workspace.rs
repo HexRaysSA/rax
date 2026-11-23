@@ -66,9 +66,10 @@ enum FileLocation {
 
 /// A rename changes the entry's location while leaving its inode and children intact.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Rename {
+pub(in crate::user) enum Rename {
     Replace,
     Exclusive,
+    Exchange,
 }
 
 /// Identity and permissions of a guest-created directory.
@@ -270,6 +271,9 @@ impl Workspace {
         namespace
             .directory_mut(parent)
             .insert(name, Node::File(file.clone()));
+        if self.flavor == WorkspaceFlavor::Darwin {
+            parent.links.fetch_add(1, Ordering::Relaxed);
+        }
         Ok(file)
     }
 
@@ -283,7 +287,7 @@ impl Workspace {
             return Err(Error::IsDirectory);
         };
         parent.check_sticky(uid, file.owner.0)?;
-        namespace.detach(parent, name);
+        namespace.detach(parent, name, self.flavor);
         Ok(())
     }
 
@@ -305,7 +309,7 @@ impl Workspace {
         if !namespace.directory(directory)?.is_empty() {
             return Err(Error::NotEmpty);
         }
-        namespace.detach(parent, name);
+        namespace.detach(parent, name, self.flavor);
         Ok(())
     }
 
@@ -324,6 +328,9 @@ impl Workspace {
             .get(old_name)
             .ok_or(Error::NotFound)?;
         let target = namespace.directory(new_parent)?.get(new_name);
+        if how == Rename::Exchange && target.is_none() {
+            return Err(Error::NotFound);
+        }
         let same = Arc::ptr_eq(old_parent, new_parent) && old_name == new_name;
         if target.is_some()
             && how == Rename::Exclusive
@@ -335,34 +342,40 @@ impl Workspace {
             return Ok(());
         }
         old_parent.check_sticky(uid, source.uid())?;
-        if let Node::Directory(directory) = source {
-            let mut ancestor = Some(new_parent.clone());
-            while let Some(parent) = ancestor {
-                if Arc::ptr_eq(&parent, directory) {
-                    return Err(Error::InvalidPath);
-                }
-                ancestor = parent.parent();
-            }
-        }
+        source.reject_ancestor(new_parent)?;
         if let Some(target) = target {
             new_parent.check_sticky(uid, target.uid())?;
-            match (source, target) {
-                (Node::Directory(_), Node::Directory(directory)) => {
-                    if !namespace.directory(directory)?.is_empty() {
-                        return Err(Error::NotEmpty);
+            if how == Rename::Exchange {
+                target.reject_ancestor(old_parent)?;
+            } else {
+                match (source, target) {
+                    (Node::Directory(_), Node::Directory(directory)) => {
+                        if !namespace.directory(directory)?.is_empty() {
+                            return Err(Error::NotEmpty);
+                        }
                     }
+                    (Node::Directory(_), Node::File(_)) => return Err(Error::NotDirectory),
+                    (Node::File(_), Node::Directory(_)) => return Err(Error::IsDirectory),
+                    (Node::File(_), Node::File(_)) => {}
                 }
-                (Node::Directory(_), Node::File(_)) => return Err(Error::NotDirectory),
-                (Node::File(_), Node::Directory(_)) => return Err(Error::IsDirectory),
-                (Node::File(_), Node::File(_)) => {}
+                namespace.detach(new_parent, new_name, self.flavor);
             }
-            namespace.detach(new_parent, new_name);
         }
         let source = namespace
             .directory_mut(old_parent)
             .remove(old_name)
             .expect("checked source");
-        source.relocate(old_parent, new_parent, new_name);
+        if how == Rename::Exchange {
+            let target = namespace
+                .directory_mut(new_parent)
+                .remove(new_name)
+                .expect("checked exchange target");
+            target.relocate(new_parent, old_parent, old_name, self.flavor);
+            namespace
+                .directory_mut(old_parent)
+                .insert(old_name.into(), target);
+        }
+        source.relocate(old_parent, new_parent, new_name, self.flavor);
         namespace
             .directory_mut(new_parent)
             .insert(new_name.into(), source);
@@ -386,16 +399,18 @@ impl Namespace {
             .expect("checked directory")
     }
 
-    fn detach(&mut self, parent: &Directory, name: &str) {
-        match self
+    fn detach(&mut self, parent: &Directory, name: &str, flavor: WorkspaceFlavor) {
+        let node = self
             .directory_mut(parent)
             .remove(name)
-            .expect("checked directory entry")
-        {
+            .expect("checked directory entry");
+        if node.contributes_parent_link(flavor) {
+            parent.links.fetch_sub(1, Ordering::Relaxed);
+        }
+        match node {
             Node::Directory(directory) => {
                 self.children.remove(&directory.ino);
                 directory.linked.store(false, Ordering::Relaxed);
-                parent.links.fetch_sub(1, Ordering::Relaxed);
             }
             Node::File(file) => {
                 let mut placement = file.location.lock().expect("workspace file location");
@@ -439,17 +454,41 @@ impl Node {
         }
     }
 
-    fn relocate(&self, old_parent: &Arc<Directory>, new_parent: &Arc<Directory>, name: &str) {
+    fn reject_ancestor(&self, new_parent: &Arc<Directory>) -> Result<(), Error> {
+        if let Self::Directory(directory) = self {
+            let mut ancestor = Some(new_parent.clone());
+            while let Some(parent) = ancestor {
+                if Arc::ptr_eq(&parent, directory) {
+                    return Err(Error::InvalidPath);
+                }
+                ancestor = parent.parent();
+            }
+        }
+        Ok(())
+    }
+
+    /// APFS reports 2 plus all immediate entries. Linux counts subdirectories.
+    fn contributes_parent_link(&self, flavor: WorkspaceFlavor) -> bool {
+        flavor == WorkspaceFlavor::Darwin || matches!(self, Self::Directory(_))
+    }
+
+    fn relocate(
+        &self,
+        old_parent: &Arc<Directory>,
+        new_parent: &Arc<Directory>,
+        name: &str,
+        flavor: WorkspaceFlavor,
+    ) {
+        if !Arc::ptr_eq(old_parent, new_parent) && self.contributes_parent_link(flavor) {
+            old_parent.links.fetch_sub(1, Ordering::Relaxed);
+            new_parent.links.fetch_add(1, Ordering::Relaxed);
+        }
         let location = Location {
             parent: new_parent.clone(),
             name: name.to_owned(),
         };
         match self {
             Self::Directory(directory) => {
-                if !Arc::ptr_eq(old_parent, new_parent) {
-                    old_parent.links.fetch_sub(1, Ordering::Relaxed);
-                    new_parent.links.fetch_add(1, Ordering::Relaxed);
-                }
                 *directory
                     .location
                     .as_ref()

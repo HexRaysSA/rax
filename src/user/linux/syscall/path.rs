@@ -14,7 +14,7 @@ use super::super::fs::{self, join_guest};
 use super::super::fsnotify::bits::{IN_ATTRIB, IN_MODIFY};
 use super::super::procfs::{self, ProcEntry};
 use super::{Ctx, SysResult};
-use crate::user::supplied_fs::LinkPolicy;
+use crate::user::supplied_fs::{LinkPolicy, WorkspaceRename};
 
 /// `AT_FDCWD`.
 pub const AT_FDCWD: i32 = -100;
@@ -1251,20 +1251,21 @@ pub fn renameat2(
     flags: u32,
 ) -> SysResult {
     const RENAME_NOREPLACE: u32 = 1;
-    if flags & !RENAME_NOREPLACE != 0 {
-        return Err(Errno(EINVAL));
-    }
+    const RENAME_EXCHANGE: u32 = 2;
     if let Some(files) = c.p.vfs.supplied() {
+        let how = match flags {
+            0 => WorkspaceRename::Replace,
+            RENAME_NOREPLACE => WorkspaceRename::Exclusive,
+            RENAME_EXCHANGE => WorkspaceRename::Exchange,
+            _ => return Err(Errno(EINVAL)),
+        };
         let from = supplied_path(c, olddir, old)?;
         let to = supplied_path(c, newdir, new)?;
-        files.rename_workspace_entry(
-            &from,
-            &to,
-            (c.p.creds.1, c.p.creds.3),
-            &c.p.groups,
-            flags == RENAME_NOREPLACE,
-        )?;
+        files.rename_workspace_entry(&from, &to, (c.p.creds.1, c.p.creds.3), &c.p.groups, how)?;
         return Ok(0);
+    }
+    if flags & !RENAME_NOREPLACE != 0 {
+        return Err(Errno(EINVAL));
     }
     #[cfg(not(unix))]
     {

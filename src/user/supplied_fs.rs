@@ -13,9 +13,9 @@ mod roots;
 mod workspace;
 use roots::Roots;
 pub(super) use workspace::Capacity as WorkspaceCapacity;
-pub(super) use workspace::WorkspaceFlavor;
 pub use workspace::{Directory as WorkspaceDirectory, WorkspaceFile};
-use workspace::{Node, Rename, Workspace};
+use workspace::{Node, Workspace};
+pub(super) use workspace::{Rename as WorkspaceRename, WorkspaceFlavor};
 
 const TEMP_DIRECTORY: &str = "/tmp";
 
@@ -863,14 +863,14 @@ impl Files {
         workspace.remove_directory(workspace_name(&path), ids.0, &directory)
     }
 
-    /// Rename one workspace entry atomically, retaining open inode identities.
+    /// Rename workspace entries atomically, retaining open inode identities.
     pub(super) fn rename_workspace_entry(
         &self,
         from: &str,
         to: &str,
         ids: (u32, u32),
         groups: &[u32],
-        exclusive: bool,
+        how: WorkspaceRename,
     ) -> Result<(), Error> {
         validate(from)?;
         validate(to)?;
@@ -899,17 +899,12 @@ impl Files {
             return Err(Error::TooLong);
         }
         if self.entries.contains_key(&new_path) {
-            return Err(if exclusive {
+            return Err(if how == WorkspaceRename::Exclusive {
                 Error::Exists
             } else {
                 Error::ReadOnly
             });
         }
-        let how = if exclusive {
-            Rename::Exclusive
-        } else {
-            Rename::Replace
-        };
         workspace.rename(
             (&old_parent, workspace_name(&old_path)),
             (&new_parent, name),

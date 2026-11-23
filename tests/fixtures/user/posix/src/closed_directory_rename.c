@@ -13,11 +13,17 @@
 #include <sys/syscall.h>
 #endif
 
-static int rename_exclusive(int fromfd, const char *from, int tofd, const char *to) {
 #if defined(__APPLE__)
-    return renameatx_np(fromfd, from, tofd, to, RENAME_EXCL);
+enum { NATIVE_RENAME_EXCLUSIVE = RENAME_EXCL, NATIVE_RENAME_EXCHANGE = RENAME_SWAP };
+#else
+enum { NATIVE_RENAME_EXCLUSIVE = 1, NATIVE_RENAME_EXCHANGE = 2 };
+#endif
+
+static int rename_with_flags(int fromfd, const char *from, int tofd, const char *to, unsigned flags) {
+#if defined(__APPLE__)
+    return renameatx_np(fromfd, from, tofd, to, flags);
 #elif defined(__linux__)
-    return (int)syscall(SYS_renameat2, fromfd, from, tofd, to, 1u);
+    return (int)syscall(SYS_renameat2, fromfd, from, tofd, to, flags);
 #endif
 }
 
@@ -42,6 +48,50 @@ static char first_byte(int fd) {
     return byte;
 }
 
+static void check_exchange(int root) {
+    const unsigned exchange = NATIVE_RENAME_EXCHANGE;
+    checked(mkdirat(root, "left", 0700), "mkdir left");
+    checked(mkdirat(root, "right", 0700), "mkdir right");
+    int left = checked(openat(root, "left", O_RDONLY | O_DIRECTORY), "open left");
+    int right = checked(openat(root, "right", O_RDONLY | O_DIRECTORY), "open right");
+    checked(mkdirat(left, "subdir", 0700), "mkdir exchange subdir");
+    int subdir = checked(openat(left, "subdir", O_RDONLY | O_DIRECTORY), "open exchange subdir");
+    write_file(right, "payload", 'X');
+    write_file(subdir, "nested", 'N');
+
+    result("exchange missing target", rename_with_flags(left, "subdir", right, "missing", exchange));
+    result("exchange missing source", rename_with_flags(right, "missing", left, "subdir", exchange));
+    result("exchange self", rename_with_flags(left, "subdir", left, "subdir", exchange));
+    result("exchange ancestor", rename_with_flags(root, "left", left, "subdir", exchange));
+    result("exchange inverse ancestor", rename_with_flags(left, "subdir", root, "left", exchange));
+    result("exchange with incompatible flags",
+           rename_with_flags(left, "subdir", right, "payload", exchange | NATIVE_RENAME_EXCLUSIVE));
+    checked(rename_with_flags(left, "subdir", right, "payload", exchange), "exchange file and directory");
+
+    struct stat retained, moved, parent, right_info, left_info;
+    checked(fstat(subdir, &retained), "stat retained exchange directory");
+    checked(fstatat(right, "payload", &moved, 0), "stat exchange directory by new name");
+    checked(fstatat(subdir, "..", &parent, 0), "stat new exchange parent through descriptor");
+    checked(fstat(right, &right_info), "stat right");
+    checked(fstat(left, &left_info), "stat left");
+    printf("exchange retains directory=%d changes parent=%d left links=%lu right links=%lu\n",
+           retained.st_ino == moved.st_ino, parent.st_ino == right_info.st_ino,
+           (unsigned long)left_info.st_nlink, (unsigned long)right_info.st_nlink);
+    int file = checked(openat(left, "subdir", O_RDONLY), "open moved exchange file");
+    int nested = checked(openat(right, "payload/nested", O_RDONLY), "open moved nested file");
+    printf("exchange retains contents file=%c nested=%c\n", first_byte(file), first_byte(nested));
+    checked(close(file), "close moved exchange file");
+    checked(close(nested), "close moved nested file");
+    checked(unlinkat(left, "subdir", 0), "unlink moved exchange file");
+    checked(unlinkat(subdir, "nested", 0), "unlink moved nested file");
+    checked(unlinkat(right, "payload", AT_REMOVEDIR), "remove moved exchange directory");
+    checked(close(subdir), "close exchange directory");
+    checked(close(left), "close left");
+    checked(close(right), "close right");
+    checked(unlinkat(root, "left", AT_REMOVEDIR), "remove left");
+    checked(unlinkat(root, "right", AT_REMOVEDIR), "remove right");
+}
+
 int main(int argc, char **argv) {
     if (argc != 2) return 1;
     checked(mkdir(argv[1], 0700), "mkdir control");
@@ -56,8 +106,8 @@ int main(int argc, char **argv) {
     result("cycle", renameat(root, "source", descendant, "loop"));
     result("replace nonempty", renameat(root, "target", root, "source"));
     result("directory to self", renameat(root, "source", root, "source"));
-    result("exclusive to existing target", rename_exclusive(root, "source", root, "target"));
-    result("exclusive to self", rename_exclusive(root, "source", root, "source"));
+    result("exclusive to existing target", rename_with_flags(root, "source", root, "target", NATIVE_RENAME_EXCLUSIVE));
+    result("exclusive to self", rename_with_flags(root, "source", root, "source", NATIVE_RENAME_EXCLUSIVE));
     checked(fchdir(descendant), "chdir descendant");
     checked(renameat(root, "source", root, "target"), "replace empty target");
     char path[4096];
@@ -85,7 +135,7 @@ int main(int argc, char **argv) {
     printf("file after replace old descriptor=%c direct source=%c by name=%c\n",
            first_byte(replaced), first_byte(data), first_byte(named));
     result("old file name", fstatat(descendant, "data", &old, 0));
-    checked(rename_exclusive(descendant, "replaced", root, "moved-file"), "cross-directory rename");
+    checked(rename_with_flags(descendant, "replaced", root, "moved-file", NATIVE_RENAME_EXCLUSIVE), "cross-directory rename");
     int moved = checked(openat(root, "moved-file", O_RDONLY), "open file after cross-directory move");
     printf("cross-directory file contents=%c\n", first_byte(moved));
     checked(close(moved), "close moved file");
@@ -99,6 +149,7 @@ int main(int argc, char **argv) {
     checked(close(target), "close target");
     checked(unlinkat(root, "target/descendant", AT_REMOVEDIR), "remove descendant");
     checked(unlinkat(root, "target", AT_REMOVEDIR), "remove target");
+    check_exchange(root);
     checked(close(root), "close root");
     checked(chdir("/"), "chdir /");
     checked(rmdir(argv[1]), "remove control");
