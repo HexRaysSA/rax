@@ -1,0 +1,271 @@
+{
+  "kernel": [
+    10,
+    0,
+    26200
+  ],
+  "runner": "ARM64",
+  "source_commit": "d7e603c62ed2064e54c496debd39b86f3ab155db",
+  "installed_sha256": {
+    "System32\\ntdll.dll": "3a1617c63d3a69f7f4d740bdbbe65c3d34ec28c2a7254902dc130e5b2bbe7209",
+    "System32\\kernel32.dll": "3b05fea371380c19022ca18c8ece9690057108954794038e9818f0dfeaf1cb46",
+    "System32\\KernelBase.dll": "a753955575b1453b2020acd3f4476a1a6e01b77d3911ea93de30d7ab96fc1f59",
+    "SysWOW64\\ntdll.dll": "9c7dbc587db93e8294aced6c2571c1122726aeccfda8b5969c278cbd81d6b509",
+    "SysWOW64\\kernel32.dll": "fc243c1c0aeb92176d5fa5cf1a8c13f42ebd4a7ca91a7bb3bc18bf4e17eb43e1",
+    "SysWOW64\\KernelBase.dll": "06a189243165da33d22b67f0a1b22e48bb65b969848af145db3cbbf9c088240c"
+  },
+  "samples": [
+    {
+      "arch": "x86",
+      "kind": "information",
+      "pe_machine": 332,
+      "large_address_aware": false,
+      "source_sha256": "1171706b1fc5a5690873ed6596d50546305df8e0999fb154d0c175af1c6c77f6",
+      "compiler_sha256": "17f1fdbcf03579be8166e348523b1d5c1835c9cdf9de907fed09d1a15707e92a",
+      "binary_sha256": "eb7217152d8a9546d595ace0936de7d2176bd0b6a295e34339500c9833c32bba",
+      "binary_bytes": 120832,
+      "stdout_sha256": "2f73b157b9d7bf1d7178d1e108eed09c8c7884c2513a8752b6492bb29035fa8a",
+      "exit_code": 0,
+      "inputs_unchanged": true,
+      "rows": [
+        {
+          "sample": "main",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 26200,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        },
+        {
+          "sample": "thread",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 26200,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        }
+      ]
+    },
+    {
+      "arch": "x86",
+      "kind": "resources",
+      "pe_machine": 332,
+      "large_address_aware": false,
+      "source_sha256": "faa47b41380b684640fb94eae34b7ce0162508803fe9b62dbee2264f636f8038",
+      "compiler_sha256": "17f1fdbcf03579be8166e348523b1d5c1835c9cdf9de907fed09d1a15707e92a",
+      "binary_sha256": "fc42b7214245818cc2940fbcf5903a120f38b5ebfa8dc55d997baa8ede2cf4c6",
+      "binary_bytes": 120320,
+      "stdout_sha256": "82a52729072f62dada02389a316f4e9b71f79499c281fd5526921b53f53caaed",
+      "exit_code": 0,
+      "inputs_unchanged": true,
+      "rows": [
+        {
+          "kind": "unknown_word",
+          "nonnull": true,
+          "mapped": true,
+          "state": 4096,
+          "protect": 32,
+          "type": 16777216,
+          "region_bytes": 565248,
+          "allocation_offset": 57344,
+          "module_basename": "xtajit.dll",
+          "equals_ntdll_base": false
+        },
+        {
+          "kind": "section",
+          "query_status": 0,
+          "return_bytes": 16,
+          "maximum_bytes": 16384,
+          "attributes": 134217728,
+          "base_nonnull": false,
+          "object_status": 0,
+          "object_return_bytes": 56,
+          "object_attributes": 0,
+          "granted_access": 983071
+        },
+        {
+          "kind": "work_list",
+          "read64_available": true,
+          "address_above_32bit": false,
+          "status": 0,
+          "copied_bytes": 48,
+          "free_first": 16328,
+          "free_counter": 408,
+          "work_first": 0,
+          "work_counter": 0,
+          "reserved_nonzero": false
+        }
+      ]
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "information",
+      "pe_machine": 332,
+      "large_address_aware": true,
+      "source_sha256": "1171706b1fc5a5690873ed6596d50546305df8e0999fb154d0c175af1c6c77f6",
+      "compiler_sha256": "17f1fdbcf03579be8166e348523b1d5c1835c9cdf9de907fed09d1a15707e92a",
+      "binary_sha256": "20bc5abb5d86110d02c066365105de528ed9dcd32a5395ae9845c7cb293b0990",
+      "binary_bytes": 120832,
+      "stdout_sha256": "2f73b157b9d7bf1d7178d1e108eed09c8c7884c2513a8752b6492bb29035fa8a",
+      "exit_code": 0,
+      "inputs_unchanged": true,
+      "rows": [
+        {
+          "sample": "main",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 26200,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        },
+        {
+          "sample": "thread",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 26200,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        }
+      ]
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "resources",
+      "pe_machine": 332,
+      "large_address_aware": true,
+      "source_sha256": "faa47b41380b684640fb94eae34b7ce0162508803fe9b62dbee2264f636f8038",
+      "compiler_sha256": "17f1fdbcf03579be8166e348523b1d5c1835c9cdf9de907fed09d1a15707e92a",
+      "binary_sha256": "71290c4c71c4f5cc18a4e855f8968676b81ecdd07bfb6f64958fabf409259e5d",
+      "binary_bytes": 120320,
+      "stdout_sha256": "82a52729072f62dada02389a316f4e9b71f79499c281fd5526921b53f53caaed",
+      "exit_code": 0,
+      "inputs_unchanged": true,
+      "rows": [
+        {
+          "kind": "unknown_word",
+          "nonnull": true,
+          "mapped": true,
+          "state": 4096,
+          "protect": 32,
+          "type": 16777216,
+          "region_bytes": 565248,
+          "allocation_offset": 57344,
+          "module_basename": "xtajit.dll",
+          "equals_ntdll_base": false
+        },
+        {
+          "kind": "section",
+          "query_status": 0,
+          "return_bytes": 16,
+          "maximum_bytes": 16384,
+          "attributes": 134217728,
+          "base_nonnull": false,
+          "object_status": 0,
+          "object_return_bytes": 56,
+          "object_attributes": 0,
+          "granted_access": 983071
+        },
+        {
+          "kind": "work_list",
+          "read64_available": true,
+          "address_above_32bit": false,
+          "status": 0,
+          "copied_bytes": 48,
+          "free_first": 16328,
+          "free_counter": 408,
+          "work_first": 0,
+          "work_counter": 0,
+          "reserved_nonzero": false
+        }
+      ]
+    }
+  ]
+}

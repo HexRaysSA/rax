@@ -48,6 +48,9 @@ fn wow64_startup_captured_profiles_match_native_threads_and_reject_unknown_kerne
             "../../../../../docs/specifications/windows/native-wow64-startup-information/local-29695-v1.json"
         ),
         include_str!(
+            "../../../../../docs/specifications/windows/native-wow64-startup-information/hosted-26200-v1.json"
+        ),
+        include_str!(
             "../../../../../docs/specifications/windows/native-wow64-startup-information/local-29698-v1.json"
         ),
         include_str!(
@@ -92,8 +95,14 @@ fn wow64_startup_captured_profiles_match_native_threads_and_reject_unknown_kerne
             }
         }
     }
-    assert_eq!(count, 16);
+    assert_eq!(count, 20);
     for (major, minor, build, machine) in [
+        (10, 0, 26199, 0xaa64),
+        (10, 0, 26201, 0xaa64),
+        (10, 1, 26200, 0xaa64),
+        (11, 0, 26200, 0xaa64),
+        (10, 0, 26200, 0x8664),
+        (10, 0, 26200, 0x14c),
         (10, 0, 29682, 0xaa64),
         (10, 0, 29684, 0xaa64),
         (10, 0, 29694, 0xaa64),
@@ -137,6 +146,9 @@ fn wow64_startup_captured_profiles_match_native_threads_and_reject_unknown_kerne
 #[test]
 fn wow64_startup_measured_resources_match_independent_native_captures() {
     for capture in [
+        include_str!(
+            "../../../../../docs/specifications/windows/native-wow64-startup-information/hosted-26200-v1.json"
+        ),
         include_str!(
             "../../../../../docs/specifications/windows/native-wow64-startup-information/local-29698-v1.json"
         ),

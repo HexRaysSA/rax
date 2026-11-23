@@ -200,3 +200,25 @@ The finite admission binds only native `10.0.29708` with machine `0xAA64`. Captu
 | WI08-A1 | Exact ARM64 10.0.29708 retains the measured startup geometry and quiescent resources. | Four fresh native producers, four thread observations, two resource sets, unchanged source/image identities and actual zero native exits. | Finite WoW64 startup-profile addition only. | LAA and ordinary x86; both threads; section/header lifetime, neighboring builds and wrong native identity. | Different native geometry, resource fields, replay state, installed startup, or source/image identity. | Native observation and information/resource replay confirmed; installed creation passes this selector, while later contracts and whole-process completion remain unqualified. |
 
 High impact, blocking the complete process-emulation goal: the broader native64 RTL/callback contract and later installed-process dependencies remain unqualified. This observation does not widen those interfaces or establish successful whole-process execution.
+
+## ARM64 kernel build 26200
+
+The exact Windows 11 ARM64 kernel `10.0.26200` selects the same startup
+information geometry as the previously measured ARM64 profiles. The
+[hosted capture](hosted-26200-v1.json) contains four successful runs of the
+existing C++ observers, with ordinary and large-address-aware x86 images.
+Both main and owned-thread pairs report page size 4,096 bytes, CPU flags 2,
+execute flags 0, information at PEB + `0x490`, and companion TEB offsets
+of -8,192 and +8,192 bytes. The machine fields are `0xAA64` and `0x014C`.
+
+Both resource controls found a 16,384-byte committed Section with grant
+`0xF001F` and a quiescent 48-byte list header. The header has 408 free
+entries, first offset 16,328 bytes, and an empty work list. The opaque
+word identifies `xtajit.dll` code in the native process. RAX creates its
+own guest section and keeps the opaque word zero. The capture binds six
+installed DLL hashes and the executed producers to the
+[hosted observation](https://github.com/HexRaysSA/rax/actions/runs/45146743959).
+
+The same replay checks both native address modes and rejects adjacent
+ARM64 builds and other native machines for build 26200. GUI and CSR protocol
+selection continue to use their own captured profiles.
