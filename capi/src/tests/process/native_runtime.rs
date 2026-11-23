@@ -1063,6 +1063,25 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
     assert!(!native.stdout.is_empty());
 }
 
+#[cfg(all(windows, target_pointer_width = "64"))]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_wow64_cmd_ver_matches_native_through_closed_c_abi() {
+    if std::env::var("RAX_TEST_WINDOWS_NTSTATUS").as_deref() == Ok("true") {
+        tracing_subscriber::fmt()
+            .with_env_filter("rax::windows::ntstatus=trace")
+            .without_time()
+            .with_ansi(false)
+            .try_init()
+            .expect("install guest NT service status trace");
+    }
+    let native =
+        compare_windows_installed_program_in("SysWOW64", "cmd.exe", &["/d", "/c", "ver"], None);
+    assert!(native.status.success());
+    assert!(!native.stdout.is_empty());
+    assert!(native.stderr.is_empty());
+}
+
 #[cfg(windows)]
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
@@ -1195,16 +1214,28 @@ fn compare_windows_installed_program(
     arguments: &[&str],
     stdin: Option<&[u8]>,
 ) -> std::process::Output {
+    compare_windows_installed_program_in("System32", image, arguments, stdin)
+}
+
+#[cfg(windows)]
+fn compare_windows_installed_program_in(
+    directory_name: &str,
+    image: &str,
+    arguments: &[&str],
+    stdin: Option<&[u8]>,
+) -> std::process::Output {
     use std::io::Write as _;
     use std::path::PathBuf;
     use std::process::{Command, Stdio};
 
     let system_root = PathBuf::from(std::env::var_os("SystemRoot").expect("Windows system root"));
-    let system32 = system_root.join("System32");
-    let current_directory = system32.to_str().expect("Unicode system library path");
-    let program = system32.join(image);
+    let system_directory = system_root.join(directory_name);
+    let current_directory = system_directory
+        .to_str()
+        .expect("Unicode system library path");
+    let program = system_directory.join(image);
     let program_path = program.to_str().expect("Unicode system program path");
-    let command_interpreter = system32.join("cmd.exe");
+    let command_interpreter = system_directory.join("cmd.exe");
     let environment = [
         (
             "SystemRoot",
@@ -1220,7 +1251,7 @@ fn compare_windows_installed_program(
     let mut command = Command::new(&program);
     command
         .args(arguments)
-        .current_dir(&system32)
+        .current_dir(&system_directory)
         .env_clear()
         .envs(environment);
     let native = if let Some(input) = stdin {
@@ -1262,13 +1293,20 @@ fn compare_windows_installed_program(
     let opened = info(&process);
     assert_eq!(opened["capabilities"]["native_runtime"], true);
     assert_eq!(opened["capabilities"]["host_filesystem"], false);
+    if directory_name == "SysWOW64" {
+        assert_eq!(opened["architecture"], "x86");
+    }
     let modules = opened["modules"].as_array().expect("opened guest modules");
-    assert!(modules.iter().any(|module| {
-        module["name"] == "ntdll.dll"
-            && module["path"]
-                .as_str()
-                .is_some_and(|path| path.to_ascii_lowercase().contains("system32"))
-    }));
+    assert!(
+        modules.iter().any(|module| {
+            module["name"] == "ntdll.dll"
+                && module["path"]
+                    .as_str()
+                    .and_then(|path| path.rsplit(['\\', '/']).nth(1))
+                    .is_some_and(|parent| parent.eq_ignore_ascii_case(directory_name))
+        }),
+        "no installed {directory_name} NTDLL in {modules:?}"
+    );
 
     let mut result = RaxProcessResult::default();
     const MAX_TURNS: u64 = 16_384;
