@@ -305,8 +305,25 @@ fn clear_sighand(actions: &mut [SigAction; 64]) {
 
 /// `wait_for_vfork_done`: sleeps (killable only) until child `pid` calls
 /// `execve` or ends, then returns its PID.
-#[cfg(unix)]
 pub fn vfork_wait(c: &mut Ctx<'_>, pid: i32) -> Result<Outcome, Errno> {
+    if !c.p.config.host_services {
+        if c.p
+            .children
+            .get_mut(pid)
+            .is_some_and(|child| !child.released)
+        {
+            return Err(c.block(Wait::uninterruptible(), Resume::VforkChild { pid }));
+        }
+        return Ok(Outcome::Return(pid as u64));
+    }
+    #[cfg(unix)]
+    return vfork_wait_host(c, pid);
+    #[cfg(not(unix))]
+    Err(Errno(ENOSYS))
+}
+
+#[cfg(unix)]
+fn vfork_wait_host(c: &mut Ctx<'_>, pid: i32) -> Result<Outcome, Errno> {
     let (p, mut th) = c.split();
     refresh(p, &mut th);
     let fds = match p.children.list.iter().find(|ch| ch.pid == pid) {

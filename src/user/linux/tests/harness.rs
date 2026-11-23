@@ -89,12 +89,19 @@ impl Harness {
     }
 
     pub(crate) fn embedded(abi: LinuxAbi) -> Self {
+        Self::embedded_with_supplied(abi, Default::default())
+    }
+
+    pub(crate) fn embedded_with_supplied(
+        abi: LinuxAbi,
+        files: crate::user::supplied_fs::Files,
+    ) -> Self {
         let console = crate::user::console::CapturedConsole::new(Vec::new(), 1 << 20).unwrap();
         Self::configured(
             abi,
             None,
             crate::user::console::Console::Captured(console),
-            Some(Default::default()),
+            Some(files),
             true,
         )
     }

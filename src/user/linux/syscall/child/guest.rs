@@ -5,7 +5,7 @@ use super::*;
 
 pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     let flags = args.flags;
-    if flags & (CLONE_VM | CLONE_VFORK | CLONE_PIDFD) != 0 {
+    if flags & (CLONE_VM | CLONE_PIDFD) != 0 {
         return Err(Errno(ENOSYS));
     }
     if flags & (CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
@@ -122,5 +122,8 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
     c.p.children
         .add_guest(child, tid, args.exit_signal as i32, c.t.tid, c.p.exec_id);
+    if flags & CLONE_VFORK != 0 {
+        return vfork_wait(c, pid);
+    }
     Ok(Outcome::Return(pid as u64))
 }

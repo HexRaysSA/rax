@@ -25,7 +25,7 @@ use super::ptrace::Exiting;
 use super::signal::SigInfo;
 use super::signal::deliver::retarget_shared_pending;
 use super::syscall::{self, Call, Outcome};
-use super::wait::{self, Blocked};
+use super::wait::{self, Blocked, Resume};
 
 /// Where the scheduler continues after a thread's system call.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -184,9 +184,24 @@ impl LinuxProcess {
             return RunStatus::Blocked;
         };
         let before_stop = process.state.group_stop;
+        let before_exec = process.state.exec_id;
         let status = process.guest_turn(cancelled);
         let after_stop = process.state.group_stop;
         let pid = child.pid;
+        if !orphan && !child.released && process.state.exec_id != before_exec {
+            child.released = true;
+            // Exec releases the spawning thread without a SIGCHLD or wait
+            // status. A later exit will notify the other child waiters.
+            if let Some(blocked) = self
+                .threads
+                .iter_mut()
+                .find(|thread| thread.tid == child.creator)
+                .and_then(|thread| thread.blocked.as_mut())
+                && blocked.resume == (Resume::VforkChild { pid })
+            {
+                blocked.woken = true;
+            }
+        }
         match status {
             RunStatus::Complete(ExitStatus::Internal(error)) => {
                 self.state.exit = Some(ExitStatus::Internal(format!(

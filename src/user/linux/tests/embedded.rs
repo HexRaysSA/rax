@@ -484,6 +484,106 @@ fn closed_linux_fork_wait_and_snapshot_all_abis() {
 }
 
 #[test]
+fn closed_linux_private_vfork_blocks_until_child_exit_all_abis() {
+    use crate::user::linux::{signal::SIGCHLD, syscall::thread::cf::CLONE_VFORK};
+
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let at = h.scratch;
+        let entry = super::harness::CODE + 0x1000;
+        h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+        h.fill(at + 16, 1, 9);
+        let flags = CLONE_VFORK | SIGCHLD as u64;
+        assert_eq!(h.start(0, Sysno::Clone, &[flags, 0, 0, 0, 0]), None);
+        let child = &h.proc.state.children.list[0];
+        assert!(!child.released);
+        child
+            .guest
+            .as_ref()
+            .unwrap()
+            .space()
+            .write(at + 16, &[3])
+            .unwrap();
+        assert_eq!(h.byte(at + 16), 9);
+        let cancel = AtomicBool::new(false);
+        assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+        assert_eq!(h.proc.state.children.list[0].zombie.unwrap().0, 37 << 8);
+        assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+        assert_eq!(h.result(0), 101);
+        assert_eq!(h.ok(Sysno::Wait4, &[101, at, 0, 0]), 101);
+        let mut status = [0; 4];
+        h.proc.space().read(at, &mut status).unwrap();
+        assert_eq!(u32::from_le_bytes(status), 37 << 8);
+        assert!(h.proc.state.children.list.is_empty());
+    }
+}
+
+#[test]
+fn closed_linux_private_vfork_releases_at_exec_before_child_exit() {
+    use super::harness::{CODE, DATA};
+    use super::loader::{Seg, image};
+    use crate::user::image::elf::{EM_AARCH64, ET_EXEC, PF_R, PF_X};
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::{child::wf::WNOHANG, thread::cf::CLONE_VFORK};
+    use crate::user::supplied_fs::Files;
+    use std::sync::Arc;
+
+    let entry = CODE + 0x1000;
+    let abi = LinuxAbi::Aarch64;
+    let mut next = image(
+        EM_AARCH64,
+        ET_EXEC,
+        entry,
+        &[Seg::load(CODE, 0, 0x2000, 0x2000, PF_R | PF_X)],
+        None,
+    );
+    let exit = exit_37(abi);
+    next[0x1000..0x1000 + exit.len()].copy_from_slice(&exit);
+    let files = Files::default()
+        .with_file("/replacement".into(), Arc::from(next))
+        .unwrap();
+    let mut h = Harness::embedded_with_supplied(abi, files);
+    let original_program = [
+        0xd2a0_0c00u32, // mov x0, #0x600000 (DATA)
+        0xd280_0001,    // mov x1, #0 (argv)
+        0xd280_0002,    // mov x2, #0 (envp)
+        0xd280_1ba8,    // mov x8, #221 (execve)
+        0xd400_0001,    // svc #0
+    ];
+    let code: Vec<_> = original_program
+        .iter()
+        .flat_map(|word| word.to_le_bytes())
+        .collect();
+    h.proc.space().write_raw(entry, &code).unwrap();
+    h.proc.space().write_raw(DATA, b"/replacement\0").unwrap();
+    let at = h.scratch;
+    let mut clone_args = [0; 88];
+    clone_args[..8].copy_from_slice(&CLONE_VFORK.to_le_bytes());
+    clone_args[32..40].copy_from_slice(&(SIGCHLD as u64).to_le_bytes());
+    h.proc.space().write_raw(at, &clone_args).unwrap();
+    assert_eq!(
+        h.start(0, Sysno::Clone3, &[at, clone_args.len() as u64]),
+        None
+    );
+    let cancel = AtomicBool::new(false);
+    assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+    let child = &h.proc.state.children.list[0];
+    assert!(child.released);
+    assert!(child.zombie.is_none());
+    assert_eq!(child.guest.as_ref().unwrap().state.exe_path, "/replacement");
+    assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+    assert_eq!(h.result(0), 101);
+    assert_eq!(h.ok(Sysno::Wait4, &[101, at, WNOHANG.into(), 0]), 0);
+    assert_eq!(h.start(0, Sysno::Wait4, &[101, at, 0, 0]), None);
+    assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+    assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+    assert_eq!(h.result(0), 101);
+    let mut status = [0; 4];
+    h.proc.space().read(at, &mut status).unwrap();
+    assert_eq!(u32::from_le_bytes(status), 37 << 8);
+}
+
+#[test]
 fn closed_linux_fork_namespace_reserves_processes_until_reap() {
     use crate::user::linux::signal::SIGCHLD;
     use crate::user::linux::syscall::thread::cf::*;
