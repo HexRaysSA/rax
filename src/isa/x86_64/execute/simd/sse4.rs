@@ -125,6 +125,10 @@ pub fn ptest(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
     let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
     let xmm_dst = reg as usize;
     let (src_lo, src_hi) = if is_memory {
+        if addr & 0xF != 0 {
+            vcpu.inject_exception(13, Some(0))?;
+            return Ok(None);
+        }
         (vcpu.read_mem(addr, 8)?, vcpu.read_mem(addr + 8, 8)?)
     } else {
         (vcpu.regs.xmm[rm as usize][0], vcpu.regs.xmm[rm as usize][1])

@@ -15,6 +15,39 @@ use crate::common::*;
 
 const ALIGNED_ADDR: u64 = 0x3000;
 
+#[test]
+fn ptest_memory_alignment_precedes_retirement() {
+    let code = [0x66, 0x0F, 0x38, 0x17, 0x08]; // PTEST XMM1, [RAX]
+    for offset in 0..16 {
+        let (mut vcpu, mem) = setup_vm_no_idt(&code, None);
+        let mut before = vcpu.get_regs().unwrap();
+        before.rax = ALIGNED_ADDR + offset;
+        before.xmm[1] = [1, 0];
+        before.ymm_high[1] = [0xCAFE, 0xDEAD];
+        before.rflags = 0x8D7;
+        vcpu.set_regs(&before).unwrap();
+        mem.write_slice(&[3; 16], GuestAddress(before.rax)).unwrap();
+
+        let step = vcpu.step();
+        let after = vcpu.get_regs().unwrap();
+        if offset == 0 {
+            assert!(step.unwrap().is_none());
+            assert_eq!(after.rip, before.rip + code.len() as u64);
+            assert_eq!(after.rflags, 2);
+        } else {
+            let error = step.expect_err("misaligned PTEST must raise #GP(0)");
+            assert!(
+                error.to_string().contains("IDT entry 13 not present"),
+                "{error}"
+            );
+            assert_eq!(after.rip, before.rip);
+            assert_eq!(after.rflags, before.rflags);
+        }
+        assert_eq!(after.xmm, before.xmm);
+        assert_eq!(after.ymm_high, before.ymm_high);
+    }
+}
+
 // Test basic register-to-register operations
 #[test]
 fn test_ptest_xmm0_xmm1() {
