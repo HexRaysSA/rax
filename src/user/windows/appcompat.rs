@@ -143,6 +143,10 @@ impl Catalog {
         self.flags.get(&self.fold(name)).copied().unwrap_or(0)
     }
 
+    pub(crate) fn observed_names(&self) -> impl Iterator<Item = &[u16]> {
+        self.flags.keys().map(Vec::as_slice)
+    }
+
     /// O(B + E*log(S) + E*L*log(E+1)) work and O(B + E*L) storage for B
     /// bytes, S table strings, E flagged entries and L maximum name units.
     pub(crate) fn parse(bytes: &[u8], upcase: Arc<[u16]>) -> io::Result<Self> {
