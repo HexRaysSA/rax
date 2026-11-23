@@ -54,6 +54,10 @@ on:
         description: Observe first legacy GDI initialization in an installed AMD64 child
         type: boolean
         default: false
+      measure_released_wow64_gdi:
+        description: Measure GDI state in an owned x86 process and its native companion
+        type: boolean
+        default: false
       measure_startup_queries:
         description: Capture native startup license and MUI observations
         type: boolean
@@ -113,6 +117,74 @@ jobs:
           New-Item -ItemType Directory -Path $scratch -Force | Out-Null
           @("TMPDIR=$scratch", "TMP=$scratch", "TEMP=$scratch") |
             Add-Content -LiteralPath $env:GITHUB_ENV -Encoding utf8
+      - name: Observe released WoW64 GDI context
+        if: inputs.measure_released_wow64_gdi
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
+          $scratch = Join-Path $env:TMPDIR 'released-wow64-gdi'
+          New-Item -ItemType Directory -Path $root,$scratch -Force | Out-Null
+          $source = Join-Path $env:GITHUB_WORKSPACE 'docs/specifications/windows/native-win32u-services/native/released-wow64-gdi.cpp'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $install = & $vswhere -latest -products '*' -property installationPath
+          if ($LASTEXITCODE -ne 0 -or !$install) { throw 'Visual Studio is unavailable' }
+          $env:RAX_GUI_DEV_CMD = Join-Path $install 'Common7/Tools/VsDevCmd.bat'
+          $env:RAX_GUI_SOURCE = $source
+          $builder = Join-Path $scratch 'build-probe.cmd'
+          @'
+          @echo off
+          call "%RAX_GUI_DEV_CMD%" -arch=%1 -host_arch=%2
+          if errorlevel 1 exit /b 1
+          cl.exe /nologo /EHsc /std:c++17 /Fe%1.exe "%RAX_GUI_SOURCE%" /link /LARGEADDRESSAWARE
+          exit /b %errorlevel%
+          '@ | Set-Content -LiteralPath $builder -Encoding ascii
+          $native = if ($env:RAX_TEST_TARGET -eq 'aarch64-pc-windows-msvc') { 'arm64' } else { 'x64' }
+          $files = @('System32/user32.dll','System32/win32u.dll','System32/gdi32.dll',
+                     'SysWOW64/user32.dll','SysWOW64/win32u.dll','SysWOW64/gdi32.dll') |
+            ForEach-Object { Join-Path $env:SystemRoot $_ }
+          $before = Get-FileHash -LiteralPath $files
+          Push-Location -LiteralPath $scratch
+          try {
+            & $builder $native $native
+            if ($LASTEXITCODE -ne 0) { throw 'Native companion observer did not compile' }
+            & $builder x86 $native
+            if ($LASTEXITCODE -ne 0 -and $native -eq 'arm64') { & $builder x86 x64 }
+            if ($LASTEXITCODE -ne 0) { throw 'x86 stock observer did not compile' }
+            $companion = Join-Path $scratch "$native.exe"
+            $guest = Join-Path $scratch 'x86.exe'
+            function Get-PeMachine($file) {
+              $bytes = [IO.File]::ReadAllBytes($file)
+              $offset = [BitConverter]::ToInt32($bytes, 0x3C)
+              [BitConverter]::ToUInt16($bytes, $offset + 4)
+            }
+            $machine = if ($native -eq 'arm64') { 0xAA64 } else { 0x8664 }
+            if ((Get-PeMachine $companion) -ne $machine -or (Get-PeMachine $guest) -ne 0x014c) {
+              throw 'Unexpected observer architectures'
+            }
+            $log = Join-Path $root 'released-wow64-gdi.log'
+            & $companion $guest | Tee-Object -FilePath $log
+            $exitCode = $LASTEXITCODE
+            $after = Get-FileHash -LiteralPath $files
+            $unchanged = !(Compare-Object $before $after -Property Path,Hash)
+            [ordered]@{
+              commit = $env:GITHUB_SHA
+              kernel = [Environment]::OSVersion.Version.ToString()
+              native_machine = $machine
+              image_hashes = $before
+              images_unchanged = $unchanged
+              source_sha256 = (Get-FileHash -LiteralPath $source).Hash
+              native_probe_sha256 = (Get-FileHash -LiteralPath $companion).Hash
+              x86_probe_sha256 = (Get-FileHash -LiteralPath $guest).Hash
+              exit = $exitCode
+              log_sha256 = (Get-FileHash -LiteralPath $log).Hash
+            } | ConvertTo-Json -Depth 4 |
+              Set-Content -LiteralPath (Join-Path $root 'released-wow64-gdi-identity.json') -Encoding utf8
+            if (!$unchanged -or $exitCode -ne 0) { throw 'Released WoW64 GDI observation failed' }
+          } finally {
+            Pop-Location
+          }
       - name: Select native Windows ARM64 Rust host
         if: matrix.target == 'aarch64-pc-windows-msvc'
         run: rustup set default-host aarch64-pc-windows-msvc
