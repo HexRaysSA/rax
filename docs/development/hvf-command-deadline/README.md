@@ -125,4 +125,25 @@ Qualification requires the complete execution artifact.
 An independent replay of the retained 952-case observations verified the 12
 encoding boundaries and their exact marker fields. The complete native Intel
 consumer type-checked. All 54 Python harness tests and all 16 unfiltered
-`ci_actions_pinned` cases passed. New native observations are pending.
+`ci_actions_pinned` cases passed.
+
+The first standalone native run at `51cf0733f2e3b0d1fd9d82b036844b77ac6a07d4`
+reached case zero and failed when it tried to append to an observation file
+that the standalone path had never created. Its execution artifact contains
+zero result rows. The standalone path now creates the file exclusively before
+guest entry. A regression control exercises the append on a fresh path and
+verifies that a second invocation preserves existing output.
+[First standalone execution](https://github.com/HexRaysSA/rax/actions/runs/45084572463/job/137400146230)
+
+Run `45086281007` at `ec5264da6c445a0aae3dd7fc8f4062a9987369a7` passed all
+446 cases in 7.898 s of guest command time on untranslated Intel in a hosted
+macOS 15.7.9 VM with SDK 15.5. All 12 live markers match the expected encoding
+boundaries. After subtracting the original matrix's starting case ordinal 482,
+all 446 decoded observation rows match run `45074482995`. The build and
+execution archives `14779508873` and `14780060914` match their published
+SHA-256 digests. Verification matched all 4,886 engine inputs and 17 consumer
+inputs to Git and checked the signed executable and its hypervisor entitlement.
+The observations SHA-256 is
+`32205445dee3e633179cb9646806ff13379ec5b1c484b8fea8a42258bba8c034`.
+The earlier combined runner loss remains unexplained.
+[Qualified standalone execution](https://github.com/HexRaysSA/rax/actions/runs/45086281007/job/137405535862)
