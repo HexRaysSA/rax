@@ -373,6 +373,9 @@ pub(super) fn replace(
 }
 
 pub(in crate::user::darwin) fn abandon_workspace_lock(proc: &mut Proc, thread: &mut Thread) {
+    if thread.pending_spawn.take().is_some() {
+        workspace_locks::cancel_wait(proc, thread.tid);
+    }
     if let Some(entered) = &thread.file_io
         && let Some(waiter) = entered.workspace_lock
     {
@@ -387,15 +390,20 @@ pub(in crate::user::darwin) fn abandon_workspace_lock(proc: &mut Proc, thread: &
 /// Progress kernel-owned I/O and close barriers independently of user holds.
 pub(crate) fn progress(proc: &mut Proc) {
     for thread in proc.threads.values_mut().filter(|thread| thread.exited) {
+        let spawn_wait = thread.pending_spawn.take().is_some();
+        let mut locked_file = false;
         if let Some(entered) = thread.file_io.take()
             && let Some(waiter) = entered.workspace_lock
         {
+            locked_file = true;
             if waiter.open_flags.is_some() {
                 proc.fds.release(entered.fd);
             }
-            if let Some(member) = &proc.family {
-                member.workspace_locks(|locks| locks.cancel(proc.pid, thread.tid));
-            }
+        }
+        if (spawn_wait || locked_file)
+            && let Some(member) = &proc.family
+        {
+            member.workspace_locks(|locks| locks.cancel(proc.pid, thread.tid));
         }
     }
     let mut io: Vec<_> = proc

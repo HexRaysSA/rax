@@ -482,7 +482,7 @@ pub(crate) fn open_file(
     Ok(file)
 }
 
-fn resolve_open_file(
+pub(in crate::user::darwin) fn resolve_open_file(
     ctx: &Ctx<'_>,
     path: &[u8],
     base: &[u8],
@@ -545,7 +545,11 @@ fn resolve_open_file(
 }
 
 // The kernel acquires the advisory lock before shortening the vnode.
-fn truncate_opened(ctx: &Ctx<'_>, file: &FileRef, flags: u32) -> Result<(), Errno> {
+pub(in crate::user::darwin) fn truncate_opened(
+    ctx: &Ctx<'_>,
+    file: &FileRef,
+    flags: u32,
+) -> Result<(), Errno> {
     use crate::user::mm::PageSource;
 
     if flags & O_TRUNC != 0

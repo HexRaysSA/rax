@@ -83,6 +83,7 @@ pub(super) fn fork(ctx: &mut Ctx<'_>) -> SysResult {
         resume: None,
         pending_unix: None,
         file_io: None,
+        pending_spawn: None,
         pthread: running.pthread,
         exited: false,
         woken: false,

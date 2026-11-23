@@ -109,6 +109,7 @@ fn finish(thread: &mut Thread, ret: abi::Ret, result: SysResult) {
     }
     thread.pending_unix = None;
     thread.file_io = None;
+    thread.pending_spawn = None;
     if result != Err(Errno::ERESTART) || thread.wait.is_none() {
         thread.resume = None;
     }

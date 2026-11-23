@@ -141,6 +141,7 @@ pub fn bsdthread_create(
         resume: None,
         pending_unix: None,
         file_io: None,
+        pending_spawn: None,
         pthread,
         exited: false,
         woken: false,

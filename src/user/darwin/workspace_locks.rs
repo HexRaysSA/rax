@@ -423,19 +423,38 @@ fn whole_file(target: Target, kind: i16) -> Request {
 }
 
 pub(super) fn lock_open(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, flags: u32) -> SysResult {
+    lock_open_at(ctx, Some(fd), file, flags, false)
+}
+
+pub(super) fn lock_spawn_open(
+    ctx: &mut Ctx<'_>,
+    file: &FileRef,
+    flags: u32,
+    resumed: bool,
+) -> SysResult {
+    lock_open_at(ctx, None, file, flags, resumed)
+}
+
+fn lock_open_at(
+    ctx: &mut Ctx<'_>,
+    fd: Option<i32>,
+    file: &FileRef,
+    flags: u32,
+    resumed: bool,
+) -> SysResult {
     let target = flock_target(file)?;
     let kind = if flags & O_EXLOCK != 0 { WRITE } else { READ };
     let request = whole_file(target, kind);
     if flags & O_NONBLOCK == 0 {
-        return wait(
-            ctx,
-            fd,
-            file,
-            Waiter {
-                request,
-                open_flags: Some(flags),
-            },
-        );
+        let waiter = Waiter {
+            request,
+            open_flags: Some(flags),
+        };
+        return if resumed {
+            resume_at(ctx, fd, file, waiter)
+        } else {
+            wait(ctx, fd, file, waiter)
+        };
     }
     let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
     member.workspace_locks(|locks| locks.set_flock(request, file, false))?;
@@ -463,7 +482,7 @@ pub(super) fn flock(ctx: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
     if how & LOCK_NB == 0 && kind != UNLOCK {
         return wait(
             ctx,
-            fd,
+            Some(fd),
             &file,
             Waiter {
                 request,
@@ -552,7 +571,7 @@ pub(super) fn fcntl(
     } else if command == F_SETLKW {
         return wait(
             ctx,
-            fd,
+            Some(fd),
             file,
             Waiter {
                 request: Request {
@@ -569,6 +588,10 @@ pub(super) fn fcntl(
 }
 
 pub(super) fn resume(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, waiter: Waiter) -> SysResult {
+    resume_at(ctx, Some(fd), file, waiter)
+}
+
+fn resume_at(ctx: &mut Ctx<'_>, fd: Option<i32>, file: &FileRef, waiter: Waiter) -> SysResult {
     ctx.thread.wait = None;
     ctx.thread.woken = false;
     if let Some(error) = super::signal::sleep_interruption(ctx.proc, ctx.thread) {
@@ -578,7 +601,7 @@ pub(super) fn resume(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, waiter: Waiter)
     wait(ctx, fd, file, waiter)
 }
 
-fn wait(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, waiter: Waiter) -> SysResult {
+fn wait(ctx: &mut Ctx<'_>, fd: Option<i32>, file: &FileRef, waiter: Waiter) -> SysResult {
     let request = waiter.request;
     let owner = (ctx.proc.pid, ctx.thread.tid);
     let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
@@ -594,7 +617,9 @@ fn wait(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, waiter: Waiter) -> SysResult
         Wait::key(WaitKey::WorkspaceLock(request.target.ino()), None),
     );
     if ctx.thread.wait.is_some() {
-        lifetime::parked_workspace_lock(ctx, fd, file, waiter);
+        if let Some(fd) = fd {
+            lifetime::parked_workspace_lock(ctx, fd, file, waiter);
+        }
     } else {
         cancel_wait(ctx.proc, ctx.thread.tid);
     }

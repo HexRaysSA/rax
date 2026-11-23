@@ -31,10 +31,10 @@ use super::{
 };
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
-use crate::user::darwin::fd::{FdTable, OpenFile};
+use crate::user::darwin::fd::{FdTable, FileRef, OpenFile};
 #[cfg(unix)]
 use crate::user::darwin::host::{self, check};
-use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK, O_CREAT, O_TRUNC};
+use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK, O_CREAT, O_EXLOCK, O_SHLOCK, O_TRUNC};
 use crate::user::darwin::mach::exception::Handler;
 use crate::user::darwin::mach::ipc::{MACH_PORT_DEAD, MACH_PORT_NULL, Port};
 use crate::user::darwin::mach::task::{EXC_TYPES_COUNT, PORT_REGISTER_MAX, TaskState, special};
@@ -48,6 +48,7 @@ use crate::user::darwin::syscall::bsd::path::embedded;
 #[cfg(unix)]
 use crate::user::darwin::syscall::bsd::path::normalize;
 use crate::user::darwin::syscall::util::MAXPATHLEN;
+use crate::user::darwin::workspace_locks;
 
 /// `posix_spawnattr` flags (`bsd/sys/spawn.h`).
 pub mod flag {
@@ -327,64 +328,150 @@ impl Scratch {
     }
 }
 
-/// `exec_handle_file_actions`: the actions in order, the first failure
-/// failing the spawn.
-fn file_actions(
+fn file_action(
     ctx: &Ctx<'_>,
     s: &mut Scratch,
-    actions: &[FileAction],
-    cloexec_default: bool,
+    action: &FileAction,
+    nofile: u64,
 ) -> Result<(), Errno> {
-    let nofile = ctx.proc.rlimits[8].0;
-    for a in actions {
-        match a {
-            FileAction::Open {
-                fd,
-                oflag,
-                mode,
-                path,
-            } => {
-                let path = path.clone()?;
-                let orig = open_action(ctx, s, &path, *oflag, *mode, nofile)?;
-                if orig != *fd {
-                    dup2(s, orig, *fd, nofile)?;
-                    s.fds.remove(orig)?;
-                }
-            }
-            FileAction::Close(fd) => {
-                s.fds.remove(*fd)?;
-            }
-            FileAction::Dup2(from, to) => dup2(s, *from, *to, nofile)?,
-            FileAction::Inherit(fd) => s.fds.get_mut(*fd)?.cloexec = false,
-            // No fileports: no name can be one.
-            FileAction::FileportDup2(..) => return Err(Errno::EINVAL),
-            FileAction::Chdir(path) => {
-                let path = path.clone()?;
-                chdir_action(ctx, s, &path)?;
-            }
-            FileAction::Fchdir(fd) => {
-                // fchdir resolves the descriptor in the caller's table.
-                let file = ctx.proc.fds.file(*fd)?;
-                if ctx.proc.vfs.is_closed() {
-                    (s.cwd, s.cwd_directory) = embedded::directory_descriptor(ctx, &file)?;
-                } else {
-                    #[cfg(unix)]
-                    fchdir_host(s, &file)?;
-                    #[cfg(not(unix))]
-                    return Err(Errno::ENOTSUP);
-                }
-            }
-            FileAction::Unknown => return Err(Errno::EINVAL),
+    match action {
+        FileAction::Open {
+            fd,
+            oflag,
+            mode,
+            path,
+        } => {
+            let path = path.as_deref().map_err(|error| *error)?;
+            let file = open_action(ctx, s, path, *oflag, *mode, nofile)?;
+            install_open_action(s, *fd, file, *oflag, nofile)?;
         }
-    }
-    if cloexec_default {
-        s.inherit = Some(actions.iter().filter_map(FileAction::inherited).collect());
+        FileAction::Close(fd) => {
+            s.fds.remove(*fd)?;
+        }
+        FileAction::Dup2(from, to) => dup2(s, *from, *to, nofile)?,
+        FileAction::Inherit(fd) => s.fds.get_mut(*fd)?.cloexec = false,
+        // No fileports: no name can be one.
+        FileAction::FileportDup2(..) => return Err(Errno::EINVAL),
+        FileAction::Chdir(path) => {
+            let path = path.clone()?;
+            chdir_action(ctx, s, &path)?;
+        }
+        FileAction::Fchdir(fd) => {
+            // fchdir resolves the descriptor in the caller's table.
+            let file = ctx.proc.fds.file(*fd)?;
+            if ctx.proc.vfs.is_closed() {
+                (s.cwd, s.cwd_directory) = embedded::directory_descriptor(ctx, &file)?;
+            } else {
+                #[cfg(unix)]
+                fchdir_host(s, &file)?;
+                #[cfg(not(unix))]
+                return Err(Errno::ENOTSUP);
+            }
+        }
+        FileAction::Unknown => return Err(Errno::EINVAL),
     }
     Ok(())
 }
 
-/// `open1` for a file action: the lowest free descriptor, the mode less
-/// the file-creation mask.
+struct LockedOpen {
+    destination: i32,
+    flags: u32,
+    file: FileRef,
+}
+
+/// File actions preceding a sleeping open stay applied to the scratch child.
+pub(in crate::user::darwin) struct Pending {
+    call: [u64; 4],
+    attrs: Attrs,
+    scratch: Scratch,
+    actions: Vec<FileAction>,
+    ports: Vec<PortAction>,
+    nofile: u64,
+    next_action: usize,
+    locked_open: Option<LockedOpen>,
+}
+
+fn prepare_locked_open(
+    ctx: &Ctx<'_>,
+    spawn: &Pending,
+    action: &FileAction,
+) -> Result<Option<LockedOpen>, Errno> {
+    let FileAction::Open {
+        fd,
+        oflag,
+        mode,
+        path,
+    } = action
+    else {
+        return Ok(None);
+    };
+    let lock_flags = *oflag & (O_SHLOCK | O_EXLOCK);
+    let workspace = ctx
+        .proc
+        .vfs
+        .files()
+        .is_some_and(|files| files.has_workspace());
+    if !workspace || lock_flags == 0 {
+        return Ok(None);
+    }
+    spawn.scratch.fds.lowest_free(0, spawn.nofile)?;
+    let path = path.as_deref().map_err(|error| *error)?;
+    let file = embedded::resolve_open_file(
+        ctx,
+        path,
+        &spawn.scratch.cwd,
+        spawn.scratch.cwd_directory.as_ref(),
+        false,
+        *oflag & !lock_flags,
+        *mode,
+    )?;
+    Ok(Some(LockedOpen {
+        destination: *fd,
+        flags: *oflag,
+        file,
+    }))
+}
+
+fn run_file_actions(ctx: &mut Ctx<'_>, mut spawn: Pending) -> SysResult {
+    while let Some(action) = spawn.actions.get(spawn.next_action) {
+        let resumed = spawn.locked_open.is_some();
+        let open = match spawn.locked_open.take() {
+            Some(open) => Some(open),
+            None => prepare_locked_open(ctx, &spawn, action)?,
+        };
+        if let Some(open) = open {
+            let result = workspace_locks::lock_spawn_open(ctx, &open.file, open.flags, resumed);
+            if ctx.thread.wait.is_some() {
+                spawn.locked_open = Some(open);
+                ctx.thread.pending_spawn = Some(Box::new(spawn));
+                return result;
+            }
+            result?;
+            embedded::truncate_opened(ctx, &open.file, open.flags)?;
+            install_open_action(
+                &mut spawn.scratch,
+                open.destination,
+                open.file,
+                open.flags,
+                spawn.nofile,
+            )?;
+        } else {
+            file_action(ctx, &mut spawn.scratch, action, spawn.nofile)?;
+        }
+        spawn.next_action += 1;
+    }
+    if spawn.attrs.flags & flag::CLOEXEC_DEFAULT != 0 {
+        spawn.scratch.inherit = Some(
+            spawn
+                .actions
+                .iter()
+                .filter_map(FileAction::inherited)
+                .collect(),
+        );
+    }
+    finish_spawn(ctx, spawn)
+}
+
 fn open_action(
     ctx: &Ctx<'_>,
     s: &mut Scratch,
@@ -392,8 +479,8 @@ fn open_action(
     oflag: u32,
     mode: u32,
     nofile: u64,
-) -> Result<i32, Errno> {
-    let file = if ctx.proc.vfs.is_closed() {
+) -> Result<FileRef, Errno> {
+    if ctx.proc.vfs.is_closed() {
         if oflag & (O_CREAT | O_TRUNC) != 0
             && ctx.proc.vfs.files().is_some_and(|f| f.has_workspace())
         {
@@ -407,25 +494,40 @@ fn open_action(
             false,
             oflag,
             mode,
-        )?
+        )
     } else {
         #[cfg(unix)]
         {
-            open_host(ctx, s, path, oflag, mode)?
+            open_host(ctx, s, path, oflag, mode)
         }
         #[cfg(not(unix))]
         {
             let _ = mode;
             return Err(Errno::ENOTSUP);
         }
-    };
-    s.fds.install_with(
+    }
+}
+
+/// The temporary open descriptor is the lowest free slot before dup2.
+fn install_open_action(
+    s: &mut Scratch,
+    fd: i32,
+    file: FileRef,
+    oflag: u32,
+    nofile: u64,
+) -> Result<(), Errno> {
+    let orig = s.fds.install_with(
         file,
         oflag & O_CLOEXEC != 0,
         oflag & O_CLOFORK != 0,
         0,
         nofile,
-    )
+    )?;
+    if orig != fd {
+        dup2(s, orig, fd, nofile)?;
+        s.fds.remove(orig)?;
+    }
+    Ok(())
 }
 
 #[cfg(unix)]
@@ -654,6 +756,9 @@ pub fn posix_spawn(
     argv: u64,
     envp: u64,
 ) -> SysResult {
+    if let Some(spawn) = ctx.thread.pending_spawn.take() {
+        return run_file_actions(ctx, *spawn);
+    }
     let desc = if adesc != 0 {
         Desc::read(ctx, adesc)?
     } else {
@@ -698,7 +803,6 @@ pub fn posix_spawn(
         return Err(Errno::EPERM);
     }
     let setexec = a.flags & flag::SETEXEC != 0;
-    let suspend = a.flags & flag::START_SUSPENDED != 0;
     let pgroup = (a.flags & flag::SETPGROUP != 0).then_some(a.pgroup);
     let setsid = a.flags & flag::SETSID != 0;
     let closed = ctx.proc.vfs.is_closed();
@@ -716,7 +820,7 @@ pub fn posix_spawn(
     }
 
     // The new process's descriptors and working directory.
-    let mut scratch = Scratch {
+    let scratch = Scratch {
         // A spawn is a fork then an exec, unless it sets the exec.
         fds: fdt_fork(&ctx.proc.fds, setexec),
         cwd: ctx.proc.cwd.clone(),
@@ -725,12 +829,32 @@ pub fn posix_spawn(
         dir: None,
         inherit: None,
     };
-    file_actions(
-        ctx,
-        &mut scratch,
-        &actions,
-        a.flags & flag::CLOEXEC_DEFAULT != 0,
-    )?;
+    let spawn = Pending {
+        call: [pid_addr, path, argv, envp],
+        attrs: a,
+        scratch,
+        actions,
+        ports,
+        nofile: ctx.proc.rlimits[8].0,
+        next_action: 0,
+        locked_open: None,
+    };
+    run_file_actions(ctx, spawn)
+}
+
+fn finish_spawn(ctx: &mut Ctx<'_>, spawn: Pending) -> SysResult {
+    let Pending {
+        call: [pid_addr, path, argv, envp],
+        attrs: a,
+        scratch,
+        ports,
+        ..
+    } = spawn;
+    let setexec = a.flags & flag::SETEXEC != 0;
+    let suspend = a.flags & flag::START_SUSPENDED != 0;
+    let pgroup = (a.flags & flag::SETPGROUP != 0).then_some(a.pgroup);
+    let setsid = a.flags & flag::SETSID != 0;
+    let closed = ctx.proc.vfs.is_closed();
     let mut task = exec_task(&ctx.proc.task);
     port_actions(ctx, &mut task, &ports)?;
     let mut creds = ctx.proc.creds;
@@ -1040,7 +1164,7 @@ mod tests {
                     .unwrap()["result"]
                     .as_i64()
                     .unwrap();
-                let result = file_actions(&ctx, &mut scratch, &[action], false);
+                let result = file_action(&ctx, &mut scratch, &action, ctx.proc.rlimits[8].0);
                 assert_eq!(
                     result,
                     if expected == 0 {

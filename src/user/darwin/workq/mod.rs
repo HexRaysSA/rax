@@ -712,6 +712,7 @@ fn create_thread(proc: &mut Proc) -> Option<u64> {
         resume: None,
         pending_unix: None,
         file_io: None,
+        pending_spawn: None,
         pthread: 0,
         exited: false,
         woken: false,

@@ -374,6 +374,8 @@ pub struct Thread {
     pub(crate) pending_unix: Option<syscall::PendingUnix>,
     /// The descriptor reference owned by entered I/O or a waiting dup2.
     pub(crate) file_io: Option<syscall::bsd::file::lifetime::Use>,
+    /// The child's scratch process while a spawn file action waits for a lock.
+    pub(super) pending_spawn: Option<Box<super::exec::spawn::Pending>>,
     /// The thread's `pthread_t` (its user stack's top), zero for the main
     /// thread until libpthread registers.
     pub pthread: u64,
@@ -1357,6 +1359,7 @@ pub(crate) fn start(
         resume: None,
         pending_unix: None,
         file_io: None,
+        pending_spawn: None,
         pthread: 0,
         exited: false,
         woken: false,

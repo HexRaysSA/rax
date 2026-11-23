@@ -144,6 +144,7 @@ fn become_child(ctx: &mut Ctx<'_>, ppid: i32) {
     thread.resume = None;
     thread.pending_unix = None;
     thread.file_io = None;
+    thread.pending_spawn = None;
     thread.woken = false;
     thread.wake_event = false;
 
