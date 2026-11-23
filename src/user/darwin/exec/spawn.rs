@@ -396,7 +396,15 @@ fn open_action(
         {
             s.fds.lowest_free(0, nofile)?;
         }
-        embedded::open_file(ctx, path, &s.cwd, s.cwd_directory.as_ref(), oflag, mode)?
+        embedded::open_file(
+            ctx,
+            path,
+            &s.cwd,
+            s.cwd_directory.as_ref(),
+            false,
+            oflag,
+            mode,
+        )?
     } else {
         #[cfg(unix)]
         {

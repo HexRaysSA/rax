@@ -21,6 +21,9 @@ pub(super) fn getdirentries64(
     let FileKind::Embedded(data) = &file.kind else {
         return Err(Errno::EBADF);
     };
+    if data.search_only() {
+        return Err(Errno::EINVAL);
+    }
     let EmbeddedFile::Supplied { entry, cursor, .. } = data else {
         return Err(if data.entry().is_some() {
             Errno::EINVAL

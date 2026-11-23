@@ -1200,8 +1200,36 @@ impl Files {
         access: Option<WorkspaceAccess<'_>>,
     ) -> Result<(String, Entry), Error> {
         let mut links_left = self.symlink_limit();
-        let (path, entry) =
-            self.walk(path, policy, &mut links_left, access, MissingLast::Reject)?;
+        let (path, entry) = self.walk(
+            path,
+            policy,
+            &mut links_left,
+            access,
+            MissingLast::Reject,
+            None,
+        )?;
+        Ok((path, entry.ok_or(Error::NotFound)?))
+    }
+
+    /// A Darwin search descriptor authorizes the first traversal from its held
+    /// directory. A later traversal must check the current guest permissions.
+    pub(super) fn lookup_from_workspace_search(
+        &self,
+        path: &str,
+        relative: &str,
+        directory: &Arc<WorkspaceDirectory>,
+        policy: LinkPolicy,
+        ids: (u32, u32),
+    ) -> Result<(String, Entry), Error> {
+        let mut links_left = self.symlink_limit();
+        let (path, entry) = self.walk(
+            path,
+            policy,
+            &mut links_left,
+            Some((ids, &[])),
+            MissingLast::Reject,
+            Some((relative, directory)),
+        )?;
         Ok((path, entry.ok_or(Error::NotFound)?))
     }
 
@@ -1229,6 +1257,7 @@ impl Files {
             &mut links_left,
             Some((ids, groups)),
             missing,
+            None,
         )?;
         Ok(path)
     }
@@ -1252,6 +1281,7 @@ impl Files {
         links_left: &mut u8,
         access: Option<WorkspaceAccess<'_>>,
         missing_last: MissingLast,
+        search_from: Option<(&str, &Arc<WorkspaceDirectory>)>,
     ) -> Result<(String, Option<Entry>), Error> {
         validate(path)?;
         let reject_traversal = matches!(
@@ -1259,15 +1289,32 @@ impl Files {
             LinkPolicy::NoFollowAny | LinkPolicy::NoFollowAncestors
         );
         let follow_last = matches!(policy, LinkPolicy::Follow | LinkPolicy::NoFollowAny);
-        let mut current = String::from("/");
-        let mut entry = self.entry("/", true)?;
-        let mut components = path.split('/').filter(|c| !c.is_empty()).peekable();
-        while let Some(component) = components.next() {
+        let (relative, mut current, mut entry) = match search_from {
+            Some((relative, directory)) => {
+                let base = path
+                    .strip_suffix(relative)
+                    .and_then(|prefix| prefix.strip_suffix('/'))
+                    .ok_or(Error::InvalidPath)?;
+                let entry = Entry {
+                    ino: directory.ino,
+                    kind: Kind::WorkspaceDirectory(directory.clone()),
+                };
+                (relative, base.to_owned(), entry)
+            }
+            None => (path, String::from("/"), self.entry("/", true)?),
+        };
+        let mut components = relative
+            .split('/')
+            .filter(|c| !c.is_empty())
+            .enumerate()
+            .peekable();
+        while let Some((index, component)) = components.next() {
             if !entry.is_dir() {
                 return Err(Error::NotDirectory);
             }
             if let Some((ids, groups)) = access
                 && let Some(directory) = entry.workspace_directory()
+                && (index != 0 || search_from.is_none())
                 && !directory.permits(1, ids, groups)
             {
                 return Err(Error::AccessDenied);
@@ -1325,8 +1372,14 @@ impl Files {
                     let (parent, _) = current.rsplit_once('/').expect("absolute link path");
                     std::borrow::Cow::Owned(format!("{parent}/{target}"))
                 };
-                let (resolved, target) =
-                    self.walk(&target, LinkPolicy::Follow, links_left, access, missing)?;
+                let (resolved, target) = self.walk(
+                    &target,
+                    LinkPolicy::Follow,
+                    links_left,
+                    access,
+                    missing,
+                    None,
+                )?;
                 current = resolved;
                 match target {
                     Some(target) => entry = target,

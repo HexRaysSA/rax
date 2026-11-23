@@ -10,7 +10,7 @@ use super::{FdTable, FileKind, OpenFile};
 use crate::user::console::{CapturedConsole, Console, OutputStream};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::abi::types::{Stat, Timespec};
-use crate::user::darwin::io::{O_ACCMODE, O_APPEND, O_RDONLY, O_WRONLY};
+use crate::user::darwin::io::{O_ACCMODE, O_APPEND, O_EXEC, O_RDONLY, O_WRONLY};
 use crate::user::mm::{PageSource, SourceIdentity};
 use crate::user::supplied_fs::{Device, Entry, WorkspaceTimestamp};
 
@@ -48,6 +48,10 @@ impl EmbeddedFile {
             Self::Supplied { entry, .. } | Self::Workspace { entry, .. } => Some(entry),
             _ => None,
         }
+    }
+
+    pub(crate) fn search_only(&self) -> bool {
+        matches!(self, Self::Supplied { access, .. } if *access == O_EXEC)
     }
 
     pub(crate) fn workspace(&self) -> Option<(&crate::user::supplied_fs::WorkspaceFile, u32)> {
@@ -180,6 +184,7 @@ impl EmbeddedFile {
     /// captured streams reject positional operations with `ESPIPE`.
     pub fn read(&self, out: &mut [u8], offset: Option<i64>) -> Result<usize, Errno> {
         match self {
+            Self::Supplied { access: O_EXEC, .. } => Err(Errno::EBADF),
             Self::Workspace { access, .. } if *access == O_WRONLY => Err(Errno::EBADF),
             Self::Supplied { entry, access, .. } if entry.link_target().is_some() => {
                 Err(if *access == O_WRONLY {
@@ -387,7 +392,7 @@ impl OpenFile {
             kind: FileKind::Embedded(EmbeddedFile::Supplied {
                 entry,
                 cursor: Mutex::new(0),
-                access: flags & O_ACCMODE,
+                access: flags & (O_EXEC | O_ACCMODE),
             }),
             path: Some(path.into_bytes()),
             flags: Mutex::new(flags),

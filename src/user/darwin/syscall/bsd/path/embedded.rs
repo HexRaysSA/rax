@@ -50,6 +50,16 @@ fn path_with_workspace_base(
     Ok(relative_workspace_path(base, directory, path, ids, &[])?)
 }
 
+fn allows_initial_search(ctx: &Ctx<'_>, dirfd: i32, path: &[u8]) -> bool {
+    dirfd != AT_FDCWD
+        && !path.starts_with(b"/")
+        && ctx
+            .proc
+            .fds
+            .file(dirfd)
+            .is_ok_and(|file| matches!(&file.kind, FileKind::Embedded(data) if data.search_only()))
+}
+
 pub(in crate::user::darwin::syscall::bsd) fn lookup(
     ctx: &Ctx<'_>,
     dirfd: i32,
@@ -62,6 +72,7 @@ pub(in crate::user::darwin::syscall::bsd) fn lookup(
         &path,
         &base,
         directory.as_ref(),
+        allows_initial_search(ctx, dirfd, &path),
         policy,
         (ctx.proc.creds.1, ctx.proc.creds.3),
     )
@@ -88,6 +99,7 @@ fn lookup_as(
     path: &[u8],
     base: &[u8],
     directory: Option<&Arc<WorkspaceDirectory>>,
+    allow_search: bool,
     policy: LinkPolicy,
     ids: (u32, u32),
 ) -> Result<(String, Entry), Errno> {
@@ -95,6 +107,12 @@ fn lookup_as(
     let (absolute, retained) = path_with_workspace_base(path, base, directory, ids)?;
     if let Some(entry) = retained {
         return Ok((absolute, entry));
+    }
+    if allow_search && let Some(directory) = directory.filter(|directory| directory.linked()) {
+        let relative = std::str::from_utf8(path).map_err(|_| Errno::EINVAL)?;
+        return files
+            .lookup_from_workspace_search(&absolute, relative, directory, policy, ids)
+            .map_err(Errno::from);
     }
     files
         .lookup_for_guest(&absolute, policy, ids, &[])
@@ -112,6 +130,7 @@ pub(crate) fn lookup_followed(
         path,
         base,
         directory,
+        false,
         LinkPolicy::Follow,
         (ctx.proc.creds.1, ctx.proc.creds.3),
     )
@@ -145,6 +164,7 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
         &path,
         &base,
         directory.as_ref(),
+        allows_initial_search(ctx, dirfd, &path),
         link_policy(flags),
         ids,
     )?;
@@ -234,7 +254,16 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, mode:
         ctx.proc.fds.lowest_free(0, ctx.proc.rlimits[8].0)?;
     }
     let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
-    let file = open_file(ctx, &path, &base, directory.as_ref(), flags, mode)?;
+    let allow_search = allows_initial_search(ctx, dirfd, &path);
+    let file = open_file(
+        ctx,
+        &path,
+        &base,
+        directory.as_ref(),
+        allow_search,
+        flags,
+        mode,
+    )?;
     let fd = ctx.proc.fds.install_with(
         file,
         flags & O_CLOEXEC != 0,
@@ -357,6 +386,7 @@ pub(crate) fn open_file(
     path: &[u8],
     base: &[u8],
     directory: Option<&Arc<WorkspaceDirectory>>,
+    allow_search: bool,
     flags: u32,
     mode: u32,
 ) -> Result<Arc<OpenFile>, Errno> {
@@ -364,7 +394,7 @@ pub(crate) fn open_file(
     let file = open_or_create(
         flags,
         owner,
-        |policy| lookup_as(ctx, path, base, directory, policy, owner),
+        |policy| lookup_as(ctx, path, base, directory, allow_search, policy, owner),
         |exclusive| {
             let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
             if !files.has_workspace() {
@@ -404,7 +434,8 @@ fn open_or_create(
     lookup: impl FnOnce(LinkPolicy) -> Result<(String, Entry), Errno>,
     create: impl FnOnce(bool) -> Result<(String, Entry), Errno>,
 ) -> Result<Arc<OpenFile>, Errno> {
-    if flags & O_ACCMODE == O_ACCMODE {
+    let search = flags & O_SEARCH == O_SEARCH;
+    if flags & O_ACCMODE == O_ACCMODE || (search && flags & (O_ACCMODE | O_CREAT) != 0) {
         return Err(Errno::EINVAL);
     }
     let supported = O_ACCMODE
@@ -418,7 +449,8 @@ fn open_or_create(
         | O_SYMLINK
         | O_NOCTTY
         | O_CLOEXEC
-        | O_CLOFORK;
+        | O_CLOFORK
+        | if search { O_EXEC } else { 0 };
     if flags & !supported != 0 {
         return Err(Errno::ENOTSUP);
     }
@@ -447,6 +479,21 @@ fn open_or_create(
             return Err(Errno::ENOTDIR);
         }
         let status = flags & (O_STATUS_FLAGS | O_ACCMODE);
+        return Ok(Arc::new(OpenFile::supplied_with_flags(path, entry, status)));
+    }
+    if search {
+        if !entry.is_dir() {
+            return Err(Errno::ENOTDIR);
+        }
+        if flags & O_TRUNC != 0 {
+            return Err(Errno::EISDIR);
+        }
+        if let Some(directory) = entry.workspace_directory()
+            && !directory.permits(1, owner, &[])
+        {
+            return Err(Errno::EACCES);
+        }
+        let status = O_EXEC | (flags & O_STATUS_FLAGS);
         return Ok(Arc::new(OpenFile::supplied_with_flags(path, entry, status)));
     }
     let device = entry.device();

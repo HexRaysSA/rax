@@ -51,6 +51,8 @@ pub const O_CLOFORK: u32 = 0x800_0000;
 pub const O_NOFOLLOW_ANY: u32 = 0x2000_0000;
 /// `O_EXEC`.
 pub const O_EXEC: u32 = 0x4000_0000;
+/// `O_SEARCH`: a directory opened for pathname traversal.
+pub const O_SEARCH: u32 = O_EXEC | O_DIRECTORY;
 
 /// The flags `F_GETFL` reports and `F_SETFL` may change.
 pub const O_STATUS_FLAGS: u32 = O_NONBLOCK | O_APPEND | O_ASYNC | O_SYNC | O_DSYNC;
