@@ -367,7 +367,7 @@ impl Scheduler {
                     .insert(child.pid, DarwinProcess::from_proc(child));
             }
             match outcome {
-                RunStatus::Complete(status) if pid == ROOT_PID => {
+                RunStatus::Complete(status) if pid == root.proc.pid => {
                     self.active.clear();
                     return RunStatus::Complete(status);
                 }
