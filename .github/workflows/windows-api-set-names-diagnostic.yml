@@ -1,0 +1,63 @@
+name: Windows API set name controls
+
+on:
+  push:
+    branches: [validation/windows-api-set-names-20261123]
+    paths:
+      - '.github/workflows/windows-api-set-names-diagnostic.yml'
+      - 'tests/fixtures/user/windows/src/native_api_set_names.rs'
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: API set names (${{ matrix.os }}, ${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, target: x86_64-pc-windows-msvc }
+          - { os: windows-2025, target: x86_64-pc-windows-msvc }
+          - { os: windows-2025, target: i686-pc-windows-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUSTUP_TOOLCHAIN: 1.95.0
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Keep build temporaries in the worktree
+        run: |
+          mkdir -p .tmp-api-set-names
+          native_tmp=$(cygpath -w "$PWD/.tmp-api-set-names")
+          printf 'TMPDIR=%s\nTMP=%s\nTEMP=%s\n' "$native_tmp" "$native_tmp" "$native_tmp" >> "$GITHUB_ENV"
+      - name: Select native Rust on Windows ARM64
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        run: rustup set default-host aarch64-pc-windows-msvc
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: 1.95.0
+          cache-key: api-set-names-${{ matrix.target }}
+      - name: Build the native observer
+        run: |
+          rustup target add "${{ matrix.target }}"
+          rustc --edition 2024 --target "${{ matrix.target }}" \
+            tests/fixtures/user/windows/src/native_api_set_names.rs \
+            -o .tmp-api-set-names/native-api-set-names.exe
+      - name: Record host and observer identity
+        shell: pwsh
+        run: |
+          [Environment]::OSVersion.VersionString
+          Get-FileHash -Algorithm SHA256 (Join-Path $env:SystemRoot 'System32\ntdll.dll')
+          Get-FileHash -Algorithm SHA256 '.tmp-api-set-names\native-api-set-names.exe'
+      - name: Observe loader and availability results
+        run: |
+          .tmp-api-set-names/native-api-set-names.exe > .tmp-api-set-names/native.tsv
+          test "$(wc -l < .tmp-api-set-names/native.tsv)" -eq 45
+          cat .tmp-api-set-names/native.tsv
