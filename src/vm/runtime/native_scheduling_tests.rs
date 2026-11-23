@@ -9,6 +9,7 @@ use std::time::Duration;
 struct Calls {
     bounded: Vec<(u32, Duration)>,
     event_windows: Vec<(u32, bool, bool)>,
+    input_completions: Vec<(u32, usize)>,
     accept_bsp_entry_events: bool,
     bsp_entry_event: Option<u8>,
     unbounded: Vec<u32>,
@@ -69,6 +70,20 @@ impl VCpu for Native {
         );
         calls.posted.push(self.id);
         Ok(())
+    }
+
+    fn post_coordinated_host_slice(
+        &mut self,
+        limit: Duration,
+        pending_maskable_irq: bool,
+        pending_nmi: bool,
+    ) -> Result<()> {
+        self.calls
+            .lock()
+            .unwrap()
+            .event_windows
+            .push((self.id, pending_maskable_irq, pending_nmi));
+        self.post_host_slice(limit)
     }
 
     fn collect_host_slice(&mut self) -> Result<Option<VcpuExit>> {
@@ -134,6 +149,9 @@ impl VCpu for Native {
     }
 
     fn complete_io_in(&mut self, _data: &[u8]) {
+        let mut calls = self.calls.lock().unwrap();
+        let prior_init = calls.init_attempts.len();
+        calls.input_completions.push((self.id, prior_init));
         self.prepared_input = false;
     }
 
@@ -222,6 +240,41 @@ fn native_round_joins_partial_dispatch_before_returning_a_post_error() {
 }
 
 #[test]
+fn native_round_completes_peer_input_before_delivering_a_collected_init() {
+    use super::coordinator::ExecutionTurn;
+
+    let (mut fixture, calls) = fixture(2, true);
+    let vm = &mut fixture.vm;
+    vm.backend_kind = BackendKind::Hvf;
+    let mut turns = vec![
+        ExecutionTurn {
+            cpu_index: 0,
+            exit: VcpuExit::MmioWrite {
+                addr: 0xfee0_0300,
+                data: 0x000c_4500u32.to_le_bytes().to_vec(),
+            },
+            #[cfg(feature = "debug")]
+            debug_step_completed: false,
+        },
+        ExecutionTurn {
+            cpu_index: 1,
+            exit: VcpuExit::IoIn {
+                port: 0x3f8,
+                size: 1,
+            },
+            #[cfg(feature = "debug")]
+            debug_step_completed: false,
+        },
+    ];
+    assert!(!vm.apply_native_round(&mut turns).unwrap());
+    assert!(turns.is_empty());
+    let calls = calls.lock().unwrap();
+    assert_eq!(calls.input_completions, [(1, 0)]);
+    assert_eq!(calls.init_attempts, [1]);
+    assert_eq!(vm.coordinator.online, [true, false]);
+}
+
+#[test]
 fn host_yields_visit_every_online_cpu_without_guest_exits_or_retirement() {
     for count in [2, 4] {
         let (mut fixture, calls) = fixture(count, false);
@@ -246,6 +299,12 @@ fn host_yields_visit_every_online_cpu_without_guest_exits_or_retirement() {
 
 #[test]
 fn event_window_requests_follow_the_selected_cpu_and_controller_priority() {
+    for parallel in [false, true] {
+        check_event_window_requests(parallel);
+    }
+}
+
+fn check_event_window_requests(parallel: bool) {
     let (mut fixture, calls) = fixture(4, false);
     let vm = &mut fixture.vm;
     vm.backend_kind = BackendKind::Hvf;
@@ -265,8 +324,16 @@ fn event_window_requests_follow_the_selected_cpu_and_controller_priority() {
             apic.set_irr(0x51);
         }
     }
-    for _ in 0..4 {
-        assert!(vm.execute_turn().unwrap().is_none());
+    if parallel {
+        let mut turns = Vec::new();
+        let mut pending = Vec::new();
+        vm.execute_native_round(&mut turns, &mut pending).unwrap();
+        assert!(turns.is_empty() && pending.is_empty());
+        assert_eq!(calls.lock().unwrap().collected, [0, 1, 2, 3]);
+    } else {
+        for _ in 0..4 {
+            assert!(vm.execute_turn().unwrap().is_none());
+        }
     }
     assert_eq!(
         calls.lock().unwrap().event_windows,

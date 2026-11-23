@@ -2953,7 +2953,8 @@
         "Native Intel HVF restores a queued LAPIC timer event into a fresh vCPU and executes its handler once without reinjection. This exercises the private CPU record and its retained controller model. Full coordinated VM publication remains open.",
         "Three hosted Intel cases qualify an unarmed pending IRQ, direct delivery, and delivery after restoring a fresh vCPU with caller-held LAPIC state. Full coordinated native file restoration stays open.",
         "Software x86 preserves the CPU's NMI block and the local APIC's independently queued NMI in detached VM files with 1, 2 and 4 configured CPUs. Complete backend and native interrupt restoration stays open.",
-        "Hosted Intel HVF run 45148465791 restored actual VMM files after destroying the source VM and removing its kernel. The restored AP1 in a two-vCPU VM completed one pending MOVLPD read. AP3 in a four-vCPU VM completed one pending MOVHPD write. The target reattached the test device. Complete device-private and interrupt restoration and bare-metal Intel qualification remain open. See hvf-mmio-xmm.md."
+        "Hosted Intel HVF run 45148465791 restored actual VMM files after destroying the source VM and removing its kernel. The restored AP1 in a two-vCPU VM completed one pending MOVLPD read. AP3 in a four-vCPU VM completed one pending MOVHPD write. The target reattached the test device. Complete device-private and interrupt restoration and bare-metal Intel qualification remain open. See hvf-mmio-xmm.md.",
+        "Intel HVF stopped capture rejects outstanding asynchronous host entries until they are collected. A modeled SDK regression verifies the boundary at two and four vCPUs. Physical Intel KVM separately passed detached continuation of one pending UART input per vCPU with two and four vCPUs. See hvf-native-scheduling/README.md. Complete device and kernel-private state remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3850,7 +3851,8 @@
         "A four-vCPU coordinator witness checks selected PIC/LAPIC arming, LAPIC priority, and a disabled controller. The hosted Intel window probe uses one vCPU. Full native SMP interrupt ordering remains open.",
         "The retired-clock software VMM resumes a blocked NMI handler on the last configured CPU and consumes the queued local APIC request after IRET. Detached 1, 2 and 4 CPU files verify both guest handler return PCs.",
         "Physical Intel Linux passed the 15 public KVM checkpoint tests, including native INIT/SIPI and parallel UART continuation at 2 and 4 vCPUs, detached input at 1, 2 and 4 vCPUs, and a software LAPIC timer waking a restored VM with every vCPU halted. Additional native interrupt timing, platform scheduling and replay remain open. See kvm-native-owner.md.",
-        "Hosted Intel run 45148465791 executed an in-flight MMIO continuation through Vmm::run on AP1 of a two-vCPU VM and AP3 of a four-vCPU VM after restoring each file onto fresh owners. The fixture prepares the AP execution state directly. See hvf-mmio-xmm.md."
+        "Hosted Intel run 45148465791 executed an in-flight MMIO continuation through Vmm::run on AP1 of a two-vCPU VM and AP3 of a four-vCPU VM after restoring each file onto fresh owners. The fixture prepares the AP execution state directly. See hvf-mmio-xmm.md.",
+        "Intel HVF has opt-in parallel host rounds with 1 ms entry budgets and modeled SDK overlap at two and four vCPUs. The coordinator completes collected device exits before routing INIT/SIPI. Hosted Intel guest qualification of the parallel mode and native deterministic retirement and replay remain open. See hvf-native-scheduling/README.md."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4604,7 +4606,8 @@
         "Packed equality and signed greater-than MMIO reads are implemented for 24 legacy SSE and VEX forms. Hosted Intel HVF run 45148267711 passed 48 direct cases, 48 fresh-owner cases and eight legacy alignment controls. The signed artifact and every observation matched the pinned source and independent physical Intel RAM oracle. Bare-metal Intel macOS remains unverified. See hvf-mmio-xmm.md.",
         "Hosted Intel HVF run 45148465791 verified one pending XMM lane read and one pending lane write from detached VMM files. Saved UD2, exact device callback, final RIP and XMM15 checks bind both results to the stored I/O transaction. See hvf-mmio-xmm.md.",
         "Hosted Intel run 45152339589 passed all 968 combined cases after the supervisor update. The first 952 observation records matched the earlier broad run byte for byte, and all 16 coherence cases passed with terminal CPU records. Following-page, instruction-byte, interrupt and bare-metal Intel requirements remain open.",
-        "Hosted Intel run 45152935165 passed all 328 packed integer addition and subtraction cases, including 160 direct, 160 restored and eight alignment-fault observations verified against the physical Intel RAM oracle. See hvf-mmio-xmm.md."
+        "Hosted Intel run 45152935165 passed all 328 packed integer addition and subtraction cases, including 160 direct, 160 restored and eight alignment-fault observations verified against the physical Intel RAM oracle. See hvf-mmio-xmm.md.",
+        "Opt-in parallel Intel HVF rounds now pass each CPU's maskable interrupt and NMI window hints to its SDK owner. Model results qualify hint and checkpoint plumbing. Hosted Intel execution of the parallel path, general reinjection and bare-metal Intel validation remain open. See hvf-native-scheduling/README.md."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",

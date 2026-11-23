@@ -1,5 +1,5 @@
 //! Movable public interface; every SDK operation stays on its permanent owner.
-use super::intel_owner::{Owner, StartError};
+use super::intel_owner::{Owner, Pending, StartError};
 use super::intel_vm::Lifetime;
 use super::*;
 
@@ -8,6 +8,7 @@ pub struct HvfVcpu {
     owner: Owner<HvfCore>,
     lifetime: Arc<Lifetime>,
     local_apic: Option<Arc<Mutex<crate::devices::lapic::LocalApic>>>,
+    pending_entry: Option<Pending<Result<Option<VcpuExit>>>>,
 }
 
 impl HvfVcpu {
@@ -56,6 +57,7 @@ impl HvfVcpu {
                     owner,
                     lifetime,
                     local_apic: None,
+                    pending_entry: None,
                 })
             }
             Err(error) => {
@@ -94,6 +96,7 @@ impl HvfVcpu {
         &self,
         operation: impl FnOnce(&mut HvfCore) -> Result<R> + Send + 'static,
     ) -> Result<R> {
+        self.require_collected_entry()?;
         self.lifetime.ready()?;
         let lifetime = self.lifetime.clone();
         let timing = crate::vm::timing::TimingContext::current();
@@ -105,10 +108,23 @@ impl HvfVcpu {
             })
             .map_err(Error::Emulator)?
     }
+
+    fn require_collected_entry(&self) -> Result<()> {
+        if self.pending_entry.is_some() {
+            return Err(Error::InvalidConfig(
+                "Intel HVF host slice must be collected before using the vCPU".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl Drop for HvfVcpu {
     fn drop(&mut self) {
+        // The queued owner must acquire read exclusion before it can finish.
+        if self.pending_entry.is_some() {
+            let _ = self.collect_host_slice();
+        }
         let _boundary = self
             .lifetime
             .quiescence
@@ -152,6 +168,51 @@ impl VCpu for HvfVcpu {
         self.request(move |core| {
             core.run_coordinated_host_slice(limit, pending_maskable_irq, pending_nmi)
         })
+    }
+    fn post_host_slice(&mut self, limit: std::time::Duration) -> Result<()> {
+        self.post_coordinated_host_slice(limit, false, false)
+    }
+    fn post_coordinated_host_slice(
+        &mut self,
+        limit: std::time::Duration,
+        pending_maskable_irq: bool,
+        pending_nmi: bool,
+    ) -> Result<()> {
+        self.require_collected_entry()?;
+        let _posting = self
+            .lifetime
+            .quiescence
+            .read()
+            .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
+        self.lifetime.ready()?;
+        let lifetime = self.lifetime.clone();
+        let timing = crate::vm::timing::TimingContext::current();
+        let entry = self
+            .owner
+            .post(move |core| {
+                let _entry = lifetime
+                    .quiescence
+                    .read()
+                    .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
+                let _timing = timing.as_ref().map(|clock| clock.enter());
+                lifetime.ready()?;
+                core.run_coordinated_host_slice(limit, pending_maskable_irq, pending_nmi)
+            })
+            .map_err(Error::Emulator)?;
+        // Publish the reservation before releasing posting exclusion. This
+        // fences capture even if the owner has yet to start or already ended.
+        self.pending_entry = Some(entry);
+        self.lifetime.pending_entries.fetch_add(1, Ordering::AcqRel);
+        Ok(())
+    }
+    fn collect_host_slice(&mut self) -> Result<Option<VcpuExit>> {
+        let entry = self
+            .pending_entry
+            .take()
+            .ok_or_else(|| Error::InvalidConfig("no Intel HVF host slice is in flight".into()))?;
+        let result = self.owner.collect(entry);
+        self.lifetime.pending_entries.fetch_sub(1, Ordering::AcqRel);
+        result.map_err(Error::Emulator)?
     }
     fn poll_vm_clock(&mut self) -> Result<()> {
         let Some(controller) = &self.local_apic else {

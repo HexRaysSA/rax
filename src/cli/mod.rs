@@ -44,6 +44,9 @@ struct Cli {
     memory: Option<MemorySize>,
     #[arg(long)]
     vcpus: Option<u8>,
+    /// Run Intel HVF vCPUs concurrently. Supply again when resuming a checkpoint.
+    #[arg(long, num_args = 0..=1, require_equals = true, default_missing_value = "true")]
+    hvf_parallel_vcpus: Option<bool>,
     #[arg(long)]
     kernel: Option<PathBuf>,
     #[arg(long)]
@@ -147,6 +150,7 @@ pub fn run() -> Result<()> {
         backend: cli.backend,
         memory: cli.memory,
         vcpus: cli.vcpus,
+        hvf_parallel_vcpus: cli.hvf_parallel_vcpus,
         kernel: cli.kernel,
         initrd: cli.initrd,
         cmdline: cli.cmdline,
@@ -318,5 +322,24 @@ mod storage_flag_tests {
                 && cli.ahci_image_mode.is_none()
                 && cli.ahci_image_limit.is_none()
         );
+    }
+}
+
+#[cfg(test)]
+mod scheduling_flag_tests {
+    use super::*;
+
+    #[test]
+    fn intel_hvf_parallel_flag_is_explicit_and_can_override_a_true_file_setting() {
+        for (args, expected) in [
+            (vec!["rax"], None),
+            (vec!["rax", "--hvf-parallel-vcpus"], Some(true)),
+            (vec!["rax", "--hvf-parallel-vcpus=false"], Some(false)),
+        ] {
+            assert_eq!(
+                Cli::try_parse_from(args).unwrap().hvf_parallel_vcpus,
+                expected
+            );
+        }
     }
 }

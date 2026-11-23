@@ -23,6 +23,59 @@ fn queue_io(read: bool) {
 }
 
 #[test]
+fn posted_host_slices_overlap_on_two_and_four_permanent_owners() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let timeout = Duration::from_secs(5);
+    for count in [2, 4] {
+        let (vm, memory) = fixture();
+        let mut cpus = (0..count)
+            .map(|id| {
+                vm.create_vcpu(id, Arc::new(memory.memory().clone()))
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let (entered, arrivals) = mpsc::channel();
+        let mut releases = Vec::new();
+        {
+            let mut sdk = SDK.lock().unwrap();
+            for id in 0..count {
+                let (release, gate) = mpsc::channel();
+                sdk.cpus.get_mut(&id).unwrap().run_gate = Some((entered.clone(), gate));
+                releases.push(release);
+            }
+        }
+        for cpu in &mut cpus {
+            cpu.post_host_slice(timeout).expect("post Intel host slice");
+        }
+        let mut active = BTreeSet::new();
+        for _ in 0..count {
+            let id = arrivals
+                .recv_timeout(timeout)
+                .expect("concurrent SDK entry");
+            assert!(active.insert(id), "an SDK owner entered twice");
+        }
+        assert_eq!(active, (0..count).collect());
+        for release in releases {
+            release.send(()).unwrap();
+        }
+        for (index, cpu) in cpus.iter_mut().enumerate() {
+            assert!(vm.checkpoint_boundary().is_err());
+            assert!(cpu.get_state().is_err());
+            assert!(cpu.post_host_slice(timeout).is_err());
+            assert!(cpu.collect_host_slice().unwrap().is_none());
+            assert!(cpu.collect_host_slice().is_err());
+            assert!(cpu.get_state().is_ok(), "CPU {index} remained reserved");
+        }
+        assert_eq!(SDK.lock().unwrap().wrong_owner, 0);
+        for cpu in &cpus {
+            assert!(capture(vm.as_ref(), cpu.as_ref()).1.is_some());
+        }
+    }
+}
+
+#[test]
 fn finite_entries_yield_without_halt_and_keep_each_permanent_owner() {
     let _serial = SERIAL
         .lock()

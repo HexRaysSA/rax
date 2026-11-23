@@ -175,9 +175,9 @@ impl Vmm {
             libc::signal(libc::SIGUSR1, sigusr1_handler as libc::sighandler_t);
         }
 
-        let native_smp = self.backend_kind == BackendKind::Kvm
-            && self.vm.uses_native_x86_irqchip()
-            && self.vcpus.len() > 1;
+        let native_smp = self.vcpus.len() > 1
+            && (self.backend_kind == BackendKind::Kvm && self.vm.uses_native_x86_irqchip()
+                || self.hvf_parallel_vcpus);
         let mut turns = Vec::new();
         let mut pending = Vec::new();
         if native_smp {
@@ -189,7 +189,7 @@ impl Vmm {
                 .map_err(|error| Error::Emulator(format!("host entry allocation: {error}")))?;
         }
 
-        'execution: loop {
+        loop {
             #[cfg(feature = "debug")]
             self.debugger.ready()?;
             if self.service_console(&mut console) {
@@ -246,10 +246,8 @@ impl Vmm {
             let parallel = parallel && self.gdb_channels.is_none();
             if parallel {
                 self.execute_native_round(&mut turns, &mut pending)?;
-                for turn in turns.drain(..) {
-                    if self.apply_execution_turn(turn, false)? {
-                        break 'execution;
-                    }
+                if self.apply_native_round(&mut turns)? {
+                    break;
                 }
                 self.maybe_snapshot(self.coordinator.retired)?;
             } else if let Some(turn) = self.execute_turn()? {
@@ -266,6 +264,19 @@ impl Vmm {
         crate::observability::trace::close();
 
         Ok(())
+    }
+
+    pub(super) fn apply_native_round(&mut self, turns: &mut Vec<ExecutionTurn>) -> Result<bool> {
+        for turn in turns.drain(..) {
+            if self.apply_execution_turn(turn, false)? {
+                return Ok(true);
+            }
+        }
+        // Every exit in this round predates the effects of a delivered INIT.
+        // Complete a peer's device exit before applying a reset to that CPU.
+        self.route_interprocessor_requests()?;
+        self.poll_vm_clocks()?;
+        Ok(false)
     }
 
     fn apply_execution_turn(
@@ -475,11 +486,10 @@ impl Vmm {
             exit => return Err(Error::KernelLoad(format!("unhandled exit: {exit:?}"))),
         }
 
-        self.route_interprocessor_requests()?;
-
         // Publish only a completed instruction boundary. In particular, an
         // input exit advances RIP before complete_io_in installs its value.
         if checkpoint_after_turn {
+            self.route_interprocessor_requests()?;
             self.maybe_snapshot(self.coordinator.retired)?;
         }
         #[cfg(feature = "debug")]

@@ -14,6 +14,7 @@ pub struct FileConfig {
     pub backend: Option<BackendKind>,
     pub memory: Option<MemorySize>,
     pub vcpus: Option<u8>,
+    pub hvf_parallel_vcpus: Option<bool>,
     pub kernel: Option<PathBuf>,
     pub initrd: Option<PathBuf>,
     pub cmdline: Option<String>,

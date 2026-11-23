@@ -1029,6 +1029,7 @@ mod startup {
                 arch: Some(ArchKind::X86_64),
                 backend: Some(BackendKind::Hvf),
                 vcpus: Some(count),
+                hvf_parallel_vcpus: Some(true),
                 memory: Some(MemorySize(128 * 1024 * 1024)),
                 kernel: Some(kernel.0.clone()),
                 ..Default::default()
@@ -1186,7 +1187,14 @@ mod startup {
             "source kernel must be absent during restore"
         );
         let loaded = SnapshotBundle::load(&checkpoint).unwrap();
-        let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(
+            &loaded,
+            CliConfig {
+                hvf_parallel_vcpus: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let mut resumed = Vmm::new_resume_bundle(config, &loaded).unwrap();
         let after = resumed
             .capture_cpu_states()

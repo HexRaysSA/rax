@@ -241,7 +241,14 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
         );
         assert!(loaded.execution().unwrap().online()[ap]);
 
-        let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(
+            &loaded,
+            CliConfig {
+                hvf_parallel_vcpus: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let mut target = Vmm::new_resume_bundle(config, &loaded).unwrap();
         attach(&mut target, &accesses);
         // The public live-state accessor is fenced while I/O is pending.

@@ -3,7 +3,7 @@ use super::{bindings::*, native_memory};
 use crate::backend::CheckpointBoundary;
 use crate::error::{Error, Result};
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
 #[derive(Default)]
@@ -16,6 +16,7 @@ pub(super) struct Lifetime {
     pub(super) legacy_topology: AtomicBool,
     pub(super) capture_clock: AtomicU64,
     pub(super) resume_clock: Mutex<Option<u64>>,
+    pub(super) pending_entries: AtomicUsize,
     failure: Mutex<Option<String>>,
 }
 
@@ -46,6 +47,11 @@ impl Lifetime {
             .write()
             .map_err(|_| Error::Emulator("Intel HVF exclusion lock poisoned".into()))?;
         self.ready()?;
+        if self.pending_entries.load(Ordering::Acquire) != 0 {
+            return Err(Error::InvalidConfig(
+                "Intel HVF checkpoint requires collecting all posted host slices".into(),
+            ));
+        }
         self.capture_clock
             .store(super::intel_clock::Api::load()?.now(), Ordering::Release);
         Ok(CheckpointBoundary::held(self.identity(), guard))

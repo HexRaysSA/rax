@@ -126,6 +126,17 @@ pub trait VCpu: Send {
         ))
     }
 
+    /// Post a bounded entry with controller-owned interrupt window hints.
+    #[doc(hidden)]
+    fn post_coordinated_host_slice(
+        &mut self,
+        limit: std::time::Duration,
+        _pending_maskable_irq: bool,
+        _pending_nmi: bool,
+    ) -> Result<()> {
+        self.post_host_slice(limit)
+    }
+
     /// Wait for the CPU's previously posted entry. Its exit and I/O ownership
     /// have the same semantics as the synchronous host-slice path.
     #[doc(hidden)]

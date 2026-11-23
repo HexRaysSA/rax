@@ -8,7 +8,7 @@ use rax::backend::hvf::{HvfBackend, HvfVm};
 use rax::vm::memory::GuestMemoryWrapper;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::ffi::c_void;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{self, ThreadId};
 
 static SERIAL: Mutex<()> = Mutex::new(());
@@ -81,6 +81,7 @@ struct Cpu {
     delay_tpr_read: bool,
     finite_unsupported: bool,
     delay_return: bool,
+    run_gate: Option<(mpsc::Sender<u32>, mpsc::Receiver<()>)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -274,6 +275,7 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
             delay_tpr_read: false,
             finite_unsupported: false,
             delay_return: false,
+            run_gate: None,
         },
     );
     sdk.trace.push(format!("cpu-create:{id}"));
@@ -477,7 +479,9 @@ pub extern "C" fn hv_vcpu_run(id: u32) -> i32 {
 pub extern "C" fn hv_vcpu_run_until(id: u32, deadline: u64) -> i32 {
     let mut unsupported = false;
     let mut window_budget_exhausted = false;
+    let mut run_gate = None;
     let result = access(id, "run", |cpu| {
+        run_gate = cpu.run_gate.take();
         cpu.deadlines.push(deadline);
         if deadline != u64::MAX && cpu.finite_unsupported {
             unsupported = true;
@@ -553,6 +557,16 @@ pub extern "C" fn hv_vcpu_run_until(id: u32, deadline: u64) -> i32 {
             std::thread::sleep(std::time::Duration::from_millis(30));
         }
     });
+    // Wait outside the model's register lock so independent owners can enter
+    // the SDK and announce their arrival before any gate is released.
+    if let Some((entered, release)) = run_gate
+        && (entered.send(id).is_err()
+            || release
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .is_err())
+    {
+        return -1;
+    }
     if result == 0 && window_budget_exhausted {
         -1
     } else if result == 0 && unsupported {

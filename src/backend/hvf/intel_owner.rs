@@ -1,10 +1,14 @@
 //! Permanent SDK owner. The core is constructed, accessed and dropped here;
 //! it need not be Send. Only closures and their results cross the channel.
-use std::sync::{Arc, mpsc};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread::JoinHandle;
 
 type Operation<T> = Box<dyn FnOnce(&mut T) + Send + 'static>;
 pub(crate) type Failure = Arc<dyn Fn(String) + Send + Sync>;
+
+// The receiver is consumed by collect. The mutex keeps the owner frontend
+// Sync while it retains an outstanding reply.
+pub(crate) struct Pending<R>(Mutex<mpsc::Receiver<R>>);
 
 pub(crate) enum StartError<E> {
     Spawn(std::io::Error),
@@ -77,20 +81,37 @@ impl<T: 'static> Owner<T> {
         &self,
         operation: impl FnOnce(&mut T) -> R + Send + 'static,
     ) -> Result<R, String> {
+        self.collect(self.post(operation)?)
+    }
+
+    pub(crate) fn post<R: Send + 'static>(
+        &self,
+        operation: impl FnOnce(&mut T) -> R + Send + 'static,
+    ) -> Result<Pending<R>, String> {
         let (reply, result) = mpsc::sync_channel(1);
-        let error = || {
-            let error = "Intel HVF owner is unavailable".to_string();
-            (self.failed)(error.clone());
-            error
-        };
         self.sender
             .as_ref()
-            .ok_or_else(error)?
+            .ok_or_else(|| self.unavailable())?
             .send(Box::new(move |core| {
                 let _ = reply.send(operation(core));
             }))
-            .map_err(|_| error())?;
-        result.recv().map_err(|_| error())
+            .map_err(|_| self.unavailable())?;
+        Ok(Pending(Mutex::new(result)))
+    }
+
+    pub(crate) fn collect<R>(&self, pending: Pending<R>) -> Result<R, String> {
+        pending
+            .0
+            .into_inner()
+            .expect("Intel HVF reply receiver is consumed once")
+            .recv()
+            .map_err(|_| self.unavailable())
+    }
+
+    fn unavailable(&self) -> String {
+        let error = "Intel HVF owner is unavailable".to_string();
+        (self.failed)(error.clone());
+        error
     }
 
     /// Disconnect before joining so the idle worker can destroy its core.

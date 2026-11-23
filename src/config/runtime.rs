@@ -31,6 +31,7 @@ pub struct CliConfig {
     pub backend: Option<BackendKind>,
     pub memory: Option<MemorySize>,
     pub vcpus: Option<u8>,
+    pub hvf_parallel_vcpus: Option<bool>,
     pub kernel: Option<PathBuf>,
     pub initrd: Option<PathBuf>,
     pub cmdline: Option<String>,
@@ -88,6 +89,8 @@ pub struct VmConfig {
     pub backend: BackendKind,
     pub memory: MemorySize,
     pub vcpus: u8,
+    /// Host scheduling policy for Intel HVF, explicitly selected on resume.
+    pub hvf_parallel_vcpus: bool,
     pub kernel: PathBuf,
     pub initrd: Option<PathBuf>,
     pub cmdline: String,
@@ -228,6 +231,10 @@ impl VmConfig {
             backend,
             memory,
             vcpus,
+            hvf_parallel_vcpus: cli
+                .hvf_parallel_vcpus
+                .or(file.hvf_parallel_vcpus)
+                .unwrap_or(false),
             kernel,
             initrd,
             cmdline,
@@ -312,6 +319,7 @@ impl VmConfig {
             backend: cli.backend.unwrap_or(cp.backend),
             memory: cli.memory.unwrap_or(MemorySize(cp.memory_bytes)),
             vcpus: cli.vcpus.unwrap_or(cp.vcpus),
+            hvf_parallel_vcpus: cli.hvf_parallel_vcpus.unwrap_or(false),
             kernel: cli.kernel.unwrap_or(cp.kernel),
             initrd: cli.initrd.or(cp.initrd),
             cmdline: cli.cmdline.unwrap_or(cp.cmdline),
@@ -466,6 +474,13 @@ impl VmConfig {
         }
         if self.vcpus == 0 {
             return Err(Error::InvalidConfig("vcpus must be at least 1".to_string()));
+        }
+        if self.hvf_parallel_vcpus
+            && (self.backend != BackendKind::Hvf || self.arch != ArchKind::X86_64)
+        {
+            return Err(Error::InvalidConfig(
+                "parallel HVF vCPUs require the Intel HVF backend".to_string(),
+            ));
         }
         let min_mem_bytes = MIN_MEM_MIB << 20;
         if self.memory.bytes() < min_mem_bytes {
