@@ -378,8 +378,16 @@ pub(super) fn spawn_file(
     file: &File,
     child: Option<ChildStart<'_>>,
 ) -> Result<Proc, SpawnError> {
-    let mut bytes = Vec::new();
-    std::io::Read::read_to_end(&mut &*file, &mut bytes).map_err(SpawnError::Io)?;
+    let bytes = if config.host_filesystem {
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut &*file, &mut bytes).map_err(SpawnError::Io)?;
+        bytes
+    } else {
+        // The closed child path supplies a read-only file retained inside
+        // the selected system directory. Apply the installed image bound.
+        let mut reader = file.try_clone().map_err(SpawnError::Io)?;
+        crate::user::windows::native::read_image_file(&mut reader).map_err(SpawnError::Io)?
+    };
     spawn_image_file(config, bytes, Some(file), child)
 }
 
@@ -440,6 +448,12 @@ fn spawn_image_file(
     let native = if config.native_libraries {
         let runtime =
             crate::user::windows::native::NativeRuntime::select(arch).map_err(SpawnError::Io)?;
+        if !config.host_filesystem {
+            config
+                .drives
+                .expose_installed_system_drive(&runtime.guest_root)
+                .map_err(|reason| SpawnError::BadImage(reason.into()))?;
+        }
         config.version = runtime.version.clone();
         Some(runtime)
     } else {
@@ -669,7 +683,8 @@ fn spawn_image_file(
         } else {
             None
         };
-        p.modules.installed_executable = installed.is_some();
+        p.modules.installed_executable =
+            installed.is_some() || (file.is_some() && !p.cfg.host_filesystem);
         if let Some(file) = file.or(installed.as_ref())
             && let Some(filename) =
                 super::super::mapped_filename::Filename::image(file).map_err(SpawnError::Io)?

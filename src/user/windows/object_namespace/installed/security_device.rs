@@ -2,7 +2,7 @@
 use super::{Attributes, Handle, Owned, Unicode};
 use crate::user::windows::nt::status::STATUS_OBJECT_NAME_NOT_FOUND;
 use crate::user::windows::object_namespace::security_device::{
-    CNG_NAME, NAME, SRP_NAME, SecurityDevice,
+    CNG_NAME, KSEC_DEVICE_TYPE, NAME, SRP_NAME, SecurityDevice,
 };
 use crate::user::windows::object_namespace::{Namespace, invalid};
 use std::ffi::c_void;
@@ -52,11 +52,14 @@ pub(in super::super) fn select(
     namespace: &mut Namespace,
     kernel: (u32, u32, u32),
 ) -> io::Result<()> {
-    let Some(expected_revision) =
-        SecurityDevice::expected_revision(kernel, namespace.native_machine)
-    else {
+    let Some(native_machine) = namespace.native_machine else {
         return Ok(());
     };
+    let expected_revision = SecurityDevice::expected_revision(kernel, Some(native_machine));
+    let server_2022 = SecurityDevice::supports_server_2022(kernel, native_machine);
+    if expected_revision.is_none() && !server_2022 {
+        return Ok(());
+    }
     let subkey: Vec<u16> = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\0"
         .encode_utf16()
         .collect();
@@ -77,14 +80,27 @@ pub(in super::super) fn select(
         )
     };
     if status != 0 || bytes != 4 {
+        if server_2022 {
+            return Ok(());
+        }
         return Err(invalid("kernel security-device revision is unavailable"));
     }
-    if revision != expected_revision {
+    if server_2022 {
+        // Only retain the identity fields obtained from a fixed read-only
+        // open. Startup may proceed if this optional device is unavailable.
+        if let Ok(device) = capture(NAME, kernel, revision, native_machine)
+            && device.device_type == KSEC_DEVICE_TYPE
+        {
+            namespace.select_security_device(device)?;
+        }
         return Ok(());
     }
-    namespace.select_security_device(capture(NAME, kernel, revision)?)?;
+    if Some(revision) != expected_revision {
+        return Ok(());
+    }
+    namespace.select_security_device(capture(NAME, kernel, revision, native_machine)?)?;
     if kernel == (10, 0, 29708)
-        && let Ok(device) = capture(CNG_NAME, kernel, revision)
+        && let Ok(device) = capture(CNG_NAME, kernel, revision, native_machine)
         && device.cng_profile()
     {
         namespace.select_cng_device(device)?;
@@ -132,6 +148,7 @@ fn capture(
     path: &'static str,
     kernel: (u32, u32, u32),
     revision: u32,
+    native_machine: u16,
 ) -> io::Result<SecurityDevice> {
     let mut io = IoStatus {
         status: 0,
@@ -155,7 +172,7 @@ fn capture(
     Ok(SecurityDevice {
         kernel,
         revision,
-        native_machine: 0xaa64,
+        native_machine,
         device_type: information[0],
         characteristics: information[1],
     })

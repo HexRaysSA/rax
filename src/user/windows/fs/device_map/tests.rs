@@ -1,6 +1,27 @@
 use super::DriveMap;
 
 #[test]
+fn installed_system_drive_is_visible_without_a_host_root() {
+    let mut drives = DriveMap::empty();
+    assert!(
+        drives
+            .expose_installed_system_drive(r"\\server\Windows")
+            .is_err()
+    );
+    assert_eq!(drives.device_map(false), [0; 36]);
+    drives.expose_installed_system_drive(r"d:\Windows").unwrap();
+    let mut expected = [0; 36];
+    expected[0] = 1 << 3;
+    expected[7] = 3;
+    assert_eq!(drives.device_map(false), expected);
+    assert_eq!(drives.device_map(true), [0; 36]);
+    assert!(drives.letters().is_empty());
+    assert!(drives.root('D').is_none());
+    let cwd: Vec<_> = r"D:\".encode_utf16().collect();
+    assert!(drives.to_host(r"D:\Windows\unselected.txt", &cwd).is_none());
+}
+
+#[test]
 fn replacing_a_captured_drive_changes_only_its_kind_and_logon_visibility() {
     let mut drives = DriveMap::empty();
     drives.set('C', "mapped-c");

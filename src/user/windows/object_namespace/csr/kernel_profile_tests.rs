@@ -132,6 +132,34 @@ fn csr_kernel_profile_selects_independently_captured_29708_session1_metadata_and
 }
 
 #[test]
+fn csr_child_start_admits_only_observed_architecture_kernel_and_session() {
+    let (_, metadata) = captured_profile(PROFILE_29708);
+    for (arch, build, session, admitted) in [
+        (WinArch::Arm64, 29708, 1, true),
+        (WinArch::Arm64, 29708, 2, false),
+        (WinArch::Arm64, 26200, 1, false),
+        (WinArch::Arm64, 26200, 2, true),
+        (WinArch::X64, 20348, 2, true),
+        (WinArch::X64, 26100, 2, true),
+        (WinArch::X64, 26100, 1, false),
+        (WinArch::X64, 26200, 2, false),
+        (WinArch::X86, 20348, 2, false),
+        (WinArch::Arm64, 20348, 2, false),
+    ] {
+        let profile = CsrMetadata {
+            arch,
+            kernel: (10, 0, build),
+            session,
+            ..metadata.clone()
+        };
+        assert_eq!(
+            profile.child_start_profile(),
+            admitted.then_some((arch, (10, 0, build)))
+        );
+    }
+}
+
+#[test]
 fn csr_kernel_profile_29704_refuses_adjacent_builds_and_changed_native_identity() {
     let (section, metadata) = captured_profile(PROFILE_29704);
     for (major, minor, build, arch, pid, statics_offset) in [

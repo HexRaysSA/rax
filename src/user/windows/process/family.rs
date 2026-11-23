@@ -14,10 +14,45 @@ use std::time::Duration;
 
 type Live = Rc<RefCell<Member>>;
 
+const MAX_CLOSED_CHILDREN: u64 = 32;
+const CLOSED_CHILD_ARENA_BYTES: u64 = 1 << 30;
+
 #[derive(Default)]
 pub(crate) struct Children {
     records: BTreeMap<u32, Record>,
     newborn: Vec<Live>,
+    live: LiveChildren,
+}
+
+/// One count shared by an entire closed process family, including children
+/// whose parent handles have already closed. The root does not use a slot.
+#[derive(Default)]
+struct LiveChildren {
+    count: Rc<Cell<u64>>,
+    reserved: bool,
+}
+
+impl LiveChildren {
+    fn reserve(&self, arena_bytes: u64) -> Result<Self, u32> {
+        let count = self.count.get();
+        let arena_limit = CLOSED_CHILD_ARENA_BYTES / arena_bytes.max(1);
+        if count >= MAX_CLOSED_CHILDREN.min(arena_limit.max(1)) {
+            return Err(STATUS_INSUFFICIENT_RESOURCES);
+        }
+        self.count.set(count + 1);
+        Ok(Self {
+            count: Rc::clone(&self.count),
+            reserved: true,
+        })
+    }
+}
+
+impl Drop for LiveChildren {
+    fn drop(&mut self) {
+        if self.reserved {
+            self.count.set(self.count.get() - 1);
+        }
+    }
 }
 
 struct Record {
@@ -72,6 +107,11 @@ impl Prepared {
         suspended: bool,
         io: ChildIo,
     ) -> Result<Self, u32> {
+        let reservation = if config.host_filesystem {
+            None
+        } else {
+            Some(parent.children.live.reserve(config.arena_bytes)?)
+        };
         let pid = parent.allocate_client_id().ok_or(STATUS_NO_MEMORY)?;
         let ids = parent
             .family_ids
@@ -95,6 +135,9 @@ impl Prepared {
                 super::SpawnError::Memory(_) => STATUS_NO_MEMORY,
             }
         })?;
+        if let Some(reservation) = reservation {
+            proc.children.live = reservation;
+        }
         proc.gui.inherit_message_atoms(&parent.gui);
         Ok(Self::new(proc, suspended))
     }
@@ -195,6 +238,38 @@ impl Prepared {
         let previous = parent.children.records.insert(info.pid, record);
         debug_assert!(previous.is_none());
         parent.children.newborn.push(live);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn closed_child_limits_include_descendants_and_release_dropped_slots() {
+        let root = LiveChildren::default();
+        let arena_bytes = 1 << 28;
+        let mut children = vec![root.reserve(arena_bytes).unwrap()];
+        for _ in 0..3 {
+            let descendant = children.last().unwrap().reserve(arena_bytes).unwrap();
+            children.push(descendant);
+        }
+        assert_eq!(
+            root.reserve(arena_bytes).err(),
+            Some(STATUS_INSUFFICIENT_RESOURCES)
+        );
+        drop(children.pop());
+        assert!(root.reserve(arena_bytes).is_ok());
+        drop(children);
+        let small = (0..MAX_CLOSED_CHILDREN)
+            .map(|_| root.reserve(4096).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            root.reserve(4096).err(),
+            Some(STATUS_INSUFFICIENT_RESOURCES)
+        );
+        drop(small);
+        assert!(root.reserve(CLOSED_CHILD_ARENA_BYTES * 2).is_ok());
     }
 }
 

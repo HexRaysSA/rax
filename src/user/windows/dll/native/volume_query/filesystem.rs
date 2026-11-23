@@ -3,6 +3,7 @@ use super::super::named_object::{Checked, Failure, status};
 use super::super::query::{probe_write, write_guard_result};
 use super::host::{self, Error, Record};
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::{ApiErr, Ctx};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
@@ -59,19 +60,30 @@ pub(super) fn checked(
             (record, true)
         }
         Some(Object::File(file)) => {
-            let (result, description) = match kind {
-                Kind::Volume => (host::volume(file, length), "information"),
-                Kind::Attributes => (host::attributes(file, length), "attributes"),
-            };
-            let record = result.map_err(|error| -> Failure {
-                match error {
-                    #[cfg(windows)]
-                    Error::Status(code) => Failure::Status(code),
-                    Error::Unavailable(message) => c
-                        .unsupported(format!("owned file volume {description}: {message}"))
-                        .into(),
+            let record = if matches!(file.lifetime.identity, FileIdentity::GuestDirectory(_)) {
+                match kind {
+                    Kind::Volume => Record::volume(0, false, b"", length),
+                    Kind::Attributes => {
+                        // FILE_READ_ONLY_VOLUME | FILE_UNICODE_ON_DISK |
+                        // FILE_CASE_PRESERVED_NAMES. This volume is guest-local.
+                        Record::encode(0x80006, 255, b"R\0A\0X\0", length, true)
+                    }
                 }
-            })?;
+            } else {
+                let (result, description) = match kind {
+                    Kind::Volume => (host::volume(file, length), "information"),
+                    Kind::Attributes => (host::attributes(file, length), "attributes"),
+                };
+                result.map_err(|error| -> Failure {
+                    match error {
+                        #[cfg(windows)]
+                        Error::Status(code) => Failure::Status(code),
+                        Error::Unavailable(message) => c
+                            .unsupported(format!("owned file volume {description}: {message}"))
+                            .into(),
+                    }
+                })?
+            };
             let synchronous =
                 c.p.objects.file_state(handle).expect("resolved file").mode & 0x30 != 0;
             (record, synchronous)

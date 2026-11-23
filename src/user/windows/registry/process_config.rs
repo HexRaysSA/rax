@@ -12,14 +12,18 @@ pub(crate) enum ProcessConfigKey {
     ActiveComputerName,
     Ccg,
     DisabledLegacyExtensions,
+    MachineAppCompatFlags,
+    OsDataAppCompatFlags,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 4] = [
+    pub(super) const ALL: [Self; 6] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
         Self::Ccg,
+        Self::MachineAppCompatFlags,
+        Self::OsDataAppCompatFlags,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -32,6 +36,12 @@ impl ProcessConfigKey {
             Self::Ccg => r"\Registry\Machine\System\CurrentControlSet\Services\CCG",
             Self::DisabledLegacyExtensions => {
                 r"\Registry\Machine\Software\Microsoft\Windows NT\CurrentVersion\Windows"
+            }
+            Self::MachineAppCompatFlags => {
+                r"\Registry\Machine\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags"
+            }
+            Self::OsDataAppCompatFlags => {
+                r"\Registry\Machine\OSDATA\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags"
             }
         }
     }
@@ -49,8 +59,9 @@ impl ProcessConfigKey {
                 "EnableTcpPortScaling",
             ],
             Self::ActiveComputerName => &["ComputerName"],
-            Self::Ccg => &[],
+            Self::Ccg | Self::OsDataAppCompatFlags => &[],
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
+            Self::MachineAppCompatFlags => &["LogFlags"],
         }
     }
 
@@ -61,13 +72,22 @@ impl ProcessConfigKey {
             Self::ActiveComputerName => "active computer name",
             Self::Ccg => "CCG service",
             Self::DisabledLegacyExtensions => "disabled legacy extensions",
+            Self::MachineAppCompatFlags => "machine AppCompatFlags",
+            Self::OsDataAppCompatFlags => "OSDATA AppCompatFlags",
         }
     }
 
     pub(super) fn accepts_values(self, view: RegistryView, values: &[Value]) -> bool {
-        self != Self::DisabledLegacyExtensions
-            || view == RegistryView::Native64
-                && matches!(values, [value] if value.kind == 4 && value.data == [0; 4])
+        match self {
+            Self::DisabledLegacyExtensions => {
+                view == RegistryView::Native64
+                    && matches!(values, [value] if value.kind == 4 && value.data == [0; 4])
+            }
+            Self::MachineAppCompatFlags | Self::OsDataAppCompatFlags => {
+                view == RegistryView::Native64
+            }
+            _ => true,
+        }
     }
 
     pub(super) fn check_name(

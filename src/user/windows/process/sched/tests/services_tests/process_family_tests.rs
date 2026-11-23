@@ -194,6 +194,61 @@ fn wow64_wide_memory_replays_owned_process_handles_and_count_widths() {
 }
 
 #[test]
+fn native_amd64_create_reads_the_inline_chpe_boolean() {
+    let (mut process, mut thread) = fixture(WinArch::X64, "NtCreateUserProcess", 0x12);
+    let p = process.state_mut();
+    let base =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let create = base + 0x20;
+    let attrs = base + 0x100;
+    let image = base + 0x200;
+    let image_bytes = unicode(p, base + 0x180, image, r"\??\C:\Windows\System32\cmd.exe");
+    p.space.w64(create, 0x58).unwrap();
+    p.space.w64(attrs, 8 + 2 * 32).unwrap();
+    p.space.w64(attrs + 8, 0x20005).unwrap();
+    p.space.w64(attrs + 16, image_bytes).unwrap();
+    p.space.w64(attrs + 24, image).unwrap();
+    p.space.w64(attrs + 40, 0x6001a).unwrap();
+    p.space.w64(attrs + 48, 1).unwrap();
+    let args = [
+        base,
+        base + 8,
+        0x200_0000,
+        0x200_0000,
+        0,
+        0,
+        0x204,
+        1,
+        0,
+        create,
+        attrs,
+    ];
+    let handles = p.objects.handle_count();
+
+    for (build, machine, value, expected) in [
+        (26100, WinArch::X64, 0, STATUS_ACCESS_VIOLATION),
+        (26100, WinArch::X64, 1, STATUS_ACCESS_VIOLATION),
+        (26100, WinArch::X64, 2, STATUS_INVALID_PARAMETER),
+        (26100, WinArch::Arm64, 1, STATUS_INVALID_PARAMETER),
+        (20348, WinArch::X64, 0, STATUS_ACCESS_VIOLATION),
+        (20348, WinArch::X64, 1, STATUS_ACCESS_VIOLATION),
+        (26000, WinArch::X64, 1, STATUS_INVALID_PARAMETER),
+    ] {
+        super::native_profile::kernel_profile(p, build, machine.machine());
+        p.space.w64(attrs + 56, value).unwrap();
+        // An accepted attribute reaches the intentionally unmapped parameters.
+        assert_eq!(
+            call(p, &mut thread, "NtCreateUserProcess", &args),
+            expected,
+            "build {build}, {machine:?}, value {value}"
+        );
+        assert_eq!(p.objects.handle_count(), handles);
+    }
+}
+
+#[test]
 fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
     for arch in [WinArch::Arm64, WinArch::X64] {
         let image = FixtureImage::new(arch);

@@ -1,13 +1,13 @@
 //! Directory queries through retained file objects and private host buffers.
 //! The native ordinary-call corpus owns packing, cursor, and restart behavior.
 mod host;
-#[cfg(unix)]
 mod portable;
 mod records;
 
 use super::named_object::{Checked, finish_with, status};
 use super::query::probe_write;
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::{ApiResult, Ctx};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
@@ -186,10 +186,32 @@ fn checked(c: &mut Ctx, legacy: bool, caller_store: &mut bool) -> Checked<u32> {
         pattern: pattern(c, name)?,
         bytes: c.mem().bytes(output, length)?,
     };
+    if tracing::enabled!(target: "rax::windows::ntstatus", tracing::Level::TRACE)
+        && let Some(Object::File(file)) = c.p.objects.get(handle)
+        && let FileIdentity::GuestDirectory(directory) = &file.lifetime.identity
+    {
+        let pattern = request.pattern.as_deref().map(String::from_utf16_lossy);
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            directory,
+            class,
+            flags,
+            ?pattern,
+            "guest directory query request"
+        );
+    }
     if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {
         *signaled = 0;
     }
-    let completion = host::query(c, request)?;
+    let completion = if matches!(
+        c.p.objects.get(handle),
+        Some(Object::File(file)) if matches!(file.lifetime.identity, FileIdentity::GuestDirectory(_))
+    ) {
+        portable::query(c, request)?
+    } else {
+        host::query(c, request)?
+    };
     records::validate(c, layout, &completion)?;
     if completion.status.is_some() || completion.information.is_some() {
         if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {

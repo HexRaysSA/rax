@@ -108,6 +108,24 @@ fn open_ksecdd(
         c.p.object_namespace
             .security_device()
             .ok_or_else(|| c.unsupported("kernel security-device identity is not captured"))?;
+    let access = super::mapped_access(request.access);
+    if device.server_2022_profile() {
+        // Match the installed AMD64 bcrypt open, with a guest-owned handle.
+        // The host capture is read-only and has already closed its handle.
+        if c.arch() == WinArch::X64
+            && !c.p.cfg.host_filesystem
+            && exact_name
+            && matches!(attributes.flags, 0 | 0x40)
+            && !attributes.custom_security
+            && creation.is_none()
+            && (request.access, request.share, request.options) == (0x100003, 7, 0x20)
+        {
+            return open_device(c, device, request, attributes, access);
+        }
+        return Err(c
+            .unsupported("Server 2022 security-device open parameters are not selected")
+            .into());
+    }
     if creation.is_some_and(|request| {
         request.disposition != 1
             || request.allocation.is_some()
@@ -118,7 +136,6 @@ fn open_ksecdd(
             .unsupported("security-device creation options are not selected")
             .into());
     }
-    let access = super::mapped_access(request.access);
     let standard_open = matches!(access, 1 | 0x80 | 0x100000 | 0x100001 | 0x20000)
         && matches!(request.share, 0 | 7)
         && matches!(request.options, 0 | 0x20 | 0x21 | 0x60 | 0x61);

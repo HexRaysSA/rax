@@ -24,9 +24,7 @@ mod etw;
 mod file_name;
 mod file_state;
 pub(crate) use file_state::{FileState, finish_file_write};
-#[cfg(unix)]
 mod file_directory;
-#[cfg(unix)]
 pub(crate) use file_directory::{DirectoryEntry, DirectoryScan};
 mod lpc;
 mod named;
@@ -332,8 +330,7 @@ struct Entry {
     file_state: FileState,
     /// Naming belongs to this open, including its original mapped volume.
     file_name_origin: Option<Result<super::fs::FileNameOrigin, String>>,
-    #[cfg(unix)]
-    directory_scan: Option<DirectoryScan>,
+    directory_scan: Option<Box<DirectoryScan>>,
     refs: u32,
     name: Option<String>,
     native_name: Option<super::object_namespace::NativeName>,
@@ -430,7 +427,6 @@ impl Objects {
                 runtime_library: false,
                 file_state: FileState::new(file_mode),
                 file_name_origin: None,
-                #[cfg(unix)]
                 directory_scan: None,
                 refs: 0,
                 name: None,

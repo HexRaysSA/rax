@@ -260,6 +260,7 @@ fn native_file_open_selected_runtime_grant_is_read_only_and_cannot_enroll_other_
     for arch in WinArch::ALL {
         let mut h = Harness::new(arch);
         let directory = selection(&mut h);
+        std::fs::write(directory.join("cmd.exe"), b"installed executable").unwrap();
         let output = h.base;
         let io = h.base + PAGE_SIZE;
         h.name("\\??\\C:\\WINDOWS\\SYSTEM32\\FIXTURE.dll");
@@ -285,15 +286,416 @@ fn native_file_open_selected_runtime_grant_is_read_only_and_cannot_enroll_other_
         for path in [
             "\\??\\C:\\fixture.bin",
             "\\??\\C:\\Windows\\System32\\unselected.exe",
+            "\\??\\C:\\cmd.exe",
         ] {
             h.name(path);
             assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED, "{arch}/{path}");
         }
+        h.name("\\??\\C:\\Windows\\System32\\CMD.EXE");
+        assert_eq!(h.open(output, io), STATUS_SUCCESS);
+        let p = h.process.state_mut();
+        let handle = p.space.ptr(output, arch.ptr_size()).unwrap();
+        assert!(p.objects.runtime_library(handle));
+        p.objects.close(handle).unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100002, 7, 0x60),
+            STATUS_ACCESS_DENIED
+        );
         assert_eq!(
             std::fs::read(directory.join("fixture.dll")).unwrap(),
             b"native"
         );
         assert!(!h.process.state().cfg.host_filesystem);
+    }
+}
+
+#[test]
+fn native_file_open_closed_directories_only_resolve_selected_runtime_files() {
+    use crate::user::windows::fs::FileIdentity;
+    use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_INVALID};
+    use crate::user::windows::objects::Object;
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        std::fs::write(installed.join("cmd.exe"), b"selected image").unwrap();
+        std::fs::write(installed.join("unselected.exe"), b"foreign image").unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+
+        for (name, access, share, options, relative) in [
+            (r"\??\C:\Windows\System32\", 0x100020, 3, 0x21, "cmd.exe"),
+            (r"\??\C:\Windows\System32\", 0x100001, 7, 0x4021, "cmd.exe"),
+            (r"\??\C:\", 0x100000, 3, 0x4021, r"Windows\System32\cmd.exe"),
+        ] {
+            h.name(name);
+            assert_eq!(
+                h.open_with(output, io, access | 2, share, options),
+                STATUS_ACCESS_DENIED
+            );
+            assert_eq!(
+                h.open_with(output, io, access, share, options),
+                STATUS_SUCCESS
+            );
+            let width = arch.ptr_size();
+            let p = h.process.state_mut();
+            let directory = p.space.ptr(output, width).unwrap();
+            assert_eq!(p.space.ptr(io + width, width).unwrap(), 1);
+            assert_eq!(p.objects.access(directory), Some(access));
+            assert!(matches!(
+                p.objects.get(directory),
+                Some(Object::File(file)) if file.directory && file.host.is_none()
+                    && file.host_path.as_os_str().is_empty()
+                    && matches!(&file.lifetime.identity, FileIdentity::GuestDirectory(_))
+            ));
+            let root = h.attrs() + width;
+            for (relative, expected) in [
+                (relative, STATUS_SUCCESS),
+                (r"..\cmd.exe", STATUS_OBJECT_NAME_INVALID),
+                ("unselected.exe", STATUS_ACCESS_DENIED),
+                ("fixture.bin", STATUS_ACCESS_DENIED),
+            ] {
+                h.name(relative);
+                h.process
+                    .state()
+                    .space
+                    .wptr(root, width, directory)
+                    .unwrap();
+                assert_eq!(h.open(output, io), expected, "{arch}/{name}/{relative}");
+                if expected == STATUS_SUCCESS {
+                    let p = h.process.state_mut();
+                    let child = p.space.ptr(output, width).unwrap();
+                    assert!(p.objects.runtime_library(child));
+                    p.objects.close(child).unwrap();
+                }
+            }
+            h.process.state_mut().objects.close(directory).unwrap();
+        }
+    }
+}
+
+#[test]
+fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
+    use crate::user::windows::nt::status::{STATUS_NO_MORE_FILES, STATUS_NO_SUCH_FILE};
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        std::fs::write(installed.join("CMD.exe"), b"selected image").unwrap();
+        std::fs::write(installed.join("foreign.exe"), b"unselected image").unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let width = arch.ptr_size();
+        for (full, relative) in [
+            (r"\??\C:\", r"\"),
+            (r"\??\C:\Windows\System32\", r"\Windows\System32"),
+        ] {
+            h.name(full);
+            assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+            let directory = h.process.state().space.ptr(output, width).unwrap();
+            assert_eq!(
+                h.invoke_api("NtQueryInformationFile", &[directory, io, output, 256, 9]),
+                STATUS_SUCCESS
+            );
+            let space = &h.process.state().space;
+            let length = space.u32(output).unwrap();
+            assert_eq!(length as usize, relative.encode_utf16().count() * 2);
+            let name = space.bytes(output + 4, length as usize).unwrap();
+            let text: Vec<u16> = name
+                .chunks_exact(2)
+                .map(|b| u16::from_le_bytes([b[0], b[1]]))
+                .collect();
+            assert_eq!(
+                String::from_utf16_lossy(&text).to_ascii_lowercase(),
+                relative.to_ascii_lowercase()
+            );
+            if relative == r"\" {
+                h.process.state_mut().objects.close(directory).unwrap();
+                continue;
+            }
+
+            let query_name = h.attrs() + 64;
+            h.name("foreign.exe");
+            assert_eq!(
+                h.invoke_api(
+                    "NtQueryDirectoryFileEx",
+                    &[directory, 0, 0, 0, io, output, 256, 12, 1, query_name]
+                ),
+                STATUS_NO_SUCH_FILE
+            );
+            h.name("cMd.EXE");
+            let args = [directory, 0, 0, 0, io, output, 256, 12, 1, query_name];
+            assert_eq!(
+                h.invoke_api("NtQueryDirectoryFileEx", &args),
+                STATUS_SUCCESS
+            );
+            let space = &h.process.state().space;
+            assert_eq!(space.u32(output + 8).unwrap(), 14);
+            assert_eq!(
+                space.bytes(output + 12, 14).unwrap(),
+                b"c\0m\0d\0.\0e\0x\0e\0"
+            );
+            let second = [directory, 0, 0, 0, io, output, 256, 12, 0, 0];
+            assert_eq!(
+                h.invoke_api("NtQueryDirectoryFileEx", &second),
+                STATUS_NO_MORE_FILES
+            );
+            h.process.state_mut().objects.close(directory).unwrap();
+        }
+    }
+}
+
+#[test]
+fn native_file_open_closed_system_drive_lists_only_guest_directories() {
+    use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_NO_MORE_FILES};
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        std::fs::create_dir(installed.join("foreign")).unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let attrs = h.attrs();
+        let width = arch.ptr_size();
+        h.name(r"\??\C:\");
+        assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+        let drive = h.process.state().space.ptr(output, width).unwrap();
+
+        let scan = [drive, 0, 0, 0, io, output, 256, 3, 0, 0];
+        assert_eq!(
+            h.invoke_api("NtQueryDirectoryFileEx", &scan),
+            STATUS_SUCCESS
+        );
+        let space = &h.process.state().space;
+        assert_eq!(space.u32(output).unwrap(), 0);
+        assert_eq!(space.u32(output + 56).unwrap(), 0x10);
+        assert_eq!(space.u32(output + 60).unwrap(), 14);
+        assert_eq!(
+            space.bytes(output + 94, 14).unwrap(),
+            b"W\0i\0n\0d\0o\0w\0s\0"
+        );
+        assert_eq!(
+            h.invoke_api("NtQueryDirectoryFileEx", &scan),
+            STATUS_NO_MORE_FILES
+        );
+
+        h.name("wINDOWS");
+        h.process
+            .state()
+            .space
+            .wptr(attrs + width, width, drive)
+            .unwrap();
+        assert_eq!(
+            h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+            STATUS_SUCCESS
+        );
+        assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+        let windows = h.process.state().space.ptr(output, width).unwrap();
+        let scan = [windows, 0, 0, 0, io, output, 256, 12, 0, 0];
+        assert_eq!(
+            h.invoke_api("NtQueryDirectoryFileEx", &scan),
+            STATUS_SUCCESS
+        );
+        let space = &h.process.state().space;
+        let utf16 = |name: &str| {
+            name.encode_utf16()
+                .flat_map(u16::to_le_bytes)
+                .collect::<Vec<_>>()
+        };
+        let first = if arch == WinArch::X86 {
+            "SysWOW64"
+        } else {
+            "System32"
+        };
+        assert_eq!(space.bytes(output + 12, 16).unwrap(), utf16(first));
+        let next = u64::from(space.u32(output).unwrap());
+        if arch == WinArch::X86 {
+            assert_ne!(next, 0);
+            assert_eq!(
+                space.bytes(output + next + 12, 16).unwrap(),
+                utf16("System32")
+            );
+            assert_eq!(space.u32(output + next).unwrap(), 0);
+        } else {
+            assert_eq!(next, 0);
+        }
+
+        h.name(r"System32\foreign");
+        h.process
+            .state()
+            .space
+            .wptr(attrs + width, width, windows)
+            .unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100001, 7, 0x4021),
+            STATUS_ACCESS_DENIED
+        );
+        h.process.state_mut().objects.close(windows).unwrap();
+        h.process.state_mut().objects.close(drive).unwrap();
+    }
+}
+
+#[test]
+fn native_file_open_closed_directory_metadata_and_volume_are_guest_local() {
+    use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_BUFFER_OVERFLOW};
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        std::fs::create_dir(installed.join("unselected")).unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let attrs = h.attrs();
+        let width = arch.ptr_size();
+
+        h.name(r"\??\C:\Windows\System32\unselected\");
+        assert_eq!(
+            h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+            STATUS_ACCESS_DENIED
+        );
+        for name in [r"\??\C:\", r"\??\C:\Windows\System32\"] {
+            h.name(name);
+            for (service, attribute_offset) in [
+                ("NtQueryAttributesFile", 32),
+                ("NtQueryFullAttributesFile", 48),
+            ] {
+                assert_eq!(
+                    h.invoke_api(service, &[attrs, output]),
+                    STATUS_SUCCESS,
+                    "{arch}/{name}/{service}"
+                );
+                let space = &h.process.state().space;
+                assert_eq!(
+                    space.bytes(output, attribute_offset as usize).unwrap(),
+                    vec![0; attribute_offset as usize]
+                );
+                assert_eq!(space.u32(output + attribute_offset).unwrap(), 0x10);
+            }
+            assert_eq!(h.open_with(output, io, 0x100000, 3, 0x4021), STATUS_SUCCESS);
+            let handle = h.process.state().space.ptr(output, width).unwrap();
+            for (class, length, status, data) in [
+                (1, 24, STATUS_SUCCESS, &[0; 18][..]),
+                (
+                    5,
+                    16,
+                    STATUS_BUFFER_OVERFLOW,
+                    b"\x06\0\x08\0\xff\0\0\0\x06\0\0\0R\0A\0",
+                ),
+                (
+                    5,
+                    24,
+                    STATUS_SUCCESS,
+                    b"\x06\0\x08\0\xff\0\0\0\x06\0\0\0R\0A\0X\0",
+                ),
+            ] {
+                assert_eq!(
+                    h.invoke_api(
+                        "NtQueryVolumeInformationFile",
+                        &[handle, io, output, length, class]
+                    ),
+                    status,
+                    "{arch}/{name}/{class}"
+                );
+                let space = &h.process.state().space;
+                assert_eq!(space.bytes(output, data.len()).unwrap(), data);
+                assert_eq!(space.ptr(io + width, width).unwrap(), data.len() as u64);
+            }
+            h.process.state_mut().objects.close(handle).unwrap();
+        }
+    }
+}
+
+#[test]
+fn native_file_open_server_2022_bcrypt_keeps_the_captured_device_guest_owned() {
+    use crate::user::windows::object_namespace::security_device::SecurityDevice;
+    use crate::user::windows::objects::Object;
+
+    let arch = WinArch::X64;
+    let mut h = Harness::new(arch);
+    let device = SecurityDevice {
+        kernel: (10, 0, 20348),
+        revision: 1,
+        native_machine: arch.machine(),
+        device_type: 0x39,
+        characteristics: 0x100,
+    };
+    let width = arch.ptr_size();
+    let (output, io, attrs) = (h.base, h.base + 64, h.attrs());
+    let p = h.process.state_mut();
+    Arc::make_mut(&mut p.cfg).host_filesystem = false;
+    p.object_namespace.native_machine = Some(arch.machine());
+    p.object_namespace.select_security_device(device).unwrap();
+
+    h.name(r"\Device\KsecDD");
+    h.process.state().space.w32(attrs + 3 * width, 0).unwrap();
+    assert_eq!(h.open_with(output, io, 0x100003, 7, 0x20), STATUS_SUCCESS);
+    let p = h.process.state();
+    let handle = p.space.ptr(output, width).unwrap();
+    assert!(matches!(p.objects.get(handle), Some(Object::SecurityFile(value)) if *value == device));
+    assert_eq!(p.objects.access(handle), Some(0x100003));
+    assert_eq!(p.space.ptr(io + width, width).unwrap(), 0);
+    assert_eq!(
+        h.invoke_api("NtQueryVolumeInformationFile", &[handle, io, output, 8, 4]),
+        STATUS_SUCCESS
+    );
+    let p = h.process.state();
+    assert_eq!(p.space.u32(output).unwrap(), device.device_type);
+    assert_eq!(p.space.u32(output + 4).unwrap(), device.characteristics);
+    let observation: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-ksecdd/bcrypt-sha256-arm64.json"
+    )))
+    .unwrap();
+    let hex = observation["watch"]["input_prefix"].as_str().unwrap();
+    let request: Vec<_> = (0..hex.len())
+        .step_by(2)
+        .map(|offset| u8::from_str_radix(&hex[offset..offset + 2], 16).unwrap())
+        .collect();
+    assert_eq!(request.len(), 96);
+    assert_eq!(
+        h.invoke_api("NtCreateEvent", &[output, 0x1f0003, 0, 1, 0]),
+        STATUS_SUCCESS
+    );
+    let p = h.process.state();
+    let event = p.space.u64(output).unwrap();
+    let event_id = p.objects.id(event).unwrap();
+    let input = h.base + 256;
+    p.space.wr(input, &request).unwrap();
+    p.space.w64(input + 96, event).unwrap();
+    p.space.wr(output, &[0xa5; 8]).unwrap();
+    let args = [handle, 0, 0, 0, io, 0x390400, input, 104, output, 8];
+    assert_eq!(h.invoke_api("NtDeviceIoControlFile", &args), STATUS_SUCCESS);
+    let p = h.process.state();
+    assert_eq!(p.space.bytes(io, 16).unwrap(), [0; 16]);
+    assert_eq!(p.space.bytes(output, 8).unwrap(), [0xa5; 8]);
+    assert_eq!(
+        p.objects
+            .file_state(handle)
+            .unwrap()
+            .security_provider_event,
+        Some(event_id)
+    );
+    assert_eq!(h.invoke_api("NtClose", &[event]), STATUS_SUCCESS);
+    assert!(h.process.state().objects.obj(event_id).is_some());
+    assert_eq!(h.invoke_api("NtClose", &[handle]), STATUS_SUCCESS);
+    assert!(h.process.state().objects.obj(event_id).is_none());
+
+    for (name, access) in [
+        (r"\Device\KsecDD\child", 0x100003),
+        (r"\Device\KsecDD", 0x100001),
+    ] {
+        h.name(name);
+        let p = h.process.state_mut();
+        p.space.w32(attrs + 3 * width, 0).unwrap();
+        let module = p.modules.nt_services.as_ref().unwrap().0;
+        p.modules.nt_services = Some((module, table(arch, "NtOpenFile", 0x33)));
+        let count = p.objects.handle_count();
+        arguments(p, &mut h.thread, &[output, access, attrs, io, 7, 0x20]);
+        assert!(
+            matches!(handle_stop(p, &mut h.thread, stop(arch, 0x33)), Outcome::Fail(reason)
+            if reason.contains("Server 2022 security-device open parameters are not selected"))
+        );
+        assert_eq!(p.objects.handle_count(), count);
     }
 }
 

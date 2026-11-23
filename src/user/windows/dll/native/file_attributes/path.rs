@@ -6,6 +6,7 @@ pub(in super::super) mod unix;
 use super::super::named_object::{Checked, status};
 use super::attributes::Attributes;
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::fs::find_case_insensitive;
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::native::NativeRuntime;
@@ -201,7 +202,7 @@ fn selected_mui(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked<Optio
     confined_child(c, &locale, &filename, STATUS_OBJECT_NAME_NOT_FOUND).map(Some)
 }
 
-fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
+pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
     let Some(runtime) = &c.p.native else {
         return Ok(None);
     };
@@ -239,14 +240,23 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
             return selected_mui(c, runtime, basename)
                 .map(|file| file.map(|path| (runtime.directory.clone(), path)));
         }
-        if basename.len() < 5 || !equal(c, &basename[basename.len() - 4..], &[46, 100, 108, 108]) {
+        if basename.len() < 5 {
+            continue;
+        }
+        let extension = &basename[basename.len() - 4..];
+        let dll = equal(c, extension, &[46, 100, 108, 108]);
+        let executable = !c.p.cfg.host_filesystem && equal(c, extension, &[46, 101, 120, 101]);
+        if !dll && !executable {
             continue;
         }
         if basename.contains(&u16::from(b'\\')) || basename.contains(&u16::from(b'/')) {
             continue;
         }
         let name = String::from_utf16(basename)
-            .map_err(|_| c.unsupported("selected DLL basename is not Unicode"))?;
+            .map_err(|_| c.unsupported("selected runtime image basename is not Unicode"))?;
+        if executable && !crate::user::windows::native::selected_child_executable(&name) {
+            continue;
+        }
         return match runtime.dll_paths(&name) {
             Ok(Some((spelling, _))) => Ok(Some((runtime.directory.clone(), spelling))),
             Ok(None) => status(STATUS_OBJECT_NAME_NOT_FOUND),
@@ -254,7 +264,7 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
                 status(STATUS_ACCESS_DENIED)
             }
             Err(error) => Err(c
-                .unsupported(format!("selected DLL metadata path: {error}"))
+                .unsupported(format!("selected runtime image metadata path: {error}"))
                 .into()),
         };
     }
@@ -275,6 +285,78 @@ pub(in super::super) fn resolve_open(
     name: Option<&[u16]>,
 ) -> Checked<Resolved> {
     resolve_kind(c, attrs, name, true)
+}
+
+pub(in super::super) fn dos_tail<'a>(c: &Ctx, name: &'a [u16]) -> Option<&'a [u16]> {
+    let short: Vec<u16> = "\\??\\".encode_utf16().collect();
+    let long: Vec<u16> = "\\DosDevices\\".encode_utf16().collect();
+    if let Some(path) = name.strip_prefix(short.as_slice()) {
+        Some(path)
+    } else if name.len() >= long.len() && equal(c, &name[..long.len()], &long) {
+        Some(&name[long.len()..])
+    } else {
+        None
+    }
+}
+
+/// The finite directory tree exposed by the closed installed runtime.
+pub(in super::super) fn guest_directories(c: &Ctx) -> Option<Vec<String>> {
+    if c.p.cfg.host_filesystem {
+        return None;
+    }
+    let runtime = c.p.native.as_ref()?;
+    let drive = runtime.guest_root.split_once(':')?.0;
+    let windows = runtime.guest_root.trim_end_matches('\\');
+    let mut names = vec![
+        format!("{drive}:\\"),
+        windows.to_owned(),
+        runtime.guest_directory.trim_end_matches('\\').to_owned(),
+    ];
+    if c.arch() == WinArch::X86 {
+        let system32 = format!(r"{windows}\System32");
+        if !names[2].eq_ignore_ascii_case(&system32) {
+            names.push(system32);
+        }
+    }
+    Some(names)
+}
+
+/// Match an absolute DOS name or a name relative to a guest-only directory handle.
+pub(in super::super) fn guest_directory(c: &Ctx, root: u64, name: &[u16]) -> Option<String> {
+    let names = guest_directories(c)?;
+    let absolute;
+    let dos = if root == 0 {
+        dos_tail(c, name)?
+    } else {
+        let Some(Object::File(file)) = c.p.objects.get(root) else {
+            return None;
+        };
+        let FileIdentity::GuestDirectory(directory) = &file.lifetime.identity else {
+            return None;
+        };
+        if name.is_empty() {
+            return Some(directory.clone());
+        }
+        if name.first() == Some(&u16::from(b'\\')) {
+            return None;
+        }
+        parts(c, name).ok()?;
+        let mut path: Vec<_> = directory.encode_utf16().collect();
+        if !directory.ends_with('\\') {
+            path.push(u16::from(b'\\'));
+        }
+        path.extend_from_slice(name);
+        absolute = path;
+        &absolute
+    };
+    names.into_iter().find(|path| {
+        let name = if path.ends_with(":\\") {
+            dos
+        } else {
+            dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(dos)
+        };
+        equal(c, name, &path.encode_utf16().collect::<Vec<_>>())
+    })
 }
 
 fn resolve_kind(
@@ -322,6 +404,28 @@ fn resolve_kind(
         if !name.is_empty() && !file.directory {
             return status(STATUS_OBJECT_PATH_NOT_FOUND);
         }
+        if let FileIdentity::GuestDirectory(guest) = &file.lifetime.identity {
+            let (components, directory) = parts(c, name)?;
+            if components.is_empty() || directory {
+                return status(STATUS_ACCESS_DENIED);
+            }
+            let mut absolute: Vec<u16> = guest.encode_utf16().collect();
+            if absolute.last() != Some(&u16::from(b'\\')) {
+                absolute.push(u16::from(b'\\'));
+            }
+            absolute.extend_from_slice(name);
+            let Some((base, host)) = selected(c, &absolute)? else {
+                return status(STATUS_ACCESS_DENIED);
+            };
+            return Ok(Resolved {
+                host,
+                base,
+                root: None,
+                relative: None,
+                directory: false,
+                runtime_library: true,
+            });
+        }
         if !c.p.cfg.host_filesystem && !c.p.objects.runtime_library(attrs.root) {
             return status(STATUS_ACCESS_DENIED);
         }
@@ -362,13 +466,7 @@ fn resolve_kind(
     if name.is_empty() || name[0] != u16::from(b'\\') {
         return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
     }
-    let short: Vec<u16> = "\\??\\".encode_utf16().collect();
-    let long: Vec<u16> = "\\DosDevices\\".encode_utf16().collect();
-    let path = if name.starts_with(&short) {
-        &name[short.len()..]
-    } else if name.len() >= long.len() && equal(c, &name[..long.len()], &long) {
-        &name[long.len()..]
-    } else {
+    let Some(path) = dos_tail(c, name) else {
         return Err(c
             .unsupported("NT metadata name outside mapped DOS drive namespace")
             .into());

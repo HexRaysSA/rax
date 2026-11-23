@@ -23,14 +23,27 @@ pub(in super::super) struct Information {
     pub(in super::super) attributes: u32,
 }
 
-/// Metadata for an entry opened relative to a retained directory descriptor.
-#[cfg(unix)]
+pub(in super::super) fn guest_directory() -> Information {
+    Information {
+        times: [0; 4],
+        allocation: 0,
+        size: 0,
+        attributes: 0x10, // FILE_ATTRIBUTE_DIRECTORY
+    }
+}
+
+/// Metadata for an entry obtained from an already admitted file object.
 pub(in super::super) fn descriptor(
     c: &Ctx,
     path: &Path,
     file: &std::fs::File,
 ) -> Checked<Information> {
-    unix::query(c, path, Some(file))
+    #[cfg(windows)]
+    return windows::query(c, path, Some(file), None, false);
+    #[cfg(unix)]
+    return unix::query(c, path, Some(file));
+    #[cfg(not(any(unix, windows)))]
+    return Err(c.unsupported("file metadata adapter unavailable").into());
 }
 
 /// Query an already admitted object; a legacy pathname cannot substitute a new file.

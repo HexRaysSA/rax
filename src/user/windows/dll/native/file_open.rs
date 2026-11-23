@@ -1,6 +1,7 @@
 //! NT opens capture guest arguments before publishing owned file handles.
 //! Native IO_STATUS_BLOCK probing and WoW64 copyback have distinct failure effects.
 
+mod guest_directory;
 pub(super) mod host;
 mod null;
 mod security_device;
@@ -201,6 +202,22 @@ pub(super) fn kernel(
         return status(STATUS_INVALID_PARAMETER);
     }
     let name = attributes::validate(c, &attrs)?;
+    if !c.p.cfg.host_filesystem
+        && c.p.native.is_some()
+        && tracing::enabled!(target: "rax::windows::ntstatus", tracing::Level::TRACE)
+    {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            path = ?name.as_deref().map(String::from_utf16_lossy),
+            root = attrs.root,
+            attributes = %format_args!("{:#010x}", attrs.flags),
+            access = %format_args!("{:#010x}", r.access),
+            share = r.share,
+            options = %format_args!("{:#010x}", r.options),
+            "guest file open request"
+        );
+    }
     if creation.is_none()
         && let Some(result) = super::file_pipe::open(c, r, &attrs, name.as_deref())
     {
@@ -220,6 +237,9 @@ pub(super) fn kernel(
             .is_some_and(|request| r.options & 1 != 0 && !matches!(request.disposition, 1..=3))
     {
         return status(STATUS_INVALID_PARAMETER);
+    }
+    if let Some(result) = guest_directory::open(c, r, &attrs, name.as_deref(), creation.as_ref()) {
+        return result;
     }
     let resolved = path::resolve_open(c, &attrs, name.as_deref())?;
     let mut access = mapped_access(r.access);

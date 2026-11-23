@@ -1,4 +1,5 @@
-//! Creation of an ordinary guest process from a mapped drive.
+//! Creation of an ordinary guest process from a mapped drive or the
+//! system directory of the selected installed runtime.
 //! The guest creates another RAX address space, never a host process.
 
 use super::named_object::{Checked, Failure, finish, status};
@@ -102,10 +103,17 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         (c.ptr(0)?, c.ptr(1)?, grant(c.u32(2)?)?, grant(c.u32(3)?)?);
     let (process_flags, thread_flags) = (c.u32(6)?, c.u32(7)?);
     let (parameters, create_info, attribute_list) = (c.ptr(8)?, c.ptr(9)?, c.ptr(10)?);
-    if !c.p.cfg.host_filesystem {
+    if !c.p.cfg.host_filesystem && c.p.native.is_none() {
         return status(STATUS_ACCESS_DENIED);
     }
     let abi = CallerAbi::new(c.arch());
+    tracing::trace!(
+        target: "rax::windows::ntstatus",
+        pid = c.p.pid,
+        process_flags,
+        thread_flags,
+        "guest child creation request"
+    );
     if abi.wow64()
         && !c.p.wow64.as_ref().is_some_and(|state| {
             state.kernel == (10, 0, 29708) && state.machine == WinArch::Arm64.machine()
@@ -125,7 +133,16 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             .into());
     }
     let initial = c.mem().bytes(create_info, abi.create_size)?;
-    if abi.pointer(&initial, 0) != abi.create_size as u64 || dword(&initial, abi.pointer) != 0 {
+    let create_bytes = abi.pointer(&initial, 0);
+    let create_state = dword(&initial, abi.pointer);
+    if create_bytes != abi.create_size as u64 || create_state != 0 {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            create_bytes,
+            create_state,
+            "guest child creation header rejected"
+        );
         return status(STATUS_INVALID_PARAMETER);
     }
     let init_flags = dword(&initial, 2 * abi.pointer);
@@ -135,12 +152,14 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             .unsupported("NtCreateUserProcess initial image flags or access")
             .into());
     }
-    let attrs = attributes(c, abi, attribute_list)?;
+    let attrs = attributes(c, abi, attribute_list)
+        .inspect_err(|failure| trace_rejection(c, "attributes", failure))?;
     let image = attrs
         .image
         .as_ref()
         .ok_or(Failure::Status(STATUS_INVALID_PARAMETER))?;
-    let inputs = Parameters::capture(c, abi, parameters, image)?;
+    let inputs = Parameters::capture(c, abi, parameters, image)
+        .inspect_err(|failure| trace_rejection(c, "process parameters", failure))?;
     let child_io =
         if process_flags & PROCESS_INHERIT_HANDLES != 0 && c.p.objects.has_inheritable_handles() {
             let objects =
@@ -158,24 +177,38 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         } else {
             ChildIo::default()
         };
-    probe_outputs(c, abi, process, thread, create_info, &attrs)?;
+    probe_outputs(c, abi, process, thread, create_info, &attrs)
+        .inspect_err(|failure| trace_rejection(c, "output buffers", failure))?;
     let mut parameter_flags = initial_parameter_flags(c, &inputs.image)?;
 
-    let path = &inputs.host_image;
+    let installed = inputs.host_image.is_none();
+    let (path, mut file) = match inputs.host_image {
+        Some(path) => {
+            let file = File::open(&path).map_err(|error| Failure::Status(file_status(&error)))?;
+            (path, file)
+        }
+        None => {
+            c.p.native
+                .as_ref()
+                .expect("installed runtime checked above")
+                .open_child_executable(&inputs.image)
+                .map_err(|error| Failure::Status(file_status(&error)))?
+                .ok_or(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND))?
+        }
+    };
     let mut config = (*c.p.cfg).clone();
     config.exe_host_path = path.clone();
     config.guest_image_path = Some(inputs.image.clone());
     config.command_line = Some(inputs.command);
     config.cwd = Some(inputs.cwd);
     config.instruction_trace = None;
-    let mut file = File::open(path).map_err(|error| Failure::Status(file_status(&error)))?;
     let metadata = file
         .metadata()
         .map_err(|error| Failure::Status(file_status(&error)))?;
     if !metadata.is_file() {
         return status(STATUS_FILE_IS_A_DIRECTORY);
     }
-    let identity = FileIdentity::of_open(path, Some(&file), &metadata)
+    let identity = FileIdentity::of_open(&path, Some(&file), &metadata)
         .map_err(|error| Failure::Status(file_status(&error)))?;
     let lifetime = super::file_open::shared_lifetime(c, &identity, IMAGE_ACCESS, IMAGE_SHARE)?
         .unwrap_or_else(|| Arc::new(FileLifetime::new(identity)));
@@ -189,7 +222,8 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         suspended,
         child_io,
     )
-    .map_err(Failure::Status)?;
+    .map_err(Failure::Status)
+    .inspect_err(|failure| trace_rejection(c, "child loader", failure))?;
     if child.state().arch != c.arch() {
         return Err(c
             .unsupported("NtCreateUserProcess cross-architecture startup")
@@ -230,26 +264,24 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     let extras = if init_flags & WRITE_OUTPUT_ON_EXIT != 0 {
         file.seek(SeekFrom::Start(0))
             .map_err(|error| Failure::Status(file_status(&error)))?;
-        Some(image_objects(
-            c,
-            file,
-            path.clone(),
-            inputs.image,
-            lifetime,
-        )?)
+        Some(
+            image_objects(c, file, path.clone(), inputs.image, lifetime)
+                .inspect_err(|failure| trace_rejection(c, "image backing", failure))?,
+        )
     } else {
         None
     };
     let handles = child
         .handles(&mut c.p.objects, process_access, thread_access)
         .ok_or(Failure::Status(STATUS_NO_MEMORY))?;
-    let (file_handle, section_handle) = match publish_image_handles(&mut c.p.objects, extras) {
-        Ok(result) => result,
-        Err(error) => {
-            handles.close(&mut c.p.objects);
-            return Err(error);
-        }
-    };
+    let (file_handle, section_handle) =
+        match publish_image_handles(&mut c.p.objects, extras, installed) {
+            Ok(result) => result,
+            Err(error) => {
+                handles.close(&mut c.p.objects);
+                return Err(error);
+            }
+        };
     let success = creation_reply(
         abi,
         child.info,
@@ -283,6 +315,18 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     }
     child.install(c.p, handles);
     Ok(STATUS_SUCCESS)
+}
+
+fn trace_rejection(c: &Ctx, stage: &'static str, failure: &Failure) {
+    if let Failure::Status(status) = failure {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            stage,
+            status = %format_args!("{status:#010x}"),
+            "guest child creation rejected"
+        );
+    }
 }
 
 fn creation_reply(
@@ -381,12 +425,16 @@ fn image_objects(
 fn publish_image_handles(
     objects: &mut Objects,
     extras: Option<(Object, Object)>,
+    installed: bool,
 ) -> Checked<(u32, u32)> {
     let Some((file, section)) = extras else {
         return Ok((0, 0));
     };
-    let (_, file) =
+    let (id, file) =
         create_handle(objects, file, IMAGE_ACCESS).ok_or(Failure::Status(STATUS_NO_MEMORY))?;
+    if installed {
+        objects.mark_runtime_library(id);
+    }
     if let Some((_, section)) = create_handle(objects, section, SECTION_ACCESS) {
         return Ok((file, section));
     }
@@ -410,6 +458,12 @@ fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
     let width = abi.pointer;
     let row_width = 4 * width;
     let length = c.read_ptr(address)?;
+    tracing::trace!(
+        target: "rax::windows::ntstatus",
+        pid = c.p.pid,
+        attribute_list_bytes = length,
+        "guest child creation attribute list"
+    );
     if !((width + row_width) as u64..=(width + 4 * row_width) as u64).contains(&length)
         || (length as usize - width) % row_width != 0
     {
@@ -420,6 +474,14 @@ fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
     for row in raw[width..].chunks_exact(row_width) {
         let [kind, size, value, returned] =
             [0, width, 2 * width, 3 * width].map(|offset| abi.pointer(row, offset));
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            kind = %format_args!("{kind:#010x}"),
+            bytes = size,
+            returned_size_requested = returned != 0,
+            "guest child creation attribute"
+        );
         match kind {
             ATTR_IMAGE_NAME if attrs.image.is_none() && returned == 0 => {
                 attrs.image = Some(string(mem, size, value)?);
@@ -439,11 +501,7 @@ fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
                 });
             }
             ATTR_CHPE
-                if !attrs.chpe
-                    && size == 1
-                    && value == 1
-                    && returned == 0
-                    && (c.arch() == WinArch::Arm64 || abi.wow64()) =>
+                if !attrs.chpe && size == 1 && returned == 0 && admits_chpe_attribute(c, value) =>
             {
                 attrs.chpe = true;
             }
@@ -458,6 +516,27 @@ fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
         }
     }
     Ok(attrs)
+}
+
+fn admits_chpe_attribute(c: &Ctx, value: u64) -> bool {
+    match c.arch() {
+        WinArch::Arm64 | WinArch::X86 => value == 1,
+        // Current AMD64 CMD also supplies a BOOLEAN on the native
+        // same-architecture route. Image loading still checks the machine.
+        WinArch::X64 => {
+            value <= 1
+                && c.p.native.as_ref().is_some_and(|native| {
+                    matches!(
+                        (
+                            native.version.major,
+                            native.version.minor,
+                            native.version.build
+                        ),
+                        (10, 0, 20348 | 26100)
+                    ) && native.object_namespace.native_machine == Some(WinArch::X64.machine())
+                })
+        }
+    }
 }
 
 fn probe_outputs(
@@ -509,7 +588,7 @@ impl Output {
 }
 
 struct Parameters {
-    host_image: PathBuf,
+    host_image: Option<PathBuf>,
     image: String,
     command: String,
     cwd: String,
@@ -527,10 +606,18 @@ impl Parameters {
         )?;
         let max = dword(&header, layout.pp_maximum_length as usize);
         let len = dword(&header, layout.pp_length as usize);
-        if len < header.len() as u32
-            || len > max
-            || dword(&header, layout.pp_flags as usize) & 1 == 0
-        {
+        let flags = dword(&header, layout.pp_flags as usize);
+        let environment_bytes = abi.pointer(&header, layout.pp_environment_size as usize);
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            parameter_bytes = len,
+            max_parameter_bytes = max,
+            parameter_flags = %format_args!("{flags:#010x}"),
+            environment_bytes,
+            "guest child creation process parameters"
+        );
+        if len < header.len() as u32 || len > max || flags & RTL_PARAMS_NORMALIZED == 0 {
             return status(STATUS_INVALID_PARAMETER);
         }
         let command = unicode(mem, abi, &header, layout.pp_command_line as usize)?;
@@ -554,21 +641,25 @@ impl Parameters {
             path = fs::full_path(&redirected, "C:\\")
                 .ok_or(Failure::Status(STATUS_OBJECT_PATH_SYNTAX_BAD))?;
         }
-        let host_image =
-            c.p.cfg
-                .drives
-                .resolve(&path)
-                .ok_or(Failure::Status(STATUS_OBJECT_PATH_NOT_FOUND))?;
-        let length = abi.pointer(&header, layout.pp_environment_size as usize);
-        let environment = if length == 0 {
+        let host_image = if c.p.cfg.host_filesystem {
+            Some(
+                c.p.cfg
+                    .drives
+                    .resolve(&path)
+                    .ok_or(Failure::Status(STATUS_OBJECT_PATH_NOT_FOUND))?,
+            )
+        } else {
+            None
+        };
+        let environment = if environment_bytes == 0 {
             vec![0; 4]
         } else {
-            if !(4..=MAX_ENVIRONMENT).contains(&length) || length % 2 != 0 {
+            if !(4..=MAX_ENVIRONMENT).contains(&environment_bytes) || environment_bytes % 2 != 0 {
                 return status(STATUS_INVALID_PARAMETER);
             }
             let bytes = mem.bytes(
                 abi.pointer(&header, layout.pp_environment as usize),
-                length as usize,
+                environment_bytes as usize,
             )?;
             if !bytes.ends_with(&[0; 4]) {
                 return status(STATUS_INVALID_PARAMETER);

@@ -792,6 +792,66 @@ fn installed_cmd_null_device_matches_native_through_closed_c_abi() {
 #[cfg(windows)]
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_cmd_child_matches_native_through_closed_c_abi() {
+    if std::env::var("RAX_TEST_WINDOWS_NTSTATUS").as_deref() == Ok("true") {
+        tracing_subscriber::fmt()
+            .with_env_filter("rax::windows::ntstatus=trace")
+            .without_time()
+            .with_ansi(false)
+            .try_init()
+            .expect("install guest NT service status trace");
+    }
+    let system_cmd = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+        .join("System32")
+        .join("cmd.exe");
+    let mut failures = Vec::new();
+    for (label, args, exit_code, stdout) in [
+        (
+            "absolute child image",
+            &[
+                "/d",
+                "/c",
+                system_cmd.to_str().unwrap(),
+                "/d",
+                "/c",
+                "echo",
+                "rax-child",
+            ][..],
+            0,
+            &b"rax-child\r\n"[..],
+        ),
+        (
+            "child image basename",
+            &["/d", "/c", "cmd.exe", "/d", "/c", "echo", "rax-child"][..],
+            0,
+            &b"rax-child\r\n"[..],
+        ),
+        (
+            "child exit status",
+            &["/d", "/c", "cmd.exe", "/d", "/c", "exit", "/b", "23"][..],
+            23,
+            &b""[..],
+        ),
+    ] {
+        let result = std::panic::catch_unwind(|| {
+            let native = compare_windows_installed_program("cmd.exe", args, None);
+            assert_eq!(native.status.code(), Some(exit_code), "{label}");
+            assert_eq!(native.stdout, stdout, "{label}");
+            assert!(native.stderr.is_empty(), "{label}");
+        });
+        if result.is_err() {
+            failures.push(label);
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "installed child cases failed: {failures:?}"
+    );
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_findstr_matches_native_through_closed_c_abi() {
     check_native_extension_point_policy();
     let arguments = &["/l", "/c:rax-witness"];
@@ -964,15 +1024,7 @@ fn compare_windows_installed_program(
             stopped["diagnostic"]
         );
     }
-    assert_eq!(
-        Some(result.exit_code),
-        native.status.code().map(i32::cast_unsigned),
-        "{program_path}: exit status"
-    );
-    for (stream, expected) in [
-        (RAX_PROCESS_STDOUT, &native.stdout),
-        (RAX_PROCESS_STDERR, &native.stderr),
-    ] {
+    let [stdout, stderr] = [RAX_PROCESS_STDOUT, RAX_PROCESS_STDERR].map(|stream| {
         let mut bytes = vec![0; 65536];
         let mut size = 0;
         assert_eq!(
@@ -985,12 +1037,22 @@ fn compare_windows_installed_program(
             ),
             RaxStatus::Ok
         );
-        assert_eq!(
-            &bytes[..size],
-            expected.as_slice(),
-            "{program_path}: console stream {stream}"
-        );
-    }
+        bytes.truncate(size);
+        bytes
+    });
+    assert!(
+        Some(result.exit_code) == native.status.code().map(i32::cast_unsigned)
+            && stdout == native.stdout
+            && stderr == native.stderr,
+        "{program_path} {arguments:?}: guest status {}, stdout {:?}, stderr {:?}; \
+        native status {:?}, stdout {:?}, stderr {:?}",
+        result.exit_code,
+        String::from_utf8_lossy(&stdout),
+        String::from_utf8_lossy(&stderr),
+        native.status.code(),
+        String::from_utf8_lossy(&native.stdout),
+        String::from_utf8_lossy(&native.stderr)
+    );
     native
 }
 

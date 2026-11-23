@@ -24,12 +24,12 @@ pub(crate) struct DirectoryScan {
 
 impl Objects {
     pub(crate) fn directory_scan(&self, handle: u64) -> Option<&DirectoryScan> {
-        self.objs.get(&self.id(handle)?)?.directory_scan.as_ref()
+        self.objs.get(&self.id(handle)?)?.directory_scan.as_deref()
     }
 
     pub(crate) fn directory_scan_mut(&mut self, handle: u64) -> Option<&mut DirectoryScan> {
         let id = self.id(handle)?;
-        self.objs.get_mut(&id)?.directory_scan.as_mut()
+        self.objs.get_mut(&id)?.directory_scan.as_deref_mut()
     }
 
     pub(crate) fn set_directory_scan(&mut self, handle: u64, scan: DirectoryScan) -> bool {
@@ -39,7 +39,7 @@ impl Objects {
         let Some(entry) = self.objs.get_mut(&id) else {
             return false;
         };
-        entry.directory_scan = Some(scan);
+        entry.directory_scan = Some(Box::new(scan));
         true
     }
 }
