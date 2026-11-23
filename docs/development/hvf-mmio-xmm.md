@@ -632,9 +632,10 @@ consumer. Its ordered observations matched the earlier run byte for byte
 at SHA-256 `f316c6b261debf8afb68c175859bfc438d4f71098ee3fae282361d71df7faec1`.
 All 17 stage markers matched, including native startup IPIs, VMM-file
 continuation and CPUID at 1, 2 and 4 vCPUs. The VMM-file cases capture
-after guest shutdown. Whole-VMM restore of a pending XMM lane transfer
-and bare-metal Intel macOS execution remain unverified.
+after guest shutdown.
 [Broad execution artifacts](https://github.com/HexRaysSA/rax/actions/runs/45123636232)
+
+## Pending XMM transfer in a native VMM file
 
 The whole-VMM pending-XMM run at `e41891df` reached the hosted 45-minute
 library build limit before guest entry. The artifact contains dependency
@@ -656,6 +657,34 @@ as the restore path. The updated Intel macOS harness cross-built and
 passed strict signature verification. All 16 workflow policy tests passed.
 [First stopped AP1 capture](https://github.com/HexRaysSA/rax/actions/runs/45140821048)
 [Second restore-validation failure](https://github.com/HexRaysSA/rax/actions/runs/45141965732)
+
+The corrected run at `43e93dd77e1f787e37b5003bb041c7a765d433d7` passed
+both file continuations. The workflow signed and verified the harness,
+then ran it untranslated on a hosted Intel Core i7-8700B with macOS
+15.7.9 and SDK 15.5. The test destroyed the source VM and removed its
+kernel file before constructing the target from the checkpoint.
+
+| Configured vCPUs | Restored vCPU | Pending transaction | Checkpoint SHA-256 |
+| --- | --- | --- | --- |
+| 2 | AP1 | `MOVLPD` read of 8 B | `ccff306f3c8bbb1531ac62f3e3dce41fb42dfc12bef65e01ab89fed5af0f7643` |
+| 4 | AP3 | `MOVHPD` write of 8 B | `cea2ae31c0306011c1573e52cc12b059d1b6b5a27209180024831a760af117bc` |
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The target resumes a saved transaction from the VMM file. | Replace the stopped instruction with UD2 before capture, inspect the saved execution and HVF records and require `Vmm::run` to advance the selected AP to the instruction after shutdown. |
+| The pending access completes once at the right address and width. | Require zero callbacks before resume, one matching read or write callback after resume, the expected XMM15 state and rejection of a second completion. |
+
+Independent inspection confirmed both files' topology, stopped state and
+UD2. The retained log SHA-256 is
+`5d4aa1ae646ac35af1cddc2d467cb6429e87e6ff53aadefaef5f6451537e74e8`.
+The signed harness digest reported by the workflow is
+`7c275f15020b4a91de1869c7021f5879afa5e0fd16b9a8ae8661e96d40ead82d`.
+The downloaded archive matched GitHub's SHA-256
+`e17ea1e1fe194f82294c6405c5ba1a2a138de70ace60ed5dad33282124d41fd9`.
+The fixture prepares the APs directly and reattaches a test MMIO device
+on the target. Device-private restoration, guest-driven AP startup in
+the same test, and bare-metal Intel macOS execution remain open.
+[Passing native VMM-file execution](https://github.com/HexRaysSA/rax/actions/runs/45148465791)
 
 ## Packed logical reads
 
