@@ -1328,7 +1328,11 @@ fn main() {
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--port-debug")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        assert!(!output.exists(), "observations must be new");
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&output)
+            .expect("new port observations");
         let mut case = 0;
         guest_debug::run_ports(&output, &mut case);
         println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
