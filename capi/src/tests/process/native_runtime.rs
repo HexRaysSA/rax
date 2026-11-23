@@ -682,14 +682,19 @@ fn installed_cmd_null_device_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_cmd_child_matches_native_through_closed_c_abi() {
-    let native = compare_windows_installed_program(
-        "cmd.exe",
-        &["/d", "/c", "cmd.exe", "/d", "/c", "echo", "rax-child"],
-        None,
-    );
-    assert!(native.status.success());
-    assert_eq!(native.stdout, b"rax-child\r\n");
-    assert!(native.stderr.is_empty());
+    let system_cmd = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+        .join("System32")
+        .join("cmd.exe");
+    for child in [system_cmd.to_str().unwrap(), "cmd.exe"] {
+        let native = compare_windows_installed_program(
+            "cmd.exe",
+            &["/d", "/c", child, "/d", "/c", "echo", "rax-child"],
+            None,
+        );
+        assert!(native.status.success(), "{child}");
+        assert_eq!(native.stdout, b"rax-child\r\n");
+        assert!(native.stderr.is_empty());
+    }
 
     let native = compare_windows_installed_program(
         "cmd.exe",
@@ -876,15 +881,7 @@ fn compare_windows_installed_program(
             stopped["diagnostic"]
         );
     }
-    assert_eq!(
-        Some(result.exit_code),
-        native.status.code().map(i32::cast_unsigned),
-        "{program_path}: exit status"
-    );
-    for (stream, expected) in [
-        (RAX_PROCESS_STDOUT, &native.stdout),
-        (RAX_PROCESS_STDERR, &native.stderr),
-    ] {
+    let [stdout, stderr] = [RAX_PROCESS_STDOUT, RAX_PROCESS_STDERR].map(|stream| {
         let mut bytes = vec![0; 65536];
         let mut size = 0;
         assert_eq!(
@@ -897,12 +894,22 @@ fn compare_windows_installed_program(
             ),
             RaxStatus::Ok
         );
-        assert_eq!(
-            &bytes[..size],
-            expected.as_slice(),
-            "{program_path}: console stream {stream}"
-        );
-    }
+        bytes.truncate(size);
+        bytes
+    });
+    assert!(
+        Some(result.exit_code) == native.status.code().map(i32::cast_unsigned)
+            && stdout == native.stdout
+            && stderr == native.stderr,
+        "{program_path} {arguments:?}: guest status {}, stdout {:?}, stderr {:?}; \
+        native status {:?}, stdout {:?}, stderr {:?}",
+        result.exit_code,
+        String::from_utf8_lossy(&stdout),
+        String::from_utf8_lossy(&stderr),
+        native.status.code(),
+        String::from_utf8_lossy(&native.stdout),
+        String::from_utf8_lossy(&native.stderr)
+    );
     native
 }
 

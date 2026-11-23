@@ -675,6 +675,7 @@ jobs:
           path: |
             target/windows-installed-process/receipt.json
             target/windows-installed-process/capi.log
+            target/windows-installed-process/child-capi.log
             target/windows-installed-process/filter-receipt.json
             target/windows-installed-process/filter-capi.log
             target/windows-installed-process/native-token-duplicate.log
