@@ -328,8 +328,10 @@ corresponding mechanisms. The operational boundaries are:
   within a guest process family. With `CLONE_FS`, working-directory and
   umask changes are visible to sharing processes across `execve`. A
   single-threaded process can detach its filesystem context with `unshare`.
-  Cross-process shared signal handlers, namespaces, and requeue-PI futexes
-  are unsupported. Guest threads require `CLONE_FILES | CLONE_FS`.
+  `CLONE_SIGHAND | CLONE_VM` shares signal dispositions between processes
+  until one executes a new image. Signal queues and masks belong to their
+  existing process or thread. Namespaces and requeue-PI futexes are
+  unsupported. Guest threads require `CLONE_FILES | CLONE_FS`.
 - CPU-time timers measure emulator host CPU time, including emulation overhead.
   `TFD_TIMER_CANCEL_ON_SET` does not observe host-clock changes. Epoll instances
   are copied by fork, and externally generated readiness has emulation-specific

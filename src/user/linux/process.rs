@@ -383,8 +383,9 @@ pub struct ProcState {
     /// Private file-creation mask. Use [Self::file_creation_mask] to include
     /// a shared filesystem context.
     pub umask: u32,
-    /// Signal dispositions, indexed by signal number minus one.
+    /// Private signal dispositions, indexed by signal number minus one.
     pub sigactions: [SigAction; 64],
+    pub(super) shared_sigactions: Option<Arc<Mutex<[SigAction; 64]>>>,
     /// The thread-group leader's `comm`, kept for `/proc/<pid>/comm` after
     /// the leader exits; each thread's own is [`Thread::comm`].
     pub comm: Vec<u8>,
@@ -633,6 +634,41 @@ pub(super) struct SharedFsContext {
 }
 
 impl ProcState {
+    /// The action for a validated Linux signal number.
+    pub(super) fn signal_action(&self, signal: i32) -> SigAction {
+        let index = (signal - 1) as usize;
+        match &self.shared_sigactions {
+            Some(table) => table.lock().expect("Linux signal action lock")[index],
+            None => self.sigactions[index],
+        }
+    }
+
+    /// Change one disposition without holding the table lock across guest work.
+    pub(super) fn update_signal_action<R>(
+        &mut self,
+        signal: i32,
+        update: impl FnOnce(&mut SigAction) -> R,
+    ) -> R {
+        let index = (signal - 1) as usize;
+        match &self.shared_sigactions {
+            Some(table) => update(&mut table.lock().expect("Linux signal action lock")[index]),
+            None => update(&mut self.sigactions[index]),
+        }
+    }
+
+    pub(super) fn signal_actions_snapshot(&self) -> [SigAction; 64] {
+        match &self.shared_sigactions {
+            Some(table) => *table.lock().expect("Linux signal action lock"),
+            None => self.sigactions,
+        }
+    }
+
+    pub(super) fn detach_signal_actions(&mut self) {
+        if let Some(table) = self.shared_sigactions.take() {
+            self.sigactions = *table.lock().expect("Linux signal action lock");
+        }
+    }
+
     /// Current guest directory, including changes by tasks that share it.
     pub fn working_directory(&self) -> Cow<'_, str> {
         match &self.shared_fs {
@@ -992,6 +1028,7 @@ impl LinuxProcess {
             // A new process inherits its parent's umask.
             umask,
             sigactions: [SigAction::default(); 64],
+            shared_sigactions: None,
             comm: img.comm,
             exe_path: img.exe_path,
             exe_host_path: img.exe_host_path,

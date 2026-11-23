@@ -11,7 +11,7 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     if shared && c.p.shares_mm() {
         return Err(Errno(ENOSYS));
     }
-    if flags & (CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
+    if flags & (CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
         return Err(Errno(EINVAL));
     }
     let requested = super::super::thread::requested_tid(c, &args.set_tid)?;
@@ -67,12 +67,17 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     if flags & CLONE_CHILD_CLEARTID != 0 {
         leader.clear_child_tid = args.child_tid;
     }
-    let mut sigactions = c.p.sigactions;
+    let mut sigactions = c.p.signal_actions_snapshot();
     if flags & CLONE_CLEAR_SIGHAND != 0 {
         clear_sighand(&mut sigactions);
     }
 
     let p = &mut *c.p;
+    let shared_sigactions = (flags & CLONE_SIGHAND != 0).then(|| {
+        p.shared_sigactions
+            .clone()
+            .unwrap_or_else(|| Arc::new(Mutex::new(sigactions)))
+    });
     let (vfs, umask, shared_fs) = p.fork_filesystem(flags & CLONE_FS != 0);
     let state = ProcState {
         abi: p.abi,
@@ -94,6 +99,7 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         rlimits: p.rlimits,
         umask,
         sigactions,
+        shared_sigactions,
         comm: leader.comm.clone(),
         exe_path: p.exe_path.clone(),
         exe_host_path: None,
@@ -154,6 +160,10 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
     if flags & CLONE_FS != 0 {
         c.p.shared_fs.clone_from(&child.state.shared_fs);
+    }
+    if flags & CLONE_SIGHAND != 0 {
+        c.p.shared_sigactions
+            .clone_from(&child.state.shared_sigactions);
     }
     c.p.children
         .add_guest(child, tid, args.exit_signal as i32, c.t.tid, c.p.exec_id);

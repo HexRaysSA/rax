@@ -35,16 +35,15 @@ pub(super) fn do_sigaction(
     if !valid_signal(sig) || (new.is_some() && sigmask(sig) & KERNEL_ONLY_MASK != 0) {
         return Err(Errno(EINVAL));
     }
-    let idx = (sig - 1) as usize;
-    let mut old = c.p.sigactions[idx];
-    old.flags &= uapi_sa_flags(c.p.abi);
-    if let Some(mut a) = new {
-        a.flags &= uapi_sa_flags(c.p.abi);
+    let flags = uapi_sa_flags(c.p.abi);
+    let mut old = if let Some(mut a) = new {
+        a.flags &= flags;
         if c.compat {
             a.flags |= sa::IA32_ABI;
         }
         a.mask &= !KERNEL_ONLY_MASK;
-        c.p.sigactions[idx] = a;
+        let old =
+            c.p.update_signal_action(sig, |entry| std::mem::replace(entry, a));
         // POSIX 3.3.1.3: setting a pending signal's action to ignore
         // discards it from every queue, whether or not it is blocked.
         if a.handler == SIG_IGN || (a.handler == SIG_DFL && default_ignored(sig)) {
@@ -55,7 +54,11 @@ pub(super) fn do_sigaction(
             let (p, mut th) = c.split();
             deliver::unignore_timer_signals(p, &mut th, sig);
         }
-    }
+        old
+    } else {
+        c.p.signal_action(sig)
+    };
+    old.flags &= flags;
     Ok(old)
 }
 

@@ -213,6 +213,50 @@ static int check_shared_fs(void)
     return error;
 }
 
+static int share_ignored_signal(void *arg)
+{
+    (void)arg;
+    struct sigaction action = {.sa_handler = SIG_IGN};
+    return sigaction(SIGUSR1, &action, NULL) != 0;
+}
+
+static int exec_with_shared_sighand(void *arg)
+{
+    const char *self = arg;
+    char *const args[] = {(char *)self, "--reset", NULL};
+    execve(self, args, environ);
+    return 2;
+}
+
+static int clone_with_shared_sighand(int (*entry)(void *), const char *self)
+{
+    static _Alignas(16) unsigned char stack[65536];
+    pid_t child = clone(entry, stack + sizeof(stack), CLONE_VM | CLONE_SIGHAND | SIGCHLD,
+                        (void *)self);
+    if (child == -1) {
+        perror("clone");
+        return 0;
+    }
+    int status;
+    if (waitpid(child, &status, 0) != child)
+        return 0;
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static int check_shared_sighand(void)
+{
+    const char *self = "/proc/self/exe";
+    struct sigaction action;
+    if (!clone_with_shared_sighand(share_ignored_signal, self) ||
+        sigaction(SIGUSR1, NULL, &action) != 0 || action.sa_handler != SIG_IGN)
+        return 1;
+    if (!clone_with_shared_sighand(exec_with_shared_sighand, self) ||
+        sigaction(SIGUSR1, NULL, &action) != 0 || action.sa_handler != SIG_IGN)
+        return 2;
+    action = (struct sigaction){.sa_handler = SIG_DFL};
+    return sigaction(SIGUSR1, &action, NULL) != 0;
+}
+
 static int check_spawn(void)
 {
     const char *path = "/usr/bin/printf";
@@ -258,6 +302,12 @@ static int check_spawn(void)
         return 10;
     }
     puts("clone:shared-fs");
+    error = check_shared_sighand();
+    if (error != 0) {
+        fprintf(stderr, "clone with shared signal dispositions failed: %d\n", error);
+        return 11;
+    }
+    puts("clone:shared-sighand");
     return 0;
 }
 
@@ -275,6 +325,13 @@ int main(int argc, char **argv)
 {
     if (argc == 2 && strcmp(argv[1], "--update-fs") == 0)
         return update_fs(NULL);
+    if (argc == 2 && strcmp(argv[1], "--reset") == 0) {
+        struct sigaction action;
+        if (sigaction(SIGUSR1, NULL, &action) != 0 || action.sa_handler != SIG_IGN)
+            return 3;
+        action = (struct sigaction){.sa_handler = SIG_DFL};
+        return sigaction(SIGUSR1, &action, NULL) != 0;
+    }
 #ifdef RAX_THREADED_SPAWN
     pthread_barrier_t barrier;
     pthread_t worker;

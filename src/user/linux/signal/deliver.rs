@@ -103,7 +103,7 @@ fn sig_ignored(p: &ProcState, blocked: u64, sig: i32, force: bool, traced: bool)
     if traced && sig != SIGKILL {
         return false;
     }
-    let handler = p.sigactions[(sig - 1) as usize].handler;
+    let handler = p.signal_action(sig).handler;
     // sig_task_ignored: a namespace init ignores default-action signals
     // unless SIGKILL/SIGSTOP are forced on it.
     if p.unkillable && handler == SIG_DFL && !(force && sigmask(sig) & KERNEL_ONLY_MASK != 0) {
@@ -115,9 +115,7 @@ fn sig_ignored(p: &ProcState, blocked: u64, sig: i32, force: bool, traced: bool)
 /// `sig_fatal`: the default action of `sig`, which has no handler, ends
 /// the process.
 fn sig_fatal(p: &ProcState, sig: i32) -> bool {
-    p.sigactions[(sig - 1) as usize].handler == SIG_DFL
-        && !default_ignored(sig)
-        && !default_stops(sig)
+    p.signal_action(sig).handler == SIG_DFL && !default_ignored(sig) && !default_stops(sig)
 }
 
 /// The mask of the thread a signal is aimed at, for `sig_ignored`: the
@@ -345,19 +343,20 @@ pub fn set_blocked(p: &ProcState, th: &mut Threads<'_>, new: u64) {
 /// cannot block or ignore; a blocked or ignored signal (or any, with
 /// [`ForceMode::Default`]) is reset to its default action and unblocked.
 pub fn force_signal(p: &mut ProcState, th: &mut Threads<'_>, info: SigInfo, mode: ForceMode) {
-    let idx = (info.signo - 1) as usize;
     let t = th.current().expect("a current thread");
     let tid = t.tid;
     let blocked = t.sigmask & sigmask(info.signo) != 0;
-    let action = &mut p.sigactions[idx];
-    if blocked || action.handler == SIG_IGN || mode != ForceMode::Current {
-        action.handler = SIG_DFL;
-        if blocked {
-            t.sigmask &= !sigmask(info.signo);
-            t.sigpending = recalc_sigpending(p, t);
+    let handler = p.update_signal_action(info.signo, |action| {
+        if blocked || action.handler == SIG_IGN || mode != ForceMode::Current {
+            action.handler = SIG_DFL;
         }
+        action.handler
+    });
+    if blocked {
+        t.sigmask &= !sigmask(info.signo);
+        t.sigpending = recalc_sigpending(p, t);
     }
-    if p.sigactions[idx].handler == SIG_DFL {
+    if handler == SIG_DFL {
         p.unkillable = false;
     }
     let force = info.code == super::code::SI_KERNEL;
@@ -613,14 +612,20 @@ impl LinuxProcess {
                 trace_signal(t.tid, &info);
             }
             let sig = info.signo;
-            let action = p.sigactions[(sig - 1) as usize];
+            let action = p.update_signal_action(sig, |entry| {
+                let action = *entry;
+                if action.handler != SIG_IGN
+                    && action.handler != SIG_DFL
+                    && action.flags & sa::RESETHAND != 0
+                {
+                    entry.handler = SIG_DFL;
+                }
+                action
+            });
             if action.handler == SIG_IGN {
                 continue;
             }
             if action.handler != SIG_DFL {
-                if action.flags & sa::RESETHAND != 0 {
-                    p.sigactions[(sig - 1) as usize].handler = SIG_DFL;
-                }
                 return Next::Handler(Delivery {
                     sig,
                     info,

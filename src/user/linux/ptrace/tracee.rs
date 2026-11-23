@@ -174,7 +174,7 @@ fn on_message(p: &mut ProcState, th: &mut Threads<'_>, link: LinkId, m: Msg) {
                 t.exited = Some(status);
                 t.stopped = None;
                 let (why, si_status) = exit_cause(status);
-                let chld = p.sigactions[(SIGCHLD - 1) as usize];
+                let chld = p.signal_action(SIGCHLD);
                 if chld.handler != SIG_IGN {
                     let info = SigInfo::child(why, tid, p.creds.0, si_status, 0, 0);
                     let me = p.pid;
@@ -288,7 +288,7 @@ fn notify_trapped(
     status: i32,
     uid: u32,
 ) {
-    let chld = p.sigactions[(SIGCHLD - 1) as usize];
+    let chld = p.signal_action(SIGCHLD);
     if chld.handler == SIG_IGN || chld.flags & sa::NOCLDSTOP != 0 {
         return;
     }
