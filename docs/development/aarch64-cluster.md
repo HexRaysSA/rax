@@ -173,3 +173,6 @@ The integrated source also passed both startup regressions together.
 The startup-admission and AArch32 endianness logs have SHA-256 digests
 `3f5b9bcfaa494cea237cbcb629bbce0818f04724fc502d2f556009df1ba8c0d4`
 and `ba73d0f0f2102b83769cdf9a1d7b5cd01441da2bc00cd5345f6f238eab808b40`.
+All 68 cluster and checkpoint integration cases passed again with
+both fixes in the same build. That Cargo log has SHA-256 digest
+`8144a5d5d07df0a0e3706e7e2958204d5f9e24535a48342825475b7cd9c02b1b`.
