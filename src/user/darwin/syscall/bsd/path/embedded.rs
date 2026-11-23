@@ -50,7 +50,7 @@ fn path_with_workspace_base(
     Ok(relative_workspace_path(base, directory, path, ids, &[])?)
 }
 
-fn lookup(
+pub(in crate::user::darwin::syscall::bsd) fn lookup(
     ctx: &Ctx<'_>,
     dirfd: i32,
     path: u64,
@@ -117,7 +117,7 @@ pub(crate) fn lookup_followed(
     )
 }
 
-fn link_policy(flags: u32) -> LinkPolicy {
+pub(in crate::user::darwin::syscall::bsd) fn link_policy(flags: u32) -> LinkPolicy {
     if flags & AT_SYMLINK_NOFOLLOW_ANY != 0 {
         // The *at metadata calls allow inspecting a terminal link.
         LinkPolicy::NoFollowAncestors

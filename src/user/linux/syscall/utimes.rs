@@ -12,12 +12,19 @@
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
+use super::super::abi::open::O_PATH;
 use super::super::abi::types::Timespec;
-use super::super::fs::fd::{FileObject, FileType, OpenFile};
-use super::super::host::{self, SetTime};
+#[cfg(unix)]
+use super::super::fs::fd::FileType;
+use super::super::fs::fd::{FileObject, OpenFile};
+#[cfg(unix)]
+use super::super::host;
 use super::super::procfs::ProcEntry;
 use super::path::{AT_EMPTY_PATH, AT_FDCWD, AT_SYMLINK_NOFOLLOW, Target, resolve, resolve_str};
 use super::{Ctx, SysResult};
+use crate::user::supplied_fs::{
+    Entry, WorkspaceFlavor, WorkspaceSetTime as SetTime, WorkspaceTimeUpdate, WorkspaceTimestamp,
+};
 
 /// `UTIME_NOW`.
 const UTIME_NOW: i64 = (1 << 30) - 1;
@@ -40,34 +47,67 @@ fn times_of(times: Option<[Timespec; 2]>) -> Result<[SetTime; 2], Errno> {
     Ok(t.map(|t| match t.nsec {
         UTIME_NOW => SetTime::Now,
         UTIME_OMIT => SetTime::Omit,
-        n => SetTime::At(t.sec, n),
+        n => SetTime::At(WorkspaceTimestamp {
+            seconds: t.sec,
+            nanoseconds: n,
+        }),
     }))
 }
 
 /// `fsnotify_change`'s mask for times `t`.
+#[cfg(unix)]
 fn notify_mask(t: &[SetTime; 2]) -> u32 {
     super::notify::times_mask(t[0] != SetTime::Omit, t[1] != SetTime::Omit)
 }
 
+#[cfg(unix)]
+fn host_times(t: [SetTime; 2]) -> [host::SetTime; 2] {
+    t.map(|time| match time {
+        SetTime::Now => host::SetTime::Now,
+        SetTime::Omit => host::SetTime::Omit,
+        SetTime::At(time) => host::SetTime::At(time.seconds, time.nanoseconds),
+    })
+}
+
+fn supplied_times(c: &Ctx<'_>, entry: &Entry, times: [SetTime; 2]) -> SysResult {
+    let update = WorkspaceTimeUpdate {
+        times,
+        allow_write: times == [SetTime::Now; 2],
+        flavor: WorkspaceFlavor::Linux,
+    };
+    entry.set_workspace_times(update, (c.p.creds.1, c.p.creds.3), &c.p.groups)?;
+    Ok(0)
+}
+
 /// Sets the times of an open file (`vfs_utimes` on its path).
 fn file_times(c: &Ctx<'_>, file: &OpenFile, t: [SetTime; 2]) -> SysResult {
+    if let FileObject::Supplied(entry) = &file.object {
+        return supplied_times(c, entry, t);
+    }
     if file.supplied_stat.is_some() {
         return Err(Errno(EROFS));
     }
     match &file.object {
+        #[cfg(unix)]
         FileObject::Host(f) => {
-            host::set_fd_times(f, t)?;
+            host::set_fd_times(f, host_times(t))?;
             super::notify::changed_file(file, notify_mask(&t));
         }
         // An O_PATH description names its object by host path.
+        #[cfg(unix)]
         FileObject::PathOnly => {
             let h = file.host_path.as_ref().ok_or(Errno(EBADF))?;
             let follow = file.ftype != FileType::Symlink;
-            host::set_times(h, t, follow)?;
+            host::set_times(h, host_times(t), follow)?;
             super::notify::changed(c, h, follow, notify_mask(&t));
         }
         FileObject::Anon(_) | FileObject::Console { .. } => return Err(Errno(EOPNOTSUPP)),
-        FileObject::Mqueue(h) => return super::mqueue::set_times(c, h, t),
+        #[cfg(unix)]
+        FileObject::Mqueue(h) => return super::mqueue::set_times(c, h, host_times(t)),
+        #[cfg(not(unix))]
+        FileObject::Host(_) | FileObject::PathOnly | FileObject::Mqueue(_) => {
+            return Err(Errno(ENOSYS));
+        }
         #[cfg(unix)]
         FileObject::Socket(_) => {}
         FileObject::PipeRead(_)
@@ -93,7 +133,7 @@ fn do_utimes(
             return Err(Errno(EINVAL));
         }
         let file = c.p.fds.file(dirfd)?;
-        if matches!(file.object, FileObject::PathOnly) {
+        if file.flags() & O_PATH != 0 || matches!(file.object, FileObject::PathOnly) {
             return Err(Errno(EBADF));
         }
         return file_times(c, &file, times_of(times)?);
@@ -111,6 +151,7 @@ fn do_utimes(
         target = resolve_str(c, AT_FDCWD, link, true)?;
     }
     // user_path_at: the object must exist before its times are checked.
+    #[cfg(unix)]
     if let Target::Host { host, .. } = &target {
         if follow {
             std::fs::metadata(host)?;
@@ -120,13 +161,16 @@ fn do_utimes(
     }
     let t = times_of(times)?;
     match target {
+        #[cfg(unix)]
         Target::Host { host, .. } => {
-            host::set_times(&host, t, follow)?;
+            host::set_times(&host, host_times(t), follow)?;
             super::notify::changed(c, &host, follow, notify_mask(&t));
             Ok(0)
         }
+        #[cfg(not(unix))]
+        Target::Host { .. } => Err(Errno(ENOSYS)),
         Target::Fd(file) => file_times(c, &file, t),
-        Target::Supplied(..) => Err(Errno(EROFS)),
+        Target::Supplied(entry, _) => supplied_times(c, &entry, t),
         Target::Proc(..) => Ok(0),
     }
 }
@@ -144,6 +188,10 @@ fn read_timespecs(c: &Ctx<'_>, addr: u64) -> Result<[Timespec; 2], Errno> {
 /// times `UTIME_OMIT` there is nothing to do, and the path is not even
 /// looked up.
 pub fn utimensat(c: &mut Ctx<'_>, dirfd: i32, path: u64, times: u64, flags: u32) -> SysResult {
+    #[cfg(not(unix))]
+    if c.p.vfs.supplied().is_none() {
+        return Err(Errno(ENOSYS));
+    }
     let t = if times != 0 {
         let t = read_timespecs(c, times)?;
         if t[0].nsec == UTIME_OMIT && t[1].nsec == UTIME_OMIT {
@@ -160,6 +208,10 @@ pub fn utimensat(c: &mut Ctx<'_>, dirfd: i32, path: u64, times: u64, flags: u32)
 /// old_timeval32` for a 32-bit call), whose microseconds must lie in `[0,
 /// 1000000)` (`UTIME_NOW` and `UTIME_OMIT` are not special here).
 pub fn futimesat(c: &mut Ctx<'_>, dirfd: i32, path: u64, tv: u64) -> SysResult {
+    #[cfg(not(unix))]
+    if c.p.vfs.supplied().is_none() {
+        return Err(Errno(ENOSYS));
+    }
     let t = if tv != 0 {
         let (s0, u0) = c.get_timeval(tv)?;
         let (s1, u1) = c.get_timeval(tv + c.timeval_size())?;
@@ -185,6 +237,10 @@ pub fn futimesat(c: &mut Ctx<'_>, dirfd: i32, path: u64, tv: u64) -> SysResult {
 /// `utime`: a `struct utimbuf` of whole seconds (`actime`, `modtime`;
 /// `struct old_utimbuf32` for a 32-bit call).
 pub fn utime(c: &mut Ctx<'_>, path: u64, times: u64) -> SysResult {
+    #[cfg(not(unix))]
+    if c.p.vfs.supplied().is_none() {
+        return Err(Errno(ENOSYS));
+    }
     let t = if times != 0 {
         let secs = |i: u64| -> Result<Timespec, Errno> {
             let sec = if c.compat {

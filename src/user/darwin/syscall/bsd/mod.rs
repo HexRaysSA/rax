@@ -12,6 +12,7 @@ pub mod attr;
 #[cfg(target_os = "macos")]
 pub mod audit;
 mod child_wait;
+mod embedded_metadata;
 pub mod event;
 pub mod file;
 pub(crate) mod guarded;
@@ -93,7 +94,51 @@ const CANCELLATION_POINTS: &[u32] = &[
 
 /// Runs BSD call `number` with `a` (its arguments in 64-bit words).
 pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
+    let i = |n: usize| a[n] as i32;
+    let u = |n: usize| a[n] as u32;
     if !ctx.proc.config.host_services {
+        if ctx
+            .proc
+            .vfs
+            .files()
+            .is_some_and(|files| files.has_workspace())
+        {
+            match number {
+                nr::CHMOD => return embedded_metadata::fchmodat(ctx, AT_FDCWD, a[0], u(1), 0),
+                nr::FCHMOD => return embedded_metadata::fchmod(ctx, i(0), u(1)),
+                nr::FCHMODAT => {
+                    return embedded_metadata::fchmodat(ctx, i(0), a[1], u(2), u(3));
+                }
+                nr::UTIMES => return embedded_metadata::utimes(ctx, None, a[0], a[1]),
+                nr::FUTIMES => return embedded_metadata::utimes(ctx, Some(i(0)), 0, a[1]),
+                nr::SETATTRLIST => {
+                    return embedded_metadata::setattrlist(
+                        ctx,
+                        AT_FDCWD,
+                        Some(a[0]),
+                        a[1],
+                        a[2],
+                        a[3],
+                        a[4],
+                    );
+                }
+                nr::FSETATTRLIST => {
+                    return embedded_metadata::setattrlist(ctx, i(0), None, a[1], a[2], a[3], a[4]);
+                }
+                nr::SETATTRLISTAT => {
+                    return embedded_metadata::setattrlist(
+                        ctx,
+                        i(0),
+                        Some(a[1]),
+                        a[2],
+                        a[3],
+                        a[4],
+                        u64::from(u(5)),
+                    );
+                }
+                _ => {}
+            }
+        }
         match number {
             nr::CSOPS => {
                 return crate::user::darwin::codesign::closed_status(
@@ -133,8 +178,6 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
             _ => {}
         }
     }
-    let i = |n: usize| a[n] as i32;
-    let u = |n: usize| a[n] as u32;
     if CANCELLATION_POINTS.contains(&number) {
         pthread::testcancel(ctx)?;
     }

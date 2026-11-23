@@ -14,7 +14,7 @@ use super::super::fs::{self, join_guest};
 use super::super::fsnotify::bits::{IN_ATTRIB, IN_MODIFY};
 use super::super::procfs::{self, ProcEntry};
 use super::{Ctx, SysResult};
-use crate::user::supplied_fs::{LinkPolicy, WorkspaceRename};
+use crate::user::supplied_fs::{Entry, LinkPolicy, WorkspaceRename, WorkspaceTimestamp};
 
 /// `AT_FDCWD`.
 pub const AT_FDCWD: i32 = -100;
@@ -214,9 +214,15 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
 }
 
 /// Metadata of a supplied entry, including guest character devices.
-fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
+fn supplied_stat(entry: &Entry) -> Stat {
     let size = entry.len().min(i64::MAX as u64) as i64;
     let (uid, gid) = entry.workspace_owner().unwrap_or((0, 0));
+    let timestamps = entry.workspace_timestamps();
+    let times = timestamps.unwrap_or_default();
+    let to_timespec = |time: WorkspaceTimestamp| Timespec {
+        sec: time.seconds,
+        nsec: time.nanoseconds,
+    };
     Stat {
         ino: entry.ino,
         mode: match &entry.kind {
@@ -249,6 +255,10 @@ fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
         size,
         blksize: 4096,
         blocks: (size as u64).div_ceil(512) as i64,
+        atime: to_timespec(times.accessed),
+        mtime: to_timespec(times.modified),
+        ctime: to_timespec(times.changed),
+        btime: timestamps.map(|times| to_timespec(times.created)),
         ..Default::default()
     }
 }
@@ -1364,32 +1374,60 @@ pub fn symlinkat(c: &mut Ctx<'_>, target: u64, newdir: i32, linkpath: u64) -> Sy
 }
 
 /// `fchmodat`/`fchmodat2` (and `chmod`).
-#[cfg(unix)]
 pub fn fchmodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, flags: u32) -> SysResult {
+    #[cfg(not(unix))]
+    if c.p.vfs.supplied().is_none() {
+        return Err(Errno(ENOSYS));
+    }
     if flags & !(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH) != 0 {
         return Err(Errno(EINVAL));
     }
     let follow = flags & AT_SYMLINK_NOFOLLOW == 0;
-    let host = match resolve(c, dirfd, path, flags, follow)? {
-        Target::Host { host, .. } => host,
-        Target::Fd(f) => f.host_path.clone().ok_or(Errno(EBADF))?,
-        Target::Supplied(..) => return Err(Errno(EROFS)),
-        Target::Proc(..) => return Err(Errno(EPERM)),
-    };
-    if !follow && std::fs::symlink_metadata(&host)?.file_type().is_symlink() {
-        // Linux cannot change a symbolic link's mode.
+    match resolve(c, dirfd, path, flags, follow)? {
+        Target::Supplied(entry, _) => chmod_supplied(c, &entry, perm),
+        Target::Fd(f) => match &f.object {
+            FileObject::Supplied(entry) => chmod_supplied(c, entry, perm),
+            _ => chmod_host_path(c, f.host_path.as_deref().ok_or(Errno(EBADF))?, perm, follow),
+        },
+        Target::Host { host, .. } => chmod_host_path(c, &host, perm, follow),
+        Target::Proc(..) => Err(Errno(EPERM)),
+    }
+}
+
+fn chmod_supplied(c: &Ctx<'_>, entry: &Entry, perm: u32) -> SysResult {
+    if entry.workspace_mode().is_some() && entry.link_target().is_some() {
         return Err(Errno(EOPNOTSUPP));
     }
-    std::fs::set_permissions(&host, std::fs::Permissions::from_mode(perm & 0o7777))?;
-    super::notify::changed(c, &host, follow, IN_ATTRIB);
+    entry.set_workspace_mode(perm, (c.p.creds.1, c.p.creds.3), &c.p.groups)?;
     Ok(0)
 }
 
+fn chmod_host_path(c: &Ctx<'_>, host: &std::path::Path, perm: u32, follow: bool) -> SysResult {
+    #[cfg(unix)]
+    {
+        if !follow && std::fs::symlink_metadata(host)?.file_type().is_symlink() {
+            return Err(Errno(EOPNOTSUPP));
+        }
+        std::fs::set_permissions(host, std::fs::Permissions::from_mode(perm & 0o7777))?;
+        super::notify::changed(c, host, follow, IN_ATTRIB);
+        Ok(0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (c, host, perm, follow);
+        Err(Errno(ENOSYS))
+    }
+}
+
 /// `fchmod`.
-#[cfg(unix)]
 pub fn fchmod(c: &mut Ctx<'_>, fd: i32, perm: u32) -> SysResult {
+    #[cfg(not(unix))]
+    if c.p.vfs.supplied().is_none() {
+        return Err(Errno(ENOSYS));
+    }
     let file = c.p.fds.file(fd)?;
     match &file.object {
+        #[cfg(unix)]
         FileObject::Host(f) => {
             if let Some(m) = &file.memfd {
                 m.check_mode(f.metadata()?.permissions().mode(), perm)?;
@@ -1398,6 +1436,13 @@ pub fn fchmod(c: &mut Ctx<'_>, fd: i32, perm: u32) -> SysResult {
             super::notify::changed_file(&file, IN_ATTRIB);
             Ok(0)
         }
+        FileObject::Supplied(entry) => {
+            if file.flags() & O_PATH != 0 {
+                return Err(Errno(EBADF));
+            }
+            chmod_supplied(c, entry, perm)
+        }
+        _ if file.supplied_stat.is_some() => Err(Errno(EROFS)),
         FileObject::PathOnly => Err(Errno(EBADF)),
         // anon_inode_setattr (pidfs_setattr calls it too).
         FileObject::Anon(_) => Err(Errno(EOPNOTSUPP)),

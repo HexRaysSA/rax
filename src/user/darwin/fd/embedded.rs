@@ -9,10 +9,10 @@ use std::sync::{
 use super::{FdTable, FileKind, OpenFile};
 use crate::user::console::{CapturedConsole, Console, OutputStream};
 use crate::user::darwin::abi::Errno;
-use crate::user::darwin::abi::types::Stat;
+use crate::user::darwin::abi::types::{Stat, Timespec};
 use crate::user::darwin::io::{O_ACCMODE, O_APPEND, O_RDONLY, O_WRONLY};
 use crate::user::mm::{PageSource, SourceIdentity};
-use crate::user::supplied_fs::{Device, Entry};
+use crate::user::supplied_fs::{Device, Entry, WorkspaceTimestamp};
 
 #[derive(Debug)]
 pub enum EmbeddedFile {
@@ -87,8 +87,7 @@ impl EmbeddedFile {
         }
     }
 
-    /// Virtual metadata. Supplied files are immutable, and guest-created
-    /// files retain the mode and ownership of their creation.
+    /// Virtual metadata for immutable supplied files and private guest inodes.
     pub fn stat(&self) -> Result<Stat, Errno> {
         let (uid, gid) = self
             .entry()
@@ -119,6 +118,14 @@ impl EmbeddedFile {
             Self::Zero { ino, .. } => return Ok(Self::device_stat(Device::Zero, *ino)),
             Self::Pipe(end) => return Ok(end.stat()),
         };
+        let times = self
+            .entry()
+            .and_then(Entry::workspace_timestamps)
+            .unwrap_or_default();
+        let to_timespec = |time: WorkspaceTimestamp| Timespec {
+            sec: time.seconds,
+            nsec: time.nanoseconds,
+        };
         Ok(Stat {
             dev: if self.entry().is_some() {
                 0x524158
@@ -146,6 +153,10 @@ impl EmbeddedFile {
                 ),
             blksize: 4096,
             blocks: (size as u64).div_ceil(512) as i64,
+            atime: to_timespec(times.accessed),
+            mtime: to_timespec(times.modified),
+            ctime: to_timespec(times.changed),
+            birthtime: to_timespec(times.created),
             ..Default::default()
         })
     }

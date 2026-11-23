@@ -8,6 +8,10 @@ use std::io;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
+mod metadata;
+pub(super) use metadata::Attributes;
+pub(in crate::user) use metadata::{SetTime, TimeUpdate, Timestamp, Timestamps};
+
 const MAX_BYTES: usize = 16 << 20;
 const MAX_NODES: usize = 1024;
 const FIRST_INODE: u32 = 0x5258_0001;
@@ -128,8 +132,7 @@ pub(in crate::user) enum Rename {
 #[derive(Debug)]
 pub struct Directory {
     pub(super) ino: u64,
-    pub(super) mode: u32,
-    pub(super) owner: (u32, u32),
+    pub(super) attributes: Attributes,
     namespace: Weak<Mutex<Namespace>>,
     location: Option<Mutex<Location>>,
     linked: AtomicBool,
@@ -170,19 +173,30 @@ impl Directory {
     }
 
     fn check_sticky(&self, uid: u32, child_owner: u32) -> Result<(), Error> {
-        if self.mode & 0o1000 != 0 && uid != 0 && uid != self.owner.0 && uid != child_owner {
+        if self.attributes.mode() & 0o1000 != 0
+            && uid != 0
+            && uid != self.attributes.owner().0
+            && uid != child_owner
+        {
             return Err(Error::PermissionDenied);
         }
         Ok(())
     }
 
     pub(crate) fn permits(&self, need: u32, ids: (u32, u32), groups: &[u32]) -> bool {
-        ids.0 == 0 || permitted(self.mode, self.owner, need, ids, groups)
+        ids.0 == 0
+            || permitted(
+                self.attributes.mode(),
+                self.attributes.owner(),
+                need,
+                ids,
+                groups,
+            )
     }
 
     pub(super) fn child_owner(&self, flavor: WorkspaceFlavor, ids: (u32, u32)) -> (u32, u32) {
-        if flavor == WorkspaceFlavor::Darwin || self.mode & 0o2000 != 0 {
-            (ids.0, self.owner.1)
+        if flavor == WorkspaceFlavor::Darwin || self.attributes.mode() & 0o2000 != 0 {
+            (ids.0, self.attributes.owner().1)
         } else {
             ids
         }
@@ -199,8 +213,7 @@ pub struct WorkspaceFile {
 #[derive(Debug)]
 struct Inode {
     ino: u64,
-    mode: u32,
-    owner: (u32, u32),
+    attributes: Attributes,
     links: AtomicU32,
     budget: Arc<Mutex<Budget>>,
 }
@@ -235,8 +248,7 @@ impl Workspace {
             budget: Arc::default(),
             root: Arc::new(Directory {
                 ino: ROOT_INODE,
-                mode: 0o1777,
-                owner: (0, 0),
+                attributes: Attributes::new(0o1777, (0, 0)),
                 namespace: Arc::downgrade(&namespace),
                 location: None,
                 linked: AtomicBool::new(true),
@@ -293,8 +305,7 @@ impl Workspace {
         };
         let directory = Arc::new(Directory {
             ino,
-            mode: mode & 0o7777,
-            owner,
+            attributes: Attributes::new(mode, owner),
             namespace: Arc::downgrade(&self.namespace),
             location: Some(Mutex::new(location)),
             linked: AtomicBool::new(true),
@@ -382,8 +393,7 @@ impl Workspace {
     fn inode(&self, ino: u64, mode: u32, owner: (u32, u32)) -> Inode {
         Inode {
             ino,
-            mode,
-            owner,
+            attributes: Attributes::new(mode, owner),
             links: AtomicU32::new(1),
             budget: self.budget.clone(),
         }
@@ -410,7 +420,7 @@ impl Workspace {
         }
         if self.flavor == WorkspaceFlavor::Linux
             && ids.0 != 0
-            && ids.0 != metadata.owner.0
+            && ids.0 != metadata.attributes.owner().0
             && !source.permits_unowned_link(ids, groups)
         {
             return Err(Error::PermissionDenied);
@@ -468,7 +478,7 @@ impl Workspace {
         else {
             return Err(Error::NotDirectory);
         };
-        parent.check_sticky(uid, directory.owner.0)?;
+        parent.check_sticky(uid, directory.attributes.owner().0)?;
         if !namespace.directory(directory)?.is_empty() {
             return Err(Error::NotEmpty);
         }
@@ -620,7 +630,7 @@ impl Node {
         match self {
             Self::File(file) => file.ownership().0,
             Self::Symlink(link) => link.owner().0,
-            Self::Directory(directory) => directory.owner.0,
+            Self::Directory(directory) => directory.attributes.owner().0,
         }
     }
 
@@ -709,11 +719,15 @@ impl WorkspaceFile {
     }
 
     pub(crate) fn mode(&self) -> u32 {
-        self.inode.metadata.mode
+        self.inode.metadata.attributes.mode()
     }
 
     pub(crate) fn ownership(&self) -> (u32, u32) {
-        self.inode.metadata.owner
+        self.inode.metadata.attributes.owner()
+    }
+
+    pub(super) fn attributes(&self) -> &Attributes {
+        &self.inode.metadata.attributes
     }
 
     pub(super) fn ino(&self) -> u64 {
@@ -739,7 +753,9 @@ impl WorkspaceFile {
     pub(crate) fn resize(&self, len: u64) -> Result<(), Error> {
         let len = usize::try_from(len).map_err(|_| Error::TooLarge)?;
         let mut bytes = self.inode.contents.lock().map_err(|_| Error::Io)?;
-        self.resize_locked(&mut bytes, len)
+        self.resize_locked(&mut bytes, len)?;
+        self.attributes().modified();
+        Ok(())
     }
 
     fn resize_locked(&self, bytes: &mut Vec<u8>, len: usize) -> Result<(), Error> {
@@ -785,6 +801,7 @@ impl WorkspaceFile {
             self.resize_locked(&mut bytes, end)?;
         }
         bytes[start..end].copy_from_slice(input);
+        self.attributes().modified();
         Ok(end as u64)
     }
 }
@@ -794,16 +811,20 @@ impl WorkspaceSymlink {
         self.placement.path()
     }
 
+    pub(super) fn attributes(&self) -> &Attributes {
+        &self.inode.metadata.attributes
+    }
+
     pub(super) fn ino(&self) -> u64 {
         self.inode.metadata.ino
     }
 
     pub(super) fn owner(&self) -> (u32, u32) {
-        self.inode.metadata.owner
+        self.inode.metadata.attributes.owner()
     }
 
     pub(super) fn mode(&self) -> u32 {
-        self.inode.metadata.mode
+        self.inode.metadata.attributes.mode()
     }
 
     pub(super) fn target(&self) -> &[u8] {

@@ -288,6 +288,15 @@ pub(super) fn permits_workspace(s: Sysno) -> bool {
             | Sysno::Rename
             | Sysno::Renameat
             | Sysno::Renameat2
+            | Sysno::Chmod
+            | Sysno::Fchmod
+            | Sysno::Fchmodat
+            | Sysno::Fchmodat2
+            | Sysno::Utimensat
+            | Sysno::UtimensatTime64
+            | Sysno::Utime
+            | Sysno::Utimes
+            | Sysno::Futimesat
             | Sysno::Ftruncate
             | Sysno::Ftruncate64
             | Sysno::Fsync

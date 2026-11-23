@@ -13,9 +13,13 @@ mod roots;
 mod workspace;
 use roots::Roots;
 pub(super) use workspace::Capacity as WorkspaceCapacity;
+use workspace::{Attributes, Node, Workspace};
 pub use workspace::{Directory as WorkspaceDirectory, WorkspaceFile};
-use workspace::{Node, Workspace};
 pub(super) use workspace::{Rename as WorkspaceRename, WorkspaceFlavor};
+pub(in crate::user) use workspace::{
+    SetTime as WorkspaceSetTime, TimeUpdate as WorkspaceTimeUpdate,
+    Timestamp as WorkspaceTimestamp, Timestamps as WorkspaceTimestamps,
+};
 
 const TEMP_DIRECTORY: &str = "/tmp";
 
@@ -152,22 +156,47 @@ impl Entry {
         }
     }
 
-    pub(crate) fn workspace_mode(&self) -> Option<u32> {
+    fn workspace_attributes(&self) -> Option<&Attributes> {
         match &self.kind {
-            Kind::WorkspaceDirectory(directory) => Some(directory.mode),
-            Kind::Workspace(file) => Some(file.mode()),
-            Kind::WorkspaceSymlink(link) => Some(link.mode()),
+            Kind::WorkspaceDirectory(directory) => Some(&directory.attributes),
+            Kind::Workspace(file) => Some(file.attributes()),
+            Kind::WorkspaceSymlink(link) => Some(link.attributes()),
             _ => None,
         }
     }
 
+    pub(crate) fn workspace_mode(&self) -> Option<u32> {
+        self.workspace_attributes().map(Attributes::mode)
+    }
+
     pub(crate) fn workspace_owner(&self) -> Option<(u32, u32)> {
-        match &self.kind {
-            Kind::WorkspaceDirectory(directory) => Some(directory.owner),
-            Kind::Workspace(file) => Some(file.ownership()),
-            Kind::WorkspaceSymlink(link) => Some(link.owner()),
-            _ => None,
-        }
+        self.workspace_attributes().map(Attributes::owner)
+    }
+
+    pub(crate) fn workspace_timestamps(&self) -> Option<WorkspaceTimestamps> {
+        self.workspace_attributes().map(Attributes::timestamps)
+    }
+
+    pub(crate) fn set_workspace_mode(
+        &self,
+        mode: u32,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(), Error> {
+        self.workspace_attributes()
+            .ok_or(Error::ReadOnly)?
+            .set_mode(mode, ids, groups)
+    }
+
+    pub(in crate::user) fn set_workspace_times(
+        &self,
+        update: WorkspaceTimeUpdate,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(), Error> {
+        self.workspace_attributes()
+            .ok_or(Error::ReadOnly)?
+            .set_times(update, ids, groups)
     }
 
     pub(crate) fn link_target(&self) -> Option<&[u8]> {
@@ -830,7 +859,7 @@ impl Files {
         let (workspace, path, directory) = self.workspace_destination(name_path, ids, groups)?;
         let owner = directory.child_owner(flavor, ids);
         let mode = match flavor {
-            WorkspaceFlavor::Linux => (mode & 0o1777) | (directory.mode & 0o2000),
+            WorkspaceFlavor::Linux => (mode & 0o1777) | (directory.attributes.mode() & 0o2000),
             WorkspaceFlavor::Darwin => mode & 0o777,
         };
         workspace.create_directory(workspace_name(&path).to_owned(), mode, owner, &directory)

@@ -80,7 +80,6 @@ pub mod time;
 pub mod timeabi;
 pub mod timer;
 pub mod uring;
-#[cfg(unix)]
 pub mod utimes;
 pub mod xattr;
 
@@ -569,13 +568,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Linkat => r(path::linkat(c, fd(a[0]), a[1], fd(a[2]), a[3], a[4] as u32)),
         S::Symlink => r(path::symlinkat(c, a[0], path::AT_FDCWD, a[1])),
         S::Symlinkat => r(path::symlinkat(c, a[0], fd(a[1]), a[2])),
-        #[cfg(unix)]
         S::Chmod => r(path::fchmodat(c, path::AT_FDCWD, a[0], a[1] as u32, 0)),
-        #[cfg(unix)]
         S::Fchmod => r(path::fchmod(c, fd(a[0]), a[1] as u32)),
-        #[cfg(unix)]
         S::Fchmodat => r(path::fchmodat(c, fd(a[0]), a[1], a[2] as u32, 0)),
-        #[cfg(unix)]
         S::Fchmodat2 => r(path::fchmodat(c, fd(a[0]), a[1], a[2] as u32, a[3] as u32)),
         #[cfg(unix)]
         S::Chown => r(path::fchownat(
@@ -608,13 +603,9 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         )),
         #[cfg(unix)]
         S::Truncate => r(path::truncate(c, a[0], a[1] as i64)),
-        #[cfg(unix)]
         S::Utimensat => r(utimes::utimensat(c, fd(a[0]), a[1], a[2], a[3] as u32)),
-        #[cfg(unix)]
         S::Futimesat => r(utimes::futimesat(c, fd(a[0]), a[1], a[2])),
-        #[cfg(unix)]
         S::Utimes => r(utimes::futimesat(c, path::AT_FDCWD, a[0], a[1])),
-        #[cfg(unix)]
         S::Utime => r(utimes::utime(c, a[0], a[1])),
         #[cfg(unix)]
         S::Mknod => r(path::mknodat(
