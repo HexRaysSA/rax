@@ -108,6 +108,38 @@ fn xmm_mmio_materializes_initial_lanes_before_setting_sse_in_use() {
 }
 
 #[test]
+fn ymm_mmio_materializes_or_preserves_neighboring_lanes_in_both_xsave_formats() {
+    let layout = layout();
+    for active in [false, true] {
+        let mask = if active { 7u64 } else { 3 };
+        for compact in [0, COMPACTED | 7] {
+            let mut bytes = image(&layout);
+            bytes[512..520].copy_from_slice(&mask.to_le_bytes());
+            bytes[520..528].copy_from_slice(&compact.to_le_bytes());
+            bytes[32..160].fill(0x12);
+            bytes[160..416].fill(0x34);
+            bytes[576..832].fill(0x56);
+            for index in [0, 15] {
+                let value = std::array::from_fn(|byte| byte as u8);
+                let source = layout.read_ymm(&bytes, index).unwrap();
+                assert_eq!(&source[..16], &[0x34; 16]);
+                assert_eq!(&source[16..], &[if active { 0x56 } else { 0 }; 16]);
+                let changed = layout.overlay_ymm(&bytes, index, value).unwrap();
+                assert_eq!(layout.read_ymm(&changed, index).unwrap(), value);
+                assert_eq!(u64_at(&changed, 512), 7);
+                assert_eq!(u64_at(&changed, 520), 0);
+                assert_eq!(&changed[..160], &bytes[..160]);
+                for neighbor in (0..16).filter(|&neighbor| neighbor != index) {
+                    assert_eq!(layout.read_ymm(&changed, neighbor).unwrap(), source);
+                }
+            }
+            assert!(layout.read_ymm(&bytes, 16).is_err());
+            assert!(layout.overlay_ymm(&bytes, 16, [0; 32]).is_err());
+        }
+    }
+}
+
+#[test]
 fn x87_logical_slots_recover_physical_registers_and_full_tags() {
     let layout = layout();
     let mut bytes = image(&layout);

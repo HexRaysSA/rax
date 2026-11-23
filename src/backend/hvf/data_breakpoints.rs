@@ -1,4 +1,4 @@
-//! Memory/I/O matches for scalar accesses completed outside native execution.
+//! Memory/I/O matches for accesses completed outside native execution.
 //! Intel SDM086 Vol.3B 19.2.1/19.2.4-19.2.6/19.3.1.2 and Vol.3C 28.7.3.
 
 pub(crate) const ENABLED_BREAKPOINT: u64 = 1 << 12;
@@ -51,7 +51,7 @@ pub(crate) fn port_causes(
 /// Return VMCS pending-debug B0-B3 and enabled-breakpoint bit12, without
 /// changing DR6. Hardware publishes DR6 only on delivery of the eventual #DB.
 /// RF does not suppress data traps; TF is independently handled at retirement.
-/// Four watches and at most sixteen accessed bytes give O(1) time and auxiliary space.
+/// Four watches and at most 32 accessed bytes give O(1) time and auxiliary space.
 pub(crate) fn causes(
     dr7: u64,
     addresses: &[u64; 4],
@@ -59,7 +59,7 @@ pub(crate) fn causes(
     size: u8,
     writing: bool,
 ) -> Result<u64, &'static str> {
-    if !matches!(size, 1 | 2 | 4 | 8 | 16) {
+    if !matches!(size, 1 | 2 | 4 | 8 | 16 | 32) {
         return Err("unsupported data-breakpoint access width");
     }
     Ok(range_causes(

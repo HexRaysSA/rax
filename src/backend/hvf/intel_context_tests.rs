@@ -556,6 +556,76 @@ fn whole_xmm_output_has_a_distinct_canonical_checkpoint_packet() {
 }
 
 #[test]
+fn pending_ymm_io_roundtrips_only_with_avx_enabled_and_native_provenance() {
+    const CR4_OSXSAVE: u64 = 1 << 18;
+    let address = 0xfee0_0003;
+    let data = std::array::from_fn(|index| index as u8);
+    for reading in [false, true] {
+        let mut saved = context();
+        let packet = if reading {
+            saved
+                .mmio_input
+                .begin_ymm(mmio::YmmTransfer {
+                    index: 15,
+                    length: 5,
+                })
+                .unwrap();
+            Packet::YmmRead { address }
+        } else {
+            Packet::YmmWrite { address, data }
+        };
+        assert_eq!(Packet::from_exit(&packet.exit()).unwrap(), packet);
+        if reading {
+            saved.request = Some(packet);
+        } else {
+            saved.output = Some((packet, 5));
+        }
+        for (provenance, osxsave, xcr0) in [
+            (false, true, 7),
+            (true, false, 7),
+            (true, true, 3),
+            (true, true, 7),
+        ] {
+            saved.mmio_debug_complete = provenance;
+            saved
+                .vmcs
+                .iter_mut()
+                .find(|entry| entry.id == V::VMCS_GUEST_CR4 as u32)
+                .unwrap()
+                .value = if osxsave { CR4_OSXSAVE } else { 0 };
+            saved
+                .registers
+                .iter_mut()
+                .find(|entry| entry.id == R::HV_X86_XCR0 as u32)
+                .unwrap()
+                .value = xcr0;
+            refresh(&mut saved);
+            assert_eq!(saved.validate().is_ok(), provenance && osxsave && xcr0 == 7);
+        }
+        let bytes = saved.encode().unwrap();
+        let loaded = Context::decode(&bytes).unwrap();
+        assert_eq!(loaded.encode().unwrap(), bytes);
+        assert_eq!(loaded.request, saved.request);
+        assert_eq!(loaded.output, saved.output);
+        if reading {
+            saved.request = Some(Packet::Read {
+                address,
+                size: mmio::YMM_BYTES,
+            });
+        } else {
+            saved.output = Some((
+                Packet::Write {
+                    address,
+                    data: data.to_vec(),
+                },
+                5,
+            ));
+        }
+        assert!(saved.validate().is_err());
+    }
+}
+
+#[test]
 fn untrusted_mmio_register_parts_and_output_continuations_reject() {
     for part in [
         mmio::RegisterPart {

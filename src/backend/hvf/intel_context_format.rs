@@ -235,6 +235,13 @@ pub(crate) enum Packet {
         address: u64,
         data: [u8; 16],
     },
+    YmmRead {
+        address: u64,
+    },
+    YmmWrite {
+        address: u64,
+        data: [u8; 32],
+    },
 }
 impl Packet {
     pub fn from_exit(exit: &VcpuExit) -> Result<Self> {
@@ -248,6 +255,10 @@ impl Packet {
                 data: data.clone(),
             },
             VcpuExit::MmioRead { addr, size: 16 } => Self::XmmRead { address: *addr },
+            VcpuExit::MmioRead {
+                addr,
+                size: mmio::YMM_BYTES,
+            } => Self::YmmRead { address: *addr },
             VcpuExit::MmioRead { addr, size } => Self::Read {
                 address: *addr,
                 size: *size,
@@ -256,6 +267,12 @@ impl Packet {
                 address: *addr,
                 data: data.as_slice().try_into().expect("16-byte operand"),
             },
+            VcpuExit::MmioWrite { addr, data } if data.len() == usize::from(mmio::YMM_BYTES) => {
+                Self::YmmWrite {
+                    address: *addr,
+                    data: data.as_slice().try_into().expect("32-byte operand"),
+                }
+            }
             VcpuExit::MmioWrite { addr, data } => Self::Write {
                 address: *addr,
                 data: data.clone(),
@@ -300,6 +317,14 @@ impl Packet {
                 addr: *address,
                 data: data.to_vec(),
             },
+            Self::YmmRead { address } => VcpuExit::MmioRead {
+                addr: *address,
+                size: mmio::YMM_BYTES,
+            },
+            Self::YmmWrite { address, data } => VcpuExit::MmioWrite {
+                addr: *address,
+                data: data.to_vec(),
+            },
             Self::Rmw {
                 address,
                 size,
@@ -320,6 +345,9 @@ impl Packet {
             Self::XmmRead { address } | Self::XmmWrite { address, .. } => {
                 (Some(*address), 16, false)
             }
+            Self::YmmRead { address } | Self::YmmWrite { address, .. } => {
+                (Some(*address), usize::from(mmio::YMM_BYTES), false)
+            }
             Self::StringWrite {
                 address,
                 data,
@@ -338,8 +366,14 @@ impl Packet {
             }
         };
         let wide_rmw = matches!(self, Self::Rmw { size: 16, address, .. } if address & 15 == 0);
-        let whole_xmm = matches!(self, Self::XmmRead { .. } | Self::XmmWrite { .. });
-        if !(matches!(size, 1 | 2 | 4 | 8) || wide_rmw || whole_xmm)
+        let vector = matches!(
+            self,
+            Self::XmmRead { .. }
+                | Self::XmmWrite { .. }
+                | Self::YmmRead { .. }
+                | Self::YmmWrite { .. }
+        );
+        if !(matches!(size, 1 | 2 | 4 | 8) || wide_rmw || vector)
             || (port && size == 8)
             || address.is_some_and(|address| address.checked_add(size as u64).is_none())
         {
@@ -471,6 +505,14 @@ impl Context {
         if xcr0 & !7 != 0 || xcr0 & 1 == 0 || (xcr0 & 4 != 0 && xcr0 & 2 == 0) {
             return Err(invalid("XCR0 differs from the advertised guest profile"));
         }
+        let ymm_io = matches!(self.request, Some(Packet::YmmRead { .. }))
+            || matches!(self.output, Some((Packet::YmmWrite { .. }, _)));
+        if ymm_io && (!self.mmio_debug_complete || !mmio::ymm_enabled(self.public.sregs.cr4, xcr0))
+        {
+            return Err(invalid(
+                "saved YMM access lacks AVX state or native MMIO provenance",
+            ));
+        }
         if self.halted && self.vmcs(V::VMCS_GUEST_ACTIVITY_STATE as u32)? != 1 {
             return Err(invalid("halted owner differs from guest HLT activity"));
         }
@@ -515,6 +557,7 @@ impl Context {
             (Some(Packet::XmmRead { .. }), None, Some((16, None))) if self.mmio_debug_complete => {
                 ()
             }
+            (Some(Packet::YmmRead { .. }), None, Some((mmio::YMM_BYTES, None))) => (),
             (
                 Some(Packet::Rmw {
                     size, operation, ..
@@ -577,6 +620,7 @@ impl Context {
                     | Packet::Write { .. }
                     | Packet::StringWrite { .. }
                     | Packet::XmmWrite { .. }
+                    | Packet::YmmWrite { .. }
             ) || !(1..=15).contains(length)
                 || self.request.is_some()
             {

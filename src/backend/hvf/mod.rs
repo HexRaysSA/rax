@@ -1233,6 +1233,18 @@ impl run_loop::ExitHandler for HvfCore {
     fn mmio(&mut self) -> Result<VcpuExit> {
         self.io_ready()?;
         let plan = self.prepare_mmio()?;
+        if matches!(
+            &plan.action,
+            mmio::Action::YmmRead(_) | mmio::Action::YmmWrite(_)
+        ) {
+            let cr4 = vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_CR4)?;
+            let xcr0 = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_XCR0)?;
+            if !mmio::ymm_enabled(cr4, xcr0) {
+                return Err(Error::Emulator(
+                    "HVF YMM MMIO requires enabled guest AVX state".into(),
+                ));
+            }
+        }
         let mut data_causes = self.data_breakpoint_causes(&plan)?;
         let exit = match plan.action {
             mmio::Action::Read(input) => {
@@ -1308,6 +1320,24 @@ impl run_loop::ExitHandler for HvfCore {
                     let data = value[..usize::from(input.size)].to_vec();
                     self.begin_mmio_write(plan.physical, plan.length, data)
                 }
+            }
+            mmio::Action::YmmRead(input) => {
+                self.mmio_input.begin_ymm(input).map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size: mmio::YMM_BYTES,
+                })
+            }
+            mmio::Action::YmmWrite(input) => {
+                let layout = &self.native_profile()?.xsave;
+                let image = intel_fp::read(self.vcpu_id, layout)?;
+                self.begin_output(
+                    Packet::YmmWrite {
+                        address: plan.physical,
+                        data: layout.read_ymm(&image, input.index)?,
+                    },
+                    plan.length,
+                )
             }
             mmio::Action::Rmw(input) => {
                 let size = input.size;
@@ -1523,6 +1553,20 @@ impl HvfCore {
                         let layout = &self.vcpu.native_profile()?.xsave;
                         let bytes = intel_fp::read(id, layout)?;
                         let updated = layout.overlay_xmm(&bytes, index, value, zero_upper)?;
+                        intel_fp::write(id, layout, &updated)
+                    };
+                    write().map_err(|error| error.to_string())
+                }
+                fn write_ymm(
+                    &mut self,
+                    index: u8,
+                    value: [u8; 32],
+                ) -> std::result::Result<(), String> {
+                    let write = || -> Result<()> {
+                        let id = self.vcpu.vcpu_id;
+                        let layout = &self.vcpu.native_profile()?.xsave;
+                        let image = intel_fp::read(id, layout)?;
+                        let updated = layout.overlay_ymm(&image, index, value)?;
                         intel_fp::write(id, layout, &updated)
                     };
                     write().map_err(|error| error.to_string())

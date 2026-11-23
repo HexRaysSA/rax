@@ -1,4 +1,4 @@
-//! Stateless projection of AVX XMM transfer encodings.
+//! Stateless projection of AVX vector transfer encodings.
 use super::*;
 
 pub(super) fn decode_xmm_transfer(
@@ -30,7 +30,7 @@ pub(super) fn decode_xmm_transfer(
     };
     let opcode = ctx.consume_u8().ok()?;
     let wide = bits == 64 && flags & 0x80 != 0;
-    let (load, size, vector_rm) = match (flags & 3, opcode) {
+    let (load, mut size, vector_rm) = match (flags & 3, opcode) {
         (1, 0x6e) => (true, if wide { 8 } else { 4 }, false),
         (1, 0x7e) => (false, if wide { 8 } else { 4 }, false),
         (2, 0x7e) => (true, 8, true),
@@ -56,40 +56,47 @@ pub(super) fn decode_xmm_transfer(
         return None;
     }
     if flags & 4 != 0 {
-        // L=1 selects YMM for full moves. Scalar floating moves use the
-        // canonical L=0 encoding to avoid processor-dependent L=1 behavior.
-        *unsupported = size == 16 || scalar_float;
-        return None;
+        if size != 16 {
+            // Scalar floating moves use the canonical L=0 encoding.
+            *unsupported = scalar_float;
+            return None;
+        }
+        size = 32;
     }
     ctx.rex = (bits == 64).then_some(0x40 | extensions);
     let raw_rm = modrm_byte & 7;
     let (group, _, mut rm) = modrm(ctx, address_bits, size, bits == 64)?;
+    let (bank, register_width) = if size == 32 {
+        ("ymm", 256)
+    } else {
+        ("xmm", 128)
+    };
     if vector_rm && rm.kind == OperandKind::Register {
-        rm.width_bits = 128;
-        rm.reg = format!("xmm{}", raw_rm | ctx.any_rex_b());
+        rm.width_bits = register_width;
+        rm.reg = format!("{bank}{}", raw_rm | ctx.any_rex_b());
     }
-    let xmm = Operand {
+    let vector = Operand {
         kind: OperandKind::Register,
-        reg: format!("xmm{}", group | ctx.any_rex_r()),
-        width_bits: 128,
+        reg: format!("{bank}{}", group | ctx.any_rex_r()),
+        width_bits: register_width,
         read: !load,
         write: load,
         ..Operand::default()
     };
     out.operands = if load {
-        vec![xmm, rm]
+        vec![vector, rm]
     } else {
-        vec![read_write(rm, false, true), xmm]
+        vec![read_write(rm, false, true), vector]
     };
     out.mnemonic = match (opcode, size, flags & 3) {
         (0x10 | 0x11, 4, 2) => "vmovss",
         (0x10 | 0x11, 8, 3) => "vmovsd",
-        (0x10 | 0x11, 16, 0) => "vmovups",
-        (0x10 | 0x11, 16, 1) => "vmovupd",
-        (0x28 | 0x29, 16, 0) => "vmovaps",
-        (0x28 | 0x29, 16, 1) => "vmovapd",
-        (_, 16, 1) => "vmovdqa",
-        (_, 16, _) => "vmovdqu",
+        (0x10 | 0x11, 16 | 32, 0) => "vmovups",
+        (0x10 | 0x11, 16 | 32, 1) => "vmovupd",
+        (0x28 | 0x29, 16 | 32, 0) => "vmovaps",
+        (0x28 | 0x29, 16 | 32, 1) => "vmovapd",
+        (_, 16 | 32, 1) => "vmovdqa",
+        (_, 16 | 32, _) => "vmovdqu",
         (_, 8, _) => "vmovq",
         _ => "vmovd",
     }

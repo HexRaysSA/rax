@@ -231,6 +231,19 @@ impl Layout {
         Ok(image[offset..offset + XMM_BYTES].try_into().unwrap())
     }
 
+    pub(crate) fn read_ymm(&self, image: &[u8], index: u8) -> Result<[u8; 32]> {
+        let mut value = [0; 32];
+        value[..16].copy_from_slice(&self.read_xmm(image, index)?);
+        if image[512] & 4 != 0 {
+            let base = self
+                .offset(image, 2)?
+                .ok_or_else(|| invalid("missing active YMM component"))?;
+            let start = base + usize::from(index) * 16;
+            value[16..].copy_from_slice(&image[start..start + 16]);
+        }
+        Ok(value)
+    }
+
     pub(crate) fn overlay_xmm(
         &self,
         image: &[u8],
@@ -256,6 +269,23 @@ impl Layout {
                 }
             }
         }
+        Ok(image)
+    }
+
+    pub(crate) fn overlay_ymm(&self, image: &[u8], index: u8, value: [u8; 32]) -> Result<Vec<u8>> {
+        let mut image = self.overlay_xmm(image, index, value[..16].try_into().unwrap(), true)?;
+        let component = self
+            .component(2)
+            .ok_or_else(|| invalid("missing YMM component"))?;
+        let base = component.offset as usize;
+        // Activating XSTATE_BV[2] exposes all sixteen upper lanes. Inactive
+        // backing bytes can be stale and must first become architectural zero.
+        if image[512] & 4 == 0 {
+            image[base..base + component.size as usize].fill(0);
+        }
+        let start = base + usize::from(index) * 16;
+        image[start..start + 16].copy_from_slice(&value[16..]);
+        image[512] |= 4;
         Ok(image)
     }
 

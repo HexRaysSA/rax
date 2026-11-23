@@ -2,7 +2,7 @@
 use super::bindings::{hv_vmx_vmcs_field_t as V, hv_x86_reg_t as R};
 use super::{HvfCore, data_breakpoints, read_register, vmcs_read, vmcs_write};
 use crate::backend::intel_hvf_context::{Context, Packet};
-use crate::backend::intel_hvf_io::mmio::{Action, Plan};
+use crate::backend::intel_hvf_io::mmio::{self, Action, Plan};
 use crate::error::{Error, Result};
 
 impl Context {
@@ -71,6 +71,8 @@ impl HvfCore {
             Action::Rmw(input) => (input.size, true),
             Action::XmmRead { input, .. } => (input.size, false),
             Action::XmmWrite(input) => (input.size, true),
+            Action::YmmRead(_) => (mmio::YMM_BYTES, false),
+            Action::YmmWrite(_) => (mmio::YMM_BYTES, true),
         };
         let dr7 = vmcs_read(self.vcpu_id, V::VMCS_GUEST_DR7)?;
         let enabled = data_breakpoints::relevant(dr7, writing);

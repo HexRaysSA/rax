@@ -163,6 +163,61 @@ fn scalar_xmm_mmio_resumes_without_reentering_and_preserves_the_other_simd_lanes
 }
 
 #[test]
+fn ymm_mmio_watches_the_full_linear_operand_and_requires_guest_avx() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let address = 0xfee0_0000;
+    for (avx, offset, expected) in [
+        (false, 31, None),
+        (true, 31, Some(0x1001)),
+        (true, 32, Some(0)),
+    ] {
+        let (_vm, _memory, mut cpu) = seeded(&[0xc5, 0x7e, 0x6f, 0x3b], 0x181, false);
+        {
+            let mut sdk = SDK.lock().unwrap();
+            let native = sdk.cpus.values_mut().next().unwrap();
+            native.registers.insert(1, 0x1_0202);
+            native.registers.insert(41, address + offset);
+            native.vmcs.insert(0x681a, 0x3_0401); // Match a single read/write byte.
+            let cr4 = 0x20 | (1 << 18);
+            native.registers.insert(40, cr4);
+            native.vmcs.insert(0x6804, cr4);
+            native.registers.insert(50, if avx { 7 } else { 3 });
+        }
+        let result = cpu.run();
+        let Some(expected) = expected else {
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("requires enabled guest AVX")
+            );
+            continue;
+        };
+        assert!(
+            matches!(result.unwrap(), VcpuExit::MmioRead { addr, size: 32 }
+                         if addr == address)
+        );
+        cpu.complete_io_in(&[0xa5; 32]);
+        cpu.io_completion_result().unwrap();
+        assert_eq!(
+            SDK.lock()
+                .unwrap()
+                .cpus
+                .values()
+                .next()
+                .unwrap()
+                .vmcs
+                .get(&0x6822)
+                .copied()
+                .unwrap_or(0),
+            expected,
+        );
+    }
+}
+
+#[test]
 fn scalar_mmio_data_breakpoint_is_pending_after_device_completion() {
     let _serial = SERIAL
         .lock()

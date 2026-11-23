@@ -292,6 +292,62 @@ fn xmm_reply_is_published_and_retired_once() {
 }
 
 #[test]
+fn ymm_mmio_reply_updates_both_halves_and_retires_once() {
+    #[derive(Default)]
+    struct Host {
+        write: Option<(u8, [u8; 32])>,
+        retirement: Option<u64>,
+    }
+    impl mmio::CompletionAccess for Host {
+        type Error = &'static str;
+
+        fn write_gpr(&mut self, _register: usize, _value: u64) -> Result<(), Self::Error> {
+            panic!("vector completion must not change a GPR");
+        }
+
+        fn write_rflags(&mut self, _flags: u64) -> Result<(), Self::Error> {
+            panic!("vector completion must not change RFLAGS");
+        }
+
+        fn write_ymm(&mut self, index: u8, value: [u8; 32]) -> Result<(), String> {
+            assert!(self.write.replace((index, value)).is_none());
+            Ok(())
+        }
+
+        fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error> {
+            assert!(self.write.is_some());
+            assert!(self.retirement.replace(length).is_none());
+            Ok(())
+        }
+    }
+
+    let response: [u8; 33] = std::array::from_fn(|index| (index * 3) as u8);
+    for size in [31, 32, 33] {
+        let mut host = Host::default();
+        let mut pending = mmio::InputState::default();
+        pending
+            .begin_ymm(mmio::YmmTransfer {
+                index: 15,
+                length: 5,
+            })
+            .unwrap();
+        assert_eq!(pending.descriptor(), Some((32, None)));
+        assert!(pending.validate_checkpoint().is_ok());
+        pending.complete(&mut host, &response[..size]);
+        pending.complete(&mut host, &response[..32]);
+        if size == 32 {
+            assert_eq!(host.write, Some((15, response[..32].try_into().unwrap())));
+            assert_eq!(host.retirement, Some(5));
+        } else {
+            assert!(pending.ready().is_err());
+            assert!(pending.validate_checkpoint().is_ok());
+            assert!(host.write.is_none());
+            assert!(host.retirement.is_none());
+        }
+    }
+}
+
+#[test]
 fn load_register_parts_and_zero_extension_are_exact() {
     for (code, index, bits, shift) in [
         (&[0x8a, 0x07][..], 0, 8, 0),
@@ -815,9 +871,10 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             Action::Rmw(_) => panic!("MOV reference case produced an RMW plan"),
             Action::AluRead(_) => panic!("MOV reference case produced an ALU read plan"),
             Action::Divide(_) => panic!("MOV reference case produced a divide plan"),
-            Action::XmmRead { .. } | Action::XmmWrite(_) => {
-                panic!("unexpected XMM plan for GPR MOV")
-            }
+            Action::XmmRead { .. }
+            | Action::XmmWrite(_)
+            | Action::YmmRead(_)
+            | Action::YmmWrite(_) => panic!("unexpected vector plan for GPR MOV"),
             Action::StringLoad(_) | Action::StringStore { .. } => {
                 panic!("unexpected string plan for GPR MOV")
             }
@@ -1114,17 +1171,73 @@ fn vex_xmm_access_width_direction_and_upper_lane_policy() {
 }
 
 #[test]
-fn whole_ymm_moves_are_outside_the_xmm_device_profile() {
-    use rax::isa::x86_64::instruction_metadata::{self, DecodeFailure};
-    let code = [0xc5, 0xfe, 0x6f, 0x07];
-    assert_eq!(
-        instruction_metadata::decode(64, 0x1000, &code).unwrap_err(),
-        DecodeFailure::Unsupported
-    );
-    let (context, mut ram, exit) = fixture(&code);
-    assert!(prepare(&context, &mut ram, exit).is_err());
-}
+fn whole_ymm_moves_decode_and_plan_their_memory_operands() {
+    use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
 
+    for (prefix, load, store, mnemonic, aligned) in [
+        (2, 0x6f, 0x7f, "vmovdqu", false),
+        (1, 0x6f, 0x7f, "vmovdqa", true),
+        (0, 0x10, 0x11, "vmovups", false),
+        (1, 0x10, 0x11, "vmovupd", false),
+        (0, 0x28, 0x29, "vmovaps", true),
+        (1, 0x28, 0x29, "vmovapd", true),
+    ] {
+        for (opcode, read) in [(load, true), (store, false)] {
+            let vex2 = [0xc5, 0x7c | prefix, opcode, 0x3f];
+            let vex3 = [0xc4, 0x61, 0xfc | prefix, opcode, 0x3f];
+            for code in [vex2.as_slice(), vex3.as_slice()] {
+                let instruction = instruction_metadata::decode(64, 0x1000, code).unwrap();
+                assert_eq!(instruction.mnemonic, mnemonic);
+                assert_eq!(instruction.size as usize, code.len());
+                assert!(instruction.operands_complete);
+                let [first, second] = instruction.operands.as_slice() else {
+                    panic!("expected vector and memory operands: {code:02x?}");
+                };
+                let (register, memory) = if read {
+                    (first, second)
+                } else {
+                    (second, first)
+                };
+                assert_eq!(
+                    (register.kind, register.reg.as_str(), register.width_bits),
+                    (OperandKind::Register, "ymm15", 256),
+                );
+                assert_eq!((memory.kind, memory.width_bits), (OperandKind::Memory, 256));
+                assert_eq!(
+                    (memory.read, memory.write, register.read, register.write),
+                    (read, !read, !read, read)
+                );
+                for offset in [0, 1, 16, 31] {
+                    let (mut context, mut ram, mut record) = fixture(code);
+                    context.registers[7] += offset;
+                    record.linear += offset;
+                    record.physical += offset;
+                    record.qualification = if read { 0x181 } else { 0x182 };
+                    let result = prepare(&context, &mut ram, record);
+                    if aligned && offset != 0 {
+                        assert_eq!(result.unwrap_err(), "misaligned YMM MMIO transfer");
+                        continue;
+                    }
+                    let plan = result.unwrap();
+                    assert_eq!(
+                        (plan.linear, plan.physical),
+                        (record.linear, record.physical)
+                    );
+                    assert_eq!(plan.length, code.len() as u64);
+                    let transfer = match plan.action {
+                        Action::YmmRead(transfer) if read => transfer,
+                        Action::YmmWrite(transfer) if !read => transfer,
+                        _ => panic!("incorrect YMM transfer direction for {code:02x?}"),
+                    };
+                    assert_eq!((transfer.index, transfer.length), (15, code.len() as u64));
+                    assert!(ram.reads.iter().all(|&(addr, _)| addr != record.physical));
+                    record.qualification ^= 3;
+                    assert!(prepare(&context, &mut ram, record).is_err());
+                }
+            }
+        }
+    }
+}
 #[test]
 fn aligned_xmm_moves_use_the_full_operand_and_reject_misalignment() {
     use rax::isa::x86_64::instruction_metadata;
@@ -1187,7 +1300,6 @@ fn aligned_xmm_moves_use_the_full_operand_and_reject_misalignment() {
                 .all(|&(address, _)| address < record.physical || address >= record.physical + 31)
         );
     }
-    assert!(instruction_metadata::decode(64, 0x1000, &[0xc5, 0xfd, 0x6f, 0x07]).is_err());
 }
 
 #[test]
@@ -1352,7 +1464,7 @@ fn packed_float_xmm_moves_keep_direction_alignment_and_register_width() {
         }
     }
     for bytes in [
-        &[0xc5, 0xfc, 0x10, 0x07][..], // YMM VMOVUPS.
+        &[0xc5, 0xfc, 0x58, 0x07][..], // YMM VADDPS.
         &[0xc5, 0xf1, 0x28, 0x07],     // Reserved VEX.vvvv.
     ] {
         let (context, mut ram, record) = fixture(bytes);

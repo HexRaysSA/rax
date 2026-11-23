@@ -327,3 +327,46 @@ The observation digests are
 for legacy and
 `41a708193462f3974824704721ac5301fd05135f9c541f2b6107922da7fcaeff`
 for VEX.128.
+
+## 256-bit VEX moves
+
+Intel HVF handles the memory forms of VEX.256 VMOVDQU, VMOVDQA,
+VMOVUPS, VMOVUPD, VMOVAPS and VMOVAPD as 32-byte transfers. The planner
+validates the entire operand as contiguous device space. The owner checks
+CR4.OSXSAVE and the SSE/AVX bits of XCR0 before publishing the request.
+The aligned forms require a 32-byte boundary.
+
+A read completion replaces the low XMM lane and the YMM upper lane,
+clears any higher destination lane, and preserves the other registers and
+MXCSR. A store publishes all 32 source bytes and preserves the vector
+state. An inactive upper bank must become architectural zero before
+activating it, so a load cannot expose stale upper bytes from neighboring
+registers. State overlay takes O(n) time and space in the bounded XSAVE
+image length. A held request records its width, operand provenance, and
+retirement boundary. Older record variants keep their original encoding.
+[Intel Software Developer's Manual, Volume 2, VMOVDQA and VMOVUPS](https://cdrdv2-public.intel.com/874240/325462-090-sdm-vol-1-2abcd-3abcd-4.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The selected VEX forms transfer 32 bytes and use only the affected register. | Run both directions through both VEX prefix lengths across offsets 0 through 31. Compare canaries, the complete register, and precise #GP(0) state. |
+| The selected VEX width governs alignment and data breakpoints. | Attempt an aligned form at offset 16 and watch the last operand byte and the first byte beyond it. |
+| A held transfer can resume without source CPU state or repeated device dispatch. | Capture with a request pending, destroy the source CPU, import the native record, and require the same request, one completion, and the exact next RIP. |
+
+The preceding source rejected the VEX.256 planner regression as
+unsupported. On physical Intel Linux, the updated source passed all
+126 MMIO planner cases, all 102 ISA oracle cases, and the full x86-64
+suite with 28,561 passes and 3 ignored. The combined Cargo log SHA-256
+is `a060515ac38f2dc7bbf73fe04bd97c86c7929172aab5c85a0a8a4db90caaa9cd`.
+
+The independent physical Intel Xeon E5-1650 v3 control exercised 24
+operand-form, direction, and prefix combinations over 32 offsets. It
+observed 396 ordinary RAM transfers and 372 precise #GP(0) alignment
+faults. Its stdout SHA-256 is
+`ca9b7a778b636b05e734db8a69068908c566956664ca43703b2b5446d79c2f8d`.
+
+The Intel macOS target running under Rosetta passed 100 simulated owner,
+126 planner, and 102 ISA oracle cases. The Cargo log SHA-256 is
+`77912c739089f9e8d25c8c9cc59f00eabdfecae712520c4e78fcd696974d0eb1`.
+The signed Intel consumer linked and passed strict verification.
+All 54 Python harness tests passed with compatibility-mode and VEX.256
+profiles both registered.

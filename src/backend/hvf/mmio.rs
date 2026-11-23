@@ -233,6 +233,27 @@ impl XmmTransfer {
     }
 }
 
+pub(crate) const YMM_BYTES: u8 = 32;
+
+pub(crate) fn ymm_enabled(cr4: u64, xcr0: u64) -> bool {
+    cr4 & (1 << 18) != 0 && xcr0 & 7 == 7
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct YmmTransfer {
+    pub(crate) index: u8,
+    pub(crate) length: u64,
+}
+
+impl YmmTransfer {
+    fn validate(&self) -> Result<(), String> {
+        if self.index >= 16 || !(1..=15).contains(&self.length) {
+            return Err("invalid HVF MMIO YMM transfer descriptor".into());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) enum Action {
     Read(Input),
@@ -245,6 +266,8 @@ pub(crate) enum Action {
         zero_upper: bool,
     },
     XmmWrite(XmmTransfer),
+    YmmRead(YmmTransfer),
+    YmmWrite(YmmTransfer),
     StringLoad(StringLoad),
     StringStore {
         data: Vec<u8>,
@@ -390,13 +413,13 @@ fn validate_memory<M: PhysicalMemory>(
     Ok(())
 }
 
-struct XmmMove {
+struct VectorMove {
     size: u8,
     zero_upper: bool,
     aligned: bool,
 }
 
-impl XmmMove {
+impl VectorMove {
     fn for_mnemonic(mnemonic: &str) -> Option<Self> {
         let (size, aligned) = match mnemonic {
             "movd" | "vmovd" | "movss" | "vmovss" => (4, false),
@@ -413,26 +436,33 @@ impl XmmMove {
     }
 }
 
-fn prepare_xmm<M: PhysicalMemory>(
+fn prepare_vector<M: PhysicalMemory>(
     context: &Context,
     memory: &mut M,
     record: ExitRecord,
     instruction: &Instruction,
     read: bool,
-    operation: XmmMove,
+    operation: VectorMove,
 ) -> Result<Plan, String> {
-    let XmmMove {
-        size,
+    let VectorMove {
+        mut size,
         zero_upper,
         aligned,
     } = operation;
     let [destination, source] = instruction.operands.as_slice() else {
-        return Err("XMM MMIO transfer requires two operands".into());
+        return Err("vector MMIO transfer requires two operands".into());
     };
-    let (xmm, operand) = if read {
+    let (register, operand) = if read {
         (destination, source)
     } else {
         (source, destination)
+    };
+    let ymm = register.width_bits == 256 && size == 16 && zero_upper;
+    let (bank, register_width) = if ymm {
+        size = YMM_BYTES;
+        ("ymm", 256)
+    } else {
+        ("xmm", 128)
     };
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
@@ -441,44 +471,60 @@ fn prepare_xmm<M: PhysicalMemory>(
         || operand.read != read
         || operand.write == read
         || operand.conditional
-        || xmm.kind != OperandKind::Register
-        || xmm.width_bits != 128
-        || xmm.read == read
-        || xmm.write != read
-        || xmm.conditional
+        || register.kind != OperandKind::Register
+        || register.width_bits != register_width
+        || register.read == read
+        || register.write != read
+        || register.conditional
     {
-        return Err("wrong operands or direction for XMM MMIO transfer".into());
+        return Err("wrong operands or direction for vector MMIO transfer".into());
     }
-    let index = xmm
+    let index = register
         .reg
-        .strip_prefix("xmm")
+        .strip_prefix(bank)
         .and_then(|index| index.parse().ok())
-        .ok_or("invalid XMM register index")?;
+        .ok_or("invalid vector register index")?;
     let length = u64::from(instruction.size);
-    let transfer = XmmTransfer {
-        index,
-        size,
-        length,
-    };
-    transfer.validate()?;
     // A VMX exit can reach this handler only with a device operand. The
     // aligned instructions have no MMIO transaction at a misaligned address.
-    if aligned && record.linear & 15 != 0 {
-        return Err("misaligned XMM MMIO transfer".into());
+    if aligned && record.linear & (u64::from(size) - 1) != 0 {
+        return Err(if ymm {
+            "misaligned YMM MMIO transfer"
+        } else {
+            "misaligned XMM MMIO transfer"
+        }
+        .into());
     }
     validate_memory(context, memory, record, operand, size)?;
-    Ok(Plan {
-        physical: record.physical,
-        linear: record.linear,
-        length,
-        action: if read {
+    let action = if ymm {
+        let transfer = YmmTransfer { index, length };
+        transfer.validate()?;
+        if read {
+            Action::YmmRead(transfer)
+        } else {
+            Action::YmmWrite(transfer)
+        }
+    } else {
+        let transfer = XmmTransfer {
+            index,
+            size,
+            length,
+        };
+        transfer.validate()?;
+        if read {
             Action::XmmRead {
                 input: transfer,
                 zero_upper,
             }
         } else {
             Action::XmmWrite(transfer)
-        },
+        }
+    };
+    Ok(Plan {
+        physical: record.physical,
+        linear: record.linear,
+        length,
+        action,
     })
 }
 
@@ -514,8 +560,8 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if let Some(plan) = string::prepare(context, memory, record, &instruction, &encoded, read)? {
         return Ok(plan);
     }
-    if let Some(operation) = XmmMove::for_mnemonic(&instruction.mnemonic) {
-        return prepare_xmm(context, memory, record, &instruction, read, operation);
+    if let Some(operation) = VectorMove::for_mnemonic(&instruction.mnemonic) {
+        return prepare_vector(context, memory, record, &instruction, read, operation);
     }
     if matches!(instruction.mnemonic.as_str(), "div" | "idiv") {
         return divide::prepare(context, memory, record, &instruction);
@@ -707,6 +753,9 @@ pub(crate) trait CompletionAccess {
     fn write_xmm(&mut self, _index: u8, _value: [u8; 16], _zero_upper: bool) -> Result<(), String> {
         Err("MMIO host cannot write an XMM register".into())
     }
+    fn write_ymm(&mut self, _index: u8, _value: [u8; 32]) -> Result<(), String> {
+        Err("MMIO host cannot write a YMM register".into())
+    }
     fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error>;
     fn finish_string_iteration(&mut self) -> Result<(), String> {
         Err("MMIO host cannot finish a partial string instruction".into())
@@ -730,6 +779,11 @@ enum Effect {
         zero_upper: bool,
         length: u64,
     },
+    Ymm {
+        index: u8,
+        value: [u8; 32],
+        length: u64,
+    },
     StringLoad {
         accumulator: u64,
         updates: string::GprWrites,
@@ -751,6 +805,7 @@ enum Pending {
     StringLoad(StringLoad),
     // Appending preserves both legacy XMM and string-load records.
     VexXmm(XmmTransfer),
+    Ymm(YmmTransfer),
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
@@ -782,6 +837,7 @@ impl InputState {
             Pending::Divide { input, .. } => (input.size, None),
             Pending::Rmw(input) => (input.size, Some(input.operation)),
             Pending::Xmm(input) | Pending::VexXmm(input) => (input.size, None),
+            Pending::Ymm(_) => (YMM_BYTES, None),
         })
     }
     pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {
@@ -798,6 +854,7 @@ impl InputState {
             Some(Pending::StringLoad(input)) => input.validate()?,
             Some(Pending::AluRead(input)) => input.validate()?,
             Some(Pending::Xmm(input) | Pending::VexXmm(input)) => input.validate()?,
+            Some(Pending::Ymm(input)) => input.validate()?,
             Some(Pending::Divide { input, data_causes }) => {
                 Self::validate_divide(input, *data_causes)?;
             }
@@ -869,6 +926,12 @@ impl InputState {
         });
         Ok(())
     }
+    pub(crate) fn begin_ymm(&mut self, input: YmmTransfer) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        input.validate()?;
+        self.pending = Some(Pending::Ymm(input));
+        Ok(())
+    }
     fn validate_divide(input: &DivideInput, data_causes: u64) -> Result<(), String> {
         input.validate()?;
         // Pending-debug B0–B3 plus the enabled-breakpoint bit. Every
@@ -926,6 +989,19 @@ impl InputState {
                     length: transfer.length,
                 })
             }
+            Pending::Ymm(transfer) => data
+                .try_into()
+                .map(|value| Effect::Ymm {
+                    index: transfer.index,
+                    value,
+                    length: transfer.length,
+                })
+                .map_err(|_| {
+                    format!(
+                        "HVF MMIO YMM input expected {YMM_BYTES} bytes, received {}",
+                        data.len()
+                    )
+                }),
         };
         let completion = match computed {
             Ok(v) => v,
@@ -965,6 +1041,16 @@ impl InputState {
                     length,
                 } => {
                     host.write_xmm(index, value, zero_upper)?;
+                    return host
+                        .finish_instruction(length)
+                        .map_err(|error| error.to_string());
+                }
+                Effect::Ymm {
+                    index,
+                    value,
+                    length,
+                } => {
+                    host.write_ymm(index, value)?;
                     return host
                         .finish_instruction(length)
                         .map_err(|error| error.to_string());

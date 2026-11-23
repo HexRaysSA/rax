@@ -1,4 +1,4 @@
-//! Native SSE, SSE2 and AVX XMM memory transfers, alignment faults and source-free continuation.
+//! Native SSE, SSE2 and AVX vector memory transfers, alignment faults and source-free continuation.
 use super::*;
 
 fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
@@ -32,7 +32,11 @@ fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
 
 pub(super) fn run(output: &Path, vex: bool) {
     const REPLY: u128 = 0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211;
+    const HIGH_REPLY: u128 = 0x99aa_2233_4567_dead_babe_1111_7777_cafe;
     const FLAGS: u64 = 0x8d7;
+    let mut reply = [0; 32];
+    reply[..16].copy_from_slice(&REPLY.to_le_bytes());
+    reply[16..].copy_from_slice(&HIGH_REPLY.to_le_bytes());
     assert!(!output.exists(), "observations must be new");
     let mut case = 0;
     let profile = if vex { "vex-xmm" } else { "legacy-xmm" };
@@ -197,6 +201,34 @@ pub(super) fn run(output: &Path, vex: bool) {
             ),
         ]
     };
+    // Each pair uses a VEX2 load into YMM15 and a VEX3 store from YMM0.
+    // The 32-byte aligned forms address [RDI], while unaligned forms use [RDI+3].
+    let ymm_cases = [
+        (2, 0x6f, 0x7f, false, "ymm-dqu-"),
+        (1, 0x6f, 0x7f, true, "ymm-dqa-"),
+        (0, 0x10, 0x11, false, "ymm-ups-"),
+        (1, 0x10, 0x11, false, "ymm-upd-"),
+        (0, 0x28, 0x29, true, "ymm-aps-"),
+        (1, 0x28, 0x29, true, "ymm-apd-"),
+    ];
+    let ymm_code = ymm_cases.map(|(prefix, read, write, aligned, _)| {
+        let load_rm = if aligned { 0x3f } else { 0x7f };
+        let store_rm = if aligned { 0x07 } else { 0x47 };
+        let load = [0xc5, 0x7c | prefix, read, load_rm, 3];
+        let store = [0xc4, 0xe1, 0xfc | prefix, write, store_rm, 3];
+        (load, store)
+    });
+    let ymm_transfers = || {
+        ymm_cases.iter().zip(&ymm_code).filter(|_| vex).flat_map(
+            |((_, _, _, aligned, name), (load, store))| {
+                let displacement = usize::from(!aligned);
+                [
+                    ((&load[..4 + displacement], 32, 15, true), *aligned, *name),
+                    ((&store[..5 + displacement], 32, 0, false), *aligned, *name),
+                ]
+            },
+        )
+    };
     let transfers = existing_cases
         .into_iter()
         .map(|entry| (entry, false, ""))
@@ -206,7 +238,8 @@ pub(super) fn run(output: &Path, vex: bool) {
                 .map(|entry| (entry, true, "aligned-")),
         )
         .chain(packed_cases)
-        .chain(scalar_cases);
+        .chain(scalar_cases)
+        .chain(ymm_transfers());
     for ((code, size, index, read), aligned, form) in transfers {
         for restore in [false, true] {
             let memory = guest_memory(code);
@@ -216,7 +249,7 @@ pub(super) fn run(output: &Path, vex: bool) {
             let mut initial = state(cpu.as_ref());
             initial.regs.rip = CODE;
             initial.regs.rax = SEED;
-            let address = if size == 16 && !aligned {
+            let address = if size >= 16 && !aligned {
                 MMIO + 3
             } else {
                 MMIO
@@ -232,9 +265,13 @@ pub(super) fn run(output: &Path, vex: bool) {
             initial.regs.rflags = FLAGS;
             let mut lanes = initial.regs.xmm;
             let mut upper = initial.regs.ymm_high;
-            let mut store = [0; 16];
-            store[..8].copy_from_slice(&lanes[index][0].to_le_bytes());
-            store[8..].copy_from_slice(&lanes[index][1].to_le_bytes());
+            let mut store = [0; 32];
+            for (bytes, value) in store
+                .chunks_exact_mut(8)
+                .zip(lanes[index].into_iter().chain(upper[index]))
+            {
+                bytes.copy_from_slice(&value.to_le_bytes());
+            }
             cpu.set_state(&CpuState::X86_64(initial)).unwrap();
 
             let pending = |cpu: &mut dyn VCpu| {
@@ -244,7 +281,7 @@ pub(super) fn run(output: &Path, vex: bool) {
                         if read && addr == address && usize::from(width) == size => {}
                     VcpuExit::MmioWrite { addr, ref data }
                         if !read && addr == address && data == &store[..size] => {}
-                    _ => panic!("unexpected XMM MMIO exit for {code:02x?}: {exit:?}"),
+                    _ => panic!("unexpected vector MMIO exit for {code:02x?}: {exit:?}"),
                 }
                 assert!(cpu.get_state().is_err());
                 assert!(cpu.io_completion_result().is_err());
@@ -265,10 +302,12 @@ pub(super) fn run(output: &Path, vex: bool) {
             }
             let mask = u64::MAX >> (64 - 8 * size.min(8));
             let value = if read {
-                cpu.complete_io_in(&REPLY.to_le_bytes()[..size]);
-                let upper_reply = if size == 16 { (REPLY >> 64) as u64 } else { 0 };
-                lanes[index] = [REPLY as u64 & mask, upper_reply];
-                if vex {
+                cpu.complete_io_in(&reply[..size]);
+                let high_xmm = if size >= 16 { (REPLY >> 64) as u64 } else { 0 };
+                lanes[index] = [REPLY as u64 & mask, high_xmm];
+                if size == 32 {
+                    upper[index] = [HIGH_REPLY as u64, (HIGH_REPLY >> 64) as u64];
+                } else if vex {
                     upper[index] = [0; 2];
                 }
                 REPLY as u64 & mask
@@ -306,10 +345,13 @@ pub(super) fn run(output: &Path, vex: bool) {
     let faults = aligned_cases.into_iter().map(|entry| (entry, "")).chain(
         packed_cases
             .into_iter()
+            .chain(ymm_transfers())
             .filter_map(|(entry, aligned, name)| aligned.then_some((entry, name))),
     );
     for ((code, size, _, read), form) in faults {
-        let fault_pc = alignment_fault(code, vex);
+        // Offset 16 remains aligned for XMM moves but faults for aligned YMM moves.
+        let offset = if size == 32 { 16 } else { 3 };
+        let fault_pc = alignment_fault(code, vex, offset);
         let direction = if read { "read" } else { "write" };
         record(
             output,
@@ -323,7 +365,7 @@ pub(super) fn run(output: &Path, vex: bool) {
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
-fn alignment_fault(code: &[u8], vex: bool) -> u64 {
+fn alignment_fault(code: &[u8], vex: bool, offset: u64) -> u64 {
     const OBSERVATIONS: u64 = 0xa000;
     const HANDLER: u64 = 0xb000;
     const IDT: u64 = 0xc000;
@@ -343,7 +385,7 @@ fn alignment_fault(code: &[u8], vex: bool) -> u64 {
     }
     let mut input = state(cpu.as_ref());
     input.regs.rip = CODE;
-    input.regs.rdi = MMIO + 3;
+    input.regs.rdi = MMIO + offset;
     input.regs.rflags = 0x8d7;
     input.regs.xmm = std::array::from_fn(|lane| [SEED + lane as u64, MARKER ^ lane as u64]);
     if vex {
