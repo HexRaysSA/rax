@@ -63,6 +63,32 @@ fn apphelp_executable_process_replays_all_stock_native_records() {
 }
 
 #[test]
+fn apphelp_executable_process_returns_the_captured_amd64_server_cmd_record() {
+    let mut cmd = observations()
+        .into_iter()
+        .find(|row| row.image == "cmd.exe")
+        .unwrap();
+    let expected = [2, 0, 8, 8, 0, 0, 4, 8, 0, 0, 16, 8, 0, 0, 1, 0];
+    for build in [20348, 26100] {
+        for flags in [0x30, 0x34] {
+            let (mut process, mut thread) = fixture(WinArch::X64, "NtApphelpCacheControl", SERVICE);
+            let p = process.state_mut();
+            super::super::native_profile::kernel_profile(p, build, WinArch::X64.machine());
+            p.registry = creator_compat_layer_fixture(None);
+            let input = scratch(p);
+            cmd.flags = flags;
+            let (_, output) = prepare(p, input, &cmd);
+            assert_eq!(call(p, &mut thread, 11, input), STATUS_SUCCESS);
+            assert_eq!(p.space.u32(input + 0x180).unwrap(), 64);
+            for (word, value) in expected.into_iter().enumerate() {
+                assert_eq!(p.space.u32(output + word as u64 * 4).unwrap(), value);
+            }
+            assert_eq!(p.space.u8(output + 64).unwrap(), 0xa5);
+        }
+    }
+}
+
+#[test]
 fn apphelp_executable_process_preserves_the_output_for_an_override_or_unknown_image() {
     let cmd = observations()
         .into_iter()

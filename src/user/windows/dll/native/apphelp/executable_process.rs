@@ -24,17 +24,21 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     } else {
         (NATIVE_PACKET_BYTES, 0x30, 0x38, 0x178, 0x180)
     };
+    let arch = c.arch();
     let native =
         c.p.native
             .as_ref()
             .filter(|native| {
-                (wow || c.arch() == WinArch::Arm64)
-                    && native.object_namespace.native_machine == Some(0xaa64)
-                    && (
-                        native.version.major,
-                        native.version.minor,
-                        native.version.build,
-                    ) == (10, 0, 29708)
+                (native.version.major, native.version.minor) == (10, 0)
+                    && matches!(
+                        (
+                            arch,
+                            native.object_namespace.native_machine,
+                            native.version.build
+                        ),
+                        (WinArch::X86 | WinArch::Arm64, Some(0xaa64), 29708)
+                            | (WinArch::X64, Some(0x8664), 20348 | 26100)
+                    )
             })
             .ok_or_else(|| c.unsupported("AppHelp executable-cache profile is not captured"));
     let mut packet = [0; NATIVE_PACKET_BYTES];
@@ -57,8 +61,16 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let native = native?;
     let input = c.ptr(1)?;
     c.mem().rd(input, &mut packet[..packet_bytes])?;
+    let flags = number(&packet, 4);
+    let supported_flags = if arch == WinArch::X64 {
+        // Hosted Server CMD supplied 0x30. Closed CMD reached the same
+        // installed lookup with bit 2 set.
+        matches!(flags, 0x30 | 0x34)
+    } else {
+        matches!(flags, 0x10 | 0x30)
+    };
     if number(&packet, 0) != 0x1f
-        || !matches!(number(&packet, 4), 0x10 | 0x30)
+        || !supported_flags
         || number(&packet, output_size_at) != INITIAL_CAPACITY
     {
         return Err(
@@ -118,15 +130,20 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
                     .all(|view| c.p.registry.creator_compat_layer_absent(&units, view))
             })
     } else {
-        [
-            "cmd.exe",
-            "where.exe",
-            "findstr.exe",
-            "sort.exe",
-            "find.exe",
-        ]
-        .iter()
-        .any(|image| path.eq_ignore_ascii_case(&format!("{directory}\\{image}")))
+        let images: &[_] = if arch == WinArch::X64 {
+            &["cmd.exe"]
+        } else {
+            &[
+                "cmd.exe",
+                "where.exe",
+                "findstr.exe",
+                "sort.exe",
+                "find.exe",
+            ]
+        };
+        images
+            .iter()
+            .any(|image| path.eq_ignore_ascii_case(&format!("{directory}\\{image}")))
             && c.p
                 .registry
                 .creator_compat_layer_absent(&name, RegistryView::Native64)
