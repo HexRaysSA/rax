@@ -56,7 +56,7 @@ fn win32u_installed_gdi_init_leaf_requires_gui_prerequisites_without_state_chang
                 assert_eq!(p.space.u64(p.peb + 0x58).unwrap(), 0);
                 "USER callback table is absent or unreadable".to_owned()
             }
-            crate::user::windows::gui::Availability::Wow64Companion(_) => {
+            crate::user::windows::gui::Availability::Wow64Companion(..) => {
                 assert_eq!(arch, WinArch::X86);
                 "WoW64 GUI requires the selected USER startup connection".to_owned()
             }

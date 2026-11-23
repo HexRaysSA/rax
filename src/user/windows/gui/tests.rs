@@ -61,20 +61,20 @@ fn fixture_with_client_flags(arch: WinArch, flags: u64) -> io::Result<Arc<Inputs
 }
 
 pub(crate) fn wow64_companion_fixture() -> Arc<Inputs> {
-    let inputs = wow64_companion_inputs(0x34000);
-    inputs.qualify_wow64_companion().unwrap();
+    let inputs = wow64_companion_inputs(WinArch::Arm64, 0x34000);
+    inputs.qualify_wow64_companion(WinArch::Arm64).unwrap();
     inputs
 }
 
-fn wow64_companion_inputs(committed: u64) -> Arc<Inputs> {
-    let fixture = fixture(WinArch::Arm64);
+fn wow64_companion_inputs(arch: WinArch, committed: u64) -> Arc<Inputs> {
+    let fixture = fixture(arch);
     let mut client = fixture.client;
     let base = 0x1_0100_0000;
     for index in [4, 5, 12] {
         client[index] = base + (client[index] - fixture.desktop.base);
     }
     Inputs::selected(
-        WinArch::Arm64,
+        arch,
         View {
             base: 0x1_0000_0000,
             section: fixture.gdi.section.clone(),
@@ -109,9 +109,16 @@ fn wow64_companion_inputs(committed: u64) -> Arc<Inputs> {
 
 #[test]
 fn wow64_companion_gui_uses_the_captured_desktop_commit_boundary() {
-    for committed in [0x34000, 0x54000, 0x55000, 0x56000] {
-        let inputs = wow64_companion_inputs(committed);
-        inputs.qualify_wow64_companion().unwrap();
+    for (arch, committed) in [
+        (WinArch::X64, 0x21000),
+        (WinArch::Arm64, 0x33000),
+        (WinArch::Arm64, 0x34000),
+        (WinArch::Arm64, 0x54000),
+        (WinArch::Arm64, 0x55000),
+        (WinArch::Arm64, 0x56000),
+    ] {
+        let inputs = wow64_companion_inputs(arch, committed);
+        inputs.qualify_wow64_companion(arch).unwrap();
         let mut vm = memory();
         let mut state = State::new((6, 0));
         let (gdi, client) = state

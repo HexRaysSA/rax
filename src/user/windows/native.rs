@@ -18,6 +18,7 @@ mod image;
 pub(crate) mod processor_power;
 mod secure_boot_policy;
 mod system;
+mod wow64_gui;
 pub(crate) use image::{SELECTED_CHILD_EXECUTABLES, SelectedImage, selected_child_executable};
 pub(crate) use system::{SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2, SupportedArchitectures};
 
@@ -316,23 +317,24 @@ impl NativeRuntime {
             };
             return Availability::select(arch, user, win32u, Some(gdi32));
         }
-        if arch != WinArch::X86
-            || session != 1
-            || self.object_namespace.native_machine != Some(WinArch::Arm64.machine())
-            || (self.version.major, self.version.minor, self.version.build) != (10, 0, 29708)
-        {
+        let Some(profile) = wow64_gui::Profile::select(
+            arch,
+            self.object_namespace.native_machine,
+            &self.version,
+            session,
+        ) else {
             return Availability::select(arch, user, win32u, None);
-        }
-        let (user, win32u) = match wow64_gui_libraries(&user, &win32u, native_directory) {
+        };
+        let (user, win32u) = match profile.libraries(&user, &win32u, native_directory) {
             Ok(pair) => pair,
             Err(error) => return Availability::Unavailable(error.to_string()),
         };
-        let availability = Availability::select(WinArch::Arm64, user, win32u, None);
+        let availability = Availability::select(profile.native_arch, user, win32u, None);
         let Availability::Available(inputs) = availability else {
             return availability;
         };
-        match inputs.qualify_wow64_companion() {
-            Ok(()) => Availability::Wow64Companion(inputs),
+        match inputs.qualify_wow64_companion(profile.native_arch) {
+            Ok(()) => Availability::Wow64Companion(inputs, profile.gdi),
             Err(error) => Availability::Unavailable(error.to_string()),
         }
     }
@@ -360,54 +362,6 @@ impl NativeRuntime {
         }
         Ok(Some((path, canonical)))
     }
-}
-
-fn wow64_gui_libraries(
-    wow_user: &Path,
-    wow_win32u: &Path,
-    directory: &Path,
-) -> io::Result<(PathBuf, PathBuf)> {
-    use sha2::{Digest, Sha256};
-
-    // The pair is tied to the measured 29708 ARM64 and SysWOW64 libraries.
-    // Resolve companion DLLs within the same installed native directory that
-    // supplied the API set; never consult the guest working directory.
-    fn selected(path: &Path, hash: &str) -> io::Result<()> {
-        if format!("{:x}", Sha256::digest(read_image(path)?)) != hash {
-            return Err(invalid(
-                "WoW64 GUI paired contexts require the measured installed images",
-            ));
-        }
-        Ok(())
-    }
-    let user = directory.join("user32.dll").canonicalize()?;
-    let win32u = directory.join("win32u.dll").canonicalize()?;
-    if !user.starts_with(directory) || !win32u.starts_with(directory) {
-        return Err(invalid(
-            "WoW64 GUI companion DLL escapes the native directory",
-        ));
-    }
-    for (path, hash) in [
-        (
-            wow_user,
-            "0a3c3525232a4309340c4f3012697d1ba543484e66277dca9e5544e2bdabc443",
-        ),
-        (
-            wow_win32u,
-            "e9144fb081b9377c670c71eba451a804f987e325bced93a1589533b78a80a528",
-        ),
-        (
-            &user,
-            "55f65842f48d0bb35bd293cc7dc3826a86fc7d39af754575a05d66397932083d",
-        ),
-        (
-            &win32u,
-            "663353eea03927cae7e882b24fd776e81ecf4072ba4a30e933628342f09eee07",
-        ),
-    ] {
-        selected(path, hash)?;
-    }
-    Ok((user, win32u))
 }
 
 #[cfg(not(windows))]

@@ -1,7 +1,7 @@
 //! Win32k conversion and thread-owned kernel-to-user callback continuations.
 use super::*;
 use crate::error::MemoryAccessKind;
-use crate::user::windows::gui::{Availability, Callback, Completion};
+use crate::user::windows::gui::{Availability, Callback, Completion, Wow64Gdi};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
 use crate::user::windows::nt::status::{
@@ -46,8 +46,8 @@ pub(super) fn initialize(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    if let Some(inputs) = wow64_inputs(p, wow64) {
-        return initialize_wow64(p, t, sp, resume, inputs, None);
+    if let Some((inputs, gdi)) = wow64_inputs(p, wow64) {
+        return initialize_wow64(p, t, sp, resume, inputs, gdi, None);
     }
     convert(p, t, sp, resume, wow64, None)
 }
@@ -70,12 +70,15 @@ pub(super) fn initialize_legacy(
     convert(p, t, sp, resume, false, Some(Completion::Value(1)))
 }
 
-fn wow64_inputs(p: &Proc, wow64: bool) -> Option<Arc<crate::user::windows::gui::Inputs>> {
+fn wow64_inputs(
+    p: &Proc,
+    wow64: bool,
+) -> Option<(Arc<crate::user::windows::gui::Inputs>, Wow64Gdi)> {
     if p.arch == WinArch::X86
         && wow64
-        && let Availability::Wow64Companion(inputs) = &p.native.as_ref()?.gui
+        && let Availability::Wow64Companion(inputs, gdi) = &p.native.as_ref()?.gui
     {
-        Some(inputs.clone())
+        Some((inputs.clone(), *gdi))
     } else {
         None
     }
@@ -87,6 +90,7 @@ fn initialize_wow64(
     sp: u64,
     resume: u64,
     inputs: Arc<crate::user::windows::gui::Inputs>,
+    profile: Wow64Gdi,
     result: Option<u32>,
 ) -> Outcome {
     let Some((state, teb)) = p.wow64.as_ref().zip(t.teb_allocation.companion()) else {
@@ -134,7 +138,7 @@ fn initialize_wow64(
     let value = p
         .gui
         .value
-        .unwrap_or_else(|| u64::from(p.random() as u32 | 0x8000_0000));
+        .unwrap_or_else(|| u64::from(profile.process_value(p.random() as u32)));
     if first {
         let mut client_bytes = [0; 160];
         for (word, bytes) in client.iter().zip(client_bytes.chunks_exact_mut(8)) {
@@ -166,9 +170,9 @@ pub(super) fn remote_connect_state(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    if let Some(inputs) = wow64_inputs(p, wow64) {
+    if let Some((inputs, gdi)) = wow64_inputs(p, wow64) {
         let value = inputs.remote_connect_state;
-        return initialize_wow64(p, t, sp, resume, inputs, Some(value));
+        return initialize_wow64(p, t, sp, resume, inputs, gdi, Some(value));
     }
     let value = match p.native.as_ref().map(|runtime| &runtime.gui) {
         Some(Availability::Available(inputs)) if inputs.arch == p.arch => {
@@ -196,11 +200,11 @@ pub(super) fn process_dpi(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    if let Some(inputs) = wow64_inputs(p, wow64) {
+    if let Some((inputs, gdi)) = wow64_inputs(p, wow64) {
         let Some(dpi) = inputs.process_dpi else {
             return failure("selected Win32u has no usable process DPI query");
         };
-        return initialize_wow64(p, t, sp, resume, inputs, Some(dpi.get()));
+        return initialize_wow64(p, t, sp, resume, inputs, gdi, Some(dpi.get()));
     }
     let dpi = match p.native.as_ref().map(|runtime| &runtime.gui) {
         Some(Availability::Available(inputs)) if inputs.arch == p.arch => inputs.process_dpi,
