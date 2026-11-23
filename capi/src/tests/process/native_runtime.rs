@@ -259,7 +259,7 @@ fn installed_darwin_job_control_matches_native_through_closed_c_abi() {
     assert_eq!(state["capabilities"]["native_runtime"], true);
     assert_eq!(state["capabilities"]["host_filesystem"], false);
     assert_eq!(state["capabilities"]["host_services"], false);
-    let status = run_installed_posix_with_turn_limit(&process, guest_path, 32_768);
+    let status = run_installed_posix_with_turn_limit(&process, guest_path, 65_536);
     let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
     let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
     assert_eq!(status.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));

@@ -150,7 +150,7 @@ pub(super) fn fork(ctx: &mut Ctx<'_>) -> SysResult {
         bridge: crate::user::darwin::bridge::Bridge::isolated(),
         codesign: parent.codesign.clone(),
     };
-    ctx.proc.enqueue_child(child);
+    ctx.proc.enqueue_child(child, false);
     Ok(Rv(pid as u64, 0))
 }
 

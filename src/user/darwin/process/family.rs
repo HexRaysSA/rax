@@ -381,6 +381,20 @@ impl Member {
         );
     }
 
+    pub(super) fn suspend_startup(&mut self) {
+        self.stopped = true;
+        // START_SUSPENDED reports a stop with status zero, without sending
+        // SIGCHLD or waking a wait already blocked on a SETEXEC child.
+        self.registry.lock().unwrap().record_job(
+            self.pid,
+            Job::Stopped {
+                signal: 0,
+                waited: false,
+            },
+            None,
+        );
+    }
+
     pub(crate) fn resume_job(&mut self, uid: u32, sig: signal::Signal) {
         if !std::mem::take(&mut self.stopped) {
             return;

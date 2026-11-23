@@ -688,7 +688,7 @@ pub fn posix_spawn(
     let pgroup = (a.flags & flag::SETPGROUP != 0).then_some(a.pgroup);
     let setsid = a.flags & flag::SETSID != 0;
     let closed = ctx.proc.vfs.is_closed();
-    if closed && (suspend || (setexec && (pgroup.is_some() || setsid))) {
+    if closed && setexec && (pgroup.is_some() || setsid) {
         return Err(Errno::ENOTSUP);
     }
     if !setexec && attrs.is_some() && desc.coal_info != 0 {
@@ -806,7 +806,7 @@ pub fn posix_spawn(
     let new = build(ctx.proc, act, strings, carried).map_err(|e| build_errno(&e))?;
     if new.family.is_some() {
         let pid = new.pid;
-        ctx.proc.enqueue_child(new);
+        ctx.proc.enqueue_child(new, suspend);
         if pid_addr != 0 {
             let _ = ctx.write_u32(pid_addr, pid as u32);
         }

@@ -524,12 +524,12 @@ pub struct Proc {
 }
 
 impl Proc {
-    pub(crate) fn enqueue_child(&mut self, child: Proc) {
-        child
-            .family
-            .as_ref()
-            .expect("closed child")
-            .publish(self.pid, child.execed);
+    pub(crate) fn enqueue_child(&mut self, mut child: Proc, suspend: bool) {
+        let member = child.family.as_mut().expect("closed child");
+        member.publish(self.pid, child.execed);
+        if suspend {
+            member.suspend_startup();
+        }
         self.spawned.push(child);
     }
 
@@ -1015,8 +1015,12 @@ impl DarwinProcess {
         }
         if swap.suspend {
             // POSIX_SPAWN_START_SUSPENDED: stopped before it runs.
-            let tid = self.proc.threads.keys().next().copied().unwrap_or(0);
-            signal::stop(&mut self.proc, signal::SIGSTOP, tid);
+            if let Some(member) = &mut self.proc.family {
+                member.suspend_startup();
+            } else {
+                let tid = self.proc.threads.keys().next().copied().unwrap_or(0);
+                signal::stop(&mut self.proc, signal::SIGSTOP, tid);
+            }
         }
     }
 

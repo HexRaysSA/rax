@@ -540,6 +540,26 @@ jobs:
           arch -x86_64 /usr/bin/true
       - name: Native critical timer deadline observations
         run: python3 docs/specifications/darwin/native-timer-deadline/run.py
+      - name: Compare installed Darwin job control through the closed C API
+        shell: bash
+        run: |
+          scratch="$GITHUB_WORKSPACE/target/darwin-installed-job-control"
+          mkdir -p "$scratch/tmp"
+          export TMPDIR="$scratch/tmp" TMP="$scratch/tmp" TEMP="$scratch/tmp"
+          sdk="$(xcrun --sdk macosx --show-sdk-path)"
+          source=tests/fixtures/user/darwin/src/closed_job_control.c
+          for architecture in arm64 x86_64; do
+            executable="$scratch/job-control-$architecture"
+            xcrun --sdk macosx clang -isysroot "$sdk" -arch "$architecture" \
+              -Wall -Wextra -Werror "$source" -o "$executable"
+            guest_architecture="$architecture"
+            if [ "$architecture" = arm64 ]; then guest_architecture=aarch64; fi
+            RAX_DARWIN_INSTALLED_JOB_CONTROL="$executable" \
+              RAX_DARWIN_INSTALLED_JOB_CONTROL_ARCH="$guest_architecture" \
+              cargo test --locked --no-default-features --manifest-path capi/Cargo.toml --lib \
+                tests::process::native_runtime::installed_darwin_job_control_matches_native_through_closed_c_abi \
+                -- --ignored --exact --nocapture
+          done
       - name: cargo test (user_darwin, native oracle required)
         shell: bash
         env:

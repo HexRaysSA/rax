@@ -190,7 +190,52 @@ static void stop_and_continue(void) {
     close(release[1]);
 }
 
-static void executed_child(const char *image, int spawn) {
+enum exec_mode { FORK_EXEC, SPAWN, SPAWN_SUSPENDED, REPLACE_SUSPENDED };
+
+static volatile sig_atomic_t startup_sigchld;
+
+static void note_child_change(int signo) {
+    (void)signo;
+    startup_sigchld = 1;
+}
+
+static int spawn_with_flags(pid_t *pid, const char *image, char *const args[], short flags) {
+    posix_spawnattr_t attr;
+    int err = posix_spawnattr_init(&attr);
+    if (err != 0) {
+        return err;
+    }
+    err = posix_spawnattr_setflags(&attr, flags);
+    if (err == 0) {
+        err = posix_spawn(pid, image, NULL, &attr, args, environ);
+    }
+    posix_spawnattr_destroy(&attr);
+    return err;
+}
+
+static void check_start_suspended(pid_t child, int ready_fd) {
+    siginfo_t info = {0};
+    for (unsigned i = 0; i < 1000; ++i) {
+        check(waitid(P_PID, child, &info, WSTOPPED | WNOHANG | WNOWAIT) == 0,
+              "query startup stop");
+        if (info.si_pid != 0) {
+            break;
+        }
+        usleep(1000);
+    }
+    check(info.si_pid == child && info.si_signo == SIGCHLD && info.si_status == 0 &&
+          info.si_code == CLD_STOPPED, "startup stop report");
+    int status;
+    check(waitpid(child, &status, WUNTRACED | WNOHANG) == child &&
+          WIFSTOPPED(status) && WSTOPSIG(status) == 0, "consume startup stop");
+    struct pollfd ack = {.fd = ready_fd, .events = POLLIN};
+    check(poll(&ack, 1, 0) == 0, "suspended image must not run");
+    check(startup_sigchld == 0, "startup stop sends no signal");
+    check(kill(child, SIGCONT) == 0, "continue suspended image");
+    wait_job(child, WCONTINUED, SIGCONT, CLD_CONTINUED);
+}
+
+static void executed_child(const char *image, enum exec_mode mode) {
     int ready[2], release[2];
     check(pipe(ready) == 0 && pipe(release) == 0, "exec pipes");
     check(fcntl(ready[0], F_SETFD, FD_CLOEXEC) == 0, "close ready reader on exec");
@@ -198,10 +243,24 @@ static void executed_child(const char *image, int spawn) {
     char send_fd[16], recv_fd[16];
     snprintf(send_fd, sizeof(send_fd), "%d", ready[1]);
     snprintf(recv_fd, sizeof(recv_fd), "%d", release[0]);
-    char *const args[] = {(char *)image, "--ready", send_fd, recv_fd, NULL};
+    char *const args[] = {
+        (char *)image,
+        mode == REPLACE_SUSPENDED ? "--replace-suspended" : "--ready",
+        send_fd, recv_fd, NULL
+    };
+    const int suspend = mode == SPAWN_SUSPENDED || mode == REPLACE_SUSPENDED;
+    const short flags = mode == SPAWN_SUSPENDED ? POSIX_SPAWN_START_SUSPENDED : 0;
+    struct sigaction old_handler;
+    if (suspend) {
+        struct sigaction handler = {.sa_handler = note_child_change};
+        sigemptyset(&handler.sa_mask);
+        startup_sigchld = 0;
+        check(sigaction(SIGCHLD, &handler, &old_handler) == 0, "watch startup signals");
+    }
     pid_t child;
-    if (spawn) {
-        check(posix_spawn(&child, image, NULL, NULL, args, environ) == 0, "exec spawn");
+    if (mode != FORK_EXEC) {
+        errno = spawn_with_flags(&child, image, args, flags);
+        check(errno == 0, "exec spawn");
     } else {
         child = fork();
         check(child >= 0, "exec fork");
@@ -212,6 +271,14 @@ static void executed_child(const char *image, int spawn) {
     }
     close(ready[1]);
     close(release[0]);
+    if (mode == REPLACE_SUSPENDED) {
+        // Wait until the first image is about to request its own replacement.
+        receive_byte(ready[0]);
+    }
+    if (suspend) {
+        check_start_suspended(child, ready[0]);
+        check(sigaction(SIGCHLD, &old_handler, NULL) == 0, "restore SIGCHLD handler");
+    }
     receive_byte(ready[0]);
     check(setpgid(child, 0) == -1 && errno == EACCES, "post-exec setpgid");
     send_byte(release[1]);
@@ -221,6 +288,13 @@ static void executed_child(const char *image, int spawn) {
 }
 
 int main(int argc, char **argv) {
+    if (argc == 4 && strcmp(argv[1], "--replace-suspended") == 0) {
+        send_byte(atoi(argv[2]));
+        argv[1] = "--ready";
+        errno = spawn_with_flags(NULL, argv[0], argv,
+                                 POSIX_SPAWN_SETEXEC | POSIX_SPAWN_START_SUSPENDED);
+        check(0, "replace image suspended");
+    }
     if (argc == 4 && strcmp(argv[1], "--ready") == 0) {
         send_byte(atoi(argv[2]));
         receive_byte(atoi(argv[3]));
@@ -230,8 +304,10 @@ int main(int argc, char **argv) {
     session_change();
     group_signals();
     stop_and_continue();
-    executed_child(argv[0], 0);
-    executed_child(argv[0], 1);
+    executed_child(argv[0], FORK_EXEC);
+    executed_child(argv[0], SPAWN);
+    executed_child(argv[0], SPAWN_SUSPENDED);
+    executed_child(argv[0], REPLACE_SUSPENDED);
     puts("groups, sessions, signals, and post-exec rules match");
     return 0;
 }
