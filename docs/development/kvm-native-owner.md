@@ -50,6 +50,13 @@ access is unsafe and retains the guards for its borrow; its contract forbids
 escaping native run-buffer pointers or bypassing pending-completion invariants.
 Poisoned native ownership disables subsequent managed entry and state changes.
 
+The private deadline worker uses the Linux UAPI value of `SIGEV_THREAD_ID`
+because the Rust `libc` musl bindings omit the constant. Both libc profiles
+still use their own `sigevent` layout and `timer_create` interface. An x86-64
+Linux guest under QEMU exercised the musl path with `libc` 0.2.189. The worker
+received `SI_TIMER` and the caller timed out with `EAGAIN`.
+[Linux v6.8 UAPI](https://github.com/torvalds/linux/blob/v6.8/include/uapi/asm-generic/siginfo.h)
+
 Checkpoint capture settles represented PIO/MMIO through the originating CPU's
 actual device buses before taking writer/device/RAM locks. Native completion
 uses the owned worker's entry-only signal mask and immediate-exit control. A

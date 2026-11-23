@@ -19,6 +19,9 @@ use std::sync::{Arc, Mutex, mpsc};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+// Use Linux UAPI from include/uapi/asm-generic/siginfo.h for both glibc and musl.
+const SIGEV_THREAD_ID: libc::c_int = 4;
+
 /// Linux x86-64's kernel sigset is eight bytes, unlike libc's sigset_t.
 /// KVM_SET_SIGNAL_MASK encodes the four-byte flexible-array header's size.
 #[repr(C)]
@@ -148,7 +151,7 @@ impl Deadline {
         // identifies this live worker, which keeps the signal blocked outside
         // KVM_RUN; the timer never targets the caller or another CPU's worker.
         let mut event = unsafe { std::mem::zeroed::<libc::sigevent>() };
-        event.sigev_notify = libc::SIGEV_THREAD_ID;
+        event.sigev_notify = SIGEV_THREAD_ID;
         event.sigev_signo = signal;
         event.sigev_notify_thread_id = unsafe { libc::syscall(libc::SYS_gettid) } as libc::pid_t;
         let mut timer = std::ptr::null_mut();
