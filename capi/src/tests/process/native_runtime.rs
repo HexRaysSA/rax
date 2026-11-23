@@ -682,6 +682,14 @@ fn installed_cmd_null_device_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_cmd_child_matches_native_through_closed_c_abi() {
+    if std::env::var("RAX_TEST_WINDOWS_NTSTATUS").as_deref() == Ok("true") {
+        tracing_subscriber::fmt()
+            .with_env_filter("rax::windows::ntstatus=trace")
+            .without_time()
+            .with_ansi(false)
+            .try_init()
+            .expect("install guest NT service status trace");
+    }
     let system_cmd = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
         .join("System32")
         .join("cmd.exe");

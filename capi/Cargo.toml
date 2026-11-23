@@ -59,6 +59,9 @@ all = "allow"
 # C/C++ conformance tests are compiled and linked against the staticlib by the
 # integration harness in tests/, which shells out to the system C/C++ toolchain.
 
+[target.'cfg(windows)'.dev-dependencies]
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
 [package.metadata.capi]
 # Header and pkg-config metadata consumed by the bundled CMake/pkg-config
 # packaging. The canonical, hand-authored header lives at include/rax.h.

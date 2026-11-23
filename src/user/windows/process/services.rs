@@ -401,6 +401,7 @@ fn enter(
             wait::park(p, t, api, sp, resume, wow64_return, wait, then)
         }
         Ok(flow @ (Flow::Ret(Value::Int(status)) | Flow::Yield(Value::Int(status)))) => {
+            tracing::trace!(target: "rax::windows::ntstatus", pid = p.pid, service = name, status = %format_args!("{status:#010x}"), "guest service returned");
             write_value(&mut t.cpu, Value::Int(status));
             if wow64_return {
                 t.cpu.set_sp(sp);

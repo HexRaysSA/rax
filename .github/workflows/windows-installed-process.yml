@@ -30,6 +30,10 @@ on:
         description: Compare child process startup through installed cmd.exe
         type: boolean
         default: false
+      trace_installed_child:
+        description: Record guest NT service statuses during the installed child check
+        type: boolean
+        default: false
       measure_native_token_duplicate:
         description: Measure duplication of the test process's own token
         type: boolean
@@ -171,6 +175,7 @@ jobs:
         shell: pwsh
         env:
           RAX_TEST_TARGET: ${{ matrix.target }}
+          RAX_TEST_WINDOWS_NTSTATUS: ${{ github.event_name == 'workflow_dispatch' && inputs.trace_installed_child }}
         run: |
           $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
           $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
