@@ -131,6 +131,14 @@ pub fn permits(s: Sysno) -> bool {
             | S::Flistxattr
             | S::Getxattrat
             | S::Listxattrat
+            | S::Setxattr
+            | S::Lsetxattr
+            | S::Fsetxattr
+            | S::Removexattr
+            | S::Lremovexattr
+            | S::Fremovexattr
+            | S::Setxattrat
+            | S::Removexattrat
             | S::Brk
             | S::Mmap
             | S::Mmap2

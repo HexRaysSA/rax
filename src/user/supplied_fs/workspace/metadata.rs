@@ -105,8 +105,9 @@ impl Attributes {
         &self,
         need: u32,
         ids: (u32, u32),
+        groups: &[u32],
     ) -> Result<&super::Xattrs, Error> {
-        if ids.0 != 0 && !permitted(self.mode(), self.owner, need, ids, &[]) {
+        if ids.0 != 0 && !permitted(self.mode(), self.owner, need, ids, groups) {
             return Err(Error::AccessDenied);
         }
         Ok(&self.xattrs)

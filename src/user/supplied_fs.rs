@@ -17,7 +17,7 @@ use workspace::{Attributes, Node, Workspace};
 pub use workspace::{Directory as WorkspaceDirectory, WorkspaceFile};
 pub(in crate::user) use workspace::{
     MAX_XATTR_VALUE, SetTime as WorkspaceSetTime, SetXattr, TimeUpdate as WorkspaceTimeUpdate,
-    Timestamp as WorkspaceTimestamp, Timestamps as WorkspaceTimestamps,
+    Timestamp as WorkspaceTimestamp, Timestamps as WorkspaceTimestamps, Xattrs,
 };
 pub(super) use workspace::{Rename as WorkspaceRename, WorkspaceFlavor};
 
@@ -187,10 +187,11 @@ impl Entry {
         &self,
         need: u32,
         ids: (u32, u32),
+        groups: &[u32],
     ) -> Result<&workspace::Xattrs, Error> {
         self.workspace_attributes()
             .ok_or(Error::ReadOnly)?
-            .xattrs(need, ids)
+            .xattrs(need, ids, groups)
     }
 
     pub(super) fn workspace_xattrs_changed(&self) {

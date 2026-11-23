@@ -13,7 +13,9 @@
 //! other names (`EOPNOTSUPP`), `system.posix_acl_*` included. The
 //! attributes themselves live on the host object
 //! ([`fs::xattr`](super::super::fs::xattr)); the names a macOS host keeps
-//! for itself are not shown. Pipes, anonymous inodes, and synthesized
+//! for itself are not shown. Private workspace inodes keep their `user.*`
+//! attributes in memory, with the same name and value rules.
+//! Pipes, anonymous inodes, and synthesized
 //! `/proc` files have no attributes; a socket has `sockfs`'s
 //! `system.sockprotoname`, its protocol's name; a pidfd has `pidfs`'s
 //! `trusted.*` handler, whose attributes are not kept.
@@ -24,8 +26,11 @@ use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::user::supplied_fs::{Entry, Error as WorkspaceError, SetXattr, Xattrs};
+
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
+use super::super::abi::open::O_PATH;
 use super::super::abi::types::mode;
 use super::super::fs::anon::Anon;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
@@ -102,11 +107,28 @@ enum Node {
         mode: u32,
         uid: u32,
     },
+    /// An inode in the private workspace, including one held after unlink.
+    Workspace { entry: Entry, mode: u32 },
     /// An inode of a pseudo file system, with its type and permission bits.
     Pseudo(Pseudo, u32),
 }
 
 impl Node {
+    fn workspace(entry: &Entry) -> Option<Self> {
+        let permissions = entry.workspace_mode()?;
+        let kind = if entry.is_dir() {
+            mode::S_IFDIR
+        } else if entry.link_target().is_some() {
+            mode::S_IFLNK
+        } else {
+            mode::S_IFREG
+        };
+        Some(Self::Workspace {
+            entry: entry.clone(),
+            mode: kind | permissions,
+        })
+    }
+
     #[cfg(unix)]
     fn obj(&self) -> Option<Obj<'_>> {
         match self {
@@ -125,7 +147,7 @@ impl Node {
         match self {
             #[cfg(unix)]
             Node::Host { mode, .. } => *mode,
-            Node::Pseudo(_, mode) => *mode,
+            Node::Pseudo(_, mode) | Node::Workspace { mode, .. } => *mode,
         }
     }
 }
@@ -157,6 +179,15 @@ fn proto_name(s: &super::super::net::Socket) -> &'static str {
 /// The node of an open file; `by_fd` for `fdget`, which refuses `O_PATH`.
 fn file_node(file: Arc<OpenFile>, by_fd: bool) -> Result<Node, Errno> {
     let pseudo = |p, m| Ok(Node::Pseudo(p, m));
+    if let FileObject::Supplied(entry) = &file.object
+        && let Some(node) = Node::workspace(entry)
+    {
+        return if by_fd && file.flags() & O_PATH != 0 {
+            Err(Errno(EBADF))
+        } else {
+            Ok(node)
+        };
+    }
     if let Some(stat) = file.supplied_stat {
         return pseudo(Pseudo::Anon, stat.mode);
     }
@@ -236,14 +267,14 @@ fn lookup_path(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<Node
         }
         #[cfg(not(unix))]
         Target::Host { .. } => Err(Errno(EPERM)),
-        Target::Supplied(entry, _) => Ok(Node::Pseudo(
-            Pseudo::Anon,
-            if entry.is_dir() {
-                mode::S_IFDIR | 0o555
+        Target::Supplied(entry, _) => Ok(Node::workspace(&entry).unwrap_or_else(|| {
+            let kind = if entry.is_dir() {
+                mode::S_IFDIR
             } else {
-                mode::S_IFREG | 0o555
-            },
-        )),
+                mode::S_IFREG
+            };
+            Node::Pseudo(Pseudo::Anon, kind | 0o555)
+        })),
         Target::Fd(file) => file_node(file, false),
         Target::Proc(ProcEntry::Dir(_), _) => Ok(Node::Pseudo(Pseudo::Proc, mode::S_IFDIR | 0o555)),
         Target::Proc(ProcEntry::Link(_), _) => {
@@ -291,6 +322,8 @@ fn node_for_value(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<N
             }
             #[cfg(not(unix))]
             Target::Host { .. } => Err(Errno(EPERM)),
+            Target::Supplied(entry, _) => Ok(Node::workspace(&entry)
+                .unwrap_or(Node::Pseudo(Pseudo::Proc, mode::S_IFDIR | 0o555))),
             _ => Ok(Node::Pseudo(Pseudo::Proc, mode::S_IFDIR | 0o555)),
         };
     }
@@ -320,10 +353,24 @@ fn privileged(c: &Ctx<'_>) -> bool {
     c.p.creds.1 == 0
 }
 
+fn workspace_attrs<'a>(c: &Ctx<'_>, entry: &'a Entry, need: u32) -> Result<&'a Xattrs, Errno> {
+    Ok(entry.workspace_xattrs(need, (c.p.creds.1, c.p.creds.3), &c.p.groups)?)
+}
+
+fn workspace_xattr_errno(error: WorkspaceError) -> Errno {
+    match error {
+        WorkspaceError::NotFound => Errno(ENODATA),
+        other => other.into(),
+    }
+}
+
 /// `inode_permission` for reading or writing an inode the host cannot
 /// check for us.
 fn inode_permission(c: &Ctx<'_>, node: &Node, write: bool) -> Result<(), Errno> {
     match node {
+        Node::Workspace { entry, .. } => {
+            workspace_attrs(c, entry, if write { 2 } else { 4 }).map(|_| ())
+        }
         #[cfg(unix)]
         Node::Host { path, file, .. } => {
             let p = path
@@ -373,8 +420,18 @@ fn permission(c: &Ctx<'_>, node: &Node, name: &[u8], write: bool) -> Result<(), 
             {
                 return Err(Errno(EPERM));
             }
-            let pseudo = matches!(node, Node::Pseudo(..));
-            if pseudo {
+            if let Node::Workspace { entry, mode } = node
+                && t == mode::S_IFDIR
+                && mode & 0o1000 != 0
+                && write
+                && entry
+                    .workspace_owner()
+                    .is_some_and(|(uid, _)| uid != c.p.creds.1)
+                && !privileged(c)
+            {
+                return Err(Errno(EPERM));
+            }
+            if matches!(node, Node::Workspace { .. } | Node::Pseudo(..)) {
                 inode_permission(c, node, write)?;
             }
         }
@@ -392,6 +449,7 @@ fn permission(c: &Ctx<'_>, node: &Node, name: &[u8], write: bool) -> Result<(), 
 fn resolve_name(node: &Node, name: &[u8]) -> Result<(), Errno> {
     let (sp, rest) = space(name);
     let handled = match node {
+        Node::Workspace { .. } => sp == Space::User,
         #[cfg(unix)]
         Node::Host { .. } => matches!(sp, Space::User | Space::Trusted | Space::Security),
         Node::Pseudo(Pseudo::Socket(_), _) => {
@@ -409,6 +467,13 @@ fn resolve_name(node: &Node, name: &[u8]) -> Result<(), Errno> {
     // A prefix handler needs a suffix.
     if rest.is_empty() {
         return Err(Errno(EINVAL));
+    }
+    Ok(())
+}
+
+fn require_mutable_node(c: &Ctx<'_>, node: &Node) -> Result<(), Errno> {
+    if c.p.vfs.supplied().is_some() && !matches!(node, Node::Workspace { .. }) {
+        return Err(Errno(EPERM));
     }
     Ok(())
 }
@@ -467,12 +532,26 @@ pub(super) fn setxattr_copy(
 /// `do_setxattr` on a node: the name's handler and permission, then the
 /// value stored.
 fn set_node(c: &Ctx<'_>, node: &Node, name: &[u8], data: &[u8], flags: u32) -> SysResult {
+    require_mutable_node(c, node)?;
     if is_acl(name) {
         return Err(Errno(EOPNOTSUPP));
     }
     permission(c, node, name, true)?;
     resolve_name(node, name)?;
     match node {
+        Node::Workspace { entry, .. } => {
+            let rule = match flags {
+                1 => SetXattr::Create,
+                2 => SetXattr::Replace,
+                3 => SetXattr::CreateAndReplace,
+                _ => SetXattr::Upsert,
+            };
+            workspace_attrs(c, entry, 0)?
+                .set(name.to_vec(), Some(data.to_vec()), None, rule)
+                .map_err(workspace_xattr_errno)?;
+            entry.workspace_xattrs_changed();
+            Ok(0)
+        }
         #[cfg(unix)]
         Node::Host { .. } => {
             let o = node.obj().ok_or(Errno(EOPNOTSUPP))?;
@@ -526,6 +605,12 @@ fn get_node(c: &Ctx<'_>, node: &Node, name: &[u8], value: u64, size: u64) -> Sys
     // Without a security module, security.* is the file system's.
     resolve_name(node, name)?;
     let data = match node {
+        Node::Workspace { entry, .. } => {
+            let data = workspace_attrs(c, entry, 0)?
+                .get(name)
+                .map_err(workspace_xattr_errno)?;
+            return copy_value(c, &data, value, size);
+        }
         Node::Pseudo(Pseudo::Socket(proto), _) if name == b"system.sockprotoname" => {
             let mut v = proto.as_bytes().to_vec();
             v.push(0);
@@ -547,12 +632,16 @@ fn get_node(c: &Ctx<'_>, node: &Node, name: &[u8], value: u64, size: u64) -> Sys
         }
         _ => return Err(Errno(EOPNOTSUPP)),
     };
+    copy_value(c, &data, value, size)
+}
+
+fn copy_value(c: &Ctx<'_>, data: &[u8], value: u64, size: usize) -> SysResult {
     if size > 0 {
         if data.len() > size {
             return Err(Errno(ERANGE));
         }
         if !data.is_empty() {
-            c.write_mem(value, &data)?;
+            c.write_mem(value, data)?;
         }
     }
     Ok(data.len() as u64)
@@ -606,6 +695,7 @@ pub(super) fn filename_getxattr(
 fn names(c: &Ctx<'_>, node: &Node) -> Result<Vec<u8>, Errno> {
     let mut out = Vec::new();
     match node {
+        Node::Workspace { entry, .. } => return Ok(workspace_attrs(c, entry, 0)?.list()?),
         Node::Pseudo(Pseudo::Socket(_), _) => out.extend_from_slice(b"system.sockprotoname\0"),
         #[cfg(unix)]
         Node::Host { .. } => {
@@ -662,12 +752,20 @@ fn removexattr_at(c: &mut Ctx<'_>, dirfd: i32, path: u64, at_flags: u32, uname: 
     check_at_flags(at_flags)?;
     let name = import_name(c, uname)?;
     let node = node_for_name(c, dirfd, path, at_flags)?;
+    require_mutable_node(c, &node)?;
     if is_acl(&name) {
         return Err(Errno(EOPNOTSUPP));
     }
     permission(c, &node, &name, true)?;
     resolve_name(&node, &name)?;
     match node {
+        Node::Workspace { entry, .. } => {
+            workspace_attrs(c, &entry, 0)?
+                .remove(&name)
+                .map_err(workspace_xattr_errno)?;
+            entry.workspace_xattrs_changed();
+            Ok(0)
+        }
         #[cfg(unix)]
         Node::Host { .. } => {
             let o = node.obj().ok_or(Errno(EOPNOTSUPP))?;

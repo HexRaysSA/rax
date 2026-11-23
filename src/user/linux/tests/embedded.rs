@@ -493,11 +493,21 @@ fn closed_linux_xattrs_use_supplied_nodes_and_preserve_validation_all_abis() {
         let mut bytes = [0; 16];
         h.proc.space().read(output, &mut bytes).unwrap();
         assert_eq!(bytes, [0xa5; 16]);
-        // Host attribute mutation remains outside the closed profile, even
-        // with malformed pointers. The policy gate owns this ordering.
-        for syscall in [Sysno::Setxattr, Sysno::Fsetxattr, Sysno::Removexattr] {
-            assert_eq!(h.call(syscall, &[0; 6]), -(EPERM as i64));
-        }
+        // Supplied nodes remain immutable even though workspace mutations
+        // reach the shared handlers. Invalid pointers are validated first.
+        assert_eq!(
+            h.call(Sysno::Setxattr, &[path, 8, output, 1, 0]),
+            -(EFAULT as i64)
+        );
+        assert_eq!(
+            h.call(Sysno::Setxattr, &[path, name, output, 1, 0]),
+            -(EPERM as i64)
+        );
+        assert_eq!(
+            h.call(Sysno::Fsetxattr, &[fd, name, output, 1, 0]),
+            -(EPERM as i64)
+        );
+        assert_eq!(h.call(Sysno::Removexattr, &[path, name]), -(EPERM as i64));
     }
 }
 

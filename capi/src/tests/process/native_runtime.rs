@@ -940,6 +940,15 @@ fn installed_libc_workspace_xattr_values_match_native_through_closed_c_abi() {
     compare_installed_workspace_fixture(&binary, "closed_workspace_xattr_values", None);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "run with a locally built closed_linux_workspace_xattr.c fixture on a user-xattr filesystem"]
+fn installed_linux_workspace_xattrs_match_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_LINUX_INSTALLED_XATTR_CONTROL")
+        .expect("absolute path to the dynamically linked closed_linux_workspace_xattr fixture");
+    compare_installed_workspace_fixture(&binary, "closed_linux_workspace_xattr", None);
+}
+
 #[cfg(target_os = "macos")]
 #[test]
 #[ignore = "run with a locally built and ad hoc signed closed_csops_empty.c fixture"]

@@ -111,7 +111,7 @@ fn get(ctx: &Ctx<'_>, target: Target, args: &[u64; 8]) -> SysResult {
         return Err(Errno::EINVAL);
     }
     let value = entry
-        .workspace_xattrs(4, owner(ctx))
+        .workspace_xattrs(4, owner(ctx), &[])
         .and_then(|attrs| attrs.get(&name))
         .map_err(errno)?;
     if query {
@@ -138,7 +138,7 @@ fn set(ctx: &Ctx<'_>, target: Target, args: &[u64; 8]) -> SysResult {
         return Err(Errno::E2BIG);
     }
     let entry = target.resolve(ctx, options)?;
-    let attrs = entry.workspace_xattrs(2, owner(ctx)).map_err(errno)?;
+    let attrs = entry.workspace_xattrs(2, owner(ctx), &[]).map_err(errno)?;
     let rule = match options & (CREATE | REPLACE) {
         CREATE => SetXattr::Create,
         REPLACE => SetXattr::Replace,
@@ -178,7 +178,7 @@ fn remove(ctx: &Ctx<'_>, target: Target, name: u64, options: u32) -> SysResult {
     let name = attr_name(ctx, name)?;
     let entry = target.resolve(ctx, options)?;
     entry
-        .workspace_xattrs(2, owner(ctx))
+        .workspace_xattrs(2, owner(ctx), &[])
         .and_then(|attrs| attrs.remove(&name))
         .map_err(errno)?;
     entry.workspace_xattrs_changed();
@@ -189,7 +189,7 @@ fn list(ctx: &Ctx<'_>, target: Target, buffer: u64, size: u64, options: u32) -> 
     target.check_options(options)?;
     let entry = target.resolve(ctx, options)?;
     let names = entry
-        .workspace_xattrs(4, owner(ctx))
+        .workspace_xattrs(4, owner(ctx), &[])
         .and_then(|attrs| attrs.list())
         .map_err(errno)?;
     if buffer == 0 || size == 0 {

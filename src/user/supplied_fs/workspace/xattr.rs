@@ -10,6 +10,7 @@ pub(in crate::user) enum Set {
     Upsert,
     Create,
     Replace,
+    CreateAndReplace,
 }
 
 #[derive(Debug)]
@@ -55,8 +56,8 @@ impl Xattrs {
         let mut values = self.values.lock().map_err(|_| Error::Io)?;
         let old = values.get(&name);
         match (rule, old) {
-            (Set::Create, Some(_)) => return Err(Error::Exists),
-            (Set::Replace, None) => return Err(Error::NotFound),
+            (Set::Create | Set::CreateAndReplace, Some(_)) => return Err(Error::Exists),
+            (Set::Replace | Set::CreateAndReplace, None) => return Err(Error::NotFound),
             _ => {}
         }
         let Some(data) = data else {
