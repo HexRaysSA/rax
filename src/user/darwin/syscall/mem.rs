@@ -572,10 +572,7 @@ pub fn minherit(ctx: &mut Ctx<'_>, addr: u64, len: u64, inherit: i32) -> SysResu
     if ctx.proc.space.first_unmapped(addr, len).is_some() {
         return Err(Errno::ENOMEM);
     }
-    ctx.proc
-        .space
-        .set_flags(addr, len, 3 << 4, (inherit as u32) << 4)
-        .map_err(mm_errno)?;
+    VmFlags::set_inheritance(&ctx.proc.space, addr, len, inherit as u32).map_err(mm_errno)?;
     Ok(Rv::one(0))
 }
 

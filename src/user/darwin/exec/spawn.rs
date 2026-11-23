@@ -804,10 +804,9 @@ pub fn posix_spawn(
         return swap_or_kill(ctx, built);
     }
     let new = build(ctx.proc, act, strings, carried).map_err(|e| build_errno(&e))?;
-    if let Some(member) = &new.family {
+    if new.family.is_some() {
         let pid = new.pid;
-        member.publish(pid, ctx.proc.pid);
-        ctx.proc.spawned.push(new);
+        ctx.proc.enqueue_child(new);
         if pid_addr != 0 {
             let _ = ctx.write_u32(pid_addr, pid as u32);
         }

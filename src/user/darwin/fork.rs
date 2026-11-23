@@ -2,11 +2,9 @@
 //! `uthread_init`, `thread_set_child`; `osfmk/kern/ipc_tt.c`:
 //! `ipc_task_init`; `bsd/kern/kern_descrip.c`: `fdt_fork`).
 //!
-//! The emulated process is the host process, so a guest `fork` forks the
-//! host process: the child is a copy of the emulator with its guest,
-//! memory copied on write by the host (shared mappings stay shared, as
-//! their pages are host shared objects). The child then becomes what XNU
-//! makes of a forked process:
+//! The host-backed profile forks the host process. A closed session
+//! snapshots the guest address space and schedules the child locally.
+//! Both paths give the child XNU's fork state:
 //!
 //! - one thread, the caller's, with a new thread ID and control port, the
 //!   caller's signal mask (the one `sigsuspend` or `sigwait` would
@@ -28,20 +26,38 @@
 
 use crate::host::time::Instant;
 
+#[cfg(not(unix))]
+use super::abi::Errno;
 use super::arch::{Rv, SysResult};
 use super::mach::ipc::{IpcSpace, KObject, Port, Right};
 use super::mach::task::{TaskState, ThreadMach, special};
 use super::process::Proc;
-use super::signal::{self, ThreadSig};
+use super::signal::ThreadSig;
 use super::syscall::Ctx;
 use super::syscall::bsd::pthread::tag;
+
+mod closed;
 
 /// `VM_INHERIT_NONE`.
 const VM_INHERIT_NONE: u32 = 2;
 
 /// `fork()`.
-#[cfg(unix)]
 pub fn fork(ctx: &mut Ctx<'_>) -> SysResult {
+    if ctx.proc.family.is_some() {
+        return closed::fork(ctx);
+    }
+    #[cfg(unix)]
+    {
+        host_fork(ctx)
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno::ENOTSUP)
+    }
+}
+
+#[cfg(unix)]
+fn host_fork(ctx: &mut Ctx<'_>) -> SysResult {
     let parent = ctx.proc.pid;
     let links = super::syscall::bsd::ptrace::ForkPair::prepare()?;
     links.set_parent_credentials((ctx.proc.creds.0, ctx.proc.creds.1));

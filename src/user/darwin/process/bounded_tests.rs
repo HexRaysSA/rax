@@ -1065,7 +1065,7 @@ fn embedded_process_runs_with_virtual_identity_and_denies_host_syscalls() {
         };
         assert_eq!(bsd::call(&mut ctx, nr::GETPID, &[0; 8]), Ok(Rv::one(1000)));
         assert_eq!(bsd::call(&mut ctx, nr::GETPPID, &[0; 8]), Ok(Rv::one(0)));
-        for number in [nr::FORK, nr::PTRACE, nr::SOCKET] {
+        for number in [nr::PTRACE, nr::SOCKET] {
             assert_eq!(
                 bsd::call(&mut ctx, number, &[u64::MAX; 8]),
                 Err(Errno::EPERM)

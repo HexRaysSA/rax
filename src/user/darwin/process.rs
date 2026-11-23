@@ -524,6 +524,15 @@ pub struct Proc {
 }
 
 impl Proc {
+    pub(crate) fn enqueue_child(&mut self, child: Proc) {
+        child
+            .family
+            .as_ref()
+            .expect("closed child")
+            .publish(child.pid, self.pid);
+        self.spawned.push(child);
+    }
+
     /// Every new thread receives the task's existing keys and enable policy.
     pub(crate) fn new_thread_cpu(&self) -> DarwinCpu {
         let mut cpu = DarwinCpu::new(self.abi, &self.space);

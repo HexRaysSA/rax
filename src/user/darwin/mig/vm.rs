@@ -549,11 +549,7 @@ fn inherit(ctx: &Ctx<'_>, addr: u64, size: u64, inh: u32) -> KernReturn {
     if ctx.proc.space.first_unmapped(lo, len).is_some() {
         return kr::KERN_INVALID_ADDRESS;
     }
-    match ctx
-        .proc
-        .space
-        .set_flags(lo, len, 0x30, VmFlags::new(0, inh, 0).bits() & 0x30)
-    {
+    match VmFlags::set_inheritance(&ctx.proc.space, lo, len, inh) {
         Ok(()) => kr::KERN_SUCCESS,
         Err(_) => kr::KERN_INVALID_ADDRESS,
     }

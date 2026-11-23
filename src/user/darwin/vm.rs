@@ -10,7 +10,7 @@
 //! first fit, bottom-up, from the map's allocation hint (just above the
 //! executable and `dyld`), below the maximum user address.
 
-use crate::user::mm::{AddressSpace, Perms};
+use crate::user::mm::{AddressSpace, MmError, Perms};
 
 /// `VM_PROT_NONE`.
 pub const VM_PROT_NONE: u32 = 0;
@@ -73,11 +73,14 @@ pub fn prot(perms: Perms) -> u32 {
 
 /// The Mach attributes a VMA carries in its personality flags: bits 0-2
 /// the maximum protection, bits 4-5 the inheritance, bits 8-15 the user
-/// tag, bit 16 set when the entry is part of the shared region.
+/// tag, bit 16 set when the entry is part of the shared region, and
+/// bit 17 set when the guest has explicitly changed the inheritance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VmFlags(u32);
 
 impl VmFlags {
+    const INHERITANCE_OVERRIDE: u32 = 1 << 17;
+
     /// Attributes with `max` protection, `inheritance`, and `tag`.
     pub fn new(max: u32, inheritance: u32, tag: u32) -> Self {
         VmFlags((max & VM_PROT_ALL) | ((inheritance & 3) << 4) | ((tag & 0xff) << 8))
@@ -111,6 +114,23 @@ impl VmFlags {
     /// Whether the entry belongs to the shared region.
     pub fn shared_region(self) -> bool {
         self.0 & (1 << 16) != 0
+    }
+
+    /// The dyld shared region is inherited as a shared submap on Darwin.
+    /// Writable data inside it belongs to each process, so RAX maps the
+    /// cache data privately. An explicit inheritance change takes precedence.
+    pub(super) fn default_shared_region_inheritance(self) -> bool {
+        self.shared_region() && self.0 & Self::INHERITANCE_OVERRIDE == 0
+    }
+
+    pub(super) fn set_inheritance(
+        space: &AddressSpace,
+        start: u64,
+        len: u64,
+        inheritance: u32,
+    ) -> Result<(), MmError> {
+        let bits = Self::new(0, inheritance, 0).bits() | Self::INHERITANCE_OVERRIDE;
+        space.set_flags(start, len, (3 << 4) | Self::INHERITANCE_OVERRIDE, bits)
     }
 
     /// These attributes marked as part of the shared region.

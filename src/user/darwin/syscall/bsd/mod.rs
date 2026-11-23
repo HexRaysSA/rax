@@ -128,7 +128,6 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
         nr::GUARDED_WRITEV_NP => guarded::writev(ctx, i(0), a[1], a[2], i(3)),
         nr::PTRACE => ptrace::ptrace(ctx, i(0), i(1), a[2], i(3)),
         nr::EXIT => proc::exit(ctx, i(0)),
-        #[cfg(unix)]
         nr::FORK => crate::user::darwin::fork::fork(ctx),
         nr::WAIT4 | nr::WAIT4_NOCANCEL if ctx.proc.family.is_some() => {
             child_wait::wait4(ctx, i(0), a[1], i(2), a[3])
