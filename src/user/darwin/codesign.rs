@@ -79,6 +79,8 @@ pub mod cs {
     pub const DATAVAULT_CONTROLLER: u32 = 0x8000_0000;
 }
 
+const FALLBACK_FLAGS: u32 = cs::VALID | cs::ADHOC | cs::LINKER_SIGNED | cs::SIGNED;
+
 /// `CLEAR_LV_ENTITLEMENT`.
 const CLEAR_LV_ENTITLEMENT: &str = "com.apple.private.security.clear-library-validation";
 
@@ -117,7 +119,7 @@ impl Signature {
     /// host cannot tell.
     fn fallback() -> Self {
         Signature {
-            flags: cs::VALID | cs::ADHOC | cs::LINKER_SIGNED | cs::SIGNED,
+            flags: FALLBACK_FLAGS,
             cdhash: Err(Errno::ENOENT),
             cdhash_info: Err(Errno::EINVAL),
             pidoffset: 0,
@@ -310,6 +312,29 @@ fn shown_flags(flags: u32) -> u32 {
     }
 }
 
+fn copy_status(ctx: &mut Ctx<'_>, uaddr: u64, flags: u32) -> SysResult {
+    if uaddr != 0 {
+        ctx.write_u32(uaddr, shown_flags(flags))?;
+    }
+    Ok(Rv::one(0))
+}
+
+/// Read the current guest's signing flags without sampling a host image.
+pub(super) fn closed_status(ctx: &mut Ctx<'_>, pid: i32, op: u32, uaddr: u64) -> SysResult {
+    if op != ops::STATUS {
+        return Err(Errno::EPERM);
+    }
+    if pid != 0 && pid != ctx.proc.pid {
+        return Err(Errno::ESRCH);
+    }
+    let flags = ctx
+        .proc
+        .codesign
+        .as_ref()
+        .map_or(FALLBACK_FLAGS, |signing| signing.flags);
+    copy_status(ctx, uaddr, flags)
+}
+
 /// `csops(pid, ops, useraddr, usersize)`, and `csops_audittoken` with the
 /// audit token at `token`.
 pub fn csops(
@@ -375,14 +400,7 @@ pub fn csops(
     };
     let signed = flags & (cs::VALID | cs::DEBUGGED) != 0;
     match op {
-        ops::STATUS => {
-            // Library validation the kernel forced on is reported only as
-            // forced.
-            let shown = shown_flags(flags);
-            if uaddr != 0 {
-                ctx.write(uaddr, &shown.to_le_bytes())?;
-            }
-        }
+        ops::STATUS => return copy_status(ctx, uaddr, flags),
         ops::MARKINVALID => {
             if flags & cs::VALID != 0 {
                 let kill = flags & cs::KILL != 0;
@@ -763,6 +781,75 @@ mod tests {
                 Signature::fallback().flags
             );
             assert!(guest.proc.hidden.is_empty());
+        }
+    }
+
+    #[test]
+    fn closed_dispatcher_copies_self_status_without_host_observation() {
+        use crate::user::darwin::{
+            abi::{DarwinAbi, tables::nr},
+            process::bounded_tests::process,
+            syscall::bsd,
+        };
+
+        for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+            let mut guest = process(abi);
+            let pid = guest.proc.pid as u64;
+            let (_, mut thread) = guest.proc.threads.pop_first().unwrap();
+            let out = thread.cpu.sp() - 64;
+            let mut ctx = Ctx {
+                proc: &mut guest.proc,
+                thread: &mut thread,
+                nr: i64::from(nr::CSOPS),
+                pc: 0,
+            };
+            let args = |pid, op: u32, addr, size| [pid, op.into(), addr, size, 0, 0, 0, 0];
+            for (requested, size) in [(0, 0), (pid, 4)] {
+                ctx.write(out, &[0x5a; 8]).unwrap();
+                assert_eq!(
+                    bsd::call(
+                        &mut ctx,
+                        nr::CSOPS,
+                        &args(requested, ops::STATUS, out, size)
+                    ),
+                    Ok(Rv::one(0))
+                );
+                assert_eq!(ctx.read_u32(out).unwrap(), FALLBACK_FLAGS);
+                assert_eq!(ctx.read_u32(out + 4).unwrap(), 0x5a5a_5a5a);
+            }
+            for (number, request, expected) in [
+                (nr::CSOPS, args(0, ops::STATUS, 0, 8), Ok(Rv::one(0))),
+                (nr::CSOPS, args(0, ops::STATUS, 1, 4), Err(Errno::EFAULT)),
+                (
+                    nr::CSOPS,
+                    args(pid + 1, ops::STATUS, 1, 4),
+                    Err(Errno::ESRCH),
+                ),
+                (
+                    nr::CSOPS,
+                    args(0, ops::MARKRESTRICT, out, 4),
+                    Err(Errno::EPERM),
+                ),
+                (
+                    nr::CSOPS_AUDITTOKEN,
+                    args(0, ops::STATUS, out, 4),
+                    Err(Errno::EPERM),
+                ),
+            ] {
+                assert_eq!(bsd::call(&mut ctx, number, &request), expected, "{abi:?}");
+            }
+            assert!(ctx.proc.codesign.is_none());
+            let flags = cs::VALID | cs::FORCED_LV | cs::REQUIRE_LV;
+            ctx.proc.codesign = Some(CodeSign {
+                flags,
+                sig: Arc::new(Signature::fallback()),
+            });
+            assert_eq!(
+                bsd::call(&mut ctx, nr::CSOPS, &args(pid, ops::STATUS, out, 4)),
+                Ok(Rv::one(0))
+            );
+            assert_eq!(ctx.read_u32(out).unwrap(), cs::VALID | cs::FORCED_LV);
+            assert_eq!(ctx.proc.codesign.as_ref().unwrap().flags, flags);
         }
     }
 

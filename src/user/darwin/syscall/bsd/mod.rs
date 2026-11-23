@@ -95,6 +95,14 @@ const CANCELLATION_POINTS: &[u32] = &[
 pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
     if !ctx.proc.config.host_services {
         match number {
+            nr::CSOPS => {
+                return crate::user::darwin::codesign::closed_status(
+                    ctx,
+                    a[0] as i32,
+                    a[1] as u32,
+                    a[2],
+                );
+            }
             nr::PROC_INFO => return proc::closed_pidinfo(ctx, a, false),
             nr::PROC_INFO_EXTENDED_ID => return proc::closed_pidinfo(ctx, a, true),
             nr::SETPGID | nr::SETSID => {

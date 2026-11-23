@@ -437,10 +437,15 @@ fn installed_libc_spawn_matches_native_through_closed_c_abi() {
     assert_eq!(stderr, native.stderr);
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn installed_shell_pipeline_matches_native_through_closed_c_abi() {
-    let shell = "/bin/sh";
+    let (personality, shell, max_turns) = if cfg!(target_os = "macos") {
+        // Bash asks csops for its own image status during Darwin startup.
+        ("darwin", "/bin/bash", 131_072)
+    } else {
+        ("linux", "/bin/sh", 16_384)
+    };
     let arguments = [
         "-c",
         r"/usr/bin/printf 'pipeline:%s\n' installed-libc | /bin/cat",
@@ -456,7 +461,7 @@ fn installed_shell_pipeline_matches_native_through_closed_c_abi() {
     assert!(native.stderr.is_empty());
 
     let options = serde_json::json!({
-        "personality": "linux",
+        "personality": personality,
         "guest_path": shell,
         "arguments": arguments,
         "environment": {"LC_ALL": "C"},
@@ -493,7 +498,7 @@ fn installed_shell_pipeline_matches_native_through_closed_c_abi() {
     assert_eq!(start["capabilities"]["native_runtime"], true);
     assert_eq!(start["capabilities"]["host_filesystem"], false);
     assert_eq!(start["capabilities"]["host_services"], false);
-    let result = run_installed_posix(&process, shell);
+    let result = run_installed_posix_with_turn_limit(&process, shell, max_turns);
     let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
     let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
     assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
