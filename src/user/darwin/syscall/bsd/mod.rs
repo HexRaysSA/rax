@@ -13,6 +13,7 @@ pub mod attr;
 pub mod audit;
 mod child_wait;
 mod embedded_metadata;
+mod embedded_xattr;
 pub mod event;
 pub mod file;
 pub(crate) mod guarded;
@@ -111,6 +112,8 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                 }
                 nr::UTIMES => return embedded_metadata::utimes(ctx, None, a[0], a[1]),
                 nr::FUTIMES => return embedded_metadata::utimes(ctx, Some(i(0)), 0, a[1]),
+                nr::LISTXATTR => return embedded_xattr::list_path(ctx, a[0], u(3)),
+                nr::FLISTXATTR => return embedded_xattr::list_file(ctx, i(0), u(3)),
                 nr::SETATTRLIST => {
                     return embedded_metadata::setattrlist(
                         ctx,
