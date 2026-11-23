@@ -1,6 +1,5 @@
-//! The measured Windows ARM64 CSR exchange for a suspended guest child.
+//! Measured Windows CSR exchanges for a suspended guest child.
 use super::super::query::probe_write;
-use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
@@ -36,12 +35,10 @@ pub(super) fn register(
     message: &[u8],
 ) -> ApiResult {
     let version = &c.p.cfg.version;
-    if c.arch() != WinArch::Arm64
-        || (version.major, version.minor, version.build) != (10, 0, 29708)
-        || (send_attributes | receive_attributes | timeout) != 0
-    {
+    if !c.arch().is64() || (send_attributes | receive_attributes | timeout) != 0 {
         return Err(c.unsupported("unmeasured CSR child-start profile"));
     }
+    let profile = (c.arch(), (version.major, version.minor, version.build));
 
     let process_handle = read_u64(message, 0x40);
     let thread_handle = read_u64(message, 0x48);
@@ -61,7 +58,7 @@ pub(super) fn register(
         let Some((peer, view)) = port.peer().zip(port.view()) else {
             return Err(c.unsupported("CSR child-start peer view missing"));
         };
-        if !peer.arm64_29708_session_one || !c.p.vm.owns_shared_view(view) {
+        if peer.child_start_profile != Some(profile) || !c.p.vm.owns_shared_view(view) {
             return Err(c.unsupported("CSR child-start peer outside the selected profile"));
         }
         let remote_end = peer.base.checked_add(view.size);

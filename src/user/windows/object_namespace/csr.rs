@@ -109,6 +109,16 @@ impl CsrMetadata {
         })
     }
 
+    fn child_start_profile(&self) -> Option<(WinArch, (u32, u32, u32))> {
+        matches!(
+            (self.arch, self.kernel, self.session),
+            (WinArch::Arm64, (10, 0, 29708), 1)
+                | (WinArch::Arm64, ARM64_PLAIN_STARTUP_KERNEL, 2)
+                | (WinArch::X64, (10, 0, 20348 | 26100), 2)
+        )
+        .then_some((self.arch, self.kernel))
+    }
+
     fn namespace_session(&self) -> Option<u32> {
         (self.session != 0).then_some(self.session)
     }
@@ -262,6 +272,7 @@ impl CsrServer {
                 .supports_base_nls()
                 .then_some(self.metadata.kernel),
             additional_user_client: self.metadata.additional_user_client(),
+            child_start_profile: self.metadata.child_start_profile(),
             arm64_29708_session_one: self.metadata.arch == WinArch::Arm64
                 && self.metadata.kernel == (10, 0, 29708)
                 && self.metadata.session == 1,
@@ -286,6 +297,7 @@ pub(crate) struct CsrPeer {
     /// The selected native kernel when BASE is admitted for this peer's session.
     pub(crate) base_nls_kernel: Option<(u32, u32, u32)>,
     pub(crate) additional_user_client: Option<UserClientProfile>,
+    pub(crate) child_start_profile: Option<(WinArch, (u32, u32, u32))>,
     pub(crate) arm64_29708_session_one: bool,
     pub(crate) server_pid: u32,
     pub(crate) server_thread: u32,
