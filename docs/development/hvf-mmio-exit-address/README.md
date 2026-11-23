@@ -323,3 +323,23 @@ The observation stream SHA-256 was
 The process ran untranslated on virtualized Intel macOS 15.7.9 with
 SDK 15.5. The cause of earlier hosted runner losses remains unknown.
 [Standalone coherence repeat](https://github.com/HexRaysSA/rax/actions/runs/45149408706)
+
+## Passing combined repeat with live-log backpressure fix
+
+Run `45152339589` at `848399a0a790274f41f6bf2340c8192ab08544e5`
+passed all 968 cases. The first 952 observation records matched the
+previous broad run byte for byte. All four modes completed their four
+coherence cases. The concurrent page-table writers observed the guest
+reply and halted after 354,865 to 520,034 updates. Each of those four
+second exits reported GPA `0x40200080`. The separate standalone repeat
+also observed `0x40000080` in that mode.
+
+Verification matched the signed executable and hypervisor entitlement,
+both archive digests, 4,903 engine inputs, 19 consumer inputs and all 16
+terminal CPU records. All 17 broad MMIO progress markers and 164 coherence
+case-and-stage markers were present. The complete observation stream
+SHA-256 was `1856710cf851cc458bcec19226cb79f6836331e1c14682b1fef7969aa0fbc4df`.
+The process ran untranslated on virtualized Intel macOS 15.7.9 with SDK
+15.5. The successful run does not establish the cause of earlier runner
+losses. Cross-page and concurrent instruction-byte authority remain open.
+[Passing combined native profile](https://github.com/HexRaysSA/rax/actions/runs/45152339589)

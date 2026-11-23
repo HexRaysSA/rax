@@ -4601,7 +4601,9 @@
         "The hosted virtual-NMI profile failed with VMX reason 0x80000021 before entering the handler, both on cold entry and after an ordinary guest PIO exit. An independent Apple SDK-only control reproduced the failure with IF clear and set, with successful empty-slot and maskable IRQ controls. See hvf-interrupt-window/README.md#hot-entry-and-independent-sdk-control. The cause in the host stack and bare-metal Intel behavior remain unknown.",
         "Split MMIO preflights admission before any device effect and retains first-live-PCI-BAR priority across hidden RAM and lower-priority BAR boundaries. The combined case set lost its hosted Intel runner after the signed build and qualifies zero guest cases. See hvf-memory-layout.md and hvf-command-deadline/README.md.",
         "Packed equality and signed greater-than MMIO reads are implemented for 24 legacy SSE and VEX forms. Hosted Intel HVF run 45148267711 passed 48 direct cases, 48 fresh-owner cases and eight legacy alignment controls. The signed artifact and every observation matched the pinned source and independent physical Intel RAM oracle. Bare-metal Intel macOS remains unverified. See hvf-mmio-xmm.md.",
-        "Hosted Intel HVF run 45148465791 verified one pending XMM lane read and one pending lane write from detached VMM files. Saved UD2, exact device callback, final RIP and XMM15 checks bind both results to the stored I/O transaction. See hvf-mmio-xmm.md."
+        "Hosted Intel HVF run 45148465791 verified one pending XMM lane read and one pending lane write from detached VMM files. Saved UD2, exact device callback, final RIP and XMM15 checks bind both results to the stored I/O transaction. See hvf-mmio-xmm.md.",
+        "Hosted Intel run 45152339589 passed all 968 combined cases after the supervisor update. The first 952 observation records matched the earlier broad run byte for byte, and all 16 coherence cases passed with terminal CPU records. Following-page, instruction-byte, interrupt and bare-metal Intel requirements remain open.",
+        "Hosted Intel run 45152935165 passed all 328 packed integer addition and subtraction cases, including 160 direct, 160 restored and eight alignment-fault observations verified against the physical Intel RAM oracle. See hvf-mmio-xmm.md."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4641,7 +4643,7 @@
         "hvf-mmio-movnti-2026-11-19",
         "hvf-mmio-implicit-divide-2026-11-20"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#packed-bit-test-reads",
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#packed-integer-addition-and-subtraction",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint"
     },
     {

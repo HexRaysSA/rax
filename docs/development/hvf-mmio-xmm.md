@@ -885,3 +885,14 @@ tests. Its log SHA-256 is
 `5617ea5dfbab5cd48cd5cb6ce49226a03c16c3e7ae696594e327ded39df34d12`.
 The native consumer built and passed strict signature verification.
 All 55 local Python tests passed.
+
+Hosted Intel HVF run `45152935165` at
+`7979b0e029b1d6172ab4eb0f9dd9a891a70f1f66` passed 160 direct reads,
+160 reads completed on fresh native vCPU owners, and eight legacy
+alignment faults. All 328 observations matched the independent physical
+Intel RAM oracle. Verification matched the uploaded archives, signed
+executable and hypervisor entitlement, 4,903 engine inputs and 19
+consumer inputs. The observation stream SHA-256 was
+`cd4b7d8a1f681d25f7debfa126cf81e1044821b54bab2340095f94d095b9b86e`.
+The Intel process ran untranslated inside a hosted macOS VM.
+[Hosted packed addition and subtraction execution](https://github.com/HexRaysSA/rax/actions/runs/45152935165)
