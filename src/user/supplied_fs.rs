@@ -19,6 +19,13 @@ pub(super) use workspace::{Rename as WorkspaceRename, WorkspaceFlavor};
 
 const TEMP_DIRECTORY: &str = "/tmp";
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum MissingLast {
+    Reject,
+    File,
+    Directory,
+}
+
 /// Maximum path bytes, including the terminating NUL in a guest syscall.
 pub const PATH_MAX: usize = 4096;
 /// Maximum UTF-8 bytes in one guest filename component.
@@ -74,6 +81,7 @@ pub enum Kind {
     Backed(Arc<HostFileSource>),
     /// A regular file created by this guest session.
     Workspace(Arc<WorkspaceFile>),
+    WorkspaceSymlink(Arc<workspace::WorkspaceSymlink>),
     WorkspaceDirectory(Arc<WorkspaceDirectory>),
     Directory,
     /// The closed runtime's synthetic null character device.
@@ -137,6 +145,7 @@ impl Entry {
         match &self.kind {
             Kind::WorkspaceDirectory(directory) => directory.path().map(Some),
             Kind::Workspace(file) => file.path().map(Some),
+            Kind::WorkspaceSymlink(link) => link.path().map(Some),
             _ => Ok(None),
         }
     }
@@ -145,6 +154,7 @@ impl Entry {
         match &self.kind {
             Kind::WorkspaceDirectory(directory) => Some(directory.mode),
             Kind::Workspace(file) => Some(file.mode()),
+            Kind::WorkspaceSymlink(link) => Some(link.mode),
             _ => None,
         }
     }
@@ -153,6 +163,7 @@ impl Entry {
         match &self.kind {
             Kind::WorkspaceDirectory(directory) => Some(directory.owner),
             Kind::Workspace(file) => Some(file.ownership()),
+            Kind::WorkspaceSymlink(link) => Some(link.owner),
             _ => None,
         }
     }
@@ -160,6 +171,15 @@ impl Entry {
     pub(crate) fn link_target(&self) -> Option<&[u8]> {
         match &self.kind {
             Kind::Symlink(target) => Some(target),
+            Kind::WorkspaceSymlink(link) => Some(&link.target),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn workspace_leaf_linked(&self) -> Option<bool> {
+        match &self.kind {
+            Kind::Workspace(file) => Some(file.linked()),
+            Kind::WorkspaceSymlink(link) => Some(link.linked()),
             _ => None,
         }
     }
@@ -194,7 +214,7 @@ impl Entry {
             }
             Kind::Directory | Kind::WorkspaceDirectory(_) => Err(Error::IsDirectory),
             Kind::NullDevice | Kind::ZeroDevice => Err(Error::NotRegular),
-            Kind::Symlink(_) => Err(Error::LinkLoop),
+            Kind::Symlink(_) | Kind::WorkspaceSymlink(_) => Err(Error::LinkLoop),
         }
     }
 
@@ -208,6 +228,7 @@ impl Entry {
                 0
             }
             Kind::Symlink(target) => target.len() as u64,
+            Kind::WorkspaceSymlink(link) => link.target.len() as u64,
         }
     }
 
@@ -232,7 +253,7 @@ impl Entry {
             Kind::Workspace(file) => return Ok(file.clone()),
             Kind::Directory | Kind::WorkspaceDirectory(_) => return Err(Error::IsDirectory),
             Kind::NullDevice | Kind::ZeroDevice => return Err(Error::NotRegular),
-            Kind::Symlink(_) => return Err(Error::LinkLoop),
+            Kind::Symlink(_) | Kind::WorkspaceSymlink(_) => return Err(Error::LinkLoop),
         };
         Ok(Arc::new(GuestSource {
             source,
@@ -797,6 +818,13 @@ impl Files {
             Err(Error::NotFound) => {}
             Err(error) => return Err(error),
         }
+        let resolved;
+        let name_path = if flavor == WorkspaceFlavor::Darwin && path.ends_with('/') {
+            resolved = self.resolve_create_path(path, ids, groups, MissingLast::Directory)?;
+            &resolved
+        } else {
+            name_path
+        };
         let (workspace, path, directory) = self.workspace_destination(name_path, ids, groups)?;
         let owner = directory.child_owner(flavor, ids);
         let mode = match flavor {
@@ -806,17 +834,78 @@ impl Files {
         workspace.create_directory(workspace_name(&path).to_owned(), mode, owner, &directory)
     }
 
+    pub(super) fn create_workspace_symlink(
+        &self,
+        path: &str,
+        target: Vec<u8>,
+        umask: u32,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(), Error> {
+        let flavor = self.workspace.as_ref().ok_or(Error::ReadOnly)?.flavor;
+        if target.is_empty() && flavor == WorkspaceFlavor::Linux {
+            return Err(Error::NotFound);
+        }
+        validate(path)?;
+        let trimmed = path.trim_end_matches('/');
+        let lookup_path = if flavor == WorkspaceFlavor::Linux && !trimmed.is_empty() {
+            trimmed
+        } else {
+            path
+        };
+        match self.lookup_for_guest(lookup_path, LinkPolicy::NoFollowLast, ids, groups) {
+            Ok(_) => return Err(Error::Exists),
+            Err(Error::NotFound) => {}
+            Err(error) => return Err(error),
+        }
+        if path.ends_with('/') {
+            return Err(Error::NotFound);
+        }
+        let (workspace, name, directory) = self.workspace_destination(path, ids, groups)?;
+        let owner = directory.child_owner(flavor, ids);
+        let mode = match flavor {
+            WorkspaceFlavor::Linux => 0o777,
+            WorkspaceFlavor::Darwin => 0o777 & !umask,
+        };
+        workspace.create_symlink(
+            workspace_name(&name).into(),
+            target,
+            mode,
+            owner,
+            &directory,
+        )
+    }
+
     pub(crate) fn unlink_workspace_file(
         &self,
         path: &str,
         ids: (u32, u32),
         groups: &[u32],
     ) -> Result<(), Error> {
-        let (path, entry) = self.lookup_for_guest(path, LinkPolicy::NoFollowLast, ids, groups)?;
+        validate(path)?;
+        let trailing_slash = path.ends_with('/');
+        let name = path.trim_end_matches('/');
+        let darwin = self
+            .workspace
+            .as_ref()
+            .is_some_and(|ws| ws.flavor == WorkspaceFlavor::Darwin);
+        let (path, entry) = self.lookup_for_guest(
+            if darwin || name.is_empty() {
+                path
+            } else {
+                name
+            },
+            LinkPolicy::NoFollowLast,
+            ids,
+            groups,
+        )?;
+        if !entry.is_dir() && trailing_slash {
+            return Err(Error::NotDirectory);
+        }
         if entry.is_dir() {
             return Err(Error::IsDirectory);
         }
-        if entry.workspace_file().is_none() {
+        if entry.workspace_leaf_linked().is_none() {
             return Err(Error::ReadOnly);
         }
         let (workspace, path, directory) = self.workspace_destination(&path, ids, groups)?;
@@ -851,8 +940,12 @@ impl Files {
             }
             _ => {}
         }
-        let (path, entry) =
-            self.lookup_for_guest(trimmed, LinkPolicy::NoFollowLast, ids, groups)?;
+        let darwin = self
+            .workspace
+            .as_ref()
+            .is_some_and(|ws| ws.flavor == WorkspaceFlavor::Darwin);
+        let lookup = if darwin { path } else { trimmed };
+        let (path, entry) = self.lookup_for_guest(lookup, LinkPolicy::NoFollowLast, ids, groups)?;
         if !entry.is_dir() {
             return Err(Error::NotDirectory);
         }
@@ -885,13 +978,38 @@ impl Files {
         {
             return Err(Error::InvalidPath);
         }
-        let (old, entry) = self.lookup_for_guest(from, LinkPolicy::NoFollowLast, ids, groups)?;
-        if entry.workspace_file().is_none() && entry.workspace_directory().is_none() {
+        let darwin = self
+            .workspace
+            .as_ref()
+            .is_some_and(|ws| ws.flavor == WorkspaceFlavor::Darwin);
+        let old_lookup = if darwin { from } else { old };
+        let (old, entry) =
+            self.lookup_for_guest(old_lookup, LinkPolicy::NoFollowLast, ids, groups)?;
+        if !entry.is_dir() && from.ends_with('/') {
+            return Err(Error::NotDirectory);
+        }
+        if entry.workspace_leaf_linked().is_none() && entry.workspace_directory().is_none() {
             return Err(Error::ReadOnly);
         }
         if !entry.is_dir() && to.ends_with('/') {
             return Err(Error::NotDirectory);
         }
+        let resolved;
+        let new = if to.ends_with('/') {
+            if darwin {
+                resolved = self.resolve_create_path(to, ids, groups, MissingLast::Directory)?;
+                &resolved
+            } else {
+                match self.lookup_for_guest(new, LinkPolicy::NoFollowLast, ids, groups) {
+                    Ok((_, entry)) if !entry.is_dir() => return Err(Error::NotDirectory),
+                    Ok(_) | Err(Error::NotFound) => {}
+                    Err(error) => return Err(error),
+                }
+                new
+            }
+        } else {
+            new
+        };
         let (_, old_path, old_parent) = self.workspace_destination(&old, ids, groups)?;
         let (workspace, new_path, new_parent) = self.workspace_destination(new, ids, groups)?;
         let name = workspace_name(&new_path);
@@ -941,6 +1059,10 @@ impl Files {
                 Node::File(file) => Entry {
                     ino: file.ino,
                     kind: Kind::Workspace(file),
+                },
+                Node::Symlink(link) => Entry {
+                    ino: link.ino,
+                    kind: Kind::WorkspaceSymlink(link),
                 },
                 Node::Directory(directory) => Entry {
                     ino: directory.ino,
@@ -1003,9 +1125,50 @@ impl Files {
         policy: LinkPolicy,
         access: Option<WorkspaceAccess<'_>>,
     ) -> Result<(String, Entry), Error> {
-        const MAX_SYMLINKS: u8 = 32;
-        let mut links_left = MAX_SYMLINKS;
-        self.walk(path, policy, &mut links_left, access)
+        let mut links_left = self.symlink_limit();
+        let (path, entry) =
+            self.walk(path, policy, &mut links_left, access, MissingLast::Reject)?;
+        Ok((path, entry.ok_or(Error::NotFound)?))
+    }
+
+    /// Resolve the final component of a followed create, including a dangling link target.
+    pub(super) fn workspace_create_path(
+        &self,
+        path: &str,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<String, Error> {
+        self.resolve_create_path(path, ids, groups, MissingLast::File)
+    }
+
+    fn resolve_create_path(
+        &self,
+        path: &str,
+        ids: (u32, u32),
+        groups: &[u32],
+        missing: MissingLast,
+    ) -> Result<String, Error> {
+        let mut links_left = self.symlink_limit();
+        let (path, _) = self.walk(
+            path,
+            LinkPolicy::Follow,
+            &mut links_left,
+            Some((ids, groups)),
+            missing,
+        )?;
+        Ok(path)
+    }
+
+    fn symlink_limit(&self) -> u8 {
+        if self
+            .workspace
+            .as_ref()
+            .is_some_and(|ws| ws.flavor == WorkspaceFlavor::Linux)
+        {
+            40
+        } else {
+            32
+        }
     }
 
     fn walk(
@@ -1014,7 +1177,8 @@ impl Files {
         policy: LinkPolicy,
         links_left: &mut u8,
         access: Option<WorkspaceAccess<'_>>,
-    ) -> Result<(String, Entry), Error> {
+        missing_last: MissingLast,
+    ) -> Result<(String, Option<Entry>), Error> {
         validate(path)?;
         let reject_traversal = matches!(
             policy,
@@ -1059,20 +1223,47 @@ impl Files {
             if current.len() >= PATH_MAX {
                 return Err(Error::TooLong);
             }
-            entry = self.entry(&current, follow && !reject_traversal)?;
+            let missing = if components.peek().is_some()
+                || (missing_last == MissingLast::File && path.ends_with('/'))
+            {
+                MissingLast::Reject
+            } else {
+                missing_last
+            };
+            entry = match self.entry(&current, follow && !reject_traversal) {
+                Err(Error::NotFound) if missing != MissingLast::Reject => {
+                    return Ok((current, None));
+                }
+                result => result?,
+            };
             if follow && let Some(target) = entry.link_target() {
                 if reject_traversal {
                     return Err(Error::LinkLoop);
                 }
                 *links_left = links_left.checked_sub(1).ok_or(Error::LinkLoop)?;
                 let target = std::str::from_utf8(target).map_err(|_| Error::InvalidPath)?;
-                (current, entry) = self.walk(target, LinkPolicy::Follow, links_left, access)?;
+                if target.is_empty() {
+                    return Err(Error::NotFound);
+                }
+                let target = if target.starts_with('/') {
+                    std::borrow::Cow::Borrowed(target)
+                } else {
+                    let (parent, _) = current.rsplit_once('/').expect("absolute link path");
+                    std::borrow::Cow::Owned(format!("{parent}/{target}"))
+                };
+                let (resolved, target) =
+                    self.walk(&target, LinkPolicy::Follow, links_left, access, missing)?;
+                current = resolved;
+                match target {
+                    Some(target) => entry = target,
+                    None => return Ok((current, None)),
+                }
             }
         }
         if path.ends_with('/') && !entry.is_dir() {
             return Err(Error::NotDirectory);
         }
-        Ok((current, entry))
+        Ok((current, Some(entry)))
     }
 
     pub fn read(&self, path: &str) -> Result<Arc<[u8]>, Error> {
@@ -1154,6 +1345,59 @@ impl Files {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspace_symlinks_preserve_the_supplied_namespace_permissions() {
+        let files = Files::new(BTreeMap::from([(
+            "/selected/readable".into(),
+            Arc::from(b"caller bytes".as_slice()),
+        )]))
+        .unwrap()
+        .with_temp_workspace(WorkspaceFlavor::Linux);
+        let owner = (1000, 1000);
+        files
+            .create_workspace_symlink(
+                "/tmp/readable",
+                b"../selected/readable".to_vec(),
+                0o077,
+                owner,
+                &[],
+            )
+            .unwrap();
+        assert_eq!(
+            files.read("/tmp/readable").unwrap().as_ref(),
+            b"caller bytes"
+        );
+        assert_eq!(
+            files.unlink_workspace_file("/selected/readable", owner, &[]),
+            Err(Error::ReadOnly)
+        );
+        files
+            .create_workspace_symlink(
+                "/tmp/outside",
+                b"../selected/new".to_vec(),
+                0o077,
+                owner,
+                &[],
+            )
+            .unwrap();
+        let target = files
+            .workspace_create_path("/tmp/outside", owner, &[])
+            .unwrap();
+        assert_eq!(target, "/selected/new");
+        assert!(matches!(
+            files.create_workspace_file(&target, 0o600, owner, &[], false),
+            Err(Error::ReadOnly)
+        ));
+        assert!(matches!(files.lookup(&target), Err(Error::NotFound)));
+        files
+            .unlink_workspace_file("/tmp/readable", owner, &[])
+            .unwrap();
+        assert_eq!(
+            files.read("/selected/readable").unwrap().as_ref(),
+            b"caller bytes"
+        );
+    }
 
     #[test]
     fn native_workspace_preserves_supplied_names_and_starts_each_session_empty() {

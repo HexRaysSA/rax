@@ -94,7 +94,6 @@ fn run(c: &mut Ctx<'_>, req: &Req) -> SysResult {
         #[cfg(unix)]
         op::MKDIRAT => path::mkdirat(c, dfd, sqe.addr, sqe.len),
         // do_symlinkat: the target at `addr`, the link at `addr2` in `fd`.
-        #[cfg(unix)]
         op::SYMLINKAT => path::symlinkat(c, sqe.addr, dfd, sqe.off),
         #[cfg(unix)]
         op::LINKAT => path::linkat(c, dfd, sqe.addr, sqe.len as i32, sqe.off, sqe.op_flags),

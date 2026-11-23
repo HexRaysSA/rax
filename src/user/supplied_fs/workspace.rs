@@ -49,6 +49,7 @@ struct Budget {
 #[derive(Clone, Debug)]
 pub(super) enum Node {
     File(Arc<WorkspaceFile>),
+    Symlink(Arc<WorkspaceSymlink>),
     Directory(Arc<Directory>),
 }
 
@@ -59,9 +60,53 @@ struct Location {
 }
 
 #[derive(Debug)]
-enum FileLocation {
+enum LeafLocation {
     Linked(Location),
     Detached(String),
+}
+
+#[derive(Debug)]
+struct Placement {
+    namespace: Weak<Mutex<Namespace>>,
+    location: Mutex<LeafLocation>,
+    linked: AtomicBool,
+}
+
+impl Placement {
+    fn new(namespace: &Arc<Mutex<Namespace>>, parent: &Arc<Directory>, name: &str) -> Self {
+        let location = Location {
+            parent: parent.clone(),
+            name: name.to_owned(),
+        };
+        Self {
+            namespace: Arc::downgrade(namespace),
+            location: Mutex::new(LeafLocation::Linked(location)),
+            linked: AtomicBool::new(true),
+        }
+    }
+
+    fn path(&self) -> Result<String, Error> {
+        let namespace = self.namespace.upgrade().ok_or(Error::Io)?;
+        let _namespace = namespace.lock().map_err(|_| Error::Io)?;
+        let location = self.location.lock().map_err(|_| Error::Io)?;
+        Ok(match &*location {
+            LeafLocation::Linked(location) => location.clone().path(),
+            LeafLocation::Detached(path) => path.clone(),
+        })
+    }
+
+    fn detach(&self) {
+        let mut placement = self.location.lock().expect("workspace leaf location");
+        let LeafLocation::Linked(location) = &*placement else {
+            unreachable!("named workspace leaf");
+        };
+        *placement = LeafLocation::Detached(location.clone().path());
+        self.linked.store(false, Ordering::Relaxed);
+    }
+
+    fn relocate(&self, location: Location) {
+        *self.location.lock().expect("workspace leaf location") = LeafLocation::Linked(location);
+    }
 }
 
 /// A rename changes the entry's location while leaving its inode and children intact.
@@ -143,11 +188,20 @@ pub struct WorkspaceFile {
     pub(super) ino: u64,
     mode: u32,
     owner: (u32, u32),
-    linked: AtomicBool,
     budget: Arc<Mutex<Budget>>,
     contents: Mutex<Vec<u8>>,
-    namespace: Weak<Mutex<Namespace>>,
-    location: Mutex<FileLocation>,
+    placement: Placement,
+}
+
+/// A symbolic link created in the guest's private temporary workspace.
+#[derive(Debug)]
+pub struct WorkspaceSymlink {
+    pub(super) ino: u64,
+    pub(super) mode: u32,
+    pub(super) owner: (u32, u32),
+    pub(super) target: Vec<u8>,
+    budget: Arc<Mutex<Budget>>,
+    placement: Placement,
 }
 
 impl Workspace {
@@ -250,23 +304,18 @@ impl Workspace {
                 (true, _) => Err(Error::Exists),
                 (false, Node::File(file)) => Ok(file.clone()),
                 (false, Node::Directory(_)) => Err(Error::IsDirectory),
+                (false, Node::Symlink(_)) => Err(Error::LinkLoop),
             };
         }
         let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
         let ino = allocate_inode(&mut namespace, &mut budget)?;
-        let location = Location {
-            parent: parent.clone(),
-            name: name.clone(),
-        };
         let file = Arc::new(WorkspaceFile {
             ino,
             mode: mode & 0o7777,
             owner,
-            linked: AtomicBool::new(true),
             budget: self.budget.clone(),
             contents: Mutex::new(Vec::new()),
-            namespace: Arc::downgrade(&self.namespace),
-            location: Mutex::new(FileLocation::Linked(location)),
+            placement: Placement::new(&self.namespace, parent, &name),
         });
         namespace
             .directory_mut(parent)
@@ -277,16 +326,51 @@ impl Workspace {
         Ok(file)
     }
 
+    pub(super) fn create_symlink(
+        &self,
+        name: String,
+        target: Vec<u8>,
+        mode: u32,
+        owner: (u32, u32),
+        parent: &Arc<Directory>,
+    ) -> Result<(), Error> {
+        let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if namespace.directory(parent)?.contains_key(&name) {
+            return Err(Error::Exists);
+        }
+        let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
+        if target.len() > MAX_BYTES - budget.bytes {
+            return Err(Error::NoSpace);
+        }
+        let ino = allocate_inode(&mut namespace, &mut budget)?;
+        budget.bytes += target.len();
+        let link = Arc::new(WorkspaceSymlink {
+            ino,
+            mode,
+            owner,
+            target,
+            budget: self.budget.clone(),
+            placement: Placement::new(&self.namespace, parent, &name),
+        });
+        namespace
+            .directory_mut(parent)
+            .insert(name, Node::Symlink(link));
+        if self.flavor == WorkspaceFlavor::Darwin {
+            parent.links.fetch_add(1, Ordering::Relaxed);
+        }
+        Ok(())
+    }
+
     pub(super) fn unlink(&self, name: &str, uid: u32, parent: &Directory) -> Result<(), Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        let Node::File(file) = namespace
+        let node = namespace
             .directory(parent)?
             .get(name)
-            .ok_or(Error::NotFound)?
-        else {
+            .ok_or(Error::NotFound)?;
+        if matches!(node, Node::Directory(_)) {
             return Err(Error::IsDirectory);
-        };
-        parent.check_sticky(uid, file.owner.0)?;
+        }
+        parent.check_sticky(uid, node.uid())?;
         namespace.detach(parent, name, self.flavor);
         Ok(())
     }
@@ -354,9 +438,9 @@ impl Workspace {
                             return Err(Error::NotEmpty);
                         }
                     }
-                    (Node::Directory(_), Node::File(_)) => return Err(Error::NotDirectory),
-                    (Node::File(_), Node::Directory(_)) => return Err(Error::IsDirectory),
-                    (Node::File(_), Node::File(_)) => {}
+                    (Node::Directory(_), _) => return Err(Error::NotDirectory),
+                    (_, Node::Directory(_)) => return Err(Error::IsDirectory),
+                    _ => {}
                 }
                 namespace.detach(new_parent, new_name, self.flavor);
             }
@@ -412,14 +496,8 @@ impl Namespace {
                 self.children.remove(&directory.ino);
                 directory.linked.store(false, Ordering::Relaxed);
             }
-            Node::File(file) => {
-                let mut placement = file.location.lock().expect("workspace file location");
-                let FileLocation::Linked(location) = &*placement else {
-                    unreachable!("named workspace file");
-                };
-                *placement = FileLocation::Detached(location.clone().path());
-                file.linked.store(false, Ordering::Relaxed);
-            }
+            Node::File(file) => file.placement.detach(),
+            Node::Symlink(link) => link.placement.detach(),
         }
     }
 }
@@ -450,6 +528,7 @@ impl Node {
     fn uid(&self) -> u32 {
         match self {
             Self::File(file) => file.owner.0,
+            Self::Symlink(link) => link.owner.0,
             Self::Directory(directory) => directory.owner.0,
         }
     }
@@ -496,10 +575,8 @@ impl Node {
                     .lock()
                     .expect("workspace directory location") = location;
             }
-            Self::File(file) => {
-                *file.location.lock().expect("workspace file location") =
-                    FileLocation::Linked(location);
-            }
+            Self::File(file) => file.placement.relocate(location),
+            Self::Symlink(link) => link.placement.relocate(location),
         }
     }
 }
@@ -516,13 +593,7 @@ fn allocate_inode(namespace: &mut Namespace, budget: &mut Budget) -> Result<u64,
 
 impl WorkspaceFile {
     pub(crate) fn path(&self) -> Result<String, Error> {
-        let namespace = self.namespace.upgrade().ok_or(Error::Io)?;
-        let _namespace = namespace.lock().map_err(|_| Error::Io)?;
-        let location = self.location.lock().map_err(|_| Error::Io)?;
-        Ok(match &*location {
-            FileLocation::Linked(location) => location.clone().path(),
-            FileLocation::Detached(path) => path.clone(),
-        })
+        self.placement.path()
     }
 
     pub(crate) fn mode(&self) -> u32 {
@@ -534,7 +605,7 @@ impl WorkspaceFile {
     }
 
     pub(crate) fn linked(&self) -> bool {
-        self.linked.load(Ordering::Relaxed)
+        self.placement.linked.load(Ordering::Relaxed)
     }
 
     pub(crate) fn permits(&self, need: u32, ids: (u32, u32), groups: &[u32]) -> bool {
@@ -602,6 +673,16 @@ impl WorkspaceFile {
     }
 }
 
+impl WorkspaceSymlink {
+    pub(super) fn path(&self) -> Result<String, Error> {
+        self.placement.path()
+    }
+
+    pub(super) fn linked(&self) -> bool {
+        self.placement.linked.load(Ordering::Relaxed)
+    }
+}
+
 fn permitted(mode: u32, owner: (u32, u32), need: u32, ids: (u32, u32), groups: &[u32]) -> bool {
     let shift = if ids.0 == owner.0 {
         6
@@ -631,6 +712,15 @@ impl Drop for WorkspaceFile {
                 .get_mut()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             budget.bytes -= bytes.len();
+            budget.nodes -= 1;
+        }
+    }
+}
+
+impl Drop for WorkspaceSymlink {
+    fn drop(&mut self) {
+        if let Ok(mut budget) = self.budget.lock() {
+            budget.bytes -= self.target.len();
             budget.nodes -= 1;
         }
     }

@@ -240,7 +240,10 @@ pub(super) fn unlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysR
     if flags == AT_REMOVEDIR {
         files.remove_workspace_directory(&absolute, ids, &[])?;
     } else {
-        files.unlink_workspace_file(&absolute, ids, &[])?;
+        match files.unlink_workspace_file(&absolute, ids, &[]) {
+            Err(crate::user::supplied_fs::Error::IsDirectory) => return Err(Errno::EPERM),
+            result => result?,
+        }
     }
     Ok(Rv::one(0))
 }
@@ -254,6 +257,19 @@ pub(super) fn mkdirat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: u32) -> SysRes
         return Err(Errno::ENOENT);
     }
     files.create_workspace_directory(&absolute, mode & !ctx.proc.umask, ids, &[])?;
+    Ok(Rv::one(0))
+}
+
+pub(super) fn symlinkat(ctx: &Ctx<'_>, target: u64, dirfd: i32, path: u64) -> SysResult {
+    let target = ctx.path(target)?;
+    let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
+    let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
+    let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
+    let (absolute, retained) = path_with_workspace_base(&path, &base, directory.as_ref(), ids)?;
+    if retained.is_some() {
+        return Err(Errno::ENOENT);
+    }
+    files.create_workspace_symlink(&absolute, target, ctx.proc.umask, ids, &[])?;
     Ok(Rv::one(0))
 }
 
@@ -318,6 +334,11 @@ pub(crate) fn open_file(
                 return Err(Errno::ENOENT);
             }
             let mode = mode & !ctx.proc.umask;
+            let absolute = if exclusive || flags & (O_NOFOLLOW | O_NOFOLLOW_ANY | O_SYMLINK) != 0 {
+                absolute
+            } else {
+                files.workspace_create_path(&absolute, owner, &[])?
+            };
             files
                 .create_workspace_file(&absolute, mode, owner, &[], exclusive)
                 .map_err(Errno::from)
@@ -350,6 +371,7 @@ fn open_or_create(
         | O_DIRECTORY
         | O_NOFOLLOW
         | O_NOFOLLOW_ANY
+        | O_SYMLINK
         | O_NOCTTY
         | O_CLOEXEC
         | O_CLOFORK;
@@ -359,7 +381,7 @@ fn open_or_create(
     let exclusive = flags & (O_CREAT | O_EXCL) == O_CREAT | O_EXCL;
     let policy = if flags & O_NOFOLLOW_ANY != 0 {
         LinkPolicy::NoFollowAny
-    } else if flags & O_NOFOLLOW != 0 || exclusive {
+    } else if flags & (O_NOFOLLOW | O_SYMLINK) != 0 || exclusive {
         LinkPolicy::NoFollowLast
     } else {
         LinkPolicy::Follow
@@ -374,7 +396,14 @@ fn open_or_create(
         Err(error) => return Err(error),
     };
     if entry.link_target().is_some() {
-        return Err(Errno::ELOOP);
+        if flags & O_SYMLINK == 0 || flags & (O_NOFOLLOW | O_NOFOLLOW_ANY) != 0 {
+            return Err(Errno::ELOOP);
+        }
+        if flags & O_DIRECTORY != 0 {
+            return Err(Errno::ENOTDIR);
+        }
+        let status = flags & (O_STATUS_FLAGS | O_ACCMODE);
+        return Ok(Arc::new(OpenFile::supplied_with_flags(path, entry, status)));
     }
     let device = entry.device();
     let workspace = entry.workspace_file();
@@ -412,9 +441,7 @@ fn open_or_create(
         }
         OpenFile::workspace(path, entry, status)
     } else {
-        let file = OpenFile::supplied(path, entry);
-        *file.flags.lock().map_err(|_| Errno::EIO)? = status;
-        file
+        OpenFile::supplied_with_flags(path, entry, status)
     };
     Ok(Arc::new(file))
 }
@@ -430,6 +457,7 @@ pub(super) fn statat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32)
         EmbeddedFile::Supplied {
             entry,
             cursor: Mutex::new(0),
+            access: O_RDONLY,
         }
         .stat()?
     };

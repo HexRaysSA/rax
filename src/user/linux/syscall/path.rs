@@ -216,7 +216,6 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
 /// Metadata of a supplied entry, including guest character devices.
 fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
     let size = entry.len().min(i64::MAX as u64) as i64;
-    let workspace = entry.workspace_file();
     let (uid, gid) = entry.workspace_owner().unwrap_or((0, 0));
     Stat {
         ino: entry.ino,
@@ -226,7 +225,8 @@ fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
                 mode::S_IFDIR | entry.workspace_mode().unwrap_or(0o555)
             }
             crate::user::supplied_fs::Kind::Workspace(file) => mode::S_IFREG | file.mode(),
-            crate::user::supplied_fs::Kind::Symlink(_) => mode::S_IFLNK | 0o777,
+            crate::user::supplied_fs::Kind::Symlink(_)
+            | crate::user::supplied_fs::Kind::WorkspaceSymlink(_) => mode::S_IFLNK | 0o777,
             crate::user::supplied_fs::Kind::NullDevice
             | crate::user::supplied_fs::Kind::ZeroDevice => mode::S_IFCHR | 0o666,
             _ => mode::S_IFREG | 0o555,
@@ -236,7 +236,7 @@ fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
         } else if entry.is_dir() {
             2
         } else {
-            u64::from(workspace.is_none_or(|file| file.linked()))
+            u64::from(entry.workspace_leaf_linked().unwrap_or(true))
         },
         uid,
         gid,
@@ -757,6 +757,11 @@ pub(super) fn open_file(
             let files = c.p.vfs.supplied().expect("checked supplied namespace");
             let mode = create_mode & !c.p.file_creation_mask();
             let owner = (c.p.creds.1, c.p.creds.3);
+            let absolute = if nofollow || exclusive {
+                absolute
+            } else {
+                files.workspace_create_path(&absolute, owner, &c.p.groups)?
+            };
             let (path, entry) =
                 files.create_workspace_file(&absolute, mode, owner, &c.p.groups, exclusive)?;
             return open_target(
@@ -1311,17 +1316,29 @@ pub fn linkat(
 }
 
 /// `symlinkat` (and `symlink`). The target is stored verbatim.
-#[cfg(unix)]
 pub fn symlinkat(c: &mut Ctx<'_>, target: u64, newdir: i32, linkpath: u64) -> SysResult {
     let raw = c.read_cstr_raw(target, fs::PATH_MAX - 1)?;
     if raw.is_empty() {
         return Err(Errno(ENOENT));
     }
-    let target = fs::Vfs::path_str(&raw)?;
-    let link = host_target(c, newdir, linkpath, false)?;
-    std::os::unix::fs::symlink(target, &link)?;
-    super::notify::created(c, &link, false);
-    Ok(0)
+    if let Some(files) = c.p.vfs.supplied() {
+        let link = supplied_path(c, newdir, linkpath)?;
+        let ids = (c.p.creds.1, c.p.creds.3);
+        files.create_workspace_symlink(&link, raw, c.p.file_creation_mask(), ids, &c.p.groups)?;
+        return Ok(0);
+    }
+    #[cfg(unix)]
+    {
+        let target = fs::Vfs::path_str(&raw)?;
+        let link = host_target(c, newdir, linkpath, false)?;
+        std::os::unix::fs::symlink(target, &link)?;
+        super::notify::created(c, &link, false);
+        Ok(0)
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno(ENOSYS))
+    }
 }
 
 /// `fchmodat`/`fchmodat2` (and `chmod`).

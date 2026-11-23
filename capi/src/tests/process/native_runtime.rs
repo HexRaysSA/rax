@@ -754,6 +754,15 @@ fn installed_libc_directory_rename_matches_native_through_closed_c_abi() {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+#[ignore = "run with a locally built closed_workspace_symlink.c fixture"]
+fn installed_libc_workspace_symlinks_match_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_POSIX_INSTALLED_SYMLINK_CONTROL")
+        .expect("absolute path to the dynamically linked closed_workspace_symlink fixture");
+    compare_installed_workspace_fixture(&binary, "closed_workspace_symlink", None);
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn compare_installed_workspace_fixture(
     binary: &str,
     fixture: &str,

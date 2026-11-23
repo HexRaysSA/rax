@@ -569,9 +569,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         )),
         #[cfg(unix)]
         S::Linkat => r(path::linkat(c, fd(a[0]), a[1], fd(a[2]), a[3], a[4] as u32)),
-        #[cfg(unix)]
         S::Symlink => r(path::symlinkat(c, a[0], path::AT_FDCWD, a[1])),
-        #[cfg(unix)]
         S::Symlinkat => r(path::symlinkat(c, a[0], fd(a[1]), a[2])),
         #[cfg(unix)]
         S::Chmod => r(path::fchmodat(c, path::AT_FDCWD, a[0], a[1] as u32, 0)),

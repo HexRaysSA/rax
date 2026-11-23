@@ -19,6 +19,7 @@ pub enum EmbeddedFile {
     Supplied {
         entry: Entry,
         cursor: Mutex<u64>,
+        access: u32,
     },
     Workspace {
         entry: Entry,
@@ -72,7 +73,7 @@ impl EmbeddedFile {
     /// Bytes available without consuming input or changing the file offset.
     pub fn available(&self) -> Result<u64, Errno> {
         match self {
-            Self::Supplied { entry, cursor } | Self::Workspace { entry, cursor, .. } => {
+            Self::Supplied { entry, cursor, .. } | Self::Workspace { entry, cursor, .. } => {
                 if entry.is_dir() {
                     return Err(Errno::EISDIR);
                 }
@@ -89,7 +90,6 @@ impl EmbeddedFile {
     /// Virtual metadata. Supplied files are immutable, and guest-created
     /// files retain the mode and ownership of their creation.
     pub fn stat(&self) -> Result<Stat, Errno> {
-        let workspace = self.entry().and_then(Entry::workspace_file);
         let (uid, gid) = self
             .entry()
             .and_then(Entry::workspace_owner)
@@ -101,7 +101,7 @@ impl EmbeddedFile {
                     (entry.ino, 0o040000 | permissions, 0)
                 } else {
                     let mode = if entry.link_target().is_some() {
-                        0o120755
+                        0o120000 | entry.workspace_mode().unwrap_or(0o755) as u16
                     } else {
                         0o100000 | permissions
                     };
@@ -134,7 +134,13 @@ impl EmbeddedFile {
                 .entry()
                 .and_then(Entry::workspace_directory)
                 .map_or_else(
-                    || u16::from(workspace.is_none_or(|file| file.linked())),
+                    || {
+                        u16::from(
+                            self.entry()
+                                .and_then(Entry::workspace_leaf_linked)
+                                .unwrap_or(true),
+                        )
+                    },
                     |directory| {
                         directory.link_count(crate::user::supplied_fs::WorkspaceFlavor::Darwin)
                             as u16
@@ -166,7 +172,14 @@ impl EmbeddedFile {
     pub fn read(&self, out: &mut [u8], offset: Option<i64>) -> Result<usize, Errno> {
         match self {
             Self::Workspace { access, .. } if *access == O_WRONLY => Err(Errno::EBADF),
-            Self::Supplied { entry, cursor } | Self::Workspace { entry, cursor, .. } => {
+            Self::Supplied { entry, access, .. } if entry.link_target().is_some() => {
+                Err(if *access == O_WRONLY {
+                    Errno::EBADF
+                } else {
+                    Errno::EPERM
+                })
+            }
+            Self::Supplied { entry, cursor, .. } | Self::Workspace { entry, cursor, .. } => {
                 let source = entry.source()?;
                 let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
                 let start = match offset {
@@ -242,6 +255,11 @@ impl EmbeddedFile {
                 }
                 Ok(bytes.len())
             }
+            Self::Supplied { entry, access, .. }
+                if entry.link_target().is_some() && *access != O_RDONLY =>
+            {
+                Err(Errno::EPERM)
+            }
             Self::Input(_) | Self::Supplied { .. } => Err(Errno::EBADF),
             Self::Pipe(end) => {
                 end.check(false, offset)?;
@@ -293,7 +311,7 @@ impl EmbeddedFile {
     /// unrepresentable or negative resulting offset leaves the cursor intact.
     pub fn seek(&self, offset: i64, whence: i32) -> Result<u64, Errno> {
         let (cursor, entry) = match self {
-            Self::Supplied { entry, cursor } | Self::Workspace { entry, cursor, .. } => {
+            Self::Supplied { entry, cursor, .. } | Self::Workspace { entry, cursor, .. } => {
                 (cursor, Some(entry))
             }
             Self::Null { cursor, .. } | Self::Zero { cursor, .. } => (cursor, None),
@@ -352,13 +370,18 @@ impl OpenFile {
     }
 
     pub fn supplied(path: String, entry: Entry) -> Self {
+        Self::supplied_with_flags(path, entry, O_RDONLY)
+    }
+
+    pub(crate) fn supplied_with_flags(path: String, entry: Entry, flags: u32) -> Self {
         Self {
             kind: FileKind::Embedded(EmbeddedFile::Supplied {
                 entry,
                 cursor: Mutex::new(0),
+                access: flags & O_ACCMODE,
             }),
             path: Some(path.into_bytes()),
-            flags: Mutex::new(0), // Darwin O_RDONLY.
+            flags: Mutex::new(flags),
         }
     }
 }

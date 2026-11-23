@@ -279,6 +279,8 @@ pub(super) fn permits_workspace(s: Sysno) -> bool {
         s,
         Sysno::Mkdir
             | Sysno::Mkdirat
+            | Sysno::Symlink
+            | Sysno::Symlinkat
             | Sysno::Unlink
             | Sysno::Unlinkat
             | Sysno::Rename

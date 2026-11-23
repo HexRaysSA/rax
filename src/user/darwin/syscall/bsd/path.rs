@@ -455,6 +455,9 @@ pub fn linkat(
 
 /// `symlinkat(target, fd, path)` (`symlink` with `AT_FDCWD`).
 pub fn symlinkat(ctx: &mut Ctx<'_>, target: u64, dirfd: i32, path: u64) -> SysResult {
+    if ctx.proc.vfs.files().is_some() {
+        return embedded::symlinkat(ctx, target, dirfd, path);
+    }
     #[cfg(unix)]
     {
         // The link's contents are not resolved: copy them as given.
