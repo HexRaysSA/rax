@@ -1126,6 +1126,71 @@ fn whole_ymm_moves_are_outside_the_xmm_device_profile() {
 }
 
 #[test]
+fn aligned_xmm_moves_use_the_full_operand_and_reject_misalignment() {
+    use rax::isa::x86_64::instruction_metadata;
+    for (bytes, mnemonic, lane, read, vex) in [
+        (&[0x66, 0x0f, 0x6f, 0x07][..], "movdqa", 0, true, false),
+        (&[0x66, 0x44, 0x0f, 0x7f, 0x3f], "movdqa", 15, false, false),
+        (&[0xc5, 0x79, 0x6f, 0x3f], "vmovdqa", 15, true, true),
+        (&[0xc4, 0xe1, 0x79, 0x7f, 0x07], "vmovdqa", 0, false, true),
+    ] {
+        let metadata = instruction_metadata::decode(64, 0x1000, bytes).unwrap();
+        assert_eq!(
+            (metadata.mnemonic.as_str(), metadata.size),
+            (mnemonic, bytes.len() as u32)
+        );
+        let (mut context, mut ram, mut record) = fixture(bytes);
+        record.qualification = if read { 0x181 } else { 0x182 };
+        let plan = prepare(&context, &mut ram, record).unwrap();
+        let transfer = match plan.action {
+            Action::XmmRead { input, zero_upper } if read => {
+                assert_eq!(zero_upper, vex);
+                input
+            }
+            Action::XmmWrite(transfer) if !read => transfer,
+            _ => panic!("wrong plan direction for {bytes:02x?}"),
+        };
+        assert_eq!(
+            (transfer.index, transfer.size, transfer.length),
+            (lane, 16, bytes.len() as u64)
+        );
+        assert_eq!(
+            (plan.linear, plan.physical),
+            (record.linear, record.physical)
+        );
+        assert!(
+            prepare(
+                &context,
+                &mut ram,
+                ExitRecord {
+                    qualification: record.qualification ^ 3,
+                    ..record
+                }
+            )
+            .is_err()
+        );
+        for offset in 1..16 {
+            context.registers[7] = record.linear + offset;
+            let unaligned = ExitRecord {
+                linear: record.linear + offset,
+                physical: record.physical + offset,
+                ..record
+            };
+            assert_eq!(
+                prepare(&context, &mut ram, unaligned).unwrap_err(),
+                "misaligned XMM MMIO transfer"
+            );
+        }
+        assert!(
+            ram.reads
+                .iter()
+                .all(|&(address, _)| address < record.physical || address >= record.physical + 31)
+        );
+    }
+    assert!(instruction_metadata::decode(64, 0x1000, &[0xc5, 0xfd, 0x6f, 0x07]).is_err());
+}
+
+#[test]
 fn movdqu_metadata_identifies_both_xmm_registers_and_operand_roles() {
     use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
     for (code, name, destination, source) in [

@@ -408,10 +408,10 @@ fn prepare_xmm<M: PhysicalMemory>(
     let (size, zero_upper) = match instruction.mnemonic.as_str() {
         "movd" => (4, false),
         "movq" => (8, false),
-        "movdqu" => (16, false),
+        "movdqa" | "movdqu" => (16, false),
         "vmovd" => (4, true),
         "vmovq" => (8, true),
-        "vmovdqu" => (16, true),
+        "vmovdqa" | "vmovdqu" => (16, true),
         _ => return Err("unsupported XMM MMIO transfer".into()),
     };
     if !instruction.operands_complete
@@ -441,6 +441,11 @@ fn prepare_xmm<M: PhysicalMemory>(
         length,
     };
     transfer.validate()?;
+    // A VMX exit can reach this handler only with a device operand. The
+    // aligned instructions have no MMIO transaction at a misaligned address.
+    if matches!(instruction.mnemonic.as_str(), "movdqa" | "vmovdqa") && record.linear & 15 != 0 {
+        return Err("misaligned XMM MMIO transfer".into());
+    }
     validate_memory(context, memory, record, operand, size)?;
     Ok(Plan {
         physical: record.physical,
@@ -491,7 +496,7 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     }
     if matches!(
         instruction.mnemonic.as_str(),
-        "movd" | "movq" | "movdqu" | "vmovd" | "vmovq" | "vmovdqu"
+        "movd" | "movq" | "movdqa" | "movdqu" | "vmovd" | "vmovq" | "vmovdqa" | "vmovdqu"
     ) {
         return prepare_xmm(context, memory, record, &instruction, read);
     }

@@ -269,7 +269,9 @@ pub(super) fn decode_0f(
                 (0x6e | 0x7e, true, None) => (op == 0x6e, if ctx.rex_w() { 8 } else { 4 }, false),
                 (0x7e, false, Some(0xf3)) => (true, 8, true),
                 (0xd6, true, None) => (false, 8, true),
-                (0x6f | 0x7f, false, Some(0xf3)) => (op == 0x6f, 16, true),
+                (0x6f | 0x7f, true, None) | (0x6f | 0x7f, false, Some(0xf3)) => {
+                    (op == 0x6f, 16, true)
+                }
                 _ => {
                     *unsupported = true;
                     return None;
@@ -296,6 +298,7 @@ pub(super) fn decode_0f(
                 out.operands = vec![read_write(rm, false, true), xmm];
             }
             match size {
+                16 if ctx.operand_size_override => "movdqa",
                 16 => "movdqu",
                 8 => "movq",
                 _ => "movd",

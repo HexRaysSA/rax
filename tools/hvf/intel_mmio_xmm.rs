@@ -1,4 +1,4 @@
-//! Native SSE2 and AVX XMM memory transfers and source-free CPU continuation through EPT.
+//! Native SSE2 and AVX XMM memory transfers, alignment faults and source-free continuation.
 use super::*;
 
 fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
@@ -35,7 +35,8 @@ pub(super) fn run(output: &Path, vex: bool) {
     const FLAGS: u64 = 0x8d7;
     assert!(!output.exists(), "observations must be new");
     let mut case = 0;
-    let cases: [(&[u8], usize, usize, bool); 8] = if vex {
+    let profile = if vex { "vex-xmm" } else { "legacy-xmm" };
+    let existing_cases: [(&[u8], usize, usize, bool); 8] = if vex {
         [
             (&[0xc5, 0xf9, 0x6e, 0x07], 4, 0, true),
             (&[0xc5, 0x79, 0x7e, 0x3f], 4, 15, false),
@@ -58,7 +59,22 @@ pub(super) fn run(output: &Path, vex: bool) {
             (&[0xf3, 0x0f, 0x7f, 0x47, 3], 16, 0, false),
         ]
     };
-    for (code, size, index, read) in cases {
+    let aligned_cases: [(&[u8], usize, usize, bool); 2] = if vex {
+        [
+            (&[0xc5, 0x79, 0x6f, 0x3f], 16, 15, true),
+            (&[0xc4, 0xe1, 0x79, 0x7f, 0x07], 16, 0, false),
+        ]
+    } else {
+        [
+            (&[0x66, 0x0f, 0x6f, 0x07], 16, 0, true),
+            (&[0x66, 0x44, 0x0f, 0x7f, 0x3f], 16, 15, false),
+        ]
+    };
+    let transfers = existing_cases
+        .into_iter()
+        .map(|entry| (entry, false))
+        .chain(aligned_cases.into_iter().map(|entry| (entry, true)));
+    for ((code, size, index, read), aligned) in transfers {
         for restore in [false, true] {
             let memory = guest_memory(code);
             word(&memory, 0x4000, 0x4000_009b);
@@ -69,7 +85,11 @@ pub(super) fn run(output: &Path, vex: bool) {
             let mut initial = state(cpu.as_ref());
             initial.regs.rip = CODE;
             initial.regs.rax = SEED;
-            let address = if size == 16 { MMIO + 3 } else { MMIO };
+            let address = if size == 16 && !aligned {
+                MMIO + 3
+            } else {
+                MMIO
+            };
             if vex {
                 initial.regs.ymm_high = std::array::from_fn(|lane| {
                     let low = MARKER.wrapping_add(lane as u64);
@@ -138,16 +158,83 @@ pub(super) fn run(output: &Path, vex: bool) {
             assert_eq!(regs.ymm_high, upper);
             drop(cpu);
             drop(vm);
-            let profile = if vex { "vex-xmm" } else { "legacy-xmm" };
             let suffix = match (read, restore) {
                 (true, false) => "read",
                 (true, true) => "read-restored",
                 (false, false) => "write",
                 (false, true) => "write-restored",
             };
-            record(output, case, &format!("{profile}-{suffix}"), size, value);
+            let operation = if aligned { "aligned-" } else { "" };
+            record(
+                output,
+                case,
+                &format!("{profile}-{operation}{suffix}"),
+                size,
+                value,
+            );
             case += 1;
         }
     }
+    for (code, size, _, read) in aligned_cases {
+        let fault_pc = alignment_fault(code, vex);
+        let direction = if read { "read" } else { "write" };
+        record(
+            output,
+            case,
+            &format!("{profile}-misaligned-{direction}"),
+            size,
+            fault_pc,
+        );
+        case += 1;
+    }
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn alignment_fault(code: &[u8], vex: bool) -> u64 {
+    const OBSERVATIONS: u64 = 0xa000;
+    const HANDLER: u64 = 0xb000;
+    const IDT: u64 = 0xc000;
+    let memory = guest_memory(code);
+    word(&memory, 0x4000, 0x4000_009b);
+    let gate = (HANDLER & 0xffff) | (8 << 16) | (0x8e << 40) | (((HANDLER >> 16) & 0xffff) << 48);
+    word(&memory, IDT + 13 * 16, gate);
+    word(&memory, IDT + 13 * 16 + 8, HANDLER >> 32);
+    let handler = gp_fault_handler(OBSERVATIONS as u32, code.len() as u8);
+    memory
+        .memory()
+        .write_slice(&handler, GuestAddress(HANDLER))
+        .unwrap();
+    let (_vm, mut cpu) = machine(&memory);
+    if vex {
+        enable_guest_avx(&memory, cpu.as_mut());
+    }
+    let mut input = state(cpu.as_ref());
+    input.regs.rip = CODE;
+    input.regs.rdi = MMIO + 3;
+    input.regs.rflags = 0x8d7;
+    input.regs.xmm = std::array::from_fn(|lane| [SEED + lane as u64, MARKER ^ lane as u64]);
+    if vex {
+        input.regs.ymm_high =
+            std::array::from_fn(|lane| [!SEED - lane as u64, !MARKER ^ lane as u64]);
+    }
+    input.sregs.idt.base = IDT;
+    input.sregs.idt.limit = 4095;
+    cpu.set_state(&CpuState::X86_64(input.clone())).unwrap();
+    let exit = event(cpu.as_mut());
+    assert!(
+        matches!(exit, VcpuExit::Hlt),
+        "misaligned XMM must reach the guest #GP handler, got {exit:?}"
+    );
+    let after = state(cpu.as_ref());
+    assert_eq!(after.regs.rip, CODE + code.len() as u64 + 11);
+    assert_eq!(after.regs.r10, MARKER);
+    assert_eq!(after.regs.rdi, MMIO + 3);
+    assert_eq!(after.regs.rflags, input.regs.rflags);
+    assert_eq!(after.regs.xmm, input.regs.xmm);
+    assert_eq!(after.regs.ymm_high, input.regs.ymm_high);
+    assert_eq!(read_word(&memory, OBSERVATIONS), 1);
+    assert_eq!(read_word(&memory, OBSERVATIONS + 8), 0);
+    let fault_pc = read_word(&memory, OBSERVATIONS + 16);
+    assert_eq!(fault_pc, CODE);
+    fault_pc
 }

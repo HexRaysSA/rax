@@ -406,7 +406,7 @@ fn pat_case(pat: u64, restore: bool) {
     drop(vm);
 }
 
-fn msr_fault_handler(observations: u32) -> Vec<u8> {
+fn gp_fault_handler(observations: u32, instruction_length: u8) -> Vec<u8> {
     let mut handler = vec![0x50, 0x48, 0xff, 0x04, 0x25]; // PUSH RAX; INC qword [abs32].
     handler.extend(observations.to_le_bytes());
     // After PUSH RAX: saved RAX at RSP, error code at RSP+8, fault RIP at RSP+16.
@@ -421,8 +421,9 @@ fn msr_fault_handler(observations: u32) -> Vec<u8> {
     }
     handler.extend([0x48, 0x89, 0x14, 0x25]); // MOV [abs32],RDX.
     handler.extend((observations + 32).to_le_bytes());
+    // ADD qword [RSP+16],len: skip the faulting instruction.
+    handler.extend([0x48, 0x83, 0x44, 0x24, 0x10, instruction_length]);
     handler.extend([
-        0x48, 0x83, 0x44, 0x24, 0x10, 2,    // ADD qword [RSP+16],2: skip the faulting MSR.
         0x58, // POP RAX.
         0x48, 0x83, 0xc4, 8, // Discard the error code.
         0x48, 0xcf, // IRETQ.
@@ -441,7 +442,7 @@ fn reserved_msr_case(msr: u32, write: bool) -> [u64; 5] {
     let gate = (HANDLER & 0xffff) | (8 << 16) | (0x8e << 40) | (((HANDLER >> 16) & 0xffff) << 48);
     word(&memory, IDT + 13 * 16, gate);
     word(&memory, IDT + 13 * 16 + 8, HANDLER >> 32);
-    let handler = msr_fault_handler(OBSERVATIONS as u32);
+    let handler = gp_fault_handler(OBSERVATIONS as u32, instruction.len() as u8);
     memory
         .memory()
         .write_slice(&handler, GuestAddress(HANDLER))

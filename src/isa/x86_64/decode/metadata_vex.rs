@@ -35,7 +35,7 @@ pub(super) fn decode_xmm_transfer(
         (1, 0x7e) => (false, if wide { 8 } else { 4 }, false),
         (2, 0x7e) => (true, 8, true),
         (1, 0xd6) => (false, 8, true),
-        (2, 0x6f | 0x7f) => (opcode == 0x6f, 16, true),
+        (1 | 2, 0x6f | 0x7f) => (opcode == 0x6f, 16, true),
         _ => {
             *unsupported = true;
             return None;
@@ -46,7 +46,7 @@ pub(super) fn decode_xmm_transfer(
         return None;
     }
     if flags & 4 != 0 {
-        // L=1 is reserved for the scalar forms and selects YMM for VMOVDQU.
+        // L=1 is reserved for the scalar forms and selects YMM for full moves.
         *unsupported = size == 16;
         return None;
     }
@@ -71,6 +71,7 @@ pub(super) fn decode_xmm_transfer(
         vec![read_write(rm, false, true), xmm]
     };
     out.mnemonic = match size {
+        16 if flags & 3 == 1 => "vmovdqa",
         16 => "vmovdqu",
         8 => "vmovq",
         _ => "vmovd",

@@ -133,3 +133,36 @@ The clean-parent log SHA-256 is
 `b7793ca4abcd2d2d565e133bb0c8b22477170a3b386b7a2e31743ee75307fced`.
 The unfiltered retry and the hosted Intel macOS device-hole witnesses
 remain in progress at publication.
+
+## Aligned 16-byte transfers
+
+The Intel HVF planner admits legacy `MOVDQA` and VEX.128 `VMOVDQA`
+when the guest linear address is 16-byte aligned and maps to a contiguous
+device range. It checks alignment before invoking a device. It uses the
+same 16-byte completion record as the other whole-XMM transfers. Legacy
+loads preserve the destination's upper state. VEX loads clear it.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The alignment requirement applies to the guest linear address. | Run every offset from 1 through 15 for both encodings and directions. A device effect on a misaligned operand falsifies admission. |
+| No guest register or memory update precedes a hardware alignment fault. | On physical Intel, compare the saved RIP and error code, destination bytes and adjacent memory. Under KVM, place the misaligned operand in an MMIO hole and count guest #GP entries and exits. |
+| Whole-XMM continuation also covers the aligned forms. | Use independent low and upper lane values for loads and stores. The hosted probe includes direct execution, fresh-CPU restore with the request outstanding, and misaligned accesses without device replies. |
+
+The pre-change planner rejected aligned memory metadata as unsupported.
+The repaired Cargo targets `hvf_mmio`, `hvf_intel_owner`, and `isa_oracle`
+passed 123, 99, and 102 cases respectively, with zero failures, ignored
+cases or filters. The prepared consumer linked as an x86-64 Mach-O and
+passed strict hypervisor signature verification. All 54 Python consumer
+and workflow tests passed.
+
+Four ordinary RAM controls passed on a physical Intel Xeon E5-1650 v3.
+All 60 misaligned encoding/offset combinations took `#GP(0)` at the
+instruction RIP. Independent KVM executions of the four forms at
+misaligned device address `0x40000083` entered the guest #GP handler
+once, resumed after IRET, and reached HLT without an MMIO exit. These
+controls cover Intel instruction and KVM device-hole behavior. The
+hosted Intel HVF profiles separately exercise Hypervisor.framework.
+[Intel Software Developer's Manual, Volume 2, MOVDQA and VMOVDQA](https://cdrdv2-public.intel.com/835757/325383-sdm-vol-2abcd.pdf)
+
+- Physical Intel RAM log SHA-256 `ff7b7c8844402513015663ac5de4206a72efe5b87b1250c56a418e07f9f9e0b7`
+- KVM device-hole log SHA-256 `b559a75016c7604e4633a4f4c657aa1b9bbfe2ef8777f959a58018a7a5f4ce8c`
