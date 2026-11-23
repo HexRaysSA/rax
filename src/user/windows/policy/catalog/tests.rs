@@ -49,7 +49,7 @@ fn catalog_names_have_checked_extents_and_exact_case() {
         catalog
             .value(&"native-test".encode_utf16().collect::<Vec<_>>())
             .unwrap_err(),
-        STATUS_OBJECT_NAME_NOT_FOUND
+        Error::Status(STATUS_OBJECT_NAME_NOT_FOUND)
     );
 }
 
@@ -71,30 +71,40 @@ fn capture_uses_native_override_bytes_and_preserves_native_errors() {
     })
     .unwrap();
     assert_eq!(&*catalog.value(&[65]).unwrap().data, [9, 8, 7]);
-    assert_eq!(catalog.value(&[66]).unwrap_err(), 0xC000_0272);
+    assert_eq!(
+        catalog.value(&[66]).unwrap_err(),
+        Error::Status(0xC000_0272)
+    );
 }
 
 #[test]
-fn changing_or_undefined_native_bytes_do_not_enter_the_snapshot() {
-    let names = BTreeSet::from([vec![65]]);
+fn changing_or_undefined_native_bytes_do_not_hide_stable_values() {
+    let names = BTreeSet::from([vec![65], vec![66], vec![67]]);
     for changing in [false, true] {
-        let mut calls = 0;
-        let result = capture_with(&names, |_, data, kind, required| {
-            calls += 1;
+        let mut unstable_calls = 0;
+        let catalog = capture_with(&names, |name, data, kind, required| {
+            if name == [66] {
+                unstable_calls += 1;
+            }
             *required = 4;
             *kind = 4;
             if data.is_empty() {
                 return STATUS_BUFFER_TOO_SMALL;
             }
-            if changing {
-                data.fill(calls);
+            if name != [66] {
+                data.fill(name[0] as u8);
+            } else if changing {
+                data.fill(unstable_calls);
             } else {
                 data[..3].fill(0);
             }
             0
-        });
-        assert!(result.is_err());
-        assert_eq!(calls, 9);
+        })
+        .unwrap();
+        assert_eq!(&*catalog.value(&[65]).unwrap().data, [65; 4]);
+        assert_eq!(&*catalog.value(&[67]).unwrap().data, [67; 4]);
+        assert!(matches!(catalog.value(&[66]), Err(Error::Unsupported(_))));
+        assert_eq!(unstable_calls, 9);
     }
 }
 
@@ -131,15 +141,14 @@ fn native_private_names_may_leave_type_untouched_on_the_size_query() {
     .unwrap();
     assert_eq!(captured.value(&[65]).unwrap().kind, 3);
     assert_eq!(&*captured.value(&[65]).unwrap().data, [1, 2, 3, 4]);
-    assert!(
-        capture_with(&selected, |_, data, _, size| {
-            *size = 4;
-            if data.is_empty() {
-                return STATUS_BUFFER_TOO_SMALL;
-            }
-            data.fill(0);
-            0
-        })
-        .is_err()
-    );
+    let captured = capture_with(&selected, |_, data, _, size| {
+        *size = 4;
+        if data.is_empty() {
+            return STATUS_BUFFER_TOO_SMALL;
+        }
+        data.fill(0);
+        0
+    })
+    .unwrap();
+    assert!(matches!(captured.value(&[65]), Err(Error::Unsupported(_))));
 }
