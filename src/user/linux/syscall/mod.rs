@@ -535,9 +535,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Getcwd => r(path::getcwd(c, a[0], a[1])),
         S::Chdir => r(path::chdir(c, a[0])),
         S::Fchdir => r(path::fchdir(c, fd(a[0]))),
-        #[cfg(unix)]
         S::Mkdir => r(path::mkdirat(c, path::AT_FDCWD, a[0], a[1] as u32)),
-        #[cfg(unix)]
         S::Mkdirat => r(path::mkdirat(c, fd(a[0]), a[1], a[2] as u32)),
         #[cfg(unix)]
         S::Rmdir => r(path::unlinkat(c, path::AT_FDCWD, a[0], path::AT_REMOVEDIR)),

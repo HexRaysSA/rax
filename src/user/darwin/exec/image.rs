@@ -217,8 +217,14 @@ pub(super) fn activate_supplied(
     let user_path = ctx.cstr(path_addr, MAXPATHLEN)?;
     let machine = Machine { abi: ctx.proc.abi };
     let activated = activate_image(machine, &user_path, prefs, |path| {
-        let (path, entry) = ctx.proc.vfs.lookup(path, cwd).map_err(Errno::from)?;
+        let (path, entry) =
+            crate::user::darwin::syscall::bsd::path::embedded::lookup_followed(ctx, path, cwd)?;
         if entry.is_dir() || entry.device().is_some() {
+            return Err(Errno::EACCES);
+        }
+        if let Some(file) = entry.workspace_file()
+            && !file.permits(1, (ctx.proc.creds.1, ctx.proc.creds.3), &[])
+        {
             return Err(Errno::EACCES);
         }
         let image = ImageFile::from_entry(path, entry).map_err(Errno::from)?;

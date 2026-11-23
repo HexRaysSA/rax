@@ -90,7 +90,10 @@ impl EmbeddedFile {
     /// files retain the mode and ownership of their creation.
     pub fn stat(&self) -> Result<Stat, Errno> {
         let workspace = self.entry().and_then(Entry::workspace_file);
-        let (uid, gid) = workspace.map_or((0, 0), |file| file.ownership());
+        let (uid, gid) = self
+            .entry()
+            .and_then(Entry::workspace_owner)
+            .unwrap_or((0, 0));
         let (ino, mode, size) = match self {
             Self::Supplied { entry, .. } | Self::Workspace { entry, .. } => {
                 let permissions = entry.workspace_mode().unwrap_or(0o555) as u16;

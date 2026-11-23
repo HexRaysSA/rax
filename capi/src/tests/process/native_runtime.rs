@@ -686,6 +686,52 @@ fn installed_mktemp_creates_a_guest_owned_regular_file() {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn installed_mktemp_and_mkdir_create_guest_owned_directories() {
+    let (personality, mkdir) = if cfg!(target_os = "linux") {
+        ("linux", "/usr/bin/mkdir")
+    } else {
+        ("darwin", "/bin/mkdir")
+    };
+    let root = format!("/tmp/.rax-closed-directories-{}", std::process::id());
+    let prefix = format!("{root}-");
+    let template = format!("{prefix}XXXXXX");
+    let nested = format!("{root}/first/second");
+    for (program, arguments) in [
+        ("/usr/bin/mktemp", ["-d", &template]),
+        (mkdir, ["-p", &nested]),
+    ] {
+        let options = serde_json::json!({
+            "personality": personality,
+            "guest_path": program,
+            "arguments": arguments,
+            "environment": {"LC_ALL": "C"},
+            "native_runtime": true,
+            "memory_bytes": 268435456,
+        });
+        let process = open(&std::fs::read(program).unwrap(), &options.to_string());
+        let status = run_installed_posix(&process, program);
+        let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+        assert_eq!(status.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+        assert!(stderr.is_empty());
+        let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+        if program == mkdir {
+            assert!(stdout.is_empty());
+            assert!(!std::path::Path::new(&root).exists());
+        } else {
+            let reported = std::str::from_utf8(&stdout)
+                .unwrap()
+                .strip_suffix('\n')
+                .unwrap();
+            let suffix = reported.strip_prefix(&prefix).unwrap();
+            assert_eq!(suffix.len(), 6);
+            assert!(suffix.bytes().all(|byte| byte.is_ascii_alphanumeric()));
+            assert!(!std::path::Path::new(reported).exists());
+        }
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn compare_installed_posix_output(
     personality: &str,
     path: &str,

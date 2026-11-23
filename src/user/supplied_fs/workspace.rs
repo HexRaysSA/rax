@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 const MAX_BYTES: usize = 16 << 20;
-const MAX_FILES: usize = 1024;
+const MAX_NODES: usize = 1024;
 const FIRST_INODE: u32 = 0x5258_0001;
 pub(super) const ROOT_INODE: u64 = (FIRST_INODE - 1) as u64;
 
@@ -17,21 +17,56 @@ pub(super) const ROOT_INODE: u64 = (FIRST_INODE - 1) as u64;
 pub(super) struct Workspace {
     namespace: Mutex<Namespace>,
     budget: Arc<Mutex<Budget>>,
+    pub(super) flavor: WorkspaceFlavor,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::user) enum WorkspaceFlavor {
+    Linux,
+    Darwin,
 }
 
 #[derive(Debug)]
 struct Namespace {
-    files: BTreeMap<String, Arc<WorkspaceFile>>,
+    nodes: BTreeMap<String, Node>,
     inode: u32,
 }
 
 #[derive(Debug, Default)]
 struct Budget {
-    files: usize,
+    nodes: usize,
     bytes: usize,
 }
 
-/// A regular file in the guest's private temporary directory.
+#[derive(Clone, Debug)]
+pub(super) enum Node {
+    File(Arc<WorkspaceFile>),
+    Directory(Directory),
+}
+
+/// Identity and permissions of a guest-created directory.
+#[derive(Clone, Copy, Debug)]
+pub struct Directory {
+    pub(super) ino: u64,
+    pub(super) mode: u32,
+    pub(super) owner: (u32, u32),
+}
+
+impl Directory {
+    pub(crate) fn permits(&self, need: u32, ids: (u32, u32), groups: &[u32]) -> bool {
+        ids.0 == 0 || permitted(self.mode, self.owner, need, ids, groups)
+    }
+
+    pub(super) fn child_owner(&self, flavor: WorkspaceFlavor, ids: (u32, u32)) -> (u32, u32) {
+        if flavor == WorkspaceFlavor::Darwin || self.mode & 0o2000 != 0 {
+            (ids.0, self.owner.1)
+        } else {
+            ids
+        }
+    }
+}
+
+/// A regular file in the guest's private temporary workspace.
 #[derive(Debug)]
 pub struct WorkspaceFile {
     pub(super) ino: u64,
@@ -43,19 +78,41 @@ pub struct WorkspaceFile {
 }
 
 impl Workspace {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(flavor: WorkspaceFlavor) -> Self {
         Self {
             namespace: Mutex::new(Namespace {
-                files: BTreeMap::new(),
+                nodes: BTreeMap::new(),
                 inode: FIRST_INODE,
             }),
             budget: Arc::default(),
+            flavor,
         }
     }
 
-    pub(super) fn get(&self, path: &str) -> Result<Option<Arc<WorkspaceFile>>, Error> {
+    pub(super) fn get(&self, path: &str) -> Result<Option<Node>, Error> {
         let namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        Ok(namespace.files.get(path).cloned())
+        Ok(namespace.nodes.get(path).cloned())
+    }
+
+    pub(super) fn create_directory(
+        &self,
+        path: String,
+        mode: u32,
+        owner: (u32, u32),
+    ) -> Result<(), Error> {
+        let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if namespace.nodes.contains_key(&path) {
+            return Err(Error::Exists);
+        }
+        let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
+        let ino = allocate_inode(&mut namespace, &mut budget)?;
+        let directory = Directory {
+            ino,
+            mode: mode & 0o7777,
+            owner,
+        };
+        namespace.nodes.insert(path, Node::Directory(directory));
+        Ok(())
     }
 
     /// Atomically resolves an existing name or publishes a newly created inode.
@@ -67,47 +124,76 @@ impl Workspace {
         exclusive: bool,
     ) -> Result<Arc<WorkspaceFile>, Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        if let Some(file) = namespace.files.get(&path) {
-            if exclusive {
-                return Err(Error::Exists);
-            }
-            return Ok(file.clone());
+        if let Some(entry) = namespace.nodes.get(&path) {
+            return match (exclusive, entry) {
+                (true, _) => Err(Error::Exists),
+                (false, Node::File(file)) => Ok(file.clone()),
+                (false, Node::Directory(_)) => Err(Error::IsDirectory),
+            };
         }
         let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
-        if budget.files >= MAX_FILES {
-            return Err(Error::NoSpace);
-        }
-        let ino = namespace.inode;
-        namespace.inode = ino.checked_add(1).ok_or(Error::NoSpace)?;
+        let ino = allocate_inode(&mut namespace, &mut budget)?;
         let file = Arc::new(WorkspaceFile {
-            ino: u64::from(ino),
+            ino,
             mode: mode & 0o7777,
             owner,
             linked: AtomicBool::new(true),
             budget: self.budget.clone(),
             contents: Mutex::new(Vec::new()),
         });
-        budget.files += 1;
-        namespace.files.insert(path, file.clone());
+        namespace.nodes.insert(path, Node::File(file.clone()));
         Ok(file)
     }
 
-    pub(super) fn unlink(&self, path: &str, uid: u32) -> Result<(), Error> {
+    pub(super) fn unlink(
+        &self,
+        path: &str,
+        uid: u32,
+        sticky_owner: Option<u32>,
+    ) -> Result<(), Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        let file = namespace.files.get(path).ok_or(Error::NotFound)?;
-        // The workspace directory is owned by uid 0 and has its sticky bit set.
-        if uid != 0 && uid != file.owner.0 {
+        let Node::File(file) = namespace.nodes.get(path).ok_or(Error::NotFound)? else {
+            return Err(Error::IsDirectory);
+        };
+        if let Some(owner) = sticky_owner
+            && uid != 0
+            && uid != owner
+            && uid != file.owner.0
+        {
             return Err(Error::PermissionDenied);
         }
         file.linked.store(false, Ordering::Relaxed);
-        namespace.files.remove(path);
+        namespace.nodes.remove(path);
         Ok(())
     }
 
-    pub(super) fn children(&self) -> Result<Vec<String>, Error> {
+    pub(super) fn children(&self, directory: &str) -> Result<Vec<String>, Error> {
         let namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        Ok(namespace.files.keys().cloned().collect())
+        let prefix = if directory.is_empty() {
+            String::new()
+        } else {
+            format!("{directory}/")
+        };
+        Ok(namespace
+            .nodes
+            .range(prefix.clone()..)
+            .map(|(name, _)| name)
+            .take_while(|name| name.starts_with(&prefix))
+            .map(|name| &name[prefix.len()..])
+            .filter(|rest| !rest.contains('/'))
+            .map(str::to_owned)
+            .collect())
     }
+}
+
+fn allocate_inode(namespace: &mut Namespace, budget: &mut Budget) -> Result<u64, Error> {
+    if budget.nodes >= MAX_NODES {
+        return Err(Error::NoSpace);
+    }
+    let ino = namespace.inode;
+    namespace.inode = ino.checked_add(1).ok_or(Error::NoSpace)?;
+    budget.nodes += 1;
+    Ok(u64::from(ino))
 }
 
 impl WorkspaceFile {
@@ -127,14 +213,7 @@ impl WorkspaceFile {
         if ids.0 == 0 {
             return need & 1 == 0 || self.mode & 0o111 != 0;
         }
-        let shift = if ids.0 == self.owner.0 {
-            6
-        } else if ids.1 == self.owner.1 || groups.contains(&self.owner.1) {
-            3
-        } else {
-            0
-        };
-        need & !(self.mode >> shift) == 0
+        permitted(self.mode, self.owner, need, ids, groups)
     }
 
     pub(super) fn snapshot(&self) -> Result<Arc<[u8]>, Error> {
@@ -195,6 +274,17 @@ impl WorkspaceFile {
     }
 }
 
+fn permitted(mode: u32, owner: (u32, u32), need: u32, ids: (u32, u32), groups: &[u32]) -> bool {
+    let shift = if ids.0 == owner.0 {
+        6
+    } else if ids.1 == owner.1 || groups.contains(&owner.1) {
+        3
+    } else {
+        0
+    };
+    need & !(mode >> shift) == 0
+}
+
 impl Drop for WorkspaceFile {
     fn drop(&mut self) {
         if let Ok(mut budget) = self.budget.lock() {
@@ -203,7 +293,7 @@ impl Drop for WorkspaceFile {
                 .get_mut()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             budget.bytes -= bytes.len();
-            budget.files -= 1;
+            budget.nodes -= 1;
         }
     }
 }
@@ -244,7 +334,7 @@ mod tests {
 
     #[test]
     fn removed_storage_survives_recreation_until_the_last_descriptor_closes() {
-        let files = Workspace::new();
+        let files = Workspace::new(WorkspaceFlavor::Linux);
         let name = "value";
         let before = files.create(name.into(), 0o600, (101, 102), true).unwrap();
         assert!(matches!(
@@ -264,10 +354,10 @@ mod tests {
         assert!(!before.permits(4, (103, 102), &[]));
         assert!(!before.permits(1, (0, 0), &[]));
         assert!(matches!(
-            files.unlink(name, 103),
+            files.unlink(name, 103, Some(0)),
             Err(Error::PermissionDenied)
         ));
-        files.unlink(name, 101).unwrap();
+        files.unlink(name, 101, Some(0)).unwrap();
         assert!(!before.linked());
         assert!(files.get(name).unwrap().is_none());
         let after = files.create(name.into(), 0o640, (103, 104), true).unwrap();
@@ -276,7 +366,7 @@ mod tests {
         assert_ne!(before.ino, after.ino);
         assert_eq!(after.len(), 0);
         assert_eq!(before.len(), 8);
-        assert_eq!(files.children().unwrap(), [name]);
+        assert_eq!(files.children("").unwrap(), [name]);
         assert!(matches!(
             after.resize(MAX_BYTES as u64),
             Err(Error::NoSpace)

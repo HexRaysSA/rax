@@ -32,10 +32,41 @@ fn lookup(
     policy: LinkPolicy,
 ) -> Result<(String, Entry), Errno> {
     let (path, base) = path_and_base(ctx, dirfd, path)?;
-    ctx.proc
-        .vfs
-        .lookup_with_policy(&path, &base, policy)
+    lookup_as(
+        ctx,
+        &path,
+        &base,
+        policy,
+        (ctx.proc.creds.1, ctx.proc.creds.3),
+    )
+}
+
+fn lookup_as(
+    ctx: &Ctx<'_>,
+    path: &[u8],
+    base: &[u8],
+    policy: LinkPolicy,
+    ids: (u32, u32),
+) -> Result<(String, Entry), Errno> {
+    let files = ctx.proc.vfs.files().ok_or(Errno::ENOTSUP)?;
+    let absolute = crate::user::darwin::vfs::Vfs::absolute_guest_path(path, base)?;
+    files
+        .lookup_for_guest(&absolute, policy, ids, &[])
         .map_err(Errno::from)
+}
+
+pub(crate) fn lookup_followed(
+    ctx: &Ctx<'_>,
+    path: &[u8],
+    base: &[u8],
+) -> Result<(String, Entry), Errno> {
+    lookup_as(
+        ctx,
+        path,
+        base,
+        LinkPolicy::Follow,
+        (ctx.proc.creds.1, ctx.proc.creds.3),
+    )
 }
 
 fn link_policy(flags: u32) -> LinkPolicy {
@@ -54,22 +85,28 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
     {
         return Err(Errno::EINVAL);
     }
-    let (_, entry) = lookup(ctx, dirfd, path, link_policy(flags))?;
-    if let Some(file) = entry.workspace_file() {
-        let (uid, euid, gid, egid) = ctx.proc.creds;
-        let ids = if flags & AT_EACCESS != 0 {
-            (euid, egid)
-        } else {
-            (uid, gid)
-        };
-        return if file.permits(mode as u32, ids, &[]) {
+    let (uid, euid, gid, egid) = ctx.proc.creds;
+    let ids = if flags & AT_EACCESS != 0 {
+        (euid, egid)
+    } else {
+        (uid, gid)
+    };
+    let (path, base) = path_and_base(ctx, dirfd, path)?;
+    let (_, entry) = lookup_as(ctx, &path, &base, link_policy(flags), ids)?;
+    let allowed = entry
+        .workspace_file()
+        .map(|file| file.permits(mode as u32, ids, &[]))
+        .or_else(|| {
+            entry
+                .workspace_directory()
+                .map(|dir| dir.permits(mode as u32, ids, &[]))
+        });
+    if let Some(allowed) = allowed {
+        return if allowed {
             Ok(Rv::one(0))
         } else {
             Err(Errno::EACCES)
         };
-    }
-    if entry.is_dir() && entry.workspace_mode().is_some() {
-        return Ok(Rv::one(0));
     }
     if entry.device().is_some() {
         return if mode & 1 == 0 {
@@ -99,22 +136,33 @@ pub(super) fn readlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u
 
 pub(super) fn chdir(ctx: &mut Ctx<'_>, path: u64) -> SysResult {
     let (path, entry) = lookup(ctx, AT_FDCWD, path, LinkPolicy::Follow)?;
-    if !entry.is_dir() {
-        return Err(Errno::ENOTDIR);
-    }
+    check_search(ctx, &entry)?;
     ctx.proc.cwd = path.into_bytes();
     Ok(Rv::one(0))
 }
 
 pub(super) fn fchdir(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
-    ctx.proc.cwd = directory_descriptor(&file)?;
+    ctx.proc.cwd = directory_descriptor(ctx, &file)?;
     Ok(Rv::one(0))
 }
 
-pub(crate) fn directory_descriptor(file: &OpenFile) -> Result<Vec<u8>, Errno> {
+pub(crate) fn check_search(ctx: &Ctx<'_>, entry: &Entry) -> Result<(), Errno> {
+    if !entry.is_dir() {
+        return Err(Errno::ENOTDIR);
+    }
+    if let Some(directory) = entry.workspace_directory()
+        && !directory.permits(1, (ctx.proc.creds.1, ctx.proc.creds.3), &[])
+    {
+        return Err(Errno::EACCES);
+    }
+    Ok(())
+}
+
+pub(crate) fn directory_descriptor(ctx: &Ctx<'_>, file: &OpenFile) -> Result<Vec<u8>, Errno> {
     match &file.kind {
-        FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) if entry.is_dir() => {
+        FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) => {
+            check_search(ctx, entry)?;
             file.path.clone().ok_or(Errno::ENOTDIR)
         }
         FileKind::Embedded(_) => Err(Errno::ENOTDIR),
@@ -145,15 +193,25 @@ pub(super) fn unlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysR
     let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
     let (path, base) = path_and_base(ctx, dirfd, path)?;
     let absolute = crate::user::darwin::vfs::Vfs::absolute_guest_path(&path, &base)?;
+    let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
     if flags == AT_REMOVEDIR {
-        let (_, entry) = files.lookup_with_follow(&absolute, false)?;
+        let (_, entry) = files.lookup_for_guest(&absolute, LinkPolicy::NoFollowLast, ids, &[])?;
         return Err(if entry.is_dir() {
             Errno::EROFS
         } else {
             Errno::ENOTDIR
         });
     }
-    files.unlink_workspace_file(&absolute, ctx.proc.creds.1)?;
+    files.unlink_workspace_file(&absolute, ids, &[])?;
+    Ok(Rv::one(0))
+}
+
+pub(super) fn mkdirat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: u32) -> SysResult {
+    let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
+    let (path, base) = path_and_base(ctx, dirfd, path)?;
+    let absolute = crate::user::darwin::vfs::Vfs::absolute_guest_path(&path, &base)?;
+    let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
+    files.create_workspace_directory(&absolute, mode & !ctx.proc.umask, ids, &[])?;
     Ok(Rv::one(0))
 }
 
@@ -168,12 +226,7 @@ pub(crate) fn open_file(
     let file = open_or_create(
         flags,
         owner,
-        |policy| {
-            ctx.proc
-                .vfs
-                .lookup_with_policy(path, base, policy)
-                .map_err(Errno::from)
-        },
+        |policy| lookup_as(ctx, path, base, policy, owner),
         |exclusive| {
             let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
             if !files.has_workspace() {
@@ -185,7 +238,7 @@ pub(crate) fn open_file(
             let absolute = crate::user::darwin::vfs::Vfs::absolute_guest_path(path, base)?;
             let mode = mode & !ctx.proc.umask;
             files
-                .create_workspace_file(&absolute, mode, owner, exclusive)
+                .create_workspace_file(&absolute, mode, owner, &[], exclusive)
                 .map_err(Errno::from)
         },
     )?;
@@ -252,6 +305,11 @@ fn open_or_create(
     }
     if flags & O_DIRECTORY != 0 && !entry.is_dir() {
         return Err(Errno::ENOTDIR);
+    }
+    if let Some(directory) = entry.workspace_directory()
+        && !directory.permits(4, owner, &[])
+    {
+        return Err(Errno::EACCES);
     }
     let status = flags & (O_STATUS_FLAGS | O_DIRECTORY | O_ACCMODE);
     let file = if let Some(device) = device {

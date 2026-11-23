@@ -14,6 +14,7 @@ use super::super::fs::{self, join_guest};
 use super::super::fsnotify::bits::{IN_ATTRIB, IN_MODIFY};
 use super::super::procfs::{self, ProcEntry};
 use super::{Ctx, SysResult};
+use crate::user::supplied_fs::LinkPolicy;
 
 /// `AT_FDCWD`.
 pub const AT_FDCWD: i32 = -100;
@@ -66,6 +67,16 @@ fn base_dir(c: &Ctx<'_>, dirfd: i32) -> Result<String, Errno> {
 
 /// Resolves a guest path string relative to `dirfd`.
 pub fn resolve_str(c: &Ctx<'_>, dirfd: i32, path: &str, follow: bool) -> Result<Target, Errno> {
+    resolve_str_as(c, dirfd, path, follow, (c.p.creds.1, c.p.creds.3))
+}
+
+fn resolve_str_as(
+    c: &Ctx<'_>,
+    dirfd: i32,
+    path: &str,
+    follow: bool,
+    ids: (u32, u32),
+) -> Result<Target, Errno> {
     // Preserve components until the closed namespace has checked directory
     // traversal. Lexically erasing `.` would mis-handle `/regular-file/.`.
     let guest = if c.p.vfs.supplied().is_some() {
@@ -80,7 +91,12 @@ pub fn resolve_str(c: &Ctx<'_>, dirfd: i32, path: &str, follow: bool) -> Result<
         join_guest(&base_dir(c, dirfd)?, path)
     };
     if let Some(files) = c.p.vfs.supplied() {
-        match files.lookup_with_follow(&guest, follow) {
+        let policy = if follow {
+            LinkPolicy::Follow
+        } else {
+            LinkPolicy::NoFollowLast
+        };
+        match files.lookup_for_guest(&guest, policy, ids, &c.p.groups) {
             Ok((canonical, entry)) => return Ok(Target::Supplied(entry, canonical)),
             Err(crate::user::supplied_fs::Error::NotFound) => {}
             Err(error) => return Err(error.into()),
@@ -108,19 +124,37 @@ pub fn resolve(
     flags: u32,
     follow: bool,
 ) -> Result<Target, Errno> {
+    resolve_as(
+        c,
+        dirfd,
+        path_addr,
+        flags,
+        follow,
+        (c.p.creds.1, c.p.creds.3),
+    )
+}
+
+fn resolve_as(
+    c: &Ctx<'_>,
+    dirfd: i32,
+    path_addr: u64,
+    flags: u32,
+    follow: bool,
+    ids: (u32, u32),
+) -> Result<Target, Errno> {
     let raw = c.read_cstr_raw(path_addr, fs::PATH_MAX - 1)?;
     if raw.is_empty() {
         if flags & AT_EMPTY_PATH != 0 {
             if dirfd == AT_FDCWD {
                 let cwd = c.p.working_directory().into_owned();
-                return resolve_str(c, AT_FDCWD, &cwd, true);
+                return resolve_str_as(c, AT_FDCWD, &cwd, true, ids);
             }
             return Ok(Target::Fd(c.p.fds.file(dirfd)?));
         }
         return Err(Errno(ENOENT));
     }
     let path = fs::Vfs::path_str(&raw)?;
-    resolve_str(c, dirfd, &path, follow)
+    resolve_str_as(c, dirfd, &path, follow, ids)
 }
 
 /// Metadata of a synthesized entry, owned by `ids` (effective UID and
@@ -157,11 +191,12 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
 fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
     let size = entry.len().min(i64::MAX as u64) as i64;
     let workspace = entry.workspace_file();
-    let (uid, gid) = workspace.map_or((0, 0), |file| file.ownership());
+    let (uid, gid) = entry.workspace_owner().unwrap_or((0, 0));
     Stat {
         ino: entry.ino,
         mode: match &entry.kind {
-            crate::user::supplied_fs::Kind::Directory => {
+            crate::user::supplied_fs::Kind::Directory
+            | crate::user::supplied_fs::Kind::WorkspaceDirectory(_) => {
                 mode::S_IFDIR | entry.workspace_mode().unwrap_or(0o555)
             }
             crate::user::supplied_fs::Kind::Workspace(file) => mode::S_IFREG | file.mode(),
@@ -406,6 +441,12 @@ pub(super) fn open_target(
             if flags & layout.directory != 0 && !entry.is_dir() {
                 return Err(Errno(ENOTDIR));
             }
+            if let Some(directory) = entry.workspace_directory()
+                && flags & O_PATH == 0
+                && !directory.permits(4, (c.p.creds.1, c.p.creds.3), &c.p.groups)
+            {
+                return Err(Errno(EACCES));
+            }
             if (device || workspace.is_some()) && flags & O_PATH == 0 && flags & layout.direct != 0
             {
                 return Err(Errno(EINVAL));
@@ -445,7 +486,10 @@ pub(super) fn open_target(
                     fs::fd::DirEntry {
                         ino: entry.ino,
                         dtype: match entry.kind {
-                            crate::user::supplied_fs::Kind::Directory => fs::fd::dt::DT_DIR,
+                            crate::user::supplied_fs::Kind::Directory
+                            | crate::user::supplied_fs::Kind::WorkspaceDirectory(_) => {
+                                fs::fd::dt::DT_DIR
+                            }
                             crate::user::supplied_fs::Kind::Symlink(_) => fs::fd::dt::DT_LNK,
                             crate::user::supplied_fs::Kind::NullDevice
                             | crate::user::supplied_fs::Kind::ZeroDevice => fs::fd::dt::DT_CHR,
@@ -455,7 +499,12 @@ pub(super) fn open_target(
                     }
                 }));
                 directory = Some((entries, 0));
-                (FileObject::Synthetic(Arc::from([])), FileType::Directory)
+                let object = if entry.workspace_directory().is_some() {
+                    FileObject::Supplied(entry.clone())
+                } else {
+                    FileObject::Synthetic(Arc::from([]))
+                };
+                (object, FileType::Directory)
             } else if entry.link_target().is_some() {
                 (FileObject::Supplied(entry.clone()), FileType::Symlink)
             } else {
@@ -708,7 +757,8 @@ pub(super) fn open_file(
             let files = c.p.vfs.supplied().expect("checked supplied namespace");
             let mode = create_mode & !c.p.file_creation_mask();
             let owner = (c.p.creds.1, c.p.creds.3);
-            let (path, entry) = files.create_workspace_file(&absolute, mode, owner, exclusive)?;
+            let (path, entry) =
+                files.create_workspace_file(&absolute, mode, owner, &c.p.groups, exclusive)?;
             return open_target(
                 c,
                 Target::Supplied(entry, path),
@@ -868,7 +918,13 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
         return Err(Errno(EINVAL));
     }
     let follow = flags & AT_SYMLINK_NOFOLLOW == 0;
-    match resolve(c, dirfd, path, flags, follow)? {
+    let (uid, euid, gid, egid) = c.p.creds;
+    let ids = if flags & AT_EACCESS != 0 {
+        (euid, egid)
+    } else {
+        (uid, gid)
+    };
+    match resolve_as(c, dirfd, path, flags, follow, ids)? {
         Target::Proc(ProcEntry::File(_), _) => {
             // Synthesized files are readable only: W_OK and X_OK fail.
             if amode & 3 != 0 {
@@ -876,11 +932,10 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             }
             Ok(0)
         }
-        Target::Supplied(entry, _) => supplied_entry_access(c, &entry, amode, flags),
+        Target::Supplied(entry, _) => supplied_entry_access(c, &entry, amode, ids),
         Target::Proc(..) => Ok(0),
         Target::Fd(f) if f.supplied_stat.is_some() => match &f.object {
-            FileObject::Supplied(entry) => supplied_entry_access(c, entry, amode, flags),
-            _ if f.supplied_stat.is_some_and(|st| st.mode & 0o1777 == 0o1777) => Ok(0),
+            FileObject::Supplied(entry) => supplied_entry_access(c, entry, amode, ids),
             _ => supplied_access(amode, f.ftype == FileType::CharDevice),
         },
         Target::Fd(f) => match &f.host_path {
@@ -905,25 +960,16 @@ fn supplied_entry_access(
     c: &Ctx<'_>,
     entry: &crate::user::supplied_fs::Entry,
     amode: u32,
-    flags: u32,
+    ids: (u32, u32),
 ) -> SysResult {
-    if let Some(file) = entry.workspace_file() {
-        let (uid, euid, gid, egid) = c.p.creds;
-        let ids = if flags & AT_EACCESS != 0 {
-            (euid, egid)
-        } else {
-            (uid, gid)
-        };
-        return if file.permits(amode, ids, &c.p.groups) {
-            Ok(0)
-        } else {
-            Err(Errno(EACCES))
-        };
-    }
-    if entry.is_dir() && entry.workspace_mode().is_some() {
-        return Ok(0);
-    }
-    supplied_access(amode, entry.device().is_some())
+    let allowed = if let Some(file) = entry.workspace_file() {
+        file.permits(amode, ids, &c.p.groups)
+    } else if let Some(directory) = entry.workspace_directory() {
+        directory.permits(amode, ids, &c.p.groups)
+    } else {
+        return supplied_access(amode, entry.device().is_some());
+    };
+    if allowed { Ok(0) } else { Err(Errno(EACCES)) }
 }
 
 fn supplied_access(amode: u32, device: bool) -> SysResult {
@@ -978,6 +1024,11 @@ fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
             if !entry.is_dir() {
                 return Err(Errno(ENOTDIR));
             }
+            if let Some(directory) = entry.workspace_directory()
+                && !directory.permits(1, (c.p.creds.1, c.p.creds.3), &c.p.groups)
+            {
+                return Err(Errno(EACCES));
+            }
             c.p.set_working_directory(guest);
             Ok(0)
         }
@@ -1007,6 +1058,12 @@ fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
                 set_cwd_from(c, t)
             }
             None if f.ftype == FileType::Directory => {
+                if let FileObject::Supplied(entry) = &f.object
+                    && let Some(directory) = entry.workspace_directory()
+                    && !directory.permits(1, (c.p.creds.1, c.p.creds.3), &c.p.groups)
+                {
+                    return Err(Errno(EACCES));
+                }
                 c.p.set_working_directory(f.path.clone());
                 Ok(0)
             }
@@ -1040,14 +1097,26 @@ fn host_target(c: &Ctx<'_>, dirfd: i32, path: u64, follow: bool) -> Result<PathB
 }
 
 /// `mkdirat` (and `mkdir`).
-#[cfg(unix)]
 pub fn mkdirat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32) -> SysResult {
-    let host = host_target(c, dirfd, path, false)?;
     let bits = perm & 0o7777 & !c.p.file_creation_mask();
-    std::fs::DirBuilder::new().mode(bits).create(&host)?;
-    fs::created_mode(&host, bits)?;
-    super::notify::created(c, &host, true);
-    Ok(0)
+    if let Some(files) = c.p.vfs.supplied() {
+        let path = supplied_path(c, dirfd, path)?;
+        let ids = (c.p.creds.1, c.p.creds.3);
+        files.create_workspace_directory(&path, bits, ids, &c.p.groups)?;
+        return Ok(0);
+    }
+    #[cfg(unix)]
+    {
+        let host = host_target(c, dirfd, path, false)?;
+        std::fs::DirBuilder::new().mode(bits).create(&host)?;
+        fs::created_mode(&host, bits)?;
+        super::notify::created(c, &host, true);
+        Ok(0)
+    }
+    #[cfg(not(unix))]
+    {
+        Err(Errno(ENOSYS))
+    }
 }
 
 /// `mknodat` (and `mknod`; `do_mknodat`): a regular file, FIFO, or socket
@@ -1130,11 +1199,13 @@ pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult
     }
     if let Some(files) = c.p.vfs.supplied() {
         let path = supplied_path(c, dirfd, path)?;
+        let ids = (c.p.creds.1, c.p.creds.3);
         if flags == AT_REMOVEDIR {
-            let (_, entry) = files.lookup_with_follow(&path, false)?;
+            let (_, entry) =
+                files.lookup_for_guest(&path, LinkPolicy::NoFollowLast, ids, &c.p.groups)?;
             return Err(Errno(if entry.is_dir() { EROFS } else { ENOTDIR }));
         }
-        files.unlink_workspace_file(&path, c.p.creds.1)?;
+        files.unlink_workspace_file(&path, ids, &c.p.groups)?;
         return Ok(0);
     }
     #[cfg(not(unix))]

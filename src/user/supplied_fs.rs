@@ -12,8 +12,9 @@ use crate::user::mm::{BytesSource, HostFileSource, PageSource, SourceIdentity};
 mod roots;
 mod workspace;
 use roots::Roots;
-use workspace::Workspace;
-pub use workspace::WorkspaceFile;
+pub(super) use workspace::WorkspaceFlavor;
+pub use workspace::{Directory as WorkspaceDirectory, WorkspaceFile};
+use workspace::{Node, Workspace};
 
 const TEMP_DIRECTORY: &str = "/tmp";
 
@@ -36,6 +37,7 @@ pub enum Error {
     TooLarge,
     ReadOnly,
     PermissionDenied,
+    AccessDenied,
     NoSpace,
 }
 impl std::fmt::Display for Error {
@@ -53,6 +55,7 @@ impl std::fmt::Display for Error {
             Self::TooLarge => "guest file exceeds its size limit",
             Self::ReadOnly => "the selected guest backing is read-only",
             Self::PermissionDenied => "guest identity cannot remove the workspace file",
+            Self::AccessDenied => "guest identity cannot modify the workspace directory",
             Self::NoSpace => "the private guest workspace is full",
         })
     }
@@ -66,6 +69,7 @@ pub enum Kind {
     Backed(Arc<HostFileSource>),
     /// A regular file created by this guest session.
     Workspace(Arc<WorkspaceFile>),
+    WorkspaceDirectory(WorkspaceDirectory),
     Directory,
     /// The closed runtime's synthetic null character device.
     NullDevice,
@@ -101,7 +105,7 @@ pub struct Entry {
 }
 impl Entry {
     pub fn is_dir(&self) -> bool {
-        matches!(self.kind, Kind::Directory)
+        matches!(self.kind, Kind::Directory | Kind::WorkspaceDirectory(_))
     }
     pub(crate) fn device(&self) -> Option<Device> {
         match self.kind {
@@ -117,11 +121,26 @@ impl Entry {
         }
     }
 
+    pub(crate) fn workspace_directory(&self) -> Option<&WorkspaceDirectory> {
+        match &self.kind {
+            Kind::WorkspaceDirectory(directory) => Some(directory),
+            _ => None,
+        }
+    }
+
     pub(crate) fn workspace_mode(&self) -> Option<u32> {
-        if self.ino == workspace::ROOT_INODE {
-            Some(0o1777)
-        } else {
-            self.workspace_file().map(WorkspaceFile::mode)
+        match &self.kind {
+            Kind::WorkspaceDirectory(directory) => Some(directory.mode),
+            Kind::Workspace(file) => Some(file.mode()),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn workspace_owner(&self) -> Option<(u32, u32)> {
+        match &self.kind {
+            Kind::WorkspaceDirectory(directory) => Some(directory.owner),
+            Kind::Workspace(file) => Some(file.ownership()),
+            _ => None,
         }
     }
 
@@ -160,7 +179,7 @@ impl Entry {
                 }
                 Ok(bytes.into())
             }
-            Kind::Directory => Err(Error::IsDirectory),
+            Kind::Directory | Kind::WorkspaceDirectory(_) => Err(Error::IsDirectory),
             Kind::NullDevice | Kind::ZeroDevice => Err(Error::NotRegular),
             Kind::Symlink(_) => Err(Error::LinkLoop),
         }
@@ -172,7 +191,9 @@ impl Entry {
             Kind::File(bytes) => bytes.len() as u64,
             Kind::Backed(source) => source.len(),
             Kind::Workspace(file) => file.len(),
-            Kind::Directory | Kind::NullDevice | Kind::ZeroDevice => 0,
+            Kind::Directory | Kind::WorkspaceDirectory(_) | Kind::NullDevice | Kind::ZeroDevice => {
+                0
+            }
             Kind::Symlink(target) => target.len() as u64,
         }
     }
@@ -196,7 +217,7 @@ impl Entry {
             Kind::File(bytes) => Arc::new(BytesSource::new(bytes.clone())),
             Kind::Backed(source) => source.clone(),
             Kind::Workspace(file) => return Ok(file.clone()),
-            Kind::Directory => return Err(Error::IsDirectory),
+            Kind::Directory | Kind::WorkspaceDirectory(_) => return Err(Error::IsDirectory),
             Kind::NullDevice | Kind::ZeroDevice => return Err(Error::NotRegular),
             Kind::Symlink(_) => return Err(Error::LinkLoop),
         };
@@ -261,6 +282,8 @@ pub(super) enum LinkPolicy {
     NoFollowAny,
     NoFollowAncestors,
 }
+
+type WorkspaceAccess<'a> = ((u32, u32), &'a [u32]);
 
 impl Files {
     /// File keys must be canonical: absolute, no empty, `.` or `..` components,
@@ -591,16 +614,16 @@ impl Files {
 
     /// Enable ephemeral storage for closed native-runtime sessions.
     /// Explicit files and mounts retain their contents and precedence.
-    pub(crate) fn with_temp_workspace(&self) -> Self {
+    pub(super) fn with_temp_workspace(&self, flavor: WorkspaceFlavor) -> Self {
         Self {
-            workspace: Some(Arc::new(Workspace::new())),
+            workspace: Some(Arc::new(Workspace::new(flavor))),
             ..self.clone()
         }
     }
 
     pub(crate) fn fresh_session(&self) -> Self {
-        if self.has_workspace() {
-            self.with_temp_workspace()
+        if let Some(workspace) = &self.workspace {
+            self.with_temp_workspace(workspace.flavor)
         } else {
             self.clone()
         }
@@ -627,28 +650,43 @@ impl Files {
         })
     }
 
-    pub(crate) fn create_workspace_file(
+    fn workspace_destination(
         &self,
         path: &str,
-        mode: u32,
-        owner: (u32, u32),
-        exclusive: bool,
-    ) -> Result<(String, Entry), Error> {
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(&Workspace, String, WorkspaceDirectory), Error> {
         validate(path)?;
         let (parent, name) = path.rsplit_once('/').expect("validated absolute path");
         if name.is_empty() {
             return Err(Error::IsDirectory);
         }
         let parent = if parent.is_empty() { "/" } else { parent };
-        let (parent, entry) = self.lookup(parent)?;
+        let (parent, entry) = self.lookup_for_guest(parent, LinkPolicy::Follow, ids, groups)?;
         if !entry.is_dir() {
             return Err(Error::NotDirectory);
         }
-        if parent != TEMP_DIRECTORY || matches!(name, "." | "..") {
-            return Err(Error::ReadOnly);
+        if matches!(name, "." | "..") {
+            return Err(Error::Exists);
+        }
+        let directory = *entry.workspace_directory().ok_or(Error::ReadOnly)?;
+        if !directory.permits(3, ids, groups) {
+            return Err(Error::AccessDenied);
         }
         let path = format!("{parent}/{name}");
-        let scratch = self.workspace_at(&path).ok_or(Error::ReadOnly)?;
+        let workspace = self.workspace_at(&path).ok_or(Error::ReadOnly)?;
+        Ok((workspace, path, directory))
+    }
+
+    pub(crate) fn create_workspace_file(
+        &self,
+        path: &str,
+        mode: u32,
+        ids: (u32, u32),
+        groups: &[u32],
+        exclusive: bool,
+    ) -> Result<(String, Entry), Error> {
+        let (workspace, path, directory) = self.workspace_destination(path, ids, groups)?;
         if self.entries.contains_key(&path) {
             return Err(if exclusive {
                 Error::Exists
@@ -656,7 +694,9 @@ impl Files {
                 Error::ReadOnly
             });
         }
-        let file = scratch.create(name.to_owned(), mode, owner, exclusive)?;
+        let owner = directory.child_owner(workspace.flavor, ids);
+        let name = path.strip_prefix("/tmp/").expect("private workspace file");
+        let file = workspace.create(name.to_owned(), mode, owner, exclusive)?;
         Ok((
             path,
             Entry {
@@ -666,17 +706,58 @@ impl Files {
         ))
     }
 
-    pub(crate) fn unlink_workspace_file(&self, path: &str, uid: u32) -> Result<(), Error> {
-        let (path, entry) = self.lookup_with_follow(path, false)?;
+    pub(crate) fn create_workspace_directory(
+        &self,
+        path: &str,
+        mode: u32,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(), Error> {
+        validate(path)?;
+        let name_path = path.trim_end_matches('/');
+        if name_path.is_empty() {
+            return Err(Error::Exists);
+        }
+        let flavor = self.workspace.as_ref().ok_or(Error::ReadOnly)?.flavor;
+        let lookup_path = if flavor == WorkspaceFlavor::Darwin {
+            path
+        } else {
+            name_path
+        };
+        match self.lookup_for_guest(lookup_path, LinkPolicy::NoFollowLast, ids, groups) {
+            Ok(_) => return Err(Error::Exists),
+            Err(Error::NotFound) => {}
+            Err(error) => return Err(error),
+        }
+        let (workspace, path, directory) = self.workspace_destination(name_path, ids, groups)?;
+        let owner = directory.child_owner(flavor, ids);
+        let mode = match flavor {
+            WorkspaceFlavor::Linux => (mode & 0o1777) | (directory.mode & 0o2000),
+            WorkspaceFlavor::Darwin => mode & 0o777,
+        };
+        let name = path
+            .strip_prefix("/tmp/")
+            .expect("private workspace directory");
+        workspace.create_directory(name.to_owned(), mode, owner)
+    }
+
+    pub(crate) fn unlink_workspace_file(
+        &self,
+        path: &str,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(), Error> {
+        let (path, entry) = self.lookup_for_guest(path, LinkPolicy::NoFollowLast, ids, groups)?;
         if entry.is_dir() {
             return Err(Error::IsDirectory);
         }
         if entry.workspace_file().is_none() {
             return Err(Error::ReadOnly);
         }
-        let scratch = self.workspace_at(&path).ok_or(Error::ReadOnly)?;
+        let (workspace, path, directory) = self.workspace_destination(&path, ids, groups)?;
         let name = path.strip_prefix("/tmp/").expect("private workspace file");
-        scratch.unlink(name, uid)
+        let sticky_owner = (directory.mode & 0o1000 != 0).then_some(directory.owner.0);
+        workspace.unlink(name, ids.0, sticky_owner)
     }
 
     fn entry(&self, path: &str, follow: bool) -> Result<Entry, Error> {
@@ -686,7 +767,11 @@ impl Files {
         {
             return Ok(Entry {
                 ino: workspace::ROOT_INODE,
-                kind: Kind::Directory,
+                kind: Kind::WorkspaceDirectory(WorkspaceDirectory {
+                    ino: workspace::ROOT_INODE,
+                    mode: 0o1777,
+                    owner: (0, 0),
+                }),
             });
         }
         if let Some(entry) = self.entries.get(path) {
@@ -701,11 +786,17 @@ impl Files {
         }
         if let Some(name) = path.strip_prefix("/tmp/")
             && let Some(scratch) = self.workspace_at(path)
-            && let Some(file) = scratch.get(name)?
+            && let Some(entry) = scratch.get(name)?
         {
-            return Ok(Entry {
-                ino: file.ino,
-                kind: Kind::Workspace(file),
+            return Ok(match entry {
+                Node::File(file) => Entry {
+                    ino: file.ino,
+                    kind: Kind::Workspace(file),
+                },
+                Node::Directory(directory) => Entry {
+                    ino: directory.ino,
+                    kind: Kind::WorkspaceDirectory(directory),
+                },
             });
         }
         for roots in self.caller_roots.iter().chain(&self.native_libraries) {
@@ -744,9 +835,28 @@ impl Files {
         path: &str,
         policy: LinkPolicy,
     ) -> Result<(String, Entry), Error> {
+        self.lookup_with_access(path, policy, None)
+    }
+
+    pub(super) fn lookup_for_guest(
+        &self,
+        path: &str,
+        policy: LinkPolicy,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(String, Entry), Error> {
+        self.lookup_with_access(path, policy, Some((ids, groups)))
+    }
+
+    fn lookup_with_access(
+        &self,
+        path: &str,
+        policy: LinkPolicy,
+        access: Option<WorkspaceAccess<'_>>,
+    ) -> Result<(String, Entry), Error> {
         const MAX_SYMLINKS: u8 = 32;
         let mut links_left = MAX_SYMLINKS;
-        self.walk(path, policy, &mut links_left)
+        self.walk(path, policy, &mut links_left, access)
     }
 
     fn walk(
@@ -754,6 +864,7 @@ impl Files {
         path: &str,
         policy: LinkPolicy,
         links_left: &mut u8,
+        access: Option<WorkspaceAccess<'_>>,
     ) -> Result<(String, Entry), Error> {
         validate(path)?;
         let reject_traversal = matches!(
@@ -767,6 +878,12 @@ impl Files {
         while let Some(component) = components.next() {
             if !entry.is_dir() {
                 return Err(Error::NotDirectory);
+            }
+            if let Some((ids, groups)) = access
+                && let Some(directory) = entry.workspace_directory()
+                && !directory.permits(1, ids, groups)
+            {
+                return Err(Error::AccessDenied);
             }
             let follow = match component {
                 "." => true,
@@ -800,7 +917,7 @@ impl Files {
                 }
                 *links_left = links_left.checked_sub(1).ok_or(Error::LinkLoop)?;
                 let target = std::str::from_utf8(target).map_err(|_| Error::InvalidPath)?;
-                (current, entry) = self.walk(target, LinkPolicy::Follow, links_left)?;
+                (current, entry) = self.walk(target, LinkPolicy::Follow, links_left, access)?;
             }
         }
         if path.ends_with('/') && !entry.is_dir() {
@@ -838,7 +955,13 @@ impl Files {
                 "/" => {
                     names.insert("tmp".to_owned());
                 }
-                TEMP_DIRECTORY => names.extend(scratch.children()?),
+                TEMP_DIRECTORY => names.extend(scratch.children("")?),
+                _ if entry.workspace_directory().is_some() => {
+                    let name = canonical
+                        .strip_prefix("/tmp/")
+                        .expect("private workspace directory");
+                    names.extend(scratch.children(name)?);
+                }
                 _ => {}
             }
         }
@@ -868,7 +991,7 @@ mod tests {
             Arc::from(&b"caller bytes"[..]),
         )]))
         .unwrap()
-        .with_temp_workspace();
+        .with_temp_workspace(WorkspaceFlavor::Linux);
         let first = inputs.fresh_session();
         let second = inputs.fresh_session();
         assert_eq!(
@@ -876,19 +999,19 @@ mod tests {
             Some(0o1777)
         );
         assert!(matches!(
-            first.create_workspace_file("/tmp/owned", 0o600, (0, 0), true),
+            first.create_workspace_file("/tmp/owned", 0o600, (0, 0), &[], true),
             Err(Error::Exists)
         ));
         assert!(matches!(
-            first.unlink_workspace_file("/tmp/owned", 0),
+            first.unlink_workspace_file("/tmp/owned", (0, 0), &[]),
             Err(Error::ReadOnly)
         ));
         assert!(matches!(
-            first.create_workspace_file("/outside", 0o600, (0, 0), true),
+            first.create_workspace_file("/outside", 0o600, (0, 0), &[], true),
             Err(Error::ReadOnly)
         ));
         let (_, entry) = first
-            .create_workspace_file("/tmp/created", 0o600, (0, 0), true)
+            .create_workspace_file("/tmp/created", 0o600, (0, 0), &[], true)
             .unwrap();
         entry
             .workspace_file()
@@ -914,6 +1037,77 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["created", "owned"]
         );
+    }
+
+    #[test]
+    fn native_workspace_creates_named_subdirectories_with_guest_ownership() {
+        let files = Files::default().with_temp_workspace(WorkspaceFlavor::Linux);
+        let group = "/tmp/group";
+        let child = "/tmp/group/child";
+        let file = "/tmp/group/child/data";
+        files
+            .workspace
+            .as_ref()
+            .unwrap()
+            .create_directory("group".to_owned(), 0o2770, (40, 50))
+            .unwrap();
+        assert!(matches!(
+            files.create_workspace_directory(child, 0o700, (41, 51), &[]),
+            Err(Error::AccessDenied)
+        ));
+        files
+            .create_workspace_directory(child, 0o700, (41, 51), &[50])
+            .unwrap();
+        let metadata = files.lookup(child).unwrap().1;
+        assert!(metadata.is_dir());
+        assert_eq!(metadata.workspace_mode(), Some(0o2700));
+        assert_eq!(metadata.workspace_owner(), Some((41, 50)));
+        assert!(matches!(
+            files.create_workspace_directory(child, 0o700, (41, 51), &[50]),
+            Err(Error::Exists)
+        ));
+        assert!(matches!(
+            files.create_workspace_file(file, 0o600, (41, 51), &[], true),
+            Err(Error::AccessDenied)
+        ));
+        let (path, entry) = files
+            .create_workspace_file(file, 0o600, (41, 51), &[50], true)
+            .unwrap();
+        assert_eq!(path, file);
+        assert_eq!(entry.workspace_owner(), Some((41, 50)));
+        let group_nodes = files.children(group).unwrap();
+        assert_eq!(group_nodes.len(), 1);
+        assert_eq!(group_nodes[0].0, "child");
+        assert_eq!(files.children(child).unwrap().len(), 1);
+        assert!(matches!(
+            files.lookup_for_guest(file, LinkPolicy::Follow, (41, 51), &[]),
+            Err(Error::AccessDenied)
+        ));
+        files.unlink_workspace_file(file, (41, 51), &[50]).unwrap();
+        assert!(files.children(child).unwrap().is_empty());
+        assert!(matches!(
+            files.create_workspace_directory("/separate", 0o700, (41, 51), &[]),
+            Err(Error::ReadOnly)
+        ));
+    }
+
+    #[test]
+    fn native_darwin_workspace_inherits_parent_group() {
+        let files = Files::default().with_temp_workspace(WorkspaceFlavor::Darwin);
+        files
+            .create_workspace_directory("/tmp/private", 0o7777, (41, 51), &[])
+            .unwrap();
+        let dir = files.lookup("/tmp/private").unwrap().1;
+        assert_eq!(dir.workspace_mode(), Some(0o777));
+        assert_eq!(dir.workspace_owner(), Some((41, 0)));
+        let (_, file) = files
+            .create_workspace_file("/tmp/private/data", 0o600, (41, 51), &[], true)
+            .unwrap();
+        assert_eq!(file.workspace_owner(), Some((41, 0)));
+        assert!(matches!(
+            files.create_workspace_directory("/tmp/private/data/", 0o700, (41, 51), &[]),
+            Err(Error::NotDirectory)
+        ));
     }
 
     fn files() -> Files {

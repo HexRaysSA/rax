@@ -356,6 +356,9 @@ pub fn rmdir(ctx: &mut Ctx<'_>, path: u64) -> SysResult {
 
 /// `mkdirat(fd, path, mode)` (`mkdir` with `AT_FDCWD`).
 pub fn mkdirat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, mode: u32) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        return embedded::mkdirat(ctx, dirfd, path, mode);
+    }
     #[cfg(unix)]
     {
         let (_, cpath) = guest_path(ctx, path)?;

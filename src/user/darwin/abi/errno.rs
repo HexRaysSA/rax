@@ -142,6 +142,7 @@ impl From<crate::user::supplied_fs::Error> for Errno {
             E::TooLarge => Self::EFBIG,
             E::ReadOnly => Self::EROFS,
             E::PermissionDenied => Self::EPERM,
+            E::AccessDenied => Self::EACCES,
             E::NoSpace => Self::ENOSPC,
         }
     }

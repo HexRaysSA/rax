@@ -160,7 +160,8 @@ impl DarwinConfig {
     ) -> std::io::Result<()> {
         let selected = super::runtime_files::native_for_executable(files, Some(&self.exec_path))?;
         let kernel_info = super::runtime_files::NativeKernelInfo::capture()?;
-        self.supplied_files = Some(selected.with_temp_workspace());
+        self.supplied_files =
+            Some(selected.with_temp_workspace(crate::user::supplied_fs::WorkspaceFlavor::Darwin));
         self.native_kernel_info = Some(kernel_info);
         Ok(())
     }

@@ -14,6 +14,7 @@
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
@@ -89,7 +90,7 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
             }
             Ok(ExecFile {
                 host: None,
-                bytes: Some(entry.bytes()?),
+                bytes: Some(supplied_executable(c, &entry)?),
                 guest,
             })
         }
@@ -103,7 +104,7 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
                 if let super::super::fs::fd::FileObject::Supplied(entry) = &file.object {
                     return Ok(ExecFile {
                         host: None,
-                        bytes: Some(entry.bytes()?),
+                        bytes: Some(supplied_executable(c, entry)?),
                         guest: file.path.clone(),
                     });
                 }
@@ -142,6 +143,18 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
             })
         }
     }
+}
+
+fn supplied_executable(
+    c: &Ctx<'_>,
+    entry: &crate::user::supplied_fs::Entry,
+) -> Result<Arc<[u8]>, Errno> {
+    if let Some(file) = entry.workspace_file()
+        && !file.permits(1, (c.p.creds.1, c.p.creds.3), &c.p.groups)
+    {
+        return Err(Errno(EACCES));
+    }
+    Ok(entry.bytes()?)
 }
 
 /// `may_open` with `MAY_EXEC`: a directory or other non-regular file is

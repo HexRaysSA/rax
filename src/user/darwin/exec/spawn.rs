@@ -362,7 +362,7 @@ fn file_actions(
                 // fchdir resolves the descriptor in the caller's table.
                 let file = ctx.proc.fds.file(*fd)?;
                 if ctx.proc.vfs.is_closed() {
-                    s.cwd = embedded::directory_descriptor(&file)?;
+                    s.cwd = embedded::directory_descriptor(ctx, &file)?;
                 } else {
                     #[cfg(unix)]
                     fchdir_host(s, &file)?;
@@ -456,10 +456,8 @@ fn dup2(s: &mut Scratch, from: i32, to: i32, nofile: u64) -> Result<(), Errno> {
 /// is required.
 fn chdir_action(ctx: &Ctx<'_>, s: &mut Scratch, path: &[u8]) -> Result<(), Errno> {
     if ctx.proc.vfs.is_closed() {
-        let (path, entry) = ctx.proc.vfs.lookup(path, &s.cwd).map_err(Errno::from)?;
-        if !entry.is_dir() {
-            return Err(Errno::ENOTDIR);
-        }
+        let (path, entry) = embedded::lookup_followed(ctx, path, &s.cwd)?;
+        embedded::check_search(ctx, &entry)?;
         s.cwd = path.into_bytes();
         return Ok(());
     }

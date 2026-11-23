@@ -1,6 +1,8 @@
 //! Native Linux runtime selection for a closed process. Installed loader and
 //! library directories are mounted read-only; there is no general host path
 //! fallback, host descriptor exposure, or separate sysroot requirement.
+#[cfg(target_os = "linux")]
+use crate::user::supplied_fs::WorkspaceFlavor;
 use crate::user::supplied_fs::{Device, Files};
 use std::io;
 #[cfg(any(target_os = "linux", all(test, unix)))]
@@ -27,7 +29,7 @@ pub fn native(files: &Files) -> io::Result<Files> {
         }
         let cache = PathBuf::from("/etc/ld.so.cache");
         select(files, roots, cache.is_file().then_some(cache))
-            .map(|files| files.with_temp_workspace())
+            .map(|files| files.with_temp_workspace(WorkspaceFlavor::Linux))
     }
     #[cfg(not(target_os = "linux"))]
     {

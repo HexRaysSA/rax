@@ -277,7 +277,9 @@ pub fn permits(s: Sysno) -> bool {
 pub(super) fn permits_workspace(s: Sysno) -> bool {
     matches!(
         s,
-        Sysno::Unlink
+        Sysno::Mkdir
+            | Sysno::Mkdirat
+            | Sysno::Unlink
             | Sysno::Unlinkat
             | Sysno::Ftruncate
             | Sysno::Ftruncate64

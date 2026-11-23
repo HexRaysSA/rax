@@ -1136,9 +1136,10 @@ RAX_API rax_status rax_analyze(int arch, uint32_t mode, uint64_t pc,
  * Supply dependency bytes explicitly; missing dependencies do not search the
  * host. Windows disk operations are denied. Linux and Darwin use guest-local
  * descriptors and immutable supplied files. Native-runtime Linux and Darwin
- * sessions can also create regular files directly under a private /tmp with
- * a 16 MiB logical byte quota and 1024 live file objects. The session discards
- * these files on close. stdin is finite and empty stdin returns EOF.
+ * sessions can also create regular files and directories under a private /tmp
+ * with a 16 MiB logical byte quota and 1024 live files and directories. The
+ * session discards the workspace on close. stdin is finite and empty stdin
+ * returns EOF.
  * stdout/stderr share one bounded captured-output pool.
  * There is no process checkpoint/fork API in this version.
  */
