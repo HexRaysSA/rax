@@ -141,7 +141,7 @@ impl HvfArm64Core {
         )?;
         let mut controls = Controls {
             vtimer_masked: false,
-            vtimer_offset: 0,
+            vtimer_offset: self.checkpoint_vtimer_offset()?,
             trap_debug_exceptions: false,
             trap_debug_registers: false,
             pending_serror: false,
@@ -149,10 +149,6 @@ impl HvfArm64Core {
         check(
             unsafe { hv_vcpu_get_vtimer_mask(self.vcpu, &mut controls.vtimer_masked) },
             "capture virtual timer mask",
-        )?;
-        check(
-            unsafe { hv_vcpu_get_vtimer_offset(self.vcpu, &mut controls.vtimer_offset) },
-            "capture virtual timer offset",
         )?;
         check(
             unsafe { (api.get_trap_exceptions)(self.vcpu, &mut controls.trap_debug_exceptions) },

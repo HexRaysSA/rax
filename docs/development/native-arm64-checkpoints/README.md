@@ -54,8 +54,8 @@ A native AArch64 bundle contains the complete ordered public CPU set, one
 `HVF_AARCH64_CONTEXT` private record per CPU, one required shared VM record,
 and physical memory covering the actual native RAM window. The private CPU
 and shared VM records use distinct inner version tags, `RAXHVA06` and
-`RAXHVM02`. Required outer section 16 uses `RAXVMC01` framing. Older readers
-reject unknown required sections rather than discarding them.
+`RAXHVM03`. Required outer section 16 uses `RAXVMC01` framing. Readers must
+recognize each required producer version before publication.
 
 Complete native files also require coordinator, clock and PL011 UART images.
 The UART image preserves its unread receive FIFO and control registers. A
@@ -102,6 +102,29 @@ preserved the existing destination file on a failed save, and accepted all
 matching pairs. Stopped emulator capture and signed native capture on Apple
 M4 Max reproduced the defect and passed after the fix. A guest-generated
 software-pending SPI survived file restore with the physical input low.
+
+## Native virtual counter continuation
+
+The SDK defines `CNTVCT_EL0 = mach_absolute_time() - vtimer_offset` in Mach
+ticks. Copying only the offset allows the guest counter to include detached
+time. `RAXHVM03` records one Mach tick sample in the offset domain of every
+saved vCPU, plus the tick timebase. Restore admits a matching rate and uses
+one offset adjustment, `first_entry_tick - saved_tick` modulo 2^64. Each
+owner applies it before entering the guest. Later peers use that same
+adjustment, and existing `CNTV_CVAL_EL0` values stay in guest ticks. A capture
+before the first entry retains the waiting clock sample. `RAXHVM02` imports
+with its historical host-relative behavior because it contains no sample.
+Capture and rebasing cost O(1) per vCPU.
+[Apple Hypervisor SDK 27.2, hv_vcpu_set_vtimer_offset](../../specifications/apple/hypervisor-sdk-27.2/hv_vcpu.h)
+
+On Apple M4 Max, a signed SDK-only control measured the relation at zero,
+positive and wrapping offsets. The two-vCPU file regression on the parent
+observed the first guest count 628,114,121 ticks (26.17 s at 24 MHz) past its
+allowed interval. The corrected run checked both guest reads against host
+entry intervals, confirmed that the later vCPU shared the first entry's
+epoch, and checked capture both before and after that entry. This qualifies
+virtual counter phase. Physical counter continuity and active virtual-timer
+interrupt delivery across a file restore remain separate evidence gaps.
 
 ## Ownership, capture and restoration
 
@@ -293,8 +316,8 @@ SVE pseudocode did not establish this SME rule and has been corrected.
 
 - High: guest-visible streaming FPSR preservation fails on this host, including
   direct SDK re-entry. A working entry/restoration path remains required.
-- High: native counter epochs, absolute timer values and active timer/IRQ state
-  require explicit continuation semantics and execution evidence.
+- High: native physical counter phase and active timer/IRQ state require
+  explicit continuation semantics and execution evidence.
 - High: scalar input/output and the represented active UART SPI case now have
   native file-continuation evidence. Broader I/O profiles and independently
   concurrent device writers remain unfinished requirements.

@@ -113,10 +113,7 @@ impl HvfArm64Core {
         self.write_sys_reg(HV_SYS_REG_CNTP_CTL_EL0, context.public.sregs.cntp_ctl_el0)?;
         self.write_sys_reg(HV_SYS_REG_CNTV_CTL_EL0, context.public.sregs.cntv_ctl_el0)?;
         let controls = &context.controls;
-        check(
-            unsafe { hv_vcpu_set_vtimer_offset(self.vcpu, controls.vtimer_offset) },
-            "restore virtual timer offset",
-        )?;
+        self.restore_vtimer_offset(controls.vtimer_offset)?;
         check(
             unsafe { hv_vcpu_set_vtimer_mask(self.vcpu, controls.vtimer_masked) },
             "restore virtual timer mask",

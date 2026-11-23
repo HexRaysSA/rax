@@ -54,6 +54,7 @@ impl HvfArm64Core {
             if host_clock::now() >= deadline {
                 return Ok(None);
             }
+            self.prepare_vtimer_entry()?;
             self._vm.entered.store(true, Ordering::Release);
             self.ever_entered = true;
             // SAFETY: the permanent creating owner holds this live SDK CPU.

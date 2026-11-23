@@ -8,6 +8,8 @@ use vm_memory::{Bytes, GuestAddress, GuestMemory};
 
 #[path = "native_parallel_round_tests.rs"]
 mod parallel_round;
+#[path = "native_timer_checkpoint_tests.rs"]
+mod timer;
 #[path = "native_checkpoint_uart_tests.rs"]
 mod uart;
 
@@ -975,6 +977,13 @@ fn late_sdk_gic_rejection_rolls_back_every_native_cpu_ram_and_irq_level() {
             .unwrap()
             .unwrap()
     };
+    let mut shared_before = GlobalContext::decode(&shared_before.data).unwrap();
+    let mut shared_after = GlobalContext::decode(&shared_after.data).unwrap();
+    let clock_before = shared_before.vtimer.take().unwrap();
+    let clock_after = shared_after.vtimer.take().unwrap();
+    assert!(!clock_before.waiting_for_entry && !clock_after.waiting_for_entry);
+    assert_eq!(clock_before.timebase, clock_after.timebase);
+    assert!(clock_after.tick >= clock_before.tick);
     assert_eq!(shared_after, shared_before);
     let mut actual = [0; 16];
     target

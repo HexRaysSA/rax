@@ -150,12 +150,7 @@ impl HvfArm64Core {
             self.read_sys_reg(0xc021)? >> 24 & 15 != 0,
         )?;
         self.restore_native_state(&CpuState::Aarch64(state))?;
-        // SAFETY: the permanent owner holds the live SDK CPU; the enclosing
-        // request excludes checkpoint publication and these calls take no pointers.
-        checkpoint_api::check(
-            unsafe { hv_vcpu_set_vtimer_offset(self.vcpu, 0) },
-            "CPU_ON virtual timer offset",
-        )?;
+        self.restore_vtimer_offset(0)?;
         // SAFETY: same owner-thread and live-handle invariant as above.
         checkpoint_api::check(
             unsafe { hv_vcpu_set_vtimer_mask(self.vcpu, false) },

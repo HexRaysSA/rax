@@ -44,6 +44,8 @@ mod stack;
 mod state;
 #[path = "arm64_vm_checkpoint.rs"]
 mod vm_checkpoint;
+#[path = "arm64_vtimer_clock.rs"]
+mod vtimer_clock;
 #[path = "arm64_worker.rs"]
 mod worker;
 pub use worker::HvfArm64Vcpu;
@@ -147,6 +149,7 @@ impl Backend for HvfArm64Backend {
                 topology: Mutex::new(NativeTopology::default()),
                 irq_levels: Mutex::new(BTreeMap::new()),
                 power: Mutex::new(None),
+                vtimer_clock: Mutex::new(vtimer_clock::VtimerClock::default()),
                 standalone_shutdown: AtomicBool::new(false),
                 owner_teardown_failed: AtomicBool::new(false),
                 entered: AtomicBool::new(false),
@@ -176,6 +179,7 @@ struct NativeVmLifetime {
     topology: Mutex<NativeTopology>,
     irq_levels: Mutex<BTreeMap<u32, bool>>,
     power: Mutex<Option<crate::backend::arm64_hvf_power::Power>>,
+    vtimer_clock: Mutex<vtimer_clock::VtimerClock>,
     // SYSTEM_OFF is VM-wide even when an embedder does not configure PSCI topology.
     standalone_shutdown: AtomicBool,
     owner_teardown_failed: AtomicBool,
@@ -421,7 +425,15 @@ impl Vm for HvfArm64Vm {
         boundary: &crate::backend::CheckpointBoundary<'_>,
         context: Option<&crate::vm::snapshot::BackendContext>,
     ) -> Result<()> {
-        self.lifetime.restore_shared(boundary, context)
+        self.lifetime.restore_shared(boundary, context, false)
+    }
+
+    fn rollback_checkpoint_vm_context(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.lifetime.restore_shared(boundary, context, true)
     }
 
     fn poison_checkpoint_restore(&self) {
@@ -620,6 +632,7 @@ struct HvfArm64Core {
     shutdown: bool,
     startup_sctlr: u64,
     ever_entered: bool,
+    vtimer_offset_adjustment: u64,
     /// Stops the periodic kick thread on drop.
     kick_stop: Arc<std::sync::atomic::AtomicBool>,
     /// Kick thread handle.
@@ -658,6 +671,7 @@ impl HvfArm64Core {
             shutdown: false,
             startup_sctlr: 0,
             ever_entered: false,
+            vtimer_offset_adjustment: 0,
             kick_stop: Arc::new(AtomicBool::new(false)),
             kick_thread: None,
         };

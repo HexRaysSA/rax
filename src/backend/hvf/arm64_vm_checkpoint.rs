@@ -3,6 +3,7 @@ use super::checkpoint_api::{Api, check};
 use super::*;
 use crate::backend::CheckpointBoundary;
 use crate::backend::arm64_hvf_context::{GlobalContext, MAX_SHARED_CONTEXT};
+use crate::backend::intel_hvf_deadline::mach;
 use crate::vm::snapshot::{BackendContext, HVF_AARCH64_CONTEXT};
 
 impl NativeVmLifetime {
@@ -39,6 +40,18 @@ impl NativeVmLifetime {
                 Error::InvalidConfig("native restore requires shared GIC/backend state".into())
             })?;
         let context = GlobalContext::decode(&record.data)?;
+        if let Some(clock) = context.vtimer {
+            let (numerator, denominator) = mach::timebase()?;
+            if numerator == 0
+                || denominator == 0
+                || u64::from(numerator) * u64::from(clock.timebase.1)
+                    != u64::from(denominator) * u64::from(clock.timebase.0)
+            {
+                return Err(Error::InvalidConfig(
+                    "native source/target virtual timer rates differ".into(),
+                ));
+            }
+        }
         let topology = self
             .topology
             .lock()
@@ -86,10 +99,12 @@ impl NativeVmLifetime {
         &self,
         boundary: &CheckpointBoundary<'_>,
         record: Option<&BackendContext>,
+        rollback: bool,
     ) -> Result<()> {
         boundary.require_owner(self.identity())?;
         let context = self.admit_shared(record)?;
         let api = Api::load()?;
+        let mut vtimer = self.lock_vtimer_clock()?;
         // SAFETY: all destination CPUs are created and have never run; the
         // caller holds stopped exclusion through all CPU/GIC/RAM publication.
         check(
@@ -106,6 +121,7 @@ impl NativeVmLifetime {
             .lock()
             .map_err(|_| Error::Emulator("native power lock poisoned".into()))? =
             Some(context.power);
+        *vtimer = vtimer_clock::VtimerClock::restore(context.vtimer, rollback);
         Ok(())
     }
     pub(super) fn identity(&self) -> usize {
@@ -139,6 +155,7 @@ impl NativeVmLifetime {
         boundary: &CheckpointBoundary<'_>,
     ) -> Result<BackendContext> {
         boundary.require_owner(self.identity())?;
+        let vtimer = self.lock_vtimer_clock()?.capture()?;
         let api = Api::load()?;
         let topology = self
             .topology
@@ -235,6 +252,7 @@ impl NativeVmLifetime {
                 .collect(),
             irq_levels,
             gic,
+            vtimer: Some(vtimer),
         };
         Ok(BackendContext {
             kind: HVF_AARCH64_CONTEXT,

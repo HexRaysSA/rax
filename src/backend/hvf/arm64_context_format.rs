@@ -12,6 +12,7 @@ const TAG: &[u8; 8] = b"RAXHVA06";
 const LIMIT: usize = 128 * 1024;
 pub(crate) const MAX_CPU_CONTEXT: u64 = (LIMIT + TAG.len()) as u64;
 const VM_TAG: &[u8; 8] = b"RAXHVM02";
+const VM_CLOCK_TAG: &[u8; 8] = b"RAXHVM03";
 pub(crate) const MAX_SHARED_CONTEXT: usize = 64 * 1024 * 1024;
 pub(crate) const SYSTEM_IDS: &[u16] = &[
     32772, 32773, 32774, 32775, 32780, 32781, 32782, 32783, 32784, 32786, 32788, 32789, 32790,
@@ -106,6 +107,16 @@ pub(crate) struct Context {
     pub completion_error: Option<String>,
 }
 
+/// The virtual counter epoch shared by all native CPU records.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct VtimerSnapshot {
+    /// Host clock in the offset domain of the saved CPU records.
+    pub tick: u64,
+    pub timebase: (u32, u32),
+    /// A failed restore must retain the destination's original stopped phase.
+    pub waiting_for_entry: bool,
+}
+
 /// Shared native device state. CPU-interface registers belong to each CPU
 /// record; the SDK blob contains the remaining complete GIC device state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,10 +132,19 @@ pub(crate) struct GlobalContext {
     pub affinities: Vec<u64>,
     pub irq_levels: Vec<(u32, bool)>,
     pub gic: Vec<u8>,
+    // V3 prefixes the unchanged V2 device image with the counter sample.
+    #[serde(skip)]
+    pub vtimer: Option<VtimerSnapshot>,
 }
 
 impl GlobalContext {
     pub fn validate(&self) -> Result<()> {
+        if self
+            .vtimer
+            .is_some_and(|clock| clock.timebase.0 == 0 || clock.timebase.1 == 0)
+        {
+            return Err(invalid("invalid native virtual timer timebase"));
+        }
         self.power
             .validate(self.cpus, self.ram_base, self.ram_size)?;
         if self.cpus == 0
@@ -161,8 +181,19 @@ impl GlobalContext {
 
     pub fn encode(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut raw = VM_TAG.to_vec();
-        raw.extend(crate::codec::serialize_limited(self, MAX_SHARED_CONTEXT).map_err(invalid)?);
+        let (tag, data) = if let Some(clock) = self.vtimer {
+            (
+                VM_CLOCK_TAG,
+                crate::codec::serialize_limited(&(clock, self), MAX_SHARED_CONTEXT),
+            )
+        } else {
+            (
+                VM_TAG,
+                crate::codec::serialize_limited(self, MAX_SHARED_CONTEXT),
+            )
+        };
+        let mut raw = tag.to_vec();
+        raw.extend(data.map_err(invalid)?);
         Ok(raw)
     }
 
@@ -170,11 +201,17 @@ impl GlobalContext {
         if raw.len() > MAX_SHARED_CONTEXT + VM_TAG.len() {
             return Err(invalid("native shared record exceeds its byte limit"));
         }
-        let data = raw
-            .strip_prefix(VM_TAG)
-            .ok_or_else(|| invalid("unknown native shared producer/version"))?;
-        let context: Self =
-            crate::codec::deserialize_limited::<_, MAX_SHARED_CONTEXT>(data).map_err(invalid)?;
+        let context = if let Some(data) = raw.strip_prefix(VM_CLOCK_TAG) {
+            let (clock, mut context): (VtimerSnapshot, Self) =
+                crate::codec::deserialize_limited::<_, MAX_SHARED_CONTEXT>(data)
+                    .map_err(invalid)?;
+            context.vtimer = Some(clock);
+            context
+        } else if let Some(data) = raw.strip_prefix(VM_TAG) {
+            crate::codec::deserialize_limited::<_, MAX_SHARED_CONTEXT>(data).map_err(invalid)?
+        } else {
+            return Err(invalid("unknown native shared producer/version"));
+        };
         context.validate()?;
         Ok(context)
     }

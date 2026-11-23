@@ -293,10 +293,35 @@ fn shared(count: u8) -> BackendContext {
                 .collect(),
             irq_levels: vec![(33, true)],
             gic: vec![0xa5; 127],
+            vtimer: None,
         }
         .encode()
         .unwrap(),
     }
+}
+
+#[test]
+fn native_virtual_timer_anchor_round_trips_and_legacy_has_no_anchor() {
+    use crate::backend::arm64_hvf_context::VtimerSnapshot;
+
+    let legacy = shared(2).data;
+    assert!(legacy.starts_with(b"RAXHVM02"));
+    let mut context = GlobalContext::decode(&legacy).unwrap();
+    assert_eq!(context.vtimer, None);
+    assert_eq!(context.encode().unwrap(), legacy);
+
+    for waiting_for_entry in [false, true] {
+        context.vtimer = Some(VtimerSnapshot {
+            tick: u64::MAX - 31,
+            timebase: (125, 3),
+            waiting_for_entry,
+        });
+        let encoded = context.encode().unwrap();
+        assert!(encoded.starts_with(b"RAXHVM03"));
+        assert_eq!(GlobalContext::decode(&encoded).unwrap(), context);
+    }
+    context.vtimer.as_mut().unwrap().timebase.1 = 0;
+    assert!(context.encode().is_err());
 }
 
 fn bundle(count: u8) -> SnapshotBundle {

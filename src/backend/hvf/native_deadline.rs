@@ -53,15 +53,7 @@ pub(crate) mod mach {
         unsafe { mach_absolute_time() }
     }
 
-    /// SDK entry uses absolute mach ticks, not nanoseconds or guest time.
-    pub(crate) fn after(limit: Duration) -> Result<u64> {
-        let nanos = u64::try_from(limit.as_nanos())
-            .map_err(|_| Error::InvalidConfig("native host interval exceeds u64 ns".into()))?;
-        if nanos == 0 {
-            return Err(Error::InvalidConfig(
-                "native host interval must be positive".into(),
-            ));
-        }
+    pub(crate) fn timebase() -> Result<(u32, u32)> {
         let mut base = Timebase { numer: 0, denom: 0 };
         // SAFETY: repr(C) matches the retained two-u32 SDK struct. The pointer
         // is aligned, initialized, exclusive and live for the synchronous call;
@@ -72,7 +64,20 @@ pub(crate) mod mach {
                 "mach_timebase_info failed: {status}"
             )));
         }
-        finite_deadline(now(), nanos, base.numer, base.denom).map_err(|error| {
+        Ok((base.numer, base.denom))
+    }
+
+    /// SDK entry uses absolute mach ticks, not nanoseconds or guest time.
+    pub(crate) fn after(limit: Duration) -> Result<u64> {
+        let nanos = u64::try_from(limit.as_nanos())
+            .map_err(|_| Error::InvalidConfig("native host interval exceeds u64 ns".into()))?;
+        if nanos == 0 {
+            return Err(Error::InvalidConfig(
+                "native host interval must be positive".into(),
+            ));
+        }
+        let (numerator, denominator) = timebase()?;
+        finite_deadline(now(), nanos, numerator, denominator).map_err(|error| {
             Error::InvalidConfig(format!("invalid native host deadline: {error:?}"))
         })
     }
