@@ -158,8 +158,21 @@ and exactly one handler visit on the selected AP.
 
 The software x86 backend passed both topology controls with these same
 guest bytes. The byte arrays in the native consumer match the assembled
-BSP and AP sections, which contain no relocations. Native qualification
-requires both observation rows from an untranslated Intel HVF run.
+BSP and AP sections, which contain no relocations.
+
+Hosted run `45086900917` at `7df6cd31289728938baac8e2b9ffbfeae768c726`
+passed both topologies on untranslated Intel in a macOS 15.7.9 VM with
+SDK 15.5. The observed visit counters were `[0, 1]` and `[0, 0, 0, 1]`.
+The guest command took 140.738 s. Verification matched build archive
+`14779932298` and execution archive `14780052215` to their published
+digests, checked 4,886 engine inputs and 18 consumer inputs against Git,
+and checked the executable signature and hypervisor entitlement.
+The observation SHA-256 is
+`41a65f8535b5489559692e38323050be559c92951e7eeb8a45a5456a17193b4c`.
+This qualifies the selected fixed level-delivery checkpoint phase on
+the hosted profile. Bare-metal Intel macOS and other IRQ phases remain
+open.
+[Verified hosted execution](https://github.com/HexRaysSA/rax/actions/runs/45086900917/job/137407493829)
 
 | ID | Assumption | Dependent result | Falsification probe |
 |---|---|---|---|
