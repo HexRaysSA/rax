@@ -310,9 +310,6 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     }
     // A new process.
     if flags & CLONE_THREAD == 0 {
-        #[cfg(not(unix))]
-        return Err(Errno(ENOSYS));
-        #[cfg(unix)]
         return super::child::fork(
             c,
             super::child::ForkArgs {
@@ -342,21 +339,17 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     };
     // alloc_pid: one PID namespace level exists, a chosen TID must be in
     // range, and choosing one needs CAP_CHECKPOINT_RESTORE.
-    let tid = match args.set_tid.as_slice() {
-        [] => next_tid(c),
-        [want] => {
-            if !(1..PID_MAX_LIMIT).contains(want) {
-                return Err(Errno(EINVAL));
-            }
-            if c.p.creds.1 != 0 {
-                return Err(Errno(EPERM));
-            }
-            if tid_in_use(c, *want) {
-                return Err(Errno(EEXIST));
-            }
-            *want
-        }
-        _ => return Err(Errno(EINVAL)),
+    let requested = requested_tid(c, &args.set_tid)?;
+    let reserved = if c.p.config.host_services {
+        None
+    } else {
+        Some(c.p.children.reserve_guest_id(requested, None)?)
+    };
+    let tid = match (reserved.as_ref(), requested) {
+        (Some(lease), _) => lease.id(),
+        (None, Some(want)) if tid_in_use(c, want) => return Err(Errno(EEXIST)),
+        (None, Some(want)) => want,
+        (None, None) => next_tid(c),
     };
     // pidfd_prepare with PIDFD_THREAD, then its number for the caller.
     if flags & CLONE_PIDFD != 0 {
@@ -372,6 +365,7 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
         tls.apply(&mut cpu);
     }
     let mut child = Thread::new(tid, cpu);
+    child.guest_tid = reserved;
     child.debug = c.t.debug.without_breakpoints();
     if let (GuestCpu::X86_64(parent), GuestCpu::X86_64(cpu)) = (&c.t.cpu, &mut child.cpu) {
         cpu.vcpu_mut()
@@ -463,6 +457,19 @@ pub fn vfork_done(c: &mut Ctx<'_>, child: i32) -> Result<Outcome, Errno> {
         return Err(c.block(Wait::uninterruptible(), Resume::Vfork { child }));
     }
     Ok(Outcome::Return(child as u64))
+}
+
+pub(super) fn requested_tid(c: &Ctx<'_>, ids: &[i32]) -> Result<Option<i32>, Errno> {
+    match ids {
+        [] => Ok(None),
+        [id] if (1..PID_MAX_LIMIT).contains(id) => {
+            if c.p.creds.1 != 0 {
+                return Err(Errno(EPERM));
+            }
+            Ok(Some(*id))
+        }
+        _ => Err(Errno(EINVAL)),
+    }
 }
 
 /// Whether a thread of the process uses TID `tid` (the exited leader keeps

@@ -382,6 +382,9 @@ pub fn force_sigsegv(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
 /// leader, and the signals of expired POSIX timers.
 pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
     let leader = p.pid;
+    if !p.config.host_services {
+        super::super::syscall::child::refresh(p, th);
+    }
     #[cfg(unix)]
     if p.config.host_services {
         // Tracing messages: a tracee's answers and stops, a tracer's requests.

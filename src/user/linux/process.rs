@@ -77,8 +77,9 @@ pub struct LinuxConfig {
     pub kernel_release: String,
     /// Instructions per scheduling slice (AArch64, RV64).
     pub slice_insns: u64,
-    /// Create new processes by forking the host process (`fork`, `vfork`,
-    /// `clone` without `CLONE_THREAD`); otherwise they are `ENOSYS`. A
+    /// In host-service mode, create new processes by forking the host
+    /// process. Closed guests keep this disabled and schedule their own
+    /// guest children. A
     /// forked child never returns from [`LinuxProcess::run`]: it ends the
     /// host process when the guest process ends. Enable it only in a
     /// single-threaded host process: a forked child has only the calling
@@ -294,6 +295,13 @@ pub struct Entropy {
 }
 
 impl Entropy {
+    pub(super) fn forked(&self, pid: i32) -> Self {
+        Self {
+            // Continue with a deterministic stream distinct from the parent's.
+            state: self.state.map(|seed| seed ^ (pid as u64).rotate_left(32)),
+        }
+    }
+
     fn new(seed: Option<u64>) -> Self {
         Entropy { state: seed }
     }
@@ -358,7 +366,7 @@ pub struct ProcState {
     /// Bind spellings for pathname sockets in this personality.
     #[cfg(unix)]
     pub socket_paths: super::net::name::PathBindings,
-    /// Process ID (the host process ID).
+    /// Process ID in the selected namespace.
     pub pid: i32,
     /// Parent process ID.
     pub ppid: i32,
@@ -479,6 +487,8 @@ pub struct ProcState {
 pub struct Thread {
     /// Thread ID.
     pub tid: i32,
+    /// A closed guest's non-leader TID is reserved while its thread lives.
+    pub(super) guest_tid: Option<super::children::GuestTid>,
     /// The CPU.
     pub cpu: GuestCpu,
     /// `set_tid_address` pointer, cleared and woken at exit.
@@ -553,6 +563,7 @@ impl Thread {
     pub fn new(tid: i32, cpu: GuestCpu) -> Self {
         Thread {
             tid,
+            guest_tid: None,
             cpu,
             clear_child_tid: 0,
             robust_list: (0, 0),
@@ -907,7 +918,11 @@ impl LinuxProcess {
             curr_target: pid,
             leader_exit: None,
             last_user: None,
-            children: Default::default(),
+            children: if host_services {
+                Default::default()
+            } else {
+                super::children::Children::embedded(pid)
+            },
             pidfds: Default::default(),
             forked: None,
             exec_id: 0,

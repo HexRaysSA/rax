@@ -194,3 +194,42 @@ fn aarch64_ptrace_single_step_trap_clears_exclusive_after_budget_yield() {
     assert_eq!(store(&mut h, STORE), 1);
     assert_eq!(data_value(&h), 0x55);
 }
+
+#[test]
+fn closed_linux_switching_sibling_processes_clears_aarch64_local_monitor() {
+    use crate::user::linux::sched::RunStatus;
+    use crate::user::linux::signal::SIGCHLD;
+    use std::sync::atomic::AtomicBool;
+
+    let mut h = Harness::embedded(LinuxAbi::Aarch64);
+    h.proc.state.config.slice_insns = 1;
+    code(&h, LOAD, &[LDXR_X0_X1, STXR_W2_X0_X1]);
+    code(&h, OTHER, &[NOP]);
+    set_data(&h);
+    for _ in 0..2 {
+        h.ok(Sysno::Clone, &[SIGCHLD as u64, 0, 0, 0, 0]);
+    }
+    let address = data(&h);
+    let children = &mut h.proc.state.children.list;
+    let first = children[0].guest.as_mut().unwrap();
+    let GuestCpu::Aarch64(cpu) = &mut first.threads[0].cpu else {
+        unreachable!()
+    };
+    cpu.core_mut().set_x(1, address);
+    cpu.core_mut().set_pc(LOAD);
+    children[1].guest.as_mut().unwrap().threads[0]
+        .cpu
+        .set_pc(OTHER);
+    assert_eq!(h.start(0, Sysno::Wait4, &[u64::MAX, 0, 0, 0]), None);
+
+    let cancel = AtomicBool::new(false);
+    for _ in 0..3 {
+        assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+    }
+    let first = h.proc.state.children.list[0].guest.as_ref().unwrap();
+    let GuestCpu::Aarch64(cpu) = &first.threads[0].cpu else {
+        unreachable!()
+    };
+    assert_eq!(cpu.pc(), STORE + 4);
+    assert_eq!(cpu.core().get_x(2), 1);
+}

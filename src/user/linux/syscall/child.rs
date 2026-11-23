@@ -2,23 +2,28 @@
 //! without `CLONE_THREAD` (`kernel/fork.c`), and `wait4`/`waitid`
 //! (`kernel/exit.c`).
 //!
-//! A new process is a fork of the emulator (see
+//! A closed guest forks a private snapshot inside the emulator. With host
+//! services, a new process is a fork of the emulator (see
 //! [`children`](crate::user::linux::children)). Its memory is a copy, so a
 //! `CLONE_VM | CLONE_VFORK` child (as `posix_spawn` makes) runs with copy
 //! semantics: the parent sleeps until the child calls `execve` or ends, but
 //! does not see the child's stores. Processes that share memory without
 //! `CLONE_VFORK`, a descriptor table, a file-system context, or handlers
-//! with their parent, and `CLONE_PARENT`, are not supported.
+//! with their parent, and `CLONE_PARENT`, are not supported. Closed guests
+//! support private forks and wait operations, with shared-VM clones unavailable.
+
+mod guest;
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
-use super::super::children::{ChildEvent, ForkedSelf};
-use super::super::host;
-use super::super::process::{ProcState, Threads};
+use super::super::children::ChildEvent;
+use super::super::process::{ProcState, SigAction, Threads};
 use super::super::signal::deliver::restart::ERESTARTSYS;
 use super::super::signal::deliver::{self, Dest};
 use super::super::signal::{SIG_IGN, SIGCHLD, SIGCONT, SigInfo, code, sa};
 use super::super::wait::{Resume, Wait};
+#[cfg(unix)]
+use super::super::{children::ForkedSelf, host};
 use super::thread::cf::*;
 use super::{Ctx, Outcome};
 
@@ -71,6 +76,17 @@ pub struct ForkArgs {
 /// `kernel_clone` for a new process, after the checks it shares with
 /// thread creation.
 pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
+    if !c.p.config.host_services {
+        return guest::fork(c, args);
+    }
+    #[cfg(unix)]
+    return fork_host(c, args);
+    #[cfg(not(unix))]
+    Err(Errno(ENOSYS))
+}
+
+#[cfg(unix)]
+fn fork_host(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     let flags = args.flags;
     if !c.p.config.processes {
         return Err(Errno(ENOSYS));
@@ -200,6 +216,7 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
 /// `copy_process` for the calling thread in the new process: a new PID,
 /// no children, pending signals, interval timers, robust list, or other
 /// threads; the child's stack, TLS, and TID words.
+#[cfg(unix)]
 fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) -> Result<(), crate::user::mm::MmError> {
     let inheritance = if args.flags & CLONE_VM == 0 {
         super::super::process::mm::prepare_fork_inheritance(&c.p.space)
@@ -243,14 +260,7 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) -> Result<(), crate::user::mm:
     p.unkillable = false;
     p.pdeathsig = 0;
     if args.flags & CLONE_CLEAR_SIGHAND != 0 {
-        for a in p.sigactions.iter_mut() {
-            if a.handler != SIG_IGN {
-                a.handler = 0;
-            }
-            a.flags = 0;
-            a.restorer = 0;
-            a.mask = 0;
-        }
+        clear_sighand(&mut p.sigactions);
     }
     let t = &mut *c.t;
     t.tid = pid;
@@ -280,8 +290,22 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) -> Result<(), crate::user::mm:
     inheritance
 }
 
+fn clear_sighand(actions: &mut [SigAction; 64]) {
+    for action in actions {
+        *action = SigAction {
+            handler: if action.handler == SIG_IGN {
+                SIG_IGN
+            } else {
+                0
+            },
+            ..SigAction::default()
+        };
+    }
+}
+
 /// `wait_for_vfork_done`: sleeps (killable only) until child `pid` calls
 /// `execve` or ends, then returns its PID.
+#[cfg(unix)]
 pub fn vfork_wait(c: &mut Ctx<'_>, pid: i32) -> Result<Outcome, Errno> {
     let (p, mut th) = c.split();
     refresh(p, &mut th);
@@ -306,6 +330,7 @@ pub fn sys_fork(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
 
 /// `vfork` (x86-64).
 pub fn sys_vfork(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
+    #[cfg(unix)]
     if let Some(Resume::VforkChild { pid }) = c.resume.take() {
         return vfork_wait(c, pid);
     }
@@ -367,7 +392,7 @@ pub fn refresh(p: &mut ProcState, th: &mut Threads<'_>) {
                 let mut info = SigInfo::child(
                     cause,
                     pid,
-                    p.creds.0,
+                    ch.guest_uid.unwrap_or(p.creds.0),
                     si_status,
                     (utime * USER_HZ / 1_000_000) as i64,
                     (stime * USER_HZ / 1_000_000) as i64,
@@ -393,7 +418,12 @@ pub fn refresh(p: &mut ProcState, th: &mut Threads<'_>) {
                     ChildEvent::Exited(_) => unreachable!("handled above"),
                 };
                 if chld.handler != SIG_IGN && chld.flags & sa::NOCLDSTOP == 0 {
-                    let info = SigInfo::child(cause, pid, p.creds.0, status, 0, 0);
+                    let uid = p
+                        .children
+                        .get_mut(pid)
+                        .and_then(|child| child.guest_uid)
+                        .unwrap_or(p.creds.0);
+                    let info = SigInfo::child(cause, pid, uid, status, 0, 0);
                     let me = p.pid;
                     deliver::send_signal(p, th, info, Dest::Process(me), false);
                 }
@@ -448,6 +478,7 @@ struct Found {
     cause: i32,
     si_status: i32,
     rusage: (u64, u64, u64),
+    uid: u32,
 }
 
 /// `do_wait`: the first eligible child with something to report, in
@@ -475,11 +506,20 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
     };
     // A tracee is eligible by its thread ID or process group, whatever its
     // exit signal (eligible_child with ptrace), for the thread tracing it.
+    #[cfg(unix)]
+    let host_services = c.p.config.host_services;
     let pick_tracee = |t: &super::super::ptrace::Tracee| {
         let matches = match sel {
             Select::Any => true,
             Select::Pid(pid) => t.tid == pid,
-            Select::Pgid(g) => host::getpgid(t.tid).is_ok_and(|pg| pg == g),
+            Select::Pgid(_g) => {
+                #[cfg(unix)]
+                {
+                    host_services && host::getpgid(t.tid).is_ok_and(|pg| pg == _g)
+                }
+                #[cfg(not(unix))]
+                false
+            }
             Select::Nothing => false,
         };
         matches && (flags & WNOTHREAD == 0 || t.tracer == me)
@@ -490,6 +530,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
     }
     // wait_task_stopped for a tracee: a stop not yet reported, whatever
     // WUNTRACED (CLD_TRAPPED, the exit code as si_status).
+    let parent_uid = c.p.creds.0;
     let trapped = |t: &mut super::super::ptrace::Tracee| {
         let code = t.stopped.filter(|_| !t.reported)?;
         if flags & WNOWAIT == 0 {
@@ -501,6 +542,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
             cause: code::CLD_TRAPPED,
             si_status: code,
             rusage: (0, 0, 0),
+            uid: parent_uid,
         })
     };
     let mut found = None;
@@ -524,6 +566,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
                         cause,
                         si_status,
                         rusage,
+                        uid: ch.guest_uid.unwrap_or(parent_uid),
                     },
                     true,
                 ));
@@ -544,6 +587,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
                     cause: code::CLD_STOPPED,
                     si_status: sig,
                     rusage: (0, 0, 0),
+                    uid: ch.guest_uid.unwrap_or(parent_uid),
                 },
                 false,
             ));
@@ -560,6 +604,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
                     cause: code::CLD_CONTINUED,
                     si_status: SIGCONT,
                     rusage: (0, 0, 0),
+                    uid: ch.guest_uid.unwrap_or(parent_uid),
                 },
                 false,
             ));
@@ -583,6 +628,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
                         cause,
                         si_status,
                         rusage: (0, 0, 0),
+                        uid: parent_uid,
                     },
                     false,
                 ));
@@ -612,17 +658,25 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
     if c.signal_pending() {
         return Err(Errno(ERESTARTSYS));
     }
-    let mut fds = c.p.children.live_fds(|ch| eligible(ch));
-    // A tracee's stop arrives on its link.
-    if !c.p.tracees.list.is_empty() {
-        fds.extend(super::super::ptrace::link_fds(c.p));
+    #[cfg(unix)]
+    if host_services {
+        let mut fds = c.p.children.live_fds(eligible);
+        // A tracee's stop arrives on its link.
+        if !c.p.tracees.list.is_empty() {
+            fds.extend(super::super::ptrace::link_fds(c.p));
+        }
+        return Err(c.block(Wait::fds(fds, None), Resume::WaitChild));
     }
-    Err(c.block(Wait::fds(fds, None), Resume::WaitChild))
+    Err(c.block(Wait::event(), Resume::WaitChild))
 }
 
 /// The caller's process group.
-fn own_pgid() -> Result<i32, Errno> {
-    host::getpgid(0)
+fn own_pgid(_c: &Ctx<'_>) -> Result<i32, Errno> {
+    #[cfg(unix)]
+    if _c.p.config.host_services {
+        return host::getpgid(0);
+    }
+    Ok(super::super::embedding::PID)
 }
 
 /// `wait4` (`kernel_wait4`).
@@ -642,7 +696,7 @@ pub fn wait4(
     let sel = match upid {
         -1 => Select::Any,
         p if p < 0 => Select::Pgid(-p),
-        0 => Select::Pgid(own_pgid()?),
+        0 => Select::Pgid(own_pgid(c)?),
         p => Select::Pid(p),
     };
     let Some(f) = do_wait(c, sel, options | WEXITED)? else {
@@ -704,7 +758,7 @@ pub fn waitid(
             head[..4].copy_from_slice(&SIGCHLD.to_le_bytes());
             head[8..].copy_from_slice(&f.cause.to_le_bytes());
             body[..4].copy_from_slice(&f.pid.to_le_bytes());
-            body[4..8].copy_from_slice(&c.p.creds.0.to_le_bytes());
+            body[4..8].copy_from_slice(&f.uid.to_le_bytes());
             body[8..].copy_from_slice(&f.si_status.to_le_bytes());
         }
         c.write_mem(infop, &head)?;
@@ -733,7 +787,7 @@ fn waitid_select(c: &Ctx<'_>, which: i32, id: i32, options: u32) -> Result<(Sele
         P_PID if id <= 0 => return Err(Errno(EINVAL)),
         P_PID => Select::Pid(id),
         P_PGID if id < 0 => return Err(Errno(EINVAL)),
-        P_PGID if id == 0 => Select::Pgid(own_pgid()?),
+        P_PGID if id == 0 => Select::Pgid(own_pgid(c)?),
         P_PGID => Select::Pgid(id),
         P_PIDFD if id < 0 => return Err(Errno(EINVAL)),
         // The pidfd's task (PIDTYPE_PID): a child only if it names one.

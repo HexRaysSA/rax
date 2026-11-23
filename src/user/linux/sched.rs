@@ -18,7 +18,7 @@ use crate::host::time::Instant;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::arch::{CpuEvent, GuestCpu};
-use super::children::{exited_status, signaled_status};
+use super::children::{ChildEvent, exited_status, signaled_status};
 use super::futex::{self, BITSET_MATCH_ANY, FutexKey};
 use super::process::{ExitStatus, LinuxProcess, Peers, Threads};
 use super::ptrace::Exiting;
@@ -65,6 +65,7 @@ pub enum RunStatus {
 #[derive(Default)]
 pub(super) struct Scheduler {
     current: usize,
+    child_cursor: usize,
     // A blocked syscall or ptrace continuation also selects a guest thread.
     // This differs from ProcState::last_user, which governs rseq transitions.
     last_selected: Option<i32>,
@@ -98,6 +99,127 @@ impl LinuxProcess {
     }
 
     fn drive(&mut self, mut turns: Option<u64>, cancelled: Option<&AtomicBool>) -> RunStatus {
+        if self.state.config.host_services {
+            return self.drive_local(turns, cancelled);
+        }
+        loop {
+            match self.guest_turn(cancelled) {
+                RunStatus::Complete(status) => {
+                    // The initial process owns the closed embedding's lifetime.
+                    self.state.children.list.clear();
+                    self.state.children.orphans.clear();
+                    return RunStatus::Complete(status);
+                }
+                RunStatus::BudgetExhausted => {
+                    if let Some(left) = &mut turns {
+                        *left -= 1;
+                        if *left == 0 {
+                            if self.state.exit.is_some() {
+                                continue;
+                            }
+                            return RunStatus::BudgetExhausted;
+                        }
+                    }
+                }
+                RunStatus::Blocked if turns.is_none() => {
+                    if let Err(dead) = self.idle() {
+                        self.state.exit = Some(ExitStatus::Internal(dead.message()));
+                    }
+                }
+                other => return other,
+            }
+        }
+    }
+
+    // One global turn, with round-robin order between a process, its child
+    // subtrees, and descendants reparented to the synthetic init. A
+    // blocked subtree does not prevent another subtree from progressing.
+    fn guest_turn(&mut self, cancelled: Option<&AtomicBool>) -> RunStatus {
+        if self.state.exit.is_some() {
+            return self.drive_local(Some(0), cancelled);
+        }
+        if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            return RunStatus::Cancelled;
+        }
+        let slots = 1 + self.state.children.list.len() + self.state.children.orphans.len();
+        for _ in 0..slots {
+            let current = self.scheduler.child_cursor % slots;
+            self.scheduler.child_cursor = (current + 1) % slots;
+            if current == 0 {
+                let status = self.drive_local(Some(1), cancelled);
+                if status != RunStatus::Blocked {
+                    return status;
+                }
+                // An asynchronous child notification can reap a record even
+                // when no thread becomes ready.
+                let remaining =
+                    1 + self.state.children.list.len() + self.state.children.orphans.len();
+                if remaining != slots {
+                    self.scheduler.child_cursor = 0;
+                    return RunStatus::BudgetExhausted;
+                }
+            } else {
+                let status = self.guest_child_turn(current - 1, cancelled);
+                if status != RunStatus::Blocked {
+                    return status;
+                }
+            }
+        }
+        RunStatus::Blocked
+    }
+
+    fn guest_child_turn(&mut self, index: usize, cancelled: Option<&AtomicBool>) -> RunStatus {
+        let children = &mut self.state.children;
+        let orphan = index >= children.list.len();
+        let (list, index) = if orphan {
+            let index = index - children.list.len();
+            (&mut children.orphans, index)
+        } else {
+            (&mut children.list, index)
+        };
+        let Some(child) = list.get_mut(index) else {
+            return RunStatus::Blocked;
+        };
+        let Some(process) = child.guest.as_mut() else {
+            return RunStatus::Blocked;
+        };
+        let before_stop = process.state.group_stop;
+        let status = process.guest_turn(cancelled);
+        let after_stop = process.state.group_stop;
+        let pid = child.pid;
+        match status {
+            RunStatus::Complete(ExitStatus::Internal(error)) => {
+                self.state.exit = Some(ExitStatus::Internal(format!(
+                    "guest process {pid}: {error}"
+                )));
+                RunStatus::BudgetExhausted
+            }
+            RunStatus::Complete(exit) => {
+                let descendants = child.finish_guest(exit);
+                if orphan {
+                    children.orphans.remove(index);
+                } else {
+                    children.guest_event(ChildEvent::Exited(pid));
+                }
+                children.inherit_orphans(descendants);
+                RunStatus::BudgetExhausted
+            }
+            _ if !orphan && before_stop != after_stop => {
+                child.stopped = after_stop;
+                child.continued = after_stop.is_none();
+                child.guest_uid = Some(process.state.creds.0);
+                let event = match after_stop {
+                    Some(sig) => ChildEvent::Stopped(pid, sig),
+                    None => ChildEvent::Continued(pid),
+                };
+                children.guest_event(event);
+                RunStatus::BudgetExhausted
+            }
+            _ => status,
+        }
+    }
+
+    fn drive_local(&mut self, mut turns: Option<u64>, cancelled: Option<&AtomicBool>) -> RunStatus {
         let slice = self.state.config.slice_insns;
         loop {
             if let Some(status) = &self.scheduler.terminal {
@@ -152,6 +274,14 @@ impl LinuxProcess {
                 continue;
             };
             let tid = self.threads[idx].tid;
+            if !self.state.config.host_services
+                && self.state.children.select_guest_process(self.state.pid)
+            {
+                // Another process can have run even though this process is
+                // returning to the same thread.
+                self.scheduler.last_selected = None;
+                self.state.last_user = None;
+            }
             clear_exclusive_on_switch(&mut self.threads[idx], self.scheduler.last_selected);
             self.scheduler.last_selected = Some(tid);
             self.scheduler.current = idx;
@@ -286,7 +416,37 @@ impl LinuxProcess {
                 (a, b) => a.or(b),
             };
         }
+        if !self.state.config.host_services {
+            deadline = deadline
+                .into_iter()
+                .chain(self.guest_children_deadline())
+                .min();
+        }
         wait::sleep(&fds, deadline)
+    }
+
+    fn guest_children_deadline(&self) -> Option<Instant> {
+        let children = &self.state.children;
+        children
+            .list
+            .iter()
+            .chain(&children.orphans)
+            .filter_map(|child| child.guest.as_deref())
+            .filter_map(|process| process.guest_deadline())
+            .min()
+    }
+
+    fn guest_deadline(&self) -> Option<Instant> {
+        self.state
+            .timer_deadline()
+            .into_iter()
+            .chain(
+                self.threads
+                    .iter()
+                    .filter_map(|thread| thread.blocked.as_ref().and_then(|b| b.wait.deadline)),
+            )
+            .chain(self.guest_children_deadline())
+            .min()
     }
 
     /// Dispatches the call thread `idx` sleeps in again.

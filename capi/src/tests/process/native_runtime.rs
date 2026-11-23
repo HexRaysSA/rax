@@ -326,6 +326,71 @@ fn installed_shell_replaces_its_image_through_closed_c_abi() {
     assert_eq!(info(&process)["loaded_program"]["path"], target);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn installed_shell_pipeline_matches_native_through_closed_c_abi() {
+    let shell = "/bin/sh";
+    let arguments = [
+        "-c",
+        r"/usr/bin/printf 'pipeline:%s\n' installed-libc | /bin/cat",
+    ];
+    let native = std::process::Command::new(shell)
+        .args(arguments)
+        .env_clear()
+        .env("LC_ALL", "C")
+        .output()
+        .unwrap();
+    assert!(native.status.success());
+    assert_eq!(native.stdout, b"pipeline:installed-libc\n");
+    assert!(native.stderr.is_empty());
+
+    let options = serde_json::json!({
+        "personality": "linux",
+        "guest_path": shell,
+        "arguments": arguments,
+        "environment": {"LC_ALL": "C"},
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    })
+    .to_string();
+    let shell_image = std::fs::read(shell).unwrap();
+    let children = ["/usr/bin/printf", "/bin/cat"].map(|path| (path, std::fs::read(path).unwrap()));
+    let supplied = children.each_ref().map(|(path, bytes)| RaxProcessImage {
+        path: path.as_ptr().cast(),
+        path_size: path.len(),
+        data: bytes.as_ptr(),
+        data_size: bytes.len(),
+    });
+    let mut handle = ptr::null_mut();
+    assert_eq!(
+        rax_process_open_image(
+            shell_image.as_ptr(),
+            shell_image.len(),
+            options.as_ptr().cast(),
+            options.len(),
+            supplied.as_ptr(),
+            supplied.len(),
+            &mut handle,
+        ),
+        RaxStatus::Ok,
+        "{}",
+        error(),
+    );
+    assert!(!handle.is_null());
+    let process = Owned(handle);
+    let start = info(&process);
+    assert_eq!(start["capabilities"]["native_runtime"], true);
+    assert_eq!(start["capabilities"]["host_filesystem"], false);
+    assert_eq!(start["capabilities"]["host_services"], false);
+    let result = run_installed_posix(&process, shell);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+    assert_eq!(info(&process)["loaded_program"]["path"], shell);
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn compare_installed_posix_output(
     personality: &str,

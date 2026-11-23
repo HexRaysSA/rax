@@ -155,10 +155,21 @@ pub fn setid(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> SysResult {
     Ok(0)
 }
 
-/// `getpgid`/`getsid`: the process is its own group and session leader.
+fn closed_group(c: &Ctx<'_>, pid: i32) -> SysResult {
+    if pid < 0 {
+        return Err(Errno(EINVAL));
+    }
+    if pid == 0 || (pid != 1 && c.p.children.contains_guest_id(pid)) {
+        Ok(super::super::embedding::PID as u64)
+    } else {
+        Err(Errno(ESRCH))
+    }
+}
+
+/// `getpgid`.
 pub fn getpgid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
     if !c.p.config.host_services {
-        return for_self(c, pid, c.p.pid as u64);
+        return closed_group(c, pid);
     }
     // A thread of this process names the process (find_task_by_vpid).
     #[cfg(unix)]
@@ -173,7 +184,7 @@ pub fn getpgid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
 /// `getsid`.
 pub fn getsid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
     if !c.p.config.host_services {
-        return for_self(c, pid, c.p.pid as u64);
+        return closed_group(c, pid);
     }
     #[cfg(unix)]
     {

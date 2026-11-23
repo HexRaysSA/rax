@@ -82,7 +82,6 @@ fn closed_linux_identity_console_and_external_service_denial_all_abis() {
             Sysno::Setpgid,
             Sysno::Setsid,
             Sysno::Mount,
-            Sysno::Fork,
             Sysno::Vfork,
         ] {
             if abi.number(syscall).is_some() {
@@ -148,22 +147,26 @@ fn closed_linux_rejects_inconsistent_configuration_before_image_loading() {
     }
 }
 
+fn exit_37(abi: LinuxAbi) -> Vec<u8> {
+    let words = |code: &[u32]| {
+        code.iter()
+            .flat_map(|word| word.to_le_bytes())
+            .collect::<Vec<u8>>()
+    };
+    match abi {
+        LinuxAbi::X86_64 => vec![0xb8, 60, 0, 0, 0, 0xbf, 37, 0, 0, 0, 0x0f, 0x05],
+        LinuxAbi::I386 => vec![0xb8, 1, 0, 0, 0, 0xbb, 37, 0, 0, 0, 0xcd, 0x80],
+        LinuxAbi::Aarch64 => words(&[0xd280_0ba8, 0xd280_04a0, 0xd400_0001]),
+        LinuxAbi::Arm => words(&[0xe3a0_7001, 0xe3a0_0025, 0xef00_0000]),
+        LinuxAbi::Riscv64 => words(&[0x05d0_0893, 0x0250_0513, 0x0000_0073]),
+    }
+}
+
 #[test]
 fn closed_linux_executes_and_finalizes_real_guest_exit_all_abis() {
     for abi in ABIS {
         let mut h = Harness::embedded(abi);
-        let words = |code: &[u32]| {
-            code.iter()
-                .flat_map(|word| word.to_le_bytes())
-                .collect::<Vec<u8>>()
-        };
-        let code = match abi {
-            LinuxAbi::X86_64 => vec![0xb8, 60, 0, 0, 0, 0xbf, 37, 0, 0, 0, 0x0f, 0x05],
-            LinuxAbi::I386 => vec![0xb8, 1, 0, 0, 0, 0xbb, 37, 0, 0, 0, 0xcd, 0x80],
-            LinuxAbi::Aarch64 => words(&[0xd280_0ba8, 0xd280_04a0, 0xd400_0001]),
-            LinuxAbi::Arm => words(&[0xe3a0_7001, 0xe3a0_0025, 0xef00_0000]),
-            LinuxAbi::Riscv64 => words(&[0x05d0_0893, 0x0250_0513, 0x0000_0073]),
-        };
+        let code = exit_37(abi);
         h.proc
             .space()
             .write_raw(super::harness::CODE + 0x1000, &code)
@@ -401,4 +404,148 @@ fn closed_linux_missing_host_capability_is_explicit() {
         matches!(crate::user::linux::embedding::validate_host(&host, false, true),
         Err(crate::user::linux::process::SpawnError::Unsupported(ref why)) if why.contains("Unix host services"))
     );
+}
+
+#[test]
+fn closed_linux_fork_wait_and_snapshot_all_abis() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::child::wf::{WEXITED, WNOHANG, WNOWAIT};
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let word = h.scratch + 256;
+        let shared = if abi.is_compat() {
+            h.ok(Sysno::Mmap2, &[0, 4096, 3, 0x21, u32::MAX.into(), 0])
+        } else {
+            h.anon(4096, 3, true)
+        };
+        h.fill(word, 1, 20);
+        h.fill(shared, 1, 21);
+        let at = h.scratch;
+        h.ok(Sysno::Pipe2, &[at, 0]);
+        let mut pipe = [0; 8];
+        h.proc.space().read(at, &mut pipe).unwrap();
+        let write = u32::from_le_bytes(pipe[4..].try_into().unwrap());
+        let entry = super::harness::CODE + 0x1000;
+        h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+        let pid = if abi.number(Sysno::Fork).is_some() {
+            h.ok(Sysno::Fork, &[])
+        } else {
+            h.ok(Sysno::Clone, &[SIGCHLD as u64, 0, 0, 0, 0])
+        };
+        assert_eq!(pid, 101, "{abi:?}");
+        let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+        assert_eq!(child.state.ppid, 100);
+        assert_eq!(child.threads.len(), 1);
+        assert_eq!(child.threads[0].cpu.syscall_return_value(), 0);
+        child.space().write(word, &[41]).unwrap();
+        child.space().write(shared, &[42]).unwrap();
+        let file = child.state.fds.file(write as i32).unwrap();
+        assert!(std::sync::Arc::ptr_eq(
+            &file,
+            &h.proc.state.fds.file(write as i32).unwrap()
+        ));
+        drop(file);
+        h.ok(Sysno::Close, &[write.into()]);
+        let child = h.proc.state.children.list[0].guest.as_ref().unwrap();
+        assert!(child.state.fds.file(write as i32).is_ok());
+        assert_eq!(h.byte(word), 20);
+        assert_eq!(h.byte(shared), 42);
+        assert_eq!(h.ok(Sysno::Getpgid, &[pid]), 100);
+
+        assert_eq!(h.ok(Sysno::Wait4, &[pid, at, WNOHANG.into(), 0]), 0);
+        let cancel = AtomicBool::new(true);
+        assert_eq!(h.start(0, Sysno::Wait4, &[0, at, 0, 0]), None);
+        assert_eq!(h.proc.run_slice(0, &cancel), RunStatus::BudgetExhausted);
+        assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::Cancelled);
+        assert!(h.proc.state.children.list[0].zombie.is_none());
+        cancel.store(false, std::sync::atomic::Ordering::Release);
+        assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+        assert_eq!(h.proc.state.children.list[0].zombie.unwrap().0, 37 << 8);
+        // WNOWAIT observes the child without consuming the parent's wait4.
+        assert_eq!(
+            h.ok(
+                Sysno::Waitid,
+                &[1, pid, at + 16, (WEXITED | WNOWAIT).into(), 0]
+            ),
+            0
+        );
+        let mut status = [0; 4];
+        let where_status = at + 16 + if abi.is_compat() { 12 } else { 16 } + 8;
+        h.proc.space().read(where_status, &mut status).unwrap();
+        assert_eq!(u32::from_le_bytes(status), 37, "{abi:?}");
+        assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+        assert_eq!(h.result(0), pid as i64);
+        h.proc.space().read(at, &mut status).unwrap();
+        assert_eq!(u32::from_le_bytes(status), 37 << 8);
+        assert!(h.proc.state.children.list.is_empty());
+        assert_eq!(h.err(Sysno::Wait4, &[pid, at, 0, 0]), ECHILD);
+        assert_eq!(h.err(Sysno::Getpgid, &[pid]), ESRCH);
+    }
+}
+
+#[test]
+fn closed_linux_fork_namespace_reserves_processes_until_reap() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::thread::cf::*;
+    let mut h = Harness::embedded(LinuxAbi::Aarch64);
+    let pid = h.ok(Sysno::Clone, &[SIGCHLD as u64, 0, 0, 0, 0]);
+    let flags = CLONE_VM | CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_THREAD;
+    assert_eq!(h.ok(Sysno::Clone, &[flags, 0, 0, 0, 0]), pid + 1);
+
+    let at = h.scratch;
+    let mut clone_args = [0; 88];
+    clone_args[..8].copy_from_slice(&flags.to_le_bytes());
+    clone_args[64..72].copy_from_slice(&(at + 128).to_le_bytes());
+    clone_args[72..80].copy_from_slice(&1u64.to_le_bytes());
+    h.proc.space().write_raw(at, &clone_args).unwrap();
+    h.proc
+        .space()
+        .write_raw(at + 128, &(pid as u32).to_le_bytes())
+        .unwrap();
+    assert_eq!(h.err(Sysno::Clone3, &[at, clone_args.len() as u64]), EEXIST);
+}
+
+#[test]
+fn closed_linux_reparents_live_descendants_to_guest_init() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::Call;
+
+    let abi = LinuxAbi::Aarch64;
+    let mut h = Harness::embedded(abi);
+    let entry = super::harness::CODE + 0x1000;
+    h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+    let parent_pid = h.ok(Sysno::Clone, &[SIGCHLD as u64, 0, 0, 0, 0]);
+    let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+    let call = Call::new(
+        abi.number(Sysno::Clone).unwrap(),
+        [SIGCHLD as u64, 0, 0, 0, 0, 0],
+    );
+    child.syscall(0, call);
+    let orphan_pid = child.state.children.list[0].pid;
+    assert_eq!(
+        child.threads[0].cpu.syscall_return_value(),
+        orphan_pid as u64
+    );
+    assert_eq!(
+        child.state.children.list[0]
+            .guest
+            .as_ref()
+            .unwrap()
+            .state
+            .ppid,
+        parent_pid as i32
+    );
+
+    assert_eq!(h.start(0, Sysno::Wait4, &[parent_pid, 0, 0, 0]), None);
+    let cancel = AtomicBool::new(false);
+    assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+    let adopted = &h.proc.state.children.orphans[0];
+    assert_eq!(adopted.pid, orphan_pid);
+    assert_eq!(adopted.guest.as_ref().unwrap().state.ppid, 1);
+    assert_eq!(h.err(Sysno::Wait4, &[orphan_pid as u64, 0, 0, 0]), ECHILD);
+    assert_eq!(
+        h.proc.run_slice(3, &cancel),
+        RunStatus::Complete(crate::user::linux::ExitStatus::Exited(37))
+    );
+    assert!(h.proc.state.children.orphans.is_empty());
 }

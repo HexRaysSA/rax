@@ -325,6 +325,7 @@ impl LinuxProcess {
         t.clear_child_tid = 0;
         t.set_child_tid = 0;
         t.vfork_parent = None;
+        t.guest_tid = None;
         t.saved_sigmask = None;
         t.syscall = None;
         t.restart = None;

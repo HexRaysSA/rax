@@ -1,7 +1,7 @@
 //! Child processes.
 //!
-//! A guest process's children are host processes: `fork` forks the
-//! emulator, and the child emulates the guest child. Each child writes
+//! Closed guests schedule children in the same emulator. In the host-service
+//! profile, `fork` forks the emulator and the child emulates the guest child. Each child writes
 //! status records to a pipe its parent reads: `E` when a `CLONE_VFORK`
 //! child calls `execve`, and `X` with the Linux wait status when it ends,
 //! which the host's exit status cannot express (a core dump, for one). The
@@ -16,19 +16,75 @@ use std::os::fd::{AsRawFd, OwnedFd};
 #[cfg(unix)]
 use super::host::{self, HostWait};
 
+use std::collections::BTreeSet;
+use std::sync::{Arc, Mutex};
+
+use super::abi::errno::Errno;
+use super::abi::errno_table::{EAGAIN, EEXIST};
+use super::process::{ExitStatus, LinuxProcess};
+
+const PID_LIMIT: i32 = 4 * 1024 * 1024;
+/// Bound simultaneously retained children (including zombies) per embedding.
+pub(super) const GUEST_CHILD_LIMIT: usize = 32;
+// The caller's memory setting bounds each arena. Bound the aggregate
+// additional capacity independently so fork cannot multiply that setting
+// by the full process count. An exited child keeps its PID but no arena.
+const GUEST_CHILD_ARENA_LIMIT: u64 = 2 << 30;
+
+#[derive(Debug)]
+struct Namespace {
+    next: i32,
+    ids: BTreeSet<i32>,
+    children: usize,
+    arena_bytes: u64,
+    last_selected_process: Option<i32>,
+}
+
+/// An allocated guest task ID, released with the thread or reaped child.
+#[derive(Debug)]
+pub(crate) struct GuestTid {
+    id: i32,
+    namespace: Arc<Mutex<Namespace>>,
+    arena_bytes: Option<u64>,
+}
+
+impl GuestTid {
+    pub(crate) fn id(&self) -> i32 {
+        self.id
+    }
+
+    fn release_arena(&mut self) {
+        if let Some(bytes) = self.arena_bytes.as_mut() {
+            self.namespace.lock().unwrap().arena_bytes -= std::mem::take(bytes);
+        }
+    }
+}
+
+impl Drop for GuestTid {
+    fn drop(&mut self) {
+        let mut ns = self.namespace.lock().unwrap();
+        ns.ids.remove(&self.id);
+        if let Some(bytes) = self.arena_bytes {
+            ns.children -= 1;
+            ns.arena_bytes -= bytes;
+        }
+    }
+}
+
 /// User CPU microseconds, system CPU microseconds, and peak RSS in KiB.
 pub type ChildRusage = (u64, u64, u64);
 
 /// A child process.
-#[derive(Debug)]
 pub struct Child {
-    /// Its PID (the host PID).
+    /// Its PID in the parent's namespace.
     pub pid: i32,
-    /// The read end of its status-record pipe.
+    /// The host child's status-record pipe.
     #[cfg(unix)]
-    status: OwnedFd,
-    #[cfg(not(unix))]
-    unavailable: std::convert::Infallible,
+    status: Option<OwnedFd>,
+    /// The PID stays allocated through the waitable zombie state.
+    pub(super) guest: Option<Box<LinuxProcess>>,
+    guest_tid: Option<GuestTid>,
+    pub(super) guest_uid: Option<u32>,
     /// The signal its exit sends the parent (`exit_signal`); 0 for none.
     pub exit_signal: i32,
     /// The thread that created it (`__WNOTHREAD`).
@@ -51,6 +107,16 @@ pub struct Child {
     pub link: Option<super::ptrace::Link>,
 }
 
+impl std::fmt::Debug for Child {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Child")
+            .field("pid", &self.pid)
+            .field("guest_tid", &self.guest_tid.as_ref().map(GuestTid::id))
+            .field("zombie", &self.zombie)
+            .finish_non_exhaustive()
+    }
+}
+
 /// A state change of a child, for `SIGCHLD` and `wait`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChildEvent {
@@ -67,6 +133,10 @@ pub enum ChildEvent {
 pub struct Children {
     /// The children not yet reaped.
     pub list: Vec<Child>,
+    /// Live descendants reparented to the closed namespace's synthetic PID 1.
+    pub(super) orphans: Vec<Child>,
+    namespace: Option<Arc<Mutex<Namespace>>>,
+    events: Vec<ChildEvent>,
     /// Resource use of reaped children (`cutime`, `cstime`, `cmaxrss`).
     pub reaped: ChildRusage,
 }
@@ -82,7 +152,123 @@ pub fn signaled_status(sig: i32, core: bool) -> i32 {
 }
 
 impl Children {
-    /// Records a new child.
+    pub(super) fn embedded(pid: i32) -> Self {
+        Self {
+            namespace: Some(Arc::new(Mutex::new(Namespace {
+                next: pid + 1,
+                ids: BTreeSet::from([1, pid]),
+                children: 0,
+                arena_bytes: 0,
+                last_selected_process: None,
+            }))),
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn guest_scope(&self) -> Self {
+        Self {
+            namespace: self.namespace.clone(),
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn contains_guest_id(&self, id: i32) -> bool {
+        self.namespace
+            .as_ref()
+            .is_some_and(|ns| ns.lock().unwrap().ids.contains(&id))
+    }
+
+    pub(super) fn select_guest_process(&self, pid: i32) -> bool {
+        let namespace = self.namespace.as_ref().expect("closed guest namespace");
+        namespace.lock().unwrap().last_selected_process.replace(pid) != Some(pid)
+    }
+
+    pub(super) fn reserve_guest_id(
+        &self,
+        requested: Option<i32>,
+        arena_bytes: Option<u64>,
+    ) -> Result<GuestTid, Errno> {
+        let namespace = self.namespace.as_ref().expect("closed guest namespace");
+        let mut ns = namespace.lock().unwrap();
+        if let Some(bytes) = arena_bytes
+            && (ns.children == GUEST_CHILD_LIMIT
+                || bytes > GUEST_CHILD_ARENA_LIMIT - ns.arena_bytes)
+        {
+            return Err(Errno(EAGAIN));
+        }
+        let id = if let Some(id) = requested {
+            if !ns.ids.insert(id) {
+                return Err(Errno(EEXIST));
+            }
+            id
+        } else {
+            let next = |id| if id + 1 == PID_LIMIT { 2 } else { id + 1 };
+            let first = ns.next;
+            while ns.ids.contains(&ns.next) {
+                ns.next = next(ns.next);
+                if ns.next == first {
+                    return Err(Errno(EAGAIN));
+                }
+            }
+            let id = ns.next;
+            ns.ids.insert(id);
+            ns.next = next(id);
+            id
+        };
+        if let Some(bytes) = arena_bytes {
+            ns.children += 1;
+            ns.arena_bytes += bytes;
+        }
+        Ok(GuestTid {
+            id,
+            namespace: namespace.clone(),
+            arena_bytes,
+        })
+    }
+
+    pub(super) fn add_guest(
+        &mut self,
+        guest: LinuxProcess,
+        tid: GuestTid,
+        exit_signal: i32,
+        creator: i32,
+        exec_id: u64,
+    ) {
+        self.list.push(Child {
+            pid: tid.id(),
+            #[cfg(unix)]
+            status: None,
+            guest_tid: Some(tid),
+            guest_uid: Some(guest.state.creds.0),
+            guest: Some(Box::new(guest)),
+            exit_signal,
+            creator,
+            parent_exec_id: exec_id,
+            pgid: super::embedding::PID,
+            released: false,
+            record: None,
+            stopped: None,
+            continued: false,
+            zombie: None,
+            link: None,
+        });
+    }
+
+    pub(super) fn guest_event(&mut self, event: ChildEvent) {
+        self.events.push(event);
+    }
+
+    pub(super) fn inherit_orphans(&mut self, mut children: Self) {
+        self.orphans.append(&mut children.orphans);
+        for mut child in children.list {
+            if let Some(guest) = &mut child.guest {
+                guest.state.ppid = 1;
+                self.orphans.push(child);
+            }
+        }
+    }
+
+    /// Records a new host child.
     #[cfg(unix)]
     pub fn add(
         &mut self,
@@ -96,7 +282,10 @@ impl Children {
         let pgid = host::getpgid(pid).unwrap_or(0);
         self.list.push(Child {
             pid,
-            status,
+            status: Some(status),
+            guest_tid: None,
+            guest: None,
+            guest_uid: None,
             exit_signal,
             creator,
             parent_exec_id: exec_id,
@@ -135,15 +324,22 @@ impl Children {
         self.list
             .iter()
             .filter(|c| c.zombie.is_none() && pids(c))
-            .map(|c| (c.status.as_raw_fd(), true, false))
+            .filter_map(|c| c.status.as_ref().map(|fd| (fd.as_raw_fd(), true, false)))
             .collect()
     }
 
-    /// Reads new status records and host state changes, returning the
-    /// changes in order.
-    #[cfg(unix)]
+    /// Returns child state changes in order.
     pub fn poll(&mut self) -> Vec<ChildEvent> {
-        let mut events = Vec::new();
+        let mut events = std::mem::take(&mut self.events);
+        #[cfg(unix)]
+        if self.namespace.is_none() {
+            self.poll_host(&mut events);
+        }
+        events
+    }
+
+    #[cfg(unix)]
+    fn poll_host(&mut self, events: &mut Vec<ChildEvent>) {
         for c in self.list.iter_mut().filter(|c| c.zombie.is_none()) {
             read_records(c);
             if let Ok(pgid) = host::getpgid(c.pid) {
@@ -186,7 +382,30 @@ impl Children {
                 }
             }
         }
-        events
+    }
+}
+
+impl Child {
+    pub(super) fn finish_guest(&mut self, exit: ExitStatus) -> Children {
+        let mut guest = self.guest.take().expect("running child");
+        self.guest_uid = Some(guest.state.creds.0);
+        let status = match exit {
+            ExitStatus::Exited(code) => exited_status(code),
+            // The embedded guest has no core-file output.
+            ExitStatus::Signaled { info, .. } => signaled_status(info.signo, false),
+            ExitStatus::Internal(_) => {
+                unreachable!("scheduler reports internal errors to the owner")
+            }
+        };
+        self.zombie = Some((status, (0, 0, 0)));
+        self.released = true;
+        let descendants = std::mem::take(&mut guest.state.children);
+        drop(guest);
+        self.guest_tid
+            .as_mut()
+            .expect("guest PID lease")
+            .release_arena();
+        descendants
     }
 }
 
@@ -194,11 +413,12 @@ impl Children {
 /// `X` followed by its little-endian Linux wait status.
 #[cfg(unix)]
 fn read_records(c: &mut Child) {
+    let status = c.status.as_ref().expect("host child has a status pipe");
     let mut buf = [0u8; 64];
     loop {
         // SAFETY: `buf` is writable for its length; the descriptor is the
         // non-blocking status pipe this record owns.
-        let n = unsafe { libc::read(c.status.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len()) };
+        let n = unsafe { libc::read(status.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len()) };
         if n <= 0 {
             return;
         }
@@ -265,5 +485,50 @@ impl ForkedSelf {
         let mut rec = [b'X', 0, 0, 0, 0];
         rec[1..].copy_from_slice(&status.to_le_bytes());
         self.write(&rec);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn guest_namespace_holds_zombie_pid_without_its_arena() {
+        let registry = Children::embedded(100);
+        let scope = registry.guest_scope();
+        let mut first = registry
+            .reserve_guest_id(None, Some(GUEST_CHILD_ARENA_LIMIT))
+            .unwrap();
+        let pid = first.id();
+        assert_eq!(scope.reserve_guest_id(None, Some(1)).unwrap_err().0, EAGAIN);
+        first.release_arena();
+        assert_eq!(
+            scope.reserve_guest_id(Some(pid), None).unwrap_err().0,
+            EEXIST
+        );
+        let second = scope
+            .reserve_guest_id(None, Some(GUEST_CHILD_ARENA_LIMIT))
+            .unwrap();
+        drop(first);
+        assert!(scope.reserve_guest_id(Some(pid), None).is_ok());
+        assert_eq!(scope.reserve_guest_id(None, Some(1)).unwrap_err().0, EAGAIN);
+        drop(second);
+        assert!(scope.reserve_guest_id(None, Some(1)).is_ok());
+    }
+
+    #[test]
+    fn guest_namespace_bounds_process_records_across_generations() {
+        let registry = Children::embedded(100);
+        let scope = registry.guest_scope();
+        let records: Vec<_> = (0..GUEST_CHILD_LIMIT)
+            .map(|_| scope.reserve_guest_id(None, Some(1)).unwrap())
+            .collect();
+        assert_eq!(
+            registry.reserve_guest_id(None, Some(1)).unwrap_err().0,
+            EAGAIN
+        );
+        assert!(registry.reserve_guest_id(None, None).is_ok());
+        drop(records);
+        assert!(scope.reserve_guest_id(None, Some(1)).is_ok());
     }
 }

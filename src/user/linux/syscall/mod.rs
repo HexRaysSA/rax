@@ -36,7 +36,6 @@
 
 pub mod admin;
 pub mod aio;
-#[cfg(unix)]
 pub mod child;
 pub mod compat;
 pub mod copy;
@@ -428,13 +427,10 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Clone3 => thread::clone3(c, a[0], a[1]),
         S::SchedYield => Ok(Outcome::Yield(0)),
         S::Execve => exec::execve(c, a[0], a[1], a[2]),
-        #[cfg(unix)]
         S::Fork => child::sys_fork(c),
         #[cfg(unix)]
         S::Vfork => child::sys_vfork(c),
-        #[cfg(unix)]
         S::Wait4 => child::wait4(c, a[0] as i32, a[1], a[2] as u32, a[3]),
-        #[cfg(unix)]
         S::Waitid => child::waitid(c, a[0] as i32, a[1] as i32, a[2], a[3] as u32, a[4]),
         S::Execveat => exec::execveat(c, fd(a[0]), a[1], a[2], a[3], a[4] as u32),
 
