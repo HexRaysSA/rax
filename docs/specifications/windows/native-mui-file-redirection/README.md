@@ -8,6 +8,14 @@ after reverting. With redirection disabled, an open of the installed
 System32 command resource used the physical System32 file.
 [Native observations](https://github.com/HexRaysSA/rax/actions/runs/45177069108)
 
+Windows 11 ARM64 build 29708.1003 uses the same companion offset and TLS
+slot. A native x86 process observed the companion at −8192 bytes, then read
+`0 → 1 → 0` from slot `0x14c0` across disable and revert.
+Opening the System32 command resource with redirection enabled returned
+Win32 error 2. The same path with redirection disabled opened
+`C:\Windows\System32\en-US\cmd.exe.mui`.
+[Native x86 control](mui-redirection-x86.c).
+
 A closed guest interprets this state for locale satellites belonging to a
 selected installed executable or DLL. An explicit SysWOW64 path retains
 its usual directory. The ordinary constraints on locale names, owner

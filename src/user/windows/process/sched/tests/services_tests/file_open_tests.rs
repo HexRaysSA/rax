@@ -844,41 +844,44 @@ fn native_file_open_wow64_mui_uses_the_calling_threads_redirection_state() {
     }
     let output = h.base;
     let iosb = h.base + PAGE_SIZE;
-    for (state, path, expected) in [
-        (
-            0,
-            r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
-            b"x86 resource".as_slice(),
-        ),
-        (
-            1,
-            r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
-            b"native resource".as_slice(),
-        ),
-        (
-            1,
-            r"\??\C:\Windows\SysWOW64\en-US\fixture.dll.mui",
-            b"x86 resource".as_slice(),
-        ),
-        (
-            0,
-            r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
-            b"x86 resource".as_slice(),
-        ),
-    ] {
-        h.name(path);
-        h.process.state().space.w64(redirection, state).unwrap();
-        assert_eq!(h.open_with(output, iosb, 0x100001, 7, 0x60), STATUS_SUCCESS);
-        let p = h.process.state_mut();
-        let handle = p.space.ptr(output, 4).unwrap();
-        assert!(p.objects.runtime_library(handle));
-        let Some(Object::File(file)) = p.objects.get(handle) else {
-            panic!("MUI handle must own a file");
-        };
-        let mut bytes = Vec::new();
-        std::io::Read::read_to_end(&mut file.host.as_ref().unwrap(), &mut bytes).unwrap();
-        assert_eq!(bytes, expected, "{state}/{path}");
-        p.objects.close(handle).unwrap();
+    for build in [26200, 29708] {
+        Arc::make_mut(&mut h.process.state_mut().cfg).version.build = build;
+        for (state, path, expected) in [
+            (
+                0,
+                r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
+                b"x86 resource".as_slice(),
+            ),
+            (
+                1,
+                r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
+                b"native resource".as_slice(),
+            ),
+            (
+                1,
+                r"\??\C:\Windows\SysWOW64\en-US\fixture.dll.mui",
+                b"x86 resource".as_slice(),
+            ),
+            (
+                0,
+                r"\??\C:\Windows\System32\en-US\fixture.dll.mui",
+                b"x86 resource".as_slice(),
+            ),
+        ] {
+            h.name(path);
+            h.process.state().space.w64(redirection, state).unwrap();
+            assert_eq!(h.open_with(output, iosb, 0x100001, 7, 0x60), STATUS_SUCCESS);
+            let p = h.process.state_mut();
+            let handle = p.space.ptr(output, 4).unwrap();
+            assert!(p.objects.runtime_library(handle));
+            let Some(Object::File(file)) = p.objects.get(handle) else {
+                panic!("MUI handle must own a file");
+            };
+            let mut bytes = Vec::new();
+            std::io::Read::read_to_end(&mut file.host.as_ref().unwrap(), &mut bytes).unwrap();
+            assert_eq!(bytes, expected, "{build}/{state}/{path}");
+            p.objects.close(handle).unwrap();
+        }
     }
 }
 

@@ -212,7 +212,7 @@ fn selected_mui(
             version.build,
             c.p.object_namespace.native_machine
         ),
-        (10, 0, 20348 | 26100, Some(0x8664)) | (10, 0, 26200, Some(0xaa64))
+        (10, 0, 20348 | 26100, Some(0x8664)) | (10, 0, 26200 | 29708, Some(0xaa64))
     );
     let native_system32 = system32_alias
         && qualified_profile
