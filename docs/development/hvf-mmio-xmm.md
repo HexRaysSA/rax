@@ -733,5 +733,19 @@ including all 100 simulated SDK owner cases and 16 CI pinning checks.
 Its Cargo log SHA-256 is
 `3861a8d925213fdf2e443ed2196a408c08fac3279170b404bbe2e91dcd6f105d`.
 The cross-target guest consumer linked and passed strict signature and
-entitlement checks. All 54 Python tooling tests passed. Hosted guest
-execution for this profile is pending.
+entitlement checks. All 54 Python tooling tests passed. The complete
+Intel Linux C API library suite passed 250 cases with five ignored,
+zero failures and zero filtered. Its log SHA-256 is
+`bd9b4ff898c54f04b7b64f9fdfee2e8f48c0e796ecdcf4d246b5357dbfcdcf97`.
+
+Hosted Intel macOS passed all 73 cases at
+`d69e2efb28bcc5042d016849a58179db7c35f4c1`. The 36 direct cases and
+36 fresh-owner restores independently matched the physical Intel flag
+results. The unaligned legacy control reported the original fault RIP.
+Verification matched 4,902 engine inputs and 19 consumer inputs to
+the dispatched commit and checked the executable signature and
+Hypervisor entitlement. The executable SHA-256 was
+`677c7949e9bdf274377b7a3a8cbdc6c6a5ba041e64bc5ffa66ef6447197e0bd2`.
+The ordered observations SHA-256 was
+`ae35bd61e771aa6164af072a1ed2823931b41d7bdbb90cf6de19332d62fa9ba0`.
+[Hosted packed bit-test execution](https://github.com/HexRaysSA/rax/actions/runs/45139966944)
