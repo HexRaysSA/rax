@@ -155,9 +155,10 @@ int wmain(int argc, wchar_t **argv)
         available != sizeof(result) ||
         !ReadFile(input.get(), &result, sizeof(result), &count, nullptr) ||
         count != sizeof(result)) return 8;
-    std::printf("init2_queried=%u equals_companion=%u stable=%u preserves_stock_value=%u\n",
+    std::printf("leaf_queried=%u equals_companion=%u stable=%u returns_one=%u preserves_stock_value=%u\n",
         result.present, result.present && result.first == after_repeat,
-        result.present && result.first == result.second, after_stock == after_repeat);
+        result.present && result.first == result.second, result.present && result.first == 1,
+        after_stock == after_repeat);
     return 0;
 }
 #else
@@ -188,12 +189,12 @@ int wmain(int argc, wchar_t **argv)
         std::putchar('\n');
     }
     InitResult result{};
-    if (init2) {
+    if (const auto leaf = init2 ? init2 : legacy) {
         // Only call the observed parameterless x86 transition stub shape.
-        const auto bytes = reinterpret_cast<const unsigned char *>(init2);
+        const auto bytes = reinterpret_cast<const unsigned char *>(leaf);
         if (bytes[0] != 0xb8 || bytes[5] != 0xba || bytes[10] != 0xff ||
             bytes[11] != 0xd2 || bytes[12] != 0xc3) return 8;
-        const auto init = reinterpret_cast<std::uint32_t(WINAPI *)()>(init2);
+        const auto init = reinterpret_cast<std::uint32_t(WINAPI *)()>(leaf);
         result = {1, init(), init()};
     }
     DWORD count = 0;

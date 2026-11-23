@@ -40,6 +40,13 @@ initializes GDI through the fixed stock-brush query. The guest leaf returns
 `1` after callback completion. The `NtGdiInit2` service retains its process-value
 return ABI.
 
+The released WoW64 observer launches an owned x86 process and synchronizes
+companion reads around its installed stock-brush call. It repeats the
+parameterless `NtGdiInit2` leaf where available, or `NtGdiInit` on systems
+that expose only the legacy entry. The receipt records whether the repeated
+return is stable, equals the companion PEB value, or equals one. The probe
+checks the x86 transition shape before either call.
+
 ## Admission and dispatch
 
 `loader::load_image` admits a Win32u table only when the loaded DLL's host path
