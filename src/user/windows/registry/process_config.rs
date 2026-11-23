@@ -13,15 +13,17 @@ pub(crate) enum ProcessConfigKey {
     Ccg,
     DisabledLegacyExtensions,
     MachineAppCompatFlags,
+    OsDataAppCompatFlags,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 5] = [
+    pub(super) const ALL: [Self; 6] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
         Self::Ccg,
         Self::MachineAppCompatFlags,
+        Self::OsDataAppCompatFlags,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -37,6 +39,9 @@ impl ProcessConfigKey {
             }
             Self::MachineAppCompatFlags => {
                 r"\Registry\Machine\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags"
+            }
+            Self::OsDataAppCompatFlags => {
+                r"\Registry\Machine\OSDATA\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags"
             }
         }
     }
@@ -54,7 +59,7 @@ impl ProcessConfigKey {
                 "EnableTcpPortScaling",
             ],
             Self::ActiveComputerName => &["ComputerName"],
-            Self::Ccg => &[],
+            Self::Ccg | Self::OsDataAppCompatFlags => &[],
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
             Self::MachineAppCompatFlags => &["LogFlags"],
         }
@@ -68,6 +73,7 @@ impl ProcessConfigKey {
             Self::Ccg => "CCG service",
             Self::DisabledLegacyExtensions => "disabled legacy extensions",
             Self::MachineAppCompatFlags => "machine AppCompatFlags",
+            Self::OsDataAppCompatFlags => "OSDATA AppCompatFlags",
         }
     }
 
@@ -77,7 +83,9 @@ impl ProcessConfigKey {
                 view == RegistryView::Native64
                     && matches!(values, [value] if value.kind == 4 && value.data == [0; 4])
             }
-            Self::MachineAppCompatFlags => view == RegistryView::Native64,
+            Self::MachineAppCompatFlags | Self::OsDataAppCompatFlags => {
+                view == RegistryView::Native64
+            }
             _ => true,
         }
     }

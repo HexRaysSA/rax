@@ -10,9 +10,11 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
     for subject in ProcessConfigKey::ALL {
         let root = SnapshotRoot::ProcessConfig(subject);
         let path = root.path(&[])?;
-        // Native CMD opens the machine AppCompatFlags key and queries LogFlags.
+        // CMD uses the native view for these two distinct AppCompatFlags paths.
         let views: &[_] = match subject {
-            ProcessConfigKey::MachineAppCompatFlags => &[RegistryView::Native64],
+            ProcessConfigKey::MachineAppCompatFlags | ProcessConfigKey::OsDataAppCompatFlags => {
+                &[RegistryView::Native64]
+            }
             _ => &[RegistryView::Native64, RegistryView::Wow32],
         };
         for &view in views {

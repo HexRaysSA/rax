@@ -201,6 +201,74 @@ fn process_config_machine_appcompat_flags_projects_only_native_log_flags() {
 }
 
 #[test]
+fn process_config_osdata_appcompat_flags_preserves_its_own_native_open_result() {
+    let subject = ProcessConfigKey::OsDataAppCompatFlags;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let path = root.path(&[]).unwrap();
+    let registry = Registry::selected(upcase(), vec![]).unwrap();
+    let software = ProcessConfigKey::MachineAppCompatFlags;
+    let software_root = SnapshotRoot::ProcessConfig(software);
+    let registry = registry
+        .with_snapshot_selection(
+            software_root,
+            &[],
+            RegistryView::Native64,
+            Ok((header(software.path(), vec![]), None)),
+        )
+        .unwrap();
+    let present = registry
+        .clone()
+        .with_snapshot_selection(
+            root,
+            &[],
+            RegistryView::Native64,
+            Ok((header(subject.path(), vec![]), None)),
+        )
+        .unwrap();
+    let Lookup::Present(key) = present.lookup(&units(&subject.path().to_ascii_lowercase())) else {
+        panic!("OSDATA AppCompatFlags header");
+    };
+    assert_eq!(key.children, 2);
+    assert_eq!(key.captured_access().unwrap().grant(1), Ok(1));
+    assert!(!key.covers_value(&units("LogFlags")));
+    assert!(matches!(key.relative(&units("Layers")), Lookup::Unselected));
+    assert!(matches!(
+        present.lookup_view(&path, RegistryView::Wow32),
+        Lookup::Unselected
+    ));
+    assert!(matches!(
+        present.lookup(&units(&format!(r"{}Sibling", subject.path()))),
+        Lookup::Unselected
+    ));
+    assert!(
+        registry
+            .clone()
+            .with_snapshot_selection(
+                root,
+                &[],
+                RegistryView::Native64,
+                Ok((header(software.path(), vec![]), None)),
+            )
+            .is_err()
+    );
+    for status in [STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND] {
+        let absent = registry
+            .clone()
+            .with_snapshot_selection(root, &[], RegistryView::Native64, Err(status))
+            .unwrap();
+        assert!(matches!(
+            (status, absent.lookup(&path)),
+            (STATUS_OBJECT_NAME_NOT_FOUND, Lookup::Missing)
+                | (STATUS_OBJECT_PATH_NOT_FOUND, Lookup::MissingPath)
+        ));
+        assert!(matches!(
+            absent.lookup(&units(software.path())),
+            Lookup::Present(_)
+        ));
+    }
+}
+
+#[test]
 fn system_setup_covers_both_startup_dwords_and_leaves_other_values_unselected() {
     let registry = Registry::selected(
         upcase(),
