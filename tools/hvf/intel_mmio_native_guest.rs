@@ -1382,6 +1382,12 @@ fn main() {
         xmm::run_logic(&output);
         return;
     }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-bit-test")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        xmm::run_bit_tests(&output);
+        return;
+    }
     if let Some(profile) = std::env::args_os()
         .nth(1)
         .filter(|profile| profile == "--compat-mmio" || profile == "--compat16-mmio")

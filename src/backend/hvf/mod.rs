@@ -920,6 +920,18 @@ impl HvfCore {
         }
     }
 
+    fn read_mmio_vector(&self, source: u8, size: u8) -> Result<[u8; 32]> {
+        let layout = &self.native_profile()?.xsave;
+        let image = intel_fp::read(self.vcpu_id, layout)?;
+        if size == mmio::YMM_BYTES {
+            layout.read_ymm(&image, source)
+        } else {
+            let mut left = [0; 32];
+            left[..16].copy_from_slice(&layout.read_xmm(&image, source)?);
+            Ok(left)
+        }
+    }
+
     fn prepare_mmio(&self) -> Result<mmio::Plan> {
         use hv_vmx_vmcs_field_t::*;
         struct Memory<'a> {
@@ -1240,6 +1252,9 @@ impl run_loop::ExitHandler for HvfCore {
             mmio::Action::VectorLogic { input, .. } if input.encoding.needs_avx() => {
                 Some("HVF vector logic MMIO requires enabled guest AVX state")
             }
+            mmio::Action::VectorBitTest { input, .. } if input.encoding.needs_avx() => {
+                Some("HVF packed bit-test MMIO requires enabled guest AVX state")
+            }
             _ => None,
         };
         if let Some(error) = avx_error {
@@ -1353,18 +1368,21 @@ impl run_loop::ExitHandler for HvfCore {
                 )
             }
             mmio::Action::VectorLogic { input, source } => {
-                let layout = &self.native_profile()?.xsave;
-                let image = intel_fp::read(self.vcpu_id, layout)?;
                 let size = input.encoding.size();
-                let left = if size == mmio::YMM_BYTES {
-                    layout.read_ymm(&image, source)?
-                } else {
-                    let mut left = [0; 32];
-                    left[..16].copy_from_slice(&layout.read_xmm(&image, source)?);
-                    left
-                };
+                let left = self.read_mmio_vector(source, size)?;
                 self.mmio_input
                     .begin_vector_logic(input, left)
+                    .map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size,
+                })
+            }
+            mmio::Action::VectorBitTest { input, source } => {
+                let size = input.encoding.size();
+                let left = self.read_mmio_vector(source, size)?;
+                self.mmio_input
+                    .begin_vector_bit_test(input, left)
                     .map_err(Error::Emulator)?;
                 Ok(VcpuExit::MmioRead {
                     addr: plan.physical,

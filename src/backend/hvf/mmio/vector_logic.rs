@@ -89,7 +89,7 @@ impl Input {
     }
 }
 
-fn register(operand: &Operand, width: u32, read: bool, write: bool) -> Option<u8> {
+pub(super) fn register(operand: &Operand, width: u32, read: bool, write: bool) -> Option<u8> {
     if operand.kind != OperandKind::Register
         || operand.width_bits != width
         || operand.read != read

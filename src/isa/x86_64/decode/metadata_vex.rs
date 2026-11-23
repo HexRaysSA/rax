@@ -18,21 +18,39 @@ pub(super) fn decode_xmm_transfer(
         return None;
     }
     let vex = ctx.consume_u8().ok()?;
-    let (extensions, flags) = if lead == 0xc4 {
+    let (extensions, flags, map) = if lead == 0xc4 {
         let flags = ctx.consume_u8().ok()?;
-        if vex & 0x1f != 1 {
+        let map = vex & 0x1f;
+        if !matches!(map, 1 | 2) {
             *unsupported = true;
             return None;
         }
-        ((!vex >> 5) & 7, flags)
+        ((!vex >> 5) & 7, flags, map)
     } else {
-        ((!vex >> 5) & 4, vex & 0x7f)
+        ((!vex >> 5) & 4, vex & 0x7f, 1)
     };
     let opcode = ctx.consume_u8().ok()?;
-    let logic = packed_logic_mnemonics(flags & 3, opcode).map(|(_, vex)| vex);
+    let bit_test = if map == 2 {
+        Some(match (flags & 3, opcode) {
+            (1, 0x17) => "vptest",
+            (1, 0x0e) if flags & 0x80 == 0 => "vtestps",
+            (1, 0x0f) if flags & 0x80 == 0 => "vtestpd",
+            _ => {
+                *unsupported = true;
+                return None;
+            }
+        })
+    } else {
+        None
+    };
+    let logic = if map == 1 {
+        packed_logic_mnemonics(flags & 3, opcode).map(|(_, vex)| vex)
+    } else {
+        None
+    };
     let wide = bits == 64 && flags & 0x80 != 0;
     let (load, mut size, vector_rm) = match (flags & 3, opcode) {
-        _ if logic.is_some() => (true, 16, true),
+        _ if logic.is_some() || bit_test.is_some() => (true, 16, true),
         (1, 0x6e) => (true, if wide { 8 } else { 4 }, false),
         (1, 0x7e) => (false, if wide { 8 } else { 4 }, false),
         (2, 0x7e) => (true, 8, true),
@@ -49,7 +67,7 @@ pub(super) fn decode_xmm_transfer(
         }
     };
     let scalar_float = matches!(opcode, 0x10 | 0x11) && matches!(size, 4 | 8);
-    let lane_move = matches!(opcode, 0x12 | 0x13 | 0x16 | 0x17);
+    let lane_move = map == 1 && matches!(opcode, 0x12 | 0x13 | 0x16 | 0x17);
     let modrm_byte = ctx.peek_u8().ok()?;
     if scalar_float && modrm_byte >> 6 == 3 {
         // The three-register form uses vvvv and merges two sources.
@@ -92,8 +110,8 @@ pub(super) fn decode_xmm_transfer(
         kind: OperandKind::Register,
         reg: format!("{bank}{}", group | ctx.any_rex_r()),
         width_bits: register_width,
-        read: !load,
-        write: load,
+        read: !load || bit_test.is_some(),
+        write: load && bit_test.is_none(),
         ..Operand::default()
     };
     out.operands = if explicit_source {
@@ -110,6 +128,7 @@ pub(super) fn decode_xmm_transfer(
         vec![read_write(rm, false, true), vector]
     };
     out.mnemonic = match (opcode, size, flags & 3) {
+        _ if let Some(name) = bit_test => name,
         _ if let Some(name) = logic => name,
         (0x10 | 0x11, 4, 2) => "vmovss",
         (0x10 | 0x11, 8, 3) => "vmovsd",

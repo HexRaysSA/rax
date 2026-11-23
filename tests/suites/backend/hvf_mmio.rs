@@ -40,6 +40,8 @@ mod movsxd_tests;
 mod rmw_tests;
 #[path = "hvf_mmio/shifts.rs"]
 mod shift_tests;
+#[path = "hvf_mmio/vector_bit_test.rs"]
+mod vector_bit_test_tests;
 #[path = "hvf_mmio/vector_logic.rs"]
 mod vector_logic_tests;
 #[path = "hvf_mmio/xmm_lanes.rs"]
@@ -880,6 +882,7 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             | Action::XmmLaneRead { .. }
             | Action::XmmLaneWrite(_)
             | Action::VectorLogic { .. }
+            | Action::VectorBitTest { .. }
             | Action::YmmRead(_)
             | Action::YmmWrite(_) => panic!("unexpected vector plan for GPR MOV"),
             Action::StringLoad(_) | Action::StringStore { .. } => {

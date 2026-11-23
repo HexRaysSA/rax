@@ -398,6 +398,25 @@ pub(super) fn decode_0f(
             "bswap"
         }
         0x38 => match ctx.consume_u8().ok()? {
+            0x17 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() => {
+                let raw_rm = ctx.peek_u8().ok()? & 7;
+                let (group, _, mut rm) = modrm(ctx, address_bits, 16, *branch_bits == 64)?;
+                if rm.kind == OperandKind::Register {
+                    rm.reg = format!("xmm{}", raw_rm | ctx.rex_b());
+                    rm.width_bits = 128;
+                }
+                out.operands = vec![
+                    Operand {
+                        kind: OperandKind::Register,
+                        reg: format!("xmm{}", group | ctx.rex_r()),
+                        width_bits: 128,
+                        read: true,
+                        ..Operand::default()
+                    },
+                    rm,
+                ];
+                "ptest"
+            }
             0xf6 if ctx.rex2.is_none() => {
                 let mnemonic = match ctx.rep_prefix {
                     Some(0xf3) => "adox",

@@ -29,6 +29,7 @@ on:
           - vex-ntstore
           - xmm-lanes
           - vector-logic
+          - vector-bit-test
           - compat-mmio
           - compat16-mmio
           - port-debug

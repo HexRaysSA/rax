@@ -692,3 +692,46 @@ signature and Hypervisor entitlement. The executable SHA-256 was
 The ordered observations SHA-256 was
 `ca06a8d927b8b872a3b9c9f5d1a9cc8e876af668224368d373db9f0e99ccca16`.
 [Hosted packed logical execution](https://github.com/HexRaysSA/rax/actions/runs/45134602125)
+
+## Packed bit-test reads
+
+Intel HVF handles memory-source PTEST, VPTEST, VTESTPS and VTESTPD on
+an MMIO hole. PTEST reads an aligned 16-byte operand. VPTEST accepts
+VEX.W values zero and one. VTESTPS and VTESTPD require VEX.W=0 and use
+only bit 31 or bit 63 of each element, respectively. Both VEX widths
+accept unaligned operands and consume exactly 16 or 32 bytes. No
+vector register is written. Retirement clears OF, SF, AF and PF,
+sets ZF when the operands have no selected bits set in common, and
+sets CF when every selected bit set in the device reply is also
+set in the register operand. Other flags are preserved. The pending
+record carries the original register bytes, flags, length and form.
+Reduction takes O(width) time with width bounded at 32 bytes and
+O(1) working space.
+[Intel SDM Volume 2, PTEST, VPTEST, VTESTPD and VTESTPS](https://cdrdv2-public.intel.com/782156/325383-sdm-vol-2abcd.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Memory is the second, read-only operand. | High | Vary all nine legal forms, then present a write exit, register-only form, reserved vvvv, missing mandatory prefix and illegal VEX.W. Confirm no device data is read during planning. |
+| Legacy memory alignment and VEX width belong to the decoded form. | High | Vary all 15 misaligned offsets on the Intel reference and use unaligned x86 VEX controls. Check the guest fault RIP and the exact device request width. |
+| A saved request retains the full reduction inputs and changes flags only. | High | Restore after replacing the opcode with UD2, exercise all four CF/ZF outcomes and check the original XMM and upper YMM bytes, unchanged unrelated RFLAGS, one retirement and rejection of short and long replies. |
+
+The baseline rejected all nine encodings in the portable MMIO planner.
+The failing log SHA-256 is
+`0971edf902c1b07c58649775388e40f788b7561bd94597070a0eca0b94ada978`.
+On a physical Intel Xeon E5-1650 v3 an independent process executed
+36 ordinary-RAM flag cases, observed SIGILL for all four VEX.W=1
+floating controls, and observed SIGSEGV at every misaligned legacy
+offset. The 55 ordered hardware observations have SHA-256
+`d2672ca52d96783954eb4033f4123d6b7c612bb52cec419f827c764d38c9fa6c`.
+
+The complete Intel Linux suites passed 136 `hvf_mmio`, 102
+`isa_oracle` and 28,561 `x86_64` tests with three x86-64 cases ignored
+and zero failures or filtered cases. Cargo log SHA-256 is
+`87b050bdedd47473d26eece240c59ada321001e5a829a023e6d5fdd3fc7bc4fa`.
+The Intel macOS cross-target run passed 354 cases on Apple Silicon,
+including all 100 simulated SDK owner cases and 16 CI pinning checks.
+Its Cargo log SHA-256 is
+`3861a8d925213fdf2e443ed2196a408c08fac3279170b404bbe2e91dcd6f105d`.
+The cross-target guest consumer linked and passed strict signature and
+entitlement checks. All 54 Python tooling tests passed. Hosted guest
+execution for this profile is pending.
