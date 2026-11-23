@@ -15,8 +15,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--compile-only", action="store_true")
-    parser.add_argument("--irq-vectoring", action="store_true",
-                        help="run the interrupted external interrupt control")
+    control = parser.add_mutually_exclusive_group()
+    control.add_argument("--irq-vectoring", action="store_true",
+                         help="run the interrupted external interrupt control")
+    control.add_argument("--cr0-ne", action="store_true",
+                         help="observe independent CR0.NE backing and guest read shadow")
     args = parser.parse_args()
     args.output.mkdir()
     source = Path(__file__).resolve().with_suffix(".c")
@@ -43,11 +46,14 @@ def main():
             executable = probe.read_bytes()
             result["executable_sha256"] = sha256(executable).hexdigest()
             if not args.compile_only:
-                if args.irq_vectoring:
+                if args.irq_vectoring or args.cr0_ne:
                     (args.output / "signed-probe").write_bytes(executable)
-                events = ("irq-vectoring",) if args.irq_vectoring else (
-                    "none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking",
-                )
+                if args.irq_vectoring:
+                    events = ("irq-vectoring",)
+                elif args.cr0_ne:
+                    events = ("cr0-ne",)
+                else:
+                    events = ("none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking")
                 for event in events:
                     entry = subprocess.run([str(probe), event], capture_output=True, text=True,
                                            timeout=15)

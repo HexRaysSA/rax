@@ -8,12 +8,23 @@ enum {
     IDT_VECTORING_INFO = 0x4408, EXIT_GUEST_PHYSICAL = 0x2400,
     IDT = 0xc000, HANDLER = 0xb000, IRQ_VECTOR = 0x40,
     IDT_PAGE_SIZE = 0x1000, EXIT_EPT_VIOLATION = 48,
+    EXIT_INSTRUCTION_LENGTH = 0x440c, EXIT_CONTROL_REGISTER = 28,
     START_PORT = 0x81, HANDLER_PORT = 0x80,
 };
 
-enum event { NONE, IRQ, NMI, NMI_WITH_IF, NMI_WITHOUT_VIRTUAL_BLOCKING, IRQ_VECTORING };
+enum event { NONE, IRQ, NMI, NMI_WITH_IF, NMI_WITHOUT_VIRTUAL_BLOCKING, IRQ_VECTORING, CR0_NE };
 static const char *const names[] = {
     "none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking", "irq-vectoring",
+    "cr0-ne",
+};
+
+/* MOV from CR0; save it in R12; clear NE; MOV to CR0; read into R13;
+ * set NE; MOV to CR0; read into R14; HLT. RAX supplies both proposed writes.
+ */
+static const uint8_t cr0_guest[] = {
+    0x0f, 0x20, 0xc0, 0x49, 0x89, 0xc4, 0x48, 0x0f, 0xba, 0xf0, 0x05,
+    0x0f, 0x22, 0xc0, 0x41, 0x0f, 0x20, 0xc5, 0x48, 0x0f, 0xba, 0xe8, 0x05,
+    0x0f, 0x22, 0xc0, 0x41, 0x0f, 0x20, 0xc6, 0xf4,
 };
 
 static void publish_gate(uint8_t *memory, unsigned vector)
@@ -93,6 +104,77 @@ static int observe_irq_vectoring(hv_vcpuid_t cpu, uint8_t *memory, uint64_t slic
     return interrupted && reached && continued ? 0 : 1;
 }
 
+static int observe_cr0_ne(hv_vcpuid_t cpu, uint64_t slice)
+{
+    const uint64_t ne = UINT64_C(1) << 5;
+    const uint64_t original = read_field(cpu, G_CR0);
+    const uint64_t mask = read_field(cpu, CR0_MASK);
+    const uint64_t shadow = read_field(cpu, CR0_SHADOW);
+    const uint64_t start = read_reg(cpu, HV_X86_RIP);
+    const uint64_t offsets[] = {11, 23};
+    const uint64_t requested[] = {original & ~ne, original};
+    printf("{\"event\":\"cr0-ne\",\"mask\":%" PRIu64 ",\"backing\":%" PRIu64
+           ",\"shadow\":%" PRIu64 ",\"writes\":[", mask, original, shadow);
+    bool accepted = mask == ne && shadow == original && (original & ne) != 0;
+    unsigned published = 0;
+    for (size_t i = 0; accepted && i < sizeof(offsets) / sizeof(offsets[0]); i++) {
+        uint64_t reason = enter(cpu, slice);
+        uint64_t rip = read_reg(cpu, HV_X86_RIP);
+        uint64_t value = read_reg(cpu, HV_X86_RAX);
+        uint64_t backing = read_field(cpu, G_CR0);
+        uint64_t prior_shadow = read_field(cpu, CR0_SHADOW);
+        uint64_t register_cr0 = read_reg(cpu, HV_X86_CR0);
+        uint64_t qualification = 0, length = 0;
+        if (reason == EXIT_CONTROL_REGISTER) {
+            qualification = read_field(cpu, EXIT_QUAL);
+            length = read_field(cpu, EXIT_INSTRUCTION_LENGTH);
+        }
+        accepted = reason == EXIT_CONTROL_REGISTER && rip == start + offsets[i] &&
+            qualification == 0 && length == 3 && value == requested[i] &&
+            backing == original && prior_shadow == (i == 0 ? shadow : requested[0]);
+        printf("%s{\"reason\":%" PRIu64 ",\"rip\":%" PRIu64 ",\"operand\":%" PRIu64
+               ",\"qualification\":%" PRIu64 ",\"length\":%" PRIu64 ",\"backing\":%" PRIu64
+               ",\"prior_shadow\":%" PRIu64 ",\"register_cr0\":%" PRIu64 ",\"shadow_write\":",
+               i ? "," : "", reason, rip, value, qualification, length, backing,
+               prior_shadow, register_cr0);
+        if (accepted) {
+            // VMX retains its fixed backing bit. The client only publishes
+            // the guest-owned value in the read shadow for this one-bit move.
+            hv_return_t status = hv_vmx_vcpu_write_vmcs(cpu, CR0_SHADOW, value);
+            printf("%u", (uint32_t)status);
+            accepted = status == HV_SUCCESS && read_field(cpu, CR0_SHADOW) == value &&
+                read_field(cpu, G_CR0) == original;
+            if (accepted) {
+                reg(cpu, HV_X86_RIP, rip + length);
+                published++;
+            }
+        } else {
+            printf("null");
+        }
+        printf("}");
+    }
+    uint64_t reason = accepted ? enter(cpu, slice) : 0;
+    uint64_t rip = read_reg(cpu, HV_X86_RIP);
+    uint64_t first = read_reg(cpu, HV_X86_R12);
+    uint64_t cleared = read_reg(cpu, HV_X86_R13);
+    uint64_t restored = read_reg(cpu, HV_X86_R14);
+    uint64_t backing = read_field(cpu, G_CR0);
+    uint64_t final_shadow = read_field(cpu, CR0_SHADOW);
+    bool continued = accepted && reason == 12 && rip == start + sizeof(cr0_guest) - 1 &&
+        first == original && cleared == requested[0] && restored == original &&
+        backing == original && final_shadow == shadow;
+    printf("],\"published\":%u,\"final_reason\":%" PRIu64 ",\"final_rip\":%" PRIu64
+           ",\"guest_initial\":%" PRIu64 ",\"guest_cleared\":%" PRIu64
+           ",\"guest_restored\":%" PRIu64 ",\"final_backing\":%" PRIu64
+           ",\"final_shadow\":%" PRIu64 ",\"continuation\":%s}\n",
+           published, reason, rip, first, cleared, restored, backing, final_shadow,
+           continued ? "true" : "false");
+    /* A rejected read shadow, missing intercept, or wrong guest value is a
+     * recorded negative observation if the baseline port marker completed.
+     */
+    return 0;
+}
+
 static void destroy(hv_vcpuid_t cpu, void *memory)
 {
     check(hv_vcpu_destroy(cpu), "destroy vCPU");
@@ -123,6 +205,7 @@ int main(int argc, char **argv)
     const uint8_t marker[] = {0xe6, START_PORT};
     const uint8_t handler[] = {0x49, 0xff, 0xc3, 0xe6, HANDLER_PORT, 0x48, 0xcf};
     memcpy(memory + CODE, marker, sizeof(marker));
+    if (event == CR0_NE) memcpy(memory + CODE + sizeof(marker), cr0_guest, sizeof(cr0_guest));
     memcpy(memory + HANDLER, handler, sizeof(handler));
     publish_gate(memory, 2);
     publish_gate(memory, IRQ_VECTOR);
@@ -171,6 +254,11 @@ int main(int argc, char **argv)
     reg(cpu, HV_X86_RIP, CODE + sizeof(marker));
     if (event == IRQ_VECTORING) {
         int result = observe_irq_vectoring(cpu, memory, slice);
+        destroy(cpu, memory);
+        return result;
+    }
+    if (event == CR0_NE) {
+        int result = observe_cr0_ne(cpu, slice);
         destroy(cpu, memory);
         return result;
     }

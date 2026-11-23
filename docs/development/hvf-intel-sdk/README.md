@@ -60,3 +60,23 @@ tests. Its compiled source and the current pending native foundation match.
 Actual RAX run 41992554080 has built, signed and retained the corrected 130-case
 consumer; independent local artifact checks confirm its source fingerprint,
 executable checksum and signature. Native guest execution remains pending.
+
+## CR0.NE backing and read shadow
+
+The `cr0_ne` availability workflow input selects an SDK-only control. A
+long-mode guest reaches a port marker, reads CR0, then clears and sets NE
+with two MOV-to-CR0 instructions. The client checks the VM-exit reason,
+qualification, operand and instruction address before publishing each
+new shadow value. It checks the VMCS backing value, the guest's CR0 reads
+after each transition, and the final HLT. The workflow archives the
+signed Intel executable and the SDK readbacks.
+[Intel SDM, Vol. 3C, §§25.8 and 26.6.6](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The programmed NE mask intercepts both changes against the current shadow. | Require two ordinary control-register exits at the assembled MOV addresses, with qualification zero for MOV to CR0 from RAX. |
+| The SDK exposes the logical NE bit without changing VMX backing. | Require guest reads of one, zero and one, with the backing CR0 unchanged after both writes. |
+
+The signed control tests register access. Full CR0 writes that also change
+unmasked bits, native x87 error delivery, and coordinated checkpoint
+continuation are separate validation cases.
