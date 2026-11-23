@@ -417,10 +417,11 @@ fn serve_a32(
             })
         }
         req::PEEKUSR if compat => {
+            let mm = p.mm();
             let image = regs_a32::Image {
-                start_code: p.mm.program.start_code,
-                start_data: p.mm.program.start_data,
-                end_code: p.mm.program.end_code,
+                start_code: mm.program.start_code,
+                start_data: mm.program.start_data,
+                end_code: mm.program.end_code,
             };
             match regs_a32::peek_user(&t.cpu, t.syscall, image, addr) {
                 Ok(v) => word(v),

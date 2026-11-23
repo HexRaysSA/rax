@@ -538,10 +538,10 @@ fn elf_interpreter_is_supplied_and_missing_interpreters_do_not_fall_back() {
     );
     let process =
         LinuxProcess::spawn(config.clone(), ImageFile::new(main.clone(), "/prog")).unwrap();
-    assert!(process.state.mm.program.interp_base > 0);
+    assert!(process.state.mm().program.interp_base > 0);
     assert_eq!(
         process.threads[0].cpu.pc(),
-        process.state.mm.program.interp_base + 0x1000
+        process.state.mm().program.interp_base + 0x1000
     );
     // Non-UTF-8 PT_INTERP bytes cannot alias a replacement-character key.
     let mut invalid = main.clone();

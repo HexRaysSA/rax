@@ -399,7 +399,7 @@ mod tests {
             .unwrap();
             assert!(!process.state.config.host_services);
             assert!(process.state.config.sysroot.is_none());
-            assert!(process.state.mm.program.interp_base > 0);
+            assert!(process.state.mm().program.interp_base > 0);
             assert!(process.state.exe_host_path.is_none());
             let preloaded = expected == "preloaded-libm\n";
             let deadline = crate::host::time::Instant::now() + std::time::Duration::from_secs(30);

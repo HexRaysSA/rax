@@ -14,7 +14,7 @@ const ABIS: [LinuxAbi; 5] = [
 fn initial(abi: LinuxAbi) -> (AddressSpace, MmState, BrkPolicy) {
     let harness = Harness::embedded(abi);
     let policy = BrkPolicy::from(&harness.proc.state);
-    let mut mm = harness.proc.state.mm.clone();
+    let mut mm = harness.proc.state.mm().clone();
     mm.start_brk = BASE;
     mm.brk = BASE;
     mm.def_lock = vma_flags::LOCKED_MASK;

@@ -245,6 +245,14 @@ impl LinuxProcess {
                 // (exit_group, a fatal signal): exit_mm releases each
                 // one's robust futexes.
                 self.release_robust_lists();
+                if matches!(self.state.exit, Some(ExitStatus::Exited(_)))
+                    && self.state.shares_mm()
+                    && let Some(thread) = self.threads.first()
+                    && thread.clear_child_tid != 0
+                {
+                    // The other address-space user waits for vfork completion.
+                    let _ = futex::put_u32(&self.state, thread.clear_child_tid, 0);
+                }
                 // exit_mmap: the System V attaches go before the parent
                 // can see the exit.
                 super::syscall::ipc::exit(&mut self.state);
@@ -720,7 +728,7 @@ impl LinuxProcess {
             }
             futex::exit_pi(&mut self.state, &mut th, tid);
             self.state.futex.unqueue(tid);
-            if clear != 0 && others {
+            if clear != 0 && (others || self.state.shares_mm() && status & 0x7f == 0) {
                 let _ = futex::put_u32(&self.state, clear, 0);
                 let key = FutexKey {
                     addr: clear,

@@ -126,7 +126,7 @@ pub fn shmat(c: &mut Ctx<'_>, id: i32, addr: u64, flags: i32) -> SysResult {
     };
     // do_mmap: under mlockall(MCL_FUTURE) the attach is locked and must
     // fit RLIMIT_MEMLOCK.
-    let lock = c.p.mm.def_lock;
+    let lock = c.p.mm().def_lock;
     if !super::mlock::future_ok(c.p, lock, len) {
         return Err(Errno(EAGAIN));
     }

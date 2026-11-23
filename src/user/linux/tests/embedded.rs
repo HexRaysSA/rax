@@ -82,7 +82,6 @@ fn closed_linux_identity_console_and_external_service_denial_all_abis() {
             Sysno::Setpgid,
             Sysno::Setsid,
             Sysno::Mount,
-            Sysno::Vfork,
         ] {
             if abi.number(syscall).is_some() {
                 assert_eq!(
@@ -520,11 +519,23 @@ fn closed_linux_private_vfork_blocks_until_child_exit_all_abis() {
 
 #[test]
 fn closed_linux_private_vfork_releases_at_exec_before_child_exit() {
+    assert_closed_linux_vfork_exec(false);
+}
+
+#[test]
+fn closed_linux_shared_vfork_detaches_at_exec_before_child_exit() {
+    assert_closed_linux_vfork_exec(true);
+}
+
+fn assert_closed_linux_vfork_exec(shared: bool) {
     use super::harness::{CODE, DATA};
     use super::loader::{Seg, image};
     use crate::user::image::elf::{EM_AARCH64, ET_EXEC, PF_R, PF_X};
     use crate::user::linux::signal::SIGCHLD;
-    use crate::user::linux::syscall::{child::wf::WNOHANG, thread::cf::CLONE_VFORK};
+    use crate::user::linux::syscall::{
+        child::wf::WNOHANG,
+        thread::cf::{CLONE_VFORK, CLONE_VM},
+    };
     use crate::user::supplied_fs::Files;
     use std::sync::Arc;
 
@@ -558,19 +569,26 @@ fn closed_linux_private_vfork_releases_at_exec_before_child_exit() {
     h.proc.space().write_raw(DATA, b"/replacement\0").unwrap();
     let at = h.scratch;
     let mut clone_args = [0; 88];
-    clone_args[..8].copy_from_slice(&CLONE_VFORK.to_le_bytes());
+    let flags = CLONE_VFORK | if shared { CLONE_VM } else { 0 };
+    clone_args[..8].copy_from_slice(&flags.to_le_bytes());
     clone_args[32..40].copy_from_slice(&(SIGCHLD as u64).to_le_bytes());
     h.proc.space().write_raw(at, &clone_args).unwrap();
     assert_eq!(
         h.start(0, Sysno::Clone3, &[at, clone_args.len() as u64]),
         None
     );
+    assert_eq!(h.proc.state.shares_mm(), shared);
     let cancel = AtomicBool::new(false);
     assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
     let child = &h.proc.state.children.list[0];
     assert!(child.released);
     assert!(child.zombie.is_none());
-    assert_eq!(child.guest.as_ref().unwrap().state.exe_path, "/replacement");
+    let guest = child.guest.as_ref().unwrap();
+    assert_eq!(guest.state.exe_path, "/replacement");
+    assert!(!guest.state.shares_mm());
+    assert!(!h.proc.state.shares_mm());
+    assert!(guest.space().read(at, &mut [0]).is_err());
+    assert!(h.proc.space().read(at, &mut [0]).is_ok());
     assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
     assert_eq!(h.result(0), 101);
     assert_eq!(h.ok(Sysno::Wait4, &[101, at, WNOHANG.into(), 0]), 0);
@@ -581,6 +599,66 @@ fn closed_linux_private_vfork_releases_at_exec_before_child_exit() {
     let mut status = [0; 4];
     h.proc.space().read(at, &mut status).unwrap();
     assert_eq!(u32::from_le_bytes(status), 37 << 8);
+}
+
+#[test]
+fn closed_linux_shared_vfork_preserves_child_memory_and_brk_all_abis() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::{Call, thread::cf::*};
+
+    for abi in ABIS {
+        for call in [Sysno::Clone, Sysno::Vfork] {
+            if abi.number(call).is_none() {
+                continue;
+            }
+            let mut h = Harness::embedded(abi);
+            let at = h.scratch;
+            let entry = super::harness::CODE + 0x1000;
+            h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+            h.fill(at + 16, 1, 9);
+            let arguments = [CLONE_VM | CLONE_VFORK | SIGCHLD as u64, 0, 0, 0, 0];
+            assert_eq!(h.start(0, call, &arguments), None);
+            assert!(h.proc.state.shares_mm());
+            let initial = h.proc.state.mm().brk;
+            let new_brk = initial + 4096;
+            let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+            child.space().write(at + 16, &[3]).unwrap();
+            child.syscall(
+                0,
+                Call::new(abi.number(Sysno::Brk).unwrap(), [new_brk, 0, 0, 0, 0, 0]),
+            );
+            assert_eq!(child.threads[0].cpu.syscall_return_value(), new_brk);
+            assert_eq!(h.byte(at + 16), 3);
+            assert_eq!(h.proc.state.mm().brk, new_brk);
+
+            let cancel = AtomicBool::new(false);
+            assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+            assert!(!h.proc.state.shares_mm());
+            assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+            assert_eq!(h.result(0), 101);
+            assert_eq!(h.ok(Sysno::Wait4, &[101, at, 0, 0]), 101);
+            assert_eq!(h.ok(Sysno::Brk, &[0]), new_brk);
+            assert_eq!(h.byte(at + 16), 3);
+        }
+    }
+}
+
+#[test]
+fn closed_linux_shared_vfork_requires_a_single_active_task_per_mm() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::thread::cf::*;
+
+    let mut h = Harness::embedded(LinuxAbi::Aarch64);
+    let child = CLONE_VM | SIGCHLD as u64;
+    assert_eq!(h.err(Sysno::Clone, &[child, 0, 0, 0, 0]), ENOSYS);
+    let thread = CLONE_VM | CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_THREAD;
+    assert_eq!(h.ok(Sysno::Clone, &[thread, 0, 0, 0, 0]), 101);
+    assert_eq!(
+        h.err(Sysno::Clone, &[child | CLONE_VFORK, 0, 0, 0, 0]),
+        ENOSYS
+    );
+    assert!(h.proc.state.children.list.is_empty());
+    assert!(!h.proc.state.shares_mm());
 }
 
 #[test]

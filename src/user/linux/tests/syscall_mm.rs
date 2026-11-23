@@ -63,7 +63,7 @@ fn inheritance_advice_through_dispatch_survives_move_and_clears_on_fixed_replace
         );
         h.fill(source + P, P, 31);
         let child = h.proc.state.space.process_snapshot().unwrap();
-        let _state = h.proc.state.mm.fork_private(&child).unwrap();
+        let _state = h.proc.state.mm().fork_private(&child).unwrap();
         assert!(child.vma_at(moved).is_none());
         let mut bytes = [0];
         child.read(source + P, &mut bytes).unwrap();

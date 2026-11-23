@@ -10,7 +10,7 @@
 //! does not see the child's stores. Processes that share memory without
 //! `CLONE_VFORK`, a descriptor table, a file-system context, or handlers
 //! with their parent, and `CLONE_PARENT`, are not supported. Closed guests
-//! support private forks and wait operations, with shared-VM clones unavailable.
+//! support private forks and single-threaded shared-VM vfork.
 
 mod guest;
 
@@ -244,7 +244,7 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) -> Result<(), crate::user::mm:
     // mm_init: no AIO context (the rings' mappings stay), and nothing
     // pinned (the io_uring rings the child shares charge its parent's).
     p.aio = Default::default();
-    p.mm.pinned_vm = Default::default();
+    p.mm().pinned_vm = Default::default();
     // The io_uring requests waiting for their files are the parent's.
     super::uring::forked(p);
     p.ppid = host::ppid();
@@ -347,7 +347,6 @@ pub fn sys_fork(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
 
 /// `vfork` (x86-64).
 pub fn sys_vfork(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
-    #[cfg(unix)]
     if let Some(Resume::VforkChild { pid }) = c.resume.take() {
         return vfork_wait(c, pid);
     }

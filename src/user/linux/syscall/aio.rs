@@ -105,13 +105,16 @@ fn context<'a>(c: &'a mut Ctx<'_>, h: Handle) -> &'a mut Context {
 /// call's context is a `u32` (`compat_sys_io_setup`).
 pub fn io_setup(c: &mut Ctx<'_>, nr_events: u32, ctxp: u64) -> SysResult {
     let policy = LockPolicy::from(&*c.p);
-    c.p.mm
-        .setup_aio(&c.p.space, &mut c.p.aio, policy, nr_events, ctxp)
+    let mut mm =
+        c.p.mm
+            .lock()
+            .expect("Linux memory bookkeeping lock poisoned");
+    mm.setup_aio(&c.p.space, &mut c.p.aio, policy, nr_events, ctxp)
 }
 
 /// Unmaps a ring's range (`vm_munmap`), unless it is sealed.
 fn unmap_ring(c: &mut Ctx<'_>, at: u64, size: u64) {
-    c.p.mm.unmap_aio_ring(&c.p.space, at, size);
+    c.p.mm().unmap_aio_ring(&c.p.space, at, size);
 }
 
 /// `aio_poll_cancel` and `aio_poll_complete_work`: a cancelled poll

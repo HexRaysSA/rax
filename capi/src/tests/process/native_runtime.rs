@@ -328,6 +328,68 @@ fn installed_shell_replaces_its_image_through_closed_c_abi() {
 
 #[cfg(target_os = "linux")]
 #[test]
+#[ignore = "run explicitly with a fixture dynamically linked to the installed glibc"]
+fn installed_libc_spawn_matches_native_through_closed_c_abi() {
+    let path = std::env::var("RAX_LINUX_INSTALLED_SPAWN").expect("path to the spawn fixture");
+    let native = std::process::Command::new(&path)
+        .env_clear()
+        .output()
+        .unwrap();
+    assert!(
+        native.status.success(),
+        "{}",
+        String::from_utf8_lossy(&native.stderr)
+    );
+    assert_eq!(native.stdout, b"spawn:installed-libc\nmissing:ENOENT\n");
+    assert!(native.stderr.is_empty());
+
+    let child_path = "/usr/bin/printf";
+    let child = std::fs::read(child_path).unwrap();
+    let image = std::fs::read(&path).unwrap();
+    let supplied = RaxProcessImage {
+        path: child_path.as_ptr().cast(),
+        path_size: child_path.len(),
+        data: child.as_ptr(),
+        data_size: child.len(),
+    };
+    let options = serde_json::json!({
+        "personality": "linux",
+        "guest_path": "/installed-spawn",
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    })
+    .to_string();
+    let mut handle = ptr::null_mut();
+    assert_eq!(
+        rax_process_open_image(
+            image.as_ptr(),
+            image.len(),
+            options.as_ptr().cast(),
+            options.len(),
+            &supplied,
+            1,
+            &mut handle,
+        ),
+        RaxStatus::Ok,
+        "{}",
+        error(),
+    );
+    assert!(!handle.is_null());
+    let process = Owned(handle);
+    let start = info(&process);
+    assert_eq!(start["capabilities"]["native_runtime"], true);
+    assert_eq!(start["capabilities"]["host_filesystem"], false);
+    assert_eq!(start["capabilities"]["host_services"], false);
+    let result = run_installed_posix(&process, "/installed-spawn");
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn installed_shell_pipeline_matches_native_through_closed_c_abi() {
     let shell = "/bin/sh";
     let arguments = [

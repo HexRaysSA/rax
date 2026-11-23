@@ -39,7 +39,7 @@ fn limit_pages(p: &ProcState) -> u64 {
 
 /// `mm->locked_vm`, in pages.
 pub fn locked_pages(p: &ProcState) -> u64 {
-    p.mm.locked_vm
+    p.mm().locked_vm
 }
 
 /// The pages of `[start, start + len)` in locked VMAs.
@@ -57,7 +57,7 @@ fn locked_in(space: &AddressSpace, start: u64, len: u64) -> u64 {
 /// pages leave the count (`vms_gather_munmap_vmas`,
 /// `vms_complete_munmap_vmas`).
 pub fn unmapped(p: &mut ProcState, start: u64, len: u64) {
-    unmapped_mm(&p.space, &mut p.mm, start, len);
+    unmapped_mm(&p.space, &mut p.mm(), start, len);
 }
 
 pub(in crate::user::linux) fn unmapped_mm(
@@ -72,7 +72,7 @@ pub(in crate::user::linux) fn unmapped_mm(
 /// A new mapping of `len` bytes with VMA flags `flags` (`mmap_region`,
 /// `do_brk_flags`, `vrm_stat_account`): counted when locked.
 pub fn mapped(p: &mut ProcState, flags: u32, len: u64) {
-    mapped_mm(&mut p.mm, flags, len);
+    mapped_mm(&mut p.mm(), flags, len);
 }
 
 pub(in crate::user::linux) fn mapped_mm(mm: &mut MmState, flags: u32, len: u64) {
@@ -89,7 +89,7 @@ pub fn can_do_mlock(p: &ProcState) -> bool {
 /// `mlock_future_ok`: whether `bytes` more of a mapping with VMA flags
 /// `flags` stay within `RLIMIT_MEMLOCK` (always, unlocked or privileged).
 pub fn future_ok(p: &ProcState, flags: u32, bytes: u64) -> bool {
-    future_ok_mm(&p.mm, flags, bytes, capable(p), limit_pages(p))
+    future_ok_mm(&p.mm(), flags, bytes, capable(p), limit_pages(p))
 }
 
 pub(in crate::user::linux) fn future_ok_mm(
@@ -161,33 +161,33 @@ pub(in crate::user::linux) fn populate_space(
 /// `mlock`.
 pub fn mlock(c: &mut Ctx<'_>, start: u64, len: u64) -> SysResult {
     let policy = super::super::process::mm::LockPolicy::from(&*c.p);
-    c.p.mm.lock_range(&c.p.space, policy, start, len, 0)
+    c.p.mm().lock_range(&c.p.space, policy, start, len, 0)
 }
 
 /// `mlock2`.
 pub fn mlock2(c: &mut Ctx<'_>, start: u64, len: u64, flags: u32) -> SysResult {
     let policy = super::super::process::mm::LockPolicy::from(&*c.p);
-    c.p.mm.lock_range(&c.p.space, policy, start, len, flags)
+    c.p.mm().lock_range(&c.p.space, policy, start, len, flags)
 }
 
 /// `munlock`.
 pub fn munlock(c: &mut Ctx<'_>, start: u64, len: u64) -> SysResult {
-    c.p.mm.unlock_range(&c.p.space, start, len)
+    c.p.mm().unlock_range(&c.p.space, start, len)
 }
 
 /// `mlockall`.
 pub fn mlockall(c: &mut Ctx<'_>, flags: i32) -> SysResult {
     let policy = super::super::process::mm::LockPolicy::from(&*c.p);
-    c.p.mm.lock_all(&c.p.space, policy, flags)
+    c.p.mm().lock_all(&c.p.space, policy, flags)
 }
 
 /// `munlockall`.
 pub fn munlockall(c: &mut Ctx<'_>) -> SysResult {
-    c.p.mm.unlock_all(&c.p.space)
+    c.p.mm().unlock_all(&c.p.space)
 }
 
 /// In a new process (`dup_mmap`, `mm_init`): no VMA stays locked, nothing
 /// is counted, and no lock is kept for new mappings.
 pub fn forked(p: &mut ProcState) {
-    let _ = p.mm.reset_fork_locks(&p.space);
+    let _ = p.mm().reset_fork_locks(&p.space);
 }

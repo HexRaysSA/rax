@@ -105,10 +105,10 @@ fn closed_linux_supplied_interpreter_executes_and_missing_dependency_fails_all_a
         );
         let mut process = LinuxProcess::spawn(config, ImageFile::new(main, "/program")).unwrap();
         assert!(process.state.exe_host_path.is_none());
-        assert!(process.state.mm.program.interp_base > 0);
+        assert!(process.state.mm().program.interp_base > 0);
         assert_eq!(
             process.threads[0].cpu.pc(),
-            process.state.mm.program.interp_base + 0x1000
+            process.state.mm().program.interp_base + 0x1000
         );
         let cancelled = AtomicBool::new(false);
         let expected = RunStatus::Complete(ExitStatus::Exited(37));

@@ -312,6 +312,10 @@ impl LinuxProcess {
             if compat != 0 {
                 super::futex::exit_robust_list(p, &mut th, tid, compat, true);
             }
+            if p.shares_mm() && t.clear_child_tid != 0 {
+                // The only other task sharing this MM is parked in vfork.
+                let _ = super::futex::put_u32(p, t.clear_child_tid, 0);
+            }
         }
         t.cpu = image.cpu;
         // flush_thread releases ptrace comparators and both virtual registers.
@@ -346,7 +350,7 @@ impl LinuxProcess {
         p.space = image.space;
         // exit_mmap: the old image's System V attaches go.
         super::syscall::ipc::sync_shm(p);
-        p.mm = image.mm;
+        p.mm = std::sync::Arc::new(std::sync::Mutex::new(image.mm));
         p.sigtramp = image.sigtramp;
         p.auxv = image.auxv;
         p.cmdline = image.cmdline;

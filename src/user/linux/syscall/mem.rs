@@ -130,12 +130,13 @@ pub(crate) fn vm_read(vma: &crate::user::mm::Vma) -> bool {
 /// `brk`.
 pub fn brk(c: &mut Ctx<'_>, addr: u64) -> SysResult {
     let policy = super::super::process::BrkPolicy::from(&*c.p);
-    c.p.mm.change_brk(&c.p.space, policy, addr)
+    c.p.mm().change_brk(&c.p.space, policy, addr)
 }
 
 /// `get_unmapped_area` for a non-fixed request.
 pub(super) fn unmapped_area(c: &Ctx<'_>, hint: u64, len: u64, flags: u32) -> Result<u64, Errno> {
-    c.p.mm.unmapped_area(&c.p.space, c.p.abi, hint, len, flags)
+    c.p.mm()
+        .unmapped_area(&c.p.space, c.p.abi, hint, len, flags)
 }
 
 /// `mmap`.
@@ -309,7 +310,7 @@ pub fn mmap(
     }
 
     let policy = super::super::process::mm::MmapPolicy::from(&*c.p);
-    c.p.mm.map_prepared(
+    c.p.mm().map_prepared(
         &c.p.space,
         policy,
         arguments,
@@ -329,13 +330,13 @@ fn shmem(len: u64) -> Result<(Backing, Option<Arc<str>>), Errno> {
 
 /// `munmap`.
 pub fn munmap(c: &mut Ctx<'_>, addr: u64, len: u64) -> SysResult {
-    c.p.mm.unmap_range(&c.p.space, c.p.abi, addr, len)
+    c.p.mm().unmap_range(&c.p.space, c.p.abi, addr, len)
 }
 
 /// `mprotect`: earlier VMAs keep their changes if a later VMA refuses.
 pub fn mprotect(c: &mut Ctx<'_>, addr: u64, len: u64, prot: u32) -> SysResult {
     let policy = super::super::process::mm::ProtectPolicy::from(&*c.p);
-    c.p.mm.protect_range(&c.p.space, policy, addr, len, prot)
+    c.p.mm().protect_range(&c.p.space, policy, addr, len, prot)
 }
 
 /// `mremap`.
@@ -348,7 +349,11 @@ pub fn mremap(
     new_addr: u64,
 ) -> SysResult {
     let policy = super::super::process::mm::LockPolicy::from(&*c.p);
-    c.p.mm.remap_range(
+    let mut mm =
+        c.p.mm
+            .lock()
+            .expect("Linux memory bookkeeping lock poisoned");
+    mm.remap_range(
         &c.p.space,
         &mut c.p.aio,
         policy,
@@ -364,15 +369,15 @@ pub fn mremap(
 
 /// `madvise`.
 pub fn madvise(c: &mut Ctx<'_>, addr: u64, len: u64, advice: u32) -> SysResult {
-    c.p.mm.advise_range(&c.p.space, addr, len, advice)
+    c.p.mm().advise_range(&c.p.space, addr, len, advice)
 }
 
 /// `msync`.
 pub fn msync(c: &mut Ctx<'_>, addr: u64, len: u64, flags: u32) -> SysResult {
-    c.p.mm.sync_range(&c.p.space, addr, len, flags)
+    c.p.mm().sync_range(&c.p.space, addr, len, flags)
 }
 
 /// `mincore`: one byte per page, bit 0 set for resident pages.
 pub fn mincore(c: &mut Ctx<'_>, addr: u64, len: u64, vec: u64) -> SysResult {
-    c.p.mm.residency_into(&c.p.space, c.p.abi, addr, len, vec)
+    c.p.mm().residency_into(&c.p.space, c.p.abi, addr, len, vec)
 }

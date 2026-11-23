@@ -8,7 +8,7 @@
 //! signal handling.
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use super::abi::errno::Errno;
 use super::abi::{DEFAULT_STACK_LIMIT, LinuxAbi};
@@ -374,8 +374,8 @@ pub struct ProcState {
     pub creds: (u32, u32, u32, u32),
     /// Supplementary group IDs, sorted (`group_info`).
     pub groups: Vec<u32>,
-    /// Memory bookkeeping.
-    pub mm: MmState,
+    /// Memory bookkeeping shared by tasks that share this address space.
+    pub(super) mm: Arc<Mutex<MmState>>,
     /// Resource limits.
     pub rlimits: Rlimits,
     /// File-creation mask.
@@ -623,6 +623,17 @@ pub struct Threads<'a> {
 }
 
 impl ProcState {
+    /// Memory bookkeeping for the current address space.
+    pub fn mm(&self) -> MutexGuard<'_, MmState> {
+        self.mm
+            .lock()
+            .expect("Linux memory bookkeeping lock poisoned")
+    }
+
+    pub(super) fn shares_mm(&self) -> bool {
+        Arc::strong_count(&self.mm) > 1
+    }
+
     /// When the earliest interval or POSIX timer that runs while the
     /// process sleeps expires.
     pub fn timer_deadline(&self) -> Option<crate::host::time::Instant> {
@@ -890,7 +901,7 @@ impl LinuxProcess {
             creds,
             // A new process inherits its parent's groups.
             groups,
-            mm: img.mm,
+            mm: Arc::new(Mutex::new(img.mm)),
             rlimits: default_rlimits(config.stack_limit),
             // A new process inherits its parent's umask.
             umask,

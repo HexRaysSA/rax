@@ -10,6 +10,7 @@ on:
       - 'capi/src/process/**'
       - 'capi/src/tests/process/native_runtime.rs'
       - 'tests/fixtures/user/linux/src/installed_pipe.c'
+      - 'tests/fixtures/user/linux/src/installed_spawn.c'
       - 'src/user/image/elf/**'
       - 'src/user/linux/**'
       - 'src/user/mm/**'
@@ -54,6 +55,15 @@ jobs:
         run: cargo test --locked -p rax-capi --no-default-features installed_shell_replaces_its_image_through_closed_c_abi -- --nocapture
       - name: Compare native and emulated shell pipelines
         run: cargo test --locked -p rax-capi --no-default-features installed_shell_pipeline_matches_native_through_closed_c_abi -- --nocapture
+      - name: Compare native and emulated installed glibc posix_spawn
+        shell: bash
+        run: |
+          work="$PWD/target/ci-linux-installed-spawn"
+          mkdir -p "$work"
+          export TMPDIR="$work"
+          export RAX_LINUX_INSTALLED_SPAWN="$work/installed-spawn"
+          cc -std=c11 -Wall -Wextra -Werror tests/fixtures/user/linux/src/installed_spawn.c -o "$RAX_LINUX_INSTALLED_SPAWN"
+          cargo test --locked -p rax-capi --no-default-features installed_libc_spawn_matches_native_through_closed_c_abi -- --ignored --nocapture
       - name: Compare native and emulated anonymous pipes
         shell: bash
         run: |

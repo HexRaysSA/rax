@@ -88,7 +88,7 @@ fn account(c: &mut Ctx<'_>) -> Account {
     let user = (euid != 0).then(|| c.p.locked_vm_users.entry(uid).or_default().clone());
     Account {
         user,
-        mm: c.p.mm.pinned_vm.clone(),
+        mm: c.p.mm().pinned_vm.clone(),
     }
 }
 

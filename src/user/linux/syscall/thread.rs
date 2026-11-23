@@ -327,6 +327,11 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
     {
         return Err(Errno(EINVAL));
     }
+    if !c.p.config.host_services && c.p.shares_mm() {
+        // The vfork parent must be the only task in the shared address space
+        // with a process-local futex table outside the child.
+        return Err(Errno(ENOSYS));
+    }
     // sched_fork (EAGAIN for a deadline task), then copy_thread.
     let sched = c.t.sched.forked(flags & CLONE_IO != 0)?;
     let sysvsem = copy_semundo(c, flags);

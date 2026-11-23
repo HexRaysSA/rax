@@ -28,7 +28,7 @@ fn space() -> AddressSpace {
 pub(crate) fn initial_state(abi: LinuxAbi) -> MmState {
     // Use the actual ELF/stack initialization, including both compat ABIs.
     let harness = Harness::embedded(abi);
-    harness.proc.state.mm.clone()
+    harness.proc.state.mm().clone()
 }
 
 fn metadata(abi: LinuxAbi) -> MmState {

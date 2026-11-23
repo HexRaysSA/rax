@@ -95,7 +95,7 @@ fn a_32_bit_tracer_gets_compat_arch_ptraces_forms() {
     );
     assert_eq!(ask(&mut h, t, true, req::PEEKUSR, 296, 0, &[]).0, e(EIO));
     assert_eq!(ask(&mut h, t, true, req::PEEKUSR, 2, 0, &[]).0, e(EIO));
-    let prog = &h.proc.state.mm.program;
+    let prog = h.proc.state.mm().program.clone();
     let (code, data, end) = (prog.start_code, prog.start_data, prog.end_code);
     for (off, want) in [(0x1_0000, code), (0x1_0004, data), (0x1_0008, end)] {
         let (r, v) = ask(&mut h, t, true, req::PEEKUSR, off, 0, &[]);

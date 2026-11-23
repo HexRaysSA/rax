@@ -1,11 +1,19 @@
-//! Private process creation in the closed Linux personality.
+//! Process creation in the closed Linux personality.
 
 use super::super::super::process::{LinuxProcess, Thread};
 use super::*;
+use std::sync::{Arc, Mutex};
 
 pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     let flags = args.flags;
-    if flags & (CLONE_VM | CLONE_PIDFD) != 0 {
+    let shared = flags & CLONE_VM != 0;
+    if flags & CLONE_PIDFD != 0
+        || shared
+            && (flags & CLONE_VFORK == 0
+                || c.p.shares_mm()
+                || !c.peers.lo.is_empty()
+                || !c.peers.hi.is_empty())
+    {
         return Err(Errno(ENOSYS));
     }
     if flags & (CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
@@ -23,9 +31,14 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             .reserve_guest_id(requested, Some(c.p.config.arena_bytes))?;
     let pid = tid.id();
 
-    // Snapshot failure leaves the source address space and child list intact.
-    let space = c.p.space.process_snapshot().map_err(|_| Errno(ENOMEM))?;
-    let mm = c.p.mm.fork_private(&space).map_err(|_| Errno(ENOMEM))?;
+    let (space, mm) = if shared {
+        (c.p.space.clone(), Arc::clone(&c.p.mm))
+    } else {
+        // Snapshot failure leaves the source address space and child list intact.
+        let space = c.p.space.process_snapshot().map_err(|_| Errno(ENOMEM))?;
+        let mm = c.p.mm().fork_private(&space).map_err(|_| Errno(ENOMEM))?;
+        (space, Arc::new(Mutex::new(mm)))
+    };
     let mut cpu = c.t.cpu.clone_to_space(&space);
     cpu.set_syscall_result(0);
     if args.stack != 0 {
@@ -43,7 +56,9 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     leader.cpu.set_tsc_disabled(leader.notsc);
     leader.seccomp = c.t.seccomp.clone();
     leader.sched = sched;
-    leader.rseq = c.t.rseq.clone();
+    if !shared {
+        leader.rseq = c.t.rseq.clone();
+    }
     if flags & CLONE_CHILD_SETTID != 0 {
         leader.set_child_tid = args.child_tid;
     }

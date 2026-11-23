@@ -51,6 +51,7 @@ pub fn permits(s: Sysno) -> bool {
             | S::Clone
             | S::Clone3
             | S::Fork
+            | S::Vfork
             | S::Wait4
             | S::Waitid
             | S::Waitpid

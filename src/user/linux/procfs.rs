@@ -152,7 +152,7 @@ fn state(t: &Thread) -> (&'static str, &'static str) {
 /// process with `threads` threads.
 pub fn stat(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let comm = String::from_utf8_lossy(&t.comm);
-    let mm = &p.mm;
+    let mm = p.mm();
     let st = &mm.stack;
     let prog = &mm.program;
     let vsize: u64 = p.space.vma_snapshot().iter().map(|v| v.end - v.start).sum();
@@ -253,7 +253,7 @@ pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
     let _ = writeln!(s, "VmSize:\t{:8} kB", vsize / 1024);
     let locked_kb = super::syscall::mlock::locked_pages(p) * 4;
     let _ = writeln!(s, "VmLck:\t{locked_kb:8} kB");
-    let pinned_kb = p.mm.pinned_vm.load(std::sync::atomic::Ordering::Relaxed) * 4;
+    let pinned_kb = p.mm().pinned_vm.load(std::sync::atomic::Ordering::Relaxed) * 4;
     let _ = writeln!(s, "VmPin:\t{pinned_kb:8} kB");
     let _ = writeln!(s, "VmRSS:\t{:8} kB", rss_kb);
     let _ = writeln!(s, "Threads:\t{threads}");

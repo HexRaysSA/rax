@@ -119,11 +119,12 @@ impl Process {
             }
             _ => Value::Null,
         };
+        let mm = p.mm();
         Ok(
             json!({"schema_version":1,"personality":"linux","architecture":architecture,
             "exit_code":match &p.exit {Some(ExitStatus::Exited(code))=>Some(code & 255),_=>None},
             "diagnostic":p.exit.as_ref().map(ToString::to_string),"signal":signal,"threads":threads,"mappings":mappings,
-            "loaded_program":{"path":p.exe_path,"entry":hx(p.mm.program.program_entry),"load_bias":hx(p.mm.program.load_bias),"interpreter_base":hx(p.mm.program.interp_base)},
+            "loaded_program":{"path":p.exe_path,"entry":hx(mm.program.program_entry),"load_bias":hx(mm.program.load_bias),"interpreter_base":hx(mm.program.interp_base)},
             "resident_bytes":p.space.resident_pages()*4096,"memory_limit_bytes":p.config.arena_bytes,
             "capabilities":{"host_filesystem":false,"host_services":false,"captured_console":true,"context_format":"linux_prstatus","checkpoint":false}}),
         )

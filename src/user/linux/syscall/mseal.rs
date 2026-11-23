@@ -50,5 +50,5 @@ pub fn blocks_discard(v: &Vma, advice: u32) -> bool {
 
 /// `mseal`.
 pub fn mseal(c: &mut Ctx<'_>, start: u64, len: u64, flags: u64) -> SysResult {
-    c.p.mm.seal_range(&c.p.space, start, len, flags)
+    c.p.mm().seal_range(&c.p.space, start, len, flags)
 }
