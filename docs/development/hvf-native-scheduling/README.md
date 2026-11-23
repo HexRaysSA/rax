@@ -172,6 +172,36 @@ The execution archive SHA-256 is
 These raw-owner cases exercise first-page GPA selection. Following-page
 translation and concurrent instruction-byte consistency remain open.
 
+### Hosted Intel guest startup and detached restore
+
+The standalone `vmm-startup` profile at
+`1ee27d3c091b7bf06f0991a9f804780535b19a3b` passed all nine cases on hosted Intel
+macOS. All cases requested parallel Intel HVF rounds. For each configured
+topology, the guest discovered its CPUs through the firmware tables and checked
+their CPUID identities. The boot CPU started each secondary with INIT/SIPI.
+Each secondary handled and acknowledged two fixed IPIs before capture and
+two more after a fresh VMM restored the file with the source VM and kernel absent.
+[Run 45196131451](https://github.com/HexRaysSA/rax/actions/runs/45196131451)
+
+| vCPUs | Guest CPU IDs | Boot IPI counts by CPU | Total IPI counts after restore |
+| --- | --- | --- | --- |
+| 1 | 0 | 0 | 0 |
+| 2 | 0, 1 | 0, 2 | 0, 4 |
+| 4 | 0, 1, 2, 3 | 0, 2, 2, 2 | 0, 4, 4, 4 |
+
+The fixture checked online and halted state, the native private record for
+every CPU, and equality of the public CPU projections before and after restore.
+It removed the checkpoint files after successful continuation. Independent
+verification checked the archived inputs, observation rows, identities and
+per-CPU counts. A missing secondary, duplicate IPI or reuse of the source
+kernel would fail these checks. This exercises fixed IPI delivery and a
+specific halted-state continuation.
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Execution archive | `2bc19d7f1b157353fdf4b0b1f13ab32466cc26509e1a293ef65603ccf0df5ef4` |
+| Guest stdout | `f39f849085faaa04cc67a6d13074f18bbfdc142cf4788d9d378e0740d88bc65a` |
+
 ## Qualification boundary
 
 The coordinator baseline observed two unbounded-entry failures. The corrected

@@ -40,12 +40,15 @@ other MMIO cases. It checks guest-directed INIT/SIPI and fixed IPIs, detached
 file continuation with new IPIs, and guest firmware discovery at one, two and
 four vCPUs. It uses the same fixtures and parallel Intel HVF path as the full
 MMIO profile. Run `intel_mmio_native_probe.py --profile vmm-startup --output <new-directory>`.
+The [hosted Intel qualification](../../docs/development/hvf-native-scheduling/README.md#hosted-intel-guest-startup-and-detached-restore)
+records the verified coverage.
 
 [Exit-address authority](../../docs/development/hvf-mmio-exit-address/README.md)
 uses the hardware GPA for the recorded first guest page and retains the existing
 following-page inspection policy. The `combined` profile keeps all 952 prior
 cases and appends the sixteen coherence controls, expecting 968 ordered rows.
-Corrected native qualification is pending.
+The [hosted Intel coherence results](../../docs/development/hvf-native-scheduling/README.md#hosted-intel-first-page-mmio-coherence)
+record the repeated first-page qualification and its scope.
 
 The [MOVBE diagnostic](../../docs/development/hvf-mmio-movbe/README.md) uses
 `intel_mmio_native_probe.py --profile movbe` and expects twelve cases. It runs
