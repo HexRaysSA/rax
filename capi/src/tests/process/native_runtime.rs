@@ -1391,6 +1391,9 @@ fn compare_windows_installed_program_in(
         if let Some((service, name)) = stopped_native_request(&process, &stopped) {
             eprintln!("guest {service} requested {name:?}");
         }
+        if let Some(caller) = stopped_wow64_caller(&process, &stopped) {
+            eprintln!("guest WoW64 transition return address {caller}");
+        }
         if let Some(shape) = stopped_token_duplicate_shape(&process, &stopped) {
             eprintln!("guest NtDuplicateToken request {shape}");
         }
@@ -1431,6 +1434,41 @@ fn compare_windows_installed_program_in(
         String::from_utf8_lossy(&native.stderr)
     );
     native
+}
+
+#[cfg(windows)]
+fn stopped_wow64_caller(process: &Owned, stopped: &serde_json::Value) -> Option<String> {
+    let diagnostic = stopped["diagnostic"].as_str()?;
+    if stopped["architecture"] != "x86"
+        || !diagnostic.starts_with("emulator failure: raw Windows x86 service ")
+        || !diagnostic.contains("has no admitted stub")
+    {
+        return None;
+    }
+    let hex = |value: &serde_json::Value| {
+        u64::from_str_radix(value.as_str()?.strip_prefix("0x")?, 16).ok()
+    };
+    let thread = ready_native_thread(stopped)?;
+    let sp = hex(&thread["sp"])?;
+    let mut return_address = [0; 4];
+    if rax_process_mem_read(
+        process.0,
+        sp,
+        return_address.as_mut_ptr(),
+        return_address.len(),
+    ) != RaxStatus::Ok
+    {
+        return None;
+    }
+    let resume = u64::from(u32::from_le_bytes(return_address));
+    let image = stopped["modules"].as_array()?.iter().find_map(|module| {
+        let rva = resume.checked_sub(hex(&module["base"])?)?;
+        (rva < module["size"].as_u64()?).then(|| (module["name"].as_str(), rva))
+    });
+    Some(match image {
+        Some((Some(name), rva)) => format!("{name}+{rva:#x} ({resume:#x})"),
+        _ => format!("{resume:#x} outside the live module ranges"),
+    })
 }
 
 #[cfg(windows)]
