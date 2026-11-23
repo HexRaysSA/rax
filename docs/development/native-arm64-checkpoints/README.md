@@ -78,6 +78,31 @@ Shared framing is limited to 67174400 bytes. The inner shared codec reserves
 allocation. GIC bytes are opaque SDK state: portable framing does not establish
 SDK compatibility.
 
+### PL011 output and GIC input agreement
+
+An AArch64 virt checkpoint that carries both device owners requires agreement
+between the saved PL011 output and SPI 33. The UART output uses the runtime
+calculation over the receive FIFO and interrupt mask. The emulator compares it
+with the GIC's saved physical input and preserves independent software-pending
+and edge latches. HVF compares it with the last successfully published line
+level, with a missing entry representing the initial low level.
+
+The check runs during stopped capture and before public save, load, or restore
+can publish the bundle. The existing record layouts also admit older coherent
+files. The additional lookup uses constant auxiliary space. It takes constant
+time for the emulator and logarithmic time in the size of the sorted HVF line
+table. The SDK's serialized GIC state remains opaque.
+[Machine IRQ map](../../../src/machine/arm_virt.rs),
+[SDK GIC state contract](../../specifications/apple/hypervisor-sdk-27.2/hv_gic_state.h),
+[original audit section 7.2](../audit-2026-10-source/audit_root_en.md#72-state-included-in-checkpoints).
+
+The baseline accepted nine contradictory pairs on both save and load across
+one, two and four CPUs. The corrected validator rejected all 18 operations,
+preserved the existing destination file on a failed save, and accepted all
+matching pairs. Stopped emulator capture and signed native capture on Apple
+M4 Max reproduced the defect and passed after the fix. A guest-generated
+software-pending SPI survived file restore with the physical input low.
+
 ## Ownership, capture and restoration
 
 One permanent worker creates, accesses, runs and destroys each SDK vCPU. The

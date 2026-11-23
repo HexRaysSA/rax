@@ -549,9 +549,24 @@ impl SnapshotBundle {
                     .vm_context
                     .as_ref()
                     .ok_or_else(|| Error::InvalidConfig("missing native power graph".into()))?;
-                crate::backend::arm64_hvf_context::GlobalContext::decode(&shared.data)?
-                    .power
-                    .validate_online(&execution.online)?;
+                let shared =
+                    crate::backend::arm64_hvf_context::GlobalContext::decode(&shared.data)?;
+                shared.power.validate_online(&execution.online)?;
+                if let Some(uart) = &execution.pl011 {
+                    use crate::machine::arm_virt::AARCH64_UART_IRQ;
+
+                    // The native shadow starts low and records each successful
+                    // change to the physical line.
+                    let level = shared
+                        .irq_levels
+                        .binary_search_by_key(&AARCH64_UART_IRQ, |&(irq, _)| irq)
+                        .is_ok_and(|index| shared.irq_levels[index].1);
+                    if level != uart.irq_pending() {
+                        return Err(Error::InvalidConfig(
+                            "native GIC SPI level disagrees with PL011 output".into(),
+                        ));
+                    }
+                }
             }
         }
         if let Some(clock) = &self.clock {

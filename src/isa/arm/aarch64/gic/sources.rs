@@ -140,6 +140,11 @@ impl SourceBank {
         let index = usize::try_from(intid).ok()?.checked_sub(NUM_SGI)?;
         self.ppis.get(cpu)?.get(index).map(|input| input.line)
     }
+
+    pub(super) fn spi_level(&self, intid: u32) -> Option<bool> {
+        let index = intid.checked_sub(SPI_START)? as usize;
+        self.spis.get(index).map(|input| input.line)
+    }
 }
 
 impl Gic {

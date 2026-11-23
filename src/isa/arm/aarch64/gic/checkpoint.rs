@@ -89,6 +89,10 @@ impl LegacyGicCheckpoint {
 }
 
 impl GicCheckpoint {
+    pub(crate) fn spi_level(&self, intid: u32) -> Option<bool> {
+        self.sources.spi_level(intid)
+    }
+
     fn update_selection(&mut self) {
         super::forwarding::update_selection(&mut self.cpu_interfaces, &self.spis, self.dist_groups);
     }

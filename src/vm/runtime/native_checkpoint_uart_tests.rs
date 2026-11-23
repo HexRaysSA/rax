@@ -1,5 +1,29 @@
-//! Missing platform ownership must reject before any native publication.
+//! Native checkpoint ownership and publication of the UART interrupt line.
 use super::*;
+
+#[test]
+#[ignore = "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"]
+fn native_live_uart_checkpoint_requires_matching_spi_level() {
+    use crate::machine::arm_virt::AARCH64_UART_IRQ;
+
+    let fixture = Fixture::new();
+    let mut vm = Vmm::new_resume(fixture.config(1)).unwrap();
+    vm.take_snapshot_bundle(0).unwrap();
+    vm.mmio_bus
+        .write(UART + 0x38, &(1u32 << 5).to_le_bytes())
+        .unwrap();
+    let missing_assertion = vm.take_snapshot_bundle(0).err();
+    vm.vm.set_irq_line(AARCH64_UART_IRQ, true).unwrap();
+    vm.take_snapshot_bundle(0).unwrap();
+    vm.mmio_bus.write(UART + 0x38, &0u32.to_le_bytes()).unwrap();
+    let missing_deassertion = vm.take_snapshot_bundle(0).err();
+    vm.vm.set_irq_line(AARCH64_UART_IRQ, false).unwrap();
+    vm.take_snapshot_bundle(0).unwrap();
+
+    for error in [missing_assertion, missing_deassertion] {
+        assert!(error.is_some_and(|error| error.to_string().contains("PL011")));
+    }
+}
 
 #[test]
 #[ignore = "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"]

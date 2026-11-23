@@ -2887,6 +2887,7 @@
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
+        "AArch64 virt checkpoint capture, save, load and restore require PL011 output and GIC SPI 33 to agree. The emulator checks the saved physical line and retains independent pending latches. HVF checks its published line shadow. The SDK GIC blob remains opaque. See native-arm64-checkpoints/README.md.",
         "Historical retired-file construction denial was corrected by vmm-selected-clock/qualification.json. Constructors expose explicit Retired and admit complete matching files; default/idle/native/replay requirements remain open.",
         "Independent writers must be quiescent;native/resource post-admission rollback and replay remain open.",
         "Legacy files without Clock12 retain elapsed-base projection and existing unrepresented tick/flag behavior.",

@@ -39,6 +39,15 @@ const FR_TXFE: u32 = 1 << 7; // TX FIFO empty
 const INT_RX: u32 = 1 << 4;
 const INT_TX: u32 = 1 << 5;
 
+fn raw_interrupt_status(rx_available: bool) -> u32 {
+    // The transmitter is always empty.
+    if rx_available {
+        INT_TX | INT_RX
+    } else {
+        INT_TX
+    }
+}
+
 /// AMBA PrimeCell identification registers at 0xFE0..0xFFF: PL011 (r1p5)
 /// peripheral ID followed by the PrimeCell cell ID. The Linux amba bus reads
 /// these to match the driver, one byte per word.
@@ -77,6 +86,10 @@ pub struct Pl011Checkpoint {
 }
 
 impl Pl011Checkpoint {
+    pub(crate) fn irq_pending(&self) -> bool {
+        raw_interrupt_status(!self.rx_queue.is_empty()) & self.imsc != 0
+    }
+
     pub(crate) fn validate(&self) -> crate::error::Result<()> {
         if self.rx_queue.len() > 16 * 1024 * 1024
             || self.imsc & !0x7ff != 0
@@ -166,11 +179,7 @@ impl Pl011 {
 
     /// Raw interrupt status.
     fn ris(&self) -> u32 {
-        let mut ris = INT_TX; // transmitter is always empty
-        if !self.rx_queue.is_empty() {
-            ris |= INT_RX;
-        }
-        ris
+        raw_interrupt_status(!self.rx_queue.is_empty())
     }
 
     /// Masked interrupt status: drives the UART's SPI line (level).

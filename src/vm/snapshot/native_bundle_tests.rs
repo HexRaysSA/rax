@@ -145,6 +145,62 @@ fn native_reader_rejects_a_framed_file_without_its_uart_owner() {
         "missing UART loaded for {accepted:?} CPUs"
     );
 }
+
+#[test]
+fn native_uart_checkpoint_requires_matching_spi_level() {
+    use crate::devices::pl011::Pl011;
+    use crate::machine::arm_virt::AARCH64_UART_IRQ;
+
+    let mut accepted = Vec::new();
+    for count in [1, 2, 4] {
+        for (uart, wire) in [
+            (false, None),
+            (false, Some(false)),
+            (false, Some(true)),
+            (true, None),
+            (true, Some(false)),
+            (true, Some(true)),
+        ] {
+            let mut saved = complete_file(count);
+            if !uart {
+                saved.execution.as_mut().unwrap().pl011 = Some(Pl011::new().checkpoint().unwrap());
+            }
+            let record = saved.vm_context.as_mut().unwrap();
+            let mut shared = GlobalContext::decode(&record.data).unwrap();
+            shared.irq_levels = wire
+                .into_iter()
+                .map(|level| (AARCH64_UART_IRQ, level))
+                .collect();
+            record.data = shared.encode().unwrap();
+
+            let path = TestPath::new();
+            let valid = uart == wire.unwrap_or(false);
+            std::fs::write(&path.0, b"prior checkpoint").unwrap();
+            let save = saved.save(&path.0);
+            if valid {
+                save.unwrap();
+                SnapshotBundle::load(&path.0).unwrap();
+                continue;
+            }
+            if let Err(error) = save {
+                assert!(error.to_string().contains("PL011"), "{error}");
+                assert_eq!(std::fs::read(&path.0).unwrap(), b"prior checkpoint");
+            } else {
+                accepted.push((count, uart, wire, "save"));
+            }
+            codec::save_bundle_atomic(&saved, &path.0).unwrap();
+            match SnapshotBundle::load(&path.0) {
+                Ok(_) => accepted.push((count, uart, wire, "load")),
+                Err(error) => assert!(error.to_string().contains("PL011"), "{error}"),
+            }
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "accepted contradictory UART: {accepted:?}"
+    );
+}
+
 struct TestPath(std::path::PathBuf);
 impl TestPath {
     fn new() -> Self {

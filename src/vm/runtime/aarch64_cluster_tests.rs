@@ -333,6 +333,83 @@ fn aarch64_private_checkpoint_requires_the_pl011_endpoint() {
 }
 
 #[test]
+fn aarch64_uart_checkpoint_requires_matching_spi_level() {
+    use crate::machine::arm_virt::{AARCH64_UART_BASE, AARCH64_UART_IRQ};
+
+    let mut source = Fixture::new(2);
+    let mut accepted = Vec::new();
+    for (uart, wire) in [(false, false), (true, false), (true, true), (false, true)] {
+        let mask = if uart { 1u32 << 5 } else { 0 }; // Unmask the always-ready transmitter.
+        source
+            .vm
+            .mmio_bus
+            .write(AARCH64_UART_BASE + 0x38, &mask.to_le_bytes())
+            .unwrap();
+        source.vm.vm.set_irq_line(AARCH64_UART_IRQ, wire).unwrap();
+        let saved = source.vm.take_snapshot_bundle(0);
+        if uart == wire {
+            saved.unwrap();
+        } else if let Err(error) = saved {
+            assert!(error.to_string().contains("PL011"), "{error}");
+        } else {
+            accepted.push((uart, wire));
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "accepted contradictory UART: {accepted:?}"
+    );
+}
+
+#[test]
+fn aarch64_uart_checkpoint_keeps_software_pending_when_the_wire_is_low() {
+    use crate::machine::arm_virt::{AARCH64_GICD_BASE, AARCH64_UART_IRQ};
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut source = Fixture::new(1);
+    let pending_register = AARCH64_GICD_BASE + 0x204; // GICD_ISPENDR1.
+    let bit = 1 << (AARCH64_UART_IRQ - 32);
+    let mut cpu = source.vm.vcpus[0].get_state().unwrap();
+    let CpuState::Aarch64(ref mut state) = cpu else {
+        unreachable!()
+    };
+    state.regs.x[20] = pending_register;
+    state.regs.x[12] = bit;
+    source.vm.vcpus[0].set_state(&cpu).unwrap();
+    for (offset, word) in [0xb900_028cu32, 0xb940_0280].into_iter().enumerate() {
+        source
+            .vm
+            .guest_mem
+            .memory()
+            .write_slice(&word.to_le_bytes(), GuestAddress(CODE + 4 * offset as u64))
+            .unwrap();
+    }
+    assert_eq!(
+        source.vm.vcpus[0].run_retirement_budget(1).unwrap().retired,
+        1
+    );
+    let path = source.kernel.with_extension("rxc");
+    source
+        .vm
+        .take_snapshot_bundle(1)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    let loaded = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    drop(source);
+
+    let mut target = Fixture::new(1);
+    target.vm.restore_snapshot_bundle(&loaded).unwrap();
+    assert_eq!(
+        target.vm.vcpus[0].run_retirement_budget(1).unwrap().retired,
+        1
+    );
+    let state = target.vm.vcpus[0].get_state().unwrap();
+    assert_eq!(state.as_aarch64().unwrap().regs.x[0], bit);
+}
+
+#[test]
 fn malformed_final_aarch64_context_preserves_all_cpus_ram_uart_and_shared_controller() {
     let source = Fixture::new(2);
     let mut saved = source.vm.take_snapshot_bundle(0).unwrap();

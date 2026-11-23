@@ -373,6 +373,9 @@ impl ExecutionSnapshot {
                 return Err(invalid("ARM platform state on another architecture"));
             }
             cluster.validate(&self.online)?;
+            if let Some(uart) = &self.pl011 {
+                cluster.validate_uart_irq(uart.irq_pending())?;
+            }
         }
         let first = self
             .local_apics

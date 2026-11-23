@@ -12,6 +12,7 @@ mod uart;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const CODE: u64 = 0x4000_1000;
 const UART: u64 = 0x0900_0000;
+const EXTERNAL_SPI: u32 = 34;
 
 struct Fixture {
     kernel: std::path::PathBuf,
@@ -151,8 +152,8 @@ fn restore_native_file_fixture(count: u8, reversed_creation: bool) {
         }
         assert!(pending, "native load did not reach its MMIO frontier");
     }
-    vm.vm.set_irq_line(33, true).unwrap();
-    vm.vm.set_irq_line(33, true).unwrap();
+    vm.vm.set_irq_line(EXTERNAL_SPI, true).unwrap();
+    vm.vm.set_irq_line(EXTERNAL_SPI, true).unwrap();
     let saved = vm.take_snapshot_bundle(0).unwrap();
     saved.save(&fixture.checkpoint).unwrap();
     let loaded = SnapshotBundle::load(&fixture.checkpoint).unwrap();
@@ -161,7 +162,7 @@ fn restore_native_file_fixture(count: u8, reversed_creation: bool) {
     assert_eq!(shared.kind, HVF_AARCH64_CONTEXT);
     let shared = GlobalContext::decode(&shared.data).unwrap();
     assert_eq!(shared.cpus, count);
-    assert_eq!(shared.irq_levels, [(33, true)]);
+    assert_eq!(shared.irq_levels, [(EXTERNAL_SPI, true)]);
     for (id, record) in loaded
         .backend_contexts()
         .unwrap()
@@ -930,7 +931,7 @@ fn late_sdk_gic_rejection_rolls_back_every_native_cpu_ram_and_irq_level() {
         .memory()
         .write_slice(&[0xa5; 16], GuestAddress(CODE))
         .unwrap();
-    source.vm.set_irq_line(33, true).unwrap();
+    source.vm.set_irq_line(EXTERNAL_SPI, true).unwrap();
     let mut bad = source.take_snapshot_bundle(0).unwrap();
     let mut shared = bad.take_vm_context().unwrap();
     let mut state = GlobalContext::decode(&shared.data).unwrap();
@@ -1159,7 +1160,7 @@ fn native_cpu_destruction_preserves_peer_entry_but_rejects_incomplete_checkpoint
     state.regs.pstate = 0x3c5;
     state.regs.x[1] = UART;
     vm.vcpus[0].set_state(&CpuState::Aarch64(state)).unwrap();
-    vm.vm.set_irq_line(33, true).unwrap();
+    vm.vm.set_irq_line(EXTERNAL_SPI, true).unwrap();
     let mut pending = false;
     for _ in 0..100 {
         match vm.vcpus[0].run().unwrap() {

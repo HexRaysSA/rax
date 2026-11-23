@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use crate::error::{Error, Result};
 use crate::isa::arm::aarch64::cpu::AArch64Cpu;
 use crate::isa::arm::aarch64::gic::{Gic, GicConfig, checkpoint::GicCheckpoint};
-use crate::machine::arm_virt::{AARCH64_GICD_BASE, aarch64_redist_frame};
+use crate::machine::arm_virt::{AARCH64_GICD_BASE, AARCH64_UART_IRQ, aarch64_redist_frame};
 use crate::vm::vcpu::{Aarch64SystemRegisters, CpuPowerRequest};
 use vm_memory::{GuestAddress, GuestMemory, GuestMemoryMmap};
 
@@ -422,6 +422,15 @@ impl ArmClusterCheckpoint {
 
     pub(crate) fn validate_timer_inputs(&self, cpu: usize, levels: (bool, bool)) -> Result<()> {
         self.gic.validate_timer_inputs(cpu, levels)
+    }
+
+    pub(crate) fn validate_uart_irq(&self, level: bool) -> Result<()> {
+        if self.gic.spi_level(AARCH64_UART_IRQ) != Some(level) {
+            return Err(invalid(
+                "GIC physical SPI level disagrees with PL011 output",
+            ));
+        }
+        Ok(())
     }
 
     pub(crate) fn validate_cpu_power(&self, id: usize, powered_off: bool) -> Result<()> {
