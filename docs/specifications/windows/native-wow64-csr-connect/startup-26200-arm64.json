@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "kernel": [
+    10,
+    0,
+    26200
+  ],
+  "native_machine": 43620,
+  "guest_machine": 332,
+  "session": 2,
+  "root": "\\Sessions\\2\\Windows",
+  "server_id": 1,
+  "leaf_rva": 500208,
+  "leaf_ret_argument_bytes": 20,
+  "status": 0,
+  "buffer_before_hex": "2045027300000000",
+  "buffer_after_hex": "2045027300000000",
+  "inside_before_hex": "69",
+  "inside_after_hex": "00",
+  "handle_delta": 1,
+  "native_local": 2142633984,
+  "native_statics": 2142635856,
+  "server_base": 140693871656960,
+  "statics_offset": 1872,
+  "native_exit": 0,
+  "ntdll_system32_sha256": "3a1617c63d3a69f7f4d740bdbbe65c3d34ec28c2a7254902dc130e5b2bbe7209",
+  "ntdll_syswow64_sha256": "9c7dbc587db93e8294aced6c2571c1122726aeccfda8b5969c278cbd81d6b509",
+  "ntdll_sychpe32_sha256": "a892a10cec2e93f3983acc2eb031faa108154ddabb4b9d6e19f2497a46db08a1",
+  "source_revision": "d602fdab802b4ce63330b4df6aa983370f726800",
+  "observation_run": 45151193945,
+  "raw_log_sha256": "18d3928ec7a64f5821903aca299a86697119ee8a56eff0b0d01ab9b087b14808",
+  "input_identities_sha256": "b455ae358993a828f37faa731fc128be8d8f197341d9de08bd2244924721b4fa"
+}

@@ -28,6 +28,23 @@ code zero. The admitted profile reuses the existing selected-session and
 guest-owned connection checks. The observed call covers startup in session 1
 on this ARM64 kernel.
 
+## Windows 11 ARM64 build 26200
+
+A new [native x86 control](https://github.com/HexRaysSA/rax/actions/runs/45151193945)
+completes its first BASE server 1 call on Windows 11 ARM64, build 26200,
+session 2. It passes an eight-byte buffer to the installed `RET 20` leaf.
+The call preserves the eight bytes, clears the inside-server byte,
+adds one process handle and publishes matching CSR views in the native and
+WoW64 PEBs. The child's exit status is 0.
+[Captured call](startup-26200-arm64.json).
+
+The guest path requires the selected session's independent
+[CSR section and server metadata](../native-csr-kernel-profiles/profile-26200-v1.json).
+The native captures use the same System32 NTDLL bytes and agree on the
+`0x750` displacement from the local view to its statics. The guest owns the
+connection and both views. This session profile admits the measured first
+BASE call. The other WoW64 CSR paths retain their independent qualification.
+
 ## Primary evidence
 
 `initial-raw-v4.json` preserves a native ARM64 debugger observing the

@@ -73,7 +73,7 @@ fn setup_selected(
     statics_offset: u64,
     server_pid: u32,
 ) -> (WindowsProcess, Thread, u64) {
-    let (mut process, thread, b) = setup_for_kernel(build);
+    let (mut process, thread, b) = setup_unbound(build);
     let p = process.state_mut();
     let state = p.wow64.as_mut().unwrap();
     state.session = session;
@@ -316,4 +316,112 @@ fn wow64_csr_current_session_rejects_foreign_pebs_captured_session_and_root() {
             counts
         );
     }
+}
+
+#[test]
+fn wow64_csr_26200_replays_first_native_base_connection() {
+    let profile: Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-wow64-csr-connect/startup-26200-arm64.json"
+    ))
+    .unwrap();
+    let server_profile: Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-csr-kernel-profiles/profile-26200-v1.json"
+    ))
+    .unwrap();
+    let session = profile["session"].as_u64().unwrap() as u32;
+    let build = profile["kernel"][2].as_u64().unwrap() as u32;
+    assert_eq!((build, session), (26200, 2));
+    assert_eq!(profile["kernel"], server_profile["kernel"]);
+    assert_eq!(profile["session"], server_profile["session"]);
+    assert_eq!(
+        profile["ntdll_system32_sha256"],
+        server_profile["evidence"]["ntdll_sha256"]
+    );
+    assert_eq!(profile["statics_offset"], server_profile["statics_offset"]);
+    assert_eq!(profile["leaf_ret_argument_bytes"], 20);
+    assert_eq!(profile["server_id"], 1);
+
+    let (mut process, mut thread, b) = setup_selected(
+        build,
+        session,
+        profile["server_base"].as_u64().unwrap(),
+        profile["statics_offset"].as_u64().unwrap(),
+        server_profile["server_pid"].as_u64().unwrap() as u32,
+    );
+    let p = process.state_mut();
+    let native = p.wow64.as_ref().unwrap().native_peb;
+    let root = profile["root"]
+        .as_str()
+        .unwrap()
+        .encode_utf16()
+        .collect::<Vec<_>>();
+    assert_eq!(p.space.wstr(b, root.len() + 1).unwrap(), root);
+    p.space
+        .wr(b + 4096, &bytes(&profile["buffer_before_hex"]))
+        .unwrap();
+    p.space
+        .wr(b + 8192, &bytes(&profile["inside_before_hex"]))
+        .unwrap();
+    let before = (
+        p.objects.handle_count(),
+        p.vm.committed_bytes(),
+        p.space.bytes(b, 16384).unwrap(),
+        p.space.bytes(native, 4096).unwrap(),
+        p.space.bytes(p.peb, 4096).unwrap(),
+    );
+
+    for variant in 0..5 {
+        let mut request = args(b);
+        match variant {
+            0 => request[2] = 0,
+            1 => request[3] = 7,
+            2 => request[4] = 0,
+            3 => p.wow64.as_mut().unwrap().session += 1,
+            4 => p.wow64.as_mut().unwrap().kernel.2 += 1,
+            _ => unreachable!(),
+        }
+        assert!(
+            matches!(call(p, &mut thread, &request), Outcome::Fail(_)),
+            "{variant}"
+        );
+        assert!(p.wow64.as_ref().unwrap().csr.is_none());
+        assert_eq!(p.objects.handle_count(), before.0);
+        assert_eq!(p.vm.committed_bytes(), before.1);
+        assert_eq!(p.space.bytes(b, 16384).unwrap(), before.2);
+        assert_eq!(p.space.bytes(native, 4096).unwrap(), before.3);
+        assert_eq!(p.space.bytes(p.peb, 4096).unwrap(), before.4);
+        let state = p.wow64.as_mut().unwrap();
+        state.session = session;
+        state.kernel = (10, 0, build);
+    }
+
+    p.vm.protect(b + 8192, 4096, prot::READONLY).unwrap();
+    assert_eq!(invoke(p, &mut thread, &args(b)), STATUS_ACCESS_VIOLATION);
+    assert!(p.wow64.as_ref().unwrap().csr.is_none());
+    assert_eq!(p.objects.handle_count(), before.0);
+    assert_eq!(p.vm.committed_bytes(), before.1);
+    p.vm.protect(b + 8192, 4096, prot::READWRITE).unwrap();
+    assert_eq!(
+        u64::from(invoke(p, &mut thread, &args(b))),
+        profile["status"].as_u64().unwrap()
+    );
+    assert_eq!(
+        p.objects.handle_count() - before.0,
+        profile["handle_delta"].as_u64().unwrap() as usize
+    );
+    assert_eq!(
+        p.space.bytes(b + 4096, 8).unwrap(),
+        bytes(&profile["buffer_after_hex"])
+    );
+    assert_eq!(
+        p.space.bytes(b + 8192, 1).unwrap(),
+        bytes(&profile["inside_after_hex"])
+    );
+    publication(p, true);
+    assert!(
+        matches!(call(p, &mut thread, &args(b)), Outcome::Fail(reason)
+        if reason.contains("measured first BASE call"))
+    );
+    assert_eq!(p.objects.handle_count(), before.0 + 1);
+    publication(p, true);
 }

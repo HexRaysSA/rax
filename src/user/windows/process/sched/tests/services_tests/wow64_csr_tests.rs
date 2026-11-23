@@ -24,6 +24,16 @@ fn setup() -> (WindowsProcess, Thread, u64) {
 }
 
 fn setup_for_kernel(build: u32) -> (WindowsProcess, Thread, u64) {
+    let (mut process, thread, b) = setup_unbound(build);
+    let p = process.state_mut();
+    let (section, server) = secure_connect_tests::csr::server_for_kernel(build);
+    p.object_namespace = secure_connect_tests::selected_namespace();
+    p.object_namespace.select_data_section(section).unwrap();
+    p.object_namespace.select_csr_server(server).unwrap();
+    (process, thread, b)
+}
+
+fn setup_unbound(build: u32) -> (WindowsProcess, Thread, u64) {
     let (mut process, thread) = fixture(WinArch::X86, NAME, SERVICE);
     let p = process.state_mut();
     let cfg = Arc::make_mut(&mut p.cfg);
@@ -31,10 +41,6 @@ fn setup_for_kernel(build: u32) -> (WindowsProcess, Thread, u64) {
     cfg.version.minor = 0;
     cfg.version.build = build;
     wow64::initialize_test_profile(p, 0xaa64).unwrap();
-    let (section, server) = secure_connect_tests::csr::server_for_kernel(build);
-    p.object_namespace = secure_connect_tests::selected_namespace();
-    p.object_namespace.select_data_section(section).unwrap();
-    p.object_namespace.select_csr_server(server).unwrap();
     let b =
         p.vm.allocate(None, 16384, mem::RESERVE | mem::COMMIT, prot::READWRITE)
             .unwrap()

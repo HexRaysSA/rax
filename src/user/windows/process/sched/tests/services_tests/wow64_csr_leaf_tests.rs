@@ -39,6 +39,7 @@ fn wow64_csr_installed_x86_leaf_publishes_owned_connection_and_returns_with_ret2
         (machine, native_kernel, session),
         (0xaa64, (10, 0, 29695 | 29698 | 29704), _)
             | (0xaa64, (10, 0, 29708), 1)
+            | (0xaa64, (10, 0, 26200), 2)
             | (0x8664, (10, 0, 20348 | 26100), _)
     );
     if !measured {
@@ -54,9 +55,13 @@ fn wow64_csr_installed_x86_leaf_publishes_owned_connection_and_returns_with_ret2
     publication(p, true);
     p.vm.protect(b + 4096, 4096, prot::READONLY).unwrap();
     p.space.w8(b + 8192, 0xa5).unwrap();
-    assert_eq!(
-        super::super::secure_connect_tests::installed::leaf(p, &mut thread, NAME, &args(b)),
-        STATUS_ACCESS_VIOLATION
-    );
+    let retry =
+        super::super::secure_connect_tests::installed::try_leaf(p, &mut thread, NAME, &args(b));
+    if (machine, native_kernel) == (0xaa64, (10, 0, 26200)) {
+        assert!(matches!(retry, Err(reason) if reason.contains("measured first BASE call")));
+        assert_eq!(p.objects.handle_count(), before + 1);
+    } else {
+        assert_eq!(retry.unwrap(), STATUS_ACCESS_VIOLATION);
+    }
     assert_eq!(p.space.u8(b + 8192).unwrap(), 0xa5);
 }

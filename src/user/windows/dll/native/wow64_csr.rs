@@ -10,7 +10,10 @@ use crate::user::windows::memory::{Mem, VmError, prot};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::LookupError;
 use crate::user::windows::object_namespace::csr::client_data::INFORMATION_BYTES;
-use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, CsrServer};
+use crate::user::windows::object_namespace::csr::{
+    ARM64_PLAIN_STARTUP_KERNEL, BASE_NLS_BYTES, BaseNlsReply, CsrServer,
+    supports_arm64_plain_startup,
+};
 use crate::user::windows::objects::{LpcPort, Object};
 use crate::user::windows::process::{Proc, wow64::CsrConnection};
 use std::sync::Arc;
@@ -90,6 +93,9 @@ pub(super) fn base_nls(c: &mut Ctx) -> ApiResult {
 
 fn write_base_nls(c: &mut Ctx) -> ApiResult {
     let server = selected(c)?;
+    if server.metadata.kernel == ARM64_PLAIN_STARTUP_KERNEL {
+        return Err(c.unsupported("WoW64 BASE NLS profile is unmeasured on Windows 11 ARM64"));
+    }
     if !c.p.wow64.as_ref().is_some_and(|state| state.csr.is_some()) {
         return Err(c.unsupported("WoW64 BASE NLS requires the selected process CSR connection"));
     }
@@ -116,6 +122,9 @@ fn selected(c: &Ctx) -> Result<Arc<CsrServer>, ApiErr> {
     let measured = match (state.machine, metadata.arch, state.kernel) {
         (0xaa64, WinArch::Arm64, (10, 0, 29695 | 29698 | 29704)) => true,
         (0xaa64, WinArch::Arm64, (10, 0, 29708)) => metadata.session == 1,
+        (0xaa64, WinArch::Arm64, ARM64_PLAIN_STARTUP_KERNEL) => {
+            supports_arm64_plain_startup(state.kernel, metadata.session)
+        }
         (0x8664, WinArch::X64, (10, 0, 20348 | 26100)) => true,
         _ => false,
     };
@@ -182,6 +191,18 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if server_id != 1 {
         return Err(c.unsupported("WoW64 CSR server other than measured BASE server1"));
     }
+    let connected = c.p.wow64.as_ref().is_some_and(|state| state.csr.is_some());
+    let startup_capture = if server.metadata.kernel == ARM64_PLAIN_STARTUP_KERNEL {
+        if connected || root == 0 || buffer == 0 || bytes != 8 || inside == 0 {
+            return Err(
+                c.unsupported("Windows 11 ARM64 WoW64 CSR requires the measured first BASE call")
+            );
+        }
+        probe_write(c, inside, 1)?;
+        Some(c.mem().bytes(buffer, bytes as usize)?)
+    } else {
+        None
+    };
     // No capture, root lookup, allocation or Boolean store on this failure.
     if buffer != 0 && bytes == 0 {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
@@ -198,7 +219,6 @@ fn checked(c: &mut Ctx) -> ApiResult {
         }
         return Flow::ret(STATUS_SUCCESS.into());
     }
-    let connected = c.p.wow64.as_ref().is_some_and(|state| state.csr.is_some());
     let mut provisional = None;
     if !connected {
         if root == 0 {
@@ -252,7 +272,10 @@ fn checked(c: &mut Ctx) -> ApiResult {
     }
     // A capture fault intentionally retains both new Section handles, with
     // no mapped views or PEB publication. Each failed retry retains a new pair.
-    let captured = c.mem().bytes(buffer, bytes as usize)?;
+    let captured = match startup_capture {
+        Some(captured) => captured,
+        None => c.mem().bytes(buffer, bytes as usize)?,
+    };
     if let Some((readonly, private, backing)) = provisional {
         let result = establish(c.p, &server, backing);
         let _ = c.p.objects.close(readonly.into());
