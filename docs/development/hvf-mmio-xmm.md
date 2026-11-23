@@ -524,3 +524,55 @@ On Intel Linux the fixed regression passed. The unfiltered `hvf_mmio`,
 respectively. The x86-64 target reported three ignored cases. The
 combined Cargo log has SHA-256
 `8f4db62039746a3c8f04bd6806379aec04843e625bc1ffc1aaddaf80a52db399`.
+
+The direct KVM witness on physical Intel completed all 15 forms over
+ordinary RAM, including exact payload and source-register checks. All 15
+misaligned device-hole cases reached #GP(0) with no device write. The
+three aligned legacy stores reached device dispatch as two contiguous
+8-byte writes each. The twelve aligned VEX stores reported KVM internal
+emulation error 1 before writing any device byte. The aligned and
+misaligned MOVDQA controls also passed. The output SHA-256 is
+`6960b7685365c0ef1a64cf15df7d25aacd17f7c0ce3a3d93433d93e0190c0590`.
+
+The macOS Intel-target build on Apple Silicon passed all 100 modeled
+Intel owner cases, 127 MMIO planner cases, 102 ISA oracle cases and 16
+workflow pinning cases. All 54 Python tooling tests passed. The linked
+x86-64 consumer passed strict Hypervisor entitlement signature
+verification. The Cargo log SHA-256 is
+`7dfe7180267c19022641ddc11146e2c29ef9cc0395b579a12333105838b8b0c9`.
+
+### Streaming stores on hosted Intel macOS
+
+Both streaming profiles passed at
+`64231ad19dfc9bf6dd728d8387b2ac23b77aedfb` in an untranslated Intel
+process on virtualized macOS 15.7.9 (24G830), SDK 15.5. The restore cases
+checked the re-emitted held write and its exact bytes before completing
+it and reaching the first following instruction. The fault cases checked
+the saved RIP and error code, exactly one guest #GP handler visit, and
+continuation through IRET.
+
+| Profile | Bytes | Direct | Restored | Faults | Hosted run |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Legacy | 16 | 3 | 3 | 3 | [45116138845](https://github.com/HexRaysSA/rax/actions/runs/45116138845) |
+| VEX.128 | 16 | 6 | 6 | 6 | [45116138484](https://github.com/HexRaysSA/rax/actions/runs/45116138484) |
+| VEX.256 | 32 | 6 | 6 | 6 | [45116138484](https://github.com/HexRaysSA/rax/actions/runs/45116138484) |
+
+Independent verification matched 4,896 engine inputs and 19 consumer
+inputs to Git and checked the consumer's signature, entitlement and all
+45 rows. The signed executable SHA-256 was identical across the runs,
+`32588ee308bf51765f6563b461c44809e67946c1b059b5e26eb199238964f873`.
+
+| Runtime artifact | Artifact SHA-256 | Observation SHA-256 |
+| ---: | --- | --- |
+| `14792705624` | `c75495bdb706661c315f051052f4ea33147d00e46aaa729f215cee51811a945e` | `ad6529032cdb61647d5faad2eab4304d337260b23130cebc72ae59564ad38634` |
+| `14791784352` | `9d6a371b961235dd4238cf05e1ffdd8674413085af3814b3ae5f9925ff6d9758` | `42d2851855036373f743425e48d8e334da922e5427711f31d2781f12ad131ba2` |
+
+
+The same signed build repeated all 130 ordinary vector cases after the
+shared harness change. All 50 legacy rows and 80 VEX rows matched the
+prior observation files byte for byte. Runtime artifacts `14792091707`
+(legacy) and `14792350901` (VEX) have SHA-256 digests
+`fae81ef664b561912ab5660b8f970f10dea822ac52ea6bbe429d256fb862302b`
+and `e106a7ab8cee66745afcfb6d0421e1aac1b4e309563e602fd34d759bc4b818ba`.
+[Hosted legacy repeat](https://github.com/HexRaysSA/rax/actions/runs/45116138869)
+[Hosted VEX repeat](https://github.com/HexRaysSA/rax/actions/runs/45116138813)
