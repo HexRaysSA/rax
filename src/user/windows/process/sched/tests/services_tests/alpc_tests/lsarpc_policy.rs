@@ -70,6 +70,14 @@ fn lookup(call: u32, context: &[u8], name: &str) -> Vec<u8> {
     payload
 }
 
+fn lookup_name(call: u32, context: &[u8], low: u32, high: u32) -> Vec<u8> {
+    let mut payload = into_call(92, call, 32);
+    payload[64..84].copy_from_slice(context);
+    write_word(&mut payload, 84, low);
+    write_word(&mut payload, 88, high);
+    payload
+}
+
 fn close(call: u32, context: &[u8]) -> Vec<u8> {
     let mut payload = into_call(84, call, 0);
     payload[64..84].copy_from_slice(context);
@@ -358,6 +366,64 @@ fn native_lsarpc_policy_contexts_own_lookup_rights_and_lifetime() {
                 assert_eq!(word(&result, offset), value);
             }
         }
+        for (low, name, reply_bytes) in [
+            (2, "SeCreateTokenPrivilege", 124),
+            (23, "SeChangeNotifyPrivilege", 128),
+            (36, "SeDelegateSessionUserImpersonatePrivilege", 164),
+        ] {
+            let (_, status, result) = send(
+                p,
+                &mut thread,
+                alias,
+                &lookup_name(33, &token, low, 0),
+                0x7e00_0000,
+                4096,
+            );
+            assert_eq!(status, STATUS_SUCCESS);
+            let units = name.encode_utf16().collect::<Vec<_>>();
+            let mut expected = vec![0; reply_bytes];
+            for (offset, value) in [
+                (0, 3),
+                (12, 33),
+                (24, 0x20000),
+                (
+                    32,
+                    ((units.len() as u32 * 2 + 2) << 16) | units.len() as u32 * 2,
+                ),
+                (40, 0x20000),
+                (48, units.len() as u32 + 1),
+                (64, units.len() as u32),
+            ] {
+                write_word(&mut expected, offset, value);
+            }
+            for (unit, chunk) in units.into_iter().zip(expected[72..].chunks_exact_mut(2)) {
+                chunk.copy_from_slice(&unit.to_le_bytes());
+            }
+            assert_eq!(result, expected);
+        }
+
+        for (port, low, high, rpc_status) in [
+            (alias, 0, 0, 0xc000_0060),
+            (alias, 37, 0, 0xc000_0060),
+            (alias, 23, 1, 0xc000_0060),
+            (other, 23, 0, STATUS_INVALID_HANDLE),
+        ] {
+            let (_, status, result) = send(
+                p,
+                &mut thread,
+                port,
+                &lookup_name(34, &token, low, high),
+                0x7e00_0000,
+                4096,
+            );
+            assert_eq!(status, STATUS_SUCCESS);
+            let mut expected = vec![0; 40];
+            for (offset, value) in [(0, 3), (12, 34), (32, rpc_status)] {
+                write_word(&mut expected, offset, value);
+            }
+            assert_eq!(result, expected);
+        }
+
         let (_, status, result) =
             send(p, &mut thread, alias, &close(23, &token), 0x7e00_0000, 4096);
         assert_eq!(status, STATUS_SUCCESS);
@@ -366,6 +432,15 @@ fn native_lsarpc_policy_contexts_own_lookup_rights_and_lifetime() {
         assert_eq!(&result[24..48], &[0; 24]);
         let (_, _, result) = send(p, &mut thread, alias, &close(24, &token), 0x7e00_0000, 4096);
         assert_eq!(word(&result, 44), STATUS_INVALID_HANDLE);
+        let (_, _, result) = send(
+            p,
+            &mut thread,
+            alias,
+            &lookup_name(35, &token, 23, 0),
+            0,
+            4096,
+        );
+        assert_eq!(word(&result, 32), STATUS_INVALID_HANDLE);
         let (_, _, result) = send(
             p,
             &mut thread,

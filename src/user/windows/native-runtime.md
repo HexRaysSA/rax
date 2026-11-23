@@ -3962,7 +3962,12 @@ and generation. Closing the last port handle drops its contexts. A short
 open reply publishes the required length and creates no live context. A
 partial copy reserves its identifier without making the context live.
 `LsarLookupPrivilegeValue` checks that the policy context is live and translates
-documented privilege names to LUIDs. `LsarClose` clears the returned context and
+documented privilege names to LUIDs. `LsarLookupPrivilegeName` uses the same
+table in reverse and rejects unknown LUIDs with `STATUS_NO_SUCH_PRIVILEGE`.
+The observed ARM64 build 29708 NDR64 request carries the live context and both
+LUID words in 92 payload bytes. Success returns a counted UTF-16 name. An
+unknown LUID returns a 40-byte payload with a null name pointer and the status.
+`LsarClose` clears the returned context and
 releases its entry. The policy replies expose guest-local identifiers and
 report no optional revision capabilities. They use no host policy handle.
 
@@ -3972,6 +3977,7 @@ returns the context only. The context offset in the full allocation is
 40 bytes for native64 and 24 bytes for WoW64.
 [MS-LSAD LsarOpenPolicy3](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/9f88a19f-3bb0-474c-8308-a9f661e6c760)
 [MS-LSAD privilege data model](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/1a92af76-d45f-42c3-b67c-f1dc61bd6ee1)
+[MS-LSAD LsarLookupPrivilegeName](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/b4ae2755-3897-4117-8a83-2b98874e3982)
 [MS-LSAD LsarClose](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/99dd2d7a-b0fc-4c6d-837a-2b4d342383ae)
 [MS-LSAT interface definition](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsat/23cd602f-e46c-430d-ab5d-a678b9044a7d)
 
