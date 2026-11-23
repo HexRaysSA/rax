@@ -7,7 +7,7 @@ I/O survive actual `.rxc` files and fresh VMM restoration.
 
 Full C-STATE, C-SMP and C-HVF remain incomplete. Streaming FPSR preservation,
 already-entered VM reconstruction, complete clock/timer/debug/replay and writer
-coordination, broader I/O/IRQ profiles and physical Intel execution remain open.
+coordination, broader I/O/IRQ profiles and bare-metal Intel execution remain open.
 
 ## Historical qualification
 
@@ -103,7 +103,7 @@ matching pairs. Stopped emulator capture and signed native capture on Apple
 M4 Max reproduced the defect and passed after the fix. A guest-generated
 software-pending SPI survived file restore with the physical input low.
 
-## Native virtual counter continuation
+## Native counter and timer continuation
 
 The SDK defines `CNTVCT_EL0 = mach_absolute_time() - vtimer_offset` in Mach
 ticks. Copying only the offset allows the guest counter to include detached
@@ -134,6 +134,17 @@ SDK-only probe observed automatic PPI 27 delivery through the in-kernel GIC,
 including the active bit on acknowledgement and its clearing after end of
 interrupt. The file regression covers the native Group 1 virtual timer path
 on Apple M4 Max with macOS 27.3.
+
+The same file regression passed for the EL1 physical timer, with PPI 30.
+It additionally brackets CPU 0's initial `CNTPCT_EL0` read using host ticks and
+the vCPU's saved offset. This excludes a zero or host-absolute counter read.
+An SDK-only control with the in-kernel GIC checked that `CNTPCT_EL0` and
+`CNTVCT_EL0` follow the same Mach tick offset at zero and at positive and
+wrapping offsets. A separate comparator control measured `CNTP_TVAL_EL0` in
+that same domain and acknowledged PPI 30 only after its deadline. The SDK
+control without an in-kernel GIC trapped `CNTPCT_EL0`. The clock-domain
+observations apply to the in-kernel GIC profile used by RAX on the tested host.
+[Arm Generic Timer](../../specifications/arm/generic-timer/arm-102379_0100_02.pdf)
 
 ## Ownership, capture and restoration
 
@@ -325,8 +336,8 @@ SVE pseudocode did not establish this SME rule and has been corrected.
 
 - High: guest-visible streaming FPSR preservation fails on this host, including
   direct SDK re-entry. A working entry/restoration path remains required.
-- High: native physical counter phase and timer/IRQ profiles beyond the
-  qualified Group 1 virtual timer require execution evidence.
+- High: timer/IRQ profiles beyond the qualified Group 1 EL1 physical and virtual
+  timers require execution evidence.
 - High: scalar input/output and the represented active UART SPI case now have
   native file-continuation evidence. Broader I/O profiles and independently
   concurrent device writers remain unfinished requirements.
@@ -334,7 +345,8 @@ SVE pseudocode did not establish this SME rule and has been corrected.
   require their full final evidence.
 - High: guest-driven two/four-CPU native startup and coordinator continuation
   are qualified. Full bounded scheduling, debug and replay semantics remain open.
-- High: physical Intel HVF evidence remains absent.
+- High: bare-metal Intel HVF evidence remains absent. Hosted Intel qualification
+  is recorded in [Native HVF scheduling](../hvf-native-scheduling/README.md).
 - Medium: a null SDK GIC-state object now uses the same null-safe owner as GIC
   configuration; the injected null-return branch has not been executed.
 
