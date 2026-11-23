@@ -636,6 +636,15 @@ after guest shutdown. Whole-VMM restore of a pending XMM lane transfer
 and bare-metal Intel macOS execution remain unverified.
 [Broad execution artifacts](https://github.com/HexRaysSA/rax/actions/runs/45123636232)
 
+The whole-VMM pending-XMM run at `e41891df` reached the hosted 45-minute
+library build limit before guest entry. The artifact contains dependency
+build and HVF availability records. The checkpoint workflow now builds
+the same test harness with only the required `hvf` feature enabled.
+Cross-building on Apple Silicon produced a signed Intel macOS harness
+and listed the exact pending-XMM test. The cross-build Cargo log
+SHA-256 is `4d252cad70768fdd5a844ae92306d8e49c6deb8cface8247cd0d891ad64c3be1`.
+[Hosted build timeout](https://github.com/HexRaysSA/rax/actions/runs/45134222791)
+
 ## Packed logical reads
 
 Intel HVF handles device reads for the packed AND, AND-NOT, OR, and XOR

@@ -35,7 +35,7 @@ jobs:
         timeout-minutes: 45
         shell: bash
         run: |
-          cargo +stable test --locked --no-default-features --features hvf,smir-jit,debug \
+          cargo +stable test --locked --no-default-features --features hvf \
             --lib --no-run --message-format=json > "$EVIDENCE/cargo.jsonl"
           jq -ser '
             map(select(.reason == "compiler-artifact" and .target.name == "rax"
