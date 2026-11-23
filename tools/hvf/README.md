@@ -35,6 +35,12 @@ case count. The coherence profile preserves failures. Its exact-source native ba
 reproduces four concurrent guest-writer failures with twelve controls passing;
 compiler and SDK-model results are identified separately.
 
+The `vmm-startup` profile runs nine existing VMM cases independently of the
+other MMIO cases. It checks guest-directed INIT/SIPI and fixed IPIs, detached
+file continuation with new IPIs, and guest firmware discovery at one, two and
+four vCPUs. It uses the same fixtures and parallel Intel HVF path as the full
+MMIO profile. Run `intel_mmio_native_probe.py --profile vmm-startup --output <new-directory>`.
+
 [Exit-address authority](../../docs/development/hvf-mmio-exit-address/README.md)
 uses the hardware GPA for the recorded first guest page and retains the existing
 following-page inspection policy. The `combined` profile keeps all 952 prior

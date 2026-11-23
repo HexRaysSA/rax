@@ -1124,6 +1124,36 @@ mod startup {
         drop(boot_mode(count, true));
     }
 
+    pub(super) fn profile(output: &Path) {
+        assert!(!output.exists(), "observations must be new");
+        let directory = output.parent().expect("observations directory");
+        let mut case = 0;
+        for count in [1, 2, 4] {
+            run(count);
+            record(output, case, "native-vmm-startup-ipi", 0, u64::from(count));
+            case += 1;
+            file_resume(count, directory);
+            record(
+                output,
+                case,
+                "native-vmm-file-continuation",
+                0,
+                u64::from(count),
+            );
+            case += 1;
+            discovery(count);
+            record(
+                output,
+                case,
+                "native-firmware-discovery",
+                0,
+                u64::from(count),
+            );
+            case += 1;
+        }
+        println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+    }
+
     pub(super) fn discovery_program() -> &'static [u8] {
         DISCOVERY
     }
@@ -1557,6 +1587,12 @@ fn main() {
         if failed != 0 {
             std::process::exit(1);
         }
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vmm-startup")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        startup::profile(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref()

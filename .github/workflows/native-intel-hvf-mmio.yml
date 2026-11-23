@@ -15,6 +15,7 @@ on:
           - mmio
           - coherence
           - combined
+          - vmm-startup
           - adx
           - crc32
           - cmov
