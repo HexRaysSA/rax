@@ -19,6 +19,8 @@ const PRESERVE_PLACEHOLDER: u32 = 2;
 #[link(name = "kernel32")]
 unsafe extern "system" {
     fn GetCurrentProcess() -> Handle;
+    fn GetModuleHandleW(name: *const u16) -> Handle;
+    fn GetProcAddress(module: Handle, name: *const u8) -> Handle;
     fn VirtualFree(address: Handle, size: usize, kind: u32) -> i32;
     fn CreateFileMappingW(
         file: Handle,
@@ -32,28 +34,29 @@ unsafe extern "system" {
     fn UnmapViewOfFile(address: Handle) -> i32;
 }
 
-#[link(name = "kernelbase")]
-unsafe extern "system" {
-    fn VirtualAlloc2(
-        process: Handle,
-        address: Handle,
-        size: usize,
-        kind: u32,
-        protection: u32,
-        parameters: Handle,
-        count: u32,
-    ) -> Handle;
-    fn MapViewOfFile3(
-        section: Handle,
-        process: Handle,
-        address: Handle,
-        offset: u64,
-        size: usize,
-        kind: u32,
-        protection: u32,
-        parameters: Handle,
-        count: u32,
-    ) -> Handle;
+type Allocate = unsafe extern "system" fn(Handle, Handle, usize, u32, u32, Handle, u32) -> Handle;
+type Map =
+    unsafe extern "system" fn(Handle, Handle, Handle, u64, usize, u32, u32, Handle, u32) -> Handle;
+
+fn placeholder_api() -> (Allocate, Map) {
+    let module: Vec<_> = "kernelbase.dll\0".encode_utf16().collect();
+    // SAFETY: the loaded system module uses process lifetime; both NUL-terminated
+    // exported names are resolved from that module and checked before casting.
+    unsafe {
+        let module = GetModuleHandleW(module.as_ptr());
+        assert!(!module.is_null(), "{}", io::Error::last_os_error());
+        let allocate = GetProcAddress(module, c"VirtualAlloc2".as_ptr().cast());
+        let map = GetProcAddress(module, c"MapViewOfFile3".as_ptr().cast());
+        assert!(
+            !allocate.is_null() && !map.is_null(),
+            "{}",
+            io::Error::last_os_error()
+        );
+        (
+            std::mem::transmute::<Handle, Allocate>(allocate),
+            std::mem::transmute::<Handle, Map>(map),
+        )
+    }
 }
 
 struct Fixture(PathBuf);
@@ -120,10 +123,11 @@ fn ordinary(section: &OwnedHandle, size: usize) -> String {
 
 fn fixed(section: &OwnedHandle, size: usize, view_size: usize) -> String {
     let pages = size.div_ceil(PAGE) * PAGE;
+    let (allocate, map) = placeholder_api();
     // SAFETY: reserve an owned range in the current process.
     let (process, base) = unsafe {
         let process = GetCurrentProcess();
-        let base = VirtualAlloc2(
+        let base = allocate(
             process,
             null_mut(),
             EXTENT,
@@ -142,7 +146,7 @@ fn fixed(section: &OwnedHandle, size: usize, view_size: usize) -> String {
     );
     // SAFETY: the section is readable, and the request can replace only the owned prefix.
     let view = unsafe {
-        MapViewOfFile3(
+        map(
             section.as_raw_handle(),
             process,
             base,
