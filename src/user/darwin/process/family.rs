@@ -34,6 +34,13 @@ const ROOT_IDENTITY: Identity = Identity {
 struct Registry {
     next_pid: i32,
     children: BTreeMap<i32, Child>,
+    pending_signals: Vec<Delivery>,
+}
+
+struct Delivery {
+    pid: i32,
+    signal: signal::Signal,
+    origin: signal::Origin,
 }
 
 struct Child {
@@ -86,6 +93,16 @@ pub(crate) enum Selector {
     Group(i32),
 }
 
+impl Selector {
+    fn contains(self, pid: i32, identity: Identity) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Pid(wanted) => wanted == pid,
+            Self::Group(wanted) => wanted == identity.group,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct Report {
     pub(crate) status: i32,
@@ -101,6 +118,7 @@ impl Member {
             registry: Arc::new(Mutex::new(Registry {
                 next_pid: ROOT_PID + 1,
                 children: BTreeMap::new(),
+                pending_signals: Vec::new(),
             })),
             pid: ROOT_PID,
             initial: ROOT_IDENTITY,
@@ -181,13 +199,7 @@ impl Member {
         let registry = self.registry.lock().unwrap();
         let mut found = false;
         for (&pid, child) in registry.children.iter().rev() {
-            if child.parent != parent
-                || !match selector {
-                    Selector::Any => true,
-                    Selector::Pid(wanted) => wanted == pid,
-                    Selector::Group(wanted) => wanted == child.identity.group,
-                }
-            {
+            if child.parent != parent || !selector.contains(pid, child.identity) {
                 continue;
             }
             found = true;
@@ -209,6 +221,65 @@ impl Member {
     pub(crate) fn identity(&self, pid: i32) -> Result<Identity, Errno> {
         let pid = if pid == 0 { self.pid } else { pid };
         self.registry.lock().unwrap().identity(pid)
+    }
+
+    /// Resolve a closed kill target and enqueue other guest recipients. The
+    /// issuing syscall delivers to its own process with its current thread.
+    pub(crate) fn send_signal(
+        &self,
+        pid: i32,
+        sig: signal::Signal,
+        origin: signal::Origin,
+    ) -> Result<bool, Errno> {
+        // Keep the closed profile's self-only broadcast and permit the
+        // synthetic self PID used by standalone dispatcher tests.
+        if pid == -1 || pid == origin.pid {
+            return Ok(true);
+        }
+        let mut registry = self.registry.lock().unwrap();
+        let selector = match pid {
+            0 => Selector::Group(registry.identity(self.pid)?.group),
+            1.. => Selector::Pid(pid),
+            _ => Selector::Group(pid.checked_neg().ok_or(Errno::EPERM)?),
+        };
+        let subjects = std::iter::once((ROOT_PID, ROOT_IDENTITY, true)).chain(
+            registry
+                .children
+                .iter()
+                .map(|(&pid, child)| (pid, child.identity, child.report.is_none())),
+        );
+        let mut matched = false;
+        let mut local = false;
+        let mut deliveries = Vec::new();
+        for (pid, identity, live) in subjects {
+            // An unreaped zombie still exists for a positive PID query.
+            if !selector.contains(pid, identity) || !live && !matches!(selector, Selector::Pid(_)) {
+                continue;
+            }
+            matched = true;
+            local |= pid == self.pid;
+            if sig != 0 && live && pid != self.pid {
+                deliveries.push(Delivery {
+                    pid,
+                    signal: sig,
+                    origin,
+                });
+            }
+        }
+        if !matched {
+            return Err(Errno::EPERM);
+        }
+        if !deliveries.is_empty()
+            && signal::props(sig) & (signal::prop::STOP | signal::prop::CONT) != 0
+        {
+            return Err(Errno::ENOTSUP);
+        }
+        registry.pending_signals.extend(deliveries);
+        Ok(local)
+    }
+
+    fn take_signals(&self) -> Vec<Delivery> {
+        std::mem::take(&mut self.registry.lock().unwrap().pending_signals)
     }
 
     pub(crate) fn setpgid(&self, pid: i32, group: i32) -> Result<(), Errno> {
@@ -362,9 +433,25 @@ impl Scheduler {
             self.last = pid;
             let outcome = process.drive(Some(1), cancelled);
             let spawned = std::mem::take(&mut process.proc.spawned);
+            let deliveries = process
+                .proc
+                .family
+                .as_ref()
+                .expect("closed process")
+                .take_signals();
             for child in spawned {
                 self.active
                     .insert(child.pid, DarwinProcess::from_proc(child));
+            }
+            for delivery in deliveries {
+                let target = if delivery.pid == ROOT_PID {
+                    &mut *root
+                } else {
+                    self.active
+                        .get_mut(&delivery.pid)
+                        .expect("live signal target")
+                };
+                signal::psignal(&mut target.proc, None, delivery.signal, delivery.origin);
             }
             match outcome {
                 RunStatus::Complete(status) if pid == root.proc.pid => {

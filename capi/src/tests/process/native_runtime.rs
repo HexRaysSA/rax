@@ -240,7 +240,7 @@ fn installed_darwin_job_control_matches_native_through_closed_c_abi() {
     );
     assert_eq!(
         native.stdout,
-        b"groups, sessions, and post-exec rules match\n"
+        b"groups, sessions, signals, and post-exec rules match\n"
     );
     assert!(native.stderr.is_empty());
 

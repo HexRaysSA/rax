@@ -309,29 +309,25 @@ fn take_host_signals(ctx: &mut Ctx<'_>) {
 /// process group that includes this process reaches it through
 /// host-signal forwarding. `kill(-1)`
 /// ("every process the user may signal") signals only this process.
-/// Closed group signals address the current guest process when it belongs
-/// to that group. Other targets return `EPERM` before any host lookup.
+/// The closed profile resolves signals within its own process family.
 pub fn kill(ctx: &mut Ctx<'_>, pid: i32, sig: i32, posix: i32) -> SysResult {
     let _ = posix;
     if !(0..NSIG).contains(&sig) {
         return Err(Errno::EINVAL);
     }
     let own = Origin::own(ctx.proc);
-    let local_group = !ctx.proc.config.host_services
-        && (pid == 0
-            || ctx.proc.family.as_ref().is_some_and(|member| {
-                member
-                    .identity(0)
-                    .is_ok_and(|identity| pid == -identity.group)
-            }));
-    if pid == ctx.proc.pid || pid == -1 || local_group {
-        if sig != 0 {
+    if !ctx.proc.config.host_services {
+        let family = ctx.proc.family.as_ref().ok_or(Errno::EPERM)?;
+        if family.send_signal(pid, sig, own)? && sig != 0 {
             signal::psignal(ctx.proc, Some(ctx.thread), sig, own);
         }
         return Ok(Rv::one(0));
     }
-    if !ctx.proc.config.host_services {
-        return Err(Errno::EPERM);
+    if pid == ctx.proc.pid || pid == -1 {
+        if sig != 0 {
+            signal::psignal(ctx.proc, Some(ctx.thread), sig, own);
+        }
+        return Ok(Rv::one(0));
     }
     #[cfg(unix)]
     {

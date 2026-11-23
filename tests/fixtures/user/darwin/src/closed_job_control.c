@@ -1,6 +1,7 @@
-// Compare guest-owned process groups and sessions with the native kernel.
+// Compare guest-owned process groups, sessions, and signals with the native kernel.
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,6 +89,53 @@ static void session_change(void) {
     reaped(child, child);
 }
 
+static void group_signals(void) {
+    int ready[2], release[2];
+    check(pipe(ready) == 0 && pipe(release) == 0, "signal pipes");
+    pid_t children[2];
+    pid_t group = 0;
+    for (size_t i = 0; i < 2; ++i) {
+        pid_t child = fork();
+        check(child >= 0, "signal fork");
+        if (child == 0) {
+            close(ready[0]);
+            close(release[1]);
+            sigset_t signals;
+            sigemptyset(&signals);
+            sigaddset(&signals, SIGUSR1);
+            check(sigprocmask(SIG_BLOCK, &signals, NULL) == 0, "block SIGUSR1");
+            send_byte(ready[1]);
+            int sig = 0;
+            check(sigwait(&signals, &sig) == 0 && sig == SIGUSR1, "wait for group signal");
+            send_byte(ready[1]);
+            char byte;
+            check(read(release[0], &byte, 1) == 0, "wait for parent release");
+            _exit(0);
+        }
+        check(setpgid(child, group) == 0, "signal child setpgid");
+        if (group == 0) {
+            group = child;
+        }
+        children[i] = child;
+    }
+    close(ready[1]);
+    close(release[0]);
+    receive_byte(ready[0]);
+    receive_byte(ready[0]);
+    check(kill(children[1], 0) == 0, "check live child");
+    check(kill(-group, SIGUSR1) == 0, "send group signal");
+    receive_byte(ready[0]);
+    receive_byte(ready[0]);
+    for (size_t i = 0; i < 2; ++i) {
+        int status;
+        check(kill(children[i], SIGTERM) == 0, "terminate child");
+        check(waitpid(children[i], &status, 0) == children[i], "wait for signaled child");
+        check(WIFSIGNALED(status) && WTERMSIG(status) == SIGTERM, "child signal status");
+    }
+    close(ready[0]);
+    close(release[1]);
+}
+
 static void executed_child(const char *image, int spawn) {
     int ready[2], release[2];
     check(pipe(ready) == 0 && pipe(release) == 0, "exec pipes");
@@ -126,8 +174,9 @@ int main(int argc, char **argv) {
     }
     group_change();
     session_change();
+    group_signals();
     executed_child(argv[0], 0);
     executed_child(argv[0], 1);
-    puts("groups, sessions, and post-exec rules match");
+    puts("groups, sessions, signals, and post-exec rules match");
     return 0;
 }
