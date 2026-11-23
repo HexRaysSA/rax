@@ -118,6 +118,56 @@ fn apphelp_executable_process_returns_the_captured_windows_11_arm_cmd_record() {
 }
 
 #[test]
+fn apphelp_executable_process_replays_arm_29708_cmd_flags_with_a_file_handle() {
+    use crate::user::windows::fs::{FileIdentity, FileLifetime};
+    use crate::user::windows::objects::{FileObj, Object};
+    use std::sync::Arc;
+
+    let mut cmd = observations()
+        .into_iter()
+        .find(|row| row.image == "cmd.exe")
+        .unwrap();
+    let executable = r"C:\Windows\System32\cmd.exe";
+    let (mut process, mut thread) = fixture(WinArch::Arm64, "NtApphelpCacheControl", SERVICE);
+    let p = process.state_mut();
+    super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
+    p.registry = creator_compat_layer_fixture(None);
+    let input = scratch(p);
+    let handle = p.objects.insert(Object::File(FileObj {
+        host: None,
+        host_path: Default::default(),
+        path: format!(r"\??\{executable}"),
+        access: 0x120089,
+        share: 7,
+        lifetime: Arc::new(FileLifetime::new(FileIdentity::Path(executable.into()))),
+        null: false,
+        append: false,
+        delete_on_close: false,
+        directory: false,
+        overlapped: false,
+    }));
+    let expected: Vec<_> = cmd
+        .records
+        .iter()
+        .copied()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    assert_eq!(expected.len(), 64);
+    for flags in [0x14, 0x34] {
+        cmd.flags = flags;
+        let (_, output) = prepare(p, input, &cmd);
+        assert_eq!(call(p, &mut thread, 11, input), STATUS_INVALID_HANDLE);
+        assert_eq!(p.space.u32(input + 0x180).unwrap(), cmd.capacity);
+        assert_eq!(p.space.bytes(output, 65).unwrap(), [0xa5; 65]);
+        p.space.w64(input + 0x18, u64::from(handle)).unwrap();
+        assert_eq!(call(p, &mut thread, 11, input), STATUS_SUCCESS);
+        assert_eq!(p.space.u32(input + 0x180).unwrap(), 64);
+        assert_eq!(p.space.bytes(output, 64).unwrap(), expected);
+        assert_eq!(p.space.u8(output + 64).unwrap(), 0xa5);
+    }
+}
+
+#[test]
 fn apphelp_executable_process_preserves_the_output_for_an_override_or_unknown_image() {
     let cmd = observations()
         .into_iter()
@@ -130,6 +180,12 @@ fn apphelp_executable_process_preserves_the_output_for_an_override_or_unknown_im
             Some("C:\\Windows\\System32\\cmd.exe"),
         ),
         ("C:\\Windows\\System32\\new.exe", cmd.flags, None),
+        ("C:\\Windows\\System32\\find.exe", 0x34, None),
+        (
+            "C:\\Windows\\System32\\cmd.exe",
+            0x14,
+            Some("C:\\Windows\\System32\\cmd.exe"),
+        ),
         (
             "C:\\Windows\\System32\\findstr.exe",
             0x10,

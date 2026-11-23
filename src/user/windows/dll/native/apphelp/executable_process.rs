@@ -9,6 +9,7 @@ use crate::user::windows::objects::Object;
 use crate::user::windows::registry::RegistryView;
 
 const NATIVE_PACKET_BYTES: usize = 392;
+const NATIVE_IMAGE_HANDLE: usize = 0x18;
 const WOW64_IMAGE_HANDLE: usize = 0x10;
 const INITIAL_CAPACITY: u32 = 4096;
 const MAX_NAME_BYTES: usize = 512;
@@ -66,6 +67,8 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let input = c.ptr(1)?;
     c.mem().rd(input, &mut packet[..packet_bytes])?;
     let flags = number(&packet, 4);
+    let arm_29708_cmd_flags =
+        arch == WinArch::Arm64 && native.version.build == 29708 && matches!(flags, 0x14 | 0x34);
     // Closed CMD reaches the same installed lookup with bit 2 set on
     // the hosted profiles. The native ARM64 replies for 0x10 and 0x30
     // have identical contents.
@@ -77,12 +80,21 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let supported_flags = if arch == WinArch::X64 {
         request_flags == 0x30
     } else {
-        matches!(request_flags, 0x10 | 0x30)
+        matches!(request_flags, 0x10 | 0x30) || arm_29708_cmd_flags
     };
-    if number(&packet, 0) != 0x1f
-        || !supported_flags
-        || number(&packet, output_size_at) != INITIAL_CAPACITY
-    {
+    let mask = number(&packet, 0);
+    let output_capacity = number(&packet, output_size_at);
+    if mask != 0x1f || !supported_flags || output_capacity != INITIAL_CAPACITY {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            arch = ?arch,
+            build = native.version.build,
+            mask = %format_args!("{mask:#010x}"),
+            flags = %format_args!("{flags:#010x}"),
+            output_capacity,
+            "guest AppHelp executable-cache request outside captured profile"
+        );
         return Err(
             c.unsupported("AppHelp executable-cache request is outside the captured profile")
         );
@@ -140,7 +152,7 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
                     .all(|view| c.p.registry.creator_compat_layer_absent(&units, view))
             })
     } else {
-        let images: &[_] = if arch == WinArch::X64 || windows_11_arm {
+        let images: &[_] = if arch == WinArch::X64 || windows_11_arm || arm_29708_cmd_flags {
             &["cmd.exe"]
         } else {
             &[
@@ -160,6 +172,20 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     };
     if !captured {
         return Err(c.unsupported("AppHelp executable-cache result is not captured for this image"));
+    }
+    if arm_29708_cmd_flags {
+        let handle = pointer(&packet, NATIVE_IMAGE_HANDLE, false);
+        let file = match c.p.objects.get(handle) {
+            Some(Object::File(file)) => file,
+            None => return Flow::ret(STATUS_INVALID_HANDLE.into()),
+            _ => return Err(c.unsupported("AppHelp executable-cache image handle is not a file")),
+        };
+        let opened_path = file.path.strip_prefix(r"\??\").unwrap_or(&file.path);
+        if file.directory || file.null || !opened_path.eq_ignore_ascii_case(&path) {
+            return Err(c.unsupported(
+                "AppHelp executable-cache image handle is outside the captured profile",
+            ));
+        }
     }
 
     let groups = if windows_11_arm { 3 } else { 1 };

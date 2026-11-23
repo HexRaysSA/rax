@@ -24,6 +24,20 @@ sets the size at `0x180` to 4096 bytes. Each reply returned success, copied
 `0x170` and `0x184` were zero at entry and return. The replay stores the
 captured words in [executable-process-29708-arm64.json](executable-process-29708-arm64.json).
 
+A separate [native ARM64 probe](executable-process-29708-arm64.c) opened the
+installed System32 CMD image and passed its handle at offset `0x18`. Flags
+`0x14` and `0x34` returned the same 64 bytes as `0x10` and `0x30`. A null
+handle returns `STATUS_INVALID_HANDLE` (`0xc0000008`) and preserves the size
+and output buffer. RAX qualifies the additional flags for installed CMD with
+a handle to that image and applies the same creator-registry check.
+
+Build and run this probe on Windows ARM64 with the native ARM64 MSVC tools.
+
+```bat
+cl /nologo /W4 executable-process-29708-arm64.c
+executable-process-29708-arm64.exe
+```
+
 | Record type | Payload bytes | Observed payload |
 | --- | --- | --- |
 | 2 | 0 | Empty |
