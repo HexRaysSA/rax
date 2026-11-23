@@ -143,6 +143,44 @@ fn process_config_preserves_absent_keys_and_control_set_aliases() {
 }
 
 #[test]
+fn process_config_machine_appcompat_flags_projects_only_the_native_header() {
+    let subject = ProcessConfigKey::MachineAppCompatFlags;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let path = root.path(&[]).unwrap();
+    let header = header(subject.path(), vec![]);
+    let registry = Registry::selected(upcase(), vec![]).unwrap();
+    let selected = registry
+        .clone()
+        .with_snapshot_selection(
+            root,
+            &[],
+            RegistryView::Native64,
+            Ok((header.clone(), None)),
+        )
+        .unwrap();
+    let Lookup::Present(key) = selected.lookup(&path) else {
+        panic!("machine AppCompatFlags header");
+    };
+    assert_eq!(key.children, 2);
+    assert_eq!(key.captured_access().unwrap().grant(1), Ok(1));
+    assert!(!key.covers_value(&units("DisableEngine")));
+    assert!(matches!(key.relative(&units("Layers")), Lookup::Unselected));
+    assert!(matches!(
+        selected.lookup_view(&path, RegistryView::Wow32),
+        Lookup::Unselected
+    ));
+    let missing = registry
+        .with_snapshot_selection(
+            root,
+            &[],
+            RegistryView::Native64,
+            Err(STATUS_OBJECT_NAME_NOT_FOUND),
+        )
+        .unwrap();
+    assert!(matches!(missing.lookup(&path), Lookup::Missing));
+}
+
+#[test]
 fn system_setup_covers_both_startup_dwords_and_leaves_other_values_unselected() {
     let registry = Registry::selected(
         upcase(),

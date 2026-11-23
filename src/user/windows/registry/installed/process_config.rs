@@ -10,7 +10,13 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
     for subject in ProcessConfigKey::ALL {
         let root = SnapshotRoot::ProcessConfig(subject);
         let path = root.path(&[])?;
-        for view in [RegistryView::Native64, RegistryView::Wow32] {
+        // Native CMD opens the machine AppCompatFlags header. Its values
+        // and subkeys are not part of the selected runtime.
+        let views: &[_] = match subject {
+            ProcessConfigKey::MachineAppCompatFlags => &[RegistryView::Native64],
+            _ => &[RegistryView::Native64, RegistryView::Wow32],
+        };
+        for &view in views {
             let selected = match super::native_key::open_view(&path, view) {
                 Ok(key) => {
                     let canonical = canonical_hive_name(&key, subject.label())?;

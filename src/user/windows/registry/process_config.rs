@@ -12,14 +12,16 @@ pub(crate) enum ProcessConfigKey {
     ActiveComputerName,
     Ccg,
     DisabledLegacyExtensions,
+    MachineAppCompatFlags,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 4] = [
+    pub(super) const ALL: [Self; 5] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
         Self::Ccg,
+        Self::MachineAppCompatFlags,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -32,6 +34,9 @@ impl ProcessConfigKey {
             Self::Ccg => r"\Registry\Machine\System\CurrentControlSet\Services\CCG",
             Self::DisabledLegacyExtensions => {
                 r"\Registry\Machine\Software\Microsoft\Windows NT\CurrentVersion\Windows"
+            }
+            Self::MachineAppCompatFlags => {
+                r"\Registry\Machine\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags"
             }
         }
     }
@@ -49,7 +54,7 @@ impl ProcessConfigKey {
                 "EnableTcpPortScaling",
             ],
             Self::ActiveComputerName => &["ComputerName"],
-            Self::Ccg => &[],
+            Self::Ccg | Self::MachineAppCompatFlags => &[],
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
         }
     }
@@ -61,13 +66,19 @@ impl ProcessConfigKey {
             Self::ActiveComputerName => "active computer name",
             Self::Ccg => "CCG service",
             Self::DisabledLegacyExtensions => "disabled legacy extensions",
+            Self::MachineAppCompatFlags => "machine AppCompatFlags",
         }
     }
 
     pub(super) fn accepts_values(self, view: RegistryView, values: &[Value]) -> bool {
-        self != Self::DisabledLegacyExtensions
-            || view == RegistryView::Native64
-                && matches!(values, [value] if value.kind == 4 && value.data == [0; 4])
+        match self {
+            Self::DisabledLegacyExtensions => {
+                view == RegistryView::Native64
+                    && matches!(values, [value] if value.kind == 4 && value.data == [0; 4])
+            }
+            Self::MachineAppCompatFlags => view == RegistryView::Native64 && values.is_empty(),
+            _ => true,
+        }
     }
 
     pub(super) fn check_name(
