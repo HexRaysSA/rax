@@ -767,12 +767,15 @@ descriptions support listing and rewinding, including entries created since
 the last scan. A session can remove empty guest-created directories. Open
 descriptors keep their original identity through removal and recreation of
 the same name. A process holding a removed working directory can still reach
-its parent and must change directories before creating new entries there.
+its parent. Creation inside the removed directory fails. Rename and exclusive
+rename operate on regular files and directories inside the workspace. Open
+descriptors keep their inode, and an open directory's current path follows
+ancestor moves.
 The namespace is shared within the guest process family and discarded on
 session close. It holds up to 16 MiB of logical file data and 1,024 guest-created
 files and directories. Supplied files and selected runtime libraries stay
-read-only. Workspace operations use guest memory. Renames and writable shared
-file mappings are outside this profile.
+read-only. Workspace operations use guest memory. Exchange renames,
+whiteouts, and writable shared file mappings remain outside this profile.
 
 Windows associates a supplied main image with an installed backing file when
 its guest path identifies a file in the selected system directory and its bytes

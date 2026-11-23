@@ -1242,7 +1242,6 @@ pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult
 }
 
 /// `renameat2` (and `rename`, `renameat`).
-#[cfg(unix)]
 pub fn renameat2(
     c: &mut Ctx<'_>,
     olddir: i32,
@@ -1255,20 +1254,39 @@ pub fn renameat2(
     if flags & !RENAME_NOREPLACE != 0 {
         return Err(Errno(EINVAL));
     }
-    let from = host_target(c, olddir, old, false)?;
-    let to = host_target(c, newdir, new, false)?;
-    if flags & RENAME_NOREPLACE != 0 && std::fs::symlink_metadata(&to).is_ok() {
-        return Err(Errno(EEXIST));
+    if let Some(files) = c.p.vfs.supplied() {
+        let from = supplied_path(c, olddir, old)?;
+        let to = supplied_path(c, newdir, new)?;
+        files.rename_workspace_entry(
+            &from,
+            &to,
+            (c.p.creds.1, c.p.creds.3),
+            &c.p.groups,
+            flags == RENAME_NOREPLACE,
+        )?;
+        return Ok(0);
     }
-    let moved = super::notify::moving(c, &from);
-    let target = super::notify::before(c, &to);
-    std::fs::rename(&from, &to)?;
-    // vfs_rename: two links of one inode are left as they are, unreported.
-    let same = matches!((moved, target), (Some((m, _)), Some((t, _))) if m.key == t.key);
-    if !same {
-        super::notify::renamed(c, &from, &to, moved, target);
+    #[cfg(not(unix))]
+    {
+        Err(Errno(ENOSYS))
     }
-    Ok(0)
+    #[cfg(unix)]
+    {
+        let from = host_target(c, olddir, old, false)?;
+        let to = host_target(c, newdir, new, false)?;
+        if flags & RENAME_NOREPLACE != 0 && std::fs::symlink_metadata(&to).is_ok() {
+            return Err(Errno(EEXIST));
+        }
+        let moved = super::notify::moving(c, &from);
+        let target = super::notify::before(c, &to);
+        std::fs::rename(&from, &to)?;
+        // vfs_rename: two links of one inode are left as they are, unreported.
+        let same = matches!((moved, target), (Some((m, _)), Some((t, _))) if m.key == t.key);
+        if !same {
+            super::notify::renamed(c, &from, &to, moved, target);
+        }
+        Ok(0)
+    }
 }
 
 /// `linkat` (and `link`).

@@ -378,6 +378,9 @@ pub fn mkdirat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, mode: u32) -> SysResult
 
 /// `renameat(fromfd, from, tofd, to)` (`rename` with `AT_FDCWD`).
 pub fn renameat(ctx: &mut Ctx<'_>, fromfd: i32, from: u64, tofd: i32, to: u64) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        return embedded::renameat(ctx, fromfd, from, tofd, to, 0);
+    }
     #[cfg(unix)]
     {
         let (_, cfrom) = guest_path(ctx, from)?;
@@ -403,6 +406,9 @@ pub fn renameatx_np(
     to: u64,
     flags: u32,
 ) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        return embedded::renameat(ctx, fromfd, from, tofd, to, flags);
+    }
     if flags == 0 {
         return renameat(ctx, fromfd, from, tofd, to);
     }

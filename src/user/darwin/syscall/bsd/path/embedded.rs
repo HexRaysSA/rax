@@ -255,6 +255,37 @@ pub(super) fn mkdirat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: u32) -> SysRes
     Ok(Rv::one(0))
 }
 
+pub(super) fn renameat(
+    ctx: &Ctx<'_>,
+    fromfd: i32,
+    from: u64,
+    tofd: i32,
+    to: u64,
+    flags: u32,
+) -> SysResult {
+    const RENAME_EXCL: u32 = 4;
+    if flags & !RENAME_EXCL != 0 {
+        return Err(Errno::EINVAL);
+    }
+    let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
+    let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
+    let read_path = |fd, address| {
+        let (path, (base, directory)) = path_and_base(ctx, fd, address)?;
+        if path.is_empty() {
+            return Err(Errno::ENOENT);
+        }
+        let (absolute, retained) = path_with_workspace_base(&path, &base, directory.as_ref(), ids)?;
+        if retained.is_some() {
+            return Err(Errno::ENOENT);
+        }
+        Ok(absolute)
+    };
+    let from = read_path(fromfd, from)?;
+    let to = read_path(tofd, to)?;
+    files.rename_workspace_entry(&from, &to, ids, &[], flags == RENAME_EXCL)?;
+    Ok(Rv::one(0))
+}
+
 pub(crate) fn open_file(
     ctx: &Ctx<'_>,
     path: &[u8],

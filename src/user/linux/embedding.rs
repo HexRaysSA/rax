@@ -281,6 +281,9 @@ pub(super) fn permits_workspace(s: Sysno) -> bool {
             | Sysno::Mkdirat
             | Sysno::Unlink
             | Sysno::Unlinkat
+            | Sysno::Rename
+            | Sysno::Renameat
+            | Sysno::Renameat2
             | Sysno::Ftruncate
             | Sysno::Ftruncate64
             | Sysno::Fsync

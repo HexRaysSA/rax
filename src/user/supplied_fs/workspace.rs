@@ -6,7 +6,7 @@ use crate::user::mm::{PageSource, SourceIdentity};
 use std::collections::BTreeMap;
 use std::io;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
 const MAX_BYTES: usize = 16 << 20;
 const MAX_NODES: usize = 1024;
@@ -15,7 +15,7 @@ pub(super) const ROOT_INODE: u64 = (FIRST_INODE - 1) as u64;
 
 #[derive(Debug)]
 pub(super) struct Workspace {
-    namespace: Mutex<Namespace>,
+    namespace: Arc<Mutex<Namespace>>,
     budget: Arc<Mutex<Budget>>,
     pub(super) root: Arc<Directory>,
     pub(super) flavor: WorkspaceFlavor,
@@ -29,7 +29,7 @@ pub(in crate::user) enum WorkspaceFlavor {
 
 #[derive(Debug)]
 struct Namespace {
-    nodes: BTreeMap<String, Node>,
+    children: BTreeMap<u64, BTreeMap<String, Node>>,
     inode: u32,
 }
 
@@ -52,19 +52,59 @@ pub(super) enum Node {
     Directory(Arc<Directory>),
 }
 
+#[derive(Clone, Debug)]
+struct Location {
+    parent: Arc<Directory>,
+    name: String,
+}
+
+#[derive(Debug)]
+enum FileLocation {
+    Linked(Location),
+    Detached(String),
+}
+
+/// A rename changes the entry's location while leaving its inode and children intact.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Rename {
+    Replace,
+    Exclusive,
+}
+
 /// Identity and permissions of a guest-created directory.
 #[derive(Debug)]
 pub struct Directory {
     pub(super) ino: u64,
     pub(super) mode: u32,
     pub(super) owner: (u32, u32),
-    pub(super) parent: Option<Arc<Self>>,
+    namespace: Weak<Mutex<Namespace>>,
+    location: Option<Mutex<Location>>,
     linked: AtomicBool,
     links: AtomicU32,
     budget: Option<Arc<Mutex<Budget>>>,
 }
 
 impl Directory {
+    pub(super) fn parent(&self) -> Option<Arc<Self>> {
+        self.location.as_ref().map(|location| {
+            location
+                .lock()
+                .expect("workspace directory location")
+                .parent
+                .clone()
+        })
+    }
+
+    /// Return the current path, or the retained name of a detached directory.
+    pub(crate) fn path(&self) -> Result<String, Error> {
+        let namespace = self.namespace.upgrade().ok_or(Error::Io)?;
+        let _namespace = namespace.lock().map_err(|_| Error::Io)?;
+        match &self.location {
+            Some(location) => Ok(location.lock().map_err(|_| Error::Io)?.clone().path()),
+            None => Ok(super::TEMP_DIRECTORY.into()),
+        }
+    }
+
     pub(crate) fn linked(&self) -> bool {
         self.linked.load(Ordering::Relaxed)
     }
@@ -105,21 +145,25 @@ pub struct WorkspaceFile {
     linked: AtomicBool,
     budget: Arc<Mutex<Budget>>,
     contents: Mutex<Vec<u8>>,
+    namespace: Weak<Mutex<Namespace>>,
+    location: Mutex<FileLocation>,
 }
 
 impl Workspace {
     pub(super) fn new(flavor: WorkspaceFlavor) -> Self {
+        let namespace = Arc::new(Mutex::new(Namespace {
+            children: BTreeMap::from([(ROOT_INODE, BTreeMap::new())]),
+            inode: FIRST_INODE,
+        }));
         Self {
-            namespace: Mutex::new(Namespace {
-                nodes: BTreeMap::new(),
-                inode: FIRST_INODE,
-            }),
+            namespace: namespace.clone(),
             budget: Arc::default(),
             root: Arc::new(Directory {
                 ino: ROOT_INODE,
                 mode: 0o1777,
                 owner: (0, 0),
-                parent: None,
+                namespace: Arc::downgrade(&namespace),
+                location: None,
                 linked: AtomicBool::new(true),
                 links: AtomicU32::new(2),
                 budget: None,
@@ -140,35 +184,52 @@ impl Workspace {
 
     pub(super) fn get(&self, path: &str) -> Result<Option<Node>, Error> {
         let namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        Ok(namespace.nodes.get(path).cloned())
+        let mut parent = ROOT_INODE;
+        let mut components = path.split('/').peekable();
+        while let Some(name) = components.next() {
+            let node = namespace.children[&parent].get(name);
+            if components.peek().is_none() {
+                return Ok(node.cloned());
+            }
+            let Some(Node::Directory(directory)) = node else {
+                return Ok(None);
+            };
+            parent = directory.ino;
+        }
+        Ok(None)
     }
 
     pub(super) fn create_directory(
         &self,
-        path: String,
+        name: String,
         mode: u32,
         owner: (u32, u32),
         parent: &Arc<Directory>,
     ) -> Result<(), Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        if !parent.linked() {
-            return Err(Error::NotFound);
-        }
-        if namespace.nodes.contains_key(&path) {
+        if namespace.directory(parent)?.contains_key(&name) {
             return Err(Error::Exists);
         }
         let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
         let ino = allocate_inode(&mut namespace, &mut budget)?;
+        let location = Location {
+            parent: parent.clone(),
+            name: name.clone(),
+        };
         let directory = Arc::new(Directory {
             ino,
             mode: mode & 0o7777,
             owner,
-            parent: Some(parent.clone()),
+            namespace: Arc::downgrade(&self.namespace),
+            location: Some(Mutex::new(location)),
             linked: AtomicBool::new(true),
             links: AtomicU32::new(2),
             budget: Some(self.budget.clone()),
         });
-        namespace.nodes.insert(path, Node::Directory(directory));
+        namespace.children.insert(ino, BTreeMap::new());
+        namespace
+            .directory_mut(parent)
+            .insert(name, Node::Directory(directory));
         parent.links.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
@@ -176,17 +237,14 @@ impl Workspace {
     /// Atomically resolves an existing name or publishes a newly created inode.
     pub(super) fn create(
         &self,
-        path: String,
+        name: String,
         mode: u32,
         owner: (u32, u32),
         exclusive: bool,
-        parent: &Directory,
+        parent: &Arc<Directory>,
     ) -> Result<Arc<WorkspaceFile>, Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        if !parent.linked() {
-            return Err(Error::NotFound);
-        }
-        if let Some(entry) = namespace.nodes.get(&path) {
+        if let Some(entry) = namespace.directory(parent)?.get(&name) {
             return match (exclusive, entry) {
                 (true, _) => Err(Error::Exists),
                 (false, Node::File(file)) => Ok(file.clone()),
@@ -195,6 +253,10 @@ impl Workspace {
         }
         let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
         let ino = allocate_inode(&mut namespace, &mut budget)?;
+        let location = Location {
+            parent: parent.clone(),
+            name: name.clone(),
+        };
         let file = Arc::new(WorkspaceFile {
             ino,
             mode: mode & 0o7777,
@@ -202,70 +264,204 @@ impl Workspace {
             linked: AtomicBool::new(true),
             budget: self.budget.clone(),
             contents: Mutex::new(Vec::new()),
+            namespace: Arc::downgrade(&self.namespace),
+            location: Mutex::new(FileLocation::Linked(location)),
         });
-        namespace.nodes.insert(path, Node::File(file.clone()));
+        namespace
+            .directory_mut(parent)
+            .insert(name, Node::File(file.clone()));
         Ok(file)
     }
 
-    pub(super) fn unlink(&self, path: &str, uid: u32, parent: &Directory) -> Result<(), Error> {
+    pub(super) fn unlink(&self, name: &str, uid: u32, parent: &Directory) -> Result<(), Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        if !parent.linked() {
-            return Err(Error::NotFound);
-        }
-        let Node::File(file) = namespace.nodes.get(path).ok_or(Error::NotFound)? else {
+        let Node::File(file) = namespace
+            .directory(parent)?
+            .get(name)
+            .ok_or(Error::NotFound)?
+        else {
             return Err(Error::IsDirectory);
         };
         parent.check_sticky(uid, file.owner.0)?;
-        file.linked.store(false, Ordering::Relaxed);
-        namespace.nodes.remove(path);
+        namespace.detach(parent, name);
         Ok(())
     }
 
     pub(super) fn remove_directory(
         &self,
-        path: &str,
+        name: &str,
         uid: u32,
         parent: &Directory,
     ) -> Result<(), Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        if !parent.linked() {
-            return Err(Error::NotFound);
-        }
-        let Node::Directory(directory) = namespace.nodes.get(path).ok_or(Error::NotFound)? else {
+        let Node::Directory(directory) = namespace
+            .directory(parent)?
+            .get(name)
+            .ok_or(Error::NotFound)?
+        else {
             return Err(Error::NotDirectory);
         };
         parent.check_sticky(uid, directory.owner.0)?;
-        let prefix = format!("{path}/");
-        if namespace
-            .nodes
-            .range(prefix.clone()..)
-            .next()
-            .is_some_and(|(name, _)| name.starts_with(&prefix))
-        {
+        if !namespace.directory(directory)?.is_empty() {
             return Err(Error::NotEmpty);
         }
-        directory.linked.store(false, Ordering::Relaxed);
-        parent.links.fetch_sub(1, Ordering::Relaxed);
-        namespace.nodes.remove(path);
+        namespace.detach(parent, name);
         Ok(())
     }
 
-    pub(super) fn children(&self, directory: &str) -> Result<Vec<String>, Error> {
+    pub(super) fn rename(
+        &self,
+        from: (&Arc<Directory>, &str),
+        to: (&Arc<Directory>, &str),
+        uid: u32,
+        how: Rename,
+    ) -> Result<(), Error> {
+        let (old_parent, old_name) = from;
+        let (new_parent, new_name) = to;
+        let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        let source = namespace
+            .directory(old_parent)?
+            .get(old_name)
+            .ok_or(Error::NotFound)?;
+        let target = namespace.directory(new_parent)?.get(new_name);
+        let same = Arc::ptr_eq(old_parent, new_parent) && old_name == new_name;
+        if target.is_some()
+            && how == Rename::Exclusive
+            && (!same || self.flavor == WorkspaceFlavor::Linux)
+        {
+            return Err(Error::Exists);
+        }
+        if same {
+            return Ok(());
+        }
+        old_parent.check_sticky(uid, source.uid())?;
+        if let Node::Directory(directory) = source {
+            let mut ancestor = Some(new_parent.clone());
+            while let Some(parent) = ancestor {
+                if Arc::ptr_eq(&parent, directory) {
+                    return Err(Error::InvalidPath);
+                }
+                ancestor = parent.parent();
+            }
+        }
+        if let Some(target) = target {
+            new_parent.check_sticky(uid, target.uid())?;
+            match (source, target) {
+                (Node::Directory(_), Node::Directory(directory)) => {
+                    if !namespace.directory(directory)?.is_empty() {
+                        return Err(Error::NotEmpty);
+                    }
+                }
+                (Node::Directory(_), Node::File(_)) => return Err(Error::NotDirectory),
+                (Node::File(_), Node::Directory(_)) => return Err(Error::IsDirectory),
+                (Node::File(_), Node::File(_)) => {}
+            }
+            namespace.detach(new_parent, new_name);
+        }
+        let source = namespace
+            .directory_mut(old_parent)
+            .remove(old_name)
+            .expect("checked source");
+        source.relocate(old_parent, new_parent, new_name);
+        namespace
+            .directory_mut(new_parent)
+            .insert(new_name.into(), source);
+        Ok(())
+    }
+
+    pub(super) fn children(&self, directory: &Directory) -> Result<Vec<String>, Error> {
         let namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        let prefix = if directory.is_empty() {
-            String::new()
-        } else {
-            format!("{directory}/")
+        Ok(namespace.directory(directory)?.keys().cloned().collect())
+    }
+}
+
+impl Namespace {
+    fn directory(&self, directory: &Directory) -> Result<&BTreeMap<String, Node>, Error> {
+        self.children.get(&directory.ino).ok_or(Error::NotFound)
+    }
+
+    fn directory_mut(&mut self, directory: &Directory) -> &mut BTreeMap<String, Node> {
+        self.children
+            .get_mut(&directory.ino)
+            .expect("checked directory")
+    }
+
+    fn detach(&mut self, parent: &Directory, name: &str) {
+        match self
+            .directory_mut(parent)
+            .remove(name)
+            .expect("checked directory entry")
+        {
+            Node::Directory(directory) => {
+                self.children.remove(&directory.ino);
+                directory.linked.store(false, Ordering::Relaxed);
+                parent.links.fetch_sub(1, Ordering::Relaxed);
+            }
+            Node::File(file) => {
+                let mut placement = file.location.lock().expect("workspace file location");
+                let FileLocation::Linked(location) = &*placement else {
+                    unreachable!("named workspace file");
+                };
+                *placement = FileLocation::Detached(location.clone().path());
+                file.linked.store(false, Ordering::Relaxed);
+            }
+        }
+    }
+}
+
+impl Location {
+    /// The caller holds the namespace lock while walking parent identities.
+    fn path(self) -> String {
+        let mut names = vec![self.name];
+        let mut parent = self.parent;
+        while let Some(location) = &parent.location {
+            let location = location
+                .lock()
+                .expect("workspace ancestor location")
+                .clone();
+            names.push(location.name);
+            parent = location.parent;
+        }
+        let mut path = String::from(super::TEMP_DIRECTORY);
+        for name in names.iter().rev() {
+            path.push('/');
+            path.push_str(name);
+        }
+        path
+    }
+}
+
+impl Node {
+    fn uid(&self) -> u32 {
+        match self {
+            Self::File(file) => file.owner.0,
+            Self::Directory(directory) => directory.owner.0,
+        }
+    }
+
+    fn relocate(&self, old_parent: &Arc<Directory>, new_parent: &Arc<Directory>, name: &str) {
+        let location = Location {
+            parent: new_parent.clone(),
+            name: name.to_owned(),
         };
-        Ok(namespace
-            .nodes
-            .range(prefix.clone()..)
-            .map(|(name, _)| name)
-            .take_while(|name| name.starts_with(&prefix))
-            .map(|name| &name[prefix.len()..])
-            .filter(|rest| !rest.contains('/'))
-            .map(str::to_owned)
-            .collect())
+        match self {
+            Self::Directory(directory) => {
+                if !Arc::ptr_eq(old_parent, new_parent) {
+                    old_parent.links.fetch_sub(1, Ordering::Relaxed);
+                    new_parent.links.fetch_add(1, Ordering::Relaxed);
+                }
+                *directory
+                    .location
+                    .as_ref()
+                    .expect("non-root directory")
+                    .lock()
+                    .expect("workspace directory location") = location;
+            }
+            Self::File(file) => {
+                *file.location.lock().expect("workspace file location") =
+                    FileLocation::Linked(location);
+            }
+        }
     }
 }
 
@@ -280,6 +476,16 @@ fn allocate_inode(namespace: &mut Namespace, budget: &mut Budget) -> Result<u64,
 }
 
 impl WorkspaceFile {
+    pub(crate) fn path(&self) -> Result<String, Error> {
+        let namespace = self.namespace.upgrade().ok_or(Error::Io)?;
+        let _namespace = namespace.lock().map_err(|_| Error::Io)?;
+        let location = self.location.lock().map_err(|_| Error::Io)?;
+        Ok(match &*location {
+            FileLocation::Linked(location) => location.clone().path(),
+            FileLocation::Detached(path) => path.clone(),
+        })
+    }
+
     pub(crate) fn mode(&self) -> u32 {
         self.mode
     }
@@ -465,7 +671,7 @@ mod tests {
         assert_ne!(before.ino, after.ino);
         assert_eq!(after.len(), 0);
         assert_eq!(before.len(), 8);
-        assert_eq!(files.children("").unwrap(), [name]);
+        assert_eq!(files.children(&files.root).unwrap(), [name]);
         assert!(matches!(
             after.resize(MAX_BYTES as u64),
             Err(Error::NoSpace)

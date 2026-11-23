@@ -957,7 +957,17 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
             return Ok(Rv::one(u64::from(end.no_sigpipe())));
         }
         F_GETPATH | F_GETPATH_NOFIRMLINK if matches!(file.kind, FileKind::Embedded(_)) => {
-            let path = file.path.as_ref().ok_or(Errno::ENOENT)?;
+            let current = match &file.kind {
+                FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) => {
+                    entry.workspace_path()?
+                }
+                _ => None,
+            };
+            let path = current
+                .as_deref()
+                .map(str::as_bytes)
+                .or(file.path.as_deref())
+                .ok_or(Errno::ENOENT)?;
             let mut bytes = vec![0; super::super::util::MAXPATHLEN];
             if path.len() >= bytes.len() {
                 return Err(Errno::ENAMETOOLONG);

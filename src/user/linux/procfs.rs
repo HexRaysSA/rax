@@ -222,6 +222,11 @@ pub fn file_path(p: &ProcState, f: &super::fs::fd::OpenFile) -> String {
     match (&f.host_path, &f.object) {
         (Some(h), _) => p.vfs.guest_path_of(h),
         (None, super::fs::fd::FileObject::Mqueue(q)) => super::syscall::mqueue::link(q),
+        (None, super::fs::fd::FileObject::Supplied(entry)) => entry
+            .workspace_path()
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| f.path.clone()),
         (None, _) => f.path.clone(),
     }
 }

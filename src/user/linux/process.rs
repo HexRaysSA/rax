@@ -672,6 +672,11 @@ impl ProcState {
 
     /// Current guest directory, including changes by tasks that share it.
     pub fn working_directory(&self) -> Cow<'_, str> {
+        if let Some(directory) = self.workspace_working_directory()
+            && let Ok(path) = directory.path()
+        {
+            return Cow::Owned(path);
+        }
         match &self.shared_fs {
             Some(fs) => Cow::Owned(
                 fs.lock()

@@ -737,8 +737,29 @@ fn installed_mktemp_and_mkdir_create_guest_owned_directories() {
 fn installed_libc_directory_listing_matches_native_through_closed_c_abi() {
     let binary = std::env::var("RAX_POSIX_INSTALLED_DIRECTORY_CONTROL")
         .expect("absolute path to the dynamically linked closed_directory_listing fixture");
-    let native_path =
-        std::env::temp_dir().join(format!("rax-directory-listing-{}", std::process::id()));
+    compare_installed_workspace_fixture(
+        &binary,
+        "closed_directory_listing",
+        Some(b"directory creation, listing, removal, and retained handles: correct\n"),
+    );
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+#[ignore = "run with a locally built closed_directory_rename.c fixture"]
+fn installed_libc_directory_rename_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_POSIX_INSTALLED_RENAME_CONTROL")
+        .expect("absolute path to the dynamically linked closed_directory_rename fixture");
+    compare_installed_workspace_fixture(&binary, "closed_directory_rename", None);
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn compare_installed_workspace_fixture(
+    binary: &str,
+    fixture: &str,
+    expected_stdout: Option<&[u8]>,
+) {
+    let native_path = std::env::temp_dir().join(format!("rax-{fixture}-{}", std::process::id()));
     std::fs::create_dir(&native_path).unwrap();
     let native = std::process::Command::new(&binary)
         .arg(native_path.join("control"))
@@ -752,21 +773,21 @@ fn installed_libc_directory_listing_matches_native_through_closed_c_abi() {
         String::from_utf8_lossy(&native.stderr)
     );
     assert!(native.stderr.is_empty());
-    assert_eq!(
-        native.stdout,
-        b"directory creation, listing, removal, and retained handles: correct\n"
-    );
+    assert!(!native.stdout.is_empty());
+    if let Some(expected) = expected_stdout {
+        assert_eq!(native.stdout, expected);
+    }
 
     let personality = if cfg!(target_os = "linux") {
         "linux"
     } else {
         "darwin"
     };
-    let guest_path = "/closed_directory_listing";
+    let guest_path = format!("/{fixture}");
     let options = serde_json::json!({
         "personality": personality,
         "guest_path": guest_path,
-        "arguments": ["/tmp/rax-directory-listing"],
+        "arguments": [format!("/tmp/{fixture}")],
         "native_runtime": true,
         "memory_bytes": 268435456,
     });
@@ -783,7 +804,7 @@ fn installed_libc_directory_listing_matches_native_through_closed_c_abi() {
     assert_eq!(state["capabilities"]["native_runtime"], true);
     assert_eq!(state["capabilities"]["host_filesystem"], false);
     assert_eq!(state["capabilities"]["host_services"], false);
-    let status = run_installed_posix(&process, guest_path);
+    let status = run_installed_posix(&process, &guest_path);
     let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
     let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
     assert_eq!(status.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));

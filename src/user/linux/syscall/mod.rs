@@ -541,7 +541,6 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Rmdir => r(path::unlinkat(c, path::AT_FDCWD, a[0], path::AT_REMOVEDIR)),
         S::Unlink => r(path::unlinkat(c, path::AT_FDCWD, a[0], 0)),
         S::Unlinkat => r(path::unlinkat(c, fd(a[0]), a[1], a[2] as u32)),
-        #[cfg(unix)]
         S::Rename => r(path::renameat2(
             c,
             path::AT_FDCWD,
@@ -550,9 +549,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             a[1],
             0,
         )),
-        #[cfg(unix)]
         S::Renameat => r(path::renameat2(c, fd(a[0]), a[1], fd(a[2]), a[3], 0)),
-        #[cfg(unix)]
         S::Renameat2 => r(path::renameat2(
             c,
             fd(a[0]),
