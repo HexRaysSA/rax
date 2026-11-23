@@ -1004,6 +1004,25 @@ fn installed_linux_workspace_xattrs_match_native_through_closed_c_abi() {
     compare_installed_workspace_fixture(&binary, "closed_linux_workspace_xattr", None);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "requires a locally built closed_linux_workspace_record_locks.c fixture"]
+fn installed_linux_workspace_record_locks_match_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_LINUX_INSTALLED_RECORD_LOCK_CONTROL")
+        .expect("absolute path to the dynamically linked Linux record lock fixture");
+    let expected = concat!(
+        "POSIX hard link and close\n",
+        "OFD sharing and last close\n",
+        "POSIX deadlock rejection\n",
+        "POSIX signal interruption\n",
+    );
+    compare_installed_workspace_fixture(
+        &binary,
+        "closed_linux_workspace_record_locks",
+        Some(expected.as_bytes()),
+    );
+}
+
 #[cfg(target_os = "macos")]
 #[test]
 #[ignore = "run with a locally built and ad hoc signed closed_csops_empty.c fixture"]

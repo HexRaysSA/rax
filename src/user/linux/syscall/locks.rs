@@ -8,8 +8,10 @@
 //! `-ERESTARTSYS`, as `wait_event_interruptible` does; other guest threads
 //! run meanwhile. Waiting this way detects no deadlocks: where Linux fails a
 //! POSIX wait that would deadlock with `EDEADLK`, the wait lasts until a
-//! signal. Descriptions the host cannot lock (anonymous inodes, synthesized
-//! `/proc` files, and on macOS pipes and sockets) are granted every lock.
+//! signal. Private workspace files use guest-owned record locks and wake
+//! their waiters when locks change. Other descriptions the host cannot lock
+//! (anonymous inodes, synthesized `/proc` files, and on macOS pipes and
+//! sockets) are granted every lock.
 //!
 //! [`fs::locks`]: super::super::fs::locks
 
@@ -19,7 +21,11 @@ use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::abi::open::O_PATH;
 use super::super::fs::fd::{FileObject, OpenFile};
-use super::super::fs::locks::{self, F_RDLCK, F_UNLCK, F_WRLCK, OFFSET_MAX, Owner, Range};
+#[cfg(unix)]
+use super::super::fs::locks;
+use super::super::fs::locks::{
+    Conflict, F_RDLCK, F_UNLCK, F_WRLCK, OFFSET_MAX, Owner, Range, workspace,
+};
 use super::super::signal::deliver::restart::ERESTARTSYS;
 use super::super::wait::{Resume, Wait};
 use super::{Ctx, SysResult};
@@ -169,6 +175,9 @@ impl Flock {
             SEEK_CUR => file.seek(0, 1).map_or(0, |p| p as i64),
             SEEK_END => match &file.object {
                 FileObject::Host(f) => f.metadata().map_or(0, |m| m.len() as i64),
+                FileObject::Supplied(entry) if entry.workspace_file().is_some() => {
+                    entry.len() as i64
+                }
                 _ => 0,
             },
             _ => return Err(Errno(EINVAL)),
@@ -240,14 +249,22 @@ pub fn getlk(c: &mut Ctx<'_>, fd: i32, arg: u64, owner: Owner, layout: FlockLayo
     if owner == Owner::Description && fl.pid != 0 {
         return Err(Errno(EINVAL));
     }
-    #[cfg(unix)]
-    let conflict = match locks::host_fd(&file) {
-        // An F_UNLCK request tests for nothing.
-        Some(host) if fl.kind != F_UNLCK => locks::test(host, owner, fl.kind, range)?,
-        _ => None,
+    let conflict = if fl.kind == F_UNLCK {
+        None
+    } else if let Some(ino) = workspace::inode(&file) {
+        c.p.fds
+            .workspace_lock_owner
+            .conflict(&file, ino, owner, fl.kind, range)
+    } else {
+        #[cfg(unix)]
+        if let Some(host) = locks::host_fd(&file) {
+            locks::test(host, owner, fl.kind, range)?
+        } else {
+            None
+        }
+        #[cfg(not(unix))]
+        None
     };
-    #[cfg(not(unix))]
-    let conflict: Option<locks::Conflict> = None;
     match conflict {
         Some(k) => {
             fl.kind = k.kind;
@@ -286,6 +303,16 @@ pub fn setlk(
     if owner == Owner::Description && c.p.config.host_services {
         return Err(Errno(EINVAL));
     }
+    if let Some(Resume::WorkspaceRecordLock(waiting)) = c.resume.take() {
+        if c.signal_pending() {
+            return Err(Errno(ERESTARTSYS));
+        }
+        let request = waiting.request;
+        let file = waiting.file.clone();
+        let table = waiting.table.clone();
+        drop(waiting);
+        return set_workspace(c, fd, &table, &file, request, sleep);
+    }
     let (file, fl) = setup(c, fd, arg, layout)?;
     let range = fl.range(&file)?;
     // assign_type, then check_fmode_for_setlk.
@@ -297,6 +324,21 @@ pub fn setlk(
     }
     if owner == Owner::Description && fl.pid != 0 {
         return Err(Errno(EINVAL));
+    }
+    if let Some(ino) = workspace::inode(&file) {
+        let pid = if owner == Owner::Process { c.p.pid } else { -1 };
+        let table = c.p.fds.workspace_lock_owner.clone();
+        let request = table.request(
+            &file,
+            ino,
+            owner,
+            Conflict {
+                kind: fl.kind,
+                range,
+                pid,
+            },
+        );
+        return set_workspace(c, fd, &table, &file, request, sleep);
     }
     #[cfg(unix)]
     {
@@ -315,5 +357,37 @@ pub fn setlk(
         }
     }
     #[cfg(not(unix))]
+    Ok(0)
+}
+
+fn set_workspace(
+    c: &mut Ctx<'_>,
+    fd: i32,
+    table: &std::sync::Arc<workspace::LockOwner>,
+    file: &std::sync::Arc<OpenFile>,
+    request: workspace::Request,
+    sleep: bool,
+) -> SysResult {
+    if let Some(waiting) = table.set(file, request, sleep)? {
+        return if c.signal_pending() {
+            Err(Errno(ERESTARTSYS))
+        } else {
+            Err(c.block(Wait::event(), Resume::WorkspaceRecordLock(waiting)))
+        };
+    }
+    // Linux checks the original slot after an entered POSIX acquisition. If
+    // close or dup2 replaced it while asleep, it removes this table's locks.
+    if request.ownership == Owner::Process
+        && request.lock.kind != F_UNLCK
+        && (!std::sync::Arc::ptr_eq(&c.p.fds.workspace_lock_owner, table)
+            || !c
+                .p
+                .fds
+                .file(fd)
+                .is_ok_and(|current| std::sync::Arc::ptr_eq(&current, file)))
+    {
+        table.close(request.ino);
+        return Err(Errno(EBADF));
+    }
     Ok(0)
 }

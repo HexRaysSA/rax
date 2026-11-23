@@ -1,8 +1,8 @@
 //! File locks (`fs/locks.c`) as host locks.
 //!
-//! Guest processes are host processes, and each guest open file description
-//! owns one host descriptor (shared by `dup` and inherited by `fork`), so
-//! the host's locks give the guest Linux's owners exactly: `flock` locks and
+//! With host services enabled, guest processes are host processes and each
+//! open file description has its own host descriptor, shared by `dup` and
+//! inherited by `fork`. On host-backed files, `flock` locks and
 //! open-file-description (OFD) record locks belong to the description, and
 //! POSIX record locks to the process, whose threads are one host process.
 //! They also exclude other host programs.
@@ -17,6 +17,8 @@
 //! descriptors ([`filp_close`]).
 //!
 //! A macOS host has no OFD locks, and no locks on pipes or sockets.
+
+pub(crate) mod workspace;
 
 #[cfg(unix)]
 use std::collections::HashMap;

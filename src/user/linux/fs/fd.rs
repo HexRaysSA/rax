@@ -117,6 +117,8 @@ pub struct FileState {
     pub synth_pos: u64,
     /// The thread whose `/proc` `comm` file this description writes.
     pub comm_of: Option<i32>,
+    /// Lazily allocated for an OFD lock on a private workspace inode.
+    pub(crate) workspace_lock_owner: Option<Box<super::locks::workspace::LockOwner>>,
 }
 
 /// An `epoll` item watching a description: its instance and item.
@@ -711,6 +713,7 @@ pub const NOFILE_HARD: u64 = 1 << 20;
 pub struct FdTable {
     slots: Arc<Mutex<Vec<Option<Fd>>>>,
     pipes: Arc<pipe::PipePool>,
+    pub(crate) workspace_lock_owner: Arc<super::locks::workspace::LockOwner>,
 }
 
 impl Clone for FdTable {
@@ -718,6 +721,7 @@ impl Clone for FdTable {
         Self {
             slots: Arc::new(Mutex::new(self.slots().clone())),
             pipes: Arc::clone(&self.pipes),
+            workspace_lock_owner: Arc::new(self.workspace_lock_owner.independent()),
         }
     }
 }
@@ -731,6 +735,7 @@ impl FdTable {
         Self {
             slots: Arc::clone(&self.slots),
             pipes: Arc::clone(&self.pipes),
+            workspace_lock_owner: self.workspace_lock_owner.clone(),
         }
     }
 
@@ -860,7 +865,7 @@ impl FdTable {
             slots[fd].replace(Fd { file, cloexec })
         };
         if let Some(old) = previous {
-            filp_close(&old.file);
+            self.close_file(&old.file);
         }
         Ok(())
     }
@@ -875,7 +880,7 @@ impl FdTable {
             .get_mut(fd as usize)
             .and_then(Option::take)
             .ok_or(Errno(EBADF))?;
-        filp_close(&old.file);
+        self.close_file(&old.file);
         Ok(old)
     }
 
@@ -906,7 +911,14 @@ impl FdTable {
             .filter_map(Option::take)
             .collect();
         for old in closed {
-            filp_close(&old.file);
+            self.close_file(&old.file);
         }
+    }
+
+    fn close_file(&self, file: &OpenFile) {
+        if let Some(ino) = super::locks::workspace::inode(file) {
+            self.workspace_lock_owner.close(ino);
+        }
+        filp_close(file);
     }
 }

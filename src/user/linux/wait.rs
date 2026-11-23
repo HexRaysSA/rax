@@ -118,6 +118,8 @@ pub enum Resume {
     },
     /// Nothing beyond the arguments: evaluate the call again.
     Retry,
+    /// An entered fcntl waiting on a private workspace record lock.
+    WorkspaceRecordLock(super::fs::locks::workspace::Waiting),
     /// A sleep, `poll`, or `select` ending at the instant (never if `None`)
     /// whose temporary signal mask, if any, is already installed.
     Until(Option<Instant>),
@@ -211,6 +213,7 @@ impl Blocked {
         self.woken
             || self.ready
             || matches!(&self.resume, Resume::Futex(fw) if fw.wake.index().is_some())
+            || matches!(&self.resume, Resume::WorkspaceRecordLock(lock) if lock.changed())
             || self.wait.pipes.iter().any(|p| p.changed())
             || self.wait.guest_pidfds.iter().any(|task| task.ready())
             || (sigpending && self.wait.interruptible)
