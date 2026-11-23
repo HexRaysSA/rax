@@ -492,3 +492,35 @@ and seven against a device hole. The MOVSD load from the hole reported
 KVM internal emulation error 1 before device dispatch. The same MOVSD
 form completed on both hosted HVF paths. The KVM witness output SHA-256 is
 `28ab44a169011735a21ea4011cb9cd35c1d1782258cdeac4bfe9c0df85ee56e4`.
+
+## Streaming vector stores
+
+Legacy MOVNTPS, MOVNTPD and MOVNTDQ publish 16-byte device writes.
+Their VEX forms publish 16 bytes from XMM or 32 bytes from YMM. The
+planner checks natural alignment and the full guest physical range before
+publishing a request. Device dispatch and acknowledgment use the existing
+vector store path. The source register and flags survive completion and
+pending-request restore. Address validation and payload copying take
+O(width) time and at most 32 bytes of payload storage.
+[Intel SDM, Volume 2B, MOVNTDQ, MOVNTPD and MOVNTPS](https://cdrdv2-public.intel.com/782151/253667-sdm-vol-2b.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Each encoding writes the full vector without modifying its source. | Test every legacy, VEX.128 and VEX.256 form with register 15 and compare all operand bytes, source bytes and neighboring memory. |
+| Misalignment faults before a device effect. | On Intel hardware, test every nonzero in-width alignment offset and verify #GP(0), exact fault RIP and unchanged memory. In HVF, require the guest #GP handler, with no device request. |
+| A pending write preserves its width and bytes through restore. | Destroy the source VM and vCPU, restore the native record into a fresh CPU, and compare the request, completion RIP and both vector banks. |
+
+The parent rejected `44 0f 2b 3f` as unsupported metadata. The failing
+regression log has SHA-256
+`8cbd25ba2dad720c6456b176a6950286fa64e9dd11fe44284255a0d286b19ea3`.
+On a physical Intel Xeon E5-1650 v3, all 15 aligned ordinary-RAM stores
+published the expected bytes after SFENCE and preserved YMM15. All 321
+misaligned cases reported #GP(0) at the instruction and preserved the
+entire memory range. The hardware log SHA-256 is
+`3ed7b623176855fb3591139329aebc26ffff845d5d9d5fb75630eb57f558c940`.
+
+On Intel Linux the fixed regression passed. The unfiltered `hvf_mmio`,
+`isa_oracle`, and `x86_64` targets passed 127, 102, and 28,561 cases
+respectively. The x86-64 target reported three ignored cases. The
+combined Cargo log has SHA-256
+`8f4db62039746a3c8f04bd6806379aec04843e625bc1ffc1aaddaf80a52db399`.

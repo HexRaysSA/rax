@@ -1,6 +1,8 @@
 //! Native SSE, SSE2 and AVX vector memory transfers, alignment faults and source-free continuation.
 use super::*;
 
+type MoveCase<'a> = ((&'a [u8], usize, usize, bool), bool, &'a str);
+
 fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
     const BOOTSTRAP: u64 = CODE + 0x1000;
     memory
@@ -31,14 +33,6 @@ fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
 }
 
 pub(super) fn run(output: &Path, vex: bool) {
-    const REPLY: u128 = 0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211;
-    const HIGH_REPLY: u128 = 0x99aa_2233_4567_dead_babe_1111_7777_cafe;
-    const FLAGS: u64 = 0x8d7;
-    let mut reply = [0; 32];
-    reply[..16].copy_from_slice(&REPLY.to_le_bytes());
-    reply[16..].copy_from_slice(&HIGH_REPLY.to_le_bytes());
-    assert!(!output.exists(), "observations must be new");
-    let mut case = 0;
     let profile = if vex { "vex-xmm" } else { "legacy-xmm" };
     let existing_cases: [(&[u8], usize, usize, bool); 8] = if vex {
         [
@@ -75,7 +69,7 @@ pub(super) fn run(output: &Path, vex: bool) {
         ]
     };
     // Unaligned memory forms encode [RDI+3]. Aligned forms use [RDI].
-    let packed_cases: [((&[u8], usize, usize, bool), bool, &str); 8] = if vex {
+    let packed_cases: [MoveCase<'_>; 8] = if vex {
         [
             (
                 (&[0xc5, 0x78, 0x10, 0x7f, 0x03], 16, 15, true),
@@ -158,7 +152,7 @@ pub(super) fn run(output: &Path, vex: bool) {
             ),
         ]
     };
-    let scalar_cases: [((&[u8], usize, usize, bool), bool, &str); 4] = if vex {
+    let scalar_cases: [MoveCase<'_>; 4] = if vex {
         [
             (
                 (&[0xc5, 0x7a, 0x10, 0x3f], 4, 15, true),
@@ -218,17 +212,15 @@ pub(super) fn run(output: &Path, vex: bool) {
         let store = [0xc4, 0xe1, 0xfc | prefix, write, store_rm, 3];
         (load, store)
     });
-    let ymm_transfers = || {
-        ymm_cases.iter().zip(&ymm_code).filter(|_| vex).flat_map(
-            |((_, _, _, aligned, name), (load, store))| {
-                let displacement = usize::from(!aligned);
-                [
-                    ((&load[..4 + displacement], 32, 15, true), *aligned, *name),
-                    ((&store[..5 + displacement], 32, 0, false), *aligned, *name),
-                ]
-            },
-        )
-    };
+    let ymm_transfers = ymm_cases.iter().zip(&ymm_code).filter(|_| vex).flat_map(
+        |((_, _, _, aligned, name), (load, store))| {
+            let displacement = usize::from(!aligned);
+            [
+                ((&load[..4 + displacement], 32, 15, true), *aligned, *name),
+                ((&store[..5 + displacement], 32, 0, false), *aligned, *name),
+            ]
+        },
+    );
     let transfers = existing_cases
         .into_iter()
         .map(|entry| (entry, false, ""))
@@ -239,8 +231,83 @@ pub(super) fn run(output: &Path, vex: bool) {
         )
         .chain(packed_cases)
         .chain(scalar_cases)
-        .chain(ymm_transfers());
-    for ((code, size, index, read), aligned, form) in transfers {
+        .chain(ymm_transfers);
+    run_cases(output, vex, profile, transfers.collect());
+}
+
+pub(super) fn run_streaming_stores(output: &Path, vex: bool) {
+    let profile = if vex { "vex-ntstore" } else { "legacy-ntstore" };
+    let forms = [
+        (
+            0,
+            0x2b,
+            [
+                "ntps-",
+                "vex2-xmm-ntps-",
+                "vex3-xmm-ntps-",
+                "vex2-ymm-ntps-",
+                "vex3-ymm-ntps-",
+            ],
+        ),
+        (
+            1,
+            0x2b,
+            [
+                "ntpd-",
+                "vex2-xmm-ntpd-",
+                "vex3-xmm-ntpd-",
+                "vex2-ymm-ntpd-",
+                "vex3-ymm-ntpd-",
+            ],
+        ),
+        (
+            1,
+            0xe7,
+            [
+                "ntdq-",
+                "vex2-xmm-ntdq-",
+                "vex3-xmm-ntdq-",
+                "vex2-ymm-ntdq-",
+                "vex3-ymm-ntdq-",
+            ],
+        ),
+    ];
+    let encodings = forms.map(|(prefix, opcode, _)| {
+        [
+            [0x66, 0x44, 0x0f, opcode, 0x3f],
+            [0xc5, 0x78 | prefix, opcode, 0x3f, 0],
+            [0xc4, 0x61, 0xf8 | prefix, opcode, 0x3f],
+            [0xc5, 0x7c | prefix, opcode, 0x3f, 0],
+            [0xc4, 0x61, 0xfc | prefix, opcode, 0x3f],
+        ]
+    });
+    let mut cases = Vec::new();
+    for ((prefix, _, names), code) in forms.into_iter().zip(&encodings) {
+        let legacy = &code[0][usize::from(prefix == 0)..];
+        let vex_forms = [&code[1][..4], &code[2], &code[3][..4], &code[4]];
+        if vex {
+            for ((code, name), width) in
+                vex_forms.into_iter().zip(&names[1..]).zip([16, 16, 32, 32])
+            {
+                cases.push(((code, width, 15, false), true, *name));
+            }
+        } else {
+            cases.push(((legacy, 16, 15, false), true, names[0]));
+        }
+    }
+    run_cases(output, vex, profile, cases);
+}
+
+fn run_cases(output: &Path, vex: bool, profile: &str, transfers: Vec<MoveCase<'_>>) {
+    const REPLY: u128 = 0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211;
+    const HIGH_REPLY: u128 = 0x99aa_2233_4567_dead_babe_1111_7777_cafe;
+    const FLAGS: u64 = 0x8d7;
+    let mut reply = [0; 32];
+    reply[..16].copy_from_slice(&REPLY.to_le_bytes());
+    reply[16..].copy_from_slice(&HIGH_REPLY.to_le_bytes());
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    for &((code, size, index, read), aligned, form) in &transfers {
         for restore in [false, true] {
             let memory = guest_memory(code);
             word(&memory, 0x4000, 0x4000_009b);
@@ -342,12 +409,10 @@ pub(super) fn run(output: &Path, vex: bool) {
             case += 1;
         }
     }
-    let faults = aligned_cases.into_iter().map(|entry| (entry, "")).chain(
-        packed_cases
-            .into_iter()
-            .chain(ymm_transfers())
-            .filter_map(|(entry, aligned, name)| aligned.then_some((entry, name))),
-    );
+    let faults = transfers.into_iter().filter_map(|(entry, aligned, name)| {
+        // Existing aligned cases use the profile name alone for fault rows.
+        aligned.then_some((entry, if name == "aligned-" { "" } else { name }))
+    });
     for ((code, size, _, read), form) in faults {
         // Offset 16 remains aligned for XMM moves but faults for aligned YMM moves.
         let offset = if size == 32 { 16 } else { 3 };

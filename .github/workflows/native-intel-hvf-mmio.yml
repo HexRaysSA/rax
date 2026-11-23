@@ -25,6 +25,8 @@ on:
           - movnti
           - legacy-xmm
           - vex-xmm
+          - legacy-ntstore
+          - vex-ntstore
           - compat-mmio
           - compat16-mmio
           - port-debug

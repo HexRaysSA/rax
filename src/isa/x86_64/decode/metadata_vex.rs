@@ -36,6 +36,7 @@ pub(super) fn decode_xmm_transfer(
         (2, 0x7e) => (true, 8, true),
         (1, 0xd6) => (false, 8, true),
         (0 | 1, 0x10 | 0x11 | 0x28 | 0x29) => (opcode & 1 == 0, 16, true),
+        (0 | 1, 0x2b) | (1, 0xe7) => (false, 16, true),
         (2, 0x10 | 0x11) => (opcode == 0x10, 4, true),
         (3, 0x10 | 0x11) => (opcode == 0x10, 8, true),
         (1 | 2, 0x6f | 0x7f) => (opcode == 0x6f, 16, true),
@@ -66,6 +67,9 @@ pub(super) fn decode_xmm_transfer(
     ctx.rex = (bits == 64).then_some(0x40 | extensions);
     let raw_rm = modrm_byte & 7;
     let (group, _, mut rm) = modrm(ctx, address_bits, size, bits == 64)?;
+    if matches!(opcode, 0x2b | 0xe7) && rm.kind != OperandKind::Memory {
+        return None;
+    }
     let (bank, register_width) = if size == 32 {
         ("ymm", 256)
     } else {
@@ -95,6 +99,9 @@ pub(super) fn decode_xmm_transfer(
         (0x10 | 0x11, 16 | 32, 1) => "vmovupd",
         (0x28 | 0x29, 16 | 32, 0) => "vmovaps",
         (0x28 | 0x29, 16 | 32, 1) => "vmovapd",
+        (0x2b, 16 | 32, 0) => "vmovntps",
+        (0x2b, 16 | 32, 1) => "vmovntpd",
+        (0xe7, 16 | 32, 1) => "vmovntdq",
         (_, 16 | 32, 1) => "vmovdqa",
         (_, 16 | 32, _) => "vmovdqu",
         (_, 8, _) => "vmovq",

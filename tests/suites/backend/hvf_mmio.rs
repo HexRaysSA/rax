@@ -1239,6 +1239,87 @@ fn whole_ymm_moves_decode_and_plan_their_memory_operands() {
     }
 }
 #[test]
+fn aligned_streaming_vector_stores_plan_exact_mmio_widths() {
+    use rax::isa::x86_64::instruction_metadata;
+
+    let cases = [
+        (0, 0x2b, "movntps", "vmovntps"),
+        (1, 0x2b, "movntpd", "vmovntpd"),
+        (1, 0xe7, "movntdq", "vmovntdq"),
+    ];
+    for (prefix, opcode, legacy_name, vex_name) in cases {
+        let legacy = [0x66, 0x44, 0x0f, opcode, 0x3f];
+        for (code, name, size) in [
+            (&legacy[usize::from(prefix == 0)..], legacy_name, 16),
+            (&[0xc5, 0x78 | prefix, opcode, 0x3f], vex_name, 16),
+            (&[0xc4, 0x61, 0xf8 | prefix, opcode, 0x3f], vex_name, 16),
+            (&[0xc5, 0x7c | prefix, opcode, 0x3f], vex_name, 32),
+            (&[0xc4, 0x61, 0xfc | prefix, opcode, 0x3f], vex_name, 32),
+        ] {
+            let (context, mut ram, mut record) = fixture(code);
+            record.qualification = 0x182;
+            let plan = prepare(&context, &mut ram, record).unwrap_or_else(|err| {
+                panic!("{name} {code:02x?} must plan a {size}-byte store: {err}")
+            });
+            let instruction = instruction_metadata::decode(64, 0x1000, code).unwrap();
+            assert_eq!(instruction.mnemonic, name);
+            assert_eq!(plan.length, code.len() as u64);
+            assert_eq!(
+                (plan.linear, plan.physical),
+                (record.linear, record.physical)
+            );
+            match plan.action {
+                Action::XmmWrite(transfer) if size == 16 => {
+                    assert_eq!(
+                        (transfer.index, transfer.size, transfer.length),
+                        (15, 16, plan.length)
+                    );
+                }
+                Action::YmmWrite(transfer) if size == 32 => {
+                    assert_eq!((transfer.index, transfer.length), (15, plan.length));
+                }
+                _ => panic!("unexpected streaming store action for {code:02x?}"),
+            }
+            assert!(
+                ram.reads
+                    .iter()
+                    .all(|&(address, _)| address != record.physical)
+            );
+            let mut misaligned = context;
+            let offset = u64::from(size / 2u8);
+            misaligned.registers[7] += offset;
+            let bad_address = ExitRecord {
+                linear: record.linear + offset,
+                physical: record.physical + offset,
+                ..record
+            };
+            let expected = if size == 16 {
+                "misaligned XMM MMIO transfer"
+            } else {
+                "misaligned YMM MMIO transfer"
+            };
+            assert_eq!(
+                prepare(&misaligned, &mut ram, bad_address).unwrap_err(),
+                expected
+            );
+            record.qualification = 0x181;
+            assert!(prepare(&context, &mut ram, record).is_err());
+        }
+        let legacy_register = [0x66, 0x0f, opcode, 0xff];
+        for code in [
+            &legacy_register[usize::from(prefix == 0)..],
+            &[0xc5, 0x78 | prefix, opcode, 0xff],
+            &[0xc5, 0x70 | prefix, opcode, 0x3f],
+        ] {
+            assert!(instruction_metadata::decode(64, 0x1000, code).is_err());
+            let (context, mut ram, mut record) = fixture(code);
+            record.qualification = 0x182;
+            assert!(prepare(&context, &mut ram, record).is_err());
+        }
+    }
+}
+
+#[test]
 fn aligned_xmm_moves_use_the_full_operand_and_reject_misalignment() {
     use rax::isa::x86_64::instruction_metadata;
     for (bytes, mnemonic, lane, read, vex) in [

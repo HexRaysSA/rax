@@ -264,9 +264,12 @@ pub(super) fn decode_0f(
             out.operands = vec![dst, rm];
             CMOV[(op & 15) as usize]
         }
-        0x10 | 0x11 | 0x28 | 0x29 | 0x6e | 0x6f | 0x7e | 0x7f | 0xd6 if !ctx.has_rex2() => {
+        0x10 | 0x11 | 0x28 | 0x29 | 0x2b | 0x6e | 0x6f | 0x7e | 0x7f | 0xd6 | 0xe7
+            if !ctx.has_rex2() =>
+        {
             let (load, size, vector_rm) = match (op, ctx.operand_size_override, ctx.rep_prefix) {
                 (0x10 | 0x11 | 0x28 | 0x29, _, None) => (op & 1 == 0, 16, true),
+                (0x2b, _, None) | (0xe7, true, None) => (false, 16, true),
                 (0x10 | 0x11, false, Some(0xf3)) => (op == 0x10, 4, true),
                 (0x10 | 0x11, false, Some(0xf2)) => (op == 0x10, 8, true),
                 (0x6e | 0x7e, true, None) => (op == 0x6e, if ctx.rex_w() { 8 } else { 4 }, false),
@@ -282,6 +285,9 @@ pub(super) fn decode_0f(
             };
             let raw_rm = ctx.peek_u8().ok()? & 7;
             let (group, _, mut rm) = modrm(ctx, address_bits, size, *branch_bits == 64)?;
+            if matches!(op, 0x2b | 0xe7) && rm.kind != OperandKind::Memory {
+                return None;
+            }
             let mut xmm = Operand {
                 kind: OperandKind::Register,
                 reg: format!("xmm{}", group | ctx.rex_r()),
@@ -311,6 +317,9 @@ pub(super) fn decode_0f(
                 (0x10 | 0x11, 16, true) => "movupd",
                 (0x28 | 0x29, 16, false) => "movaps",
                 (0x28 | 0x29, 16, true) => "movapd",
+                (0x2b, 16, false) => "movntps",
+                (0x2b, 16, true) => "movntpd",
+                (0xe7, 16, true) => "movntdq",
                 (_, 16, true) => "movdqa",
                 (_, 16, false) => "movdqu",
                 (_, 8, _) => "movq",

@@ -1355,14 +1355,19 @@ fn main() {
         nmi_window::run_hot_entry(&output);
         return;
     }
-    if let Some(profile @ ("--legacy-xmm" | "--vex-xmm")) = std::env::args_os()
-        .nth(1)
-        .as_deref()
-        .and_then(std::ffi::OsStr::to_str)
+    if let Some(profile @ ("--legacy-xmm" | "--vex-xmm" | "--legacy-ntstore" | "--vex-ntstore")) =
+        std::env::args_os()
+            .nth(1)
+            .as_deref()
+            .and_then(std::ffi::OsStr::to_str)
     {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        xmm::run(&output, profile == "--vex-xmm");
+        if profile.ends_with("-ntstore") {
+            xmm::run_streaming_stores(&output, profile == "--vex-ntstore");
+        } else {
+            xmm::run(&output, profile == "--vex-xmm");
+        }
         return;
     }
     if let Some(profile) = std::env::args_os()
