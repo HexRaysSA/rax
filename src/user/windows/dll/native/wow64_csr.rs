@@ -48,11 +48,20 @@ pub(super) fn user_connect(c: &mut Ctx) -> ApiResult {
 fn write_user_connection(c: &mut Ctx) -> ApiResult {
     let server = selected(c)?;
     let state = c.p.wow64.as_ref().expect("selected WoW64 state");
-    if state.machine != 0xaa64 || state.kernel != (10, 0, 29708) || state.csr.is_none() {
+    if state.csr.is_none() {
         return Err(c.unsupported("WoW64 USER requires the selected process CSR connection"));
     }
+    let information_bytes = if state.machine == 0xaa64 && state.kernel == (10, 0, 29708) {
+        INFORMATION_BYTES
+    } else {
+        server
+            .metadata
+            .additional_user_client()
+            .ok_or_else(|| c.unsupported("WoW64 USER requires the selected session profile"))?
+            .information_bytes
+    };
     let (root, output, size, inside) = (c.ptr(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?);
-    if size as usize != INFORMATION_BYTES {
+    if size as usize != information_bytes {
         return Err(c.unsupported("WoW64 USER connection size differs from the measured caller"));
     }
     let expected_root = server.metadata.directory_path();
@@ -63,7 +72,7 @@ fn write_user_connection(c: &mut Ctx) -> ApiResult {
     if directory != expected_root && directory != global_root {
         return Err(c.unsupported("WoW64 USER directory differs from the selected session"));
     }
-    probe_write(c, output, INFORMATION_BYTES)?;
+    probe_write(c, output, information_bytes)?;
     probe_write(c, inside, 1)?;
 
     let data = if let Some(data) = state.user_data.clone() {
@@ -80,7 +89,7 @@ fn write_user_connection(c: &mut Ctx) -> ApiResult {
             Err(error) => return Flow::ret(error.status().into()),
         }
     };
-    c.mem().wr(output, &data.information)?;
+    c.mem().wr(output, &data.information[..information_bytes])?;
     c.mem().w8(inside, 0)?;
     c.p.wow64.as_mut().expect("selected WoW64 state").user_data = Some(data);
     Flow::ret(STATUS_SUCCESS.into())

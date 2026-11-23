@@ -108,18 +108,78 @@ fn kernelbase_profile(
     }
 }
 
-const USER_CONNECT: PrivateLeaf = PrivateLeaf {
-    number: 0x2000,
-    stub: 0x65_fa0,
-    parent: 0x56_b35,
-    argument_bytes: 16,
-    thunk: 0xd_9b90,
+struct User32Profile {
+    leaf: PrivateLeaf,
+    inside: u32,
+    hash: [u8; 32],
+}
+
+const USER_CONNECT_SERVICE: u32 = 0x2000;
+
+const fn user_connect_leaf(stub: u64, parent: u32, thunk: u32) -> PrivateLeaf {
+    PrivateLeaf {
+        number: USER_CONNECT_SERVICE,
+        stub,
+        parent,
+        argument_bytes: 16,
+        thunk,
+    }
+}
+
+static PREVIEW_USER32: User32Profile = User32Profile {
+    leaf: user_connect_leaf(0x65fa0, 0x56b35, 0xd9b90),
+    inside: 0xfb98c,
+    hash: [
+        0x0a, 0x3c, 0x35, 0x25, 0x23, 0x2a, 0x43, 0x09, 0x34, 0x0c, 0x4f, 0x30, 0x12, 0x69, 0x7d,
+        0x1b, 0xa5, 0x43, 0x48, 0x4e, 0x66, 0x27, 0x7d, 0xca, 0x9e, 0x55, 0x44, 0xe2, 0xbd, 0xab,
+        0xc4, 0x43,
+    ],
 };
-const USER_CONNECT_INSIDE: u32 = 0xf_b98c;
-const USER32_HASH: [u8; 32] = [
-    0x0a, 0x3c, 0x35, 0x25, 0x23, 0x2a, 0x43, 0x09, 0x34, 0x0c, 0x4f, 0x30, 0x12, 0x69, 0x7d, 0x1b,
-    0xa5, 0x43, 0x48, 0x4e, 0x66, 0x27, 0x7d, 0xca, 0x9e, 0x55, 0x44, 0xe2, 0xbd, 0xab, 0xc4, 0x43,
-];
+
+static SERVER_2022_USER32: User32Profile = User32Profile {
+    leaf: user_connect_leaf(0x4b0d0, 0x1cd68, 0x57080),
+    inside: 0xaf808,
+    hash: [
+        0x44, 0x4d, 0x7f, 0xca, 0x96, 0x6a, 0x74, 0xbf, 0xbc, 0xec, 0x80, 0x64, 0x9c, 0x70, 0x0e,
+        0xc2, 0x2a, 0xce, 0x8f, 0x95, 0x75, 0x59, 0x4b, 0xb4, 0x86, 0x8c, 0x43, 0xff, 0xb2, 0x8a,
+        0xdd, 0x13,
+    ],
+};
+
+static SERVER_2025_USER32: User32Profile = User32Profile {
+    leaf: user_connect_leaf(0x3d010, 0x31a3c, 0x5bc60),
+    inside: 0xcab88,
+    hash: [
+        0x41, 0xa7, 0xf6, 0x5d, 0xcc, 0x6a, 0xc4, 0xcf, 0x6c, 0x51, 0xcc, 0x6b, 0x10, 0x73, 0x73,
+        0xdf, 0x1e, 0xf4, 0x8e, 0x14, 0x9e, 0xbe, 0xe9, 0x0f, 0x4a, 0x61, 0x3c, 0xd2, 0x11, 0xa8,
+        0x15, 0x83,
+    ],
+};
+
+static ARM64_26200_USER32: User32Profile = User32Profile {
+    leaf: user_connect_leaf(0x3d900, 0x31e4c, 0x7b250),
+    inside: 0xed0b4,
+    hash: [
+        0x00, 0x99, 0x12, 0xa6, 0x16, 0x39, 0xdc, 0xaf, 0x59, 0x3d, 0xcc, 0x99, 0xf9, 0x77, 0x96,
+        0xdf, 0x84, 0xad, 0xc5, 0xfb, 0x87, 0x74, 0x61, 0xfa, 0x7d, 0x64, 0x3d, 0x6a, 0xfc, 0x9a,
+        0x0f, 0xb0,
+    ],
+};
+
+fn user32_profile(
+    major: u32,
+    minor: u32,
+    build: u32,
+    native_machine: Option<u16>,
+) -> Option<&'static User32Profile> {
+    match (major, minor, build, native_machine) {
+        (10, 0, 20348, Some(0x8664)) => Some(&SERVER_2022_USER32),
+        (10, 0, 26100, Some(0x8664)) => Some(&SERVER_2025_USER32),
+        (10, 0, 26200, Some(0xaa64)) => Some(&ARM64_26200_USER32),
+        (10, 0, 29708, Some(0xaa64)) => Some(&PREVIEW_USER32),
+        _ => None,
+    }
+}
 
 struct SelectedImage {
     known: Option<Arc<ImageSection>>,
@@ -250,20 +310,21 @@ impl MappedWow64KernelBase {
     }
 }
 
-pub(crate) struct MappedWow64User32(SelectedImage);
+pub(crate) struct MappedWow64User32 {
+    image: SelectedImage,
+    profile: &'static User32Profile,
+}
 
 impl MappedWow64User32 {
     pub(crate) fn select(runtime: &NativeRuntime, arch: WinArch) -> Option<Self> {
-        if (
+        let profile = user32_profile(
             runtime.version.major,
             runtime.version.minor,
             runtime.version.build,
             runtime.object_namespace.native_machine,
-        ) != (10, 0, 29708, Some(0xaa64))
-        {
-            return None;
-        }
-        SelectedImage::select(runtime, arch, "user32.dll", USER32_HASH).map(Self)
+        )?;
+        let image = SelectedImage::select(runtime, arch, "user32.dll", profile.hash)?;
+        Some(Self { image, profile })
     }
 
     pub(crate) fn api(
@@ -273,11 +334,14 @@ impl MappedWow64User32 {
         resume: u64,
         sp: u64,
     ) -> Option<&'static Api> {
-        if number != USER_CONNECT.number {
+        if number != USER_CONNECT_SERVICE {
             return None;
         }
-        let (base, _) = self.0.verify_leaf(vm, resume, sp, &USER_CONNECT)?;
-        let inside = base.checked_add(USER_CONNECT_INSIDE)?;
+        let (base, size) = self.image.verify_leaf(vm, resume, sp, &self.profile.leaf)?;
+        if u64::from(self.profile.inside) >= size {
+            return None;
+        }
+        let inside = base.checked_add(self.profile.inside)?;
         (vm.space().u32(sp.checked_add(16)?).ok()? == inside).then_some(&dll::WOW64_USER_CONNECT)
     }
 }
@@ -292,6 +356,22 @@ mod tests {
 
     #[test]
     fn wow64_user_connect_requires_its_selected_image_caller_and_inside_flag() {
+        for (build, machine, profile) in [
+            (20348, 0x8664, &SERVER_2022_USER32),
+            (26100, 0x8664, &SERVER_2025_USER32),
+            (26200, 0xaa64, &ARM64_26200_USER32),
+            (29708, 0xaa64, &PREVIEW_USER32),
+        ] {
+            assert!(std::ptr::eq(
+                user32_profile(10, 0, build, Some(machine)).unwrap(),
+                profile
+            ));
+            assert!(user32_profile(10, 0, build, None).is_none());
+            verify_user_connect_profile(profile);
+        }
+    }
+
+    fn verify_user_connect_profile(profile: &'static User32Profile) {
         const BASE: u32 = 0x2000_0000;
         const SIZE: u64 = 0x10_0000;
         let mut bytes = builtin::build(
@@ -304,7 +384,7 @@ mod tests {
         bytes.resize(SIZE as usize, 0);
         let nt = u32::from_le_bytes(bytes[0x3c..0x40].try_into().unwrap()) as usize;
         bytes[nt + 80..nt + 84].copy_from_slice(&(SIZE as u32).to_le_bytes());
-        let leaf = &USER_CONNECT;
+        let leaf = &profile.leaf;
         let stub = &mut bytes[leaf.stub as usize..leaf.stub as usize + 15];
         stub[..6].copy_from_slice(&[0xb8, 0, 0x20, 0, 0, 0xba]);
         stub[6..10].copy_from_slice(&(BASE + leaf.thunk).to_le_bytes());
@@ -325,10 +405,13 @@ mod tests {
         .unwrap();
         let selected = ImageSection::with_test_image(image.clone());
         let unrelated = ImageSection::with_test_image(image.clone());
-        let binding = MappedWow64User32(SelectedImage {
-            known: Some(selected.clone()),
-            file: None,
-        });
+        let binding = MappedWow64User32 {
+            image: SelectedImage {
+                known: Some(selected.clone()),
+                file: None,
+            },
+            profile,
+        };
         let space = AddressSpace::new(SpaceConfig {
             va_limit: 1 << 32,
             arena_bytes: 8 << 20,
@@ -342,23 +425,23 @@ mod tests {
         let sp = base + SIZE - 24;
         let resume = base + leaf.stub + 12;
         space.w32(sp, BASE + leaf.parent).unwrap();
-        space.w32(sp + 16, BASE + USER_CONNECT_INSIDE).unwrap();
+        space.w32(sp + 16, BASE + profile.inside).unwrap();
         assert_eq!(
             binding.api(&vm, leaf.number, resume, sp).unwrap().name,
             "UserConnectToServer"
         );
         assert!(binding.api(&vm, leaf.number + 1, resume, sp).is_none());
         assert!(binding.api(&vm, leaf.number, resume + 1, sp).is_none());
-        space.w32(sp + 16, BASE + USER_CONNECT_INSIDE + 1).unwrap();
+        space.w32(sp + 16, BASE + profile.inside + 1).unwrap();
         assert!(binding.api(&vm, leaf.number, resume, sp).is_none());
-        space.w32(sp + 16, BASE + USER_CONNECT_INSIDE).unwrap();
+        space.w32(sp + 16, BASE + profile.inside).unwrap();
         space.w32(sp, BASE + leaf.parent + 1).unwrap();
         assert!(binding.api(&vm, leaf.number, resume, sp).is_none());
         vm.release(base).unwrap();
         vm.map_section_image(unrelated, &image, base, base, SIZE, 0, SIZE, false, false)
             .unwrap();
         space.w32(sp, BASE + leaf.parent).unwrap();
-        space.w32(sp + 16, BASE + USER_CONNECT_INSIDE).unwrap();
+        space.w32(sp + 16, BASE + profile.inside).unwrap();
         assert!(binding.api(&vm, leaf.number, resume, sp).is_none());
     }
 

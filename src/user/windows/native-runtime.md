@@ -4061,6 +4061,25 @@ pointer fields and clears the low byte of the flag. Both views retain their
 selected data-section identities and are checked before any repeated reply.
 No guest request is dispatched to the host USER service.
 
+### Released WoW64 USER startup
+
+Installed x86 User32 in Windows Server 2022, Windows Server 2025, and
+Windows 11 ARM64 uses the same four-argument transition. The required reply
+is 576 bytes on build 20348 and 584 bytes on builds 26100 and 26200.
+
+| Native kernel and machine | x86 leaf RVA | Caller return RVA | Transition thunk RVA | Flag RVA | Reply bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 20348 AMD64 | 0x4b0d0 | 0x1cd68 | 0x57080 | 0xaf808 | 576 |
+| 26100 AMD64 | 0x3d010 | 0x31a3c | 0x5bc60 | 0xcab88 | 584 |
+| 26200 ARM64 | 0x3d900 | 0x31e4c | 0x7b250 | 0xed0b4 | 584 |
+
+Each profile verifies the selected User32 file hash, executable section,
+leaf and caller, and flag address. The handler uses the selected session-two
+USER snapshot after verifying the guest's existing CSR connection. It writes
+only the measured reply length, preserving bytes beyond the 576-byte contract
+on Server 2022. The installed comparisons observed the x86 call geometry and
+independently measured the fixed native USER reply on each host.
+
 ### WoW64 companion GDI startup
 
 On Windows build 29708 on ARM64 in session 1, the selected SysWOW64
