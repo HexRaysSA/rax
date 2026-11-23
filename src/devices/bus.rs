@@ -272,7 +272,12 @@ impl MmioBus {
     /// Keep one callback for each contiguous portion owned by one device.
     /// Splitting a register-sized transaction into byte writes changes device
     /// semantics; holes and mapping boundaries are the only bus split points.
-    fn transaction_chunk(&self, addr: u64, remaining: usize) -> Result<(Option<usize>, usize)> {
+    fn transaction_chunk(
+        &self,
+        addr: u64,
+        remaining: usize,
+        access: fallback::Access,
+    ) -> Result<(Option<usize>, usize)> {
         if let Some(index) = self
             .devices
             .iter()
@@ -291,42 +296,70 @@ impl MmioBus {
         let count = next.map_or(remaining, |base| {
             (base - addr).min(remaining as u64) as usize
         });
-        Ok((None, self.fallback.chunk(addr, count)?))
+        Ok((None, self.fallback.chunk(addr, count, access)?))
+    }
+
+    fn transfer(
+        &mut self,
+        addr: u64,
+        len: usize,
+        access: fallback::Access,
+        mut publish: impl FnMut(&mut Self, Option<usize>, std::ops::Range<usize>) -> Result<()>,
+    ) -> Result<()> {
+        Self::validate_extent(addr, len)?;
+        if len == 0 {
+            return Ok(());
+        }
+        let (first, count) = self.transaction_chunk(addr, len, access)?;
+        // Resolve every fallible routing and RAM admission before the first
+        // callback. The normal single-chunk path needs no allocation.
+        let mut tail = Vec::new();
+        let mut offset = count;
+        while offset < len {
+            let (device, count) =
+                self.transaction_chunk(addr + offset as u64, len - offset, access)?;
+            tail.push((device, offset..offset + count));
+            offset += count;
+        }
+        publish(self, first, 0..count)?;
+        for (device, part) in tail {
+            publish(self, device, part)?;
+        }
+        Ok(())
     }
 
     pub fn read(&mut self, addr: u64, data: &mut [u8]) -> Result<()> {
-        Self::validate_extent(addr, data.len())?;
-        let mut offset = 0;
-        while offset < data.len() {
-            let current = addr + offset as u64;
-            let (device, count) = self.transaction_chunk(current, data.len() - offset)?;
-            let part = &mut data[offset..offset + count];
-            match device {
-                Some(index) => self.devices[index].1.read(current, part),
-                None => self.fallback.read(current, part)?,
-            }
-            offset += count;
-        }
-        Ok(())
+        self.transfer(
+            addr,
+            data.len(),
+            fallback::Access::Read,
+            |bus, device, part| {
+                let current = addr + part.start as u64;
+                if let Some(index) = device {
+                    bus.devices[index].1.read(current, &mut data[part]);
+                    Ok(())
+                } else {
+                    bus.fallback.read(current, &mut data[part])
+                }
+            },
+        )
     }
 
     pub fn write(&mut self, addr: u64, data: &[u8]) -> Result<()> {
-        Self::validate_extent(addr, data.len())?;
-        let mut offset = 0;
-        while offset < data.len() {
-            let current = addr + offset as u64;
-            let (device, count) = self.transaction_chunk(current, data.len() - offset)?;
-            if let Some(index) = device {
-                self.devices[index]
-                    .1
-                    .write(current, &data[offset..offset + count]);
-            } else {
-                self.fallback
-                    .write(current, &data[offset..offset + count])?;
-            }
-            offset += count;
-        }
-        Ok(())
+        self.transfer(
+            addr,
+            data.len(),
+            fallback::Access::Write,
+            |bus, device, part| {
+                let current = addr + part.start as u64;
+                if let Some(index) = device {
+                    bus.devices[index].1.write(current, &data[part]);
+                    Ok(())
+                } else {
+                    bus.fallback.write(current, &data[part])
+                }
+            },
+        )
     }
 
     /// Apply an indivisible scalar operation to one complete device mapping.
@@ -340,7 +373,8 @@ impl MmioBus {
     ) -> Result<Vec<u8>> {
         operation.validate(size)?;
         Self::validate_extent(addr, usize::from(size))?;
-        let (device, count) = self.transaction_chunk(addr, usize::from(size))?;
+        let (device, count) =
+            self.transaction_chunk(addr, usize::from(size), fallback::Access::Rmw)?;
         if count != usize::from(size) {
             return Err(Error::InvalidConfig(
                 "MMIO RMW crosses device mappings".into(),

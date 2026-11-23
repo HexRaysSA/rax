@@ -4,8 +4,16 @@ use super::{MmioRmwOp, Result};
 use crate::devices::pci::PciStub;
 use crate::error::Error;
 use crate::machine::pc::ram::Layout;
+use crate::vm::memory::reservations::{preflight_read, preflight_write};
 use std::sync::{Arc, Mutex};
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
+
+#[derive(Clone, Copy)]
+pub(super) enum Access {
+    Read,
+    Write,
+    Rmw,
+}
 
 #[derive(Default)]
 pub(super) struct Fallback {
@@ -13,14 +21,16 @@ pub(super) struct Fallback {
     pub ram: Option<(Arc<GuestMemoryMmap>, Layout)>,
 }
 impl Fallback {
-    pub fn chunk(&self, address: u64, remaining: usize) -> Result<usize> {
+    pub fn chunk(&self, address: u64, remaining: usize, access: Access) -> Result<usize> {
         let mut count = remaining as u64;
+        let mut pci_owns_start = false;
         if let Some(pci) = &self.pci {
             for range in pci
                 .lock()
                 .map_err(|_| Error::Emulator("MMIO PCI lock poisoned".into()))?
                 .mmio_ranges()
             {
+                pci_owns_start |= range.contains(address);
                 for boundary in [range.base, range.base + range.len] {
                     if boundary > address {
                         count = count.min(boundary - address);
@@ -28,12 +38,19 @@ impl Fallback {
                 }
             }
         }
-        if let Some((_, layout)) = &self.ram {
+        if let Some((ram, layout)) = &self.ram {
             for range in layout.ranges() {
                 for boundary in [range.start, range.end] {
                     if boundary > address {
                         count = count.min(boundary - address);
                     }
+                }
+            }
+            if !pci_owns_start && layout.contains(address, count) {
+                match access {
+                    Access::Read => preflight_read(ram, address, count as usize)?,
+                    Access::Write => preflight_write(ram, address, count as usize)?,
+                    Access::Rmw => (), // The atomic RAM operation preflights its own extent.
                 }
             }
         }

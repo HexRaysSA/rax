@@ -46,6 +46,36 @@ per contiguous owner. RMW holds the bridge and endpoint transaction; collateral
 RAM RMW holds its physical memory domain across read, transform, invalidation,
 and write. Cross-owner RMW is rejected before any device callback or RAM write.
 
+### Split MMIO admission
+
+The bus resolves each span of a read or write before it invokes the first
+device callback. For collateral RAM spans it checks the backing and access
+permissions during admission. A failed admission leaves the caller's read
+buffer and any earlier device spans untouched. The transfer plan uses no
+heap storage for a single span and stores one routing entry per additional
+span. The VMM serializes PCI configuration and device dispatch.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Availability of a later PCI route determines whether a split transfer can start. | High | Start a 32-byte transfer in a fixed device window with a poisoned PCI lock. Require zero device callbacks and unchanged input bytes. An access confined to the fixed window must still succeed. |
+| A live BAR owns its span even if overlapping collateral RAM lacks backing. | High | Split a 32-byte transfer across the BAR and unbacked RAM. Require zero callbacks for the rejected transfer and one callback for an access confined to the BAR. |
+
+Both regressions reached an earlier device callback on the parent revision.
+The candidate passed all 25 bus tests. Eight unfiltered Linux binaries passed
+212 tests with 40 ignored. They cover portable HVF plans, PC boot, PCI and
+runtime checkpoint restoration, and the running native KVM cases. The
+Linux test log SHA-256 is
+`688db0c51482b1b103aba89572ca8ff428f849ea942a03f21128697f67b11db9`.
+These checks cover pre-dispatch admission under the VMM's serialized
+device and bridge ownership.
+
+The unfiltered macOS arm64 library run reported 13,314 passed, one failed
+and five ignored. The sole failure was the procfs TID-reuse assertion in
+the archived fixture. Commit `510a9b766` subsequently switched that
+fixture to explicit `clone3` TID selection. The corrected case passes
+independently on Intel Linux. The full macOS log SHA-256 is
+`7af156d94fd2786167865bfc9fab12aa38fa59142aff32290cec469f05a171ca`.
+
 ## Validation and boundaries
 
 Recorded local validation passed **136 selected tests**: 14 mapping/adapter,

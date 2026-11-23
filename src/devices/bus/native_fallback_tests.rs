@@ -284,6 +284,67 @@ fn poisoned_pci_layout_stops_before_destination_or_ram_publication() {
 }
 
 #[test]
+fn split_access_leaves_fixed_device_untouched_when_pci_routing_is_unavailable() {
+    let (mut bus, pci, _, _) = configured();
+    let fixed = Arc::new(Mutex::new(Seen::default()));
+    bus.register(
+        MmioRange {
+            base: 0x2000,
+            len: 8,
+        },
+        Box::new(Device(fixed.clone())),
+    )
+    .unwrap();
+    assert!(
+        std::thread::spawn(move || {
+            let _lock = pci.lock().unwrap();
+            panic!("owned poison fixture");
+        })
+        .join()
+        .is_err()
+    );
+
+    let mut bytes = [0x55; 32];
+    assert!(bus.read(0x2000, &mut bytes).is_err());
+    assert!(bus.write(0x2000, &[0x44; 32]).is_err());
+    assert!(fixed.lock().unwrap().0.is_empty());
+    assert_eq!(bytes, [0x55; 32]);
+
+    // A transaction confined to the fixed window does not need PCI routing.
+    bus.read(0x2000, &mut bytes[..8]).unwrap();
+    bus.write(0x2000, &[0x44; 8]).unwrap();
+    assert_eq!(
+        fixed.lock().unwrap().0,
+        [
+            (0x2000, vec![0xab; 8], false),
+            (0x2000, vec![0x44; 8], true)
+        ]
+    );
+}
+
+#[test]
+fn split_access_leaves_pci_device_untouched_when_collateral_ram_is_unbacked() {
+    let (mut bus, pci, seen, _) = configured();
+    config_write(&pci, 0x10, 0x3000);
+    let memory = Arc::new(GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 0x3000)]).unwrap());
+    bus.set_ram_fallback(memory, 0x4000).unwrap();
+
+    let mut bytes = [0x55; 32];
+    assert!(bus.read(0x3010, &mut bytes).is_err());
+    assert!(bus.write(0x3010, &[0x44; 32]).is_err());
+    assert!(seen.lock().unwrap().0.is_empty());
+    assert_eq!(bytes, [0x55; 32]);
+
+    // The BAR owns its entire span even if the RAM behind it is missing.
+    bus.read(0x3000, &mut bytes).unwrap();
+    bus.write(0x3000, &[0x44; 32]).unwrap();
+    assert_eq!(
+        seen.lock().unwrap().0,
+        [(0, vec![0xab; 32], false), (0, vec![0x44; 32], true)]
+    );
+}
+
+#[test]
 fn invalid_ram_fallback_profile_retains_the_previous_binding() {
     let (mut bus, _, _, memory) = configured();
     assert!(bus.set_ram_fallback(memory, u64::MAX).is_err());
