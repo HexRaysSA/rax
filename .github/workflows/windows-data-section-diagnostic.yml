@@ -46,7 +46,7 @@ jobs:
         with:
           toolchain: 1.95.0
           cache-key: windows-userland-library-${{ matrix.os }}
-      - name: Check file-section contents and lifetime in RAX
+      - name: Check file-section and installed RTL return behavior in RAX
         shell: pwsh
         env:
           CARGO_INCREMENTAL: '0'
@@ -60,7 +60,8 @@ jobs:
           $env:TMPDIR = $scratch
           $names = @(
             'user::mm::windows_section::tests::file_section_memory_owner_survives_arena_drop_until_last_memory_clone',
-            'user::windows::object_namespace::file_data::tests::native_imported_file_section_maps_the_final_partial_page'
+            'user::windows::object_namespace::file_data::tests::native_imported_file_section_maps_the_final_partial_page',
+            'user::windows::process::sched::tests::services_tests::processor_feature_tests::installed_processor_feature_query_leaf_and_rtl_read_guest_policy'
           )
           foreach ($name in $names) {
             $lines = cargo test --locked --no-default-features -p rax --lib -- $name --exact
