@@ -7,6 +7,8 @@ use std::sync::Arc;
 
 use crate::user::windows::nt::status::{STATUS_BUFFER_TOO_SMALL, STATUS_OBJECT_NAME_NOT_FOUND};
 
+use super::Error;
+
 const MAX_BLOB: usize = 8 << 20;
 const MAX_ENTRIES: usize = 4096;
 const MAX_VALUE: usize = 1 << 20;
@@ -20,7 +22,7 @@ pub(super) struct Value {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Catalog {
-    values: BTreeMap<Vec<u16>, Result<Value, u32>>,
+    values: BTreeMap<Vec<u16>, Result<Value, Error>>,
 }
 
 impl Catalog {
@@ -42,12 +44,12 @@ impl Catalog {
         }
     }
 
-    pub(super) fn value(&self, name: &[u16]) -> Result<&Value, u32> {
+    pub(super) fn value(&self, name: &[u16]) -> Result<&Value, Error> {
         self.values
             .get(name)
-            .ok_or(STATUS_OBJECT_NAME_NOT_FOUND)?
+            .ok_or(Error::Status(STATUS_OBJECT_NAME_NOT_FOUND))?
             .as_ref()
-            .map_err(|status| *status)
+            .map_err(|error| *error)
     }
 }
 
@@ -140,7 +142,7 @@ fn capture_with(
             if status != 0 && status != STATUS_BUFFER_TOO_SMALL {
                 let (mut verify_kind, mut verify_size) = (u32::MAX, 0);
                 if query(name, &mut [], &mut verify_kind, &mut verify_size) == status {
-                    captured = Some(Err(status));
+                    captured = Some(Err(Error::Status(status)));
                     break;
                 }
                 continue;
@@ -169,9 +171,11 @@ fn capture_with(
                 break;
             }
         }
-        let entry = captured.ok_or(
-            "native software policy changed or left undefined bytes during bounded capture",
-        )?;
+        // Callback-backed values can vary between reads. Keep the failure on
+        // the corresponding name so stable startup values remain available.
+        let entry = captured.unwrap_or(Err(Error::Unsupported(
+            "native software policy value changed or left undefined bytes during bounded capture",
+        )));
         total = total
             .checked_add(name.len() * 2)
             .and_then(|n| n.checked_add(entry.as_ref().map_or(0, |value| value.data.len())))

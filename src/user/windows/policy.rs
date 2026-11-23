@@ -42,7 +42,7 @@ pub(crate) fn startup_value(
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Error {
     Status(u32),
     Unsupported(&'static str),
