@@ -111,3 +111,18 @@ and ES set. The probe checks whether the next FWAIT produces a native
 control confirmed a divide-by-zero signal at FWAIT with ZE and ES set,
 and normal FWAIT completion with the exception masked.
 [Intel SDM, Vol. 1, §§8.7.1 and 8.7.2](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The hosted x87 case stopped at FWAIT at `0x10024` with VM-exit reason
+0, interruption information `0x80000310` and x87 status `0xb084`.
+The guest had read NE clear from CR0 while its VMX backing still had
+NE set. Changing the shadow therefore leaves native `#MF` generation
+active on this SDK. Legacy IRQ13 delivery needs separate handling.
+[Hosted x87 control](https://github.com/HexRaysSA/rax/actions/runs/45092447779/job/137424827408)
+
+The signed control repeated both NE transitions and the final HLT in a
+separate VM in the same run. It used revision
+`9963eb009fefcf20acd9d1d04b3b82b2d6ca2334` in an untranslated Intel
+process inside a hypervisor guest. Artifact `14782365805` matched
+SHA-256 `d76a68dc7ace563f32aa2ddebb31383f5714dacfcbc23a5d225488aeed299efb`.
+The executable's signature, entitlement, architecture and three C
+source digests were independently verified.
