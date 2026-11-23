@@ -34,6 +34,10 @@ on:
         description: Record guest NT service statuses during the installed child check
         type: boolean
         default: false
+      measure_native_arm64_child_apphelp:
+        description: Observe the native ARM64 CMD child AppHelp request and reply
+        type: boolean
+        default: false
       measure_native_token_duplicate:
         description: Measure duplication of the test process's own token
         type: boolean
@@ -109,6 +113,89 @@ jobs:
           New-Item -ItemType Directory -Path $scratch -Force | Out-Null
           @("TMPDIR=$scratch", "TMP=$scratch", "TEMP=$scratch") |
             Add-Content -LiteralPath $env:GITHUB_ENV -Encoding utf8
+      - name: Observe native ARM64 CMD child AppHelp
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.measure_native_arm64_child_apphelp && matrix.target == 'aarch64-pc-windows-msvc' }}
+        shell: pwsh
+        timeout-minutes: 12
+        continue-on-error: true
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'target/windows-installed-process'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $scratch = Join-Path $env:TMPDIR 'native-arm64-child-apphelp'
+          New-Item -ItemType Directory -Path $scratch -Force | Out-Null
+          function Find-Arm64Debugger {
+            $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
+            @('Debuggers/arm64/cdb.exe') |
+              ForEach-Object { Join-Path $kits $_ } |
+              Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+              Select-Object -First 1
+          }
+          $cdb = Find-Arm64Debugger
+          if (!$cdb) {
+            $sdk = Get-ItemProperty 'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+              Where-Object { $_.DisplayName -match 'Windows Software Development Kit' -and
+                             $_.DisplayVersion -like '10.1.26100.*' -and $_.BundleCachePath -and
+                             (Test-Path -LiteralPath $_.BundleCachePath -PathType Leaf) } |
+              Sort-Object DisplayVersion -Descending | Select-Object -First 1
+            $installer = $sdk.BundleCachePath
+            if (!$installer) {
+              $installer = Join-Path $scratch 'winsdksetup.exe'
+              Invoke-WebRequest 'https://go.microsoft.com/fwlink/?linkid=2349110' -OutFile $installer
+            }
+            $sign = Get-AuthenticodeSignature -LiteralPath $installer
+            if ($sign.Status -ne 'Valid' -or $sign.SignerCertificate.Subject -notmatch '(?:^|, )O=Microsoft Corporation(?:,|$)') {
+              throw 'SDK installer signature could not be verified'
+            }
+            $installLog = Join-Path $scratch 'winsdksetup.log'
+            $install = Start-Process -FilePath $installer -ArgumentList @(
+              '/features', 'OptionId.WindowsDesktopDebuggers', '/q', '/norestart', '/log', ('"{0}"' -f $installLog)
+            ) -PassThru -Wait
+            if ($install.ExitCode -ne 0) { throw "SDK debugger component setup exited $($install.ExitCode)" }
+            $cdb = Find-Arm64Debugger
+          }
+          if (!$cdb) { throw 'Native ARM64 console debugger is unavailable' }
+
+          $cmd = Join-Path $env:SystemRoot 'System32/cmd.exe'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $identity = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            cmd_sha256 = (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
+            ntdll_sha256 = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+            debugger_version = (Get-Item -LiteralPath $cdb).VersionInfo.ProductVersion
+          }
+          $commands = @'
+          .effmach arm64
+          bu0 ntdll!NtApphelpCacheControl ".if (@w0 != 0n11) { gc }"
+          g
+          bc 0
+          r $t0=@x1
+          r $t1=poi(@$t0+0x178)
+          .printf "\nRAX_APPHELP_ENTRY mask=%x flags=%x name_bytes=%u capacity=%u\n", dwo(@$t0), dwo(@$t0+4), wo(@$t0+0x30), dwo(@$t0+0x180)
+          gu
+          .printf "\nRAX_APPHELP_RETURN status=%x bytes=%u\n", @w0, dwo(@$t0+0x180)
+          .if (@w0==0 && dwo(@$t0+0x180)==0n64 && @$t1!=0) { .for (r $t2=0; @$t2<0n64; r $t2=@$t2+4) { .printf "\nRAX_APPHELP_WORD offset=%u value=%08x\n", @$t2, dwo(@$t1+@$t2) } }
+          g
+          '@
+          $raw = Join-Path $scratch 'debugger.log'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $commands -split '\r?\n' | & $cdb -G -noshell -sins -netsyms:no -y $scratch $cmd /d /c $cmd /d /c echo rax-child 2>&1 |
+            Set-Content -LiteralPath $raw -Encoding utf8
+          $identity.debugger_exit = $LASTEXITCODE
+          $identity.cmd_unchanged = $identity.cmd_sha256 -eq (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
+          $identity.ntdll_unchanged = $identity.ntdll_sha256 -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+          $summary = Join-Path $root 'arm64-native-child-apphelp.log'
+          $pattern = '^RAX_APPHELP_(?:ENTRY|RETURN|WORD) |^rax-child\s*$'
+          $observations = @(Get-Content -LiteralPath $raw | Where-Object { $_ -match $pattern })
+          Set-Content -LiteralPath $summary -Value $observations -Encoding utf8
+          $identity.complete = (Select-String -LiteralPath $raw -Quiet -Pattern '^RAX_APPHELP_ENTRY mask=1f flags=[0-9a-f]+ name_bytes=\d+ capacity=4096$') -and
+                               (Select-String -LiteralPath $raw -Quiet -Pattern '^RAX_APPHELP_RETURN status=[0-9a-f]+ bytes=\d+$') -and
+                               (Select-String -LiteralPath $raw -Quiet -Pattern '^rax-child\s*$')
+          $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'arm64-native-child-apphelp-identity.json') -Encoding utf8
+          if ($identity.debugger_exit -ne 0 -or !$identity.complete -or !$identity.cmd_unchanged -or !$identity.ntdll_unchanged) {
+            throw 'Native ARM64 stock CMD AppHelp observation did not complete'
+          }
+          Get-Content -LiteralPath $summary
       - name: Select native Windows ARM64 Rust host
         if: matrix.target == 'aarch64-pc-windows-msvc'
         run: rustup set default-host aarch64-pc-windows-msvc
@@ -682,6 +769,8 @@ jobs:
             target/windows-installed-process/receipt.json
             target/windows-installed-process/capi.log
             target/windows-installed-process/child-capi.log
+            target/windows-installed-process/arm64-native-child-apphelp.log
+            target/windows-installed-process/arm64-native-child-apphelp-identity.json
             target/windows-installed-process/filter-receipt.json
             target/windows-installed-process/filter-capi.log
             target/windows-installed-process/native-token-duplicate.log
