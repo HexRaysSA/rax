@@ -267,7 +267,24 @@ impl Vmm {
     }
 
     pub(super) fn apply_native_round(&mut self, turns: &mut Vec<ExecutionTurn>) -> Result<bool> {
+        // ARM HVF PSCI shutdown is already VM-wide when the owners return.
+        // Keep unserviced peer MMIO in the backend for terminal capture.
+        let arm_hvf_shutdown = self.backend_kind == BackendKind::Hvf
+            && self.checkpoint_config.arch == ArchKind::Aarch64
+            && turns
+                .iter()
+                .any(|turn| matches!(turn.exit, VcpuExit::Shutdown));
         for turn in turns.drain(..) {
+            if arm_hvf_shutdown
+                && matches!(
+                    turn.exit,
+                    VcpuExit::MmioRead { .. }
+                        | VcpuExit::MmioWrite { .. }
+                        | VcpuExit::MmioRmw { .. }
+                )
+            {
+                continue;
+            }
             if self.apply_execution_turn(turn, false)? {
                 return Ok(true);
             }

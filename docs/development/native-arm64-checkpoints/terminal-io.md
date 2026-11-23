@@ -54,10 +54,41 @@ arguments and environment used on Apple M4 Max/macOS 27.2. Native cases run
 serially. A normal filtered Cargo run that leaves these cases ignored does not
 establish hardware validation.
 
-Assumption probes and the change-surface map are in the qualification JSON.
-Remaining high-impact requirements include concurrent independently entered SDK
-CPU shutdown, entered-VM reconstruction, SDK streaming FPSR behavior, full
-backend/platform/private-state coverage, all registered writer coordination,
-complete clock/debug/replay integration and physical Intel HVF validation. The
-remaining A32 capability/control and HVF MMIO/intercept requirements also retain
-their original scope. This component does not close the four-finding objective.
+## Pending peer MMIO in a parallel round
+
+RAX latches VM-wide PSCI shutdown inside the AArch64 HVF owner. Once the
+coordinator collects a terminal exit, it keeps each undispatched peer MMIO
+transaction in the owning vCPU record through checkpoint capture. The
+coordinator scans the collected exits in O(V) time, where V is the number of
+collected vCPU exits, and uses O(1) additional space. Explicit embedding wake
+permits the saved transaction to continue after restoration.
+[Arm PSCI DEN0022, §5.10](../../specifications/arm/psci-den0022.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Both vCPUs entered the SDK before shutdown. | The peer waits for a guest release store by the caller before issuing its UART access. The host releases the caller only after collecting the peer's MMIO exit. |
+| A terminal round preserves unserviced transactions in either collection order. | Dispatch the two actual exits in both orders. Compare the terminal private record, then save and restore it into a fresh VM with the source and its kernel gone. Check the guest's next PC, the saved UART bytes and write acknowledgement. |
+
+On baseline `b977e0d39`, the peer-first order installed byte `0xab` in X0,
+advanced the peer PC from `0x40002008` to `0x4000200c`, and cleared its pending
+read after the shared terminal state was latched. The signed baseline log
+SHA-256 is `7db97002f9740a99da119c14ffa7d46b390be12505063465726a8b3dd69f4291`.
+
+The corrected test passed all four read/write and dispatch-order combinations
+on an Apple M4 Max running macOS 27.3 build `26C5035r`. An independent parser
+verified both saved PCs, the shared terminal bit, the exact pending read or
+unacknowledged write, and the untouched PL011 FIFO and control register in
+all four `.rxc` files. Its log SHA-256 is
+`2d06834cd9d40e2370726ac701bb11590d7fff62312b25fd92c5187b5d609e73`.
+The complete signed `terminal_io` module passed all five tests in 387.05 s.
+Its log SHA-256 is `851ddad988f9e6397738bdd532e8557e8df25bd4ab6070c40c186486b4b6c382`.
+The signed nonterminal PL011 dispatch regression also passed at two and four vCPUs.
+The modeled native scheduling suite passed all 11 cases. Its log SHA-256 is
+`50781088fa15c41b867437dad4472f300fc99ab82b97818730091a7168343845`.
+
+Previously qualified scope and assumption probes are in the qualification JSON.
+High-impact open requirements include broader terminal I/O profiles,
+entered-VM reconstruction, SDK streaming FPSR behavior, full backend private
+state, registered writer coordination, clock/debug/replay integration and
+physical Intel HVF validation. A32 capability and control coverage and the
+remaining HVF MMIO and intercept profiles stay open.
