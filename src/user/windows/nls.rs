@@ -81,13 +81,19 @@ pub(crate) fn supports_initialize_profile(
         )
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct InstalledUiLanguage {
+    pub(crate) id: u16,
+    pub(crate) guard_before_write_access: bool,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct Nls {
     sections: BTreeMap<(u32, u32), Arc<[u8]>>,
     initialize: Option<initialize::Initialize>,
     mui: Option<Arc<[u8]>>,
     pub(crate) ui_language_commitment: Option<u32>,
-    pub(crate) installed_ui_language: Option<u16>,
+    pub(crate) installed_ui_language: Option<InstalledUiLanguage>,
 }
 impl Nls {
     pub(crate) fn new(sections: Vec<((u32, u32), Vec<u8>)>) -> io::Result<Self> {

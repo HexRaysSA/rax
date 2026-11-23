@@ -72,7 +72,14 @@ fn native_mui_commitment_returns_the_captured_wow64_status_without_stack_cleanup
     assert!(matches!(dispatch(p, &mut thread), Outcome::Fail(reason)
                      if reason.contains("commitment status is unavailable")));
     thread.cpu.set_sp(sp);
-    for row in profile["wow64_status"].as_array().unwrap() {
+    let release: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-mui-query/wow64-release-ui-language.json"
+    ))
+    .unwrap();
+    for row in [&profile, &release]
+        .into_iter()
+        .flat_map(|profile| profile["wow64_status"].as_array().unwrap())
+    {
         let expected = row.as_u64().unwrap();
         let mut nls = Nls::new(vec![]).unwrap();
         nls.ui_language_commitment = Some(expected as u32);
@@ -91,15 +98,30 @@ fn native_mui_commitment_returns_the_captured_wow64_status_without_stack_cleanup
 
 #[test]
 fn native_mui_install_language_replays_wow64_word_and_guard_effects() {
-    use crate::user::mm::PAGE_SIZE;
-    use crate::user::windows::nls::Nls;
-
-    let profile: serde_json::Value = serde_json::from_str(include_str!(
+    let preview: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../../../docs/specifications/windows/native-mui-query/installed-language-29708-arm64.json"
     ))
     .unwrap();
-    let service = profile["guest_service"].as_u64().unwrap() as u32;
-    assert_eq!(profile["argument_bytes"].as_u64().unwrap(), 4);
+    let release: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-mui-query/wow64-release-ui-language.json"
+    ))
+    .unwrap();
+    // Portable replay injects the service table. The installed leaf test
+    // resolves each selected NTDLL's own service number and return sequence.
+    let service = preview["guest_service"].as_u64().unwrap() as u32;
+    assert_eq!(preview["argument_bytes"].as_u64().unwrap(), 4);
+    replay_wow64_installed_ui_language(&preview, service, false);
+    replay_wow64_installed_ui_language(&release, service, true);
+}
+
+fn replay_wow64_installed_ui_language(
+    profile: &serde_json::Value,
+    service: u32,
+    guard_before_write_access: bool,
+) {
+    use crate::user::mm::PAGE_SIZE;
+    use crate::user::windows::nls::{InstalledUiLanguage, Nls};
+
     let (mut process, mut thread) = fixture(WinArch::X86, "NtQueryInstallUILanguage", service);
     let p = process.state_mut();
     let sp = thread.cpu.sp();
@@ -125,7 +147,10 @@ fn native_mui_install_language_replays_wow64_word_and_guard_effects() {
     assert_eq!(p.space.u32(interior).unwrap(), 0);
 
     let mut nls = Nls::new(vec![]).unwrap();
-    nls.installed_ui_language = Some(profile["langid"].as_u64().unwrap().try_into().unwrap());
+    nls.installed_ui_language = Some(InstalledUiLanguage {
+        id: profile["langid"].as_u64().unwrap().try_into().unwrap(),
+        guard_before_write_access,
+    });
     p.nls = Some(nls);
     let rows = profile["rows"].as_array().unwrap();
     assert_eq!(rows.len(), 8);
@@ -149,7 +174,12 @@ fn native_mui_install_language_replays_wow64_word_and_guard_effects() {
         if protection != 0 && case != "write-guard-retry" {
             p.vm.protect(base, PAGE_SIZE, protection).unwrap();
         }
-        p.space.w32(error, 0x1234_5678).unwrap();
+        p.space
+            .w32(
+                error,
+                row["last_error"].as_u64().unwrap().try_into().unwrap(),
+            )
+            .unwrap();
         thread.cpu.set_sp(sp);
         arguments(p, &mut thread, &[output]);
         thread.cpu.set_gpr(0, u64::from(service));
@@ -183,6 +213,77 @@ fn native_mui_install_language_replays_wow64_word_and_guard_effects() {
             }
         }
     }
+}
+
+#[cfg(all(windows, any(target_arch = "aarch64", target_arch = "x86_64")))]
+#[test]
+fn native_mui_installed_x86_leaves_use_selected_ui_language_snapshot() {
+    use super::secure_connect_tests::installed::try_leaf;
+    use crate::user::mm::PAGE_SIZE;
+    use crate::user::windows::memory::Mem;
+    use crate::user::windows::nt::status::*;
+    use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GetSystemDefaultUILanguage() -> u16;
+    }
+
+    let image =
+        include_bytes!("../../../../../../../tests/fixtures/user/windows/bin/x86/smoke.exe");
+    let mut config =
+        WindowsConfig::embedded("C:\\native-wow64-mui.exe", vec![], vec![], 4096).unwrap();
+    config.native_libraries = true;
+    config.arena_bytes = 256 << 20;
+    let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
+    let p = process.state_mut();
+    let state = p.wow64.as_ref().unwrap();
+    let release = matches!(
+        (state.machine, state.kernel),
+        (0x8664, (10, 0, 20348 | 26100)) | (0xaa64, (10, 0, 26200))
+    );
+    let preview = (state.machine, state.kernel) == (0xaa64, (10, 0, 29708));
+    let (commitment, language) = p.nls.as_ref().map_or((None, None), |nls| {
+        (nls.ui_language_commitment, nls.installed_ui_language)
+    });
+    let (base, _) =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap();
+    p.space.wr(base, &[0xa5; 4]).unwrap();
+    let tid = *p.threads.keys().next().unwrap();
+    let mut thread = p.threads.remove(&tid).unwrap();
+    let commit = try_leaf(p, &mut thread, "NtIsUILanguageComitted", &[]);
+    if !release && !preview {
+        assert!(commitment.is_none() && language.is_none());
+        assert!(commit.is_err());
+        assert_eq!(p.space.bytes(base, 4).unwrap(), [0xa5; 4]);
+        return;
+    }
+    assert_eq!(commit.unwrap(), commitment.unwrap());
+    let language = language.unwrap();
+    // SAFETY: this fixed system query takes no parameters and returns a LANGID.
+    assert_eq!(language.id, unsafe { GetSystemDefaultUILanguage() });
+    assert_eq!(language.guard_before_write_access, release);
+    assert_eq!(
+        try_leaf(p, &mut thread, "NtQueryInstallUILanguage", &[base + 1]).unwrap(),
+        STATUS_SUCCESS
+    );
+    let [low, high] = language.id.to_le_bytes();
+    assert_eq!(p.space.bytes(base, 4).unwrap(), [0xa5, low, high, 0xa5]);
+    p.vm.protect(base, PAGE_SIZE, prot::READONLY | prot::GUARD)
+        .unwrap();
+    let (status, remaining) = if release {
+        (STATUS_GUARD_PAGE_VIOLATION, prot::READONLY)
+    } else {
+        (STATUS_ACCESS_VIOLATION, prot::READONLY | prot::GUARD)
+    };
+    assert_eq!(
+        try_leaf(p, &mut thread, "NtQueryInstallUILanguage", &[base + 1]).unwrap(),
+        status
+    );
+    assert_eq!(p.vm.query(base).unwrap().protect, remaining);
+    p.vm.protect(base, PAGE_SIZE, prot::READONLY).unwrap();
+    assert_eq!(p.space.bytes(base, 4).unwrap(), [0xa5, low, high, 0xa5]);
 }
 
 #[test]

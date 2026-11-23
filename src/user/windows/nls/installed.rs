@@ -127,12 +127,19 @@ pub(crate) fn snapshot(
             profile == super::MuiProfile::ProbeDestination,
         )?)?;
     }
-    if arch == WinArch::X86
-        && native_machine == Some(0xaa64)
-        && (version.major, version.minor, version.build) == (10, 0, 29708)
-    {
+    let kernel = (version.major, version.minor, version.build);
+    let release = matches!(
+        (native_machine, kernel),
+        (Some(0x8664), (10, 0, 20348 | 26100)) | (Some(0xaa64), (10, 0, 26200))
+    );
+    let preview = native_machine == Some(0xaa64) && kernel == (10, 0, 29708);
+    if arch == WinArch::X86 && (release || preview) {
         nls.ui_language_commitment = mui::capture_ui_language_commitment();
-        nls.installed_ui_language = mui::capture_installed_ui_language();
+        nls.installed_ui_language =
+            mui::capture_installed_ui_language().map(|id| super::InstalledUiLanguage {
+                id,
+                guard_before_write_access: release,
+            });
     }
     Ok(nls)
 }

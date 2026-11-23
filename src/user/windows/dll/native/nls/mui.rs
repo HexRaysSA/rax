@@ -23,10 +23,14 @@ pub(in super::super) fn installed_ui_language(c: &mut Ctx) -> ApiResult {
     // The observed WoW64 call accepts an unaligned LANGID.
     let result = c
         .mem()
-        .w16(output, language)
+        .w16(output, language.id)
         .map_err(ApiErr::from)
         .and_then(|()| Flow::ret(STATUS_SUCCESS.into()));
-    write_status(c, result)
+    if language.guard_before_write_access {
+        fault_status(super::super::query::guard_result(c, result))
+    } else {
+        write_status(c, result)
+    }
 }
 
 pub(crate) fn query(c: &mut Ctx) -> ApiResult {
@@ -35,7 +39,11 @@ pub(crate) fn query(c: &mut Ctx) -> ApiResult {
 }
 
 fn write_status(c: &mut Ctx, result: ApiResult) -> ApiResult {
-    match super::super::query::write_guard_result(c, result) {
+    fault_status(super::super::query::write_guard_result(c, result))
+}
+
+fn fault_status(result: ApiResult) -> ApiResult {
+    match result {
         Err(ApiErr::Fault(_)) => Flow::ret(STATUS_ACCESS_VIOLATION.into()),
         result => result,
     }

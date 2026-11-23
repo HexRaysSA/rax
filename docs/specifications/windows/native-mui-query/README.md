@@ -135,6 +135,37 @@ record unaligned success, an unchanged word prefix on a cross-page failure,
 and the different guard effects on writable and read-only pages. The guest
 call leaves the caller's last error unchanged.
 
+## Released Windows WoW64 UI language
+
+Windows Server 2022 (AMD64 build 20348), Windows Server 2025 (AMD64 build
+26100), and Windows 11 (ARM64 build 26200) use the same query-only snapshot.
+The installed x86 and native64 probes agreed on the commitment status, the
+LANGID and all eight pointer cases. The ARM64 controls exercised both
+`SyChpe32/ntdll.dll` and the pure x86 `SysWOW64/ntdll.dll`.
+
+On the three released builds, a read-only guard returns
+`STATUS_GUARD_PAGE_VIOLATION`, clears the guard and preserves the destination
+bytes. The existing ARM64 29708 profile returns `STATUS_ACCESS_VIOLATION` for
+that case and preserves the read-only guard. Both profiles preserve the
+caller's last error.
+
+The [release projection](wow64-release-ui-language.json) retains the installed
+provider and executable identities. Regenerate it with
+`project-wow64-ui-languages.py`, supplying the extracted
+[three-runner artifacts](https://github.com/HexRaysSA/rax/actions/runs/45154098254)
+directory followed by the extracted
+[pure x86 ARM64 artifact](https://github.com/HexRaysSA/rax/actions/runs/45155229857)
+directory.
+
+| ID | Assumption and basis | Dependent result | Stress test and falsification probe | Status |
+| --- | --- | --- | --- | --- |
+| MUI-WOW64-1 | The native64 commitment status and installed LANGID agree with the selected x86 provider on the measured releases. | Acquire and freeze both scalars from the host. | Compare repeated native64 and x86 queries including SysWOW64 and SyChpe32 on ARM64. Any disagreement would invalidate common acquisition. | Confirmed for the captured builds. |
+| MUI-WOW64-2 | Read-only guard behavior is stable across the measured release providers. | Consume the guard before reporting the write fault. | Compare both guard modes, the subsequent unguarded retry, cross-page prefix bytes and the caller's last error. Any status, protection or output mismatch would require a separate profile. | Confirmed for the captured builds. |
+
+High-impact remaining scope includes MUI mutation, other Windows builds and
+installed process startup after these queries. Each guest call uses O(1)
+time and O(1) space.
+
 ## MUI registry enumeration
 
 After the installed UI-language query, SysWOW64 CMD on Windows ARM64 build

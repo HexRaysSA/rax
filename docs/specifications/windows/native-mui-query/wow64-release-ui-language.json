@@ -1,0 +1,183 @@
+{
+  "langid": 1033,
+  "wow64_status": [
+    0,
+    0,
+    0
+  ],
+  "rows": [
+    {
+      "case": "aligned",
+      "status": 0,
+      "last_error": 4660,
+      "protection": 4,
+      "bytes": [
+        9,
+        4,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "unaligned",
+      "status": 0,
+      "last_error": 4660,
+      "protection": 4,
+      "bytes": [
+        165,
+        9,
+        4,
+        165
+      ]
+    },
+    {
+      "case": "null",
+      "status": 3221225477,
+      "last_error": 4660,
+      "protection": 4,
+      "bytes": [
+        165,
+        165,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "readonly",
+      "status": 3221225477,
+      "last_error": 4660,
+      "protection": 2,
+      "bytes": [
+        165,
+        165,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "cross-page",
+      "status": 3221225477,
+      "last_error": 4660,
+      "protection": 4,
+      "bytes": [
+        165,
+        165,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "write-guard",
+      "status": 2147483649,
+      "last_error": 4660,
+      "protection": 4,
+      "bytes": [
+        165,
+        165,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "write-guard-retry",
+      "status": 0,
+      "last_error": 4660,
+      "protection": 4,
+      "bytes": [
+        9,
+        4,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "readonly-guard",
+      "status": 2147483649,
+      "last_error": 4660,
+      "protection": 2,
+      "bytes": [
+        165,
+        165,
+        165,
+        165
+      ]
+    }
+  ],
+  "installed_controls": [
+    {
+      "kernel": [
+        10,
+        0,
+        20348
+      ],
+      "native_machine": 34404,
+      "x86_provider": "syswow64",
+      "x86_provider_sha256": "18b21d602d2c26811bf4e15e8881aa7e87a4c18ad1846dae61f829b47fddbba7",
+      "native_provider_sha256": "a0e40b2c09fc47964f7802bebfcd0b2136bfb80b9f833a62b68651b44b003380",
+      "source_sha256": "cc9412340303f295f0fb3ee5594fa8460eb2acdaa117c77a454fb97bce0e013a",
+      "executables_sha256": {
+        "native64.exe": "e63a14c05a9e7863c099b1bb1c816f028bb7cab40694bf3aa1b3fe76b475669a",
+        "wow64.exe": "479d19716e4d02a6754793366cfc4da1b913b3e23fcb80cccaa98eaca4533afa"
+      },
+      "wow64_log_sha256": "3ff619a11426d82b79549c427f473892c7cc08043cab91f432bdee42a607b8d1",
+      "native64_log_sha256": "28c74b3cbfaa258211374fe41dcd22a00284900a64993bf6cf2f1ce2024e7cc1",
+      "input_identities_sha256": "122ee7a8ab7bcc77ef26cb393c0183a2d4128d0dbaa629441fc4497783b936a9"
+    },
+    {
+      "kernel": [
+        10,
+        0,
+        26100
+      ],
+      "native_machine": 34404,
+      "x86_provider": "syswow64",
+      "x86_provider_sha256": "ea717959880025671f87a94a1f20508e7d7e1e9ee7ea7304c02b0c4a82d93ff3",
+      "native_provider_sha256": "4092c01cb70e15a956d76ca43366a6e324f1154eab7bf7636fe13236215c578a",
+      "source_sha256": "cc9412340303f295f0fb3ee5594fa8460eb2acdaa117c77a454fb97bce0e013a",
+      "executables_sha256": {
+        "native64.exe": "fd8ab94434d52435ffec8d0a5fa2f2f9ac95443dc3a3f2754016986f9b888e8e",
+        "wow64.exe": "e4c7d60d496d4879002ab9b260b8357b122a8b1ac8e65e0753fd7442a4cb970d"
+      },
+      "wow64_log_sha256": "02abbd97ea5da0d16ebfcfa6abe98260a31791a548abcf8322419286ec66f1bc",
+      "native64_log_sha256": "6a14b68de049bfe6dc6791018804943d82a7789623f453136468452b84f823e3",
+      "input_identities_sha256": "d4c6500c04c00e35081fd9a0683c135955c342037dfba623344d0c60eda97517"
+    },
+    {
+      "kernel": [
+        10,
+        0,
+        26200
+      ],
+      "native_machine": 43620,
+      "x86_provider": "sychpe32",
+      "x86_provider_sha256": "a892a10cec2e93f3983acc2eb031faa108154ddabb4b9d6e19f2497a46db08a1",
+      "native_provider_sha256": "3a1617c63d3a69f7f4d740bdbbe65c3d34ec28c2a7254902dc130e5b2bbe7209",
+      "source_sha256": "cc9412340303f295f0fb3ee5594fa8460eb2acdaa117c77a454fb97bce0e013a",
+      "executables_sha256": {
+        "native64.exe": "9be71d8ed1b958777e9a9ebdd170c86ab22ddc2a7ef513c67b6cb7125dc16dad",
+        "wow64.exe": "129e8933b0ef29b5d5507b5534ef7170468202d23c57034fe81d63c72570b8e1"
+      },
+      "wow64_log_sha256": "1dc29c38fcdaf49c26bb2c1065a80712b235e5e40b54e78a65b85dd6e9658f54",
+      "native64_log_sha256": "1f1338fc01967bba393598162ee830a8df5bed75289152553334121f13c86bea",
+      "input_identities_sha256": "53dc20d53eccae9efa54cc79a3a706648c678062b9e4a5f793c92291d48c1481"
+    }
+  ],
+  "pure_arm64": {
+    "kernel": [
+      10,
+      0,
+      26200
+    ],
+    "native_machine": 43620,
+    "x86_provider": "syswow64",
+    "x86_provider_sha256": "9c7dbc587db93e8294aced6c2571c1122726aeccfda8b5969c278cbd81d6b509",
+    "source_sha256": "940cb786d2eca7919a281ba9b8fccae70b63501cb937f361b7207228867f42bb",
+    "executables_sha256": {
+      "launcher.exe": "0b4544112c8ded63139774001ff35faeb623ecada597064c29240e7c4b894687",
+      "observe.exe": "4d697297c67b62eb1d64bb7396fbe9af702555d54c5f8f4f9fbb704d70fbe842"
+    },
+    "x86_log_sha256": "dde2031b9edb779015bf84c0a44e380b763ba00067bdb84473da46774e0e8a24",
+    "translated_log_sha256": "1dc29c38fcdaf49c26bb2c1065a80712b235e5e40b54e78a65b85dd6e9658f54",
+    "input_identities_sha256": "2eb178e81323de5af79ac24f3dcd7e1508b5865f0cc2fa405bcca582aa4e1c43"
+  }
+}
