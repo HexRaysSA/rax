@@ -25,6 +25,7 @@ on:
           - movnti
           - legacy-xmm
           - vex-xmm
+          - compat-mmio
           - port-debug
           - string-mmio
           - cmpxchg8b

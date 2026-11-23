@@ -26,6 +26,8 @@ mod cmpxchg16b;
 mod cmpxchg8b;
 #[path = "intel_mmio_coherence.rs"]
 mod coherence;
+#[path = "intel_mmio_compat.rs"]
+mod compat;
 #[path = "intel_mmio_crc32.rs"]
 mod crc32;
 #[path = "intel_mmio_divide.rs"]
@@ -1361,6 +1363,12 @@ fn main() {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
         xmm::run(&output, profile == "--vex-xmm");
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--compat-mmio")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        compat::run(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--crc32")) {
