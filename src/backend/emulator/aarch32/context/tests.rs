@@ -1,6 +1,6 @@
 use super::*;
 use crate::isa::arm::Psr;
-use crate::vm::vcpu::{CpuState, VCpu, VcpuExit};
+use crate::vm::vcpu::{CpuState, RetirementStop, VCpu, VcpuExit};
 use std::sync::Arc;
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
@@ -77,6 +77,43 @@ fn guest_written_cpacr_and_fpexc_survive_context_restore_and_still_fault() {
         assert_eq!(live.instruction_count(), 1);
         assert_eq!(live.cpu.vfp.read_s_bits(0), 0x1234_5678);
         assert_eq!(state(&live), state(&resumed), "control {control:#010x}");
+    }
+}
+
+#[test]
+fn fp_retirement_wraps_after_restore_in_arm_and_thumb() {
+    for (thumb, instruction) in [(false, VADD), (true, VADD.rotate_left(16))] {
+        for enabled in [true, false] {
+            let (mut live, memory) = fixture(&[instruction]);
+            live.cpu.cpsr.t = thumb;
+            if !enabled {
+                live.cpu.vfp.fpexc = 0;
+            }
+            live.cpu.vfp.write_s_bits(0, 0x1234_5678);
+            live.cpu.vfp.write_s_bits(2, 1.0_f32.to_bits());
+            live.cpu.vfp.write_s_bits(4, 2.0_f32.to_bits());
+            live.insn_count = u64::MAX;
+
+            let mut resumed = Aarch32Vcpu::new(0, memory);
+            resumed.restore_context(&state(&live)).unwrap();
+            for cpu in [&mut live, &mut resumed] {
+                let run = cpu.run_retirement_budget(1).unwrap();
+                if enabled {
+                    assert!(matches!(run.stop, RetirementStop::BudgetExhausted));
+                    assert_eq!(run.retired, 1);
+                    assert_eq!(cpu.current_pc(), u64::from(CODE + 4));
+                    assert_eq!(cpu.instruction_count(), 0);
+                    assert_eq!(cpu.cpu.vfp.read_s_bits(0), 3.0_f32.to_bits());
+                } else {
+                    assert!(matches!(run.stop, RetirementStop::StateChange));
+                    assert_eq!(run.retired, 0);
+                    assert_eq!(cpu.current_pc(), 4);
+                    assert_eq!(cpu.instruction_count(), u64::MAX);
+                    assert_eq!(cpu.cpu.vfp.read_s_bits(0), 0x1234_5678);
+                }
+            }
+            assert_eq!(state(&live), state(&resumed));
+        }
     }
 }
 

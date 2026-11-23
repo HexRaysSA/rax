@@ -769,3 +769,23 @@ unfiltered owners passed all 47,651 tests across `a32_fp_controls`,
 `a32_fp_pairs`, `arm`, `arm_vfp_a32`, and `isa_oracle`. The combined
 passing log SHA-256 is
 `022553e1317fdde2e83e2ac3c1f46fdd53623cfa41a12367eb7b97a6b11adda5`.
+
+## Retirement after restoring the maximum instruction counter
+
+A standalone AArch32 checkpoint accepts every unsigned 64-bit retirement
+counter value. Successful ARM and Thumb retirement now increments it modulo
+2^64. The shared budget runner measures the delta with wrapping subtraction.
+Exception entry leaves the counter unchanged.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A decoded FP instruction can retire across the counter boundary. | Start at `u64::MAX` in each instruction set, directly and after loading the same saved state into a fresh vCPU. Require one retired unit, counter zero, PC advanced by four bytes and the exact destination bits. |
+| FP access denial remains nonretiring at the boundary. | Repeat with FPEXC.EN clear. Require the Undefined Instruction vector, the original destination bits and the maximum counter value. |
+
+A public-API probe restored a `RAXA3202` record containing `u64::MAX`
+and triggered the old debug overflow while retiring `VADD`. The baseline
+log SHA-256 is `9ac45392dd8e5d404e2a0e821b298f8a99f7dd279d6f91d6b462d19627f92481`.
+The direct and restored ARM and Thumb regression passed on Intel Linux.
+The unfiltered library and ten integration targets passed 61,985 tests,
+with 100 opt-in tests ignored. The combined log SHA-256 is
+`7d26dd5fd5e3b583e9f725f1ccc9219b78bff2a5a9c9ab4abbe5ef477dacc7c8`.

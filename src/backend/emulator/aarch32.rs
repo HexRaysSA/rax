@@ -456,7 +456,7 @@ impl Aarch32Vcpu {
                 return Err(self.take_fault(pc, MemoryAccessKind::Read));
             }
         };
-        self.insn_count += 1;
+        self.insn_count = self.insn_count.wrapping_add(1);
         Ok(retired)
     }
 }
