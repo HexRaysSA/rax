@@ -180,6 +180,7 @@ fn installed_perl_loads_its_on_disk_dylib_through_closed_c_abi() {
         "darwin",
         "/usr/bin/perl",
         &["-e", "print qq(installed Perl\\n);"],
+        &[],
         b"installed Perl\n",
     );
 }
@@ -281,7 +282,25 @@ fn installed_darwin_job_control_matches_native_through_closed_c_abi() {
 #[cfg(target_os = "linux")]
 #[test]
 fn installed_cat_reads_guest_null_through_closed_c_abi() {
-    compare_installed_posix_output("linux", "/bin/cat", &["/dev/null"], b"");
+    compare_installed_posix_output("linux", "/bin/cat", &["/dev/null"], &[], b"");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+#[ignore = "run explicitly with GNU date and installed timezone data"]
+fn installed_date_uses_named_timezones_through_closed_c_abi() {
+    for (instant, expected) in [
+        ("--date=@1704067200", "2023-12-31 19:00:00 EST -0500\n"),
+        ("--date=@1721001600", "2024-07-14 20:00:00 EDT -0400\n"),
+    ] {
+        compare_installed_posix_output(
+            "linux",
+            "/usr/bin/date",
+            &[instant, "+%Y-%m-%d %T %Z %z"],
+            &[("LC_ALL", "C"), ("TZ", "America/New_York")],
+            expected.as_bytes(),
+        );
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -295,7 +314,13 @@ fn installed_libc_pipe_matches_native_through_closed_c_abi() {
         elf.interpreter().is_some(),
         "fixture must be dynamically linked"
     );
-    compare_installed_posix_output("linux", &path, &[], b"guest pipe through installed libc\n");
+    compare_installed_posix_output(
+        "linux",
+        &path,
+        &[],
+        &[],
+        b"guest pipe through installed libc\n",
+    );
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -310,6 +335,7 @@ fn installed_head_reads_guest_zero_through_closed_c_abi() {
         personality,
         "/usr/bin/head",
         &["-c", "16", "/dev/zero"],
+        &[],
         &[0; 16],
     );
 }
@@ -707,7 +733,7 @@ fn installed_darwin_sh_selects_a_supplied_variant_through_closed_c_abi() {
     ) {
         let mut target = variant.as_bytes().to_vec();
         target.push(b'\n');
-        compare_installed_posix_output("darwin", "/usr/bin/readlink", &[selector], &target);
+        compare_installed_posix_output("darwin", "/usr/bin/readlink", &[selector], &[], &target);
     }
 }
 
@@ -1176,11 +1202,13 @@ fn compare_installed_posix_output(
     personality: &str,
     path: &str,
     arguments: &[&str],
+    environment: &[(&str, &str)],
     expected_stdout: &[u8],
 ) {
     let native = std::process::Command::new(path)
         .args(arguments)
         .env_clear()
+        .envs(environment.iter().copied())
         .output()
         .unwrap();
     assert!(native.status.success());
@@ -1191,6 +1219,7 @@ fn compare_installed_posix_output(
         "personality": personality,
         "guest_path": path,
         "arguments": arguments,
+        "environment": environment.iter().copied().collect::<std::collections::BTreeMap<_, _>>(),
         "native_runtime": true,
         "memory_bytes": 268435456,
     });

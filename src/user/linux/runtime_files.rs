@@ -1,5 +1,5 @@
-//! Native Linux runtime selection for a closed process. Installed loader and
-//! library directories are mounted read-only; there is no general host path
+//! Native Linux runtime selection for a closed process. Installed libraries
+//! and timezone data are read-only; there is no general host path
 //! fallback, host descriptor exposure, or separate sysroot requirement.
 #[cfg(target_os = "linux")]
 use crate::user::supplied_fs::WorkspaceFlavor;
@@ -13,22 +13,15 @@ use std::{collections::BTreeMap, path::PathBuf};
 mod ld_cache;
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
-/// installed ELF libraries that cache names outside the roots. Include a
+/// installed ELF libraries that cache names outside the roots, and installed
+/// timezone data. Include a
 /// synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
 pub fn native(files: &Files) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     {
-        let roots = installed_roots(Path::new("/"));
-        if roots.is_empty() {
-            return Err(io::Error::new(
-                io::ErrorKind::NotFound,
-                "no installed Linux library directories",
-            ));
-        }
-        let cache = PathBuf::from("/etc/ld.so.cache");
-        select(files, roots, cache.is_file().then_some(cache))
+        select_installed(files, Path::new("/"))
             .map(|files| files.with_temp_workspace(WorkspaceFlavor::Linux))
     }
     #[cfg(not(target_os = "linux"))]
@@ -39,6 +32,57 @@ pub fn native(files: &Files) -> io::Result<Files> {
             "native Linux runtime selection requires a Linux host",
         ))
     }
+}
+
+#[cfg(target_os = "linux")]
+fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
+    use crate::user::supplied_fs::Error;
+
+    let mut roots = installed_roots(root);
+    if roots.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "no installed Linux library directories",
+        ));
+    }
+    let zoneinfo = root.join("usr/share/zoneinfo");
+    if zoneinfo.is_dir() {
+        roots.insert("/usr/share/zoneinfo".into(), zoneinfo);
+    }
+    let cache = root.join("etc/ld.so.cache");
+    let files = select(files, roots, cache.is_file().then_some(cache))?;
+    const LOCALTIME: &str = "/etc/localtime";
+    if matches!(
+        files.lookup_with_follow(LOCALTIME, false),
+        Err(Error::NotFound)
+    ) && let Ok(source) = open_localtime(&root.join("etc/localtime"))
+    {
+        return files
+            .with_selected_backings(BTreeMap::from([(LOCALTIME.into(), source.into())]))
+            .map_err(io::Error::other);
+    }
+    Ok(files)
+}
+
+#[cfg(target_os = "linux")]
+fn open_localtime(path: &Path) -> io::Result<crate::user::mm::HostFileSource> {
+    use crate::user::mm::HostFileSource;
+    use std::os::unix::fs::{FileExt, OpenOptionsExt};
+
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK)
+        .open(path)?;
+    let invalid = || io::Error::new(io::ErrorKind::InvalidData, "installed TZif localtime");
+    if !file.metadata()?.is_file() {
+        return Err(invalid());
+    }
+    let mut header = [0; 44];
+    file.read_exact_at(&mut header, 0)?;
+    if &header[..4] != b"TZif" || !matches!(header[4], 0 | b'2' | b'3' | b'4') {
+        return Err(invalid());
+    }
+    HostFileSource::new(file)
 }
 
 #[cfg(any(target_os = "linux", all(test, unix)))]
@@ -143,6 +187,61 @@ fn open_cached_library(path: &std::path::Path) -> io::Result<crate::user::mm::Ho
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_timezone_selection_preserves_overrides_and_root_boundaries() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, os::unix::fs::symlink, sync::Arc};
+
+        let fixture = TestFile::new(b"outside", 7);
+        let root = &fixture.dir;
+        let zones = root.join("usr/share/zoneinfo");
+        let localtime = root.join("etc/localtime");
+        fs::create_dir_all(zones.join("America")).unwrap();
+        fs::create_dir(root.join("etc")).unwrap();
+        let mut header = [0; 44];
+        header[..5].copy_from_slice(b"TZif2");
+        fs::write(zones.join("America/New_York"), header).unwrap();
+        symlink("America/New_York", zones.join("EST5EDT")).unwrap();
+        symlink(&fixture.path, zones.join("outside")).unwrap();
+        symlink("../usr/share/zoneinfo/EST5EDT", &localtime).unwrap();
+
+        let files = Files::default();
+        assert_eq!(
+            select_installed(&files, root).unwrap_err().kind(),
+            io::ErrorKind::NotFound
+        );
+        fs::create_dir_all(root.join("usr/lib")).unwrap();
+        let selected = select_installed(&files, root).unwrap();
+        for path in ["/usr/share/zoneinfo/EST5EDT", "/etc/localtime"] {
+            assert_eq!(&*selected.read(path).unwrap(), &header, "{path}");
+        }
+        for path in ["/usr/share/zoneinfo/outside", "/backing"] {
+            assert!(matches!(selected.read(path), Err(Error::NotFound)));
+        }
+        let override_path = "/usr/share/zoneinfo/America/New_York";
+        let explicit = Files::new(BTreeMap::from([
+            (override_path.into(), Arc::from(&b"supplied zone"[..])),
+            ("/etc/localtime".into(), Arc::from(&b"supplied default"[..])),
+        ]))
+        .unwrap();
+        let selected = select_installed(&explicit, root).unwrap();
+        assert_eq!(&*selected.read(override_path).unwrap(), b"supplied zone");
+        assert_eq!(
+            &*selected.read("/etc/localtime").unwrap(),
+            b"supplied default"
+        );
+
+        fs::remove_file(&localtime).unwrap();
+        fs::write(localtime, b"not a TZif file").unwrap();
+        let selected = select_installed(&files, root).unwrap();
+        assert!(matches!(
+            selected.read("/etc/localtime"),
+            Err(Error::NotFound)
+        ));
+    }
+
     #[test]
     fn selected_runtime_roots_preserve_overrides_and_optional_cache() {
         let fixture = crate::user::supplied_fs::test_backing::TestFile::new(b"installed", 9);
