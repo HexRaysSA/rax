@@ -441,6 +441,16 @@ hypervisor entitlement, and checked all 20 rows. Runtime artifact
 Its observation SHA-256 is
 `e8a1b7fb42dfdcc678d582c90d5e0674ead95cc675b9c8c28a46a2ffae265c0b`.
 
+After the two compatibility profiles began sharing VM construction and
+request checks, hosted run
+[45111980380](https://github.com/HexRaysSA/rax/actions/runs/45111980380)
+at `f3fb15f9d2dbc2da8b360365f8fb09aabefeccab` passed all 20 cases
+again on the same macOS and SDK versions. The observation file is
+byte-for-byte identical to the first run. Verification matched 4,896
+engine inputs, 19 consumer inputs, and the signed executable. Runtime
+artifact `14790696209` has SHA-256
+`2d19cf16697aba4f579cc3909facb90e9f053e30d10d4686cd992d0deb799a8e`.
+
 The direct KVM API witness on a physical Intel Xeon E5-1650 v3
 executed all ten forms with the same addressing and bytes over
 ordinary RAM and verified eight device-hole forms. KVM split each
