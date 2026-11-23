@@ -263,6 +263,27 @@ impl NativeRuntime {
         )?);
         runtime.appcompat =
             super::appcompat::Catalog::snapshot(&root, runtime.registry.upcase_table())?;
+        #[cfg(windows)]
+        if matches!(
+            (
+                runtime.version.major,
+                runtime.version.minor,
+                runtime.version.build,
+                runtime.version.product_type,
+                runtime.object_namespace.native_machine,
+                arch,
+            ),
+            (
+                10,
+                0,
+                20348 | 26100,
+                3,
+                Some(0x8664),
+                WinArch::X64 | WinArch::X86
+            ) | (10, 0, 26200, 1, Some(0xaa64), WinArch::Arm64)
+        ) {
+            runtime.appcompat = runtime.appcompat.with_native_lookup(&root)?;
+        }
         runtime.gui = runtime.select_gui(arch, token_session, &schema_directory);
         Ok(runtime)
     }

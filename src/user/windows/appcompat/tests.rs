@@ -144,6 +144,9 @@ fn appcompat_sdb_snapshot_reads_owned_regular_file_and_rejects_escape() {
     impl Drop for Cleanup {
         fn drop(&mut self) {
             let _ = std::fs::remove_file(self.0.join("AppPatch").join("sysmain.sdb"));
+            let _ =
+                std::fs::remove_file(self.0.join("AppPatch").join("01AB23456789CDEF.sysmain.sdb"));
+            let _ = std::fs::remove_file(self.0.join("AppPatch").join("custom.sysmain.sdb"));
             let _ = std::fs::remove_file(self.0.join("outside.sdb"));
             let _ = std::fs::remove_dir(self.0.join("AppPatch"));
             let _ = std::fs::remove_dir(&self.0);
@@ -159,6 +162,39 @@ fn appcompat_sdb_snapshot_reads_owned_regular_file_and_rejects_escape() {
     assert_eq!(
         catalog.lookup(&"ALPHA.DLL".encode_utf16().collect::<Vec<_>>()),
         0x80
+    );
+    let update = database(&[("alpha.dll", 0x40), ("beta.dll", 0x80)]);
+    std::fs::write(directory.join("01AB23456789CDEF.sysmain.sdb"), update).unwrap();
+    std::fs::write(
+        directory.join("custom.sysmain.sdb"),
+        b"not a selected database",
+    )
+    .unwrap();
+    let mut queried = Vec::new();
+    let live = catalog
+        .with_installed_lookup(&root, |name| {
+            let name = String::from_utf16(name).unwrap();
+            let flags = match name.as_str() {
+                "ALPHA.DLL" => 0,
+                "BETA.DLL" => 0x200,
+                _ => panic!("unexpected candidate {name}"),
+            };
+            queried.push(name);
+            Ok(flags)
+        })
+        .unwrap();
+    assert_eq!(queried, ["ALPHA.DLL", "BETA.DLL"]);
+    assert_eq!(
+        live.lookup(&"alpha.dll".encode_utf16().collect::<Vec<_>>()),
+        0
+    );
+    assert_eq!(
+        live.lookup(&"beta.dll".encode_utf16().collect::<Vec<_>>()),
+        0x200
+    );
+    assert_eq!(
+        live.lookup(&"unknown.dll".encode_utf16().collect::<Vec<_>>()),
+        0
     );
     std::fs::remove_file(&path).unwrap();
     assert!(Catalog::snapshot(&root, Catalog::fixture(&[]).upcase).is_err());
@@ -178,7 +214,7 @@ fn appcompat_sdb_snapshot_reads_owned_regular_file_and_rejects_escape() {
 
 #[cfg(windows)]
 #[test]
-fn appcompat_installed_file_catalog_matches_live_kernel_name_flags() {
+fn appcompat_installed_snapshot_matches_live_kernel_name_flags() {
     use crate::user::windows::arch::WinArch;
     use std::ffi::c_void;
     #[link(name = "ntdll")]

@@ -1,16 +1,20 @@
-//! Immutable base compatibility-database name flags; no guest host operation.
+//! Immutable installed compatibility-database name flags.
 //!
 //! SDB TAGIDs returned by native APIs are opaque. This parser uses independently
 //! checked file extents and string references relative to the string-table tag.
 
 use std::collections::BTreeMap;
 use std::io::{self, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+#[cfg(windows)]
+mod native;
 
 const MAX_FILE_BYTES: usize = 64 << 20;
 const MAX_TAGS: usize = 1_000_000;
 const MAX_NAMES: usize = 65_536;
+const MAX_NAME_BYTES: usize = 4 << 20;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Catalog {
@@ -224,7 +228,7 @@ impl Catalog {
             }
             entries += 1;
             names_bytes += text.len();
-            if entries > MAX_NAMES || names_bytes > 4 << 20 {
+            if entries > MAX_NAMES || names_bytes > MAX_NAME_BYTES {
                 return Err(invalid("SDB names exceed bounds"));
             }
             let units: Vec<_> = text[..text.len() - 2]
@@ -237,25 +241,92 @@ impl Catalog {
         Ok(result)
     }
 
-    pub(crate) fn snapshot(root: &Path, upcase: Arc<[u16]>) -> io::Result<Self> {
+    fn installed_directory(root: &Path) -> io::Result<PathBuf> {
         let root = root.canonicalize()?;
         let directory = root.join("AppPatch").canonicalize()?;
-        let path = directory.join("sysmain.sdb").canonicalize()?;
-        if !directory.starts_with(&root) || !path.starts_with(&directory) {
+        if !directory.starts_with(&root) {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
-                "installed SDB escapes the selected Windows root",
+                "AppPatch escapes the selected Windows root",
+            ));
+        }
+        Ok(directory)
+    }
+
+    fn read_installed_file(directory: &Path, path: &Path, limit: usize) -> io::Result<Vec<u8>> {
+        let path = path.canonicalize()?;
+        if !path.starts_with(directory) {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "installed SDB escapes AppPatch",
             ));
         }
         let file = std::fs::File::open(path)?;
         let metadata = file.metadata()?;
-        if !metadata.is_file() || metadata.len() > MAX_FILE_BYTES as u64 {
+        if !metadata.is_file() || metadata.len() > limit as u64 {
             return Err(invalid("installed SDB exceeds regular-file bounds"));
         }
         let mut bytes = Vec::new();
-        file.take(MAX_FILE_BYTES as u64 + 1)
-            .read_to_end(&mut bytes)?;
+        file.take(limit as u64 + 1).read_to_end(&mut bytes)?;
+        if bytes.len() > limit {
+            return Err(invalid("installed SDB exceeds its capture byte budget"));
+        }
+        Ok(bytes)
+    }
+
+    pub(crate) fn snapshot(root: &Path, upcase: Arc<[u16]>) -> io::Result<Self> {
+        let directory = Self::installed_directory(root)?;
+        let bytes =
+            Self::read_installed_file(&directory, &directory.join("sysmain.sdb"), MAX_FILE_BYTES)?;
         Self::parse(&bytes, upcase)
+    }
+
+    #[cfg(any(windows, test))]
+    fn with_installed_lookup(
+        mut self,
+        root: &Path,
+        mut lookup: impl FnMut(&[u16]) -> io::Result<u32>,
+    ) -> io::Result<Self> {
+        const MAX_UPDATES: usize = 8;
+        let directory = Self::installed_directory(root)?;
+        let mut updates = Vec::new();
+        for entry in std::fs::read_dir(&directory)? {
+            let entry = entry?;
+            let filename = entry.file_name();
+            let lowercase = filename.to_string_lossy().to_ascii_lowercase();
+            if let Some(timestamp) = lowercase.strip_suffix(".sysmain.sdb")
+                && timestamp.len() == 16
+                && timestamp.bytes().all(|byte| byte.is_ascii_hexdigit())
+                && entry.file_type()?.is_file()
+            {
+                updates.push(entry.path());
+                if updates.len() > MAX_UPDATES {
+                    return Err(invalid("installed SDB update count exceeds eight"));
+                }
+            }
+        }
+        updates.sort_unstable();
+        let mut remaining = MAX_FILE_BYTES;
+        let mut name_bytes = self.flags.keys().map(|name| name.len() * 2).sum::<usize>();
+        for path in updates {
+            let bytes = Self::read_installed_file(&directory, &path, remaining)?;
+            remaining -= bytes.len();
+            let update = Self::parse(&bytes, self.upcase.clone())?;
+            for name in update.flags.into_keys() {
+                let length = name.len() * 2;
+                if let std::collections::btree_map::Entry::Vacant(entry) = self.flags.entry(name) {
+                    name_bytes += length;
+                    entry.insert(0);
+                    if self.flags.len() > MAX_NAMES || name_bytes > MAX_NAME_BYTES {
+                        return Err(invalid("installed SDB candidate names exceed bounds"));
+                    }
+                }
+            }
+        }
+        for (name, flags) in &mut self.flags {
+            *flags = lookup(name)?;
+        }
+        Ok(self)
     }
 
     #[cfg(test)]
