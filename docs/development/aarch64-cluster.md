@@ -176,3 +176,11 @@ and `ba73d0f0f2102b83769cdf9a1d7b5cd01441da2bc00cd5345f6f238eab808b40`.
 All 68 cluster and checkpoint integration cases passed again with
 both fixes in the same build. That Cargo log has SHA-256 digest
 `8144a5d5d07df0a0e3706e7e2958204d5f9e24535a48342825475b7cd9c02b1b`.
+
+The complete library binary at
+`d5499b63e40599e4e53ee8aec20f701a3269913d` ran on Intel Linux with
+`smir-jit,debug,kvm,x86_64-suite`. It reported 14,262 passes, 100 ignored
+tests and one failure, with zero filtered. Both PSCI regressions passed.
+The Linux user-mode procfs PID-reuse test expected PID 101 and observed
+102. The complete library log SHA-256 is
+`b0b88315749aa5ff57a01b7fb06a1f2bd9ac9950119700604661fcf2f2945dd0`.
