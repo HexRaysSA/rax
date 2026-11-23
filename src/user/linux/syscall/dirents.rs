@@ -1,14 +1,14 @@
 //! Directory entries (`fs/readdir.c`): `getdents64`, `getdents`, and a
 //! compatibility task's `getdents` and `readdir`.
 //!
-//! A directory's entries are read from the host when a listing starts and
-//! then served from the open description, whose cursor is the index of the
-//! next entry; an entry's offset (`d_off`) is the cursor after it.
+//! Host and private guest directories take a snapshot when a listing starts.
+//! The open description's cursor is the index of the next entry.
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
-use super::super::fs::fd::{DirEntry, FileType, OpenFile};
+use super::super::fs::fd::{DirEntry, FileObject, FileType, OpenFile, dt};
 use super::{Ctx, SysResult};
+use crate::user::supplied_fs::{Entry, Files, Kind};
 
 /// The entry layouts `getdents` fills.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,8 +68,32 @@ impl Dirent {
     }
 }
 
-/// The directory `fd` names, its entries read from the host if its
-/// listing has not started.
+/// Encode a closed namespace's immediate children and dot entries.
+pub(super) fn supplied_entries(
+    files: &Files,
+    path: &str,
+    entry: &Entry,
+) -> Result<Vec<DirEntry>, Errno> {
+    Ok(files
+        .directory_entries(path, entry)?
+        .into_iter()
+        .map(|(name, entry)| {
+            let dtype = match entry.kind {
+                Kind::Directory | Kind::WorkspaceDirectory(_) => dt::DT_DIR,
+                Kind::Symlink(_) => dt::DT_LNK,
+                Kind::NullDevice | Kind::ZeroDevice => dt::DT_CHR,
+                _ => dt::DT_REG,
+            };
+            DirEntry {
+                ino: entry.ino,
+                dtype,
+                name: name.into_bytes(),
+            }
+        })
+        .collect())
+}
+
+/// Start an open description's directory snapshot on its first read.
 fn directory(c: &Ctx<'_>, fd: i32) -> Result<std::sync::Arc<OpenFile>, Errno> {
     let file = c.p.fds.file(fd)?;
     if file.ftype != FileType::Directory {
@@ -77,14 +101,22 @@ fn directory(c: &Ctx<'_>, fd: i32) -> Result<std::sync::Arc<OpenFile>, Errno> {
     }
     let mut st = file.state.lock().unwrap();
     if st.dir.is_none() {
-        let entries = match &file.host_path {
+        let entries = match (&file.object, &file.host_path) {
+            (FileObject::Supplied(entry), _) if entry.workspace_directory().is_some() => {
+                if st.flags & super::super::abi::open::O_PATH != 0 {
+                    return Err(Errno(EBADF));
+                }
+                let files = c.p.vfs.supplied().ok_or(Errno(EIO))?;
+                supplied_entries(files, &file.path, entry)?
+            }
             #[cfg(unix)]
-            Some(h) => super::super::fs::read_directory(h)?,
+            (_, Some(h)) => super::super::fs::read_directory(h)?,
             #[cfg(not(unix))]
-            Some(_) => return Err(Errno(EPERM)),
-            None => Vec::new(),
+            (_, Some(_)) => return Err(Errno(EPERM)),
+            (_, None) => Vec::new(),
         };
-        st.dir = Some((entries, 0));
+        let cursor = st.synth_pos.min(entries.len() as u64) as usize;
+        st.dir = Some((entries, cursor));
     }
     drop(st);
     Ok(file)

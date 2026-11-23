@@ -468,40 +468,12 @@ pub(super) fn open_target(
                 };
                 (object, FileType::CharDevice)
             } else if entry.is_dir() {
-                let files = c.p.vfs.supplied().expect("supplied target has a namespace");
-                let parent = files.lookup(&format!("{guest}/.."))?.1;
-                let mut entries = vec![
-                    fs::fd::DirEntry {
-                        ino: entry.ino,
-                        dtype: fs::fd::dt::DT_DIR,
-                        name: b".".to_vec(),
-                    },
-                    fs::fd::DirEntry {
-                        ino: parent.ino,
-                        dtype: fs::fd::dt::DT_DIR,
-                        name: b"..".to_vec(),
-                    },
-                ];
-                entries.extend(files.children(&guest)?.into_iter().map(|(name, entry)| {
-                    fs::fd::DirEntry {
-                        ino: entry.ino,
-                        dtype: match entry.kind {
-                            crate::user::supplied_fs::Kind::Directory
-                            | crate::user::supplied_fs::Kind::WorkspaceDirectory(_) => {
-                                fs::fd::dt::DT_DIR
-                            }
-                            crate::user::supplied_fs::Kind::Symlink(_) => fs::fd::dt::DT_LNK,
-                            crate::user::supplied_fs::Kind::NullDevice
-                            | crate::user::supplied_fs::Kind::ZeroDevice => fs::fd::dt::DT_CHR,
-                            _ => fs::fd::dt::DT_REG,
-                        },
-                        name: name.into_bytes(),
-                    }
-                }));
-                directory = Some((entries, 0));
                 let object = if entry.workspace_directory().is_some() {
                     FileObject::Supplied(entry.clone())
                 } else {
+                    let files = c.p.vfs.supplied().expect("supplied target has a namespace");
+                    let entries = super::dirents::supplied_entries(files, &guest, &entry)?;
+                    directory = Some((entries, 0));
                     FileObject::Synthetic(Arc::from([]))
                 };
                 (object, FileType::Directory)

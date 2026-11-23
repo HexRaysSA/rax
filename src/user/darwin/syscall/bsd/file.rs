@@ -1276,6 +1276,9 @@ pub fn ioctl(ctx: &mut Ctx<'_>, fd: i32, request: u64, arg: u64) -> SysResult {
 /// `getdirentries64(fd, buf, bufsize, position)`: Darwin `struct
 /// direntry` records, copied from the host's.
 pub fn getdirentries64(ctx: &mut Ctx<'_>, fd: i32, buf: u64, size: u64, pos: u64) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        return embedded::getdirentries64(ctx, fd, buf, size, pos);
+    }
     let (_, h) = host_fd(ctx, fd)?;
     #[cfg(target_os = "macos")]
     {

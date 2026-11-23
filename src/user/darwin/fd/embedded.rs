@@ -284,7 +284,6 @@ impl EmbeddedFile {
     /// unrepresentable or negative resulting offset leaves the cursor intact.
     pub fn seek(&self, offset: i64, whence: i32) -> Result<u64, Errno> {
         let (cursor, entry) = match self {
-            Self::Supplied { entry, .. } if entry.is_dir() => return Err(Errno::EISDIR),
             Self::Supplied { entry, cursor } | Self::Workspace { entry, cursor, .. } => {
                 (cursor, Some(entry))
             }
@@ -295,7 +294,9 @@ impl EmbeddedFile {
         let base = match whence {
             0 => 0,
             1 => i64::try_from(*cursor).map_err(|_| Errno::EOVERFLOW)?,
-            2 => i64::try_from(entry.map_or(0, Entry::len)).map_err(|_| Errno::EOVERFLOW)?,
+            2 if entry.is_none_or(|entry| !entry.is_dir()) => {
+                i64::try_from(entry.map_or(0, Entry::len)).map_err(|_| Errno::EOVERFLOW)?
+            }
             3 | 4 if self.device_access().is_some() => return Err(Errno::ENODEV),
             _ => return Err(Errno::EINVAL),
         };

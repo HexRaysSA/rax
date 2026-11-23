@@ -930,6 +930,17 @@ impl Files {
         self.lookup(path)?.1.bytes()
     }
 
+    pub(super) fn directory_entries(
+        &self,
+        path: &str,
+        entry: &Entry,
+    ) -> Result<Vec<(String, Entry)>, Error> {
+        let parent = self.lookup(&format!("{path}/.."))?.1;
+        let mut entries = vec![(".".to_owned(), entry.clone()), ("..".to_owned(), parent)];
+        entries.extend(self.children(path)?);
+        Ok(entries)
+    }
+
     /// Immediate children in byte-sorted name order, excluding `.` and `..`.
     pub fn children(&self, path: &str) -> Result<Vec<(String, Entry)>, Error> {
         let (canonical, entry) = self.lookup(path)?;

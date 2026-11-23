@@ -732,6 +732,66 @@ fn installed_mktemp_and_mkdir_create_guest_owned_directories() {
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+#[ignore = "run with a locally built closed_directory_listing.c fixture"]
+fn installed_libc_directory_listing_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_POSIX_INSTALLED_DIRECTORY_CONTROL")
+        .expect("absolute path to the dynamically linked closed_directory_listing fixture");
+    let native_path =
+        std::env::temp_dir().join(format!("rax-directory-listing-{}", std::process::id()));
+    std::fs::create_dir(&native_path).unwrap();
+    let native = std::process::Command::new(&binary)
+        .arg(native_path.join("control"))
+        .env_clear()
+        .output();
+    std::fs::remove_dir_all(&native_path).unwrap();
+    let native = native.unwrap();
+    assert!(
+        native.status.success(),
+        "{}",
+        String::from_utf8_lossy(&native.stderr)
+    );
+    assert!(native.stderr.is_empty());
+    assert_eq!(
+        native.stdout,
+        b"mkdir/mkdirat/dirfd/fchdir/read/write/stat/readdir/rewinddir/unlink: correct\n"
+    );
+
+    let personality = if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "darwin"
+    };
+    let guest_path = "/closed_directory_listing";
+    let options = serde_json::json!({
+        "personality": personality,
+        "guest_path": guest_path,
+        "arguments": ["/tmp/rax-directory-listing"],
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    #[cfg(target_os = "macos")]
+    let options = {
+        let architecture = std::env::var("RAX_POSIX_INSTALLED_DIRECTORY_CONTROL_ARCH")
+            .expect("fixture architecture: aarch64 or x86_64");
+        let mut options = options;
+        options["architecture"] = architecture.into();
+        options
+    };
+    let process = open(&std::fs::read(&binary).unwrap(), &options.to_string());
+    let state = info(&process);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    let status = run_installed_posix(&process, guest_path);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(status.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn compare_installed_posix_output(
     personality: &str,
     path: &str,

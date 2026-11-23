@@ -113,7 +113,7 @@ pub struct FileState {
     pub flags: u32,
     /// Directory listing snapshot and cursor for `getdents64`.
     pub dir: Option<(Vec<DirEntry>, usize)>,
-    /// Position within synthetic content.
+    /// Position within synthetic content, or before a guest directory snapshot.
     pub synth_pos: u64,
     /// The thread whose `/proc` `comm` file this description writes.
     pub comm_of: Option<i32>,
@@ -582,22 +582,24 @@ impl OpenFile {
             {
                 // Directories support rewinding and absolute cursor positions
                 // (the d_off values getdents64 returned).
+                let workspace = matches!(&self.object, FileObject::Supplied(entry) if entry.workspace_directory().is_some());
                 let mut st = self.state.lock().unwrap();
                 let base = match whence {
                     SEEK_SET => 0i64,
-                    SEEK_CUR => st.dir.as_ref().map_or(0, |d| d.1 as i64),
+                    SEEK_CUR => st.dir.as_ref().map_or(st.synth_pos as i64, |d| d.1 as i64),
                     _ => return Err(Errno(EINVAL)),
                 };
                 let target = base
                     .checked_add(offset)
                     .filter(|t| *t >= 0)
                     .ok_or(Errno(EINVAL))?;
-                if target == 0 && self.host_path.is_some() {
-                    // Rewinding a host directory re-reads it, as rewinddir
-                    // observes entries created since the first read.
+                if target == 0 && (self.host_path.is_some() || workspace) {
                     st.dir = None;
+                    st.synth_pos = 0;
                 } else if let Some(d) = st.dir.as_mut() {
                     d.1 = (target as usize).min(d.0.len());
+                } else if workspace {
+                    st.synth_pos = target as u64;
                 }
                 Ok(target as u64)
             }
