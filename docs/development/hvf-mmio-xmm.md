@@ -385,3 +385,41 @@ correct next RIP and marker, then the fixture compared RDI
 the unchanged register with the actual input. That first run did not
 qualify the six YMM fault cases. Runtime artifact `14789082181` has
 SHA-256 `b75f09c05cfeba237afde432489a16824b801e26abf8b6d98b9c9b4b58cc74ce`.
+
+## IA-32e compatibility-mode MMIO
+
+The 32-bit compatibility profile enters with CS.L=0, CS.D=1, and
+IA32_EFER.LMA=1. It uses nonzero DS or FS bases, general-purpose
+register and moffs encodings, both address sizes, and scalar and
+packed XMM operations. The profile checks the resolved GPA, all
+payload bytes, register lanes and flags, and the continuation RIP
+and marker. Restore cases destroy the source CPU and VM, recreate
+the CPU, check the saved execution mode, and reobserve the same held
+request before completing it.
+
+| Width | Native direct | Native after restore |
+| --- | ---: | ---: |
+| 1 byte | 2 | 2 |
+| 2 bytes | 2 | 2 |
+| 4 bytes | 2 | 2 |
+| 8 bytes | 2 | 2 |
+| 16 bytes | 2 | 2 |
+
+Hosted run [45108768817](https://github.com/HexRaysSA/rax/actions/runs/45108768817)
+at `6da3000e5367d878b8ebed3aa6cd8d232e1d2d1d` completed all 20
+cases in an untranslated Intel process on virtualized macOS 15.7.9
+(24G830), SDK 15.5. Verification matched 4,895 engine inputs and
+19 consumer inputs against Git, checked the signed executable and
+hypervisor entitlement, and checked all 20 rows. Runtime artifact
+`14789405159` has SHA-256
+`8b68e9ccca7c1a07e50d526d5ce8a2335336ac63534e2674c3b3065e87b02faa`.
+Its observation SHA-256 is
+`e8a1b7fb42dfdcc678d582c90d5e0674ead95cc675b9c8c28a46a2ffae265c0b`.
+
+The direct KVM API witness on a physical Intel Xeon E5-1650 v3
+executed all ten forms with the same addressing and bytes over
+ordinary RAM and verified eight device-hole forms. KVM split each
+16-byte transfer into two consecutive exits and reported internal
+emulation error 1 for both MOVSD hole accesses before dispatch. Both
+MOVSD RAM controls completed. The witness output SHA-256 is
+`bba2954cb814e1bd7b12e006da3ae314a3531ab6242f5f3f0b54f6f27a1bb67c`.
