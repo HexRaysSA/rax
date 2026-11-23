@@ -398,12 +398,12 @@ fn alignment_fault(code: &[u8], vex: bool, offset: u64) -> u64 {
     let exit = event(cpu.as_mut());
     assert!(
         matches!(exit, VcpuExit::Hlt),
-        "misaligned XMM must reach the guest #GP handler, got {exit:?}"
+        "misaligned vector move must reach the guest #GP handler, got {exit:?}"
     );
     let after = state(cpu.as_ref());
     assert_eq!(after.regs.rip, CODE + code.len() as u64 + 11);
     assert_eq!(after.regs.r10, MARKER);
-    assert_eq!(after.regs.rdi, MMIO + 3);
+    assert_eq!(after.regs.rdi, input.regs.rdi);
     assert_eq!(after.regs.rflags, input.regs.rflags);
     assert_eq!(after.regs.xmm, input.regs.xmm);
     assert_eq!(after.regs.ymm_high, input.regs.ymm_high);

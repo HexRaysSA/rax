@@ -370,3 +370,18 @@ The Intel macOS target running under Rosetta passed 100 simulated owner,
 The signed Intel consumer linked and passed strict verification.
 All 54 Python harness tests passed with compatibility-mode and VEX.256
 profiles both registered.
+
+The 46 Intel context and XSAVE library tests passed on Linux,
+including both new YMM cases. Their Cargo log SHA-256 is
+`274641761a820882722de192ac9ea7654a057022901aac516cb2fa71795cc53a`.
+
+Hosted run [45109199728](https://github.com/HexRaysSA/rax/actions/runs/45109199728)
+at `fdd58e2f543652573319a794c852f8892979dc5a` recorded all 24 new YMM
+transfers among 74 completed cases. Verification matched 4,895 engine
+inputs and 19 consumer inputs against Git and checked the executable's
+signature and entitlement. The first YMM fault case reached HLT with the
+correct next RIP and marker, then the fixture compared RDI
+`0x40000090` against the XMM offset `0x40000083`. The fixture now compares
+the unchanged register with the actual input. That first run did not
+qualify the six YMM fault cases. Runtime artifact `14789082181` has
+SHA-256 `b75f09c05cfeba237afde432489a16824b801e26abf8b6d98b9c9b4b58cc74ce`.
