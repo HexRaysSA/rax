@@ -10,6 +10,7 @@ struct Calls {
     bounded: Vec<(u32, Duration)>,
     event_windows: Vec<(u32, bool, bool)>,
     input_completions: Vec<(u32, usize)>,
+    serial_replies: Vec<(u32, u8)>,
     accept_bsp_entry_events: bool,
     bsp_entry_event: Option<u8>,
     unbounded: Vec<u32>,
@@ -20,6 +21,9 @@ struct Calls {
     collected: Vec<u32>,
     reject_post: Option<u32>,
     reject_collect: Option<u32>,
+    serial_round: bool,
+    reject_input_width: Option<u32>,
+    reject_reply: Option<u32>,
 }
 
 struct Native {
@@ -96,8 +100,16 @@ impl VCpu for Native {
             return Err(Error::Emulator("test host entry collection failed".into()));
         }
         Ok(self.prepared_input.then_some(VcpuExit::IoIn {
-            port: 0x3f8 + self.id as u16,
-            size: 1,
+            port: if calls.serial_round {
+                0x3f8
+            } else {
+                0x3f8 + self.id as u16
+            },
+            size: if calls.reject_input_width == Some(self.id) {
+                0
+            } else {
+                1
+            },
         }))
     }
 
@@ -152,11 +164,21 @@ impl VCpu for Native {
         Ok(())
     }
 
-    fn complete_io_in(&mut self, _data: &[u8]) {
+    fn complete_io_in(&mut self, data: &[u8]) {
         let mut calls = self.calls.lock().unwrap();
         let prior_init = calls.init_attempts.len();
         calls.input_completions.push((self.id, prior_init));
+        if calls.serial_round {
+            calls.serial_replies.push((self.id, data[0]));
+        }
         self.prepared_input = false;
+    }
+
+    fn io_completion_result(&self) -> Result<()> {
+        if self.calls.lock().unwrap().reject_reply == Some(self.id) {
+            return Err(Error::Emulator("test CPU reply failed".into()));
+        }
+        Ok(())
     }
 
     fn id(&self) -> u32 {
@@ -271,6 +293,57 @@ fn native_run_dispatches_successful_peer_exits_before_returning_worker_error() {
         assert_eq!(calls.collected, expected_collected);
         assert_eq!(calls.input_completions, expected_completed);
     }
+}
+
+#[test]
+fn native_run_dispatches_peers_after_a_published_read_has_a_failed_cpu_reply() {
+    let (mut fixture, calls) = fixture(4, true);
+    let vm = &mut fixture.vm;
+    vm.hvf_parallel_vcpus = true;
+    {
+        let mut calls = calls.lock().unwrap();
+        calls.serial_round = true;
+        calls.reject_reply = Some(1);
+    }
+    let mut serial = vm.serial.lock().unwrap();
+    serial.write(0x3fa, 1);
+    serial.queue_input(b"abcde");
+    drop(serial);
+
+    let error = vm.run().unwrap_err();
+    assert!(error.to_string().contains("test CPU reply failed"));
+    assert_eq!(calls.lock().unwrap().collected, [0, 1, 2, 3]);
+    assert_eq!(
+        calls.lock().unwrap().serial_replies,
+        [(0, b'a'), (1, b'b'), (2, b'c'), (3, b'd')]
+    );
+    assert_eq!(vm.serial.lock().unwrap().read(0x3f8), b'e');
+}
+
+#[test]
+fn native_run_stops_peer_dispatch_when_a_port_request_cannot_be_serviced() {
+    let (mut fixture, calls) = fixture(4, true);
+    let vm = &mut fixture.vm;
+    vm.hvf_parallel_vcpus = true;
+    {
+        let mut calls = calls.lock().unwrap();
+        calls.serial_round = true;
+        calls.reject_input_width = Some(1);
+    }
+    let mut serial = vm.serial.lock().unwrap();
+    serial.write(0x3fa, 1);
+    serial.queue_input(b"abcde");
+    drop(serial);
+
+    let error = vm.run().unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("invalid port input element width")
+    );
+    assert_eq!(calls.lock().unwrap().collected, [0, 1, 2, 3]);
+    assert_eq!(calls.lock().unwrap().serial_replies, [(0, b'a')]);
+    assert_eq!(vm.serial.lock().unwrap().read(0x3f8), b'b');
 }
 
 #[test]

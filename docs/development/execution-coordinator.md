@@ -167,6 +167,35 @@ the existing round buffers.
 | A collection failure can leave valid exits from both earlier and later peers. | High | Return a collection error at CPU 2. Require collection of all four submissions, input completions from CPUs 0, 1, and 3, and the original error. |
 | This evidence covers runtime orchestration. | Medium | Inject worker failures through a scripted vCPU adapter. Native SDK faults and device-dispatch failures have separate backend and endpoint boundaries. |
 
+## Device completion within a round
+
+A native CPU may fail to accept an I/O reply after the device operation and
+its interrupt update have succeeded. The backend retains its incomplete CPU
+transaction. The VMM verifies that the shared backend admits a stopped
+boundary and continues dispatching the collected peers in order. It returns
+the first completion error when worker collection succeeds. INIT/SIPI routing
+and end-of-round clock polling wait for the next execution boundary. A device
+or interrupt publication error, a shared-owner failure, or a terminal exit
+ends dispatch. Each collected exit gets at most one dispatch attempt within
+the round. The CPU owner retains any staged reply for recovery.
+
+Walking the exits takes O(C) coordinator work for C vCPUs. A failed reply
+adds one stopped-owner check, which scans C CPU owners on KVM. Error
+tracking uses O(1) auxiliary space.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Device state was fully published before a CPU reply error. | High | Four CPUs read one serial FIFO. Inject the failure on CPU 1 and require all four replies in order and the fifth byte still queued. The predecessor dispatched only CPUs 0 and 1. |
+| An endpoint service failure ends dispatch. | High | Change CPU 1's PIO width to zero. The request is rejected, CPUs 2 and 3 consume no bytes, and the FIFO head stays at CPU 1's original byte. |
+| The native ARM64 owner can retain and retry the consumed input. | High | On two and four physical HVF vCPUs, fail CPU 0's register write after a PL011 read. Compare the staged byte and error in the private record, peer destination registers, and the remaining FIFO byte after retry. |
+
+The signed Apple M4 Max run passed both parallel-round tests, including the
+two- and four-vCPU injected MMIO reply failure cases. The host reported
+`kern.hv_vmm_present=0`. All five native terminal-I/O tests also passed,
+including both shutdown dispatch orders and file continuation. The portable
+serial tests separately exercise `Vmm::run` and the host-reported errors at
+its public boundary. The complete scripted scheduling module passed 14 tests.
+
 ## Native Intel HVF startup and file continuation
 
 The full 952-case standalone MMIO run exercised the production VMM with one,

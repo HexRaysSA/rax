@@ -2,6 +2,44 @@
 use super::coordinator::ExecutionTurn;
 use super::*;
 
+#[derive(Debug)]
+pub(super) enum TurnFailure {
+    /// The device transaction and its notification have been published.
+    CpuReply(Error),
+    /// Device or VM state might be incomplete, or the exit was terminal.
+    Round(Error),
+}
+
+impl From<Error> for TurnFailure {
+    fn from(error: Error) -> Self {
+        Self::Round(error)
+    }
+}
+
+impl From<TurnFailure> for Error {
+    fn from(failure: TurnFailure) -> Self {
+        match failure {
+            TurnFailure::CpuReply(error) | TurnFailure::Round(error) => error,
+        }
+    }
+}
+
+impl TurnFailure {
+    fn check_io_reply(
+        completion: Result<()>,
+        notification: Result<()>,
+    ) -> std::result::Result<(), Self> {
+        match (completion, notification) {
+            (Ok(()), result) => result.map_err(Self::Round),
+            (Err(error), Ok(())) => Err(Self::CpuReply(error)),
+            (Err(error), Err(notification_error)) => {
+                tracing::warn!(%notification_error, "device notification also failed");
+                Err(Self::Round(error))
+            }
+        }
+    }
+}
+
 impl Vmm {
     fn riscv_platform(&self) -> Option<Arc<crate::backend::emulator::riscv::platform::Platform>> {
         self.vm
@@ -113,7 +151,7 @@ impl Vmm {
         cpu_index: usize,
         addr: u64,
         data: &[u8],
-    ) -> Result<()> {
+    ) -> std::result::Result<(), TurnFailure> {
         let vcpu = self
             .vcpus
             .get_mut(cpu_index)
@@ -127,8 +165,7 @@ impl Vmm {
         )?;
         let completion = vcpu.complete_io_out();
         let irq = self.publish_serial_mmio_irq(addr);
-        completion?;
-        irq
+        TurnFailure::check_io_reply(completion, irq)
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -289,6 +326,7 @@ impl Vmm {
             && turns
                 .iter()
                 .any(|turn| matches!(turn.exit, VcpuExit::Shutdown));
+        let mut first_reply_error = None;
         for turn in turns.drain(..) {
             if arm_hvf_shutdown
                 && matches!(
@@ -300,9 +338,30 @@ impl Vmm {
             {
                 continue;
             }
-            if self.apply_execution_turn(turn, false)? {
-                return Ok(true);
+            match self.apply_execution_turn(turn, false) {
+                Ok(false) => {}
+                Ok(true) => return first_reply_error.map_or(Ok(true), Err),
+                Err(TurnFailure::CpuReply(error)) => {
+                    // Some backend failures fence the shared owner even if
+                    // the endpoint operation itself completed. Release the
+                    // stopped boundary before a peer's device callback.
+                    if let Err(boundary_error) = self.vm.checkpoint_boundary() {
+                        tracing::warn!(%boundary_error, "peer dispatch requires a healthy stopped VM");
+                        return Err(first_reply_error.unwrap_or(error));
+                    }
+                    first_reply_error.get_or_insert(error);
+                }
+                Err(TurnFailure::Round(error)) => {
+                    if let Some(first) = first_reply_error {
+                        tracing::warn!(%error, "peer exit dispatch also failed");
+                        return Err(first);
+                    }
+                    return Err(error);
+                }
             }
+        }
+        if let Some(error) = first_reply_error {
+            return Err(error);
         }
         // Every exit in this round predates the effects of a delivered INIT.
         // Complete a peer's device exit before applying a reset to that CPU.
@@ -315,7 +374,7 @@ impl Vmm {
         &mut self,
         turn: ExecutionTurn,
         checkpoint_after_turn: bool,
-    ) -> Result<bool> {
+    ) -> std::result::Result<bool, TurnFailure> {
         let mut shutdown = false;
         #[cfg(feature = "debug")]
         let mut debug_stop = turn.debug_step_completed;
@@ -393,8 +452,7 @@ impl Vmm {
                 vcpu.complete_io_in(&data);
                 let completion = vcpu.io_completion_result();
                 let irq = self.sync_pc_serial_pio_input(port);
-                completion?;
-                irq?;
+                TurnFailure::check_io_reply(completion, irq)?;
             }
             VcpuExit::IoInString { port, size, count } => {
                 let data = port_io::read(
@@ -409,8 +467,7 @@ impl Vmm {
                 vcpu.complete_io_in(&data);
                 let completion = vcpu.io_completion_result();
                 let irq = self.sync_pc_serial_pio_input(port);
-                completion?;
-                irq?;
+                TurnFailure::check_io_reply(completion, irq)?;
             }
             VcpuExit::IoOut { port, data } => {
                 debug!(port = port, size = data.len(), "PIO write");
@@ -426,7 +483,13 @@ impl Vmm {
                     port,
                     &data,
                 )?;
-                vcpu.complete_io_out()?;
+                vcpu.complete_io_out().map_err(|error| {
+                    if shutdown {
+                        TurnFailure::Round(error)
+                    } else {
+                        TurnFailure::CpuReply(error)
+                    }
+                })?;
             }
             VcpuExit::MmioRead { addr, size } => {
                 let mut data = vec![0u8; size as usize];
@@ -442,8 +505,7 @@ impl Vmm {
                 // The device has consumed the input even if the native reply
                 // must be retried. Publish the line before any checkpoint.
                 let irq = self.publish_serial_mmio_irq(addr);
-                completion?;
-                irq?;
+                TurnFailure::check_io_reply(completion, irq)?;
             }
             VcpuExit::MmioWrite { addr, data } => {
                 self.dispatch_mmio_write(turn.cpu_index, addr, &data)?;
@@ -466,17 +528,16 @@ impl Vmm {
                 vcpu.complete_io_in(&old);
                 let completion = vcpu.io_completion_result();
                 let irq = self.publish_serial_mmio_irq(addr);
-                completion?;
-                irq?;
+                TurnFailure::check_io_reply(completion, irq)?;
             }
             VcpuExit::SystemEvent { .. } => shutdown = true,
             VcpuExit::FailEntry { reason } => {
-                return Err(Error::KernelLoad(format!(
-                    "vCPU fail entry: reason={reason:#x}"
-                )));
+                return Err(
+                    Error::KernelLoad(format!("vCPU fail entry: reason={reason:#x}")).into(),
+                );
             }
             VcpuExit::InternalError => {
-                return Err(Error::KernelLoad("vCPU internal error".to_string()));
+                return Err(Error::KernelLoad("vCPU internal error".to_string()).into());
             }
             VcpuExit::Debug => {
                 // INT3 breakpoint - kernel debugging, just continue
@@ -515,7 +576,7 @@ impl Vmm {
 
                 debug_stop = true;
             }
-            exit => return Err(Error::KernelLoad(format!("unhandled exit: {exit:?}"))),
+            exit => return Err(Error::KernelLoad(format!("unhandled exit: {exit:?}")).into()),
         }
 
         // Publish only a completed instruction boundary. In particular, an
