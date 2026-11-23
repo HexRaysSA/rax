@@ -1122,7 +1122,10 @@ impl DarwinProcess {
                     .fds
                     .iter()
                     .any(|f| fds.iter().position(|g| g == f).is_some_and(|i| ready[i]));
-                if fd_ready || w.deadline.is_some_and(|d| d <= now) {
+                if fd_ready
+                    || w.pipes.iter().any(|p| p.ready())
+                    || w.deadline.is_some_and(|d| d <= now)
+                {
                     t.woken = true;
                 }
             }

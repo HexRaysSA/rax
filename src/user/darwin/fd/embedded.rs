@@ -27,6 +27,7 @@ pub enum EmbeddedFile {
         access: u32,
         cursor: Mutex<u64>,
     },
+    Pipe(super::pipe::PipeEnd),
     Input(CapturedConsole),
     Output(CapturedConsole, OutputStream),
 }
@@ -51,6 +52,7 @@ impl EmbeddedFile {
                     .saturating_sub(*cursor.lock().map_err(|_| Errno::EIO)?))
             }
             Self::Input(console) => Ok(console.pending()?.0 as u64),
+            Self::Pipe(end) => Ok(end.available()),
             Self::Output(..) | Self::Null { .. } | Self::Zero { .. } => Ok(0),
         }
     }
@@ -76,6 +78,7 @@ impl EmbeddedFile {
             Self::Output(_, OutputStream::Stderr) => (3, 0o020222, 0),
             Self::Null { ino, .. } => return Ok(Self::device_stat(Device::Null, *ino)),
             Self::Zero { ino, .. } => return Ok(Self::device_stat(Device::Zero, *ino)),
+            Self::Pipe(end) => return Ok(end.stat()),
         };
         Ok(Stat {
             dev: if matches!(self, Self::Supplied { .. }) {
@@ -134,6 +137,13 @@ impl EmbeddedFile {
                     .map_err(Errno::from)
             }
             Self::Output(..) => Err(Errno::EBADF),
+            Self::Pipe(end) => {
+                end.check(true, offset)?;
+                end.read_with(out.len(), |bytes| {
+                    out[..bytes.len()].copy_from_slice(bytes);
+                    Ok(())
+                })
+            }
             Self::Null { access, .. } | Self::Zero { access, .. } if *access == O_WRONLY => {
                 Err(Errno::EBADF)
             }
@@ -158,6 +168,15 @@ impl EmbeddedFile {
                 Ok(bytes.len())
             }
             Self::Input(_) | Self::Supplied { .. } => Err(Errno::EBADF),
+            Self::Pipe(end) => {
+                end.check(false, offset)?;
+                end.write_with(
+                    bytes.len(),
+                    bytes.len() <= super::pipe::PIPE_BUF,
+                    true,
+                    |n| Ok(bytes[..n].to_vec()),
+                )
+            }
             Self::Null { .. } | Self::Zero { .. } => self
                 .discard_device_write(bytes.len() as u64, offset)
                 .map(|n| n as usize),

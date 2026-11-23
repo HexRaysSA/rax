@@ -139,6 +139,7 @@ pub(super) fn wait(ctx: &mut Ctx<'_>, fd: i32, command: i32, argument: u64) -> S
             read: false,
             write: false,
             vectors: None,
+            pipe_written: 0,
             #[cfg(target_os = "macos")]
             read_job: None,
             lock: Some(entered),

@@ -18,7 +18,6 @@ pub mod trace;
 pub mod util;
 
 mod continuation;
-#[cfg(unix)]
 pub(crate) use continuation::ready_file_io;
 pub(crate) use continuation::{PendingUnix, complete_unix, resume_unix, user_state_written};
 

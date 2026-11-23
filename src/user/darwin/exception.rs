@@ -581,11 +581,9 @@ fn request(
 /// `thread_abort_safely` ends the wait.
 fn park(thread: &mut Thread, f: InFlight) {
     thread.wait = Some(Wait {
-        fds: Vec::new(),
-        deadline: None,
         keys: vec![WaitKey::Port(f.reply.id)],
-        interruptible: false,
         seq: wait::next_seq(),
+        ..Wait::default()
     });
     thread.woken = false;
     thread.mach.exception = Some(f);

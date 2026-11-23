@@ -101,6 +101,11 @@ pub(crate) fn bsd_allowed(number: u32) -> bool {
             | nr::DUP
             | nr::DUP2
             | nr::DUP3
+            | nr::PIPE
+            | nr::PIPE2
+            | nr::FPATHCONF
+            | nr::POLL
+            | nr::POLL_NOCANCEL
             | nr::FCNTL
             | nr::FCNTL_NOCANCEL
             | nr::IOCTL

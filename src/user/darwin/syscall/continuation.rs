@@ -68,10 +68,17 @@ pub(crate) fn complete_unix(thread: &mut Thread, result: SysResult) {
     thread.woken = true;
 }
 
-/// Kernel FIFO I/O can finish even when a Mach suspension holds user return.
-#[cfg(unix)]
+/// Kernel pipe and FIFO I/O can finish while a Mach suspension holds user return.
 pub(crate) fn ready_file_io(proc: &mut Proc, thread: &mut Thread) {
-    let entry = thread.pending_unix.expect("entered FIFO operation");
+    let entry = thread.pending_unix.expect("entered file operation");
+    if thread
+        .file_io
+        .as_ref()
+        .is_some_and(|entered| entered.file.pipe_end().is_some())
+    {
+        thread.wait = None;
+        thread.woken = false;
+    }
     let mut ctx = Ctx {
         proc,
         thread,

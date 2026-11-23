@@ -2,6 +2,9 @@
 use super::*;
 use crate::user::image::macho::*;
 
+#[path = "closed_pipe_tests.rs"]
+mod closed_pipe_tests;
+
 const TEXT: u64 = 0x1_0000_0000;
 const ENTRY: u64 = TEXT + 0x1000;
 const PAGE: u64 = 0x4000;

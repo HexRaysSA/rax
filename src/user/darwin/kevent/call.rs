@@ -367,6 +367,7 @@ fn kevent_body(ctx: &mut Ctx<'_>, kq: u64, c: &Call, data: &mut DataArea) -> Res
         deadline: wake_at,
         interruptible: true,
         seq: crate::user::darwin::wait::next_seq(),
+        ..Wait::default()
     });
     Err(Errno::ERESTART)
 }

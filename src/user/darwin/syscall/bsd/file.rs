@@ -24,6 +24,7 @@ use crate::user::darwin::signal;
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{self, Wait};
 
+mod closed_pipe;
 mod embedded;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod fifo_io;
@@ -94,6 +95,9 @@ pub fn read(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i64
     let file = lifetime::read_file(ctx, fd)?;
     if nbyte > IO_MAX {
         return Err(Errno::EINVAL);
+    }
+    if file.pipe_end().is_some() {
+        return closed_pipe::transfer(ctx, fd, &file, vec![(buf, nbyte)], offset, true);
     }
     if let FileKind::Embedded(file) = &file.kind {
         return embedded::read(ctx, file, buf, nbyte, offset);
@@ -191,10 +195,17 @@ fn sigpipe(ctx: &mut Ctx<'_>, fd: i32, r: SysResult) -> SysResult {
         && !is_socket(h)
         && !nosigpipe(h)
     {
-        let own = signal::Origin::own(ctx.proc);
-        signal::psignal(ctx.proc, Some(ctx.thread), signal::SIGPIPE, own);
+        post_sigpipe(ctx.proc, ctx.thread);
     }
     r
+}
+
+fn post_sigpipe(
+    proc: &mut crate::user::darwin::process::Proc,
+    thread: &mut crate::user::darwin::process::Thread,
+) {
+    let own = signal::Origin::own(proc);
+    signal::psignal(proc, Some(thread), signal::SIGPIPE, own);
 }
 
 #[cfg(unix)]
@@ -225,6 +236,9 @@ fn write_file(ctx: &mut Ctx<'_>, fd: i32, buf: u64, nbyte: u64, offset: Option<i
     let file = lifetime::write_file(ctx, fd)?;
     if nbyte > IO_MAX {
         return Err(Errno::EINVAL);
+    }
+    if file.pipe_end().is_some() {
+        return closed_pipe::transfer(ctx, fd, &file, vec![(buf, nbyte)], offset, false);
     }
     if let FileKind::Embedded(file) = &file.kind {
         return embedded::write(ctx, file, buf, nbyte, offset);
@@ -314,6 +328,18 @@ fn vector_length(vectors: &[(u64, u64)]) -> Result<u64, Errno> {
 /// `readv(fd, iov, cnt)` and `preadv`.
 pub fn readv(ctx: &mut Ctx<'_>, fd: i32, iov: u64, cnt: i32, offset: Option<i64>) -> SysResult {
     let file = lifetime::read_file(ctx, fd)?;
+    if file.pipe_end().is_some() {
+        let vectors = match ctx
+            .thread
+            .file_io
+            .as_ref()
+            .and_then(|entered| entered.vectors.as_ref())
+        {
+            Some(vectors) => vectors.clone(),
+            None => iovecs(ctx, iov, cnt)?,
+        };
+        return closed_pipe::transfer(ctx, fd, &file, vectors, offset, true);
+    }
     if let FileKind::Embedded(file) = &file.kind {
         return embedded::vector(ctx, file, &iovecs(ctx, iov, cnt)?, offset, true);
     }
@@ -409,6 +435,9 @@ fn writev_file(
     offset: Option<i64>,
 ) -> SysResult {
     let file = lifetime::write_file(ctx, fd)?;
+    if file.pipe_end().is_some() {
+        return closed_pipe::transfer(ctx, fd, &file, vectors, offset, false);
+    }
     if let FileKind::Embedded(file) = &file.kind {
         return embedded::vector(ctx, file, &vectors, offset, false);
     }
@@ -581,53 +610,66 @@ pub fn pipe(ctx: &mut Ctx<'_>) -> SysResult {
 /// flag). The descriptors are returned as `pipe` returns them; the
 /// library stores them in `fildes`.
 pub fn pipe2(ctx: &mut Ctx<'_>, flags: u32) -> SysResult {
-    #[cfg(unix)]
-    {
-        if flags & !(io::O_CLOEXEC | io::O_CLOFORK | io::O_NONBLOCK) != 0 {
-            return Err(Errno::EINVAL);
-        }
-        let mut fds = [0i32; 2];
-        // SAFETY: `fds` has room for the two descriptors.
-        check(unsafe { libc::pipe(fds.as_mut_ptr()) })?;
-        for f in fds {
-            // SAFETY: setting close-on-exec (and the status flags) on the new
-            // descriptors.
-            unsafe { libc::fcntl(f, libc::F_SETFD, libc::FD_CLOEXEC) };
-            if flags & io::O_NONBLOCK != 0 {
-                unsafe { libc::fcntl(f, libc::F_SETFL, libc::O_NONBLOCK) };
-            }
-        }
-        // SAFETY: both descriptors were just created and are owned here.
-        let (r, w) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
-        let limit = ctx.proc.rlimits[8].0;
-        let (cloexec, clofork) = (flags & io::O_CLOEXEC != 0, flags & io::O_CLOFORK != 0);
-        let status = flags & io::O_NONBLOCK;
-        let rfd = ctx.proc.fds.install_with(
-            Arc::new(OpenFile::host(r, io::O_RDONLY | status, None)),
-            cloexec,
-            clofork,
-            0,
-            limit,
-        )?;
-        let wfd = match ctx.proc.fds.install_with(
-            Arc::new(OpenFile::host(w, io::O_WRONLY | status, None)),
-            cloexec,
-            clofork,
-            0,
-            limit,
-        ) {
-            Ok(n) => n,
-            Err(e) => {
-                let _ = ctx.proc.fds.remove(rfd);
-                return Err(e);
-            }
+    if flags & !(io::O_CLOEXEC | io::O_CLOFORK | O_NONBLOCK) != 0 {
+        return Err(Errno::EINVAL);
+    }
+    let status = flags & O_NONBLOCK;
+    let (reader, writer) = if ctx.proc.config.host_services {
+        host_pipe(status)?
+    } else {
+        let (r, w) =
+            crate::user::darwin::fd::pipe::PipeEnd::pair(ctx.proc.creds.0, ctx.proc.creds.2);
+        let file = |end, access| OpenFile {
+            kind: FileKind::Embedded(EmbeddedFile::Pipe(end)),
+            path: None,
+            flags: std::sync::Mutex::new(access | status),
         };
-        Ok(Rv(rfd as u64, wfd as u64))
-    }
-    #[cfg(not(unix))]
+        (file(r, io::O_RDONLY), file(w, io::O_WRONLY))
+    };
+    let limit = ctx.proc.rlimits[8].0;
+    let (cloexec, clofork) = (flags & io::O_CLOEXEC != 0, flags & io::O_CLOFORK != 0);
+    let rfd = ctx
+        .proc
+        .fds
+        .install_with(Arc::new(reader), cloexec, clofork, 0, limit)?;
+    let wfd = match ctx
+        .proc
+        .fds
+        .install_with(Arc::new(writer), cloexec, clofork, 0, limit)
     {
-        Err(Errno::ENOTSUP)
+        Ok(fd) => fd,
+        Err(error) => {
+            let _ = ctx.proc.fds.remove(rfd);
+            return Err(error);
+        }
+    };
+    Ok(Rv(rfd as u64, wfd as u64))
+}
+
+#[cfg(unix)]
+fn host_pipe(status: u32) -> Result<(OpenFile, OpenFile), Errno> {
+    let mut fds = [0i32; 2];
+    // SAFETY: `fds` has room for the two descriptors.
+    check(unsafe { libc::pipe(fds.as_mut_ptr()) })?;
+    for f in fds {
+        // SAFETY: setting close-on-exec (and the status flags) on the new
+        // descriptors.
+        unsafe { libc::fcntl(f, libc::F_SETFD, libc::FD_CLOEXEC) };
+        if status != 0 {
+            unsafe { libc::fcntl(f, libc::F_SETFL, libc::O_NONBLOCK) };
+        }
     }
+    // SAFETY: both descriptors were just created and are owned here.
+    let (r, w) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
+    Ok((
+        OpenFile::host(r, io::O_RDONLY | status, None),
+        OpenFile::host(w, io::O_WRONLY | status, None),
+    ))
+}
+
+#[cfg(not(unix))]
+fn host_pipe(_status: u32) -> Result<(OpenFile, OpenFile), Errno> {
+    Err(Errno::ENOTSUP)
 }
 
 /// `fstat64(fd, buf)`.
@@ -758,6 +800,16 @@ pub fn futimes(ctx: &mut Ctx<'_>, fd: i32, times: u64) -> SysResult {
 
 /// `fpathconf(fd, name)`.
 pub fn fpathconf(ctx: &mut Ctx<'_>, fd: i32, name: i32) -> SysResult {
+    if !ctx.proc.config.host_services {
+        let file = ctx.proc.fds.file(fd)?;
+        if file.pipe_end().is_none() {
+            return Err(Errno::ENOTSUP);
+        }
+        return match name {
+            6 => Ok(Rv::one(crate::user::darwin::fd::pipe::PIPE_BUF as u64)),
+            _ => Err(Errno::EINVAL),
+        };
+    }
     #[cfg(unix)]
     {
         let (_, h) = host_fd(ctx, fd)?;
@@ -880,6 +932,14 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
                 return Ok(Rv::one(0));
             }
             return Ok(Rv::one(u64::from(*flags)));
+        }
+        F_GETNOSIGPIPE | F_SETNOSIGPIPE if file.pipe_end().is_some() => {
+            let end = file.pipe_end().expect("guest pipe");
+            if c == F_SETNOSIGPIPE {
+                end.set_no_sigpipe(arg as i32 != 0);
+                return Ok(Rv::one(0));
+            }
+            return Ok(Rv::one(u64::from(end.no_sigpipe())));
         }
         F_GETPATH | F_GETPATH_NOFIRMLINK if matches!(file.kind, FileKind::Embedded(_)) => {
             let path = file.path.as_ref().ok_or(Errno::ENOENT)?;
@@ -1227,6 +1287,9 @@ pub fn getdirentries64(ctx: &mut Ctx<'_>, fd: i32, buf: u64, size: u64, pos: u64
 
 /// `poll(fds, nfds, timeout)`.
 pub fn poll(ctx: &mut Ctx<'_>, fds: u64, nfds: u32, timeout: i32) -> SysResult {
+    if !ctx.proc.config.host_services {
+        return closed_pipe::poll(ctx, fds, nfds, timeout);
+    }
     #[cfg(unix)]
     {
         if u64::from(nfds) > ctx.proc.rlimits[8].0.max(256) {

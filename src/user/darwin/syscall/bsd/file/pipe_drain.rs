@@ -10,8 +10,13 @@ use crate::user::darwin::process::Proc;
 /// later saved-state write survives a spurious readiness wake.
 #[cfg(unix)]
 pub(super) fn parked(ctx: &mut crate::user::darwin::syscall::Ctx<'_>, host: i32) {
+    if crate::user::darwin::host::anonymous_pipe(host) {
+        read_parked(ctx);
+    }
+}
+
+pub(super) fn read_parked(ctx: &mut crate::user::darwin::syscall::Ctx<'_>) {
     if matches!(ctx.nr as u32, nr::READ | nr::READ_NOCANCEL)
-        && crate::user::darwin::host::anonymous_pipe(host)
         && let crate::user::darwin::arch::DarwinCpu::X86_64(cpu) = &mut ctx.thread.cpu
     {
         let flags = cpu.vcpu().user_rflags();
@@ -20,6 +25,36 @@ pub(super) fn parked(ctx: &mut crate::user::darwin::syscall::Ctx<'_>, host: i32)
 }
 
 pub(super) fn closed(proc: &mut Proc, fd: i32, file: &FileRef) {
+    if let Some(end) = file.pipe_end() {
+        let entered: Vec<_> = proc
+            .threads
+            .iter()
+            .filter_map(|(&tid, thread)| {
+                let usage = thread.file_io.as_ref()?;
+                (usage.fd == fd
+                    && (usage.read || usage.write)
+                    && std::sync::Arc::ptr_eq(file, &usage.file))
+                .then_some((tid, usage.write))
+            })
+            .collect();
+        for (tid, write) in entered {
+            let mut thread = proc
+                .threads
+                .remove(&tid)
+                .expect("listed entered guest pipe operation");
+            let result = if write {
+                if !end.no_sigpipe() {
+                    super::post_sigpipe(proc, &mut thread);
+                }
+                Err(Errno::EPIPE)
+            } else {
+                Ok(Rv::one(0))
+            };
+            crate::user::darwin::syscall::complete_unix(&mut thread, result);
+            proc.threads.insert(tid, thread);
+        }
+        return;
+    }
     let Some(host) = pipe(file) else { return };
     let entered: Vec<_> = proc
         .threads

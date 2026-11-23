@@ -33,7 +33,7 @@ fn entered_bsd_pipe_close_and_replacement_keep_eof_separate_from_other_aliases()
     for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
         for number in [nr::READ, nr::READ_NOCANCEL, nr::READV, nr::READV_NOCANCEL] {
             for action in 0..6 {
-                let mut process = bounded_tests::process(abi);
+                let mut process = bounded_tests::process_with_profile(abi, false);
                 let (tid, mut reading) = process.proc.threads.pop_first().unwrap();
                 let mut other = bounded_tests::process(abi)
                     .proc

@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use super::abi::Errno;
 
 mod embedded;
+pub(crate) mod pipe;
 pub use embedded::EmbeddedFile;
 pub(crate) use embedded::supplied_source;
 
@@ -74,6 +75,13 @@ impl OpenFile {
             kind: FileKind::Socket(fd),
             path: None,
             flags: Mutex::new(flags),
+        }
+    }
+
+    pub(crate) fn pipe_end(&self) -> Option<&pipe::PipeEnd> {
+        match &self.kind {
+            FileKind::Embedded(EmbeddedFile::Pipe(end)) => Some(end),
+            _ => None,
         }
     }
 

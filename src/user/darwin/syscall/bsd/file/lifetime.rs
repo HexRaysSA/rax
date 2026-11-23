@@ -19,6 +19,8 @@ pub(crate) struct Use {
     pub(crate) write: bool,
     /// The bounded vector copied at entry, rather than its mutable user array.
     pub(super) vectors: Option<Vec<(u64, u64)>>,
+    /// Bytes already accepted by a guest pipe during a blocking write.
+    pub(super) pipe_written: usize,
     /// Timed record locks retain their copied request and original deadline.
     #[cfg(unix)]
     pub(super) lock: Option<super::record_lock::Entered>,
@@ -45,6 +47,35 @@ struct Closing {
 /// At most one closing operation per entered thread; no worker host thread.
 #[derive(Default)]
 pub(crate) struct Closers(BTreeMap<u64, Closing>);
+
+pub(super) fn parked_pipe(
+    ctx: &mut Ctx<'_>,
+    fd: i32,
+    file: &FileRef,
+    read: bool,
+    vectors: Vec<(u64, u64)>,
+    written: usize,
+) {
+    if let Some(entered) = &mut ctx.thread.file_io {
+        entered.pipe_written = written;
+        return;
+    }
+    ctx.thread.file_io = Some(Use {
+        fd,
+        file: file.clone(),
+        read,
+        write: !read,
+        vectors: Some(vectors),
+        pipe_written: written,
+        #[cfg(unix)]
+        lock: None,
+        #[cfg(target_os = "macos")]
+        read_job: None,
+    });
+    if read {
+        super::pipe_drain::read_parked(ctx);
+    }
+}
 
 pub(super) fn read_file(ctx: &Ctx<'_>, fd: i32) -> Result<FileRef, Errno> {
     if let Some(entered) = &ctx.thread.file_io
@@ -94,6 +125,7 @@ pub(super) fn parked_write(
         read: false,
         write: true,
         vectors,
+        pipe_written: 0,
         #[cfg(unix)]
         lock: None,
         #[cfg(target_os = "macos")]
@@ -123,6 +155,7 @@ pub(super) fn parked_read(
         read: true,
         write: false,
         vectors,
+        pipe_written: 0,
         #[cfg(unix)]
         lock: None,
         #[cfg(target_os = "macos")]
@@ -150,6 +183,9 @@ fn dispose(proc: &mut Proc, fd: i32, old: Fd) {
 
 fn reserve(proc: &mut Proc, fd: i32) -> Result<Fd, Errno> {
     let old = proc.fds.reserve(fd)?;
+    if !proc.config.host_services {
+        proc.post(WaitKey::DescriptorClosed);
+    }
     super::pipe_drain::closed(proc, fd, &old.file);
     Ok(old)
 }
@@ -280,6 +316,7 @@ pub(super) fn replace(
         read: false,
         write: false,
         vectors: None,
+        pipe_written: 0,
         #[cfg(unix)]
         lock: None,
         #[cfg(target_os = "macos")]
@@ -300,24 +337,26 @@ pub(crate) fn progress(proc: &mut Proc) {
     for thread in proc.threads.values_mut().filter(|thread| thread.exited) {
         thread.file_io = None;
     }
-    #[cfg(unix)]
-    {
-        let mut reads: Vec<_> = proc
-            .threads
-            .values()
-            .filter_map(|t| {
-                let entered = t.file_io.as_ref()?;
-                let pending = t.pending_unix?;
-                let wait = t.wait.as_ref()?;
-                if (!entered.read && !entered.write && entered.lock.is_none())
-                    || t.exited
-                    || pending.completed.is_some()
-                {
+    let mut io: Vec<_> = proc
+        .threads
+        .values()
+        .filter_map(|t| {
+            let entered = t.file_io.as_ref()?;
+            let pending = t.pending_unix?;
+            let wait = t.wait.as_ref()?;
+            if t.exited || pending.completed.is_some() {
+                return None;
+            }
+            if entered.file.pipe_end().is_some() {
+                return (t.woken && (entered.read || entered.write)).then_some((wait.seq, t.tid));
+            }
+            #[cfg(unix)]
+            {
+                if !entered.read && !entered.write && entered.lock.is_none() {
                     return None;
                 }
-                // A caught signal ends an entered kernel I/O wait even when
-                // Mach suspension holds its user return. Native controls show
-                // that this also releases a concurrent close's fileproc drain.
+                // A signal also releases entered I/O while a Mach hold
+                // keeps the prepared return from reaching user space.
                 if t.woken && wait.interruptible {
                     return Some((wait.seq, t.tid));
                 }
@@ -334,14 +373,19 @@ pub(crate) fn progress(proc: &mut Proc) {
                 let host = entered.file.host_fd()?;
                 crate::user::darwin::wait::ready_now(&[(host, entered.read, entered.write)])[0]
                     .then_some((wait.seq, t.tid))
-            })
-            .collect();
-        reads.sort_unstable();
-        for (_, tid) in reads {
-            let mut thread = proc.threads.remove(&tid).expect("listed FIFO operation");
-            syscall::ready_file_io(proc, &mut thread);
-            proc.threads.insert(tid, thread);
-        }
+            }
+            #[cfg(not(unix))]
+            None
+        })
+        .collect();
+    io.sort_unstable();
+    for (_, tid) in io {
+        let mut thread = proc
+            .threads
+            .remove(&tid)
+            .expect("listed entered file operation");
+        syscall::ready_file_io(proc, &mut thread);
+        proc.threads.insert(tid, thread);
     }
     loop {
         let mut changed = false;

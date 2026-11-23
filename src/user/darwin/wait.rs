@@ -41,6 +41,8 @@ pub enum WaitKey {
     Knote(u64),
     /// An uninterruptible fileproc drain, completed by the kernel closer.
     FileDrain,
+    /// A descriptor was removed while poll could be waiting on its slot.
+    DescriptorClosed,
 }
 
 /// What a sleeping call waits for.
@@ -49,6 +51,7 @@ pub struct Wait {
     /// Host descriptors with the readiness each waits for (`(fd, read,
     /// write)`).
     pub fds: Vec<(i32, bool, bool)>,
+    pub(crate) pipes: Vec<super::fd::pipe::PipeWait>,
     /// When the call's timeout expires.
     pub deadline: Option<Instant>,
     /// Events that wake the thread.
