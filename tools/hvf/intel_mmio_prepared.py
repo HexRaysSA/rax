@@ -1,13 +1,16 @@
 """Prepared native consumer admission and diagnostic command execution."""
 import codecs
+from contextlib import contextmanager
 import hashlib
 import json
 import os
 from pathlib import Path
+import queue
 import signal
 import selectors
 import subprocess
 import sys
+import threading
 import time
 
 EXECUTABLE = "native-guest"
@@ -74,6 +77,60 @@ def save(path, value):
     temporary.replace(path)
 
 
+@contextmanager
+def _live_stderr(stream):
+    """Forward bounded diagnostics without waiting for the runner's log reader."""
+    try:
+        fd = stream.fileno()
+    except (AttributeError, OSError):
+        yield lambda message: print(message, end="", file=stream, flush=True)
+        return
+
+    messages = queue.Queue(maxsize=8)
+    closed = threading.Event()
+    encoding = stream.encoding or "utf-8"
+    errors = stream.errors or "replace"
+    descriptor = os.dup(fd)
+
+    def forward():
+        # Use a raw descriptor so a stalled writer holds no Python stdio lock
+        # during interpreter shutdown.
+        try:
+            while True:
+                try:
+                    message = messages.get(timeout=0.1)
+                except queue.Empty:
+                    if closed.is_set():
+                        return
+                    continue
+                pending = memoryview(message.encode(encoding, errors))
+                while pending:
+                    pending = pending[os.write(descriptor, pending):]
+        except (OSError, UnicodeError):
+            return
+        finally:
+            os.close(descriptor)
+
+    def publish(message):
+        if message:
+            try:
+                messages.put_nowait(message)
+            except queue.Full:
+                pass
+
+    writer = threading.Thread(target=forward, daemon=True)
+    try:
+        writer.start()
+    except RuntimeError:
+        os.close(descriptor)
+        raise
+    try:
+        yield publish
+    finally:
+        closed.set()
+        writer.join(timeout=0.1)
+
+
 def execute(label, command, *, root, environment, output, result, timeout=60):
     """Supervise the owned process group and stderr with one command deadline."""
     started = time.monotonic()
@@ -81,8 +138,8 @@ def execute(label, command, *, root, environment, output, result, timeout=60):
     entry = {"label": label, "argv": [str(value) for value in command]}
     result["commands"].append(entry)
     save(output / "result.json", result)
-    print(json.dumps({"phase": label, "state": "started"}), file=sys.stderr, flush=True)
-    with stdout.open("xb") as out, stderr.open("xb") as err:
+    with _live_stderr(sys.stderr) as publish, stdout.open("xb") as out, stderr.open("xb") as err:
+        publish(json.dumps({"phase": label, "state": "started"}) + "\n")
         child = subprocess.Popen(command, cwd=root, env=environment,
                                  stdout=out, stderr=subprocess.PIPE, start_new_session=True)
         entry["pid"] = child.pid
@@ -99,7 +156,7 @@ def execute(label, command, *, root, environment, output, result, timeout=60):
                 return False
             err.write(data)
             err.flush()
-            print(decoder.decode(data), end="", file=sys.stderr, flush=True)
+            publish(decoder.decode(data))
             return True
 
         try:
@@ -122,7 +179,7 @@ def execute(label, command, *, root, environment, output, result, timeout=60):
             # start_new_session gives this invocation a separate process group.
             # Signal only that owned group, including compiler descendants, and
             # bound reaping as well: a host SDK call may not return after a
-            # termination request. Never wait for a separate stderr thread.
+            # termination request. The live log has its own bounded shutdown.
             try:
                 os.killpg(child.pid, signal.SIGKILL)
             except ProcessLookupError:
@@ -145,11 +202,11 @@ def execute(label, command, *, root, environment, output, result, timeout=60):
         finally:
             selector.close()
             child.stderr.close()
-            print(decoder.decode(b"", final=True), end="", file=sys.stderr, flush=True)
-    entry.update(exit_code=code, seconds=time.monotonic() - started)
-    save(output / "result.json", result)
-    print(json.dumps({"phase": label, "state": "finished", "exit_code": code,
-                      "seconds": entry["seconds"]}), file=sys.stderr, flush=True)
+            publish(decoder.decode(b"", final=True))
+        entry.update(exit_code=code, seconds=time.monotonic() - started)
+        save(output / "result.json", result)
+        publish(json.dumps({"phase": label, "state": "finished", "exit_code": code,
+                            "seconds": entry["seconds"]}) + "\n")
     if code:
         raise RuntimeError(f"{label} failed with status {code}")
     return stdout

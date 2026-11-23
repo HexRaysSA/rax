@@ -242,6 +242,41 @@ class PreparedConsumerTests(unittest.TestCase):
                              result={"commands": []}, timeout=1)
         self.assertLess(time.monotonic() - started, 5)
 
+    def test_unread_live_stderr_cannot_block_capture_or_the_deadline(self):
+        output = self.root / "backpressure"
+        output.mkdir()
+        command = "import sys,time;sys.stderr.write('x' * (2 ** 21));sys.stderr.flush();time.sleep(60)"
+        harness = (
+            "import os,pathlib,subprocess,sys;sys.path.insert(0,sys.argv[1]);"
+            "import intel_mmio_prepared as prepared\n"
+            "output=pathlib.Path(sys.argv[3])\n"
+            "try:\n"
+            " prepared.execute('fixture',[sys.executable,'-c',sys.argv[2]],root=output,"
+            " environment=os.environ.copy(),output=output,result={'commands':[]},timeout=2)\n"
+            "except subprocess.TimeoutExpired: pass\n"
+            "else: raise AssertionError('the sleeping child must exceed its deadline')\n"
+        )
+        supervisor = subprocess.Popen(
+            [sys.executable, "-c", harness, str(Path(prepared.__file__).parent),
+             command, str(output)], stderr=subprocess.PIPE)
+        try:
+            # Keep the inherited log pipe full through the deadline.
+            self.assertEqual(supervisor.wait(timeout=8), 0)
+            saved = json.loads((output / "result.json").read_text())["commands"][0]
+            self.assertTrue(saved["timed_out"])
+            self.assertEqual(saved["exit_code"], -signal.SIGKILL)
+            self.assertEqual((output / "fixture.stderr").read_bytes(), b"x" * (2 ** 21))
+        finally:
+            if supervisor.poll() is None:
+                supervisor.kill()
+                result = output / "result.json"
+                if result.exists():
+                    pid = json.loads(result.read_text())["commands"][0].get("pid")
+                    if pid is not None:
+                        with contextlib.suppress(ProcessLookupError):
+                            os.killpg(pid, signal.SIGKILL)
+            supervisor.communicate(timeout=3)
+
     def test_separate_session_stderr_cannot_block_timeout_cleanup(self):
         output = self.root / "separate-session"
         output.mkdir()

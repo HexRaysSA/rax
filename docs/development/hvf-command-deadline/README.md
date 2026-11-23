@@ -147,3 +147,27 @@ The observations SHA-256 is
 `32205445dee3e633179cb9646806ff13379ec5b1c484b8fea8a42258bba8c034`.
 The earlier combined runner loss remains unexplained.
 [Qualified standalone execution](https://github.com/HexRaysSA/rax/actions/runs/45086281007/job/137405535862)
+
+## Backpressure on the live log
+
+A subprocess fixture writes 2,097,152 B to stderr and then sleeps. Its caller
+keeps the supervisor's stderr pipe unread. The previous supervisor remained
+blocked at the 8 s outer deadline despite a 2 s command deadline. In the
+corrected run, the result records the timeout and SIGKILL exit and the
+diagnostic artifact contains the full 2,097,152 B.
+
+The supervisor captures raw stderr before offering decoded chunks to a bounded
+live-log queue. If the runner falls behind, live chunks can be omitted. The
+command deadline, process-group cleanup and result file proceed independently
+of the live writer. The queue holds at most eight chunks, with one additional
+chunk in the writer and one under capture. No connection between this
+reproducer and an earlier hosted runner loss has been established.
+
+All 55 harness tests passed on macOS arm64 and Intel Linux. The retained
+SHA-256 digests are
+`a33f47a5f86dc8b6349faff7c2448ec6a9e067c5f2082bcb6ecde460dc50aa87`
+for the failing regression,
+`c4b09b9a2547b4975cb998023654114e4d8599750335361c83fd2921fe525ddf`
+for the macOS suite, and
+`8637543c9cf5e039ef63e993981f0c75b91d44740bce83ac432a554df4545f57`
+for the Linux suite.
