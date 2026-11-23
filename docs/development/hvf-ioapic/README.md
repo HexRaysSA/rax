@@ -142,3 +142,25 @@ multi-CPU startup and acknowledged LAPIC IPIs. Those guest programs do not
 establish every IOAPIC source/routing frontier. See the
 [frontier diagnostic](../hvf-intel-frontier/README.md).
 Cross-compilation and SDK mocks do not establish native guest behavior.
+
+## Level-triggered UART checkpoint
+
+The `level-irq` Intel HVF profile runs the
+[guest assembly](level-irq-guest.S) in two- and four-vCPU VMs. The BSP
+routes UART THRE on GSI 4 as a fixed, level-triggered interrupt at vector
+`0x41` to the last AP. That AP enters the handler with remote IRR set
+and stops the VM through the ACPI power port. The probe saves the
+checkpoint, destroys the source VMM, removes its boot file, and resumes
+from the checkpoint file in a fresh VMM. The AP reads UART IIR before
+issuing LAPIC EOI. The probe checks the saved handler PC `0x2011c`, the
+redirection entry transition `0xc041` to `0x8041`, IIR reason `0x02`,
+and exactly one handler visit on the selected AP.
+
+The software x86 backend passed both topology controls with these same
+guest bytes. The byte arrays in the native consumer match the assembled
+BSP and AP sections, which contain no relocations. Native qualification
+requires both observation rows from an untranslated Intel HVF run.
+
+| ID | Assumption | Dependent result | Falsification probe |
+|---|---|---|---|
+| IRQ4 | An accepted UART level survives a detached checkpoint at a stopped AP handler | The selected AP can acknowledge the owner and EOI without losing or duplicating service | Check the saved and restored handler PC, source-file absence, fixed redirection entry, IIR reason, remote IRR after EOI, and every CPU's visit counter in both topologies |

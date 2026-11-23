@@ -33,6 +33,7 @@ on:
           - implicit-divide
           - entry-irq
           - irq-window
+          - level-irq
           - nmi-baseline
           - nmi-hot-entry
           - nmi-window

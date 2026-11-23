@@ -34,6 +34,8 @@ mod divide;
 mod double_shift;
 #[path = "intel_mmio_guest_debug.rs"]
 mod guest_debug;
+#[path = "intel_mmio_level_irq.rs"]
+mod level_irq;
 #[path = "intel_mmio_movbe.rs"]
 mod movbe;
 #[path = "intel_mmio_multiply.rs"]
@@ -983,14 +985,14 @@ mod startup {
         0xf4,
     ];
 
-    struct Kernel(PathBuf);
+    pub(super) struct Kernel(pub(super) PathBuf);
     impl Drop for Kernel {
         fn drop(&mut self) {
             let _ = std::fs::remove_file(&self.0);
         }
     }
 
-    fn boot(count: u8) -> (Vmm, Kernel) {
+    pub(super) fn boot(count: u8) -> (Vmm, Kernel) {
         boot_mode(count, false)
     }
 
@@ -1411,6 +1413,12 @@ fn main() {
             record(&output, case, name, 8, count);
         }
         println!("{{\"cases\":2,\"failed\":0,\"guest_execution_performed\":true}}");
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--level-irq")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        level_irq::run(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--irq-window")) {
