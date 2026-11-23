@@ -6,23 +6,43 @@ use crate::user::darwin::{
     host::{AT_EACCESS, AT_FDCWD, AT_REMOVEDIR, AT_SYMLINK_NOFOLLOW, AT_SYMLINK_NOFOLLOW_ANY},
     io::*,
 };
-use crate::user::supplied_fs::{Entry, LinkPolicy};
+use crate::user::supplied_fs::{Entry, LinkPolicy, WorkspaceDirectory, relative_workspace_path};
 use std::sync::{Arc, Mutex};
 
-fn path_and_base(ctx: &Ctx<'_>, dirfd: i32, path: u64) -> Result<(Vec<u8>, Vec<u8>), Errno> {
+type DirectoryBase = (Vec<u8>, Option<Arc<WorkspaceDirectory>>);
+
+fn path_and_base(ctx: &Ctx<'_>, dirfd: i32, path: u64) -> Result<(Vec<u8>, DirectoryBase), Errno> {
     let path = ctx.path(path)?;
     let base = if path.starts_with(b"/") || dirfd == AT_FDCWD {
-        ctx.proc.cwd.clone()
+        (ctx.proc.cwd.clone(), ctx.proc.cwd_directory.clone())
     } else {
         let file = ctx.proc.fds.file(dirfd)?;
         match &file.kind {
-            FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) if entry.is_dir() => {
-                file.path.clone().ok_or(Errno::ENOTDIR)?
-            }
+            FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) if entry.is_dir() => (
+                file.path.clone().ok_or(Errno::ENOTDIR)?,
+                entry.workspace_directory().cloned(),
+            ),
             _ => return Err(Errno::ENOTDIR),
         }
     };
     Ok((path, base))
+}
+
+fn path_with_workspace_base(
+    path: &[u8],
+    base: &[u8],
+    directory: Option<&Arc<WorkspaceDirectory>>,
+    ids: (u32, u32),
+) -> Result<(String, Option<Entry>), Errno> {
+    if directory.is_none() || path.is_empty() || path.starts_with(b"/") {
+        return Ok((
+            crate::user::darwin::vfs::Vfs::absolute_guest_path(path, base)?,
+            None,
+        ));
+    }
+    let path = std::str::from_utf8(path).map_err(|_| Errno::EINVAL)?;
+    let base = std::str::from_utf8(base).map_err(|_| Errno::EINVAL)?;
+    Ok(relative_workspace_path(base, directory, path, ids, &[])?)
 }
 
 fn lookup(
@@ -31,11 +51,12 @@ fn lookup(
     path: u64,
     policy: LinkPolicy,
 ) -> Result<(String, Entry), Errno> {
-    let (path, base) = path_and_base(ctx, dirfd, path)?;
+    let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
     lookup_as(
         ctx,
         &path,
         &base,
+        directory.as_ref(),
         policy,
         (ctx.proc.creds.1, ctx.proc.creds.3),
     )
@@ -45,11 +66,15 @@ fn lookup_as(
     ctx: &Ctx<'_>,
     path: &[u8],
     base: &[u8],
+    directory: Option<&Arc<WorkspaceDirectory>>,
     policy: LinkPolicy,
     ids: (u32, u32),
 ) -> Result<(String, Entry), Errno> {
     let files = ctx.proc.vfs.files().ok_or(Errno::ENOTSUP)?;
-    let absolute = crate::user::darwin::vfs::Vfs::absolute_guest_path(path, base)?;
+    let (absolute, retained) = path_with_workspace_base(path, base, directory, ids)?;
+    if let Some(entry) = retained {
+        return Ok((absolute, entry));
+    }
     files
         .lookup_for_guest(&absolute, policy, ids, &[])
         .map_err(Errno::from)
@@ -59,11 +84,13 @@ pub(crate) fn lookup_followed(
     ctx: &Ctx<'_>,
     path: &[u8],
     base: &[u8],
+    directory: Option<&Arc<WorkspaceDirectory>>,
 ) -> Result<(String, Entry), Errno> {
     lookup_as(
         ctx,
         path,
         base,
+        directory,
         LinkPolicy::Follow,
         (ctx.proc.creds.1, ctx.proc.creds.3),
     )
@@ -91,8 +118,15 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
     } else {
         (uid, gid)
     };
-    let (path, base) = path_and_base(ctx, dirfd, path)?;
-    let (_, entry) = lookup_as(ctx, &path, &base, link_policy(flags), ids)?;
+    let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
+    let (_, entry) = lookup_as(
+        ctx,
+        &path,
+        &base,
+        directory.as_ref(),
+        link_policy(flags),
+        ids,
+    )?;
     let allowed = entry
         .workspace_file()
         .map(|file| file.permits(mode as u32, ids, &[]))
@@ -138,12 +172,13 @@ pub(super) fn chdir(ctx: &mut Ctx<'_>, path: u64) -> SysResult {
     let (path, entry) = lookup(ctx, AT_FDCWD, path, LinkPolicy::Follow)?;
     check_search(ctx, &entry)?;
     ctx.proc.cwd = path.into_bytes();
+    ctx.proc.cwd_directory = entry.workspace_directory().cloned();
     Ok(Rv::one(0))
 }
 
 pub(super) fn fchdir(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
-    ctx.proc.cwd = directory_descriptor(ctx, &file)?;
+    (ctx.proc.cwd, ctx.proc.cwd_directory) = directory_descriptor(ctx, &file)?;
     Ok(Rv::one(0))
 }
 
@@ -159,11 +194,14 @@ pub(crate) fn check_search(ctx: &Ctx<'_>, entry: &Entry) -> Result<(), Errno> {
     Ok(())
 }
 
-pub(crate) fn directory_descriptor(ctx: &Ctx<'_>, file: &OpenFile) -> Result<Vec<u8>, Errno> {
+pub(crate) fn directory_descriptor(ctx: &Ctx<'_>, file: &OpenFile) -> Result<DirectoryBase, Errno> {
     match &file.kind {
         FileKind::Embedded(EmbeddedFile::Supplied { entry, .. }) => {
             check_search(ctx, entry)?;
-            file.path.clone().ok_or(Errno::ENOTDIR)
+            Ok((
+                file.path.clone().ok_or(Errno::ENOTDIR)?,
+                entry.workspace_directory().cloned(),
+            ))
         }
         FileKind::Embedded(_) => Err(Errno::ENOTDIR),
         _ => Err(Errno::EPERM),
@@ -174,8 +212,8 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, mode:
     if flags & (O_CREAT | O_TRUNC) != 0 && ctx.proc.vfs.files().is_some_and(|f| f.has_workspace()) {
         ctx.proc.fds.lowest_free(0, ctx.proc.rlimits[8].0)?;
     }
-    let (path, base) = path_and_base(ctx, dirfd, path)?;
-    let file = open_file(ctx, &path, &base, flags, mode)?;
+    let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
+    let file = open_file(ctx, &path, &base, directory.as_ref(), flags, mode)?;
     let fd = ctx.proc.fds.install_with(
         file,
         flags & O_CLOEXEC != 0,
@@ -191,26 +229,28 @@ pub(super) fn unlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysR
         return Err(Errno::EINVAL);
     }
     let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
-    let (path, base) = path_and_base(ctx, dirfd, path)?;
-    let absolute = crate::user::darwin::vfs::Vfs::absolute_guest_path(&path, &base)?;
+    let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
     let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
-    if flags == AT_REMOVEDIR {
-        let (_, entry) = files.lookup_for_guest(&absolute, LinkPolicy::NoFollowLast, ids, &[])?;
-        return Err(if entry.is_dir() {
-            Errno::EROFS
-        } else {
-            Errno::ENOTDIR
-        });
+    let (absolute, retained) = path_with_workspace_base(&path, &base, directory.as_ref(), ids)?;
+    if retained.is_some() {
+        return Err(Errno::ENOENT);
     }
-    files.unlink_workspace_file(&absolute, ids, &[])?;
+    if flags == AT_REMOVEDIR {
+        files.remove_workspace_directory(&absolute, ids, &[])?;
+    } else {
+        files.unlink_workspace_file(&absolute, ids, &[])?;
+    }
     Ok(Rv::one(0))
 }
 
 pub(super) fn mkdirat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: u32) -> SysResult {
     let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
-    let (path, base) = path_and_base(ctx, dirfd, path)?;
-    let absolute = crate::user::darwin::vfs::Vfs::absolute_guest_path(&path, &base)?;
+    let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
     let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
+    let (absolute, retained) = path_with_workspace_base(&path, &base, directory.as_ref(), ids)?;
+    if retained.is_some() {
+        return Err(Errno::ENOENT);
+    }
     files.create_workspace_directory(&absolute, mode & !ctx.proc.umask, ids, &[])?;
     Ok(Rv::one(0))
 }
@@ -219,6 +259,7 @@ pub(crate) fn open_file(
     ctx: &Ctx<'_>,
     path: &[u8],
     base: &[u8],
+    directory: Option<&Arc<WorkspaceDirectory>>,
     flags: u32,
     mode: u32,
 ) -> Result<Arc<OpenFile>, Errno> {
@@ -226,7 +267,7 @@ pub(crate) fn open_file(
     let file = open_or_create(
         flags,
         owner,
-        |policy| lookup_as(ctx, path, base, policy, owner),
+        |policy| lookup_as(ctx, path, base, directory, policy, owner),
         |exclusive| {
             let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
             if !files.has_workspace() {
@@ -235,7 +276,10 @@ pub(crate) fn open_file(
             if flags & O_DIRECTORY != 0 {
                 return Err(Errno::ENOTDIR);
             }
-            let absolute = crate::user::darwin::vfs::Vfs::absolute_guest_path(path, base)?;
+            let (absolute, retained) = path_with_workspace_base(path, base, directory, owner)?;
+            if retained.is_some() {
+                return Err(Errno::ENOENT);
+            }
             let mode = mode & !ctx.proc.umask;
             files
                 .create_workspace_file(&absolute, mode, owner, &[], exclusive)

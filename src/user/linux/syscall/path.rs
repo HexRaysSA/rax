@@ -65,6 +65,29 @@ fn base_dir(c: &Ctx<'_>, dirfd: i32) -> Result<String, Errno> {
     })
 }
 
+fn supplied_relative_path(
+    c: &Ctx<'_>,
+    dirfd: i32,
+    path: &str,
+    ids: (u32, u32),
+) -> Result<(String, Option<crate::user::supplied_fs::Entry>), Errno> {
+    let base = base_dir(c, dirfd)?;
+    let directory = if dirfd == AT_FDCWD {
+        c.p.workspace_working_directory()
+    } else if let FileObject::Supplied(entry) = &c.p.fds.file(dirfd)?.object {
+        entry.workspace_directory().cloned()
+    } else {
+        None
+    };
+    Ok(crate::user::supplied_fs::relative_workspace_path(
+        &base,
+        directory.as_ref(),
+        path,
+        ids,
+        &c.p.groups,
+    )?)
+}
+
 /// Resolves a guest path string relative to `dirfd`.
 pub fn resolve_str(c: &Ctx<'_>, dirfd: i32, path: &str, follow: bool) -> Result<Target, Errno> {
     resolve_str_as(c, dirfd, path, follow, (c.p.creds.1, c.p.creds.3))
@@ -83,7 +106,11 @@ fn resolve_str_as(
         if path.starts_with('/') {
             path.to_string()
         } else {
-            format!("{}/{path}", base_dir(c, dirfd)?.trim_end_matches('/'))
+            let (guest, retained) = supplied_relative_path(c, dirfd, path, ids)?;
+            if let Some(entry) = retained {
+                return Ok(Target::Supplied(entry, guest));
+            }
+            guest
         }
     } else if path.starts_with('/') {
         join_guest("/", path)
@@ -146,8 +173,7 @@ fn resolve_as(
     if raw.is_empty() {
         if flags & AT_EMPTY_PATH != 0 {
             if dirfd == AT_FDCWD {
-                let cwd = c.p.working_directory().into_owned();
-                return resolve_str_as(c, AT_FDCWD, &cwd, true, ids);
+                return resolve_str_as(c, AT_FDCWD, ".", true, ids);
             }
             return Ok(Target::Fd(c.p.fds.file(dirfd)?));
         }
@@ -205,7 +231,9 @@ fn supplied_stat(entry: &crate::user::supplied_fs::Entry) -> Stat {
             | crate::user::supplied_fs::Kind::ZeroDevice => mode::S_IFCHR | 0o666,
             _ => mode::S_IFREG | 0o555,
         },
-        nlink: if entry.is_dir() {
+        nlink: if let Some(directory) = entry.workspace_directory() {
+            u64::from(directory.link_count(crate::user::supplied_fs::WorkspaceFlavor::Linux))
+        } else if entry.is_dir() {
             2
         } else {
             u64::from(workspace.is_none_or(|file| file.linked()))
@@ -766,11 +794,14 @@ fn supplied_path(c: &Ctx<'_>, dirfd: i32, address: u64) -> Result<String, Errno>
         return Err(Errno(ENOENT));
     }
     let path = fs::Vfs::path_str(&raw)?;
-    Ok(if path.starts_with('/') {
-        path.to_owned()
-    } else {
-        format!("{}/{path}", base_dir(c, dirfd)?.trim_end_matches('/'))
-    })
+    if path.starts_with('/') {
+        return Ok(path.to_owned());
+    }
+    let (absolute, retained) = supplied_relative_path(c, dirfd, &path, (c.p.creds.1, c.p.creds.3))?;
+    if retained.is_some() {
+        return Err(Errno(ENOENT));
+    }
+    Ok(absolute)
 }
 
 /// `openat2` with `struct open_how` (resolution restrictions are not
@@ -981,6 +1012,12 @@ pub fn readlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -
 
 /// `getcwd`: returns the length including the NUL.
 pub fn getcwd(c: &mut Ctx<'_>, buf: u64, size: u64) -> SysResult {
+    if c.p
+        .workspace_working_directory()
+        .is_some_and(|directory| !directory.linked())
+    {
+        return Err(Errno(ENOENT));
+    }
     let mut cwd = c.p.working_directory().as_bytes().to_vec();
     cwd.push(0);
     if (size as usize) < cwd.len() {
@@ -1001,7 +1038,7 @@ fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
             {
                 return Err(Errno(EACCES));
             }
-            c.p.set_working_directory(guest);
+            c.p.set_working_directory(guest, entry.workspace_directory().cloned());
             Ok(0)
         }
         Target::Host { host, .. } => {
@@ -1011,11 +1048,11 @@ fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
             }
             let canonical = std::fs::canonicalize(&host)?;
             let guest = c.p.vfs.guest_path_of(&canonical);
-            c.p.set_working_directory(guest);
+            c.p.set_working_directory(guest, None);
             Ok(0)
         }
         Target::Proc(ProcEntry::Dir(_), guest) => {
-            c.p.set_working_directory(guest);
+            c.p.set_working_directory(guest, None);
             Ok(0)
         }
         Target::Proc(ProcEntry::Link(link), _) => {
@@ -1030,13 +1067,16 @@ fn set_cwd_from(c: &mut Ctx<'_>, target: Target) -> SysResult {
                 set_cwd_from(c, t)
             }
             None if f.ftype == FileType::Directory => {
-                if let FileObject::Supplied(entry) = &f.object
-                    && let Some(directory) = entry.workspace_directory()
-                    && !directory.permits(1, (c.p.creds.1, c.p.creds.3), &c.p.groups)
-                {
+                let directory = match &f.object {
+                    FileObject::Supplied(entry) => entry.workspace_directory().cloned(),
+                    _ => None,
+                };
+                if directory.as_ref().is_some_and(|directory| {
+                    !directory.permits(1, (c.p.creds.1, c.p.creds.3), &c.p.groups)
+                }) {
                     return Err(Errno(EACCES));
                 }
-                c.p.set_working_directory(f.path.clone());
+                c.p.set_working_directory(f.path.clone(), directory);
                 Ok(0)
             }
             None => Err(Errno(ENOTDIR)),
@@ -1173,11 +1213,10 @@ pub fn unlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult
         let path = supplied_path(c, dirfd, path)?;
         let ids = (c.p.creds.1, c.p.creds.3);
         if flags == AT_REMOVEDIR {
-            let (_, entry) =
-                files.lookup_for_guest(&path, LinkPolicy::NoFollowLast, ids, &c.p.groups)?;
-            return Err(Errno(if entry.is_dir() { EROFS } else { ENOTDIR }));
+            files.remove_workspace_directory(&path, ids, &c.p.groups)?;
+        } else {
+            files.unlink_workspace_file(&path, ids, &c.p.groups)?;
         }
-        files.unlink_workspace_file(&path, ids, &c.p.groups)?;
         return Ok(0);
     }
     #[cfg(not(unix))]

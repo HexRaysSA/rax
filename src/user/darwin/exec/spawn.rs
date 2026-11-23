@@ -296,6 +296,7 @@ struct Scratch {
     fds: FdTable,
     /// The guest working directory.
     cwd: Vec<u8>,
+    cwd_directory: Option<std::sync::Arc<crate::user::supplied_fs::WorkspaceDirectory>>,
     /// The host directory standing for it, once an action changed it.
     #[cfg(unix)]
     dir: Option<OwnedFd>,
@@ -362,7 +363,7 @@ fn file_actions(
                 // fchdir resolves the descriptor in the caller's table.
                 let file = ctx.proc.fds.file(*fd)?;
                 if ctx.proc.vfs.is_closed() {
-                    s.cwd = embedded::directory_descriptor(ctx, &file)?;
+                    (s.cwd, s.cwd_directory) = embedded::directory_descriptor(ctx, &file)?;
                 } else {
                     #[cfg(unix)]
                     fchdir_host(s, &file)?;
@@ -395,7 +396,7 @@ fn open_action(
         {
             s.fds.lowest_free(0, nofile)?;
         }
-        embedded::open_file(ctx, path, &s.cwd, oflag, mode)?
+        embedded::open_file(ctx, path, &s.cwd, s.cwd_directory.as_ref(), oflag, mode)?
     } else {
         #[cfg(unix)]
         {
@@ -456,9 +457,10 @@ fn dup2(s: &mut Scratch, from: i32, to: i32, nofile: u64) -> Result<(), Errno> {
 /// is required.
 fn chdir_action(ctx: &Ctx<'_>, s: &mut Scratch, path: &[u8]) -> Result<(), Errno> {
     if ctx.proc.vfs.is_closed() {
-        let (path, entry) = embedded::lookup_followed(ctx, path, &s.cwd)?;
+        let (path, entry) = embedded::lookup_followed(ctx, path, &s.cwd, s.cwd_directory.as_ref())?;
         embedded::check_search(ctx, &entry)?;
         s.cwd = path.into_bytes();
+        s.cwd_directory = entry.workspace_directory().cloned();
         return Ok(());
     }
     #[cfg(unix)]
@@ -707,6 +709,7 @@ pub fn posix_spawn(
         // A spawn is a fork then an exec, unless it sets the exec.
         fds: fdt_fork(&ctx.proc.fds, setexec),
         cwd: ctx.proc.cwd.clone(),
+        cwd_directory: ctx.proc.cwd_directory.clone(),
         #[cfg(unix)]
         dir: None,
         inherit: None,
@@ -725,7 +728,13 @@ pub fn posix_spawn(
         creds.3 = creds.2;
     }
     let act = if closed {
-        image::activate_supplied(ctx, path, &scratch.cwd, &a.binprefs)?
+        image::activate_supplied(
+            ctx,
+            path,
+            &scratch.cwd,
+            scratch.cwd_directory.as_ref(),
+            &a.binprefs,
+        )?
     } else {
         #[cfg(unix)]
         {
@@ -739,12 +748,14 @@ pub fn posix_spawn(
     let Scratch {
         fds,
         cwd,
+        cwd_directory,
         #[cfg(unix)]
         dir,
         inherit,
     } = scratch;
     let mut carried = carry(ctx.proc, ctx.thread, fds, inherit.as_ref());
     carried.cwd = cwd;
+    carried.cwd_directory = cwd_directory;
     carried.creds = creds;
     carried.task = task;
     if !setexec {
@@ -996,6 +1007,7 @@ mod tests {
                 let mut scratch = Scratch {
                     fds: fdt_fork(&ctx.proc.fds, native["setexec"].as_bool().unwrap()),
                     cwd: b"/".to_vec(),
+                    cwd_directory: None,
                     #[cfg(unix)]
                     dir: None,
                     inherit: None,

@@ -100,7 +100,14 @@ fn directory(c: &Ctx<'_>, fd: i32) -> Result<std::sync::Arc<OpenFile>, Errno> {
         return Err(Errno(ENOTDIR));
     }
     let mut st = file.state.lock().unwrap();
-    if st.dir.is_none() {
+    let detached = matches!(&file.object, FileObject::Supplied(entry)
+        if entry.workspace_directory().is_some_and(|directory| !directory.linked()));
+    if detached {
+        if st.flags & super::super::abi::open::O_PATH != 0 {
+            return Err(Errno(EBADF));
+        }
+        st.dir = Some((Vec::new(), 0));
+    } else if st.dir.is_none() {
         let entries = match (&file.object, &file.host_path) {
             (FileObject::Supplied(entry), _) if entry.workspace_directory().is_some() => {
                 if st.flags & super::super::abi::open::O_PATH != 0 {

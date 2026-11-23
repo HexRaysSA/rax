@@ -5,7 +5,7 @@ use super::Error;
 use crate::user::mm::{PageSource, SourceIdentity};
 use std::collections::BTreeMap;
 use std::io;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 const MAX_BYTES: usize = 16 << 20;
@@ -17,6 +17,7 @@ pub(super) const ROOT_INODE: u64 = (FIRST_INODE - 1) as u64;
 pub(super) struct Workspace {
     namespace: Mutex<Namespace>,
     budget: Arc<Mutex<Budget>>,
+    pub(super) root: Arc<Directory>,
     pub(super) flavor: WorkspaceFlavor,
 }
 
@@ -32,6 +33,13 @@ struct Namespace {
     inode: u32,
 }
 
+pub(in crate::user) struct Capacity {
+    pub bytes_total: u64,
+    pub bytes_available: u64,
+    pub nodes_total: u64,
+    pub nodes_available: u64,
+}
+
 #[derive(Debug, Default)]
 struct Budget {
     nodes: usize,
@@ -41,18 +49,40 @@ struct Budget {
 #[derive(Clone, Debug)]
 pub(super) enum Node {
     File(Arc<WorkspaceFile>),
-    Directory(Directory),
+    Directory(Arc<Directory>),
 }
 
 /// Identity and permissions of a guest-created directory.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct Directory {
     pub(super) ino: u64,
     pub(super) mode: u32,
     pub(super) owner: (u32, u32),
+    pub(super) parent: Option<Arc<Self>>,
+    linked: AtomicBool,
+    links: AtomicU32,
+    budget: Option<Arc<Mutex<Budget>>>,
 }
 
 impl Directory {
+    pub(crate) fn linked(&self) -> bool {
+        self.linked.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn link_count(&self, flavor: WorkspaceFlavor) -> u32 {
+        if flavor == WorkspaceFlavor::Linux && !self.linked() {
+            return 0;
+        }
+        self.links.load(Ordering::Relaxed)
+    }
+
+    fn check_sticky(&self, uid: u32, child_owner: u32) -> Result<(), Error> {
+        if self.mode & 0o1000 != 0 && uid != 0 && uid != self.owner.0 && uid != child_owner {
+            return Err(Error::PermissionDenied);
+        }
+        Ok(())
+    }
+
     pub(crate) fn permits(&self, need: u32, ids: (u32, u32), groups: &[u32]) -> bool {
         ids.0 == 0 || permitted(self.mode, self.owner, need, ids, groups)
     }
@@ -85,8 +115,27 @@ impl Workspace {
                 inode: FIRST_INODE,
             }),
             budget: Arc::default(),
+            root: Arc::new(Directory {
+                ino: ROOT_INODE,
+                mode: 0o1777,
+                owner: (0, 0),
+                parent: None,
+                linked: AtomicBool::new(true),
+                links: AtomicU32::new(2),
+                budget: None,
+            }),
             flavor,
         }
+    }
+
+    pub(super) fn capacity(&self) -> Result<Capacity, Error> {
+        let used = self.budget.lock().map_err(|_| Error::Io)?;
+        Ok(Capacity {
+            bytes_total: MAX_BYTES as u64,
+            bytes_available: (MAX_BYTES - used.bytes) as u64,
+            nodes_total: MAX_NODES as u64,
+            nodes_available: (MAX_NODES - used.nodes) as u64,
+        })
     }
 
     pub(super) fn get(&self, path: &str) -> Result<Option<Node>, Error> {
@@ -99,19 +148,28 @@ impl Workspace {
         path: String,
         mode: u32,
         owner: (u32, u32),
+        parent: &Arc<Directory>,
     ) -> Result<(), Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if !parent.linked() {
+            return Err(Error::NotFound);
+        }
         if namespace.nodes.contains_key(&path) {
             return Err(Error::Exists);
         }
         let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
         let ino = allocate_inode(&mut namespace, &mut budget)?;
-        let directory = Directory {
+        let directory = Arc::new(Directory {
             ino,
             mode: mode & 0o7777,
             owner,
-        };
+            parent: Some(parent.clone()),
+            linked: AtomicBool::new(true),
+            links: AtomicU32::new(2),
+            budget: Some(self.budget.clone()),
+        });
         namespace.nodes.insert(path, Node::Directory(directory));
+        parent.links.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 
@@ -122,8 +180,12 @@ impl Workspace {
         mode: u32,
         owner: (u32, u32),
         exclusive: bool,
+        parent: &Directory,
     ) -> Result<Arc<WorkspaceFile>, Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if !parent.linked() {
+            return Err(Error::NotFound);
+        }
         if let Some(entry) = namespace.nodes.get(&path) {
             return match (exclusive, entry) {
                 (true, _) => Err(Error::Exists),
@@ -145,24 +207,45 @@ impl Workspace {
         Ok(file)
     }
 
-    pub(super) fn unlink(
-        &self,
-        path: &str,
-        uid: u32,
-        sticky_owner: Option<u32>,
-    ) -> Result<(), Error> {
+    pub(super) fn unlink(&self, path: &str, uid: u32, parent: &Directory) -> Result<(), Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if !parent.linked() {
+            return Err(Error::NotFound);
+        }
         let Node::File(file) = namespace.nodes.get(path).ok_or(Error::NotFound)? else {
             return Err(Error::IsDirectory);
         };
-        if let Some(owner) = sticky_owner
-            && uid != 0
-            && uid != owner
-            && uid != file.owner.0
-        {
-            return Err(Error::PermissionDenied);
-        }
+        parent.check_sticky(uid, file.owner.0)?;
         file.linked.store(false, Ordering::Relaxed);
+        namespace.nodes.remove(path);
+        Ok(())
+    }
+
+    pub(super) fn remove_directory(
+        &self,
+        path: &str,
+        uid: u32,
+        parent: &Directory,
+    ) -> Result<(), Error> {
+        let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if !parent.linked() {
+            return Err(Error::NotFound);
+        }
+        let Node::Directory(directory) = namespace.nodes.get(path).ok_or(Error::NotFound)? else {
+            return Err(Error::NotDirectory);
+        };
+        parent.check_sticky(uid, directory.owner.0)?;
+        let prefix = format!("{path}/");
+        if namespace
+            .nodes
+            .range(prefix.clone()..)
+            .next()
+            .is_some_and(|(name, _)| name.starts_with(&prefix))
+        {
+            return Err(Error::NotEmpty);
+        }
+        directory.linked.store(false, Ordering::Relaxed);
+        parent.links.fetch_sub(1, Ordering::Relaxed);
         namespace.nodes.remove(path);
         Ok(())
     }
@@ -285,6 +368,16 @@ fn permitted(mode: u32, owner: (u32, u32), need: u32, ids: (u32, u32), groups: &
     need & !(mode >> shift) == 0
 }
 
+impl Drop for Directory {
+    fn drop(&mut self) {
+        if let Some(budget) = &self.budget
+            && let Ok(mut budget) = budget.lock()
+        {
+            budget.nodes -= 1;
+        }
+    }
+}
+
 impl Drop for WorkspaceFile {
     fn drop(&mut self) {
         if let Ok(mut budget) = self.budget.lock() {
@@ -336,13 +429,17 @@ mod tests {
     fn removed_storage_survives_recreation_until_the_last_descriptor_closes() {
         let files = Workspace::new(WorkspaceFlavor::Linux);
         let name = "value";
-        let before = files.create(name.into(), 0o600, (101, 102), true).unwrap();
+        let before = files
+            .create(name.into(), 0o600, (101, 102), true, &files.root)
+            .unwrap();
         assert!(matches!(
-            files.create(name.into(), 0o600, (103, 104), true),
+            files.create(name.into(), 0o600, (103, 104), true, &files.root),
             Err(Error::Exists)
         ));
         assert!(Arc::ptr_eq(
-            &files.create(name.into(), 0, (103, 104), false).unwrap(),
+            &files
+                .create(name.into(), 0, (103, 104), false, &files.root)
+                .unwrap(),
             &before
         ));
         assert_eq!(before.mode(), 0o600);
@@ -354,13 +451,15 @@ mod tests {
         assert!(!before.permits(4, (103, 102), &[]));
         assert!(!before.permits(1, (0, 0), &[]));
         assert!(matches!(
-            files.unlink(name, 103, Some(0)),
+            files.unlink(name, 103, &files.root),
             Err(Error::PermissionDenied)
         ));
-        files.unlink(name, 101, Some(0)).unwrap();
+        files.unlink(name, 101, &files.root).unwrap();
         assert!(!before.linked());
         assert!(files.get(name).unwrap().is_none());
-        let after = files.create(name.into(), 0o640, (103, 104), true).unwrap();
+        let after = files
+            .create(name.into(), 0o640, (103, 104), true, &files.root)
+            .unwrap();
         assert!(after.linked());
         assert!(after.permits(4, (101, 102), &[104]));
         assert_ne!(before.ino, after.ino);

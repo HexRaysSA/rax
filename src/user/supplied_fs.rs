@@ -12,6 +12,7 @@ use crate::user::mm::{BytesSource, HostFileSource, PageSource, SourceIdentity};
 mod roots;
 mod workspace;
 use roots::Roots;
+pub(super) use workspace::Capacity as WorkspaceCapacity;
 pub(super) use workspace::WorkspaceFlavor;
 pub use workspace::{Directory as WorkspaceDirectory, WorkspaceFile};
 use workspace::{Node, Workspace};
@@ -30,6 +31,8 @@ pub enum Error {
     Exists,
     NotFound,
     NotDirectory,
+    NotEmpty,
+    Busy,
     IsDirectory,
     NotRegular,
     LinkLoop,
@@ -48,13 +51,15 @@ impl std::fmt::Display for Error {
             Self::Exists => "conflicting supplied file or directory",
             Self::NotFound => "guest path is not supplied",
             Self::NotDirectory => "guest path component is not a directory",
+            Self::NotEmpty => "guest directory contains entries",
+            Self::Busy => "guest mount or root directory is busy",
             Self::IsDirectory => "guest path is a directory",
             Self::NotRegular => "guest path does not refer to a regular file",
             Self::LinkLoop => "guest pathname encountered a symbolic link without following it",
             Self::Io => "selected guest backing file read failed",
             Self::TooLarge => "guest file exceeds its size limit",
             Self::ReadOnly => "the selected guest backing is read-only",
-            Self::PermissionDenied => "guest identity cannot remove the workspace file",
+            Self::PermissionDenied => "guest identity cannot remove the workspace entry",
             Self::AccessDenied => "guest identity cannot modify the workspace directory",
             Self::NoSpace => "the private guest workspace is full",
         })
@@ -69,7 +74,7 @@ pub enum Kind {
     Backed(Arc<HostFileSource>),
     /// A regular file created by this guest session.
     Workspace(Arc<WorkspaceFile>),
-    WorkspaceDirectory(WorkspaceDirectory),
+    WorkspaceDirectory(Arc<WorkspaceDirectory>),
     Directory,
     /// The closed runtime's synthetic null character device.
     NullDevice,
@@ -121,7 +126,7 @@ impl Entry {
         }
     }
 
-    pub(crate) fn workspace_directory(&self) -> Option<&WorkspaceDirectory> {
+    pub(crate) fn workspace_directory(&self) -> Option<&Arc<WorkspaceDirectory>> {
         match &self.kind {
             Kind::WorkspaceDirectory(directory) => Some(directory),
             _ => None,
@@ -284,6 +289,52 @@ pub(super) enum LinkPolicy {
 }
 
 type WorkspaceAccess<'a> = ((u32, u32), &'a [u32]);
+
+/// Form an absolute guest path while preserving a removed base directory's
+/// identity. Only dot and dot-dot can traverse a detached directory. The
+/// optional entry is present when the path still ends at a detached directory.
+pub(super) fn relative_workspace_path(
+    base: &str,
+    directory: Option<&Arc<WorkspaceDirectory>>,
+    path: &str,
+    ids: (u32, u32),
+    groups: &[u32],
+) -> Result<(String, Option<Entry>), Error> {
+    let mut base = base;
+    let mut rest = path;
+    let mut directory = directory;
+    while let Some(detached) = directory.filter(|directory| !directory.linked()) {
+        rest = rest.trim_start_matches('/');
+        if rest.is_empty() {
+            return Ok((
+                base.into(),
+                Some(Entry {
+                    ino: detached.ino,
+                    kind: Kind::WorkspaceDirectory(detached.clone()),
+                }),
+            ));
+        }
+        if !detached.permits(1, ids, groups) {
+            return Err(Error::AccessDenied);
+        }
+        let (name, tail) = rest.split_once('/').unwrap_or((rest, ""));
+        match name {
+            "." => {}
+            ".." => {
+                let end = base.rfind('/').ok_or(Error::InvalidPath)?;
+                base = &base[..end.max(1)];
+                directory = detached.parent.as_ref();
+            }
+            _ => return Err(Error::NotFound),
+        }
+        rest = tail;
+    }
+    if rest.is_empty() {
+        Ok((base.into(), None))
+    } else {
+        Ok((format!("{}/{rest}", base.trim_end_matches('/')), None))
+    }
+}
 
 impl Files {
     /// File keys must be canonical: absolute, no empty, `.` or `..` components,
@@ -633,6 +684,10 @@ impl Files {
         self.workspace.is_some()
     }
 
+    pub(super) fn workspace_capacity(&self) -> Result<WorkspaceCapacity, Error> {
+        self.workspace.as_ref().ok_or(Error::ReadOnly)?.capacity()
+    }
+
     fn workspace_at(&self, path: &str) -> Option<&Workspace> {
         self.workspace.as_deref().filter(|_| {
             !self
@@ -655,7 +710,7 @@ impl Files {
         path: &str,
         ids: (u32, u32),
         groups: &[u32],
-    ) -> Result<(&Workspace, String, WorkspaceDirectory), Error> {
+    ) -> Result<(&Workspace, String, Arc<WorkspaceDirectory>), Error> {
         validate(path)?;
         let (parent, name) = path.rsplit_once('/').expect("validated absolute path");
         if name.is_empty() {
@@ -669,7 +724,7 @@ impl Files {
         if matches!(name, "." | "..") {
             return Err(Error::Exists);
         }
-        let directory = *entry.workspace_directory().ok_or(Error::ReadOnly)?;
+        let directory = entry.workspace_directory().ok_or(Error::ReadOnly)?.clone();
         if !directory.permits(3, ids, groups) {
             return Err(Error::AccessDenied);
         }
@@ -696,7 +751,7 @@ impl Files {
         }
         let owner = directory.child_owner(workspace.flavor, ids);
         let name = path.strip_prefix("/tmp/").expect("private workspace file");
-        let file = workspace.create(name.to_owned(), mode, owner, exclusive)?;
+        let file = workspace.create(name.to_owned(), mode, owner, exclusive, &directory)?;
         Ok((
             path,
             Entry {
@@ -738,7 +793,7 @@ impl Files {
         let name = path
             .strip_prefix("/tmp/")
             .expect("private workspace directory");
-        workspace.create_directory(name.to_owned(), mode, owner)
+        workspace.create_directory(name.to_owned(), mode, owner, &directory)
     }
 
     pub(crate) fn unlink_workspace_file(
@@ -756,22 +811,60 @@ impl Files {
         }
         let (workspace, path, directory) = self.workspace_destination(&path, ids, groups)?;
         let name = path.strip_prefix("/tmp/").expect("private workspace file");
-        let sticky_owner = (directory.mode & 0o1000 != 0).then_some(directory.owner.0);
-        workspace.unlink(name, ids.0, sticky_owner)
+        workspace.unlink(name, ids.0, &directory)
+    }
+
+    pub(crate) fn remove_workspace_directory(
+        &self,
+        path: &str,
+        ids: (u32, u32),
+        groups: &[u32],
+    ) -> Result<(), Error> {
+        validate(path)?;
+        let trimmed = path.trim_end_matches('/');
+        if trimmed.is_empty() {
+            return Err(Error::Busy);
+        }
+        match trimmed.rsplit('/').next() {
+            Some(".") => return Err(Error::InvalidPath),
+            Some("..") => {
+                return Err(
+                    if self
+                        .workspace
+                        .as_ref()
+                        .is_some_and(|ws| ws.flavor == WorkspaceFlavor::Linux)
+                    {
+                        Error::NotEmpty
+                    } else {
+                        Error::InvalidPath
+                    },
+                );
+            }
+            _ => {}
+        }
+        let (path, entry) =
+            self.lookup_for_guest(trimmed, LinkPolicy::NoFollowLast, ids, groups)?;
+        if !entry.is_dir() {
+            return Err(Error::NotDirectory);
+        }
+        if entry.workspace_directory().is_none() || path == TEMP_DIRECTORY {
+            return Err(Error::ReadOnly);
+        }
+        let (workspace, path, directory) = self.workspace_destination(&path, ids, groups)?;
+        let name = path
+            .strip_prefix("/tmp/")
+            .expect("private workspace directory");
+        workspace.remove_directory(name, ids.0, &directory)
     }
 
     fn entry(&self, path: &str, follow: bool) -> Result<Entry, Error> {
         if path == TEMP_DIRECTORY
-            && self.workspace_at(path).is_some()
+            && let Some(scratch) = self.workspace_at(path)
             && self.entries.get(path).is_none_or(Entry::is_dir)
         {
             return Ok(Entry {
                 ino: workspace::ROOT_INODE,
-                kind: Kind::WorkspaceDirectory(WorkspaceDirectory {
-                    ino: workspace::ROOT_INODE,
-                    mode: 0o1777,
-                    owner: (0, 0),
-                }),
+                kind: Kind::WorkspaceDirectory(scratch.root.clone()),
             });
         }
         if let Some(entry) = self.entries.get(path) {
@@ -935,6 +1028,12 @@ impl Files {
         path: &str,
         entry: &Entry,
     ) -> Result<Vec<(String, Entry)>, Error> {
+        if entry
+            .workspace_directory()
+            .is_some_and(|directory| !directory.linked())
+        {
+            return Ok(Vec::new());
+        }
         let parent = self.lookup(&format!("{path}/.."))?.1;
         let mut entries = vec![(".".to_owned(), entry.clone()), ("..".to_owned(), parent)];
         entries.extend(self.children(path)?);
@@ -1056,11 +1155,9 @@ mod tests {
         let group = "/tmp/group";
         let child = "/tmp/group/child";
         let file = "/tmp/group/child/data";
-        files
-            .workspace
-            .as_ref()
-            .unwrap()
-            .create_directory("group".to_owned(), 0o2770, (40, 50))
+        let workspace = files.workspace.as_ref().unwrap();
+        workspace
+            .create_directory("group".to_owned(), 0o2770, (40, 50), &workspace.root)
             .unwrap();
         assert!(matches!(
             files.create_workspace_directory(child, 0o700, (41, 51), &[]),
@@ -1099,6 +1196,64 @@ mod tests {
         assert!(matches!(
             files.create_workspace_directory("/separate", 0o700, (41, 51), &[]),
             Err(Error::ReadOnly)
+        ));
+    }
+
+    #[test]
+    fn native_workspace_removes_only_empty_owned_directories() {
+        let files = Files::new(BTreeMap::from([(
+            "/tmp/supplied/retained".to_owned(),
+            Arc::from(&b"input"[..]),
+        )]))
+        .unwrap()
+        .with_temp_workspace(WorkspaceFlavor::Linux);
+        let owner = (51, 52);
+        let name = "/tmp/removed";
+        files
+            .create_workspace_directory(name, 0o755, owner, &[])
+            .unwrap();
+        let before = files.lookup(name).unwrap().1;
+        files
+            .create_workspace_directory("/tmp/removed/nested", 0o700, owner, &[])
+            .unwrap();
+        assert_eq!(
+            before
+                .workspace_directory()
+                .unwrap()
+                .link_count(WorkspaceFlavor::Linux),
+            3
+        );
+        assert_eq!(
+            files.remove_workspace_directory(name, owner, &[]),
+            Err(Error::NotEmpty)
+        );
+        assert_eq!(
+            files.remove_workspace_directory("/tmp/supplied", owner, &[]),
+            Err(Error::ReadOnly)
+        );
+        assert_eq!(
+            files.remove_workspace_directory(name, (100, 0), &[]),
+            Err(Error::PermissionDenied)
+        );
+        files
+            .remove_workspace_directory("/tmp/removed/nested", owner, &[])
+            .unwrap();
+        files.remove_workspace_directory(name, owner, &[]).unwrap();
+        assert_eq!(
+            before
+                .workspace_directory()
+                .unwrap()
+                .link_count(WorkspaceFlavor::Linux),
+            0
+        );
+        assert!(files.directory_entries(name, &before).unwrap().is_empty());
+        files
+            .create_workspace_directory(name, 0o700, owner, &[])
+            .unwrap();
+        assert_ne!(files.lookup(name).unwrap().1.ino, before.ino);
+        assert!(matches!(
+            relative_workspace_path(name, before.workspace_directory(), "new-child", owner, &[]),
+            Err(Error::NotFound)
         ));
     }
 

@@ -630,6 +630,7 @@ pub struct Threads<'a> {
 #[derive(Debug)]
 pub(super) struct SharedFsContext {
     cwd: String,
+    cwd_directory: Option<Arc<crate::user::supplied_fs::WorkspaceDirectory>>,
     umask: u32,
 }
 
@@ -682,10 +683,31 @@ impl ProcState {
         }
     }
 
-    pub(super) fn set_working_directory(&mut self, cwd: String) {
+    pub(super) fn workspace_working_directory(
+        &self,
+    ) -> Option<Arc<crate::user::supplied_fs::WorkspaceDirectory>> {
         match &self.shared_fs {
-            Some(fs) => fs.lock().expect("Linux filesystem context lock").cwd = cwd,
-            None => self.vfs.set_cwd(cwd),
+            Some(fs) => fs
+                .lock()
+                .expect("Linux filesystem context lock")
+                .cwd_directory
+                .clone(),
+            None => self.vfs.cwd_directory(),
+        }
+    }
+
+    pub(super) fn set_working_directory(
+        &mut self,
+        cwd: String,
+        directory: Option<Arc<crate::user::supplied_fs::WorkspaceDirectory>>,
+    ) {
+        match &self.shared_fs {
+            Some(fs) => {
+                let mut fs = fs.lock().expect("Linux filesystem context lock");
+                fs.cwd = cwd;
+                fs.cwd_directory = directory;
+            }
+            None => self.vfs.set_cwd(cwd, directory),
         }
     }
 
@@ -717,13 +739,14 @@ impl ProcState {
         let mut umask = self.umask;
         if let Some(fs) = &self.shared_fs {
             let fs = fs.lock().expect("Linux filesystem context lock");
-            vfs.set_cwd(fs.cwd.clone());
+            vfs.set_cwd(fs.cwd.clone(), fs.cwd_directory.clone());
             umask = fs.umask;
         }
         let shared = share.then(|| {
             self.shared_fs.clone().unwrap_or_else(|| {
                 Arc::new(Mutex::new(SharedFsContext {
                     cwd: vfs.cwd().to_owned(),
+                    cwd_directory: vfs.cwd_directory(),
                     umask,
                 }))
             })
@@ -734,7 +757,7 @@ impl ProcState {
     pub(super) fn unshare_filesystem(&mut self) {
         if let Some(fs) = self.shared_fs.take() {
             let fs = fs.lock().expect("Linux filesystem context lock");
-            self.vfs.set_cwd(fs.cwd.clone());
+            self.vfs.set_cwd(fs.cwd.clone(), fs.cwd_directory.clone());
             self.umask = fs.umask;
         }
     }

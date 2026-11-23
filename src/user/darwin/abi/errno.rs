@@ -135,6 +135,8 @@ impl From<crate::user::supplied_fs::Error> for Errno {
             E::Exists => Self::EEXIST,
             E::NotFound => Self::ENOENT,
             E::NotDirectory => Self::ENOTDIR,
+            E::NotEmpty => Self::ENOTEMPTY,
+            E::Busy => Self::EBUSY,
             E::IsDirectory => Self::EISDIR,
             E::NotRegular => Self::EACCES,
             E::LinkLoop => Self::ELOOP,

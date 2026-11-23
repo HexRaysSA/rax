@@ -44,7 +44,7 @@ pub(super) fn getdirentries64(
     let mut eof = initial == END_OF_DIRECTORY;
     if !eof {
         let directory = files.directory_entries(path, entry)?;
-        if next == 0 && capacity < 64 {
+        if !directory.is_empty() && next == 0 && capacity < 64 {
             return Err(Errno::EINVAL);
         }
         for (name, child) in directory.iter().skip(next) {

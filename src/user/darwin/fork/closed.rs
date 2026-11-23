@@ -108,6 +108,7 @@ pub(super) fn fork(ctx: &mut Ctx<'_>) -> SysResult {
         vm: parent.vm,
         vfs: parent.vfs.clone(),
         cwd: parent.cwd.clone(),
+        cwd_directory: parent.cwd_directory.clone(),
         fds: crate::user::darwin::exec::fdt_fork(&parent.fds, false),
         closers: Default::default(),
         pid,

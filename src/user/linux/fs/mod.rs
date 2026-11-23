@@ -23,6 +23,9 @@ pub(crate) mod reopen;
 pub mod xattr;
 
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
+
+use crate::user::supplied_fs::WorkspaceDirectory;
 
 use super::abi::errno::Errno;
 use super::abi::errno_table::*;
@@ -39,6 +42,7 @@ pub const MAX_SYMLINKS: usize = 40;
 pub struct Vfs {
     sysroot: Option<PathBuf>,
     cwd: String,
+    cwd_directory: Option<Arc<WorkspaceDirectory>>,
     supplied: Option<crate::user::supplied_fs::Files>,
 }
 
@@ -79,6 +83,7 @@ impl Vfs {
         Vfs {
             sysroot,
             cwd,
+            cwd_directory: None,
             supplied: None,
         }
     }
@@ -92,6 +97,7 @@ impl Vfs {
         Ok(Self {
             sysroot: None,
             cwd,
+            cwd_directory: entry.workspace_directory().cloned(),
             supplied: Some(files),
         })
     }
@@ -132,9 +138,14 @@ impl Vfs {
         &self.cwd
     }
 
-    /// Sets the guest working directory (absolute).
-    pub fn set_cwd(&mut self, cwd: String) {
+    pub(super) fn cwd_directory(&self) -> Option<Arc<WorkspaceDirectory>> {
+        self.cwd_directory.clone()
+    }
+
+    /// Sets the guest working directory (absolute), retaining its workspace identity.
+    pub(super) fn set_cwd(&mut self, cwd: String, directory: Option<Arc<WorkspaceDirectory>>) {
         self.cwd = cwd;
+        self.cwd_directory = directory;
     }
 
     /// Converts a guest path argument to text. Linux paths are byte strings;

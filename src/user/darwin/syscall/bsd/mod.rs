@@ -114,7 +114,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                     Ok(Rv::one(member.setsid()? as u64))
                 };
             }
-            nr::UNLINK | nr::UNLINKAT | nr::MKDIR | nr::MKDIRAT
+            nr::UNLINK | nr::UNLINKAT | nr::RMDIR | nr::MKDIR | nr::MKDIRAT | nr::FSTATFS64
                 if ctx.proc.vfs.files().is_some_and(|files| files.has_workspace()) =>
             {}
             nr::GETDIRENTRIES64 if ctx.proc.vfs.is_closed() => {}

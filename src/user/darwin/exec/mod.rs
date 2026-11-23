@@ -79,7 +79,13 @@ pub fn execve(ctx: &mut Ctx<'_>, path: u64, argv: u64, envp: u64) -> SysResult {
             image::activate(ctx, path, Dir::Cwd, &Binprefs::default())?
         }
     } else {
-        image::activate_supplied(ctx, path, &ctx.proc.cwd, &Binprefs::default())?
+        image::activate_supplied(
+            ctx,
+            path,
+            &ctx.proc.cwd,
+            ctx.proc.cwd_directory.as_ref(),
+            &Binprefs::default(),
+        )?
     };
     let strings = args::extract(ctx, &act.interp, &act.user_path, argv, envp)?;
     let fds = fdt_fork(&ctx.proc.fds, true);
@@ -263,6 +269,7 @@ pub fn carry(
         ppid: proc.ppid,
         creds: proc.creds,
         cwd: proc.cwd.clone(),
+        cwd_directory: proc.cwd_directory.clone(),
         umask: proc.umask,
         rlimits: proc.rlimits,
         fds,

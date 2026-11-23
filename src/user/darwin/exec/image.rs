@@ -212,13 +212,15 @@ pub(super) fn activate_supplied(
     ctx: &Ctx<'_>,
     path_addr: u64,
     cwd: &[u8],
+    directory: Option<&std::sync::Arc<crate::user::supplied_fs::WorkspaceDirectory>>,
     prefs: &Binprefs,
 ) -> Result<Activated, Errno> {
     let user_path = ctx.cstr(path_addr, MAXPATHLEN)?;
     let machine = Machine { abi: ctx.proc.abi };
     let activated = activate_image(machine, &user_path, prefs, |path| {
-        let (path, entry) =
-            crate::user::darwin::syscall::bsd::path::embedded::lookup_followed(ctx, path, cwd)?;
+        let (path, entry) = crate::user::darwin::syscall::bsd::path::embedded::lookup_followed(
+            ctx, path, cwd, directory,
+        )?;
         if entry.is_dir() || entry.device().is_some() {
             return Err(Errno::EACCES);
         }

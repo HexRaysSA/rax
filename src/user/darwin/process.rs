@@ -439,6 +439,7 @@ pub struct Proc {
     pub vfs: Vfs,
     /// Absolute guest working directory.
     pub cwd: Vec<u8>,
+    pub(super) cwd_directory: Option<Arc<crate::user::supplied_fs::WorkspaceDirectory>>,
     /// Descriptors.
     pub fds: FdTable,
     pub(crate) closers: syscall::bsd::file::lifetime::Closers,
@@ -659,6 +660,7 @@ pub struct Carried {
     pub creds: (u32, u32, u32, u32),
     /// Working directory.
     pub cwd: Vec<u8>,
+    pub(super) cwd_directory: Option<Arc<crate::user::supplied_fs::WorkspaceDirectory>>,
     /// File-creation mask.
     pub umask: u32,
     /// Resource limits.
@@ -1385,6 +1387,7 @@ pub(crate) fn start(
             vm,
             vfs,
             cwd,
+            cwd_directory: c.cwd_directory,
             fds: c.fds,
             closers: Default::default(),
             pid,
@@ -1503,6 +1506,14 @@ pub(crate) fn start(
                 abi,
                 space,
                 vm,
+                cwd_directory: vfs
+                    .files()
+                    .and_then(|files| {
+                        std::str::from_utf8(&cwd)
+                            .ok()
+                            .and_then(|cwd| files.lookup(cwd).ok())
+                    })
+                    .and_then(|(_, entry)| entry.workspace_directory().cloned()),
                 vfs,
                 cwd,
                 fds,

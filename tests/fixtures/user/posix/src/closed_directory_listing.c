@@ -76,10 +76,35 @@ int main(int argc, char **argv) {
     }
     EXPECT(found == 1 && errno == 0);
     EXPECT(closedir(directory) == 0);
-    EXPECT(close(parent) == 0);
+    EXPECT(unlinkat(parent, "child", AT_REMOVEDIR) == -1 && errno == ENOTEMPTY);
     EXPECT(unlink("data") == 0);
     EXPECT(access("data", F_OK) == -1 && errno == ENOENT);
+    child = openat(parent, "child", O_RDONLY | O_DIRECTORY);
+    EXPECT(child >= 0);
+    EXPECT(unlinkat(parent, "child", AT_REMOVEDIR) == 0);
+    EXPECT(fchdir(child) == 0);
+    char cwd[4096];
+    EXPECT(getcwd(cwd, sizeof(cwd)) == NULL && errno == ENOENT);
+    EXPECT(mkdirat(parent, "child", 0755) == 0);
+    EXPECT(mkdir("orphan", 0700) == -1 && errno == ENOENT);
+    EXPECT(mkdirat(child, "orphan", 0700) == -1 && errno == ENOENT);
+    struct stat removed_stat, fresh_stat;
+    EXPECT(fstat(child, &removed_stat) == 0);
+    EXPECT(fstatat(parent, "child", &fresh_stat, 0) == 0);
+    EXPECT(removed_stat.st_ino == child_stat.st_ino && fresh_stat.st_ino != child_stat.st_ino);
+    EXPECT(fstatat(child, ".", &removed_stat, 0) == 0 && removed_stat.st_ino == child_stat.st_ino);
+    EXPECT(fstatat(child, "..", &removed_stat, 0) == 0 && removed_stat.st_ino == parent_stat.st_ino);
+    directory = fdopendir(child);
+    EXPECT(directory != NULL);
+    errno = 0;
+    EXPECT(readdir(directory) == NULL && errno == 0);
+    EXPECT(closedir(directory) == 0);
+    EXPECT(chdir("..") == 0);
+    EXPECT(unlinkat(parent, "child", AT_REMOVEDIR) == 0);
+    EXPECT(unlinkat(parent, "late-child", AT_REMOVEDIR) == 0);
+    EXPECT(close(parent) == 0);
     EXPECT(chdir("/") == 0);
-    puts("mkdir/mkdirat/dirfd/fchdir/read/write/stat/readdir/rewinddir/unlink: correct");
+    EXPECT(rmdir(base) == 0);
+    puts("directory creation, listing, removal, and retained handles: correct");
     return 0;
 }

@@ -754,7 +754,7 @@ fn installed_libc_directory_listing_matches_native_through_closed_c_abi() {
     assert!(native.stderr.is_empty());
     assert_eq!(
         native.stdout,
-        b"mkdir/mkdirat/dirfd/fchdir/read/write/stat/readdir/rewinddir/unlink: correct\n"
+        b"directory creation, listing, removal, and retained handles: correct\n"
     );
 
     let personality = if cfg!(target_os = "linux") {

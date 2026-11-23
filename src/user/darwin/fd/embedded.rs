@@ -130,7 +130,16 @@ impl EmbeddedFile {
             size,
             uid,
             gid,
-            nlink: u16::from(workspace.is_none_or(|file| file.linked())),
+            nlink: self
+                .entry()
+                .and_then(Entry::workspace_directory)
+                .map_or_else(
+                    || u16::from(workspace.is_none_or(|file| file.linked())),
+                    |directory| {
+                        directory.link_count(crate::user::supplied_fs::WorkspaceFlavor::Darwin)
+                            as u16
+                    },
+                ),
             blksize: 4096,
             blocks: (size as u64).div_ceil(512) as i64,
             ..Default::default()

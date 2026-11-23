@@ -1517,6 +1517,40 @@ pub fn select(ctx: &mut Ctx<'_>, nfds: i32, rd: u64, wr: u64, ex: u64, timeout: 
 
 /// `fstatfs64(fd, buf)`.
 pub fn fstatfs64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
+    if let Some(files) = ctx.proc.vfs.files() {
+        use crate::user::darwin::abi::types::Statfs;
+
+        let file = ctx.proc.fds.file(fd)?;
+        let FileKind::Embedded(data) = &file.kind else {
+            return Err(Errno::EPERM);
+        };
+        if !data.entry().is_some_and(|entry| {
+            entry.workspace_directory().is_some() || entry.workspace_file().is_some()
+        }) {
+            return Err(Errno::EPERM);
+        }
+        let capacity = files.workspace_capacity()?;
+        const BLOCK_SIZE: u32 = 4096;
+        const MNT_LOCAL: u32 = 0x1000;
+        let free_blocks = capacity.bytes_available / u64::from(BLOCK_SIZE);
+        let stat = Statfs {
+            bsize: BLOCK_SIZE,
+            iosize: BLOCK_SIZE as i32,
+            blocks: capacity.bytes_total / u64::from(BLOCK_SIZE),
+            bfree: free_blocks,
+            bavail: free_blocks,
+            files: capacity.nodes_total,
+            ffree: capacity.nodes_available,
+            fsid: [0x524158, 0],
+            flags: MNT_LOCAL,
+            fstypename: b"raxfs".to_vec(),
+            mntonname: b"/tmp".to_vec(),
+            mntfromname: b"raxfs".to_vec(),
+            ..Default::default()
+        };
+        ctx.write(buf, &stat.bytes())?;
+        return Ok(Rv::one(0));
+    }
     let (_, h) = host_fd(ctx, fd)?;
     #[cfg(target_os = "macos")]
     {

@@ -764,13 +764,15 @@ On Linux and Darwin, native-runtime sessions start with a private guest
 /tmp. A session can create named directories and create, read, append,
 truncate, and unlink regular files anywhere in that tree. Directory
 descriptions support listing and rewinding, including entries created since
-the last scan. Open descriptors keep an unlinked file alive, including across
-recreation of its former name.
+the last scan. A session can remove empty guest-created directories. Open
+descriptors keep their original identity through removal and recreation of
+the same name. A process holding a removed working directory can still reach
+its parent and must change directories before creating new entries there.
 The namespace is shared within the guest process family and discarded on
 session close. It holds up to 16 MiB of logical file data and 1,024 guest-created
 files and directories. Supplied files and selected runtime libraries stay
-read-only. Workspace operations use guest memory. Directory removal, renames,
-and writable shared file mappings are outside this profile.
+read-only. Workspace operations use guest memory. Renames and writable shared
+file mappings are outside this profile.
 
 Windows associates a supplied main image with an installed backing file when
 its guest path identifies a file in the selected system directory and its bytes

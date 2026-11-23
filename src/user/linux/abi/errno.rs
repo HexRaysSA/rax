@@ -40,6 +40,8 @@ impl From<crate::user::supplied_fs::Error> for Errno {
             E::Exists => linux::EEXIST,
             E::NotFound => linux::ENOENT,
             E::NotDirectory => linux::ENOTDIR,
+            E::NotEmpty => linux::ENOTEMPTY,
+            E::Busy => linux::EBUSY,
             E::IsDirectory => linux::EISDIR,
             E::NotRegular => linux::EACCES,
             E::LinkLoop => linux::ELOOP,

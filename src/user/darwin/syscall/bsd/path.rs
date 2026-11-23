@@ -341,6 +341,9 @@ pub fn unlinkat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flag: u32) -> SysResul
 
 /// `rmdir(path)`: `unlinkat(AT_FDCWD, path, AT_REMOVEDIR)`.
 pub fn rmdir(ctx: &mut Ctx<'_>, path: u64) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        return embedded::unlinkat(ctx, AT_FDCWD, path, host::AT_REMOVEDIR);
+    }
     #[cfg(unix)]
     {
         let (_, cpath) = guest_path(ctx, path)?;
