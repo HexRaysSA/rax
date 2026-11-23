@@ -331,6 +331,30 @@ recording a Darwin code-signing test failure. The x86-64 workspace
 all-target check and all 22 prepared-consumer Python tests passed.
 The cross-built x86-64 guest verified with the hypervisor entitlement.
 
+Hosted Intel run `45278608531` executed the production `irq-vectoring`
+profile at `bb638ac700049e9d43ebccb28a39ad2116e97988` on macOS 15.7.9
+(24G830). The platform probe reported an untranslated GenuineIntel process
+on a virtualized host. The signed guest ran both cases successfully.
+[Hosted RAX IRQ-vectoring run](https://github.com/HexRaysSA/rax/actions/runs/45278608531/job/138056836311)
+
+| CPU owner | EPT GPA | Stopped RIP | Resumed RIP | Stopped and resumed RSP | IRQ handler visits |
+| --- | --- | --- | --- | --- | --- |
+| Original | `0xc400` | `0x10002` | `0x1000d` | `0x1ff000` | 1 |
+| Fresh owner restored from a native CPU record | `0xc400` | `0x10002` | `0x1000d` | `0x1ff000` | 1 |
+
+Independent archive verification matched all 4,918 engine inputs and 22
+probe inputs to Git, validated the two observation records, and confirmed
+the x86-64 executable's strict signature and hypervisor entitlement.
+The executable SHA-256 was
+`b66111735a94a1a7213039cd5934221421e54e5720157afde483bd34c3ce3d25`.
+
+- Build archive `14869621741` matched SHA-256
+  `b0f8709a6e62709fa71aa86eff55ef2dadd2683f71d47f68b9e1e10227d80bdb`.
+  [Signed build archive](https://github.com/HexRaysSA/rax/actions/runs/45278608531/artifacts/14869621741)
+- Execution archive `14868979998` matched SHA-256
+  `1eb58dbc48be8123164c9b93d3f9489a26ec9feef4bec6519b7a7a94367a3777`.
+  [Native execution archive](https://github.com/HexRaysSA/rax/actions/runs/45278608531/artifacts/14868979998)
+
 Other interrupt-delivery exits, including intercepted nested exceptions and
 task gates, require separate handling. A gate or stack that remains assigned
 to a device cannot complete through this RAM mapping path. General event
