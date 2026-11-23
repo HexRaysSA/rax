@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::c_void;
 use std::fs::{self, File};
 use std::io::{self, Read};
@@ -85,6 +85,7 @@ fn load(path: &Path, upcase: Arc<[u16]>) -> io::Result<Catalog> {
 }
 
 fn main() -> io::Result<()> {
+    println!("lookup ABI={}", std::env::consts::ARCH);
     let root = PathBuf::from(std::env::var_os("SystemRoot").expect("Windows system root"))
         .join("AppPatch")
         .canonicalize()?;
@@ -123,6 +124,7 @@ fn main() -> io::Result<()> {
         .collect();
     assert_eq!(native_lookup(&unknown), (0, 0), "absent-name control");
     let mut mismatches = vec![0usize; catalogs.len()];
+    let mut transitions = vec![BTreeMap::new(); catalogs.len()];
     let mut nonzero = 0;
     for name in &names {
         let (status, flags) = native_lookup(name);
@@ -136,6 +138,9 @@ fn main() -> io::Result<()> {
         nonzero += usize::from(flags != 0);
         for (index, (path, catalog)) in catalogs.iter().enumerate() {
             let expected = catalog.lookup(name);
+            *transitions[index]
+                .entry((expected, flags))
+                .or_insert(0usize) += 1;
             if expected != flags {
                 mismatches[index] += 1;
                 if mismatches[index] <= 32 {
@@ -148,12 +153,15 @@ fn main() -> io::Result<()> {
             }
         }
     }
-    for ((path, _), count) in catalogs.iter().zip(mismatches) {
+    for (((path, _), count), patterns) in catalogs.iter().zip(mismatches).zip(transitions) {
         println!(
             "summary {:?} queried={} mismatches={count} live_nonzero={nonzero}",
             path,
             names.len()
         );
+        for ((stored, observed), matches) in patterns {
+            println!("transition {path:?} file={stored:#x} live={observed:#x} names={matches}");
+        }
     }
     Ok(())
 }

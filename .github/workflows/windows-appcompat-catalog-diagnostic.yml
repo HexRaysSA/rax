@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   native:
-    name: AppCompat catalogs (${{ matrix.os }})
+    name: AppCompat catalogs (${{ matrix.os }}, ${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -18,6 +18,7 @@ jobs:
         include:
           - { os: windows-2022, target: x86_64-pc-windows-msvc }
           - { os: windows-2025, target: x86_64-pc-windows-msvc }
+          - { os: windows-2025, target: i686-pc-windows-msvc }
           - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
     defaults:
       run:
@@ -44,11 +45,13 @@ jobs:
         shell: pwsh
         run: |
           [Environment]::OSVersion.VersionString
+          "ProductType=" + (Get-CimInstance Win32_OperatingSystem).ProductType
           Get-FileHash -Algorithm SHA256 (Join-Path $env:SystemRoot 'System32\ntdll.dll')
           $appPatch = Join-Path $env:SystemRoot 'AppPatch'
           Get-ChildItem -Path (Join-Path $appPatch '*sysmain.sdb') -File | Get-FileHash -Algorithm SHA256
       - name: Compare installed candidates with native name flags
         run: |
+          rustup target add "${{ matrix.target }}"
           rustc --edition 2024 --target "${{ matrix.target }}" \
             tests/fixtures/user/windows/src/native_appcompat_catalogs.rs \
             -o .tmp-appcompat-catalogs/native-appcompat-catalogs.exe
