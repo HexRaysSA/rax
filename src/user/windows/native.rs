@@ -280,7 +280,7 @@ impl NativeRuntime {
                 3,
                 Some(0x8664),
                 WinArch::X64 | WinArch::X86
-            ) | (10, 0, 26200, 1, Some(0xaa64), WinArch::Arm64)
+            ) | (10, 0, 26200, 1, Some(0xaa64), WinArch::Arm64 | WinArch::X86)
         ) {
             runtime.appcompat = runtime.appcompat.with_native_lookup(&root)?;
         }

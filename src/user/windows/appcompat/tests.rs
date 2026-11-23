@@ -265,5 +265,17 @@ fn appcompat_installed_snapshot_matches_live_kernel_name_flags() {
         );
         checked += 1;
     }
+    if arch == WinArch::Arm64
+        && (
+            runtime.version.major,
+            runtime.version.minor,
+            runtime.version.build,
+        ) == (10, 0, 26200)
+        && runtime.version.product_type == 1
+    {
+        let wow64 = crate::user::windows::native::NativeRuntime::select(WinArch::X86).unwrap();
+        assert_eq!(catalog.flags, wow64.appcompat.flags);
+        eprintln!("ARM64 and WoW64 guest snapshots contain the same installed flags");
+    }
     eprintln!("live installed CDB controls: {checked} including one unknown name");
 }

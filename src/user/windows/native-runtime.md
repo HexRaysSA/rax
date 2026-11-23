@@ -1753,9 +1753,10 @@ records1040 native controls and separate platform/embedding results. The unchang
 ## Installed compatibility-cache lookup
 
 `NtApphelpCacheControl` operation 6 queries a bounded immutable snapshot.
-On AMD64 Windows Server 2022 and 2025 and native ARM64 Windows 11 build 26200,
-runtime selection reads candidate names from `sysmain.sdb` and up to eight
-timestamp-named updates beneath the installed Windows `AppPatch` directory.
+On AMD64 Windows Server 2022 and 2025 and Windows 11 ARM64 build 26200,
+runtime selection for native and x86 guests reads candidate names from
+`sysmain.sdb` and up to eight timestamp-named updates beneath the installed
+Windows `AppPatch` directory.
 It uses the host's read-only operation 6 to capture flags for those names
 before guest execution. Guest requests use the resulting table. The base file
 and the update set each have a 64 MiB byte budget. The merged set is limited to
@@ -1766,9 +1767,11 @@ The native Server comparisons covered 132 names on build 20348 and 136 names
 on build 26100. For 44 names on each release, the running kernel returned zero
 while the catalogs recorded one of `0x2`, `0x4`, `0x80` or `0x100`. The result
 was identical for the build 26100 AMD64 and WoW64 callers. On Windows 11 ARM64,
-all 137 native results matched the timestamped update and two differed from
-the base file. The [native comparison jobs](https://github.com/HexRaysSA/rax/actions/runs/45142929852)
-record the build identities, catalog hashes and result distributions.
+all 137 results matched the timestamped update and two differed from the base
+file for both ARM64 and WoW64 x86 callers. The [native comparison jobs](https://github.com/HexRaysSA/rax/actions/runs/45142929852)
+record the build identities, catalog hashes and result distributions. The
+[WoW64 comparison](https://github.com/HexRaysSA/rax/actions/runs/45147637078)
+independently checks the x86 view on ARM64.
 
 Counted UTF-16 names, packet capture, alignment, guards, aliases and WoW64
 copyback follow the [guest operation contract](../../../docs/specifications/windows/native-apphelp-cache/README.md).
