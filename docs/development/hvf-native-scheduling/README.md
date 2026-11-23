@@ -124,6 +124,25 @@ macOS library run completed after receiving SIGCONT. The source of the stops
 is unknown. The passing log SHA-256 is
 `cc9d98fb75058880c735dd16772d033543445daf976a3c282e37d3fc6274a349`.
 
+### Hosted Intel checkpoint continuation
+
+The signed library harness ran on a virtualized Intel macOS runner at
+`238489518de0713f21e236a0766a28bacc5d2b30`. The restored VMM selected
+parallel rounds. AP1 completed one pending MOVLPD read in the two-vCPU file.
+AP3 completed one pending MOVHPD write in the four-vCPU file. The producer
+prepared each AP directly and the consumer reattached the test device. Both
+source kernels and VMs were absent when the consumers resumed. Independent
+inspection of the downloaded files verified the saved UD2 and pending I/O
+descriptors for both APs. [Run 45180604600](https://github.com/HexRaysSA/rax/actions/runs/45180604600)
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Archive | `1584aa28ba5bd7c1f1f2f92c98fcd9f4e4b5a588f1c66a59d5443ffb37ac2b41` |
+| Signed harness, as recorded on the runner | `a33215647e79561b850c9ac1ab90ffbf7de447cd95573e36a9e9ab34ed3e59e3` |
+| Native test log | `5900f1416913406b4b5e58e3cfe68b5a870ced8efcc540746adaf5becb8c3df3` |
+| Two-vCPU AP1 file | `9eeb9701aaace4a737081e09faaa58e160c17b8647cff15d05d739be494e7dd7` |
+| Four-vCPU AP3 file | `9311b7c62092a975da359db25874dcd0f4d6e3529e2b95019424811ecb93a778` |
+
 ## Qualification boundary
 
 The coordinator baseline observed two unbounded-entry failures. The corrected
