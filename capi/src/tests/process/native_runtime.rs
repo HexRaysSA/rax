@@ -1130,6 +1130,11 @@ fn stopped_native_request(
         "NtOpenKey" if diagnostic.contains("registry key outside selected runtime snapshot") => {
             ("NtOpenKey", 2)
         }
+        "NtQueryValueKey"
+            if diagnostic.contains("registry value is outside the installed snapshot") =>
+        {
+            ("NtQueryValueKey", 1)
+        }
         "NtOpenFile"
             if diagnostic.contains("NT metadata name outside mapped DOS drive namespace") =>
         {

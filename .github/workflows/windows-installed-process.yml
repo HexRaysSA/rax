@@ -30,6 +30,10 @@ on:
         description: Compare child process startup through installed cmd.exe
         type: boolean
         default: false
+      focus_installed_child:
+        description: Run the installed CMD child comparison by itself
+        type: boolean
+        default: false
       trace_installed_child:
         description: Record guest NT service statuses during the installed child check
         type: boolean
@@ -317,6 +321,7 @@ jobs:
           cache-key: windows-installed-process-${{ matrix.os }}
       - name: Compare installed cmd.exe through the closed C ABI
         id: stock
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.focus_installed_child }}
         shell: pwsh
         env:
           RAX_TEST_TARGET: ${{ matrix.target }}
@@ -370,7 +375,9 @@ jobs:
             exit 1
           }
       - name: Compare an installed child process through the closed C ABI
-        if: ${{ !cancelled() && steps.stock.outcome == 'success' && (github.event_name != 'workflow_dispatch' || inputs.compare_installed_child) }}
+        if: >-
+          ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && inputs.focus_installed_child) ||
+          (steps.stock.outcome == 'success' && (github.event_name != 'workflow_dispatch' || inputs.compare_installed_child))) }}
         shell: pwsh
         env:
           RAX_TEST_TARGET: ${{ matrix.target }}
@@ -378,6 +385,7 @@ jobs:
         run: |
           $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
           $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
           $test = 'tests::process::native_runtime::installed_cmd_child_matches_native_through_closed_c_abi'
           $log = Join-Path $root 'child-capi.log'
           $PSNativeCommandUseErrorActionPreference = $false
