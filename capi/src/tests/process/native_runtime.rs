@@ -175,6 +175,31 @@ fn installed_uname_matches_native_kernel_version_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_date_uses_named_timezones_through_closed_c_abi() {
+    for (instant, zone, expected) in [
+        (
+            "1704067200",
+            "America/New_York",
+            "2023-12-31 19:00:00 EST -0500\n",
+        ),
+        (
+            "1721001600",
+            ":/usr/share/zoneinfo/America/New_York",
+            "2024-07-14 20:00:00 EDT -0400\n",
+        ),
+    ] {
+        compare_installed_posix_output(
+            "darwin",
+            "/bin/date",
+            &["-r", instant, "+%Y-%m-%d %T %Z %z"],
+            &[("LC_ALL", "C"), ("TZ", zone)],
+            expected.as_bytes(),
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_perl_loads_its_on_disk_dylib_through_closed_c_abi() {
     compare_installed_posix_output(
         "darwin",

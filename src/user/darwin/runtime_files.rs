@@ -1,5 +1,5 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
-//! system metadata.
+//! system metadata, including timezone data.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -16,6 +16,9 @@ const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.p
 
 #[cfg(any(target_os = "macos", test))]
 const SHELL_SELECTOR: &str = "/private/var/select/sh";
+
+#[cfg(any(target_os = "macos", test))]
+const ZONEINFO_PATHS: [&str; 2] = ["/var/db/timezone/zoneinfo", "/usr/share/zoneinfo"];
 
 /// Public kernel version strings collected when selecting the installed runtime.
 #[derive(Clone, Debug)]
@@ -137,12 +140,27 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         "/System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/System/Library/Perl",
     ]
     .into_iter()
+    .chain(ZONEINFO_PATHS)
     .filter_map(|guest| {
         let host = root.join(guest.trim_start_matches('/'));
         host.is_dir().then(|| (guest.to_owned(), host))
     })
     .collect();
-    files.with_native_library_roots(roots, Some(dylibs::accept))
+    let files = files.with_native_library_roots(roots, Some(accept_runtime_file))?;
+    crate::user::supplied_fs::timezone::select_default(files, root)
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn accept_runtime_file(guest: &str, file: &std::fs::File) -> io::Result<bool> {
+    if ZONEINFO_PATHS.into_iter().any(|root| {
+        guest
+            .strip_prefix(root)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+    }) {
+        crate::user::supplied_fs::timezone::has_tzif_header(file)
+    } else {
+        dylibs::accept(file)
+    }
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -525,6 +543,75 @@ mod tests {
                 .kind(),
             io::ErrorKind::NotFound
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_timezone_paths_only_expose_selected_tzif_data() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"unused", 6);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let cache = root.join("System/Library/dyld");
+        let zones = root.join("var/db/timezone/zoneinfo");
+        for dir in [
+            lib.clone(),
+            cache.clone(),
+            zones.join("America"),
+            root.join("usr/share"),
+            root.join("etc"),
+        ] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        fs::write(lib.join("dyld"), b"dyld").unwrap();
+        fs::write(cache.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        symlink(
+            "../../var/db/timezone/zoneinfo",
+            root.join("usr/share/zoneinfo"),
+        )
+        .unwrap();
+        symlink(
+            "../var/db/timezone/zoneinfo/America/New_York",
+            root.join("etc/localtime"),
+        )
+        .unwrap();
+
+        let mut header = [0; 44];
+        header[..5].copy_from_slice(b"TZif3");
+        fs::write(zones.join("America/New_York"), header).unwrap();
+        fs::write(zones.join("zone.tab"), b"text index").unwrap();
+        fs::write(zones.join("../unselected"), header).unwrap();
+        symlink("../unselected", zones.join("escape")).unwrap();
+        fs::write(lib.join("timezone"), header).unwrap();
+
+        let selected = select_native_root(&Files::default(), root).unwrap();
+        for path in [
+            "/var/db/timezone/zoneinfo/America/New_York",
+            "/usr/share/zoneinfo/America/New_York",
+            "/etc/localtime",
+        ] {
+            assert_eq!(&*selected.read(path).unwrap(), &header, "{path}");
+        }
+        for path in [
+            "/var/db/timezone/zoneinfo/zone.tab",
+            "/usr/share/zoneinfo/escape",
+            "/var/db/timezone/unselected",
+            "/usr/lib/timezone",
+        ] {
+            assert!(
+                matches!(selected.read(path), Err(Error::NotFound)),
+                "{path}"
+            );
+        }
+
+        let override_path = "/var/db/timezone/zoneinfo/America/New_York";
+        let explicit = Files::default()
+            .with_file(override_path.into(), Arc::from(&b"supplied"[..]))
+            .unwrap();
+        let selected = select_native_root(&explicit, root).unwrap();
+        assert_eq!(&*selected.read(override_path).unwrap(), b"supplied");
     }
 
     #[cfg(unix)]

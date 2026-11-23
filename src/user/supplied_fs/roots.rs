@@ -9,7 +9,7 @@ use std::{
 };
 
 const MAX_ENTRIES: usize = 2048;
-pub(super) type AcceptFile = fn(&std::fs::File) -> std::io::Result<bool>;
+pub(super) type AcceptFile = fn(&str, &std::fs::File) -> std::io::Result<bool>;
 
 #[derive(Debug)]
 pub(super) struct Origin {
@@ -280,7 +280,7 @@ impl Roots {
             return Err(Error::NotFound);
         }
         if let Some(accept) = self.origin.accept
-            && !accept(&file).map_err(|_| Error::Io)?
+            && !accept(path, &file).map_err(|_| Error::Io)?
         {
             return Err(Error::NotFound);
         }

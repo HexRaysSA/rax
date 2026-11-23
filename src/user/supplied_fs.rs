@@ -10,6 +10,8 @@ use std::sync::Arc;
 
 use crate::user::mm::{BytesSource, HostFileSource, PageSource, SourceIdentity};
 mod roots;
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
+pub(super) mod timezone;
 mod workspace;
 use roots::Roots;
 pub(super) use workspace::Capacity as WorkspaceCapacity;
@@ -618,7 +620,7 @@ impl Files {
         Ok(next)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos", test))]
     pub(super) fn with_selected_backings(
         &self,
         files: BTreeMap<String, Arc<HostFileSource>>,

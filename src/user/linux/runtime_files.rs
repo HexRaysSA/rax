@@ -36,8 +36,6 @@ pub fn native(files: &Files) -> io::Result<Files> {
 
 #[cfg(target_os = "linux")]
 fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
-    use crate::user::supplied_fs::Error;
-
     let mut roots = installed_roots(root);
     if roots.is_empty() {
         return Err(io::Error::new(
@@ -51,38 +49,7 @@ fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
     }
     let cache = root.join("etc/ld.so.cache");
     let files = select(files, roots, cache.is_file().then_some(cache))?;
-    const LOCALTIME: &str = "/etc/localtime";
-    if matches!(
-        files.lookup_with_follow(LOCALTIME, false),
-        Err(Error::NotFound)
-    ) && let Ok(source) = open_localtime(&root.join("etc/localtime"))
-    {
-        return files
-            .with_selected_backings(BTreeMap::from([(LOCALTIME.into(), source.into())]))
-            .map_err(io::Error::other);
-    }
-    Ok(files)
-}
-
-#[cfg(target_os = "linux")]
-fn open_localtime(path: &Path) -> io::Result<crate::user::mm::HostFileSource> {
-    use crate::user::mm::HostFileSource;
-    use std::os::unix::fs::{FileExt, OpenOptionsExt};
-
-    let file = std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NONBLOCK)
-        .open(path)?;
-    let invalid = || io::Error::new(io::ErrorKind::InvalidData, "installed TZif localtime");
-    if !file.metadata()?.is_file() {
-        return Err(invalid());
-    }
-    let mut header = [0; 44];
-    file.read_exact_at(&mut header, 0)?;
-    if &header[..4] != b"TZif" || !matches!(header[4], 0 | b'2' | b'3' | b'4') {
-        return Err(invalid());
-    }
-    HostFileSource::new(file)
+    crate::user::supplied_fs::timezone::select_default(files, root)
 }
 
 #[cfg(any(target_os = "linux", all(test, unix)))]
