@@ -831,13 +831,21 @@ pub fn close_range(c: &mut Ctx<'_>, first: u32, last: u32, flags: u32) -> SysRes
     if flags & !(CLOSE_RANGE_UNSHARE | CLOSE_RANGE_CLOEXEC) != 0 || first > last {
         return Err(Errno(EINVAL));
     }
+    if flags & CLOSE_RANGE_UNSHARE != 0 && c.p.fds.is_shared() {
+        // A process-level table can split from another process when the
+        // caller is alone in this thread group.
+        if !c.peers.lo.is_empty() || !c.peers.hi.is_empty() {
+            return Err(Errno(ENOSYS));
+        }
+        c.p.fds.unshare();
+    }
     for fd in c.p.fds.open_fds() {
         let fd_u = fd as u32;
         if fd_u < first || fd_u > last {
             continue;
         }
         if flags & CLOSE_RANGE_CLOEXEC != 0 {
-            c.p.fds.get_mut(fd)?.cloexec = true;
+            c.p.fds.set_cloexec(fd, true)?;
         } else {
             let _ = c.p.fds.close(fd);
         }

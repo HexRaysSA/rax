@@ -523,6 +523,10 @@ pub(super) fn copy_semundo(c: &mut Ctx<'_>, flags: u64) -> Option<UndoList> {
 /// (`EPERM`). `CLONE_SYSVSEM` leaves the caller's semaphore undo list as
 /// an exit would (`exit_sem`).
 pub fn unshare(c: &mut Ctx<'_>, flags: u64) -> SysResult {
+    // Closed processes can detach their guest-owned descriptor table.
+    if !c.p.config.host_services && flags & !CLONE_FILES != 0 {
+        return Err(Errno(EPERM));
+    }
     const ALLOWED: u64 = CLONE_THREAD
         | CLONE_FS
         | CLONE_NEWNS
@@ -565,6 +569,9 @@ pub fn unshare(c: &mut Ctx<'_>, flags: u64) -> SysResult {
     }
     if flags & NAMESPACES != 0 {
         return Err(Errno(EPERM));
+    }
+    if flags & CLONE_FILES != 0 {
+        c.p.fds.unshare();
     }
     if flags & CLONE_SYSVSEM != 0 && c.t.sysvsem.take().is_some() {
         let others = c.thread_refs().iter().any(|t| t.sysvsem.is_some());

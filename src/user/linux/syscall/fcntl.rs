@@ -72,7 +72,7 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
         }
         F_GETFD => Ok(u64::from(c.p.fds.get(fd)?.cloexec)),
         F_SETFD => {
-            c.p.fds.get_mut(fd)?.cloexec = arg & FD_CLOEXEC != 0;
+            c.p.fds.set_cloexec(fd, arg & FD_CLOEXEC != 0)?;
             Ok(0)
         }
         F_GETFL => {
@@ -242,7 +242,7 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
     }
     match req {
         FIOCLEX | FIONCLEX => {
-            c.p.fds.get_mut(fd)?.cloexec = req == FIOCLEX;
+            c.p.fds.set_cloexec(fd, req == FIOCLEX)?;
             Ok(0)
         }
         FIONBIO => {

@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
+#include <fcntl.h>
+#include <linux/close_range.h>
 #include <sched.h>
 #include <signal.h>
 #include <spawn.h>
@@ -91,6 +93,79 @@ static int check_shared_vm(void)
     return error;
 }
 
+struct files_case {
+    int flagged;
+    int removed;
+};
+
+static int change_files(void *argument)
+{
+    const struct files_case *test = argument;
+    if (fcntl(test->flagged, F_SETFD, FD_CLOEXEC) != 0 ||
+        close(test->removed) != 0)
+        return 1;
+    return 0;
+}
+
+static int isolate_files(void *argument)
+{
+    const struct files_case *test = argument;
+    if (close_range(test->flagged, test->flagged, CLOSE_RANGE_UNSHARE) != 0 ||
+        fcntl(test->flagged, F_GETFD) != -1 || errno != EBADF)
+        return 4;
+    return 0;
+}
+
+static int exec_with_shared_files(void *argument)
+{
+    const struct files_case *test = argument;
+    if (fcntl(test->flagged, F_GETFD) != FD_CLOEXEC)
+        return 2;
+    char *const argv[] = {"printf", "%s", "", NULL};
+    char *const envp[] = {"LC_ALL=C", NULL};
+    execve("/usr/bin/printf", argv, envp);
+    return 3;
+}
+
+static int run_files_child(int (*entry)(void *), void *stack_top, struct files_case *test)
+{
+    pid_t child = clone(entry, stack_top, CLONE_FILES | SIGCHLD, test);
+    if (child < 0)
+        return errno;
+    int status;
+    if (waitpid(child, &status, 0) != child || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+        return ECHILD;
+    return 0;
+}
+
+static int check_shared_files(void)
+{
+    static _Alignas(16) unsigned char child_stack[65536];
+    void *stack_top = child_stack + sizeof(child_stack);
+    struct files_case test = {.flagged = dup(STDOUT_FILENO)};
+    if (test.flagged < 0)
+        return errno;
+    test.removed = dup(STDOUT_FILENO);
+    if (test.removed < 0) {
+        int error = errno;
+        close(test.flagged);
+        return error;
+    }
+    int error = run_files_child(change_files, stack_top, &test);
+    if (error == 0 && (fcntl(test.flagged, F_GETFD) != FD_CLOEXEC ||
+                       fcntl(test.removed, F_GETFD) != -1 || errno != EBADF))
+        error = EIO;
+    if (error == 0)
+        error = run_files_child(isolate_files, stack_top, &test);
+    if (error == 0)
+        error = run_files_child(exec_with_shared_files, stack_top, &test);
+    if (error == 0 && fcntl(test.flagged, F_GETFD) != FD_CLOEXEC)
+        error = EIO;
+    close(test.flagged);
+    close(test.removed);
+    return error;
+}
+
 static int check_spawn(void)
 {
     const char *path = "/usr/bin/printf";
@@ -124,6 +199,12 @@ static int check_spawn(void)
         return 8;
     }
     puts("clone:shared-vm");
+    error = check_shared_files();
+    if (error != 0) {
+        fprintf(stderr, "clone with shared descriptor table failed: %d\n", error);
+        return 9;
+    }
+    puts("clone:shared-files");
     return 0;
 }
 

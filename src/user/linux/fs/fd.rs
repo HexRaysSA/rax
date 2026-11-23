@@ -1,4 +1,4 @@
-//! File descriptions and the per-process descriptor table.
+//! File descriptions and descriptor tables.
 //!
 //! An [`OpenFile`] is a Linux *open file description*: it owns the host
 //! object, the status flags (`O_APPEND`, `O_NONBLOCK`, ...), and the file
@@ -8,7 +8,7 @@
 
 use crate::user::supplied_fs::Device;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
@@ -690,14 +690,44 @@ pub const NOFILE_SOFT: u64 = 1024;
 /// usual distribution hard limit is 4096 or higher).
 pub const NOFILE_HARD: u64 = 1 << 20;
 
-/// A process's descriptor table.
-#[derive(Clone, Debug, Default)]
+/// A Linux descriptor table. Fork copies the slots. CLONE_FILES shares them.
+#[derive(Debug, Default)]
 pub struct FdTable {
-    slots: Vec<Option<Fd>>,
+    slots: Arc<Mutex<Vec<Option<Fd>>>>,
     pipes: Arc<pipe::PipePool>,
 }
 
+impl Clone for FdTable {
+    fn clone(&self) -> Self {
+        Self {
+            slots: Arc::new(Mutex::new(self.slots().clone())),
+            pipes: Arc::clone(&self.pipes),
+        }
+    }
+}
+
 impl FdTable {
+    fn slots(&self) -> MutexGuard<'_, Vec<Option<Fd>>> {
+        self.slots.lock().expect("descriptor table lock poisoned")
+    }
+
+    pub(in crate::user::linux) fn share(&self) -> Self {
+        Self {
+            slots: Arc::clone(&self.slots),
+            pipes: Arc::clone(&self.pipes),
+        }
+    }
+
+    pub(in crate::user::linux) fn is_shared(&self) -> bool {
+        Arc::strong_count(&self.slots) > 1
+    }
+
+    pub(in crate::user::linux) fn unshare(&mut self) {
+        if self.is_shared() {
+            *self = self.clone();
+        }
+    }
+
     /// An empty table.
     pub fn new() -> Self {
         FdTable::default()
@@ -713,30 +743,30 @@ impl FdTable {
     }
 
     /// The descriptor `fd`.
-    pub fn get(&self, fd: i32) -> Result<&Fd, Errno> {
-        if fd < 0 {
-            return Err(Errno(EBADF));
-        }
-        self.slots
-            .get(fd as usize)
+    pub fn get(&self, fd: i32) -> Result<Fd, Errno> {
+        let index = usize::try_from(fd).map_err(|_| Errno(EBADF))?;
+        self.slots()
+            .get(index)
             .and_then(Option::as_ref)
+            .cloned()
             .ok_or(Errno(EBADF))
     }
 
-    /// Mutable descriptor `fd`.
-    pub fn get_mut(&mut self, fd: i32) -> Result<&mut Fd, Errno> {
-        if fd < 0 {
-            return Err(Errno(EBADF));
-        }
-        self.slots
-            .get_mut(fd as usize)
+    /// Updates this slot's close-on-exec flag.
+    pub fn set_cloexec(&mut self, fd: i32, enabled: bool) -> Result<(), Errno> {
+        let index = usize::try_from(fd).map_err(|_| Errno(EBADF))?;
+        let mut slots = self.slots();
+        let entry = slots
+            .get_mut(index)
             .and_then(Option::as_mut)
-            .ok_or(Errno(EBADF))
+            .ok_or(Errno(EBADF))?;
+        entry.cloexec = enabled;
+        Ok(())
     }
 
     /// The open file behind `fd`.
     pub fn file(&self, fd: i32) -> Result<Arc<OpenFile>, Errno> {
-        Ok(self.get(fd)?.file.clone())
+        Ok(self.get(fd)?.file)
     }
 
     /// Installs `file` at the lowest free descriptor `>= min` below `limit`
@@ -756,13 +786,14 @@ impl FdTable {
                 EMFILE
             }));
         }
+        let mut slots = self.slots();
         let fd = (min..limit)
-            .find(|&i| self.slots.get(i).is_none_or(Option::is_none))
+            .find(|&i| slots.get(i).is_none_or(Option::is_none))
             .ok_or(Errno(EMFILE))?;
-        if self.slots.len() <= fd {
-            self.slots.resize(fd + 1, None);
+        if slots.len() <= fd {
+            slots.resize(fd + 1, None);
         }
-        self.slots[fd] = Some(Fd { file, cloexec });
+        slots[fd] = Some(Fd { file, cloexec });
         Ok(fd as i32)
     }
 
@@ -771,8 +802,9 @@ impl FdTable {
     /// their files.
     pub fn free_fds(&self, n: usize, limit: u64) -> Result<Vec<i32>, Errno> {
         let limit = limit.min(i32::MAX as u64) as usize;
+        let slots = self.slots();
         let free: Vec<i32> = (0..limit)
-            .filter(|&i| self.slots.get(i).is_none_or(Option::is_none))
+            .filter(|&i| slots.get(i).is_none_or(Option::is_none))
             .take(n)
             .map(|i| i as i32)
             .collect();
@@ -804,10 +836,14 @@ impl FdTable {
             return Err(Errno(EBADF));
         }
         let fd = fd as usize;
-        if self.slots.len() <= fd {
-            self.slots.resize(fd + 1, None);
-        }
-        if let Some(old) = self.slots[fd].replace(Fd { file, cloexec }) {
+        let previous = {
+            let mut slots = self.slots();
+            if slots.len() <= fd {
+                slots.resize(fd + 1, None);
+            }
+            slots[fd].replace(Fd { file, cloexec })
+        };
+        if let Some(old) = previous {
             filp_close(&old.file);
         }
         Ok(())
@@ -819,7 +855,7 @@ impl FdTable {
             return Err(Errno(EBADF));
         }
         let old = self
-            .slots
+            .slots()
             .get_mut(fd as usize)
             .and_then(Option::take)
             .ok_or(Errno(EBADF))?;
@@ -831,16 +867,12 @@ impl FdTable {
     /// until one above that is allocated, then the smallest power of two
     /// covering the highest descriptor ever allocated (`alloc_fdtable`).
     pub fn max_fds(&self) -> usize {
-        if self.slots.len() <= 64 {
-            64
-        } else {
-            self.slots.len().next_power_of_two()
-        }
+        self.slots().len().max(64).next_power_of_two()
     }
 
     /// Descriptors currently open, ascending.
     pub fn open_fds(&self) -> Vec<i32> {
-        self.slots
+        self.slots()
             .iter()
             .enumerate()
             .filter(|(_, s)| s.is_some())
@@ -848,14 +880,17 @@ impl FdTable {
             .collect()
     }
 
-    /// Closes every close-on-exec descriptor (`do_close_on_exec`).
+    /// Exec leaves a shared table before closing its close-on-exec descriptors.
     pub fn close_on_exec(&mut self) {
-        for slot in &mut self.slots {
-            if slot.as_ref().is_some_and(|f| f.cloexec)
-                && let Some(old) = slot.take()
-            {
-                filp_close(&old.file);
-            }
+        self.unshare();
+        let closed: Vec<Fd> = self
+            .slots()
+            .iter_mut()
+            .filter(|slot| slot.as_ref().is_some_and(|fd| fd.cloexec))
+            .filter_map(Option::take)
+            .collect();
+        for old in closed {
+            filp_close(&old.file);
         }
     }
 }

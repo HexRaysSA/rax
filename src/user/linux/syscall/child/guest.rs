@@ -11,7 +11,7 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     if shared && c.p.shares_mm() {
         return Err(Errno(ENOSYS));
     }
-    if flags & (CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
+    if flags & (CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
         return Err(Errno(EINVAL));
     }
     let requested = super::super::thread::requested_tid(c, &args.set_tid)?;
@@ -77,7 +77,11 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         abi: p.abi,
         space,
         vfs: p.vfs.clone(),
-        fds: p.fds.clone(),
+        fds: if flags & CLONE_FILES != 0 {
+            p.fds.share()
+        } else {
+            p.fds.clone()
+        },
         #[cfg(unix)]
         socket_paths: Default::default(),
         pid,
@@ -138,8 +142,8 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         threads: vec![leader],
         scheduler: Default::default(),
     };
-    // The child's descriptor table and private memory snapshot precede the
-    // parent-only fd installation and copyback.
+    // A copied table and private address space predate this PIDFD
+    // installation and TID write. Shared resources observe them.
     if flags & CLONE_PIDFD != 0 {
         super::super::pidfd::clone_install(c, pid, pid, args.pidfd)?;
     }

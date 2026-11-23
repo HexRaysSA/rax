@@ -50,6 +50,7 @@ pub fn permits(s: Sysno) -> bool {
             | S::ExitGroup
             | S::Clone
             | S::Clone3
+            | S::Unshare
             | S::Fork
             | S::Vfork
             | S::Wait4

@@ -671,6 +671,69 @@ fn closed_linux_fork_wait_and_snapshot_all_abis() {
 }
 
 #[test]
+fn closed_linux_clone_files_shares_slots_across_processes_all_abis() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::thread::cf::{CLONE_FILES, CLONE_NEWNET};
+
+    const F_GETFD: u64 = 1;
+    const F_SETFD: u64 = 2;
+    const FD_CLOEXEC: u64 = 1;
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let fd = h.ok(Sysno::Dup, &[1]);
+        let removed = h.ok(Sysno::Dup, &[1]);
+        let pid = h.ok(Sysno::Clone, &[CLONE_FILES | SIGCHLD as u64, 0, 0, 0, 0]);
+        let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+        child.state.fds.close(removed as i32).unwrap();
+        assert_eq!(h.err(Sysno::Fcntl, &[removed, F_GETFD]), EBADF);
+        h.ok(Sysno::Fcntl, &[fd, F_SETFD, FD_CLOEXEC]);
+        let child = h.proc.state.children.list[0].guest.as_ref().unwrap();
+        assert_eq!(pid, child.state.pid as u64);
+        assert!(child.state.fds.get(fd as i32).unwrap().cloexec);
+        assert!(child.state.fds.is_shared());
+
+        h.ok(Sysno::Unshare, &[0]);
+        assert_eq!(h.err(Sysno::Unshare, &[CLONE_FILES | CLONE_NEWNET]), EPERM);
+        assert!(h.proc.state.fds.is_shared());
+        h.ok(Sysno::Unshare, &[CLONE_FILES]);
+        assert!(!h.proc.state.fds.is_shared());
+        h.ok(Sysno::Close, &[fd]);
+        let child = h.proc.state.children.list[0].guest.as_ref().unwrap();
+        assert!(!child.state.fds.is_shared());
+        assert!(child.state.fds.get(fd as i32).unwrap().cloexec);
+    }
+}
+
+#[test]
+fn closed_linux_close_range_splits_shared_table_before_changes_all_abis() {
+    use crate::user::linux::signal::SIGCHLD;
+    use crate::user::linux::syscall::thread::cf::CLONE_FILES;
+
+    const CLOEXEC: u64 = 1 << 2;
+    const UNSHARE: u64 = 1 << 1;
+    for abi in ABIS {
+        for mode in [0, CLOEXEC] {
+            let mut h = Harness::embedded(abi);
+            let fd = h.ok(Sysno::Dup, &[1]);
+            let adjacent = h.ok(Sysno::Dup, &[1]);
+            assert_eq!(adjacent, fd + 1);
+            h.ok(Sysno::Clone, &[CLONE_FILES | SIGCHLD as u64, 0, 0, 0, 0]);
+            h.ok(Sysno::CloseRange, &[fd, fd, UNSHARE | mode]);
+            assert!(!h.proc.state.fds.is_shared());
+            let child = h.proc.state.children.list[0].guest.as_ref().unwrap();
+            assert!(!child.state.fds.get(fd as i32).unwrap().cloexec);
+            assert!(child.state.fds.get(adjacent as i32).is_ok());
+            assert!(h.proc.state.fds.get(adjacent as i32).is_ok());
+            if mode == CLOEXEC {
+                assert!(h.proc.state.fds.get(fd as i32).unwrap().cloexec);
+            } else {
+                assert!(h.proc.state.fds.get(fd as i32).is_err());
+            }
+        }
+    }
+}
+
+#[test]
 fn closed_linux_private_vfork_blocks_until_child_exit_all_abis() {
     use crate::user::linux::{signal::SIGCHLD, syscall::thread::cf::CLONE_VFORK};
 
