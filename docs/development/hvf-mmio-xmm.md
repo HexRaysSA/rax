@@ -300,3 +300,30 @@ passed, with zero failures, ignored or filtered cases. The signed
 Intel consumer linked and passed strict signature verification.
 All 54 harness tests passed. The Cargo log SHA-256 is
 `e9f430de60565360bc1f7ea43f79bda0dba4a07dd87b7df33a0a86c0bd0ebaad`.
+
+### Scalar moves on hosted Intel macOS
+
+The legacy and VEX profiles both passed at
+`0413b84d0984633de7bb9798dcf3c7621368d631` on Intel macOS 15.7.9
+(24G830) with SDK 15.5, inside hosted VMs. Each profile ran 22 direct
+transfers, 22 after destroying the source and restoring the held
+request, and six guest #GP(0) cases. The newly admitted scalar
+forms account for four direct and four restored transfers per
+profile. The guest checks the full vector state, exact device width
+and bytes, and the instruction retirement boundary.
+
+| Profile | Hosted run | Runtime artifact ID | Artifact SHA-256 |
+| --- | --- | ---: | --- |
+| Legacy | [45106991272](https://github.com/HexRaysSA/rax/actions/runs/45106991272) | 14787898106 | `8351e7abbbc3694787aef02d2393bdbeb4f910cb6f0b40542f15d7c989131029` |
+| VEX.128 | [45106994761](https://github.com/HexRaysSA/rax/actions/runs/45106994761) | 14788491444 | `fd00bf0ac0454b9e67928e76fd8f2a7c6548e3dd6b9d1da6f24d1844aa06a897` |
+
+The independent verifier matched 4,895 engine and 18 consumer inputs
+against Git, verified the signed consumer's hypervisor entitlement,
+and checked all 100 guest observation records. Both runs used the same
+signed executable SHA-256
+`ee0bdd05d6cd9e92f79877fdf64ff177a50af24d293a5e97c13b5b4d9c98eaf9`.
+The observation digests are
+`e5c4bf74f0b80870a10e1a6cf70df3b45bd243f93ad9657328c7960ff89dd456`
+for legacy and
+`41a708193462f3974824704721ac5301fd05135f9c541f2b6107922da7fcaeff`
+for VEX.128.
