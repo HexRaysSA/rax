@@ -1199,9 +1199,23 @@ fn installed_cmd_child_matches_native_through_closed_c_abi() {
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_findstr_matches_native_through_closed_c_abi() {
+    compare_installed_findstr("System32");
+}
+
+#[cfg(all(windows, target_pointer_width = "64"))]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_wow64_findstr_matches_native_through_closed_c_abi() {
+    trace_windows_installed_ntstatus();
+    compare_installed_findstr("SysWOW64");
+}
+
+#[cfg(windows)]
+fn compare_installed_findstr(directory: &str) {
     check_native_extension_point_policy();
     let arguments = &["/l", "/c:rax-witness"];
-    let matched = compare_windows_installed_program(
+    let matched = compare_windows_installed_program_in(
+        directory,
         "findstr.exe",
         arguments,
         Some(b"ignored\r\nrax-witness\r\n"),
@@ -1210,8 +1224,12 @@ fn installed_findstr_matches_native_through_closed_c_abi() {
     assert_eq!(matched.stdout, b"rax-witness\r\n");
     assert!(matched.stderr.is_empty());
 
-    let unmatched =
-        compare_windows_installed_program("findstr.exe", arguments, Some(b"ignored\r\n"));
+    let unmatched = compare_windows_installed_program_in(
+        directory,
+        "findstr.exe",
+        arguments,
+        Some(b"ignored\r\n"),
+    );
     assert_eq!(unmatched.status.code(), Some(1));
     assert!(unmatched.stdout.is_empty());
     assert!(unmatched.stderr.is_empty());
