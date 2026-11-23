@@ -3073,7 +3073,7 @@
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
       "latest_kvm_legacy_restore_qualification": "docs/development/kvm-public-state/README.md",
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#high-and-low-xmm-lane-transfers",
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#packed-logical-reads",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint",
       "historical_validation_notes": [
         "Native Intel HVF state effects are unverified"
@@ -4634,7 +4634,7 @@
         "hvf-mmio-movnti-2026-11-19",
         "hvf-mmio-implicit-divide-2026-11-20"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#high-and-low-xmm-lane-transfers",
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#packed-logical-reads",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint"
     },
     {

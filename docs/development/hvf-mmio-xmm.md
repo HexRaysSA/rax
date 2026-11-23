@@ -671,6 +671,9 @@ and 28,561 `x86_64` tests. The x86-64 suite reported three ignored
 cases. All three suites reported zero failures and zero filtered tests.
 The combined log SHA-256 is
 `07720149f7d9a637605658409f86991c88125a8e3a5afbf64f1c85da5d79b40b`.
+The complete Intel Linux C API library suite passed 250 cases with five
+ignored, zero failures and zero filtered. Its log SHA-256 is
+`4abc0ae62c8efe00a9682c90e466acdb8b604f7589fa17c9e6d86a7b625b6a02`.
 
 On Apple Silicon the Intel-target tests passed all 351 cases, including
 100 simulated SDK owner cases and 16 CI pinning cases. The consumer
@@ -678,6 +681,14 @@ linked for Intel macOS and passed strict signature verification with
 the Hypervisor entitlement. All 54 Python tooling tests passed.
 The test log SHA-256 is
 `c1be95f8a566ce29ec9a3a121adcf9d62f8e556e98610a02c611488750cff505`.
-The hosted `vector-logic` profile runs 60 direct cases, 60 fresh-owner
-restores and 12 guest alignment faults. Hosted execution of this profile
-is pending.
+Hosted Intel macOS passed 132 cases at
+`a201e8be7d7a03a37df9b4d2d83f8a5169ad596d`. The 60 direct cases and
+60 fresh-owner restores independently matched the physical Intel RAM
+fingerprints. All 12 misaligned legacy forms reported a guest fault at
+the original RIP. Verification matched 4,901 engine inputs and 19
+consumer inputs to the dispatched commit and checked the executable's
+signature and Hypervisor entitlement. The executable SHA-256 was
+`7e607b8fe99fa5ddea78f5ac2c54a5f3e7d9d2080bc70dc03ab48cb63ddafd1f`.
+The ordered observations SHA-256 was
+`ca06a8d927b8b872a3b9c9f5d1a9cc8e876af668224368d373db9f0e99ccca16`.
+[Hosted packed logical execution](https://github.com/HexRaysSA/rax/actions/runs/45134602125)
