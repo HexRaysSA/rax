@@ -1,5 +1,41 @@
 # Managed native CPU ownership and checkpoint boundaries
 
+## Public VMM checkpoint records
+
+The whole-VMM checkpoint producer has been available since `799f0f2a8b` on
+Linux x86-64 KVM. It records the ordered CPU banks, the shared VM bank,
+captured platform resources and physical RAM in one bundle. It settles
+supported native I/O through the real VMM buses before capture and carries
+represented deferred exits and terminal I/O in the CPU records. The restore
+transaction admits the full graph before setters. In-place restore backs up
+native banks and RAM, and a fresh restore can discard an unpublished VM.
+
+Production capture uses `Vmm::take_snapshot_bundle`. The older ignored
+`native_checkpoint_declares_and_captures_its_private_producer` test exercises
+the isolated vCPU API and omits the VM-owned resources. The internal results
+below retain the behavior of the revisions they tested.
+
+The physical Intel Linux `kvm_minimal` integration target passed the
+source-free VMM file test for one, two and four CPUs. It checked the exact
+native LAPIC CPUID view and retained firmware RAM, and ran the guest UART
+and power-off paths on a new VM after removing the source kernel. It also verified
+that missing CPU or shared VM records leave the target RAM unchanged.
+The full library and eight integration results are recorded in
+[HVF memory layout validation](hvf-memory-layout.md#pci-bar-boundaries-and-dispatch-priority).
+
+All 15 opt-in tests in the `vm::runtime::checkpoint_io::tests` namespace
+passed on a physical Intel Xeon E5-1650 v3 with Linux 6.8.0-138-generic
+and `/dev/kvm`. The runtime cases exercised parallel UART continuation,
+in-flight MMIO read-modify-write, power-off quiescence, late CPU-setter
+rollback, deadline activation, timer wake from the all-halted state, and
+RTC and i8042 delivery. The KVM implementation and fixtures matched the
+tested `d5d3a441e` source. The selected native run log SHA-256 is
+`0867a9dd9266eed1ae21366c52bfdd2fdbf5b56d0df8901afdf3703aeea1bb50`.
+
+Remaining gaps include expired timer phases hidden in KVM, broader kernel
+profiles and full cross-platform qualification. Standalone vCPU export
+retains its existing projection contract.
+
 Managed KVM CPU descriptors, run mappings and registered RAM now share one VM
 owner. The owner retains weak CPU membership; a checkpoint boundary upgrades
 and pins the complete configured set. Native entry and state access take a read
@@ -47,7 +83,7 @@ banks, common TSC/clock state, PIC/IOAPIC banks and the owned 24-GSI source
 levels. Admission checks every CPU and its actual target owner before native
 setters. The SDK `serde` feature and pinned `zerocopy` derives provide checked
 representations rather than copying arbitrary native padding as a wire format.
-These internal banks do not activate a complete public private-state producer.
+The VMM bundle producer uses these banks under the whole-VM boundary.
 
 ## Precise native exception events
 
