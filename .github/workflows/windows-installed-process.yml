@@ -159,6 +159,7 @@ jobs:
             exit 1
           }
       - name: Compare installed x86 cmd.exe version and NUL I/O
+        id: wow64
         if: ${{ !cancelled() && steps.stock.outcome == 'success' &&
           (matrix.target == 'x86_64-pc-windows-msvc' || inputs.compare_installed_wow64_arm64) }}
         shell: pwsh
@@ -307,6 +308,41 @@ jobs:
             $receipt.findstr_sha256 -eq (Get-FileHash -LiteralPath $findstr).Hash.ToLowerInvariant()
           )
           $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
+          if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
+            exit 1
+          }
+      - name: Compare installed x86 findstr.exe with redirected input
+        if: ${{ !cancelled() && steps.wow64.outcome == 'success' &&
+          (github.event_name != 'workflow_dispatch' || inputs.compare_installed_filter) }}
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+          RAX_TEST_WINDOWS_NTSTATUS: ${{ github.event_name == 'workflow_dispatch' && inputs.trace_installed_child }}
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
+          $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
+          $test = 'tests::process::native_runtime::installed_wow64_findstr_matches_native_through_closed_c_abi'
+          $ntdll = Join-Path $env:SystemRoot 'SysWOW64/ntdll.dll'
+          $findstr = Join-Path $env:SystemRoot 'SysWOW64/findstr.exe'
+          $receipt = [ordered]@{
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            target = $env:RAX_TEST_TARGET
+            test = $test
+            ntdll_sha256 = (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
+            findstr_sha256 = (Get-FileHash -LiteralPath $findstr).Hash.ToLowerInvariant()
+          }
+          $log = Join-Path $root 'wow64-filter-capi.log'
+          $PSNativeCommandUseErrorActionPreference = $false
+          cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
+            $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log
+          $receipt.exit_code = $LASTEXITCODE
+          $receipt.completed_one_test = Select-String -LiteralPath $log -Quiet -Pattern '^test result: ok\. 1 passed; 0 failed; 0 ignored;'
+          $receipt.installed_images_unchanged = (
+            $receipt.ntdll_sha256 -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant() -and
+            $receipt.findstr_sha256 -eq (Get-FileHash -LiteralPath $findstr).Hash.ToLowerInvariant()
+          )
+          $receipt | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'wow64-filter-receipt.json') -Encoding utf8
           if ($receipt.exit_code -ne 0 -or !$receipt.completed_one_test -or !$receipt.installed_images_unchanged) {
             exit 1
           }
@@ -737,6 +773,8 @@ jobs:
             target/windows-installed-process/child-capi.log
             target/windows-installed-process/filter-receipt.json
             target/windows-installed-process/filter-capi.log
+            target/windows-installed-process/wow64-filter-receipt.json
+            target/windows-installed-process/wow64-filter-capi.log
             target/windows-installed-process/native-token-duplicate.log
             target/windows-installed-process/native-token-duplicate-identity.json
             target/windows-installed-process/native-user-shape.log
