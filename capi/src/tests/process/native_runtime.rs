@@ -1621,9 +1621,7 @@ fn check_native_sort_process_queries() {
             eprintln!(
                 "native current-process query: class={class} requested={length} status={status:#010x} returned={returned}"
             );
-            if class == 1 {
-                assert_eq!((status, returned), (0, length));
-            }
+            assert_eq!((status, returned), (0, length), "class {class}");
         }
     }
 }

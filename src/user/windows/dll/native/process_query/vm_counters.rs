@@ -20,7 +20,7 @@ pub(super) fn selected(c: &Ctx) -> bool {
                 (c.arch(), host_arch, runtime.version.build),
                 (WinArch::Arm64, Some(WinArch::Arm64), 26200 | 29708)
                     | (WinArch::X86, Some(WinArch::Arm64), 29708)
-                    | (WinArch::X64, Some(WinArch::X64), 26100)
+                    | (WinArch::X64, Some(WinArch::X64), 20348 | 26100)
             )
     })
 }
