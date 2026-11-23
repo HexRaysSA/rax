@@ -1143,6 +1143,9 @@ mod aarch64_cluster_tests;
 #[cfg(all(test, feature = "hvf", target_os = "macos", target_arch = "aarch64"))]
 mod native_checkpoint_tests;
 
+#[cfg(all(test, feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
+mod native_intel_checkpoint_tests;
+
 mod backend_transaction;
 mod checkpoint_restore;
 
