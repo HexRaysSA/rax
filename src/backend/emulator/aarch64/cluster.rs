@@ -8,8 +8,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::error::{Error, Result};
+use crate::isa::arm::aarch64::cpu::AArch64Cpu;
 use crate::isa::arm::aarch64::gic::{Gic, GicConfig, checkpoint::GicCheckpoint};
-use crate::vm::vcpu::CpuPowerRequest;
+use crate::machine::arm_virt::{AARCH64_GICD_BASE, aarch64_redist_frame};
+use crate::vm::vcpu::{Aarch64SystemRegisters, CpuPowerRequest};
+use vm_memory::{GuestAddress, GuestMemory, GuestMemoryMmap};
+
+use super::{GICD_SIZE, UART_BASE, UART_SIZE, in_window};
 
 const INVALID_PARAMETERS: i32 = -2;
 const ALREADY_ON: i32 = -4;
@@ -45,6 +50,25 @@ pub struct ArmCluster {
 
 fn invalid(message: &str) -> Error {
     Error::Emulator(format!("AArch64 cluster: {message}"))
+}
+
+fn start_width(pstate: u64) -> usize {
+    if pstate & 0x30 == 0x30 { 2 } else { 4 }
+}
+
+fn valid_start_address(
+    memory: &GuestMemoryMmap,
+    count: u8,
+    high_redist_base: u64,
+    entry: u64,
+    pstate: u64,
+) -> bool {
+    let width = start_width(pstate);
+    entry & (width as u64 - 1) == 0
+        && !in_window(entry, AARCH64_GICD_BASE, GICD_SIZE)
+        && aarch64_redist_frame(entry, count, high_redist_base).is_none()
+        && !in_window(entry, UART_BASE, UART_SIZE)
+        && memory.check_range(GuestAddress(entry), width)
 }
 
 impl ArmCluster {
@@ -110,11 +134,23 @@ impl ArmCluster {
         (affinity < u64::from(self.count)).then_some(affinity as usize)
     }
 
+    pub(super) fn valid_start_address(
+        &self,
+        memory: &GuestMemoryMmap,
+        entry: u64,
+        pstate: u64,
+    ) -> bool {
+        valid_start_address(memory, self.count, self.high_redist_base, entry, pstate)
+    }
+
     pub fn request_on(&self, affinity: u64, entry: u64, context: u64, pstate: u64) -> Result<i32> {
         let Some(target) = self.target(affinity) else {
             return Ok(INVALID_PARAMETERS);
         };
-        if entry & (if pstate & 0x30 == 0x30 { 1 } else { 3 }) != 0 {
+        if AArch64Cpu::validate_pstate_bits(pstate).is_err() {
+            return Ok(INVALID_PARAMETERS);
+        }
+        if entry & (start_width(pstate) as u64 - 1) != 0 {
             return Ok(-9);
         }
         let mut control = self
@@ -402,6 +438,41 @@ impl ArmClusterCheckpoint {
         Ok(())
     }
 
+    pub(crate) fn validate_start_targets<'a>(
+        &self,
+        memory: &GuestMemoryMmap,
+        system: impl Fn(usize) -> Option<&'a Aarch64SystemRegisters>,
+    ) -> Result<()> {
+        // The execution graph has already validated the count and every target ID.
+        for request in &self.control.requests {
+            let CpuPowerRequest::Start {
+                cpu_id,
+                entry,
+                pstate,
+                ..
+            } = *request
+            else {
+                continue;
+            };
+            if !valid_start_address(
+                memory,
+                self.control.states.len() as u8,
+                self.high_redist_base,
+                entry,
+                pstate,
+            ) {
+                return Err(invalid(
+                    "saved startup entry is outside guest instruction RAM",
+                ));
+            }
+            let registers = system(cpu_id as usize)
+                .ok_or_else(|| invalid("missing startup target CPU state"))?;
+            AArch64Cpu::validate_psci_pstate(pstate, registers)
+                .map_err(|error| invalid(&format!("saved startup target PSTATE: {error}")))?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate(&self, online: &[bool]) -> Result<()> {
         if self.high_redist_base < crate::machine::arm_virt::AARCH64_GICR_HIGH_BASE
             || self.high_redist_base & 0x1_ffff != 0
@@ -427,7 +498,10 @@ impl ArmClusterCheckpoint {
                     pstate,
                     ..
                 } => {
-                    if entry & (if pstate & 0x30 == 0x30 { 1 } else { 3 }) != 0 {
+                    AArch64Cpu::validate_pstate_bits(*pstate).map_err(|error| {
+                        invalid(&format!("invalid saved startup PSTATE: {error}"))
+                    })?;
+                    if entry & (start_width(*pstate) as u64 - 1) != 0 {
                         return Err(invalid("unaligned saved startup entry"));
                     }
                     (*cpu_id as usize, PowerState::OnPending)

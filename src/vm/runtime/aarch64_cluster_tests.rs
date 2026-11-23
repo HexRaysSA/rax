@@ -27,6 +27,8 @@ mod gic_forwarding;
 mod gic_interface;
 #[path = "aarch64_gic_source_tests.rs"]
 mod gic_sources;
+#[path = "aarch64_psci_start_admission_tests.rs"]
+mod psci_start_admission;
 #[path = "aarch64_timer_output_tests.rs"]
 mod timer_outputs;
 #[path = "aarch64_undefined_tests.rs"]

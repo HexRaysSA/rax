@@ -196,6 +196,43 @@ impl Vmm {
                 )));
             }
         }
+        if self.checkpoint_config.arch == ArchKind::Aarch64
+            && self.checkpoint_config.vcpus > 1
+            && self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+                .is_some()
+            && bundle
+                .execution()
+                .and_then(|state| state.arm_cluster.as_ref())
+                .is_none()
+        {
+            return Err(Error::InvalidConfig(
+                "AArch64 SMP checkpoint requires shared interrupt/power state".into(),
+            ));
+        }
+        let arm_restore = if let Some(saved) = bundle.execution()
+            && let Some(state) = &saved.arm_cluster
+        {
+            let cluster = self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+                .and_then(|vm| vm.arm_cluster())
+                .ok_or_else(|| {
+                    Error::InvalidConfig(
+                        "ARM platform checkpoint requires the software cluster".into(),
+                    )
+                })?;
+            cluster.validate_checkpoint(state, saved.online())?;
+            state.validate_start_targets(self.guest_mem.memory(), |id| {
+                states.get(id)?.0.as_aarch64().map(|cpu| &cpu.sregs)
+            })?;
+            Some((cluster, state.clone()))
+        } else {
+            None
+        };
         let resources = match bundle.resources() {
             Some(resources) => resources.prepare()?,
             None => Arc::new(crate::vm::snapshot::PreparedResources::default()),
@@ -295,22 +332,6 @@ impl Vmm {
                 ))
             })
             .transpose()?;
-        if self.checkpoint_config.arch == ArchKind::Aarch64
-            && self.checkpoint_config.vcpus > 1
-            && self
-                .vm
-                .as_any()
-                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
-                .is_some()
-            && bundle
-                .execution()
-                .and_then(|state| state.arm_cluster.as_ref())
-                .is_none()
-        {
-            return Err(Error::InvalidConfig(
-                "AArch64 SMP checkpoint requires shared interrupt/power state".into(),
-            ));
-        }
         let riscv_platform = self
             .vm
             .as_any()
@@ -326,31 +347,6 @@ impl Vmm {
                 "CLINT checkpoint requires the software platform".into(),
             ));
         }
-        let arm_restore = if let Some(state) = bundle
-            .execution()
-            .and_then(|saved| saved.arm_cluster.as_ref())
-        {
-            let cluster = self
-                .vm
-                .as_any()
-                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
-                .and_then(|vm| vm.arm_cluster())
-                .ok_or_else(|| {
-                    Error::InvalidConfig(
-                        "ARM platform checkpoint requires the software cluster".into(),
-                    )
-                })?;
-            cluster.validate_checkpoint(
-                state,
-                bundle
-                    .execution()
-                    .ok_or_else(|| Error::InvalidConfig("missing execution state".into()))?
-                    .online(),
-            )?;
-            Some((cluster, state.clone()))
-        } else {
-            None
-        };
         if let Some((_, state)) = &arm_restore {
             for (id, cpu) in replacements.iter().enumerate() {
                 if let Some(off) = cpu.as_ref().and_then(|cpu| cpu.checkpoint_powered_off()) {

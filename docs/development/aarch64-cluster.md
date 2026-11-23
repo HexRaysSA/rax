@@ -139,3 +139,37 @@ paths. All 68 tests across the unfiltered `aarch64_cluster`,
 cluster. The focused and integration logs have SHA-256 digests
 `9d071376493059e00c0e2323db3221cdf3246d6ae027e93bc9b222b7c18f6fe9`
 and `855ce17d7ca5bbbb27d4072caa8af2c151c21c9000c53a34cde8fe91126001b3`.
+
+## Admission of a saved CPU_ON request
+
+The software AArch64 cluster now checks the address of each pending
+CPU_ON before preparing replacement CPUs or opening restore resources.
+Guest CPU_ON and checkpoint restore share the alignment and mapped
+instruction RAM check, including exclusion of the GIC distributor,
+redistributor frames, and PL011 UART. Restore validates each requested PSTATE, including the target PE's saved
+execution controls and the effective PSCI settings for AArch32 requests. The snapshot representation is unchanged.
+Validation visits each pending request once and uses bounded storage per
+request.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A saved CPU_ON targets instruction RAM and a representable PSTATE. | Reload source-free bundles with an unmapped entry, a GIC or UART entry, and an invalid saved PSTATE. Require rejection before publication. |
+| Invalid admission leaves live ownership intact. | Compare the directly observed CPU, shared controller, RAM, clock, and scheduler state after each failed restore. |
+| Valid pending startup still reaches the target PE. | Reload the unmodified guest-produced file, run the coordinator, and require the secondary's register marker. |
+
+The baseline published a file with a pending startup at
+`0xfffffffffffffffc`. The corresponding fixed-source test rejected
+each malformed record and continued the unmodified file on physical
+Intel Linux using the software backend. The failing and passing log
+digests are
+`989288f5405262c507fbf0c67e36e021cf45a4a22ccd7adec37297e040760228`
+and `327c35663724e8af44a9ddce2d1820af80c951f4e4abf66a9316edb4059e705a`.
+
+The four unfiltered cluster and checkpoint integration targets passed
+all 68 cases in the isolated startup-admission build. Its Cargo log
+SHA-256 is
+`373526b96d66c1a0d3a49896143e2f6c652501fc402646c1d0ccdcbab3ce864d`.
+The integrated source also passed both startup regressions together.
+The startup-admission and AArch32 endianness logs have SHA-256 digests
+`3f5b9bcfaa494cea237cbcb629bbce0818f04724fc502d2f556009df1ba8c0d4`
+and `ba73d0f0f2102b83769cdf9a1d7b5cd01441da2bc00cd5345f6f238eab808b40`.

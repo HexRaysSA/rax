@@ -1,10 +1,8 @@
 //! PSCI1.1 calls use an asynchronous VM-owned power-state machine.
-use super::{Aarch64Vcpu, GICD_SIZE, UART_BASE, UART_SIZE, in_window};
+use super::Aarch64Vcpu;
 use crate::error::Result;
 use crate::isa::arm::cpu_trait::ArmCpu;
-use crate::machine::arm_virt::AARCH64_GICD_BASE;
 use crate::vm::vcpu::VcpuExit;
-use vm_memory::{GuestAddress, GuestMemory};
 
 impl Aarch64Vcpu {
     pub(super) fn handle_psci(&mut self, immediate: u16) -> Result<Option<VcpuExit>> {
@@ -68,21 +66,7 @@ impl Aarch64Vcpu {
                         0x3c1 | (caller & 0xc)
                     };
                     let entry = if aarch32 { raw_entry & !1 } else { raw_entry };
-                    let device = in_window(entry, AARCH64_GICD_BASE, GICD_SIZE)
-                        || crate::machine::arm_virt::aarch64_redist_frame(
-                            entry,
-                            cluster.count(),
-                            cluster.high_redist_base,
-                        )
-                        .is_some()
-                        || in_window(entry, UART_BASE, UART_SIZE);
-                    if entry & (if pstate & 0x30 == 0x30 { 1 } else { 3 }) != 0
-                        || device
-                        || !self.physical_memory.check_range(
-                            GuestAddress(entry),
-                            if pstate & 0x30 == 0x30 { 2 } else { 4 },
-                        )
-                    {
+                    if !cluster.valid_start_address(&self.physical_memory, entry, pstate) {
                         -9
                     } else {
                         cluster.request_on(argument(1), entry, argument(3), pstate)?
