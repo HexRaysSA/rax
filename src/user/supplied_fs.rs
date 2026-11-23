@@ -15,11 +15,11 @@ use roots::Roots;
 pub(super) use workspace::Capacity as WorkspaceCapacity;
 use workspace::{Attributes, Node, Workspace};
 pub use workspace::{Directory as WorkspaceDirectory, WorkspaceFile};
-pub(super) use workspace::{Rename as WorkspaceRename, WorkspaceFlavor};
 pub(in crate::user) use workspace::{
-    SetTime as WorkspaceSetTime, TimeUpdate as WorkspaceTimeUpdate,
+    MAX_XATTR_VALUE, SetTime as WorkspaceSetTime, SetXattr, TimeUpdate as WorkspaceTimeUpdate,
     Timestamp as WorkspaceTimestamp, Timestamps as WorkspaceTimestamps,
 };
+pub(super) use workspace::{Rename as WorkspaceRename, WorkspaceFlavor};
 
 const TEMP_DIRECTORY: &str = "/tmp";
 
@@ -181,6 +181,22 @@ impl Entry {
 
     pub(crate) fn workspace_mode(&self) -> Option<u32> {
         self.workspace_attributes().map(Attributes::mode)
+    }
+
+    pub(super) fn workspace_xattrs(
+        &self,
+        need: u32,
+        ids: (u32, u32),
+    ) -> Result<&workspace::Xattrs, Error> {
+        self.workspace_attributes()
+            .ok_or(Error::ReadOnly)?
+            .xattrs(need, ids)
+    }
+
+    pub(super) fn workspace_xattrs_changed(&self) {
+        if let Some(attributes) = self.workspace_attributes() {
+            attributes.xattrs_changed();
+        }
     }
 
     pub(crate) fn workspace_owner(&self) -> Option<(u32, u32)> {

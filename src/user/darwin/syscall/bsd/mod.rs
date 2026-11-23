@@ -42,6 +42,7 @@ pub mod wait;
 pub mod workq;
 #[cfg(target_os = "macos")]
 pub mod xattr;
+mod xattr_common;
 
 use super::Ctx;
 use crate::user::darwin::abi::Errno;
@@ -112,8 +113,16 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                 }
                 nr::UTIMES => return embedded_metadata::utimes(ctx, None, a[0], a[1]),
                 nr::FUTIMES => return embedded_metadata::utimes(ctx, Some(i(0)), 0, a[1]),
-                nr::LISTXATTR => return embedded_xattr::list_path(ctx, a[0], u(3)),
-                nr::FLISTXATTR => return embedded_xattr::list_file(ctx, i(0), u(3)),
+                nr::GETXATTR
+                | nr::FGETXATTR
+                | nr::SETXATTR
+                | nr::FSETXATTR
+                | nr::REMOVEXATTR
+                | nr::FREMOVEXATTR
+                | nr::LISTXATTR
+                | nr::FLISTXATTR => {
+                    return embedded_xattr::call(ctx, number, a);
+                }
                 nr::SETATTRLIST => {
                     return embedded_metadata::setattrlist(
                         ctx,

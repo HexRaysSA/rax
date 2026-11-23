@@ -9,8 +9,10 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
 mod metadata;
+mod xattr;
 pub(super) use metadata::Attributes;
 pub(in crate::user) use metadata::{SetTime, TimeUpdate, Timestamp, Timestamps};
+pub(in crate::user) use xattr::{MAX_VALUE as MAX_XATTR_VALUE, Set as SetXattr, Xattrs};
 
 const MAX_BYTES: usize = 16 << 20;
 const MAX_NODES: usize = 1024;
@@ -243,12 +245,13 @@ impl Workspace {
             children: BTreeMap::from([(ROOT_INODE, BTreeMap::new())]),
             inode: FIRST_INODE,
         }));
+        let budget = Arc::new(Mutex::new(Budget::default()));
         Self {
             namespace: namespace.clone(),
-            budget: Arc::default(),
+            budget: budget.clone(),
             root: Arc::new(Directory {
                 ino: ROOT_INODE,
-                attributes: Attributes::new(0o1777, (0, 0)),
+                attributes: Attributes::new(0o1777, (0, 0), budget),
                 namespace: Arc::downgrade(&namespace),
                 location: None,
                 linked: AtomicBool::new(true),
@@ -305,7 +308,7 @@ impl Workspace {
         };
         let directory = Arc::new(Directory {
             ino,
-            attributes: Attributes::new(mode, owner),
+            attributes: Attributes::new(mode, owner, self.budget.clone()),
             namespace: Arc::downgrade(&self.namespace),
             location: Some(Mutex::new(location)),
             linked: AtomicBool::new(true),
@@ -393,7 +396,7 @@ impl Workspace {
     fn inode(&self, ino: u64, mode: u32, owner: (u32, u32)) -> Inode {
         Inode {
             ino,
-            attributes: Attributes::new(mode, owner),
+            attributes: Attributes::new(mode, owner, self.budget.clone()),
             links: AtomicU32::new(1),
             budget: self.budget.clone(),
         }

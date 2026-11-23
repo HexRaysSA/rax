@@ -933,6 +933,15 @@ fn installed_libc_workspace_xattr_list_matches_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "run with a locally built closed_workspace_xattr_values.c fixture on APFS"]
+fn installed_libc_workspace_xattr_values_match_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_POSIX_INSTALLED_XATTR_VALUES_CONTROL")
+        .expect("absolute path to the dynamically linked closed_workspace_xattr_values fixture");
+    compare_installed_workspace_fixture(&binary, "closed_workspace_xattr_values", None);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 #[ignore = "run with a locally built and ad hoc signed closed_csops_empty.c fixture"]
 fn installed_libc_empty_entitlements_match_native_through_closed_c_abi() {
     let binary = std::env::var("RAX_DARWIN_CSOPS_EMPTY_CONTROL")

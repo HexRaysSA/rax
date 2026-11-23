@@ -72,13 +72,19 @@ struct Values {
 pub(in crate::user::supplied_fs) struct Attributes {
     owner: (u32, u32),
     values: Mutex<Values>,
+    xattrs: super::Xattrs,
 }
 
 impl Attributes {
-    pub(in crate::user::supplied_fs) fn new(mode: u32, owner: (u32, u32)) -> Self {
+    pub(super) fn new(
+        mode: u32,
+        owner: (u32, u32),
+        budget: std::sync::Arc<Mutex<super::Budget>>,
+    ) -> Self {
         let now = Timestamp::now();
         Self {
             owner,
+            xattrs: super::Xattrs::new(budget),
             values: Mutex::new(Values {
                 mode: mode & 0o7777,
                 times: Timestamps {
@@ -93,6 +99,22 @@ impl Attributes {
 
     pub(in crate::user::supplied_fs) fn owner(&self) -> (u32, u32) {
         self.owner
+    }
+
+    pub(in crate::user::supplied_fs) fn xattrs(
+        &self,
+        need: u32,
+        ids: (u32, u32),
+    ) -> Result<&super::Xattrs, Error> {
+        if ids.0 != 0 && !permitted(self.mode(), self.owner, need, ids, &[]) {
+            return Err(Error::AccessDenied);
+        }
+        Ok(&self.xattrs)
+    }
+
+    pub(in crate::user::supplied_fs) fn xattrs_changed(&self) {
+        let mut values = self.values.lock().expect("workspace inode attributes");
+        values.times.changed = Timestamp::now();
     }
 
     pub(in crate::user::supplied_fs) fn mode(&self) -> u32 {

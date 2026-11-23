@@ -17,32 +17,11 @@ use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::host::{self, check_size};
 use crate::user::darwin::syscall::Ctx;
 
-/// `XATTR_*` options (`bsd/sys/xattr.h`).
-pub mod opt {
-    pub const NOFOLLOW: u32 = 0x0001;
-    pub const NOSECURITY: u32 = 0x0008;
-    pub const NODEFAULT: u32 = 0x0010;
-    pub const NOFOLLOW_ANY: u32 = 0x0040;
-    pub const RESOLVE_BENEATH: u32 = 0x0080;
-}
-
-/// `XATTR_MAXNAMELEN`.
-const XATTR_MAXNAMELEN: usize = 127;
+pub use super::xattr_common::opt;
+use super::xattr_common::{FD_REFUSED, PATH_REFUSED, XATTR_MAXNAMELEN, protected};
 
 /// `XATTR_MAXSIZE` (`INT32_MAX`).
 const XATTR_MAXSIZE: u64 = i32::MAX as u64;
-
-/// Options no path call takes.
-const PATH_REFUSED: u32 = opt::NOSECURITY | opt::NODEFAULT;
-
-/// Options no descriptor call takes (they name path lookups).
-const FD_REFUSED: u32 =
-    opt::NOFOLLOW | opt::NOSECURITY | opt::NODEFAULT | opt::NOFOLLOW_ANY | opt::RESOLVE_BENEATH;
-
-/// `xattr_protected`.
-fn protected(name: &[u8]) -> bool {
-    name.starts_with(b"com.apple.system.")
-}
 
 /// An attribute name (`copyinstr` of `XATTR_MAXNAMELEN + 1` bytes).
 fn attr_name(ctx: &Ctx<'_>, addr: u64) -> Result<CString, Errno> {
