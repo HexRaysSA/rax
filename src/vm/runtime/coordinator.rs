@@ -6,8 +6,8 @@ use crate::vm::vcpu::{ClockIdle, DEFAULT_HOST_SLICE, DEFAULT_RETIREMENT_QUANTUM,
 use std::collections::VecDeque;
 
 // A vCPU that reaches a device exit waits for its round peers. Bound that
-// delay independently of the single-vCPU host slice to keep PIO responsive.
-const PARALLEL_HOST_SLICE: std::time::Duration = std::time::Duration::from_millis(1);
+// delay independently of the single-vCPU host slice to keep x86 PIO responsive.
+const PARALLEL_X86_HOST_SLICE: std::time::Duration = std::time::Duration::from_millis(1);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct ExecutionCoordinator {
@@ -287,7 +287,12 @@ impl Vmm {
             self.service_pc_interrupts(turn.cpu_index)?;
             (turn.pending_irq, turn.pending_nmi) = self.intel_hvf_events_waiting(turn.cpu_index)?;
         }
-        let limit = self.host_slice_limit()?.min(PARALLEL_HOST_SLICE);
+        let limit = self.host_slice_limit()?;
+        let limit = if self.checkpoint_config.arch == ArchKind::X86_64 {
+            limit.min(PARALLEL_X86_HOST_SLICE)
+        } else {
+            limit
+        };
         self.coordinator.cursor = (cursor + 1) % count;
         let mut error = None;
         let mut posted = 0;

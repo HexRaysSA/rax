@@ -1,4 +1,4 @@
-//! Synchronous vCPU interface with a permanent native SDK owner.
+//! vCPU interface with a permanent native SDK owner.
 //!
 //! Only the worker creates, accesses, runs and destroys its native vCPU.
 //! Callers may move the front end without moving that ownership.
@@ -6,6 +6,7 @@ use super::*;
 use std::sync::mpsc;
 
 type Operation = Box<dyn FnOnce(&mut HvfArm64Core) + Send + 'static>;
+type HostSliceReply = mpsc::Receiver<Result<Option<VcpuExit>>>;
 
 /// ARM64 HVF vCPU whose native handle remains on its creating thread.
 pub struct HvfArm64Vcpu {
@@ -13,6 +14,9 @@ pub struct HvfArm64Vcpu {
     sender: Option<mpsc::Sender<Operation>>,
     worker: Option<std::thread::JoinHandle<()>>,
     lifetime: Arc<NativeVmLifetime>,
+    // Collection takes the receiver by value. The mutex preserves Sync for
+    // the concrete vCPU type, since a channel receiver alone is not Sync.
+    pending_entry: Option<Mutex<HostSliceReply>>,
 }
 
 impl HvfArm64Vcpu {
@@ -49,6 +53,7 @@ impl HvfArm64Vcpu {
                 sender: Some(sender),
                 worker: Some(worker),
                 lifetime: frontend_lifetime,
+                pending_entry: None,
             }),
             result => {
                 drop(sender);
@@ -79,18 +84,42 @@ impl HvfArm64Vcpu {
         &self,
         operation: impl FnOnce(&mut HvfArm64Core) -> Result<T> + Send + 'static,
     ) -> Result<T> {
+        self.require_collected_entry()?;
         self.lifetime.ensure_live()?;
+        self.receive(self.post_operation(operation)?)
+    }
+
+    fn post_operation<T: Send + 'static>(
+        &self,
+        operation: impl FnOnce(&mut HvfArm64Core) -> Result<T> + Send + 'static,
+    ) -> Result<mpsc::Receiver<Result<T>>> {
         let (reply, result) = mpsc::sync_channel(1);
-        let error = || Error::Emulator(format!("ARM64 HVF vCPU {} owner stopped", self.id));
-        let sender = self.sender.as_ref().ok_or_else(error)?;
+        let sender = self.sender.as_ref().ok_or_else(|| self.owner_stopped())?;
         let timing = crate::vm::timing::TimingContext::current();
         sender
             .send(Box::new(move |core| {
                 let _timing = timing.as_ref().map(|clock| clock.enter());
                 let _ = reply.send(operation(core));
             }))
-            .map_err(|_| error())?;
-        result.recv().map_err(|_| error())?
+            .map_err(|_| self.owner_stopped())?;
+        Ok(result)
+    }
+
+    fn receive<T>(&self, reply: mpsc::Receiver<Result<T>>) -> Result<T> {
+        reply.recv().map_err(|_| self.owner_stopped())?
+    }
+
+    fn owner_stopped(&self) -> Error {
+        Error::Emulator(format!("ARM64 HVF vCPU {} owner stopped", self.id))
+    }
+
+    fn require_collected_entry(&self) -> Result<()> {
+        if self.pending_entry.is_some() {
+            return Err(Error::InvalidConfig(
+                "ARM64 HVF host slice must be collected before using the vCPU".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -277,6 +306,44 @@ impl VCpu for HvfArm64Vcpu {
         self.request(move |core| core.run_host_slice(limit))
     }
 
+    fn post_host_slice(&mut self, limit: std::time::Duration) -> Result<()> {
+        self.require_collected_entry()?;
+        slice::validate_interval(limit).map_err(|error| Error::InvalidConfig(error.into()))?;
+        let _posting = self
+            .lifetime
+            .quiescence
+            .read()
+            .map_err(|_| Error::Emulator("native exclusion lock poisoned".into()))?;
+        self.lifetime.ensure_live()?;
+        let lifetime = self.lifetime.clone();
+        let entry = self.post_operation(move |core| {
+            let _entry = lifetime
+                .quiescence
+                .read()
+                .map_err(|_| Error::Emulator("native exclusion lock poisoned".into()))?;
+            lifetime.ensure_live()?;
+            core.run_host_slice(limit)
+        })?;
+        // Stopped operations also exclude queued and returned-but-uncollected
+        // entries. Publish the reservation before releasing the posting guard.
+        self.pending_entry = Some(Mutex::new(entry));
+        self.lifetime.pending_entries.fetch_add(1, Ordering::AcqRel);
+        Ok(())
+    }
+
+    fn collect_host_slice(&mut self) -> Result<Option<VcpuExit>> {
+        let entry = self
+            .pending_entry
+            .take()
+            .ok_or_else(|| Error::InvalidConfig("no ARM64 HVF host slice is in flight".into()))?;
+        let receiver = entry
+            .into_inner()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let result = self.receive(receiver);
+        self.lifetime.pending_entries.fetch_sub(1, Ordering::AcqRel);
+        result
+    }
+
     fn get_state(&self) -> Result<CpuState> {
         self.request(|core| core.get_state())
     }
@@ -390,12 +457,15 @@ impl VCpu for HvfArm64Vcpu {
 
 impl Drop for HvfArm64Vcpu {
     fn drop(&mut self) {
+        if self.pending_entry.is_some() {
+            let _ = self.collect_host_slice();
+        }
         let _boundary = self
             .lifetime
             .quiescence
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // Disconnect after every preceding synchronous operation has completed.
+        // Disconnect after every preceding owner operation has completed.
         drop(self.sender.take());
         if let Some(worker) = self.worker.take() {
             if worker.join().is_err() {

@@ -113,12 +113,25 @@ impl NativeVmLifetime {
     }
 
     pub(super) fn stopped(&self) -> Result<CheckpointBoundary<'_>> {
+        // A waiting writer can prevent posted peers from entering the SDK.
+        self.require_collected_entries()?;
         let guard = self
             .quiescence
             .write()
             .map_err(|_| Error::Emulator("native checkpoint exclusion lock poisoned".into()))?;
         self.ensure_live()?;
+        // A post could have acquired a read lease after the first check.
+        self.require_collected_entries()?;
         Ok(CheckpointBoundary::held(self.identity(), guard))
+    }
+
+    fn require_collected_entries(&self) -> Result<()> {
+        if self.pending_entries.load(Ordering::Acquire) != 0 {
+            return Err(Error::InvalidConfig(
+                "ARM64 HVF host slices must be collected before stopping the VM".into(),
+            ));
+        }
+        Ok(())
     }
 
     pub(super) fn capture_shared(

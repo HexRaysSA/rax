@@ -44,7 +44,7 @@ struct Cli {
     memory: Option<MemorySize>,
     #[arg(long)]
     vcpus: Option<u8>,
-    /// Run Intel HVF vCPUs concurrently. Supply again when resuming a checkpoint.
+    /// Run HVF vCPUs concurrently. Supply again when resuming a checkpoint.
     #[arg(long, num_args = 0..=1, require_equals = true, default_missing_value = "true")]
     hvf_parallel_vcpus: Option<bool>,
     #[arg(long)]

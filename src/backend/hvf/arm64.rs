@@ -10,7 +10,7 @@
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ptr;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use tracing::{debug, info, warn};
@@ -143,6 +143,7 @@ impl Backend for HvfArm64Backend {
             lifetime: Arc::new(NativeVmLifetime {
                 mapping: Mutex::new(None),
                 quiescence: RwLock::new(()),
+                pending_entries: AtomicUsize::new(0),
                 topology: Mutex::new(NativeTopology::default()),
                 irq_levels: Mutex::new(BTreeMap::new()),
                 power: Mutex::new(None),
@@ -171,6 +172,7 @@ pub struct HvfArm64Vm {
 struct NativeVmLifetime {
     mapping: Mutex<Option<RegisteredMemory>>,
     quiescence: RwLock<()>,
+    pending_entries: AtomicUsize,
     topology: Mutex<NativeTopology>,
     irq_levels: Mutex<BTreeMap<u32, bool>>,
     power: Mutex<Option<crate::backend::arm64_hvf_power::Power>>,

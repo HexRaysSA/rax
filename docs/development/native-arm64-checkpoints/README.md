@@ -150,6 +150,48 @@ A failed native destination-register write preserves the full device reply.
 After file restoration, the original error is surfaced, then the same reply is
 retried without performing another device read. Short replies retain the request.
 
+## Parallel VMM scheduling
+
+`--hvf-parallel-vcpus` or `hvf_parallel_vcpus = true` opts into parallel
+AArch64 HVF rounds. Supply the option again on checkpoint resume. The VMM
+posts a slice to each online owner and collects every posted reply before
+dispatching MMIO or applying queued PSCI transitions. With a debugger
+transport attached, the VMM uses serial entry.
+
+Each ARM owner uses the existing 10 ms requested slice and its nominal 5 ms
+SDK cancellation period. Host and SDK scheduling affect elapsed time.
+The coordinator visits each online vCPU once in rotating order, using
+O(V) time and storage per round for V configured vCPUs. A yield changes
+host scheduling without advancing the guest retirement count.
+
+Posting reserves each owner through result collection. CPU state access and
+VM checkpoint admission reject an outstanding slice, including a slice whose
+owner has returned and whose caller has yet to collect it. Dropping a vCPU
+drains its own reply before exclusive SDK teardown. The reservation and
+slice policy remain host state outside the checkpoint format.
+[SDK vCPU owner and cancellation contract](../../specifications/apple/hypervisor-sdk-27.2/hv_vcpu.h).
+
+On a physical Apple M4 Max, guests with two and four vCPUs started their
+secondaries through PSCI. Every CPU release-stored a RAM marker and
+acquire-loaded every peer's marker before exiting for a PL011 write. The
+signed test checked one posted cohort and the VMM's round and dispatch
+methods, including each write's PC retirement and the usable peers left
+after dropping a posted owner. A separate
+executable linked to the production backend reproduced a lost peer exit when
+checkpoint rejection waited on the exclusive lock. With the early rejection,
+every posted owner reached its exit even when capture was attempted before its
+peers were posted. A signed CLI test emitted one distinct UART byte per CPU
+and shut down after all stores retired in both serial and parallel modes.
+
+A separate CLI test captured parallel two- and four-vCPU guests via SIGUSR1
+while CPU 0 polled PL011 and its peers waited on a RAM flag. After the source
+VM exited and its kernel image was removed, the resumed guest consumed a UART
+byte, released its peers, emitted a second distinct byte per CPU, and powered
+off. Independent file inspection checked each saved PC and private CPU
+record, the online mask, the PL011 and shared native records, and the RAM
+markers for both phases. A simultaneous shutdown and peer MMIO exit and
+parallel deterministic replay remain unqualified.
+
 ## Executed validation and limits
 
 The frozen v8 root library test binary passed six portable native-format,

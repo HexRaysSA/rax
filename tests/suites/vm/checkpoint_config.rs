@@ -43,14 +43,18 @@ fn optional_pci_topology_survives_capture_binary_metadata_and_default_resume() {
     }
 }
 
-#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
 #[test]
-fn intel_hvf_parallel_scheduling_is_selected_locally_on_boot_and_resume() {
+fn hvf_parallel_scheduling_is_selected_locally_on_boot_and_resume() {
     use rax::config::FileConfig;
 
     let kernel = Kernel::new();
+    let arch = if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        ArchKind::Aarch64
+    } else {
+        ArchKind::X86_64
+    };
     let cli = CliConfig {
-        arch: Some(ArchKind::X86_64),
+        arch: Some(arch),
         backend: Some(BackendKind::Hvf),
         kernel: Some(kernel.0.clone()),
         vcpus: Some(4),
@@ -93,12 +97,13 @@ fn intel_hvf_parallel_scheduling_is_selected_locally_on_boot_and_resume() {
 }
 
 #[test]
-fn intel_hvf_parallel_scheduling_rejects_other_backends_and_architectures() {
+fn hvf_parallel_scheduling_rejects_other_backends_and_architectures() {
     let kernel = Kernel::new();
     for (arch, backend) in [
         (ArchKind::X86_64, BackendKind::Emulator),
         (ArchKind::X86_64, BackendKind::Kvm),
-        (ArchKind::Aarch64, BackendKind::Hvf),
+        (ArchKind::Aarch64, BackendKind::Emulator),
+        (ArchKind::Armv7a, BackendKind::Hvf),
     ] {
         let error = VmConfig::from_sources(
             CliConfig {
@@ -114,7 +119,7 @@ fn intel_hvf_parallel_scheduling_rejects_other_backends_and_architectures() {
         assert!(
             error
                 .to_string()
-                .contains("parallel HVF vCPUs require the Intel HVF backend")
+                .contains("parallel HVF vCPUs require an x86-64 or AArch64 HVF guest")
         );
     }
 }

@@ -476,10 +476,11 @@ impl VmConfig {
             return Err(Error::InvalidConfig("vcpus must be at least 1".to_string()));
         }
         if self.hvf_parallel_vcpus
-            && (self.backend != BackendKind::Hvf || self.arch != ArchKind::X86_64)
+            && (self.backend != BackendKind::Hvf
+                || !matches!(self.arch, ArchKind::X86_64 | ArchKind::Aarch64))
         {
             return Err(Error::InvalidConfig(
-                "parallel HVF vCPUs require the Intel HVF backend".to_string(),
+                "parallel HVF vCPUs require an x86-64 or AArch64 HVF guest".into(),
             ));
         }
         let min_mem_bytes = MIN_MEM_MIB << 20;
