@@ -501,11 +501,7 @@ fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
                 });
             }
             ATTR_CHPE
-                if !attrs.chpe
-                    && size == 1
-                    && value == 1
-                    && returned == 0
-                    && (c.arch() == WinArch::Arm64 || abi.wow64()) =>
+                if !attrs.chpe && size == 1 && returned == 0 && admits_chpe_attribute(c, value) =>
             {
                 attrs.chpe = true;
             }
@@ -520,6 +516,27 @@ fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
         }
     }
     Ok(attrs)
+}
+
+fn admits_chpe_attribute(c: &Ctx, value: u64) -> bool {
+    match c.arch() {
+        WinArch::Arm64 | WinArch::X86 => value == 1,
+        // Current AMD64 CMD also supplies a BOOLEAN on the native
+        // same-architecture route. Image loading still checks the machine.
+        WinArch::X64 => {
+            value <= 1
+                && c.p.native.as_ref().is_some_and(|native| {
+                    matches!(
+                        (
+                            native.version.major,
+                            native.version.minor,
+                            native.version.build
+                        ),
+                        (10, 0, 20348 | 26100)
+                    ) && native.object_namespace.native_machine == Some(WinArch::X64.machine())
+                })
+        }
+    }
 }
 
 fn probe_outputs(
