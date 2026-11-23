@@ -31,6 +31,76 @@ fn standalone(count: u32) -> (Box<dyn Vm>, GuestMemoryWrapper, Vec<Box<dyn VCpu>
 
 #[test]
 #[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
+fn standalone_running_peers_observe_system_off_within_the_posted_slice() {
+    const SLOTS: u64 = CODE + 0x1000;
+    const PROGRAM: [u32; 12] = [
+        0x5280_0021, // MOV W1,#1
+        0x889f_fc01, // STLR W1,[X0]
+        0x1400_0000, // B .
+        0x88df_fc01, // LDAR W1,[X0]
+        0x34ff_ffe1, // CBZ W1,.-4
+        0x9100_1000, // ADD X0,X0,#4
+        0xf100_0442, // SUBS X2,X2,#1
+        0x54ff_ff81, // B.NE .-16
+        0x5280_0100, // MOV W0,#8
+        0x72b0_8000, // MOVK W0,#0x8400,LSL #16
+        0xd400_0002, // HVC #0
+        0xd503_207f, // WFI
+    ];
+    for count in [2, 4] {
+        let (vm, memory, mut cpus) = standalone(count);
+        let code: Vec<_> = PROGRAM.into_iter().flat_map(u32::to_le_bytes).collect();
+        memory
+            .memory()
+            .write_slice(&code, GuestAddress(CODE))
+            .unwrap();
+        publish_native_code(&memory, CODE, code.len());
+
+        let caller = count - 1;
+        for cpu in &mut cpus {
+            let mut registers = state(cpu.as_ref());
+            registers.regs.pstate = 0x3c5;
+            if cpu.id() == caller {
+                registers.regs.pc = CODE + 12;
+                registers.regs.x[0] = SLOTS;
+                registers.regs.x[2] = u64::from(caller);
+            } else {
+                registers.regs.pc = CODE;
+                registers.regs.x[0] = SLOTS + 4 * u64::from(cpu.id());
+            }
+            cpu.set_state(&CpuState::Aarch64(registers)).unwrap();
+        }
+
+        // The caller invokes SYSTEM_OFF only after every peer has entered.
+        for cpu in &mut cpus {
+            cpu.post_host_slice(std::time::Duration::from_secs(1))
+                .unwrap();
+        }
+        let (power_off, peers) = cpus.split_last_mut().unwrap();
+        assert!(matches!(
+            power_off.collect_host_slice().unwrap(),
+            Some(VcpuExit::Shutdown)
+        ));
+        for peer in peers {
+            let exit = peer.collect_host_slice().unwrap();
+            assert!(
+                matches!(exit, Some(VcpuExit::Shutdown)),
+                "{count} vCPUs, peer {}: {exit:?}",
+                peer.id()
+            );
+            assert_eq!(peer.current_pc(), CODE + 8);
+        }
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let shared = vm
+            .capture_checkpoint_vm_context(&boundary)
+            .unwrap()
+            .unwrap();
+        assert!(GlobalContext::decode(&shared.data).unwrap().power.shutdown);
+    }
+}
+
+#[test]
+#[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
 fn standalone_native_shutdown_is_vm_wide_and_restores_with_the_shared_graph() {
     for count in [1, 2] {
         let (vm, memory, mut cpus) = standalone(count);

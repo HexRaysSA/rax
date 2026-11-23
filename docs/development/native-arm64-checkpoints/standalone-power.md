@@ -29,17 +29,31 @@ effects, explicit wake, and preservation of a restored pending CPU_OFF graph.
 Existing configured native shutdown/CPU power file continuations are separate
 regression gates. These backend API tests do not transport RAM through a file.
 
+An owner with a posted slice also checks the standalone terminal flag before
+each SDK reentry. A guest on a second owner can set that flag with SYSTEM_OFF
+while the first is still in the guest. The first owner returns a shutdown exit
+when it next reaches a host boundary and observes the flag. The periodic SDK
+cancellation provides a boundary for a guest that keeps running. Cancellation
+and host scheduling determine the elapsed time.
+
+Before the change, a signed Apple Silicon backend probe returned
+`Some(Shutdown)` on the caller and a plain yield on a peer after about 254 ms.
+The peer had published a RAM marker and was spinning before the caller invoked
+SYSTEM_OFF. The signed regression uses two and four native vCPUs. The caller
+waits for every peer's marker, each peer reports shutdown in the same posted
+slice, and stopped capture records the VM-wide terminal state.
+
 Primary architectural context is the retained Arm PSCI specification
 `docs/specifications/arm/psci-den0022.pdf`; source hash and host commands are in
 the qualification record. The existing Apple SDK state/owner-thread references
 and qualification boundaries remain in this directory's README.
 
-Assumptions and falsification probes are recorded in the qualification JSON.
-High-impact remaining requirements include simultaneous independently entered
-standalone SDK CPUs and asynchronous stop completion, full file/RAM and external
-writer coordination, entered-VM reconstruction, SDK streaming FPSR behavior,
-clocks/debug/replay and native Intel execution. No claim of full C-STATE, C-SMP,
-C-HVF or A32-FP closure follows from this component.
+Assumptions and falsification probes for the original standalone capture
+changes are recorded in the qualification JSON. High-impact remaining
+requirements include concurrent shutdown with peer MMIO, full file/RAM and
+external writer coordination, entered-VM reconstruction, SDK streaming FPSR
+behavior, clocks/debug/replay and native Intel execution. Full C-STATE, C-SMP,
+C-HVF and A32-FP remain open.
 
 The terminal/peer-pending-I/O capture candidate found during this group was
 subsequently reproduced and repaired. See [terminal-io.md](terminal-io.md) for

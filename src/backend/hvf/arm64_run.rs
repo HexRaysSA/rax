@@ -19,9 +19,6 @@ impl HvfArm64Core {
         if let Some(exit) = self.power_entry_exit()? {
             return Ok(Some(exit));
         }
-        if self.native_shutdown()? {
-            return Ok(Some(VcpuExit::Shutdown));
-        }
         if let Some(error) = self.io_completion_error.take() {
             return Err(error);
         }
@@ -60,7 +57,7 @@ impl HvfArm64Core {
             self._vm.entered.store(true, Ordering::Release);
             self.ever_entered = true;
             // SAFETY: the permanent creating owner holds this live SDK CPU.
-            // The enclosing synchronous request retains VM/RAM and stopped
+            // The enclosing owner operation retains VM/RAM and stopped
             // exclusion. The kick thread uses only the retained scalar ID.
             let ret = unsafe { hv_vcpu_run(self.vcpu) };
             if ret != HV_SUCCESS {

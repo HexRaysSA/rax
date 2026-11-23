@@ -33,16 +33,18 @@ impl HvfArm64Core {
     }
     pub(super) fn power_entry_exit(&self) -> Result<Option<VcpuExit>> {
         let power = self._vm.power()?;
-        let Some(power) = power.as_ref() else {
-            return Ok(None);
-        };
-        if power.shutdown {
-            return Ok(Some(VcpuExit::Shutdown));
-        }
-        if power.states.get(self.id as usize) != Some(&State::On) {
-            return Ok(Some(VcpuExit::Hlt));
-        }
-        Ok(None)
+        // A peer may power off an unconfigured VM during a posted slice.
+        // Recheck its terminal state on every SDK reentry.
+        Ok(match power.as_ref() {
+            Some(power) if power.shutdown => Some(VcpuExit::Shutdown),
+            Some(power) if power.states.get(self.id as usize) != Some(&State::On) => {
+                Some(VcpuExit::Hlt)
+            }
+            None if self._vm.standalone_shutdown.load(Ordering::Acquire) => {
+                Some(VcpuExit::Shutdown)
+            }
+            _ => None,
+        })
     }
     pub(super) fn clear_system_shutdown(&self) -> Result<()> {
         if let Some(power) = self._vm.power()?.as_mut() {
