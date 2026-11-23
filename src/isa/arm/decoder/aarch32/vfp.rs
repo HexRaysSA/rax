@@ -211,6 +211,16 @@ impl Aarch32Decoder {
 
         let coproc = (raw >> 8) & 0xF;
         let opcode = (raw >> 21) & 7;
+        // The half-register decoder has already claimed the allocated CP9
+        // transfer. Remaining CP8/CP9 words are unallocated in this group.
+        if matches!(coproc, 8 | 9) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         if coproc == 0b1010 && opcode != 0 {
             // This space allocates only the single-register VMOV (opcode 0)
             // and the special-register transfers (opcode 7). Unallocated
@@ -527,7 +537,9 @@ impl Aarch32Decoder {
             (1, 1, 1, 1, 1, 13) if size == 3 => Mnemonic::VCVT_S32_F64,
             (1, 1, 1, 0, 1, 12) if size == 3 => Mnemonic::VCVTR_U32_F64,
             (1, 1, 1, 0, 1, 13) if size == 3 => Mnemonic::VCVTR_S32_F64,
-            _ => return None,
+            // The conditional scalar FP prefix has already been matched.
+            // Unallocated opcode/size combinations cannot decode as CDP.
+            _ => Mnemonic::UNDEFINED,
         };
 
         Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))

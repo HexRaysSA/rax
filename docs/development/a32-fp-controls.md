@@ -846,3 +846,29 @@ filters or failures. Two stopped RISC-V GSC test subprocesses completed
 after receiving SIGCONT. The source of the stops is unknown. The passing
 log SHA-256 is
 `cc9d98fb75058880c735dd16772d033543445daf976a3c282e37d3fc6274a349`.
+
+## Reserved scalar data-processing and core transfers
+
+After matching the scalar floating-point data-processing prefix, ARM and
+Thumb now decode unallocated opcode and precision combinations as Undefined.
+After the allocated FP16 transfer has been selected, CP8 and CP9 core-transfer
+words also decode as Undefined. These allocation checks use constant time and
+space and run before FP permission checks and architectural effects.
+[Arm DDI0597 ID032025, printed pages 1492–1496 and 1526–1530](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+The parent decoded `0x0e800a40` as CDP and successfully executed reserved word
+`0xee000810` through the generic coprocessor path. The regression checks
+predicate-independent allocation across the conditional ARM space, rejection
+with CPACR, HCPTR and FPEXC denial states, unchanged mixed-width register
+state and retirement, and rejection by both SMIR lifters.
+
+| Assumption | Falsification probe | Result |
+| --- | --- | --- |
+| The reserved encodings take Undefined Instruction with FP enabled. | Run a bare-metal guest with an Undefined vector and a separate completion marker. Include the adjacent allocated instruction in each case and check that it reaches completion. | QEMU 11.1.2 `max` took Undefined for all 10 reserved ARM/Thumb cases and completed all 12 allocated controls, including the unconditional VFMAL adjacent to the CP8 word. |
+
+The QEMU receipt SHA-256 is
+`b9bd55d650a09c6571550236b134a61ab98035667b2ed04fad32b3e4200c7612`.
+The five complete RAX integration targets passed 47,690 tests with zero
+failures or ignored tests. The initial ARM run received SIGKILL. Its complete
+46,850-case rerun used two test threads. Physical AArch32 execution remains
+unverified.

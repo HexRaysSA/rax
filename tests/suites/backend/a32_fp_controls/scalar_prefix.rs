@@ -16,6 +16,11 @@ const INVALID: &[u32] = &[
     0xfeb1_0b42,
     0xfeb1_0bc1,
     0xfeb0_0bc1,
+    0xee80_0a40, // VDIV space with unallocated bit 6 set.
+    0xeeb7_09c0, // The half-precision neighbor of VCVT.F64.F32.
+    0xeeb9_0b40, // VJCVT space with unallocated bit 7 clear.
+    0xee00_0810, // Unallocated size in the scalar core-transfer group.
+    0xee20_0910, // FP16 VMOV core-transfer group with an unallocated opcode.
 ];
 
 fn decode(raw: u32, thumb: bool) -> DecodedInsn {
@@ -25,6 +30,38 @@ fn decode(raw: u32, thumb: bool) -> DecodedInsn {
         Aarch32Decoder::decode(raw)
     }
     .unwrap()
+}
+
+#[test]
+fn reserved_scalar_fp_operations_keep_their_allocation_across_predicates() {
+    for thumb in [false, true] {
+        for condition in 0..15 {
+            if thumb && condition != 14 {
+                continue;
+            }
+            for (base, expected) in [
+                (0xee80_0a40, Mnemonic::UNDEFINED),
+                (0xeeb7_09c0, Mnemonic::UNDEFINED),
+                (0xeeb9_0b40, Mnemonic::UNDEFINED),
+                (0xee00_0810, Mnemonic::UNDEFINED),
+                (0xee20_0910, Mnemonic::UNDEFINED),
+                (0xee80_0a00, Mnemonic::VDIV),
+                (0xeeb7_0ac0, Mnemonic::VCVT_F64_F32),
+                (0xee00_0a10, Mnemonic::VMOV),
+                (0xee00_0710, Mnemonic::MCR),
+            ] {
+                let raw = (base & 0x0fff_ffff) | condition << 28;
+                assert_eq!(
+                    decode(raw, thumb).mnemonic,
+                    expected,
+                    "raw={raw:08x}, thumb={thumb}"
+                );
+            }
+        }
+        assert_eq!(decode(0xee00_0910, thumb).mnemonic, Mnemonic::VMOV_F16_CORE);
+        assert_eq!(decode(0xeeb9_0bc0, thumb).mnemonic, Mnemonic::VJCVT_S32_F64);
+        assert_eq!(decode(0xfe00_0810, thumb).mnemonic, Mnemonic::VFMAL);
+    }
 }
 
 #[test]
