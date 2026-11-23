@@ -1,0 +1,44 @@
+name: Windows native data section diagnostic
+
+on:
+  push:
+    branches: ['validation/windows-file-section-placeholder-*']
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: File section placeholder (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - name: Compare ordinary and exact native section mappings
+        shell: pwsh
+        run: |
+          $scratch = Join-Path $env:GITHUB_WORKSPACE '.tmp-data-section'
+          New-Item -ItemType Directory -Path $scratch | Out-Null
+          $env:TMP = $scratch
+          $env:TEMP = $scratch
+          $env:TMPDIR = $scratch
+          [Environment]::OSVersion.Version.ToString()
+          Get-FileHash -Algorithm SHA256 (Join-Path $env:SystemRoot 'System32/kernelbase.dll')
+          $src = 'tests/fixtures/user/windows/src/native_file_section_placeholder.rs'
+          Get-FileHash -Algorithm SHA256 $src
+          $probe = Join-Path $scratch 'native-file-section.exe'
+          rustup run stable rustc --edition 2024 $src -o $probe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $rows = & $probe
+          $probeExit = $LASTEXITCODE
+          $rows
+          if ($probeExit -ne 0) { exit $probeExit }
+          if (@($rows | Where-Object { $_ -match '^section size=' }).Count -ne 36) {
+            throw 'Expected 36 independent native observations'
+          }
