@@ -874,6 +874,9 @@ fn compare_windows_installed_program(
         if let Some(shape) = stopped_token_duplicate_shape(&process, &stopped) {
             eprintln!("guest NtDuplicateToken request {shape}");
         }
+        if let Some(shape) = stopped_wnf_update_shape(&process, &stopped) {
+            eprintln!("guest NtUpdateWnfStateData request {shape}");
+        }
         panic!(
             "guest {} stopped after {} scheduler turns: {}",
             opened["architecture"],
@@ -1007,6 +1010,68 @@ fn stopped_token_duplicate_shape(process: &Owned, stopped: &serde_json::Value) -
         }
     }
     Some(shape)
+}
+
+#[cfg(windows)]
+fn stopped_wnf_update_shape(process: &Owned, stopped: &serde_json::Value) -> Option<String> {
+    if !stopped["diagnostic"]
+        .as_str()?
+        .starts_with("emulator failure: native NTDLL service NtUpdateWnfStateData ")
+    {
+        return None;
+    }
+    let thread = ready_native_thread(stopped)?;
+    let hex = |value: &serde_json::Value| {
+        u64::from_str_radix(value.as_str()?.strip_prefix("0x")?, 16).ok()
+    };
+    let register = |index: usize| hex(thread["registers"].get(index)?);
+    let read = |address, bytes: &mut [u8]| {
+        rax_process_mem_read(process.0, address, bytes.as_mut_ptr(), bytes.len()) == RaxStatus::Ok
+    };
+    let (name, buffer, length, type_id, scope, stamp, check) = match stopped["architecture"]
+        .as_str()?
+    {
+        "x64" => {
+            let mut stack = [0; 24];
+            if !read(hex(&thread["sp"])?.checked_add(40)?, &mut stack) {
+                return None;
+            }
+            let word = |offset| u64::from_le_bytes(stack[offset..offset + 8].try_into().unwrap());
+            (
+                register(10)?,
+                register(2)?,
+                register(8)?,
+                register(9)?,
+                word(0),
+                word(8),
+                word(16),
+            )
+        }
+        "arm64" => (
+            register(0)?,
+            register(1)?,
+            register(2)?,
+            register(3)?,
+            register(4)?,
+            register(5)?,
+            register(6)?,
+        ),
+        _ => return None,
+    };
+    let mut value = [0; 8];
+    if !read(name, &mut value) {
+        return None;
+    }
+    Some(format!(
+        "name={:#018x} buffer_present={} bytes={} type_present={} explicit_scope={} stamp={} check_stamp={}",
+        u64::from_le_bytes(value),
+        buffer != 0,
+        length as u32,
+        type_id != 0,
+        scope != 0,
+        stamp as u32,
+        check as u8
+    ))
 }
 
 #[cfg(windows)]
