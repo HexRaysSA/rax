@@ -114,19 +114,22 @@ fn vjcvt_feature_predicate_and_register_checks_precede_access_traps() {
 }
 
 #[test]
-fn standalone_jscvt_id_requires_double_precision() {
+fn standalone_jscvt_id_requires_double_precision_and_register_bank() {
     const MRC_ISAR6: u32 = 0xee10_3ff2; // MRC P15,0,R3,C0,C2,7.
+    let profiles = (0..16)
+        .map(|precision| (2, precision))
+        .chain([(0, 2), (1, 2), (3, 2), (15, 2)]);
     for thumb in [false, true] {
-        for precision in 0..16 {
+        for (bank, precision) in profiles.clone() {
             for jscvt in 0..16 {
                 let mut cpu = Armv7Cpu::new();
                 cpu.cpsr.t = thumb;
-                cpu.vfp.mvfr0 = (cpu.vfp.mvfr0 & !(15 << 8)) | (precision << 8);
+                cpu.vfp.mvfr0 = (cpu.vfp.mvfr0 & !0xf0f) | (precision << 8) | bank;
                 let original_id = (cpu.cp15.id_isar6 & !15) | jscvt;
                 cpu.cp15.id_isar6 = original_id;
                 cpu.vfp.write_d_bits(0, CANARY);
                 cpu.vfp.write_d(1, 1.0);
-                let enabled = jscvt == 1 && matches!(precision, 1 | 2);
+                let enabled = jscvt == 1 && matches!(precision, 1 | 2) && matches!(bank, 1 | 2);
 
                 assert!(matches!(
                     execute_in_state(&mut cpu, MRC_ISAR6),
@@ -135,7 +138,7 @@ fn standalone_jscvt_id_requires_double_precision() {
                 assert_eq!(
                     cpu.regs[3] & 15,
                     u32::from(enabled),
-                    "Thumb={thumb}, FPDP={precision}, JSCVT={jscvt}"
+                    "Thumb={thumb}, SIMDReg={bank}, FPDP={precision}, JSCVT={jscvt}"
                 );
                 assert_eq!(cpu.cp15.id_isar6, original_id);
                 let before = (cpu.vfp.dregs, cpu.vfp.fpscr.bits());

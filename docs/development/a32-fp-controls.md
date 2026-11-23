@@ -563,21 +563,26 @@ the wider profile and security/debug audit remain open.
 
 `VJCVT.S32.F64` consumes a binary64 operand. The software AArch32 profile
 advertises `ID_ISAR6.JSCVT=1` only when the selected JSCVT field is 1 and
-`MVFR0.FPDP` selects VFPv2 or VFPv3 double-precision arithmetic. Guest
+`MVFR0.FPDP` selects VFPv2 or VFPv3 double-precision arithmetic, and
+`MVFR0.SIMDReg` selects a D16 or D32 register bank. Guest
 CP15 MRC and the mixed-width `ID_ISAR6_EL1` MRS use the same projection as
 instruction admission. The selection stored in the CPU context stays intact.
 The projection takes constant time and constant auxiliary storage.
 [Arm Feature Names, pages 57–58](../specifications/arm/audit-reference-inputs/feature_names_109697_2025_09_en.pdf)
+[Arm DDI 0487B.a, G6.2.107](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
 
 | Assumption | Falsification probe |
 | --- | --- |
 | An enabled conversion requires an implemented binary64 arithmetic profile. | A32 and T32 MRC advertise the feature when FPDP is absent or reserved, or the enabled conversion fails with a defined FPDP value. |
+| The selected profile supplies an implemented FP register bank. | Keep FPDP enabled and compare ID readback and execution with SIMDReg=0, 1, 2, 3 and 15. The denied path must preserve FP state. |
 | A mixed-width CPU uses the imported AArch32 profile for both guest ID aliases. | A64 MRS, A32 MRC and A32/T32 execution disagree after importing the MVFR0 value. |
 
-At baseline both new tests exposed JSCVT with `FPDP=0`. The corrected
-software CPU passed 512 standalone and 32 mixed-width configurations.
-All 47,679 tests passed across the five owning targets on Apple Silicon
-with `smir-jit`. Physical AArch32 qualification remains open.
+The first correction covered `FPDP`. At `9f583c746`, both extended
+regressions still advertised JSCVT with `FPDP=2, SIMDReg=0`. The
+register-bank correction passed 640 standalone and 40 mixed-width
+configurations, including both ARM and Thumb encodings. All 47,683 tests
+passed across the five owning targets on Apple Silicon with `smir-jit`.
+Physical AArch32 qualification remains open.
 
 ## AArch32 execution below EL2 without EL3
 

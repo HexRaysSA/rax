@@ -433,7 +433,7 @@ pub(crate) fn effective_id_isar5(mut id_isar5: u32, mvfr0: u32, mvfr1: u32) -> u
 /// Project the optional SIMD and FP fields through the active AArch32 profile.
 pub(crate) fn effective_id_isar6(mut id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
     // VJCVT consumes binary64, unlike the raw 64-bit storage operations.
-    let has_scalar_double = matches!((mvfr0 >> 8) & 15, 1 | 2);
+    let has_scalar_double = matches!(mvfr0 & 15, 1 | 2) && matches!((mvfr0 >> 8) & 15, 1 | 2);
     if !has_scalar_double || id_isar6 & ID_ISAR6_JSCVT != 1 {
         id_isar6 &= !ID_ISAR6_JSCVT;
     }

@@ -247,24 +247,31 @@ fn profile(cpu: &mut AArch64Cpu, ids: [u64; 3]) {
 }
 
 #[test]
-fn mixed_jscvt_views_and_guest_execution_use_the_imported_double_precision_profile() {
+fn mixed_jscvt_views_and_guest_execution_use_the_imported_register_and_precision_profile() {
     const MRS_ISAR6: u32 = 0xd538_02e3;
     const MRC_ISAR6: u32 = 0xee10_3ff2;
     const VJCVT: u32 = 0xeeb9_0bc1;
+    let profiles = (0..16)
+        .map(|precision| (2, precision))
+        .chain([(0, 2), (1, 2), (3, 2), (15, 2)]);
     for thumb in [false, true] {
-        for precision in 0..16 {
+        for (bank, precision) in profiles.clone() {
             let mut cpu = cpu(false);
             let mut state = cpu.export_sregs();
             state.execution.as_mut().unwrap().features |= ArmFeatures::JSCVT.bits();
             cpu.import_sregs(&state).unwrap();
             let mut ids = expected(false);
-            ids[0] = (ids[0] & !(15 << 8)) | (precision << 8);
+            ids[0] = (ids[0] & !0xf0f) | (precision << 8) | bank;
             profile(&mut cpu, ids);
-            let enabled = matches!(precision, 1 | 2);
+            let enabled = matches!(precision, 1 | 2) && matches!(bank, 1 | 2);
 
             words(&mut cpu, &[MRS_ISAR6], false);
             assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
-            assert_eq!(cpu.get_x(3) & 15, u64::from(enabled), "FPDP={precision}");
+            assert_eq!(
+                cpu.get_x(3) & 15,
+                u64::from(enabled),
+                "SIMDReg={bank}, FPDP={precision}"
+            );
             cpu.set_pstate_bits(0x1d3 | (u64::from(thumb) << 5))
                 .unwrap();
             words(&mut cpu, &[MRC_ISAR6, VJCVT], thumb);
@@ -272,7 +279,7 @@ fn mixed_jscvt_views_and_guest_execution_use_the_imported_double_precision_profi
             assert_eq!(
                 cpu.get_x(3) & 15,
                 u64::from(enabled),
-                "Thumb={thumb}, FPDP={precision}"
+                "Thumb={thumb}, SIMDReg={bank}, FPDP={precision}"
             );
             let before = (u128::from(1.0_f64.to_bits()) << 64) | 0x1122_3344_5566_7788;
             cpu.set_simd(0, before);
