@@ -128,7 +128,7 @@ pub struct Fd {
 #[derive(Clone, Debug, Default)]
 pub struct FdTable {
     slots: Vec<Option<Fd>>,
-    /// Slots detached by close while entered operations retain their fileproc.
+    /// Slots held by an entered open or by a close draining its fileproc.
     reserved: std::collections::BTreeSet<usize>,
 }
 
@@ -240,7 +240,7 @@ impl FdTable {
     pub fn install_at(&mut self, i: usize, file: FileRef, cloexec: bool) -> Option<Fd> {
         assert!(
             !self.reserved.contains(&i),
-            "installation into a closing descriptor"
+            "installation into a reserved descriptor"
         );
         if self.slots.len() <= i {
             self.slots.resize(i + 1, None);
@@ -264,6 +264,13 @@ impl FdTable {
         Ok(fd)
     }
 
+    /// Reserves the next descriptor without publishing a fileproc yet.
+    pub(crate) fn reserve_open(&mut self, limit: u64) -> Result<i32, Errno> {
+        let fd = self.lowest_free(0, limit)?;
+        assert!(self.reserved.insert(fd));
+        Ok(fd as i32)
+    }
+
     /// Detaches a closing descriptor without making its slot allocatable.
     pub(crate) fn reserve(&mut self, fd: i32) -> Result<Fd, Errno> {
         let old = self.remove(fd)?;
@@ -275,12 +282,12 @@ impl FdTable {
         usize::try_from(fd).is_ok_and(|i| self.reserved.contains(&i))
     }
 
-    /// The final entered use drained; the slot may be allocated again.
+    /// Makes a completed operation's slot allocatable again.
     pub(crate) fn release(&mut self, fd: i32) {
         assert!(self.reserved.remove(&(fd as usize)));
     }
 
-    /// Fork/exec inherit open slots, never another thread's close reservation.
+    /// Fork/exec inherit open slots, never another thread's reservation.
     pub(crate) fn clear_reservations(&mut self) {
         self.reserved.clear();
     }

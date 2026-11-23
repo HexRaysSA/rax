@@ -6,7 +6,7 @@ use std::sync::{Arc, Weak};
 use super::abi::Errno;
 use super::arch::{Rv, SysResult};
 use super::fd::{FileKind, FileRef, OpenFile};
-use super::io::{O_RDONLY, O_WRONLY};
+use super::io::{O_EXLOCK, O_NONBLOCK, O_RDONLY, O_WRONLY};
 use super::syscall::{self, Ctx, bsd::file::lifetime};
 use super::wait::{Wait, WaitKey};
 
@@ -84,6 +84,13 @@ impl Target {
 pub(super) struct Request {
     target: Target,
     lock: Lock,
+}
+
+/// An entered lock may be the prerequisite to publishing a new fileproc.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Waiter {
+    request: Request,
+    pub(super) open_flags: Option<u32>,
 }
 
 struct WholeFileLock {
@@ -388,6 +395,53 @@ pub(super) fn inode(file: &OpenFile) -> Option<u64> {
     Some(object.entry()?.ino)
 }
 
+fn flock_target(file: &FileRef) -> Result<Target, Errno> {
+    let FileKind::Embedded(object) = &file.kind else {
+        return Err(Errno::ENOTSUP);
+    };
+    let entry = object.entry().ok_or(Errno::ENOTSUP)?;
+    if object.resource().is_some() {
+        Ok(Target::Resource(entry.ino))
+    } else if object.workspace().is_some() || entry.workspace_directory().is_some() {
+        Ok(Target::File(entry.ino))
+    } else {
+        Err(Errno::EPERM)
+    }
+}
+
+fn whole_file(target: Target, kind: i16) -> Request {
+    Request {
+        target,
+        lock: Lock {
+            kind,
+            range: Range {
+                start: 0,
+                end: None,
+            },
+        },
+    }
+}
+
+pub(super) fn lock_open(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, flags: u32) -> SysResult {
+    let target = flock_target(file)?;
+    let kind = if flags & O_EXLOCK != 0 { WRITE } else { READ };
+    let request = whole_file(target, kind);
+    if flags & O_NONBLOCK == 0 {
+        return wait(
+            ctx,
+            fd,
+            file,
+            Waiter {
+                request,
+                open_flags: Some(flags),
+            },
+        );
+    }
+    let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
+    member.workspace_locks(|locks| locks.set_flock(request, file, false))?;
+    Ok(Rv::one(0))
+}
+
 pub(super) fn flock(ctx: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
     const LOCK_SH: i32 = 1;
     const LOCK_EX: i32 = 2;
@@ -395,17 +449,7 @@ pub(super) fn flock(ctx: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
     const LOCK_UN: i32 = 8;
 
     let file = ctx.proc.fds.file(fd)?;
-    let FileKind::Embedded(object) = &file.kind else {
-        return Err(Errno::ENOTSUP);
-    };
-    let entry = object.entry().ok_or(Errno::ENOTSUP)?;
-    let target = if object.resource().is_some() {
-        Target::Resource(entry.ino)
-    } else if object.workspace().is_some() || entry.workspace_directory().is_some() {
-        Target::File(entry.ino)
-    } else {
-        return Err(Errno::EPERM);
-    };
+    let target = flock_target(&file)?;
     let kind = if how & LOCK_UN != 0 {
         UNLOCK
     } else if how & LOCK_EX != 0 {
@@ -415,18 +459,17 @@ pub(super) fn flock(ctx: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
     } else {
         return Err(Errno::EBADF);
     };
-    let request = Request {
-        target,
-        lock: Lock {
-            kind,
-            range: Range {
-                start: 0,
-                end: None,
-            },
-        },
-    };
+    let request = whole_file(target, kind);
     if how & LOCK_NB == 0 && kind != UNLOCK {
-        return wait(ctx, fd, &file, request);
+        return wait(
+            ctx,
+            fd,
+            &file,
+            Waiter {
+                request,
+                open_flags: None,
+            },
+        );
     }
     let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
     member.workspace_locks(|locks| locks.set_flock(request, &file, false))?;
@@ -511,9 +554,12 @@ pub(super) fn fcntl(
             ctx,
             fd,
             file,
-            Request {
-                target: Target::Record(entry.ino),
-                lock: requested,
+            Waiter {
+                request: Request {
+                    target: Target::Record(entry.ino),
+                    lock: requested,
+                },
+                open_flags: None,
             },
         );
     } else {
@@ -522,17 +568,18 @@ pub(super) fn fcntl(
     Ok(Rv::one(0))
 }
 
-pub(super) fn resume(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, request: Request) -> SysResult {
+pub(super) fn resume(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, waiter: Waiter) -> SysResult {
     ctx.thread.wait = None;
     ctx.thread.woken = false;
     if let Some(error) = super::signal::sleep_interruption(ctx.proc, ctx.thread) {
         cancel_wait(ctx.proc, ctx.thread.tid);
         return Err(error);
     }
-    wait(ctx, fd, file, request)
+    wait(ctx, fd, file, waiter)
 }
 
-fn wait(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, request: Request) -> SysResult {
+fn wait(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, waiter: Waiter) -> SysResult {
+    let request = waiter.request;
     let owner = (ctx.proc.pid, ctx.thread.tid);
     let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
     let acquired = member.workspace_locks(|locks| match request.target {
@@ -547,7 +594,7 @@ fn wait(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, request: Request) -> SysResu
         Wait::key(WaitKey::WorkspaceLock(request.target.ino()), None),
     );
     if ctx.thread.wait.is_some() {
-        lifetime::parked_workspace_lock(ctx, fd, file, request);
+        lifetime::parked_workspace_lock(ctx, fd, file, waiter);
     } else {
         cancel_wait(ctx.proc, ctx.thread.tid);
     }

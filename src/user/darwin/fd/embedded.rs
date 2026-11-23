@@ -547,11 +547,8 @@ impl OpenFile {
             need |= 2;
         }
         let attributes = entry.workspace_xattrs(need, owner, &[])?.clone();
-        attributes.open_resource(create, create && flags & O_EXCL != 0, truncate)?;
+        attributes.open_resource(create, create && flags & O_EXCL != 0, false)?;
         let status = flags & (O_ACCMODE | crate::user::darwin::io::O_STATUS_FLAGS);
-        if truncate {
-            entry.workspace_xattrs_changed();
-        }
         path.push_str(RESOURCE_FORK_SUFFIX);
         Ok(Self {
             kind: FileKind::Embedded(EmbeddedFile::Resource {

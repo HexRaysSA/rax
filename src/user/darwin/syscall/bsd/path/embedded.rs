@@ -3,12 +3,14 @@
 use super::{Ctx, Errno, Rv, SysResult};
 use crate::user::darwin::{
     abi::types::Stat,
-    fd::{EmbeddedFile, FileKind, OpenFile, RESOURCE_FORK_SUFFIX},
+    fd::{EmbeddedFile, FileKind, FileRef, OpenFile, RESOURCE_FORK_SUFFIX},
     host::{
         AT_EACCESS, AT_FDCWD, AT_REMOVEDIR, AT_SYMLINK_FOLLOW, AT_SYMLINK_NOFOLLOW,
         AT_SYMLINK_NOFOLLOW_ANY,
     },
     io::*,
+    syscall::bsd::file::lifetime,
+    workspace_locks,
 };
 use crate::user::supplied_fs::{
     Entry, LinkPolicy, WorkspaceDirectory, WorkspaceRename, relative_workspace_path,
@@ -268,20 +270,49 @@ pub(crate) fn directory_descriptor(ctx: &Ctx<'_>, file: &OpenFile) -> Result<Dir
 }
 
 pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, mode: u32) -> SysResult {
-    if flags & (O_CREAT | O_TRUNC) != 0 && ctx.proc.vfs.files().is_some_and(|f| f.has_workspace()) {
+    if let Some((fd, file, waiter, entered_flags)) = lifetime::entered_workspace_open(ctx.thread) {
+        let result = workspace_locks::resume(ctx, fd, &file, waiter);
+        return finish_locked_open(ctx, fd, file, entered_flags, result);
+    }
+
+    let workspace = ctx.proc.vfs.files().is_some_and(|f| f.has_workspace());
+    let lock_flags = if workspace {
+        flags & (O_SHLOCK | O_EXLOCK)
+    } else {
+        0
+    };
+    if flags & (O_CREAT | O_TRUNC) != 0 && workspace {
         ctx.proc.fds.lowest_free(0, ctx.proc.rlimits[8].0)?;
     }
     let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
     let allow_search = allows_initial_search(ctx, dirfd, &path);
-    let file = open_file(
+    let descriptor = (lock_flags != 0)
+        .then(|| ctx.proc.fds.reserve_open(ctx.proc.rlimits[8].0))
+        .transpose()?;
+    let target = resolve_open_file(
         ctx,
         &path,
         &base,
         directory.as_ref(),
         allow_search,
-        flags,
+        flags & !lock_flags,
         mode,
-    )?;
+    );
+    let file = match target {
+        Ok(file) => file,
+        Err(error) => {
+            if let Some(fd) = descriptor {
+                ctx.proc.fds.release(fd);
+            }
+            return Err(error);
+        }
+    };
+    if let Some(fd) = descriptor {
+        let result = workspace_locks::lock_open(ctx, fd, &file, flags);
+        return finish_locked_open(ctx, fd, file, flags, result);
+    }
+
+    truncate_opened(ctx, &file, flags)?;
     let fd = ctx.proc.fds.install_with(
         file,
         flags & O_CLOEXEC != 0,
@@ -289,6 +320,26 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, mode:
         0,
         ctx.proc.rlimits[8].0,
     )?;
+    Ok(Rv::one(fd as u64))
+}
+
+fn finish_locked_open(
+    ctx: &mut Ctx<'_>,
+    fd: i32,
+    file: FileRef,
+    flags: u32,
+    result: SysResult,
+) -> SysResult {
+    if ctx.thread.wait.is_some() {
+        return result;
+    }
+    ctx.proc.fds.release(fd);
+    result?;
+    truncate_opened(ctx, &file, flags)?;
+    ctx.proc
+        .fds
+        .install_at(fd as usize, file, flags & O_CLOEXEC != 0);
+    ctx.proc.fds.get_mut(fd)?.clofork = flags & O_CLOFORK != 0;
     Ok(Rv::one(fd as u64))
 }
 
@@ -426,6 +477,20 @@ pub(crate) fn open_file(
     flags: u32,
     mode: u32,
 ) -> Result<Arc<OpenFile>, Errno> {
+    let file = resolve_open_file(ctx, path, base, directory, allow_search, flags, mode)?;
+    truncate_opened(ctx, &file, flags)?;
+    Ok(file)
+}
+
+fn resolve_open_file(
+    ctx: &Ctx<'_>,
+    path: &[u8],
+    base: &[u8],
+    directory: Option<&Arc<WorkspaceDirectory>>,
+    allow_search: bool,
+    flags: u32,
+    mode: u32,
+) -> Result<FileRef, Errno> {
     let owner = (ctx.proc.creds.1, ctx.proc.creds.3);
     if let Some(resource) = resource_base(path) {
         let (policy, search, _) = open_policy(flags)?;
@@ -433,17 +498,9 @@ pub(crate) fn open_file(
         if search || flags & O_DIRECTORY != 0 {
             return Err(Errno::ENOTDIR);
         }
-        let file = OpenFile::resource_fork(path, entry, flags, owner)?;
-        if flags & O_TRUNC != 0
-            && let FileKind::Embedded(data) = &file.kind
-            && let Some((fork, _)) = data.resource()
-        {
-            ctx.space()
-                .truncated(crate::user::mm::PageSource::identity(fork.as_ref()), 0);
-        }
-        return Ok(Arc::new(file));
+        return OpenFile::resource_fork(path, entry, flags, owner).map(Arc::new);
     }
-    let file = open_or_create(
+    open_or_create(
         flags,
         owner,
         |policy| lookup_as(ctx, path, base, directory, allow_search, policy, owner),
@@ -484,15 +541,26 @@ pub(crate) fn open_file(
                 .create_workspace_file_with_status(&absolute, mode, owner, &[], exclusive)
                 .map_err(Errno::from)
         },
-    )?;
+    )
+}
+
+// The kernel acquires the advisory lock before shortening the vnode.
+fn truncate_opened(ctx: &Ctx<'_>, file: &FileRef, flags: u32) -> Result<(), Errno> {
+    use crate::user::mm::PageSource;
+
     if flags & O_TRUNC != 0
         && let FileKind::Embedded(object) = &file.kind
-        && let Some((workspace, _)) = object.workspace()
     {
-        ctx.space()
-            .truncated(crate::user::mm::PageSource::identity(workspace), 0);
+        if let Some((workspace, _)) = object.workspace() {
+            workspace.resize(0)?;
+            ctx.space().truncated(PageSource::identity(workspace), 0);
+        } else if let Some((fork, _)) = object.resource() {
+            fork.resize(0)?;
+            ctx.space()
+                .truncated(PageSource::identity(fork.as_ref()), 0);
+        }
     }
-    Ok(file)
+    Ok(())
 }
 
 fn open_policy(flags: u32) -> Result<(LinkPolicy, bool, bool), Errno> {
@@ -595,9 +663,6 @@ fn open_or_create(
         }
         if !created && !file.permits(need, owner, &[]) {
             return Err(Errno::EACCES);
-        }
-        if flags & O_TRUNC != 0 {
-            file.resize(0)?;
         }
         OpenFile::workspace(path, entry, status)
     } else {

@@ -47,7 +47,7 @@ fn cookie(ctx: &Ctx<'_>, pointer: u64) -> Result<u64, Errno> {
     ctx.read_u64(pointer)
 }
 
-fn write_cookie(ctx: &mut Ctx<'_>, pointer: u64) -> Result<u64, Errno> {
+fn entered_cookie(ctx: &mut Ctx<'_>, pointer: u64) -> Result<u64, Errno> {
     if let Some(cookie) = ctx.thread.pending_unix.and_then(|entry| entry.guard_cookie) {
         return Ok(cookie);
     }
@@ -58,11 +58,11 @@ fn write_cookie(ctx: &mut Ctx<'_>, pointer: u64) -> Result<u64, Errno> {
     Ok(cookie)
 }
 
-fn new_guard(ctx: &Ctx<'_>, pointer: u64, attributes: u32) -> Result<DescriptorGuard, Errno> {
+fn new_guard(ctx: &mut Ctx<'_>, pointer: u64, attributes: u32) -> Result<DescriptorGuard, Errno> {
     if !valid_attributes(attributes) {
         return Err(Errno::EINVAL);
     }
-    let cookie = cookie(ctx, pointer)?;
+    let cookie = entered_cookie(ctx, pointer)?;
     if cookie == 0 {
         return Err(Errno::EINVAL);
     }
@@ -186,7 +186,7 @@ pub(super) fn write(
     length: u64,
     offset: Option<i64>,
 ) -> SysResult {
-    let cookie = write_cookie(ctx, pointer)?;
+    let cookie = entered_cookie(ctx, pointer)?;
     super::file::write_with_guard(ctx, fd, buffer, length, offset, Some(cookie))
 }
 
@@ -198,7 +198,7 @@ pub(super) fn writev(
     vectors: u64,
     count: i32,
 ) -> SysResult {
-    let cookie = write_cookie(ctx, pointer)?;
+    let cookie = entered_cookie(ctx, pointer)?;
     super::file::writev_with_guard(ctx, fd, vectors, count, None, Some(cookie))
 }
 

@@ -15,7 +15,7 @@ pub(crate) struct PendingUnix {
     pub(crate) completed: Option<SysResult>,
     /// Return registers are prepared or replaced by a completed state write.
     pub(crate) result_prepared: bool,
-    /// Guarded writes copy their cookie once, before a possible I/O wait.
+    /// Guarded opens and writes retain their cookie across a possible wait.
     pub(crate) guard_cookie: Option<u64>,
 }
 

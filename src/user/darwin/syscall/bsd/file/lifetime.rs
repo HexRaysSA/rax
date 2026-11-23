@@ -8,7 +8,7 @@ use crate::user::darwin::fd::{Fd, FileRef};
 use crate::user::darwin::process::{Proc, Thread};
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{Wait, WaitKey};
-use crate::user::darwin::workspace_locks::{self, Request};
+use crate::user::darwin::workspace_locks::{self, Waiter};
 
 /// An entered operation's reference to one descriptor, independently of aliases.
 #[derive(Clone, Debug)]
@@ -22,7 +22,7 @@ pub(crate) struct Use {
     pub(super) vectors: Option<Vec<(u64, u64)>>,
     /// Bytes already accepted by a guest pipe during a blocking write.
     pub(super) pipe_written: usize,
-    pub(super) workspace_lock: Option<Request>,
+    pub(super) workspace_lock: Option<Waiter>,
     /// Timed record locks retain their copied request and original deadline.
     #[cfg(unix)]
     pub(super) lock: Option<super::record_lock::Entered>,
@@ -180,7 +180,7 @@ pub(in crate::user::darwin) fn parked_workspace_lock(
     ctx: &mut Ctx<'_>,
     fd: i32,
     file: &FileRef,
-    request: Request,
+    waiter: Waiter,
 ) {
     ctx.thread.file_io = Some(Use {
         fd,
@@ -189,12 +189,20 @@ pub(in crate::user::darwin) fn parked_workspace_lock(
         write: false,
         vectors: None,
         pipe_written: 0,
-        workspace_lock: Some(request),
+        workspace_lock: Some(waiter),
         #[cfg(unix)]
         lock: None,
         #[cfg(target_os = "macos")]
         read_job: None,
     });
+}
+
+pub(in crate::user::darwin) fn entered_workspace_open(
+    thread: &Thread,
+) -> Option<(i32, FileRef, Waiter, u32)> {
+    let entered = thread.file_io.as_ref()?;
+    let waiter = entered.workspace_lock?;
+    Some((entered.fd, entered.file.clone(), waiter, waiter.open_flags?))
 }
 
 fn used(proc: &Proc, fd: i32) -> bool {
@@ -364,12 +372,14 @@ pub(super) fn replace(
     )
 }
 
-pub(in crate::user::darwin) fn abandon_workspace_lock(proc: &Proc, thread: &Thread) {
-    if thread
-        .file_io
-        .as_ref()
-        .is_some_and(|entered| entered.workspace_lock.is_some())
+pub(in crate::user::darwin) fn abandon_workspace_lock(proc: &mut Proc, thread: &mut Thread) {
+    if let Some(entered) = &thread.file_io
+        && let Some(waiter) = entered.workspace_lock
     {
+        if waiter.open_flags.is_some() {
+            proc.fds.release(entered.fd);
+        }
+        thread.file_io = None;
         workspace_locks::cancel_wait(proc, thread.tid);
     }
 }
@@ -377,13 +387,15 @@ pub(in crate::user::darwin) fn abandon_workspace_lock(proc: &Proc, thread: &Thre
 /// Progress kernel-owned I/O and close barriers independently of user holds.
 pub(crate) fn progress(proc: &mut Proc) {
     for thread in proc.threads.values_mut().filter(|thread| thread.exited) {
-        if thread
-            .file_io
-            .take()
-            .is_some_and(|entered| entered.workspace_lock.is_some())
-            && let Some(member) = &proc.family
+        if let Some(entered) = thread.file_io.take()
+            && let Some(waiter) = entered.workspace_lock
         {
-            member.workspace_locks(|locks| locks.cancel(proc.pid, thread.tid));
+            if waiter.open_flags.is_some() {
+                proc.fds.release(entered.fd);
+            }
+            if let Some(member) = &proc.family {
+                member.workspace_locks(|locks| locks.cancel(proc.pid, thread.tid));
+            }
         }
     }
     let mut io: Vec<_> = proc
