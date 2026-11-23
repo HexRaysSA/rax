@@ -33,11 +33,7 @@ pub(super) fn stat(ctx: &Ctx<'_>, number: u32, args: &[u64; 8]) -> SysResult {
         } else {
             LinkPolicy::Follow
         };
-        let (_, entry) = path::embedded::lookup(ctx, AT_FDCWD, target, policy)?;
-        if entry.workspace_mode().is_none() {
-            return Err(Errno::EPERM);
-        }
-        path::embedded::entry_stat(entry)?
+        path::embedded::path_stat(ctx, AT_FDCWD, target, policy, true)?
     };
     ctx.write(stat_buffer, &stat.bytes())?;
     if security != 0 {

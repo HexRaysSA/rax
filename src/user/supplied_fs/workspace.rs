@@ -12,7 +12,9 @@ mod metadata;
 mod xattr;
 pub(super) use metadata::Attributes;
 pub(in crate::user) use metadata::{SetTime, TimeUpdate, Timestamp, Timestamps};
-pub(in crate::user) use xattr::{MAX_VALUE as MAX_XATTR_VALUE, Set as SetXattr, Xattrs};
+pub(in crate::user) use xattr::{
+    MAX_VALUE as MAX_XATTR_VALUE, RESOURCE_FORK, Set as SetXattr, Xattrs,
+};
 
 const MAX_BYTES: usize = 16 << 20;
 const MAX_NODES: usize = 1024;

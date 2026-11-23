@@ -949,6 +949,15 @@ fn installed_darwin_workspace_filesec_matches_native_through_closed_c_abi() {
     compare_installed_workspace_fixture(&binary, "closed_workspace_filesec", None);
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "run with a locally built closed_darwin_workspace_resource_fork.c fixture on APFS"]
+fn installed_darwin_resource_fork_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_RESOURCE_FORK_CONTROL")
+        .expect("absolute path to the dynamically linked resource fork fixture");
+    compare_installed_workspace_fixture(&binary, "closed_darwin_workspace_resource_fork", None);
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 #[ignore = "run with a locally built closed_linux_workspace_xattr.c fixture on a user-xattr filesystem"]

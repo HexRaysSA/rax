@@ -3,7 +3,7 @@
 use super::{Ctx, Errno, Rv, SysResult};
 use crate::user::darwin::{
     abi::types::Stat,
-    fd::{EmbeddedFile, FileKind, OpenFile},
+    fd::{EmbeddedFile, FileKind, OpenFile, RESOURCE_FORK_SUFFIX},
     host::{
         AT_EACCESS, AT_FDCWD, AT_REMOVEDIR, AT_SYMLINK_FOLLOW, AT_SYMLINK_NOFOLLOW,
         AT_SYMLINK_NOFOLLOW_ANY,
@@ -16,6 +16,14 @@ use crate::user::supplied_fs::{
 use std::sync::{Arc, Mutex};
 
 type DirectoryBase = (Vec<u8>, Option<Arc<WorkspaceDirectory>>);
+
+fn resource_base(path: &[u8]) -> Option<&[u8]> {
+    let mut base = path.strip_suffix(RESOURCE_FORK_SUFFIX.as_bytes())?;
+    while base.len() > 1 && base.ends_with(b"/") {
+        base = &base[..base.len() - 1];
+    }
+    Some(if base.is_empty() { b"/" } else { base })
+}
 
 fn path_and_base(ctx: &Ctx<'_>, dirfd: i32, path: u64) -> Result<(Vec<u8>, DirectoryBase), Errno> {
     let path = ctx.path(path)?;
@@ -68,15 +76,20 @@ pub(in crate::user::darwin::syscall::bsd) fn lookup(
     policy: LinkPolicy,
 ) -> Result<(String, Entry), Errno> {
     let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
-    lookup_as(
+    let resource = resource_base(&path);
+    let result = lookup_as(
         ctx,
-        &path,
+        resource.unwrap_or(&path),
         &base,
         directory.as_ref(),
         allows_initial_search(ctx, dirfd, &path),
         policy,
         (ctx.proc.creds.1, ctx.proc.creds.3),
-    )
+    )?;
+    if resource.is_some() {
+        return Err(Errno::EPERM);
+    }
+    Ok(result)
 }
 
 pub(super) fn statfs64(ctx: &mut Ctx<'_>, path: u64, buf: u64) -> SysResult {
@@ -160,15 +173,19 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
         (uid, gid)
     };
     let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
+    let resource = resource_base(&path);
     let (_, entry) = lookup_as(
         ctx,
-        &path,
+        resource.unwrap_or(&path),
         &base,
         directory.as_ref(),
         allows_initial_search(ctx, dirfd, &path),
         link_policy(flags),
         ids,
     )?;
+    if resource.is_some() {
+        return Err(Errno::EPERM);
+    }
     let allowed = entry
         .workspace_file()
         .map(|file| file.permits(mode as u32, ids, &[]))
@@ -282,6 +299,24 @@ pub(super) fn unlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysR
     let files = ctx.proc.vfs.files().ok_or(Errno::EROFS)?;
     let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
     let ids = (ctx.proc.creds.1, ctx.proc.creds.3);
+    if flags == 0
+        && let Some(resource) = resource_base(&path)
+    {
+        let (_, entry) = lookup_as(
+            ctx,
+            resource,
+            &base,
+            directory.as_ref(),
+            allows_initial_search(ctx, dirfd, &path),
+            LinkPolicy::Follow,
+            ids,
+        )?;
+        return Err(if entry.workspace_file().is_some() {
+            Errno::ENOTSUP
+        } else {
+            Errno::ENOENT
+        });
+    }
     let (absolute, retained) = path_with_workspace_base(&path, &base, directory.as_ref(), ids)?;
     if retained.is_some() {
         return Err(Errno::ENOENT);
@@ -392,6 +427,22 @@ pub(crate) fn open_file(
     mode: u32,
 ) -> Result<Arc<OpenFile>, Errno> {
     let owner = (ctx.proc.creds.1, ctx.proc.creds.3);
+    if let Some(resource) = resource_base(path) {
+        let (policy, search, _) = open_policy(flags)?;
+        let (path, entry) = lookup_as(ctx, resource, base, directory, allow_search, policy, owner)?;
+        if search || flags & O_DIRECTORY != 0 {
+            return Err(Errno::ENOTDIR);
+        }
+        let file = OpenFile::resource_fork(path, entry, flags, owner)?;
+        if flags & O_TRUNC != 0
+            && let FileKind::Embedded(data) = &file.kind
+            && let Some((fork, _)) = data.resource()
+        {
+            ctx.space()
+                .truncated(crate::user::mm::PageSource::identity(fork.as_ref()), 0);
+        }
+        return Ok(Arc::new(file));
+    }
     let file = open_or_create(
         flags,
         owner,
@@ -444,12 +495,7 @@ pub(crate) fn open_file(
     Ok(file)
 }
 
-fn open_or_create(
-    flags: u32,
-    owner: (u32, u32),
-    lookup: impl FnOnce(LinkPolicy) -> Result<(String, Entry), Errno>,
-    create: impl FnOnce(LinkPolicy, bool) -> Result<(String, Entry, bool), Errno>,
-) -> Result<Arc<OpenFile>, Errno> {
+fn open_policy(flags: u32) -> Result<(LinkPolicy, bool, bool), Errno> {
     let search = flags & O_SEARCH == O_SEARCH;
     if flags & O_ACCMODE == O_ACCMODE || (search && flags & (O_ACCMODE | O_CREAT) != 0) {
         return Err(Errno::EINVAL);
@@ -478,6 +524,16 @@ fn open_or_create(
     } else {
         LinkPolicy::Follow
     };
+    Ok((policy, search, exclusive))
+}
+
+fn open_or_create(
+    flags: u32,
+    owner: (u32, u32),
+    lookup: impl FnOnce(LinkPolicy) -> Result<(String, Entry), Errno>,
+    create: impl FnOnce(LinkPolicy, bool) -> Result<(String, Entry, bool), Errno>,
+) -> Result<Arc<OpenFile>, Errno> {
+    let (policy, search, exclusive) = open_policy(flags)?;
     let (path, entry, created) = match lookup(policy) {
         Ok(_) if exclusive => return Err(Errno::EEXIST),
         Ok((path, entry)) => (path, entry, false),
@@ -554,9 +610,44 @@ pub(super) fn statat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32)
     if flags & !(AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY) != 0 {
         return Err(Errno::EINVAL);
     }
-    let (_, entry) = lookup(ctx, dirfd, path, link_policy(flags))?;
-    ctx.write(buf, &entry_stat(entry)?.bytes())?;
+    let stat = path_stat(ctx, dirfd, path, link_policy(flags), false)?;
+    ctx.write(buf, &stat.bytes())?;
     Ok(Rv::one(0))
+}
+
+pub(in crate::user::darwin::syscall::bsd) fn path_stat(
+    ctx: &Ctx<'_>,
+    dirfd: i32,
+    address: u64,
+    policy: LinkPolicy,
+    workspace_only: bool,
+) -> Result<Stat, Errno> {
+    let (path, (base, directory)) = path_and_base(ctx, dirfd, address)?;
+    let resource = resource_base(&path);
+    let owner = (ctx.proc.creds.1, ctx.proc.creds.3);
+    let (_, entry) = lookup_as(
+        ctx,
+        resource.unwrap_or(&path),
+        &base,
+        directory.as_ref(),
+        allows_initial_search(ctx, dirfd, &path),
+        policy,
+        owner,
+    )?;
+    if resource.is_some() {
+        if entry.workspace_file().is_none() {
+            return Err(Errno::ENOENT);
+        }
+        let length = entry
+            .workspace_xattrs(0, owner, &[])?
+            .resource_value()?
+            .len() as u64;
+        return EmbeddedFile::resource_stat(&entry, length);
+    }
+    if workspace_only && entry.workspace_mode().is_none() {
+        return Err(Errno::EPERM);
+    }
+    entry_stat(entry)
 }
 
 pub(in crate::user::darwin::syscall::bsd) fn entry_stat(entry: Entry) -> Result<Stat, Errno> {

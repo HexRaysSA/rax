@@ -10,9 +10,63 @@ use super::{FdTable, FileKind, OpenFile};
 use crate::user::console::{CapturedConsole, Console, OutputStream};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::abi::types::{Stat, Timespec};
-use crate::user::darwin::io::{O_ACCMODE, O_APPEND, O_EXEC, O_RDONLY, O_WRONLY};
+use crate::user::darwin::io::{
+    O_ACCMODE, O_APPEND, O_CREAT, O_EXCL, O_EXEC, O_RDONLY, O_TRUNC, O_WRONLY,
+};
 use crate::user::mm::{PageSource, SourceIdentity};
-use crate::user::supplied_fs::{Device, Entry, WorkspaceTimestamp};
+use crate::user::supplied_fs::{Device, Entry, WorkspaceTimestamp, Xattrs};
+
+pub(crate) const RESOURCE_FORK_SUFFIX: &str = "/..namedfork/rsrc";
+
+#[derive(Debug)]
+pub struct ResourceFork {
+    entry: Entry,
+    attributes: Arc<Xattrs>,
+}
+
+impl ResourceFork {
+    fn value(&self) -> Result<Arc<[u8]>, Errno> {
+        self.attributes.resource_value().map_err(Errno::from)
+    }
+
+    pub(crate) fn resize(&self, size: u64) -> Result<(), Errno> {
+        self.attributes.resize_resource(size)?;
+        self.entry.workspace_xattrs_changed();
+        Ok(())
+    }
+}
+
+impl Drop for ResourceFork {
+    fn drop(&mut self) {
+        self.attributes.close_resource();
+    }
+}
+
+impl PageSource for ResourceFork {
+    fn len(&self) -> u64 {
+        self.value().map_or(0, |bytes| bytes.len() as u64)
+    }
+
+    fn read_at(&self, offset: u64, out: &mut [u8]) -> std::io::Result<usize> {
+        let bytes = self.value().map_err(std::io::Error::other)?;
+        Ok(read_bytes(&bytes, offset, out))
+    }
+
+    fn identity(&self) -> SourceIdentity {
+        // Separate mapping identity without altering the inode reported by stat.
+        SourceIdentity {
+            dev: 0x52415a,
+            ino: self.entry.ino,
+        }
+    }
+}
+
+fn read_bytes(bytes: &[u8], offset: u64, out: &mut [u8]) -> usize {
+    let start = offset.min(bytes.len() as u64) as usize;
+    let count = (bytes.len() - start).min(out.len());
+    out[..count].copy_from_slice(&bytes[start..start + count]);
+    count
+}
 
 #[derive(Debug)]
 pub enum EmbeddedFile {
@@ -23,6 +77,12 @@ pub enum EmbeddedFile {
     },
     Workspace {
         entry: Entry,
+        cursor: Mutex<u64>,
+        access: u32,
+        append: AtomicBool,
+    },
+    Resource {
+        fork: Arc<ResourceFork>,
         cursor: Mutex<u64>,
         access: u32,
         append: AtomicBool,
@@ -46,6 +106,7 @@ impl EmbeddedFile {
     pub(crate) fn entry(&self) -> Option<&Entry> {
         match self {
             Self::Supplied { entry, .. } | Self::Workspace { entry, .. } => Some(entry),
+            Self::Resource { fork, .. } => Some(&fork.entry),
             _ => None,
         }
     }
@@ -61,8 +122,15 @@ impl EmbeddedFile {
         }
     }
 
+    pub(crate) fn resource(&self) -> Option<(&Arc<ResourceFork>, u32)> {
+        match self {
+            Self::Resource { fork, access, .. } => Some((fork, *access)),
+            _ => None,
+        }
+    }
+
     pub(crate) fn set_append(&self, flags: u32) {
-        if let Self::Workspace { append, .. } = self {
+        if let Self::Workspace { append, .. } | Self::Resource { append, .. } = self {
             append.store(flags & O_APPEND != 0, Ordering::Relaxed);
         }
     }
@@ -85,6 +153,9 @@ impl EmbeddedFile {
                     .len()
                     .saturating_sub(*cursor.lock().map_err(|_| Errno::EIO)?))
             }
+            Self::Resource { fork, cursor, .. } => Ok(fork
+                .len()
+                .saturating_sub(*cursor.lock().map_err(|_| Errno::EIO)?)),
             Self::Input(console) => Ok(console.pending()?.0 as u64),
             Self::Pipe(end) => Ok(end.available()),
             Self::Output(..) | Self::Null { .. } | Self::Zero { .. } => Ok(0),
@@ -98,6 +169,7 @@ impl EmbeddedFile {
             .and_then(Entry::workspace_owner)
             .unwrap_or((0, 0));
         let (ino, mode, size) = match self {
+            Self::Resource { fork, .. } => return Self::resource_stat(&fork.entry, fork.len()),
             Self::Supplied { entry, .. } | Self::Workspace { entry, .. } => {
                 let permissions = entry.workspace_mode().unwrap_or(0o555) as u16;
                 if entry.is_dir() {
@@ -165,6 +237,18 @@ impl EmbeddedFile {
         })
     }
 
+    pub(crate) fn resource_stat(entry: &Entry, length: u64) -> Result<Stat, Errno> {
+        let mut stat = Self::Supplied {
+            entry: entry.clone(),
+            cursor: Mutex::new(0),
+            access: O_RDONLY,
+        }
+        .stat()?;
+        stat.size = i64::try_from(length).map_err(|_| Errno::EOVERFLOW)?;
+        stat.blocks = length.div_ceil(512) as i64;
+        Ok(stat)
+    }
+
     pub(crate) fn device_stat(device: Device, ino: u64) -> Stat {
         Stat {
             dev: 0x524159,
@@ -185,7 +269,11 @@ impl EmbeddedFile {
     pub fn read(&self, out: &mut [u8], offset: Option<i64>) -> Result<usize, Errno> {
         match self {
             Self::Supplied { access: O_EXEC, .. } => Err(Errno::EBADF),
-            Self::Workspace { access, .. } if *access == O_WRONLY => Err(Errno::EBADF),
+            Self::Workspace { access, .. } | Self::Resource { access, .. }
+                if *access == O_WRONLY =>
+            {
+                Err(Errno::EBADF)
+            }
             Self::Supplied { entry, access, .. } if entry.link_target().is_some() => {
                 Err(if *access == O_WRONLY {
                     Errno::EBADF
@@ -195,16 +283,14 @@ impl EmbeddedFile {
             }
             Self::Supplied { entry, cursor, .. } | Self::Workspace { entry, cursor, .. } => {
                 let source = entry.source()?;
-                let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
-                let start = match offset {
-                    Some(n) => u64::try_from(n).map_err(|_| Errno::EINVAL)?,
-                    None => *cursor,
-                };
-                let n = source.read_at(start, out).map_err(Errno::from)?;
-                if offset.is_none() {
-                    *cursor = start.checked_add(n as u64).ok_or(Errno::EOVERFLOW)?;
-                }
-                Ok(n)
+                Self::read_with_cursor(cursor, offset, |start| {
+                    source.read_at(start, out).map_err(Errno::from)
+                })
+            }
+            Self::Resource { fork, cursor, .. } => {
+                Self::read_with_cursor(cursor, offset, |start| {
+                    Ok(read_bytes(&fork.value()?, start, out))
+                })
             }
             Self::Input(console) => {
                 if offset.is_some() {
@@ -235,6 +321,23 @@ impl EmbeddedFile {
         }
     }
 
+    fn read_with_cursor(
+        cursor: &Mutex<u64>,
+        offset: Option<i64>,
+        read: impl FnOnce(u64) -> Result<usize, Errno>,
+    ) -> Result<usize, Errno> {
+        let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
+        let start = match offset {
+            Some(n) => u64::try_from(n).map_err(|_| Errno::EINVAL)?,
+            None => *cursor,
+        };
+        let count = read(start)?;
+        if offset.is_none() {
+            *cursor = start.checked_add(count as u64).ok_or(Errno::EOVERFLOW)?;
+        }
+        Ok(count)
+    }
+
     /// Captured writes are atomic with respect to the shared output bound.
     pub fn write(&self, bytes: &[u8], offset: Option<i64>) -> Result<usize, Errno> {
         match self {
@@ -251,24 +354,21 @@ impl EmbeddedFile {
                 access,
                 append,
             } => {
-                if *access == O_RDONLY {
-                    return Err(Errno::EBADF);
-                }
                 let file = entry.workspace_file().expect("guest workspace descriptor");
-                let offset = offset
-                    .map(|value| u64::try_from(value).map_err(|_| Errno::EINVAL))
-                    .transpose()?;
-                if bytes.is_empty() {
-                    return Ok(0);
-                }
-                let mut position = cursor.lock().map_err(|_| Errno::EIO)?;
-                let at = offset.or_else(|| (!append.load(Ordering::Relaxed)).then_some(*position));
-                let end = file.write(at, bytes)?;
-                if offset.is_none() {
-                    *position = end;
-                }
-                Ok(bytes.len())
+                Self::write_with_cursor(cursor, *access, append, bytes, offset, |at| {
+                    file.write(at, bytes).map_err(Errno::from)
+                })
             }
+            Self::Resource {
+                fork,
+                cursor,
+                access,
+                append,
+            } => Self::write_with_cursor(cursor, *access, append, bytes, offset, |at| {
+                let end = fork.attributes.write_resource(at, bytes)?;
+                fork.entry.workspace_xattrs_changed();
+                Ok(end)
+            }),
             Self::Supplied { entry, access, .. }
                 if entry.link_target().is_some() && *access != O_RDONLY =>
             {
@@ -288,6 +388,32 @@ impl EmbeddedFile {
                 .discard_device_write(bytes.len() as u64, offset)
                 .map(|n| n as usize),
         }
+    }
+
+    fn write_with_cursor(
+        cursor: &Mutex<u64>,
+        access: u32,
+        append: &AtomicBool,
+        bytes: &[u8],
+        offset: Option<i64>,
+        write: impl FnOnce(Option<u64>) -> Result<u64, Errno>,
+    ) -> Result<usize, Errno> {
+        if access == O_RDONLY {
+            return Err(Errno::EBADF);
+        }
+        let offset = offset
+            .map(|value| u64::try_from(value).map_err(|_| Errno::EINVAL))
+            .transpose()?;
+        if bytes.is_empty() {
+            return Ok(0);
+        }
+        let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
+        let at = offset.or_else(|| (!append.load(Ordering::Relaxed)).then_some(*cursor));
+        let end = write(at)?;
+        if offset.is_none() {
+            *cursor = end;
+        }
+        Ok(bytes.len())
     }
 
     /// Device writes accept the count without reading the guest buffer.
@@ -328,6 +454,7 @@ impl EmbeddedFile {
             Self::Supplied { entry, cursor, .. } | Self::Workspace { entry, cursor, .. } => {
                 (cursor, Some(entry))
             }
+            Self::Resource { fork, cursor, .. } => (cursor, Some(&fork.entry)),
             Self::Null { cursor, .. } | Self::Zero { cursor, .. } => (cursor, None),
             _ => return Err(Errno::ESPIPE),
         };
@@ -336,7 +463,11 @@ impl EmbeddedFile {
             0 => 0,
             1 => i64::try_from(*cursor).map_err(|_| Errno::EOVERFLOW)?,
             2 if entry.is_none_or(|entry| !entry.is_dir()) => {
-                i64::try_from(entry.map_or(0, Entry::len)).map_err(|_| Errno::EOVERFLOW)?
+                let size = match self {
+                    Self::Resource { fork, .. } => fork.len(),
+                    _ => entry.map_or(0, Entry::len),
+                };
+                i64::try_from(size).map_err(|_| Errno::EOVERFLOW)?
             }
             3 | 4 if self.device_access().is_some() => return Err(Errno::ENODEV),
             _ => return Err(Errno::EINVAL),
@@ -381,6 +512,49 @@ impl OpenFile {
             path: Some(path.into_bytes()),
             flags: Mutex::new(flags),
         }
+    }
+
+    pub(crate) fn resource_fork(
+        mut path: String,
+        entry: Entry,
+        flags: u32,
+        owner: (u32, u32),
+    ) -> Result<Self, Errno> {
+        let create = flags & O_CREAT != 0;
+        if entry.workspace_file().is_none() {
+            return Err(if create && entry.is_dir() {
+                Errno::EPERM
+            } else {
+                Errno::ENOENT
+            });
+        }
+        let access = flags & O_ACCMODE;
+        let truncate = flags & O_TRUNC != 0;
+        let mut need = match access {
+            O_RDONLY => 4,
+            O_WRONLY => 2,
+            _ => 6,
+        };
+        if create || truncate {
+            need |= 2;
+        }
+        let attributes = entry.workspace_xattrs(need, owner, &[])?.clone();
+        attributes.open_resource(create, create && flags & O_EXCL != 0, truncate)?;
+        let status = flags & (O_ACCMODE | crate::user::darwin::io::O_STATUS_FLAGS);
+        if truncate {
+            entry.workspace_xattrs_changed();
+        }
+        path.push_str(RESOURCE_FORK_SUFFIX);
+        Ok(Self {
+            kind: FileKind::Embedded(EmbeddedFile::Resource {
+                fork: Arc::new(ResourceFork { entry, attributes }),
+                cursor: Mutex::new(0),
+                access,
+                append: AtomicBool::new(flags & O_APPEND != 0),
+            }),
+            path: Some(path.into_bytes()),
+            flags: Mutex::new(status),
+        })
     }
 
     pub fn supplied(path: String, entry: Entry) -> Self {
@@ -555,7 +729,7 @@ mod tests {
 struct SuppliedSource {
     source: Arc<dyn PageSource>,
     page: u64,
-    ino: u64,
+    identity: SourceIdentity,
 }
 
 impl PageSource for SuppliedSource {
@@ -567,10 +741,7 @@ impl PageSource for SuppliedSource {
             .unwrap_or(0)
     }
     fn identity(&self) -> SourceIdentity {
-        SourceIdentity {
-            dev: 0x524158,
-            ino: self.ino,
-        }
+        self.identity
     }
     fn read_at(&self, offset: u64, out: &mut [u8]) -> std::io::Result<usize> {
         let n = (self.len().saturating_sub(offset)).min(out.len() as u64) as usize;
@@ -595,14 +766,35 @@ impl PageSource for SuppliedSource {
 
 /// Read-only mapping source with stable guest identity and guest-page EOF padding.
 pub(crate) fn supplied_source(entry: &Entry, page: u64) -> Result<Arc<dyn PageSource>, Errno> {
+    padded_source(
+        entry.source()?,
+        page,
+        SourceIdentity {
+            dev: 0x524158,
+            ino: entry.ino,
+        },
+    )
+}
+
+pub(crate) fn resource_source(
+    fork: &Arc<ResourceFork>,
+    page: u64,
+) -> Result<Arc<dyn PageSource>, Errno> {
+    padded_source(fork.clone(), page, fork.identity())
+}
+
+fn padded_source(
+    source: Arc<dyn PageSource>,
+    page: u64,
+    identity: SourceIdentity,
+) -> Result<Arc<dyn PageSource>, Errno> {
     if !page.is_power_of_two() {
         return Err(Errno::EINVAL);
     }
-    let source = entry.source()?;
     source.len().checked_add(page - 1).ok_or(Errno::EINVAL)?;
     Ok(Arc::new(SuppliedSource {
         source,
         page,
-        ino: entry.ino,
+        identity,
     }))
 }

@@ -72,7 +72,7 @@ struct Values {
 pub(in crate::user::supplied_fs) struct Attributes {
     owner: (u32, u32),
     values: Mutex<Values>,
-    xattrs: super::Xattrs,
+    xattrs: std::sync::Arc<super::Xattrs>,
 }
 
 impl Attributes {
@@ -84,7 +84,7 @@ impl Attributes {
         let now = Timestamp::now();
         Self {
             owner,
-            xattrs: super::Xattrs::new(budget),
+            xattrs: std::sync::Arc::new(super::Xattrs::new(budget)),
             values: Mutex::new(Values {
                 mode: mode & 0o7777,
                 times: Timestamps {
@@ -106,7 +106,7 @@ impl Attributes {
         need: u32,
         ids: (u32, u32),
         groups: &[u32],
-    ) -> Result<&super::Xattrs, Error> {
+    ) -> Result<&std::sync::Arc<super::Xattrs>, Error> {
         if ids.0 != 0 && !permitted(self.mode(), self.owner, need, ids, groups) {
             return Err(Error::AccessDenied);
         }

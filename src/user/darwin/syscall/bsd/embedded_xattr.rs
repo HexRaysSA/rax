@@ -4,13 +4,14 @@ use super::{Ctx, Errno, Rv, SysResult, path, xattr_common as xattr};
 use crate::user::darwin::abi::tables::nr;
 use crate::user::darwin::fd::FileKind;
 use crate::user::darwin::host::AT_FDCWD;
-use crate::user::supplied_fs::{Entry, Error, LinkPolicy, MAX_XATTR_VALUE, SetXattr};
+use crate::user::supplied_fs::{
+    Entry, Error, LinkPolicy, MAX_XATTR_VALUE, RESOURCE_FORK, SetXattr,
+};
 use xattr::opt::{NOFOLLOW, NOFOLLOW_ANY, RESOLVE_BENEATH};
 
 const CREATE: u32 = 0x0002;
 const REPLACE: u32 = 0x0004;
 const FINDER_INFO: &[u8] = b"com.apple.FinderInfo";
-const RESOURCE_FORK: &[u8] = b"com.apple.ResourceFork";
 
 #[derive(Clone, Copy)]
 enum Target {
@@ -47,6 +48,7 @@ impl Target {
             Self::File(fd) => {
                 let file = ctx.proc.fds.file(fd)?;
                 match &file.kind {
+                    FileKind::Embedded(data) if data.resource().is_some() => Err(Errno::EPERM),
                     FileKind::Embedded(data) => data.entry().cloned().ok_or(Errno::EINVAL),
                     _ => Err(Errno::EINVAL),
                 }

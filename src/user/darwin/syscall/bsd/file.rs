@@ -695,7 +695,7 @@ pub fn fstat64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
 /// `fsync(fd)`, `fdatasync(fd)`.
 pub fn fsync(ctx: &mut Ctx<'_>, fd: i32) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
-    if matches!(&file.kind, FileKind::Embedded(object) if object.device_access().is_some() || object.workspace().is_some())
+    if matches!(&file.kind, FileKind::Embedded(object) if object.device_access().is_some() || object.workspace().is_some() || object.resource().is_some())
     {
         return Ok(Rv::one(0));
     }
@@ -723,6 +723,17 @@ pub fn ftruncate(ctx: &mut Ctx<'_>, fd: i32, length: i64) -> SysResult {
             workspace.resize(length as u64)?;
             ctx.space().truncated(
                 crate::user::mm::PageSource::identity(workspace),
+                length as u64,
+            );
+            return Ok(Rv::one(0));
+        }
+        if let Some((fork, access)) = object.resource() {
+            if access == io::O_RDONLY || length < 0 {
+                return Err(Errno::EINVAL);
+            }
+            fork.resize(length as u64)?;
+            ctx.space().truncated(
+                crate::user::mm::PageSource::identity(fork.as_ref()),
                 length as u64,
             );
             return Ok(Rv::one(0));
@@ -969,7 +980,13 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
                     .entry()
                     .map(|entry| entry.workspace_path())
                     .transpose()?
-                    .flatten(),
+                    .flatten()
+                    .map(|mut path| {
+                        if object.resource().is_some() {
+                            path.push_str(crate::user::darwin::fd::RESOURCE_FORK_SUFFIX);
+                        }
+                        path
+                    }),
                 _ => None,
             };
             let path = current

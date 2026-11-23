@@ -11,6 +11,7 @@ use crate::user::supplied_fs::{
 fn fd_entry(ctx: &Ctx<'_>, fd: i32) -> Result<Entry, Errno> {
     let file = ctx.proc.fds.file(fd)?;
     match &file.kind {
+        FileKind::Embedded(data) if data.resource().is_some() => Err(Errno::EPERM),
         FileKind::Embedded(data) => data.entry().cloned().ok_or(Errno::ENOTSUP),
         _ => Err(Errno::ENOTSUP),
     }

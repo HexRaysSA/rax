@@ -16,7 +16,7 @@ use super::abi::Errno;
 mod embedded;
 pub(crate) mod pipe;
 pub use embedded::EmbeddedFile;
-pub(crate) use embedded::supplied_source;
+pub(crate) use embedded::{RESOURCE_FORK_SUFFIX, resource_source, supplied_source};
 
 /// `OPEN_MAX`-like soft limit of the table (`RLIMIT_NOFILE` soft default).
 pub const NOFILE_SOFT: u64 = 256;

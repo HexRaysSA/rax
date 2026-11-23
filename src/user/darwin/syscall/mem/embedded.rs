@@ -18,7 +18,9 @@ pub(super) fn mmap(
 ) -> SysResult {
     if object
         .workspace()
-        .is_some_and(|(_, access)| access == crate::user::darwin::io::O_WRONLY)
+        .map(|(_, access)| access)
+        .or_else(|| object.resource().map(|(_, access)| access))
+        .is_some_and(|access| access == crate::user::darwin::io::O_WRONLY)
     {
         return Err(Errno::EACCES);
     }
@@ -47,7 +49,12 @@ pub(super) fn mmap(
     let mapping = Mapping {
         perms: vm::perms(prot),
         backing: Backing::Source {
-            source: crate::user::darwin::fd::supplied_source(entry, ctx.proc.vm.page)?,
+            source: match object.resource() {
+                Some((fork, _)) => {
+                    crate::user::darwin::fd::resource_source(fork, ctx.proc.vm.page)?
+                }
+                None => crate::user::darwin::fd::supplied_source(entry, ctx.proc.vm.page)?,
+            },
             offset: pos & !mask,
         },
         shared,
