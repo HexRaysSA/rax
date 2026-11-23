@@ -153,19 +153,29 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn fp_cp15_access_masks(&self, enc: Cp15Encoding) -> (u32, u32) {
         let register = key(enc);
-        let (mut zero, mut one) = if self.cpu.fp_access_context.is_none() {
-            // DDI0406C.d B4.1: standalone D16 has neither D16-D31 nor
-            // Advanced SIMD. The D32 model leaves D32DIS unimplemented.
-            match (self.cpu.vfp.mvfr0 & 15, register) {
-                (1, CPACR) => (0, 3 << 30),
-                (1, NSACR) => (0, 3 << 14),
-                (1, HCPTR) => (0, 1 << 15),
-                (2, NSACR) => (1 << 14, 0),
-                _ => (0, 0),
+        let (mut zero, mut one) = (0, 0);
+        if self.cpu.fp_access_context.is_none() {
+            let bank = self.cpu.vfp.mvfr0 & 15;
+            // DDI0406C.d B4.1: D16 lacks D16-D31. The D32 model leaves
+            // D32DIS unimplemented, so NSD32DIS is also RAZ/WI.
+            match (bank, register) {
+                (1, CPACR) => one |= 1 << 30,
+                (1, NSACR) => one |= 1 << 14,
+                (2, NSACR) => zero |= 1 << 14,
+                _ => {}
             }
-        } else {
-            (0, 0)
-        };
+            // D32 is necessary for Advanced SIMD. Instruction admission
+            // also requires MVFR1.SIMDLS or SIMDInt for the relevant class.
+            let mvfr1 = self.cpu.vfp.mvfr1;
+            let advsimd = bank == 2 && ((mvfr1 >> 8) & 15 == 1 || (mvfr1 >> 12) & 15 == 1);
+            if matches!(bank, 1 | 2) && !advsimd {
+                one |= match register {
+                    CPACR => 1 << 31,
+                    NSACR | HCPTR => 1 << 15,
+                    _ => 0,
+                };
+            }
+        }
         let c = self.cpu.fp_control_context();
         if !c.have_el3 || c.el3_aarch64 || c.secure {
             return (zero, one);

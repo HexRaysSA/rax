@@ -220,11 +220,9 @@ fn guest_cpacr_read_write_masks_unimplemented_controls_without_changing_raw_util
 }
 
 #[test]
-fn standalone_d16_control_fields_read_one_and_ignore_writes() {
-    let mut actual = Vec::new();
-    let mut expected = Vec::new();
+fn standalone_fp_control_fields_follow_register_bank_and_advsimd() {
     for thumb in [false, true] {
-        for (name, mode, write, read, value, disabled, writable) in [
+        for (name, mode, write, read, value, d16_fixed, simd_control) in [
             (
                 "CPACR",
                 ProcessorMode::Supervisor,
@@ -253,11 +251,18 @@ fn standalone_d16_control_fields_read_one_and_ignore_writes() {
                 0x0000_8000,
             ),
         ] {
-            for bank in [1, 2] {
+            for (bank, simd_fields, writable) in [
+                (1, 0, false),
+                (2, 0, false),
+                (2, 0x100, true), // Only SIMD load/store is available.
+                (2, 0x1000, true), // Only SIMD register operations are available.
+                (2, 0x0021_1100, true),
+            ] {
                 let mut c = cpu(thumb, mode, 0);
                 c.vfp.mvfr0 = (c.vfp.mvfr0 & !15) | bank;
+                c.vfp.mvfr1 = (c.vfp.mvfr1 & !0x00ff_ff00) | simd_fields;
                 c.cp15.nsacr = 0xc00; // Allow both FP coprocessors in Hyp mode.
-                for written in [value, value | disabled, value] {
+                for written in [value, value | d16_fixed, value] {
                     c.regs[0] = written;
                     let mut memory = NoMemory;
                     let mut e = Executor::new(&mut c, &mut memory);
@@ -269,16 +274,40 @@ fn standalone_d16_control_fields_read_one_and_ignore_writes() {
                         e.execute(&decode(read, thumb)),
                         ExecResult::Continue
                     ));
-                    actual.push((name, thumb, bank, written, c.regs[0]));
                     let readback = if bank == 1 {
-                        value | disabled
+                        value | d16_fixed
+                    } else if writable {
+                        value | (written & simd_control)
                     } else {
-                        value | (written & writable)
+                        value | simd_control
                     };
-                    expected.push((name, thumb, bank, written, readback));
+                    assert_eq!(
+                        c.regs[0], readback,
+                        "{name} thumb={thumb} bank={bank} simd={simd_fields:#x} write={written:#x}"
+                    );
                 }
             }
         }
     }
-    assert_eq!(actual, expected);
+}
+
+#[test]
+fn standalone_d32_without_advsimd_preserves_high_scalar_registers() {
+    for thumb in [false, true] {
+        let mut c = cpu(thumb, ProcessorMode::Supervisor, 0x00f0_0000);
+        c.vfp.mvfr0 = (c.vfp.mvfr0 & !15) | 2;
+        c.vfp.mvfr1 &= !0x00ff_ff00;
+        c.vfp.dregs[17] = 1.25_f64.to_bits();
+        c.vfp.dregs[18] = 2.5_f64.to_bits();
+        let add = decode(VFP[1][thumb as usize], thumb);
+        assert!(matches!(
+            Executor::new(&mut c, &mut NoMemory).execute(&add),
+            ExecResult::Continue
+        ));
+        assert_eq!(c.vfp.dregs[16], 3.75_f64.to_bits());
+
+        for words in ADVSIMD {
+            denied(&mut c, &decode(words[thumb as usize], thumb));
+        }
+    }
 }

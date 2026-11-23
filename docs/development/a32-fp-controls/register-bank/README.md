@@ -47,11 +47,12 @@ native checkpoint changes; they do not imply closure of C-STATE, C-SMP or C-HVF.
 
 ## Standalone FP control register views
 
-The standalone D16 bank has no Advanced SIMD. The guest's CP15 view
-therefore reports the following fixed bits and ignores writes to them.
-Other fields retain their usual access permissions. The view is recomputed
-from the saved MVFR0 value in constant time and uses the existing checkpoint
-fields. The AArch64-hosted AArch32 view continues to use its own system controls.
+The standalone guest CP15 view derives fixed bank controls from `MVFR0.SIMDReg`
+and Advanced SIMD controls from the bank and `MVFR1.SIMDLS`/`SIMDInt`. D16
+lacks Advanced SIMD. With D32, either implemented field keeps the Advanced
+SIMD controls available for its instruction class. Fields shown below ignore
+writes. The view uses existing checkpoint fields and takes O(1) time and
+space. The AArch64-hosted AArch32 view uses its own system controls.
 [Arm DDI0406C.d for CPACR, HCPTR and NSACR](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
 
 | Profile | Field | Guest readback |
@@ -59,7 +60,10 @@ fields. The AArch64-hosted AArch32 view continues to use its own system controls
 | D16 | CPACR.ASEDIS/D32DIS [31:30] | `0b11` |
 | D16 | NSACR.NSASEDIS/NSD32DIS [15:14] | `0b11` |
 | D16 | HCPTR.TASE [15] | `1` |
-| D32 with D32DIS unimplemented | NSACR.NSD32DIS [14] | `0` |
+| D32 without Advanced SIMD | CPACR.ASEDIS/D32DIS [31:30] | `0b10` |
+| D32 without Advanced SIMD | NSACR.NSASEDIS/NSD32DIS [15:14] | `0b10` |
+| D32 without Advanced SIMD | HCPTR.TASE [15] | `1` |
+| D32 with Advanced SIMD | CPACR.D32DIS [30], NSACR.NSD32DIS [14] | `0` |
 
 The paired ARM and Thumb regression writes the affected fields as zero,
 one, then zero with unrelated register bits enabled. It runs on both banks
@@ -86,6 +90,27 @@ bits [15:14] and HCPTR bit [15]. The table follows the Arm register
 definitions for those fields. The physical standalone D16 control behavior
 remains unverified.
 
+Arm DDI0406C.d A2.6 defines the D32 scalar register bank independently of
+Advanced SIMD. B4.1 defines `ASEDIS`, `NSASEDIS`, and `TASE` as read-as-one,
+write-ignored (RAO/WI) where FP is present and Advanced SIMD is absent. The
+predecessor returned zero for all three fields after guest writes of zero
+under scalar-only D32, in both ARM and Thumb. The scalar D32 instruction
+control already passed. Baseline commit `4ed02f48a`, log SHA-256
+`a709ffd5cf8a4eb4e4daf5b285e8fb7f1edde381201c876f0b6ef9d53ccbd3dd`.
+
+The regression covers three writes per register across five profiles and
+both instruction sets. Under scalar-only D32, it checks `VADD.F64` into D16
+and denial before effects for 13 Advanced SIMD instruction shapes per
+instruction set. The same five unfiltered macOS Arm64 targets passed all
+47,692 tests with zero failures or ignores. The final log SHA-256 is
+`82d266c4f4bdb0bd03b7b372fa7b48881b92dc5dec429b47fd2b3c5d2e6b19f8`.
+
+QEMU 11.1.2 Cortex-A15 passed 12 adjacent D16/no-NEON and
+D32/NEON controls (three operations in ARM and Thumb). It rejected
+`-cpu cortex-a15,neon=off,vfp-d32=on` at startup. Scalar-only D32 expected
+register behavior therefore comes from the Arm manual. Physical A32 behavior
+and an independent executable model for this profile are unverified.
+
 | Assumption | Impact | Falsification probe |
 | --- | --- | --- |
 | Standalone MVFR0.SIMDReg=1 selects the D16 bank with FP and no Advanced SIMD. | High | Use the existing high-register and Advanced SIMD rejection controls alongside the CP15 write/read matrix. A D16 case with Advanced SIMD effects invalidates the derivation. |
@@ -97,6 +122,7 @@ remains unverified.
 |---|---|---|---|---|---|
 | RB1 | The public standalone MVFR0 bank field constrains executable register accesses. | Arm DDI0487B.a G6.2.107 and independent accepted QEMU profiles. | D16 admission. | High registers in each operand role, block transfer crossing D15; successful execution of an absent register falsifies it. | Baseline exposed the violation; all represented corrected controls pass. |
 | RB2 | Scalar S-register and nonregister encoding bits must remain legal with D16. | S0-S31 alias D0-D15; instruction encodings and QEMU controls. | Legal controls preserved. | S31, fixed-point immediates, VMOV literal and zero comparison; rejection falsifies preservation. | Independent and corrected RAX controls passed. |
+| RB3 | A standalone D32 profile with both SIMDLS and SIMDInt absent has no executable Advanced SIMD instruction class. | DDI0406C.d A2.6, B4.1; RAX capability checks use the same two fields. | Fixed ASEDIS, NSASEDIS and TASE, with scalar D16-D31 available. | Exercise all three controls with both fields clear and with each implemented alone. A denied high-D scalar VADD, an accepted Advanced SIMD instruction with both fields clear, or a stuck disable/trap bit under either partial profile falsifies the mapping. | RAX regression covers all three checks. |
 
 ## Scope and cost
 
