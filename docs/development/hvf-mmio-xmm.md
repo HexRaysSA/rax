@@ -615,3 +615,23 @@ VEX2 and VEX3 forms against RAM. KVM reported internal emulation error
 and KVM log SHA-256 digests are
 `12033c9d100b7fd6c284b0edceaf92a87ca1f8f3c3ef426f91fb0721150ac2fc`
 and `ff145b1a95d27f3f5d24638649acd50f7e739df224bf92c10532caaaf08e7ce4`.
+
+Hosted Intel macOS executed all 48 lane cases at
+`1ce5f5a0ccfde47fcaff4903d05cd9e14a4ffc7b`. The cases covered 24 direct
+transfers and 24 transfers completed by a fresh owner from a raw stopped-CPU
+record. The signed consumer SHA-256 was
+`d390d5e095a2f62f5df9cf5eff081456e28e7ca0d6bdd82c5e893a986ae05f7d`.
+Verification matched 4,899 engine inputs and 19 consumer inputs to the
+dispatched commit. The ordered lane observations SHA-256 was
+`8cc519ffc9bb9457224ee7812ab8bb661239c71e4962c899b1d450a47fd1d10e`.
+The host reported a GenuineIntel CPU, an untranslated process, and a
+hypervisor guest. [Lane execution artifacts](https://github.com/HexRaysSA/rax/actions/runs/45123636044)
+
+The broad profile independently passed all 952 cases with the same signed
+consumer. Its ordered observations matched the earlier run byte for byte
+at SHA-256 `f316c6b261debf8afb68c175859bfc438d4f71098ee3fae282361d71df7faec1`.
+All 17 stage markers matched, including native startup IPIs, VMM-file
+continuation and CPUID at 1, 2 and 4 vCPUs. The VMM-file cases capture
+after guest shutdown. Whole-VMM restore of a pending XMM lane transfer
+and bare-metal Intel macOS execution remain unverified.
+[Broad execution artifacts](https://github.com/HexRaysSA/rax/actions/runs/45123636232)
