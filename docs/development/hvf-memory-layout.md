@@ -76,6 +76,28 @@ fixture to explicit `clone3` TID selection. The corrected case passes
 independently on Intel Linux. The full macOS log SHA-256 is
 `7af156d94fd2786167865bfc9fab12aa38fa59142aff32290cec469f05a171ca`.
 
+### PCI BAR boundaries and dispatch priority
+
+The first live PCI BAR that contains the start address owns the span
+until its end or the start of an earlier BAR. A lower-priority BAR
+boundary or a collateral RAM boundary inside that span cannot split
+the device callback. A true change of owner still splits a read or
+write. Read-modify-write rejects that change before notifying either
+owner. Dispatch follows the bridge's existing iteration order. Planning
+scans the live ranges until it finds the owner, taking O(number of
+ranges) time and space per span, including the live range list.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The bridge dispatches to the first live BAR in priority order. | High | Cross the beginning and end of both earlier and later BARs inside a wider BAR, and compare each endpoint's observed transfer width and contents. |
+| Collateral RAM has lower priority than a live BAR. | High | Put the reported RAM end inside the eight-byte BAR transfer and require one eight-byte callback for reads and writes and one pair for RMW. |
+
+The parent failed both BAR-boundary regression tests. The candidate passed
+all 28 focused bus cases. The complete Intel Linux library and eight
+integration targets reported 14,499 passed and 140 ignored, with zero
+failures or filtered tests. The complete log SHA-256 is
+`da05fb621198b6f7ae739a150641d230cee0817c86387e74930f8cefc3e7a821`.
+
 ## Validation and boundaries
 
 Recorded local validation passed **136 selected tests**: 14 mapping/adapter,

@@ -23,18 +23,19 @@ pub(super) struct Fallback {
 impl Fallback {
     pub fn chunk(&self, address: u64, remaining: usize, access: Access) -> Result<usize> {
         let mut count = remaining as u64;
-        let mut pci_owns_start = false;
         if let Some(pci) = &self.pci {
             for range in pci
                 .lock()
                 .map_err(|_| Error::Emulator("MMIO PCI lock poisoned".into()))?
                 .mmio_ranges()
             {
-                pci_owns_start |= range.contains(address);
-                for boundary in [range.base, range.base + range.len] {
-                    if boundary > address {
-                        count = count.min(boundary - address);
-                    }
+                // The first live BAR wins, matching PciStub dispatch. An
+                // earlier BAR can take over at its start, within this span.
+                if range.contains(address) {
+                    return Ok(count.min(range.base + range.len - address) as usize);
+                }
+                if range.base > address {
+                    count = count.min(range.base - address);
                 }
             }
         }
@@ -46,7 +47,7 @@ impl Fallback {
                     }
                 }
             }
-            if !pci_owns_start && layout.contains(address, count) {
+            if layout.contains(address, count) {
                 match access {
                     Access::Read => preflight_read(ram, address, count as usize)?,
                     Access::Write => preflight_write(ram, address, count as usize)?,

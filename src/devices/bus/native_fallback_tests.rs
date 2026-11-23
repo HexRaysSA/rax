@@ -352,3 +352,99 @@ fn invalid_ram_fallback_profile_retains_the_previous_binding() {
     bus.read(0x1000, &mut bytes).unwrap();
     assert_eq!(bytes, [0x33; 4]);
 }
+
+fn overlapping_bar_bus() -> (MmioBus, [Arc<Mutex<Seen>>; 3]) {
+    let memory = Arc::new(GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 0x8000)]).unwrap());
+    let seen = std::array::from_fn(|_| Arc::new(Mutex::new(Seen::default())));
+    let mut bridge = PciStub::new();
+    for ((device, base, size), log) in [(1, 0x6000, 0x20), (2, 0x4000, 0x4000), (3, 0x7000, 0x20)]
+        .into_iter()
+        .zip(&seen)
+    {
+        let mut config = ConfigSpace::device(0x1234, 0xabcd, 0, 0).with_bar(0, Bar::mem32(size));
+        config.set_u32(0x10, base);
+        config.set_u16(4, 2);
+        bridge.attach_mmio(0, device, 0, config, 0, Box::new(Device(log.clone())));
+    }
+    let mut bus = MmioBus::new();
+    bus.set_pci(Arc::new(Mutex::new(bridge)));
+    bus.set_ram_fallback(memory, 0x5000).unwrap();
+    (bus, seen)
+}
+
+fn assert_wide_bar_transfer(address: u64) {
+    let (mut bus, [earlier, wide, later]) = overlapping_bar_bus();
+    let offset = address - 0x4000;
+    let mut input = [0; 8];
+    bus.read(address, &mut input).unwrap();
+    assert_eq!(input, [0xab; 8]);
+    bus.write(address, &[0x41; 8]).unwrap();
+    {
+        let mut wide = wide.lock().unwrap();
+        assert_eq!(
+            wide.0,
+            [
+                (offset, vec![0xab; 8], false),
+                (offset, vec![0x41; 8], true)
+            ],
+            "one live PCI BAR owns the complete transfer"
+        );
+        wide.0.clear();
+    }
+    assert_eq!(
+        bus.read_modify_write(address, 8, MmioRmwOp::Exchange(0x7272_7272_7272_7272))
+            .unwrap(),
+        [0xab; 8]
+    );
+    assert_eq!(
+        wide.lock().unwrap().0,
+        [
+            (offset, vec![0xab; 8], false),
+            (offset, vec![0x72; 8], true)
+        ]
+    );
+    assert!(earlier.lock().unwrap().0.is_empty());
+    assert!(later.lock().unwrap().0.is_empty());
+}
+
+#[test]
+fn pci_owner_spans_a_hidden_ram_boundary() {
+    assert_wide_bar_transfer(0x4ffc);
+}
+
+#[test]
+fn pci_owner_spans_lower_priority_bar_boundaries() {
+    assert_wide_bar_transfer(0x6ffc);
+    assert_wide_bar_transfer(0x701c);
+}
+
+#[test]
+fn pci_higher_priority_bar_splits_transfers_at_both_boundaries() {
+    let (mut bus, [earlier, wide, later]) = overlapping_bar_bus();
+    for address in [0x5ffc, 0x601c] {
+        assert!(
+            bus.read_modify_write(address, 8, MmioRmwOp::Exchange(0))
+                .is_err()
+        );
+    }
+    assert!(earlier.lock().unwrap().0.is_empty());
+    assert!(wide.lock().unwrap().0.is_empty());
+    let data = [0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef];
+    bus.write(0x5ffc, &data).unwrap();
+    bus.write(0x601c, &data).unwrap();
+    assert_eq!(
+        earlier.lock().unwrap().0,
+        [
+            (0, data[4..].to_vec(), true),
+            (0x1c, data[..4].to_vec(), true)
+        ]
+    );
+    assert_eq!(
+        wide.lock().unwrap().0,
+        [
+            (0x1ffc, data[..4].to_vec(), true),
+            (0x2020, data[4..].to_vec(), true)
+        ]
+    );
+    assert!(later.lock().unwrap().0.is_empty());
+}
