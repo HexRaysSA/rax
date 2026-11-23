@@ -1352,12 +1352,112 @@ fn packed_float_xmm_moves_keep_direction_alignment_and_register_width() {
         }
     }
     for bytes in [
-        &[0xf2, 0x0f, 0x10, 0x07][..], // Scalar MOVSD.
-        &[0xf3, 0x0f, 0x10, 0x07],     // Scalar MOVSS.
-        &[0xc5, 0xfc, 0x10, 0x07],     // YMM VMOVUPS.
+        &[0xc5, 0xfc, 0x10, 0x07][..], // YMM VMOVUPS.
         &[0xc5, 0xf1, 0x28, 0x07],     // Reserved VEX.vvvv.
     ] {
         let (context, mut ram, record) = fixture(bytes);
         assert!(prepare(&context, &mut ram, record).is_err(), "{bytes:02x?}");
+    }
+}
+
+#[test]
+fn scalar_float_xmm_memory_moves_keep_the_exact_lane_and_width() {
+    use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
+
+    for (legacy_prefix, vex_prefix, size, legacy_name, vex_name) in [
+        (0xf3, 2, 4, "movss", "vmovss"),
+        (0xf2, 3, 8, "movsd", "vmovsd"),
+    ] {
+        for read in [true, false] {
+            for (mut bytes, mnemonic, vex) in [
+                (vec![legacy_prefix, 0x44, 0x0f], legacy_name, false),
+                (vec![0xc5, 0x78 | vex_prefix], vex_name, true),
+                (vec![0xc4, 0x61, 0xf8 | vex_prefix], vex_name, true),
+            ] {
+                bytes.extend_from_slice(&[0x10 | u8::from(!read), 0x7f, 3]); // XMM15, [RDI+3].
+                let insn = instruction_metadata::decode(64, 0x1000, &bytes).unwrap();
+                assert_eq!(insn.mnemonic, mnemonic);
+                let [destination, source] = insn.operands.as_slice() else {
+                    panic!("expected two operands in {insn:?}");
+                };
+                let (xmm, memory) = if read {
+                    (destination, source)
+                } else {
+                    (source, destination)
+                };
+                assert_eq!(
+                    (
+                        xmm.kind,
+                        xmm.reg.as_str(),
+                        xmm.width_bits,
+                        xmm.read,
+                        xmm.write
+                    ),
+                    (OperandKind::Register, "xmm15", 128, !read, read)
+                );
+                assert_eq!(
+                    (memory.kind, memory.width_bits, memory.read, memory.write),
+                    (OperandKind::Memory, u32::from(size) * 8, read, !read)
+                );
+
+                let (context, mut ram, mut exit) = fixture(&bytes);
+                exit.linear += 3;
+                exit.physical += 3;
+                exit.qualification = if read { 0x181 } else { 0x182 };
+                let plan = prepare(&context, &mut ram, exit).unwrap();
+                assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+                let transfer = match plan.action {
+                    Action::XmmRead { input, zero_upper } if read => {
+                        assert_eq!(zero_upper, vex);
+                        input
+                    }
+                    Action::XmmWrite(input) if !read => input,
+                    action => panic!("unexpected {mnemonic} MMIO action: {action:?}"),
+                };
+                assert_eq!(
+                    (transfer.index, transfer.size, transfer.length),
+                    (15, size, bytes.len() as u64)
+                );
+                assert!(
+                    ram.reads
+                        .iter()
+                        .all(|&(address, _)| address < exit.physical)
+                );
+                exit.qualification ^= 3;
+                assert!(prepare(&context, &mut ram, exit).is_err());
+            }
+
+            let bytes = [legacy_prefix, 0x44, 0x0f, 0x10 | u8::from(!read), 0xf8];
+            let meta = instruction_metadata::decode(64, 0x1000, &bytes).unwrap();
+            assert_eq!(meta.mnemonic, legacy_name);
+            assert_eq!(meta.operands.len(), 2);
+            for (operand, (name, write)) in meta.operands.iter().zip([
+                (if read { "xmm15" } else { "xmm0" }, true),
+                (if read { "xmm0" } else { "xmm15" }, false),
+            ]) {
+                assert_eq!(
+                    (operand.reg.as_str(), operand.read, operand.write),
+                    (name, true, write)
+                );
+            }
+        }
+    }
+
+    for code in [
+        &[0xa5][..],               // MOVSD with two implicit memory operands.
+        &[0xf3, 0xa5],             // REP MOVSD.
+        &[0xf3, 0x0f, 0x10, 0xc0], // MOVSS register merge.
+        &[0xc5, 0xea, 0x10, 0xc7], // VMOVSS three-register merge.
+        &[0xc5, 0xf2, 0x10, 0x07], // Reserved memory VEX.vvvv.
+        &[0xc5, 0xfe, 0x10, 0x07], // Noncanonical scalar VEX.L.
+        &[0xf2, 0x0f, 0x58, 0x07], // ADDSD has arithmetic side effects.
+    ] {
+        let (context, mut ram, exit) = fixture(code);
+        assert!(prepare(&context, &mut ram, exit).is_err(), "{code:02x?}");
+        assert!(
+            ram.reads
+                .iter()
+                .all(|&(address, _)| address != exit.physical)
+        );
     }
 }

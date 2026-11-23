@@ -263,3 +263,40 @@ The independent verifier checked 4,895 engine and 18 consumer inputs
 against Git, the complete guest result rows, and the archived signed
 consumer's hypervisor entitlement. The signed executable SHA-256 was
 `3aa79d8ffeecb3df1dae4f82ed8df59222551d317287965b048bb386fee9e254`.
+
+## Scalar floating-point moves
+
+Legacy MOVSS and MOVSD and canonical VEX.128 VMOVSS and VMOVSD
+transfer exactly 4 and 8 bytes, respectively. Memory loads clear the
+unused upper bits of XMM. Legacy loads preserve the upper YMM half,
+while VEX loads clear it. Stores publish the scalar bytes and preserve
+the source register. Legacy register-to-register forms retain a
+separate merge dependency in decode metadata. Device admission
+requires a memory operand, the reserved VEX.vvvv value, and the
+canonical L=0 encoding for VEX forms.
+[Intel Software Developer's Manual, Volume 2, MOVSS and MOVSD](https://cdrdv2-public.intel.com/874240/325462-090-sdm-vol-1-2abcd-3abcd-4.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The scalar register is carried in the low bytes, while the legacy memory load clears the rest of XMM only. | Seed both halves of YMM and compare all lane bytes after both directions and prefixes. |
+| A scalar store has no effect on adjacent bytes. | Use byte canaries at every offset from 0 through 15 for all 12 raw Intel encodings. |
+| A restored request has the original scalar width and retirement frontier. | Destroy the source before rebuilding the CPU with a held request. Check one completion, the exact next RIP and unchanged flags. |
+
+The scalar regression failed at the preceding source with a decode
+result of `Unsupported`. On physical Intel Linux, the unfiltered
+`hvf_mmio` and `isa_oracle` targets passed 125 and 102 tests.
+The two test logs have SHA-256 digests
+`b8f892ba77d1f5ef40ba51e5703b61a76f1eaa73e1f812fdf6d2b44a17b617d3`
+and `70f377f0afc9b911c2afe860c7932c717bfa942de4b1758c629f5865349ff896`.
+
+On a physical Intel Xeon E5-1650 v3, 192 ordinary RAM transfers matched
+the expected operand and adjacent bytes. Four reserved VEX.vvvv
+controls took #UD at the expected instruction RIP. The standalone
+oracle log SHA-256 is
+`880cff1fd2ef24cf9b8c4a9e6bd30d87a0aa3fd6109552fa64d6925c459f9bfc`.
+
+Under Rosetta, all 99 Intel owner, 125 MMIO and 102 ISA oracle cases
+passed, with zero failures, ignored or filtered cases. The signed
+Intel consumer linked and passed strict signature verification.
+All 54 harness tests passed. The Cargo log SHA-256 is
+`e9f430de60565360bc1f7ea43f79bda0dba4a07dd87b7df33a0a86c0bd0ebaad`.

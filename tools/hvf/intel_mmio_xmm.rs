@@ -1,4 +1,4 @@
-//! Native SSE2 and AVX XMM memory transfers, alignment faults and source-free continuation.
+//! Native SSE, SSE2 and AVX XMM memory transfers, alignment faults and source-free continuation.
 use super::*;
 
 fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
@@ -24,7 +24,7 @@ fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
     let exit = event(cpu);
     assert!(
         matches!(exit, VcpuExit::IoOut { port: 0xe9, ref data } if data == &7u32.to_le_bytes()),
-        "guest must read back XCR0=7 before AVX MMIO: {exit:?}",
+        "guest must read back XCR0=7 before testing the XMM and YMM lanes: {exit:?}",
     );
     cpu.complete_io_out().unwrap();
     cpu.io_completion_result().unwrap();
@@ -154,6 +154,49 @@ pub(super) fn run(output: &Path, vex: bool) {
             ),
         ]
     };
+    let scalar_cases: [((&[u8], usize, usize, bool), bool, &str); 4] = if vex {
+        [
+            (
+                (&[0xc5, 0x7a, 0x10, 0x3f], 4, 15, true),
+                false,
+                "scalar-ss-",
+            ),
+            (
+                (&[0xc5, 0xfa, 0x11, 0x07], 4, 0, false),
+                false,
+                "scalar-ss-",
+            ),
+            (
+                (&[0xc4, 0x61, 0xfb, 0x10, 0x3f], 8, 15, true),
+                false,
+                "scalar-sd-",
+            ),
+            (
+                (&[0xc4, 0x61, 0xfb, 0x11, 0x3f], 8, 15, false),
+                false,
+                "scalar-sd-",
+            ),
+        ]
+    } else {
+        [
+            ((&[0xf3, 0x0f, 0x10, 0x07], 4, 0, true), false, "scalar-ss-"),
+            (
+                (&[0xf3, 0x44, 0x0f, 0x11, 0x3f], 4, 15, false),
+                false,
+                "scalar-ss-",
+            ),
+            (
+                (&[0xf2, 0x44, 0x0f, 0x10, 0x3f], 8, 15, true),
+                false,
+                "scalar-sd-",
+            ),
+            (
+                (&[0xf2, 0x44, 0x0f, 0x11, 0x3f], 8, 15, false),
+                false,
+                "scalar-sd-",
+            ),
+        ]
+    };
     let transfers = existing_cases
         .into_iter()
         .map(|entry| (entry, false, ""))
@@ -162,15 +205,14 @@ pub(super) fn run(output: &Path, vex: bool) {
                 .into_iter()
                 .map(|entry| (entry, true, "aligned-")),
         )
-        .chain(packed_cases);
+        .chain(packed_cases)
+        .chain(scalar_cases);
     for ((code, size, index, read), aligned, form) in transfers {
         for restore in [false, true] {
             let memory = guest_memory(code);
             word(&memory, 0x4000, 0x4000_009b);
             let (mut vm, mut cpu) = machine(&memory);
-            if vex {
-                enable_guest_avx(&memory, cpu.as_mut());
-            }
+            enable_guest_avx(&memory, cpu.as_mut());
             let mut initial = state(cpu.as_ref());
             initial.regs.rip = CODE;
             initial.regs.rax = SEED;
@@ -179,12 +221,10 @@ pub(super) fn run(output: &Path, vex: bool) {
             } else {
                 MMIO
             };
-            if vex {
-                initial.regs.ymm_high = std::array::from_fn(|lane| {
-                    let low = MARKER.wrapping_add(lane as u64);
-                    [low, !low]
-                });
-            }
+            initial.regs.ymm_high = std::array::from_fn(|lane| {
+                let low = MARKER.wrapping_add(lane as u64);
+                [low, !low]
+            });
             initial.regs.xmm = std::array::from_fn(|lane| {
                 let low = SEED.wrapping_add(lane as u64);
                 [low, !low]

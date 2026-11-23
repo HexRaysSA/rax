@@ -267,6 +267,8 @@ pub(super) fn decode_0f(
         0x10 | 0x11 | 0x28 | 0x29 | 0x6e | 0x6f | 0x7e | 0x7f | 0xd6 if !ctx.has_rex2() => {
             let (load, size, vector_rm) = match (op, ctx.operand_size_override, ctx.rep_prefix) {
                 (0x10 | 0x11 | 0x28 | 0x29, _, None) => (op & 1 == 0, 16, true),
+                (0x10 | 0x11, false, Some(0xf3)) => (op == 0x10, 4, true),
+                (0x10 | 0x11, false, Some(0xf2)) => (op == 0x10, 8, true),
                 (0x6e | 0x7e, true, None) => (op == 0x6e, if ctx.rex_w() { 8 } else { 4 }, false),
                 (0x7e, false, Some(0xf3)) => (true, 8, true),
                 (0xd6, true, None) => (false, 8, true),
@@ -292,13 +294,19 @@ pub(super) fn decode_0f(
                 rm.reg = format!("xmm{rm_index}");
                 rm.width_bits = 128;
             }
+            // A legacy register-to-register scalar move keeps the old upper
+            // part of its XMM destination. A memory load clears that part.
+            let merge =
+                rm.kind == OperandKind::Register && matches!((op, size), (0x10 | 0x11, 4 | 8));
             if load {
-                xmm = read_write(xmm, false, true);
+                xmm = read_write(xmm, merge, true);
                 out.operands = vec![xmm, rm];
             } else {
-                out.operands = vec![read_write(rm, false, true), xmm];
+                out.operands = vec![read_write(rm, merge, true), xmm];
             }
             match (op, size, ctx.operand_size_override) {
+                (0x10 | 0x11, 4, _) => "movss",
+                (0x10 | 0x11, 8, _) => "movsd",
                 (0x10 | 0x11, 16, false) => "movups",
                 (0x10 | 0x11, 16, true) => "movupd",
                 (0x28 | 0x29, 16, false) => "movaps",

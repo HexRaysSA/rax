@@ -16,7 +16,7 @@ PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "adx": 32, "crc3
                  "cmpxchg8b": 12, "cmpxchg16b": 16, "entry-irq": 2, "bit-scan": 36, "bit-count": 48,
                  "implicit-multiply": 32, "implicit-divide": 80, "irq-window": 3, "nmi-window": 3,
                  "port-debug": 446, "level-irq": 2,
-                 "movnti": 8, "nmi-baseline": 1, "legacy-xmm": 42, "nmi-hot-entry": 1, "vex-xmm": 42, "string-mmio": 48}
+                 "movnti": 8, "nmi-baseline": 1, "legacy-xmm": 50, "nmi-hot-entry": 1, "vex-xmm": 50, "string-mmio": 48}
 
 
 def sha(path):

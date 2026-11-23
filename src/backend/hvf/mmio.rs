@@ -201,7 +201,7 @@ impl Input {
         Ok(self.destination.merge(self.original, extended))
     }
 }
-/// A scalar MOVD/MOVQ transfer involving the low bytes of an XMM register.
+/// A scalar or full-width memory transfer involving an XMM register.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct XmmTransfer {
     pub(crate) index: u8,
@@ -399,8 +399,8 @@ struct XmmMove {
 impl XmmMove {
     fn for_mnemonic(mnemonic: &str) -> Option<Self> {
         let (size, aligned) = match mnemonic {
-            "movd" | "vmovd" => (4, false),
-            "movq" | "vmovq" => (8, false),
+            "movd" | "vmovd" | "movss" | "vmovss" => (4, false),
+            "movq" | "vmovq" | "movsd" | "vmovsd" => (8, false),
             "movdqu" | "vmovdqu" | "movups" | "vmovups" | "movupd" | "vmovupd" => (16, false),
             "movdqa" | "vmovdqa" | "movaps" | "vmovaps" | "movapd" | "vmovapd" => (16, true),
             _ => return None,
