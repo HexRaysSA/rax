@@ -109,7 +109,7 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         curr_target: pid,
         leader_exit: None,
         last_user: None,
-        children: p.children.guest_scope(),
+        children: p.children.guest_scope(pid),
         pidfds: Default::default(),
         forked: None,
         exec_id: p.exec_id,

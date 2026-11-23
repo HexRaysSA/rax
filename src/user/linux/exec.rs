@@ -371,6 +371,9 @@ impl LinuxProcess {
         p.curr_target = p.pid;
         p.leader_exit = None;
         p.exec_id += 1;
+        if !p.config.host_services {
+            p.children.guest_exec();
+        }
         // mm_release: a CLONE_VFORK parent runs again.
         #[cfg(unix)]
         if let Some(me) = p.forked.as_mut() {

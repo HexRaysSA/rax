@@ -195,12 +195,21 @@ pub(super) fn send_process(c: &mut Ctx<'_>, info: SigInfo, target: i32) {
 /// other processes, process groups, and `-1` are reached through the
 /// host (`SI_USER` from this process; a signal the host lacks, such as a
 /// real-time one, reaches only this process); `-1` then means this
-/// process's children rather than every host process. Otherwise only this
-/// process exists: its process group (0, `-pgid`) is itself and `-1` finds
-/// no process.
+/// process's children rather than every host process. A closed guest
+/// instead uses only its own scheduler's process namespace and groups.
+/// A host-service session with host process handling disabled only
+/// signals itself.
 pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
     if pid == i32::MIN {
         return Err(Errno(ESRCH));
+    }
+    if !c.p.config.host_services {
+        let info = kill_info(c, sig, code::SI_USER);
+        if c.p.children.guest_kill(pid, info)? {
+            let target = process_target(c, pid).unwrap_or(c.p.pid);
+            send_process(c, info, target);
+        }
+        return Ok(0);
     }
     let processes = c.p.config.processes;
     let own_pgid = c.p.pid;

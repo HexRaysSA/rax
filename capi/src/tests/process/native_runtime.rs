@@ -340,7 +340,10 @@ fn installed_libc_spawn_matches_native_through_closed_c_abi() {
         "{}",
         String::from_utf8_lossy(&native.stderr)
     );
-    assert_eq!(native.stdout, b"spawn:installed-libc\nmissing:ENOENT\n");
+    assert_eq!(
+        native.stdout,
+        b"spawn:installed-libc\nspawn:isolated-group\nmissing:ENOENT\n"
+    );
     assert!(native.stderr.is_empty());
 
     let child_path = "/usr/bin/printf";

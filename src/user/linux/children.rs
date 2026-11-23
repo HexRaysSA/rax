@@ -16,9 +16,12 @@ use std::os::fd::{AsRawFd, OwnedFd};
 #[cfg(unix)]
 use super::host::{self, HostWait};
 
-use std::collections::BTreeSet;
+mod groups;
+
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
+use self::groups::GroupMember;
 use super::abi::errno::Errno;
 use super::abi::errno_table::{EAGAIN, EEXIST};
 use super::process::{ExitStatus, LinuxProcess};
@@ -34,7 +37,8 @@ const GUEST_CHILD_ARENA_LIMIT: u64 = 2 << 30;
 #[derive(Debug)]
 struct Namespace {
     next: i32,
-    ids: BTreeSet<i32>,
+    tasks: BTreeMap<i32, i32>,
+    processes: BTreeMap<i32, GroupMember>,
     children: usize,
     arena_bytes: u64,
     last_selected_process: Option<i32>,
@@ -63,8 +67,9 @@ impl GuestTid {
 impl Drop for GuestTid {
     fn drop(&mut self) {
         let mut ns = self.namespace.lock().unwrap();
-        ns.ids.remove(&self.id);
+        ns.tasks.remove(&self.id);
         if let Some(bytes) = self.arena_bytes {
+            ns.processes.remove(&self.id);
             ns.children -= 1;
             ns.arena_bytes -= bytes;
         }
@@ -136,6 +141,7 @@ pub struct Children {
     /// Live descendants reparented to the closed namespace's synthetic PID 1.
     pub(super) orphans: Vec<Child>,
     namespace: Option<Arc<Mutex<Namespace>>>,
+    owner: i32,
     events: Vec<ChildEvent>,
     /// Resource use of reaped children (`cutime`, `cstime`, `cmaxrss`).
     pub reaped: ChildRusage,
@@ -156,26 +162,23 @@ impl Children {
         Self {
             namespace: Some(Arc::new(Mutex::new(Namespace {
                 next: pid + 1,
-                ids: BTreeSet::from([1, pid]),
+                tasks: BTreeMap::from([(1, 1), (pid, pid)]),
+                processes: BTreeMap::from([(pid, GroupMember::initial(pid))]),
                 children: 0,
                 arena_bytes: 0,
                 last_selected_process: None,
             }))),
+            owner: pid,
             ..Self::default()
         }
     }
 
-    pub(super) fn guest_scope(&self) -> Self {
+    pub(super) fn guest_scope(&self, pid: i32) -> Self {
         Self {
             namespace: self.namespace.clone(),
+            owner: pid,
             ..Self::default()
         }
-    }
-
-    pub(super) fn contains_guest_id(&self, id: i32) -> bool {
-        self.namespace
-            .as_ref()
-            .is_some_and(|ns| ns.lock().unwrap().ids.contains(&id))
     }
 
     pub(super) fn select_guest_process(&self, pid: i32) -> bool {
@@ -197,27 +200,31 @@ impl Children {
             return Err(Errno(EAGAIN));
         }
         let id = if let Some(id) = requested {
-            if !ns.ids.insert(id) {
+            if ns.id_in_use(id) {
                 return Err(Errno(EEXIST));
             }
             id
         } else {
             let next = |id| if id + 1 == PID_LIMIT { 2 } else { id + 1 };
             let first = ns.next;
-            while ns.ids.contains(&ns.next) {
+            while ns.id_in_use(ns.next) {
                 ns.next = next(ns.next);
                 if ns.next == first {
                     return Err(Errno(EAGAIN));
                 }
             }
             let id = ns.next;
-            ns.ids.insert(id);
             ns.next = next(id);
             id
         };
         if let Some(bytes) = arena_bytes {
+            let member = ns.processes[&self.owner].forked();
+            ns.processes.insert(id, member);
+            ns.tasks.insert(id, id);
             ns.children += 1;
             ns.arena_bytes += bytes;
+        } else {
+            ns.tasks.insert(id, self.owner);
         }
         Ok(GuestTid {
             id,
@@ -234,6 +241,7 @@ impl Children {
         creator: i32,
         exec_id: u64,
     ) {
+        let pgid = self.guest_group(tid.id()).expect("reserved guest PID").0;
         self.list.push(Child {
             pid: tid.id(),
             #[cfg(unix)]
@@ -244,7 +252,7 @@ impl Children {
             exit_signal,
             creator,
             parent_exec_id: exec_id,
-            pgid: super::embedding::PID,
+            pgid,
             released: false,
             record: None,
             stopped: None,
@@ -388,6 +396,7 @@ impl Children {
 impl Child {
     pub(super) fn finish_guest(&mut self, exit: ExitStatus) -> Children {
         let mut guest = self.guest.take().expect("running child");
+        guest.state.children.mark_guest_zombie();
         self.guest_uid = Some(guest.state.creds.0);
         let status = match exit {
             ExitStatus::Exited(code) => exited_status(code),
@@ -495,7 +504,7 @@ mod tests {
     #[test]
     fn guest_namespace_holds_zombie_pid_without_its_arena() {
         let registry = Children::embedded(100);
-        let scope = registry.guest_scope();
+        let scope = registry.guest_scope(100);
         let mut first = registry
             .reserve_guest_id(None, Some(GUEST_CHILD_ARENA_LIMIT))
             .unwrap();
@@ -519,7 +528,7 @@ mod tests {
     #[test]
     fn guest_namespace_bounds_process_records_across_generations() {
         let registry = Children::embedded(100);
-        let scope = registry.guest_scope();
+        let scope = registry.guest_scope(100);
         let records: Vec<_> = (0..GUEST_CHILD_LIMIT)
             .map(|_| scope.reserve_guest_id(None, Some(1)).unwrap())
             .collect();

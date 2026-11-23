@@ -79,8 +79,6 @@ fn closed_linux_identity_console_and_external_service_denial_all_abis() {
             Sysno::PidfdOpen,
             Sysno::ProcessVmReadv,
             Sysno::ProcessVmWritev,
-            Sysno::Setpgid,
-            Sysno::Setsid,
             Sysno::Mount,
         ] {
             if abi.number(syscall).is_some() {
@@ -93,6 +91,75 @@ fn closed_linux_identity_console_and_external_service_denial_all_abis() {
         }
         assert_eq!(h.call(Sysno::Kill, &[123456, 0]), -(ESRCH as i64));
         assert_eq!(h.call(Sysno::Kill, &[100, 0]), 0);
+    }
+}
+
+#[test]
+fn closed_linux_process_groups_isolate_signals_and_select_waiters_all_abis() {
+    use crate::user::linux::signal::{SIGCHLD, SIGKILL};
+    use crate::user::linux::syscall::Call;
+
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let entry = super::harness::CODE + 0x1000;
+        h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+        let [first, second, separate] =
+            std::array::from_fn(|_| h.ok(Sysno::Clone, &[SIGCHLD as u64, 0, 0, 0, 0]));
+        assert_eq!(h.err(Sysno::Setpgid, &[0, 0]), EPERM);
+        assert_eq!(h.err(Sysno::Setsid, &[]), EPERM);
+        assert_eq!(h.err(Sysno::Setpgid, &[u64::MAX, 0]), EINVAL);
+        assert_eq!(h.err(Sysno::Setpgid, &[u64::MAX, 1]), ESRCH);
+        assert_eq!(h.err(Sysno::Getpgid, &[u64::MAX]), ESRCH);
+        assert_eq!(h.err(Sysno::Getsid, &[u64::MAX]), ESRCH);
+        assert_eq!(h.err(Sysno::Setpgid, &[first, 98765]), EPERM);
+        assert_eq!(h.err(Sysno::Setpgid, &[123456, 0]), ESRCH);
+        assert_eq!(h.ok(Sysno::Getpgid, &[first]), 100);
+        assert_eq!(h.ok(Sysno::Setpgid, &[first, 0]), 0);
+        assert_eq!(h.ok(Sysno::Setpgid, &[second, first]), 0);
+        assert_eq!(h.ok(Sysno::Getpgid, &[second]), first);
+        assert_eq!(h.ok(Sysno::Getsid, &[second]), 100);
+        {
+            let child = h.proc.state.children.list[2].guest.as_mut().unwrap();
+            child.syscall(0, Call::new(abi.number(Sysno::Setsid).unwrap(), [0; 6]));
+            assert_eq!(child.threads[0].cpu.syscall_return_value(), separate);
+        }
+        assert_eq!(h.ok(Sysno::Getsid, &[separate]), separate);
+        assert_eq!(h.ok(Sysno::Getpgid, &[separate]), separate);
+        assert_eq!(h.err(Sysno::Setpgid, &[separate, first]), EPERM);
+        assert_eq!(h.err(Sysno::Setpgid, &[first, separate]), EPERM);
+        assert_eq!(h.err(Sysno::Wait4, &[0, 0, 1, 0]), ECHILD);
+
+        let group = (-(first as i64)) as u64;
+        assert_eq!(h.ok(Sysno::Kill, &[group, 0]), 0);
+        assert_eq!(h.ok(Sysno::Kill, &[group, SIGKILL as u64]), 0);
+        let status_address = h.scratch;
+        let cancel = AtomicBool::new(false);
+        for (selector, expected_pid, expected_status) in [
+            (group, first, SIGKILL as u32),
+            (group, second, SIGKILL as u32),
+            (separate, separate, 37 << 8),
+        ] {
+            if h.start(0, Sysno::Wait4, &[selector, status_address, 0, 0])
+                .is_none()
+            {
+                for _ in 0..12 {
+                    assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+                    if h.proc.threads[0].blocked.is_none() {
+                        break;
+                    }
+                }
+                assert!(
+                    h.proc.threads[0].blocked.is_none(),
+                    "{abi:?}/{expected_pid}"
+                );
+            }
+            assert_eq!(h.result(0), expected_pid as i64);
+            let mut status = [0; 4];
+            h.proc.space().read(status_address, &mut status).unwrap();
+            assert_eq!(u32::from_le_bytes(status), expected_status, "{abi:?}");
+        }
+        assert_eq!(h.err(Sysno::Kill, &[group, 0]), ESRCH);
+        assert_eq!(h.err(Sysno::Getpgid, &[first]), ESRCH);
     }
 }
 

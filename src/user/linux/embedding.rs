@@ -175,6 +175,8 @@ pub fn permits(s: Sysno) -> bool {
             | S::Getpgid
             | S::Getpgrp
             | S::Getsid
+            | S::Setpgid
+            | S::Setsid
             | S::SetTidAddress
             | S::SetRobustList
             | S::GetRobustList

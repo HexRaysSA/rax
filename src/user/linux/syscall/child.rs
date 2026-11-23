@@ -509,6 +509,9 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
         let (p, mut th) = c.split();
         refresh(p, &mut th);
     }
+    if !c.p.config.host_services {
+        c.p.children.refresh_guest_groups();
+    }
     let eligible = |ch: &super::super::children::Child| {
         let matches = match sel {
             Select::Any => true,
@@ -687,12 +690,15 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
 }
 
 /// The caller's process group.
-fn own_pgid(_c: &Ctx<'_>) -> Result<i32, Errno> {
+fn own_pgid(c: &Ctx<'_>) -> Result<i32, Errno> {
     #[cfg(unix)]
-    if _c.p.config.host_services {
+    if c.p.config.host_services {
         return host::getpgid(0);
     }
-    Ok(super::super::embedding::PID)
+    c.p.children
+        .guest_group(c.p.pid)
+        .map(|(pgid, _)| pgid)
+        .ok_or(Errno(ESRCH))
 }
 
 /// `wait4` (`kernel_wait4`).

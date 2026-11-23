@@ -152,24 +152,21 @@ pub fn setid(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> SysResult {
         }
         _ => return Err(Errno(ENOSYS)),
     }
+    if !c.p.config.host_services && (c.p.creds.0, c.p.creds.1) != (uid, euid) {
+        c.p.children.guest_update_uid(c.p.creds.0, c.p.creds.1);
+    }
     Ok(0)
 }
 
-fn closed_group(c: &Ctx<'_>, pid: i32) -> SysResult {
-    if pid < 0 {
-        return Err(Errno(EINVAL));
-    }
-    if pid == 0 || (pid != 1 && c.p.children.contains_guest_id(pid)) {
-        Ok(super::super::embedding::PID as u64)
-    } else {
-        Err(Errno(ESRCH))
-    }
+fn closed_group(c: &Ctx<'_>, pid: i32) -> Result<(i32, i32), Errno> {
+    let tid = if pid == 0 { c.p.pid } else { pid };
+    c.p.children.guest_group(tid).ok_or(Errno(ESRCH))
 }
 
 /// `getpgid`.
 pub fn getpgid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
     if !c.p.config.host_services {
-        return closed_group(c, pid);
+        return closed_group(c, pid).map(|(pgid, _)| pgid as u64);
     }
     // A thread of this process names the process (find_task_by_vpid).
     #[cfg(unix)]
@@ -184,7 +181,7 @@ pub fn getpgid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
 /// `getsid`.
 pub fn getsid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
     if !c.p.config.host_services {
-        return closed_group(c, pid);
+        return closed_group(c, pid).map(|(_, sid)| sid as u64);
     }
     #[cfg(unix)]
     {
@@ -196,19 +193,37 @@ pub fn getsid(c: &mut Ctx<'_>, pid: i32) -> SysResult {
 }
 
 /// `setpgid`: a thread other than the leader is `EINVAL`.
-#[cfg(unix)]
 pub fn setpgid(c: &mut Ctx<'_>, pid: i32, pgid: i32) -> SysResult {
     if pgid < 0 {
         return Err(Errno(EINVAL));
     }
-    let pid = if pid == c.p.pid {
-        0
-    } else if c.is_own_tid(pid) {
-        return Err(Errno(EINVAL));
-    } else {
-        pid
-    };
-    host::setpgid(pid, pgid).map(|()| 0)
+    if !c.p.config.host_services {
+        return c.p.children.guest_setpgid(pid, pgid).map(|()| 0);
+    }
+    #[cfg(unix)]
+    {
+        let pid = if pid == c.p.pid {
+            0
+        } else if c.is_own_tid(pid) {
+            return Err(Errno(EINVAL));
+        } else {
+            pid
+        };
+        host::setpgid(pid, pgid).map(|()| 0)
+    }
+    #[cfg(not(unix))]
+    Err(Errno(EPERM))
+}
+
+/// Start a session as its leader and the leader of its first process group.
+pub fn setsid(c: &Ctx<'_>) -> SysResult {
+    if !c.p.config.host_services {
+        return c.p.children.guest_setsid().map(|sid| sid as u64);
+    }
+    #[cfg(unix)]
+    return host::setsid().map(|sid| sid as u64);
+    #[cfg(not(unix))]
+    Err(Errno(EPERM))
 }
 
 /// `uname`.

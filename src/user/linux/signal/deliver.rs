@@ -384,6 +384,9 @@ pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
     let leader = p.pid;
     if !p.config.host_services {
         super::super::syscall::child::refresh(p, th);
+        for signal in p.children.take_guest_signals() {
+            send_signal(p, th, signal, Dest::Process(leader), false);
+        }
     }
     #[cfg(unix)]
     if p.config.host_services {

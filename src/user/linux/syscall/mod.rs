@@ -818,10 +818,8 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Getpgid => r(process::getpgid(c, a[0] as i32)),
         S::Getpgrp => r(process::getpgid(c, 0)),
         S::Getsid => r(process::getsid(c, a[0] as i32)),
-        #[cfg(unix)]
         S::Setpgid => r(process::setpgid(c, a[0] as i32, a[1] as i32)),
-        #[cfg(unix)]
-        S::Setsid => r(super::host::setsid().map(|s| s as u64)),
+        S::Setsid => r(process::setsid(c)),
         S::SetTidAddress => r(thread::set_tid_address(c, a[0])),
         S::Unshare => r(thread::unshare(c, a[0])),
         S::SetRobustList => r(futex::set_robust_list(c, a[0], a[1])),
