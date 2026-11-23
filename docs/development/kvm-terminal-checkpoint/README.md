@@ -3,8 +3,8 @@
 The internal owner envelope version 4 records VM-wide power-off together with
 one optional terminal native I/O record per CPU. This supplements the
 [deferred direct-result records](../kvm-deferred-checkpoint/README.md).
-Older internal owner versions are rejected. These records still do not enable
-the complete public KVM checkpoint producer.
+Older internal owner versions are rejected. This envelope predates the
+[public KVM checkpoint producer](../kvm-native-owner.md#public-vmm-checkpoint-records).
 
 A power-off reply can acknowledge the first element of a native REP output
 batch while later elements remain unserviced. Other CPUs may already own input
@@ -55,10 +55,37 @@ owner must retain its active register bank across immediate exit.
 
 All record/profile checks and owned transfer construction precede native
 setters. The raw installer retains its disposable-target or enclosing-rollback
-requirement. Complete rollback, physical RAM publication, private kernel timer
-state and activation of the public producer remain separate required work.
+requirement. The public producer coordinates rollback and physical RAM with
+the terminal records. Private kernel timer fidelity remains a separate
+requirement.
 
-Qualification is pending. Tests cover both codecs, all port/MMIO lengths,
-selected output prefixes, malformed records, actual native REP output with
-peer input/MMIO frontiers, source-free 1/2/4-CPU graphs in both controller
-profiles, no callbacks after restoration, and active-import rejection.
+The owner-level tests cover both codecs, all port/MMIO lengths, selected
+output prefixes, malformed records, actual native REP output with peer
+input/MMIO frontiers, source-free 1/2/4-CPU graphs in both controller profiles,
+no callbacks after restoration, and active-import rejection.
+
+## Power-off accepted by the running VMM
+
+The running VMM publishes the same KVM power-off latch when it accepts ACPI
+S5, a native shutdown exit, or a system event that ends the run. It fences
+all managed entries before acknowledging the accepted S5 element. A later
+element or a peer's pending input can remain in the terminal I/O record.
+Restoring the file into a fresh VM keeps those requests stopped. A subsequent
+`Vmm::run` observes the latch before polling the console or selecting a CPU.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Ordinary VMM dispatch establishes the terminal frontier. | High | Run 1-, 2- and 4-vCPU KVM guests through a REP OUTSW S5 request. The next vCPU call must return `Shutdown`, even with a second output element ready. |
+| A direct KVM shutdown fences peers that already acquired I/O. | High | Dispatch the shutdown of a CPU with no usable interrupt vector table while a second CPU has a pending UART read. Check that capture and detached restore leave the serial byte queued and both CPUs return `Shutdown`. |
+
+On a physical Intel Xeon E5-1650 v3 running Linux 6.8.0-138-generic, the
+baseline returned a second output to port `0x604`, with value `0x1234`,
+after `Vmm::run` had returned. In the direct-shutdown control, checkpoint
+settlement reported an ordinary completion at the stopped CPU.
+
+Both regressions passed on the same host after the change. The 128 MiB
+fixtures wrote `.rxc` files, destroyed their source VMs, and loaded the
+files into fresh KVM owners. Every vCPU reported `Shutdown`, the UART byte
+was still queued, and entering the restored VMM left its scheduling cursor
+at the saved position. These tests use userspace interrupt-controller
+ownership.

@@ -92,6 +92,16 @@ jobs:
             --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
           grep -F -x "test $case_name ... ok" "$witness"
 
+      - name: Native VMM power-off after detached restore
+        run: |
+          set -o pipefail
+          tests=vm::runtime::checkpoint_io::tests::runtime_native_
+          witness="$RUNNER_TEMP/rax-kvm-runtime-poweroff.out"
+          cargo test --locked --features x86_64-suite --lib "$tests" -- \
+            --include-ignored --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test ${tests}acpi_poweroff_survives_a_detached_checkpoint ... ok" "$witness"
+          grep -F -x "test ${tests}shutdown_exit_survives_a_detached_checkpoint ... ok" "$witness"
+
       - name: Native RAX public-state, rollback, and RAM lifetime regressions
         run: |
           cargo test --features x86_64-suite --lib backend::intel_hvf_xsave::tests:: -- --test-threads=1 --nocapture

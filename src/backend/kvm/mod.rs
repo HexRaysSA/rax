@@ -133,6 +133,11 @@ struct MemoryOwner {
 }
 
 impl KvmVm {
+    /// Stop all managed vCPUs after the VMM accepts a guest shutdown.
+    pub(crate) fn power_off(&self) -> Result<()> {
+        self.memory.power_off()
+    }
+
     /// Access the native VM without the managed ownership boundary.
     ///
     /// # Safety
@@ -234,6 +239,11 @@ impl KvmVm {
 }
 
 impl Vm for KvmVm {
+    fn firmware_shutdown(&self) -> Result<bool> {
+        self.memory.ready()?;
+        Ok(self.memory.powered_off.load(Ordering::Acquire))
+    }
+
     fn uses_native_x86_irqchip(&self) -> bool {
         self.memory.irqchip_created.load(Ordering::Acquire)
     }

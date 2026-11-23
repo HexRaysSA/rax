@@ -480,6 +480,122 @@ fn stopped_native_acpi_poweroff_retains_the_unserviced_output_batch() {
 
 #[test]
 #[ignore = "requires native Linux KVM; selected by KVM CI"]
+fn runtime_native_acpi_poweroff_survives_a_detached_checkpoint() {
+    for count in [1, 2, 4] {
+        let mut source = Fixture::with_memory(count, 128 << 20);
+        let mut program = vec![0xf3, 0x6f]; // REP OUTSW.
+        program.extend_from_slice(TAIL);
+        source.prepare(0, &program);
+        source
+            .vm
+            .guest_mem
+            .memory()
+            .write_slice(&[0, 0x20, 0x34, 0x12, 0x78, 0x56], GuestAddress(0x3000))
+            .unwrap();
+        let CpuState::X86_64(mut bsp) = source.vm.vcpus[0].get_state().unwrap() else {
+            unreachable!()
+        };
+        bsp.regs.rdx = 0x604;
+        bsp.regs.rsi = 0x3000;
+        source.vm.vcpus[0]
+            .set_state(&CpuState::X86_64(bsp))
+            .unwrap();
+        for id in 1..usize::from(count) {
+            source.prepare(id, &[0xec, 0xf4]); // IN AL,DX; HLT.
+            assert!(matches!(
+                source.exit(id),
+                VcpuExit::IoIn {
+                    port: 0x3f8,
+                    size: 1
+                }
+            ));
+        }
+        source.vm.serial.lock().unwrap().queue_input(&[0x94]);
+
+        source.vm.run().unwrap();
+        let next = source.exit(0);
+        assert!(
+            matches!(next, VcpuExit::Shutdown),
+            "after power-off: {next:?}"
+        );
+        assert_detached_shutdown(source);
+    }
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; selected by KVM CI"]
+fn runtime_native_shutdown_exit_survives_a_detached_checkpoint() {
+    use super::super::coordinator::ExecutionTurn;
+
+    let mut source = Fixture::with_memory(2, 128 << 20);
+    source.prepare(0, &[0x0f, 0x0b]); // UD2 with no usable interrupt vector table.
+    let CpuState::X86_64(mut bsp) = source.vm.vcpus[0].get_state().unwrap() else {
+        unreachable!()
+    };
+    bsp.sregs.idt.limit = 0;
+    source.vm.vcpus[0]
+        .set_state(&CpuState::X86_64(bsp))
+        .unwrap();
+    source.prepare(1, &[0xec, 0xf4]); // IN AL,DX; HLT.
+    assert!(matches!(
+        source.exit(1),
+        VcpuExit::IoIn {
+            port: 0x3f8,
+            size: 1
+        }
+    ));
+    source.vm.serial.lock().unwrap().queue_input(&[0x94]);
+
+    let exit = source.exit(0);
+    assert!(matches!(exit, VcpuExit::Shutdown), "native exit: {exit:?}");
+    let mut turns = vec![ExecutionTurn {
+        cpu_index: 0,
+        exit,
+        #[cfg(feature = "debug")]
+        debug_step_completed: false,
+    }];
+    assert!(source.vm.apply_native_round(&mut turns).unwrap());
+    assert_detached_shutdown(source);
+}
+
+fn assert_detached_shutdown(mut source: Fixture) {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    source.tail_is_stopped();
+    for id in 0..source.vm.vcpus.len() {
+        assert_eq!(source.settle(id), CheckpointIoState::Deferred);
+        assert!(matches!(source.exit(id), VcpuExit::Shutdown));
+    }
+
+    let path = source.kernel.with_extension("rxc");
+    let bundle = source.vm.take_snapshot_bundle(0).unwrap();
+    bundle.save(&path).unwrap();
+    drop(bundle);
+    drop(source);
+    let restored = SnapshotBundle::load(&path);
+    std::fs::remove_file(&path).unwrap();
+    let bundle = restored.unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+    let cursor = target.coordinator.cursor;
+    target.run().unwrap();
+    assert_eq!(target.coordinator.cursor, cursor);
+    for cpu in &mut target.vcpus {
+        assert!(matches!(cpu.run().unwrap(), VcpuExit::Shutdown));
+    }
+    assert!(target.serial.lock().unwrap().has_input());
+    assert_eq!(
+        target
+            .guest_mem
+            .memory()
+            .read_obj::<u8>(GuestAddress(0x2000))
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; selected by KVM CI"]
 fn bundle_capture_settles_native_uart_before_locking_the_actual_devices() {
     for count in [1, 2, 4] {
         let mut fixture = Fixture::new(count);

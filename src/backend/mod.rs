@@ -136,7 +136,7 @@ pub trait Vm: Send + Sync {
         Ok(())
     }
 
-    /// Whether a shared firmware power latch has stopped the entire VM.
+    /// Whether the backend's shared guest power latch has stopped the entire VM.
     fn firmware_shutdown(&self) -> Result<bool> {
         Ok(false)
     }

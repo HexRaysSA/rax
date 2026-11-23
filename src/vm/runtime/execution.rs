@@ -2,6 +2,14 @@
 use super::coordinator::ExecutionTurn;
 use super::*;
 
+fn publish_kvm_shutdown(_vm: &dyn Vm) -> Result<()> {
+    #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+    if let Some(kvm) = _vm.as_any().downcast_ref::<crate::backend::kvm::KvmVm>() {
+        kvm.power_off()?;
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 pub(super) enum TurnFailure {
     /// Entry failed, or only the CPU reply failed after device publication.
@@ -392,6 +400,7 @@ impl Vmm {
                 // HLT is normal - kernel waits for interrupts
             }
             VcpuExit::Shutdown => {
+                publish_kvm_shutdown(&*self.vm)?;
                 match vcpu.get_state()? {
                     CpuState::X86_64(state) => {
                         let regs = state.regs;
@@ -482,6 +491,10 @@ impl Vmm {
                     port,
                     &data,
                 )?;
+                if shutdown {
+                    // Fence entry before acknowledging the accepted S5 output.
+                    publish_kvm_shutdown(&*self.vm)?;
+                }
                 vcpu.complete_io_out().map_err(|error| {
                     if shutdown {
                         TurnFailure::Round(error)
@@ -529,7 +542,10 @@ impl Vmm {
                 let irq = self.publish_serial_mmio_irq(addr);
                 TurnFailure::check_io_reply(completion, irq)?;
             }
-            VcpuExit::SystemEvent { .. } => shutdown = true,
+            VcpuExit::SystemEvent { .. } => {
+                publish_kvm_shutdown(&*self.vm)?;
+                shutdown = true;
+            }
             VcpuExit::FailEntry { reason } => {
                 return Err(TurnFailure::CpuLocal(Error::KernelLoad(format!(
                     "vCPU fail entry: reason={reason:#x}"
