@@ -260,6 +260,7 @@ fn native_file_open_selected_runtime_grant_is_read_only_and_cannot_enroll_other_
     for arch in WinArch::ALL {
         let mut h = Harness::new(arch);
         let directory = selection(&mut h);
+        std::fs::write(directory.join("cmd.exe"), b"installed executable").unwrap();
         let output = h.base;
         let io = h.base + PAGE_SIZE;
         h.name("\\??\\C:\\WINDOWS\\SYSTEM32\\FIXTURE.dll");
@@ -285,10 +286,21 @@ fn native_file_open_selected_runtime_grant_is_read_only_and_cannot_enroll_other_
         for path in [
             "\\??\\C:\\fixture.bin",
             "\\??\\C:\\Windows\\System32\\unselected.exe",
+            "\\??\\C:\\cmd.exe",
         ] {
             h.name(path);
             assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED, "{arch}/{path}");
         }
+        h.name("\\??\\C:\\Windows\\System32\\CMD.EXE");
+        assert_eq!(h.open(output, io), STATUS_SUCCESS);
+        let p = h.process.state_mut();
+        let handle = p.space.ptr(output, arch.ptr_size()).unwrap();
+        assert!(p.objects.runtime_library(handle));
+        p.objects.close(handle).unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100002, 7, 0x60),
+            STATUS_ACCESS_DENIED
+        );
         assert_eq!(
             std::fs::read(directory.join("fixture.dll")).unwrap(),
             b"native"

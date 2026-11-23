@@ -169,17 +169,10 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             (path, file)
         }
         None => {
-            if !inputs
-                .image
-                .rsplit_once('.')
-                .is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("exe"))
-            {
-                return status(STATUS_ACCESS_DENIED);
-            }
             c.p.native
                 .as_ref()
                 .expect("installed runtime checked above")
-                .open_executable(&inputs.image)
+                .open_child_executable(&inputs.image)
                 .map_err(|error| Failure::Status(file_status(&error)))?
                 .ok_or(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND))?
         }

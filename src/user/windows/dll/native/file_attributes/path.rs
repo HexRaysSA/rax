@@ -253,6 +253,9 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
         }
         let name = String::from_utf16(basename)
             .map_err(|_| c.unsupported("selected runtime image basename is not Unicode"))?;
+        if executable && !crate::user::windows::native::selected_child_executable(&name) {
+            continue;
+        }
         return match runtime.dll_paths(&name) {
             Ok(Some((spelling, _))) => Ok(Some((runtime.directory.clone(), spelling))),
             Ok(None) => status(STATUS_OBJECT_NAME_NOT_FOUND),

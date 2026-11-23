@@ -15,6 +15,13 @@ pub(crate) struct SelectedImage {
     pub(crate) template: Arc<ImageTemplate>,
 }
 
+/// Installed executables admitted by the closed child process profile.
+pub(crate) fn selected_child_executable(basename: &str) -> bool {
+    ["cmd.exe", "findstr.exe", "sort.exe"]
+        .iter()
+        .any(|name| basename.eq_ignore_ascii_case(name))
+}
+
 impl NativeRuntime {
     /// Find an installed backing file for a main image supplied as bytes.
     /// The exact bytes must match a file in the selected system directory.
@@ -23,9 +30,21 @@ impl NativeRuntime {
         same_image_bytes(&mut file, image).ok()?.then_some(file)
     }
 
-    /// Retain a read-only file from this runtime's installed image directory.
+    pub(crate) fn open_child_executable(
+        &self,
+        guest_path: &str,
+    ) -> io::Result<Option<(PathBuf, File)>> {
+        if !guest_path
+            .rsplit_once('\\')
+            .is_some_and(|(_, name)| selected_child_executable(name))
+        {
+            return Err(io::Error::from(io::ErrorKind::PermissionDenied));
+        }
+        self.open_executable(guest_path)
+    }
+
     /// Check the opened file too so a path replacement cannot escape the root.
-    pub(crate) fn open_executable(&self, guest_path: &str) -> io::Result<Option<(PathBuf, File)>> {
+    fn open_executable(&self, guest_path: &str) -> io::Result<Option<(PathBuf, File)>> {
         let Some((directory, basename)) = guest_path.rsplit_once('\\') else {
             return Ok(None);
         };
