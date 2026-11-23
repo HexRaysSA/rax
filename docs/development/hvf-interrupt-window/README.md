@@ -259,3 +259,24 @@ bare-metal behavior remain unknown.
 
 - Tested SDK probe revision `9df2e9c5990415f5ceb0de7ed4c4b07bc3354adf`
 - Runtime artifact `14632670471`, SHA-256 `83de7c43dde09996458b492fb503391f6c3f8aa098217acd708b8617a2f39df5`
+
+### SDK interrupted external interrupt control
+
+The `irq_vectoring` workflow input runs the signed SDK-only control in
+isolation. After the guest's first port exit, the control unmaps the
+page containing its IDT gate for vector `0x40` and injects the interrupt.
+It checks the EPT violation, the accessed byte range, and the saved RIP,
+RSP and visit count. After remapping the gate, it clears the undefined
+bit 12 of IDT-vectoring information before publishing the external
+interrupt to the VM-entry field. The resumed guest must enter the handler
+once, execute IRET, and reach its original HLT with the original RSP
+and RFLAGS. The control archives the signed executable and raw output.
+[Intel SDM, Vol. 3C, sections 28.6.1.2 and 29.2.4](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The interrupt gate read produces a recoverable EPT exit during event delivery. | Require a valid type-0 vectoring record for vector `0x40`, a read of the gate, the original guest RIP and RSP, and zero handler visits before replay. |
+| The selected external interrupt can be restaged after the mapping is restored. | Require one handler visit and the original guest continuation after IRET. |
+
+This control observes SDK behavior. RAX retains its current admission
+policy for interrupted event delivery.

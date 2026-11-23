@@ -15,6 +15,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--compile-only", action="store_true")
+    parser.add_argument("--irq-vectoring", action="store_true",
+                        help="run the interrupted external interrupt control")
     args = parser.parse_args()
     args.output.mkdir()
     source = Path(__file__).resolve().with_suffix(".c")
@@ -38,9 +40,15 @@ def main():
                 ["codesign", "--force", "--sign", "-", "--entitlements", str(entitlements),
                  "--timestamp=none", str(probe)], check=True, timeout=60)
             subprocess.run(["codesign", "--verify", "--strict", str(probe)], check=True, timeout=60)
-            result["executable_sha256"] = sha256(probe.read_bytes()).hexdigest()
+            executable = probe.read_bytes()
+            result["executable_sha256"] = sha256(executable).hexdigest()
             if not args.compile_only:
-                for event in ("none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking"):
+                if args.irq_vectoring:
+                    (args.output / "signed-probe").write_bytes(executable)
+                events = ("irq-vectoring",) if args.irq_vectoring else (
+                    "none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking",
+                )
+                for event in events:
                     entry = subprocess.run([str(probe), event], capture_output=True, text=True,
                                            timeout=15)
                     row = {

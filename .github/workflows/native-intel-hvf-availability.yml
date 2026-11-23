@@ -3,6 +3,11 @@ name: Native Intel HVF availability
 
 on:
   workflow_dispatch:
+    inputs:
+      irq_vectoring:
+        description: Run the isolated SDK interrupted-IRQ control
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,16 +19,25 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Observe signed native Intel HVF availability
+        if: ${{ !inputs.irq_vectoring }}
         run: python3 tools/hvf/native_intel_availability.py --output "$RUNNER_TEMP/hvf-intel-availability"
       - name: Inspect native SDK VMCS field support
+        if: ${{ !inputs.irq_vectoring }}
         run: python3 tools/hvf/intel_vmcs_native.py --output "$RUNNER_TEMP/hvf-intel-vmcs"
       - name: Observe SDK RAM entry control variants
+        if: ${{ !inputs.irq_vectoring }}
         run: python3 tools/hvf/intel_ram_entry_native.py --constructor-matrix --output "$RUNNER_TEMP/hvf-intel-ram-entry"
       - name: Observe SDK DEBUGCTL access and branch stepping
+        if: ${{ !inputs.irq_vectoring }}
         run: python3 tools/hvf/intel_debugctl_native.py --output "$RUNNER_TEMP/hvf-intel-debugctl"
       - name: Observe SDK VM-entry interrupt admission across a completed port exit
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !inputs.irq_vectoring }}
         run: python3 tools/hvf/intel_nmi_entry_native.py --output "$RUNNER_TEMP/hvf-intel-nmi-entry"
+      - name: Observe SDK IRQ delivery interrupted at the interrupt gate
+        if: ${{ inputs.irq_vectoring }}
+        run: >-
+          python3 tools/hvf/intel_nmi_entry_native.py --irq-vectoring
+          --output "$RUNNER_TEMP/hvf-intel-nmi-entry"
       - name: Preserve host identity and SDK result
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -5,13 +5,15 @@
 enum {
     PIN_CONTROLS = 0x4000, ENTRY_EVENT = 0x4016, EXIT_QUAL = 0x6400,
     IDT_BASE = 0x6818, IDT_LIMIT = 0x4812, INTERRUPTIBILITY = 0x4824,
+    IDT_VECTORING_INFO = 0x4408, EXIT_GUEST_PHYSICAL = 0x2400,
     IDT = 0xc000, HANDLER = 0xb000, IRQ_VECTOR = 0x40,
+    IDT_PAGE_SIZE = 0x1000, EXIT_EPT_VIOLATION = 48,
     START_PORT = 0x81, HANDLER_PORT = 0x80,
 };
 
-enum event { NONE, IRQ, NMI, NMI_WITH_IF, NMI_WITHOUT_VIRTUAL_BLOCKING };
+enum event { NONE, IRQ, NMI, NMI_WITH_IF, NMI_WITHOUT_VIRTUAL_BLOCKING, IRQ_VECTORING };
 static const char *const names[] = {
-    "none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking",
+    "none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking", "irq-vectoring",
 };
 
 static void publish_gate(uint8_t *memory, unsigned vector)
@@ -35,6 +37,60 @@ static uint64_t enter(hv_vcpuid_t cpu, uint64_t slice)
 static bool port_exit(hv_vcpuid_t cpu, uint64_t reason, unsigned port)
 {
     return reason == 30 && (read_field(cpu, EXIT_QUAL) >> 16 & 0xffff) == port;
+}
+
+static int observe_irq_vectoring(hv_vcpuid_t cpu, uint8_t *memory, uint64_t slice)
+{
+    const uint64_t irq = UINT64_C(0x80000000) | IRQ_VECTOR;
+    uint64_t pc = read_reg(cpu, HV_X86_RIP), sp = read_reg(cpu, HV_X86_RSP);
+    check(hv_vm_unmap(IDT, IDT_PAGE_SIZE), "unmap the interrupt gate");
+    field(cpu, ENTRY_EVENT, irq);
+    uint64_t reason = enter(cpu, slice);
+    uint64_t qualification = 0, gpa = 0, vectoring = 0;
+    if (reason == EXIT_EPT_VIOLATION) {
+        qualification = read_field(cpu, EXIT_QUAL);
+        gpa = read_field(cpu, EXIT_GUEST_PHYSICAL);
+        vectoring = read_field(cpu, IDT_VECTORING_INFO);
+    }
+    uint64_t stopped_pc = read_reg(cpu, HV_X86_RIP);
+    uint64_t stopped_sp = read_reg(cpu, HV_X86_RSP);
+    uint64_t stopped_visits = read_reg(cpu, HV_X86_R11);
+    check(hv_vm_map(memory + IDT, IDT, IDT_PAGE_SIZE,
+                    HV_MEMORY_READ | HV_MEMORY_WRITE | HV_MEMORY_EXEC), "remap the interrupt gate");
+
+    // SDM 29.2.4 leaves bit 12 of valid IDT-vectoring information undefined.
+    // It is reserved in the VM-entry event field and must be zero there.
+    uint64_t replay = vectoring & ~(UINT64_C(1) << 12);
+    bool interrupted = reason == EXIT_EPT_VIOLATION && (qualification & 7) == 1 &&
+        gpa >= IDT + 16 * IRQ_VECTOR && gpa < IDT + 16 * (IRQ_VECTOR + 1) &&
+        replay == irq && stopped_pc == pc && stopped_sp == sp && stopped_visits == 0;
+    uint64_t next = reason, final = reason;
+    bool reached = false, continued = false;
+    if (interrupted) {
+        // The selected external interrupt has no error code or instruction length.
+        field(cpu, ENTRY_EVENT, replay);
+        next = enter(cpu, slice);
+        if (port_exit(cpu, next, HANDLER_PORT) && read_reg(cpu, HV_X86_RIP) == HANDLER + 3 &&
+            read_reg(cpu, HV_X86_R11) == 1) {
+            reached = true;
+            field(cpu, ENTRY_EVENT, 0);
+            reg(cpu, HV_X86_RIP, HANDLER + 5);
+            final = enter(cpu, slice);
+            continued = final == 12 && read_reg(cpu, HV_X86_RIP) == CODE + 12 &&
+                read_reg(cpu, HV_X86_RSP) == sp && read_reg(cpu, HV_X86_R10) == MARKER &&
+                read_reg(cpu, HV_X86_RFLAGS) == 0x202 && read_reg(cpu, HV_X86_R11) == 1;
+        }
+    }
+    printf("{\"event\":\"irq-vectoring\",\"exit_reason\":%" PRIu64
+           ",\"exit_qualification\":%" PRIu64 ",\"guest_physical\":%" PRIu64
+           ",\"idt_vectoring\":%" PRIu64 ",\"stopped_pc\":%" PRIu64
+           ",\"stopped_sp\":%" PRIu64 ",\"stopped_visits\":%" PRIu64
+           ",\"handler_exit\":%" PRIu64 ",\"final_exit\":%" PRIu64
+           ",\"interrupted\":%s,\"handler_reached\":%s,\"continuation\":%s}\n",
+           reason, qualification, gpa, vectoring, stopped_pc, stopped_sp, stopped_visits,
+           next, final, interrupted ? "true" : "false", reached ? "true" : "false",
+           continued ? "true" : "false");
+    return interrupted && reached && continued ? 0 : 1;
 }
 
 static void destroy(hv_vcpuid_t cpu, void *memory)
@@ -100,7 +156,8 @@ int main(int argc, char **argv)
         return 1;
     }
     field(cpu, PIN_CONTROLS, pins);
-    const uint64_t initial_flags = event == IRQ || event == NMI_WITH_IF ? 0x202 : 2;
+    const uint64_t initial_flags =
+        event == IRQ || event == NMI_WITH_IF || event == IRQ_VECTORING ? 0x202 : 2;
     reg(cpu, HV_X86_RFLAGS, initial_flags);
     reg(cpu, HV_X86_R11, 0);
     mach_timebase_info_data_t timebase;
@@ -112,6 +169,11 @@ int main(int argc, char **argv)
         return 1;
     }
     reg(cpu, HV_X86_RIP, CODE + sizeof(marker));
+    if (event == IRQ_VECTORING) {
+        int result = observe_irq_vectoring(cpu, memory, slice);
+        destroy(cpu, memory);
+        return result;
+    }
 
     uint64_t entry_event = 0;
     if (event == IRQ) entry_event = UINT64_C(0x80000000) | IRQ_VECTOR;
