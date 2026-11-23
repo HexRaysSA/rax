@@ -958,6 +958,21 @@ fn installed_darwin_resource_fork_matches_native_through_closed_c_abi() {
     compare_installed_workspace_fixture(&binary, "closed_darwin_workspace_resource_fork", None);
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "requires the locally built closed_darwin_workspace_record_locks.c APFS fixture"]
+fn installed_darwin_record_locks_match_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_RECORD_LOCK_CONTROL")
+        .expect("absolute path to the dynamically linked record lock fixture");
+    // This fixture starts dyld again for each of the exec and spawn controls.
+    compare_installed_workspace_fixture_with_turn_limit(
+        &binary,
+        "closed_darwin_workspace_record_locks",
+        None,
+        131_072,
+    );
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 #[ignore = "run with a locally built closed_linux_workspace_xattr.c fixture on a user-xattr filesystem"]
@@ -981,6 +996,21 @@ fn compare_installed_workspace_fixture(
     binary: &str,
     fixture: &str,
     expected_stdout: Option<&[u8]>,
+) {
+    compare_installed_workspace_fixture_with_turn_limit(
+        binary,
+        fixture,
+        expected_stdout,
+        INSTALLED_POSIX_DEFAULT_TURNS,
+    );
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn compare_installed_workspace_fixture_with_turn_limit(
+    binary: &str,
+    fixture: &str,
+    expected_stdout: Option<&[u8]>,
+    max_turns: u64,
 ) {
     let native_path = std::env::temp_dir().join(format!("rax-{fixture}-{}", std::process::id()));
     std::fs::create_dir(&native_path).unwrap();
@@ -1027,7 +1057,7 @@ fn compare_installed_workspace_fixture(
     assert_eq!(state["capabilities"]["native_runtime"], true);
     assert_eq!(state["capabilities"]["host_filesystem"], false);
     assert_eq!(state["capabilities"]["host_services"], false);
-    let status = run_installed_posix(&process, &guest_path);
+    let status = run_installed_posix_with_turn_limit(&process, &guest_path, max_turns);
     let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
     let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
     assert_eq!(status.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
@@ -1072,8 +1102,11 @@ fn compare_installed_posix_output(
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+const INSTALLED_POSIX_DEFAULT_TURNS: u64 = 16_384;
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn run_installed_posix(process: &Owned, path: &str) -> RaxProcessResult {
-    run_installed_posix_with_turn_limit(process, path, 16_384)
+    run_installed_posix_with_turn_limit(process, path, INSTALLED_POSIX_DEFAULT_TURNS)
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]

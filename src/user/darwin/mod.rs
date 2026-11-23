@@ -71,5 +71,6 @@ pub mod vfs;
 pub mod vm;
 pub mod wait;
 pub mod workq;
+mod workspace_locks;
 
 pub use process::{DarwinConfig, DarwinProcess, ExitStatus, RunStatus, SpawnError};

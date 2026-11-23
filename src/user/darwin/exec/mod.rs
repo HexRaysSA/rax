@@ -21,6 +21,7 @@
 //!   mask, resource limits, children, start time, and interval timers;
 //! - the descriptors, less those marked close-on-exec and every kqueue
 //!   (`FG_CONFINED`);
+//! - guest-private POSIX record locks transferred by the descriptor sweep;
 //! - the calling thread's signal mask and pending signals (on the new
 //!   image's only thread); caught signals return to their default action
 //!   (and are discarded if that ignores them), ignored ones stay ignored,
@@ -89,6 +90,11 @@ pub fn execve(ctx: &mut Ctx<'_>, path: u64, argv: u64, envp: u64) -> SysResult {
     };
     let strings = args::extract(ctx, &act.interp, &act.user_path, argv, envp)?;
     let fds = fdt_fork(&ctx.proc.fds, true);
+    let transferred = ctx
+        .proc
+        .family
+        .as_ref()
+        .map(|_| transferred_workspace_locks(&fds, None));
     let carried = carry(ctx.proc, ctx.thread, fds, None);
     let built = build(ctx.proc, act, strings, carried).map(|proc| Swap {
         proc,
@@ -96,15 +102,24 @@ pub fn execve(ctx: &mut Ctx<'_>, path: u64, argv: u64, envp: u64) -> SysResult {
         chdir: None,
         suspend: false,
     });
-    swap_or_kill(ctx, built)
+    swap_or_kill(ctx, built, transferred)
 }
 
 /// Swaps the built image in when the call returns; past the point of no
 /// return, a failure to build it kills the process.
-fn swap_or_kill(ctx: &mut Ctx<'_>, built: Result<Swap, SpawnError>) -> SysResult {
+fn swap_or_kill(
+    ctx: &mut Ctx<'_>,
+    built: Result<Swap, SpawnError>,
+    transferred: Option<BTreeSet<u64>>,
+) -> SysResult {
     match built {
         Ok(mut swap) => {
             let proc = &mut swap.proc;
+            if let (Some(member), Some(transferred)) = (&ctx.proc.family, transferred) {
+                member.workspace_locks(|locks| {
+                    locks.retain_after_exec(ctx.proc.pid, |ino| transferred.contains(&ino));
+                });
+            }
             // Only an exec replaces this process. A true spawn builds its
             // child separately and must not inherit the tracing flags.
             #[cfg(unix)]
@@ -202,12 +217,40 @@ pub fn fdt_fork(fds: &FdTable, in_exec: bool) -> FdTable {
 pub fn fdt_exec(fds: &mut FdTable, inherit: Option<&BTreeSet<i32>>) {
     let close: Vec<i32> = fds
         .iter()
-        .filter(|(fd, f)| f.cloexec || inherit.is_some_and(|keep| !keep.contains(fd)))
+        .filter(|(fd, f)| closes_at_exec(*fd, f, inherit))
         .map(|(fd, _)| fd)
         .collect();
     for fd in close {
         let _ = fds.remove(fd);
     }
+}
+
+fn closes_at_exec(
+    fd: i32,
+    file: &crate::user::darwin::fd::Fd,
+    inherit: Option<&BTreeSet<i32>>,
+) -> bool {
+    file.cloexec || inherit.is_some_and(|keep| !keep.contains(&fd))
+}
+
+/// Darwin's exec copy and spawn file actions precede the lock transfer.
+/// The final descriptor sweep goes from high to low. Its first retained
+/// description transfers the old process's locks for that inode. A lower
+/// descriptor closed afterward releases those transferred locks.
+fn transferred_workspace_locks(fds: &FdTable, inherit: Option<&BTreeSet<i32>>) -> BTreeSet<u64> {
+    let mut visited = BTreeSet::new();
+    let mut transferred = BTreeSet::new();
+    for (fd, file) in fds.iter().rev() {
+        let Some(ino) = super::workspace_locks::inode(&file.file) else {
+            continue;
+        };
+        if closes_at_exec(fd, file, inherit) {
+            transferred.remove(&ino);
+        } else if visited.insert(ino) {
+            transferred.insert(ino);
+        }
+    }
+    transferred
 }
 
 /// `execsigs`: caught signals take their default action again (and join

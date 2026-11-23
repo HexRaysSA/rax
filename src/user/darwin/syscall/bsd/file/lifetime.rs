@@ -178,6 +178,11 @@ fn used(proc: &Proc, fd: i32) -> bool {
 }
 
 fn dispose(proc: &mut Proc, fd: i32, old: Fd) {
+    if let Some(member) = &proc.family
+        && let Some(ino) = crate::user::darwin::workspace_locks::inode(&old.file)
+    {
+        member.workspace_locks(|locks| locks.close(ino, proc.pid));
+    }
     crate::user::darwin::kevent::fd_closed(proc, fd, Some(old.file));
 }
 

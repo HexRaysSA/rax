@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use super::{DarwinProcess, ExitStatus, Proc, RunStatus, wait};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::signal::{self, frame::code};
+use crate::user::darwin::workspace_locks::Locks;
 
 pub(super) const ROOT_PID: i32 = 1000;
 const MAX_CHILDREN: usize = 32;
@@ -37,6 +38,7 @@ struct Registry {
     children: BTreeMap<i32, Child>,
     pending_signals: Vec<Delivery>,
     job_changes: Vec<JobChange>,
+    workspace_locks: Locks,
 }
 
 struct Delivery {
@@ -186,11 +188,16 @@ impl Member {
                 children: BTreeMap::new(),
                 pending_signals: Vec::new(),
                 job_changes: Vec::new(),
+                workspace_locks: Locks::default(),
             })),
             pid: ROOT_PID,
             initial: ROOT_IDENTITY,
             stopped: false,
         }
+    }
+
+    pub(in crate::user::darwin) fn workspace_locks<T>(&self, f: impl FnOnce(&mut Locks) -> T) -> T {
+        f(&mut self.registry.lock().unwrap().workspace_locks)
     }
 
     pub(crate) fn prepare_child(
@@ -484,6 +491,7 @@ impl Member {
 
     fn exit(&self, pid: i32, report: Option<Report>) {
         let mut registry = self.registry.lock().unwrap();
+        registry.workspace_locks.exit(pid);
         if let Some(report) = report {
             registry.children.get_mut(&pid).expect("live child").report = Some(report);
         } else {

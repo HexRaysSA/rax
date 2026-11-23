@@ -298,7 +298,7 @@ impl FdTable {
     }
 
     /// The open descriptors, in order.
-    pub fn iter(&self) -> impl Iterator<Item = (i32, &Fd)> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = (i32, &Fd)> {
         self.slots
             .iter()
             .enumerate()

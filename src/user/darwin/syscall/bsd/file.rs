@@ -913,6 +913,11 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
         return record_lock::wait(ctx, fd, c, arg);
     }
     let file = ctx.proc.fds.file(fd)?;
+    if matches!(c, F_GETLK | F_SETLK)
+        && let FileKind::Embedded(object) = &file.kind
+    {
+        return crate::user::darwin::workspace_locks::fcntl(ctx, object, c == F_GETLK, arg);
+    }
     let limit = ctx.proc.rlimits[8].0;
     match c {
         F_DUPFD | F_DUPFD_CLOEXEC | F_DUPFD_CLOFORK => {

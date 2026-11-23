@@ -25,7 +25,10 @@ use std::sync::Arc;
 #[cfg(unix)]
 use super::image::Dir;
 use super::image::{self, Binprefs, NBINPREFS};
-use super::{Swap, args, build, build_errno, carry, exec_task, fdt_fork, swap_or_kill};
+use super::{
+    Swap, args, build, build_errno, carry, exec_task, fdt_fork, swap_or_kill,
+    transferred_workspace_locks,
+};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{FdTable, OpenFile};
@@ -761,6 +764,8 @@ pub fn posix_spawn(
         dir,
         inherit,
     } = scratch;
+    let transferred = (setexec && ctx.proc.family.is_some())
+        .then(|| transferred_workspace_locks(&fds, inherit.as_ref()));
     let mut carried = carry(ctx.proc, ctx.thread, fds, inherit.as_ref());
     carried.cwd = cwd;
     carried.cwd_directory = cwd_directory;
@@ -821,7 +826,7 @@ pub fn posix_spawn(
             chdir: dir,
             suspend,
         });
-        return swap_or_kill(ctx, built);
+        return swap_or_kill(ctx, built, transferred);
     }
     let new = build(ctx.proc, act, strings, carried).map_err(|e| build_errno(&e))?;
     if new.family.is_some() {
