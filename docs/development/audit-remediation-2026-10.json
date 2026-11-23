@@ -1068,7 +1068,8 @@
         "The represented unconditional core/system FP transfers and generic coprocessor family routing are locally qualified in a32-coprocessor-prefix/qualification.json. Complete profile/security/debug/native/private/in-flight/IRQ/clock/replay and physical A32 requirements remain open.",
         "The selected scalar VFP memory forms reject before effects and competing FP access traps. Legal literal and general-register controls passed on both RAX and QEMU. Remaining optional profile, security, halting-debug and physical A32 qualification are open.",
         "Cross-width CPACR/HCPTR and FP ID-group trap syndromes now report the active bank's X-register number. AArch32 Hyp retains raw Rt in HSR. Physical mixed-width execution and remaining profile, security and debug controls stay open.",
-        "A32 and T32 VCADD and vector/indexed VCMLA share the effective VCMA feature view. QEMU covered 176 legal and disabled controls. Remaining profile, security and debug controls and physical AArch32 qualification stay open."
+        "A32 and T32 VCADD and vector/indexed VCMLA share the effective VCMA feature view. QEMU covered 176 legal and disabled controls. Remaining profile, security and debug controls and physical AArch32 qualification stay open.",
+        "A standalone ARM or Thumb CPU restored at the maximum retirement count can execute one FP instruction and wrap to zero. An FP access denial preserves the count. Unfiltered Intel Linux validation passed 61,985 tests with 100 opt-in cases ignored. See a32-fp-controls.md."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -2950,7 +2951,8 @@
         "The configured software x86 file retains unresolved xAPIC destinations. Native Intel HVF restores selected pending MOVBE and CMPXCHG8B transactions in fresh vCPUs. Public KVM VMM bundles now carry private CPU and VM records. Physical Intel passed 15 coordinated KVM runtime tests covering deferred I/O, rollback, timer activation, IRQ delivery and multicore continuation. Broader kernel-private timer, platform and replay boundaries are open. See kvm-native-owner.md.",
         "Native Intel HVF restores a queued LAPIC timer event into a fresh vCPU and executes its handler once without reinjection. This exercises the private CPU record and its retained controller model. Full coordinated VM publication remains open.",
         "Three hosted Intel cases qualify an unarmed pending IRQ, direct delivery, and delivery after restoring a fresh vCPU with caller-held LAPIC state. Full coordinated native file restoration stays open.",
-        "Software x86 preserves the CPU's NMI block and the local APIC's independently queued NMI in detached VM files with 1, 2 and 4 configured CPUs. Complete backend and native interrupt restoration stays open."
+        "Software x86 preserves the CPU's NMI block and the local APIC's independently queued NMI in detached VM files with 1, 2 and 4 configured CPUs. Complete backend and native interrupt restoration stays open.",
+        "Hosted Intel HVF produced a VMM file with a stopped AP1 and an undispatched MOVLPD read. The original fixture's 16 MiB RAM failed public restore configuration validation. The revised fixture uses the public 128 MiB minimum. Fresh-owner continuation of the whole file requires a passing native run. See hvf-mmio-xmm.md."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3845,7 +3847,8 @@
         "Software AArch64 retains CPU_ON and CPU_OFF until coordinator acknowledgement. The three-CPU file regression restores both scheduling frontiers and executes the new secondary through Vmm.run. Complete backend/private/in-flight restore and remaining platform SMP/IRQ/clock profiles remain open.",
         "Four configured software x86 CPUs restore an in-flight xAPIC logical fanout after a target error and retain the unresolved destination set. Full platform startup, native IRQ/clock coordination and replay remain open.",
         "A four-vCPU coordinator witness checks selected PIC/LAPIC arming, LAPIC priority, and a disabled controller. The hosted Intel window probe uses one vCPU. Full native SMP interrupt ordering remains open.",
-        "The retired-clock software VMM resumes a blocked NMI handler on the last configured CPU and consumes the queued local APIC request after IRET. Detached 1, 2 and 4 CPU files verify both guest handler return PCs."
+        "The retired-clock software VMM resumes a blocked NMI handler on the last configured CPU and consumes the queued local APIC request after IRET. Detached 1, 2 and 4 CPU files verify both guest handler return PCs.",
+        "Physical Intel Linux passed the 15 public KVM checkpoint tests, including native INIT/SIPI and parallel UART continuation at 2 and 4 vCPUs, detached input at 1, 2 and 4 vCPUs, and a software LAPIC timer waking a restored VM with every vCPU halted. Additional native interrupt timing, platform scheduling and replay remain open. See kvm-native-owner.md."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4594,7 +4597,9 @@
         "Native Intel HVF on a virtualized Intel runner passed all 16 first-page address cases and all 12 legacy CMPXCHG8B cases. Following-page and concurrent code authority, remaining MMIO families, full interrupt conservation and bare-metal Intel validation remain open.",
         "Two native cases confirm exactly-once delivery of the selected LAPIC timer event, direct and after a CPU-entry-slot restore on a virtualized Intel runner. General vectoring and cross-CPU interrupt conservation remain open.",
         "Hosted Intel HVF yielded before CLI in both direct and stopped-restore IRQ cases and delivered the queued vector once. The unarmed control retained its pending event. Remaining MMIO and cross-CPU interrupt profiles and bare-metal Intel validation stay open.",
-        "The hosted virtual-NMI profile failed with VMX reason 0x80000021 before entering the handler, both on cold entry and after an ordinary guest PIO exit. An independent Apple SDK-only control reproduced the failure with IF clear and set, with successful empty-slot and maskable IRQ controls. See hvf-interrupt-window/README.md#hot-entry-and-independent-sdk-control. The cause in the host stack and bare-metal Intel behavior remain unknown."
+        "The hosted virtual-NMI profile failed with VMX reason 0x80000021 before entering the handler, both on cold entry and after an ordinary guest PIO exit. An independent Apple SDK-only control reproduced the failure with IF clear and set, with successful empty-slot and maskable IRQ controls. See hvf-interrupt-window/README.md#hot-entry-and-independent-sdk-control. The cause in the host stack and bare-metal Intel behavior remain unknown.",
+        "Split MMIO preflights admission before any device effect and retains first-live-PCI-BAR priority across hidden RAM and lower-priority BAR boundaries. The combined case set lost its hosted Intel runner after the signed build and qualifies zero guest cases. See hvf-memory-layout.md and hvf-command-deadline/README.md.",
+        "Packed equality and signed greater-than MMIO reads are implemented for 24 legacy SSE and VEX forms. The signed Intel cross-build, device planner, portable execution and physical Intel RAM oracle passed. Direct and stopped-restore device execution still requires hosted Intel qualification. See hvf-mmio-xmm.md."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
