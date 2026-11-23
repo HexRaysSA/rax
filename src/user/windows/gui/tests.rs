@@ -60,9 +60,9 @@ fn fixture_with_client_flags(arch: WinArch, flags: u64) -> io::Result<Arc<Inputs
     )
 }
 
-pub(crate) fn wow64_companion_fixture() -> Arc<Inputs> {
-    let inputs = wow64_companion_inputs(WinArch::Arm64, 0x34000);
-    inputs.qualify_wow64_companion(WinArch::Arm64).unwrap();
+pub(crate) fn wow64_companion_fixture(arch: WinArch, committed: u64) -> Arc<Inputs> {
+    let inputs = wow64_companion_inputs(arch, committed);
+    inputs.qualify_wow64_companion(arch).unwrap();
     inputs
 }
 
@@ -111,6 +111,7 @@ fn wow64_companion_inputs(arch: WinArch, committed: u64) -> Arc<Inputs> {
 fn wow64_companion_gui_uses_the_captured_desktop_commit_boundary() {
     for (arch, committed) in [
         (WinArch::X64, 0x21000),
+        (WinArch::X64, 0x25000),
         (WinArch::Arm64, 0x33000),
         (WinArch::Arm64, 0x34000),
         (WinArch::Arm64, 0x54000),
@@ -147,7 +148,13 @@ fn wow64_companion_gui_retires_first_view_when_desktop_cannot_fit() {
     );
     let mut state = State::new((6, 0));
     assert!(matches!(
-        state.prepare_wow64_thread(&mut vm, wow64_companion_fixture(), 8, 125, 0x600),
+        state.prepare_wow64_thread(
+            &mut vm,
+            wow64_companion_fixture(WinArch::Arm64, 0x34000),
+            8,
+            125,
+            0x600
+        ),
         Err(VmError::NoMemory)
     ));
     assert!(state.mappings.is_none() && state.threads.is_empty());

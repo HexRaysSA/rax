@@ -325,11 +325,12 @@ impl NativeRuntime {
         ) else {
             return Availability::select(arch, user, win32u, None);
         };
-        let (user, win32u) = match profile.libraries(&user, &win32u, native_directory) {
+        let (user, win32u, legacy_gdi32) = match profile.libraries(&user, &win32u, native_directory)
+        {
             Ok(pair) => pair,
             Err(error) => return Availability::Unavailable(error.to_string()),
         };
-        let availability = Availability::select(profile.native_arch, user, win32u, None);
+        let availability = Availability::select(profile.native_arch, user, win32u, legacy_gdi32);
         let Availability::Available(inputs) = availability else {
             return availability;
         };
