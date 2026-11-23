@@ -195,8 +195,11 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
             _ => {}
         }
     }
-    if CANCELLATION_POINTS.contains(&number) {
-        pthread::testcancel(ctx)?;
+    if CANCELLATION_POINTS.contains(&number)
+        && let Err(error) = pthread::testcancel(ctx)
+    {
+        file::lifetime::abandon_workspace_lock(ctx.proc, ctx.thread);
+        return Err(error);
     }
     if number == nr::FILEPORT_MAKEPORT && ctx.proc.fds.get(i(0)).is_ok_and(|fd| fd.guard.is_some())
     {

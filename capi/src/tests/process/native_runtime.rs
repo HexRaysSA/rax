@@ -973,6 +973,28 @@ fn installed_darwin_record_locks_match_native_through_closed_c_abi() {
     );
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "requires the locally built closed_darwin_workspace_blocking_locks.c APFS fixture"]
+fn installed_darwin_blocking_locks_match_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_BLOCKING_LOCK_CONTROL")
+        .expect("absolute path to the dynamically linked blocking lock fixture");
+    let expected = concat!(
+        "uncontended\n",
+        "released by unlock\n",
+        "released by close\n",
+        "released by exit\n",
+        "interrupted by signal\n",
+        "restarted by signal\n",
+        "one deadlock rejected\n",
+    );
+    compare_installed_workspace_fixture(
+        &binary,
+        "closed_darwin_workspace_blocking_locks",
+        Some(expected.as_bytes()),
+    );
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 #[ignore = "run with a locally built closed_linux_workspace_xattr.c fixture on a user-xattr filesystem"]

@@ -41,6 +41,8 @@ pub enum WaitKey {
     Knote(u64),
     /// An uninterruptible fileproc drain, completed by the kernel closer.
     FileDrain,
+    /// A private workspace inode's POSIX record locks changed.
+    WorkspaceLock(u64),
     /// A descriptor was removed while poll could be waiting on its slot.
     DescriptorClosed,
 }

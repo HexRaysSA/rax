@@ -663,26 +663,41 @@ impl Scheduler {
                 }
                 RunStatus::Cancelled => return RunStatus::Cancelled,
                 RunStatus::BudgetExhausted => self.blocked = 0,
-                RunStatus::Blocked => {
-                    self.blocked += 1;
-                    if self.blocked == self.active.len() + 1 {
-                        self.blocked = 0;
-                        if turns.is_some() {
-                            return RunStatus::Blocked;
-                        }
-                        // The closed profile supplies no host wake descriptors.
-                        let deadline = std::iter::once(&*root)
-                            .chain(self.active.values())
-                            .filter_map(|process| process.idle_deadline())
-                            .min();
-                        if deadline.is_none() {
-                            root.proc.exit_with(ExitStatus::Internal(
-                                "deadlock: every guest process is waiting".into(),
-                            ));
-                        } else {
-                            wait::sleep(&[], deadline);
-                        }
-                    }
+                RunStatus::Blocked => self.blocked += 1,
+            }
+            let ready = root
+                .proc
+                .family
+                .as_ref()
+                .expect("closed root")
+                .workspace_locks(Locks::take_wakes);
+            for (pid, ino) in ready {
+                let target = if pid == root.proc.pid {
+                    Some(&mut *root)
+                } else {
+                    self.active.get_mut(&pid)
+                };
+                if let Some(target) = target {
+                    self.blocked = 0;
+                    target.proc.post(wait::WaitKey::WorkspaceLock(ino));
+                }
+            }
+            if self.blocked == self.active.len() + 1 {
+                self.blocked = 0;
+                if turns.is_some() {
+                    return RunStatus::Blocked;
+                }
+                // The closed profile supplies no host wake descriptors.
+                let deadline = std::iter::once(&*root)
+                    .chain(self.active.values())
+                    .filter_map(|process| process.idle_deadline())
+                    .min();
+                if deadline.is_none() {
+                    root.proc.exit_with(ExitStatus::Internal(
+                        "deadlock: every guest process is waiting".into(),
+                    ));
+                } else {
+                    wait::sleep(&[], deadline);
                 }
             }
         }

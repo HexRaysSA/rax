@@ -912,11 +912,16 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
     if matches!(c, F_SETLKWTIMEOUT | F_OFD_SETLKWTIMEOUT) {
         return record_lock::wait(ctx, fd, c, arg);
     }
-    let file = ctx.proc.fds.file(fd)?;
-    if matches!(c, F_GETLK | F_SETLK)
-        && let FileKind::Embedded(object) = &file.kind
+    if c == F_SETLKW
+        && let Some(entered) = &ctx.thread.file_io
+        && let Some(request) = entered.workspace_lock
     {
-        return crate::user::darwin::workspace_locks::fcntl(ctx, object, c == F_GETLK, arg);
+        let file = entered.file.clone();
+        return crate::user::darwin::workspace_locks::resume(ctx, fd, &file, request);
+    }
+    let file = ctx.proc.fds.file(fd)?;
+    if matches!(c, F_GETLK | F_SETLK | F_SETLKW) && matches!(&file.kind, FileKind::Embedded(_)) {
+        return crate::user::darwin::workspace_locks::fcntl(ctx, fd, c, &file, arg);
     }
     let limit = ctx.proc.rlimits[8].0;
     match c {

@@ -5,9 +5,10 @@ use std::sync::Arc;
 use crate::user::darwin::abi::{Errno, tables::nr};
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::fd::{Fd, FileRef};
-use crate::user::darwin::process::Proc;
+use crate::user::darwin::process::{Proc, Thread};
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{Wait, WaitKey};
+use crate::user::darwin::workspace_locks::{self, Request};
 
 /// An entered operation's reference to one descriptor, independently of aliases.
 #[derive(Clone, Debug)]
@@ -21,6 +22,7 @@ pub(crate) struct Use {
     pub(super) vectors: Option<Vec<(u64, u64)>>,
     /// Bytes already accepted by a guest pipe during a blocking write.
     pub(super) pipe_written: usize,
+    pub(super) workspace_lock: Option<Request>,
     /// Timed record locks retain their copied request and original deadline.
     #[cfg(unix)]
     pub(super) lock: Option<super::record_lock::Entered>,
@@ -67,6 +69,7 @@ pub(super) fn parked_pipe(
         write: !read,
         vectors: Some(vectors),
         pipe_written: written,
+        workspace_lock: None,
         #[cfg(unix)]
         lock: None,
         #[cfg(target_os = "macos")]
@@ -126,6 +129,7 @@ pub(super) fn parked_write(
         write: true,
         vectors,
         pipe_written: 0,
+        workspace_lock: None,
         #[cfg(unix)]
         lock: None,
         #[cfg(target_os = "macos")]
@@ -156,6 +160,7 @@ pub(super) fn parked_read(
         write: false,
         vectors,
         pipe_written: 0,
+        workspace_lock: None,
         #[cfg(unix)]
         lock: None,
         #[cfg(target_os = "macos")]
@@ -171,6 +176,27 @@ pub(super) fn parked_read(
     }
 }
 
+pub(in crate::user::darwin) fn parked_workspace_lock(
+    ctx: &mut Ctx<'_>,
+    fd: i32,
+    file: &FileRef,
+    request: Request,
+) {
+    ctx.thread.file_io = Some(Use {
+        fd,
+        file: file.clone(),
+        read: false,
+        write: false,
+        vectors: None,
+        pipe_written: 0,
+        workspace_lock: Some(request),
+        #[cfg(unix)]
+        lock: None,
+        #[cfg(target_os = "macos")]
+        read_job: None,
+    });
+}
+
 fn used(proc: &Proc, fd: i32) -> bool {
     proc.threads
         .values()
@@ -179,7 +205,7 @@ fn used(proc: &Proc, fd: i32) -> bool {
 
 fn dispose(proc: &mut Proc, fd: i32, old: Fd) {
     if let Some(member) = &proc.family
-        && let Some(ino) = crate::user::darwin::workspace_locks::inode(&old.file)
+        && let Some(ino) = workspace_locks::inode(&old.file)
     {
         member.workspace_locks(|locks| locks.close(ino, proc.pid));
     }
@@ -322,6 +348,7 @@ pub(super) fn replace(
         write: false,
         vectors: None,
         pipe_written: 0,
+        workspace_lock: None,
         #[cfg(unix)]
         lock: None,
         #[cfg(target_os = "macos")]
@@ -337,10 +364,27 @@ pub(super) fn replace(
     )
 }
 
+pub(in crate::user::darwin) fn abandon_workspace_lock(proc: &Proc, thread: &Thread) {
+    if thread
+        .file_io
+        .as_ref()
+        .is_some_and(|entered| entered.workspace_lock.is_some())
+    {
+        workspace_locks::cancel_wait(proc, thread.tid);
+    }
+}
+
 /// Progress kernel-owned I/O and close barriers independently of user holds.
 pub(crate) fn progress(proc: &mut Proc) {
     for thread in proc.threads.values_mut().filter(|thread| thread.exited) {
-        thread.file_io = None;
+        if thread
+            .file_io
+            .take()
+            .is_some_and(|entered| entered.workspace_lock.is_some())
+            && let Some(member) = &proc.family
+        {
+            member.workspace_locks(|locks| locks.cancel(proc.pid, thread.tid));
+        }
     }
     let mut io: Vec<_> = proc
         .threads
@@ -351,6 +395,9 @@ pub(crate) fn progress(proc: &mut Proc) {
             let wait = t.wait.as_ref()?;
             if t.exited || pending.completed.is_some() {
                 return None;
+            }
+            if entered.workspace_lock.is_some() {
+                return t.woken.then_some((wait.seq, t.tid));
             }
             if entered.file.pipe_end().is_some() {
                 return (t.woken && (entered.read || entered.write)).then_some((wait.seq, t.tid));

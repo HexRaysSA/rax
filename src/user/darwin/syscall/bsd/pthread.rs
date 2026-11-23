@@ -229,6 +229,7 @@ pub fn bsdthread_terminate(
 /// control port dies, joiners are woken, and a join ulock is woken
 /// (`uthread_joiner_wake`).
 pub fn reap(proc: &mut Proc, thread: &mut Thread) {
+    super::file::lifetime::abandon_workspace_lock(proc, thread);
     crate::user::darwin::workq::thread_terminated(proc, thread.tid);
     if let Some((addr, kport)) = thread.mach.join.take() {
         // UL_UNFAIR_LOCK | ULF_WAKE_ALL | ULF_WAKE_ALLOW_NON_OWNER.

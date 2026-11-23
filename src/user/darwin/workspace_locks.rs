@@ -1,12 +1,13 @@
 //! POSIX byte-range locks on closed Darwin workspace data files.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::abi::Errno;
 use super::arch::{Rv, SysResult};
-use super::fd::{EmbeddedFile, FileKind, OpenFile};
+use super::fd::{FileKind, FileRef, OpenFile};
 use super::io::{O_RDONLY, O_WRONLY};
-use super::syscall::Ctx;
+use super::syscall::{self, Ctx, bsd::file::lifetime};
+use super::wait::{Wait, WaitKey};
 
 const READ: i16 = 1;
 const UNLOCK: i16 = 2;
@@ -56,10 +57,17 @@ impl Range {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Lock {
     range: Range,
     kind: i16,
+}
+
+/// The inode and absolute range copied at entry to F_SETLKW.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Request {
+    ino: u64,
+    lock: Lock,
 }
 
 struct OwnerLocks {
@@ -122,11 +130,15 @@ impl OwnerLocks {
 }
 
 #[derive(Default)]
-pub(super) struct Locks(BTreeMap<u64, Vec<OwnerLocks>>);
+pub(super) struct Locks {
+    files: BTreeMap<u64, Vec<OwnerLocks>>,
+    waiting: BTreeMap<(i32, u64), Request>,
+    changed: BTreeSet<u64>,
+}
 
 impl Locks {
     fn conflict(&self, ino: u64, pid: i32, request: Lock) -> Option<(i32, Lock)> {
-        self.0
+        self.files
             .get(&ino)?
             .iter()
             .filter(|owner| owner.pid != pid)
@@ -143,7 +155,7 @@ impl Locks {
     }
 
     fn has_locks(&self, ino: u64) -> bool {
-        self.0.contains_key(&ino)
+        self.files.contains_key(&ino)
     }
 
     fn set(&mut self, ino: u64, pid: i32, lock: Lock) -> Result<(), Errno> {
@@ -153,7 +165,7 @@ impl Locks {
         if lock.kind == UNLOCK && !self.has_locks(ino) {
             return Ok(());
         }
-        let owners = self.0.entry(ino).or_default();
+        let owners = self.files.entry(ino).or_default();
         let index = owners.iter().position(|owner| owner.pid == pid);
         if let Some(index) = index {
             owners[index].replace(lock);
@@ -167,16 +179,64 @@ impl Locks {
             });
         }
         if owners.is_empty() {
-            self.0.remove(&ino);
+            self.files.remove(&ino);
         }
+        self.changed.insert(ino);
         Ok(())
     }
 
+    fn set_waiting(&mut self, owner: (i32, u64), request: Request) -> Result<bool, Errno> {
+        self.waiting.remove(&owner);
+        let (pid, _) = owner;
+        if request.lock.kind != UNLOCK
+            && let Some((blocker, _)) = self.conflict(request.ino, pid, request.lock)
+        {
+            if self.depends_on(blocker, pid) {
+                return Err(Errno::EDEADLK);
+            }
+            self.waiting.insert(owner, request);
+            return Ok(false);
+        }
+        self.set(request.ino, pid, request.lock)?;
+        Ok(true)
+    }
+
+    fn depends_on(&self, blocker: i32, requester: i32) -> bool {
+        // Darwin detects two owners waiting on each other, even on distinct
+        // inodes. An unlock can sever that edge before the next scheduler turn.
+        self.waiting
+            .range((blocker, 0)..=(blocker, u64::MAX))
+            .any(|(_, request)| {
+                self.conflict(request.ino, blocker, request.lock)
+                    .is_some_and(|(owner, _)| owner == requester)
+            })
+    }
+
+    pub(super) fn cancel(&mut self, pid: i32, tid: u64) {
+        self.waiting.remove(&(pid, tid));
+    }
+
+    pub(super) fn take_wakes(&mut self) -> BTreeSet<(i32, u64)> {
+        let changed = std::mem::take(&mut self.changed);
+        if changed.is_empty() {
+            return BTreeSet::new();
+        }
+        self.waiting
+            .iter()
+            .filter(|(_, request)| changed.contains(&request.ino))
+            .map(|(&(pid, _), request)| (pid, request.ino))
+            .collect()
+    }
+
     pub(super) fn close(&mut self, ino: u64, pid: i32) {
-        if let Some(owners) = self.0.get_mut(&ino) {
+        if let Some(owners) = self.files.get_mut(&ino) {
+            let previous = owners.len();
             owners.retain(|owner| owner.pid != pid);
+            if owners.len() != previous {
+                self.changed.insert(ino);
+            }
             if owners.is_empty() {
-                self.0.remove(&ino);
+                self.files.remove(&ino);
             }
         }
     }
@@ -186,9 +246,14 @@ impl Locks {
     }
 
     pub(super) fn retain_after_exec(&mut self, pid: i32, transferred: impl Fn(u64) -> bool) {
-        self.0.retain(|&ino, owners| {
+        self.waiting.retain(|&(owner, _), _| owner != pid);
+        self.files.retain(|&ino, owners| {
             if !transferred(ino) {
+                let previous = owners.len();
                 owners.retain(|owner| owner.pid != pid);
+                if owners.len() != previous {
+                    self.changed.insert(ino);
+                }
             }
             !owners.is_empty()
         });
@@ -206,10 +271,17 @@ pub(super) fn inode(file: &OpenFile) -> Option<u64> {
 
 pub(super) fn fcntl(
     ctx: &mut Ctx<'_>,
-    object: &EmbeddedFile,
-    get: bool,
+    fd: i32,
+    command: i32,
+    file: &FileRef,
     argument: u64,
 ) -> SysResult {
+    use syscall::bsd::file::cmd::{F_GETLK, F_SETLKW};
+
+    let FileKind::Embedded(object) = &file.kind else {
+        return Err(Errno::EBADF);
+    };
+    let get = command == F_GETLK;
     let (_, access) = object.workspace().ok_or(Errno::EBADF)?;
     let entry = object.entry().expect("workspace file entry");
     let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
@@ -270,10 +342,51 @@ pub(super) fn fcntl(
         };
         bytes[20..22].copy_from_slice(&kind.to_le_bytes());
         ctx.write(argument, &bytes)?;
+    } else if command == F_SETLKW {
+        return wait(
+            ctx,
+            fd,
+            file,
+            Request {
+                ino: entry.ino,
+                lock: requested,
+            },
+        );
     } else {
         member.workspace_locks(|locks| locks.set(entry.ino, pid, requested))?;
     }
     Ok(Rv::one(0))
+}
+
+pub(super) fn resume(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, request: Request) -> SysResult {
+    ctx.thread.wait = None;
+    ctx.thread.woken = false;
+    if let Some(error) = super::signal::sleep_interruption(ctx.proc, ctx.thread) {
+        cancel_wait(ctx.proc, ctx.thread.tid);
+        return Err(error);
+    }
+    wait(ctx, fd, file, request)
+}
+
+fn wait(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, request: Request) -> SysResult {
+    let owner = (ctx.proc.pid, ctx.thread.tid);
+    let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
+    if member.workspace_locks(|locks| locks.set_waiting(owner, request))? {
+        return Ok(Rv::one(0));
+    }
+    let result = syscall::sleep(ctx, Wait::key(WaitKey::WorkspaceLock(request.ino), None));
+    if ctx.thread.wait.is_some() {
+        lifetime::parked_workspace_lock(ctx, fd, file, request);
+    } else {
+        cancel_wait(ctx.proc, ctx.thread.tid);
+    }
+    result
+}
+
+pub(super) fn cancel_wait(proc: &super::process::Proc, tid: u64) {
+    if let Some(member) = &proc.family {
+        member.workspace_locks(|locks| locks.cancel(proc.pid, tid));
+    }
 }
 
 #[cfg(test)]
@@ -322,5 +435,40 @@ mod tests {
         locks.close(1, 100);
         assert!(locks.conflict(1, 101, lock(READ, 0, 0)).is_none());
         assert!(locks.conflict(2, 101, lock(READ, 0, 0)).is_some());
+    }
+
+    #[test]
+    fn detects_two_owner_cycles_and_wakes_on_release() {
+        let mut locks = Locks::default();
+        let a = (100, 1);
+        let b = (101, 1);
+        let c = (102, 1);
+        for (ino, (pid, _)) in [(1, a), (2, b), (3, c)] {
+            locks.set(ino, pid, lock(WRITE, 0, 8)).unwrap();
+        }
+        assert!(locks.take_wakes().is_empty());
+        let request = |ino| Request {
+            ino,
+            lock: lock(WRITE, 0, 8),
+        };
+        assert_eq!(locks.set_waiting(a, request(2)), Ok(false));
+        assert_eq!(locks.set_waiting(b, request(1)), Err(Errno::EDEADLK));
+        assert_eq!(locks.set_waiting(b, request(3)), Ok(false));
+        assert_eq!(locks.set_waiting(c, request(1)), Ok(false));
+
+        locks.close(2, b.0);
+        assert_eq!(locks.take_wakes(), BTreeSet::from([(a.0, 2)]));
+        // A has yet to wake; its old edge to B is already severed.
+        assert_eq!(locks.set_waiting(b, request(1)), Ok(false));
+        locks.cancel(b.0, b.1);
+        assert_eq!(locks.set_waiting(b, request(3)), Ok(false));
+        assert_eq!(locks.set_waiting(a, request(2)), Ok(true));
+        assert!(locks.take_wakes().is_empty());
+
+        locks.cancel(c.0, c.1);
+        locks.exit(c.0);
+        assert_eq!(locks.take_wakes(), BTreeSet::from([(b.0, 3)]));
+        assert_eq!(locks.set_waiting(b, request(3)), Ok(true));
+        assert!(locks.take_wakes().is_empty());
     }
 }
