@@ -3,15 +3,19 @@
 use super::exchange::{Response, put_word, word};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{LsarpcPolicies, LsarpcPolicyContext, ObjId};
+use crate::user::windows::security::privilege_names::{self, DisplayCatalog};
 
 pub(super) const CALL: u32 = 0;
 
 const CLOSE: u32 = 0;
 const LOOKUP_PRIVILEGE_VALUE: u32 = 31;
 const LOOKUP_PRIVILEGE_NAME: u32 = 32;
+const LOOKUP_PRIVILEGE_DISPLAY_NAME: u32 = 33;
 const OPEN: u32 = 130;
 const REPLY: u32 = 3;
 const RPC_HEADER_BYTES: usize = 24;
+const INPUT_NAME_AT: usize = 128;
+const RESULT_NAME_AT: usize = 72;
 const CLOSE_REPLY_BYTES: usize = 92;
 const LOOKUP_REPLY_BYTES: usize = 80;
 const OPEN_BYTES: usize = 152;
@@ -43,11 +47,13 @@ pub(super) fn response(
     request_type: u16,
     association: ObjId,
     contexts: &LsarpcPolicies,
+    display_names: Option<&DisplayCatalog>,
 ) -> Option<Response> {
     let mut response = match operation(payload, request_type)? {
         OPEN => open(payload, association, contexts)?,
         LOOKUP_PRIVILEGE_VALUE => lookup_value(payload, contexts)?,
         LOOKUP_PRIVILEGE_NAME => lookup_name(payload, contexts)?,
+        LOOKUP_PRIVILEGE_DISPLAY_NAME => lookup_display_name(payload, contexts, display_names)?,
         CLOSE => close(payload, contexts)?,
         _ => return None,
     };
@@ -118,39 +124,16 @@ pub(super) fn open_access(payload: &[u8]) -> Option<u32> {
 }
 
 fn lookup_value(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
-    const NAME_OFFSET: usize = 128;
-    if payload.len() < NAME_OFFSET || payload[24..64].iter().any(|&b| b != 0) {
+    let (context, end) = lookup_name_input(payload)?;
+    if end.next_multiple_of(8) != payload.len() {
         return None;
     }
-    let context = payload[64..84].try_into().expect("checked context extent");
-    let length = usize::from(u16::from_le_bytes([payload[88], payload[89]]));
-    let maximum = usize::from(u16::from_le_bytes([payload[90], payload[91]]));
-    let end = NAME_OFFSET + length;
-    // RPC_UNICODE_STRING with a deferred conformant varying WCHAR array.
-    if length % 2 != 0
-        || maximum % 2 != 0
-        || length > maximum
-        || qword(payload, 96) == 0
-        || qword(payload, 104) != (maximum / 2) as u64
-        || qword(payload, 112) != 0
-        || qword(payload, 120) != (length / 2) as u64
-        || end.next_multiple_of(8) != payload.len()
-    {
-        return None;
-    }
+
     let mut response = reply(LOOKUP_REPLY_BYTES);
     let status = if !contexts.contains(&context) {
         STATUS_INVALID_HANDLE
     } else {
-        let units: Vec<u16> = payload[NAME_OFFSET..end]
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
-            .collect();
-        match String::from_utf16(&units)
-            .ok()
-            .as_deref()
-            .and_then(privilege_value)
-        {
+        match decode_name(&payload[INPUT_NAME_AT..end]) {
             Some(value) => {
                 put_word(&mut response.body, 24, value);
                 STATUS_SUCCESS
@@ -162,8 +145,40 @@ fn lookup_value(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
     Some(response)
 }
 
+fn lookup_name_input(payload: &[u8]) -> Option<(LsarpcPolicyContext, usize)> {
+    if payload.len() < INPUT_NAME_AT || payload[24..64].iter().any(|&b| b != 0) {
+        return None;
+    }
+
+    let length = usize::from(u16::from_le_bytes([payload[88], payload[89]]));
+    let maximum = usize::from(u16::from_le_bytes([payload[90], payload[91]]));
+    // RPC_UNICODE_STRING with a deferred conformant varying WCHAR array.
+    if length % 2 != 0
+        || maximum % 2 != 0
+        || length > maximum
+        || qword(payload, 96) == 0
+        || qword(payload, 104) != (maximum / 2) as u64
+        || qword(payload, 112) != 0
+        || qword(payload, 120) != (length / 2) as u64
+    {
+        return None;
+    }
+    let context = payload[64..84].try_into().expect("checked context extent");
+    Some((context, INPUT_NAME_AT + length))
+}
+
+fn decode_name(bytes: &[u8]) -> Option<u32> {
+    let units: Vec<u16> = bytes
+        .chunks_exact(2)
+        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .collect();
+    String::from_utf16(&units)
+        .ok()
+        .as_deref()
+        .and_then(privilege_names::value)
+}
+
 fn lookup_name(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
-    const NAME_OFFSET: usize = 72;
     if payload.len() != 92 || payload[24..64].iter().any(|&b| b != 0) {
         return None;
     }
@@ -173,7 +188,7 @@ fn lookup_name(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
     } else {
         let low = word(payload, 84);
         let high = word(payload, 88);
-        privilege_name(low, high).ok_or(STATUS_NO_SUCH_PRIVILEGE)
+        privilege_names::name(low, high).ok_or(STATUS_NO_SUCH_PRIVILEGE)
     };
     let name = match result {
         Ok(name) => name,
@@ -184,25 +199,61 @@ fn lookup_name(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
         }
     };
 
-    // NDR64 unique pointer to an RPC_UNICODE_STRING with a deferred character array.
-    // The counted text excludes the terminator. Status follows at four-byte alignment.
-    let chars = name.len() as u16;
-    let length = chars * 2;
-    let end = NAME_OFFSET + usize::from(length);
+    let units: Vec<u16> = name.encode_utf16().collect();
+    let end = RESULT_NAME_AT + 2 * units.len();
     let mut response = reply(end.next_multiple_of(4) + 8);
-    put_word(&mut response.body, 24, 0x20000);
-    response.body[32..34].copy_from_slice(&length.to_le_bytes());
-    response.body[34..36].copy_from_slice(&(length + 2).to_le_bytes());
-    put_word(&mut response.body, 40, 0x20000);
-    put_word(&mut response.body, 48, u32::from(chars) + 1);
-    put_word(&mut response.body, 64, u32::from(chars));
-    for (unit, chunk) in name
-        .encode_utf16()
-        .zip(response.body[NAME_OFFSET..end].chunks_exact_mut(2))
-    {
+    put_name(&mut response.body, &units);
+    Some(response)
+}
+
+fn lookup_display_name(
+    payload: &[u8],
+    contexts: &LsarpcPolicies,
+    names: Option<&DisplayCatalog>,
+) -> Option<Response> {
+    let (context, end) = lookup_name_input(payload)?;
+    if end + 4 != payload.len() {
+        return None;
+    }
+    if !contexts.contains(&context) {
+        return Some(display_error(STATUS_INVALID_HANDLE));
+    }
+    let Some(value) = decode_name(&payload[INPUT_NAME_AT..end]) else {
+        return Some(display_error(STATUS_NO_SUCH_PRIVILEGE));
+    };
+
+    let requested = [
+        u16::from_le_bytes([payload[end], payload[end + 1]]),
+        u16::from_le_bytes([payload[end + 2], payload[end + 3]]),
+    ];
+    let display = names?.get(value, requested)?;
+    let end = RESULT_NAME_AT + 2 * display.units.len();
+    let mut response = reply(end.next_multiple_of(4) + 40);
+    put_name(&mut response.body, &display.units);
+    response.body[end..end + 2].copy_from_slice(&display.language.to_le_bytes());
+    Some(response)
+}
+
+fn display_error(status: u32) -> Response {
+    let mut response = reply(72);
+    put_word(&mut response.body, 36, status);
+    response
+}
+
+fn put_name(body: &mut [u8], units: &[u16]) {
+    // NDR64 unique pointer to an RPC_UNICODE_STRING with a deferred character array.
+    // The counted data excludes the terminator, which contributes one to capacity.
+    let chars = units.len() as u16;
+    let length = chars * 2;
+    put_word(body, 24, 0x20000);
+    body[32..34].copy_from_slice(&length.to_le_bytes());
+    body[34..36].copy_from_slice(&(length + 2).to_le_bytes());
+    put_word(body, 40, 0x20000);
+    put_word(body, 48, u32::from(chars) + 1);
+    put_word(body, 64, u32::from(chars));
+    for (unit, chunk) in units.iter().zip(body[RESULT_NAME_AT..].chunks_exact_mut(2)) {
         chunk.copy_from_slice(&unit.to_le_bytes());
     }
-    Some(response)
 }
 
 pub(super) fn close(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
@@ -236,59 +287,4 @@ fn qword(bytes: &[u8], offset: usize) -> u64 {
             .try_into()
             .expect("checked NDR64 record"),
     )
-}
-
-// The low LUID components for the privileges in MS-LSAD §3.1.1.2.1.
-// These names are ASCII and the high components are all zero.
-const PRIVILEGE_NAMES: &[&str] = &[
-    "SeCreateTokenPrivilege",
-    "SeAssignPrimaryTokenPrivilege",
-    "SeLockMemoryPrivilege",
-    "SeIncreaseQuotaPrivilege",
-    "SeMachineAccountPrivilege",
-    "SeTcbPrivilege",
-    "SeSecurityPrivilege",
-    "SeTakeOwnershipPrivilege",
-    "SeLoadDriverPrivilege",
-    "SeSystemProfilePrivilege",
-    "SeSystemtimePrivilege",
-    "SeProfileSingleProcessPrivilege",
-    "SeIncreaseBasePriorityPrivilege",
-    "SeCreatePagefilePrivilege",
-    "SeCreatePermanentPrivilege",
-    "SeBackupPrivilege",
-    "SeRestorePrivilege",
-    "SeShutdownPrivilege",
-    "SeDebugPrivilege",
-    "SeAuditPrivilege",
-    "SeSystemEnvironmentPrivilege",
-    "SeChangeNotifyPrivilege",
-    "SeRemoteShutdownPrivilege",
-    "SeUndockPrivilege",
-    "SeSyncAgentPrivilege",
-    "SeEnableDelegationPrivilege",
-    "SeManageVolumePrivilege",
-    "SeImpersonatePrivilege",
-    "SeCreateGlobalPrivilege",
-    "SeTrustedCredManAccessPrivilege",
-    "SeRelabelPrivilege",
-    "SeIncreaseWorkingSetPrivilege",
-    "SeTimeZonePrivilege",
-    "SeCreateSymbolicLinkPrivilege",
-    "SeDelegateSessionUserImpersonatePrivilege",
-];
-
-fn privilege_value(name: &str) -> Option<u32> {
-    PRIVILEGE_NAMES
-        .iter()
-        .position(|candidate| candidate.eq_ignore_ascii_case(name))
-        .map(|position| position as u32 + 2)
-}
-
-fn privilege_name(low: u32, high: u32) -> Option<&'static str> {
-    if high != 0 {
-        return None;
-    }
-    let index = low.checked_sub(2)? as usize;
-    PRIVILEGE_NAMES.get(index).copied()
 }

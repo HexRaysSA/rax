@@ -60,7 +60,10 @@ pub(in crate::user::windows::dll::native) fn exchange(
             }
             let response = match peer.interface {
                 LsarpcInterface::Policy => {
-                    policy::response(payload, request_type, association, &peer.policies)
+                    let names = c.p.native.as_ref().and_then(|runtime| {
+                        runtime.object_namespace.privilege_display_names.as_deref()
+                    });
+                    policy::response(payload, request_type, association, &peer.policies, names)
                 }
                 LsarpcInterface::PolicyLookup => {
                     policy_lookup::response(c, payload, request_type, association, &peer.policies)

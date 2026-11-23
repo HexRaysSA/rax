@@ -233,6 +233,8 @@ pub(crate) struct Namespace {
     csr_server: Option<Arc<csr::CsrServer>>,
     pub(crate) activation_context: Option<Arc<csr::activation::ActivationContext>>,
     pub(crate) policy_lookup_account: Option<Arc<policy_lookup::PrimaryAccount>>,
+    pub(crate) privilege_display_names:
+        Option<Arc<super::security::privilege_names::DisplayCatalog>>,
     cache_server: Option<Arc<cache::CacheServer>>,
     security_device: Option<security_device::SecurityDevice>,
     cng_device: Option<security_device::SecurityDevice>,
@@ -496,6 +498,7 @@ impl Namespace {
             csr_server: None,
             activation_context: None,
             policy_lookup_account: None,
+            privilege_display_names: None,
             cache_server: None,
             security_device: None,
             cng_device: None,

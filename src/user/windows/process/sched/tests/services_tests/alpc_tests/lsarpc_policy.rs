@@ -1,6 +1,8 @@
 use super::*;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::LsarpcInterface;
+use crate::user::windows::security::privilege_names::{DisplayCatalog, DisplayName};
+use std::sync::Arc;
 
 const POLICY_LOOKUP_NAMES: u32 = 0x800;
 const CONTEXT: u32 = 0x2000_0000;
@@ -76,6 +78,16 @@ fn lookup_name(call: u32, context: &[u8], low: u32, high: u32) -> Vec<u8> {
     write_word(&mut payload, 84, low);
     write_word(&mut payload, 88, high);
     payload
+}
+
+fn lookup_display(call: u32, context: &[u8], name: &str, languages: [u16; 2]) -> Vec<u8> {
+    let mut packet = lookup(call, context, name);
+    write_word(&mut packet, 20, 33);
+    packet.truncate(128 + name.encode_utf16().count() * 2);
+    for language in languages {
+        packet.extend_from_slice(&language.to_le_bytes());
+    }
+    packet
 }
 
 fn close(call: u32, context: &[u8]) -> Vec<u8> {
@@ -450,5 +462,100 @@ fn native_lsarpc_policy_contexts_own_lookup_rights_and_lifetime() {
             4096,
         );
         assert_eq!(word(&result, 24), 20); // Closing one context preserves the others.
+    }
+}
+
+#[test]
+fn native_lsarpc_privilege_display_uses_captured_languages() {
+    for arch in WinArch::ALL {
+        let (mut process, mut thread) = fixture(arch, "NtAlpcSendWaitReceivePort", SERVICE);
+        let p = process.state_mut();
+        super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
+        let base =
+            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap()
+                .0;
+        let port = new_port(p);
+        let mut send = |p: &mut Proc, payload: &[u8]| {
+            exchange(p, &mut thread, [base, port, 0x7e00_0000, 4096], payload)
+        };
+        assert_eq!(send(p, &bind()).1, STATUS_SUCCESS);
+        let (_, status, opened) = send(p, &open(3, POLICY_LOOKUP_NAMES, 1));
+        assert_eq!(status, STATUS_SUCCESS);
+        let context = &opened[40..60];
+
+        // Native ARM64 build 29708, including both text-length alignment cases.
+        let privilege = "SeCreateTokenPrivilege";
+        for (requested, language, text, reply_bytes) in [
+            ([0x0409, 0x0009], 0x0409_u16, "Create a token object", 156),
+            ([0x040c, 0x0409], 0x040c, "Créer un objet-jeton", 152),
+        ] {
+            let units: Vec<_> = text.encode_utf16().collect();
+            let catalog = DisplayCatalog {
+                requested,
+                names: [(
+                    2,
+                    DisplayName {
+                        units: units.clone(),
+                        language,
+                    },
+                )]
+                .into(),
+            };
+            p.native
+                .as_mut()
+                .unwrap()
+                .object_namespace
+                .privilege_display_names = Some(Arc::new(catalog));
+
+            let (_, status, result) = send(p, &lookup_display(4, context, privilege, requested));
+            assert_eq!(status, STATUS_SUCCESS);
+            let mut expected = vec![0; reply_bytes];
+            let length = units.len() as u32 * 2;
+            for (offset, value) in [
+                (0, 3),
+                (12, 4),
+                (24, 0x20000),
+                (32, ((length + 2) << 16) | length),
+                (40, 0x20000),
+                (48, units.len() as u32 + 1),
+                (64, units.len() as u32),
+            ] {
+                write_word(&mut expected, offset, value);
+            }
+            let end = 72 + length as usize;
+            for (unit, chunk) in units.iter().zip(expected[72..end].chunks_exact_mut(2)) {
+                chunk.copy_from_slice(&unit.to_le_bytes());
+            }
+            expected[end..end + 2].copy_from_slice(&language.to_le_bytes());
+            assert_eq!(result, expected);
+
+            // A successful match in the first language makes the fallback irrelevant.
+            let (_, status, result) =
+                send(p, &lookup_display(4, context, privilege, [requested[0], 0]));
+            assert_eq!(status, STATUS_SUCCESS);
+            assert_eq!(result, expected);
+        }
+
+        let packet = lookup_display(5, context, privilege, [0x0409, 0x0009]);
+        let (outcome, _, _) = send(p, &packet);
+        assert!(matches!(outcome, Outcome::Fail(message) if message.contains("operation 33")));
+        let mut malformed = lookup_display(6, context, privilege, [0x040c, 0x0409]);
+        malformed.pop();
+        let (outcome, _, _) = send(p, &malformed);
+        assert!(matches!(outcome, Outcome::Fail(message) if message.contains("operation 33")));
+
+        for (name, token, rpc_status) in [
+            ("SeUnusedRaxTestPrivilege", context, 0xc000_0060),
+            (privilege, &[0; 20], STATUS_INVALID_HANDLE),
+        ] {
+            let (_, status, result) = send(p, &lookup_display(7, token, name, [0x040c, 0x0409]));
+            assert_eq!(status, STATUS_SUCCESS);
+            let mut expected = vec![0; 72];
+            for (offset, value) in [(0, 3), (12, 7), (36, rpc_status)] {
+                write_word(&mut expected, offset, value);
+            }
+            assert_eq!(result, expected);
+        }
     }
 }

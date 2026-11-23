@@ -203,6 +203,8 @@ impl NativeRuntime {
             runtime.object_namespace.policy_lookup_account =
                 super::object_namespace::policy_lookup::capture(&subject.user)
                     .map(std::sync::Arc::new);
+            runtime.object_namespace.privilege_display_names =
+                super::security::privilege_names::capture().map(std::sync::Arc::new);
         }
         if token_session == 1
             && arch == WinArch::Arm64

@@ -1,4 +1,5 @@
 //! Captured token subjects and bounded classic-DACL evaluation.
+pub(crate) mod privilege_names;
 pub(crate) mod thread;
 pub(crate) mod token;
 

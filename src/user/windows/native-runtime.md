@@ -3967,6 +3967,16 @@ table in reverse and rejects unknown LUIDs with `STATUS_NO_SUCH_PRIVILEGE`.
 The observed ARM64 build 29708 NDR64 request carries the live context and both
 LUID words in 92 payload bytes. Success returns a counted UTF-16 name. An
 unknown LUID returns a 40-byte payload with a null name pointer and the status.
+`LsarLookupPrivilegeDisplayName` accepts the counted privilege name followed
+by two language identifiers. The successful reply appends the actual returned
+language after the counted UTF-16 display text. On the selected installed
+ARM64 build 29708 profile, host selection captures descriptions for the fixed
+privilege table in the native thread UI language. A request can use this
+snapshot when it matches the selected language pair or the requested language
+has a translation in the snapshot. Calls for an uncaptured language report
+that the operation is outside the selected profile. Unknown privilege names
+return `STATUS_NO_SUCH_PRIVILEGE`. Guest inputs stay inside the emulated
+service.
 `LsarClose` clears the returned context and
 releases its entry. The policy replies expose guest-local identifiers and
 report no optional revision capabilities. They use no host policy handle.
@@ -3978,6 +3988,7 @@ returns the context only. The context offset in the full allocation is
 [MS-LSAD LsarOpenPolicy3](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/9f88a19f-3bb0-474c-8308-a9f661e6c760)
 [MS-LSAD privilege data model](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/1a92af76-d45f-42c3-b67c-f1dc61bd6ee1)
 [MS-LSAD LsarLookupPrivilegeName](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/b4ae2755-3897-4117-8a83-2b98874e3982)
+[MS-LSAD LsarLookupPrivilegeDisplayName](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/6ae3f7f0-30ed-48c2-a9be-be4a4617decd)
 [MS-LSAD LsarClose](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/99dd2d7a-b0fc-4c6d-837a-2b4d342383ae)
 [MS-LSAT interface definition](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsat/23cd602f-e46c-430d-ab5d-a678b9044a7d)
 
