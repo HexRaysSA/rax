@@ -30,6 +30,7 @@ on:
           - xmm-lanes
           - vector-logic
           - vector-compare
+          - vector-add-sub
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

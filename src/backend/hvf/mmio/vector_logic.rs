@@ -1,4 +1,4 @@
-//! Legacy SSE and VEX packed logical operations and comparisons with a device source.
+//! Legacy SSE and VEX packed binary operations with a device source.
 use super::*;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -18,6 +18,12 @@ impl Element {
             Self::Quadword => 8,
         }
     }
+}
+
+fn read_element(lane: &[u8]) -> u64 {
+    let mut bytes = [0; 8];
+    bytes[..lane.len()].copy_from_slice(lane);
+    u64::from_le_bytes(bytes)
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -48,8 +54,10 @@ enum Operation {
     AndNot,
     Or,
     Xor,
-    // Appended after the four original wire discriminants.
+    // Keep wire discriminants stable by appending new operations.
     Compare(Comparison, Element),
+    Add(Element),
+    Subtract(Element),
 }
 
 impl Operation {
@@ -67,6 +75,14 @@ impl Operation {
             "pcmpgtw" => Self::Compare(Comparison::SignedGreater, Element::Word),
             "pcmpgtd" => Self::Compare(Comparison::SignedGreater, Element::Doubleword),
             "pcmpgtq" => Self::Compare(Comparison::SignedGreater, Element::Quadword),
+            "paddb" => Self::Add(Element::Byte),
+            "paddw" => Self::Add(Element::Word),
+            "paddd" => Self::Add(Element::Doubleword),
+            "paddq" => Self::Add(Element::Quadword),
+            "psubb" => Self::Subtract(Element::Byte),
+            "psubw" => Self::Subtract(Element::Word),
+            "psubd" => Self::Subtract(Element::Doubleword),
+            "psubq" => Self::Subtract(Element::Quadword),
             _ => return None,
         })
     }
@@ -90,6 +106,26 @@ impl Operation {
                     } else {
                         0
                     });
+                }
+                result
+            }
+            Self::Add(element) | Self::Subtract(element) => {
+                let width = element.bytes();
+                let subtract = matches!(self, Self::Subtract(_));
+                let mut result = [0; N];
+                for ((left, right), target) in left
+                    .chunks_exact(width)
+                    .zip(right.chunks_exact(width))
+                    .zip(result.chunks_exact_mut(width))
+                {
+                    let left = read_element(left);
+                    let right = read_element(right);
+                    let lane = if subtract {
+                        left.wrapping_sub(right)
+                    } else {
+                        left.wrapping_add(right)
+                    };
+                    target.copy_from_slice(&lane.to_le_bytes()[..width]);
                 }
                 result
             }

@@ -287,7 +287,15 @@ pub(super) fn decode_0f(
             out.operands = vec![dst, rm];
             CMOV[(op & 15) as usize]
         }
-        0x54..=0x57 | 0x64..=0x66 | 0x74..=0x76 | 0xdb | 0xdf | 0xeb | 0xef => {
+        0x54..=0x57
+        | 0x64..=0x66
+        | 0x74..=0x76
+        | 0xd4
+        | 0xdb
+        | 0xdf
+        | 0xeb
+        | 0xef
+        | 0xf8..=0xfe => {
             let names = packed_binary_mnemonics(1, u8::from(ctx.operand_size_override), op);
             let Some((name, _)) = names.filter(|_| ctx.rep_prefix.is_none() && !ctx.has_rex2())
             else {

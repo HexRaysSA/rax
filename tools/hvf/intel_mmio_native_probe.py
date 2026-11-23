@@ -18,7 +18,7 @@ PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "adx": 32, "crc3
                  "port-debug": 446, "level-irq": 2,
                  "movnti": 8, "nmi-baseline": 1, "legacy-xmm": 50, "nmi-hot-entry": 1, "vex-xmm": 80,
                  "legacy-ntstore": 9, "vex-ntstore": 36, "xmm-lanes": 48, "vector-logic": 132,
-                 "vector-compare": 104,
+                 "vector-compare": 104, "vector-add-sub": 328,
                  "vector-bit-test": 73, "compat-mmio": 20, "compat16-mmio": 16, "string-mmio": 48}
 
 

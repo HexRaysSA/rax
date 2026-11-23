@@ -577,7 +577,8 @@ pub(super) fn run_integer_comparisons(output: &Path) {
             for rotation in [0, 1] {
                 let (left, reply, expected) = comparison_vectors(element, equal, rotation, width);
                 for restore in [false, true] {
-                    let value = comparison_case(code, width, vex, restore, left, reply, expected);
+                    let value =
+                        packed_binary_case(code, width, vex, restore, left, reply, expected);
                     let phase = if restore { "restored" } else { "direct" };
                     record(
                         output,
@@ -629,7 +630,85 @@ fn comparison_vectors(
     (qwords(left), reply, qwords(expected))
 }
 
-fn comparison_case(
+pub(super) fn run_integer_add_subtract(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    for (opcode, mnemonic, element, subtract) in [
+        (0xfc, "paddb", 1, false),
+        (0xfd, "paddw", 2, false),
+        (0xfe, "paddd", 4, false),
+        (0xd4, "paddq", 8, false),
+        (0xf8, "psubb", 1, true),
+        (0xf9, "psubw", 2, true),
+        (0xfa, "psubd", 4, true),
+        (0xfb, "psubq", 8, true),
+    ] {
+        let legacy = [0x66, 0x44, 0x0f, opcode, 0x3f];
+        for (code, encoding, width) in [
+            (&legacy[..], "legacy", 16),
+            (&[0xc5, 0x39, opcode, 0x7f, 3], "vex2-128", 16),
+            (&[0xc4, 0x61, 0x39, opcode, 0x7f, 3], "vex3-128", 16),
+            (&[0xc5, 0x3d, opcode, 0x7f, 3], "vex2-256", 32),
+            (&[0xc4, 0x61, 0x3d, opcode, 0x7f, 3], "vex3-256", 32),
+        ] {
+            let vex = encoding != "legacy";
+            for rotation in 0..4 {
+                let (left, reply, expected) =
+                    arithmetic_vectors(element, subtract, rotation, width);
+                for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                    let value =
+                        packed_binary_case(code, width, vex, restore, left, reply, expected);
+                    record(
+                        output,
+                        case,
+                        &format!("vector-add-sub-{encoding}-{mnemonic}-{rotation}-{phase}"),
+                        width,
+                        value,
+                    );
+                    case += 1;
+                }
+            }
+        }
+        record(
+            output,
+            case,
+            &format!("vector-add-sub-legacy-{mnemonic}-misaligned"),
+            16,
+            alignment_fault(&legacy, false, 3),
+        );
+        case += 1;
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn arithmetic_vectors(
+    element: usize,
+    subtract: bool,
+    rotation: usize,
+    width: usize,
+) -> ([u64; 4], [u8; 32], [u64; 4]) {
+    let modulus = 1_u128 << (element * 8);
+    let pairs = [(modulus - 1, 1), (0, 1), (modulus / 2, modulus / 2), (7, 9)];
+    let mut left = [0; 32];
+    let mut reply = [0; 32];
+    let mut expected = [0; 32];
+    for start in (0..32).step_by(element) {
+        let (x, y) = pairs[(start / element + rotation) % pairs.len()];
+        let lane = start..start + element;
+        left[lane.clone()].copy_from_slice(&x.to_le_bytes()[..element]);
+        reply[lane.clone()].copy_from_slice(&y.to_le_bytes()[..element]);
+        if start < width {
+            let result = if subtract { x + modulus - y } else { x + y };
+            expected[lane].copy_from_slice(&(result % modulus).to_le_bytes()[..element]);
+        }
+    }
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    (qwords(left), reply, qwords(expected))
+}
+
+fn packed_binary_case(
     code: &[u8],
     width: usize,
     vex: bool,
@@ -664,7 +743,7 @@ fn comparison_case(
         let exit = event(cpu);
         assert!(
             matches!(exit, VcpuExit::MmioRead { addr, size } if addr == address && usize::from(size) == width),
-            "unexpected packed comparison exit for {code:02x?}: {exit:?}",
+            "unexpected packed binary exit for {code:02x?}: {exit:?}",
         );
         assert!(cpu.io_completion_result().is_err());
     };

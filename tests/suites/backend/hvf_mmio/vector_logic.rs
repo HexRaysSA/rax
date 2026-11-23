@@ -289,6 +289,92 @@ fn packed_integer_comparisons_plan_and_complete_device_reads() {
 }
 
 #[test]
+fn packed_integer_add_subtract_wrap_each_device_source_lane() {
+    let mut failures = Vec::new();
+    for (opcode, name, element, subtract) in [
+        (0xfc, "paddb", 1, false),
+        (0xfd, "paddw", 2, false),
+        (0xfe, "paddd", 4, false),
+        (0xd4, "paddq", 8, false),
+        (0xf8, "psubb", 1, true),
+        (0xf9, "psubw", 2, true),
+        (0xfa, "psubd", 4, true),
+        (0xfb, "psubq", 8, true),
+    ] {
+        for (code, encoding) in [
+            (&[0x66, 0x44, 0x0f, opcode, 0x3f][..], Encoding::Legacy),
+            (&[0xc5, 0x39, opcode, 0x7f, 3], Encoding::Vex128),
+            (&[0xc4, 0x61, 0x39, opcode, 0x7f, 3], Encoding::Vex128),
+            (&[0xc5, 0x3d, opcode, 0x7f, 3], Encoding::Vex256),
+            (&[0xc4, 0x61, 0x3d, opcode, 0x7f, 3], Encoding::Vex256),
+        ] {
+            let (context, mut memory, mut exit) = fixture(code);
+            exit.qualification = 0x181;
+            let vex = encoding != Encoding::Legacy;
+            if vex {
+                exit.linear += 3;
+                exit.physical += 3;
+            }
+            let plan = match prepare(&context, &mut memory, exit) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    failures.push(format!("{name} {code:02x?} {error}"));
+                    continue;
+                }
+            };
+            assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+            let Action::VectorLogic { input, source } = plan.action else {
+                panic!("wrong action for {code:02x?}: {:?}", plan.action);
+            };
+            assert_eq!(source, if vex { 8 } else { 15 });
+            assert_eq!(
+                (input.encoding, input.index, input.length),
+                (encoding, 15, code.len() as u64)
+            );
+            let width = usize::from(encoding.size());
+            let modulus = 1_u128 << (8 * element);
+            let pairs = [(modulus - 1, 1), (0, 1), (modulus / 2, modulus / 2), (7, 9)];
+            for rotation in 0..pairs.len() {
+                let mut left = [0_u8; 32];
+                let mut reply = [0_u8; 32];
+                let mut expected = [0_u8; 32];
+                for start in (0..width).step_by(element) {
+                    let (x, y) = pairs[(start / element + rotation) % pairs.len()];
+                    let lane = start..start + element;
+                    left[lane.clone()].copy_from_slice(&x.to_le_bytes()[..element]);
+                    reply[lane.clone()].copy_from_slice(&y.to_le_bytes()[..element]);
+                    let result = if subtract { x + modulus - y } else { x + y };
+                    expected[lane].copy_from_slice(&(result % modulus).to_le_bytes()[..element]);
+                }
+                let mut pending = mmio::InputState::default();
+                pending.begin_vector_logic(input.clone(), left).unwrap();
+                let record = rax::codec::serialize(&pending).unwrap();
+                let mut restored: mmio::InputState =
+                    rax::codec::deserialize_strict(&record).unwrap();
+                restored.validate_checkpoint().unwrap();
+                let mut host = Host::default();
+                restored.complete(&mut host, &reply[..width]);
+                let expected = if width == 32 {
+                    Write::Ymm(15, expected)
+                } else {
+                    Write::Xmm(15, expected[..16].try_into().unwrap(), vex)
+                };
+                assert_eq!(
+                    host.0,
+                    [expected, Write::Retire(input.length)],
+                    "{name} {code:02x?}"
+                );
+                restored.complete(&mut host, &reply[..width]);
+                assert_eq!(host.0.len(), 2);
+            }
+            exit.qualification = 0x182;
+            assert!(prepare(&context, &mut memory, exit).is_err());
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn vector_logic_retires_a_serialized_input_once_with_the_encoded_upper_lane_rule() {
     let left: [u8; 8] = [0x5a, 0xa5, 0xf0, 0x0f, 0x73, 0x48, 0xbe, 0x19];
     let right: [u8; 8] = [0x33, 0x77, 0xaa, 0x55, 0x86, 0xb1, 0xc3, 0xed];

@@ -818,3 +818,41 @@ The ordered observations SHA-256 is
 `0dc1462173443300f5058ee7a47ec027ae1f533be678513b4b07ed319e9de211`.
 The process ran untranslated on Intel inside a hosting hypervisor.
 [Hosted packed comparison execution](https://github.com/HexRaysSA/rax/actions/runs/45148267711)
+
+## Packed integer addition and subtraction
+
+Legacy SSE and VEX `PADDB/W/D/Q` and `PSUBB/W/D/Q` read one 16 B or
+32 B device operand. Subtraction uses the legacy destination or the
+explicit VEX register source as the minuend. Each lane computes its
+result modulo 2^w, where w is 8, 16, 32 or 64 bits. There is no carry or
+borrow across lanes. Legacy forms preserve the upper YMM half, VEX.128
+clears it, and VEX.256 writes the full destination. RFLAGS is preserved.
+The new operation values follow the existing comparisons in the pending
+record. Completion takes O(width) time and bounded storage for at most
+32 B of device input.
+[Intel SDM Volume 2B, PADDB/PADDW/PADDD/PADDQ and PSUBB/PSUBW/PSUBD/PSUBQ](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The device operand supplies the second source and never receives a write. | High | Plan both VEX prefixes at both widths and the legacy forms. Check the selected source and destination, then present the same operand as a write exit. |
+| Overflow and underflow wrap within the encoded lane width. | High | Rotate an all-ones plus one, zero minus one, signed boundary, and unequal operands. Check every result byte, all unrelated vector registers, RFLAGS and the following RIP. |
+| The pending operation survives a fresh owner and legacy alignment still faults. | High | Serialize every encoding and complete once. The native profile replaces the opcode with UD2 before rebuilding the owner. Test all eight legacy forms at a misaligned address. |
+
+All 40 legacy, VEX2 and VEX3 encodings failed baseline MMIO planning.
+The regression log SHA-256 is
+`8b446c71d5638a719bf95bc854f44bef74fad885bdde113321c2cfd31e788be8`.
+The physical Intel Xeon E5-1650 v3 RAM oracle confirmed 160 operand
+cases with unchanged flags and eight legacy alignment faults. Its
+observation stream SHA-256 is
+`bf563321c24809c4631f801cdb2f6d93361e241bd6943e5f91ee19507ef2f884`.
+
+With the fix applied to `cd34ff1ca`, unfiltered validation on physical
+Intel Linux passed 138 `hvf_mmio`, 102 `isa_oracle` and 28,562 `x86_64`
+tests, with three `x86_64` tests ignored. Its log SHA-256 is
+`242ddb2e2c289c2d7ba6b22cd22208a0d503ab1afce026a70f06cf87f0441091`.
+The Intel Darwin cross-target run under Rosetta passed 138 `hvf_mmio`,
+100 `hvf_intel_owner`, 102 `isa_oracle` and 16 `ci_actions_pinned`
+tests. Its log SHA-256 is
+`5617ea5dfbab5cd48cd5cb6ce49226a03c16c3e7ae696594e327ded39df34d12`.
+The native consumer built and passed strict signature verification.
+All 55 local Python tests passed.
