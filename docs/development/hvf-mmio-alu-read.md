@@ -325,7 +325,19 @@ register stream SHA-256 is
 | The device read completes one instruction. | Serialize the pending input, restore it, and check the exact byte width, accumulator, flags, and single retirement. |
 | The native guest observes the same result using RAM or a device. | The `string-mmio` profile compares the post-instruction state for RAM, direct device reads, and detached pending reads. |
 
-The Apple Silicon host cross-built and signed the 60-case Intel consumer.
-Hosted guest execution and bare-metal Intel validation are separate gates.
-Compatibility and legacy address calculations are covered by the portable
-tests, with actual Intel HVF XLAT exits in those modes unverified.
+The unfiltered Intel SDK-model suite passed all 101 cases under Rosetta.
+Hosted Intel macOS 15.7.9 with SDK 15.5 passed all 60 guest cases at
+`1698d13949302647eeb858480bc34339068246b1`. The host ran an untranslated
+Intel process inside a hypervisor. The twelve XLAT cases cover four encodings
+with RAM, direct device input, and a detached pending read restored into a
+fresh vCPU. The 48 preceding string operations matched the earlier hosted
+observations byte for byte. Verification matched both archive digests, the
+executable signature and Hypervisor entitlement, 4,917 engine inputs, and
+21 consumer and runner inputs. The observation stream SHA-256 is
+`939a5af57da96d0176a19d64a62dcb182fe469f8fe1865d12871168655ebd5ae`.
+[Hosted Intel guest execution](https://github.com/HexRaysSA/rax/actions/runs/45255192496/job/137975051945)
+
+Bare-metal Intel macOS remains a high-impact qualification gate. The portable
+tests cover the 16- and 32-bit address calculations used in compatibility and
+legacy modes. Actual XLAT device exits in those code modes remain a separate
+Intel HVF qualification gate.
