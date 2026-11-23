@@ -80,3 +80,25 @@ signed Intel executable and the SDK readbacks.
 The signed control tests register access. Full CR0 writes that also change
 unmasked bits, native x87 error delivery, and coordinated checkpoint
 continuation are separate validation cases.
+
+The first hosted control reached its port marker and observed mask
+`0x60000020`, including the SDK's CD and NW mask bits. Its exact-mask
+check stopped the experiment before the first MOV to CR0. The second run
+required NE in the mask and checked the unchanged values of all other
+bits. The guest then read `0x80010033`, `0x80010013`, and
+`0x80010033` and reached HLT at `0x10020`. Both MOV instructions
+produced exit reason 28, qualification 0 and length 3. The VMCS CR0
+field and the SDK register API both read `0x80010033` at each exit. An
+architectural view of these controls must account for the read shadow.
+[Initial Intel run](https://github.com/HexRaysSA/rax/actions/runs/45091163237/job/137420788647)
+[Corrected Intel run](https://github.com/HexRaysSA/rax/actions/runs/45091686348/job/137422440650)
+
+The corrected run used revision
+`ed612cc59359f77d2d018517594033c72b64019d` in an untranslated Intel
+macOS process inside a hypervisor guest. Artifact `14781528116`
+matched SHA-256
+`5fbb1e8a833686487679ab94ec0aed533494ad1f860c4fd31f79b49e6afdbc26`.
+The downloaded executable passed strict signature verification with the
+hypervisor entitlement and matched its reported source inputs. Production
+RAX still rejects this CR0 exit. A full implementation also needs to
+preserve the guest's x87 error-delivery mode when NE is clear.
