@@ -3,7 +3,10 @@ use super::*;
 use crate::backend::intel_hvf_deadline::mach;
 use std::time::Duration;
 
-fn read_guest_counter(cpu: &mut dyn crate::vm::vcpu::VCpu) -> (u64, u64) {
+fn guest_mmio_boundary(
+    cpu: &mut dyn crate::vm::vcpu::VCpu,
+    reply: u64,
+) -> crate::vm::vcpu::Aarch64CpuState {
     for _ in 0..50 {
         match cpu.run_host_slice(Duration::from_millis(10)).unwrap() {
             Some(VcpuExit::MmioRead {
@@ -13,15 +16,20 @@ fn read_guest_counter(cpu: &mut dyn crate::vm::vcpu::VCpu) -> (u64, u64) {
                 let CpuState::Aarch64(state) = cpu.get_state().unwrap() else {
                     unreachable!();
                 };
-                cpu.complete_io_in(&0u64.to_le_bytes());
+                cpu.complete_io_in(&reply.to_le_bytes());
                 cpu.io_completion_result().unwrap();
-                return (state.regs.x[20], state.regs.x[21]);
+                return state;
             }
             None => (),
             exit => panic!("unexpected clock probe exit: {exit:?}"),
         }
     }
     panic!("clock probe did not reach MMIO");
+}
+
+fn read_guest_counter(cpu: &mut dyn crate::vm::vcpu::VCpu) -> (u64, u64) {
+    let state = guest_mmio_boundary(cpu, 0);
+    (state.regs.x[20], state.regs.x[21])
 }
 
 fn capture_shared_clock(vm: &Vmm) -> crate::backend::arm64_hvf_context::VtimerSnapshot {
@@ -136,4 +144,161 @@ fn native_virtual_counter_file_excludes_detached_and_first_entry_delay() {
         );
         eprintln!("CPU {id} counter {count} within {earliest}..={latest} ticks at {rate} Hz");
     }
+}
+
+const VECTOR_BASE: u64 = CODE + 0x800;
+const IRQ_VECTOR: u64 = VECTOR_BASE + 0x280; // Current EL, SP_EL1, IRQ.
+const VIRTUAL_TIMER_PPI: u64 = 27;
+
+fn install_timer_guest(vm: &Vmm) {
+    // Program setup, then yield once with IRQ masked. After unmasking, the
+    // probe loop records the count and yields. A nonzero reply rearms
+    // the timer at that count.
+    let main = [
+        0xb900_014b, // STR W11,[X10]  GICD_CTLR
+        0xb900_01ac, // STR W12,[X13]  GICR_IGROUPR0
+        0xb900_01cc, // STR W12,[X14]  GICR_ISENABLER0
+        0xd518_460f, // MSR ICC_PMR_EL1,X15
+        0xd518_ccf0, // MSR ICC_IGRPEN1_EL1,X16
+        0xd53b_e018, // MRS X24,CNTFRQ_EL0
+        0x9b18_7cc6, // MUL X6,X6,X24
+        0xd53b_e054, // MRS X20,CNTVCT_EL0
+        0x8b06_0294, // ADD X20,X20,X6
+        0xd51b_e354, // MSR CNTV_CVAL_EL0,X20
+        0xd51b_e330, // MSR CNTV_CTL_EL0,X16
+        0xd503_3fdf, // ISB
+        0xf940_00e0, // LDR X0,[X7]
+        0xd503_42ff, // MSR DAIFClr,#2
+        0xd503_3fdf, // ISB
+        0xd53b_e059, // MRS X25,CNTVCT_EL0
+        0xf940_00e0, // LDR X0,[X7]
+        0xb4ff_ffc0, // CBZ X0, count sample
+        0xd51b_e359, // MSR CNTV_CVAL_EL0,X25
+        0xd51b_e330, // MSR CNTV_CTL_EL0,X16
+        0xd503_3fdf, // ISB
+        0x17ff_fffa, // B count sample
+    ];
+    // Yield after acknowledge and before disabling the timer or ending the
+    // interrupt. X23 counts actual vector entries.
+    let irq = [
+        0xd538_cc15, // MRS X21,ICC_IAR1_EL1
+        0xd53b_e056, // MRS X22,CNTVCT_EL0
+        0x9100_06f7, // ADD X23,X23,#1
+        0xf940_00e0, // LDR X0,[X7]
+        0xd51b_e33f, // MSR CNTV_CTL_EL0,XZR
+        0xd518_cc35, // MSR ICC_EOIR1_EL1,X21
+        0xd503_3fdf, // ISB
+        0xd69f_03e0, // ERET
+    ];
+    for (address, words) in [(CODE, &main[..]), (IRQ_VECTOR, &irq[..])] {
+        for (index, &word) in words.iter().enumerate() {
+            vm.guest_mem
+                .memory()
+                .write_obj(u32::to_le(word), GuestAddress(address + index as u64 * 4))
+                .unwrap();
+        }
+        publish_native_code(&vm.guest_mem, address, words.len() * 4);
+    }
+}
+
+fn configure_timer_guest(vm: &mut Vmm, id: usize, delay_seconds: u64) {
+    use crate::machine::arm_virt::{AARCH64_GICD_BASE, AARCH64_GICR_BASE};
+    let cpu = &mut vm.vcpus[id];
+    let CpuState::Aarch64(mut state) = cpu.get_state().unwrap() else {
+        unreachable!();
+    };
+    let redist = AARCH64_GICR_BASE + id as u64 * 0x2_0000;
+    state.regs.pc = CODE;
+    state.regs.pstate = 0x3c5;
+    state.sregs.vbar_el1 = VECTOR_BASE;
+    state.regs.x[6] = delay_seconds;
+    state.regs.x[7] = UART;
+    state.regs.x[10] = AARCH64_GICD_BASE;
+    state.regs.x[11] = 2;
+    state.regs.x[12] = 1 << VIRTUAL_TIMER_PPI;
+    state.regs.x[13] = redist + 0x10080;
+    state.regs.x[14] = redist + 0x10100;
+    state.regs.x[15] = 0xff;
+    state.regs.x[16] = 1;
+    cpu.set_state(&CpuState::Aarch64(state)).unwrap();
+}
+
+#[test]
+#[ignore = "requires physical Apple Silicon and com.apple.security.hypervisor entitlement"]
+fn native_virtual_timer_file_keeps_armed_and_active_interrupts_on_their_cpus() {
+    let fixture = Fixture::new();
+    let mut source = Vmm::new_resume(fixture.config(2)).unwrap();
+    psci::boot_native_secondaries(&mut source);
+    install_timer_guest(&source);
+    configure_timer_guest(&mut source, 0, 2);
+    configure_timer_guest(&mut source, 1, 0);
+
+    let secondary = &mut *source.vcpus[1];
+    assert_eq!(guest_mmio_boundary(secondary, 0).regs.x[23], 0);
+    let active = guest_mmio_boundary(secondary, 0);
+    assert_eq!(active.regs.pc, IRQ_VECTOR + 12);
+    assert_eq!(active.regs.x[21], VIRTUAL_TIMER_PPI);
+    assert_eq!(active.regs.x[23], 1);
+    let armed = guest_mmio_boundary(&mut *source.vcpus[0], 0);
+    let deadline = armed.regs.x[20];
+    let rate = armed.regs.x[24];
+    assert!(rate > 0);
+    assert_eq!(armed.regs.pc, CODE + 12 * 4);
+    assert_eq!(armed.regs.x[23], 0);
+
+    let saved = source.take_snapshot_bundle(0).unwrap();
+    let contexts = private_states(&source);
+    assert_eq!(contexts[0].running_priority, 0xff);
+    assert!(contexts[1].running_priority < 0xff);
+    assert_eq!(contexts[0].public.sregs.cntv_cval_el0, deadline);
+    assert_eq!(contexts[0].public.sregs.cntv_ctl_el0 & 3, 1);
+    saved.save(&fixture.checkpoint).unwrap();
+    drop(saved);
+    drop(source);
+    std::fs::remove_file(&fixture.kernel).unwrap();
+    std::thread::sleep(Duration::from_secs(2));
+
+    let loaded = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+    let clock = GlobalContext::decode(&loaded.vm_context().unwrap().data)
+        .unwrap()
+        .vtimer
+        .unwrap();
+    assert!(deadline > clock.tick.wrapping_sub(contexts[0].controls.vtimer_offset));
+    let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &loaded).unwrap();
+    assert!(mach::now() - clock.tick > 2 * rate);
+    let restored = private_states(&target);
+    assert_eq!(restored[0].running_priority, contexts[0].running_priority);
+    assert_eq!(restored[1].running_priority, contexts[1].running_priority);
+
+    let before = guest_mmio_boundary(&mut *target.vcpus[0], 0);
+    assert_eq!(before.regs.x[23], 0, "detached time expired the BSP timer");
+    assert!(before.regs.x[25] < deadline);
+    let secondary = &mut *target.vcpus[1];
+    let after_eoi = guest_mmio_boundary(secondary, 1);
+    assert_eq!(after_eoi.regs.pc, CODE + 16 * 4);
+    assert_eq!(
+        after_eoi.regs.x[23], 1,
+        "the active IRQ was delivered again"
+    );
+    let rearmed = (0..50)
+        .map(|_| guest_mmio_boundary(secondary, 0))
+        .find(|state| state.regs.x[23] == 2)
+        .expect("the secondary timer did not deliver after rearming");
+    assert_eq!(rearmed.regs.pc, IRQ_VECTOR + 12);
+    assert_eq!(rearmed.regs.x[21], VIRTUAL_TIMER_PPI);
+
+    let remaining_ns =
+        (u128::from(deadline - before.regs.x[25]) * 1_000_000_000).div_ceil(u128::from(rate));
+    std::thread::sleep(Duration::from_nanos(u64::try_from(remaining_ns).unwrap()));
+    let fired = (0..50)
+        .map(|_| guest_mmio_boundary(&mut *target.vcpus[0], 0))
+        .find(|state| state.regs.x[23] == 1)
+        .expect("the restored BSP timer did not deliver");
+    assert_eq!(fired.regs.pc, IRQ_VECTOR + 12);
+    assert_eq!(fired.regs.x[21], VIRTUAL_TIMER_PPI);
+    assert!(fired.regs.x[22] >= deadline);
+    let after_eoi = guest_mmio_boundary(&mut *target.vcpus[0], 0);
+    assert_eq!(after_eoi.regs.pc, CODE + 16 * 4);
+    assert_eq!(after_eoi.regs.x[23], 1);
 }

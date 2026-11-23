@@ -122,9 +122,18 @@ positive and wrapping offsets. The two-vCPU file regression on the parent
 observed the first guest count 628,114,121 ticks (26.17 s at 24 MHz) past its
 allowed interval. The corrected run checked both guest reads against host
 entry intervals, confirmed that the later vCPU shared the first entry's
-epoch, and checked capture both before and after that entry. This qualifies
-virtual counter phase. Physical counter continuity and active virtual-timer
-interrupt delivery across a file restore remain separate evidence gaps.
+epoch, and checked capture both before and after that entry.
+
+A second signed two-vCPU file regression on the same host captured CPU 0 with
+a future virtual timer deadline and CPU 1 inside its interrupt handler after
+acknowledging PPI 27. After detaching for longer than CPU 0's remaining timer
+interval, it restored both vCPUs. CPU 0 observed a count below its deadline
+before taking PPI 27 at or after the deadline. CPU 1 finished the saved handler
+without another vector entry and took a new PPI 27 when rearmed. A separate
+SDK-only probe observed automatic PPI 27 delivery through the in-kernel GIC,
+including the active bit on acknowledgement and its clearing after end of
+interrupt. The file regression covers the native Group 1 virtual timer path
+on Apple M4 Max with macOS 27.3.
 
 ## Ownership, capture and restoration
 
@@ -316,13 +325,13 @@ SVE pseudocode did not establish this SME rule and has been corrected.
 
 - High: guest-visible streaming FPSR preservation fails on this host, including
   direct SDK re-entry. A working entry/restoration path remains required.
-- High: native physical counter phase and active timer/IRQ state require
-  explicit continuation semantics and execution evidence.
+- High: native physical counter phase and timer/IRQ profiles beyond the
+  qualified Group 1 virtual timer require execution evidence.
 - High: scalar input/output and the represented active UART SPI case now have
   native file-continuation evidence. Broader I/O profiles and independently
   concurrent device writers remain unfinished requirements.
-- High: streaming FPSR, active timer/IRQ continuity, entered-VM reconstruction
-  and broader I/O profiles still require their full final evidence.
+- High: streaming FPSR, entered-VM reconstruction and broader I/O profiles still
+  require their full final evidence.
 - High: guest-driven two/four-CPU native startup and coordinator continuation
   are qualified. Full bounded scheduling, debug and replay semantics remain open.
 - High: physical Intel HVF evidence remains absent.
