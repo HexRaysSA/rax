@@ -67,5 +67,12 @@ jobs:
           powershell.exe -NoLogo -NoProfile -Command \
             "(Get-FileHash -Algorithm SHA256 -LiteralPath 'target/native-directory-event-control/native-directory-events.exe').Hash"
           cat target/native-directory-event-control/native.jsonl
+      - name: Closed directory service dispatch
+        run: |
+          cargo test --locked --no-default-features --lib \
+            nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_matches_iosb \
+            | tee target/native-directory-event-control/dispatch.log
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' \
+            target/native-directory-event-control/dispatch.log
       - name: Native directory-event profile
         run: cargo test --locked --no-default-features --test windows_directory_events -- --test-threads=1

@@ -37,17 +37,21 @@ impl Drop for Root {
     }
 }
 
+#[cfg(windows)]
+fn open_native_directory(path: &Path) -> std::fs::File {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    std::fs::OpenOptions::new()
+        .access_mode(0x110001)
+        .share_mode(7)
+        .custom_flags(0x0200_0000)
+        .open(path)
+        .unwrap()
+}
+
 fn object(path: &Path) -> Object {
     #[cfg(windows)]
-    let file = {
-        use std::os::windows::fs::OpenOptionsExt;
-        std::fs::OpenOptions::new()
-            .access_mode(0x110001)
-            .share_mode(7)
-            .custom_flags(0x0200_0000)
-            .open(path)
-            .unwrap()
-    };
+    let file = open_native_directory(path);
     #[cfg(not(windows))]
     let file = std::fs::File::open(path).unwrap();
     let identity = FileIdentity::of_open(path, Some(&file), &file.metadata().unwrap()).unwrap();
@@ -361,8 +365,87 @@ fn nt_directory_shared_cursor_independent_open_and_restart_replaces_filter() {
     }
 }
 
+#[cfg(windows)]
+fn first_missing_iosb(path: &Path, guest_pointer_bytes: usize) -> [u8; 32] {
+    use std::ffi::c_void;
+    use std::os::windows::io::AsRawHandle;
+
+    #[repr(C)]
+    struct Io {
+        status: usize,
+        information: usize,
+    }
+
+    #[repr(C)]
+    struct Unicode {
+        length: u16,
+        maximum: u16,
+        buffer: *const u16,
+    }
+
+    #[link(name = "ntdll")]
+    unsafe extern "system" {
+        fn NtQueryDirectoryFileEx(
+            file: *mut c_void,
+            event: *mut c_void,
+            apc: *mut c_void,
+            context: *mut c_void,
+            io: *mut Io,
+            output: *mut c_void,
+            length: u32,
+            class: u32,
+            flags: u32,
+            name: *const Unicode,
+        ) -> i32;
+    }
+
+    let directory = open_native_directory(path);
+    let filter: Vec<u16> = "absent.xyz".encode_utf16().collect();
+    let filter_bytes = (filter.len() * 2) as u16;
+    let name = Unicode {
+        length: filter_bytes,
+        maximum: filter_bytes,
+        buffer: filter.as_ptr(),
+    };
+    let sentinel = usize::from_le_bytes([0xa5; std::mem::size_of::<usize>()]);
+    let mut io = Io {
+        status: sentinel,
+        information: sentinel,
+    };
+    let mut output = [0xa5a5_a5a5_a5a5_a5a5u64; 77];
+    let null = std::ptr::null_mut();
+    // SAFETY: the directory handle is opened for synchronous I/O and no
+    // event or APC is supplied. All input and output storage is private,
+    // aligned, initialized, and stays live until the call completes.
+    let status = unsafe {
+        NtQueryDirectoryFileEx(
+            directory.as_raw_handle(),
+            null,
+            null,
+            null,
+            &mut io,
+            output.as_mut_ptr().cast(),
+            std::mem::size_of_val(&output) as u32,
+            3,
+            2,
+            &name,
+        )
+    } as u32;
+    assert_eq!(status, STATUS_NO_SUCH_FILE);
+    assert_eq!(output, [0xa5a5_a5a5_a5a5_a5a5; 77]);
+
+    // The guest IOSB uses a 32-bit status and a pointer-sized count.
+    let mut expected = [0xa5; 32];
+    expected[..4].copy_from_slice(&(io.status as u32).to_le_bytes());
+    if io.information != sentinel {
+        expected[guest_pointer_bytes..2 * guest_pointer_bytes]
+            .copy_from_slice(&(io.information as u64).to_le_bytes()[..guest_pointer_bytes]);
+    }
+    expected
+}
+
 #[test]
-fn nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb() {
+fn nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_matches_iosb() {
     for arch in [WinArch::Arm64, WinArch::X64, WinArch::X86] {
         let root = Root::new();
         let (mut process, mut thread) = fixture(arch, "NtQueryDirectoryFileEx", 0x44);
@@ -418,7 +501,11 @@ fn nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb(
             ),
             STATUS_NO_SUCH_FILE
         );
-        assert_eq!(p.space.bytes(base, 32).unwrap(), [0xa5; 32]);
+        #[cfg(windows)]
+        let expected = first_missing_iosb(&root.0, arch.ptr_size() as usize);
+        #[cfg(not(windows))]
+        let expected = [0xa5; 32];
+        assert_eq!(p.space.bytes(base, 32).unwrap(), expected);
         assert_eq!(p.space.bytes(base + 512, 616).unwrap(), [0xa5; 616]);
         assert_eq!(
             call(

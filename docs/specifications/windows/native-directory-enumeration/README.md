@@ -36,8 +36,10 @@ Ordinary continuation retains the first expression. Restart with a non-NULL
 expression can replace it on the measured NTFS installation. Restart with
 NULL retains it. `SL_NO_CURSOR_UPDATE_QUERY` starts an independent query
 without advancing or changing the ordinary per-open scan. A first unmatched
-query returns `STATUS_NO_SUCH_FILE` without publishing the IOSB; exhaustion
-of an initialized scan returns `STATUS_NO_MORE_FILES` with zero information.
+query returns `STATUS_NO_SUCH_FILE`. IOSB publication depends on the native
+profile, as measured below. The portable mapped-volume model leaves the IOSB
+untouched on a first miss. Exhaustion of an initialized scan returns
+`STATUS_NO_MORE_FILES` with zero information.
 
 Raw NT expressions distinguish `*` from `*.*`. DOS_STAR, DOS_QM and DOS_DOT
 are accepted as raw expression tokens. Alternate volume filenames participate
@@ -133,6 +135,11 @@ zero information and a signaled event for a first unmatched query. Windows
 cleared-event result. `ci-event-profiles-v1.json` preserves both observations;
 the first capture did not record executable digests. CI now hashes the
 separately compiled producer before and after execution.
+
+The closed service dispatcher test also compares the first miss through a
+synchronous open with an independent native call on a separate handle to the
+same test directory. It compares the complete poisoned IOSB after projecting
+the native status and information to the guest ABI's field widths.
 
 On Windows, the test reuses that unchanged producer's native calls in process,
 redirecting only its JSON record sink, and compares each guest query against
