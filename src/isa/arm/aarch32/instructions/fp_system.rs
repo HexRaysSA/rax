@@ -151,14 +151,26 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         None
     }
 
-    fn fp_ns_cp15_clamp(&self, enc: Cp15Encoding) -> (u32, u32) {
+    fn fp_cp15_access_masks(&self, enc: Cp15Encoding) -> (u32, u32) {
+        let register = key(enc);
+        let (mut zero, mut one) = if self.cpu.fp_access_context.is_none() {
+            // DDI0406C.d B4.1: standalone D16 has neither D16-D31 nor
+            // Advanced SIMD. The D32 model leaves D32DIS unimplemented.
+            match (self.cpu.vfp.mvfr0 & 15, register) {
+                (1, CPACR) => (0, 3 << 30),
+                (1, NSACR) => (0, 3 << 14),
+                (1, HCPTR) => (0, 1 << 15),
+                (2, NSACR) => (1 << 14, 0),
+                _ => (0, 0),
+            }
+        } else {
+            (0, 0)
+        };
         let c = self.cpu.fp_control_context();
         if !c.have_el3 || c.el3_aarch64 || c.secure {
-            return (0, 0);
+            return (zero, one);
         }
-        let mut zero = 0;
-        let mut one = 0;
-        match key(enc) {
+        match register {
             CPACR => {
                 if c.nsacr & (1 << 10) == 0 {
                     zero |= 3 << 20;
@@ -200,7 +212,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             (0, 0, 2, 7) => effective_id_isar6(value, vfp.mvfr0, vfp.mvfr1),
             _ => value,
         };
-        let (zero, one) = self.fp_ns_cp15_clamp(enc);
+        let (zero, one) = self.fp_cp15_access_masks(enc);
         Some((value & !zero) | one)
     }
 
@@ -216,7 +228,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 return true;
             }
         }
-        let (zero, one) = self.fp_ns_cp15_clamp(enc);
+        let (zero, one) = self.fp_cp15_access_masks(enc);
         // RAZ/WI and RAO/WI views leave the underlying shared register intact.
         let ignored = zero | one;
         let previous = self.cpu.cp15.read(enc).unwrap_or(0);

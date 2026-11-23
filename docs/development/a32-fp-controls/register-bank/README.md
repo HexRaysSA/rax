@@ -45,6 +45,52 @@ five core-pair tests, formatting and scoped Clippy, all passing.
 Runs validate the combined integration checkout, which also contains unfinished
 native checkpoint changes; they do not imply closure of C-STATE, C-SMP or C-HVF.
 
+## Standalone FP control register views
+
+The standalone D16 bank has no Advanced SIMD. The guest's CP15 view
+therefore reports the following fixed bits and ignores writes to them.
+Other fields retain their usual access permissions. The view is recomputed
+from the saved MVFR0 value in constant time and uses the existing checkpoint
+fields. The AArch64-hosted AArch32 view continues to use its own system controls.
+[Arm DDI0406C.d for CPACR, HCPTR and NSACR](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+
+| Profile | Field | Guest readback |
+| --- | --- | --- |
+| D16 | CPACR.ASEDIS/D32DIS [31:30] | `0b11` |
+| D16 | NSACR.NSASEDIS/NSD32DIS [15:14] | `0b11` |
+| D16 | HCPTR.TASE [15] | `1` |
+| D32 with D32DIS unimplemented | NSACR.NSD32DIS [14] | `0` |
+
+The paired ARM and Thumb regression writes the affected fields as zero,
+one, then zero with unrelated register bits enabled. It runs on both banks
+and reads HCPTR from Hyp mode. The predecessor failed in both instruction
+sets. The D16 controls could read as zero, and D32 NSACR read back a set
+NSD32DIS bit despite CPACR.D32DIS being unimplemented.
+
+The baseline log SHA-256 is
+`555d9aac03e1886131406527def2dfabb0b7b7206d10b6f6c7cacc18fff48686`.
+All 47,691 tests in the five unfiltered macOS Arm64 targets passed with
+zero failures or ignores. The final log SHA-256 is
+`4ac6a0e85de366c0db6816ade0505f5fdb7dd1ccfa16a26961c6eee8438bc278`.
+
+```sh
+cargo test --locked --no-default-features --features hvf,debug \
+  --test arm_vfp_a32 --test a32_fp_controls --test a32_fp_pairs \
+  --test arm --test isa_oracle -- --test-threads=4
+```
+
+QEMU 11.1.2 Cortex-A15 with `neon=off,vfp-d32=off` reported MVFR0
+`0x10110221` and CPACR `0xc0f00000` after writes of both `0x00f00000`
+and `0xc0f00000`. Its synthetic D16 preset retained writes to NSACR
+bits [15:14] and HCPTR bit [15]. The table follows the Arm register
+definitions for those fields. The physical standalone D16 control behavior
+remains unverified.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Standalone MVFR0.SIMDReg=1 selects the D16 bank with FP and no Advanced SIMD. | High | Use the existing high-register and Advanced SIMD rejection controls alongside the CP15 write/read matrix. A D16 case with Advanced SIMD effects invalidates the derivation. |
+| The D32 profile leaves D32DIS unimplemented. | Medium | Verify CPACR.D32DIS and NSACR.NSD32DIS after writes of both bit values. Check that the other writable disable and trap bits still respond. |
+
 ## Assumption register
 
 | ID | Assumption | Basis | Dependent result | Stress test and falsification probe | Status |

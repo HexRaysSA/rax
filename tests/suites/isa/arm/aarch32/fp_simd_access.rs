@@ -218,3 +218,67 @@ fn guest_cpacr_read_write_masks_unimplemented_controls_without_changing_raw_util
     assert_eq!(cp15.cpacr.bits(), u32::MAX);
     assert_eq!(cp15.read(encoding), Some(0x80f0_0000));
 }
+
+#[test]
+fn standalone_d16_control_fields_read_one_and_ignore_writes() {
+    let mut actual = Vec::new();
+    let mut expected = Vec::new();
+    for thumb in [false, true] {
+        for (name, mode, write, read, value, disabled, writable) in [
+            (
+                "CPACR",
+                ProcessorMode::Supervisor,
+                0xee01_0f50,
+                0xee11_0f50,
+                0x00f0_0000,
+                0xc000_0000,
+                0x8000_0000,
+            ),
+            (
+                "NSACR",
+                ProcessorMode::Supervisor,
+                0xee01_0f51,
+                0xee11_0f51,
+                0x0000_0c00,
+                0x0000_c000,
+                0x0000_8000,
+            ),
+            (
+                "HCPTR",
+                ProcessorMode::Hyp,
+                0xee81_0f51,
+                0xee91_0f51,
+                0x0000_33ff,
+                0x0000_8000,
+                0x0000_8000,
+            ),
+        ] {
+            for bank in [1, 2] {
+                let mut c = cpu(thumb, mode, 0);
+                c.vfp.mvfr0 = (c.vfp.mvfr0 & !15) | bank;
+                c.cp15.nsacr = 0xc00; // Allow both FP coprocessors in Hyp mode.
+                for written in [value, value | disabled, value] {
+                    c.regs[0] = written;
+                    let mut memory = NoMemory;
+                    let mut e = Executor::new(&mut c, &mut memory);
+                    assert!(matches!(
+                        e.execute(&decode(write, thumb)),
+                        ExecResult::Continue
+                    ));
+                    assert!(matches!(
+                        e.execute(&decode(read, thumb)),
+                        ExecResult::Continue
+                    ));
+                    actual.push((name, thumb, bank, written, c.regs[0]));
+                    let readback = if bank == 1 {
+                        value | disabled
+                    } else {
+                        value | (written & writable)
+                    };
+                    expected.push((name, thumb, bank, written, readback));
+                }
+            }
+        }
+    }
+    assert_eq!(actual, expected);
+}
