@@ -19,6 +19,11 @@ const STOCK_RECORD: [u32; 16] = [2, 0, 8, 8, 0, 0, 4, 8, 0, 0, 16, 8, 0, 0, 1, 0
 
 pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let wow = c.arch() == WinArch::X86;
+    let (packet_bytes, name_length_at, name_buffer_at, output_buffer_at, output_size_at) = if wow {
+        (204, 0x1c, 0x20, 0xc4, 0xc8)
+    } else {
+        (NATIVE_PACKET_BYTES, 0x30, 0x38, 0x178, 0x180)
+    };
     let native =
         c.p.native
             .as_ref()
@@ -31,14 +36,26 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
                         native.version.build,
                     ) == (10, 0, 29708)
             })
-            .ok_or_else(|| c.unsupported("AppHelp executable-cache profile is not captured"))?;
-    let (packet_bytes, name_length_at, name_buffer_at, output_buffer_at, output_size_at) = if wow {
-        (204, 0x1c, 0x20, 0xc4, 0xc8)
-    } else {
-        (NATIVE_PACKET_BYTES, 0x30, 0x38, 0x178, 0x180)
-    };
-    let input = c.ptr(1)?;
+            .ok_or_else(|| c.unsupported("AppHelp executable-cache profile is not captured"));
     let mut packet = [0; NATIVE_PACKET_BYTES];
+    if native.is_err()
+        && tracing::enabled!(target: "rax::windows::ntstatus", tracing::Level::TRACE)
+        && let Ok(input) = c.ptr(1)
+        && c.mem().rd(input, &mut packet[..packet_bytes]).is_ok()
+    {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            arch = ?c.arch(),
+            mask = %format_args!("{:#010x}", number(&packet, 0)),
+            flags = %format_args!("{:#010x}", number(&packet, 4)),
+            name_bytes = u16::from_le_bytes([packet[name_length_at], packet[name_length_at + 1]]),
+            output_capacity = number(&packet, output_size_at),
+            "guest AppHelp executable-cache lookup outside captured profile"
+        );
+    }
+    let native = native?;
+    let input = c.ptr(1)?;
     c.mem().rd(input, &mut packet[..packet_bytes])?;
     if number(&packet, 0) != 0x1f
         || !matches!(number(&packet, 4), 0x10 | 0x30)

@@ -107,6 +107,13 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         return status(STATUS_ACCESS_DENIED);
     }
     let abi = CallerAbi::new(c.arch());
+    tracing::trace!(
+        target: "rax::windows::ntstatus",
+        pid = c.p.pid,
+        process_flags,
+        thread_flags,
+        "guest child creation request"
+    );
     if abi.wow64()
         && !c.p.wow64.as_ref().is_some_and(|state| {
             state.kernel == (10, 0, 29708) && state.machine == WinArch::Arm64.machine()
@@ -126,7 +133,16 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             .into());
     }
     let initial = c.mem().bytes(create_info, abi.create_size)?;
-    if abi.pointer(&initial, 0) != abi.create_size as u64 || dword(&initial, abi.pointer) != 0 {
+    let create_bytes = abi.pointer(&initial, 0);
+    let create_state = dword(&initial, abi.pointer);
+    if create_bytes != abi.create_size as u64 || create_state != 0 {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            create_bytes,
+            create_state,
+            "guest child creation header rejected"
+        );
         return status(STATUS_INVALID_PARAMETER);
     }
     let init_flags = dword(&initial, 2 * abi.pointer);
@@ -136,12 +152,14 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             .unsupported("NtCreateUserProcess initial image flags or access")
             .into());
     }
-    let attrs = attributes(c, abi, attribute_list)?;
+    let attrs = attributes(c, abi, attribute_list)
+        .inspect_err(|failure| trace_rejection(c, "attributes", failure))?;
     let image = attrs
         .image
         .as_ref()
         .ok_or(Failure::Status(STATUS_INVALID_PARAMETER))?;
-    let inputs = Parameters::capture(c, abi, parameters, image)?;
+    let inputs = Parameters::capture(c, abi, parameters, image)
+        .inspect_err(|failure| trace_rejection(c, "process parameters", failure))?;
     let child_io =
         if process_flags & PROCESS_INHERIT_HANDLES != 0 && c.p.objects.has_inheritable_handles() {
             let objects =
@@ -159,7 +177,8 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         } else {
             ChildIo::default()
         };
-    probe_outputs(c, abi, process, thread, create_info, &attrs)?;
+    probe_outputs(c, abi, process, thread, create_info, &attrs)
+        .inspect_err(|failure| trace_rejection(c, "output buffers", failure))?;
     let mut parameter_flags = initial_parameter_flags(c, &inputs.image)?;
 
     let installed = inputs.host_image.is_none();
@@ -203,7 +222,8 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         suspended,
         child_io,
     )
-    .map_err(Failure::Status)?;
+    .map_err(Failure::Status)
+    .inspect_err(|failure| trace_rejection(c, "child loader", failure))?;
     if child.state().arch != c.arch() {
         return Err(c
             .unsupported("NtCreateUserProcess cross-architecture startup")
@@ -244,13 +264,10 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     let extras = if init_flags & WRITE_OUTPUT_ON_EXIT != 0 {
         file.seek(SeekFrom::Start(0))
             .map_err(|error| Failure::Status(file_status(&error)))?;
-        Some(image_objects(
-            c,
-            file,
-            path.clone(),
-            inputs.image,
-            lifetime,
-        )?)
+        Some(
+            image_objects(c, file, path.clone(), inputs.image, lifetime)
+                .inspect_err(|failure| trace_rejection(c, "image backing", failure))?,
+        )
     } else {
         None
     };
@@ -298,6 +315,18 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     }
     child.install(c.p, handles);
     Ok(STATUS_SUCCESS)
+}
+
+fn trace_rejection(c: &Ctx, stage: &'static str, failure: &Failure) {
+    if let Failure::Status(status) = failure {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            stage,
+            status = %format_args!("{status:#010x}"),
+            "guest child creation rejected"
+        );
+    }
 }
 
 fn creation_reply(
@@ -429,6 +458,12 @@ fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
     let width = abi.pointer;
     let row_width = 4 * width;
     let length = c.read_ptr(address)?;
+    tracing::trace!(
+        target: "rax::windows::ntstatus",
+        pid = c.p.pid,
+        attribute_list_bytes = length,
+        "guest child creation attribute list"
+    );
     if !((width + row_width) as u64..=(width + 4 * row_width) as u64).contains(&length)
         || (length as usize - width) % row_width != 0
     {
@@ -439,6 +474,14 @@ fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
     for row in raw[width..].chunks_exact(row_width) {
         let [kind, size, value, returned] =
             [0, width, 2 * width, 3 * width].map(|offset| abi.pointer(row, offset));
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            kind = %format_args!("{kind:#010x}"),
+            bytes = size,
+            returned_size_requested = returned != 0,
+            "guest child creation attribute"
+        );
         match kind {
             ATTR_IMAGE_NAME if attrs.image.is_none() && returned == 0 => {
                 attrs.image = Some(string(mem, size, value)?);
@@ -546,10 +589,18 @@ impl Parameters {
         )?;
         let max = dword(&header, layout.pp_maximum_length as usize);
         let len = dword(&header, layout.pp_length as usize);
-        if len < header.len() as u32
-            || len > max
-            || dword(&header, layout.pp_flags as usize) & 1 == 0
-        {
+        let flags = dword(&header, layout.pp_flags as usize);
+        let environment_bytes = abi.pointer(&header, layout.pp_environment_size as usize);
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            parameter_bytes = len,
+            max_parameter_bytes = max,
+            parameter_flags = %format_args!("{flags:#010x}"),
+            environment_bytes,
+            "guest child creation process parameters"
+        );
+        if len < header.len() as u32 || len > max || flags & RTL_PARAMS_NORMALIZED == 0 {
             return status(STATUS_INVALID_PARAMETER);
         }
         let command = unicode(mem, abi, &header, layout.pp_command_line as usize)?;
@@ -583,16 +634,15 @@ impl Parameters {
         } else {
             None
         };
-        let length = abi.pointer(&header, layout.pp_environment_size as usize);
-        let environment = if length == 0 {
+        let environment = if environment_bytes == 0 {
             vec![0; 4]
         } else {
-            if !(4..=MAX_ENVIRONMENT).contains(&length) || length % 2 != 0 {
+            if !(4..=MAX_ENVIRONMENT).contains(&environment_bytes) || environment_bytes % 2 != 0 {
                 return status(STATUS_INVALID_PARAMETER);
             }
             let bytes = mem.bytes(
                 abi.pointer(&header, layout.pp_environment as usize),
-                length as usize,
+                environment_bytes as usize,
             )?;
             if !bytes.ends_with(&[0; 4]) {
                 return status(STATUS_INVALID_PARAMETER);
