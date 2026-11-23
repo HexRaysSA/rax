@@ -10,8 +10,7 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
     for subject in ProcessConfigKey::ALL {
         let root = SnapshotRoot::ProcessConfig(subject);
         let path = root.path(&[])?;
-        // Native CMD opens the machine AppCompatFlags header. Its values
-        // and subkeys are not part of the selected runtime.
+        // Native CMD opens the machine AppCompatFlags key and queries LogFlags.
         let views: &[_] = match subject {
             ProcessConfigKey::MachineAppCompatFlags => &[RegistryView::Native64],
             _ => &[RegistryView::Native64, RegistryView::Wow32],

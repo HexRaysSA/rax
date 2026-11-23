@@ -143,32 +143,52 @@ fn process_config_preserves_absent_keys_and_control_set_aliases() {
 }
 
 #[test]
-fn process_config_machine_appcompat_flags_projects_only_the_native_header() {
+fn process_config_machine_appcompat_flags_projects_only_native_log_flags() {
     let subject = ProcessConfigKey::MachineAppCompatFlags;
     let root = SnapshotRoot::ProcessConfig(subject);
     let path = root.path(&[]).unwrap();
-    let header = header(subject.path(), vec![]);
     let registry = Registry::selected(upcase(), vec![]).unwrap();
-    let selected = registry
-        .clone()
-        .with_snapshot_selection(
-            root,
-            &[],
-            RegistryView::Native64,
-            Ok((header.clone(), None)),
-        )
-        .unwrap();
-    let Lookup::Present(key) = selected.lookup(&path) else {
-        panic!("machine AppCompatFlags header");
+    let log_flags = Value {
+        name: units("LogFlags"),
+        kind: 4,
+        data: 0x18_u32.to_le_bytes().to_vec(),
     };
-    assert_eq!(key.children, 2);
-    assert_eq!(key.captured_access().unwrap().grant(1), Ok(1));
-    assert!(!key.covers_value(&units("DisableEngine")));
-    assert!(matches!(key.relative(&units("Layers")), Lookup::Unselected));
-    assert!(matches!(
-        selected.lookup_view(&path, RegistryView::Wow32),
-        Lookup::Unselected
-    ));
+    for captured in [None, Some(log_flags.clone())] {
+        let header = header(subject.path(), captured.clone().into_iter().collect());
+        let selected = registry
+            .clone()
+            .with_snapshot_selection(root, &[], RegistryView::Native64, Ok((header, None)))
+            .unwrap();
+        let Lookup::Present(key) = selected.lookup(&path) else {
+            panic!("machine AppCompatFlags key");
+        };
+        assert_eq!(key.children, 2);
+        assert_eq!(key.captured_access().unwrap().grant(1), Ok(1));
+        assert!(key.covers_value(&units("logflags")));
+        assert_eq!(key.value(&units("LOGFLAGS")), captured.as_ref());
+        assert!(!key.covers_value(&units("DisableEngine")));
+        assert!(matches!(key.relative(&units("Layers")), Lookup::Unselected));
+        assert!(matches!(
+            selected.lookup_view(&path, RegistryView::Wow32),
+            Lookup::Unselected
+        ));
+    }
+    for (view, name) in [
+        (RegistryView::Wow32, "LogFlags"),
+        (RegistryView::Native64, "DisableEngine"),
+    ] {
+        let unselected = Value {
+            name: units(name),
+            ..log_flags.clone()
+        };
+        let header = header(subject.path(), vec![unselected]);
+        assert!(
+            registry
+                .clone()
+                .with_snapshot_selection(root, &[], view, Ok((header, None)))
+                .is_err()
+        );
+    }
     let missing = registry
         .with_snapshot_selection(
             root,

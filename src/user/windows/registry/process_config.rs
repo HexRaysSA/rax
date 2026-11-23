@@ -54,8 +54,9 @@ impl ProcessConfigKey {
                 "EnableTcpPortScaling",
             ],
             Self::ActiveComputerName => &["ComputerName"],
-            Self::Ccg | Self::MachineAppCompatFlags => &[],
+            Self::Ccg => &[],
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
+            Self::MachineAppCompatFlags => &["LogFlags"],
         }
     }
 
@@ -76,7 +77,7 @@ impl ProcessConfigKey {
                 view == RegistryView::Native64
                     && matches!(values, [value] if value.kind == 4 && value.data == [0; 4])
             }
-            Self::MachineAppCompatFlags => view == RegistryView::Native64 && values.is_empty(),
+            Self::MachineAppCompatFlags => view == RegistryView::Native64,
             _ => true,
         }
     }
