@@ -617,8 +617,12 @@ fn native_terminal_file_defers_queued_cpu_start_and_stop_until_explicit_wake() {
     let mut restored = save_restore(vm, &fixture, "native-psci-terminal-transitions.rxc");
     assert_eq!(power(&restored), expected);
     let stopped_cpus = private_states(&restored);
+    let coordinator = restored.coordinator.clone();
+    assert_eq!(coordinator.online, [true, true, false, false]);
     restored.run().unwrap();
-    assert_eq!(restored.coordinator.online, [true, true, false, false]);
+    assert_eq!(restored.coordinator, coordinator);
+    restored.run().unwrap();
+    assert_eq!(restored.coordinator, coordinator);
     assert_eq!(power(&restored), expected);
     assert!(restored.vm.take_cpu_power_requests().unwrap().is_empty());
     assert!(

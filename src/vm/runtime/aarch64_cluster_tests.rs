@@ -604,8 +604,13 @@ fn terminal_psci_file_preserves_queued_transitions_until_any_cpu_wakes() {
             .iter()
             .map(|cpu| cpu.instruction_count())
             .collect();
+        let coordinator = restored.coordinator.clone();
+        let clock = restored.timing_context.checkpoint_state();
         restored.run().unwrap();
-        assert_eq!(restored.coordinator.online, online);
+        assert_eq!(restored.coordinator, coordinator);
+        assert_eq!(restored.timing_context.checkpoint_state(), clock);
+        restored.run().unwrap();
+        assert_eq!(restored.coordinator, coordinator);
         assert!(restored.vm.take_cpu_power_requests().unwrap().is_empty());
         assert!(matches!(
             restored.vcpus[3].run().unwrap(),

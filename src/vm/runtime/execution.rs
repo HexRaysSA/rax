@@ -134,6 +134,11 @@ impl Vmm {
     pub fn run(&mut self) -> Result<()> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
+        // A terminal checkpoint already has a stopped execution frontier.
+        // Detect it before console input, timer polling or CPU selection.
+        if self.vm.firmware_shutdown()? {
+            return Ok(());
+        }
         let _timing = self.timing_context.enter();
         info!(cpus = self.vcpus.len(), "starting execution coordinator");
 

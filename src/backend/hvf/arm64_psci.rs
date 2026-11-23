@@ -9,6 +9,13 @@ impl NativeVmLifetime {
             .lock()
             .map_err(|_| Error::Emulator("native power lock poisoned".into()))
     }
+    pub(super) fn firmware_shutdown(&self) -> Result<bool> {
+        Ok(self.power()?.as_ref().map_or_else(
+            || self.standalone_shutdown.load(Ordering::Acquire),
+            |power| power.shutdown,
+        ))
+    }
+
     pub(super) fn power_requests(&self) -> Result<Vec<CpuPowerRequest>> {
         Ok(self
             .power()?
@@ -30,10 +37,7 @@ impl HvfArm64Core {
     pub(super) fn native_shutdown(&self) -> Result<bool> {
         // Configured VMMs have one VM-wide terminal state. A stale local latch
         // from before an explicit restart must not shut the VM down again.
-        Ok(self._vm.power()?.as_ref().map_or_else(
-            || self._vm.standalone_shutdown.load(Ordering::Acquire),
-            |power| power.shutdown,
-        ))
+        self._vm.firmware_shutdown()
     }
     pub(super) fn power_entry_exit(&self) -> Result<Option<VcpuExit>> {
         let power = self._vm.power()?;

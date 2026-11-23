@@ -282,7 +282,7 @@ impl ArmCluster {
         })
     }
 
-    pub(super) fn shutdown(&self) -> bool {
+    pub(in crate::backend::emulator) fn shutdown(&self) -> bool {
         self.shutdown.load(Ordering::Acquire)
     }
 

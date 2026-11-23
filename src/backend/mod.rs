@@ -136,6 +136,11 @@ pub trait Vm: Send + Sync {
         Ok(())
     }
 
+    /// Whether a shared firmware power latch has stopped the entire VM.
+    fn firmware_shutdown(&self) -> Result<bool> {
+        Ok(false)
+    }
+
     /// Obtain firmware requests at an instruction boundary. Backends may retain
     /// them until acknowledgement so failed publication remains retryable.
     fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {

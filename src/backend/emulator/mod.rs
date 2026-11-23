@@ -211,6 +211,13 @@ impl Vm for EmulatorVm {
             .set(Arc::new(aarch64::cluster::ArmCluster::new(count, ram_end)?))
             .map_err(|_| Error::InvalidConfig("CPU topology was configured concurrently".into()))
     }
+    fn firmware_shutdown(&self) -> Result<bool> {
+        Ok(self
+            .arm_cluster
+            .get()
+            .is_some_and(|cluster| cluster.shutdown()))
+    }
+
     fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {
         match self.arm_cluster.get() {
             Some(cluster) => cluster.pending_requests(),

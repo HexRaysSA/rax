@@ -469,6 +469,16 @@ impl Vm for HvfArm64Vm {
         Ok(())
     }
 
+    fn firmware_shutdown(&self) -> Result<bool> {
+        let _guard = self
+            .lifetime
+            .quiescence
+            .read()
+            .map_err(|_| Error::Emulator("native exclusion lock poisoned".into()))?;
+        self.lifetime.ensure_live()?;
+        self.lifetime.firmware_shutdown()
+    }
+
     fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {
         let _guard = self
             .lifetime

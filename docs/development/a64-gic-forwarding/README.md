@@ -147,6 +147,11 @@ sees no pending transitions while shut down. A stale start or acknowledgement
 fails before it changes the CPU or power graph. Wake through any CPU releases
 the shared latch and exposes the original ordered requests.
 
+`Vmm::run` checks that latch before it services console input, polls guest
+timers or selects a CPU. The terminal-file regression checks the retired
+clock on the first run attempt and the complete coordinator state, including
+the next CPU, across repeated attempts before wake.
+
 `RAXEXE13` and `RAXEXE14` add one byte for the shared latch to the controller
 record. The file reader still accepts the prior GIC layouts under their original
 admission rules. If a prior CPU record contains a terminal latch, typed restore

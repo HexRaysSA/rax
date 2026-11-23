@@ -573,6 +573,10 @@ set, the shared power graph, and the captured per-CPU context. After wake,
 the two requests must be available in the same order. CPU 1 must stay
 parked and CPU 2 must reach PL011 after writing its saved context marker.
 
+The VMM reads the native owner's terminal latch before console input, timer
+polling or CPU selection. Repeated calls to `Vmm::run` before wake preserve the
+complete scheduler state, including the next CPU.
+
 On an Apple M4 Max running macOS 27.3 build 26C5035r, the parent applied
 both requests during the first terminal run, changing the online mask
 from `[true, true, false, false]` to `[true, false, true, false]`. The
