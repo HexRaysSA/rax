@@ -12,8 +12,19 @@ mod mapped_filename;
 mod region;
 mod working_set;
 
-pub(super) fn copy_thunk_bytes(c: &Ctx, output: u64, bytes: &[u8]) -> Result<(), ApiErr> {
-    mapped_filename::copy_thunk_bytes(c, output, bytes)
+#[derive(Clone, Copy)]
+pub(super) enum RegistryThunk {
+    KeyEnumeration,
+    KeyQuery,
+}
+
+pub(super) fn copy_thunk_bytes(
+    c: &Ctx,
+    output: u64,
+    bytes: &[u8],
+    operation: RegistryThunk,
+) -> Result<(), ApiErr> {
+    mapped_filename::copy_thunk_bytes(c, output, bytes, operation)
 }
 
 pub(super) fn query(c: &mut Ctx) -> ApiResult {

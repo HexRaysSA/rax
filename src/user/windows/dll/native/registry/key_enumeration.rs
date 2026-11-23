@@ -1,4 +1,5 @@
 //! Native and WoW64 enumeration entry over immutable ordered child metadata.
+use super::super::virtual_memory::{RegistryThunk, copy_thunk_bytes};
 use super::*;
 
 pub(in super::super) fn enumerate_key(c: &mut Ctx) -> ApiResult {
@@ -59,7 +60,7 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             }
             other => other,
         };
-        super::super::virtual_memory::copy_thunk_bytes(c, output, &scratch).map_err(|error| {
+        copy_thunk_bytes(c, output, &scratch, RegistryThunk::KeyEnumeration).map_err(|error| {
             match error {
                 ApiErr::Unimplemented(_) => {
                     c.unsupported("key enumeration WoW64 copy kernel profile is not captured")

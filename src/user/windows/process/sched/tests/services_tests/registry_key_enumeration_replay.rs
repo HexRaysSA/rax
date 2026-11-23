@@ -401,3 +401,13 @@ fn native_enumerate_key_replays_explicitly_requested_fresh_controls() {
         "fresh key enumeration: {count} process ABIs; {basic} class-zero/invalid-selector rows and {fault} fault/rights rows"
     );
 }
+
+#[test]
+fn native_enumerate_key_replays_arm64_26200_x86() {
+    let corpus: Json = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-key-enumeration/controls-26200-wow64-v1.json"
+    )))
+    .unwrap();
+    assert_eq!(replay(&corpus), (5500, 5676));
+}

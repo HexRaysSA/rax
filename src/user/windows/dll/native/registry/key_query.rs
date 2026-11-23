@@ -163,7 +163,10 @@ fn copy_back(c: &Ctx, output: u64, bytes: &[u8]) -> Checked<()> {
     }
     if !amd64 || bytes.len() > 16 {
         return Ok(super::super::virtual_memory::copy_thunk_bytes(
-            c, output, bytes,
+            c,
+            output,
+            bytes,
+            super::super::virtual_memory::RegistryThunk::KeyQuery,
         )?);
     }
     // The native AMD64 WoW64 key-query short copier publishes the tail word

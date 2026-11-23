@@ -90,6 +90,21 @@ copy, and an aliased sizing result can be overwritten by copy-back. Guard-page
 consumption and partial stores are checked separately from returned status.
 No caller-visible exception occurred in the retained extended fault matrix.
 
+The released ARM64 build 26200 also has a retained x86 WoW64 campaign.
+The two unchanged producers recorded 5,512 basic rows and 5,676 fault/rights
+rows on a native Windows 11 ARM64 runner. The released profile replays 5,500
+class-0 and invalid-selector rows and all 5,676 fault/rights rows. The remaining
+12 basic rows record the unsupported class-1 and class-2 payloads. The x86
+conversion reuses the same paired-store widths as the measured build-26200
+mapped-filename conversion. This profile selection applies to enumeration.
+
+`controls-26200-wow64-v1.json` is the lossless projection from
+the [native workflow run](https://github.com/HexRaysSA/rax/actions/runs/45173070696).
+The projection uses `compact` in `tools/ci/windows_key_enumeration.py` and
+retains the raw report and image hashes. The observed MSVC producer source
+hashes include CRLF, and the normalized hashes match the canonical sources.
+Use the portable retained gate above to replay both campaigns.
+
 The basic probe guarantees and verifies a 16-byte-aligned buffer and records
 the actual low three bits of both pointers in every row. An earlier x86
 stack-buffer experiment omitted that observation; its offsets did not identify

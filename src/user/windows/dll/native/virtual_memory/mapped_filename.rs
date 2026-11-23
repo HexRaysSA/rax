@@ -1,5 +1,5 @@
 //! Class 2 follows the measured native64 and WoW64 filename conversion paths.
-use super::process_status;
+use super::{RegistryThunk, process_status};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::dll::native::query::probe_write;
 use crate::user::windows::dll::native::unicode_name::write_inline;
@@ -17,7 +17,7 @@ pub(super) fn query(
 ) -> ApiResult {
     let wow = c.arch() == WinArch::X86;
     let profile = profile(c, ProfileUse::MappedFilename)?;
-    let check_alignment_first = matches!(profile, Profile::Amd64 | Profile::Arm64Local26200);
+    let check_alignment_first = matches!(profile, Profile::Amd64 | Profile::Arm64Paired26200);
     // The filename converter reads its optional slot before dispatch. A read
     // fault consumes its guard and disables publication. A readable readonly
     // slot instead survives capture and can fail at the final caller store.
@@ -88,7 +88,7 @@ pub(super) fn query(
     else {
         return finish(c, STATUS_FILE_INVALID, unchanged);
     };
-    if profile == Profile::Arm64Local26200 && !local_disk_name(&name) {
+    if profile == Profile::Arm64Paired26200 && !local_disk_name(&name) {
         return Err(c.unsupported("mapped filename local-volume profile excludes this device"));
     }
     if name.is_empty() || name.len() > 32766 || name.contains(&0) {
@@ -117,7 +117,7 @@ pub(super) fn query(
     if wow {
         copy_wow(c, output, length, &name, profile)?;
     } else {
-        if matches!(profile, Profile::Amd64 | Profile::Arm64Local26200) {
+        if matches!(profile, Profile::Amd64 | Profile::Arm64Paired26200) {
             c.mem().w32(output + 4, 0)?;
         }
         write_inline(c, output, &name)?;
@@ -129,7 +129,7 @@ pub(super) fn query(
 enum Profile {
     Arm64,
     Arm64MupBytes,
-    Arm64Local26200,
+    Arm64Paired26200,
     Amd64,
 }
 
@@ -148,7 +148,7 @@ impl Profile {
 
 enum ProfileUse {
     MappedFilename,
-    RegistryCopy,
+    RegistryCopy(RegistryThunk),
 }
 
 fn profile(c: &Ctx, operation: ProfileUse) -> Result<Profile, crate::user::windows::hle::ApiErr> {
@@ -165,7 +165,12 @@ fn profile(c: &Ctx, operation: ProfileUse) -> Result<Profile, crate::user::windo
         (10, 0, 26200, Some(0xaa64), ProfileUse::MappedFilename)
             if matches!(c.arch(), WinArch::Arm64 | WinArch::X86) =>
         {
-            Ok(Profile::Arm64Local26200)
+            Ok(Profile::Arm64Paired26200)
+        }
+        (10, 0, 26200, Some(0xaa64), ProfileUse::RegistryCopy(RegistryThunk::KeyEnumeration))
+            if c.arch() == WinArch::X86 =>
+        {
+            Ok(Profile::Arm64Paired26200)
         }
         (10, 0, 29695 | 29698, Some(0xaa64), _) => Ok(Profile::Arm64),
         (10, 0, 29704, Some(0xaa64), _)
@@ -254,8 +259,9 @@ pub(super) fn copy_thunk_bytes(
     c: &Ctx,
     output: u64,
     bytes: &[u8],
+    operation: RegistryThunk,
 ) -> Result<(), crate::user::windows::hle::ApiErr> {
-    let profile = profile(c, ProfileUse::RegistryCopy)?;
+    let profile = profile(c, ProfileUse::RegistryCopy(operation))?;
     for (offset, block) in copy_blocks(bytes, profile, output) {
         c.mem().wr(output + offset, block)?;
     }
@@ -285,10 +291,9 @@ fn copy_blocks(encoded: &[u8], profile: Profile, destination: u64) -> Vec<(u64, 
         }
         return stores;
     }
-    // The released ARM64 kernel's WoW64 filename converter publishes paired
-    // 16-byte stores together. Preview and registry-copy profiles retain their
-    // independently observed store boundaries.
-    let paired = profile == Profile::Arm64Local26200;
+    // On build 26200, the measured filename and enumeration conversions
+    // publish paired 16-byte stores together.
+    let paired = profile == Profile::Arm64Paired26200;
     let push_pair = |push: &mut dyn FnMut(usize, usize), offset: usize| {
         if paired {
             push(offset, 32);
