@@ -304,3 +304,22 @@ started. The run retained only the signed build archive. The job log was
 unavailable, so the last guest phase and the cause of the loss are unknown.
 This repeat qualifies zero guest cases.
 [Combined job](https://github.com/HexRaysSA/rax/actions/runs/45134602279/job/137557764665)
+
+## Standalone repeat with live-log backpressure fix
+
+Run `45149408706` passed all 16 coherence cases at
+`cd34ff1cae48be37444dacc93e48b2f76afda933`. Each concurrent peer observed
+the reply and exited through HLT after 357,878 to 379,775 page-table
+updates. Both `0x40000080` and `0x40200080` appeared as the second
+hardware exit GPA in the concurrent cases. All four completed at the
+expected instruction frontier.
+
+Verification checked both uploaded archives, all 16 terminal CPU records,
+164 case-and-stage markers, 4,902 engine inputs and 19 consumer inputs.
+The signed Intel executable SHA-256 was
+`9f08dc903a1ac0273426154e3bdd76904fcd8a03eadbfbb5fc5ef57fa5978b98`.
+The observation stream SHA-256 was
+`f7bceebcab86225162acc8e47f4391af1abeaf1880eecf0cab7851e0aa9b7c4e`.
+The process ran untranslated on virtualized Intel macOS 15.7.9 with
+SDK 15.5. The cause of earlier hosted runner losses remains unknown.
+[Standalone coherence repeat](https://github.com/HexRaysSA/rax/actions/runs/45149408706)
