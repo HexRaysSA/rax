@@ -51,6 +51,27 @@ uses the guest memory manager and cannot allocate beyond its commitment budget.
 The exact native allocation-failure profile for extreme caller lengths remains
 unqualified; conversion-storage failures remain explicit emulator diagnostics.
 
+## Windows 11 ARM64 build 26200 WoW64 local volumes
+
+The release profile admits x86 class-2 queries for selected local
+`\Device\HarddiskVolume<n>\…` mappings. The 32-bit copy publishes the
+paired stores as a 32-byte unit across page boundaries. The native ARM64
+header and its padding retain their separate behavior.
+
+[Native run 45164298123](https://github.com/HexRaysSA/rax/actions/runs/45164298123)
+ran [arm64-wow64-local-v1.c](arm64-wow64-local-v1.c) in three x86 launch modes.
+It captured 4,760 results per mode from installed images and temporary local
+file mappings. Default and explicitly disabled CHPE were byte-identical.
+Explicit enablement selected a different kernel32 image name in 70 results,
+with the same status, length, protection and pointer disposition.
+
+[The retained projection](profile-26200-wow64-local-v1.json) binds the raw log
+and executable hashes. [Its projector](project-26200-wow64.py) checks every
+captured byte, then compacts equivalent adjacent conditions. The dispatch
+test checks status, returned length, guard consumption, caller bytes, and
+retirement of the temporary conversion allocation. The measured terminated
+name sizes span 80 to 402 bytes.
+
 ## Frozen native evidence
 
 Every executed versioned C probe and runner is immutable after execution.

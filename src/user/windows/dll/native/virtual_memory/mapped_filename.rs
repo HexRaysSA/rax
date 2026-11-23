@@ -162,7 +162,9 @@ fn profile(c: &Ctx, operation: ProfileUse) -> Result<Profile, crate::user::windo
         native.object_namespace.native_machine,
         operation,
     ) {
-        (10, 0, 26200, Some(0xaa64), ProfileUse::MappedFilename) if c.arch() == WinArch::Arm64 => {
+        (10, 0, 26200, Some(0xaa64), ProfileUse::MappedFilename)
+            if matches!(c.arch(), WinArch::Arm64 | WinArch::X86) =>
+        {
             Ok(Profile::Arm64Local26200)
         }
         (10, 0, 29695 | 29698, Some(0xaa64), _) => Ok(Profile::Arm64),
@@ -283,6 +285,18 @@ fn copy_blocks(encoded: &[u8], profile: Profile, destination: u64) -> Vec<(u64, 
         }
         return stores;
     }
+    // The released ARM64 kernel's WoW64 filename converter publishes paired
+    // 16-byte stores together. Preview and registry-copy profiles retain their
+    // independently observed store boundaries.
+    let paired = profile == Profile::Arm64Local26200;
+    let push_pair = |push: &mut dyn FnMut(usize, usize), offset: usize| {
+        if paired {
+            push(offset, 32);
+        } else {
+            push(offset, 16);
+            push(offset + 16, 16);
+        }
+    };
     match n {
         0 => {}
         1..=3 => {
@@ -303,41 +317,32 @@ fn copy_blocks(encoded: &[u8], profile: Profile, destination: u64) -> Vec<(u64, 
             push(n - 16, 16);
         }
         33..=64 => {
-            push(0, 16);
-            push(16, 16);
-            push(n - 32, 16);
-            push(n - 16, 16);
+            push_pair(&mut push, 0);
+            push_pair(&mut push, n - 32);
         }
         65..=128 => {
             if n > 96 {
-                push(n - 64, 16);
-                push(n - 48, 16);
+                push_pair(&mut push, n - 64);
             }
-            for offset in [0, 16, 32, 48] {
-                push(offset, 16);
-            }
-            push(n - 32, 16);
-            push(n - 16, 16);
+            push_pair(&mut push, 0);
+            push_pair(&mut push, 32);
+            push_pair(&mut push, n - 32);
         }
         _ => {
             // The native conversion string begins at a 16-byte-aligned owned
             // buffer; its 32-bit caller destination cannot overlap that input.
             push(0, 16);
             let mut base = 0;
-            let mut remaining = n as isize - 144;
-            while remaining > 0 {
-                for offset in [16, 32, 48, 64] {
-                    push(base + offset, 16);
+            loop {
+                push_pair(&mut push, base + 16);
+                push_pair(&mut push, base + 48);
+                if n - base <= 144 {
+                    break;
                 }
                 base += 64;
-                remaining -= 64;
             }
-            for offset in [16, 32, 48, 64] {
-                push(base + offset, 16);
-            }
-            for offset in [n - 64, n - 48, n - 32, n - 16] {
-                push(offset, 16);
-            }
+            push_pair(&mut push, n - 64);
+            push_pair(&mut push, n - 32);
         }
     }
     stores

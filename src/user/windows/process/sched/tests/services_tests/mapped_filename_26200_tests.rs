@@ -80,7 +80,7 @@ fn mapped_filename_26200_replays_installed_local_image_queries() {
 #[test]
 fn mapped_filename_26200_refuses_unmeasured_guest_views_and_remote_names() {
     for (arch, machine, filename) in [
-        (WinArch::X86, 0xaa64, r"\Device\HarddiskVolume1\app.exe"),
+        (WinArch::X86, 0xaa64, r"\Device\Mup\server\share\app.exe"),
         (WinArch::X64, 0xaa64, r"\Device\HarddiskVolume1\app.exe"),
         (WinArch::Arm64, 0x8664, r"\Device\HarddiskVolume1\app.exe"),
         (WinArch::Arm64, 0xaa64, r"\Device\Mup\server\share\app.exe"),
