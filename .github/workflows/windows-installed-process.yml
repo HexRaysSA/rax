@@ -115,6 +115,7 @@ jobs:
             Add-Content -LiteralPath $env:GITHUB_ENV -Encoding utf8
       - name: Observe native CMD child AppHelp
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.measure_native_child_apphelp }}
+        id: measure_child_apphelp
         shell: pwsh
         timeout-minutes: 12
         env:
@@ -176,11 +177,15 @@ jobs:
           .printf "\nRAX_APPHELP_ENTRY mask=%x flags=%x name_bytes=%u capacity=%u\n", dwo(@$t0), dwo(@$t0+4), wo(@$t0+0x30), dwo(@$t0+0x180)
           gu
           .printf "\nRAX_APPHELP_RETURN status=%x bytes=%u\n", %status%, dwo(@$t0+0x180)
-          .if (%status%==0 && dwo(@$t0+0x180)>0 && dwo(@$t0+0x180)<=0n256 && (dwo(@$t0+0x180)&3)==0 && @$t1!=0) { .for (r $t2=0; @$t2<dwo(@$t0+0x180); r $t2=@$t2+4) { .printf "\nRAX_APPHELP_WORD offset=%u value=%08x\n", @$t2, dwo(@$t1+@$t2) } }
+          .printf "\nRAX_APPHELP_DUMP_BEGIN\n"
+          dd @$t1 L0n64
+          .printf "\nRAX_APPHELP_DUMP_END\n"
           '@
           $breakpoint = $breakpoint.Replace('%arch%', $effectiveArch).Replace('%operation%', $operation)
           $sample = $sample.Replace('%packet%', $packet).Replace('%status%', $status)
-          $commands = @($breakpoint, $sample, $sample, $sample, 'g') -join "`n"
+          $lastSample = $sample.Replace('r $t0=', "bc 0`nr " + '$t0=')
+          $commands = if ($arm) { @($breakpoint, $sample, $lastSample, 'g') } else { @($breakpoint, $lastSample, 'g') }
+          $commands = $commands -join "`n"
           $raw = Join-Path $scratch 'debugger.log'
           $PSNativeCommandUseErrorActionPreference = $false
           Set-Location -LiteralPath (Split-Path -Parent $cmd)
@@ -190,17 +195,65 @@ jobs:
           $identity.cmd_unchanged = $identity.cmd_sha256 -eq (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
           $identity.ntdll_unchanged = $identity.ntdll_sha256 -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
           $summary = Join-Path $root 'native-child-apphelp.log'
-          $pattern = '^RAX_APPHELP_(?:ENTRY|RETURN|WORD) |^rax-child\s*$'
-          $observations = @(Get-Content -LiteralPath $raw | Where-Object { $_ -match $pattern })
-          Set-Content -LiteralPath $summary -Value $observations -Encoding utf8
-          $identity.complete = (Select-String -LiteralPath $raw -Quiet -Pattern '^RAX_APPHELP_ENTRY mask=1f flags=[0-9a-f]+ name_bytes=\d+ capacity=4096$') -and
-                               (Select-String -LiteralPath $raw -Quiet -Pattern '^RAX_APPHELP_RETURN status=[0-9a-f]+ bytes=\d+$') -and
-                               (Select-String -LiteralPath $raw -Quiet -Pattern '^rax-child\s*$')
+          $size = 0
+          $words = [System.Collections.Generic.List[string]]::new()
+          $dump = $false
+          $completed = 0
+          $nativeOutput = $false
+          $observations = foreach ($line in Get-Content -LiteralPath $raw) {
+            if ($line -match '^RAX_APPHELP_ENTRY mask=1f flags=[0-9a-f]+ name_bytes=\d+ capacity=4096$') {
+              $line
+              continue
+            }
+            if ($line -match '^RAX_APPHELP_RETURN status=([0-9a-f]+) bytes=(\d+)$') {
+              $size = if ($Matches[1] -eq '0') { [int]$Matches[2] } else { 0 }
+              $line
+              continue
+            }
+            if ($line -match '^RAX_APPHELP_DUMP_BEGIN$') {
+              $words.Clear()
+              $dump = $true
+              continue
+            }
+            if ($line -match '^RAX_APPHELP_DUMP_END$') {
+              $dump = $false
+              if ($size -gt 0 -and $size -le 256 -and ($size % 4) -eq 0 -and $words.Count -ge ($size / 4)) {
+                for ($i = 0; $i -lt ($size / 4); $i++) {
+                  "RAX_APPHELP_WORD offset=$($i * 4) value=$($words[$i])"
+                }
+                $completed++
+              }
+              continue
+            }
+            if ($dump -and $line -match '(?:^|>\s*)[0-9a-f]{8}(?:`[0-9a-f]{8})?\s+((?:[0-9a-f]{8}\s+){0,3}[0-9a-f]{8})\s*$') {
+              $words.AddRange([string[]]($Matches[1] -split '\s+'))
+              continue
+            }
+            if ($line -match '^rax-child\s*$') {
+              $nativeOutput = $true
+              'rax-child'
+            }
+          }
+          Set-Content -LiteralPath $summary -Value @($observations) -Encoding utf8
+          $identity.complete = $nativeOutput -and $completed -gt 0
+          $identity.completed_replies = $completed
           $identity | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'native-child-apphelp-identity.json') -Encoding utf8
           if ($identity.debugger_exit -ne 0 -or !$identity.complete -or !$identity.cmd_unchanged -or !$identity.ntdll_unchanged) {
+            Get-Content -LiteralPath $summary
+            Get-Content -LiteralPath $raw |
+              Select-String -Pattern 'syntax error|couldn.t resolve|memory access error|unable to read|no runnable' |
+              Select-Object -First 8
             throw 'Native stock CMD AppHelp observation did not complete'
           }
           Get-Content -LiteralPath $summary
+      - name: Preserve native CMD child observation
+        if: ${{ !cancelled() && steps.measure_child_apphelp.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-child-apphelp-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            target/windows-installed-process/native-child-apphelp.log
+            target/windows-installed-process/native-child-apphelp-identity.json
       - name: Select native Windows ARM64 Rust host
         if: matrix.target == 'aarch64-pc-windows-msvc'
         run: rustup set default-host aarch64-pc-windows-msvc
