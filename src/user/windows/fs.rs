@@ -46,6 +46,8 @@ pub enum FileIdentity {
     Path(PathBuf),
     /// The NUL character device, which has no host pathname.
     Null,
+    /// A directory in the closed installed namespace, identified by its guest DOS path.
+    GuestDirectory(String),
 }
 
 impl FileIdentity {

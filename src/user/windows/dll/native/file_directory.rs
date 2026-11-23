@@ -8,6 +8,7 @@ mod records;
 use super::named_object::{Checked, finish_with, status};
 use super::query::probe_write;
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::{ApiResult, Ctx};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
@@ -152,6 +153,11 @@ fn checked(c: &mut Ctx, legacy: bool, caller_store: &mut bool) -> Checked<u32> {
             if file.overlapped {
                 return Err(c
                     .unsupported("asynchronous directory completion scheduling")
+                    .into());
+            }
+            if matches!(file.lifetime.identity, FileIdentity::GuestDirectory(_)) {
+                return Err(c
+                    .unsupported("enumeration of the closed installed namespace")
                     .into());
             }
         }

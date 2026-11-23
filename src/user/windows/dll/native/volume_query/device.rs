@@ -2,6 +2,7 @@
 use super::super::named_object::{Checked, status};
 use super::super::query::probe_write;
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
@@ -49,6 +50,11 @@ pub(super) fn checked(
         Some(Object::SecurityFile(device)) => (device.device_type, device.characteristics),
         Some(Object::Pipe { .. }) => (0x11, 0x20000),
         Some(Object::File(file)) if file.null => (0x15, 0x100),
+        Some(Object::File(file))
+            if matches!(file.lifetime.identity, FileIdentity::GuestDirectory(_)) =>
+        {
+            (7, 0x20020)
+        }
         Some(Object::File(file)) => super::host::device(file)
             .map_err(|e| c.unsupported(format!("owned file volume device information: {e}")))?,
         Some(_) => return status(STATUS_OBJECT_TYPE_MISMATCH),

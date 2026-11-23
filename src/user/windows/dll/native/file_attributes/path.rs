@@ -6,6 +6,7 @@ pub(in super::super) mod unix;
 use super::super::named_object::{Checked, status};
 use super::attributes::Attributes;
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::fs::find_case_insensitive;
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::native::NativeRuntime;
@@ -286,6 +287,18 @@ pub(in super::super) fn resolve_open(
     resolve_kind(c, attrs, name, true)
 }
 
+pub(in super::super) fn dos_tail<'a>(c: &Ctx, name: &'a [u16]) -> Option<&'a [u16]> {
+    let short: Vec<u16> = "\\??\\".encode_utf16().collect();
+    let long: Vec<u16> = "\\DosDevices\\".encode_utf16().collect();
+    if let Some(path) = name.strip_prefix(short.as_slice()) {
+        Some(path)
+    } else if name.len() >= long.len() && equal(c, &name[..long.len()], &long) {
+        Some(&name[long.len()..])
+    } else {
+        None
+    }
+}
+
 fn resolve_kind(
     c: &Ctx,
     attrs: &Attributes,
@@ -331,6 +344,28 @@ fn resolve_kind(
         if !name.is_empty() && !file.directory {
             return status(STATUS_OBJECT_PATH_NOT_FOUND);
         }
+        if let FileIdentity::GuestDirectory(guest) = &file.lifetime.identity {
+            let (components, directory) = parts(c, name)?;
+            if components.is_empty() || directory {
+                return status(STATUS_ACCESS_DENIED);
+            }
+            let mut absolute: Vec<u16> = guest.encode_utf16().collect();
+            if absolute.last() != Some(&u16::from(b'\\')) {
+                absolute.push(u16::from(b'\\'));
+            }
+            absolute.extend_from_slice(name);
+            let Some((base, host)) = selected(c, &absolute)? else {
+                return status(STATUS_ACCESS_DENIED);
+            };
+            return Ok(Resolved {
+                host,
+                base,
+                root: None,
+                relative: None,
+                directory: false,
+                runtime_library: true,
+            });
+        }
         if !c.p.cfg.host_filesystem && !c.p.objects.runtime_library(attrs.root) {
             return status(STATUS_ACCESS_DENIED);
         }
@@ -371,13 +406,7 @@ fn resolve_kind(
     if name.is_empty() || name[0] != u16::from(b'\\') {
         return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
     }
-    let short: Vec<u16> = "\\??\\".encode_utf16().collect();
-    let long: Vec<u16> = "\\DosDevices\\".encode_utf16().collect();
-    let path = if name.starts_with(&short) {
-        &name[short.len()..]
-    } else if name.len() >= long.len() && equal(c, &name[..long.len()], &long) {
-        &name[long.len()..]
-    } else {
+    let Some(path) = dos_tail(c, name) else {
         return Err(c
             .unsupported("NT metadata name outside mapped DOS drive namespace")
             .into());

@@ -310,6 +310,71 @@ fn native_file_open_selected_runtime_grant_is_read_only_and_cannot_enroll_other_
 }
 
 #[test]
+fn native_file_open_closed_directories_only_resolve_selected_runtime_files() {
+    use crate::user::windows::fs::FileIdentity;
+    use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_INVALID};
+    use crate::user::windows::objects::Object;
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        std::fs::write(installed.join("cmd.exe"), b"selected image").unwrap();
+        std::fs::write(installed.join("unselected.exe"), b"foreign image").unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+
+        for (name, access, share, options, relative) in [
+            (r"\??\C:\Windows\System32\", 0x100020, 3, 0x21, "cmd.exe"),
+            (r"\??\C:\Windows\System32\", 0x100001, 7, 0x4021, "cmd.exe"),
+            (r"\??\C:\", 0x100000, 3, 0x4021, r"Windows\System32\cmd.exe"),
+        ] {
+            h.name(name);
+            assert_eq!(
+                h.open_with(output, io, access | 2, share, options),
+                STATUS_ACCESS_DENIED
+            );
+            assert_eq!(
+                h.open_with(output, io, access, share, options),
+                STATUS_SUCCESS
+            );
+            let width = arch.ptr_size();
+            let p = h.process.state_mut();
+            let directory = p.space.ptr(output, width).unwrap();
+            assert_eq!(p.space.ptr(io + width, width).unwrap(), 1);
+            assert_eq!(p.objects.access(directory), Some(access));
+            assert!(matches!(
+                p.objects.get(directory),
+                Some(Object::File(file)) if file.directory && file.host.is_none()
+                    && file.host_path.as_os_str().is_empty()
+                    && matches!(&file.lifetime.identity, FileIdentity::GuestDirectory(_))
+            ));
+            let root = h.attrs() + width;
+            for (relative, expected) in [
+                (relative, STATUS_SUCCESS),
+                (r"..\cmd.exe", STATUS_OBJECT_NAME_INVALID),
+                ("unselected.exe", STATUS_ACCESS_DENIED),
+                ("fixture.bin", STATUS_ACCESS_DENIED),
+            ] {
+                h.name(relative);
+                h.process
+                    .state()
+                    .space
+                    .wptr(root, width, directory)
+                    .unwrap();
+                assert_eq!(h.open(output, io), expected, "{arch}/{name}/{relative}");
+                if expected == STATUS_SUCCESS {
+                    let p = h.process.state_mut();
+                    let child = p.space.ptr(output, width).unwrap();
+                    assert!(p.objects.runtime_library(child));
+                    p.objects.close(child).unwrap();
+                }
+            }
+            h.process.state_mut().objects.close(directory).unwrap();
+        }
+    }
+}
+
+#[test]
 fn native_file_open_mui_satellites_require_an_installed_owner_and_read_only_access() {
     use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_OBJECT_PATH_NOT_FOUND};
     for arch in WinArch::ALL {

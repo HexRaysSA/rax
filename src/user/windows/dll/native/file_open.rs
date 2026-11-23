@@ -1,6 +1,7 @@
 //! NT opens capture guest arguments before publishing owned file handles.
 //! Native IO_STATUS_BLOCK probing and WoW64 copyback have distinct failure effects.
 
+mod guest_directory;
 pub(super) mod host;
 mod null;
 mod security_device;
@@ -235,6 +236,9 @@ pub(super) fn kernel(
             .is_some_and(|request| r.options & 1 != 0 && !matches!(request.disposition, 1..=3))
     {
         return status(STATUS_INVALID_PARAMETER);
+    }
+    if let Some(result) = guest_directory::open(c, r, &attrs, name.as_deref(), creation.as_ref()) {
+        return result;
     }
     let resolved = path::resolve_open(c, &attrs, name.as_deref())?;
     let mut access = mapped_access(r.access);
