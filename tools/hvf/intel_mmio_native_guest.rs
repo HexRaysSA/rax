@@ -36,6 +36,8 @@ mod divide;
 mod double_shift;
 #[path = "intel_mmio_guest_debug.rs"]
 mod guest_debug;
+#[path = "intel_irq_vectoring.rs"]
+mod irq_vectoring;
 #[path = "intel_mmio_level_irq.rs"]
 mod level_irq;
 #[path = "intel_mmio_movbe.rs"]
@@ -1508,6 +1510,12 @@ fn main() {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
         level_irq::run(&output);
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--irq-vectoring")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        irq_vectoring::run(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--irq-window")) {

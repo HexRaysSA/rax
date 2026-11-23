@@ -131,6 +131,7 @@ struct Sdk {
     timer_visible: bool,
     initial_timer: bool,
     client_timer_control: bool,
+    zero_length_event: bool,
 }
 
 impl Sdk {
@@ -156,6 +157,7 @@ impl Sdk {
             timer_visible: true,
             initial_timer: false,
             client_timer_control: true,
+            zero_length_event: false,
         }
     }
     fn fail_after(&mut self, operation: &str) -> bool {
@@ -336,7 +338,7 @@ pub unsafe extern "C" fn hv_vmx_read_capability(field: u32, output: *mut u64) ->
         return -1;
     }
     let value = if field == 10 {
-        1 << 6
+        (1 << 6) | (u64::from(sdk.zero_length_event) << 30)
     } else {
         u64::from(if field == 0 && !sdk.client_timer_control {
             u32::MAX & !(1 << 6)

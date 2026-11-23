@@ -22,6 +22,13 @@ fn queue_io(read: bool) {
     cpu.exits.push_back(30);
 }
 
+fn queue_vectoring(cpu: &mut Cpu, vectoring: u64, qualification: u64) {
+    cpu.exits.push_back(48);
+    cpu.vmcs.insert(0x6400, qualification);
+    cpu.vmcs.insert(0x2400, 0x2400);
+    cpu.vmcs.insert(0x4408, vectoring);
+}
+
 #[test]
 fn posted_host_slices_overlap_on_two_and_four_permanent_owners() {
     let _serial = SERIAL
@@ -253,6 +260,161 @@ fn real_io_after_expiry_and_prepared_input_keep_the_original_frontier() {
     assert_eq!((state.regs.rax & 0xff, state.regs.rip), (0x5a, 3));
     drop(cpu);
     drop(vm);
+}
+
+#[test]
+fn ept_interrupted_irq_remains_owned_by_the_saved_cpu_until_retry() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let limit = Duration::from_secs(1);
+    for sliced in [false, true] {
+        let (vm, memory) = fixture();
+        let mut cpu = vm
+            .create_vcpu(0, Arc::new(memory.memory().clone()))
+            .unwrap();
+        let rax::vm::vcpu::CpuState::X86_64(mut state) = cpu.get_state().unwrap() else {
+            panic!();
+        };
+        state.regs.rflags = 0x202;
+        state.regs.rip = 0x1000;
+        state.regs.rsp = 0x3000;
+        cpu.set_state(&rax::vm::vcpu::CpuState::X86_64(state))
+            .unwrap();
+        assert!(cpu.inject_interrupt(0x40).unwrap());
+        {
+            let mut sdk = SDK.lock().unwrap();
+            let native = sdk.cpus.get_mut(&0).unwrap();
+            // Section 29.2.4 leaves bit 12 undefined in the output field.
+            queue_vectoring(native, 0x8000_1040, 0x581);
+        }
+        let error = if sliced {
+            cpu.run_host_slice(limit).unwrap_err()
+        } else {
+            cpu.run().unwrap_err()
+        };
+        let (saved, context) = capture(vm.as_ref(), cpu.as_ref());
+        assert!(error.to_string().contains("EPT GPA 0x2400"), "{error}");
+        assert_eq!(entry_count(0), 1);
+        assert_eq!(SDK.lock().unwrap().cpus[&0].vmcs[&0x4016], 0x8000_0040);
+        let rax::vm::vcpu::CpuState::X86_64(stopped) = saved.state else {
+            panic!();
+        };
+        assert_eq!((stopped.regs.rip, stopped.regs.rsp), (0x1000, 0x3000));
+        assert!(!cpu.inject_interrupt(0x41).unwrap());
+        drop(cpu);
+        drop(vm);
+
+        let (vm, memory) = fixture();
+        let mut cpu = vm
+            .create_vcpu(0, Arc::new(memory.memory().clone()))
+            .unwrap();
+        cpu.restore_checkpoint_context(
+            &rax::vm::vcpu::CpuState::X86_64(stopped),
+            &saved.emulator,
+            context.as_ref(),
+        )
+        .unwrap();
+        assert!(!cpu.inject_interrupt(0x41).unwrap());
+        {
+            let mut sdk = SDK.lock().unwrap();
+            let native = sdk.cpus.get_mut(&0).unwrap();
+            assert_eq!(native.vmcs[&0x4016], 0x8000_0040);
+            native.exits.push_back(12);
+            native.vmcs.insert(0x440c, 1);
+        }
+        assert!(matches!(cpu.run().unwrap(), VcpuExit::Hlt));
+        assert_eq!(entry_count(0), 1);
+        assert_eq!(SDK.lock().unwrap().cpus[&0].vmcs[&0x4016], 0x40);
+    }
+}
+
+#[test]
+fn interrupted_events_preserve_type_specific_entry_fields() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    // NMI, #DE, #PF, INT 0x80, INT1, and INT3. Each entry field starts with
+    // a different value so spurious writes to unused fields are observable.
+    for (info, length, expected_error, expected_length, expected_blocking) in [
+        (0x8000_0202, 2, 0x1111, 7, 0),
+        (0x8000_0300, 2, 0x1111, 7, 8),
+        (0x8000_0b0e, 2, 0x23, 7, 8),
+        (0x8000_0480, 2, 0x1111, 2, 8),
+        (0x8000_0501, 2, 0x1111, 2, 8),
+        (0x8000_0603, 2, 0x1111, 2, 8),
+        (0x8000_0480, 0, 0x1111, 0, 8),
+    ] {
+        let (vm, memory) = fixture();
+        SDK.lock().unwrap().zero_length_event = length == 0;
+        let mut cpu = vm
+            .create_vcpu(0, Arc::new(memory.memory().clone()))
+            .unwrap();
+        {
+            let mut sdk = SDK.lock().unwrap();
+            let native = sdk.cpus.get_mut(&0).unwrap();
+            queue_vectoring(native, info, 0x582); // A delivery stack write.
+            native.vmcs.extend([
+                (0x6800, 1), // CR0.PE
+                (0x4824, 8), // NMI blocking after a delivery attempt
+                (0x440a, 0x23),
+                (0x440c, length),
+                (0x4018, 0x1111),
+                (0x401a, 7),
+            ]);
+        }
+        let error = cpu.run().unwrap_err().to_string();
+        assert!(error.contains("event retained for retry"), "{error}");
+        let sdk = SDK.lock().unwrap();
+        let vmcs = &sdk.cpus[&0].vmcs;
+        assert_eq!(vmcs[&0x4016], info);
+        assert_eq!(vmcs[&0x4018], expected_error);
+        assert_eq!(vmcs[&0x401a], expected_length);
+        assert_eq!(vmcs[&0x4824], expected_blocking);
+        drop(sdk);
+        assert!(!cpu.inject_nmi().unwrap());
+    }
+}
+
+#[test]
+fn invalid_vectoring_data_and_sdk_publication_failures_fence_entry() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    for (info, qualification, length, fail_write) in [
+        (0x8000_0040, 0x584, 2, false),    // EPTE execute access
+        (0x8000_0040, 0x1_0581, 2, false), // Asynchronous access
+        (0x8000_0100, 0x581, 2, false),    // Reserved event type
+        (0x8000_0203, 0x581, 2, false),    // Wrong NMI vector
+        (0x8000_0c80, 0x581, 2, false),    // Software event with an error code
+        (0x8000_0480, 0x581, 0, false),    // No zero-length injection capability
+        (0x8000_0480, 0x581, 16, false),   // Illegal software instruction length
+        (0x8000_0480, 0x581, 2, true),     // Fails after partially writing a field
+    ] {
+        let (vm, memory) = fixture();
+        let mut cpu = vm
+            .create_vcpu(0, Arc::new(memory.memory().clone()))
+            .unwrap();
+        {
+            let mut sdk = SDK.lock().unwrap();
+            let native = sdk.cpus.get_mut(&0).unwrap();
+            queue_vectoring(native, info, qualification);
+            native.vmcs.insert(0x440c, length);
+            if fail_write {
+                sdk.fault = Some(Fault {
+                    operation: "write-vmcs",
+                    remaining: 1,
+                    persistent: false,
+                });
+            }
+        }
+        let error = cpu.run().unwrap_err().to_string();
+        assert!(error.contains("guest entry prohibited"), "{error}");
+        assert_eq!(entry_count(0), 1);
+        assert_eq!(SDK.lock().unwrap().cpus[&0].vmcs[&0x4016] >> 31, 0);
+        assert!(cpu.run().is_err());
+        assert_eq!(entry_count(0), 1);
+    }
 }
 
 #[test]

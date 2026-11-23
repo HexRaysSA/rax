@@ -44,11 +44,12 @@ priority preparation. Once preparation begins, the same deadline is submitted to
 the SDK even if preparation exhausts the interval. A skipped host turn therefore
 does not consume a restored CPU's pending clock rebase.
 
-Interrupted delivery with valid IDT-vectoring information currently requires an
-unimplemented general reinjection contract. Entry fails closed and fences later
-entry in that case. Failed-entry reasons retain priority over undefined/stale
-vectoring data. Additional reason flags are not silently collapsed into a timer
-yield. This does not implement general exception or event reinjection.
+A plain synchronous data EPT violation during event delivery retains the event
+in the VM-entry fields and stops the run call. The owner can attempt delivery
+again after memory layout repair. Other interrupted-delivery reasons still
+fence entry. Failed-entry reasons retain priority over undefined vectoring
+data. Only the plain timer exit reason produces a host-timer yield.
+[Intel event delivery interrupted by EPT](../hvf-interrupt-window/README.md#rax-continuation-after-an-ept-violation-during-event-delivery)
 
 ## Parallel Intel HVF rounds
 

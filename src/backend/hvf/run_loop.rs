@@ -24,7 +24,6 @@ pub(crate) trait ExitHandler {
     type Exit;
     type Error;
     fn prepare(&mut self) -> Result<Option<Self::Exit>, Self::Error>;
-    fn next_reason(&mut self) -> Result<u32, Self::Error>;
     fn halt(&mut self) -> Result<Self::Exit, Self::Error>;
     fn port_io(&mut self) -> Result<Self::Exit, Self::Error>;
     fn mmio(&mut self) -> Result<Self::Exit, Self::Error>;
@@ -42,26 +41,14 @@ pub(crate) trait ExitHandler {
     fn unknown(&mut self, basic_reason: u32) -> Result<Self::Exit, Self::Error>;
 }
 
-/// O(n) work for n internal exits; O(1) host stack/storage.
-pub(crate) fn run<T: ExitHandler>(handler: &mut T) -> Result<T::Exit, T::Error> {
-    loop {
-        if let Some(exit) = handler.prepare()? {
-            return Ok(exit);
-        }
-        let reason = handler.next_reason()?;
-        if let Some(exit) = dispatch(handler, reason)? {
-            return Ok(exit);
-        }
-    }
-}
-
 /// A caller-owned entry policy returns None for host yield. Prepared guest
 /// and debugger completions retain priority, and actual exits are dispatched
 /// before the next policy check. No host deadline becomes CPU state.
-pub(crate) fn run_with_entry<T: ExitHandler>(
+/// O(n) work for n internal exits; O(1) host stack/storage.
+pub(crate) fn run_with_entry<T: ExitHandler, E: From<T::Error>>(
     handler: &mut T,
-    mut entry: impl FnMut(&mut T) -> Result<Option<u32>, T::Error>,
-) -> Result<Option<T::Exit>, T::Error> {
+    mut entry: impl FnMut(&mut T) -> Result<Option<u32>, E>,
+) -> Result<Option<T::Exit>, E> {
     loop {
         if let Some(exit) = handler.prepare()? {
             return Ok(Some(exit));

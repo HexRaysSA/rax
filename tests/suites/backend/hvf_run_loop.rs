@@ -1,7 +1,7 @@
 //! Execute the actual shared VM-exit driver using deterministic host-call traces.
 #[path = "../../../src/backend/hvf/run_loop.rs"]
 mod run_loop;
-use run_loop::{ExitHandler, run};
+use run_loop::ExitHandler;
 use std::collections::VecDeque;
 
 const INTERNAL: [u32; 8] = [10, 31, 32, 1, 7, 8, 28, 55];
@@ -40,16 +40,7 @@ impl Host {
             Ok(())
         }
     }
-}
-impl ExitHandler for Host {
-    type Exit = u32;
-    type Error = &'static str;
-    fn prepare(&mut self) -> Result<Option<u32>, Self::Error> {
-        self.call("prepare")?;
-        self.preparations += 1;
-        Ok(self.prepared_exit.then_some(100))
-    }
-    fn next_reason(&mut self) -> Result<u32, Self::Error> {
+    fn next_reason(&mut self) -> Result<u32, &'static str> {
         self.call("enter")?;
         self.entries += 1;
         if self.stream > 0 {
@@ -58,6 +49,21 @@ impl ExitHandler for Host {
         } else {
             Ok(self.reasons.pop_front().expect("unexpected extra VM entry"))
         }
+    }
+}
+
+fn run(host: &mut Host) -> Result<u32, &'static str> {
+    run_loop::run_with_entry(host, |host| host.next_reason().map(Some))
+        .map(|exit| exit.expect("unbounded run cannot yield"))
+}
+
+impl ExitHandler for Host {
+    type Exit = u32;
+    type Error = &'static str;
+    fn prepare(&mut self) -> Result<Option<u32>, Self::Error> {
+        self.call("prepare")?;
+        self.preparations += 1;
+        Ok(self.prepared_exit.then_some(100))
     }
     fn halt(&mut self) -> Result<u32, Self::Error> {
         self.call("halt")?;
@@ -290,7 +296,10 @@ fn a_million_internal_exits_use_a_small_fixed_host_stack() {
 #[test]
 fn host_yield_before_entry_never_looks_like_halt_or_consumes_an_exit() {
     let mut host = Host::new([12]);
-    assert_eq!(run_loop::run_with_entry(&mut host, |_| Ok(None)), Ok(None));
+    assert_eq!(
+        run_loop::run_with_entry::<_, &str>(&mut host, |_| Ok(None)),
+        Ok(None)
+    );
     assert_eq!(host.trace, ["prepare"]);
     assert_eq!(host.entries, 0);
     assert_eq!(host.reasons.len(), 1);
@@ -300,7 +309,7 @@ fn prepared_completion_precedes_an_expired_entry_policy() {
     let mut host = Host::new([12]);
     host.prepared_exit = true;
     assert_eq!(
-        run_loop::run_with_entry(&mut host, |_| panic!("entry must not run")),
+        run_loop::run_with_entry::<_, &str>(&mut host, |_| panic!("entry must not run")),
         Ok(Some(100))
     );
     assert_eq!(host.trace, ["prepare"]);

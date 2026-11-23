@@ -149,6 +149,7 @@ mod time_tests {
 pub(crate) const SDK_TIMER_PIN: u64 = 1 << 6;
 pub(crate) const FAIL_ENTRY: u32 = 1 << 31;
 const EVENT_VALID: u32 = 1 << 31;
+const EPT_VIOLATION: u32 = 48;
 const TIMER_EXIT: u32 = 52;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -185,6 +186,7 @@ impl TimerPolicy {
 pub(crate) enum Exit {
     HostYield,
     Dispatch(u32),
+    InterruptedEpt,
 }
 
 pub(crate) fn classify(reason: u32, vectoring: u32) -> Result<Exit, EntryPolicyError> {
@@ -192,9 +194,12 @@ pub(crate) fn classify(reason: u32, vectoring: u32) -> Result<Exit, EntryPolicyE
     if reason & FAIL_ENTRY != 0 {
         return Ok(Exit::Dispatch(reason));
     }
-    // No general interrupted-event reinjection contract is implemented here.
     if vectoring & EVENT_VALID != 0 {
-        return Err(EntryPolicyError::InterruptedDelivery);
+        return if reason == EPT_VIOLATION {
+            Ok(Exit::InterruptedEpt)
+        } else {
+            Err(EntryPolicyError::InterruptedDelivery)
+        };
     }
     // Extra reason flags are not silently collapsed into a scheduling yield.
     Ok(if reason == TIMER_EXIT {
@@ -283,6 +288,16 @@ mod policy_tests {
         for basic in 0..=u16::MAX as u32 {
             assert_eq!(
                 classify(basic, EVENT_VALID),
+                if basic == EPT_VIOLATION {
+                    Ok(Exit::InterruptedEpt)
+                } else {
+                    Err(EntryPolicyError::InterruptedDelivery)
+                }
+            );
+        }
+        for flag in [1 << 27, 1 << 28, 1 << 29, 1 << 30] {
+            assert_eq!(
+                classify(EPT_VIOLATION | flag, EVENT_VALID),
                 Err(EntryPolicyError::InterruptedDelivery)
             );
         }

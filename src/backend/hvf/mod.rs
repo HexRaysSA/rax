@@ -1184,9 +1184,6 @@ impl run_loop::ExitHandler for HvfCore {
 
         Ok(None)
     }
-    fn next_reason(&mut self) -> Result<u32> {
-        self.next_unbounded_reason()
-    }
     fn halt(&mut self) -> Result<VcpuExit> {
         sync_exit::halt(self)?;
         Ok(VcpuExit::Hlt)

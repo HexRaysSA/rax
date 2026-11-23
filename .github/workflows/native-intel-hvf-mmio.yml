@@ -43,6 +43,7 @@ on:
           - implicit-divide
           - entry-irq
           - irq-window
+          - irq-vectoring
           - level-irq
           - nmi-baseline
           - nmi-hot-entry

@@ -289,7 +289,49 @@ Git and checked the archived x86-64 executable signature and hypervisor
 entitlement. The host reported an untranslated Intel process in a VM.
 [Hosted SDK control](https://github.com/HexRaysSA/rax/actions/runs/45088917371/job/137413778124)
 
-This case establishes the public SDK replay mechanism for an external
-interrupt when the host can repair the mapping. RAX still requires a
-production policy for repairing or resolving the underlying exit and
-transferring ownership of the interrupted event.
+### RAX continuation after an EPT violation during event delivery
+
+For a plain EPT violation with valid IDT-vectoring information, the stopped
+owner retains the event in the VM-entry fields. It copies the event type and
+vector, clears undefined bit 12, and carries the error code or instruction
+length when the corresponding event type uses it. It clears NMI blocking for
+a retained NMI so the next delivery attempt can establish blocking again.
+It publishes the entry information last, with readback verification for every
+written field. The existing native CPU record already carries these fields,
+so capture and restore use the same event ownership as an accepted interrupt.
+
+The public run call returns the affected guest-physical address and leaves
+the vCPU stopped. A subsequent entry rechecks the current memory layout
+before attempting delivery. An unresolved mapping faults again with the
+same event. A successful entry consumes the existing slot. Controller code
+cannot replace a retained event with a newly pending interrupt. No scalar
+MMIO exit or guest instruction retirement is produced by retaining it.
+The transfer uses O(1) work and storage per interrupted delivery.
+
+| ID | Assumption and dependent result | Stress test and falsification probe |
+| --- | --- | --- |
+| V1 | EPT data access with valid vectoring fields terminates the current run call at the delivery boundary. The Intel SDM defines those fields in sections 29.2.4 and 29.2.5. | Deliver an external IRQ to a gate covered by a PCI BAR. Require preserved RIP and RSP, zero handler visits, a repeatable error while the BAR covers the gate, and a single visit after disabling decode. |
+| V2 | The stopped owner can retain the event using its existing VM-entry state. Section 28.2.1.3 defines the valid fields. | Restore onto a fresh CPU owner and require the original IRQ to occupy the slot. In the SDK model, vary hardware exception, NMI, and software event types and require only their defined payload or blocking changes. |
+| V3 | Publication failure cannot be treated as a recoverable stop. | Fail the SDK during an event-field write and require no further entry. Treat reserved event encodings, instruction lengths above 15 bytes, execute accesses, and asynchronous accesses as invalid for this continuation. Admit a zero-length software event only when IA32_VMX_MISC bit 30 permits it. |
+
+The model regression failed on the predecessor with `InterruptedDelivery`
+and a prohibited guest entry. The native `irq-vectoring` workflow profile
+tests production entry on live and freshly restored CPU owners. Both cases
+use the ordinary dynamic PCI layout path to expose the IDT page before retry.
+SDK NMI-blocking handling also has independent precedent in the pinned
+[Linux VMX implementation](https://raw.githubusercontent.com/torvalds/linux/v6.19/arch/x86/kvm/vmx/vmx.c).
+
+All 312 unfiltered x86-64 tests passed under Rosetta across the SDK-owner,
+exit dispatch, event injection, memory layout, MMIO, and workflow-policy
+targets. The focused log SHA-256 is
+`30fd2516d9532961b0ac2efeee2692c2776bc91e0d338ef766a2ee7edb075337`.
+All nine macOS Arm64 VMX deadline and exit-classification unit tests
+passed. The broader Arm64 library invocation ended with SIGKILL after
+recording a Darwin code-signing test failure. The x86-64 workspace
+all-target check and all 22 prepared-consumer Python tests passed.
+The cross-built x86-64 guest verified with the hypervisor entitlement.
+
+Other interrupt-delivery exits, including intercepted nested exceptions and
+task gates, require separate handling. A gate or stack that remains assigned
+to a device cannot complete through this RAM mapping path. General event
+reinjection, native NMI qualification, and bare-metal Intel remain open.
