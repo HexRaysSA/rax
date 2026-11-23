@@ -8,14 +8,18 @@ enum {
     IDT_VECTORING_INFO = 0x4408, EXIT_GUEST_PHYSICAL = 0x2400,
     IDT = 0xc000, HANDLER = 0xb000, IRQ_VECTOR = 0x40,
     IDT_PAGE_SIZE = 0x1000, EXIT_EPT_VIOLATION = 48,
-    EXIT_INSTRUCTION_LENGTH = 0x440c, EXIT_CONTROL_REGISTER = 28,
+    EXCEPTION_BITMAP = 0x4004, EXIT_EVENT_INFO = 0x4404, EXIT_INSTRUCTION_LENGTH = 0x440c,
+    EXIT_CONTROL_REGISTER = 28, X87_EXCEPTION = 1 << 16,
     START_PORT = 0x81, HANDLER_PORT = 0x80,
 };
 
-enum event { NONE, IRQ, NMI, NMI_WITH_IF, NMI_WITHOUT_VIRTUAL_BLOCKING, IRQ_VECTORING, CR0_NE };
+enum event {
+    NONE, IRQ, NMI, NMI_WITH_IF, NMI_WITHOUT_VIRTUAL_BLOCKING, IRQ_VECTORING, CR0_NE,
+    CR0_NE_X87,
+};
 static const char *const names[] = {
     "none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking", "irq-vectoring",
-    "cr0-ne",
+    "cr0-ne", "cr0-ne-x87",
 };
 
 /* MOV from CR0; save it in R12; clear NE; MOV to CR0; read into R13;
@@ -26,6 +30,16 @@ static const uint8_t cr0_guest[] = {
     0x0f, 0x22, 0xc0, 0x41, 0x0f, 0x20, 0xc5, 0x48, 0x0f, 0xba, 0xe8, 0x05,
     0x0f, 0x22, 0xc0, 0x41, 0x0f, 0x20, 0xc6, 0xf4,
 };
+
+/* MOV R13,CR0; FNINIT; FLDCW; FLD1; FLDZ; FDIVP; FNSTSW AX; FWAIT; HLT.
+ * The final literal masks every x87 exception except divide by zero.
+ */
+static const uint8_t x87_guest[] = {
+    0x41, 0x0f, 0x20, 0xc5, 0xdb, 0xe3, 0xd9, 0x2d, 0x0a, 0x00, 0x00, 0x00,
+    0xd9, 0xe8, 0xd9, 0xee, 0xde, 0xf9, 0xdf, 0xe0, 0x9b, 0xf4, 0x7b, 0x03,
+};
+
+enum { CR0_CLEAR_BYTES = 14, X87_WAIT_OFFSET = 20 };
 
 static void publish_gate(uint8_t *memory, unsigned vector)
 {
@@ -104,7 +118,7 @@ static int observe_irq_vectoring(hv_vcpuid_t cpu, uint8_t *memory, uint64_t slic
     return interrupted && reached && continued ? 0 : 1;
 }
 
-static int observe_cr0_ne(hv_vcpuid_t cpu, uint64_t slice)
+static int observe_cr0_ne(hv_vcpuid_t cpu, uint64_t slice, bool x87)
 {
     const uint64_t ne = UINT64_C(1) << 5;
     const uint64_t original = read_field(cpu, G_CR0);
@@ -113,13 +127,15 @@ static int observe_cr0_ne(hv_vcpuid_t cpu, uint64_t slice)
     const uint64_t start = read_reg(cpu, HV_X86_RIP);
     const uint64_t offsets[] = {11, 23};
     const uint64_t requested[] = {original & ~ne, original};
-    printf("{\"event\":\"cr0-ne\",\"mask\":%" PRIu64 ",\"backing\":%" PRIu64
-           ",\"shadow\":%" PRIu64 ",\"writes\":[", mask, original, shadow);
+    printf("{\"event\":\"%s\",\"mask\":%" PRIu64 ",\"backing\":%" PRIu64
+           ",\"shadow\":%" PRIu64 ",\"writes\":[",
+           names[x87 ? CR0_NE_X87 : CR0_NE], mask, original, shadow);
     // The SDK can add its own masks on entry. The guest changes only NE,
     // and full initial shadow agreement keeps the other bits out of scope.
     bool accepted = (mask & ne) != 0 && shadow == original && (original & ne) != 0;
     unsigned published = 0;
-    for (size_t i = 0; accepted && i < sizeof(offsets) / sizeof(offsets[0]); i++) {
+    const size_t count = x87 ? 1 : sizeof(offsets) / sizeof(offsets[0]);
+    for (size_t i = 0; accepted && i < count; i++) {
         uint64_t reason = enter(cpu, slice);
         uint64_t rip = read_reg(cpu, HV_X86_RIP);
         uint64_t value = read_reg(cpu, HV_X86_RAX);
@@ -159,9 +175,26 @@ static int observe_cr0_ne(hv_vcpuid_t cpu, uint64_t slice)
     uint64_t rip = read_reg(cpu, HV_X86_RIP);
     uint64_t first = read_reg(cpu, HV_X86_R12);
     uint64_t cleared = read_reg(cpu, HV_X86_R13);
-    uint64_t restored = read_reg(cpu, HV_X86_R14);
     uint64_t backing = read_field(cpu, G_CR0);
     uint64_t final_shadow = read_field(cpu, CR0_SHADOW);
+    if (x87) {
+        uint64_t info = accepted && reason == 0 ? read_field(cpu, EXIT_EVENT_INFO) : 0;
+        uint64_t status = read_reg(cpu, HV_X86_RAX) & 0xffff;
+        uint64_t bitmap = read_field(cpu, EXCEPTION_BITMAP);
+        bool faulted = accepted && reason == 0 && (info & 0x80000fff) == 0x80000310 &&
+            rip == start + CR0_CLEAR_BYTES + X87_WAIT_OFFSET && (status & 0x84) == 0x84 &&
+            first == original && cleared == requested[0] && final_shadow == cleared &&
+            backing == original && (bitmap & X87_EXCEPTION) != 0;
+        printf("],\"published\":%u,\"final_reason\":%" PRIu64 ",\"final_rip\":%" PRIu64
+               ",\"guest_initial\":%" PRIu64 ",\"guest_cleared\":%" PRIu64
+               ",\"final_backing\":%" PRIu64 ",\"final_shadow\":%" PRIu64
+               ",\"exit_event\":%" PRIu64 ",\"x87_status\":%" PRIu64
+               ",\"exception_bitmap\":%" PRIu64
+               ",\"native_mf\":%s}\n", published, reason, rip, first, cleared,
+               backing, final_shadow, info, status, bitmap, faulted ? "true" : "false");
+        return 0;
+    }
+    uint64_t restored = read_reg(cpu, HV_X86_R14);
     bool continued = accepted && reason == 12 && rip == start + sizeof(cr0_guest) - 1 &&
         first == original && cleared == requested[0] && restored == original &&
         backing == original && final_shadow == shadow;
@@ -208,6 +241,11 @@ int main(int argc, char **argv)
     const uint8_t handler[] = {0x49, 0xff, 0xc3, 0xe6, HANDLER_PORT, 0x48, 0xcf};
     memcpy(memory + CODE, marker, sizeof(marker));
     if (event == CR0_NE) memcpy(memory + CODE + sizeof(marker), cr0_guest, sizeof(cr0_guest));
+    if (event == CR0_NE_X87) {
+        uint8_t *guest = memory + CODE + sizeof(marker);
+        memcpy(guest, cr0_guest, CR0_CLEAR_BYTES);
+        memcpy(guest + CR0_CLEAR_BYTES, x87_guest, sizeof(x87_guest));
+    }
     memcpy(memory + HANDLER, handler, sizeof(handler));
     publish_gate(memory, 2);
     publish_gate(memory, IRQ_VECTOR);
@@ -215,11 +253,11 @@ int main(int argc, char **argv)
           "map guest RAM");
     hv_vcpuid_t cpu;
     check(hv_vcpu_create(&cpu, HV_VCPU_DEFAULT), "create CPU");
-    uint64_t bitmap = read_field(cpu, 0x4004);
+    uint64_t bitmap = read_field(cpu, EXCEPTION_BITMAP);
     controls(cpu);
     constructor(cpu, 7);
     setup(cpu, &variants[1]);
-    field(cpu, 0x4004, bitmap);
+    field(cpu, EXCEPTION_BITMAP, bitmap | (event == CR0_NE_X87 ? X87_EXCEPTION : 0));
     field(cpu, IDT_BASE, IDT);
     field(cpu, IDT_LIMIT, (IRQ_VECTOR + 1) * 16 - 1);
     uint64_t caps = 0;
@@ -259,8 +297,8 @@ int main(int argc, char **argv)
         destroy(cpu, memory);
         return result;
     }
-    if (event == CR0_NE) {
-        int result = observe_cr0_ne(cpu, slice);
+    if (event == CR0_NE || event == CR0_NE_X87) {
+        int result = observe_cr0_ne(cpu, slice, event == CR0_NE_X87);
         destroy(cpu, memory);
         return result;
     }

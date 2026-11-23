@@ -19,7 +19,7 @@ def main():
     control.add_argument("--irq-vectoring", action="store_true",
                          help="run the interrupted external interrupt control")
     control.add_argument("--cr0-ne", action="store_true",
-                         help="observe independent CR0.NE backing and guest read shadow")
+                         help="observe the CR0.NE read shadow and a pending x87 exception")
     args = parser.parse_args()
     args.output.mkdir()
     source = Path(__file__).resolve().with_suffix(".c")
@@ -51,7 +51,7 @@ def main():
                 if args.irq_vectoring:
                     events = ("irq-vectoring",)
                 elif args.cr0_ne:
-                    events = ("cr0-ne",)
+                    events = ("cr0-ne", "cr0-ne-x87")
                 else:
                     events = ("none", "irq", "nmi", "nmi-with-if", "nmi-without-virtual-blocking")
                 for event in events:

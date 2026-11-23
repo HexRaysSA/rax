@@ -102,3 +102,12 @@ The downloaded executable passed strict signature verification with the
 hypervisor entitlement and matched its reported source inputs. Production
 RAX still rejects this CR0 exit. A full implementation also needs to
 preserve the guest's x87 error-delivery mode when NE is clear.
+
+The same workflow input also runs a fresh SDK VM for the x87 case. It
+clears the guest CR0.NE shadow, keeps the VMX backing bit set, and
+intercepts vector 16. An x87 divide with its exception unmasked leaves ZE
+and ES set. The probe checks whether the next FWAIT produces a native
+`#MF` exit at the original instruction address. A physical Intel Linux
+control confirmed a divide-by-zero signal at FWAIT with ZE and ES set,
+and normal FWAIT completion with the exception masked.
+[Intel SDM, Vol. 1, §§8.7.1 and 8.7.2](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
