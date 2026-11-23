@@ -681,6 +681,29 @@ fn installed_cmd_null_device_matches_native_through_closed_c_abi() {
 #[cfg(windows)]
 #[test]
 #[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_cmd_child_matches_native_through_closed_c_abi() {
+    let native = compare_windows_installed_program(
+        "cmd.exe",
+        &["/d", "/c", "cmd.exe", "/d", "/c", "echo", "rax-child"],
+        None,
+    );
+    assert!(native.status.success());
+    assert_eq!(native.stdout, b"rax-child\r\n");
+    assert!(native.stderr.is_empty());
+
+    let native = compare_windows_installed_program(
+        "cmd.exe",
+        &["/d", "/c", "cmd.exe", "/d", "/c", "exit", "/b", "23"],
+        None,
+    );
+    assert_eq!(native.status.code(), Some(23));
+    assert!(native.stdout.is_empty());
+    assert!(native.stderr.is_empty());
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
 fn installed_findstr_matches_native_through_closed_c_abi() {
     check_native_extension_point_policy();
     let arguments = &["/l", "/c:rax-witness"];

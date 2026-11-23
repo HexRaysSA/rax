@@ -19,16 +19,28 @@ impl NativeRuntime {
     /// Find an installed backing file for a main image supplied as bytes.
     /// The exact bytes must match a file in the selected system directory.
     pub(crate) fn matching_executable(&self, guest_path: &str, image: &[u8]) -> Option<File> {
-        let (directory, basename) = guest_path.rsplit_once('\\')?;
-        if !directory.eq_ignore_ascii_case(self.guest_directory.trim_end_matches('\\')) {
-            return None;
-        }
-        let path = self.dll(basename).ok()??;
-        let scope =
-            crate::user::windows::fs::FileNameOrigin::capture(&self.directory, Vec::new()).ok()?;
-        let mut file = File::open(&path).ok()?;
-        scope.name(&file, &path).ok()?;
+        let (_, mut file) = self.open_executable(guest_path).ok()??;
         same_image_bytes(&mut file, image).ok()?.then_some(file)
+    }
+
+    /// Retain a read-only file from this runtime's installed image directory.
+    /// Check the opened file too so a path replacement cannot escape the root.
+    pub(crate) fn open_executable(&self, guest_path: &str) -> io::Result<Option<(PathBuf, File)>> {
+        let Some((directory, basename)) = guest_path.rsplit_once('\\') else {
+            return Ok(None);
+        };
+        if !directory.eq_ignore_ascii_case(self.guest_directory.trim_end_matches('\\')) {
+            return Err(io::Error::from(io::ErrorKind::PermissionDenied));
+        }
+        let Some(path) = self.dll(basename)? else {
+            return Ok(None);
+        };
+        let scope = crate::user::windows::fs::FileNameOrigin::capture(&self.directory, Vec::new())?;
+        let file = File::open(&path)?;
+        scope
+            .name(&file, &path)
+            .map_err(|error| io::Error::new(io::ErrorKind::PermissionDenied, error))?;
+        Ok(Some((path, file)))
     }
 
     pub(crate) fn installed_view(

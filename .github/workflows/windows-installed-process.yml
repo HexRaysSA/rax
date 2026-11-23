@@ -26,6 +26,10 @@ on:
         description: Compare installed findstr.exe with redirected standard input
         type: boolean
         default: false
+      compare_installed_child:
+        description: Compare child process startup through installed cmd.exe
+        type: boolean
+        default: false
       measure_native_token_duplicate:
         description: Measure duplication of the test process's own token
         type: boolean
@@ -155,6 +159,23 @@ jobs:
           $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
           $test = 'tests::process::native_runtime::installed_cmd_null_device_matches_native_through_closed_c_abi'
           $log = Join-Path $root 'null-capi.log'
+          $PSNativeCommandUseErrorActionPreference = $false
+          cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
+            $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0 -or
+              !(Select-String -LiteralPath $log -Quiet -Pattern '^test result: ok\. 1 passed; 0 failed; 0 ignored;')) {
+            exit 1
+          }
+      - name: Compare an installed child process through the closed C ABI
+        if: ${{ !cancelled() && steps.stock.outcome == 'success' && (github.event_name != 'workflow_dispatch' || inputs.compare_installed_child) }}
+        shell: pwsh
+        env:
+          RAX_TEST_TARGET: ${{ matrix.target }}
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
+          $root = Join-Path $env:CARGO_TARGET_DIR 'windows-installed-process'
+          $test = 'tests::process::native_runtime::installed_cmd_child_matches_native_through_closed_c_abi'
+          $log = Join-Path $root 'child-capi.log'
           $PSNativeCommandUseErrorActionPreference = $false
           cargo test --locked --no-default-features -p rax-capi --lib --target $env:RAX_TEST_TARGET `
             $test -- --exact --ignored --nocapture 2>&1 | Tee-Object -FilePath $log

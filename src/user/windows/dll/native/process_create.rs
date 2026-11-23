@@ -1,4 +1,5 @@
-//! Creation of an ordinary guest process from a mapped drive.
+//! Creation of an ordinary guest process from a mapped drive or the
+//! system directory of the selected installed runtime.
 //! The guest creates another RAX address space, never a host process.
 
 use super::named_object::{Checked, Failure, finish, status};
@@ -102,7 +103,7 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         (c.ptr(0)?, c.ptr(1)?, grant(c.u32(2)?)?, grant(c.u32(3)?)?);
     let (process_flags, thread_flags) = (c.u32(6)?, c.u32(7)?);
     let (parameters, create_info, attribute_list) = (c.ptr(8)?, c.ptr(9)?, c.ptr(10)?);
-    if !c.p.cfg.host_filesystem {
+    if !c.p.cfg.host_filesystem && c.p.native.is_none() {
         return status(STATUS_ACCESS_DENIED);
     }
     let abi = CallerAbi::new(c.arch());
@@ -161,21 +162,41 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     probe_outputs(c, abi, process, thread, create_info, &attrs)?;
     let mut parameter_flags = initial_parameter_flags(c, &inputs.image)?;
 
-    let path = &inputs.host_image;
+    let installed = inputs.host_image.is_none();
+    let (path, mut file) = match inputs.host_image {
+        Some(path) => {
+            let file = File::open(&path).map_err(|error| Failure::Status(file_status(&error)))?;
+            (path, file)
+        }
+        None => {
+            if !inputs
+                .image
+                .rsplit_once('.')
+                .is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("exe"))
+            {
+                return status(STATUS_ACCESS_DENIED);
+            }
+            c.p.native
+                .as_ref()
+                .expect("installed runtime checked above")
+                .open_executable(&inputs.image)
+                .map_err(|error| Failure::Status(file_status(&error)))?
+                .ok_or(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND))?
+        }
+    };
     let mut config = (*c.p.cfg).clone();
     config.exe_host_path = path.clone();
     config.guest_image_path = Some(inputs.image.clone());
     config.command_line = Some(inputs.command);
     config.cwd = Some(inputs.cwd);
     config.instruction_trace = None;
-    let mut file = File::open(path).map_err(|error| Failure::Status(file_status(&error)))?;
     let metadata = file
         .metadata()
         .map_err(|error| Failure::Status(file_status(&error)))?;
     if !metadata.is_file() {
         return status(STATUS_FILE_IS_A_DIRECTORY);
     }
-    let identity = FileIdentity::of_open(path, Some(&file), &metadata)
+    let identity = FileIdentity::of_open(&path, Some(&file), &metadata)
         .map_err(|error| Failure::Status(file_status(&error)))?;
     let lifetime = super::file_open::shared_lifetime(c, &identity, IMAGE_ACCESS, IMAGE_SHARE)?
         .unwrap_or_else(|| Arc::new(FileLifetime::new(identity)));
@@ -243,13 +264,14 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     let handles = child
         .handles(&mut c.p.objects, process_access, thread_access)
         .ok_or(Failure::Status(STATUS_NO_MEMORY))?;
-    let (file_handle, section_handle) = match publish_image_handles(&mut c.p.objects, extras) {
-        Ok(result) => result,
-        Err(error) => {
-            handles.close(&mut c.p.objects);
-            return Err(error);
-        }
-    };
+    let (file_handle, section_handle) =
+        match publish_image_handles(&mut c.p.objects, extras, installed) {
+            Ok(result) => result,
+            Err(error) => {
+                handles.close(&mut c.p.objects);
+                return Err(error);
+            }
+        };
     let success = creation_reply(
         abi,
         child.info,
@@ -381,12 +403,16 @@ fn image_objects(
 fn publish_image_handles(
     objects: &mut Objects,
     extras: Option<(Object, Object)>,
+    installed: bool,
 ) -> Checked<(u32, u32)> {
     let Some((file, section)) = extras else {
         return Ok((0, 0));
     };
-    let (_, file) =
+    let (id, file) =
         create_handle(objects, file, IMAGE_ACCESS).ok_or(Failure::Status(STATUS_NO_MEMORY))?;
+    if installed {
+        objects.mark_runtime_library(id);
+    }
     if let Some((_, section)) = create_handle(objects, section, SECTION_ACCESS) {
         return Ok((file, section));
     }
@@ -509,7 +535,7 @@ impl Output {
 }
 
 struct Parameters {
-    host_image: PathBuf,
+    host_image: Option<PathBuf>,
     image: String,
     command: String,
     cwd: String,
@@ -554,11 +580,16 @@ impl Parameters {
             path = fs::full_path(&redirected, "C:\\")
                 .ok_or(Failure::Status(STATUS_OBJECT_PATH_SYNTAX_BAD))?;
         }
-        let host_image =
-            c.p.cfg
-                .drives
-                .resolve(&path)
-                .ok_or(Failure::Status(STATUS_OBJECT_PATH_NOT_FOUND))?;
+        let host_image = if c.p.cfg.host_filesystem {
+            Some(
+                c.p.cfg
+                    .drives
+                    .resolve(&path)
+                    .ok_or(Failure::Status(STATUS_OBJECT_PATH_NOT_FOUND))?,
+            )
+        } else {
+            None
+        };
         let length = abi.pointer(&header, layout.pp_environment_size as usize);
         let environment = if length == 0 {
             vec![0; 4]

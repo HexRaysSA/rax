@@ -239,14 +239,20 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
             return selected_mui(c, runtime, basename)
                 .map(|file| file.map(|path| (runtime.directory.clone(), path)));
         }
-        if basename.len() < 5 || !equal(c, &basename[basename.len() - 4..], &[46, 100, 108, 108]) {
+        if basename.len() < 5 {
+            continue;
+        }
+        let extension = &basename[basename.len() - 4..];
+        let dll = equal(c, extension, &[46, 100, 108, 108]);
+        let executable = !c.p.cfg.host_filesystem && equal(c, extension, &[46, 101, 120, 101]);
+        if !dll && !executable {
             continue;
         }
         if basename.contains(&u16::from(b'\\')) || basename.contains(&u16::from(b'/')) {
             continue;
         }
         let name = String::from_utf16(basename)
-            .map_err(|_| c.unsupported("selected DLL basename is not Unicode"))?;
+            .map_err(|_| c.unsupported("selected runtime image basename is not Unicode"))?;
         return match runtime.dll_paths(&name) {
             Ok(Some((spelling, _))) => Ok(Some((runtime.directory.clone(), spelling))),
             Ok(None) => status(STATUS_OBJECT_NAME_NOT_FOUND),
@@ -254,7 +260,7 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
                 status(STATUS_ACCESS_DENIED)
             }
             Err(error) => Err(c
-                .unsupported(format!("selected DLL metadata path: {error}"))
+                .unsupported(format!("selected runtime image metadata path: {error}"))
                 .into()),
         };
     }
