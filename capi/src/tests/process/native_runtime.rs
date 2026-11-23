@@ -1564,6 +1564,9 @@ fn installed_findstr_matches_native_through_closed_c_abi() {
 
 #[cfg(windows)]
 fn compare_installed_sort() {
+    #[cfg(target_arch = "x86_64")]
+    check_native_sort_process_queries();
+
     let mut failed = Vec::new();
     for (label, arguments) in [("default locale", &[][..]), ("C locale", &["/l", "C"][..])] {
         let matched = std::panic::catch_unwind(|| {
@@ -1583,6 +1586,46 @@ fn compare_installed_sort() {
         }
     }
     assert!(failed.is_empty(), "installed sort.exe failed: {failed:?}");
+}
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+fn check_native_sort_process_queries() {
+    use std::ffi::c_void;
+
+    #[link(name = "ntdll")]
+    unsafe extern "system" {
+        fn NtQueryInformationProcess(
+            process: *mut c_void,
+            class: u32,
+            output: *mut c_void,
+            bytes: u32,
+            returned: *mut u32,
+        ) -> i32;
+    }
+
+    for (class, lengths) in [(1, &[48, 88][..]), (3, &[88, 96, 112][..])] {
+        for &length in lengths {
+            let mut output = [0u64; 14];
+            let mut returned = u32::MAX;
+            // SAFETY: This is a read-only query of the test's own process.
+            // The 112-byte initialized output covers each requested size.
+            let status = unsafe {
+                NtQueryInformationProcess(
+                    -1isize as *mut c_void,
+                    class,
+                    output.as_mut_ptr().cast(),
+                    length,
+                    &mut returned,
+                )
+            };
+            eprintln!(
+                "native current-process query: class={class} requested={length} status={status:#010x} returned={returned}"
+            );
+            if class == 1 {
+                assert_eq!((status, returned), (0, length));
+            }
+        }
+    }
 }
 
 #[cfg(windows)]
