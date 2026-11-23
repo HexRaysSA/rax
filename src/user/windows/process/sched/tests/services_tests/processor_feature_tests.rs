@@ -389,7 +389,7 @@ fn installed_processor_feature_query_leaf_and_rtl_read_guest_policy() {
             .unwrap()
             .unwrap();
             for feature in [2, 6, 10, 19, 23, 34, 63, 64, 65, 191, 192, u32::MAX] {
-                let expected = u64::from(processor_feature_present(&t.cpu, feature));
+                let expected = u8::from(processor_feature_present(&t.cpu, feature));
                 t.cpu.set_sp(sp);
                 t.cpu.set_pc(rtl);
                 if arch == WinArch::X64 {
@@ -402,11 +402,10 @@ fn installed_processor_feature_query_leaf_and_rtl_read_guest_policy() {
                     t.cpu.set_gpr(0, u64::from(feature));
                     t.cpu.set_gpr(30, resume);
                 }
-                assert_eq!(
-                    execute_to_return(p, &mut t, resume),
-                    expected,
-                    "{arch}/{feature}"
-                );
+                // RTL returns BOOLEAN. On Server 2025 WoW64, an out-of-range
+                // feature can leave upper EAX bits set with a false result.
+                let returned = execute_to_return(p, &mut t, resume) as u8;
+                assert_eq!(returned, expected, "{arch}/{feature}");
                 assert_eq!(
                     t.cpu.sp(),
                     sp + match arch {
