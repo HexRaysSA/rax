@@ -143,6 +143,35 @@ descriptors for both APs. [Run 45180604600](https://github.com/HexRaysSA/rax/act
 | Two-vCPU AP1 file | `9eeb9701aaace4a737081e09faaa58e160c17b8647cff15d05d739be494e7dd7` |
 | Four-vCPU AP3 file | `9311b7c62092a975da359db25874dcd0f4d6e3529e2b95019424811ecb93a778` |
 
+### Hosted Intel combined profile interruption
+
+The combined MMIO and coherence run at
+`238489518de0713f21e236a0766a28bacc5d2b30` preserved a signed build. Its
+last visible guest marker was `first-observer-entry` for case 952, the first
+single-vCPU coherence case. GitHub marked the job failed after the runner
+lost contact. The cause of the runner loss is unknown. The job published
+no execution archive, so it contributes no verified observation rows.
+The build archive SHA-256 is
+`8bb7a952ca6138e673337ba29f0eaa7a2b510ae94d897acd6b1ed4bd662c3498`.
+[Run 45180605252](https://github.com/HexRaysSA/rax/actions/runs/45180605252)
+
+### Hosted Intel first-page MMIO coherence
+
+The standalone coherence profile at
+`8d3117ad584b8e95a1671fc866f98d7cea0f458c` passed all 16 cases on hosted Intel
+macOS. Four cases had an active guest peer rewriting a shared page table.
+The four observers collectively received both recorded first-page GPAs
+(`0x40000080` and `0x40200080`) and all completed the device reply and halted.
+The four peers recorded 279,656, 402,661, 400,495 and 356,133 iterations.
+Independent verification checked the archive digest, the pinned source inputs
+and the terminal CPU record and progress for every case.
+[Run 45186722694](https://github.com/HexRaysSA/rax/actions/runs/45186722694)
+
+The execution archive SHA-256 is
+`09f66bfeafe685e69b123ab4a5d347490ccd54d4125b4c2bef85ef3f56390763`.
+These raw-owner cases exercise first-page GPA selection. Following-page
+translation and concurrent instruction-byte consistency remain open.
+
 ## Qualification boundary
 
 The coordinator baseline observed two unbounded-entry failures. The corrected
@@ -155,8 +184,8 @@ ignored five; exact counts appear in qualification.json. Counts overlap helpers.
 The production ABI tool checks the actual Mach layout, field offsets and both
 signatures against x86/Arm SDK compilers; swapped Rust fields fail both.
 The retained SDK-model file tests cover 1/2/4 native CPU records and rollback.
-Coordinator scheduling and SDK file/entry tests qualify separate edges; they
-do not establish physical Intel SMP or a native guest file continuation.
+The hosted continuation above is the guest execution check for those two
+pending XMM operations in the parallel VMM path.
 
 Physical Intel execution is unavailable on the current Apple Silicon host.
 Already-expired SDK return freshness, hardware timer visibility and full native
