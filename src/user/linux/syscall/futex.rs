@@ -14,7 +14,7 @@ use super::super::abi::errno_table::*;
 use super::super::abi::types::Timespec;
 use super::super::futex::{
     self as fx, BITSET_MATCH_ANY, FUTEX_OWNER_DIED, FUTEX_TID_MASK, FUTEX_WAITERS, FutexKey,
-    FutexWait, FutexWaitKind, get_u32, put_u32,
+    FutexWait, FutexWaitKind, Wake, get_u32, put_u32,
 };
 use super::super::host::{self, HostClock};
 use super::super::signal::deliver::restart::{ERESTART_RESTARTBLOCK, ERESTARTNOINTR, ERESTARTSYS};
@@ -138,8 +138,7 @@ pub fn futex(
         op::TRYLOCK_PI => lock_pi(c, uaddr, shared, None, true),
         op::UNLOCK_PI => {
             let me = c.t.tid;
-            let (p, mut th) = c.split();
-            fx::unlock_pi(p, &mut th, uaddr, shared, me).map(Outcome::Return)
+            fx::unlock_pi(c.p, uaddr, shared, me).map(Outcome::Return)
         }
         // Requeueing condition-variable waiters onto PI futexes is not
         // implemented.
@@ -164,10 +163,10 @@ fn wait(
     let tid = c.t.tid;
     let mut deadline = deadline;
     if let Some(Resume::Futex(fw)) = c.resume.take() {
-        if c.woken {
+        if c.woken || fw.wake.index().is_some() {
             return Ok(Outcome::Return(0));
         }
-        c.p.futex.unqueue(tid);
+        c.p.futex().unqueue(tid);
         deadline = fw.deadline;
         if deadline.is_some_and(|d| Instant::now() >= d) {
             return Err(Errno(ETIMEDOUT));
@@ -194,7 +193,8 @@ fn wait(
     if get_u32(c.p, uaddr)? != val {
         return Err(Errno(EAGAIN));
     }
-    c.p.futex.enqueue(key, tid, bitset, 0);
+    let wake = Wake::default();
+    c.p.futex().enqueue(key, tid, bitset, 0, wake.clone());
     let record = FutexWait {
         kind: FutexWaitKind::Wait {
             uaddr,
@@ -203,7 +203,7 @@ fn wait(
             shared,
         },
         deadline,
-        woken: None,
+        wake,
     };
     Err(c.block(Wait::until(deadline), Resume::Futex(record)))
 }
@@ -238,10 +238,7 @@ fn wake(
     if strict && nr_wake == 0 {
         return Ok(Outcome::Return(0));
     }
-    let (p, mut th) = c.split();
-    p.futex
-        .wake(&mut th, key, nr_wake, bitset)
-        .map(Outcome::Return)
+    c.p.futex().wake(key, nr_wake, bitset).map(Outcome::Return)
 }
 
 /// `futex_requeue`: `(address, shared)` of the source and target; with
@@ -264,9 +261,8 @@ fn requeue(
     {
         return Err(Errno(EAGAIN));
     }
-    let (p, mut th) = c.split();
-    p.futex
-        .requeue(&mut th, key1, key2, nr_wake, nr_requeue)
+    c.p.futex()
+        .requeue(key1, key2, nr_wake, nr_requeue)
         .map(Outcome::Return)
 }
 
@@ -285,10 +281,10 @@ fn wake_op(
     let key1 = fx::key(c.p, uaddr1, shared, false)?;
     let key2 = fx::key(c.p, uaddr2, shared, true)?;
     let fire = fx::atomic_op(c.p, encoded, uaddr2)?;
-    let (p, mut th) = c.split();
-    let mut n = p.futex.wake(&mut th, key1, nr_wake, BITSET_MATCH_ANY)?;
+    let mut futex = c.p.futex();
+    let mut n = futex.wake(key1, nr_wake, BITSET_MATCH_ANY)?;
     if fire {
-        n += p.futex.wake(&mut th, key2, nr_wake2, BITSET_MATCH_ANY)?;
+        n += futex.wake(key2, nr_wake2, BITSET_MATCH_ANY)?;
     }
     Ok(Outcome::Return(n))
 }
@@ -309,10 +305,10 @@ fn lock_pi(
     let me = c.t.tid;
     let mut deadline = deadline;
     if let Some(Resume::Futex(fw)) = c.resume.take() {
-        if c.woken {
+        if c.woken || fw.wake.index().is_some() {
             return Ok(Outcome::Return(0));
         }
-        c.p.futex.unqueue(me);
+        c.p.futex().unqueue(me);
         deadline = fw.deadline;
         if deadline.is_some_and(|d| Instant::now() >= d) {
             return Err(Errno(ETIMEDOUT));
@@ -326,7 +322,8 @@ fn lock_pi(
     if uval & FUTEX_TID_MASK == me as u32 {
         return Err(Errno(EDEADLK));
     }
-    let owner = if let Some(top) = c.p.futex.top_waiter(key) {
+    let top = c.p.futex().top_waiter(key);
+    let owner = if let Some(top) = top {
         // attach_to_pi_state: a plain waiter at the head (FUTEX_WAIT on a PI
         // futex) or a word naming someone other than the recorded owner is
         // inconsistent.
@@ -343,8 +340,14 @@ fn lock_pi(
         // kernel; then the owner must exist (attach_to_pi_owner).
         put_u32(c.p, uaddr, uval | FUTEX_WAITERS)?;
         let owner = (uval & FUTEX_TID_MASK) as i32;
-        let (_, th) = c.split();
-        if !th.contains(owner) {
+        let (p, th) = c.split();
+        let shared_guest_owner = !p.config.host_services
+            && p.shares_mm()
+            && p.children
+                .guest_task(owner)
+                .and_then(|task| task.guest_state())
+                == Some(super::super::fs::pidfd::Task::Alive);
+        if !th.contains(owner) && !shared_guest_owner {
             return Err(Errno(ESRCH));
         }
         owner
@@ -352,11 +355,12 @@ fn lock_pi(
     if trylock {
         return Err(Errno(EAGAIN));
     }
-    c.p.futex.enqueue_pi(key, me, owner);
+    let wake = Wake::default();
+    c.p.futex().enqueue_pi(key, me, owner, wake.clone());
     let record = FutexWait {
         kind: FutexWaitKind::LockPi,
         deadline,
-        woken: None,
+        wake,
     };
     Err(c.block(Wait::until(deadline), Resume::Futex(record)))
 }
@@ -449,8 +453,8 @@ pub fn futex_waitv(
 ) -> Result<Outcome, Errno> {
     let me = c.t.tid;
     let deadline = if let Some(Resume::Futex(fw)) = c.resume.take() {
-        c.p.futex.unqueue(me);
-        if let Some(i) = fw.woken {
+        c.p.futex().unqueue(me);
+        if let Some(i) = fw.wake.index() {
             return Ok(Outcome::Return(u64::from(i)));
         }
         if fw.deadline.is_some_and(|d| Instant::now() >= d) {
@@ -479,13 +483,17 @@ pub fn futex_waitv(
             return Err(Errno(EAGAIN));
         }
     }
-    for (i, key) in keys.into_iter().enumerate() {
-        c.p.futex.enqueue(key, me, BITSET_MATCH_ANY, i as u32);
+    let wake = Wake::default();
+    {
+        let mut futex = c.p.futex();
+        for (i, key) in keys.into_iter().enumerate() {
+            futex.enqueue(key, me, BITSET_MATCH_ANY, i as u32, wake.clone());
+        }
     }
     let record = FutexWait {
         kind: FutexWaitKind::Vector,
         deadline,
-        woken: None,
+        wake,
     };
     Err(c.block(Wait::until(deadline), Resume::Futex(record)))
 }

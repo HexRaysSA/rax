@@ -210,6 +210,7 @@ impl Blocked {
     pub fn can_wake(&self, sigpending: bool, now: Instant) -> bool {
         self.woken
             || self.ready
+            || matches!(&self.resume, Resume::Futex(fw) if fw.wake.index().is_some())
             || self.wait.pipes.iter().any(|p| p.changed())
             || self.wait.guest_pidfds.iter().any(|task| task.ready())
             || (sigpending && self.wait.interruptible)

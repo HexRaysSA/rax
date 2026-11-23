@@ -125,7 +125,7 @@ fn pidfd_file(target: Arc<Target>, flags: u32) -> Arc<OpenFile> {
 /// `thread`.
 fn find(c: &Ctx<'_>, pid: i32, thread: bool) -> Result<Arc<Target>, Errno> {
     if !c.p.config.host_services {
-        let target = c.p.children.guest_pidfd_target(pid).ok_or(Errno(ESRCH))?;
+        let target = c.p.children.guest_task(pid).ok_or(Errno(ESRCH))?;
         if !thread && target.tid != target.tgid {
             return Err(Errno(ENOENT));
         }
@@ -182,7 +182,7 @@ pub fn clone_install(c: &mut Ctx<'_>, tgid: i32, tid: i32, addr: u64) -> Result<
     let target = if c.p.config.host_services {
         Target::new(tgid, tid, false)?
     } else {
-        c.p.children.guest_pidfd_target(tid).ok_or(Errno(ESRCH))?
+        c.p.children.guest_task(tid).ok_or(Errno(ESRCH))?
     };
     if c.p.config.host_services {
         c.p.pidfds.add(&target);

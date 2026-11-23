@@ -5,6 +5,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#ifdef RAX_THREADED_SPAWN
+#include <pthread.h>
+#endif
+
 static int spawn_group(const char *path, char *const envp[])
 {
     char *const argv[] = {"printf", "spawn:%s\n", "isolated-group", NULL};
@@ -31,7 +35,7 @@ static int spawn_group(const char *path, char *const envp[])
     return 0;
 }
 
-int main(void)
+static int check_spawn(void)
 {
     const char *path = "/usr/bin/printf";
     char *const argv[] = {"printf", "spawn:%s\n", "installed-libc", NULL};
@@ -59,4 +63,46 @@ int main(void)
     }
     puts("missing:ENOENT");
     return 0;
+}
+
+#ifdef RAX_THREADED_SPAWN
+static void *wait_during_spawn(void *arg)
+{
+    pthread_barrier_t *barrier = arg;
+    pthread_barrier_wait(barrier);
+    pthread_barrier_wait(barrier);
+    return NULL;
+}
+#endif
+
+int main(void)
+{
+#ifdef RAX_THREADED_SPAWN
+    pthread_barrier_t barrier;
+    pthread_t worker;
+    int error = pthread_barrier_init(&barrier, NULL, 2);
+    if (error != 0) {
+        fprintf(stderr, "pthread_barrier_init: %d\n", error);
+        return 5;
+    }
+    error = pthread_create(&worker, NULL, wait_during_spawn, &barrier);
+    if (error != 0) {
+        fprintf(stderr, "pthread_create: %d\n", error);
+        pthread_barrier_destroy(&barrier);
+        return 6;
+    }
+
+    pthread_barrier_wait(&barrier);
+    int result = check_spawn();
+    pthread_barrier_wait(&barrier);
+    error = pthread_join(worker, NULL);
+    pthread_barrier_destroy(&barrier);
+    if (error != 0) {
+        fprintf(stderr, "pthread_join: %d\n", error);
+        return 7;
+    }
+    return result;
+#else
+    return check_spawn();
+#endif
 }

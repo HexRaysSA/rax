@@ -190,7 +190,7 @@ impl Children {
         }
     }
 
-    pub(super) fn guest_pidfd_target(&self, tid: i32) -> Option<Arc<Target>> {
+    pub(super) fn guest_task(&self, tid: i32) -> Option<Arc<Target>> {
         // PID 1 is the synthetic reparenting identity, with no runnable task.
         if tid == 1 {
             return None;

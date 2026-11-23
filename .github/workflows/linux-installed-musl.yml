@@ -64,6 +64,16 @@ jobs:
           export RAX_LINUX_INSTALLED_SPAWN="$work/installed-spawn"
           cc -std=c11 -Wall -Wextra -Werror tests/fixtures/user/linux/src/installed_spawn.c -o "$RAX_LINUX_INSTALLED_SPAWN"
           cargo test --locked -p rax-capi --no-default-features installed_libc_spawn_matches_native_through_closed_c_abi -- --ignored --nocapture
+      - name: Compare native and emulated installed glibc posix_spawn with a sibling thread
+        shell: bash
+        run: |
+          work="$PWD/target/ci-linux-installed-spawn"
+          mkdir -p "$work"
+          export TMPDIR="$work"
+          export RAX_LINUX_INSTALLED_SPAWN="$work/installed-threaded-spawn"
+          cc -std=c11 -Wall -Wextra -Werror -pthread -DRAX_THREADED_SPAWN \
+            tests/fixtures/user/linux/src/installed_spawn.c -o "$RAX_LINUX_INSTALLED_SPAWN"
+          cargo test --locked -p rax-capi --no-default-features installed_libc_spawn_matches_native_through_closed_c_abi -- --ignored --nocapture
       - name: Compare native and emulated anonymous pipes
         shell: bash
         run: |

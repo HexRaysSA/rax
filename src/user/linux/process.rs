@@ -425,8 +425,8 @@ pub struct ProcState {
     pub itimers: super::timers::Itimers,
     /// POSIX timers (`timer_create`).
     pub timers: super::posix_timers::PosixTimers,
-    /// Futex wait queues.
-    pub futex: super::futex::FutexTable,
+    /// Futex wait queues for the current address space.
+    pub futex: Arc<Mutex<super::futex::FutexTable>>,
     /// `signal->curr_target`: the thread where the search for one to take a
     /// process-directed signal starts.
     pub curr_target: i32,
@@ -628,6 +628,11 @@ impl ProcState {
         self.mm
             .lock()
             .expect("Linux memory bookkeeping lock poisoned")
+    }
+
+    /// Futex queues for the current address space.
+    pub fn futex(&self) -> MutexGuard<'_, super::futex::FutexTable> {
+        self.futex.lock().expect("Linux futex queue lock poisoned")
     }
 
     pub(super) fn shares_mm(&self) -> bool {

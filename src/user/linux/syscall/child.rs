@@ -10,7 +10,7 @@
 //! does not see the child's stores. Processes that share memory without
 //! `CLONE_VFORK`, a descriptor table, a file-system context, or handlers
 //! with their parent, and `CLONE_PARENT`, are not supported. Closed guests
-//! support private forks and single-threaded shared-VM vfork.
+//! support private forks and shared-VM vfork.
 
 mod guest;
 

@@ -3,7 +3,7 @@
 //!
 //! A waiting thread sleeps in its system call (see [`wait`](super::wait))
 //! with a queue entry here. A waker removes the entry and marks the
-//! thread's [`Blocked::woken`](super::wait::Blocked::woken), so the woken
+//! wait's notification, so the woken
 //! call returns 0 whatever else happened meanwhile, as `futex_unqueue`
 //! reports in the kernel. Queues are FIFO: every emulated thread has the
 //! same priority, so the kernel's priority-ordered `plist` degenerates to
@@ -17,11 +17,12 @@
 
 use crate::host::time::Instant;
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use super::abi::errno::Errno;
 use super::abi::errno_table::*;
-use super::process::{ProcState, Threads};
-use super::wait::Resume;
+use super::process::{ProcState, Thread};
 use crate::error::MemoryAccessKind;
 
 /// `FUTEX_WAITERS`.
@@ -71,8 +72,33 @@ pub fn key(p: &ProcState, uaddr: u64, shared: bool, write: bool) -> Result<Futex
     })
 }
 
+/// Notification from a futex queue to its sleeping system call.
+/// The wait vector's index is stored one greater than its value so zero
+/// denotes a wait that has yet to be woken.
+#[derive(Clone, Debug, Default)]
+pub struct Wake(Arc<AtomicU32>);
+
+impl Wake {
+    /// The highest woken index, or zero for a woken single wait.
+    pub fn index(&self) -> Option<u32> {
+        self.0.load(Ordering::Relaxed).checked_sub(1)
+    }
+
+    fn signal(&self, index: u32) {
+        self.0.fetch_max(index + 1, Ordering::Relaxed);
+    }
+}
+
+impl PartialEq for Wake {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for Wake {}
+
 /// A queued waiter (`struct futex_q`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 struct Waiter {
     tid: i32,
     /// `FUTEX_WAIT_BITSET` mask.
@@ -81,6 +107,7 @@ struct Waiter {
     pi: bool,
     /// Position in a `futex_waitv` vector (0 for a single futex).
     index: u32,
+    wake: Wake,
 }
 
 /// The progress record of a thread sleeping in a futex call.
@@ -90,8 +117,8 @@ pub struct FutexWait {
     pub kind: FutexWaitKind,
     /// The timeout, if any.
     pub deadline: Option<Instant>,
-    /// Highest index of a woken entry (`futex_unqueue_multiple`).
-    pub woken: Option<u32>,
+    /// Shared with the futex queue to wake this call across processes.
+    pub wake: Wake,
 }
 
 /// The kinds of futex sleep.
@@ -122,23 +149,11 @@ struct PiState {
     owner: i32,
 }
 
-/// The process's futex wait queues.
-#[derive(Clone, Debug, Default)]
+/// Futex wait queues shared by processes using the same address space.
+#[derive(Debug, Default)]
 pub struct FutexTable {
     queues: HashMap<FutexKey, VecDeque<Waiter>>,
     pi: HashMap<FutexKey, PiState>,
-}
-
-/// Marks a sleeping thread's futex entry `index` woken.
-fn mark_woken(th: &mut Threads<'_>, tid: i32, index: u32) {
-    if let Some(t) = th.get_mut(tid)
-        && let Some(b) = t.blocked.as_mut()
-    {
-        b.woken = true;
-        if let Resume::Futex(fw) = &mut b.resume {
-            fw.woken = Some(fw.woken.map_or(index, |w| w.max(index)));
-        }
-    }
 }
 
 /// Reads a futex word.
@@ -169,12 +184,13 @@ impl FutexTable {
     }
 
     /// Queues thread `tid` on `key` (`futex_queue`).
-    pub fn enqueue(&mut self, key: FutexKey, tid: i32, bitset: u32, index: u32) {
+    pub fn enqueue(&mut self, key: FutexKey, tid: i32, bitset: u32, index: u32, wake: Wake) {
         self.queue(key).push_back(Waiter {
             tid,
             bitset,
             pi: false,
             index,
+            wake,
         });
     }
 
@@ -206,13 +222,7 @@ impl FutexTable {
     /// `bitset`, in order. As in the kernel the count is tested after each
     /// wake, so any `nr_wake <= 1` wakes one waiter when there is one. A
     /// matching PI waiter is `EINVAL`.
-    pub fn wake(
-        &mut self,
-        th: &mut Threads<'_>,
-        key: FutexKey,
-        nr_wake: i32,
-        bitset: u32,
-    ) -> Result<u64, Errno> {
+    pub fn wake(&mut self, key: FutexKey, nr_wake: i32, bitset: u32) -> Result<u64, Errno> {
         let Some(q) = self.queues.get_mut(&key) else {
             return Ok(0);
         };
@@ -220,7 +230,7 @@ impl FutexTable {
         let mut i = 0;
         let mut result = Ok(());
         while i < q.len() {
-            let w = q[i];
+            let w = &q[i];
             if w.pi {
                 result = Err(Errno(EINVAL));
                 break;
@@ -229,15 +239,14 @@ impl FutexTable {
                 i += 1;
                 continue;
             }
-            q.remove(i);
-            woken.push(w);
+            woken.push(q.remove(i).expect("queued futex waiter"));
             if woken.len() as i64 >= i64::from(nr_wake) {
                 break;
             }
         }
         self.prune(key);
         for w in &woken {
-            mark_woken(th, w.tid, w.index);
+            w.wake.signal(w.index);
         }
         result.map(|()| woken.len() as u64)
     }
@@ -247,7 +256,6 @@ impl FutexTable {
     /// moved. A PI waiter is `EINVAL`.
     pub fn requeue(
         &mut self,
-        th: &mut Threads<'_>,
         key1: FutexKey,
         key2: FutexKey,
         nr_wake: i32,
@@ -283,7 +291,7 @@ impl FutexTable {
             self.queue(key2).extend(moved);
         }
         for w in &woken {
-            mark_woken(th, w.tid, w.index);
+            w.wake.signal(w.index);
         }
         result.map(|()| count as u64)
     }
@@ -292,13 +300,14 @@ impl FutexTable {
 
     /// Queues `tid` as a waiter for PI futex `key` owned by `owner`
     /// (`__futex_queue` with `pi_state` attached).
-    pub fn enqueue_pi(&mut self, key: FutexKey, tid: i32, owner: i32) {
+    pub fn enqueue_pi(&mut self, key: FutexKey, tid: i32, owner: i32, wake: Wake) {
         self.pi.entry(key).or_insert(PiState { owner });
         self.queue(key).push_back(Waiter {
             tid,
             bitset: BITSET_MATCH_ANY,
             pi: true,
             index: 0,
+            wake,
         });
     }
 
@@ -317,14 +326,14 @@ impl FutexTable {
     /// `wake_futex_pi`: hands the lock to the first PI waiter, which
     /// becomes the owner (`FUTEX_WAITERS | tid` is written by the caller),
     /// and returns its TID.
-    fn hand_off(&mut self, th: &mut Threads<'_>, key: FutexKey) -> Option<i32> {
+    fn hand_off(&mut self, key: FutexKey) -> Option<i32> {
         let q = self.queues.get_mut(&key)?;
         let w = q.pop_front()?;
         if let Some(s) = self.pi.get_mut(&key) {
             s.owner = w.tid;
         }
         self.prune(key);
-        mark_woken(th, w.tid, 0);
+        w.wake.signal(0);
         Some(w.tid)
     }
 }
@@ -332,25 +341,20 @@ impl FutexTable {
 /// `futex_unlock_pi` for the owner `me`: with waiters the first one is
 /// the new owner (`wake_futex_pi` writes `FUTEX_WAITERS | tid`); without,
 /// the word becomes 0.
-pub fn unlock_pi(
-    p: &mut ProcState,
-    th: &mut Threads<'_>,
-    uaddr: u64,
-    shared: bool,
-    me: i32,
-) -> Result<u64, Errno> {
+pub fn unlock_pi(p: &ProcState, uaddr: u64, shared: bool, me: i32) -> Result<u64, Errno> {
     let uval = get_u32(p, uaddr)?;
     if uval & FUTEX_TID_MASK != me as u32 {
         return Err(Errno(EPERM));
     }
     let key = key(p, uaddr, shared, true)?;
-    if let Some(top) = p.futex.queues.get(&key).and_then(|q| q.front().copied()) {
+    let mut futex = p.futex();
+    if let Some(top) = futex.top_waiter(key) {
         // A plain waiter at the head, or a PI state owned by someone else,
         // is inconsistent (EINVAL).
-        if !top.pi || p.futex.pi.get(&key).map(|s| s.owner) != Some(me) {
+        if top != Some(me) {
             return Err(Errno(EINVAL));
         }
-        let new = p.futex.hand_off(th, key).expect("a waiter is queued");
+        let new = futex.hand_off(key).expect("a waiter is queued");
         put_u32(p, uaddr, FUTEX_WAITERS | new as u32)?;
         return Ok(0);
     }
@@ -361,16 +365,16 @@ pub fn unlock_pi(
 /// `exit_pi_state_list`: every contended PI futex the exiting thread owns
 /// passes to its first waiter, which records itself as owner keeping
 /// `FUTEX_OWNER_DIED` (`fixup_pi_state_owner`).
-pub fn exit_pi(p: &mut ProcState, th: &mut Threads<'_>, tid: i32) {
-    let owned: Vec<FutexKey> = p
-        .futex
+pub fn exit_pi(p: &ProcState, tid: i32) {
+    let mut futex = p.futex();
+    let owned: Vec<FutexKey> = futex
         .pi
         .iter()
         .filter(|(_, s)| s.owner == tid)
         .map(|(k, _)| *k)
         .collect();
     for key in owned {
-        if let Some(new) = p.futex.hand_off(th, key)
+        if let Some(new) = futex.hand_off(key)
             && let Ok(uval) = get_u32(p, key.addr)
         {
             let _ = put_u32(
@@ -423,14 +427,7 @@ pub fn atomic_op(p: &ProcState, encoded: u32, uaddr: u64) -> Result<bool, Errno>
 /// unless it is a PI futex, one waiter is woken. A pending operation on a
 /// futex without an owner wakes a waiter too. Returns false to stop the
 /// walk (a fault).
-fn futex_death(
-    p: &mut ProcState,
-    th: &mut Threads<'_>,
-    uaddr: u64,
-    tid: i32,
-    pi: bool,
-    pending: bool,
-) -> bool {
+fn futex_death(p: &ProcState, uaddr: u64, tid: i32, pi: bool, pending: bool) -> bool {
     if uaddr % 4 != 0 {
         return false;
     }
@@ -443,7 +440,7 @@ fn futex_death(
         shared: true,
     };
     if pending && !pi && owner == 0 {
-        let _ = p.futex.wake(th, shared, 1, BITSET_MATCH_ANY);
+        let _ = p.futex().wake(shared, 1, BITSET_MATCH_ANY);
         return true;
     }
     if owner != tid as u32 {
@@ -453,9 +450,31 @@ fn futex_death(
         return false;
     }
     if !pi && uval & FUTEX_WAITERS != 0 {
-        let _ = p.futex.wake(th, shared, 1, BITSET_MATCH_ANY);
+        let _ = p.futex().wake(shared, 1, BITSET_MATCH_ANY);
     }
     true
+}
+
+/// Releases a thread's robust and PI futexes, then removes its waits.
+pub fn exit_thread(p: &ProcState, t: &Thread) {
+    if t.robust_list.0 != 0 {
+        exit_robust_list(p, t.tid, t.robust_list.0, false);
+    }
+    if t.compat_robust_list != 0 {
+        exit_robust_list(p, t.tid, t.compat_robust_list, true);
+    }
+    exit_pi(p, t.tid);
+    p.futex().unqueue(t.tid);
+}
+
+/// Clears a live address space's child-TID word and wakes one shared waiter.
+pub fn clear_child_tid(p: &ProcState, addr: u64) {
+    if addr != 0
+        && put_u32(p, addr, 0).is_ok()
+        && let Ok(key) = key(p, addr, true, false)
+    {
+        let _ = p.futex().wake(key, 1, BITSET_MATCH_ANY);
+    }
 }
 
 /// `exit_robust_list` for exiting thread `tid` with list head `head`
@@ -464,13 +483,7 @@ fn futex_death(
 /// `compat` `compat_exit_robust_list` for a `struct
 /// compat_robust_list_head` of 32-bit words, whose futex addresses wrap at
 /// 32 bits (`futex_uaddr`: `compat_ptr(base + futex_offset)`).
-pub fn exit_robust_list(
-    p: &mut ProcState,
-    th: &mut Threads<'_>,
-    tid: i32,
-    head: u64,
-    compat: bool,
-) {
+fn exit_robust_list(p: &ProcState, tid: i32, head: u64, compat: bool) {
     let width = if compat { 4 } else { 8 };
     let read = |p: &ProcState, addr: u64| -> Option<u64> {
         let mut b = [0u8; 8];
@@ -499,7 +512,7 @@ pub fn exit_robust_list(
     let mut limit = ROBUST_LIST_LIMIT;
     while entry != head {
         let next = read(p, entry);
-        if entry != pending && !futex_death(p, th, uaddr(entry, offset), tid, pi, false) {
+        if entry != pending && !futex_death(p, uaddr(entry, offset), tid, pi, false) {
             return;
         }
         let Some(next) = next else {
@@ -512,6 +525,6 @@ pub fn exit_robust_list(
         }
     }
     if pending != 0 {
-        futex_death(p, th, uaddr(pending, offset), tid, pending_pi, true);
+        futex_death(p, uaddr(pending, offset), tid, pending_pi, true);
     }
 }

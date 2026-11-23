@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::arch::{CpuEvent, GuestCpu};
 use super::children::{ChildEvent, exited_status, signaled_status};
-use super::futex::{self, BITSET_MATCH_ANY, FutexKey};
+use super::futex;
 use super::process::{ExitStatus, LinuxProcess, Peers, Threads};
 use super::ptrace::Exiting;
 use super::signal::SigInfo;
@@ -241,17 +241,14 @@ impl LinuxProcess {
                 return RunStatus::Complete(status.clone());
             }
             if self.state.exit.is_some() {
-                // do_exit of the threads the process's end takes with it
-                // (exit_group, a fatal signal): exit_mm releases each
-                // one's robust futexes.
-                self.release_robust_lists();
-                if matches!(self.state.exit, Some(ExitStatus::Exited(_)))
-                    && self.state.shares_mm()
-                    && let Some(thread) = self.threads.first()
-                    && thread.clear_child_tid != 0
-                {
-                    // The other address-space user waits for vfork completion.
-                    let _ = futex::put_u32(&self.state, thread.clear_child_tid, 0);
+                // exit_mm releases each outgoing thread's futex state.
+                let clear_shared_tids = matches!(self.state.exit, Some(ExitStatus::Exited(_)))
+                    && self.state.shares_mm();
+                for thread in &self.threads {
+                    futex::exit_thread(&self.state, thread);
+                    if clear_shared_tids {
+                        futex::clear_child_tid(&self.state, thread.clear_child_tid);
+                    }
                 }
                 // exit_mmap: the System V attaches go before the parent
                 // can see the exit.
@@ -676,25 +673,6 @@ impl LinuxProcess {
         self.end_thread(idx, exited_status(code));
     }
 
-    /// `futex_exit_release` (`futex_cleanup`) for every thread still in
-    /// the process: the robust futexes each holds are released, its native
-    /// list and then its 32-bit one, and both are forgotten.
-    fn release_robust_lists(&mut self) {
-        for idx in 0..self.threads.len() {
-            let t = &mut self.threads[idx];
-            let (tid, native, compat) = (t.tid, t.robust_list.0, t.compat_robust_list);
-            t.robust_list = (0, 0);
-            t.compat_robust_list = 0;
-            let mut th = Threads::split(&mut self.threads, Some(idx));
-            if native != 0 {
-                futex::exit_robust_list(&mut self.state, &mut th, tid, native, false);
-            }
-            if compat != 0 {
-                futex::exit_robust_list(&mut self.state, &mut th, tid, compat, true);
-            }
-        }
-    }
-
     /// `do_exit` for thread `idx` with wait status `status` (its
     /// `exit_code`): as [`LinuxProcess::exit_thread`], a status of a death by
     /// signal ending the process, when the thread is its last, as that
@@ -703,15 +681,14 @@ impl LinuxProcess {
         // exit_notify: its tracer learns of it.
         super::ptrace::tracee::gone(&mut self.state, &self.threads[idx], status);
         let t = &self.threads[idx];
-        let (tid, robust, compat_robust, clear, vfork_parent, mask, pc) = (
+        let (tid, clear, vfork_parent, mask, pc) = (
             t.tid,
-            t.robust_list.0,
-            t.compat_robust_list,
             t.clear_child_tid,
             t.vfork_parent,
             t.sigmask,
             t.cpu.pc(),
         );
+        futex::exit_thread(&self.state, t);
         let others = self.threads.len() > 1;
         let undo = self.threads[idx].sysvsem.take();
         {
@@ -719,24 +696,8 @@ impl LinuxProcess {
             if others && th.current().is_some_and(|t| t.sigpending) {
                 retarget_shared_pending(&self.state, &mut th, !mask);
             }
-            // futex_cleanup: the native list, then the 32-bit one.
-            if robust != 0 {
-                futex::exit_robust_list(&mut self.state, &mut th, tid, robust, false);
-            }
-            if compat_robust != 0 {
-                futex::exit_robust_list(&mut self.state, &mut th, tid, compat_robust, true);
-            }
-            futex::exit_pi(&mut self.state, &mut th, tid);
-            self.state.futex.unqueue(tid);
-            if clear != 0 && (others || self.state.shares_mm() && status & 0x7f == 0) {
-                let _ = futex::put_u32(&self.state, clear, 0);
-                let key = FutexKey {
-                    addr: clear,
-                    shared: true,
-                };
-                if futex::key(&self.state, clear, true, false).is_ok() {
-                    let _ = self.state.futex.wake(&mut th, key, 1, BITSET_MATCH_ANY);
-                }
+            if others || self.state.shares_mm() && status & 0x7f == 0 {
+                futex::clear_child_tid(&self.state, clear);
             }
             if let Some(parent) = vfork_parent
                 && let Some(b) = th.get_mut(parent).and_then(|t| t.blocked.as_mut())

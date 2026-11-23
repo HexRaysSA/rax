@@ -254,7 +254,7 @@ fn futex_wait_sleeps_until_a_matching_wake() {
         assert_eq!(h.call(Sysno::Futex, &[word, WAKE | PRIVATE, 0, 0, 0, 0]), 1);
         assert_eq!(h.proc.wake_sleepers(), 1);
         assert_eq!(h.result(w), 0);
-        assert!(!h.proc.state.futex.is_queued(h.proc.threads[w].tid));
+        assert!(!h.proc.state.futex().is_queued(h.proc.threads[w].tid));
     });
 }
 
@@ -330,7 +330,7 @@ fn an_interrupted_futex_wait_restarts_or_times_out() {
         h.ok(Sysno::Tgkill, &[pid, tid as u64, SIGUSR1 as u64]);
         assert_eq!(h.proc.wake_sleepers(), 1);
         assert_eq!(h.result(w), neg(ERESTARTSYS), "{abi:?}");
-        assert!(!h.proc.state.futex.is_queued(tid));
+        assert!(!h.proc.state.futex().is_queued(tid));
         // With a timeout: futex_wait_restart continues to the deadline.
         h.proc.threads[w].sigpending = false;
         h.proc.threads[w].pending.flush(u64::MAX);

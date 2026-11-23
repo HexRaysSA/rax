@@ -290,8 +290,10 @@ impl LinuxProcess {
         // de_thread: the caller is the only thread and takes the leader's
         // ID.
         let mut t = self.threads.swap_remove(idx);
-        self.threads.clear();
         let p = &mut self.state;
+        for other in self.threads.drain(..) {
+            super::futex::exit_thread(p, &other);
+        }
         let old_tid = t.tid;
         let call = t.syscall.map(|s| s.nr);
         t.tid = p.pid;
@@ -303,19 +305,12 @@ impl LinuxProcess {
         // exec_mm_release (futex_exec_release, futex_cleanup): the robust
         // futexes the caller holds are released in the old address space,
         // under the TID de_thread gave it.
-        {
-            let mut th = super::process::Threads::split(&mut self.threads, None);
-            let (tid, native, compat) = (t.tid, t.robust_list.0, t.compat_robust_list);
-            if native != 0 {
-                super::futex::exit_robust_list(p, &mut th, tid, native, false);
-            }
-            if compat != 0 {
-                super::futex::exit_robust_list(p, &mut th, tid, compat, true);
-            }
-            if p.shares_mm() && t.clear_child_tid != 0 {
-                // The only other task sharing this MM is parked in vfork.
-                let _ = super::futex::put_u32(p, t.clear_child_tid, 0);
-            }
+        if old_tid != t.tid {
+            super::futex::exit_pi(p, old_tid);
+        }
+        super::futex::exit_thread(p, &t);
+        if p.shares_mm() {
+            super::futex::clear_child_tid(p, t.clear_child_tid);
         }
         t.cpu = image.cpu;
         // flush_thread releases ptrace comparators and both virtual registers.

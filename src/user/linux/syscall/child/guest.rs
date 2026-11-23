@@ -7,12 +7,7 @@ use std::sync::{Arc, Mutex};
 pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     let flags = args.flags;
     let shared = flags & CLONE_VM != 0;
-    if shared
-        && (flags & CLONE_VFORK == 0
-            || c.p.shares_mm()
-            || !c.peers.lo.is_empty()
-            || !c.peers.hi.is_empty())
-    {
+    if shared && (flags & CLONE_VFORK == 0 || c.p.shares_mm()) {
         return Err(Errno(ENOSYS));
     }
     if flags & (CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
@@ -107,7 +102,11 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         unkillable: false,
         itimers: Default::default(),
         timers: Default::default(),
-        futex: Default::default(),
+        futex: if shared {
+            Arc::clone(&p.futex)
+        } else {
+            Default::default()
+        },
         curr_target: pid,
         leader_exit: None,
         last_user: None,

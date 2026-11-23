@@ -832,21 +832,55 @@ fn closed_linux_shared_vfork_preserves_child_memory_and_brk_all_abis() {
 }
 
 #[test]
-fn closed_linux_shared_vfork_requires_a_single_active_task_per_mm() {
+fn closed_linux_shared_vfork_wakes_a_sibling_futex_waiter_all_abis() {
     use crate::user::linux::signal::SIGCHLD;
-    use crate::user::linux::syscall::thread::cf::*;
+    use crate::user::linux::syscall::{Call, thread::cf::*};
 
-    let mut h = Harness::embedded(LinuxAbi::Aarch64);
-    let child = CLONE_VM | SIGCHLD as u64;
-    assert_eq!(h.err(Sysno::Clone, &[child, 0, 0, 0, 0]), ENOSYS);
-    let thread = CLONE_VM | CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_THREAD;
-    assert_eq!(h.ok(Sysno::Clone, &[thread, 0, 0, 0, 0]), 101);
-    assert_eq!(
-        h.err(Sysno::Clone, &[child | CLONE_VFORK, 0, 0, 0, 0]),
-        ENOSYS
-    );
-    assert!(h.proc.state.children.list.is_empty());
-    assert!(!h.proc.state.shares_mm());
+    const WAIT_PRIVATE: u64 = 128;
+    const WAKE_PRIVATE: u64 = WAIT_PRIVATE | 1;
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let args = |addr, op, val| [addr, op, val, 0, 0, 0];
+        let at = h.scratch;
+        let vm = CLONE_VM | SIGCHLD as u64;
+        let vfork = vm | CLONE_VFORK;
+        assert_eq!(h.err(Sysno::Clone, &[vm, 0, 0, 0, 0]), ENOSYS);
+        let thread = CLONE_VM | CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_THREAD;
+        assert_eq!(h.ok(Sysno::Clone, &[thread, 0, 0, 0, 0]), 101);
+        h.proc.space().write_raw(at, &9u32.to_le_bytes()).unwrap();
+        assert_eq!(h.start(1, Sysno::Futex, &args(at, WAIT_PRIVATE, 9)), None);
+
+        let entry = super::harness::CODE + 0x1000;
+        h.proc.space().write_raw(entry, &exit_37(abi)).unwrap();
+        assert_eq!(h.start(0, Sysno::Clone, &[vfork, 0, 0, 0, 0]), None);
+        assert!(h.proc.state.shares_mm());
+        let child = h.proc.state.children.list[0].guest.as_mut().unwrap();
+        child.space().write(at, &3u32.to_le_bytes()).unwrap();
+        child.syscall(
+            0,
+            Call::new(abi.number(Sysno::Futex).unwrap(), args(at, WAKE_PRIVATE, 1)),
+        );
+        assert_eq!(child.threads[0].cpu.syscall_return_value(), 1);
+
+        assert_eq!(h.proc.wake_sleepers(), 1);
+        assert_eq!(h.result(1), 0);
+        assert!(h.proc.threads[0].blocked.is_some());
+        assert_eq!(h.start(1, Sysno::Futex, &args(at, WAIT_PRIVATE, 3)), None);
+
+        let cancel = AtomicBool::new(false);
+        for _ in 0..8 {
+            if h.proc.state.children.list[0].guest.is_none() {
+                break;
+            }
+            assert_eq!(h.proc.run_slice(1, &cancel), RunStatus::BudgetExhausted);
+        }
+        assert!(!h.proc.state.shares_mm());
+        h.proc.wake_sleepers();
+        assert_eq!(h.result(0), 102);
+        assert_eq!(h.ok(Sysno::Wait4, &[102, at + 4, 0, 0]), 102);
+        assert_eq!(h.byte(at), 3);
+        assert_eq!(h.byte(at + 5), 37);
+    }
 }
 
 #[test]
