@@ -287,3 +287,20 @@ with SDK 15.5.
 - Observation stream SHA-256 `56cb271ec4ea2805ec125fb9f911aa36c549d2c5a1ccd0f0c900c83144f92e63`
 
 [Qualified standalone repeat](https://github.com/HexRaysSA/rax/actions/runs/45084575714/job/137400156874)
+
+## Combined repeat at the packed logical vector revision
+
+Run `45134602279` built and signed the 968-case combined profile at
+`a201e8be7d7a03a37df9b4d2d83f8a5169ad596d`. Archive `14800157137`
+matched its published SHA-256
+`658976008d05e828d253d5e9656c7c43bd57aa379947c105913218e2c3c65475`.
+Verification checked 4,901 engine inputs and 19 consumer inputs against Git,
+and validated executable
+`7e607b8fe99fa5ddea78f5ac2c54a5f3e7d9d2080bc70dc03ab48cb63ddafd1f`
+with its signature and Hypervisor entitlement.
+
+GitHub reported lost runner communication 3,019 s after the execution step
+started. The run retained only the signed build archive. The job log was
+unavailable, so the last guest phase and the cause of the loss are unknown.
+This repeat qualifies zero guest cases.
+[Combined job](https://github.com/HexRaysSA/rax/actions/runs/45134602279/job/137557764665)
