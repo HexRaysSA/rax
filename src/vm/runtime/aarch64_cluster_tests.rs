@@ -576,6 +576,154 @@ fn retained_psci_requests_restore_and_run_the_right_secondaries() {
 }
 
 #[test]
+fn terminal_psci_file_preserves_queued_transitions_until_any_cpu_wakes() {
+    use crate::vm::vcpu::CpuPowerRequest;
+
+    const HVC: u32 = 0xd400_0002;
+    const CPU_ON: u64 = 0xc400_0003;
+    const CPU_OFF: u64 = 0x8400_0002;
+    const START: u64 = CODE + 0x100;
+    const MARKER: u64 = 0x1234_5678;
+
+    let pending = [
+        CpuPowerRequest::Start {
+            cpu_id: 2,
+            entry: START,
+            context: MARKER,
+            pstate: 0x3c5,
+        },
+        CpuPowerRequest::Off { cpu_id: 1 },
+    ];
+    let online = [true, true, false, true];
+    let verify = |bundle: &crate::vm::snapshot::SnapshotBundle| {
+        let config = VmConfig::from_checkpoint_bundle(bundle, CliConfig::default()).unwrap();
+        let mut restored = Vmm::new_resume_bundle(config, bundle).unwrap();
+        assert_eq!(restored.coordinator.online, online);
+        let counters: Vec<_> = restored
+            .vcpus
+            .iter()
+            .map(|cpu| cpu.instruction_count())
+            .collect();
+        restored.run().unwrap();
+        assert_eq!(restored.coordinator.online, online);
+        assert!(restored.vm.take_cpu_power_requests().unwrap().is_empty());
+        assert!(matches!(
+            restored.vcpus[3].run().unwrap(),
+            VcpuExit::Shutdown
+        ));
+        assert!(matches!(
+            restored.vcpus[3].step_insn().unwrap(),
+            Some(VcpuExit::Shutdown)
+        ));
+        assert!(
+            restored.vcpus[2]
+                .start_aarch64_cpu(START, MARKER, 0x3c5)
+                .is_err()
+        );
+        assert!(restored.vm.complete_cpu_start(2).is_err());
+        assert!(restored.vm.complete_cpu_stop(1).is_err());
+        assert!(
+            restored
+                .vcpus
+                .iter()
+                .map(|cpu| cpu.instruction_count())
+                .eq(counters)
+        );
+
+        // Wake through a peer and verify that the original caller also resumes.
+        restored.vcpus[3].wake();
+        assert_eq!(restored.vm.take_cpu_power_requests().unwrap(), pending);
+        restored.route_interprocessor_requests().unwrap();
+        assert_eq!(restored.coordinator.online, [true, false, true, true]);
+        assert!(restored.vm.take_cpu_power_requests().unwrap().is_empty());
+        assert!(matches!(restored.vcpus[1].run().unwrap(), VcpuExit::Hlt));
+        restored.vcpus[0].set_current_pc(START).unwrap();
+        assert!(restored.vcpus[0].step_insn().unwrap().is_none());
+        assert!(restored.vcpus[2].step_insn().unwrap().is_none());
+        assert_eq!(
+            restored.vcpus[2]
+                .get_state()
+                .unwrap()
+                .as_aarch64()
+                .unwrap()
+                .regs
+                .x[9],
+            MARKER
+        );
+    };
+
+    for function in [0x8400_0008, 0x8400_0009] {
+        let mut source = Fixture::with_clock(4, ClockMode::Retired);
+        let memory = source.vm.guest_mem.memory();
+        memory.write_obj(HVC.to_le(), GuestAddress(CODE)).unwrap();
+        // MOV X9, X0 at the retained entry point reads the PSCI context.
+        memory
+            .write_obj(0xaa00_03e9u32.to_le(), GuestAddress(START))
+            .unwrap();
+        let call = |vm: &mut Vmm, id: usize, arguments: [u64; 4]| {
+            let cpu = &mut vm.vcpus[id];
+            let CpuState::Aarch64(mut state) = cpu.get_state().unwrap() else {
+                panic!("expected an Arm vCPU");
+            };
+            state.regs.pc = CODE;
+            state.regs.x[..4].copy_from_slice(&arguments);
+            cpu.update_state(&CpuState::Aarch64(state)).unwrap();
+            cpu.step_insn().unwrap()
+        };
+        for id in [1, 3] {
+            assert!(call(&mut source.vm, 0, [CPU_ON, id, START, 0]).is_none());
+        }
+        source.vm.route_interprocessor_requests().unwrap();
+        assert!(call(&mut source.vm, 0, [CPU_ON, 2, START, MARKER]).is_none());
+        assert!(matches!(
+            call(&mut source.vm, 1, [CPU_OFF, 0, 0, 0]),
+            Some(VcpuExit::Hlt)
+        ));
+        assert_eq!(source.vm.vm.take_cpu_power_requests().unwrap(), pending);
+        assert_eq!(source.vm.coordinator.online, online);
+        assert!(matches!(
+            call(&mut source.vm, 0, [function, 0, 0, 0]),
+            Some(VcpuExit::Shutdown)
+        ));
+
+        let path = source.kernel.with_extension("rxc");
+        source
+            .vm
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&path)
+            .unwrap();
+        if let Some(directory) = std::env::var_os("RAX_SOFTWARE_PSCI_EVIDENCE") {
+            std::fs::copy(
+                &path,
+                std::path::PathBuf::from(directory).join(format!("{function:x}.rxc")),
+            )
+            .unwrap();
+        }
+        let kernel = source.kernel.clone();
+        drop(source);
+        assert!(!kernel.exists());
+        let bundle = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        verify(&bundle);
+    }
+    // Qualification also replays the actual pre-fix producer file when supplied.
+    if let Some(path) = std::env::var_os("RAX_SOFTWARE_PSCI_LEGACY_CHECKPOINT") {
+        let old = crate::vm::snapshot::SnapshotBundle::load(std::path::Path::new(&path)).unwrap();
+        assert!(
+            !old.execution()
+                .unwrap()
+                .arm_cluster
+                .as_ref()
+                .unwrap()
+                .shutdown
+        );
+        verify(&old);
+        eprintln!("legacy producer file restored and resumed");
+    }
+}
+
+#[test]
 fn aarch32_cpu_on_keeps_data_endianness_through_pending_checkpoint() {
     const ENTRY: u64 = CODE + 0x100;
     const DATA: u64 = CODE + 0x200;

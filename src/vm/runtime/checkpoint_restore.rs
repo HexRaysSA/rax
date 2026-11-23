@@ -212,24 +212,22 @@ impl Vmm {
                 "AArch64 SMP checkpoint requires shared interrupt/power state".into(),
             ));
         }
-        let arm_restore = if let Some(saved) = bundle.execution()
+        let arm_cluster = self
+            .vm
+            .as_any()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .and_then(|vm| vm.arm_cluster());
+        let mut arm_restore = if let Some(saved) = bundle.execution()
             && let Some(state) = &saved.arm_cluster
         {
-            let cluster = self
-                .vm
-                .as_any()
-                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
-                .and_then(|vm| vm.arm_cluster())
-                .ok_or_else(|| {
-                    Error::InvalidConfig(
-                        "ARM platform checkpoint requires the software cluster".into(),
-                    )
-                })?;
+            let cluster = arm_cluster.as_ref().ok_or_else(|| {
+                Error::InvalidConfig("ARM platform checkpoint requires the software cluster".into())
+            })?;
             cluster.validate_checkpoint(state, saved.online())?;
             state.validate_start_targets(self.guest_mem.memory(), |id| {
                 states.get(id)?.0.as_aarch64().map(|cpu| &cpu.sregs)
             })?;
-            Some((cluster, state.clone()))
+            Some(state.clone())
         } else {
             None
         };
@@ -347,12 +345,20 @@ impl Vmm {
                 "CLINT checkpoint requires the software platform".into(),
             ));
         }
-        if let Some((_, state)) = &arm_restore {
-            for (id, cpu) in replacements.iter().enumerate() {
-                if let Some(off) = cpu.as_ref().and_then(|cpu| cpu.checkpoint_powered_off()) {
+        let mut legacy_arm_shutdown = false;
+        if arm_cluster.is_some() {
+            for (id, cpu) in replacements.iter_mut().enumerate() {
+                let Some(cpu) = cpu else { continue };
+                if let Some(state) = &arm_restore
+                    && let Some(off) = cpu.checkpoint_powered_off()
+                {
                     state.validate_cpu_power(id, off)?;
                 }
+                legacy_arm_shutdown |= cpu.take_legacy_aarch64_shutdown();
             }
+        }
+        if let Some(state) = &mut arm_restore {
+            state.shutdown |= legacy_arm_shutdown;
         }
         let uart_state = bundle.execution().and_then(|state| state.pl011.clone());
         if uart_state.is_some() && self.pl011.is_none() {
@@ -566,9 +572,10 @@ impl Vmm {
             Some(platform) => platform.restore_with(riscv_state, commit),
             None => commit(),
         };
-        let commit = || match arm_restore {
-            Some((cluster, state)) => cluster.restore_with(state, commit),
-            None => commit(),
+        let commit = || match (arm_cluster, arm_restore) {
+            (Some(cluster), Some(state)) => cluster.restore_with(state, commit),
+            (Some(cluster), None) => cluster.replace_terminal_with(legacy_arm_shutdown, commit),
+            (None, _) => commit(),
         };
         let commit = || match (&self.pc_devices, pc_restore) {
             (Some(devices), Some(state)) => devices.restore_with(state, commit),
@@ -613,11 +620,12 @@ impl Vmm {
         }
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
-        let platform = self
+        let emulator = self
             .vm
             .as_any()
-            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
-            .and_then(|vm| vm.riscv_platform());
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>();
+        let platform = emulator.and_then(|vm| vm.riscv_platform());
+        let arm_cluster = emulator.and_then(|vm| vm.arm_cluster());
         let commit = || -> Result<()> {
             let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
             let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
@@ -636,6 +644,10 @@ impl Vmm {
             self.last_snapshot_insn = snapshot.instruction_count;
             crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
             Ok(())
+        };
+        let commit = || match arm_cluster {
+            Some(cluster) => cluster.replace_terminal_with(false, commit),
+            None => commit(),
         };
         match platform {
             Some(platform) => platform.restore_with(None, commit)?,

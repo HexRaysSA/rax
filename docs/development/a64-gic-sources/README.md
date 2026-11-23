@@ -166,8 +166,8 @@ All-target build/check/Clippy, without-debug/without-JIT compilation, formatting
 ## Later group-forwarding framing
 
 The [group-forwarding followup](../a64-gic-forwarding/README.md) replaces the
-coalesced distributor enable with independent group controls. Current owned/shared
-frames are RAXA6407/08 and RAXEXE07/08. The 05/06 frames qualified above retain
+coalesced distributor enable with independent group controls. It introduced
+the RAXA6407/08 and RAXEXE07/08 frames. The 05/06 frames qualified above retain
 explicit source-bearing readers; their boolean control imports as its recorded
 readback,0 or3. Historical qualification records continue to describe their
 captured source revisions.

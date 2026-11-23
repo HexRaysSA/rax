@@ -707,6 +707,12 @@ pub trait VCpu: Send {
         None
     }
 
+    /// Move a legacy clustered AArch64 CPU-local latch into the shared restore.
+    /// The caller operates on a detached CPU candidate before publication.
+    fn take_legacy_aarch64_shutdown(&mut self) -> bool {
+        false
+    }
+
     /// Capture at the caller's existing memory/controller boundary.
     fn capture_backend_context_in_scope(
         &self,

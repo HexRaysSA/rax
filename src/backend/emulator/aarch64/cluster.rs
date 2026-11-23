@@ -38,11 +38,43 @@ pub struct ArmClusterCheckpoint {
     control: Control,
     gic: GicCheckpoint,
     high_redist_base: u64,
+    pub(crate) shutdown: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct LegacyCluster<GicState> {
+    control: Control,
+    gic: GicState,
+    high_redist_base: u64,
+}
+
+impl<GicState> LegacyCluster<GicState> {
+    fn decode(raw: &[u8]) -> Result<Self>
+    where
+        GicState: serde::de::DeserializeOwned,
+    {
+        crate::codec::deserialize_limited::<_, { 64 * 1024 * 1024 }>(raw)
+            .map_err(|error| invalid(&error.to_string()))
+    }
+
+    fn upgrade(
+        self,
+        migrate_gic: impl FnOnce(GicState) -> Result<GicCheckpoint>,
+    ) -> Result<ArmClusterCheckpoint> {
+        Ok(ArmClusterCheckpoint {
+            control: self.control,
+            gic: migrate_gic(self.gic)?,
+            high_redist_base: self.high_redist_base,
+            shutdown: false,
+        })
+    }
 }
 
 pub struct ArmCluster {
     pub(super) gic: Arc<Mutex<Gic>>,
     control: Mutex<Control>,
+    // Writers hold control, while the execution gate reads this without a lock.
+    shutdown: AtomicBool,
     events: Vec<Arc<AtomicBool>>,
     count: u8,
     pub(super) high_redist_base: u64,
@@ -87,6 +119,7 @@ impl ArmCluster {
                 states,
                 requests: VecDeque::new(),
             }),
+            shutdown: AtomicBool::new(false),
             count,
             events: (0..count)
                 .map(|_| Arc::new(AtomicBool::new(false)))
@@ -249,16 +282,56 @@ impl ArmCluster {
         })
     }
 
-    /// Observe requests without consuming them across fallible CPU operations.
-    pub fn pending_requests(&self) -> Result<Vec<CpuPowerRequest>> {
-        Ok(self
+    pub(super) fn shutdown(&self) -> bool {
+        self.shutdown.load(Ordering::Acquire)
+    }
+
+    pub(super) fn set_shutdown(&self, shutdown: bool) -> Result<()> {
+        self.replace_terminal_with(shutdown, || Ok(()))
+    }
+
+    pub(crate) fn replace_terminal_with<T>(
+        &self,
+        shutdown: bool,
+        commit: impl FnOnce() -> Result<T>,
+    ) -> Result<T> {
+        let _control = self
             .control
             .lock()
-            .map_err(|_| invalid("control lock poisoned"))?
-            .requests
-            .iter()
-            .cloned()
-            .collect())
+            .map_err(|_| invalid("control lock poisoned"))?;
+        let result = commit()?;
+        self.shutdown.store(shutdown, Ordering::Release);
+        Ok(result)
+    }
+
+    pub(super) fn install_cpu_start(&self, install: impl FnOnce() -> Result<()>) -> Result<()> {
+        let _control = self
+            .control
+            .lock()
+            .map_err(|_| invalid("control lock poisoned"))?;
+        self.require_running()?;
+        install()
+    }
+
+    fn require_running(&self) -> Result<()> {
+        if self.shutdown() {
+            return Err(invalid(
+                "power transition cannot publish while the VM is shut down",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Observe requests without consuming them across fallible CPU operations.
+    pub fn pending_requests(&self) -> Result<Vec<CpuPowerRequest>> {
+        let control = self
+            .control
+            .lock()
+            .map_err(|_| invalid("control lock poisoned"))?;
+        if self.shutdown() {
+            return Ok(Vec::new());
+        }
+        Ok(control.requests.iter().cloned().collect())
     }
 
     pub fn complete_start(&self, cpu_id: u32) -> Result<()> {
@@ -274,6 +347,7 @@ impl ArmCluster {
             .control
             .lock()
             .map_err(|_| invalid("control lock poisoned"))?;
+        self.require_running()?;
         let expected = if starting {
             PowerState::OnPending
         } else {
@@ -315,6 +389,7 @@ impl ArmCluster {
             control: control.clone(),
             gic: gic.checkpoint(),
             high_redist_base: self.high_redist_base,
+            shutdown: self.shutdown(),
         })
     }
 
@@ -348,6 +423,7 @@ impl ArmCluster {
         let result = commit()?;
         gic.restore_checkpoint(state.gic);
         *control = state.control;
+        self.shutdown.store(state.shutdown, Ordering::Release);
         Ok(result)
     }
 }
@@ -362,62 +438,44 @@ impl ArmCluster {
 impl ArmClusterCheckpoint {
     #[cfg(test)]
     pub(crate) fn legacy_bytes_for_test(&self) -> Vec<u8> {
-        #[derive(serde::Serialize, serde::Deserialize)]
-        struct LegacyCluster {
-            control: Control,
-            gic: crate::isa::arm::aarch64::gic::checkpoint::LegacyGicCheckpoint,
-            high_redist_base: u64,
-        }
+        use crate::isa::arm::aarch64::gic::checkpoint::LegacyGicCheckpoint;
         let mut value = serde_json::to_value(self).unwrap();
         value["gic"] = self.gic.legacy_fields_for_test();
-        let old: LegacyCluster = serde_json::from_value(value).unwrap();
+        let old: LegacyCluster<LegacyGicCheckpoint> = serde_json::from_value(value).unwrap();
         crate::codec::serialize(&old).unwrap()
     }
 
     pub(crate) fn decode_legacy(raw: &[u8]) -> Result<Self> {
-        #[derive(serde::Deserialize)]
-        struct LegacyCluster {
-            control: Control,
-            gic: crate::isa::arm::aarch64::gic::checkpoint::LegacyGicCheckpoint,
-            high_redist_base: u64,
-        }
-        let old: LegacyCluster = crate::codec::deserialize_limited::<_, { 64 * 1024 * 1024 }>(raw)
-            .map_err(|error| invalid(&error.to_string()))?;
-        Ok(Self {
-            control: old.control,
-            gic: old.gic.upgrade()?,
-            high_redist_base: old.high_redist_base,
-        })
+        use crate::isa::arm::aarch64::gic::checkpoint::LegacyGicCheckpoint;
+        LegacyCluster::<LegacyGicCheckpoint>::decode(raw)?.upgrade(LegacyGicCheckpoint::upgrade)
     }
 
     #[cfg(test)]
     pub(crate) fn previous_source_bytes_for_test(&self) -> Vec<u8> {
-        #[derive(serde::Deserialize, serde::Serialize)]
-        struct SourceCluster {
-            control: Control,
-            gic: crate::isa::arm::aarch64::gic::checkpoint::SourceGicCheckpoint,
-            high_redist_base: u64,
-        }
+        use crate::isa::arm::aarch64::gic::checkpoint::SourceGicCheckpoint;
         let mut value = serde_json::to_value(self).unwrap();
         value["gic"] = self.gic.legacy_fields_for_test();
-        let old: SourceCluster = serde_json::from_value(value).unwrap();
+        let old: LegacyCluster<SourceGicCheckpoint> = serde_json::from_value(value).unwrap();
         crate::codec::serialize(&old).unwrap()
     }
 
     pub(crate) fn decode_previous_sources(raw: &[u8]) -> Result<Self> {
-        #[derive(serde::Deserialize)]
-        struct SourceCluster {
-            control: Control,
-            gic: crate::isa::arm::aarch64::gic::checkpoint::SourceGicCheckpoint,
-            high_redist_base: u64,
-        }
-        let old: SourceCluster = crate::codec::deserialize_limited::<_, { 64 * 1024 * 1024 }>(raw)
-            .map_err(|error| invalid(&error.to_string()))?;
-        Ok(Self {
-            control: old.control,
-            gic: old.gic.upgrade()?,
-            high_redist_base: old.high_redist_base,
+        use crate::isa::arm::aarch64::gic::checkpoint::SourceGicCheckpoint;
+        LegacyCluster::<SourceGicCheckpoint>::decode(raw)?.upgrade(SourceGicCheckpoint::upgrade)
+    }
+
+    pub(crate) fn decode_without_terminal(raw: &[u8]) -> Result<Self> {
+        LegacyCluster::<GicCheckpoint>::decode(raw)?.upgrade(Ok)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn without_terminal_bytes_for_test(&self) -> Vec<u8> {
+        crate::codec::serialize(&LegacyCluster {
+            control: self.control.clone(),
+            gic: &self.gic,
+            high_redist_base: self.high_redist_base,
         })
+        .unwrap()
     }
 
     pub(crate) fn validate_timer_inputs(&self, cpu: usize, levels: (bool, bool)) -> Result<()> {
@@ -555,7 +613,8 @@ mod tests {
     #[test]
     fn failed_guest_commit_leaves_the_entire_shared_graph_unchanged() {
         let cluster = ArmCluster::new(2, 0x8000).unwrap();
-        let saved = cluster.checkpoint().unwrap();
+        let mut saved = cluster.checkpoint().unwrap();
+        saved.shutdown = true;
         cluster.gic.lock().unwrap().set_priority_mask(0, 0x70);
         let before =
             crate::codec::serialize_limited(&cluster.checkpoint().unwrap(), 1_000_000).unwrap();
@@ -569,6 +628,7 @@ mod tests {
         let after =
             crate::codec::serialize_limited(&cluster.checkpoint().unwrap(), 1_000_000).unwrap();
         assert_eq!(before, after);
+        assert!(!cluster.shutdown());
     }
 
     #[test]

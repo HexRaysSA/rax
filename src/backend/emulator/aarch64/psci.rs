@@ -39,7 +39,10 @@ impl Aarch64Vcpu {
         let result: i32 = match function {
             VERSION => 0x0001_0001,
             MIGRATE_TYPE => 2,
-            SYSTEM_OFF | SYSTEM_RESET => return Ok(Some(VcpuExit::Shutdown)),
+            SYSTEM_OFF | SYSTEM_RESET => {
+                self.publish_terminal_exit()?;
+                return Ok(Some(VcpuExit::Shutdown));
+            }
             FEATURES => {
                 let queried = argument(1) as u32;
                 match queried {

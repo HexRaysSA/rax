@@ -22,8 +22,8 @@ complete GICv2/v4 conformance.
 | --- | --- | --- | --- |
 | Owned GIC, unbound counter | RAXA6407 | RAXA6405 | RAXA6401/02/03 |
 | Owned GIC, VM counter | RAXA6408 | RAXA6406 | RAXA6404 |
-| Shared GIC, no UART | RAXEXE07 | RAXEXE05 | RAXEXE02 |
-| Shared GIC with UART | RAXEXE08 | RAXEXE06 | GIC-bearing RAXEXE03 |
+| Shared GIC, no UART | RAXEXE13 | RAXEXE07 and RAXEXE05 | RAXEXE02 |
+| Shared GIC with UART | RAXEXE14 | RAXEXE08 and RAXEXE06 | GIC-bearing RAXEXE03 |
 | No owned/shared GIC | Existing frames | Unchanged | Unchanged |
 
 Unframed derived `GicCheckpoint` serialization changes layout; the versioned
@@ -137,3 +137,29 @@ IAR/HPPIR/EOIR banks, SGI forwarding, IRQ/FIQ masks, wait wakeup, Any participat
 and active-state programming listed as open above. Its qualification retains the
 remaining scope, discovered SPI capability-reporting defect and all original
 finding boundaries; this historical group does not imply full audit closure.
+
+## Software PSCI shutdown and power requests
+
+The shared software AArch64 record now includes the VM shutdown latch alongside
+the GIC and pending power graph. `SYSTEM_OFF` and the existing terminal treatment
+of `SYSTEM_RESET` stop guest execution on every configured CPU. The coordinator
+sees no pending transitions while shut down. A stale start or acknowledgement
+fails before it changes the CPU or power graph. Wake through any CPU releases
+the shared latch and exposes the original ordered requests.
+
+`RAXEXE13` and `RAXEXE14` add one byte for the shared latch to the controller
+record. The file reader still accepts the prior GIC layouts under their original
+admission rules. If a prior CPU record contains a terminal latch, typed restore
+moves it from the detached CPU into the shared power state. Restore publishes
+that state with the CPU records and GIC after the commit succeeds. The primary
+PSCI reference is Arm DEN 0022D, sections 5.5, 5.6, 5.10 and 5.11. [Arm PSCI specification](../../specifications/arm/psci-den0022.pdf)
+
+The four-vCPU regression queued a guest start for CPU 2 and a stop from CPU 1.
+The pre-fix VMM applied both during its first run after terminal file restore.
+The corrected VMM preserved the online mask and all CPU retirement counters.
+It rejected stale host requests, then published the retained queue after an
+explicit wake through CPU 3. CPU 1 stayed parked and CPU 2 consumed its original
+context identifier `0x12345678`. The same checks passed for new shutdown and
+reset files and the pre-fix `RAXEXE08` shutdown file. A separate parser verified
+the queue, online mask and shared latch in both new files. The fixture uses the
+software VMM coordinator and four guest CPUs on an Apple Silicon host.

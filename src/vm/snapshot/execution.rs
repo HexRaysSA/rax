@@ -13,6 +13,8 @@ const SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE07";
 const PREVIOUS_SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE05";
 const SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE08";
 const PREVIOUS_SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE06";
+const ARM_POWER_TAG: &[u8; 8] = b"RAXEXE13";
+const ARM_POWER_UART_TAG: &[u8; 8] = b"RAXEXE14";
 const SNAPSHOT_SCHEDULE_TAG: &[u8; 8] = b"RAXSCH01";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
@@ -151,7 +153,7 @@ mod tests {
                 .unwrap(),
         );
         let raw = state.encoded().unwrap();
-        assert_eq!(&raw[..8], SOURCE_ARM_TAG);
+        assert_eq!(&raw[..8], ARM_POWER_TAG);
         // The frozen old aggregate layout is accepted only when each
         // physical source has a unique inactive interpretation.
         let controller = state.arm_cluster.as_ref().unwrap().legacy_bytes_for_test();
@@ -247,6 +249,57 @@ mod tests {
                 );
             }
             old.push(0);
+            assert!(ExecutionSnapshot::decode(&old, 1).is_err());
+        }
+    }
+
+    #[test]
+    fn arm_power_frames_distinguish_legacy_and_terminal_records() {
+        for uart in [false, true] {
+            let mut state = ExecutionSnapshot::decode(&fixture(), 1).unwrap();
+            let cluster =
+                crate::backend::emulator::aarch64::cluster::ArmCluster::new(1, 0x8000).unwrap();
+            state.arm_cluster = Some(cluster.checkpoint().unwrap());
+            if uart {
+                state.pl011 = Some(crate::devices::pl011::Pl011::new().checkpoint().unwrap());
+            }
+            let platform = state
+                .arm_cluster
+                .as_ref()
+                .unwrap()
+                .without_terminal_bytes_for_test();
+            let mut old = fixture();
+            old[..8].copy_from_slice(if uart {
+                SOURCE_UART_TAG
+            } else {
+                SOURCE_ARM_TAG
+            });
+            old.extend_from_slice(&(platform.len() as u32).to_le_bytes());
+            old.extend_from_slice(&platform);
+            if let Some(uart) = &state.pl011 {
+                let bytes = crate::codec::serialize(uart).unwrap();
+                old.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+                old.extend_from_slice(&bytes);
+            }
+            let migrated = ExecutionSnapshot::decode(&old, 1).unwrap();
+            assert!(!migrated.arm_cluster.as_ref().unwrap().shutdown);
+            assert_eq!(migrated.encoded().unwrap(), state.encoded().unwrap());
+
+            state.arm_cluster.as_mut().unwrap().shutdown = true;
+            let terminal = state.encoded().unwrap();
+            assert_eq!(
+                &terminal[..8],
+                if uart {
+                    ARM_POWER_UART_TAG
+                } else {
+                    ARM_POWER_TAG
+                }
+            );
+            let restored = ExecutionSnapshot::decode(&terminal, 1).unwrap();
+            assert!(restored.arm_cluster.as_ref().unwrap().shutdown);
+
+            // An extended tag cannot silently admit a record missing the bool.
+            old[..8].copy_from_slice(&terminal[..8]);
             assert!(ExecutionSnapshot::decode(&old, 1).is_err());
         }
     }
@@ -424,12 +477,12 @@ impl ExecutionSnapshot {
             PC_TAG
         } else if self.pl011.is_some() {
             if self.arm_cluster.is_some() {
-                SOURCE_UART_TAG
+                ARM_POWER_UART_TAG
             } else {
                 UART_TAG
             }
         } else if self.arm_cluster.is_some() {
-            SOURCE_ARM_TAG
+            ARM_POWER_TAG
         } else {
             TAG
         });
@@ -561,6 +614,8 @@ impl ExecutionSnapshot {
             SOURCE_UART_TAG,
             PREVIOUS_SOURCE_ARM_TAG,
             PREVIOUS_SOURCE_UART_TAG,
+            ARM_POWER_TAG,
+            ARM_POWER_UART_TAG,
         ]
         .contains(&tag.try_into().unwrap())
         {
@@ -619,6 +674,8 @@ impl ExecutionSnapshot {
             || tag == SOURCE_UART_TAG
             || tag == PREVIOUS_SOURCE_ARM_TAG
             || tag == PREVIOUS_SOURCE_UART_TAG
+            || tag == ARM_POWER_TAG
+            || tag == ARM_POWER_UART_TAG
         {
             let length = reader.u32()? as usize;
             if length > MAX_SECTION as usize || (length == 0 && tag != UART_TAG) {
@@ -632,6 +689,8 @@ impl ExecutionSnapshot {
                         crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_legacy(reader.take(length)?)?
                     } else if tag == PREVIOUS_SOURCE_ARM_TAG || tag == PREVIOUS_SOURCE_UART_TAG {
                         crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_previous_sources(reader.take(length)?)?
+                    } else if tag == SOURCE_ARM_TAG || tag == SOURCE_UART_TAG {
+                        crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_without_terminal(reader.take(length)?)?
                     } else {
                         crate::codec::deserialize_limited::<_, { MAX_SECTION as usize }>(
                             reader.take(length)?,
@@ -644,7 +703,10 @@ impl ExecutionSnapshot {
         } else {
             None
         };
-        let pl011 = if tag == UART_TAG || tag == SOURCE_UART_TAG || tag == PREVIOUS_SOURCE_UART_TAG
+        let pl011 = if tag == UART_TAG
+            || tag == SOURCE_UART_TAG
+            || tag == PREVIOUS_SOURCE_UART_TAG
+            || tag == ARM_POWER_UART_TAG
         {
             let length = reader.u32()? as usize;
             if length == 0 || length > MAX_SECTION as usize {

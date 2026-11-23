@@ -3,6 +3,31 @@
 use super::*;
 use crate::isa::arm::common::features::ArmFeatures;
 
+impl Aarch64Vcpu {
+    pub(super) fn stopped_exit(&self) -> Option<VcpuExit> {
+        if self
+            .cluster
+            .as_ref()
+            .is_some_and(|cluster| cluster.shutdown())
+        {
+            return Some(VcpuExit::Shutdown);
+        }
+        if self.powered_off {
+            return Some(VcpuExit::Hlt);
+        }
+        self.shutdown.then_some(VcpuExit::Shutdown)
+    }
+
+    pub(super) fn publish_terminal_exit(&mut self) -> Result<()> {
+        if let Some(cluster) = &self.cluster {
+            cluster.set_shutdown(true)?;
+        } else {
+            self.shutdown = true;
+        }
+        Ok(())
+    }
+}
+
 impl VCpu for Aarch64Vcpu {
     fn poll_vm_clock(&mut self) -> Result<()> {
         self.ensure_checkpoint_active()?;
@@ -12,7 +37,7 @@ impl VCpu for Aarch64Vcpu {
     }
 
     fn clock_idle(&self) -> Result<crate::vm::vcpu::ClockIdle> {
-        if self.shutdown || self.powered_off || self.user.is_some() {
+        if self.stopped_exit().is_some() || self.user.is_some() {
             return Ok(crate::vm::vcpu::ClockIdle::Runnable);
         }
         self.cpu
@@ -30,6 +55,10 @@ impl VCpu for Aarch64Vcpu {
     }
     fn checkpoint_powered_off(&self) -> Option<bool> {
         Some(self.powered_off)
+    }
+
+    fn take_legacy_aarch64_shutdown(&mut self) -> bool {
+        self.cluster.is_some() && std::mem::take(&mut self.shutdown)
     }
 
     fn checkpoint_owned_gics(&self) -> Vec<Arc<Mutex<crate::isa::arm::aarch64::gic::Gic>>> {
@@ -121,11 +150,8 @@ impl VCpu for Aarch64Vcpu {
 
     fn run(&mut self) -> Result<VcpuExit> {
         self.ensure_checkpoint_active()?;
-        if self.powered_off {
-            return Ok(VcpuExit::Hlt);
-        }
-        if self.shutdown {
-            return Ok(VcpuExit::Shutdown);
+        if let Some(exit) = self.stopped_exit() {
+            return Ok(exit);
         }
 
         if self.user.is_some() {
@@ -141,6 +167,9 @@ impl VCpu for Aarch64Vcpu {
 
         if self.fault_exits {
             for _ in 0..BATCH {
+                if let Some(exit) = self.stopped_exit() {
+                    return Ok(exit);
+                }
                 if let Some(exit) = self.step_micro()? {
                     return Ok(exit);
                 }
@@ -152,6 +181,9 @@ impl VCpu for Aarch64Vcpu {
         self.sync_uart_irq();
 
         for _ in 0..BATCH {
+            if let Some(exit) = self.stopped_exit() {
+                return Ok(exit);
+            }
             match self.step_system_cpu(false) {
                 Ok(CpuExit::Continue) => {
                     if let Some((reg, start, end)) = trace_reg() {
@@ -199,12 +231,11 @@ impl VCpu for Aarch64Vcpu {
                 }
                 Ok(CpuExit::Hvc(immediate)) | Ok(CpuExit::Smc(immediate)) => {
                     if let Some(exit) = self.handle_psci(immediate)? {
-                        self.shutdown = matches!(exit, VcpuExit::Shutdown);
                         return Ok(exit);
                     }
                 }
                 Ok(CpuExit::Halt) | Ok(CpuExit::Shutdown) => {
-                    self.shutdown = true;
+                    self.publish_terminal_exit()?;
                     return Ok(VcpuExit::Shutdown);
                 }
                 Ok(other) => {
@@ -363,13 +394,20 @@ impl VCpu for Aarch64Vcpu {
     }
 
     fn start_aarch64_cpu(&mut self, entry: u64, context: u64, pstate: u64) -> Result<()> {
-        self.cpu
-            .enter_psci(entry, context, pstate)
-            .map_err(|e| Error::Emulator(e.to_string()))?;
-        self.powered_off = false;
-        self.shutdown = false;
-        self.insn_count.store(0, Ordering::Relaxed);
-        Ok(())
+        let cluster = self.cluster.clone();
+        let mut install = || {
+            self.cpu
+                .enter_psci(entry, context, pstate)
+                .map_err(|e| Error::Emulator(e.to_string()))?;
+            self.powered_off = false;
+            self.shutdown = false;
+            self.insn_count.store(0, Ordering::Relaxed);
+            Ok(())
+        };
+        match cluster {
+            Some(cluster) => cluster.install_cpu_start(install),
+            None => install(),
+        }
     }
 
     fn complete_io_in(&mut self, _data: &[u8]) {
@@ -426,6 +464,9 @@ impl VCpu for Aarch64Vcpu {
     }
 
     fn wake(&mut self) {
+        if let Some(cluster) = &self.cluster {
+            let _ = cluster.set_shutdown(false);
+        }
         self.cpu.clear_wait();
         self.cpu.clear_halt();
         self.shutdown = false;

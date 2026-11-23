@@ -45,16 +45,9 @@ impl Aarch64Vcpu {
         let result = match step {
             Ok(CpuExit::Continue) => Ok(None),
             Ok(CpuExit::Wfi | CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
-            Ok(CpuExit::Hvc(immediate) | CpuExit::Smc(immediate)) => {
-                if let Some(exit) = self.handle_psci(immediate)? {
-                    self.shutdown = matches!(exit, VcpuExit::Shutdown);
-                    Ok(Some(exit))
-                } else {
-                    Ok(None)
-                }
-            }
+            Ok(CpuExit::Hvc(immediate) | CpuExit::Smc(immediate)) => self.handle_psci(immediate),
             Ok(CpuExit::Halt | CpuExit::Shutdown) => {
-                self.shutdown = true;
+                self.publish_terminal_exit()?;
                 Ok(Some(VcpuExit::Shutdown))
             }
             Ok(other) => Err(Error::Emulator(format!(
@@ -99,11 +92,8 @@ impl Aarch64Vcpu {
     }
 
     pub(super) fn step_instruction(&mut self) -> Result<Option<VcpuExit>> {
-        if self.powered_off {
-            return Ok(Some(VcpuExit::Hlt));
-        }
-        if self.shutdown {
-            return Ok(Some(VcpuExit::Shutdown));
+        if let Some(exit) = self.stopped_exit() {
+            return Ok(Some(exit));
         }
         if self.user.is_some() {
             return self.step_user();
@@ -118,15 +108,10 @@ impl Aarch64Vcpu {
             Ok(CpuExit::Continue) => Ok(None),
             Ok(CpuExit::Wfi) | Ok(CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
             Ok(CpuExit::Hvc(immediate)) | Ok(CpuExit::Smc(immediate)) => {
-                if let Some(exit) = self.handle_psci(immediate)? {
-                    self.shutdown = matches!(exit, VcpuExit::Shutdown);
-                    Ok(Some(exit))
-                } else {
-                    Ok(None)
-                }
+                self.handle_psci(immediate)
             }
             Ok(CpuExit::Halt) | Ok(CpuExit::Shutdown) => {
-                self.shutdown = true;
+                self.publish_terminal_exit()?;
                 Ok(Some(VcpuExit::Shutdown))
             }
             Ok(other) => Ok(Some(VcpuExit::Unknown(format!(
