@@ -576,3 +576,42 @@ prior observation files byte for byte. Runtime artifacts `14792091707`
 and `e106a7ab8cee66745afcfb6d0421e1aac1b4e309563e602fd34d759bc4b818ba`.
 [Hosted legacy repeat](https://github.com/HexRaysSA/rax/actions/runs/45116138869)
 [Hosted VEX repeat](https://github.com/HexRaysSA/rax/actions/runs/45116138813)
+
+## High and low XMM lane transfers
+
+The memory forms of MOVLPS, MOVHPS, MOVLPD and MOVHPD transfer exactly
+8 bytes. An SSE load preserves the other lane of the destination and its
+upper YMM state. An AVX load reads the other lane from its explicit
+merge source and clears the upper destination state. Stores publish the
+selected lane and preserve all registers. The pending read stores the
+eight merge bytes before device dispatch. Read completion and write
+acknowledgment use the common bounded vector retirement path. The new
+pending-read discriminant follows the existing variants. Payload selection
+and merge use constant time and space.
+[Intel SDM, Volume 2B, MOVHPD, MOVHPS, MOVLPD and MOVLPS](https://cdrdv2-public.intel.com/782151/253667-sdm-vol-2b.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The unaligned memory operand is eight bytes wide. | High | Use an operand at RDI+3 for both directions, both lanes, both prefixes and legacy, VEX2 and VEX3 encodings. Check the translated address and memory width. |
+| The preserved lane is independent of the device reply. | High | Use separate destination, merge source and input values. Round-trip pending reads with both lanes, then complete with exactly eight bytes. Reject seven and nine bytes without register or RIP changes. |
+| VEX.128 uses vvvv only for the load's merge source. | High | Reject L=1 and store encodings with nonreserved vvvv. Reject register-only forms at the device interface. |
+
+The baseline rejected `44 0f 12 7f 03` before planning an MMIO load.
+The candidate passed the full local `hvf_mmio`, `isa_oracle` and
+`ci_actions_pinned` targets with 130, 102 and 16 cases, respectively.
+On Intel Linux, `hvf_mmio`, `isa_oracle` and `x86_64` passed 28,793
+cases with three ignored, zero filtered and zero failures. The
+complete Cargo log SHA-256 is
+`5b316f2a4549f594d44a89d6824c151233fc5cc35cd33624ea29933b5dca2521`.
+The Intel macOS cross-target run passed 348 tests, including all 100
+simulated SDK owner tests, and built and signed the Intel guest consumer.
+All 54 probe-tool tests passed. The cross-target Cargo log SHA-256 is
+`189bc0acb5af7e2cfce6a3ee5764b71ecbe3027d398769e5d65cde22d5d18564`.
+An independent user-mode test on a physical Intel Xeon E5-1650 v3
+confirmed the exact low and high lane behavior for all 16 legacy and
+VEX2 forms. A KVM guest on the same host confirmed all 24 legacy,
+VEX2 and VEX3 forms against RAM. KVM reported internal emulation error
+1 before device dispatch for all 24 MMIO-hole attempts. The user-mode
+and KVM log SHA-256 digests are
+`12033c9d100b7fd6c284b0edceaf92a87ca1f8f3c3ef426f91fb0721150ac2fc`
+and `ff145b1a95d27f3f5d24638649acd50f7e739df224bf92c10532caaaf08e7ce4`.

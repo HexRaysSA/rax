@@ -36,6 +36,7 @@ pub(super) fn decode_xmm_transfer(
         (2, 0x7e) => (true, 8, true),
         (1, 0xd6) => (false, 8, true),
         (0 | 1, 0x10 | 0x11 | 0x28 | 0x29) => (opcode & 1 == 0, 16, true),
+        (0 | 1, 0x12 | 0x13 | 0x16 | 0x17) => (opcode & 1 == 0, 8, true),
         (0 | 1, 0x2b) | (1, 0xe7) => (false, 16, true),
         (2, 0x10 | 0x11) => (opcode == 0x10, 4, true),
         (3, 0x10 | 0x11) => (opcode == 0x10, 8, true),
@@ -46,14 +47,20 @@ pub(super) fn decode_xmm_transfer(
         }
     };
     let scalar_float = matches!(opcode, 0x10 | 0x11) && matches!(size, 4 | 8);
+    let lane_move = matches!(opcode, 0x12 | 0x13 | 0x16 | 0x17);
     let modrm_byte = ctx.peek_u8().ok()?;
     if scalar_float && modrm_byte >> 6 == 3 {
         // The three-register form uses vvvv and merges two sources.
         *unsupported = true;
         return None;
     }
-    if flags & 0x78 != 0x78 {
-        // These encodings reserve the inverted vvvv field.
+    if lane_move && modrm_byte >> 6 == 3 {
+        *unsupported = load && flags & 3 == 0;
+        return None;
+    }
+    let lane_load = lane_move && load;
+    let vvvv = !flags >> 3 & 15;
+    if lane_load && bits != 64 && vvvv >= 8 || !lane_load && vvvv != 0 {
         return None;
     }
     if flags & 4 != 0 {
@@ -87,7 +94,15 @@ pub(super) fn decode_xmm_transfer(
         write: load,
         ..Operand::default()
     };
-    out.operands = if load {
+    out.operands = if lane_load {
+        let source = Operand {
+            reg: format!("xmm{vvvv}"),
+            read: true,
+            write: false,
+            ..vector.clone()
+        };
+        vec![vector, source, rm]
+    } else if load {
         vec![vector, rm]
     } else {
         vec![read_write(rm, false, true), vector]
@@ -97,6 +112,10 @@ pub(super) fn decode_xmm_transfer(
         (0x10 | 0x11, 8, 3) => "vmovsd",
         (0x10 | 0x11, 16 | 32, 0) => "vmovups",
         (0x10 | 0x11, 16 | 32, 1) => "vmovupd",
+        (0x12 | 0x13, 8, 0) => "vmovlps",
+        (0x12 | 0x13, 8, 1) => "vmovlpd",
+        (0x16 | 0x17, 8, 0) => "vmovhps",
+        (0x16 | 0x17, 8, 1) => "vmovhpd",
         (0x28 | 0x29, 16 | 32, 0) => "vmovaps",
         (0x28 | 0x29, 16 | 32, 1) => "vmovapd",
         (0x2b, 16 | 32, 0) => "vmovntps",

@@ -40,6 +40,8 @@ mod movsxd_tests;
 mod rmw_tests;
 #[path = "hvf_mmio/shifts.rs"]
 mod shift_tests;
+#[path = "hvf_mmio/xmm_lanes.rs"]
+mod xmm_lane_tests;
 #[derive(Default)]
 struct Ram {
     bytes: BTreeMap<u64, u8>,
@@ -873,6 +875,8 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             Action::Divide(_) => panic!("MOV reference case produced a divide plan"),
             Action::XmmRead { .. }
             | Action::XmmWrite(_)
+            | Action::XmmLaneRead { .. }
+            | Action::XmmLaneWrite(_)
             | Action::YmmRead(_)
             | Action::YmmWrite(_) => panic!("unexpected vector plan for GPR MOV"),
             Action::StringLoad(_) | Action::StringStore { .. } => {

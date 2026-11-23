@@ -264,11 +264,23 @@ pub(super) fn decode_0f(
             out.operands = vec![dst, rm];
             CMOV[(op & 15) as usize]
         }
-        0x10 | 0x11 | 0x28 | 0x29 | 0x2b | 0x6e | 0x6f | 0x7e | 0x7f | 0xd6 | 0xe7
+        0x10..=0x13
+        | 0x16
+        | 0x17
+        | 0x28
+        | 0x29
+        | 0x2b
+        | 0x6e
+        | 0x6f
+        | 0x7e
+        | 0x7f
+        | 0xd6
+        | 0xe7
             if !ctx.has_rex2() =>
         {
             let (load, size, vector_rm) = match (op, ctx.operand_size_override, ctx.rep_prefix) {
                 (0x10 | 0x11 | 0x28 | 0x29, _, None) => (op & 1 == 0, 16, true),
+                (0x12 | 0x13 | 0x16 | 0x17, _, None) => (op & 1 == 0, 8, true),
                 (0x2b, _, None) | (0xe7, true, None) => (false, 16, true),
                 (0x10 | 0x11, false, Some(0xf3)) => (op == 0x10, 4, true),
                 (0x10 | 0x11, false, Some(0xf2)) => (op == 0x10, 8, true),
@@ -285,6 +297,12 @@ pub(super) fn decode_0f(
             };
             let raw_rm = ctx.peek_u8().ok()? & 7;
             let (group, _, mut rm) = modrm(ctx, address_bits, size, *branch_bits == 64)?;
+            let lane_move = matches!(op, 0x12 | 0x13 | 0x16 | 0x17);
+            if lane_move && rm.kind != OperandKind::Memory {
+                // The unprefixed register alternatives are MOVHLPS/MOVLHPS.
+                *unsupported = load && !ctx.operand_size_override;
+                return None;
+            }
             if matches!(op, 0x2b | 0xe7) && rm.kind != OperandKind::Memory {
                 return None;
             }
@@ -302,8 +320,8 @@ pub(super) fn decode_0f(
             }
             // A legacy register-to-register scalar move keeps the old upper
             // part of its XMM destination. A memory load clears that part.
-            let merge =
-                rm.kind == OperandKind::Register && matches!((op, size), (0x10 | 0x11, 4 | 8));
+            let merge = load && lane_move
+                || rm.kind == OperandKind::Register && matches!((op, size), (0x10 | 0x11, 4 | 8));
             if load {
                 xmm = read_write(xmm, merge, true);
                 out.operands = vec![xmm, rm];
@@ -315,6 +333,10 @@ pub(super) fn decode_0f(
                 (0x10 | 0x11, 8, _) => "movsd",
                 (0x10 | 0x11, 16, false) => "movups",
                 (0x10 | 0x11, 16, true) => "movupd",
+                (0x12 | 0x13, 8, false) => "movlps",
+                (0x12 | 0x13, 8, true) => "movlpd",
+                (0x16 | 0x17, 8, false) => "movhps",
+                (0x16 | 0x17, 8, true) => "movhpd",
                 (0x28 | 0x29, 16, false) => "movaps",
                 (0x28 | 0x29, 16, true) => "movapd",
                 (0x2b, 16, false) => "movntps",

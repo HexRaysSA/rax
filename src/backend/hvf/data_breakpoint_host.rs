@@ -71,6 +71,8 @@ impl HvfCore {
             Action::Rmw(input) => (input.size, true),
             Action::XmmRead { input, .. } => (input.size, false),
             Action::XmmWrite(input) => (input.size, true),
+            Action::XmmLaneRead { .. } => (mmio::xmm_lane::BYTES, false),
+            Action::XmmLaneWrite(_) => (mmio::xmm_lane::BYTES, true),
             Action::YmmRead(_) => (mmio::YMM_BYTES, false),
             Action::YmmWrite(_) => (mmio::YMM_BYTES, true),
         };

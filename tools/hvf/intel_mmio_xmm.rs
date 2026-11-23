@@ -298,6 +298,113 @@ pub(super) fn run_streaming_stores(output: &Path, vex: bool) {
     run_cases(output, vex, profile, cases);
 }
 
+pub(super) fn run_lanes(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    for (prefix, lane, name) in [(0, 0, "lps"), (0, 1, "hps"), (1, 0, "lpd"), (1, 1, "hpd")] {
+        for read in [true, false] {
+            let opcode = 0x12 + lane as u8 * 4 + u8::from(!read);
+            let vex = if read { 0x38 } else { 0x78 } | prefix;
+            let legacy = [0x66, 0x44, 0x0f, opcode, 0x7f, 3];
+            for (code, encoding) in [
+                (&legacy[usize::from(prefix == 0)..], "legacy"),
+                (&[0xc5, vex, opcode, 0x7f, 3][..], "vex2"),
+                (&[0xc4, 0x61, vex, opcode, 0x7f, 3], "vex3"),
+            ] {
+                for restore in [false, true] {
+                    let value = lane_case(code, lane, encoding != "legacy", read, restore);
+                    let direction = if read { "read" } else { "write" };
+                    let phase = if restore { "restored" } else { "direct" };
+                    record(
+                        output,
+                        case,
+                        &format!("xmm-lanes-{encoding}-{name}-{direction}-{phase}"),
+                        8,
+                        value,
+                    );
+                    case += 1;
+                }
+            }
+        }
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn lane_case(code: &[u8], lane: usize, vex: bool, read: bool, restore: bool) -> u64 {
+    const FLAGS: u64 = 0x8d7;
+    const VALUE: u64 = 0x7e2d_b864_11db_feb0;
+    let memory = guest_memory(code);
+    word(&memory, 0x4000, 0x4000_009b);
+    let (mut vm, mut cpu) = machine(&memory);
+    enable_guest_avx(&memory, cpu.as_mut());
+    let mut initial = state(cpu.as_ref());
+    initial.regs.rip = CODE;
+    initial.regs.rdi = MMIO;
+    initial.regs.rax = SEED;
+    initial.regs.rflags = FLAGS;
+    initial.regs.xmm = std::array::from_fn(|index| [SEED + index as u64, MARKER - index as u64]);
+    initial.regs.ymm_high =
+        std::array::from_fn(|index| [!SEED - index as u64, !MARKER + index as u64]);
+    let mut xmm = initial.regs.xmm;
+    let mut upper = initial.regs.ymm_high;
+    let output = xmm[15][lane].to_le_bytes();
+    cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+
+    let pending = |cpu: &mut dyn VCpu| {
+        let exit = event(cpu);
+        match exit {
+            VcpuExit::MmioRead { addr, size: 8 } if read && addr == MMIO + 3 => (),
+            VcpuExit::MmioWrite { addr, ref data }
+                if !read && addr == MMIO + 3 && data == &output =>
+            {
+                ()
+            }
+            _ => panic!("unexpected XMM lane exit for {code:02x?}: {exit:?}"),
+        }
+        assert!(cpu.io_completion_result().is_err());
+    };
+    pending(cpu.as_mut());
+    if restore {
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let (saved, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+        assert_eq!(saved.state.pc(), CODE);
+        let context = context.unwrap();
+        drop(boundary);
+        drop(cpu);
+        drop(vm);
+        (vm, cpu) = machine(&memory);
+        cpu.restore_checkpoint_context(&saved.state, &saved.emulator, Some(&context))
+            .unwrap();
+        pending(cpu.as_mut());
+    }
+    if read {
+        cpu.complete_io_in(&VALUE.to_le_bytes());
+        if vex {
+            xmm[15] = xmm[8];
+            upper[15] = [0; 2];
+        }
+        xmm[15][lane] = VALUE;
+    } else {
+        cpu.complete_io_out().unwrap();
+    }
+    cpu.io_completion_result().unwrap();
+    let retired = state(cpu.as_ref());
+    assert_eq!(retired.regs.rip, CODE + code.len() as u64);
+    assert_eq!(retired.regs.xmm, xmm);
+    assert_eq!(retired.regs.ymm_high, upper);
+    halted_with_flags(cpu.as_mut(), code.len(), SEED, FLAGS);
+    let final_state = state(cpu.as_ref());
+    assert_eq!(final_state.regs.xmm, xmm);
+    assert_eq!(final_state.regs.ymm_high, upper);
+    drop(cpu);
+    drop(vm);
+    if read {
+        VALUE
+    } else {
+        u64::from_le_bytes(output)
+    }
+}
+
 fn run_cases(output: &Path, vex: bool, profile: &str, transfers: Vec<MoveCase<'_>>) {
     const REPLY: u128 = 0x1100_ffee_ddcc_bbaa_8877_6655_4433_2211;
     const HIGH_REPLY: u128 = 0x99aa_2233_4567_dead_babe_1111_7777_cafe;

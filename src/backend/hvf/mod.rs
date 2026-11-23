@@ -1321,6 +1321,33 @@ impl run_loop::ExitHandler for HvfCore {
                     self.begin_mmio_write(plan.physical, plan.length, data)
                 }
             }
+            mmio::Action::XmmLaneRead {
+                transfer,
+                source,
+                zero_upper,
+            } => {
+                let layout = &self.native_profile()?.xsave;
+                let image = intel_fp::read(self.vcpu_id, layout)?;
+                let value = layout.read_xmm(&image, source)?;
+                let preserved = transfer.lane.preserved().bytes(&value);
+                self.mmio_input
+                    .begin_xmm_lane(transfer, preserved, zero_upper)
+                    .map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size: mmio::xmm_lane::BYTES,
+                })
+            }
+            mmio::Action::XmmLaneWrite(transfer) => {
+                let layout = &self.native_profile()?.xsave;
+                let image = intel_fp::read(self.vcpu_id, layout)?;
+                let value = layout.read_xmm(&image, transfer.index)?;
+                self.begin_mmio_write(
+                    plan.physical,
+                    plan.length,
+                    transfer.lane.bytes(&value).to_vec(),
+                )
+            }
             mmio::Action::YmmRead(input) => {
                 self.mmio_input.begin_ymm(input).map_err(Error::Emulator)?;
                 Ok(VcpuExit::MmioRead {

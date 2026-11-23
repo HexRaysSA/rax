@@ -27,6 +27,7 @@ on:
           - vex-xmm
           - legacy-ntstore
           - vex-ntstore
+          - xmm-lanes
           - compat-mmio
           - compat16-mmio
           - port-debug

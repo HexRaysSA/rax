@@ -29,6 +29,8 @@ use divide::DivideInput;
 #[path = "mmio/string.rs"]
 mod string;
 pub(crate) use string::{Load as StringLoad, Progress as StringProgress};
+#[path = "mmio/xmm_lane.rs"]
+pub(crate) mod xmm_lane;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct RegisterPart {
@@ -266,6 +268,12 @@ pub(crate) enum Action {
         zero_upper: bool,
     },
     XmmWrite(XmmTransfer),
+    XmmLaneRead {
+        transfer: xmm_lane::Transfer,
+        source: u8,
+        zero_upper: bool,
+    },
+    XmmLaneWrite(xmm_lane::Transfer),
     YmmRead(YmmTransfer),
     YmmWrite(YmmTransfer),
     StringLoad(StringLoad),
@@ -564,6 +572,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if let Some(operation) = VectorMove::for_mnemonic(&instruction.mnemonic) {
         return prepare_vector(context, memory, record, &instruction, read, operation);
     }
+    if let Some(plan) = xmm_lane::prepare(context, memory, record, &instruction, read)? {
+        return Ok(plan);
+    }
     if matches!(instruction.mnemonic.as_str(), "div" | "idiv") {
         return divide::prepare(context, memory, record, &instruction);
     }
@@ -807,6 +818,11 @@ enum Pending {
     // Appending preserves both legacy XMM and string-load records.
     VexXmm(XmmTransfer),
     Ymm(YmmTransfer),
+    XmmLane {
+        transfer: xmm_lane::Transfer,
+        preserved: [u8; 8],
+        zero_upper: bool,
+    },
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
@@ -839,6 +855,7 @@ impl InputState {
             Pending::Rmw(input) => (input.size, Some(input.operation)),
             Pending::Xmm(input) | Pending::VexXmm(input) => (input.size, None),
             Pending::Ymm(_) => (YMM_BYTES, None),
+            Pending::XmmLane { .. } => (xmm_lane::BYTES, None),
         })
     }
     pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {
@@ -856,6 +873,7 @@ impl InputState {
             Some(Pending::AluRead(input)) => input.validate()?,
             Some(Pending::Xmm(input) | Pending::VexXmm(input)) => input.validate()?,
             Some(Pending::Ymm(input)) => input.validate()?,
+            Some(Pending::XmmLane { transfer, .. }) => transfer.validate()?,
             Some(Pending::Divide { input, data_causes }) => {
                 Self::validate_divide(input, *data_causes)?;
             }
@@ -933,6 +951,21 @@ impl InputState {
         self.pending = Some(Pending::Ymm(input));
         Ok(())
     }
+    pub(crate) fn begin_xmm_lane(
+        &mut self,
+        transfer: xmm_lane::Transfer,
+        preserved: [u8; 8],
+        zero_upper: bool,
+    ) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        transfer.validate()?;
+        self.pending = Some(Pending::XmmLane {
+            transfer,
+            preserved,
+            zero_upper,
+        });
+        Ok(())
+    }
     fn validate_divide(input: &DivideInput, data_causes: u64) -> Result<(), String> {
         input.validate()?;
         // Pending-debug B0–B3 plus the enabled-breakpoint bit. Every
@@ -990,6 +1023,19 @@ impl InputState {
                     length: transfer.length,
                 })
             }
+            Pending::XmmLane {
+                transfer,
+                preserved,
+                zero_upper,
+            } => transfer
+                .lane
+                .load(data, *preserved)
+                .map(|value| Effect::Xmm {
+                    index: transfer.index,
+                    value,
+                    zero_upper: *zero_upper,
+                    length: transfer.length,
+                }),
             Pending::Ymm(transfer) => data
                 .try_into()
                 .map(|value| Effect::Ymm {
