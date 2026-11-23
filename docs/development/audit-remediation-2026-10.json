@@ -1069,7 +1069,8 @@
         "The selected scalar VFP memory forms reject before effects and competing FP access traps. Legal literal and general-register controls passed on both RAX and QEMU. Remaining optional profile, security, halting-debug and physical A32 qualification are open.",
         "Cross-width CPACR/HCPTR and FP ID-group trap syndromes now report the active bank's X-register number. AArch32 Hyp retains raw Rt in HSR. Physical mixed-width execution and remaining profile, security and debug controls stay open.",
         "A32 and T32 VCADD and vector/indexed VCMLA share the effective VCMA feature view. QEMU covered 176 legal and disabled controls. Remaining profile, security and debug controls and physical AArch32 qualification stay open.",
-        "A standalone ARM or Thumb CPU restored at the maximum retirement count can execute one FP instruction and wrap to zero. An FP access denial preserves the count. Unfiltered Intel Linux validation passed 61,985 tests with 100 opt-in cases ignored. See a32-fp-controls.md."
+        "A standalone ARM or Thumb CPU restored at the maximum retirement count can execute one FP instruction and wrap to zero. An FP access denial preserves the count. Unfiltered Intel Linux validation passed 61,985 tests with 100 opt-in cases ignored. See a32-fp-controls.md.",
+        "The mixed-width Armv8-A profile reports FPShVec as zero and preserves raw imported MVFR0. Its selected read-as-zero FPSCR Len/Stride settings and FPEXC32_EL2.TFV are exercised by ARM, Thumb and AArch64 controls. See a32-fp-controls.md. Physical AArch32 qualification and broader profile controls remain open."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",

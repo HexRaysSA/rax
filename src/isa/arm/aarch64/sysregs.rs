@@ -562,6 +562,9 @@ impl SystemRegisters {
                 .get(&Aarch64SysRegEncoding::new(3, 0, 0, 3, index as u8).encode())
                 .map_or(defaults[index], |value| *value as u32)
         });
+        // Arm DDI0487B.a D7.2.75 and G6.2.107 permit only zero for FPShVec
+        // on Armv8-A. The standalone AArch32 profile has its own MVFR0.
+        ids[0] &= !(15 << 24);
         // Preserve absent/reserved fields rather than upgrading them to a
         // conversion capability. Only defined full-half fields are reduced.
         if (self.id_aa64pfr0_el1 >> 16) & 15 != 1 && (ids[1] >> 24) & 15 == 3 {

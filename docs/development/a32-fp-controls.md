@@ -789,3 +789,60 @@ The direct and restored ARM and Thumb regression passed on Intel Linux.
 The unfiltered library and ten integration targets passed 61,985 tests,
 with 100 opt-in tests ignored. The combined log SHA-256 is
 `7d26dd5fd5e3b583e9f725f1ccc9219b78bff2a5a9c9ab4abbe5ef477dacc7c8`.
+
+## Short-vector reporting on Armv8-A
+
+The Armv8-A software PE returns zero in MVFR0.FPShVec[27:24] through
+both AArch64 `MRS MVFR0_EL1` and AArch32 `VMRS MVFR0`. Scalar execution
+uses that same effective value. The profile uses read-as-zero and
+write-ignored behavior for FPSCR.Len and Stride. In the trapping profile,
+FPEXC32_EL2.TFV consequently reads as one and ignores writes. The
+projection is a constant-time mask and preserves the raw imported
+MVFR0 record. The standalone legacy AArch32 executor still supports its
+optional ARMv7 short-vector profile.
+[Arm DDI0487B.a D7.2.32, D7.2.75 and G6.2.107](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Both register views use the Armv8-A field and preserve unrelated capabilities. | Import all 16 field values. Read the complete word in AArch64 and AArch32, then export and compare the original raw value. |
+| The execution profile uses read-as-zero short-vector controls. | With a reserved raw FPShVec value, write Len, Stride and DN in ARM and Thumb. Verify FPSCR retains only DN and that scalar VADD produces the expected result and retires. |
+
+On parent `99187938a`, the first regression exposed FPShVec=1 through
+the AArch64 alias and the second raised Undefined on scalar VADD with a
+reserved raw field. The baseline log SHA-256 is
+`afb58b1548200b3e6971de3c8c8d69da2be362b4c214bf8ae8ec24326cd75a93`.
+Two pre-existing FPEXC tests expected TFV to read zero when an imported
+FPShVec field was nonzero. Their updated assertions exercise imported
+and default IDs, write-ignored TFV, the VHE permission matrix, and
+EL1 rejection. The old expectations failed with a readback of
+`0x6400079f` and a comparison value of `0x6000079f`.
+
+QEMU 11.1.2 Cortex-A53 and Cortex-A57 controls reported the same
+`0x10110222` through both MVFR0 views in all four ARM and Thumb cases.
+Those models retained the written Len and Stride fields in FPSCR.
+After clearing those fields, both models retired VADD with the expected
+binary32 result. The model log SHA-256 is
+`17bb24230c79bc429bb5e7e0594ce0b662f3bb2b07b1e32d038f3f837d7e0f6b`.
+Physical AArch32 behavior remains unverified.
+
+The unfiltered macOS Arm64 integration targets passed 47,687 tests with no
+failures or ignored cases. This includes 201 `a32_fp_controls`, 5
+`a32_fp_pairs`, 46,850 `arm`, 529 `arm_vfp_a32` and 102 `isa_oracle` tests.
+Two macOS library runs received SIGKILL before their result summaries. The
+second used test optimization level 1, SHA-256 optimization level 3 and
+three test threads. Both logged successful execution of the two changed
+FPEXC unit tests. The interrupted log SHA-256 digests are
+`e4bdbc457ffc36ac0c7182f87c80af23d05c4d6a98749d61c8a6671167bcc8ee`
+and `97689566360df5c38b854dbc75b61c662140bd395b51a05d0b07eff71695ed60`.
+
+The physical Intel Linux run hit its 6,800 s command limit while running
+the library's detached PC interrupt checkpoint tests. It recorded no
+failures before interruption. The partial log SHA-256 is
+`b956027273c3390ab2f2709416188be768c1f461896b3e4ef58f91d4c15c6884`.
+
+The macOS Arm64 library run with the same four FP input files and the
+parallel HVF candidate passed 11,078 tests, with five ignored and no
+filters or failures. Two stopped RISC-V GSC test subprocesses completed
+after receiving SIGCONT. The source of the stops is unknown. The passing
+log SHA-256 is
+`cc9d98fb75058880c735dd16772d033543445daf976a3c282e37d3fc6274a349`.

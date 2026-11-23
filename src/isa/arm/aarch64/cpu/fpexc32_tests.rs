@@ -138,7 +138,7 @@ fn absent_or_reserved_el1_aarch32_capability_precedes_fpexc32_control_traps() {
 #[test]
 fn vhe_fpen_and_selected_fpexc_views_cover_every_transfer_register() {
     for trapping in [false, true] {
-        for short_vectors in [false, true] {
+        for imported_short_vectors in [false, true] {
             for fpen in 0..4 {
                 for rt in 0..32 {
                     let mut cpu = configured(WRITE | rt, 2, trapping);
@@ -147,7 +147,7 @@ fn vhe_fpen_and_selected_fpexc_views_cover_every_transfer_register() {
                         Aarch64SysRegEncoding::new(3, 4, 1, 1, 2).encode(),
                         fpen << 20,
                     );
-                    if short_vectors {
+                    if imported_short_vectors {
                         let id = (cpu.sysregs.aarch32_fp_ids()[0] & !(15 << 24)) | (1 << 24);
                         cpu.sysregs.impl_defined.insert(
                             Aarch64SysRegEncoding::new(3, 0, 0, 3, 0).encode(),
@@ -175,8 +175,6 @@ fn vhe_fpen_and_selected_fpexc_views_cover_every_transfer_register() {
                             0 // XZR transfer has no destination.
                         } else if !trapping {
                             0x4000_0700
-                        } else if short_vectors {
-                            0x6000_079f
                         } else {
                             0x6400_079f
                         };

@@ -276,9 +276,9 @@ fn underflow_controls_distinguish_exact_tiny_from_output_flushing_in_all_precisi
 #[test]
 fn selected_a64_fpexc_alias_ignores_tfv_writes_and_rejects_el1() {
     let encoding = Aarch64SysRegEncoding::new(3, 4, 5, 3, 0);
-    for vectors in [false, true] {
+    for imported_short_vectors in [false, true] {
         let mut cpu = configured(0, 2);
-        if vectors {
+        if imported_short_vectors {
             let id = cpu.sysregs.aarch32_fp_ids()[0] | 1 << 24;
             cpu.sysregs.impl_defined.insert(
                 Aarch64SysRegEncoding::new(3, 0, 0, 3, 0).encode(),
@@ -286,15 +286,9 @@ fn selected_a64_fpexc_alias_ignores_tfv_writes_and_rejects_el1() {
             );
         }
         cpu.write_sysreg(encoding, u64::MAX).unwrap();
-        assert_eq!(
-            cpu.read_sysreg(encoding).unwrap(),
-            if vectors { 0x6000079f } else { 0x6400079f }
-        );
+        assert_eq!(cpu.read_sysreg(encoding).unwrap(), 0x6400079f);
         cpu.write_sysreg(encoding, 1 << 30).unwrap();
-        assert_eq!(
-            cpu.read_sysreg(encoding).unwrap(),
-            if vectors { 0x40000700 } else { 0x44000700 }
-        );
+        assert_eq!(cpu.read_sysreg(encoding).unwrap(), 0x44000700);
         cpu.current_el = 1;
         assert!(matches!(
             cpu.read_sysreg(encoding),

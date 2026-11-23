@@ -163,6 +163,87 @@ fn mixed_a32_cptr_el2_traps_before_register_effects() {
 }
 
 #[test]
+fn armv8_mvfr0_alias_masks_legacy_short_vectors() {
+    const MVFR0: u32 = 0x1011_0222;
+    let key = Aarch64SysRegEncoding::new(3, 0, 0, 3, 0).encode();
+    for field in 0..16 {
+        let mut cpu = mixed(0xeef7_2a10, false, 0, false, true); // VMRS R2,MVFR0.
+        let mut state = cpu.export_sregs();
+        let raw = u64::from(MVFR0 | (field << 24));
+        state
+            .execution
+            .as_mut()
+            .unwrap()
+            .sysregs
+            .impl_defined
+            .insert(key, raw);
+        cpu.import_sregs(&state).unwrap();
+
+        cpu.set_pstate_bits(0x3cd).unwrap(); // EL3h, AArch64.
+        cpu.set_pc(0x200);
+        cpu.write_memory(0x200, &0xd538_0302u32.to_le_bytes()) // MRS X2,MVFR0_EL1.
+            .unwrap();
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.get_x(2), u64::from(MVFR0), "A64 field {field}");
+
+        cpu.set_pstate_bits(0x1d3).unwrap();
+        cpu.set_pc(0x100);
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.get_x(2), u64::from(MVFR0), "A32 field {field}");
+        assert_eq!(
+            cpu.export_sregs().execution.unwrap().sysregs.impl_defined[&key],
+            raw,
+        );
+    }
+}
+
+#[test]
+fn armv8_arm_and_thumb_keep_fpscr_short_vector_fields_zero() {
+    const DN: u64 = 1 << 25;
+    const SHORT_VECTORS: u64 = 0x0037_0000;
+    for thumb in [false, true] {
+        let mut cpu = mixed(0xeee1_0a10, thumb, 0, false, true); // VMSR FPSCR,R0.
+        let mut state = cpu.export_sregs();
+        state
+            .execution
+            .as_mut()
+            .unwrap()
+            .sysregs
+            .impl_defined
+            .insert(
+                Aarch64SysRegEncoding::new(3, 0, 0, 3, 0).encode(),
+                0x1f11_0222,
+            );
+        cpu.import_sregs(&state).unwrap();
+        cpu.set_x(0, DN | SHORT_VECTORS);
+        cpu.write_memory(
+            0x104,
+            if thumb {
+                &[0xf1, 0xee, 0x10, 0x1a] // VMRS R1,FPSCR.
+            } else {
+                &[0x10, 0x1a, 0xf1, 0xee]
+            },
+        )
+        .unwrap();
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.get_x(1), DN, "Thumb={thumb}");
+        cpu.write_memory(
+            0x108,
+            if thumb {
+                &[0x31, 0xee, 0x02, 0x0a]
+            } else {
+                &[0x02, 0x0a, 0x31, 0xee]
+            },
+        )
+        .unwrap();
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.get_simd(0) as u32, 3.0f32.to_bits());
+        assert_eq!(cpu.instruction_count(), 3);
+    }
+}
+
+#[test]
 fn mixed_a32_cptr_el3_traps_from_both_security_states() {
     for secure in [false, true] {
         for thumb in [false, true] {
