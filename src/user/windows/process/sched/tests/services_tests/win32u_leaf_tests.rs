@@ -7,7 +7,7 @@ use crate::user::windows::{
 };
 
 #[test]
-fn win32u_installed_init2_leaf_requires_gui_prerequisites_without_state_changes() {
+fn win32u_installed_gdi_init_leaf_requires_gui_prerequisites_without_state_changes() {
     let host = if cfg!(target_arch = "aarch64") {
         WinArch::Arm64
     } else if cfg!(target_arch = "x86_64") {
@@ -37,7 +37,20 @@ fn win32u_installed_init2_leaf_requires_gui_prerequisites_without_state_changes(
         config.arena_bytes = 256 << 20;
         let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
         let p = process.state_mut();
-        let expected = match &p.native.as_ref().unwrap().gui {
+        let runtime = p.native.as_ref().unwrap();
+        let version = &runtime.version;
+        let server_2022 = (
+            version.major,
+            version.minor,
+            version.build,
+            version.product_type,
+        ) == (10, 0, 20348, 3);
+        let name = if server_2022 {
+            "NtGdiInit"
+        } else {
+            "NtGdiInit2"
+        };
+        let expected = match &runtime.gui {
             crate::user::windows::gui::Availability::Available(_) => {
                 assert_ne!(arch, WinArch::X86);
                 assert_eq!(p.space.u64(p.peb + 0x58).unwrap(), 0);
@@ -47,12 +60,18 @@ fn win32u_installed_init2_leaf_requires_gui_prerequisites_without_state_changes(
                 assert_eq!(arch, WinArch::X86);
                 "WoW64 GUI requires the selected USER startup connection".to_owned()
             }
+            crate::user::windows::gui::Availability::Unavailable(reason)
+                if server_2022 && arch == WinArch::X86 =>
+            {
+                assert!(!reason.is_empty(), "explicit WoW64 capability error");
+                "not implemented for unmeasured native NtGdiInit profile".to_owned()
+            }
             crate::user::windows::gui::Availability::Unavailable(reason) => {
                 if arch == WinArch::X86 {
                     assert!(!reason.is_empty(), "explicit WoW64 capability error");
                 } else {
                     assert!(
-                        reason.ends_with("selected Win32u has no NtGdiInit2"),
+                        !server_2022 && reason.ends_with("selected Win32u has no NtGdiInit2"),
                         "{arch}: unexpected unavailable GUI inputs: {reason}"
                     );
                 }
@@ -63,7 +82,19 @@ fn win32u_installed_init2_leaf_requires_gui_prerequisites_without_state_changes(
         let mut t = p.threads.remove(&tid).unwrap();
         let module = loader::load_dll(p, "win32u.dll").unwrap();
         assert_eq!(p.modules.win32u_services.as_ref().unwrap().0, module);
-        let entry = loader::lookup(p, module, &SymRef::Name(b"NtGdiInit2".to_vec(), None)).unwrap();
+        if server_2022 {
+            assert!(
+                loader::lookup(p, module, &SymRef::Name(b"NtGdiInit2".to_vec(), None))
+                    .unwrap()
+                    .is_none(),
+                "{arch}: Server 2022 must select the installed legacy leaf"
+            );
+        }
+        let entry =
+            loader::lookup(p, module, &SymRef::Name(name.as_bytes().to_vec(), None)).unwrap();
+        if server_2022 {
+            assert!(entry.is_some(), "{arch}: missing installed legacy leaf");
+        }
         let error = t.teb + layout::offsets(arch).teb_last_error;
         p.space.w32(error, 0x1234_5678).unwrap();
         let rng = p.rng;
@@ -93,7 +124,7 @@ fn win32u_installed_init2_leaf_requires_gui_prerequisites_without_state_changes(
                     Outcome::Continue | Outcome::Yield => (),
                     Outcome::Fail(reason) => {
                         assert!(
-                            reason.starts_with("native Win32u service NtGdiInit2 (")
+                            reason.starts_with(&format!("native Win32u service {name} ("))
                                 && reason.ends_with(&expected),
                             "{arch}: {reason}"
                         );

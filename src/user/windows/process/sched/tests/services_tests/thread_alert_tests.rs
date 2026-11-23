@@ -498,6 +498,25 @@ fn thread_alert_installed_ntdll_leaves_park_and_return_with_exact_stack_cleanup(
         let tid = *p.threads.keys().next().unwrap();
         let mut t = p.threads.remove(&tid).unwrap();
         let module = loader::load_dll(p, "ntdll.dll").unwrap();
+        let runtime = p.native.as_ref().unwrap();
+        let version = &runtime.version;
+        let server_2022 = (
+            version.major,
+            version.minor,
+            version.build,
+            version.product_type,
+        ) == (10, 0, 20348, 3);
+        let extended = "NtAlertThreadByThreadIdEx";
+        let has_extended =
+            loader::lookup(p, module, &SymRef::Name(extended.as_bytes().to_vec(), None))
+                .unwrap()
+                .is_some();
+        assert_eq!(has_extended, !server_2022, "{arch}/{extended}");
+        let (final_alert, final_arguments) = if has_extended {
+            (extended, vec![u64::from(tid), 1])
+        } else {
+            ("NtAlertThreadByThreadId", vec![u64::from(tid)])
+        };
         let data =
             p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                 .unwrap()
@@ -515,12 +534,7 @@ fn thread_alert_installed_ntdll_leaves_park_and_return_with_exact_stack_cleanup(
                 0x102,
             ),
             ("NtWaitForAlertByThreadId", vec![1, 0], true, 0x101),
-            (
-                "NtAlertThreadByThreadIdEx",
-                vec![u64::from(tid), 1],
-                false,
-                0,
-            ),
+            (final_alert, final_arguments, false, 0),
             ("NtWaitForAlertByThreadId", vec![1, data], false, 0x101),
         ] {
             let entry = loader::lookup(p, module, &SymRef::Name(name.as_bytes().to_vec(), None))

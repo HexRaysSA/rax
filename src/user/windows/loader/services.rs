@@ -625,9 +625,22 @@ pub(crate) mod tests {
             let table = ServiceTable::from_image(arch, &pe)
                 .unwrap()
                 .expect("selected installed Win32u must admit complete service leaves");
-            for name in ["NtGdiInit", "NtGdiInit2", "NtUserProcessConnect"] {
-                assert!(
+            let runtime = crate::user::windows::native::NativeRuntime::select(arch).unwrap();
+            let version = &runtime.version;
+            let server_2022 = (
+                version.major,
+                version.minor,
+                version.build,
+                version.product_type,
+            ) == (10, 0, 20348, 3);
+            for (name, expected) in [
+                ("NtGdiInit", true),
+                ("NtGdiInit2", !server_2022),
+                ("NtUserProcessConnect", true),
+            ] {
+                assert_eq!(
                     table.entries.values().any(|entry| entry.name == name),
+                    expected,
                     "{directory}: {name}"
                 );
             }
