@@ -1042,6 +1042,24 @@ fn installed_linux_workspace_flock_matches_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "requires a locally built closed_darwin_workspace_flock.c fixture"]
+fn installed_darwin_workspace_flock_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_FLOCK_CONTROL")
+        .expect("absolute path to the dynamically linked Darwin flock fixture");
+    let expected = concat!(
+        "APFS whole-file and record lock interaction\n",
+        "APFS lock inheritance and wake on owner exit\n",
+        "APFS directory and resource-fork lock identity\n",
+    );
+    compare_installed_workspace_fixture(
+        &binary,
+        "closed_darwin_workspace_flock",
+        Some(expected.as_bytes()),
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 #[ignore = "run with a locally built and ad hoc signed closed_csops_empty.c fixture"]
 fn installed_libc_empty_entitlements_match_native_through_closed_c_abi() {
     let binary = std::env::var("RAX_DARWIN_CSOPS_EMPTY_CONTROL")

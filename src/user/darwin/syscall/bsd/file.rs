@@ -761,6 +761,12 @@ pub fn ftruncate(ctx: &mut Ctx<'_>, fd: i32, length: i64) -> SysResult {
 
 /// `flock(fd, how)`.
 pub fn flock(ctx: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        if let Some(result) = resume_workspace_lock(ctx, fd) {
+            return result;
+        }
+        return crate::user::darwin::workspace_locks::flock(ctx, fd, how);
+    }
     #[cfg(unix)]
     {
         let (_, h) = host_fd(ctx, fd)?;
@@ -772,6 +778,15 @@ pub fn flock(ctx: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
     {
         Err(Errno::EBADF)
     }
+}
+
+fn resume_workspace_lock(ctx: &mut Ctx<'_>, fd: i32) -> Option<SysResult> {
+    let entered = ctx.thread.file_io.as_ref()?;
+    let request = entered.workspace_lock?;
+    let file = entered.file.clone();
+    Some(crate::user::darwin::workspace_locks::resume(
+        ctx, fd, &file, request,
+    ))
 }
 
 /// `fchmod(fd, mode)`.
@@ -913,11 +928,9 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
         return record_lock::wait(ctx, fd, c, arg);
     }
     if c == F_SETLKW
-        && let Some(entered) = &ctx.thread.file_io
-        && let Some(request) = entered.workspace_lock
+        && let Some(result) = resume_workspace_lock(ctx, fd)
     {
-        let file = entered.file.clone();
-        return crate::user::darwin::workspace_locks::resume(ctx, fd, &file, request);
+        return result;
     }
     let file = ctx.proc.fds.file(fd)?;
     if matches!(c, F_GETLK | F_SETLK | F_SETLKW) && matches!(&file.kind, FileKind::Embedded(_)) {

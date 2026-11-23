@@ -1,6 +1,7 @@
-//! POSIX byte-range locks on closed Darwin workspace data files.
+//! Advisory vnode locks in the closed Darwin workspace.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Arc, Weak};
 
 use super::abi::Errno;
 use super::arch::{Rv, SysResult};
@@ -63,10 +64,30 @@ struct Lock {
     kind: i16,
 }
 
-/// The inode and absolute range copied at entry to F_SETLKW.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum Target {
+    Record(u64),
+    File(u64),
+    Resource(u64),
+}
+
+impl Target {
+    fn ino(self) -> u64 {
+        match self {
+            Self::Record(ino) | Self::File(ino) | Self::Resource(ino) => ino,
+        }
+    }
+}
+
+/// The vnode and absolute range copied at entry to a blocking lock call.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Request {
-    ino: u64,
+    target: Target,
+    lock: Lock,
+}
+
+struct WholeFileLock {
+    owner: Weak<OpenFile>,
     lock: Lock,
 }
 
@@ -132,16 +153,24 @@ impl OwnerLocks {
 #[derive(Default)]
 pub(super) struct Locks {
     files: BTreeMap<u64, Vec<OwnerLocks>>,
+    flocks: BTreeMap<Target, Vec<WholeFileLock>>,
     waiting: BTreeMap<(i32, u64), Request>,
     changed: BTreeSet<u64>,
 }
 
 impl Locks {
     fn conflict(&self, ino: u64, pid: i32, request: Lock) -> Option<(i32, Lock)> {
+        self.record_conflict(ino, Some(pid), request).or_else(|| {
+            self.flock_conflict(Target::File(ino), None, request)
+                .map(|lock| (-1, lock))
+        })
+    }
+
+    fn record_conflict(&self, ino: u64, pid: Option<i32>, request: Lock) -> Option<(i32, Lock)> {
         self.files
             .get(&ino)?
             .iter()
-            .filter(|owner| owner.pid != pid)
+            .filter(|owner| Some(owner.pid) != pid)
             .find_map(|owner| {
                 owner
                     .locks
@@ -156,6 +185,69 @@ impl Locks {
 
     fn has_locks(&self, ino: u64) -> bool {
         self.files.contains_key(&ino)
+            || self
+                .flocks
+                .get(&Target::File(ino))
+                .is_some_and(|locks| locks.iter().any(|lock| lock.owner.strong_count() != 0))
+    }
+
+    fn flock_conflict(
+        &self,
+        target: Target,
+        own: Option<&Weak<OpenFile>>,
+        request: Lock,
+    ) -> Option<Lock> {
+        self.flocks.get(&target)?.iter().find_map(|held| {
+            (held.owner.strong_count() != 0
+                && !own.is_some_and(|owner| owner.ptr_eq(&held.owner))
+                && (request.kind == WRITE || held.lock.kind == WRITE))
+                .then_some(held.lock)
+        })
+    }
+
+    fn release_flock(&mut self, target: Target, owner: &Weak<OpenFile>) {
+        if let Some(held) = self.flocks.get_mut(&target) {
+            let count = held.len();
+            held.retain(|lock| !lock.owner.ptr_eq(owner));
+            if held.len() != count {
+                self.changed.insert(target.ino());
+            }
+            if held.is_empty() {
+                self.flocks.remove(&target);
+            }
+        }
+    }
+
+    fn set_flock(&mut self, request: Request, file: &FileRef, sleep: bool) -> Result<bool, Errno> {
+        let Request { target, lock } = request;
+        let owner = Arc::downgrade(file);
+        if lock.kind == UNLOCK {
+            self.release_flock(target, &owner);
+            return Ok(true);
+        }
+        if self.flock_conflict(target, Some(&owner), lock).is_some()
+            || matches!(target, Target::File(ino) if self.record_conflict(ino, None, lock).is_some())
+        {
+            if !sleep {
+                return Err(Errno::EAGAIN);
+            }
+            // A shared lock survives a nonblocking upgrade failure. Darwin
+            // releases it when an exclusive upgrade actually has to wait.
+            if lock.kind == WRITE {
+                self.release_flock(target, &owner);
+            }
+            return Ok(false);
+        }
+        let held = self.flocks.entry(target).or_default();
+        if let Some(previous) = held.iter_mut().find(|lock| lock.owner.ptr_eq(&owner)) {
+            if previous.lock.kind != lock.kind {
+                previous.lock = lock;
+                self.changed.insert(target.ino());
+            }
+        } else {
+            held.push(WholeFileLock { owner, lock });
+        }
+        Ok(true)
     }
 
     fn set(&mut self, ino: u64, pid: i32, lock: Lock) -> Result<(), Errno> {
@@ -188,8 +280,9 @@ impl Locks {
     fn set_waiting(&mut self, owner: (i32, u64), request: Request) -> Result<bool, Errno> {
         self.waiting.remove(&owner);
         let (pid, _) = owner;
+        let ino = request.target.ino();
         if request.lock.kind != UNLOCK
-            && let Some((blocker, _)) = self.conflict(request.ino, pid, request.lock)
+            && let Some((blocker, _)) = self.conflict(ino, pid, request.lock)
         {
             if self.depends_on(blocker, pid) {
                 return Err(Errno::EDEADLK);
@@ -197,7 +290,21 @@ impl Locks {
             self.waiting.insert(owner, request);
             return Ok(false);
         }
-        self.set(request.ino, pid, request.lock)?;
+        self.set(ino, pid, request.lock)?;
+        Ok(true)
+    }
+
+    fn set_flock_waiting(
+        &mut self,
+        owner: (i32, u64),
+        request: Request,
+        file: &FileRef,
+    ) -> Result<bool, Errno> {
+        self.waiting.remove(&owner);
+        if !self.set_flock(request, file, true)? {
+            self.waiting.insert(owner, request);
+            return Ok(false);
+        }
         Ok(true)
     }
 
@@ -207,8 +314,9 @@ impl Locks {
         self.waiting
             .range((blocker, 0)..=(blocker, u64::MAX))
             .any(|(_, request)| {
-                self.conflict(request.ino, blocker, request.lock)
-                    .is_some_and(|(owner, _)| owner == requester)
+                matches!(request.target, Target::Record(ino)
+                    if self.conflict(ino, blocker, request.lock)
+                        .is_some_and(|(owner, _)| owner == requester))
             })
     }
 
@@ -217,14 +325,25 @@ impl Locks {
     }
 
     pub(super) fn take_wakes(&mut self) -> BTreeSet<(i32, u64)> {
+        // The description may be shared by duplicate slots or subprocesses.
+        // A weak reference observes the last close, including exit and exec.
+        let changed = &mut self.changed;
+        self.flocks.retain(|target, held| {
+            let count = held.len();
+            held.retain(|lock| lock.owner.strong_count() != 0);
+            if held.len() != count {
+                changed.insert(target.ino());
+            }
+            !held.is_empty()
+        });
         let changed = std::mem::take(&mut self.changed);
         if changed.is_empty() {
             return BTreeSet::new();
         }
         self.waiting
             .iter()
-            .filter(|(_, request)| changed.contains(&request.ino))
-            .map(|(&(pid, _), request)| (pid, request.ino))
+            .map(|(&(pid, _), request)| (pid, request.target.ino()))
+            .filter(|(_, ino)| changed.contains(ino))
             .collect()
     }
 
@@ -267,6 +386,51 @@ pub(super) fn inode(file: &OpenFile) -> Option<u64> {
     };
     object.workspace()?;
     Some(object.entry()?.ino)
+}
+
+pub(super) fn flock(ctx: &mut Ctx<'_>, fd: i32, how: i32) -> SysResult {
+    const LOCK_SH: i32 = 1;
+    const LOCK_EX: i32 = 2;
+    const LOCK_NB: i32 = 4;
+    const LOCK_UN: i32 = 8;
+
+    let file = ctx.proc.fds.file(fd)?;
+    let FileKind::Embedded(object) = &file.kind else {
+        return Err(Errno::ENOTSUP);
+    };
+    let entry = object.entry().ok_or(Errno::ENOTSUP)?;
+    let target = if object.resource().is_some() {
+        Target::Resource(entry.ino)
+    } else if object.workspace().is_some() || entry.workspace_directory().is_some() {
+        Target::File(entry.ino)
+    } else {
+        return Err(Errno::EPERM);
+    };
+    let kind = if how & LOCK_UN != 0 {
+        UNLOCK
+    } else if how & LOCK_EX != 0 {
+        WRITE
+    } else if how & LOCK_SH != 0 {
+        READ
+    } else {
+        return Err(Errno::EBADF);
+    };
+    let request = Request {
+        target,
+        lock: Lock {
+            kind,
+            range: Range {
+                start: 0,
+                end: None,
+            },
+        },
+    };
+    if how & LOCK_NB == 0 && kind != UNLOCK {
+        return wait(ctx, fd, &file, request);
+    }
+    let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
+    member.workspace_locks(|locks| locks.set_flock(request, &file, false))?;
+    Ok(Rv::one(0))
 }
 
 pub(super) fn fcntl(
@@ -348,7 +512,7 @@ pub(super) fn fcntl(
             fd,
             file,
             Request {
-                ino: entry.ino,
+                target: Target::Record(entry.ino),
                 lock: requested,
             },
         );
@@ -371,10 +535,17 @@ pub(super) fn resume(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, request: Reques
 fn wait(ctx: &mut Ctx<'_>, fd: i32, file: &FileRef, request: Request) -> SysResult {
     let owner = (ctx.proc.pid, ctx.thread.tid);
     let member = ctx.proc.family.as_ref().ok_or(Errno::EBADF)?;
-    if member.workspace_locks(|locks| locks.set_waiting(owner, request))? {
+    let acquired = member.workspace_locks(|locks| match request.target {
+        Target::Record(_) => locks.set_waiting(owner, request),
+        Target::File(_) | Target::Resource(_) => locks.set_flock_waiting(owner, request, file),
+    })?;
+    if acquired {
         return Ok(Rv::one(0));
     }
-    let result = syscall::sleep(ctx, Wait::key(WaitKey::WorkspaceLock(request.ino), None));
+    let result = syscall::sleep(
+        ctx,
+        Wait::key(WaitKey::WorkspaceLock(request.target.ino()), None),
+    );
     if ctx.thread.wait.is_some() {
         lifetime::parked_workspace_lock(ctx, fd, file, request);
     } else {
@@ -448,7 +619,7 @@ mod tests {
         }
         assert!(locks.take_wakes().is_empty());
         let request = |ino| Request {
-            ino,
+            target: Target::Record(ino),
             lock: lock(WRITE, 0, 8),
         };
         assert_eq!(locks.set_waiting(a, request(2)), Ok(false));
