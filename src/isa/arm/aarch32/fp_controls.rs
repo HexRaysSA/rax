@@ -1,6 +1,6 @@
 //! Arm XML 2025-12 FP access policy shared by standalone and mixed-width PEs.
 use crate::isa::arm::aarch64::aarch32_state::system_trap_rt;
-use crate::isa::arm::decoder::{DecodedInsn, Mnemonic, ThumbDecoder};
+use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct FpAccessKind {
@@ -502,8 +502,7 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
                 | Mnemonic::VFMAT_BF16
         )
         || (insn.mnemonic == Mnemonic::VMOV
-            && raw & 0x0f00_0f10 == 0x0e00_0b10
-            && raw & ((1 << 22) | (1 << 5)) != 0);
+            && Aarch32Decoder::vmov_lane_transfer(raw).is_some_and(|transfer| transfer.bytes < 4));
     let system = matches!(insn.mnemonic, Mnemonic::VMRS | Mnemonic::VMSR)
         || matches!(insn.mnemonic, Mnemonic::MRC | Mnemonic::MCR)
             && coprocessor == 10

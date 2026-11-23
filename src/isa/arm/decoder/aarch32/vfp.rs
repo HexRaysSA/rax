@@ -6,6 +6,15 @@
 
 use super::*;
 
+pub(crate) struct VmovLaneTransfer {
+    pub(crate) d: u8,
+    pub(crate) rt: u8,
+    pub(crate) bytes: u8,
+    pub(crate) lane: u8,
+    pub(crate) to_core: bool,
+    pub(crate) unsigned: bool,
+}
+
 impl Aarch32Decoder {
     pub(crate) fn decode_vfp_pair_register_transfer(raw: u32) -> Option<DecodedInsn> {
         let coproc = (raw >> 8) & 0xF;
@@ -162,6 +171,38 @@ impl Aarch32Decoder {
         Some((width, first, count))
     }
 
+    pub(crate) fn vmov_lane_transfer(raw: u32) -> Option<VmovLaneTransfer> {
+        if raw & 0x0f00_0f10 != 0x0e00_0b10 || raw >> 28 == 15 {
+            return None;
+        }
+        let rt = ((raw >> 12) & 15) as u8;
+        let to_core = raw & (1 << 20) != 0;
+        let unsigned = raw & (1 << 23) != 0;
+        if rt == 15 || unsigned && !to_core {
+            return None;
+        }
+        let index_high = ((raw >> 21) & 1) as u8;
+        let opc2 = ((raw >> 5) & 3) as u8;
+        let (bytes, lane) = if raw & (1 << 22) != 0 {
+            (1, (index_high << 2) | opc2)
+        } else if opc2 & 1 != 0 {
+            (2, (index_high << 1) | (opc2 >> 1))
+        } else if opc2 == 0 && !unsigned {
+            (4, index_high)
+        } else {
+            return None;
+        };
+        let d = ((((raw >> 7) & 1) << 4) | ((raw >> 16) & 15)) as u8;
+        Some(VmovLaneTransfer {
+            d,
+            rt,
+            bytes,
+            lane,
+            to_core,
+            unsigned,
+        })
+    }
+
     pub(crate) fn decode_vfp_transfer_or_system(raw: u32) -> Option<DecodedInsn> {
         let op = (raw >> 4) & 1;
         if op != 1 {
@@ -198,8 +239,6 @@ impl Aarch32Decoder {
             );
         }
 
-        let opc1 = ((raw >> 21) & 0x3) as u8;
-        let opc2 = ((raw >> 5) & 0x3) as u8;
         if !matches!(coproc, 0b1010 | 0b1011) {
             return None;
         }
@@ -215,57 +254,36 @@ impl Aarch32Decoder {
                 4,
             ));
         }
-        let v = ((raw >> 16) & 0xF) as u8;
+        let core = Operand::Reg(Register::raw(rt, false, false));
+        let insn = DecodedInsn::new(Mnemonic::VMOV, ExecutionState::Aarch32, raw, 4);
         if coproc == 0b1011 {
-            let transfer_to_core = ((raw >> 20) & 1) != 0;
-            let u = ((raw >> 23) & 1) != 0;
-            let valid = if transfer_to_core {
-                (opc1 & 0b10) != 0 || (opc1 & 0b10) == 0 && (opc2 & 1) != 0 || (!u && opc2 == 0)
-            } else {
-                !u && ((opc1 & 0b10) != 0 || (opc2 & 1) != 0 || opc2 == 0)
+            let Some(transfer) = Self::vmov_lane_transfer(raw) else {
+                return Some(DecodedInsn::new(
+                    Mnemonic::UNDEFINED,
+                    ExecutionState::Aarch32,
+                    raw,
+                    4,
+                ));
             };
-            if valid {
-                return Some(
-                    DecodedInsn::new(Mnemonic::VMOV, ExecutionState::Aarch32, raw, 4)
-                        .with_operand(Operand::FpReg(FpRegister::d(
-                            ((((raw >> 7) & 1) << 4) as u8) | v,
-                        )))
-                        .with_operand(Operand::Imm(Immediate::new((opc1 & 1) as i64)))
-                        .with_operand(Operand::Reg(Register::raw(rt, false, false))),
-                );
-            }
-
-            return Some(DecodedInsn::new(
-                Mnemonic::UNDEFINED,
-                ExecutionState::Aarch32,
-                raw,
-                4,
-            ));
+            let fp = Operand::FpReg(FpRegister::d(transfer.d));
+            let lane = Operand::Imm(Immediate::new(i64::from(transfer.lane)));
+            return Some(if transfer.to_core {
+                insn.with_operands([core, fp, lane])
+            } else {
+                insn.with_operands([fp, lane, core])
+            });
         }
 
-        if coproc == 0b1010 {
-            if opc2 != 0 || (opc1 & 0b10) != 0 {
-                return None;
-            }
-            if opc1 != 0 || (raw & 0xF) != 0 {
-                return None;
-            }
-            let sreg = (v << 1) | (((raw >> 7) & 1) as u8);
-            return Some(
-                DecodedInsn::new(Mnemonic::VMOV, ExecutionState::Aarch32, raw, 4)
-                    .with_operand(Operand::FpReg(FpRegister::s(sreg)))
-                    .with_operand(Operand::Reg(Register::raw(rt, false, false))),
-            );
+        if raw & 0x6f != 0 {
+            return None;
         }
-
-        Some(
-            DecodedInsn::new(Mnemonic::VMOV, ExecutionState::Aarch32, raw, 4)
-                .with_operand(Operand::FpReg(FpRegister::d(
-                    ((((raw >> 7) & 1) << 4) as u8) | v,
-                )))
-                .with_operand(Operand::Imm(Immediate::new((opc1 & 1) as i64)))
-                .with_operand(Operand::Reg(Register::raw(rt, false, false))),
-        )
+        let sreg = ((((raw >> 16) & 15) << 1) | ((raw >> 7) & 1)) as u8;
+        let fp = Operand::FpReg(FpRegister::s(sreg));
+        Some(if raw & (1 << 20) != 0 {
+            insn.with_operands([core, fp])
+        } else {
+            insn.with_operands([fp, core])
+        })
     }
 
     pub(crate) fn decode_neon_vdup_register(raw: u32) -> Option<DecodedInsn> {

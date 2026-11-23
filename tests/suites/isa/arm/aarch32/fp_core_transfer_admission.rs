@@ -1,7 +1,9 @@
 //! Arm ASL VMOV_s/VMOV_rs/VMOV_sr decode constraints and selected Undefined policy.
 use rax::isa::arm::aarch32::cp15::Cpacr;
 use rax::isa::arm::aarch32::vfp::Fpscr;
-use rax::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
+use rax::isa::arm::decoder::{
+    Aarch32Decoder, DecodedInsn, FpRegister, Immediate, Mnemonic, Operand, Register, ThumbDecoder,
+};
 use rax::isa::arm::execution::FlatMemory;
 use rax::isa::arm::{Armv7Cpu, ExecResult, Executor};
 
@@ -32,6 +34,59 @@ fn decode(raw: u32, thumb: bool) -> DecodedInsn {
 fn execute(cpu: &mut Armv7Cpu, instruction: &DecodedInsn) -> ExecResult {
     let mut memory = FlatMemory::new(4096, 0);
     Executor::new(cpu, &mut memory).execute(instruction)
+}
+
+#[test]
+fn core_transfer_lane_metadata_retains_the_entire_index() {
+    for thumb in [false, true] {
+        for &(word, bits, _, _) in CASES {
+            if (word >> 8) & 15 != 11 {
+                continue;
+            }
+            for lane in 0..64 / bits {
+                let fields = match bits {
+                    8 => (lane >> 2) << 21 | (lane & 3) << 5,
+                    16 => (lane >> 1) << 21 | (lane & 1) << 6,
+                    32 => lane << 21,
+                    _ => unreachable!(),
+                };
+                let raw = word | fields;
+                let decoded = decode(raw, thumb);
+                assert_eq!(decoded.mnemonic, Mnemonic::VMOV);
+                assert!(
+                    decoded
+                        .operands
+                        .contains(&Operand::Imm(Immediate::new(i64::from(lane)))),
+                    "{raw:08x}, Thumb={thumb}, lane={lane}: {:?}",
+                    decoded.operands
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn core_transfer_operands_begin_with_the_destination() {
+    for thumb in [false, true] {
+        for &(word, _, read, _) in CASES {
+            let raw = word | 2 << 12; // R2 is distinct from S0/D0.
+            let fp = if (word >> 8) & 15 == 10 {
+                FpRegister::s(0)
+            } else {
+                FpRegister::d(0)
+            };
+            let expected = if read {
+                Operand::Reg(Register::arm32(2))
+            } else {
+                Operand::FpReg(fp)
+            };
+            assert_eq!(
+                decode(raw, thumb).operands.first(),
+                Some(&expected),
+                "{raw:08x}, Thumb={thumb}"
+            );
+        }
+    }
 }
 
 #[test]

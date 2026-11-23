@@ -26,7 +26,9 @@ use crate::isa::arm::aarch32::vfp::{
     vnmul_f64, vorn, vorr, vrev, vrint_f16_bits, vrint_f32, vrint_f64, vsqrt_f16_bits, vsqrt_f32,
     vsqrt_f64, vsub_f16_bits, vsub_f32, vsub_f64, vsub_i,
 };
-use crate::isa::arm::decoder::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType};
+use crate::isa::arm::decoder::{
+    Aarch32Decoder, Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType,
+};
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(crate) fn exec_neon_count_register(&mut self, insn: &DecodedInsn) -> ExecResult {
@@ -569,63 +571,41 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             }
             return ExecResult::Continue;
         }
-        if ((insn.raw >> 4) & 1) == 1 && matches!((insn.raw >> 8) & 0xF, 0b1010 | 0b1011) {
+        if insn.raw & 0x0f00_0f10 == 0x0e00_0b10 {
+            let Some(transfer) = Aarch32Decoder::vmov_lane_transfer(insn.raw) else {
+                return ExecResult::Undefined;
+            };
+            let rt = usize::from(transfer.rt);
+            if transfer.to_core {
+                let elem = self.neon_read_d_elem_u64(transfer.d, transfer.lane, transfer.bytes);
+                self.cpu.regs[rt] = if transfer.unsigned || transfer.bytes == 4 {
+                    elem as u32
+                } else {
+                    Self::neon_sign_extend_elem_u64(elem, u32::from(transfer.bytes) * 8) as u32
+                };
+            } else {
+                self.neon_write_d_elem_u64(
+                    transfer.d,
+                    transfer.lane,
+                    transfer.bytes,
+                    u64::from(self.reg(rt)),
+                );
+            }
+            return ExecResult::Continue;
+        }
+        if ((insn.raw >> 4) & 1) == 1 && (insn.raw >> 8) & 0xF == 0b1010 {
             let rt = ((insn.raw >> 12) & 0xF) as usize;
-            if rt == 15 {
+            let opc1 = ((insn.raw >> 21) & 0x3) as u8;
+            if rt == 15 || opc1 != 0 || insn.raw & 0x6f != 0 {
                 return ExecResult::Undefined;
             }
-            let to_core = ((insn.raw >> 20) & 1) == 1;
-            let coproc = (insn.raw >> 8) & 0xF;
-            let opc1 = ((insn.raw >> 21) & 0x3) as u8;
-            let opc2 = ((insn.raw >> 5) & 0x3) as u8;
             let v = ((insn.raw >> 16) & 0xF) as u8;
-            if coproc == 0b1011 {
-                let u = ((insn.raw >> 23) & 1) != 0;
-                let dreg = ((((insn.raw >> 7) & 1) << 4) as u8) | v;
-                let shape = if (opc1 & 0b10) != 0 {
-                    Some((1, ((opc1 & 1) << 2) | opc2))
-                } else if (opc2 & 1) != 0 {
-                    Some((2, ((opc1 & 1) << 1) | (opc2 >> 1)))
-                } else if !u && opc2 == 0 {
-                    Some((4, opc1 & 1))
-                } else {
-                    None
-                };
-                let Some((ebytes, lane)) = shape else {
-                    return ExecResult::Undefined;
-                };
-
-                if to_core {
-                    let elem = self.neon_read_d_elem_u64(dreg, lane, ebytes);
-                    self.cpu.regs[rt] = if u {
-                        elem as u32
-                    } else if ebytes < 4 {
-                        Self::neon_sign_extend_elem_u64(elem, ebytes as u32 * 8) as u32
-                    } else {
-                        elem as u32
-                    };
-                } else {
-                    if u {
-                        return ExecResult::Undefined;
-                    }
-                    self.neon_write_d_elem_u64(dreg, lane, ebytes, self.reg(rt) as u64);
-                }
-            } else if coproc == 0b1010 {
-                if opc2 != 0 || (opc1 & 0b10) != 0 {
-                    return ExecResult::Undefined;
-                }
-                if opc1 != 0 || (insn.raw & 0xF) != 0 {
-                    return ExecResult::Undefined;
-                }
-                let sreg = (v << 1) | (((insn.raw >> 7) & 1) as u8);
-                if to_core {
-                    self.cpu.regs[rt] = self.cpu.vfp.read_s_bits(sreg);
-                } else {
-                    let value = self.reg(rt);
-                    self.cpu.vfp.write_s_bits(sreg, value);
-                }
+            let sreg = (v << 1) | (((insn.raw >> 7) & 1) as u8);
+            if insn.raw & (1 << 20) != 0 {
+                self.cpu.regs[rt] = self.cpu.vfp.read_s_bits(sreg);
             } else {
-                return ExecResult::Undefined;
+                let value = self.reg(rt);
+                self.cpu.vfp.write_s_bits(sreg, value);
             }
             return ExecResult::Continue;
         }

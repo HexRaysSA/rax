@@ -13,6 +13,13 @@ R0=0xdead89a5 and D0=0x8877665590f0b180 produced D0=0xdead89a5dead89a5.
 It now produces D0=0x8877665590f0b1a5. Signed byte reads also preserve the other
 core registers and apply the required sign extension.
 
+The decoder reports the destination first and retains the full D-register lane
+index. For example, `VMOV.U8 R0, D5[7]` reports R0, D5, and lane 7. Decoding,
+FP access checks, and execution use the same lane selector. Byte and halfword
+lanes require AdvSIMD access. Word lanes require VFP access. The selector
+follows the ARM and Thumb encodings of the scalar-to-core and core-to-scalar
+VMOV forms in [Arm DDI 0597](../../specifications/arm/aarch32-isa-2025-03.pdf).
+
 The primary source is the existing Arm ASL instruction definitions
 `aarch32_VMOV_s_A`, `aarch32_VMOV_rs_A`, and `aarch32_VMOV_sr_A`, with
 `aarch32_VMOV_d_A` and `aarch32_VMOV_ss_A` defining the distinct paired class.
