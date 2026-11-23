@@ -11,7 +11,7 @@ jobs:
   native:
     name: File section placeholder (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -41,4 +41,33 @@ jobs:
           if ($probeExit -ne 0) { exit $probeExit }
           if (@($rows | Where-Object { $_ -match '^section size=' }).Count -ne 36) {
             throw 'Expected 36 independent native observations'
+          }
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: 1.95.0
+          cache-key: windows-userland-library-${{ matrix.os }}
+      - name: Check file-section contents and lifetime in RAX
+        shell: pwsh
+        env:
+          CARGO_INCREMENTAL: '0'
+          CARGO_BUILD_JOBS: '2'
+          CARGO_PROFILE_DEV_DEBUG: '0'
+          CARGO_PROFILE_TEST_DEBUG: '0'
+        run: |
+          $scratch = Join-Path $env:GITHUB_WORKSPACE '.tmp-data-section'
+          $env:TMP = $scratch
+          $env:TEMP = $scratch
+          $env:TMPDIR = $scratch
+          $names = @(
+            'user::mm::windows_section::tests::file_section_memory_owner_survives_arena_drop_until_last_memory_clone',
+            'user::windows::object_namespace::file_data::tests::native_imported_file_section_maps_the_final_partial_page'
+          )
+          foreach ($name in $names) {
+            $lines = cargo test --locked --no-default-features -p rax --lib -- $name --exact
+            $testExit = $LASTEXITCODE
+            $lines
+            if ($testExit -ne 0) { exit $testExit }
+            if (!($lines | Select-String -SimpleMatch 'test result: ok. 1 passed; 0 failed; 0 ignored')) {
+              throw "Expected one passing test for $name"
+            }
           }

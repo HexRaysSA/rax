@@ -231,9 +231,10 @@ mod tests {
 
     #[test]
     fn file_section_memory_owner_survives_arena_drop_until_last_memory_clone() {
-        let mut file = super::super::anonymous_file().unwrap();
-        file.set_len(1).unwrap();
-        file.write_all(&[0x59]).unwrap();
+        // Server 2022 can zero a section after closing a source file that
+        // was unlinked before writing. Keep the path through the view lifetime.
+        let source = crate::user::supplied_fs::test_backing::TestFile::new(&[0x59], 1);
+        let file = std::fs::File::open(&source.path).unwrap();
         let retired = Arc::new(AtomicBool::new(false));
         let memory: Arc<dyn HostMemory> = Arc::new(
             FileMemory::new(
