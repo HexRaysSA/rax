@@ -187,7 +187,7 @@ jobs:
           r $t1=%capture%
           .printf "\nRAX_CSR_ENTRY api=%x data_bytes=%x\n", %api%, %length%
           .if (@$t1 != 0) { .printf "\nRAX_CSR_CAPTURE bytes=%x pointers=%x\n", dwo(@$t1), dwo(@$t1+0x10) }
-          .if (@$t1 != 0) { .if ((dwo(@$t1) >= 0x40) & (dwo(@$t1+0x10) == 4)) { .printf "\nRAX_CSR_OFFSETS %x %x %x %x\n", dwo(@$t1+0x20), dwo(@$t1+0x28), dwo(@$t1+0x30), dwo(@$t1+0x38) } }
+          .if (@$t1 != 0) { .if ((dwo(@$t1) >= 0x40) & (dwo(@$t1+0x10) == 4)) { .printf "\nRAX_CSR_OFFSETS %x %x %x %x\n", poi(@$t1+0x20)-@$t0, poi(@$t1+0x28)-@$t0, poi(@$t1+0x30)-@$t0, poi(@$t1+0x38)-@$t0 } }
           gu
           .printf "\nRAX_CSR_RETURN status=%x payload_bytes=%x message_bytes=%x operation=%x reply_status=%x\n", %status%, wo(@$t0), wo(@$t0+2), dwo(@$t0+0x30), dwo(@$t0+0x34)
           .if (wo(@$t0+2) == 0x258) { .printf "\nRAX_CSR_SXS flags=%x name_bytes=%x\n", dwo(@$t0+0x114), wo(@$t0+0x120) }
@@ -196,6 +196,7 @@ jobs:
             $commands = $commands.Replace('%arch%', $effectiveArch).Replace('%api%', $api).Replace('%message%', $message).Replace('%capture%', $capture).Replace('%length%', $length).Replace('%status%', $status)
             $raw = Join-Path $scratch 'debugger.log'
             $PSNativeCommandUseErrorActionPreference = $false
+            $identity.session = (Get-Process -Id $PID).SessionId
             Set-Location -LiteralPath (Split-Path -Parent $cmd)
             $nativeOutput = @(& $cmd /d /c $cmd /d /c echo rax-child)
             $identity.native_match = $LASTEXITCODE -eq 0 -and ($nativeOutput -join [Environment]::NewLine).Trim() -ceq 'rax-child'
@@ -204,7 +205,7 @@ jobs:
             $identity.debugger_exit = $LASTEXITCODE
             $identity.cmd_unchanged = $identity.cmd_sha256 -eq (Get-FileHash -LiteralPath $cmd).Hash.ToLowerInvariant()
             $identity.ntdll_unchanged = $identity.ntdll_sha256 -eq (Get-FileHash -LiteralPath $ntdll).Hash.ToLowerInvariant()
-            $observations = @(Get-Content -LiteralPath $raw | Where-Object { $_ -cmatch '^RAX_CSR_[A-Z]+[ 0-9a-f_=]+$' })
+            $observations = @(Get-Content -LiteralPath $raw | Where-Object { $_ -cmatch '^RAX_CSR_(?:ENTRY|CAPTURE|OFFSETS|RETURN|SXS) [a-z0-9_= ]+$' })
             $identity.complete = [bool]($observations -match '^RAX_CSR_ENTRY api=1001d ') -and
               [bool]($observations -match '^RAX_CSR_RETURN status=0 ') -and $identity.native_match
             Set-Content -LiteralPath (Join-Path $root "$probe.log") -Value $observations -Encoding utf8
