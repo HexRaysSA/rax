@@ -11,8 +11,31 @@ use crate::user::windows::nt::status::{
 use crate::user::windows::objects::DirectoryEntry;
 
 pub(super) fn collect(c: &Ctx, directory: &str) -> Checked<Vec<DirectoryEntry>> {
-    if directory.ends_with(":\\") {
-        return Err(c.unsupported("enumeration of the closed drive root").into());
+    let names = path::guest_directories(c)
+        .ok_or_else(|| c.unsupported("closed installed directory tree is unavailable"))?;
+    let prefix = format!("{}\\", directory.trim_end_matches('\\'));
+    let subdirectories: Vec<_> = names
+        .iter()
+        .filter_map(|candidate| candidate.strip_prefix(&prefix))
+        .filter(|name| !name.is_empty() && !name.contains('\\'))
+        .collect();
+    if !subdirectories.is_empty() {
+        return Ok(subdirectories
+            .into_iter()
+            .map(|name| {
+                let info = metadata::guest_directory();
+                DirectoryEntry {
+                    name: name.encode_utf16().collect(),
+                    short_name: Vec::new(),
+                    times: info.times,
+                    allocation: info.allocation,
+                    size: info.size,
+                    attributes: info.attributes,
+                    ea: None,
+                    file_id: 0,
+                }
+            })
+            .collect());
     }
     let mut entries = Vec::with_capacity(SELECTED_CHILD_EXECUTABLES.len());
     for name in SELECTED_CHILD_EXECUTABLES {

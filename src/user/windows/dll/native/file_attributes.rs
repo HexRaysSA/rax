@@ -62,12 +62,7 @@ fn checked(c: &mut Ctx, full: bool) -> Checked<u32> {
         .and_then(|name| path::guest_directory(c, attrs.root, name))
         .is_some()
     {
-        metadata::Information {
-            times: [0; 4],
-            allocation: 0,
-            size: 0,
-            attributes: 0x10, // FILE_ATTRIBUTE_DIRECTORY
-        }
+        metadata::guest_directory()
     } else {
         let resolved = path::resolve(c, &attrs, name.as_deref())?;
         metadata::query(c, &resolved, attrs.flags & 0x1000 != 0)?

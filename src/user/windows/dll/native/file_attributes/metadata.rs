@@ -23,6 +23,15 @@ pub(in super::super) struct Information {
     pub(in super::super) attributes: u32,
 }
 
+pub(in super::super) fn guest_directory() -> Information {
+    Information {
+        times: [0; 4],
+        allocation: 0,
+        size: 0,
+        attributes: 0x10, // FILE_ATTRIBUTE_DIRECTORY
+    }
+}
+
 /// Metadata for an entry obtained from an already admitted file object.
 pub(in super::super) fn descriptor(
     c: &Ctx,

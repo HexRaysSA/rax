@@ -186,6 +186,21 @@ fn checked(c: &mut Ctx, legacy: bool, caller_store: &mut bool) -> Checked<u32> {
         pattern: pattern(c, name)?,
         bytes: c.mem().bytes(output, length)?,
     };
+    if tracing::enabled!(target: "rax::windows::ntstatus", tracing::Level::TRACE)
+        && let Some(Object::File(file)) = c.p.objects.get(handle)
+        && let FileIdentity::GuestDirectory(directory) = &file.lifetime.identity
+    {
+        let pattern = request.pattern.as_deref().map(String::from_utf16_lossy);
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            pid = c.p.pid,
+            directory,
+            class,
+            flags,
+            ?pattern,
+            "guest directory query request"
+        );
+    }
     if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {
         *signaled = 0;
     }

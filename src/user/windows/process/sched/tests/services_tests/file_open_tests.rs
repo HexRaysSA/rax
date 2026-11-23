@@ -446,6 +446,96 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
 }
 
 #[test]
+fn native_file_open_closed_system_drive_lists_only_guest_directories() {
+    use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_NO_MORE_FILES};
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        std::fs::create_dir(installed.join("foreign")).unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let attrs = h.attrs();
+        let width = arch.ptr_size();
+        h.name(r"\??\C:\");
+        assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+        let drive = h.process.state().space.ptr(output, width).unwrap();
+
+        let scan = [drive, 0, 0, 0, io, output, 256, 3, 0, 0];
+        assert_eq!(
+            h.invoke_api("NtQueryDirectoryFileEx", &scan),
+            STATUS_SUCCESS
+        );
+        let space = &h.process.state().space;
+        assert_eq!(space.u32(output).unwrap(), 0);
+        assert_eq!(space.u32(output + 56).unwrap(), 0x10);
+        assert_eq!(space.u32(output + 60).unwrap(), 14);
+        assert_eq!(
+            space.bytes(output + 94, 14).unwrap(),
+            b"W\0i\0n\0d\0o\0w\0s\0"
+        );
+        assert_eq!(
+            h.invoke_api("NtQueryDirectoryFileEx", &scan),
+            STATUS_NO_MORE_FILES
+        );
+
+        h.name("wINDOWS");
+        h.process
+            .state()
+            .space
+            .wptr(attrs + width, width, drive)
+            .unwrap();
+        assert_eq!(
+            h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+            STATUS_SUCCESS
+        );
+        assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+        let windows = h.process.state().space.ptr(output, width).unwrap();
+        let scan = [windows, 0, 0, 0, io, output, 256, 12, 0, 0];
+        assert_eq!(
+            h.invoke_api("NtQueryDirectoryFileEx", &scan),
+            STATUS_SUCCESS
+        );
+        let space = &h.process.state().space;
+        let utf16 = |name: &str| {
+            name.encode_utf16()
+                .flat_map(u16::to_le_bytes)
+                .collect::<Vec<_>>()
+        };
+        let first = if arch == WinArch::X86 {
+            "SysWOW64"
+        } else {
+            "System32"
+        };
+        assert_eq!(space.bytes(output + 12, 16).unwrap(), utf16(first));
+        let next = u64::from(space.u32(output).unwrap());
+        if arch == WinArch::X86 {
+            assert_ne!(next, 0);
+            assert_eq!(
+                space.bytes(output + next + 12, 16).unwrap(),
+                utf16("System32")
+            );
+            assert_eq!(space.u32(output + next).unwrap(), 0);
+        } else {
+            assert_eq!(next, 0);
+        }
+
+        h.name(r"System32\foreign");
+        h.process
+            .state()
+            .space
+            .wptr(attrs + width, width, windows)
+            .unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100001, 7, 0x4021),
+            STATUS_ACCESS_DENIED
+        );
+        h.process.state_mut().objects.close(windows).unwrap();
+        h.process.state_mut().objects.close(drive).unwrap();
+    }
+}
+
+#[test]
 fn native_file_open_closed_directory_metadata_and_volume_are_guest_local() {
     use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_BUFFER_OVERFLOW};
 

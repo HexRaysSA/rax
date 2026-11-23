@@ -299,30 +299,64 @@ pub(in super::super) fn dos_tail<'a>(c: &Ctx, name: &'a [u16]) -> Option<&'a [u1
     }
 }
 
-/// Names with a guest directory object in the closed installed runtime.
-pub(in super::super) fn guest_directory(c: &Ctx, root: u64, name: &[u16]) -> Option<String> {
-    if c.p.cfg.host_filesystem || root != 0 {
+/// The finite directory tree exposed by the closed installed runtime.
+pub(in super::super) fn guest_directories(c: &Ctx) -> Option<Vec<String>> {
+    if c.p.cfg.host_filesystem {
         return None;
     }
     let runtime = c.p.native.as_ref()?;
-    let dos = dos_tail(c, name)?;
     let drive = runtime.guest_root.split_once(':')?.0;
-    let root = format!("{drive}:\\");
-    if equal(c, dos, &root.encode_utf16().collect::<Vec<_>>()) {
-        return Some(root);
-    }
-    let dos = dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(dos);
-    let runtime_dir = runtime.guest_directory.trim_end_matches('\\');
-    if equal(c, dos, &runtime_dir.encode_utf16().collect::<Vec<_>>()) {
-        return Some(runtime_dir.to_owned());
-    }
+    let windows = runtime.guest_root.trim_end_matches('\\');
+    let mut names = vec![
+        format!("{drive}:\\"),
+        windows.to_owned(),
+        runtime.guest_directory.trim_end_matches('\\').to_owned(),
+    ];
     if c.arch() == WinArch::X86 {
-        let system32 = format!(r"{}\System32", runtime.guest_root.trim_end_matches('\\'));
-        if equal(c, dos, &system32.encode_utf16().collect::<Vec<_>>()) {
-            return Some(system32);
+        let system32 = format!(r"{windows}\System32");
+        if !names[2].eq_ignore_ascii_case(&system32) {
+            names.push(system32);
         }
     }
-    None
+    Some(names)
+}
+
+/// Match an absolute DOS name or a name relative to a guest-only directory handle.
+pub(in super::super) fn guest_directory(c: &Ctx, root: u64, name: &[u16]) -> Option<String> {
+    let names = guest_directories(c)?;
+    let absolute;
+    let dos = if root == 0 {
+        dos_tail(c, name)?
+    } else {
+        let Some(Object::File(file)) = c.p.objects.get(root) else {
+            return None;
+        };
+        let FileIdentity::GuestDirectory(directory) = &file.lifetime.identity else {
+            return None;
+        };
+        if name.is_empty() {
+            return Some(directory.clone());
+        }
+        if name.first() == Some(&u16::from(b'\\')) {
+            return None;
+        }
+        parts(c, name).ok()?;
+        let mut path: Vec<_> = directory.encode_utf16().collect();
+        if !directory.ends_with('\\') {
+            path.push(u16::from(b'\\'));
+        }
+        path.extend_from_slice(name);
+        absolute = path;
+        &absolute
+    };
+    names.into_iter().find(|path| {
+        let name = if path.ends_with(":\\") {
+            dos
+        } else {
+            dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(dos)
+        };
+        equal(c, name, &path.encode_utf16().collect::<Vec<_>>())
+    })
 }
 
 fn resolve_kind(
