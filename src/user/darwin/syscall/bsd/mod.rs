@@ -143,12 +143,13 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
             }
         }
         match number {
-            nr::CSOPS => {
-                return crate::user::darwin::codesign::closed_status(
+            nr::CSOPS | nr::CSOPS_AUDITTOKEN => {
+                return crate::user::darwin::codesign::closed_query(
                     ctx,
-                    a[0] as i32,
-                    a[1] as u32,
+                    i(0),
+                    u(1),
                     a[2],
+                    (number == nr::CSOPS_AUDITTOKEN).then_some(a[4]),
                 );
             }
             nr::PROC_INFO => return proc::closed_pidinfo(ctx, a, false),

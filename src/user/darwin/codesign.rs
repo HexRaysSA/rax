@@ -319,20 +319,104 @@ fn copy_status(ctx: &mut Ctx<'_>, uaddr: u64, flags: u32) -> SysResult {
     Ok(Rv::one(0))
 }
 
-/// Read the current guest's signing flags without sampling a host image.
-pub(super) fn closed_status(ctx: &mut Ctx<'_>, pid: i32, op: u32, uaddr: u64) -> SysResult {
-    if op != ops::STATUS {
+fn validate_self_token(ctx: &Ctx<'_>, token: u64) -> Result<(), Errno> {
+    if token == 0 {
+        return Err(Errno::EINVAL);
+    }
+    let bytes = ctx.read(token, 32)?;
+    let word =
+        |i: usize| u32::from_le_bytes(bytes[4 * i..4 * i + 4].try_into().expect("four bytes"));
+    if word(5) != ctx.proc.pid as u32 || word(7) != ctx.proc.audit[7] {
+        return Err(Errno::ESRCH);
+    }
+    Ok(())
+}
+
+/// Read self signing status or establish that the loaded image carries no
+/// embedded entitlements. These guest replies never involve the host kernel.
+pub(super) fn closed_query(
+    ctx: &mut Ctx<'_>,
+    pid: i32,
+    op: u32,
+    uaddr: u64,
+    token: Option<u64>,
+) -> SysResult {
+    if !matches!(
+        op,
+        ops::STATUS | ops::ENTITLEMENTS_BLOB | ops::DER_ENTITLEMENTS_BLOB
+    ) {
         return Err(Errno::EPERM);
     }
     if pid != 0 && pid != ctx.proc.pid {
         return Err(Errno::ESRCH);
+    }
+    if let Some(token) = token {
+        validate_self_token(ctx, token)?;
     }
     let flags = ctx
         .proc
         .codesign
         .as_ref()
         .map_or(FALLBACK_FLAGS, |signing| signing.flags);
-    copy_status(ctx, uaddr, flags)
+    if op == ops::STATUS {
+        return copy_status(ctx, uaddr, flags);
+    }
+    let program = &ctx.proc.program;
+    let sig = program.main.code_signature.ok_or(Errno::EINVAL)?;
+    if flags & (cs::VALID | cs::DEBUGGED) == 0 {
+        return Err(Errno::EINVAL);
+    }
+    let (_, slice) = program
+        .image
+        .selected_slice(program.abi)
+        .map_err(|_| Errno::EBADEXEC)?;
+    let start = sig.dataoff as usize;
+    let end = start
+        .checked_add(sig.datasize as usize)
+        .ok_or(Errno::EBADEXEC)?;
+    match slice.get(start..end).and_then(signature_has_entitlements) {
+        Some(false) => Ok(Rv::one(0)),
+        Some(true) => Err(Errno::ENOTSUP),
+        None => Err(Errno::EBADEXEC),
+    }
+}
+
+/// Inspect the selected Mach-O slice's embedded SuperBlob. The index and
+/// each referenced blob must fit inside the declared SuperBlob length.
+fn signature_has_entitlements(bytes: &[u8]) -> Option<bool> {
+    const EMBEDDED_SIGNATURE: u32 = 0xfade_0cc0;
+    const CODE_DIRECTORY: u32 = 0xfade_0c02;
+    const ENTITLEMENTS: u32 = 0xfade_7171;
+    const DER_ENTITLEMENTS: u32 = 0xfade_7172;
+
+    fn word(bytes: &[u8], offset: usize) -> Option<u32> {
+        Some(u32::from_be_bytes(
+            bytes.get(offset..)?.get(..4)?.try_into().ok()?,
+        ))
+    }
+
+    if word(bytes, 0)? != EMBEDDED_SIGNATURE {
+        return None;
+    }
+    let bytes = bytes.get(..word(bytes, 4)? as usize)?;
+    let count = word(bytes, 8)? as usize;
+    let index_end = 12usize.checked_add(count.checked_mul(8)?)?;
+    let index = bytes.get(12..index_end)?;
+    let mut directory = false;
+    let mut entitlements = false;
+    for entry in index.chunks_exact(8) {
+        let slot = word(entry, 0)?;
+        let offset = word(entry, 4)? as usize;
+        let blob = bytes.get(offset..)?;
+        let magic = word(blob, 0)?;
+        let size = word(blob, 4)? as usize;
+        if offset < index_end || size < 8 || size > blob.len() {
+            return None;
+        }
+        directory |= slot == 0 && magic == CODE_DIRECTORY && size >= 44;
+        entitlements |= matches!(slot, 5 | 7) || matches!(magic, ENTITLEMENTS | DER_ENTITLEMENTS);
+    }
+    directory.then_some(entitlements)
 }
 
 /// `csops(pid, ops, useraddr, usersize)`, and `csops_audittoken` with the
@@ -380,12 +464,7 @@ pub fn csops(
         return result;
     }
     if let Some(t) = token {
-        let b = ctx.read(t, 32)?;
-        let word = |i: usize| u32::from_le_bytes(b[4 * i..4 * i + 4].try_into().expect("4 bytes"));
-        // The token's pid and pid version must be the process's.
-        if word(5) != me as u32 || word(7) != ctx.proc.audit[7] {
-            return Err(Errno::ESRCH);
-        }
+        validate_self_token(ctx, t)?;
     }
     let cs = state(ctx.proc).clone();
     let (flags, sig) = (cs.flags, cs.sig);

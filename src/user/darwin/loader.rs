@@ -65,6 +65,19 @@ impl fmt::Debug for ImageFile {
 }
 
 impl ImageFile {
+    pub(super) fn selected_slice(&self, abi: DarwinAbi) -> Result<(u64, &[u8]), MachOError> {
+        match self.slice {
+            Some((offset, size)) => {
+                let range = usize::try_from(offset).ok().zip(usize::try_from(size).ok());
+                let bytes = range
+                    .and_then(|(o, n)| self.bytes.get(o..o.checked_add(n)?))
+                    .ok_or(MachOError::NotMachO)?;
+                Ok((offset, bytes))
+            }
+            None => macho::select_slice(&self.bytes, abi.host_cpu()),
+        }
+    }
+
     /// Load a system image from the selected namespace. A host root is strict
     /// for these images; a supplied namespace never falls back to host files.
     pub fn read_system(path: &str, vfs: &Vfs) -> std::io::Result<Self> {
@@ -288,16 +301,7 @@ pub fn parse_executable(
     image: &ImageFile,
     abi: DarwinAbi,
 ) -> Result<(u64, MachOImage), MachOError> {
-    let (offset, slice) = match image.slice {
-        Some((offset, size)) => {
-            let range = usize::try_from(offset).ok().zip(usize::try_from(size).ok());
-            let slice = range
-                .and_then(|(o, n)| image.bytes.get(o..o.checked_add(n)?))
-                .ok_or(MachOError::NotMachO)?;
-            (offset, slice)
-        }
-        None => macho::select_slice(&image.bytes, abi.host_cpu())?,
-    };
+    let (offset, slice) = image.selected_slice(abi)?;
     let img = MachOImage::parse(
         slice,
         &LoadOptions {

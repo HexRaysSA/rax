@@ -507,6 +507,121 @@ fn installed_shell_pipeline_matches_native_through_closed_c_abi() {
     assert_eq!(info(&process)["loaded_program"]["path"], shell);
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+#[ignore = "run with the host shell and tar using an isolated test directory"]
+fn installed_tar_preserves_workspace_links_through_closed_c_abi() {
+    let (personality, shell) = if cfg!(target_os = "macos") {
+        ("darwin", "/bin/bash")
+    } else {
+        ("linux", "/bin/sh")
+    };
+    let commands = ["/bin/mkdir", "/bin/ln", "/usr/bin/tar"];
+    let script = r#"
+set -eu
+umask 077
+/bin/mkdir "$1" "$1/input" "$1/output"
+cd "$1"
+printf 'archive:installed-libc\n' >input/primary
+/bin/ln input/primary input/alias
+/bin/ln -s primary input/symbol
+/usr/bin/tar --format ustar -cf payload.tar -C input primary alias symbol
+/usr/bin/tar --no-same-owner -xf payload.tar -C output
+test output/primary -ef output/alias
+test -L output/symbol
+IFS= read -r line <output/symbol
+printf '%s\n' "$line"
+"#;
+    let environment = [("LC_ALL", "C"), ("COPYFILE_DISABLE", "1")];
+    let native_root =
+        std::env::temp_dir().join(format!("rax-installed-tar-{}", std::process::id()));
+    std::fs::create_dir(&native_root).unwrap();
+    #[cfg(target_os = "macos")]
+    let architecture = std::env::var("RAX_POSIX_INSTALLED_DIRECTORY_CONTROL_ARCH")
+        .unwrap_or_else(|_| std::env::consts::ARCH.to_owned());
+    #[cfg(target_os = "macos")]
+    let mut native_shell = {
+        let flag = match architecture.as_str() {
+            "aarch64" => "-arm64",
+            "x86_64" => "-x86_64",
+            other => panic!("unexpected installed Darwin architecture {other}"),
+        };
+        let mut command = std::process::Command::new("/usr/bin/arch");
+        command.args([flag, shell]);
+        command
+    };
+    #[cfg(target_os = "linux")]
+    let mut native_shell = std::process::Command::new(shell);
+    let native = native_shell
+        .args(["-c", script, shell])
+        .arg(native_root.join("control"))
+        .env_clear()
+        .envs(environment)
+        .output();
+    std::fs::remove_dir_all(&native_root).unwrap();
+    let native = native.unwrap();
+    assert!(
+        native.status.success(),
+        "{}",
+        String::from_utf8_lossy(&native.stderr)
+    );
+    assert_eq!(native.stdout, b"archive:installed-libc\n");
+    assert!(native.stderr.is_empty());
+
+    let options = serde_json::json!({
+        "personality": personality,
+        "guest_path": shell,
+        "arguments": ["-c", script, shell, "/tmp/installed-tar"],
+        "environment": environment.into_iter().collect::<std::collections::BTreeMap<_, _>>(),
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    #[cfg(target_os = "macos")]
+    let options = {
+        let mut options = options;
+        options["architecture"] = architecture.as_str().into();
+        options
+    };
+    let options = options.to_string();
+    let shell_image = std::fs::read(shell).unwrap();
+    let children = commands.map(|path| (path, std::fs::read(path).unwrap()));
+    let supplied = children.each_ref().map(|(path, bytes)| RaxProcessImage {
+        path: path.as_ptr().cast(),
+        path_size: path.len(),
+        data: bytes.as_ptr(),
+        data_size: bytes.len(),
+    });
+    let mut handle = ptr::null_mut();
+    assert_eq!(
+        rax_process_open_image(
+            shell_image.as_ptr(),
+            shell_image.len(),
+            options.as_ptr().cast(),
+            options.len(),
+            supplied.as_ptr(),
+            supplied.len(),
+            &mut handle,
+        ),
+        RaxStatus::Ok,
+        "{}",
+        error(),
+    );
+    assert!(!handle.is_null());
+    let process = Owned(handle);
+    let start = info(&process);
+    #[cfg(target_os = "macos")]
+    assert_eq!(start["architecture"], architecture);
+    assert_eq!(start["capabilities"]["native_runtime"], true);
+    assert_eq!(start["capabilities"]["host_filesystem"], false);
+    assert_eq!(start["capabilities"]["host_services"], false);
+    let result = run_installed_posix_with_turn_limit(&process, shell, 131_072);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stdout, native.stdout);
+    assert_eq!(stderr, native.stderr);
+}
+
 #[cfg(target_os = "macos")]
 #[test]
 fn installed_darwin_sh_selects_a_supplied_variant_through_closed_c_abi() {
@@ -814,6 +929,15 @@ fn installed_libc_workspace_xattr_list_matches_native_through_closed_c_abi() {
     let binary = std::env::var("RAX_POSIX_INSTALLED_XATTR_LIST_CONTROL")
         .expect("absolute path to the dynamically linked closed_workspace_xattr_list fixture");
     compare_installed_workspace_fixture(&binary, "closed_workspace_xattr_list", None);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+#[ignore = "run with a locally built and ad hoc signed closed_csops_empty.c fixture"]
+fn installed_libc_empty_entitlements_match_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_CSOPS_EMPTY_CONTROL")
+        .expect("absolute path to the signed closed_csops_empty fixture");
+    compare_installed_workspace_fixture(&binary, "closed_csops_empty", None);
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
