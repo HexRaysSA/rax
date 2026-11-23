@@ -47,6 +47,76 @@ pub(super) fn wow64(p: &mut Proc, t: &mut Thread, pc: u64) -> Outcome {
     outcome
 }
 
+// Diagnostic for the installed-process comparator. It never admits a service.
+fn trace_unmatched_user32(process: &Proc, sp: u64, resume: u64) {
+    use crate::user::windows::fs::FileIdentity;
+    use std::fs::File;
+
+    let observe = || {
+        let view = process.vm.section_view(resume)?;
+        let saved_rva = |address: u64| {
+            address
+                .checked_sub(view.image_base)
+                .filter(|rva| *rva < view.size)
+        };
+        if view.offset != 0 || view.section.no_execute {
+            return None;
+        }
+        let image = process.native.as_ref()?.dll("user32.dll").ok()??;
+        let file = File::open(&image).ok()?;
+        let identity = FileIdentity::of_open(&image, Some(&file), &file.metadata().ok()?).ok()?;
+        if view.section.file_identity() != Some(&identity)
+            && !String::from_utf16_lossy(&view.section.path)
+                .eq_ignore_ascii_case(r"\KnownDlls32\user32.dll")
+        {
+            return None;
+        }
+        let space = &process.space;
+        let stub = resume.checked_sub(12)?;
+        let mut leaf = [0; 15];
+        space.fetch(stub, &mut leaf).ok()?;
+        let caller = u64::from(space.u32(sp).ok()?);
+        let mut call = [0; 5];
+        space.fetch(caller.checked_sub(5)?, &mut call).ok()?;
+        let direct_call = call[0] == 0xe8
+            && (caller as u32).wrapping_add(u32::from_le_bytes(call[1..].try_into().ok()?))
+                == stub as u32;
+        let standard_leaf = leaf[..6] == [0xb8, 0x00, 0x20, 0x00, 0x00, 0xba]
+            && leaf[10..] == [0xff, 0xd2, 0xc2, 16, 0];
+        let thunk = u64::from(u32::from_le_bytes(leaf[6..10].try_into().ok()?));
+        let bytes = space.u32(sp.checked_add(12)?).ok()?;
+        let inside = u64::from(space.u32(sp.checked_add(16)?).ok()?);
+        Some((
+            saved_rva(stub)?,
+            saved_rva(caller)?,
+            saved_rva(thunk)?,
+            saved_rva(inside)?,
+            bytes,
+            direct_call,
+            standard_leaf,
+        ))
+    };
+    if let Some((stub, caller, thunk, inside, bytes, direct_call, standard_leaf)) = observe() {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            stub = %format_args!("{stub:#x}"),
+            caller = %format_args!("{caller:#x}"),
+            thunk = %format_args!("{thunk:#x}"),
+            inside = %format_args!("{inside:#x}"),
+            bytes,
+            direct_call,
+            standard_leaf,
+            "unmatched installed WoW64 USER connection"
+        );
+    } else {
+        tracing::trace!(
+            target: "rax::windows::ntstatus",
+            resume = %format_args!("{resume:#x}"),
+            "unmatched WoW64 connection lacked selected User32 geometry"
+        );
+    }
+}
+
 fn enter(
     p: &mut Proc,
     t: &mut Thread,
@@ -117,6 +187,12 @@ fn enter(
         .or_else(|| win32u_name.map(|name| ("Win32u", name.to_owned())))
         .or_else(|| private.map(|(library, api)| (library, api.name.to_owned())))
     else {
+        if wow64_return
+            && number == 0x2000
+            && tracing::enabled!(target: "rax::windows::ntstatus", tracing::Level::TRACE)
+        {
+            trace_unmatched_user32(p, sp, resume);
+        }
         return Some(Outcome::Fail(format!(
             "raw Windows {} service {number:#x} at {pc:#x} has no admitted stub in the selected NTDLL or Win32u",
             p.arch
