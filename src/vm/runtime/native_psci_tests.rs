@@ -534,3 +534,126 @@ fn native_secondary_system_off_stops_every_cpu_through_real_file() {
     }
     panic!("secondary failed to run after explicit VM restart");
 }
+
+#[test]
+#[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
+fn native_terminal_file_defers_queued_cpu_start_and_stop_until_explicit_wake() {
+    use crate::backend::arm64_hvf_power::{ENTRY_PSTATE, State};
+    use crate::vm::vcpu::CpuPowerRequest;
+
+    let fixture = Fixture::new();
+    let mut vm = Vmm::new_resume(fixture.config(4)).unwrap();
+    load_boot(&vm, 4);
+    assert_eq!(
+        call(
+            &mut vm,
+            0xc4000003,
+            [1, CODE + 0x100, MARKERS + 8],
+            false,
+            false
+        ),
+        0
+    );
+    vm.route_interprocessor_requests().unwrap();
+    assert_eq!(vm.coordinator.online, [true, true, false, false]);
+
+    let entry = CODE + 0x200;
+    let context = MARKERS + 16;
+    assert_eq!(
+        call(&mut vm, 0xc4000003, [2, entry, context], false, false),
+        0
+    );
+    let power_call = CODE + 0x900;
+    vm.guest_mem
+        .memory()
+        .write_obj(0xd4000002u32.to_le(), GuestAddress(power_call))
+        .unwrap();
+    publish_native_code(&vm.guest_mem, power_call, 4);
+    let prepare = |vm: &mut Vmm, id: usize, function| {
+        let CpuState::Aarch64(mut state) = vm.vcpus[id].get_state().unwrap() else {
+            panic!();
+        };
+        state.regs.pc = power_call;
+        state.regs.x[0] = function;
+        vm.vcpus[id].set_state(&CpuState::Aarch64(state)).unwrap();
+    };
+    let queued = [
+        CpuPowerRequest::Start {
+            cpu_id: 2,
+            entry,
+            context,
+            pstate: ENTRY_PSTATE,
+        },
+        CpuPowerRequest::Off { cpu_id: 1 },
+    ];
+    prepare(&mut vm, 1, 0x84000002); // CPU_OFF
+    for _ in 0..32 {
+        assert!(matches!(vm.vcpus[1].run().unwrap(), VcpuExit::Hlt));
+        if vm.vm.take_cpu_power_requests().unwrap().len() == queued.len() {
+            break;
+        }
+    }
+    assert_eq!(vm.vm.take_cpu_power_requests().unwrap(), queued);
+    prepare(&mut vm, 0, 0x84000008); // SYSTEM_OFF
+    assert!(matches!(vm.vcpus[0].run().unwrap(), VcpuExit::Shutdown));
+
+    let power = |vm: &Vmm| {
+        let boundary = vm.vm.checkpoint_boundary().unwrap();
+        let shared = vm
+            .vm
+            .capture_checkpoint_vm_context(&boundary)
+            .unwrap()
+            .unwrap();
+        GlobalContext::decode(&shared.data).unwrap().power
+    };
+    let expected = power(&vm);
+    assert!(expected.shutdown);
+    assert_eq!(
+        expected.states,
+        [State::On, State::Stopping, State::Starting, State::Off]
+    );
+    assert!(expected.pending.iter().map(|p| &p.request).eq(&queued));
+    std::fs::remove_file(&fixture.kernel).unwrap();
+    let mut restored = save_restore(vm, &fixture, "native-psci-terminal-transitions.rxc");
+    assert_eq!(power(&restored), expected);
+    let stopped_cpus = private_states(&restored);
+    restored.run().unwrap();
+    assert_eq!(restored.coordinator.online, [true, true, false, false]);
+    assert_eq!(power(&restored), expected);
+    assert!(restored.vm.take_cpu_power_requests().unwrap().is_empty());
+    assert!(
+        restored.vcpus[2]
+            .start_aarch64_cpu(entry, context, ENTRY_PSTATE)
+            .is_err()
+    );
+    assert!(restored.vm.complete_cpu_start(2).is_err());
+    assert!(restored.vm.complete_cpu_stop(1).is_err());
+    assert_eq!(power(&restored), expected);
+    assert_eq!(private_states(&restored), stopped_cpus);
+
+    restored.vcpus[0].wake();
+    assert_eq!(restored.vm.take_cpu_power_requests().unwrap(), queued);
+    restored.route_interprocessor_requests().unwrap();
+    assert_eq!(restored.coordinator.online, [true, false, true, false]);
+    assert!(restored.vm.take_cpu_power_requests().unwrap().is_empty());
+    assert!(matches!(restored.vcpus[1].run().unwrap(), VcpuExit::Hlt));
+    for _ in 0..32 {
+        match restored.vcpus[2].run().unwrap() {
+            VcpuExit::Hlt => (),
+            VcpuExit::MmioRead {
+                addr: UART,
+                size: 8,
+            } => {
+                let marker: u64 = restored
+                    .guest_mem
+                    .memory()
+                    .read_obj(GuestAddress(context))
+                    .unwrap();
+                assert_eq!(marker, 0x3001);
+                return;
+            }
+            exit => panic!("queued CPU start returned {exit:?}"),
+        }
+    }
+    panic!("CPU2 did not execute after explicit wake");
+}

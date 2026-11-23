@@ -545,20 +545,42 @@ the public restart operations; register overlays retain the terminal state.
 
 Shared native version 02 retains ordered start/stop requests, per-CPU power
 states, the caller's endianness for each pending start and VM-wide shutdown.
-Requests are inspected without consumption and removed individually after
-successful publication. A partial startup failure leaves every unacknowledged
-request available for retry and checkpointing. Bundle admission checks the power
-graph against the coordinator's online set. Native file completion also requires
-the coordinator and VM clock sections. Earlier experimental version 01 records
-lack this information and are rejected explicitly.
+While the VM is running, requests are inspected without consumption and removed
+individually after successful publication. Shutdown keeps them in the graph
+and prevents the coordinator from observing them or acknowledging a previous
+offer. The owner holds the power lock from startup admission until it installs
+the entry state, so shutdown and startup installation are serialized.
+Explicit wake makes the retained requests available in their original order.
+A partial startup failure leaves every unacknowledged request available for
+retry and checkpointing. Bundle admission checks the power graph against the
+coordinator's online set. Native file completion also requires the coordinator
+and VM clock sections. Earlier experimental version 01 records lack this
+information and are rejected explicitly.
 
 The primary contract is [Arm DEN 0022D](../../specifications/arm/psci-den0022.pdf),
-sections 5.5-5.7 and 6.4. The new signed native regressions cover actual guest
+sections 5.5-5.7, 5.10 and 6.4. The signed native regressions cover actual guest
 startup, two- and four-CPU coordinator execution, CPU2 publication failure with
 CPU3 queued, pending start/stop file restoration, CPU power-off/restart, both
 calling conventions/conduits, data endianness and secondary-initiated shutdown.
 Their current execution receipts are maintained in the audit ledger; source
 presence alone is not native execution evidence.
+
+The terminal power regression queues a guest `CPU_ON` for CPU 2 and
+`CPU_OFF` from CPU 1, then executes `SYSTEM_OFF`. Its four-CPU checkpoint
+restores after removal of the boot image. Before wake, the normal VMM run
+and stale direct transition calls must preserve the coordinator's online
+set, the shared power graph, and the captured per-CPU context. After wake,
+the two requests must be available in the same order. CPU 1 must stay
+parked and CPU 2 must reach PL011 after writing its saved context marker.
+
+On an Apple M4 Max running macOS 27.3 build 26C5035r, the parent applied
+both requests during the first terminal run, changing the online mask
+from `[true, true, false, false]` to `[true, false, true, false]`. The
+signed regression passed with the fix and observed marker `0x3001` after
+wake. An independent parser recovered identical power states, online bits,
+and ordered requests from both saved files. The fixture uses the normal
+serial coordinator path. Simultaneous SDK entry during a shutdown
+transition requires separate evidence.
 
 Power graph validation uses O(n) time and O(n) scratch space for n CPUs.
 Transition publication/removal uses O(n) time; retained requests and states use

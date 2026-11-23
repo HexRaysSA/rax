@@ -110,9 +110,33 @@ fn native_power_pending_requests_and_global_shutdown_survive_codec() {
     for id in 1..4 {
         assert_eq!(start(&mut power, id), 0);
     }
+    power.complete(1, true).unwrap();
+    power.cpu_off(1).unwrap();
     power.shutdown = true;
     let raw = crate::codec::serialize(&power).unwrap();
-    let restored: Power = crate::codec::deserialize(&raw).unwrap();
+    let mut restored: Power = crate::codec::deserialize(&raw).unwrap();
     assert_eq!(restored, power);
     restored.validate(4, BASE, SIZE).unwrap();
+    assert!(
+        restored
+            .start_endianness(2, BASE, 0xface, ENTRY_PSTATE)
+            .is_err()
+    );
+    assert!(restored.complete(2, true).is_err());
+    assert!(restored.complete(1, false).is_err());
+    assert_eq!(restored, power);
+
+    restored.shutdown = false;
+    assert!(
+        restored
+            .start_endianness(2, BASE, 0xface, ENTRY_PSTATE)
+            .unwrap()
+    );
+    restored.complete(2, true).unwrap();
+    restored.complete(1, false).unwrap();
+    assert_eq!(
+        restored.states,
+        [State::On, State::Off, State::On, State::Starting]
+    );
+    assert_eq!(restored.pending, power.pending[1..2]);
 }

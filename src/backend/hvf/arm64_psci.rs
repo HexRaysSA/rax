@@ -10,9 +10,13 @@ impl NativeVmLifetime {
             .map_err(|_| Error::Emulator("native power lock poisoned".into()))
     }
     pub(super) fn power_requests(&self) -> Result<Vec<CpuPowerRequest>> {
-        Ok(self.power()?.as_ref().map_or_else(Vec::new, |power| {
-            power.pending.iter().map(|p| p.request.clone()).collect()
-        }))
+        Ok(self
+            .power()?
+            .as_ref()
+            .filter(|power| !power.shutdown)
+            .map_or_else(Vec::new, |power| {
+                power.pending.iter().map(|p| p.request.clone()).collect()
+            }))
     }
     pub(super) fn complete_power(&self, id: u32, start: bool) -> Result<()> {
         self.power()?
@@ -114,9 +118,10 @@ impl HvfArm64Core {
         Ok(())
     }
     pub(super) fn start_cpu(&mut self, entry: u64, context: u64, pstate: u64) -> Result<()> {
-        let big_endian = self
-            ._vm
-            .power()?
+        // Keep shutdown serialized with startup until owner state is installed.
+        let lifetime = Arc::clone(&self._vm);
+        let power = lifetime.power()?;
+        let big_endian = power
             .as_ref()
             .ok_or_else(|| Error::InvalidConfig("native CPU topology is not configured".into()))?
             .start_endianness(self.id, entry, context, pstate)?;
@@ -157,6 +162,7 @@ impl HvfArm64Core {
         self.pending_io_reply = None;
         self.io_completion_error = None;
         self.shutdown = false;
+        drop(power);
         Ok(())
     }
 }

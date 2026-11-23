@@ -171,6 +171,7 @@ impl Power {
         }
     }
     pub fn start_endianness(&self, id: u32, entry: u64, context: u64, pstate: u64) -> Result<bool> {
+        self.require_running()?;
         self.pending
             .iter()
             .find_map(|pending| {
@@ -186,6 +187,7 @@ impl Power {
             .ok_or_else(invalid)
     }
     pub fn complete(&mut self, id: u32, start: bool) -> Result<()> {
+        self.require_running()?;
         let expected = if start {
             State::Starting
         } else {
@@ -204,6 +206,14 @@ impl Power {
             .ok_or_else(invalid)?;
         self.pending.remove(index);
         self.states[id as usize] = if start { State::On } else { State::Off };
+        Ok(())
+    }
+    fn require_running(&self) -> Result<()> {
+        if self.shutdown {
+            return Err(Error::InvalidConfig(
+                "native PSCI power transition cannot publish while the VM is shut down".into(),
+            ));
+        }
         Ok(())
     }
 }
