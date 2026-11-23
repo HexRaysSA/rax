@@ -814,6 +814,13 @@ pub fn futimes(ctx: &mut Ctx<'_>, fd: i32, times: u64) -> SysResult {
 pub fn fpathconf(ctx: &mut Ctx<'_>, fd: i32, name: i32) -> SysResult {
     if !ctx.proc.config.host_services {
         let file = ctx.proc.fds.file(fd)?;
+        if let FileKind::Embedded(data) = &file.kind
+            && data
+                .entry()
+                .is_some_and(|entry| entry.workspace_mode().is_some())
+        {
+            return super::path::workspace_pathconf(name);
+        }
         if file.pipe_end().is_none() {
             return Err(Errno::ENOTSUP);
         }

@@ -671,6 +671,10 @@ pub fn read_timevals(ctx: &Ctx<'_>, addr: u64) -> Result<Option<[libc::timeval; 
 
 /// `pathconf(path, name)`.
 pub fn pathconf(ctx: &mut Ctx<'_>, path: u64, name: i32) -> SysResult {
+    if ctx.proc.vfs.is_closed() {
+        return embedded::pathconf(ctx, path, name);
+    }
+
     #[cfg(unix)]
     {
         let (_, cpath) = guest_path(ctx, path)?;
@@ -829,18 +833,39 @@ fn host_fsgetpath(_: [u8; 8], _: u64, _: usize, _: u32) -> Result<Vec<u8>, Errno
     Err(Errno::ENOTSUP)
 }
 
+const WORKSPACE_BLOCK_SIZE: u32 = 4096;
+
+pub(super) fn workspace_pathconf(name: i32) -> SysResult {
+    // Darwin selector values from <sys/unistd.h>.
+    const PC_NAME_MAX: i32 = 4;
+    const PC_PATH_MAX: i32 = 5;
+    const PC_REC_INCR_XFER_SIZE: i32 = 20;
+    const PC_REC_MAX_XFER_SIZE: i32 = 21;
+    const PC_REC_MIN_XFER_SIZE: i32 = 22;
+    const PC_REC_XFER_ALIGN: i32 = 23;
+    let value = match name {
+        PC_NAME_MAX => crate::user::supplied_fs::NAME_MAX as u64,
+        PC_PATH_MAX => crate::user::darwin::syscall::util::MAXPATHLEN as u64,
+        PC_REC_INCR_XFER_SIZE | PC_REC_MIN_XFER_SIZE | PC_REC_XFER_ALIGN => {
+            u64::from(WORKSPACE_BLOCK_SIZE)
+        }
+        PC_REC_MAX_XFER_SIZE => 65536,
+        _ => return Err(Errno::EINVAL),
+    };
+    Ok(Rv::one(value))
+}
+
 pub(super) fn write_workspace_statfs(ctx: &mut Ctx<'_>, buf: u64) -> SysResult {
     use crate::user::darwin::abi::types::Statfs;
 
     let files = ctx.proc.vfs.files().ok_or(Errno::ENOTSUP)?;
     let capacity = files.workspace_capacity()?;
-    const BLOCK_SIZE: u32 = 4096;
     const MNT_LOCAL: u32 = 0x1000;
-    let free_blocks = capacity.bytes_available / u64::from(BLOCK_SIZE);
+    let free_blocks = capacity.bytes_available / u64::from(WORKSPACE_BLOCK_SIZE);
     let stat = Statfs {
-        bsize: BLOCK_SIZE,
-        iosize: BLOCK_SIZE as i32,
-        blocks: capacity.bytes_total / u64::from(BLOCK_SIZE),
+        bsize: WORKSPACE_BLOCK_SIZE,
+        iosize: WORKSPACE_BLOCK_SIZE as i32,
+        blocks: capacity.bytes_total / u64::from(WORKSPACE_BLOCK_SIZE),
         bfree: free_blocks,
         bavail: free_blocks,
         files: capacity.nodes_total,

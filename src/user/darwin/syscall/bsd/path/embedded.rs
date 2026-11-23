@@ -75,6 +75,14 @@ pub(super) fn statfs64(ctx: &mut Ctx<'_>, path: u64, buf: u64) -> SysResult {
     super::write_workspace_statfs(ctx, buf)
 }
 
+pub(super) fn pathconf(ctx: &Ctx<'_>, path: u64, name: i32) -> SysResult {
+    let (_, entry) = lookup(ctx, AT_FDCWD, path, LinkPolicy::Follow)?;
+    if entry.workspace_mode().is_none() {
+        return Err(Errno::ENOTSUP);
+    }
+    super::workspace_pathconf(name)
+}
+
 fn lookup_as(
     ctx: &Ctx<'_>,
     path: &[u8],
