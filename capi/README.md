@@ -766,6 +766,11 @@ Perl sources, and Unicode version data under `/usr/share/perl` and
 symlinks within each module root. Architecture-specific Perl extensions use
 the selected Linux library roots.
 
+Linux native runtime selection can also read installed executable ELF images
+under the distribution's `/bin` and `/usr/bin` for guest child execution.
+These mounts are read-only and resolve files within the selected directories.
+Explicit guest images retain precedence.
+
 On macOS, native runtime selection also exposes installed Perl source modules
 and their Mach-O extension bundles below /System/Library/Perl. The mount is
 read-only and resolves files within that system tree. Explicit supplied files

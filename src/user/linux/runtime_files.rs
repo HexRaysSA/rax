@@ -15,11 +15,20 @@ mod ld_cache;
 
 #[cfg(any(target_os = "linux", test))]
 const PERL_MODULE_ROOTS: &[&str] = &["/usr/share/perl", "/usr/share/perl5"];
+#[cfg(any(target_os = "linux", test))]
+const PROGRAM_ROOTS: &[&str] = &["/bin", "/usr/bin"];
+#[cfg(any(target_os = "linux", test))]
+const CONFINED_ROOTS: &[&str] = &[
+    PERL_MODULE_ROOTS[0],
+    PERL_MODULE_ROOTS[1],
+    PROGRAM_ROOTS[0],
+    PROGRAM_ROOTS[1],
+];
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, plus installed
-/// Perl modules, timezone, protocol and service data. Include guest loopback
-/// names and a synthetic `/dev/null` in the guest namespace. Explicit
+/// ELF programs, Perl modules, timezone, protocol and service data. Include
+/// guest loopback names and a synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
 pub fn native(files: &Files) -> io::Result<Files> {
@@ -58,6 +67,25 @@ fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
         if host.symlink_metadata().is_ok_and(|info| info.is_dir()) {
             roots.insert(path.into(), host);
         }
+    }
+    let bin = root.join("bin");
+    let usr_bin = root.join("usr/bin");
+    let usr_bin_selected = usr_bin.symlink_metadata().is_ok_and(|info| info.is_dir());
+    // /bin may be a distinct directory or the distribution alias for /usr/bin.
+    if bin.symlink_metadata().is_ok_and(|info| {
+        info.is_dir()
+            || (info.is_symlink()
+                && usr_bin_selected
+                && bin
+                    .canonicalize()
+                    .ok()
+                    .zip(usr_bin.canonicalize().ok())
+                    .is_some_and(|(bin, usr_bin)| bin == usr_bin))
+    }) {
+        roots.insert(PROGRAM_ROOTS[0].into(), bin);
+    }
+    if usr_bin_selected {
+        roots.insert(PROGRAM_ROOTS[1].into(), usr_bin);
     }
     let cache = root.join("etc/ld.so.cache");
     let files = select(files, roots, cache.is_file().then_some(cache))?;
@@ -114,7 +142,7 @@ fn select(
     #[cfg(target_os = "linux")]
     let library_roots = roots
         .keys()
-        .filter(|name| !PERL_MODULE_ROOTS.contains(&name.as_str()))
+        .filter(|name| !CONFINED_ROOTS.contains(&name.as_str()))
         .cloned()
         .collect::<Vec<_>>();
     let files = files
@@ -123,7 +151,7 @@ fn select(
         .and_then(|files| files.with_device(Device::Urandom))
         .map_err(io::Error::other)?;
     let files =
-        files.with_linux_library_roots(roots, Some(accept_installed_file), PERL_MODULE_ROOTS)?;
+        files.with_linux_library_roots(roots, Some(accept_installed_file), CONFINED_ROOTS)?;
     let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
         return Ok(files);
     };
@@ -134,12 +162,41 @@ fn select(
 }
 
 #[cfg(any(target_os = "linux", test))]
-fn accept_installed_file(path: &str, host: &Path, _: &std::fs::File) -> io::Result<bool> {
-    let perl_module = PERL_MODULE_ROOTS.iter().any(|&root| {
+fn under_root(path: &str, roots: &[&str]) -> bool {
+    roots.iter().any(|&root| {
         path.strip_prefix(root)
             .is_some_and(|relative| relative.starts_with('/'))
-    });
-    Ok(!perl_module || (is_perl_runtime_file(Path::new(path)) && is_perl_runtime_file(host)))
+    })
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn accept_installed_file(path: &str, host: &Path, _file: &std::fs::File) -> io::Result<bool> {
+    #[cfg(target_os = "linux")]
+    if under_root(path, PROGRAM_ROOTS) {
+        return accept_installed_program(_file);
+    }
+    Ok(!under_root(path, PERL_MODULE_ROOTS)
+        || (is_perl_runtime_file(Path::new(path)) && is_perl_runtime_file(host)))
+}
+
+#[cfg(target_os = "linux")]
+fn accept_installed_program(file: &std::fs::File) -> io::Result<bool> {
+    use crate::user::image::elf::{ET_DYN, ET_EXEC, identify};
+    use std::os::unix::fs::{FileExt, PermissionsExt};
+
+    if file.metadata()?.permissions().mode() & 0o111 == 0 {
+        return Ok(false);
+    }
+    let mut header = [0; 20];
+    match file.read_exact_at(&mut header, 0) {
+        Ok(()) => Ok(identify(&header).is_ok_and(|elf| {
+            elf.elf_class().is_some()
+                && elf.elf_data().is_some()
+                && matches!(elf.e_type, ET_EXEC | ET_DYN)
+        })),
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -209,6 +266,66 @@ fn open_cached_library(path: &std::path::Path) -> io::Result<crate::user::mm::Ho
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_programs_select_executable_elfs_within_the_distribution_bins() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{
+            fs::{self, Permissions},
+            os::unix::fs::{PermissionsExt, symlink},
+            sync::Arc,
+        };
+
+        let fixture = TestFile::new(b"unused", 6);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let bin = root.join("usr/bin");
+        let local_bin = root.join("usr/local/bin");
+        for path in [&lib, &bin, &local_bin] {
+            fs::create_dir_all(path).unwrap();
+        }
+        symlink("usr/bin", root.join("bin")).unwrap();
+        symlink("program", bin.join("alias")).unwrap();
+        symlink("../lib/external", bin.join("external")).unwrap();
+        let mut elf = [0; 64];
+        elf[..7].copy_from_slice(b"\x7fELF\x02\x01\x01");
+        elf[16] = 3;
+        for path in [
+            bin.join("program"),
+            lib.join("external"),
+            local_bin.join("unselected"),
+        ] {
+            fs::write(&path, elf).unwrap();
+            fs::set_permissions(&path, Permissions::from_mode(0o755)).unwrap();
+        }
+        fs::write(bin.join("non-executable"), elf).unwrap();
+        fs::set_permissions(bin.join("non-executable"), Permissions::from_mode(0o644)).unwrap();
+        fs::write(bin.join("text"), b"unselected").unwrap();
+        fs::set_permissions(bin.join("text"), Permissions::from_mode(0o755)).unwrap();
+
+        let selected = select_installed(&Files::default(), root).unwrap();
+        for path in ["/bin/program", "/usr/bin/program", "/bin/alias"] {
+            assert_eq!(&*selected.read(path).unwrap(), &elf);
+        }
+        for path in [
+            "/bin/non-executable",
+            "/bin/text",
+            "/bin/external",
+            "/usr/local/bin/unselected",
+        ] {
+            assert!(
+                matches!(selected.read(path), Err(Error::NotFound)),
+                "{path}"
+            );
+        }
+        assert_eq!(&*selected.read("/usr/lib/external").unwrap(), &elf);
+        let selected = selected
+            .with_file("/bin/program".into(), Arc::from(&b"guest main"[..]))
+            .unwrap();
+        assert_eq!(&*selected.read("/bin/program").unwrap(), b"guest main");
+        assert_eq!(&*selected.read("/usr/bin/program").unwrap(), &elf);
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
