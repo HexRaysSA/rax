@@ -13,6 +13,7 @@ pub(in crate::user::windows::registry) struct Builder {
     view: RegistryView,
     label: &'static str,
     complete_metadata: bool,
+    protocol_catalog: bool,
     values: ValueBudget,
     metadata: TreeBudget,
 }
@@ -29,6 +30,7 @@ impl Builder {
             view,
             label: root.label(),
             complete_metadata: root.requires_complete_metadata(),
+            protocol_catalog: root.is_protocol_catalog(),
             values,
             metadata,
         })
@@ -69,7 +71,16 @@ impl Builder {
             )));
         }
         self.metadata.charge(&header.canonical, depth)?;
-        let values = bounded_values(&self.upcase, header.values, &mut self.values)?;
+        if self.protocol_catalog {
+            super::super::process_config::protocol_catalog::check_node(
+                &self.upcase,
+                depth,
+                &header.values,
+                children.iter().flatten().map(|(name, _)| name.as_slice()),
+            )?;
+        }
+        let mut values = bounded_values(&self.upcase, header.values, &mut self.values)?;
+        values.native_order = self.protocol_catalog;
         let enumeration = super::super::key_enumeration::bounded(
             &self.upcase,
             header.enumeration,

@@ -44,7 +44,9 @@ impl ViewRoot {
         !matches!(
             self,
             Self::ProcessConfig(subject)
-                if !suffix.is_empty() && !subject.captures_child_membership()
+                if !suffix.is_empty()
+                    && !subject.captures_child_membership()
+                    && subject != ProcessConfigKey::WinsockProtocolCatalog
         )
     }
 }

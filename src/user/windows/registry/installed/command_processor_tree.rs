@@ -101,12 +101,22 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
             }
             self.metadata.charge(&canonical, depth)?;
             let access = access(&key, &canonical)?;
-            let (values, names) = super::super::key_enumeration::stable_bounded(
-                &key,
-                &self.values,
-                self.reserved,
-                self.metadata.key_limit(),
-            )?;
+            use super::super::key_enumeration::{stable_bounded, stable_ordered_values_bounded};
+            let sample = if self.root.is_protocol_catalog() {
+                stable_ordered_values_bounded
+            } else {
+                stable_bounded
+            };
+            let (values, names) =
+                sample(&key, &self.values, self.reserved, self.metadata.key_limit())?;
+            if self.root.is_protocol_catalog() {
+                crate::user::windows::registry::process_config::protocol_catalog::check_node(
+                    &self.registry.upcase,
+                    depth,
+                    &values,
+                    names.iter().map(|entry| entry.name.as_slice()),
+                )?;
+            }
             if canonical_hive_name(&key, "Command Processor")? != canonical
                 || super::super::native_key::basic(&key, "Command Processor")?
                     != access.maximum_access

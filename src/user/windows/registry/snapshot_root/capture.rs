@@ -37,7 +37,7 @@ pub(in crate::user::windows::registry) fn capture(
         return shared(registry, root, sid, source);
     }
     for view in [RegistryView::Native64, RegistryView::Wow32] {
-        let selected = match open(source, view)? {
+        let selected = match open(source, root, view)? {
             Ok(key) => {
                 let tree = source.tree(&registry, view, key)?;
                 Ok((tree.header, Some(tree.children)))
@@ -55,8 +55,8 @@ fn shared(
     sid: &[u8],
     source: &mut impl Source,
 ) -> io::Result<Registry> {
-    let native = open(source, RegistryView::Native64)?;
-    let wow = open(source, RegistryView::Wow32)?;
+    let native = open(source, root, RegistryView::Native64)?;
+    let wow = open(source, root, RegistryView::Wow32)?;
     let tree = match (native, wow) {
         (Ok(native), Ok(wow)) => {
             let first = source.identity(&native)?;
@@ -125,11 +125,18 @@ fn same_identity(
             .all(|(&a, &b)| registry.upcase[usize::from(a)] == registry.upcase[usize::from(b)])
 }
 
-fn open<S: Source>(source: &mut S, view: RegistryView) -> io::Result<Result<S::Key, u32>> {
+fn open<S: Source>(
+    source: &mut S,
+    root: SnapshotRoot,
+    view: RegistryView,
+) -> io::Result<Result<S::Key, u32>> {
     match source.open(view) {
         Ok(key) => Ok(Ok(key)),
         Err(error) if error.raw_os_error() == Some(2) => Ok(Err(STATUS_OBJECT_NAME_NOT_FOUND)),
         Err(error) if error.raw_os_error() == Some(3) => Ok(Err(STATUS_OBJECT_PATH_NOT_FOUND)),
+        Err(error) if root.is_protocol_catalog() && error.raw_os_error() == Some(5) => {
+            Ok(Err(STATUS_ACCESS_DENIED))
+        }
         Err(error) => Err(error),
     }
 }

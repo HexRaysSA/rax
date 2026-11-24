@@ -72,7 +72,16 @@ pub(super) fn stable_ordered_values(
     budget: &ValueBudget,
     reserved: usize,
 ) -> io::Result<(Vec<Value>, Vec<BasicChild>)> {
-    stable_with_values(key, budget, reserved, MAX_TREE_KEYS, ordered_values)
+    stable_ordered_values_bounded(key, budget, reserved, MAX_TREE_KEYS)
+}
+
+pub(super) fn stable_ordered_values_bounded(
+    key: &OwnedKey,
+    budget: &ValueBudget,
+    reserved: usize,
+    key_limit: usize,
+) -> io::Result<(Vec<Value>, Vec<BasicChild>)> {
+    stable_with_values(key, budget, reserved, key_limit, ordered_values)
 }
 
 fn stable_with_values(

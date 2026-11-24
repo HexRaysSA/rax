@@ -8,6 +8,10 @@ use crate::user::windows::nt::status::{
 
 pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
     for subject in ProcessConfigKey::ALL {
+        if subject == ProcessConfigKey::WinsockProtocolCatalog {
+            registry = super::command_processor::capture_protocol_catalog(registry)?;
+            continue;
+        }
         let root = SnapshotRoot::ProcessConfig(subject);
         let path = root.path(&[])?;
         // CMD uses the native view for these two distinct AppCompatFlags paths.
