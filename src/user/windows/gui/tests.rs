@@ -61,12 +61,14 @@ fn fixture_with_client_flags(arch: WinArch, flags: u64) -> io::Result<Arc<Inputs
 }
 
 pub(crate) fn wow64_companion_fixture(arch: WinArch, committed: u64) -> Arc<Inputs> {
-    let inputs = wow64_companion_inputs(arch, committed);
-    inputs.qualify_wow64_companion(arch).unwrap();
+    let inputs = wow64_companion_inputs(arch, committed, WOW64_DESKTOP_SESSION_EXTENT);
+    inputs
+        .qualify_wow64_companion(arch, WOW64_DESKTOP_SESSION_EXTENT)
+        .unwrap();
     inputs
 }
 
-fn wow64_companion_inputs(arch: WinArch, committed: u64) -> Arc<Inputs> {
+fn wow64_companion_inputs(arch: WinArch, committed: u64, extent: u64) -> Arc<Inputs> {
     let fixture = fixture(arch);
     let mut client = fixture.client;
     let base = 0x1_0100_0000;
@@ -82,7 +84,7 @@ fn wow64_companion_inputs(arch: WinArch, committed: u64) -> Arc<Inputs> {
         View {
             base,
             section: DataSection::private_readonly(
-                0x1401000,
+                extent,
                 vec![
                     DataRegion {
                         offset: 0,
@@ -91,7 +93,7 @@ fn wow64_companion_inputs(arch: WinArch, committed: u64) -> Arc<Inputs> {
                     },
                     DataRegion {
                         offset: committed,
-                        size: 0x1401000 - committed,
+                        size: extent - committed,
                         bytes: None,
                     },
                 ],
@@ -118,8 +120,10 @@ fn wow64_companion_gui_uses_the_captured_desktop_commit_boundary() {
         (WinArch::Arm64, 0x55000),
         (WinArch::Arm64, 0x56000),
     ] {
-        let inputs = wow64_companion_inputs(arch, committed);
-        inputs.qualify_wow64_companion(arch).unwrap();
+        let inputs = wow64_companion_inputs(arch, committed, WOW64_DESKTOP_SESSION_EXTENT);
+        inputs
+            .qualify_wow64_companion(arch, WOW64_DESKTOP_SESSION_EXTENT)
+            .unwrap();
         let mut vm = memory();
         let mut state = State::new((6, 0));
         let (gdi, client) = state
@@ -132,6 +136,32 @@ fn wow64_companion_gui_uses_the_captured_desktop_commit_boundary() {
         assert_eq!(vm.space().u32(client[12] + 20).unwrap(), 125);
         assert!(vm.space().w32(client[12] + 20, 99).is_err());
     }
+}
+
+#[test]
+fn wow64_companion_gui_maps_the_session_zero_desktop_extent() {
+    let arch = WinArch::Arm64;
+    let extent = 0xc1000;
+    let committed = 0x19000;
+    let inputs = wow64_companion_inputs(arch, committed, extent);
+    assert!(
+        inputs
+            .qualify_wow64_companion(arch, WOW64_DESKTOP_SESSION_EXTENT)
+            .is_err()
+    );
+    inputs.qualify_wow64_companion(arch, extent).unwrap();
+
+    let mut vm = memory();
+    let mut state = State::new((6, 0));
+    let (_gdi, client) = state
+        .prepare_wow64_thread(&mut vm, inputs, 8, 125, 0x600)
+        .unwrap();
+    let desktop = &state.mappings.as_ref().unwrap().desktop;
+    assert_eq!(desktop.base, client[5]);
+    assert_eq!(desktop.size, extent);
+    assert_eq!(client[12], desktop.base + committed);
+    assert_eq!(vm.space().u32(client[12] + 20).unwrap(), 125);
+    assert!(vm.space().w32(client[12] + 20, 99).is_err());
 }
 
 #[test]

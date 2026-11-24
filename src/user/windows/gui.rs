@@ -20,6 +20,7 @@ pub(crate) mod window_classes;
 pub(crate) mod windows;
 
 pub(crate) const CLIENT_SEED_BYTES: usize = 32;
+pub(crate) const WOW64_DESKTOP_SESSION_EXTENT: u64 = 0x1401000;
 const CI_INITTHREAD: u64 = 8;
 const WOW64_COMPANION_TI_FLAGS: u64 = 0x100 << 32;
 
@@ -61,14 +62,18 @@ fn invalid(message: &str) -> io::Error {
 }
 
 impl Inputs {
-    pub(crate) fn qualify_wow64_companion(&self, native_arch: WinArch) -> io::Result<()> {
+    pub(crate) fn qualify_wow64_companion(
+        &self,
+        native_arch: WinArch,
+        desktop_extent: u64,
+    ) -> io::Result<()> {
         let views = [&self.gdi, &self.desktop];
         // Inputs::selected checks that the desktop has a committed prefix
         // containing the client records followed by a nonempty reserved tail.
         // The boundary can move as the native desktop heap grows.
         if self.arch != native_arch
             || views.iter().any(|view| view.base < 1 << 32)
-            || self.desktop.section.size != 0x1401000
+            || self.desktop.section.size != desktop_extent
             || self.client[18] > u64::from(u32::MAX)
             || self.client[19] > u64::from(u16::MAX)
         {

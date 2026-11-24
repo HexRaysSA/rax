@@ -4177,6 +4177,18 @@ that the page-aligned committed prefix contains the required client records
 and is followed by reserved space. The first guest thread record starts at
 the captured boundary.
 
+On the same build in session 0, both native ARM64 and SysWOW64 controls
+reported a 0x181000-byte committed GDI view and a 0xc1000-byte desktop
+view with a 0x19000-byte committed prefix. The SysWOW64 controls placed
+both views below 4 GiB. In both sessions the repeated GDI initialization
+returned the process value published in its own 64-bit PEB. RAX matches the
+desktop view extent to the selected session and uses the captured commitment
+boundary within that extent.
+Installed session-0 SysWOW64 findstr advances to the Win32u
+NtUserSetProcessDpiAwarenessContext leaf for both matching and nonmatching
+input. The installed ARM64 controls in both sessions and the SysWOW64
+desktop controls match native stdout, stderr and exit status.
+
 The paired installed USER32 and Win32u images select the native snapshot.
 RAX checks the view extents and excludes aligned self-references to the
 source views before mapping the bytes into guest-owned read-only views.

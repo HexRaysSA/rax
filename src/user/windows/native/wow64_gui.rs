@@ -1,14 +1,17 @@
 //! Installed 32-bit USER/Win32u pairs and their measured 64-bit companions.
 
 use super::{WinArch, WinVersion, invalid, read_image};
-use crate::user::windows::gui::Wow64Gdi;
+use crate::user::windows::gui::{WOW64_DESKTOP_SESSION_EXTENT, Wow64Gdi};
 use sha2::{Digest, Sha256};
 use std::io;
 use std::path::{Path, PathBuf};
 
+const ARM64_29708_SESSION_ZERO_DESKTOP_EXTENT: u64 = 0xc1000;
+
 pub(super) struct Profile {
     pub(super) native_arch: WinArch,
     pub(super) gdi: Wow64Gdi,
+    pub(super) desktop_extent: u64,
     /// SysWOW64 USER32 and Win32u, followed by the native USER32 and Win32u.
     hashes: [&'static str; 4],
     native_gdi32_hash: Option<&'static str>,
@@ -26,7 +29,7 @@ impl Profile {
         }
         let (native_arch, gdi, hashes, native_gdi32_hash) =
             match (version.build, version.product_type, native_machine) {
-                (29708, _, Some(0xaa64)) if session == 1 => (
+                (29708, _, Some(0xaa64)) if matches!(session, 0 | 1) => (
                     WinArch::Arm64,
                     Wow64Gdi::Insider,
                     [
@@ -72,9 +75,15 @@ impl Profile {
                 ),
                 _ => return None,
             };
+        let desktop_extent = if matches!(gdi, Wow64Gdi::Insider) && session == 0 {
+            ARM64_29708_SESSION_ZERO_DESKTOP_EXTENT
+        } else {
+            WOW64_DESKTOP_SESSION_EXTENT
+        };
         Some(Self {
             native_arch,
             gdi,
+            desktop_extent,
             hashes,
             native_gdi32_hash,
         })
@@ -124,4 +133,26 @@ fn check_hash(path: &Path, expected: &str) -> io::Result<()> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wow64_gui_29708_selects_the_measured_extent_for_each_session() {
+        let version = WinVersion {
+            build: 29708,
+            ..WinVersion::default()
+        };
+        for (session, extent) in [(0, 0xc1000), (1, 0x1401000)] {
+            let profile = Profile::select(WinArch::X86, Some(0xaa64), &version, session).unwrap();
+            assert_eq!(profile.native_arch, WinArch::Arm64);
+            assert!(matches!(profile.gdi, Wow64Gdi::Insider));
+            assert_eq!(profile.desktop_extent, extent);
+        }
+        assert!(Profile::select(WinArch::X86, Some(0xaa64), &version, 2).is_none());
+        assert!(Profile::select(WinArch::X86, Some(0x8664), &version, 0).is_none());
+        assert!(Profile::select(WinArch::Arm64, Some(0xaa64), &version, 0).is_none());
+    }
 }

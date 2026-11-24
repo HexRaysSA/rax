@@ -328,7 +328,7 @@ impl NativeRuntime {
         let Availability::Available(inputs) = availability else {
             return availability;
         };
-        match inputs.qualify_wow64_companion(profile.native_arch) {
+        match inputs.qualify_wow64_companion(profile.native_arch, profile.desktop_extent) {
             Ok(()) => Availability::Wow64Companion(inputs, profile.gdi),
             Err(error) => Availability::Unavailable(error.to_string()),
         }
