@@ -1,6 +1,7 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type database,
-//! and installed Perl and Ruby modules.
+//! and installed Perl and Ruby modules. Installed executable images are
+//! available for child execution in the same guest namespace.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -28,15 +29,7 @@ const OPENSSL_TEMPLATE: &str = "System/Library/Templates/Data/private/etc/ssl/op
 const SHELL_SELECTOR: &str = "/private/var/select/sh";
 
 #[cfg(any(target_os = "macos", test))]
-// The installed Ruby configuration launches uname and /bin/sh. The shell
-// wrapper recognizes only these installed interpreter paths.
-const RUNTIME_PROGRAMS: [&str; 5] = [
-    "/usr/bin/uname",
-    "/bin/sh",
-    "/bin/bash",
-    "/bin/dash",
-    "/bin/zsh",
-];
+const PROGRAM_ROOTS: [&str; 2] = ["/bin", "/usr/bin"];
 
 #[cfg(any(target_os = "macos", test))]
 const ZONEINFO_PATHS: [&str; 2] = ["/var/db/timezone/zoneinfo", "/usr/share/zoneinfo"];
@@ -114,8 +107,7 @@ pub(super) fn native_for_executable(files: &Files, executable: Option<&str>) -> 
     #[cfg(target_os = "macos")]
     {
         let root = std::path::Path::new("/");
-        let selected = select_native_root(files, root)?;
-        let selected = select_runtime_programs(selected, root, executable)?;
+        let selected = select_native_root(files, root, executable)?;
         select_shell_variant(selected, root, executable)
     }
     #[cfg(not(target_os = "macos"))]
@@ -129,7 +121,11 @@ pub(super) fn native_for_executable(files: &Files, executable: Option<&str>) -> 
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files> {
+fn select_native_root(
+    files: &Files,
+    root: &std::path::Path,
+    executable: Option<&str>,
+) -> io::Result<Files> {
     let files = select(
         files,
         &root.join("usr/lib/dyld"),
@@ -185,22 +181,58 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
     .into_iter()
     .chain(ZONEINFO_PATHS)
     .chain([LOCALE_ROOT])
+    .chain(PROGRAM_ROOTS.into_iter().filter(|mount| {
+        // The main image is inserted after native selection. It can replace
+        // a program directory or one of its ancestors in the guest namespace.
+        !executable.is_some_and(|image| {
+            image == *mount
+                || mount
+                    .strip_prefix(image)
+                    .is_some_and(|tail| tail.starts_with('/'))
+        })
+    }))
     .filter_map(|guest| {
         let host = root.join(guest.trim_start_matches('/'));
-        host.is_dir().then(|| (guest.to_owned(), host))
+        let directory = if PROGRAM_ROOTS.contains(&guest) {
+            host.symlink_metadata().is_ok_and(|info| info.is_dir())
+        } else {
+            host.is_dir()
+        };
+        directory.then(|| (guest.to_owned(), host))
     })
     .collect();
     let files = files.with_native_library_roots(
         roots,
         Some(accept_runtime_file),
-        &[LOCALE_ROOT, PERL_ROOT, RUBY_VERSIONS],
+        &[
+            LOCALE_ROOT,
+            PERL_ROOT,
+            RUBY_VERSIONS,
+            PROGRAM_ROOTS[0],
+            PROGRAM_ROOTS[1],
+        ],
     )?;
     crate::user::supplied_fs::timezone::select_default(files, root)
 }
 
 #[cfg(any(target_os = "macos", test))]
 fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -> io::Result<bool> {
-    use crate::user::image::macho::{MH_BUNDLE, MH_DYLIB};
+    use crate::user::image::macho::{MH_BUNDLE, MH_DYLIB, MH_EXECUTE};
+
+    if PROGRAM_ROOTS.into_iter().any(|root| {
+        guest
+            .strip_prefix(root)
+            .is_some_and(|tail| tail.starts_with('/'))
+    }) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if file.metadata()?.permissions().mode() & 0o111 == 0 {
+                return Ok(false);
+            }
+        }
+        return dylibs::accept(file, MH_EXECUTE);
+    }
 
     if let Some(module) = guest
         .strip_prefix(PERL_ROOT)
@@ -278,21 +310,6 @@ fn overlaps_executable(path: &str, executable: Option<&str>) -> bool {
     };
     // The main executable is inserted after native runtime selection.
     executable.is_some_and(|image| image == path || descends(image, path) || descends(path, image))
-}
-
-#[cfg(any(target_os = "macos", test))]
-fn select_runtime_programs(
-    mut files: Files,
-    root: &std::path::Path,
-    executable: Option<&str>,
-) -> io::Result<Files> {
-    for program in RUNTIME_PROGRAMS {
-        if !overlaps_executable(program, executable) {
-            files =
-                select_system_file(files, program, &root.join(program.trim_start_matches('/')))?;
-        }
-    }
-    Ok(files)
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -497,39 +514,91 @@ mod tests {
         ));
     }
 
+    #[cfg(unix)]
     #[test]
-    fn installed_child_programs_are_fixed_and_preserve_main_image_precedence() {
+    fn installed_child_programs_select_executable_mach_os_and_preserve_main_image_precedence() {
+        use crate::user::image::macho::{CPU_TYPE_X86_64, MH_DYLIB, MH_EXECUTE, MH_MAGIC_64};
+        use crate::user::supplied_fs::Error;
+        use std::{
+            fs::{self, Permissions},
+            os::unix::fs::{PermissionsExt, symlink},
+        };
+
         let fixture = TestFile::new(b"unused", 8);
         let root = &fixture.dir;
-        std::fs::create_dir_all(root.join("usr/bin")).unwrap();
-        std::fs::create_dir_all(root.join("bin")).unwrap();
-        for program in RUNTIME_PROGRAMS {
-            std::fs::write(root.join(program.trim_start_matches('/')), program).unwrap();
-        }
-        std::fs::write(root.join("usr/bin/other"), b"unselected").unwrap();
-        std::fs::write(root.join("bin/cat"), b"unselected").unwrap();
-
-        let files = select_runtime_programs(Files::default(), root, Some("/usr/bin/ruby")).unwrap();
-        for program in RUNTIME_PROGRAMS {
-            assert_eq!(&*files.read(program).unwrap(), program.as_bytes());
-        }
-        assert!(files.lookup("/usr/bin/other").is_err());
-        assert!(files.lookup("/bin/cat").is_err());
-        for (image, program) in [
-            ("/usr/bin/uname", "/usr/bin/uname"),
-            ("/usr/bin", "/usr/bin/uname"),
-            ("/usr/bin/uname/child", "/usr/bin/uname"),
-            ("/bin/sh", "/bin/sh"),
-            ("/bin", "/bin/bash"),
+        for directory in [
+            "usr/lib",
+            "System/Library/dyld",
+            "usr/bin",
+            "bin",
+            "usr/local/bin",
         ] {
-            let files = select_runtime_programs(Files::default(), root, Some(image)).unwrap();
-            assert!(files.lookup(program).is_err(), "{image}");
+            fs::create_dir_all(root.join(directory)).unwrap();
         }
-        let supplied = Files::default()
+        fs::write(root.join("usr/lib/dyld"), b"dyld").unwrap();
+        fs::write(
+            root.join("System/Library/dyld/dyld_shared_cache_arm64e"),
+            b"cache",
+        )
+        .unwrap();
+        let mut executable = [0u8; 32];
+        executable[..4].copy_from_slice(&MH_MAGIC_64.to_le_bytes());
+        executable[4..8].copy_from_slice(&CPU_TYPE_X86_64.to_le_bytes());
+        executable[12..16].copy_from_slice(&MH_EXECUTE.to_le_bytes());
+        for path in [
+            "bin/sh",
+            "usr/bin/child",
+            "usr/lib/outside",
+            "usr/local/bin/child",
+        ] {
+            let host = root.join(path);
+            fs::write(&host, executable).unwrap();
+            fs::set_permissions(&host, Permissions::from_mode(0o755)).unwrap();
+        }
+        symlink("child", root.join("usr/bin/alias")).unwrap();
+        symlink("../lib/outside", root.join("usr/bin/escape")).unwrap();
+        fs::write(root.join("usr/bin/no-execute"), executable).unwrap();
+        fs::set_permissions(
+            root.join("usr/bin/no-execute"),
+            Permissions::from_mode(0o644),
+        )
+        .unwrap();
+        let mut dylib = executable;
+        dylib[12..16].copy_from_slice(&MH_DYLIB.to_le_bytes());
+        fs::write(root.join("usr/bin/library"), dylib).unwrap();
+        fs::set_permissions(root.join("usr/bin/library"), Permissions::from_mode(0o755)).unwrap();
+
+        let original = Files::default();
+        let files = select_native_root(&original, root, Some("/usr/bin/child")).unwrap();
+        for path in ["/usr/bin/child", "/usr/bin/alias", "/bin/sh"] {
+            assert_eq!(&*files.read(path).unwrap(), &executable, "{path}");
+        }
+        for path in [
+            "/usr/bin/CHILD",
+            "/usr/bin/escape",
+            "/usr/bin/no-execute",
+            "/usr/bin/library",
+            "/usr/local/bin/child",
+        ] {
+            assert!(matches!(files.read(path), Err(Error::NotFound)), "{path}");
+        }
+        let files = files
+            .with_file("/usr/bin/child".into(), Arc::from(&b"guest main"[..]))
+            .unwrap();
+        assert_eq!(&*files.read("/usr/bin/child").unwrap(), b"guest main");
+
+        let supplied = original
             .with_file("/bin/sh".into(), Arc::from(&b"caller shell"[..]))
             .unwrap();
-        let files = select_runtime_programs(supplied, root, Some("/usr/bin/ruby")).unwrap();
+        let files = select_native_root(&supplied, root, Some("/usr/bin/child")).unwrap();
         assert_eq!(&*files.read("/bin/sh").unwrap(), b"caller shell");
+
+        let files = select_native_root(&original, root, Some("/bin")).unwrap();
+        assert!(matches!(files.lookup("/bin"), Err(Error::NotFound)));
+        let files = files
+            .with_file("/bin".into(), Arc::from(&b"guest main"[..]))
+            .unwrap();
+        assert_eq!(&*files.read("/bin").unwrap(), b"guest main");
     }
 
     #[test]
@@ -553,7 +622,7 @@ mod tests {
         std::fs::create_dir_all(magic.with_file_name("magic")).unwrap();
         std::fs::write(&magic, b"compiled magic database").unwrap();
         std::fs::write(magic.with_file_name("magic").join("source"), b"other").unwrap();
-        let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
+        let selected = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
         assert_eq!(&*selected.read(SYSTEM_VERSION_PLIST).unwrap(), b"installed");
         assert_eq!(
             &*selected.read(FILE_MAGIC_DATABASE).unwrap(),
@@ -574,7 +643,7 @@ mod tests {
                 Arc::from(&b"supplied magic"[..]),
             )
             .unwrap();
-        let selected = select_native_root(&supplied, &fixture.dir).unwrap();
+        let selected = select_native_root(&supplied, &fixture.dir, None).unwrap();
         assert_eq!(&*selected.read(SYSTEM_VERSION_PLIST).unwrap(), b"supplied");
         assert_eq!(
             &*selected.read(FILE_MAGIC_DATABASE).unwrap(),
@@ -589,7 +658,7 @@ mod tests {
                 caller.dir.clone(),
             )]))
             .unwrap();
-        let selected = select_native_root(&mounted, &fixture.dir).unwrap();
+        let selected = select_native_root(&mounted, &fixture.dir, None).unwrap();
         assert_eq!(&*selected.read(SYSTEM_VERSION_PLIST).unwrap(), b"mounted");
 
         let blocked = Files::default()
@@ -598,7 +667,7 @@ mod tests {
                 Arc::from(&b"file"[..]),
             )
             .unwrap();
-        let selected = select_native_root(&blocked, &fixture.dir).unwrap();
+        let selected = select_native_root(&blocked, &fixture.dir, None).unwrap();
         assert_eq!(
             &*selected.read("/System/Library/CoreServices").unwrap(),
             b"file"
@@ -609,7 +678,7 @@ mod tests {
         {
             std::fs::remove_file(&version).unwrap();
             std::os::unix::fs::symlink(&fixture.path, &version).unwrap();
-            let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
+            let selected = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
             assert!(selected.lookup(SYSTEM_VERSION_PLIST).is_err());
         }
     }
@@ -632,14 +701,14 @@ mod tests {
         std::fs::write(local, b"local config").unwrap();
         std::fs::write(template.with_file_name("cert.pem"), b"neighbor").unwrap();
 
-        let absent = select_native_root(&Files::default(), &fixture.dir).unwrap();
+        let absent = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
         assert!(matches!(
             absent.lookup(OPENSSL_CONFIG),
             Err(Error::NotFound)
         ));
 
         std::fs::write(&template, b"system config").unwrap();
-        let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
+        let selected = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
         assert_eq!(&*selected.read(OPENSSL_CONFIG).unwrap(), b"system config");
         assert!(matches!(
             selected.lookup("/private/etc/ssl/cert.pem"),
@@ -653,7 +722,7 @@ mod tests {
         let supplied = Files::default()
             .with_file(OPENSSL_CONFIG.into(), Arc::from(&b"guest config"[..]))
             .unwrap();
-        let selected = select_native_root(&supplied, &fixture.dir).unwrap();
+        let selected = select_native_root(&supplied, &fixture.dir, None).unwrap();
         assert_eq!(&*selected.read(OPENSSL_CONFIG).unwrap(), b"guest config");
     }
 
@@ -687,7 +756,7 @@ mod tests {
             ] {
                 std::fs::write(rosetta.join(name), data).unwrap();
             }
-            let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
+            let selected = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
             assert_eq!(&*selected.read("/usr/lib/dyld").unwrap(), b"host-dyld");
             for (directory, name, bytes) in [
                 (&os, "dyld_shared_cache_arm64e", &b"arm-cache"[..]),
@@ -726,7 +795,7 @@ mod tests {
                     Arc::from(&b"supplied-cache"[..]),
                 )
                 .unwrap();
-            let selected = select_native_root(&supplied, &fixture.dir).unwrap();
+            let selected = select_native_root(&supplied, &fixture.dir, None).unwrap();
             assert_eq!(&*selected.read("/usr/lib/dyld").unwrap(), b"supplied-dyld");
             assert_eq!(
                 &*selected
@@ -741,7 +810,7 @@ mod tests {
     fn native_selection_rejects_roots_without_shared_caches() {
         let fixture = TestFile::new(b"root", 4);
         assert_eq!(
-            select_native_root(&Files::default(), &fixture.dir)
+            select_native_root(&Files::default(), &fixture.dir, None)
                 .unwrap_err()
                 .kind(),
             io::ErrorKind::NotFound
@@ -789,7 +858,7 @@ mod tests {
         symlink("../unselected", zones.join("escape")).unwrap();
         fs::write(lib.join("timezone"), header).unwrap();
 
-        let selected = select_native_root(&Files::default(), root).unwrap();
+        let selected = select_native_root(&Files::default(), root, None).unwrap();
         for path in [
             "/var/db/timezone/zoneinfo/America/New_York",
             "/usr/share/zoneinfo/America/New_York",
@@ -813,7 +882,7 @@ mod tests {
         let explicit = Files::default()
             .with_file(override_path.into(), Arc::from(&b"supplied"[..]))
             .unwrap();
-        let selected = select_native_root(&explicit, root).unwrap();
+        let selected = select_native_root(&explicit, root, None).unwrap();
         assert_eq!(&*selected.read(override_path).unwrap(), b"supplied");
     }
 
@@ -844,7 +913,7 @@ mod tests {
         symlink(&lib, locales.join("outside")).unwrap();
 
         let ctype = "/usr/share/locale/example.UTF-8/LC_CTYPE";
-        let files = select_native_root(&Files::default(), root).unwrap();
+        let files = select_native_root(&Files::default(), root, None).unwrap();
         assert_eq!(&*files.read(ctype).unwrap(), b"character types");
         assert_eq!(
             &*files
@@ -877,7 +946,7 @@ mod tests {
         let supplied = Files::default()
             .with_file(ctype.into(), Arc::from(&b"supplied"[..]))
             .unwrap();
-        let files = select_native_root(&supplied, root).unwrap();
+        let files = select_native_root(&supplied, root, None).unwrap();
         assert_eq!(&*files.read(ctype).unwrap(), b"supplied");
     }
 
@@ -927,7 +996,7 @@ mod tests {
         fs::write(xs.join("Executable.bundle"), header).unwrap();
         fs::write(ruby.join("executable.bundle"), header).unwrap();
 
-        let selected = select_native_root(&Files::default(), root).unwrap();
+        let selected = select_native_root(&Files::default(), root, None).unwrap();
         let module = "/System/Library/Perl/5.34/Example.pm";
         let bundle =
             "/System/Library/Perl/5.34/darwin-thread-multi-2level/auto/Example/Example.bundle";
@@ -963,7 +1032,7 @@ mod tests {
         let explicit = Files::default()
             .with_file(module.into(), Arc::from(&b"override"[..]))
             .unwrap();
-        let selected = select_native_root(&explicit, root).unwrap();
+        let selected = select_native_root(&explicit, root, None).unwrap();
         assert_eq!(&*selected.read(module).unwrap(), b"override");
     }
 
@@ -1041,7 +1110,7 @@ mod tests {
                 caller.dir.clone(),
             )]))
             .unwrap();
-        let selected = select_native_root(&explicit, root).unwrap();
+        let selected = select_native_root(&explicit, root, None).unwrap();
         assert_eq!(
             &*selected.read("/usr/lib/libonly.dylib").unwrap(),
             b"explicit"
@@ -1106,7 +1175,7 @@ mod tests {
         let blocked = explicit
             .with_file(framework_root.into(), Arc::from(&b"caller file"[..]))
             .unwrap();
-        let selected = select_native_root(&blocked, root).unwrap();
+        let selected = select_native_root(&blocked, root, None).unwrap();
         assert_eq!(&*selected.read(framework_root).unwrap(), b"caller file");
         assert!(
             selected
