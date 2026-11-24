@@ -2,13 +2,16 @@
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use super::maybe_spawn_mips_reporter;
-use super::{Error, LAPIC_POLL_STRIDE, Result, VcpuExit, X86_64Vcpu, publish_instruction_count};
+use super::{
+    Error, LAPIC_POLL_STRIDE, Result, VCpu, VcpuExit, X86_64Vcpu, publish_instruction_count,
+};
 
 impl X86_64Vcpu {
     pub(super) fn run_loop(&mut self) -> Result<VcpuExit> {
         if let Some(exit) = self.jit_callout_exit.take() {
             return Ok(exit);
         }
+        self.io_completion_result()?;
         #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
         maybe_spawn_mips_reporter();
         let start_time = crate::host::time::Instant::now();

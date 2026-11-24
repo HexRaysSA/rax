@@ -630,6 +630,92 @@ fn detached_x86_resume_dispatches_issued_ap_output_before_bsp_entry() {
 }
 
 #[test]
+fn detached_x86_resume_keeps_a_consumed_uart_byte_until_the_store_succeeds() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut source = Fixture::with_memory(1, 128 << 20);
+    source.write(
+        BSP,
+        &[
+            0x66, 0xba, 0xf8, 0x03, 0xbf, 0, 0x70, 0, 0, 0x6c, // INSB to 0x7000
+            0x66, 0xba, 0x04, 0x06, 0x66, 0xb8, 0x00, 0x20, 0x66, 0xef, // ACPI S5
+        ],
+    );
+    const DESTINATION_PTE: u64 = 0x401c;
+    for (address, entry) in [
+        (0x3000, 0x4003u32),
+        (DESTINATION_PTE, 0x7003),
+        (0x4020, 0x8003),
+    ] {
+        source.write(address, &entry.to_le_bytes());
+    }
+    let mut sregs = source.vm.vcpus[0].get_sregs().unwrap();
+    sregs.cr0 |= 1 << 31 | 1 << 16; // PG, WP
+    sregs.cr3 = 0x3000;
+    source.vm.vcpus[0].set_sregs(&sregs).unwrap();
+    {
+        let mut uart = source.vm.serial.lock().unwrap();
+        IoDevice::write(&mut *uart, 0x3fa, 1);
+        uart.queue_input(&[0xa5, 0x71]);
+    }
+    let turn = source.vm.execute_turn().unwrap().unwrap();
+    assert!(matches!(
+        turn.exit,
+        VcpuExit::IoIn {
+            port: 0x3f8,
+            size: 1
+        }
+    ));
+    source.write(DESTINATION_PTE, &0u32.to_le_bytes());
+
+    let retired = source.vm.coordinator.retired;
+    assert!(
+        source.vm.run().is_err(),
+        "failed destination store was ignored"
+    );
+    assert!(!source.vm.pc_powered_off());
+    assert_eq!(source.vm.coordinator.retired, retired);
+    assert!(source.vm.vcpus[0].step_insn().is_err());
+    assert!(source.vm.take_snapshot(retired).is_err());
+    let path = source.kernel.with_extension("rxc");
+    source
+        .vm
+        .take_snapshot_bundle(retired)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    drop(source);
+
+    let bundle = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut resumed = Vmm::new_resume_bundle(config, &bundle).unwrap();
+    assert!(
+        resumed.run().is_err(),
+        "the restored mapping still denies the store"
+    );
+    assert_eq!(resumed.coordinator.retired, retired);
+    resumed
+        .guest_mem
+        .memory()
+        .write_obj(0x7003u32, GuestAddress(DESTINATION_PTE))
+        .unwrap();
+    resumed.run().unwrap();
+    assert!(resumed.pc_powered_off());
+    assert_eq!(
+        resumed
+            .guest_mem
+            .memory()
+            .read_obj::<u8>(GuestAddress(FLAGS))
+            .unwrap(),
+        0xa5
+    );
+    let mut uart = resumed.serial.lock().unwrap();
+    assert_eq!(IoDevice::read(&mut *uart, 0x3f8), 0x71);
+    assert!(!uart.has_input(), "each UART byte should be read once");
+}
+
+#[test]
 fn failing_pio_dispatch_retains_output_without_mutating_the_uart() {
     let mut source = Fixture::new(1);
     source.write(

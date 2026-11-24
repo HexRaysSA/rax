@@ -464,34 +464,28 @@ impl Vmm {
                 }
                 shutdown = true;
             }
-            VcpuExit::IoIn { port, size } => {
-                debug!(port = port, size = size, "PIO read");
-                let data = port_io::read(
-                    self.io_bus.get_mut()?,
-                    &self.serial,
-                    self.backend_kind,
-                    keyboard.as_ref(),
-                    port,
-                    size,
-                    1,
-                )?;
-                vcpu.complete_io_in(&data);
-                let completion = vcpu.io_completion_result();
-                let irq = self.sync_pc_serial_pio_input(port);
-                TurnFailure::check_io_reply(completion, irq)?;
-            }
-            VcpuExit::IoInString { port, size, count } => {
-                let data = port_io::read(
-                    self.io_bus.get_mut()?,
-                    &self.serial,
-                    self.backend_kind,
-                    keyboard.as_ref(),
-                    port,
-                    size,
-                    count,
-                )?;
-                vcpu.complete_io_in(&data);
-                let completion = vcpu.io_completion_result();
+            exit @ (VcpuExit::IoIn { .. } | VcpuExit::IoInString { .. }) => {
+                let (port, size, count) = match exit {
+                    VcpuExit::IoIn { port, size } => (port, size, 1),
+                    VcpuExit::IoInString { port, size, count } => (port, size, count),
+                    _ => unreachable!("matched port input exit"),
+                };
+                debug!(port, size, count, "PIO read");
+                let completion = if let Some(result) = vcpu.retry_software_port_input() {
+                    result
+                } else {
+                    let data = port_io::read(
+                        self.io_bus.get_mut()?,
+                        &self.serial,
+                        self.backend_kind,
+                        keyboard.as_ref(),
+                        port,
+                        size,
+                        count,
+                    )?;
+                    vcpu.complete_io_in(&data);
+                    vcpu.io_completion_result()
+                };
                 let irq = self.sync_pc_serial_pio_input(port);
                 TurnFailure::check_io_reply(completion, irq)?;
             }

@@ -22,6 +22,7 @@ impl X86_64Vcpu {
     /// shadow that protected this boundary. Fetch/decode/execution faults also
     /// consume the shadow because delivery of that event ends inhibition.
     pub fn step(&mut self) -> Result<Option<VcpuExit>> {
+        self.io_completion_result()?;
         self.interrupt_inhibit = false;
         let before = self.insn_count;
         self.instruction_faulted = false;
@@ -131,6 +132,7 @@ impl X86_64Vcpu {
         if let Some(exit) = self.jit_callout_exit.take() {
             return Ok(Some(exit));
         }
+        self.io_completion_result()?;
         if self.halted {
             return Ok(Some(VcpuExit::Hlt));
         }

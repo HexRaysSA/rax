@@ -20,6 +20,8 @@ const NMI_BLOCKED_TAG: &[u8; 8] = b"RAXX8607";
 const IOAPIC_NMI_BLOCKED_TAG: &[u8; 8] = b"RAXX8608";
 const PORT_INPUT_TAG: &[u8; 8] = b"RAXX8609";
 const IOAPIC_PORT_INPUT_TAG: &[u8; 8] = b"RAXX8610";
+const PORT_REPLY_TAG: &[u8; 8] = b"RAXX8611";
+const IOAPIC_PORT_REPLY_TAG: &[u8; 8] = b"RAXX8612";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
 
 #[derive(Serialize, Deserialize)]
@@ -45,6 +47,14 @@ struct PortInputVersion<T> {
     base: Version5<T>,
     nmi_blocked: bool,
     port: u16,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PortReplyVersion<T> {
+    base: Version5<T>,
+    nmi_blocked: bool,
+    port: Option<u16>,
+    reply: PortInputReply,
 }
 
 #[path = "cpu_context/codec.rs"]
@@ -119,9 +129,26 @@ impl Context {
             ));
         }
         if let Some(pending) = &self.io_pending {
-            exit::validate_io(pending.size, pending.count)?;
+            let length = pending.byte_len()?;
             if matches!(pending.target, IoInTarget::Reg) && pending.count != 1 {
                 return Err(invalid("register input cannot be a string batch"));
+            }
+            if let Some(reply) = &pending.reply {
+                let IoInTarget::Mem { addr } = pending.target else {
+                    return Err(invalid("only a memory input can retain a port reply"));
+                };
+                if self.pending_exit.is_some()
+                    || reply.bytes.len() != length
+                    || reply.written as usize >= length
+                {
+                    return Err(invalid("invalid received port reply"));
+                }
+                let offset = u64::from(reply.written);
+                let partial = offset % u64::from(pending.size);
+                let element = addr.wrapping_add(offset - partial);
+                if partial != 0 && partial != 0x1000 - (element & 0xfff) {
+                    return Err(invalid("port reply write cursor is not at a page boundary"));
+                }
             }
         }
         if let Some(debug) = &self.debug {
@@ -207,6 +234,7 @@ impl X86_64Vcpu {
             IOAPIC_SHADOW_TAG,
             IOAPIC_NMI_BLOCKED_TAG,
             IOAPIC_PORT_INPUT_TAG,
+            IOAPIC_PORT_REPLY_TAG,
         ]
         .iter()
         .any(|tag| raw.starts_with(*tag))

@@ -249,6 +249,96 @@ fn string_input_fault_preserves_the_completed_rep_prefix_and_issues_no_new_read(
 }
 
 #[test]
+fn received_port_reply_preserves_a_committed_page_chunk_during_retry() {
+    use crate::devices::bus::MmioDevice;
+    use crate::devices::ioapic::{IOAPIC_BASE, IoApic};
+    use std::sync::Mutex;
+
+    const DESTINATION: u64 = 0x1ffe;
+    let make_cpu = || {
+        let (mut vcpu, memory) = cpu(&[0x66, 0x6d, 0xf4]); // INSD; HLT
+        for (address, entry) in [
+            (0x3000, 0x4003u32),
+            (0x4000, 3),
+            (0x4004, 0x1003),
+            (0x4008, IOAPIC_BASE as u32 | 3),
+        ] {
+            memory.write_obj(entry, GuestAddress(address)).unwrap();
+        }
+        vcpu.sregs.cr0 = 0x8001_0001;
+        vcpu.sregs.cr3 = 0x3000;
+        vcpu.regs.rdi = DESTINATION;
+        vcpu.regs.rdx = 0x80;
+        let ioapic = Arc::new(Mutex::new(IoApic::new()));
+        vcpu.mmu.attach_ioapic(ioapic.clone());
+        (vcpu, memory, ioapic)
+    };
+
+    let (mut source, memory, ioapic) = make_cpu();
+    assert!(matches!(
+        source.step_insn().unwrap(),
+        Some(VcpuExit::IoIn {
+            port: 0x80,
+            size: 4
+        })
+    ));
+    assert!(
+        std::panic::catch_unwind(|| {
+            let _lock = ioapic.lock().unwrap();
+            panic!("inject failure before the second page's MMIO write");
+        })
+        .is_err()
+    );
+    source.complete_io_in(&[0xa5, 0x5a, 0x17, 0]);
+    assert!(
+        source
+            .io_completion_result()
+            .unwrap_err()
+            .to_string()
+            .contains("I/O APIC MMIO lock poisoned")
+    );
+    assert_eq!(
+        memory.read_obj::<u16>(GuestAddress(DESTINATION)).unwrap(),
+        0x5aa5
+    );
+    assert!(source.run().is_err());
+    ioapic.clear_poison();
+    let saved = source.save_context().unwrap();
+    assert!(saved.starts_with(IOAPIC_PORT_REPLY_TAG));
+
+    let (mut target, memory, ioapic) = make_cpu();
+    // Model a stopped debugger edit after the first chunk committed.
+    memory
+        .write_obj(0x0123u16, GuestAddress(DESTINATION))
+        .unwrap();
+    let before = target.save_context().unwrap();
+    for (written, length) in [(1, 4), (4, 4), (2, 3)] {
+        let mut corrupt = Context::decode(&saved, &target).unwrap();
+        let reply = corrupt.io_pending.as_mut().unwrap().reply.as_mut().unwrap();
+        reply.written = written;
+        reply.bytes.truncate(length);
+        assert!(target.restore_context(&corrupt.encode().unwrap()).is_err());
+        assert_eq!(target.save_context().unwrap(), before);
+    }
+    target.restore_context(&saved).unwrap();
+    target.complete_io_in(&[0, 0, 0, 0]);
+    assert!(
+        target.io_completion_result().is_err(),
+        "a new reply must never overwrite the original"
+    );
+    target.retry_software_port_input().unwrap().unwrap();
+    assert_eq!(
+        memory.read_obj::<u16>(GuestAddress(DESTINATION)).unwrap(),
+        0x0123
+    );
+    let mut index = [0];
+    ioapic.lock().unwrap().read(IOAPIC_BASE, &mut index);
+    assert_eq!(index, [0x17]);
+    assert!(target.retry_software_port_input().is_none());
+    assert!(matches!(target.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+}
+
+#[test]
 fn repeated_string_input_restores_the_exact_pending_destination_in_both_directions() {
     for backward in [false, true] {
         let (mut source, memory) = cpu(&[0xf3, 0x6c, 0xf4]);

@@ -513,6 +513,29 @@ struct IoPending {
     /// destination is then `count` consecutive `size`-byte elements starting at
     /// the `Mem` address).
     count: u32,
+    #[serde(skip)]
+    reply: Option<PortInputReply>,
+    #[serde(skip)]
+    completion_error: Option<String>,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct PortInputReply {
+    bytes: Vec<u8>,
+    written: u32,
+}
+
+impl IoPending {
+    fn byte_len(&self) -> Result<usize> {
+        let bytes = u64::from(self.count) * u64::from(self.size);
+        // Leave room in the private context for the CPU state and other fields.
+        if !matches!(self.size, 1 | 2 | 4) || bytes == 0 || bytes > 1024 * 1024 {
+            return Err(Error::InvalidConfig(
+                "invalid software port input size".into(),
+            ));
+        }
+        Ok(bytes as usize)
+    }
 }
 
 /// Maximum instruction length in bytes.
@@ -2451,6 +2474,8 @@ impl X86_64Vcpu {
             size,
             target: IoInTarget::Reg,
             count: 1,
+            reply: None,
+            completion_error: None,
         });
     }
 
@@ -2460,6 +2485,8 @@ impl X86_64Vcpu {
             size,
             target: IoInTarget::Mem { addr },
             count: 1,
+            reply: None,
+            completion_error: None,
         });
     }
 
@@ -2472,6 +2499,8 @@ impl X86_64Vcpu {
             size,
             target: IoInTarget::Mem { addr },
             count,
+            reply: None,
+            completion_error: None,
         });
     }
 

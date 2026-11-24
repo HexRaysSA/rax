@@ -3,6 +3,52 @@
 use super::*;
 
 impl X86_64Vcpu {
+    fn install_port_input(
+        &mut self,
+        target: &IoInTarget,
+        size: u8,
+        reply: &mut PortInputReply,
+    ) -> Result<()> {
+        let width = usize::from(size);
+        let value = |bytes: &[u8]| {
+            let mut raw = [0; 4];
+            raw[..width].copy_from_slice(bytes);
+            u64::from(u32::from_le_bytes(raw))
+        };
+        match *target {
+            IoInTarget::Reg => {
+                let preserve = match size {
+                    1 => !0xffu64,
+                    2 => !0xffffu64,
+                    _ => 0, // IN EAX clears the high half of RAX.
+                };
+                self.regs.rax = self.regs.rax & preserve | value(&reply.bytes);
+            }
+            IoInTarget::Mem { addr } => {
+                while (reply.written as usize) < reply.bytes.len() {
+                    let offset = reply.written as usize;
+                    let mut written = offset % width;
+                    let start = offset - written;
+                    let address = addr.wrapping_add(start as u64);
+                    let bytes = &reply.bytes[start..start + width];
+                    if (address & 0xfff) + u64::from(size) <= 0x1000 {
+                        self.write_mem(address, value(bytes), size)?;
+                        reply.written = (start + width) as u32;
+                    } else {
+                        let result =
+                            self.mmu
+                                .write_with_progress(address, bytes, &self.sregs, &mut written);
+                        reply.written = (start + written) as u32;
+                        result?;
+                        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+                        self.push_jit_mem_trace((1, address, size, value(bytes)));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn admit_checkpoint_context(
         &self,
         state: &CpuState,
@@ -325,61 +371,59 @@ impl VCpu for X86_64Vcpu {
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {
-        if let Some(pending) = self.io_pending.take() {
-            if matches!(
-                self.jit_callout_exit,
-                Some(VcpuExit::IoIn { .. } | VcpuExit::IoInString { .. })
-            ) {
-                // A restored request may be serviced before the queued JIT exit is taken.
-                self.jit_callout_exit = None;
-            }
-            let sz = pending.size as usize;
-            // Batched `rep ins` block: write `count` consecutive elements from
-            // `data` to memory starting at the staged address (forward).
-            if pending.count > 1 {
-                if let IoInTarget::Mem { addr } = pending.target {
-                    for i in 0..pending.count as usize {
-                        let off = i * sz;
-                        if off + sz > data.len() {
-                            break;
-                        }
-                        let value = match pending.size {
-                            1 => data[off] as u64,
-                            2 => u16::from_le_bytes([data[off], data[off + 1]]) as u64,
-                            _ => u32::from_le_bytes([
-                                data[off],
-                                data[off + 1],
-                                data[off + 2],
-                                data[off + 3],
-                            ]) as u64,
-                        };
-                        let _ = self.write_mem(addr + off as u64, value, pending.size);
-                    }
-                }
+        let Some(input) = &mut self.io_pending else {
+            return;
+        };
+        if input.byte_len().ok() != Some(data.len()) {
+            input.completion_error = Some("port input reply size differs from the request".into());
+            return;
+        }
+        match &input.reply {
+            Some(reply) if reply.bytes != data => {
+                input.completion_error = Some("cannot replace a received port input reply".into());
                 return;
             }
-
-            let value = match pending.size {
-                1 => data.first().copied().unwrap_or(0) as u64,
-                2 if data.len() >= 2 => u16::from_le_bytes([data[0], data[1]]) as u64,
-                4 if data.len() >= 4 => {
-                    u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as u64
-                }
-                _ => 0,
-            };
-
-            match pending.target {
-                IoInTarget::Reg => match pending.size {
-                    1 => self.regs.rax = (self.regs.rax & !0xFF) | value,
-                    2 => self.regs.rax = (self.regs.rax & !0xFFFF) | value,
-                    4 => self.regs.rax = value,
-                    _ => {}
-                },
-                IoInTarget::Mem { addr } => {
-                    let _ = self.write_mem(addr, value, pending.size);
-                }
+            Some(_) => {}
+            None => {
+                input.reply = Some(PortInputReply {
+                    bytes: data.to_vec(),
+                    written: 0,
+                })
             }
         }
+        if matches!(
+            self.jit_callout_exit,
+            Some(VcpuExit::IoIn { .. } | VcpuExit::IoInString { .. })
+        ) {
+            // The saved request may be serviced before the queued JIT exit is taken.
+            self.jit_callout_exit = None;
+        }
+        // The compatibility callback reports a failed attempt through
+        // io_completion_result. The saved reply remains available for retry.
+        let _ = self.retry_software_port_input();
+    }
+
+    fn retry_software_port_input(&mut self) -> Option<Result<()>> {
+        self.io_pending.as_ref()?.reply.as_ref()?;
+        let mut input = self.io_pending.take().expect("validated port input");
+        let reply = input.reply.as_mut().expect("received port reply");
+        let result = self.install_port_input(&input.target, input.size, reply);
+        if let Err(error) = &result {
+            input.completion_error = Some(error.to_string());
+            self.io_pending = Some(input);
+        }
+        Some(result)
+    }
+
+    fn io_completion_result(&self) -> Result<()> {
+        if let Some(input) = &self.io_pending {
+            let details = input
+                .completion_error
+                .as_deref()
+                .unwrap_or("software port input still awaits completion");
+            return Err(Error::Emulator(details.into()));
+        }
+        Ok(())
     }
 
     fn id(&self) -> u32 {

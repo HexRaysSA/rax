@@ -1174,6 +1174,17 @@ impl Mmu {
     /// Fast path for single-page access, handles page crossing.
     #[inline]
     pub fn write(&mut self, vaddr: u64, buf: &[u8], sregs: &SystemRegisters) -> Result<()> {
+        self.write_with_progress(vaddr, buf, sregs, &mut 0)
+    }
+
+    /// Resume an already issued store after the last committed page chunk.
+    pub(super) fn write_with_progress(
+        &mut self,
+        vaddr: u64,
+        buf: &[u8],
+        sregs: &SystemRegisters,
+        written: &mut usize,
+    ) -> Result<()> {
         let len = buf.len();
         self.note_smc(vaddr);
         if len > 1 {
@@ -1186,9 +1197,10 @@ impl Mmu {
         if page_offset + len <= 0x1000 {
             let paddr = self.translate(vaddr, AccessType::Write, sregs)?;
             self.write_phys(paddr, buf)?;
+            *written = len;
         } else {
             // Slow path: handle page boundary crossing
-            self.write_crossing(vaddr, buf, sregs)?;
+            self.write_crossing(vaddr, buf, sregs, written)?;
         }
         if self.mem_rec_on && !self.fetch_active {
             self.record(
@@ -1203,15 +1215,21 @@ impl Mmu {
 
     /// Slow path for writes that cross page boundaries
     #[cold]
-    fn write_crossing(&mut self, vaddr: u64, buf: &[u8], sregs: &SystemRegisters) -> Result<()> {
+    fn write_crossing(
+        &mut self,
+        vaddr: u64,
+        buf: &[u8],
+        sregs: &SystemRegisters,
+        written: &mut usize,
+    ) -> Result<()> {
         // Fault-class exceptions restore the instruction's pre-execution
         // machine state. Preflight every translated physical chunk before the
         // first write so a later page fault or unmapped physical range cannot
         // expose a partially completed ordinary store.
         let mut chunks = Vec::new();
-        let mut offset = 0;
-        let mut remaining = buf.len();
-        let mut addr = vaddr;
+        let mut offset = *written;
+        let mut remaining = buf.len() - offset;
+        let mut addr = crossing_next(vaddr, vaddr, offset as u64, sregs);
 
         while remaining > 0 {
             let paddr = self.translate(addr, AccessType::Write, sregs)?;
@@ -1227,6 +1245,7 @@ impl Mmu {
 
         for (paddr, offset, bytes_in_page) in chunks {
             self.write_phys(paddr, &buf[offset..offset + bytes_in_page])?;
+            *written = offset + bytes_in_page;
         }
 
         Ok(())

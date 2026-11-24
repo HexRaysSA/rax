@@ -234,13 +234,16 @@ impl Vmm {
             if wrapped {
                 self.last_snapshot_insn = 0;
             }
-            let staged_port_output = match &result.stop {
+            let staged_port_io = match &result.stop {
                 RetirementStop::Exit(VcpuExit::IoOut { port, data }) => {
                     self.vcpus[index].stage_software_port_output(*port, data)
                 }
+                RetirementStop::Exit(VcpuExit::IoIn { .. } | VcpuExit::IoInString { .. }) => {
+                    self.vcpus[index].pending_software_port_io()?.is_some()
+                }
                 _ => false,
             };
-            if !staged_port_output {
+            if !staged_port_io {
                 self.route_interprocessor_requests()?;
                 self.poll_vm_clocks()?;
                 if !self.coordinator.online[index] {

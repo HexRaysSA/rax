@@ -386,6 +386,13 @@ pub trait VCpu: Send {
         Ok(None)
     }
 
+    /// Retry a received port reply. A returned result means the port has
+    /// already been read and the device must not be called again.
+    #[doc(hidden)]
+    fn retry_software_port_input(&mut self) -> Option<Result<()>> {
+        None
+    }
+
     /// Retain a software port write until the VMM dispatches and acknowledges
     /// it. Return true when dispatch must precede any pending CPU reset.
     #[doc(hidden)]

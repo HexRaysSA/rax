@@ -33,14 +33,32 @@ impl Context {
         if raw.len() > TAG.len() + MAX_PAYLOAD {
             return Err(invalid("invalid tag or length"));
         }
-        let (version5, nmi_blocked, port) = if let Some(payload) = raw
+        let (version5, nmi_blocked, port, reply) = if let Some(payload) = raw
+            .strip_prefix(PORT_REPLY_TAG)
+            .or_else(|| raw.strip_prefix(IOAPIC_PORT_REPLY_TAG))
+        {
+            let version =
+                crate::codec::deserialize_limited::<PortReplyVersion<Self>, MAX_PAYLOAD>(payload)
+                    .map_err(invalid)?;
+            (
+                Some(version.base),
+                version.nmi_blocked,
+                version.port,
+                Some(version.reply),
+            )
+        } else if let Some(payload) = raw
             .strip_prefix(PORT_INPUT_TAG)
             .or_else(|| raw.strip_prefix(IOAPIC_PORT_INPUT_TAG))
         {
             let version =
                 crate::codec::deserialize_limited::<PortInputVersion<Self>, MAX_PAYLOAD>(payload)
                     .map_err(invalid)?;
-            (Some(version.base), version.nmi_blocked, Some(version.port))
+            (
+                Some(version.base),
+                version.nmi_blocked,
+                Some(version.port),
+                None,
+            )
         } else if let Some(payload) = raw
             .strip_prefix(IOAPIC_SHADOW_TAG)
             .or_else(|| raw.strip_prefix(SHADOW_TAG))
@@ -51,9 +69,9 @@ impl Context {
                 .map_err(invalid)?;
             let nmi_blocked =
                 raw.starts_with(NMI_BLOCKED_TAG) || raw.starts_with(IOAPIC_NMI_BLOCKED_TAG);
-            (Some(version), nmi_blocked, None)
+            (Some(version), nmi_blocked, None, None)
         } else {
-            (None, false, None)
+            (None, false, None, None)
         };
         let (mut context, status, apic_base, shadow) = if let Some(version) = version5 {
             (
@@ -107,6 +125,13 @@ impl Context {
         context.nmi_blocked = nmi_blocked;
         context.mmu.ioapic_mmio = X86_64Vcpu::context_requires_ioapic(raw);
         context.bind_pending_input_port(port)?;
+        if let Some(reply) = reply {
+            context
+                .io_pending
+                .as_mut()
+                .ok_or_else(|| invalid("received port reply has no destination"))?
+                .reply = Some(reply);
+        }
         context.validate(target)?;
         Ok(context)
     }
@@ -128,7 +153,21 @@ impl Context {
             instruction_debug_inhibit: shadow,
         };
         let port = self.io_pending.as_ref().and_then(|input| input.port);
-        let payload = if let Some(port) = port {
+        let reply = self
+            .io_pending
+            .as_ref()
+            .and_then(|input| input.reply.as_ref());
+        let payload = if let Some(reply) = reply {
+            crate::codec::serialize_limited(
+                &PortReplyVersion {
+                    base: version,
+                    nmi_blocked: self.nmi_blocked,
+                    port,
+                    reply: reply.clone(),
+                },
+                MAX_PAYLOAD,
+            )
+        } else if let Some(port) = port {
             crate::codec::serialize_limited(
                 &PortInputVersion {
                     base: version,
@@ -146,19 +185,22 @@ impl Context {
         let mut raw = Vec::with_capacity(TAG.len() + payload.len());
         raw.extend_from_slice(
             match (
+                reply.is_some(),
                 port.is_some(),
                 self.nmi_blocked,
                 shadow,
                 self.mmu.ioapic_mmio,
             ) {
-                (true, _, _, true) => IOAPIC_PORT_INPUT_TAG,
-                (true, _, _, false) => PORT_INPUT_TAG,
-                (false, true, _, true) => IOAPIC_NMI_BLOCKED_TAG,
-                (false, true, _, false) => NMI_BLOCKED_TAG,
-                (false, false, true, true) => IOAPIC_SHADOW_TAG,
-                (false, false, true, false) => SHADOW_TAG,
-                (false, false, false, true) => IOAPIC_TAG,
-                (false, false, false, false) => TAG,
+                (true, _, _, _, true) => IOAPIC_PORT_REPLY_TAG,
+                (true, _, _, _, false) => PORT_REPLY_TAG,
+                (false, true, _, _, true) => IOAPIC_PORT_INPUT_TAG,
+                (false, true, _, _, false) => PORT_INPUT_TAG,
+                (false, false, true, _, true) => IOAPIC_NMI_BLOCKED_TAG,
+                (false, false, true, _, false) => NMI_BLOCKED_TAG,
+                (false, false, false, true, true) => IOAPIC_SHADOW_TAG,
+                (false, false, false, true, false) => SHADOW_TAG,
+                (false, false, false, false, true) => IOAPIC_TAG,
+                (false, false, false, false, false) => TAG,
             },
         );
         raw.extend_from_slice(&payload);
