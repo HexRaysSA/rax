@@ -923,8 +923,17 @@ impl Vmm {
         })
     }
 
+    fn pc_powered_off(&self) -> bool {
+        self.pc_devices.as_ref().is_some_and(|pc| pc.powered_off())
+    }
+
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
+        if self.pc_powered_off() {
+            return Err(Error::InvalidConfig(
+                "PC S5 capture requires a complete snapshot bundle".into(),
+            ));
+        }
         if self
             .vm
             .as_any()

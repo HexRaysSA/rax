@@ -14,7 +14,8 @@ does not qualify that two-call API for concurrent use.
 ## Wire and resource admission
 
 RAXEXE04 extends the execution record with a length-prefixed PC control image.
-The current control tag is RAXPCD03. RAXEXE01/02/03 remain readable. Complete PC
+Running machines use RAXPCD03 and machines stopped by S5 use RAXPCD04.
+RAXEXE01/02/03 remain readable. Complete PC
 execution restoration rejects an older execution image without PC state.
 Historical base-only represented state remains a separate API and does not
 acquire missing device state.
@@ -516,3 +517,59 @@ and `8e30ed1791fd008981056e5022538443a8d951071f871a6354bbd7493b5311f7`.
 These observations cover the edge-triggered software PIC route. The
 kernel-owned IRQ chip, a PIC configured for level-triggered operation,
 and physical Intel HVF guest execution require separate measurements.
+
+## ACPI S5 power-off across restore
+
+When the VMM accepts the PC's S5 power-off request, it records a VM-wide
+terminal state before acknowledging the output. The stopped checkpoint I/O
+callback records the same state. `Vmm::run()` checks it before dispatching
+any CPU, including when a checkpoint taken inside the run loop settles the
+output. ACPI defines S5 as the G2 soft-off state and describes how the OS
+requests it through `SLP_TYP` and `SLP_EN`. UEFI Forum ACPI 6.6 §4.6
+specifies that “Exiting the G2 soft-off state requires rebooting the system.”
+[ACPI 6.6, The ACPI Hardware Model](https://uefi.org/sites/default/files/resources/ACPI_Spec_6.6.pdf)
+
+RAXPCD04 has the same body as RAXPCD03. Its tag records acceptance of S5
+and requires the RTC timing prefix. RAXPCD01 through RAXPCD03 carry no PC
+power-off record. Restore publishes the latch only after the guest/backend
+transaction succeeds. A complete bundle is required to capture S5. An
+existing native backend terminal record still independently fences entry.
+Recording and checking the latch take O(1) time and space.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The accepted S5 request stops every vCPU. | Save after the BSP writes S5, destroy the source, reload the file, and call `run()` twice. Require both CPU program counters, both post-S5 RAM markers, and the retirement count to stay fixed. |
+| A stopped I/O callback records only accepted S5. | Service a `0x0000` write and then `0x2000` to port `0x604`. Require the latch to stay clear after the first write and set after the second. |
+| The terminal tag preserves admission and transactional restore. | Reject a truncated tag body, inject a failed restore into a terminal target, then publish an older running image. Require the failed restore to preserve the latch and the successful restore to clear it. |
+
+The predecessor `48bd86a31` executed both post-S5 RAM stores after the
+detached file restore. The pre-fix log SHA-256 is
+`4d5d47d47a0cb5600914c32d44decdb79dc0b627e134c20d408c7c3930faa25e`.
+The QEMU 11.1.2 QTest control used two vCPUs and
+PIIX4 PM I/O configured at `0x600`. QEMU aligns the PCI configuration
+field at `0x40` with `0xffc0` and enables the region with bit 0 at `0x80`.
+`OUTW 0x604,0x0000` kept the VM running.
+`OUTW 0x604,0x2000` produced the guest-shutdown event and moved the VM to
+the `shutdown` run state. The QTest record SHA-256 is
+`891e277256d6d30ec681670f9470424f6dc9661660cbab3aedb90273d9191d15`.
+[QEMU 11.1.2 PIIX4 ACPI device](https://github.com/qemu/qemu/blob/v11.1.2/hw/acpi/piix4.c#L82-L93)
+
+On macOS Arm64, all 13 PC device and S5 regressions passed with the fix
+applied to `48bd86a31` and `x86_64-suite,smir-jit,hvf,debug` selected.
+The log SHA-256 is
+`205f67393307f42bb32b6294d6a8e8e0e2c9912ba0f368289add097f67c78efb`.
+The complete CPU, configuration, and clock checkpoint binaries passed 13,
+3, and 16 tests respectively. The first combined run was killed during the
+clock suite without reporting an assertion failure. The standalone clock
+retry passed all 16 tests. Its log SHA-256 is
+`b93a992e0a74ec9408ebfd6fbe134088d27b35eb2c4c31bd96d06f2d75a74938`.
+Under Rosetta, all 13 PC device and S5 tests and all 10 real-mode boot tests
+passed in x86-64 executables. The log SHA-256 values are
+`96a38fd8a9cf2c20c8170441d1de83a25b3bf47e4f4f272d5d5c16391e7c5742`
+and `70d6c1a1d318799bd20e2d04e0a66f439d7a6c2685da0c54ea361511e6bf62b4`.
+The Mac Arm64 library run reproduced the existing Darwin codesign failure.
+`closed_dispatcher_copies_self_status_without_host_observation` returned
+`EINVAL` where the test expects `EPERM`. The isolated failure log SHA-256 is
+`a5aca766f13a7fd20502bacf65f55419fbf16066c7368807bff2c54ba17d0c4b`.
+These measurements cover the software PC and the VMM's stopped I/O
+callback. A stopped native Intel HVF file needs its own guest-level check.

@@ -11,15 +11,18 @@ use crate::devices::{
 };
 use crate::error::{Error, Result};
 use crate::vm::snapshot::{CheckpointResource, PreparedResources, ResourceKey};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 const LIMIT: usize = 60 * 1024 * 1024;
 const TAG: &[u8; 8] = b"RAXPCD03";
+const POWER_OFF_TAG: &[u8; 8] = b"RAXPCD04";
 const CALENDAR_TAG: &[u8; 8] = b"RAXPCD02";
 const LEGACY_TAG: &[u8; 8] = b"RAXPCD01";
 
 /// Retained by the VMM, with the same handles registered in the PIO/MMIO buses.
 pub struct PcDevices {
+    pub(super) powered_off: AtomicBool,
     pub(crate) rtc: Arc<Mutex<RtcStub>>,
     pub(crate) fw_cfg: Arc<Mutex<FwCfg>>,
     pub(crate) ioapic: Arc<Mutex<IoApic>>,
@@ -37,6 +40,7 @@ pub struct PcDevices {
 pub(crate) struct PcCheckpoint {
     data: Vec<u8>,
     legacy_calendar: bool,
+    powered_off: bool,
     rtc_timing: Option<RtcTimingCheckpoint>,
 }
 
@@ -58,6 +62,7 @@ struct State {
 
 pub(crate) struct PreparedPcCheckpoint {
     legacy_calendar: bool,
+    powered_off: bool,
     rtc: crate::devices::rtc::PreparedRtcCheckpoint,
     rtc_timing: Option<RtcTimingCheckpoint>,
     ioapic: crate::devices::ioapic::PreparedIoApicCheckpoint,
@@ -110,6 +115,15 @@ struct Held<'a> {
     fdc: MutexGuard<'a, Fdc>,
 }
 impl PcDevices {
+    pub(crate) fn powered_off(&self) -> bool {
+        self.powered_off.load(Ordering::Acquire)
+    }
+
+    // The VMM owns CPU dispatch and can also accept S5 while settling stopped I/O.
+    pub(crate) fn set_powered_off(&self, powered_off: bool) {
+        self.powered_off.store(powered_off, Ordering::Release);
+    }
+
     fn hold(&self) -> Result<Held<'_>> {
         // PCI -> PC inventory order below -> shared ARM -> legacy -> GIC -> RAM.
         // Bus transactions acquire one of these locks and invoke no callbacks.
@@ -173,6 +187,7 @@ impl PcDevices {
             PcCheckpoint {
                 data,
                 legacy_calendar: false,
+                powered_off: self.powered_off(),
                 rtc_timing: Some(held.rtc.timing_checkpoint()),
             },
             resources,
@@ -201,6 +216,7 @@ impl PcDevices {
         *held.ide_primary = prepared.state.ide_primary;
         *held.ide_secondary = prepared.state.ide_secondary;
         *held.fdc = prepared.state.fdc;
+        self.set_powered_off(prepared.powered_off);
         Ok(result)
     }
 }
@@ -255,6 +271,9 @@ impl PcCheckpoint {
         if self.data.is_empty() || self.data.len() > LIMIT {
             return Err(invalid("control image length"));
         }
+        if self.powered_off && self.rtc_timing.is_none() {
+            return Err(invalid("S5 requires RTC timing"));
+        }
         let state: State =
             crate::codec::deserialize_limited::<_, LIMIT>(&self.data).map_err(invalid)?;
         if let Some(timing) = &self.rtc_timing {
@@ -286,7 +305,8 @@ impl PcCheckpoint {
         self.validate()?;
         let mut bytes = match &self.rtc_timing {
             Some(timing) => {
-                let mut bytes = TAG.to_vec();
+                let tag = if self.powered_off { POWER_OFF_TAG } else { TAG };
+                let mut bytes = tag.to_vec();
                 bytes.extend_from_slice(&crate::codec::serialize(timing).map_err(invalid)?);
                 bytes
             }
@@ -297,16 +317,17 @@ impl PcCheckpoint {
         Ok(bytes)
     }
     pub(crate) fn decode(raw: &[u8]) -> Result<Self> {
-        let (legacy_calendar, rtc_timing, data) = match raw.split_at_checked(TAG.len()) {
-            Some((tag, body)) if tag == TAG => {
+        let (legacy_calendar, powered_off, rtc_timing, data) = match raw.split_at_checked(TAG.len())
+        {
+            Some((tag, body)) if tag == TAG || tag == POWER_OFF_TAG => {
                 let (timing, data) = body
                     .split_at_checked(RtcTimingCheckpoint::WIRE_SIZE)
                     .ok_or_else(|| invalid("truncated RTC timing"))?;
                 let timing = crate::codec::deserialize_strict(timing).map_err(invalid)?;
-                (false, Some(timing), data)
+                (false, tag == POWER_OFF_TAG, Some(timing), data)
             }
-            Some((tag, data)) if tag == CALENDAR_TAG => (false, None, data),
-            Some((tag, data)) if tag == LEGACY_TAG => (true, None, data),
+            Some((tag, data)) if tag == CALENDAR_TAG => (false, false, None, data),
+            Some((tag, data)) if tag == LEGACY_TAG => (true, false, None, data),
             _ => return Err(invalid("unsupported control tag")),
         };
         if data.len() > LIMIT {
@@ -315,6 +336,7 @@ impl PcCheckpoint {
         let image = Self {
             data: data.to_vec(),
             legacy_calendar,
+            powered_off,
             rtc_timing,
         };
         image.validate()?;
@@ -347,6 +369,7 @@ impl PcCheckpoint {
         state.fdc.bind_checkpoint_image(copy(keys[6])?);
         Ok(PreparedPcCheckpoint {
             legacy_calendar: self.legacy_calendar,
+            powered_off: self.powered_off,
             rtc: state.rtc.prepare()?,
             rtc_timing: self.rtc_timing.clone(),
             ioapic: state.ioapic.prepare()?,

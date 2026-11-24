@@ -89,6 +89,9 @@ impl Vmm {
                     )
                 })?;
                 Ok(if power_off {
+                    if let Some(pc) = &self.pc_devices {
+                        pc.set_powered_off(true);
+                    }
                     CheckpointIoReply::PowerOff
                 } else {
                     CheckpointIoReply::Output

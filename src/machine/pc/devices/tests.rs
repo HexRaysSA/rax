@@ -215,7 +215,7 @@ fn truncated_unknown_tag_and_trailing_pc_images_reject() {
         assert!(PcCheckpoint::decode(&raw[..end]).is_err(), "prefix {end}");
     }
     let mut unknown = raw.clone();
-    unknown[7] = b'4';
+    unknown[7] = b'?';
     assert!(PcCheckpoint::decode(&unknown).is_err());
     let mut invalid_phase = raw.clone();
     invalid_phase[8..16].copy_from_slice(&u64::MAX.to_le_bytes());
@@ -383,6 +383,41 @@ fn owned_machine_boot_binds_each_iso_to_its_original_device_set() {
         a.ide_primary.lock().unwrap().checkpoint_cdrom().unwrap()[21 * 2048 + 1],
         b.ide_primary.lock().unwrap().checkpoint_cdrom().unwrap()[21 * 2048 + 1]
     );
+}
+
+#[test]
+fn s5_wire_state_changes_only_after_successful_publication() {
+    let (source, _, _) = device_set();
+    let (running, resources) = capture(&source);
+    let running = running.encoded().unwrap();
+    source.set_powered_off(true);
+    let (terminal, _) = capture(&source);
+    let terminal = terminal.encoded().unwrap();
+    assert_eq!(&running[..8], b"RAXPCD03");
+    assert_eq!(&terminal[..8], b"RAXPCD04");
+    assert_eq!(terminal[8..], running[8..]);
+    assert!(PcCheckpoint::decode(&terminal[..8]).is_err());
+
+    let resources = PreparedResources::from_bindings(resources).unwrap();
+    let terminal = PcCheckpoint::decode(&terminal).unwrap();
+    let running = PcCheckpoint::decode(&running).unwrap();
+    let (target, _, _) = device_set();
+    target
+        .restore_with(terminal.prepare(&resources).unwrap(), || Ok(()))
+        .unwrap();
+    assert!(target.powered_off());
+    assert!(
+        target
+            .restore_with(running.prepare(&resources).unwrap(), || {
+                Err::<(), _>(invalid("injected publication failure"))
+            })
+            .is_err()
+    );
+    assert!(target.powered_off());
+    target
+        .restore_with(running.prepare(&resources).unwrap(), || Ok(()))
+        .unwrap();
+    assert!(!target.powered_off());
 }
 
 #[test]

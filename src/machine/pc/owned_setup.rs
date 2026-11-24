@@ -154,6 +154,7 @@ impl PcMachine {
         )?;
 
         Ok(PcDevices {
+            powered_off: Default::default(),
             rtc,
             fw_cfg,
             ioapic,

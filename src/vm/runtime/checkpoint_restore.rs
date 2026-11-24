@@ -580,7 +580,12 @@ impl Vmm {
         };
         let commit = || match (&self.pc_devices, pc_restore) {
             (Some(devices), Some(state)) => devices.restore_with(state, commit),
-            (_, None) => commit(),
+            (Some(devices), None) => {
+                commit()?;
+                devices.set_powered_off(false);
+                Ok(())
+            }
+            (None, None) => commit(),
             _ => unreachable!("PC target admitted before commit"),
         };
         let result = match (&self.pci_devices, pci) {
@@ -653,6 +658,9 @@ impl Vmm {
         match platform {
             Some(platform) => platform.restore_with(None, commit)?,
             None => commit()?,
+        }
+        if let Some(pc) = &self.pc_devices {
+            pc.set_powered_off(false);
         }
 
         info!(

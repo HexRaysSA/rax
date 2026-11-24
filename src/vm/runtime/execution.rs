@@ -75,7 +75,7 @@ impl Vmm {
         if CHECKPOINT_SIGNAL.swap(false, std::sync::atomic::Ordering::SeqCst) {
             self.console_checkpoint();
         }
-        false
+        self.pc_powered_off()
     }
 
     fn deliver_console_input(&self, guest_bytes: &[u8]) {
@@ -181,7 +181,7 @@ impl Vmm {
         self.debugger.ready()?;
         // A terminal checkpoint already has a stopped execution frontier.
         // Detect it before console input, timer polling or CPU selection.
-        if self.vm.firmware_shutdown()? {
+        if self.vm.firmware_shutdown()? || self.pc_powered_off() {
             return Ok(());
         }
         let _timing = self.timing_context.enter();
@@ -242,7 +242,7 @@ impl Vmm {
         loop {
             #[cfg(feature = "debug")]
             self.debugger.ready()?;
-            if self.service_console(&mut console) {
+            if self.pc_powered_off() || self.service_console(&mut console) {
                 break;
             }
 
@@ -493,6 +493,9 @@ impl Vmm {
                 )?;
                 if shutdown {
                     // Fence entry before acknowledging the accepted S5 output.
+                    if let Some(pc) = &self.pc_devices {
+                        pc.set_powered_off(true);
+                    }
                     publish_kvm_shutdown(&*self.vm)?;
                 }
                 vcpu.complete_io_out().map_err(|error| {

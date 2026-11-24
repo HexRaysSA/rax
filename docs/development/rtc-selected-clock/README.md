@@ -41,6 +41,7 @@ VM contract still requires independent writers to remain quiescent.
 | Private tags | Calendar restore admission |
 | --- | --- |
 | `RAXPCD03` | Bundle-selected Wall or Retired calendar with PC RTC oscillator phase. |
+| `RAXPCD04` | Same RTC timing as `RAXPCD03`, with the PC in terminal S5. |
 | `RAXPCD02`, `RAXSLI02` | Bundle-selected Wall or Retired calendar. |
 | `RAXPCD01`, `RAXSLI01` | Existing Wall behavior only; Retired restoration rejects before publication. |
 

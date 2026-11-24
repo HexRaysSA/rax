@@ -141,6 +141,86 @@ fn store32(code: &mut Vec<u8>, address: u32, value: u32) {
     code.extend_from_slice(&value.to_le_bytes());
 }
 
+#[test]
+fn stopped_checkpoint_io_latches_only_an_accepted_s5() {
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    let fixture = Fixture::new(2);
+    let write = |value: u16| {
+        fixture
+            .vm
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port: 0x604,
+                    data: value.to_le_bytes().to_vec(),
+                },
+            )
+            .unwrap()
+    };
+    assert!(matches!(write(0), CheckpointIoReply::Output));
+    assert!(!fixture.vm.pc_powered_off());
+    assert!(matches!(write(0x2000), CheckpointIoReply::PowerOff));
+    assert!(fixture.vm.pc_powered_off());
+}
+
+#[test]
+fn pc_s5_remains_terminal_after_detached_checkpoint_restore() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut fixture = Fixture::with_retired_cpus(2);
+    let s5 = [0x66, 0xba, 0x04, 0x06, 0x66, 0xb8, 0x00, 0x20, 0x66, 0xef];
+    let mut bsp = s5.to_vec();
+    store32(&mut bsp, FLAGS as u32, 1);
+    bsp.extend_from_slice(&s5); // Bound the predecessor's unexpected reentry.
+    fixture.write(BSP, &bsp);
+    let mut ap = Vec::new();
+    store32(&mut ap, FLAGS as u32 + 4, 1);
+    ap.push(0xf4);
+    fixture.write(AP, &ap);
+    let CpuState::X86_64(mut state) = fixture.vm.vcpus[0].get_state().unwrap() else {
+        unreachable!();
+    };
+    state.regs.rip = AP;
+    fixture.vm.vcpus[1]
+        .set_state(&CpuState::X86_64(state))
+        .unwrap();
+    fixture.vm.coordinator.online[1] = true;
+    fixture.vm.run().unwrap();
+    assert_eq!((fixture.flag(0), fixture.flag(1)), (0, 0));
+    let retired = fixture.vm.coordinator.retired;
+    assert_eq!(fixture.vm.vcpus[0].current_pc(), BSP + s5.len() as u64);
+    let path = fixture.kernel.with_extension("rxc");
+    fixture
+        .vm
+        .take_snapshot_bundle(retired)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    drop(fixture);
+
+    let bundle = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+    target.run().unwrap();
+    target.run().unwrap();
+    let mut flags = [0; 8];
+    target
+        .guest_mem
+        .memory()
+        .read_slice(&mut flags, GuestAddress(FLAGS))
+        .unwrap();
+    assert_eq!(flags, [0; 8]);
+    assert_eq!(target.coordinator.retired, retired);
+    assert_eq!(target.vcpus[0].current_pc(), BSP + s5.len() as u64);
+    assert_eq!(target.vcpus[1].current_pc(), AP);
+    assert!(matches!(
+        target.take_snapshot(retired),
+        Err(Error::InvalidConfig(message)) if message.contains("PC S5")
+    ));
+}
+
 fn bsp_program() -> Vec<u8> {
     let mut code = Vec::new();
     store32(&mut code, FLAGS as u32, 1);
