@@ -1,7 +1,7 @@
 //! Communication endpoint views follow the final local handle, not Arc Drop.
 use super::{ObjId, Object, Objects};
 use crate::user::windows::memory::{SharedViewOwner, VirtualMemory, VmError};
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 /// Typed process-local LPC endpoint. This object never owns a host port handle
 /// and alone does not establish a connection or admit message services.
@@ -41,7 +41,7 @@ pub(crate) type LsarpcPolicyContext = [u8; 20];
 #[derive(Debug, Default)]
 pub(crate) struct LsarpcPolicies {
     generation: u64,
-    live: BTreeSet<LsarpcPolicyContext>,
+    live: BTreeMap<LsarpcPolicyContext, u32>,
 }
 
 impl LsarpcPolicies {
@@ -64,18 +64,24 @@ impl LsarpcPolicies {
         self.generation += 1;
     }
 
-    pub(crate) fn open(&mut self, context: LsarpcPolicyContext) {
-        let inserted = self.live.insert(context);
-        debug_assert!(inserted);
+    pub(crate) fn open(&mut self, context: LsarpcPolicyContext, access: u32) {
+        let previous = self.live.insert(context, access);
+        debug_assert!(previous.is_none());
     }
 
     pub(crate) fn contains(&self, context: &LsarpcPolicyContext) -> bool {
-        self.live.contains(context)
+        self.live.contains_key(context)
+    }
+
+    pub(crate) fn grants(&self, context: &LsarpcPolicyContext, access: u32) -> bool {
+        self.live
+            .get(context)
+            .is_some_and(|granted| granted & access == access)
     }
 
     pub(crate) fn close(&mut self, context: LsarpcPolicyContext) {
         let removed = self.live.remove(&context);
-        debug_assert!(removed);
+        debug_assert!(removed.is_some());
     }
 }
 

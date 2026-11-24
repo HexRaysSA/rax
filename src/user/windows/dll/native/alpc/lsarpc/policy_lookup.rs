@@ -11,8 +11,11 @@ use crate::user::windows::objects::{LsarpcPolicies, LsarpcPolicyContext, ObjId};
 const OPEN: u32 = 0;
 const CLOSE: u32 = 1;
 const TRANSLATE_SIDS: u32 = 2;
+const POLICY_VIEW_LOCAL_INFORMATION: u32 = 0x1;
+const OPEN_WITHOUT_QOS_BYTES: usize = 124;
 const OPEN_REQUEST_BYTES: usize = 136;
 const OPEN_REPLY_BYTES: usize = 92;
+const OPEN_NDR32_WITHOUT_QOS_BYTES: usize = 96;
 const OPEN_NDR32_REQUEST_BYTES: usize = 104;
 const OPEN_NDR32_REPLY_BYTES: usize = 48;
 const CONTEXT_OFFSET: usize = 24;
@@ -26,7 +29,13 @@ pub(super) fn response(
     contexts: &LsarpcPolicies,
 ) -> Option<Response> {
     let mut response = match policy::operation(payload, request_type, policy::NDR64_CALL_CONTEXT)? {
-        OPEN => open(payload, association, contexts)?,
+        OPEN if matches!(payload.len(), OPEN_WITHOUT_QOS_BYTES | OPEN_REQUEST_BYTES) => open_reply(
+            OPEN_REPLY_BYTES,
+            policy::open_access(payload)?,
+            payload.len() == OPEN_WITHOUT_QOS_BYTES,
+            association,
+            contexts,
+        ),
         CLOSE => policy::close(payload, contexts)?,
         TRANSLATE_SIDS => translate_sid(c, payload, contexts)?,
         _ => return None,
@@ -43,9 +52,18 @@ pub(super) fn response_ndr32(
     contexts: &LsarpcPolicies,
 ) -> Option<Response> {
     let mut response = match policy::operation(payload, request_type, policy::NDR32_CALL_CONTEXT)? {
-        OPEN if payload.len() == OPEN_NDR32_REQUEST_BYTES => {
-            let desired = policy::open_access_ndr32(payload)?;
-            open_reply(OPEN_NDR32_REPLY_BYTES, desired, association, contexts)
+        OPEN if matches!(
+            payload.len(),
+            OPEN_NDR32_WITHOUT_QOS_BYTES | OPEN_NDR32_REQUEST_BYTES
+        ) =>
+        {
+            open_reply(
+                OPEN_NDR32_REPLY_BYTES,
+                policy::open_access_ndr32(payload)?,
+                payload.len() == OPEN_NDR32_WITHOUT_QOS_BYTES,
+                association,
+                contexts,
+            )
         }
         CLOSE => policy::close_ndr32(payload, contexts)?,
         TRANSLATE_SIDS => {
@@ -73,7 +91,7 @@ fn lookup<'a>(
     context: LsarpcPolicyContext,
     sid: &[u8],
 ) -> Option<&'a Translation> {
-    if !contexts.contains(&context) {
+    if !contexts.grants(&context, POLICY_LOOKUP_NAMES) {
         return None;
     }
     let catalog =
@@ -86,23 +104,22 @@ fn lookup<'a>(
     catalog.translate(&subject, sid)
 }
 
-fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option<Response> {
-    if payload.len() != OPEN_REQUEST_BYTES {
-        return None;
-    }
-    let desired = policy::open_access(payload)?;
-    Some(open_reply(OPEN_REPLY_BYTES, desired, association, contexts))
-}
-
 fn open_reply(
     size: usize,
     desired: u32,
+    without_qos: bool,
     association: ObjId,
     contexts: &LsarpcPolicies,
 ) -> Response {
+    let allowed = POLICY_LOOKUP_NAMES
+        | if without_qos {
+            POLICY_VIEW_LOCAL_INFORMATION
+        } else {
+            0
+        };
     let result = match desired {
         0 => Err(STATUS_INVALID_PARAMETER),
-        POLICY_LOOKUP_NAMES => contexts
+        access if access & !allowed == 0 => contexts
             .reserve(association)
             .ok_or(STATUS_INSUFFICIENT_RESOURCES),
         _ => Err(STATUS_ACCESS_DENIED),
@@ -111,7 +128,7 @@ fn open_reply(
     match result {
         Ok(context) => {
             response.body[CONTEXT_OFFSET..STATUS_OFFSET].copy_from_slice(&context);
-            response.policy = Change::Open(context);
+            response.policy = Change::Open(context, desired);
         }
         Err(status) => put_word(&mut response.body, STATUS_OFFSET, status),
     }

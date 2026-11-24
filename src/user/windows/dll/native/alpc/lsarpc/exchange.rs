@@ -200,7 +200,7 @@ pub(in crate::user::windows::dll::native) fn exchange(
         }
     }
     if !short {
-        if matches!(response.policy, policy::Change::Open(_)) {
+        if matches!(response.policy, policy::Change::Open(..)) {
             let Some(Object::LpcPort(endpoint)) = c.p.objects.obj_mut(association) else {
                 unreachable!("checked LSARPC port");
             };

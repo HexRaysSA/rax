@@ -228,6 +228,7 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         assert_eq!(read_word(&reply, 44), 0);
         let context = &reply[24..44];
         assert_ne!(context, [0; 20]);
+        let view_context = open_without_qos(p, &mut thread, base + 0x400, handle, false);
 
         let mut domain_sid = vec![1, 4, 0, 0, 0, 0, 0, 5];
         domain_sid.extend(
@@ -314,6 +315,7 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
                 exchange(p, &mut thread, arena, handle, 0x4000, &classic_bind),
                 classic_bind
             );
+            let classic_view_context = open_without_qos(p, &mut thread, arena, handle, true);
 
             let mut open = [0; 104];
             words(
@@ -343,8 +345,10 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
                     (148, 2),
                 ],
             );
-            classic[64..84].copy_from_slice(&opened[24..44]);
             classic[104..132].copy_from_slice(&user_sid);
+            classic[64..84].copy_from_slice(&classic_view_context);
+            assert_translation_rejected(p, &mut thread, arena, handle, &classic);
+            classic[64..84].copy_from_slice(&opened[24..44]);
             assert_translation_rejected(p, &mut thread, arena, handle, &classic[..151]);
             words(&mut classic, &[(92, 2)]);
             assert_translation_rejected(p, &mut thread, arena, handle, &classic);
@@ -403,8 +407,10 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
                 (184, 2),
             ],
         );
-        lookup[64..84].copy_from_slice(context);
         lookup[128..156].copy_from_slice(&user_sid);
+        lookup[64..84].copy_from_slice(&view_context);
+        assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup);
+        lookup[64..84].copy_from_slice(context);
         let mut wrong_sid = lookup;
         wrong_sid[152] ^= 1;
         assert_translation_rejected(p, &mut thread, base + 0x400, handle, &wrong_sid);
@@ -487,6 +493,65 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup);
         assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup_group);
     }
+}
+
+fn open_without_qos(
+    p: &mut Proc,
+    thread: &mut Thread,
+    arena: u64,
+    handle: u64,
+    classic: bool,
+) -> [u8; 20] {
+    let (len, context, length_offset, attribute_length, qos_offset, reply_len, flags) = if classic {
+        (96, 0, 68, 24, 88, 48, 0x4002_0000)
+    } else {
+        (124, 1, 72, 48, 112, 92, 0x0002_0000)
+    };
+    let mut request = vec![0; len];
+    words(
+        &mut request,
+        &[
+            (12, 23),
+            (16, context),
+            (length_offset, attribute_length),
+            (len - 4, 1),
+        ],
+    );
+    let mut malformed = request.clone();
+    words(&mut malformed, &[(qos_offset, 1)]);
+    for invalid in [&request[..len - 1], &malformed] {
+        let (result, _, reply, length) = submit(p, thread, arena, handle, flags, 0, invalid);
+        assert!(
+            matches!(result, Outcome::Fail(ref message) if message.contains("local RPC operation 0")),
+            "{result:?}"
+        );
+        assert_eq!(p.space.u32(reply).unwrap(), 0xc123_4567);
+        assert_eq!(p.space.ptr(length, p.arch.ptr_size()).unwrap(), 512);
+    }
+    let (result, header, reply, length) = submit(p, thread, arena, handle, flags, 0, &request);
+    assert_eq!(result, Outcome::Continue);
+    assert_eq!(thread.cpu.gpr(0), 0);
+    assert_eq!(p.space.u16(reply).unwrap(), reply_len);
+    assert_eq!(
+        p.space.ptr(length, p.arch.ptr_size()).unwrap(),
+        header + u64::from(reply_len)
+    );
+    let reply = p
+        .space
+        .bytes(reply + header, usize::from(reply_len))
+        .unwrap();
+    assert_eq!(read_word(&reply, 0), 3);
+    assert_eq!(read_word(&reply, 12), 23);
+    assert_eq!(read_word(&reply, 44), 0);
+    let context: [u8; 20] = reply[24..44].try_into().unwrap();
+    assert_ne!(context, [0; 20]);
+    let Some(Object::LpcPort(port)) = p.objects.get(handle) else {
+        panic!("missing policy lookup port");
+    };
+    let policies = &port.lsarpc_peer().unwrap().policies;
+    assert!(policies.grants(&context, 1));
+    assert!(!policies.grants(&context, 0x800));
+    context
 }
 
 fn words(payload: &mut [u8], fields: &[(usize, u32)]) {

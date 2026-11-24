@@ -36,14 +36,14 @@ const STATUS_NO_SUCH_PRIVILEGE: u32 = 0xc000_0060;
 pub(super) enum Change {
     #[default]
     None,
-    Open(LsarpcPolicyContext),
+    Open(LsarpcPolicyContext, u32),
     Close(LsarpcPolicyContext),
 }
 
 impl Change {
     pub(super) fn publish(self, contexts: &mut LsarpcPolicies, body_published: bool) {
         match self {
-            Self::Open(context) if body_published => contexts.open(context),
+            Self::Open(context, access) if body_published => contexts.open(context, access),
             Self::Close(context) => contexts.close(context),
             _ => {}
         }
@@ -108,19 +108,26 @@ fn open_ndr32(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> 
 
 pub(super) fn open_access_ndr32(payload: &[u8]) -> Option<u32> {
     // The classic stub uses a 32-bit QoS referent and a 16-bit enum.
-    if payload.len() < 104
+    if payload.len() < 96
         || payload[24..68].iter().any(|&byte| byte != 0)
         || word(payload, 68) != 24
         || payload[72..88].iter().any(|&byte| byte != 0)
-        || word(payload, 88) == 0
-        || word(payload, 92) != 12
-        || u16::from_le_bytes([payload[96], payload[97]]) > 3
-        || payload[98] > 1
-        || payload[99] > 1
     {
         return None;
     }
-    Some(word(payload, 100))
+    match payload.len() {
+        96 if word(payload, 88) == 0 => Some(word(payload, 92)),
+        104..
+            if word(payload, 88) != 0
+                && word(payload, 92) == 12
+                && u16::from_le_bytes([payload[96], payload[97]]) <= 3
+                && payload[98] <= 1
+                && payload[99] <= 1 =>
+        {
+            Some(word(payload, 100))
+        }
+        _ => None,
+    }
 }
 
 pub(super) fn operation(payload: &[u8], request_type: u16, context: u32) -> Option<u32> {
@@ -176,7 +183,7 @@ fn open_reply(
     match context {
         Ok(context) => {
             response.body[40..60].copy_from_slice(&context);
-            response.policy = Change::Open(context);
+            response.policy = Change::Open(context, desired);
         }
         Err(status) => put_word(&mut response.body, 60, status),
     }
@@ -184,21 +191,26 @@ fn open_reply(
 }
 
 pub(super) fn open_access(payload: &[u8]) -> Option<u32> {
-    // Inline NDR64 arguments.
-    // The measured form has a NULL SystemName and object pointers, and a non-NULL QoS.
-    if payload.len() < 136
+    // Inline NDR64 arguments with a null system name and local object attributes.
+    if payload.len() < 124
         || payload[24..72].iter().any(|&b| b != 0)
         || word(payload, 72) != 48
         || payload[76..112].iter().any(|&b| b != 0)
-        || qword(payload, 112) == 0
-        || word(payload, 120) != 12
-        || word(payload, 124) != 2
-        || word(payload, 128) != 1
     {
         return None;
     }
-
-    Some(word(payload, 132))
+    match payload.len() {
+        124 if qword(payload, 112) == 0 => Some(word(payload, 120)),
+        136..
+            if qword(payload, 112) != 0
+                && word(payload, 120) == 12
+                && word(payload, 124) == 2
+                && word(payload, 128) == 1 =>
+        {
+            Some(word(payload, 132))
+        }
+        _ => None,
+    }
 }
 
 fn lookup_value(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
