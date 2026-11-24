@@ -200382,6 +200382,18 @@
       "scope": "Shared and inline local APICs advance countdown phase while masked and preserve the original vector of admitted expiries. Parent tests produced a stale vector when unmasking after 125 ns. Both new regressions, 12 CPU checkpoint integration tests, 10 Rosetta real-mode boots, and 14231 unfiltered direct Intel Linux library tests passed with 99 ignored. Four independent QEMU one-shot controls confirmed delivery gating. Native Intel phase remains open.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#countdown-expiry-while-the-local-timer-is-masked",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-pit-pic-dual-route-2026-11-24",
+      "findings": [
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "An elapsed PIT channel 0 edge latches on PIC IRQ0 and I/O APIC GSI2 independently. The PIC arbitrates the new edge before BSP entry. A detached two-vCPU checkpoint retains both routes with IRQ5 pending or in service and with IRQ0 masked. Independent QEMU controls confirmed PIC latching and priority. Kernel IRQ-chip and physical Intel HVF observations remain open.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#pit-channel-0-on-the-pic-and-io-apic",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

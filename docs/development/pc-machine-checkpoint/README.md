@@ -476,3 +476,43 @@ on the same executable SHA-256
 The full and paired log SHA-256 values are
 `15af91d13d2c28676bc6f13885cd0312afe1b0640ce968eebe56dbc7ce880cdf`
 and `cc36d008ef47bea37c9ff557db315603921cbba331d81dbeee22871fea24d883`.
+
+## PIT channel 0 on the PIC and I/O APIC
+
+The VMM presents an elapsed PIT channel 0 edge to both PIC IRQ0 and I/O
+APIC GSI2. The edge-triggered PIC latches IRQ0 regardless of its mask or
+the current in-service IRQ. The VMM latches an elapsed PIT edge before
+the PIC arbitrates maskable requests for the BSP. Non-maskable interrupts
+retain priority. Latching the edge uses O(1) time and auxiliary space.
+[Intel 8259A datasheet, Figure 9](https://flint.cs.yale.edu/cs422/readings/hardware/8259A.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The edge latches on both routes while a different PIC request is active. | Target GSI2 at the AP. Save, destroy the source VM, reload the file, and require the AP's vector and IRQ0 in the PIC IRR with IRQ5 pending, in service, and in service with IRQ0 masked. |
+| The master PIC uses its configured fixed priority at the BSP entry boundary. | Advance the one-shot to expiry with IRQ5 already pending. The BSP must enter vector `0x20`, leaving IRQ5 pending. |
+| One expired one-shot reaches the PIC once. | After restore, unmask and acknowledge IRQ0, issue a specific EOI, and poll again. Require no second IRQ0 and preserve IRQ5's independent state. |
+
+The predecessor restored IRR `0x20` where the pending case required `0x21`.
+At BSP entry it selected IRQ5's handler at `0xa080` ahead of IRQ0's at
+`0xa000`. Independent QEMU 11.1.2 QTest controls measured IRR/ISR/IMR
+as `0x21/0x00/0xde`, `0x01/0x20/0xde`, and `0x01/0x20/0xdf`.
+The masked control produced no poll result until unmask, and specific EOI
+for IRQ0 preserved IRQ5. The test drove the PIT for 1 ms, beyond the
+expiry of the 10-count one-shot at approximately 9.22 µs including the
+load tick. The QTest record SHA-256 is
+`e3923e49827d31d72deac867710f760274a64bce975a20108e92b09741575f48`.
+[QEMU QTest protocol](https://www.qemu.org/docs/master/devel/testing/qtest.html)
+
+Both RAX regressions passed on Apple Silicon with the fix applied over
+`997f31499cced003ed9da8f6dbcc2b2a037d02bf`. All 170 PC interrupt,
+controller, and native-scheduling model tests passed, as did the 13 CPU
+and 16 clock checkpoint integration tests. All 10 real-mode boot tests
+passed as x86-64 executables under Rosetta. The 170-test log SHA-256 is
+`e7e9f477f92fbacdb6a4675208387b2a53868fac4a365bbf458c01d6f22f477c`.
+The predecessor and corrected regression log SHA-256 values are
+`73ad2993d0e58d00cc2a1d7f540def4dd0f2a1e8a595f7618e080344c759ce58`
+and `8e30ed1791fd008981056e5022538443a8d951071f871a6354bbd7493b5311f7`.
+
+These observations cover the edge-triggered software PIC route. The
+kernel-owned IRQ chip, a PIC configured for level-triggered operation,
+and physical Intel HVF guest execution require separate measurements.

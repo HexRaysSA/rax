@@ -754,7 +754,7 @@ fn pit_publishes_the_gsi2_edge_even_while_the_legacy_pic_is_busy() {
     program(&mut fixture.vm, 2, 0x52, 0, false);
     fixture.vm.io_bus.write(0x21, &[0xdf]).unwrap(); // Unmask the busy IRQ5.
     fixture.vm.pic.lock().unwrap().set_irq(5, true);
-    assert!(fixture.vm.pic.lock().unwrap().has_active_irq());
+    assert!(fixture.vm.pic.lock().unwrap().has_pending());
     fixture.vm.io_bus.write(0x43, &[0x30]).unwrap();
     fixture.vm.io_bus.write(0x40, &[10]).unwrap();
     fixture.vm.io_bus.write(0x40, &[0]).unwrap();
@@ -769,6 +769,90 @@ fn pit_publishes_the_gsi2_edge_even_while_the_legacy_pic_is_busy() {
         Some(0x52)
     );
     assert!(!fixture.vm.pit.lock().unwrap().has_pending_interrupt());
+}
+
+#[test]
+fn pit_edge_latches_on_both_controller_paths_while_pic_irq5_is_active() {
+    for (in_service, masked) in [(false, false), (true, false), (true, true)] {
+        let mut fixture = Fixture::with_retired_cpus(2);
+        let source = &mut fixture.vm;
+        let clock = source.timing_context.clone();
+        let scope = clock.enter();
+        program(source, 2, 0x52, 1, false); // GSI2 reaches the AP's LAPIC.
+        source
+            .io_bus
+            .write(0x21, &[if masked { 0xdf } else { 0xde }])
+            .unwrap();
+        {
+            let mut pic = source.pic.lock().unwrap();
+            pic.pulse_irq(5);
+            if in_service {
+                assert_eq!(pic.get_pending_vector(), Some(0x25));
+            }
+        }
+        source.io_bus.write(0x43, &[0x30]).unwrap(); // PIT channel 0, one-shot.
+        source.io_bus.write(0x40, &[10]).unwrap();
+        source.io_bus.write(0x40, &[0]).unwrap();
+        clock.set_resume_base(1_000_000);
+        assert!(source.poll_pc_pit().unwrap());
+        source.route_pc_interrupts().unwrap();
+
+        let file = RemoveFile::new();
+        source
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&file.0)
+            .unwrap();
+        drop(scope);
+        drop(fixture);
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        assert_eq!(
+            target.local_apics[1].lock().unwrap().get_pending_vector(),
+            Some(0x52)
+        );
+        {
+            let pic = target.pic.lock().unwrap();
+            let (irr, imr, isr, ..) = pic.debug_info();
+            assert_eq!(irr, if in_service { 1 } else { 0x21 });
+            assert_eq!(isr, if in_service { 0x20 } else { 0 });
+            assert_eq!(imr & 1 != 0, masked);
+            assert_eq!(pic.has_pending(), !masked);
+        }
+        target.io_bus.write(0x21, &[0xde]).unwrap();
+        assert_eq!(target.pic.lock().unwrap().get_pending_vector(), Some(0x20));
+        target.io_bus.write(0x20, &[0x60]).unwrap(); // Specific EOI for IRQ0.
+        assert!(!target.poll_pc_pit().unwrap());
+        let mut pic = target.pic.lock().unwrap();
+        assert_eq!(
+            pic.get_pending_vector(),
+            if in_service { None } else { Some(0x25) }
+        );
+        assert_eq!(pic.debug_info().2, 0x20);
+    }
+}
+
+#[test]
+fn expired_pit_irq0_precedes_pending_pic_irq5_at_bsp_entry() {
+    let mut fixture = Fixture::with_retired_clock();
+    prepare_retired_timer_guest(&mut fixture, 0, 0x20, &[0xf4]);
+    fixture.write(0x25 * 8, &[0x80, 0xa0, 8, 0, 0, 0x8e, 0, 0]);
+    let vm = &mut fixture.vm;
+    let clock = vm.timing_context.clone();
+    let _scope = clock.enter();
+    vm.io_bus.write(0x21, &[0xde]).unwrap();
+    vm.pic.lock().unwrap().pulse_irq(5);
+    program_retired_pit_edge(vm);
+    clock.set_resume_base(clock.elapsed_nanos() + 2);
+
+    vm.service_pc_interrupts(0).unwrap();
+    let CpuState::X86_64(state) = vm.vcpus[0].get_state().unwrap() else {
+        unreachable!();
+    };
+    assert_eq!(state.regs.rip, 0xa000);
+    let (irr, _, isr, ..) = vm.pic.lock().unwrap().debug_info();
+    assert_eq!((irr, isr), (0x20, 1));
 }
 
 #[test]

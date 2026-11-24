@@ -73,21 +73,17 @@ impl Vmm {
     }
 
     pub(super) fn service_pc_interrupts(&mut self, index: usize) -> Result<()> {
-        // Offer the BSP its existing events before creating a PIT edge so
-        // periodic IRQ0 does not starve an older PIC request.
-        let mut delivered = index == 0 && self.poll_bsp_interrupts()?;
-        if self.service_pc_pit()? && index == 0 && !delivered {
-            delivered = self.poll_bsp_interrupts()?;
-        }
+        // Latch elapsed timer edges before the BSP's controller resolves priority.
+        self.service_pc_pit()?;
+        let delivered = index == 0 && self.poll_bsp_interrupts()?;
         self.poll_local_apic(index, delivered)
     }
 
-    pub(super) fn service_pc_pit(&self) -> Result<bool> {
-        let pulsed = self.poll_pc_pit()?;
-        if pulsed {
+    pub(super) fn service_pc_pit(&self) -> Result<()> {
+        if self.poll_pc_pit()? {
             self.route_pc_interrupts()?;
         }
-        Ok(pulsed)
+        Ok(())
     }
 
     fn pc_serial_level(&self) -> Result<Option<(u8, bool)>> {
@@ -265,20 +261,16 @@ impl Vmm {
             .pit
             .lock()
             .map_err(|_| Error::Emulator("PIT route lock poisoned".into()))?;
-        if pit.tick() || pit.has_pending_interrupt() {
-            let pic_accepted = !pic.has_active_irq();
-            if pic_accepted {
-                pic.pulse_irq(0);
-            }
-            if let Some(ioapic) = &mut ioapic {
-                ioapic.set_irq(2, true);
-                ioapic.set_irq(2, false);
-            }
-            if pic_accepted || ioapic.is_some() {
-                pit.clear_interrupt();
-                return Ok(true);
-            }
+        if !pit.tick() && !pit.has_pending_interrupt() {
+            return Ok(false);
         }
-        Ok(false)
+        // The PIC edge latch is independent of interrupt mask and service state.
+        pic.pulse_irq(0);
+        if let Some(ioapic) = &mut ioapic {
+            ioapic.set_irq(2, true);
+            ioapic.set_irq(2, false);
+        }
+        pit.clear_interrupt();
+        Ok(true)
     }
 }

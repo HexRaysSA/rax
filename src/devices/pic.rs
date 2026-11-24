@@ -579,15 +579,6 @@ impl DualPic {
         self.master.has_pending()
     }
 
-    /// Whether an unmasked request is pending or an interrupt is in service.
-    pub(crate) fn has_active_irq(&self) -> bool {
-        let master_active = (self.master.irr & !self.master.imr) | self.master.isr;
-        // A deliverable slave request is reflected on the master's cascade
-        // input. Looking only at the master also avoids treating a request
-        // behind a masked cascade line as globally active.
-        master_active != 0
-    }
-
     /// Get debug info about the PIC state:
     /// (master irr, master imr, master isr, slave irr, slave imr, slave isr).
     pub fn debug_info(&self) -> (u8, u8, u8, u8, u8, u8) {
@@ -784,22 +775,6 @@ mod tests {
 
         pic.pulse_irq(0);
         assert_eq!(pic.get_pending_vector(), Some(0x20));
-    }
-
-    #[test]
-    fn active_irq_includes_pending_and_in_service_requests() {
-        let mut pic = DualPic::new();
-        init_dual(&mut pic);
-        assert!(!pic.has_active_irq());
-
-        pic.set_irq(4, true);
-        assert!(pic.has_active_irq());
-        assert_eq!(pic.get_pending_vector(), Some(0x24));
-        assert!(pic.has_active_irq());
-
-        pic.master.write_command(0x20); // EOI
-        pic.set_irq(4, false);
-        assert!(!pic.has_active_irq());
     }
 
     #[test]
