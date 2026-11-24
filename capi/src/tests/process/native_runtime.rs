@@ -175,6 +175,29 @@ fn installed_uname_matches_native_kernel_version_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_find_enumerates_programs_and_executes_children() {
+    let find = "/usr/bin/find";
+    let environment = [("LC_ALL", "C"), ("PATH", "/usr/bin:/bin")];
+    for (suffix, stdout) in [
+        (&[][..], b"/usr/bin/true\n".as_slice()),
+        (
+            &["-exec", "/usr/bin/printf", "child:%s\\n", "{}", ";"][..],
+            b"child:/usr/bin/true\n".as_slice(),
+        ),
+        (
+            &["-exec", "/usr/bin/printf", "child:%s\\n", "{}", "+"][..],
+            b"child:/usr/bin/true\n".as_slice(),
+        ),
+        (&["-execdir", "/bin/pwd", ";"][..], b"/usr/bin\n".as_slice()),
+    ] {
+        let mut arguments = vec!["/usr/bin", "-maxdepth", "1", "-name", "true"];
+        arguments.extend_from_slice(suffix);
+        compare_installed_posix_output("darwin", find, &arguments, &environment, stdout);
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_date_uses_named_timezones_through_closed_c_abi() {
     for (instant, zone, expected) in [
         (

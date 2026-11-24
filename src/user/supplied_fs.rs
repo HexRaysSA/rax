@@ -697,10 +697,15 @@ impl Files {
         roots: BTreeMap<String, std::path::PathBuf>,
         accept: Option<roots::AcceptFile>,
         confined_mounts: &'static [&'static str],
+        mounts_omitting_unreadable_files: &'static [&'static str],
     ) -> std::io::Result<Self> {
         self.with_library_roots(
             roots,
-            roots::Origin::darwin_installed(accept, confined_mounts),
+            roots::Origin::darwin_installed(
+                accept,
+                confined_mounts,
+                mounts_omitting_unreadable_files,
+            ),
         )
     }
 

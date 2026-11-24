@@ -18,6 +18,7 @@ pub(super) struct Origin {
     accept: Option<AcceptFile>,
     observe_symlinks: bool,
     confined_mounts: &'static [&'static str],
+    mounts_omitting_unreadable_files: &'static [&'static str],
     max_entries: usize,
 }
 
@@ -27,6 +28,7 @@ impl Origin {
         accept: None,
         observe_symlinks: false,
         confined_mounts: &[],
+        mounts_omitting_unreadable_files: &[],
         max_entries: MAX_ENTRIES,
     };
 
@@ -40,6 +42,7 @@ impl Origin {
             accept,
             observe_symlinks: true,
             confined_mounts,
+            mounts_omitting_unreadable_files: &[],
             max_entries: MAX_ENTRIES,
         }
     }
@@ -48,12 +51,14 @@ impl Origin {
     pub(super) fn darwin_installed(
         accept: Option<AcceptFile>,
         confined_mounts: &'static [&'static str],
+        mounts_omitting_unreadable_files: &'static [&'static str],
     ) -> Self {
         Self {
             inode_base: 0xc000_0000_0000_0000,
             accept,
             observe_symlinks: false,
             confined_mounts,
+            mounts_omitting_unreadable_files,
             // The system locale tree alone can contain over 2048 entries.
             max_entries: 4096,
         }
@@ -304,7 +309,21 @@ impl Roots {
             use std::os::unix::fs::OpenOptionsExt;
             options.custom_flags(libc::O_NONBLOCK);
         }
-        let file = options.open(&host).map_err(|_| Error::Io)?;
+        let file = options.open(&host).map_err(|error| {
+            // Execute-only programs cannot enter the closed runtime. Treat
+            // them like other unadmitted leaves when enumerating this mount.
+            if error.kind() == std::io::ErrorKind::PermissionDenied
+                && self.mount(path).is_some_and(|(mount, _)| {
+                    self.origin
+                        .mounts_omitting_unreadable_files
+                        .contains(&mount)
+                })
+            {
+                Error::NotFound
+            } else {
+                Error::Io
+            }
+        })?;
         if !file.metadata().map_err(|_| Error::Io)?.is_file() {
             return Err(Error::NotFound);
         }

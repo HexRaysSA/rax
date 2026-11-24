@@ -211,6 +211,7 @@ fn select_native_root(
             PROGRAM_ROOTS[0],
             PROGRAM_ROOTS[1],
         ],
+        &PROGRAM_ROOTS,
     )?;
     crate::user::supplied_fs::timezone::select_default(files, root)
 }
