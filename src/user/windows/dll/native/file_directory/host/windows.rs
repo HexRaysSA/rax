@@ -102,6 +102,14 @@ pub(super) fn query(c: &Ctx, request: Request) -> Checked<Completion> {
     query_file(file, request, extended())
 }
 
+/// Fixed host-side search used by the synthetic installed directory.
+pub(in super::super) fn query_retained(
+    file: &std::fs::File,
+    request: Request,
+) -> Checked<Completion> {
+    query_file(file, request, None)
+}
+
 fn query_file(
     file: &std::fs::File,
     request: Request,

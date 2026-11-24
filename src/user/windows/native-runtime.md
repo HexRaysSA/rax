@@ -3875,7 +3875,10 @@ delivery remain active work.
 The closed installed drive lists the admitted Windows and system directories
 using their normalized filesystem spelling when it matches the selected DOS
 path under the guest upcase table. This keeps directory-entry spelling distinct
-from the strings returned by the installed system-directory APIs. On Windows
+from the strings returned by the installed system-directory APIs. The selected
+system directory reports regular `.exe` entries with their installed spelling.
+The WoW64 System32 alias searches the selected SysWOW64 directory. Search
+results do not expand the file-open or child-process policy. On Windows
 11 ARM64 build 29708, the installed ARM64 path APIs and `where.exe cmd.exe`
 match native stdout, stderr and exit status. The installed WoW64 `where.exe`
 matches under the supported desktop session on the same build.

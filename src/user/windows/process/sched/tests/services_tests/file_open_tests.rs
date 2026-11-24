@@ -412,13 +412,20 @@ fn native_file_open_closed_directories_only_resolve_selected_runtime_files() {
 
 #[test]
 fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
-    use crate::user::windows::nt::status::{STATUS_NO_MORE_FILES, STATUS_NO_SUCH_FILE};
+    use crate::user::windows::nt::status::{
+        STATUS_ACCESS_DENIED, STATUS_NO_MORE_FILES, STATUS_NO_SUCH_FILE,
+    };
 
     for arch in WinArch::ALL {
         let mut h = Harness::new(arch);
         let installed = selection(&mut h);
         std::fs::write(installed.join("CMD.exe"), b"selected image").unwrap();
-        std::fs::write(installed.join("foreign.exe"), b"unselected image").unwrap();
+        std::fs::write(installed.join("Discovered.EXE"), b"installed image").unwrap();
+        std::fs::write(installed.join("hidden.dll"), b"library").unwrap();
+        std::fs::create_dir(installed.join("directory.exe")).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(installed.join("Discovered.EXE"), installed.join("link.exe"))
+            .unwrap();
         let output = h.base;
         let io = h.base + PAGE_SIZE;
         let width = arch.ptr_size();
@@ -451,30 +458,37 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
             }
 
             let query_name = h.attrs() + 64;
-            h.name("foreign.exe");
-            assert_eq!(
-                h.invoke_api(
-                    "NtQueryDirectoryFileEx",
-                    &[directory, 0, 0, 0, io, output, 256, 12, 1, query_name]
-                ),
-                STATUS_NO_SUCH_FILE
-            );
-            h.name("cMd.EXE");
             let args = [directory, 0, 0, 0, io, output, 256, 12, 1, query_name];
+            let peek = [directory, 0, 0, 0, io, output, 256, 12, 16, query_name];
+            for hidden in ["missing.exe", "hidden.dll", "directory.exe", "link.exe"] {
+                h.name(hidden);
+                assert_eq!(
+                    h.invoke_api("NtQueryDirectoryFileEx", &peek),
+                    STATUS_NO_SUCH_FILE,
+                    "{hidden}"
+                );
+            }
+            for (pattern, spelling) in [("cMd.EXE", "CMD.exe"), ("di?covered.*", "Discovered.EXE")]
+            {
+                h.name(pattern);
+                assert_eq!(
+                    h.invoke_api("NtQueryDirectoryFileEx", &args),
+                    STATUS_SUCCESS
+                );
+                let expected: Vec<_> = spelling.encode_utf16().flat_map(u16::to_le_bytes).collect();
+                let space = &h.process.state().space;
+                assert_eq!(space.u32(output + 8).unwrap() as usize, expected.len());
+                assert_eq!(space.bytes(output + 12, expected.len()).unwrap(), expected);
+                let second = [directory, 0, 0, 0, io, output, 256, 12, 0, 0];
+                assert_eq!(
+                    h.invoke_api("NtQueryDirectoryFileEx", &second),
+                    STATUS_NO_MORE_FILES
+                );
+            }
+            h.name(r"\??\C:\Windows\System32\Discovered.EXE");
             assert_eq!(
-                h.invoke_api("NtQueryDirectoryFileEx", &args),
-                STATUS_SUCCESS
-            );
-            let space = &h.process.state().space;
-            assert_eq!(space.u32(output + 8).unwrap(), 14);
-            assert_eq!(
-                space.bytes(output + 12, 14).unwrap(),
-                b"c\0m\0d\0.\0e\0x\0e\0"
-            );
-            let second = [directory, 0, 0, 0, io, output, 256, 12, 0, 0];
-            assert_eq!(
-                h.invoke_api("NtQueryDirectoryFileEx", &second),
-                STATUS_NO_MORE_FILES
+                h.open_with(output, io, 0x100080, 7, 0x60),
+                STATUS_ACCESS_DENIED
             );
             h.process.state_mut().objects.close(directory).unwrap();
         }

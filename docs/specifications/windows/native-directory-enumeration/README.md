@@ -85,6 +85,15 @@ storage is O(total captured entry and EA bytes), subject to the above bounds.
 Native Windows enumeration is delegated to the filesystem; no filesystem
 complexity claim follows from the portable matcher.
 
+The closed installed namespace synthesizes the parent directories. Within its
+system directory it snapshots regular `.exe` entries from the selected local
+directory. The projection captures installed long names, timestamps, logical
+and allocated sizes, attributes, and file IDs. The WoW64 System32 alias uses
+the selected SysWOW64 view. The host search uses a private directory handle
+and a fixed extension filter. The guest expression applies to the resulting
+snapshot. Reparse points and subdirectories are excluded.
+Directory records grant no file-open or child-process rights.
+
 ## Independent evidence
 
 `native-directory-v5.rs` links no RAX code. Each architecture corpus records

@@ -2,6 +2,8 @@
 #[cfg(windows)]
 mod windows;
 use super::{Checked, Completion, Ctx, Request};
+#[cfg(windows)]
+pub(super) use windows::query_retained;
 
 pub(super) fn query(c: &mut Ctx, request: Request) -> Checked<Completion> {
     #[cfg(windows)]

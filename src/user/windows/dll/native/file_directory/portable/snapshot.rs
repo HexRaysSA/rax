@@ -3,9 +3,10 @@ use super::super::super::file_attributes::{metadata, posix};
 use super::super::{Checked, Ctx};
 use crate::user::windows::objects::{DirectoryEntry, Object};
 use std::ffi::CStr;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd};
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::path::Path;
 
 struct Directory(*mut libc::DIR);
 impl Drop for Directory {
@@ -40,6 +41,25 @@ pub(super) fn collect(c: &Ctx, handle: u64) -> Checked<Vec<DirectoryEntry>> {
         .host
         .as_ref()
         .ok_or_else(|| c.unsupported("mapped directory requires a retained descriptor"))?;
+    capture(c, retained, &file.host_path, false)
+}
+
+/// The synthetic system directory has no guest-controlled host path.
+pub(super) fn installed(c: &Ctx, root: &Path) -> Checked<Vec<DirectoryEntry>> {
+    let directory = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW)
+        .open(root)
+        .map_err(|e| c.unsupported(format!("installed directory descriptor: {e}")))?;
+    capture(c, &directory, root, true)
+}
+
+fn capture(
+    c: &Ctx,
+    retained: &File,
+    host_path: &Path,
+    executables_only: bool,
+) -> Checked<Vec<DirectoryEntry>> {
     let duplicate = retained
         .try_clone()
         .map_err(|error| c.unsupported(format!("duplicate directory descriptor: {error}")))?;
@@ -77,17 +97,21 @@ pub(super) fn collect(c: &Ctx, handle: u64) -> Checked<Vec<DirectoryEntry>> {
         // SAFETY: successful readdir supplies a NUL-terminated d_name whose
         // storage remains live until the next readdir on this same stream.
         let native_name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) };
-        let name = native_name
-            .to_str()
-            .map_err(|_| c.unsupported("directory entry has no UTF-8 Windows mapping"))?;
+        let name = match native_name.to_str() {
+            Ok(name) => name,
+            Err(_) if executables_only => continue,
+            Err(_) => {
+                return Err(c
+                    .unsupported("directory entry has no UTF-8 Windows mapping")
+                    .into());
+            }
+        };
         let units: Vec<_> = name.encode_utf16().collect();
-        bytes = bytes
-            .checked_add(256 + units.len() * 2)
-            .ok_or_else(|| c.unsupported("directory snapshot size overflow"))?;
-        if bytes > 16 << 20 || entries.len() >= 65536 {
-            return Err(c
-                .unsupported("directory snapshot exceeds 16 MiB or 65536 entries")
-                .into());
+        if executables_only && !super::installed::executable_name(&units) {
+            continue;
+        }
+        if !executables_only {
+            account(c, &mut bytes, entries.len(), units.len())?;
         }
         #[cfg(target_os = "linux")]
         let flags = libc::O_PATH | libc::O_CLOEXEC | libc::O_NOFOLLOW;
@@ -101,7 +125,9 @@ pub(super) fn collect(c: &Ctx, handle: u64) -> Checked<Vec<DirectoryEntry>> {
         let descriptor = unsafe { libc::openat(retained.as_raw_fd(), native_name.as_ptr(), flags) };
         if descriptor < 0 {
             let error = std::io::Error::last_os_error();
-            if error.kind() == std::io::ErrorKind::NotFound {
+            if error.kind() == std::io::ErrorKind::NotFound
+                || (executables_only && error.raw_os_error() == Some(libc::ELOOP))
+            {
                 continue;
             }
             return Err(c
@@ -113,9 +139,19 @@ pub(super) fn collect(c: &Ctx, handle: u64) -> Checked<Vec<DirectoryEntry>> {
         let stat = child
             .metadata()
             .map_err(|error| c.unsupported(format!("directory child identity: {error}")))?;
-        let info = metadata::descriptor(c, &file.host_path.join(name), &child)?;
-        let ea = posix::directory_ea(&child)
-            .map_err(|error| c.unsupported(format!("directory child Windows EAs: {error}")))?;
+        if executables_only {
+            if !stat.is_file() {
+                continue;
+            }
+            account(c, &mut bytes, entries.len(), units.len())?;
+        }
+        let info = metadata::descriptor(c, &host_path.join(name), &child)?;
+        let ea = if executables_only {
+            None
+        } else {
+            posix::directory_ea(&child)
+                .map_err(|error| c.unsupported(format!("directory child Windows EAs: {error}")))?
+        };
         bytes = bytes
             .checked_add(ea.as_ref().map_or(0, Vec::len))
             .filter(|&bytes| bytes <= 16 << 20)
@@ -132,4 +168,14 @@ pub(super) fn collect(c: &Ctx, handle: u64) -> Checked<Vec<DirectoryEntry>> {
         });
     }
     Ok(entries)
+}
+
+fn account(c: &Ctx, bytes: &mut usize, count: usize, name_units: usize) -> Checked<()> {
+    *bytes += 256 + name_units * 2;
+    if *bytes > 16 << 20 || count >= 65536 {
+        return Err(c
+            .unsupported("directory snapshot exceeds 16 MiB or 65536 entries")
+            .into());
+    }
+    Ok(())
 }
