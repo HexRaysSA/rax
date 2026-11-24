@@ -40,6 +40,27 @@ These MMIO operations do not perform the CPU-interface priority drop. Word state
 registers cover classic SPI32-1019 and private SGI/PPI0-31 respectively; reserved
 INTIDs remain excluded. No broader MMIO-width or optional GIC profile claim follows.
 
+## Deactivation in combined and split EOI modes
+
+In the classic physical GIC profile, a guest write to `ICC_DIR_EL1` or its
+AArch32 alias is ignored when the issuing PE has `EOImode=0`. `ICC_EOIR` then
+drops running priority and deactivates the interrupt. With `EOImode=1`,
+`ICC_DIR` clears active state independently and `ICC_EOIR` drops running
+priority. The ignored write takes constant time and space. The split-mode write
+uses the existing controller update. [Arm GIC Architecture Specification,
+IHI 0069H, §12.2.8](../../specifications/arm/gic-ihi0069.pdf#page=244)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The AArch32 aliases use the same mode gate. | Execute A32 and T32 `ICC_DIR` writes in both modes and read back `GICD_ISACTIVER` and `ICC_RPR`. |
+| Each restored PE keeps its own EOI mode. | Restore two- and four-PE VM files with both modes represented in each cohort. Run `ICC_DIR` and `ICC_EOIR` on every PE and check the Redistributor active bit and running priority. |
+| A split-mode `ICC_DIR` leaves running priority intact. | Issue `ICC_DIR` before `ICC_EOIR` in QEMU 11.1.2 on the `cortex-a57` and `max` CPU models. Verify that priority remains elevated until `ICC_EOIR`. |
+
+Both RAX regressions failed on `1c26e6306` and passed with the fix. The six
+restored PEs reached 16 retirements each. The correction uses the existing
+serialized EOI mode. High-impact open scope includes virtual GIC deactivation
+and native interrupt migration.
+
 ## Checkpoint boundary
 
 There are no new serialized fields or frame tags. Controller selection is derived

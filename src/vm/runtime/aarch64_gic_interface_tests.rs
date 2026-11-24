@@ -339,3 +339,98 @@ fn detached_gic_binary_points_and_active_priority_registers_continue_on_each_gue
         }
     }
 }
+
+#[test]
+fn detached_gic_dir_uses_the_eoi_mode_of_each_guest_pe() {
+    let program = [
+        0xd518_cc81u32, // MSR ICC_CTLR_EL1,X1: set EOImode.
+        0xd518_4603,    // MSR ICC_PMR_EL1,X3.
+        0xd518_cce4,    // MSR ICC_IGRPEN1_EL1,X4.
+        0xb900_00c4,    // STR W4,[X6]: enable distributor Group 1 (X4 contains 3).
+        0xb900_00ff,    // STR WZR,[X7]: wake this redistributor.
+        0xb901_0110,    // STR W16,[X8,#0x100]: enable SGI7.
+        0xb902_0110,    // STR W16,[X8,#0x200]: pend SGI7.
+        0xd538_cc00,    // MRS X0,ICC_IAR1_EL1: acknowledge SGI7.
+        0xd503_207f,    // WFI: save while the interrupt is still active.
+        0xd518_cb20,    // MSR ICC_DIR_EL1,X0: attempt deactivation before EOI.
+        0xb943_0111,    // LDR W17,[X8,#0x300]: active bit after DIR.
+        0xd538_cb72,    // MRS X18,ICC_RPR_EL1: priority remains active.
+        0xd518_cc20,    // MSR ICC_EOIR1_EL1,X0.
+        0xb943_0113,    // LDR W19,[X8,#0x300]: active bit after EOIR.
+        0xd538_cb74,    // MRS X20,ICC_RPR_EL1: idle priority.
+        0xd503_207f,    // WFI: end of continuation.
+    ];
+    let bytes = program
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect::<Vec<_>>();
+    for count in [2, 4] {
+        let mut source = Fixture::with_clock(count, ClockMode::Retired);
+        for id in 1..count {
+            assert_eq!(
+                source
+                    .cluster()
+                    .request_on(u64::from(id), CODE, 0, 0x3c5)
+                    .unwrap(),
+                0
+            );
+        }
+        source.vm.route_interprocessor_requests().unwrap();
+        source
+            .vm
+            .guest_mem
+            .memory()
+            .write_slice(&bytes, GuestAddress(CODE))
+            .unwrap();
+        for id in 0..usize::from(count) {
+            let mut cpu = state(&source.vm, id);
+            let redist = 0x080a_0000 + id as u64 * 0x20000;
+            cpu.regs.x[1] = ((id % 2) * 2) as u64;
+            cpu.regs.x[3..9].copy_from_slice(&[
+                0xff,
+                3,
+                0,
+                0x0800_0000,
+                redist + 0x14,
+                redist + 0x10000,
+            ]);
+            cpu.regs.x[16] = 1 << 7;
+            source.vm.vcpus[id]
+                .set_state(&CpuState::Aarch64(cpu))
+                .unwrap();
+        }
+        for id in 0..usize::from(count) {
+            let turn = source.vm.execute_turn().unwrap().unwrap();
+            assert_eq!(turn.cpu_index, id);
+            assert!(matches!(turn.exit, VcpuExit::Hlt));
+            assert_eq!(state(&source.vm, id).regs.x[0], 7);
+            assert_eq!(source.vm.vcpus[id].instruction_count(), 9);
+        }
+        let path = source.kernel.with_extension("gic-dir.rxc");
+        source
+            .vm
+            .take_snapshot_bundle(9 * u64::from(count))
+            .unwrap()
+            .save(&path)
+            .unwrap();
+        drop(source);
+        let bundle = SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        assert!(!config.kernel.exists());
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        for id in 0..usize::from(count) {
+            target.vcpus[id].wake();
+            let turn = target.execute_turn().unwrap().unwrap();
+            assert_eq!(turn.cpu_index, id);
+            assert!(matches!(turn.exit, VcpuExit::Hlt));
+            let active_after_dir = if id % 2 == 0 { 1 << 7 } else { 0 };
+            assert_eq!(
+                &state(&target, id).regs.x[17..21],
+                &[active_after_dir, 0xa0, 0, 0xff],
+                "PE {id} of {count}"
+            );
+            assert_eq!(target.vcpus[id].instruction_count(), 16);
+        }
+    }
+}

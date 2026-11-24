@@ -1178,11 +1178,16 @@ impl Gic {
         self.update_all_cpus();
     }
 
-    /// ICC_DIR_EL1 write (deactivate, for EOImode=1).
+    /// ICC_DIR_EL1 write. GICv3 ignores it in combined EOI mode
+    /// (Arm IHI0069H 12.2.8).
     pub fn deactivate(&mut self, cpu_id: usize, intid: u32) {
-        if let Some(cpu) = self.cpu_interfaces.get_mut(cpu_id) {
-            cpu.deactivate(intid, &mut self.spis);
+        let Some(cpu) = self.cpu_interfaces.get_mut(cpu_id) else {
+            return;
+        };
+        if !cpu.eoi_mode {
+            return;
         }
+        cpu.deactivate(intid, &mut self.spis);
         self.update_all_cpus();
     }
 

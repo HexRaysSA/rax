@@ -71,6 +71,54 @@ fn a32_and_t32_use_the_same_active_priority_registers_as_a64() {
 }
 
 #[test]
+fn a32_and_t32_dir_writes_obey_eoi_mode_without_dropping_priority() {
+    for thumb in [false, true] {
+        for split in [false, true] {
+            let mut cpu = cpu(
+                &[
+                    0xee0c_1f9c, // MCR p15,0,R1,c12,c12,4 (ICC_CTLR)
+                    0xee1c_5f1c, // MRC p15,0,R5,c12,c12,0 (ICC_IAR1)
+                    0xee0c_5f3b, // MCR p15,0,R5,c12,c11,1 (ICC_DIR)
+                    0xee1c_6f7b, // MRC p15,0,R6,c12,c11,3 (ICC_RPR)
+                    0xee0c_5f3c, // MCR p15,0,R5,c12,c12,1 (ICC_EOIR1)
+                    0xee1c_7f7b, // MRC p15,0,R7,c12,c11,3 (ICC_RPR)
+                ],
+                thumb,
+            );
+            let gic = cpu.gic.as_ref().unwrap().clone();
+            {
+                let mut gic = gic.lock().unwrap();
+                gic.write_dist(0, 3);
+                gic.set_group_enable(0, true, true);
+                gic.write_dist(0x84, 1 << 8);
+                gic.set_enabled(40, true);
+                gic.set_priority(40, 0x60);
+                gic.set_pending(40);
+            }
+            cpu.set_x(1, u64::from(split) << 1);
+            for index in 0..6 {
+                assert!(matches!(
+                    cpu.step_system_with_fault_exit(),
+                    Ok(CpuExit::Continue)
+                ));
+                if index == 2 {
+                    assert_eq!(cpu.get_x(5), 40);
+                    assert_eq!(
+                        gic.lock().unwrap().read_dist(0x304) & (1 << 8) != 0,
+                        !split,
+                        "ICC_DIR active state in Thumb={thumb}, split={split}"
+                    );
+                }
+            }
+            assert_eq!(cpu.instruction_count(), 6);
+            assert_eq!(cpu.get_x(6), 0x60);
+            assert_eq!(cpu.get_x(7), 0xff);
+            assert_eq!(gic.lock().unwrap().read_dist(0x304) & (1 << 8), 0);
+        }
+    }
+}
+
+#[test]
 fn a32_gic_predicate_and_hstr_precede_acknowledgement() {
     for thumb in [false, true] {
         let mut cpu = cpu(&[0xee1c_5f1c], thumb);
