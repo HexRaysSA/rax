@@ -5,8 +5,9 @@ pub(super) const LEGACY_EXTENSION_FLAG: &str = "LoadAppInit_DLLs";
 
 pub(super) const SYSTEM_SETUP_VALUES: &[&str] = &[SYSTEM_SETUP_IN_PROGRESS, "OOBEInProgress"];
 
-#[path = "process_config/protocol_catalog.rs"]
-pub(super) mod protocol_catalog;
+#[path = "process_config/winsock_catalog.rs"]
+pub(super) mod winsock_catalog;
+use winsock_catalog::Catalog;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum ProcessConfigKey {
@@ -16,6 +17,7 @@ pub(crate) enum ProcessConfigKey {
     WinsockParameters,
     WinsockAppIdCatalog,
     WinsockProtocolCatalog,
+    WinsockNamespaceCatalog,
     Ccg,
     DisabledLegacyExtensions,
     MachineAppCompatFlags,
@@ -23,13 +25,14 @@ pub(crate) enum ProcessConfigKey {
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 9] = [
+    pub(super) const ALL: [Self; 10] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
         // Capture the fixed children before linking the Parameters handle.
         Self::WinsockAppIdCatalog,
         Self::WinsockProtocolCatalog,
+        Self::WinsockNamespaceCatalog,
         Self::WinsockParameters,
         Self::Ccg,
         Self::MachineAppCompatFlags,
@@ -51,6 +54,9 @@ impl ProcessConfigKey {
             }
             Self::WinsockProtocolCatalog => {
                 r"\Registry\Machine\System\CurrentControlSet\Services\WinSock2\Parameters\Protocol_Catalog9"
+            }
+            Self::WinsockNamespaceCatalog => {
+                r"\Registry\Machine\System\CurrentControlSet\Services\WinSock2\Parameters\NameSpace_Catalog5"
             }
             Self::Ccg => r"\Registry\Machine\System\CurrentControlSet\Services\CCG",
             Self::DisabledLegacyExtensions => {
@@ -85,7 +91,8 @@ impl ProcessConfigKey {
                 "WinSock_Registry_Version",
             ],
             Self::WinsockAppIdCatalog | Self::Ccg | Self::OsDataAppCompatFlags => &[],
-            Self::WinsockProtocolCatalog => protocol_catalog::HEADER_VALUES,
+            Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
+            Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
             Self::MachineAppCompatFlags => &["LogFlags"],
         }
@@ -98,7 +105,8 @@ impl ProcessConfigKey {
             Self::ActiveComputerName => "active computer name",
             Self::WinsockParameters => "Winsock catalog selection",
             Self::WinsockAppIdCatalog => "Winsock application-ID catalog",
-            Self::WinsockProtocolCatalog => "Winsock protocol catalog",
+            Self::WinsockProtocolCatalog => Catalog::Protocol.label(),
+            Self::WinsockNamespaceCatalog => Catalog::Namespace.label(),
             Self::Ccg => "CCG service",
             Self::DisabledLegacyExtensions => "disabled legacy extensions",
             Self::MachineAppCompatFlags => "machine AppCompatFlags",
@@ -123,6 +131,14 @@ impl ProcessConfigKey {
         self == Self::WinsockAppIdCatalog
     }
 
+    pub(super) fn winsock_catalog(self) -> Option<Catalog> {
+        match self {
+            Self::WinsockProtocolCatalog => Some(Catalog::Protocol),
+            Self::WinsockNamespaceCatalog => Some(Catalog::Namespace),
+            _ => None,
+        }
+    }
+
     pub(super) fn link_children(
         self,
         registry: &Registry,
@@ -132,7 +148,11 @@ impl ProcessConfigKey {
         if self != Self::WinsockParameters {
             return Ok(());
         }
-        for child in [Self::WinsockAppIdCatalog, Self::WinsockProtocolCatalog] {
+        for child in [
+            Self::WinsockAppIdCatalog,
+            Self::WinsockProtocolCatalog,
+            Self::WinsockNamespaceCatalog,
+        ] {
             let selection = (ViewRoot::ProcessConfig(child), view);
             let Some(selected) = registry.views.roots.get(&selection) else {
                 continue;

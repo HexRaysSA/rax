@@ -51,8 +51,10 @@ pub(super) fn capture_processor0(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Processor0, &[], open_snapshot)
 }
 
-pub(super) fn capture_protocol_catalog(registry: Registry) -> io::Result<Registry> {
-    let root = SnapshotRoot::ProcessConfig(super::super::ProcessConfigKey::WinsockProtocolCatalog);
+pub(super) fn capture_winsock_catalog(
+    registry: Registry,
+    root: SnapshotRoot,
+) -> io::Result<Registry> {
     capture_snapshot_with(registry, root, &[], open_snapshot)
 }
 

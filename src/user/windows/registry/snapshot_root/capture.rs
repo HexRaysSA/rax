@@ -134,7 +134,7 @@ fn open<S: Source>(
         Ok(key) => Ok(Ok(key)),
         Err(error) if error.raw_os_error() == Some(2) => Ok(Err(STATUS_OBJECT_NAME_NOT_FOUND)),
         Err(error) if error.raw_os_error() == Some(3) => Ok(Err(STATUS_OBJECT_PATH_NOT_FOUND)),
-        Err(error) if root.is_protocol_catalog() && error.raw_os_error() == Some(5) => {
+        Err(error) if root.winsock_catalog().is_some() && error.raw_os_error() == Some(5) => {
             Ok(Err(STATUS_ACCESS_DENIED))
         }
         Err(error) => Err(error),

@@ -260,7 +260,7 @@ fn winsock_app_id_catalog_uses_the_selected_child_in_both_views() {
     }
 }
 
-fn protocol_node(
+fn catalog_node(
     path: &str,
     values: Vec<Value>,
     children: Vec<(Vec<u16>, CommandTree)>,
@@ -279,29 +279,17 @@ fn protocol_node(
     CommandTree { header, children }
 }
 
-fn protocol_catalog(path: &str) -> CommandTree {
+fn catalog_tree(path: &str, entry_values: impl Fn(u8) -> Vec<Value>) -> CommandTree {
     let entry_list = |name: &str, marker: u8| {
         let path = format!(r"{path}\{name}");
         let entry = "000000000001";
-        let values = vec![
-            Value {
-                name: units("ProtocolName"),
-                kind: 1,
-                data: vec![b'X', 0, 0, 0],
-            },
-            Value {
-                name: units("PackedCatalogItem"),
-                kind: 3,
-                data: vec![marker; 888],
-            },
-        ];
-        let entry_node = protocol_node(&format!(r"{path}\{entry}"), values, vec![]);
+        let entry_node = catalog_node(&format!(r"{path}\{entry}"), entry_values(marker), vec![]);
         (
             units(name),
-            protocol_node(&path, vec![], vec![(units(entry), entry_node)]),
+            catalog_node(&path, vec![], vec![(units(entry), entry_node)]),
         )
     };
-    protocol_node(
+    catalog_node(
         path,
         vec![Value {
             name: units("Num_Catalog_Entries"),
@@ -315,13 +303,54 @@ fn protocol_catalog(path: &str) -> CommandTree {
     )
 }
 
-#[test]
-fn winsock_protocol_catalog_preserves_entries_and_native_order_in_both_views() {
-    let subject = ProcessConfigKey::WinsockProtocolCatalog;
+fn protocol_values(marker: u8) -> Vec<Value> {
+    vec![
+        Value {
+            name: units("ProtocolName"),
+            kind: 1,
+            data: vec![b'X', 0, 0, 0],
+        },
+        Value {
+            name: units("PackedCatalogItem"),
+            kind: 3,
+            data: vec![marker; 888],
+        },
+    ]
+}
+
+fn namespace_values(marker: u8) -> Vec<Value> {
+    [
+        ("LibraryPath", 1, vec![b'X', 0, 0, 0]),
+        ("ProviderId", 3, vec![marker; 16]),
+        (
+            "ProviderInfo",
+            3,
+            if marker == 32 { vec![] } else { vec![marker] },
+        ),
+        ("DisplayString", 1, vec![b'Y', 0, 0, 0]),
+        ("Enabled", 4, 1u32.to_le_bytes().to_vec()),
+        ("StoresServiceClassInfo", 4, 0u32.to_le_bytes().to_vec()),
+        ("SupportedNameSpace", 4, 12u32.to_le_bytes().to_vec()),
+        ("Version", 4, 2u32.to_le_bytes().to_vec()),
+    ]
+    .into_iter()
+    .map(|(name, kind, data)| Value {
+        name: units(name),
+        kind,
+        data,
+    })
+    .collect()
+}
+
+fn check_winsock_catalog_routes(
+    subject: ProcessConfigKey,
+    catalog_name: &str,
+    entry_values: fn(u8) -> Vec<Value>,
+) {
     let parent = ProcessConfigKey::WinsockParameters;
     let physical = subject.path().replace("CurrentControlSet", "ControlSet001");
     let physical_parent = parent.path().replace("CurrentControlSet", "ControlSet001");
-    let catalog = protocol_catalog(&physical);
+    let catalog = catalog_tree(&physical, entry_values);
     let mut registry = Registry::selected(upcase(), vec![]).unwrap();
     for view in [RegistryView::Native64, RegistryView::Wow32] {
         registry = registry
@@ -342,8 +371,8 @@ fn winsock_protocol_catalog_preserves_entries_and_native_order_in_both_views() {
         let Lookup::Present(parent) = registry.lookup_view(&units(&physical_parent), view) else {
             panic!("Winsock Parameters did not resolve");
         };
-        let Lookup::Present(catalog) = parent.relative(&units("protocol_catalog9")) else {
-            panic!("Winsock protocol catalog did not resolve");
+        let Lookup::Present(catalog) = parent.relative(&units(catalog_name)) else {
+            panic!("Winsock catalog did not resolve");
         };
         let metadata = catalog.child_metadata().unwrap();
         assert_eq!(metadata[0].name, units("Catalog_Entries64"));
@@ -355,11 +384,11 @@ fn winsock_protocol_catalog_preserves_entries_and_native_order_in_both_views() {
         for (name, marker) in [("Catalog_Entries", 32), ("Catalog_Entries64", 64)] {
             let relative = format!(r"{name}\000000000001");
             let Lookup::Present(entry) = catalog.relative(&units(&relative)) else {
-                panic!("Winsock protocol entry did not resolve");
+                panic!("Winsock catalog entry did not resolve");
             };
             assert_eq!(entry.redirected_view, Some(view));
             let Lookup::Present(from_parameters) =
-                parent.relative(&units(&format!(r"Protocol_Catalog9\{relative}")))
+                parent.relative(&units(&format!(r"{catalog_name}\{relative}")))
             else {
                 panic!("Winsock Parameters could not open the selected entry");
             };
@@ -368,17 +397,24 @@ fn winsock_protocol_catalog_preserves_entries_and_native_order_in_both_views() {
                 let Lookup::Present(absolute) =
                     registry.lookup_view(&units(&format!(r"{path}\{relative}")), view)
                 else {
-                    panic!("Winsock protocol entry did not resolve by absolute path");
+                    panic!("Winsock catalog entry did not resolve by absolute path");
                 };
                 assert!(Arc::ptr_eq(&entry, &absolute));
             }
-            assert_eq!(
-                entry.ordered_values().unwrap()[0].name,
-                units("ProtocolName")
-            );
-            let packed = entry.value(&units("packedcatalogitem")).unwrap();
-            assert_eq!(packed.kind, 3);
-            assert_eq!(packed.data, vec![marker; 888]);
+            let expected = entry_values(marker);
+            let ordered = entry.ordered_values().unwrap();
+            assert_eq!(ordered.len(), expected.len());
+            for (actual, expected) in ordered.iter().zip(expected) {
+                assert_eq!(actual.name, expected.name);
+                let folded: Vec<u16> = expected
+                    .name
+                    .iter()
+                    .map(|&u| entry.upcase[u as usize])
+                    .collect();
+                let lookup = entry.value(&folded).unwrap();
+                assert_eq!(lookup.kind, expected.kind);
+                assert_eq!(lookup.data, expected.data);
+            }
             assert!(entry.covers_value(&units("Absent")));
             assert!(entry.value(&units("Absent")).is_none());
         }
@@ -394,12 +430,30 @@ fn winsock_protocol_catalog_preserves_entries_and_native_order_in_both_views() {
 }
 
 #[test]
+fn winsock_protocol_catalog_preserves_entries_and_native_order_in_both_views() {
+    check_winsock_catalog_routes(
+        ProcessConfigKey::WinsockProtocolCatalog,
+        "protocol_catalog9",
+        protocol_values,
+    );
+}
+
+#[test]
+fn winsock_namespace_catalog_preserves_entries_and_native_order_in_both_views() {
+    check_winsock_catalog_routes(
+        ProcessConfigKey::WinsockNamespaceCatalog,
+        "namespace_catalog5",
+        namespace_values,
+    );
+}
+
+#[test]
 fn winsock_protocol_catalog_rejects_partial_or_unselected_subtrees() {
     let subject = ProcessConfigKey::WinsockProtocolCatalog;
     let root = SnapshotRoot::ProcessConfig(subject);
     let view = RegistryView::Native64;
     let registry = Registry::selected(upcase(), vec![]).unwrap();
-    let catalog = protocol_catalog(subject.path());
+    let catalog = catalog_tree(subject.path(), protocol_values);
     assert!(
         registry
             .clone()
@@ -437,6 +491,39 @@ fn winsock_protocol_catalog_rejects_partial_or_unselected_subtrees() {
         assert_eq!(
             error.to_string(),
             "Winsock protocol catalog contains an unexpected key or value"
+        );
+    }
+}
+
+#[test]
+fn winsock_namespace_catalog_rejects_unselected_or_malformed_provider_values() {
+    let subject = ProcessConfigKey::WinsockNamespaceCatalog;
+    let registry = Registry::selected(upcase(), vec![]).unwrap();
+    for (index, name, kind, data) in [
+        (1, "ProviderId", 3, vec![0; 15]),
+        (2, "ProviderInfo", 1, vec![]),
+        (3, "PackedCatalogItem", 3, vec![42]),
+        (4, "Enabled", 4, vec![1, 0, 0]),
+    ] {
+        let mut catalog = catalog_tree(subject.path(), namespace_values);
+        catalog.children[0].1.children[0].1.header.values[index] = Value {
+            name: units(name),
+            kind,
+            data,
+        };
+        let error = registry
+            .clone()
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(subject),
+                &[],
+                RegistryView::Wow32,
+                Ok((catalog.header, Some(catalog.children))),
+            )
+            .err()
+            .expect("invalid namespace provider value was accepted");
+        assert_eq!(
+            error.to_string(),
+            "Winsock namespace catalog contains an unexpected key or value"
         );
     }
 }

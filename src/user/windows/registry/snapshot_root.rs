@@ -131,10 +131,9 @@ impl SnapshotRoot {
                         | ProcessConfigKey::ActiveComputerName
                         | ProcessConfigKey::WinsockParameters
                         | ProcessConfigKey::WinsockAppIdCatalog
-                        | ProcessConfigKey::WinsockProtocolCatalog
                         | ProcessConfigKey::Ccg
                 )
-        )
+        ) || self.winsock_catalog().is_some()
     }
     pub(super) fn requires_complete_metadata(self) -> bool {
         matches!(
@@ -144,10 +143,13 @@ impl SnapshotRoot {
                 | Self::Wow64Amd64
                 | Self::Wow64X86Jit
                 | Self::Processor0
-        ) || self.is_protocol_catalog()
+        ) || self.winsock_catalog().is_some()
     }
-    pub(super) fn is_protocol_catalog(self) -> bool {
-        self == Self::ProcessConfig(ProcessConfigKey::WinsockProtocolCatalog)
+    pub(super) fn winsock_catalog(self) -> Option<process_config::winsock_catalog::Catalog> {
+        match self {
+            Self::ProcessConfig(subject) => subject.winsock_catalog(),
+            _ => None,
+        }
     }
     pub(super) fn label(self) -> &'static str {
         match self {
@@ -348,7 +350,7 @@ impl Registry {
         let key = match selected_tree {
             Ok((header, children)) => {
                 if let SnapshotRoot::ProcessConfig(subject) = root {
-                    if !root.is_protocol_catalog()
+                    if subject.winsock_catalog().is_none()
                         && (children.is_some()
                             || header.enumeration.is_some() && !subject.captures_child_membership())
                         || !subject.accepts_values(view, &header.values)

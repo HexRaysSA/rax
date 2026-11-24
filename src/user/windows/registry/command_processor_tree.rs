@@ -1,5 +1,6 @@
 //! Complete CMD trees own every child and that child's captured access profile.
 use super::*;
+use crate::user::windows::registry::process_config::winsock_catalog::Catalog;
 use crate::user::windows::registry::tree::{TreeBudget, child_path};
 
 #[derive(Clone)]
@@ -13,7 +14,7 @@ pub(in crate::user::windows::registry) struct Builder {
     view: RegistryView,
     label: &'static str,
     complete_metadata: bool,
-    protocol_catalog: bool,
+    catalog: Option<Catalog>,
     values: ValueBudget,
     metadata: TreeBudget,
 }
@@ -30,7 +31,7 @@ impl Builder {
             view,
             label: root.label(),
             complete_metadata: root.requires_complete_metadata(),
-            protocol_catalog: root.is_protocol_catalog(),
+            catalog: root.winsock_catalog(),
             values,
             metadata,
         })
@@ -71,8 +72,8 @@ impl Builder {
             )));
         }
         self.metadata.charge(&header.canonical, depth)?;
-        if self.protocol_catalog {
-            super::super::process_config::protocol_catalog::check_node(
+        if let Some(catalog) = self.catalog {
+            catalog.check_node(
                 &self.upcase,
                 depth,
                 &header.values,
@@ -80,7 +81,7 @@ impl Builder {
             )?;
         }
         let mut values = bounded_values(&self.upcase, header.values, &mut self.values)?;
-        values.native_order = self.protocol_catalog;
+        values.native_order = self.catalog.is_some();
         let enumeration = super::super::key_enumeration::bounded(
             &self.upcase,
             header.enumeration,

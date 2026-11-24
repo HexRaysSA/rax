@@ -102,15 +102,16 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
             self.metadata.charge(&canonical, depth)?;
             let access = access(&key, &canonical)?;
             use super::super::key_enumeration::{stable_bounded, stable_ordered_values_bounded};
-            let sample = if self.root.is_protocol_catalog() {
+            let catalog = self.root.winsock_catalog();
+            let sample = if catalog.is_some() {
                 stable_ordered_values_bounded
             } else {
                 stable_bounded
             };
             let (values, names) =
                 sample(&key, &self.values, self.reserved, self.metadata.key_limit())?;
-            if self.root.is_protocol_catalog() {
-                crate::user::windows::registry::process_config::protocol_catalog::check_node(
+            if let Some(catalog) = catalog {
+                catalog.check_node(
                     &self.registry.upcase,
                     depth,
                     &values,
