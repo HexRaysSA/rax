@@ -1099,3 +1099,36 @@ full vector results and before/after RFLAGS. The `vector-variable-shifts` workfl
 profile is configured for 70 direct guest reads and 70 fresh-owner
 checkpoint continuations. Native Intel execution of this profile remains
 open.
+
+## Packed integer unpack with a device operand
+
+Intel HVF supports the SSE2 PUNPCKL/H forms and their VEX.128 and
+VEX.256 equivalents for 8-, 16-, 32-, and 64-bit elements. The MMIO
+path reads the full 16 B or 32 B encoded memory operand. Within each
+16 B lane, it alternates elements from the selected 8 B halves of the
+register and device operands. The result preserves RFLAGS. Legacy SSE
+preserves the upper YMM half, VEX.128 clears it, and VEX.256 replaces
+both halves. [Intel SDM Volume 2B, PUNPCKHBW and PUNPCKLBW](https://cdrdv2-public.intel.com/782151/253667-sdm-vol-2b.pdf)
+
+The pending read stores the register operand and appends two operation
+variants to the existing checkpoint format. Completion takes O(w) time
+and uses a w-byte result buffer for w equal to 16 or 32 B.
+
+| Assumption | Impact | Validation probe |
+| --- | --- | --- |
+| The device read width follows the encoded memory operand. | High | Check the planned width and reject writes, wrong prefixes and unsupported operand forms. |
+| VEX.256 selects halves independently in both lanes. | High | Use distinct bytes across both operands and all lanes, then compare the full YMM result and RFLAGS against two independent RAM patterns under Rosetta. |
+| A restored read can complete without decoding the original instruction. | High | Round-trip the pending descriptor and submit the reply twice. The native profile also replaces the original instruction with UD2 before restoring a fresh owner. |
+
+At parent `646a25452`, all 40 legal encodings failed MMIO metadata
+admission. The baseline log SHA-256 is
+`278ad984c1b32445f625aeb80b6ed9f65a8a88ef20dbf93347c3675293b8c71f`.
+The independent RAM probe matched 80 results and RFLAGS pairs. Its
+observation stream SHA-256 is
+`50eeba1759a2b951d921ec68174f9d7ed61cdc411bc400fb70110b35be40ea99`.
+The Apple Silicon build passed 147 MMIO and 28,561 x86-64 tests, with
+three x86-64 tests ignored. All 55 Python HVF tool tests passed.
+The `vector-unpack` native profile covers 40 direct reads, 40 fresh-owner
+checkpoint completions, and eight legacy misalignment faults. The
+Intel-target guest cross-built and passed strict signature verification.
+Native Intel execution of this profile remains open.

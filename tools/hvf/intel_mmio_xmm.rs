@@ -1068,6 +1068,73 @@ fn packed_binary_case(
     low0 ^ low1.rotate_left(7) ^ high0.rotate_left(23) ^ high1.rotate_left(41)
 }
 
+pub(super) fn run_integer_unpack(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let left: [u8; 32] = std::array::from_fn(|index| index as u8);
+    let reply: [u8; 32] = std::array::from_fn(|index| 0xff - index as u8);
+    let qwords = |bytes: &[u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    let mut case = 0;
+    for (opcode, mnemonic, element, upper) in [
+        (0x60, "punpcklbw", 1, false),
+        (0x61, "punpcklwd", 2, false),
+        (0x62, "punpckldq", 4, false),
+        (0x6c, "punpcklqdq", 8, false),
+        (0x68, "punpckhbw", 1, true),
+        (0x69, "punpckhwd", 2, true),
+        (0x6a, "punpckhdq", 4, true),
+        (0x6d, "punpckhqdq", 8, true),
+    ] {
+        let legacy = [0x66, 0x44, 0x0f, opcode, 0x3f];
+        for (code, encoding, width) in [
+            (&legacy[..], "legacy", 16),
+            (&[0xc5, 0x39, opcode, 0x7f, 3], "vex2-128", 16),
+            (&[0xc5, 0x3d, opcode, 0x7f, 3], "vex2-256", 32),
+            (&[0xc4, 0x61, 0xb9, opcode, 0x7f, 3], "vex3-128", 16),
+            (&[0xc4, 0x61, 0xbd, opcode, 0x7f, 3], "vex3-256", 32),
+        ] {
+            let mut expected = [0; 32];
+            for lane in (0..width).step_by(16) {
+                for index in 0..8 / element {
+                    let src = lane + 8 * usize::from(upper) + index * element;
+                    let dst = lane + 2 * index * element;
+                    expected[dst..dst + element].copy_from_slice(&left[src..src + element]);
+                    expected[dst + element..dst + 2 * element]
+                        .copy_from_slice(&reply[src..src + element]);
+                }
+            }
+            for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                let value = packed_binary_case(
+                    code,
+                    encoding != "legacy",
+                    restore,
+                    qwords(&left),
+                    &reply[..width],
+                    qwords(&expected),
+                );
+                record(
+                    output,
+                    case,
+                    &format!("{encoding}-{mnemonic}-{phase}"),
+                    width,
+                    value,
+                );
+                case += 1;
+            }
+        }
+        record(
+            output,
+            case,
+            &format!("legacy-{mnemonic}-misaligned"),
+            16,
+            alignment_fault(&legacy, false, 3),
+        );
+        case += 1;
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 fn restore_vector_read(
     memory: &GuestMemoryWrapper,
     vm: Box<dyn Vm>,

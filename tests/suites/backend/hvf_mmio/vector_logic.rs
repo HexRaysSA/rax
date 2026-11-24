@@ -19,6 +19,91 @@ const FORMS: [(u8, u8, &str); 12] = [
 ];
 
 #[test]
+fn packed_unpack_interleaves_each_lane_and_restores_once() {
+    let mut failures = Vec::new();
+    for (opcode, element, upper) in [
+        (0x60, 1, false),
+        (0x61, 2, false),
+        (0x62, 4, false),
+        (0x6c, 8, false),
+        (0x68, 1, true),
+        (0x69, 2, true),
+        (0x6a, 4, true),
+        (0x6d, 8, true),
+    ] {
+        for (code, encoding) in [
+            (&[0x66, 0x44, 0x0f, opcode, 0x3f][..], Encoding::Legacy),
+            (&[0xc5, 0x39, opcode, 0x7f, 3], Encoding::Vex128),
+            (&[0xc5, 0x3d, opcode, 0x7f, 3], Encoding::Vex256),
+            (&[0xc4, 0x61, 0xb9, opcode, 0x7f, 3], Encoding::Vex128),
+            (&[0xc4, 0x61, 0xbd, opcode, 0x7f, 3], Encoding::Vex256),
+        ] {
+            let (context, mut memory, mut exit) = fixture(code);
+            let vex = encoding != Encoding::Legacy;
+            if vex {
+                exit.linear += 3;
+                exit.physical += 3;
+            }
+            let plan = match prepare(&context, &mut memory, exit) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    failures.push(format!("{code:02x?}: {error}"));
+                    continue;
+                }
+            };
+            assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+            assert_eq!(plan.length, code.len() as u64);
+            assert!(
+                memory
+                    .reads
+                    .iter()
+                    .all(|&(address, _)| address != exit.physical)
+            );
+            let Action::VectorLogic { input, source } = plan.action else {
+                panic!("wrong action for {code:02x?}: {:?}", plan.action);
+            };
+            assert_eq!(
+                (source, input.index, input.encoding),
+                (if vex { 8 } else { 15 }, 15, encoding)
+            );
+            let width = usize::from(encoding.size());
+            let left = std::array::from_fn(|index| index as u8);
+            let right: [u8; 32] = std::array::from_fn(|index| 0xff - index as u8);
+            let mut expected = Vec::with_capacity(width);
+            for lane in (0..width).step_by(16) {
+                let start = lane + if upper { 8 } else { 0 };
+                for element_start in (start..start + 8).step_by(element) {
+                    expected.extend_from_slice(&left[element_start..][..element]);
+                    expected.extend_from_slice(&right[element_start..][..element]);
+                }
+            }
+            let mut pending = mmio::InputState::default();
+            pending.begin_vector_logic(input, left).unwrap();
+            let record = rax::codec::serialize(&pending).unwrap();
+            let mut restored: mmio::InputState = rax::codec::deserialize_strict(&record).unwrap();
+            restored.validate_checkpoint().unwrap();
+            assert_eq!(restored.descriptor(), Some((width as u8, None)));
+            let mut host = Host::default();
+            restored.complete(&mut host, &right[..width]);
+            restored.complete(&mut host, &right[..width]);
+            let expected = if width == 32 {
+                Write::Ymm(15, expected.try_into().unwrap())
+            } else {
+                Write::Xmm(15, expected.try_into().unwrap(), vex)
+            };
+            assert_eq!(
+                host.0,
+                [expected, Write::Retire(plan.length)],
+                "{code:02x?}"
+            );
+            exit.qualification = 0x182;
+            assert!(prepare(&context, &mut memory, exit).is_err());
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn vector_logical_device_inputs_plan_legacy_vex128_and_vex256() {
     let mut failures = Vec::new();
     for (prefix, opcode, name) in FORMS {
@@ -103,18 +188,23 @@ fn vector_logical_device_inputs_plan_legacy_vex128_and_vex256() {
 #[test]
 fn vector_logic_rejects_misaligned_legacy_and_encodings_without_a_device_operand() {
     for code in [
-        &[0x44, 0x0f, 0x54, 0x7f, 3][..],   // Misaligned ANDPS.
-        &[0x66, 0x0f, 0xeb, 0x47, 3],       // Misaligned POR.
-        &[0x0f, 0x54, 0xc7],                // Register-only ANDPS.
-        &[0xc5, 0x3d, 0xef, 0xff],          // Register-only VPXOR.
-        &[0xc5, 0x3a, 0x54, 0x3f],          // Reserved mandatory prefix for VAND.
-        &[0xc4, 0x62, 0x38, 0x54, 0x3f],    // Opcode outside VEX map 0F.
-        &[0x66, 0x0f, 0x38, 0x37, 0x47, 3], // Misaligned PCMPGTQ.
-        &[0x0f, 0x74, 0x07],                // MMX PCMPEQB.
-        &[0xc4, 0x62, 0x3a, 0x29, 0x3f],    // Reserved VPCMPEQQ mandatory prefix.
-        &[0x0f, 0xec, 0x07],                // MMX PADDSB.
-        &[0xc5, 0x39, 0xd8, 0xff],          // VPSUBUSB with a register source.
-        &[0xc5, 0x3a, 0xed, 0x3f],          // Reserved VPADDSW mandatory prefix.
+        &[0x44, 0x0f, 0x54, 0x7f, 3][..],      // Misaligned ANDPS.
+        &[0x66, 0x0f, 0xeb, 0x47, 3],          // Misaligned POR.
+        &[0x0f, 0x54, 0xc7],                   // Register-only ANDPS.
+        &[0xc5, 0x3d, 0xef, 0xff],             // Register-only VPXOR.
+        &[0xc5, 0x3a, 0x54, 0x3f],             // Reserved mandatory prefix for VAND.
+        &[0xc4, 0x62, 0x38, 0x54, 0x3f],       // Opcode outside VEX map 0F.
+        &[0x66, 0x0f, 0x38, 0x37, 0x47, 3],    // Misaligned PCMPGTQ.
+        &[0x0f, 0x74, 0x07],                   // MMX PCMPEQB.
+        &[0xc4, 0x62, 0x3a, 0x29, 0x3f],       // Reserved VPCMPEQQ mandatory prefix.
+        &[0x0f, 0xec, 0x07],                   // MMX PADDSB.
+        &[0xc5, 0x39, 0xd8, 0xff],             // VPSUBUSB with a register source.
+        &[0xc5, 0x3a, 0xed, 0x3f],             // Reserved VPADDSW mandatory prefix.
+        &[0x66, 0x44, 0x0f, 0x60, 0x7f, 3],    // Misaligned PUNPCKLBW.
+        &[0x0f, 0x68, 0x07],                   // MMX PUNPCKHBW.
+        &[0xc5, 0x39, 0x69, 0xff],             // VPUNPCKHWD with a register source.
+        &[0xc5, 0x3a, 0x6d, 0x3f],             // Reserved VPUNPCKHQDQ mandatory prefix.
+        &[0x62, 0x71, 0x3d, 0x28, 0x6c, 0x3f], // EVEX VPUNPCKLQDQ.
     ] {
         let (context, mut memory, mut exit) = fixture(code);
         exit.qualification = 0x181;

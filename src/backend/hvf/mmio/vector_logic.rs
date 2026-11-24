@@ -186,6 +186,8 @@ enum Operation {
     Maximum(MinMaxLane),
     UniformShift(Shift),
     VariableShift(Shift),
+    UnpackLow(Element),
+    UnpackHigh(Element),
 }
 
 impl Operation {
@@ -203,6 +205,14 @@ impl Operation {
             "andnps" | "andnpd" | "pandn" => Self::AndNot,
             "orps" | "orpd" | "por" => Self::Or,
             "xorps" | "xorpd" | "pxor" => Self::Xor,
+            "punpcklbw" => Self::UnpackLow(Element::Byte),
+            "punpcklwd" => Self::UnpackLow(Element::Word),
+            "punpckldq" => Self::UnpackLow(Element::Doubleword),
+            "punpcklqdq" => Self::UnpackLow(Element::Quadword),
+            "punpckhbw" => Self::UnpackHigh(Element::Byte),
+            "punpckhwd" => Self::UnpackHigh(Element::Word),
+            "punpckhdq" => Self::UnpackHigh(Element::Doubleword),
+            "punpckhqdq" => Self::UnpackHigh(Element::Quadword),
             "pcmpeqb" => Self::Compare(Comparison::Equal, Element::Byte),
             "pcmpeqw" => Self::Compare(Comparison::Equal, Element::Word),
             "pcmpeqd" => Self::Compare(Comparison::Equal, Element::Doubleword),
@@ -315,6 +325,31 @@ impl Operation {
                 map_integer_lanes(left, right, shift.bytes(), |value, count| {
                     shift.lane(value, count)
                 })
+            }
+            Self::UnpackLow(element) | Self::UnpackHigh(element) => {
+                let width = element.bytes();
+                let start = if matches!(self, Self::UnpackHigh(_)) {
+                    8
+                } else {
+                    0
+                };
+                let mut result = [0; N];
+                // VEX.256 applies the same interleave independently to each 128-bit lane.
+                for ((left, right), lane) in left
+                    .chunks_exact(16)
+                    .zip(right.chunks_exact(16))
+                    .zip(result.chunks_exact_mut(16))
+                {
+                    for ((left, right), pair) in left[start..start + 8]
+                        .chunks_exact(width)
+                        .zip(right[start..start + 8].chunks_exact(width))
+                        .zip(lane.chunks_exact_mut(2 * width))
+                    {
+                        pair[..width].copy_from_slice(left);
+                        pair[width..].copy_from_slice(right);
+                    }
+                }
+                result
             }
         }
     }
