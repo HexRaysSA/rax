@@ -126,6 +126,29 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
             LsarpcInterface::PolicyLookup
         );
 
+        let sspi: Vec<_> = r"\RPC Control\lsasspirpc".encode_utf16().collect();
+        let sspi_bytes = (sspi.len() * 2) as u16;
+        p.space.w16(name, sspi_bytes).unwrap();
+        p.space.w16(name + 2, sspi_bytes + 2).unwrap();
+        p.space.put_wstr(name_buffer, &sspi).unwrap();
+        p.space.wptr(out, width, canary).unwrap();
+        let result = invoke(p, &mut thread, "NtAlpcConnectPortEx", CONNECT, &args);
+        if matches!(arch, WinArch::Arm64 | WinArch::X86) {
+            assert_eq!(result, Outcome::Continue);
+            assert_eq!(thread.cpu.gpr(0), 0);
+            let sspi_handle = p.space.ptr(out, width).unwrap();
+            assert_ne!(sspi_handle, handle);
+            let Some(Object::LpcPort(port)) = p.objects.get(sspi_handle) else {
+                panic!("expected a guest-owned SSPI port");
+            };
+            assert_eq!(port.lsarpc_peer().unwrap().interface, LsarpcInterface::Sspi);
+            p.objects.close(sspi_handle).unwrap();
+        } else {
+            assert!(matches!(result, Outcome::Fail(message) if message.contains("port name")));
+            assert_eq!(p.space.ptr(out, width).unwrap(), canary);
+        }
+        assert_eq!(p.objects.handle_count(), original_handles + 1);
+
         let mut bind = [0; 72];
         words(
             &mut bind,

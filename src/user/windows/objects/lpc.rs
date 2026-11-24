@@ -23,6 +23,7 @@ enum Peer {
 pub(crate) enum LsarpcInterface {
     Policy,
     PolicyLookup,
+    Sspi,
 }
 
 #[derive(Debug)]

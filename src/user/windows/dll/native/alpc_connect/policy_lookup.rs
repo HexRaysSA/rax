@@ -1,6 +1,7 @@
-//! Extended connection to the process-local LSA Policy Lookup RPC endpoint.
+//! Extended connections to selected process-local LSA RPC endpoints.
 
 use super::{Connection, pointer};
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::dll::native::alpc::lsarpc;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
@@ -8,15 +9,19 @@ use crate::user::windows::nt::status::{STATUS_INVALID_PARAMETER, STATUS_SUCCESS}
 use crate::user::windows::objects::LsarpcInterface;
 
 const PORT_NAME: &str = r"\RPC Control\lsapolicylookup";
+const SSPI_PORT_NAME: &str = r"\RPC Control\lsasspirpc";
 const PROFILE_BUILD: u32 = 29708;
 mod security;
 
 pub(super) fn connect(c: &mut Ctx, args: Connection) -> ApiResult {
-    if c.p.native.as_ref().map(|runtime| runtime.version.build) != Some(PROFILE_BUILD)
-        || args.message != 0
-        || args.length != 0
-        || args.input == 0
-    {
+    let Some(runtime) =
+        c.p.native
+            .as_ref()
+            .filter(|runtime| runtime.version.build == PROFILE_BUILD)
+    else {
+        return Err(c.unsupported("NtAlpcConnectPortEx connection options are not selected"));
+    };
+    if args.message != 0 || args.length != 0 || args.input == 0 {
         return Err(c.unsupported("NtAlpcConnectPortEx connection options are not selected"));
     }
 
@@ -45,12 +50,21 @@ pub(super) fn connect(c: &mut Ctx, args: Connection) -> ApiResult {
     if length % 2 != 0 || maximum < length {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
-    if length != PORT_NAME.len() * 2
-        || !c
-            .mem()
-            .wunits(pointer(&header, width, width), length / 2)?
-            .into_iter()
-            .eq(PORT_NAME.encode_utf16())
+    let (name, interface) = if length == PORT_NAME.len() * 2 {
+        (PORT_NAME, LsarpcInterface::PolicyLookup)
+    } else if length == SSPI_PORT_NAME.len() * 2
+        && matches!(c.arch(), WinArch::Arm64 | WinArch::X86)
+        && runtime.object_namespace.native_machine == Some(0xaa64)
+    {
+        (SSPI_PORT_NAME, LsarpcInterface::Sspi)
+    } else {
+        return Err(c.unsupported("NtAlpcConnectPortEx port name is not selected"));
+    };
+    if !c
+        .mem()
+        .wunits(pointer(&header, width, width), length / 2)?
+        .into_iter()
+        .eq(name.encode_utf16())
     {
         return Err(c.unsupported("NtAlpcConnectPortEx port name is not selected"));
     }
@@ -60,7 +74,7 @@ pub(super) fn connect(c: &mut Ctx, args: Connection) -> ApiResult {
     if status != STATUS_SUCCESS {
         return Flow::ret(status.into());
     }
-    lsarpc::open(c, LsarpcInterface::PolicyLookup, args.out, args.input)
+    lsarpc::open(c, interface, args.out, args.input)
 }
 
 fn empty_attributes(attributes: &[u8], width: usize) -> bool {

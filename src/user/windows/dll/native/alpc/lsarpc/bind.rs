@@ -23,6 +23,11 @@ const POLICY_LOOKUP_INTERFACE: [u8; 20] = [
     1, 0, 0, 0,
 ];
 
+const SSPI_INTERFACE: [u8; 20] = [
+    0xc8, 0xad, 0x32, 0x4f, 0x52, 0x60, 0x04, 0x4a, 0x87, 0x01, 0x29, 0x3c, 0xcf, 0x20, 0x96, 0xf0,
+    1, 0, 0, 0,
+];
+
 pub(super) fn response(
     interface: LsarpcInterface,
     payload: &[u8],
@@ -34,6 +39,7 @@ pub(super) fn response(
     let expected = match interface {
         LsarpcInterface::Policy => LSARPC_INTERFACE,
         LsarpcInterface::PolicyLookup => POLICY_LOOKUP_INTERFACE,
+        LsarpcInterface::Sspi => SSPI_INTERFACE,
     };
     let negotiated = if payload[12..32] == expected {
         match word(payload, 32) & SYNTAX_MASK {
@@ -99,6 +105,36 @@ mod tests {
 
         put_word(&mut payload, 28, 0);
         let rejected = response(LsarpcInterface::PolicyLookup, &payload, 0x4000).unwrap();
+        assert_eq!(rejected.transfer_syntax, None);
+        assert_eq!(word(&rejected.body, 8), RPC_S_UNKNOWN_IF);
+    }
+
+    #[test]
+    fn sspi_bind_is_distinct_from_both_policy_interfaces() {
+        let mut payload = [0; BIND_BYTES];
+        put_word(&mut payload, 0, BIND);
+        for (offset, value) in [
+            (12, 0x4f32_adc8),
+            (16, 0x4a04_6052),
+            (20, 0x3c29_0187),
+            (24, 0xf096_20cf),
+            (28, 1),
+        ] {
+            put_word(&mut payload, offset, value);
+        }
+        for (offer, selected) in [(1, NDR32), (3, NDR64)] {
+            put_word(&mut payload, 32, offer);
+            let reply = response(LsarpcInterface::Sspi, &payload, 0x4000).unwrap();
+            assert_eq!(reply.transfer_syntax, Some(selected));
+            assert_eq!(word(&reply.body, 32), selected);
+        }
+        for policy in [LsarpcInterface::Policy, LsarpcInterface::PolicyLookup] {
+            let rejected = response(policy, &payload, 0x4000).unwrap();
+            assert_eq!(rejected.transfer_syntax, None);
+            assert_eq!(word(&rejected.body, 8), RPC_S_UNKNOWN_IF);
+        }
+        put_word(&mut payload, 28, 2);
+        let rejected = response(LsarpcInterface::Sspi, &payload, 0x4000).unwrap();
         assert_eq!(rejected.transfer_syntax, None);
         assert_eq!(word(&rejected.body, 8), RPC_S_UNKNOWN_IF);
     }

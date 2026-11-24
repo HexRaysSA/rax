@@ -98,6 +98,7 @@ pub(in crate::user::windows::dll::native) fn exchange(
                 let endpoint = match peer.interface {
                     LsarpcInterface::Policy => "LSARPC",
                     LsarpcInterface::PolicyLookup => "lsapolicylookup",
+                    LsarpcInterface::Sspi => "lsasspirpc",
                 };
                 c.unsupported(format!(
                     "{endpoint} local RPC operation {operation} is outside the selected profile"
