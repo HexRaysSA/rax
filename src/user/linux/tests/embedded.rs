@@ -121,6 +121,141 @@ fn closed_linux_workspace_shared_mappings_are_coherent_on_all_abis() {
 }
 
 #[test]
+fn closed_linux_memfds_reopen_and_share_seals_across_address_spaces() {
+    use crate::user::linux::abi::open::{O_PATH, O_RDWR, O_TRUNC};
+    use crate::user::linux::fs::memfd::seal;
+    use crate::user::mm::PAGE_SIZE;
+    use crate::user::supplied_fs::{Files, WorkspaceFlavor};
+
+    const AT_FDCWD: u64 = -100i64 as u64;
+    const AT_EMPTY_PATH: u64 = 0x1000;
+    const F_GETFD: u64 = 1;
+    const F_ADD_SEALS: u64 = 1033;
+    const F_GET_SEALS: u64 = 1034;
+    const MFD_CLOEXEC: u64 = 1;
+    const MFD_ALLOW_SEALING: u64 = 2;
+    const MFD_NOEXEC_SEAL: u64 = 8;
+    const MAP_SHARED: u64 = 1;
+    const READ: u64 = 1;
+    const WRITE: u64 = 2;
+
+    for abi in ABIS {
+        let files = Files::default().with_temp_workspace(WorkspaceFlavor::Linux);
+        let mut h = Harness::embedded_with_supplied(abi, files);
+        let path = h.scratch;
+        let buffer = path + 128;
+        let write = |h: &Harness, at, bytes: &[u8]| h.proc.space().write_raw(at, bytes).unwrap();
+        write(&h, path, b"r\xffax\0");
+        let fd = h.ok(Sysno::MemfdCreate, &[path, MFD_CLOEXEC | MFD_ALLOW_SEALING]);
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, F_GETFD, 0]), 1);
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, F_GET_SEALS, 0]), 0);
+        h.ok(Sysno::Ftruncate, &[fd, PAGE_SIZE]);
+        write(&h, buffer, b"AB");
+        assert_eq!(h.ok(Sysno::Write, &[fd, buffer, 2]), 2);
+
+        write(&h, path, format!("/proc/self/fd/{fd}\0").as_bytes());
+        let marker = b"/memfd:r\xffax (deleted)";
+        assert_eq!(
+            h.ok(Sysno::Readlinkat, &[AT_FDCWD, path, buffer, 128]),
+            marker.len() as u64
+        );
+        let mut actual = [0; 32];
+        h.proc
+            .space()
+            .read(buffer, &mut actual[..marker.len()])
+            .unwrap();
+        assert_eq!(&actual[..marker.len()], marker);
+        let reader = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        assert_eq!(h.ok(Sysno::Read, &[reader, buffer, 1]), 1);
+        h.proc.space().read(buffer, &mut actual[..1]).unwrap();
+        assert_eq!(actual[0], b'A');
+        let nofollow = u64::from(abi.open_flags().nofollow);
+        assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, path, nofollow, 0]), ELOOP);
+        let link = h.ok(
+            Sysno::Openat,
+            &[AT_FDCWD, path, u64::from(O_PATH) | nofollow, 0],
+        );
+        write(&h, path, b"\0");
+        assert_eq!(
+            h.ok(Sysno::Readlinkat, &[link, path, buffer, 128]),
+            marker.len() as u64
+        );
+        h.ok(Sysno::Statx, &[fd, path, AT_EMPTY_PATH, 0x7ff, buffer]);
+        let mut metadata = [0; 48];
+        h.proc.space().read(buffer, &mut metadata).unwrap();
+        assert_eq!(u32::from_le_bytes(metadata[16..20].try_into().unwrap()), 0);
+        assert_eq!(
+            u64::from_le_bytes(metadata[40..48].try_into().unwrap()),
+            PAGE_SIZE
+        );
+
+        let mmap = if abi.is_compat() {
+            Sysno::Mmap2
+        } else {
+            Sysno::Mmap
+        };
+        let alias = h.ok(mmap, &[0, PAGE_SIZE, READ | WRITE, MAP_SHARED, fd, 0]);
+        let child = h.proc.space().process_snapshot().unwrap();
+        h.ok(Sysno::Munmap, &[alias, PAGE_SIZE]);
+        assert_eq!(
+            h.err(Sysno::Fcntl, &[fd, F_ADD_SEALS, seal::WRITE.into()]),
+            EBUSY
+        );
+        child.write(alias, b"Z").unwrap();
+        h.ok(Sysno::Read, &[reader, buffer, 1]);
+        h.proc.space().read(buffer, &mut actual[..1]).unwrap();
+        assert_eq!(actual[0], b'B');
+        child.unmap(alias, PAGE_SIZE).unwrap();
+
+        let punch: &[u64] = if abi.is_compat() {
+            &[fd, 3, 0, 0, 1, 0]
+        } else {
+            &[fd, 3, 0, 1]
+        };
+        h.ok(Sysno::Fallocate, punch);
+        let seals = u64::from(seal::WRITE | seal::SHRINK | seal::GROW);
+        h.ok(Sysno::Fcntl, &[fd, F_ADD_SEALS, seals]);
+        assert_eq!(h.ok(Sysno::Fcntl, &[reader, F_GET_SEALS, 0]), seals);
+        assert_eq!(h.err(Sysno::Write, &[fd, buffer, 1]), EPERM);
+        assert_eq!(h.err(Sysno::Ftruncate, &[fd, 0]), EPERM);
+        assert_eq!(h.err(Sysno::Fallocate, punch), EPERM);
+        assert_eq!(
+            h.err(mmap, &[0, PAGE_SIZE, READ | WRITE, MAP_SHARED, fd, 0]),
+            EPERM
+        );
+        let readonly = h.ok(mmap, &[0, PAGE_SIZE, READ, MAP_SHARED, fd, 0]);
+        h.proc.space().read(readonly, &mut actual[..2]).unwrap();
+        assert_eq!(&actual[..2], &[0, b'B']);
+        assert_eq!(
+            h.err(Sysno::Mprotect, &[readonly, PAGE_SIZE, READ | WRITE]),
+            EACCES
+        );
+        write(&h, path, format!("/proc/self/fd/{fd}\0").as_bytes());
+        assert_eq!(
+            h.err(
+                Sysno::Openat,
+                &[AT_FDCWD, path, u64::from(O_RDWR | O_TRUNC), 0]
+            ),
+            EPERM
+        );
+        h.ok(Sysno::Close, &[fd]);
+        h.ok(Sysno::Close, &[reader]);
+        h.proc.space().read(readonly, &mut actual[..2]).unwrap();
+        assert_eq!(&actual[..2], &[0, b'B']);
+        h.ok(Sysno::Munmap, &[readonly, PAGE_SIZE]);
+
+        write(&h, path, b"noexec\0");
+        let fd = h.ok(Sysno::MemfdCreate, &[path, MFD_NOEXEC_SEAL]);
+        assert_eq!(
+            h.ok(Sysno::Fcntl, &[fd, F_GET_SEALS, 0]),
+            u64::from(seal::EXEC)
+        );
+        assert_eq!(h.err(Sysno::Fchmod, &[fd, 0o755]), EPERM);
+        h.ok(Sysno::Fchmod, &[fd, 0o600]);
+    }
+}
+
+#[test]
 fn closed_linux_identity_console_and_external_service_denial_all_abis() {
     for abi in ABIS {
         let mut h = Harness::embedded(abi);

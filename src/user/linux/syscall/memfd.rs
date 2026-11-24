@@ -18,9 +18,8 @@ use super::super::abi::open::*;
 use super::super::abi::vma_flags;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::fs::memfd::{Memfd, seal};
-use super::super::fs::{self};
 use super::{Ctx, SysResult};
-use crate::user::mm::Backing;
+use crate::user::mm::{Backing, PageSource, SourceIdentity};
 
 /// `MFD_*` (`linux/memfd.h`).
 mod mfd {
@@ -40,7 +39,6 @@ const NAME_MAX_LEN: usize = 255 - 6;
 
 /// `memfd_create`: the flags (`sanitize_flags`), then the name
 /// (`alloc_name`), then the file.
-#[cfg(unix)]
 pub fn memfd_create(c: &mut Ctx<'_>, uname: u64, flags: u32) -> SysResult {
     let allowed = if flags & mfd::HUGETLB != 0 {
         mfd::ALL | mfd::HUGE_SIZE
@@ -60,13 +58,23 @@ pub fn memfd_create(c: &mut Ctx<'_>, uname: u64, flags: u32) -> SysResult {
             e
         }
     })?;
-    let file = crate::user::mm::anonymous_file().map_err(|_| Errno(ENOMEM))?;
     let noexec = flags & mfd::NOEXEC_SEAL != 0;
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mode = if noexec { 0o666 } else { 0o777 };
-        file.set_permissions(std::fs::Permissions::from_mode(mode))?;
-    }
+    let mode = if noexec { 0o666 } else { 0o777 };
+    let link = [b"/memfd:".as_slice(), &name, b" (deleted)"].concat();
+    let path = String::from_utf8_lossy(&link).into_owned();
+    let (object, identity, workspace_link) = if let Some(files) = c.p.vfs.supplied() {
+        c.p.fds.free_fds(1, super::io::nofile(c))?;
+        let entry =
+            files.create_workspace_detached(path.clone(), mode, (c.p.creds.1, c.p.creds.3))?;
+        let identity = entry
+            .workspace_file()
+            .expect("detached workspace file")
+            .identity();
+        (FileObject::Supplied(entry), identity, Some(link.into()))
+    } else {
+        let (object, identity) = host_backing(mode)?;
+        (object, identity, None)
+    };
     // shmem_get_inode starts with F_SEAL_SEAL; memfd_alloc_file lifts it
     // for sealing and replaces it with F_SEAL_EXEC for MFD_NOEXEC_SEAL.
     let seals = if noexec {
@@ -76,18 +84,25 @@ pub fn memfd_create(c: &mut Ctx<'_>, uname: u64, flags: u32) -> SysResult {
     } else {
         seal::SEAL
     };
-    let memfd = Memfd::new(seals, flags & mfd::HUGETLB != 0, fs::identity(&file)?)?;
-    let path = format!("/memfd:{} (deleted)", String::from_utf8_lossy(&name));
+    let memfd =
+        Memfd::with_workspace_link(seals, flags & mfd::HUGETLB != 0, identity, workspace_link)?;
     let status = O_RDWR | c.p.abi.open_flags().largefile;
-    let open = OpenFile::with_memfd(
-        FileObject::Host(file),
-        FileType::Regular,
-        path,
-        None,
-        status,
-        Some(memfd),
-    );
+    let open = OpenFile::with_memfd(object, FileType::Regular, path, None, status, Some(memfd));
     super::io::install(c, open, flags & mfd::CLOEXEC != 0)
+}
+
+#[cfg(unix)]
+fn host_backing(mode: u32) -> Result<(FileObject, SourceIdentity), Errno> {
+    use std::os::unix::fs::PermissionsExt;
+    let file = crate::user::mm::anonymous_file().map_err(|_| Errno(ENOMEM))?;
+    file.set_permissions(std::fs::Permissions::from_mode(mode))?;
+    let identity = super::super::fs::identity(&file)?;
+    Ok((FileObject::Host(file), identity))
+}
+
+#[cfg(not(unix))]
+fn host_backing(_mode: u32) -> Result<(FileObject, SourceIdentity), Errno> {
+    Err(Errno(ENOSYS))
 }
 
 /// Whether a shared mapping of `m`'s object in this process may be written
@@ -110,12 +125,22 @@ pub fn add_seals(c: &Ctx<'_>, file: &Arc<OpenFile>, seals: u32) -> SysResult {
     let Some(m) = &file.memfd else {
         return Err(Errno(EINVAL));
     };
+    let _operation = file.lock_workspace_memfd()?;
     let have = m.seals();
     if have & seal::SEAL != 0 {
         return Err(Errno(EPERM));
     }
-    if seals & seal::WRITE != 0 && have & seal::WRITE == 0 && mapped_writable(c, m) {
-        return Err(Errno(EBUSY));
+    if seals & seal::WRITE != 0 && have & seal::WRITE == 0 {
+        let writable = match &file.object {
+            FileObject::Supplied(entry) => entry
+                .workspace_file()
+                .expect("workspace memfd")
+                .any_shared_mapping(|vma| vma.flags & vma_flags::DENY_WRITE == 0)?,
+            _ => mapped_writable(c, m),
+        };
+        if writable {
+            return Err(Errno(EBUSY));
+        }
     }
     // F_SEAL_EXEC on an executable object seals writes too (W^X).
     let mode = match &file.object {
@@ -126,6 +151,7 @@ pub fn add_seals(c: &Ctx<'_>, file: &Arc<OpenFile>, seals: u32) -> SysResult {
             use std::os::unix::fs::PermissionsExt;
             f.metadata()?.permissions().mode()
         }
+        FileObject::Supplied(entry) => entry.workspace_mode().expect("workspace memfd"),
         _ => 0,
     };
     let mut add = seals;

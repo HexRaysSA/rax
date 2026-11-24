@@ -33,6 +33,11 @@ pub enum ProcEntry {
     },
     /// A symbolic link with this target.
     Link(String),
+    /// A magic link to a private memfd. The rendered target is not a pathname.
+    WorkspaceMemfd {
+        fd: i32,
+        target: std::sync::Arc<[u8]>,
+    },
     /// A directory with these entries.
     Dir(Vec<DirEntry>),
     /// Read-only file served by another emulated process to its tracer.
@@ -641,6 +646,17 @@ fn thread_entry(
         _ => {
             let n = rest.strip_prefix("fd/")?.parse::<i32>().ok()?;
             let f = p.fds.get(n).ok()?;
+            if let Some(target) = f
+                .file
+                .memfd
+                .as_ref()
+                .and_then(|memfd| memfd.workspace_link())
+            {
+                return Some(ProcEntry::WorkspaceMemfd {
+                    fd: n,
+                    target: target.clone(),
+                });
+            }
             Some(ProcEntry::Link(file_path(p, &f.file)))
         }
     }

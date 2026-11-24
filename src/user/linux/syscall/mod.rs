@@ -740,7 +740,6 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         )),
         S::Mincore => r(mem::mincore(c, a[0], a[1], a[2])),
         S::RiscvFlushIcache => r(Ok(0)),
-        #[cfg(unix)]
         S::MemfdCreate => r(memfd::memfd_create(c, a[0], a[1] as u32)),
         S::ProcessVmReadv => r(procmem::process_vm_readv(
             c,

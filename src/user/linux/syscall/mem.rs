@@ -182,7 +182,11 @@ pub fn mmap(
     let mut backing = Backing::Anonymous;
     let mut name: Option<Arc<str>> = None;
     let mut vm_flags = 0;
-    if let Some(file) = file {
+    let _workspace_operation = file
+        .as_ref()
+        .map(|file| file.lock_workspace_memfd())
+        .transpose()?;
+    if let Some(file) = &file {
         match (&file.object, file.ftype) {
             #[cfg(not(unix))]
             (FileObject::Host(_), _) => return Err(Errno(EPERM)),
@@ -197,20 +201,7 @@ pub fn mmap(
                     }
                     vm_flags |= vma_flags::DENY_WRITE;
                 }
-                if let Some(m) = &file.memfd {
-                    // memfd_check_seals_mmap: a write-sealed object maps
-                    // shared only for reading, never to become writable.
-                    if shared && m.write_sealed() {
-                        if prot & PROT_WRITE != 0 {
-                            return Err(Errno(EPERM));
-                        }
-                        vm_flags |= vma_flags::DENY_WRITE;
-                    }
-                    // hugetlbfs_file_mmap: the pool is empty.
-                    if m.hugetlb {
-                        return Err(Errno(ENOMEM));
-                    }
-                }
+                vm_flags |= memfd_mapping_flags(file, shared, prot)?;
                 // vm_file retains the inode seals and notification close,
                 // while the guest description may close independently.
                 let keep = file.mapping_keep();
@@ -277,11 +268,16 @@ pub fn mmap(
                     }
                     vm_flags |= vma_flags::DENY_WRITE;
                 }
+                vm_flags |= memfd_mapping_flags(file, shared, prot)?;
                 backing = match &entry.kind {
                     crate::user::supplied_fs::Kind::Workspace(workspace) if shared => {
                         let writable = file.writable() && vm_flags & vma_flags::DENY_WRITE == 0;
                         Backing::Shared {
-                            object: workspace.shared_mapping(writable, PAGE_SIZE)?,
+                            object: workspace.shared_mapping_keeping(
+                                writable,
+                                PAGE_SIZE,
+                                file.mapping_keep(),
+                            )?,
                             offset: off,
                         }
                     }
@@ -329,6 +325,29 @@ pub fn mmap(
             flags: vm_flags,
         },
     )
+}
+
+fn memfd_mapping_flags(
+    file: &super::super::fs::fd::OpenFile,
+    shared: bool,
+    prot: u32,
+) -> Result<u32, Errno> {
+    let Some(memfd) = &file.memfd else {
+        return Ok(0);
+    };
+    // memfd_check_seals_mmap precedes hugetlbfs_file_mmap.
+    let flags = if shared && memfd.write_sealed() {
+        if prot & PROT_WRITE != 0 {
+            return Err(Errno(EPERM));
+        }
+        vma_flags::DENY_WRITE
+    } else {
+        0
+    };
+    if memfd.hugetlb {
+        return Err(Errno(ENOMEM));
+    }
+    Ok(flags)
 }
 
 /// Anonymous shared memory of `len` bytes (`shmem_zero_setup`): a new

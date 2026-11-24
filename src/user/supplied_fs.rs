@@ -807,6 +807,20 @@ impl Files {
         self.workspace.is_some()
     }
 
+    pub(in crate::user) fn create_workspace_detached(
+        &self,
+        display_path: String,
+        mode: u32,
+        owner: (u32, u32),
+    ) -> Result<Entry, Error> {
+        let workspace = self.workspace.as_ref().ok_or(Error::ReadOnly)?;
+        let file = workspace.create_detached(display_path, mode, owner)?;
+        Ok(Entry {
+            ino: file.ino(),
+            kind: Kind::Workspace(file),
+        })
+    }
+
     pub(super) fn workspace_capacity(&self) -> Result<WorkspaceCapacity, Error> {
         self.workspace.as_ref().ok_or(Error::ReadOnly)?.capacity()
     }

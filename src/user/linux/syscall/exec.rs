@@ -84,6 +84,10 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
             open_target(c, next, true, depth + 1)
         }
         Target::Proc(ProcEntry::Link(_), _) => Err(Errno(ELOOP)),
+        Target::Proc(ProcEntry::WorkspaceMemfd { fd, .. }, _) if follow => {
+            open_target(c, Target::Fd(c.p.fds.file(fd)?), true, depth)
+        }
+        Target::Proc(ProcEntry::WorkspaceMemfd { .. }, _) => Err(Errno(ELOOP)),
         Target::Supplied(entry, guest) => {
             if entry.is_dir() {
                 return Err(Errno(EACCES));
@@ -97,16 +101,19 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
         // Synthesized proc files are not executable.
         Target::Proc(..) => Err(Errno(EACCES)),
         Target::Fd(file) => {
-            if file.supplied_stat.is_some() {
+            if let super::super::fs::fd::FileObject::Supplied(entry) = &file.object {
                 if file.ftype != super::super::fs::fd::FileType::Regular {
                     return Err(Errno(EACCES));
                 }
-                if let super::super::fs::fd::FileObject::Supplied(entry) = &file.object {
-                    return Ok(ExecFile {
-                        host: None,
-                        bytes: Some(supplied_executable(c, entry)?),
-                        guest: file.path.clone(),
-                    });
+                return Ok(ExecFile {
+                    host: None,
+                    bytes: Some(supplied_executable(c, entry)?),
+                    guest: file.path.clone(),
+                });
+            }
+            if file.supplied_stat.is_some() {
+                if file.ftype != super::super::fs::fd::FileType::Regular {
+                    return Err(Errno(EACCES));
                 }
                 if let super::super::fs::fd::FileObject::Synthetic(bytes) = &file.object {
                     return Ok(ExecFile {

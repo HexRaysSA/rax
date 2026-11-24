@@ -12,7 +12,7 @@
 //! checks of the system calls.
 
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
@@ -39,6 +39,10 @@ const PAGE: u64 = 4096;
 pub struct Memfd {
     /// The seals, one word shared with forked processes.
     seals: SharedWords,
+    // Private workspace mutations and descriptor-backed mapping creation
+    // serialize with seal publication.
+    workspace_operations: Mutex<()>,
+    workspace_link: Option<Arc<[u8]>>,
     /// A `hugetlbfs` file (`MFD_HUGETLB`), whose pool is empty.
     pub hugetlb: bool,
     /// The host object's identity.
@@ -52,10 +56,21 @@ static REGISTRY: Mutex<Vec<(SourceIdentity, Weak<Memfd>)>> = Mutex::new(Vec::new
 impl Memfd {
     /// A `memfd` inode with `seals`.
     pub fn new(seals: u32, hugetlb: bool, identity: SourceIdentity) -> Result<Arc<Self>, Errno> {
+        Self::with_workspace_link(seals, hugetlb, identity, None)
+    }
+
+    pub(crate) fn with_workspace_link(
+        seals: u32,
+        hugetlb: bool,
+        identity: SourceIdentity,
+        workspace_link: Option<Arc<[u8]>>,
+    ) -> Result<Arc<Self>, Errno> {
         let words = SharedWords::new(1)?;
         words.words()[0].store(u64::from(seals), Ordering::Release);
         let m = Arc::new(Memfd {
             seals: words,
+            workspace_operations: Mutex::new(()),
+            workspace_link,
             hugetlb,
             identity,
         });
@@ -79,6 +94,14 @@ impl Memfd {
     /// The seals.
     pub fn seals(&self) -> u32 {
         self.seals.words()[0].load(Ordering::Acquire) as u32
+    }
+
+    pub(crate) fn lock_workspace_operations(&self) -> Result<MutexGuard<'_, ()>, Errno> {
+        self.workspace_operations.lock().map_err(|_| Errno(EIO))
+    }
+
+    pub(crate) fn workspace_link(&self) -> Option<&Arc<[u8]>> {
+        self.workspace_link.as_ref()
     }
 
     /// Adds `seals`.

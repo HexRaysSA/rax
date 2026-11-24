@@ -28,6 +28,9 @@ const SHARED_CAPACITY: Option<u64> = if cfg!(windows) {
     None
 };
 const FIRST_INODE: u32 = 0x5258_0001;
+const WORKSPACE_DEVICE: u64 = 0x524158;
+const DETACHED_DEVICE: u64 = 1 << 32;
+static NEXT_DETACHED_INODE: AtomicU32 = AtomicU32::new(1);
 pub(super) const ROOT_INODE: u64 = (FIRST_INODE - 1) as u64;
 
 #[derive(Debug)]
@@ -226,6 +229,7 @@ pub struct WorkspaceFile {
 #[derive(Debug)]
 struct Inode {
     ino: u64,
+    dev: u64,
     attributes: Attributes,
     links: AtomicU32,
     budget: Arc<Mutex<Budget>>,
@@ -489,6 +493,40 @@ impl Workspace {
         Ok((file, true))
     }
 
+    pub(super) fn create_detached(
+        &self,
+        display_path: String,
+        mode: u32,
+        owner: (u32, u32),
+    ) -> Result<Arc<WorkspaceFile>, Error> {
+        let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
+        if budget.nodes >= MAX_NODES {
+            return Err(Error::NoSpace);
+        }
+        // A detached inode can be registered across guest sessions. Its
+        // device and monotonic inode distinguish it from any named workspace.
+        let ino = NEXT_DETACHED_INODE
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |ino| {
+                ino.checked_add(1)
+            })
+            .map_err(|_| Error::NoSpace)?;
+        budget.nodes += 1;
+        let mut metadata = self.inode(u64::from(ino), mode, owner);
+        metadata.dev = DETACHED_DEVICE;
+        metadata.links = AtomicU32::new(0);
+        Ok(Arc::new(WorkspaceFile {
+            inode: Arc::new(RegularFile {
+                metadata,
+                contents: Mutex::new(Contents::Bytes(Arc::new(Vec::new()))),
+            }),
+            placement: Placement {
+                namespace: Arc::downgrade(&self.namespace),
+                location: Mutex::new(LeafLocation::Detached(display_path)),
+                budget: self.budget.clone(),
+            },
+        }))
+    }
+
     pub(super) fn create_symlink(
         &self,
         name: String,
@@ -579,6 +617,7 @@ impl Workspace {
         drop(budget);
         let metadata = Inode {
             ino,
+            dev: WORKSPACE_DEVICE,
             attributes: Attributes::from_clone(
                 mode,
                 times,
@@ -610,6 +649,7 @@ impl Workspace {
     fn inode(&self, ino: u64, mode: u32, owner: (u32, u32)) -> Inode {
         Inode {
             ino,
+            dev: WORKSPACE_DEVICE,
             attributes: Attributes::new(mode, owner, self.budget.clone()),
             links: AtomicU32::new(1),
             budget: self.budget.clone(),
@@ -974,6 +1014,15 @@ impl WorkspaceFile {
         writable: bool,
         guest_page: u64,
     ) -> Result<Arc<SharedObject>, Error> {
+        self.shared_mapping_keeping(writable, guest_page, None)
+    }
+
+    pub(in crate::user) fn shared_mapping_keeping(
+        self: &Arc<Self>,
+        writable: bool,
+        guest_page: u64,
+        keep: Option<crate::user::mm::Keep>,
+    ) -> Result<Arc<SharedObject>, Error> {
         let mut contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
         if let Contents::Bytes(bytes) = &*contents {
             *contents = Contents::Shared(SharedContents::new(bytes)?);
@@ -986,21 +1035,61 @@ impl WorkspaceFile {
             .ensure_mapping_page(guest_page)
             .map_err(|_| Error::Io)?;
         let file = shared.file.try_clone().map_err(|_| Error::Io)?;
+        let owner: crate::user::mm::Keep = match keep {
+            Some(keep) => Arc::new((self.clone(), keep)),
+            None => self.clone(),
+        };
         Ok(Arc::new(SharedObject::bounded_file(
             file,
             SHARED_CAPACITY,
             shared.extent.clone(),
             self.identity(),
             writable,
-            self.clone(),
+            owner,
             guest_page,
         )))
+    }
+
+    pub(in crate::user) fn any_shared_mapping(
+        &self,
+        predicate: impl Fn(&crate::user::mm::Vma) -> bool,
+    ) -> Result<bool, Error> {
+        let extent = match &*self.inode.contents.lock().map_err(|_| Error::Io)? {
+            Contents::Bytes(_) => return Ok(false),
+            Contents::Shared(shared) => shared.extent.clone(),
+        };
+        Ok(extent.any_mapping(self.identity(), predicate))
     }
 
     pub(crate) fn resize(&self, len: u64) -> Result<(), Error> {
         let len = usize::try_from(len).map_err(|_| Error::TooLarge)?;
         let mut bytes = self.inode.contents.lock().map_err(|_| Error::Io)?;
         self.resize_locked(&mut bytes, len)?;
+        self.attributes().modified();
+        Ok(())
+    }
+
+    pub(in crate::user) fn punch_hole(&self, start: u64, end: u64) -> Result<(), Error> {
+        let mut contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
+        let end = end.min(contents.len() as u64);
+        if start >= end {
+            return Ok(());
+        }
+        match &mut *contents {
+            Contents::Bytes(bytes) => Arc::make_mut(bytes)[start as usize..end as usize].fill(0),
+            Contents::Shared(shared) => {
+                let zeros = [0; 4096];
+                let mut offset = start;
+                while offset < end {
+                    let count = (end - offset).min(zeros.len() as u64) as usize;
+                    shared
+                        .file
+                        .write_all_at(offset, &zeros[..count])
+                        .map_err(|_| Error::Io)?;
+                    offset += count as u64;
+                }
+            }
+        }
         self.attributes().modified();
         Ok(())
     }
@@ -1164,7 +1253,7 @@ impl PageSource for WorkspaceFile {
 
     fn identity(&self) -> SourceIdentity {
         SourceIdentity {
-            dev: 0x524158,
+            dev: self.inode.metadata.dev,
             ino: self.ino(),
         }
     }

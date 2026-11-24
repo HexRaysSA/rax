@@ -307,6 +307,8 @@ pub(super) fn permits_workspace(s: Sysno) -> bool {
             | Sysno::Futimesat
             | Sysno::Ftruncate
             | Sysno::Ftruncate64
+            | Sysno::Fallocate
+            | Sysno::MemfdCreate
             | Sysno::Fsync
             | Sysno::Fdatasync
             | Sysno::Flock

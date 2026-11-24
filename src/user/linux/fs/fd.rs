@@ -252,6 +252,15 @@ impl OpenFile {
         m.write_len(pos, len, f.metadata()?.len())
     }
 
+    pub(crate) fn lock_workspace_memfd(
+        &self,
+    ) -> Result<Option<std::sync::MutexGuard<'_, ()>>, Errno> {
+        match (&self.object, self.memfd.as_deref()) {
+            (FileObject::Supplied(_), Some(memfd)) => memfd.lock_workspace_operations().map(Some),
+            _ => Ok(None),
+        }
+    }
+
     /// Registers an `epoll` item as a watcher (`ep_ptable_queue_proc`).
     pub fn watch(&self, w: Watch) {
         self.watchers.lock().unwrap().push(w);
@@ -466,12 +475,15 @@ impl OpenFile {
             FileObject::Supplied(entry) if entry.device().is_some() => Ok(data.len()),
             FileObject::Supplied(entry) if entry.workspace_file().is_some() => {
                 let file = entry.workspace_file().expect("checked workspace file");
+                let _operation = self.lock_workspace_memfd()?;
                 let mut state = self.state.lock().unwrap();
-                if !data.is_empty() {
-                    let offset = (state.flags & O_APPEND == 0).then_some(state.synth_pos);
-                    state.synth_pos = file.write(offset, data)?;
+                if data.is_empty() {
+                    return Ok(0);
                 }
-                Ok(data.len())
+                let offset = (state.flags & O_APPEND == 0).then_some(state.synth_pos);
+                let len = self.workspace_write_len(entry, offset, data.len())?;
+                state.synth_pos = file.write(offset, &data[..len])?;
+                Ok(len)
             }
             FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
@@ -539,8 +551,14 @@ impl OpenFile {
             FileObject::Supplied(entry) if entry.device().is_some() => Ok(data.len()),
             FileObject::Supplied(entry) if entry.workspace_file().is_some() => {
                 let file = entry.workspace_file().expect("checked workspace file");
-                file.write((self.flags() & O_APPEND == 0).then_some(offset), data)?;
-                Ok(data.len())
+                let _operation = self.lock_workspace_memfd()?;
+                if data.is_empty() {
+                    return Ok(0);
+                }
+                let offset = (self.flags() & O_APPEND == 0).then_some(offset);
+                let len = self.workspace_write_len(entry, offset, data.len())?;
+                file.write(offset, &data[..len])?;
+                Ok(len)
             }
             FileObject::Synthetic(_) | FileObject::Supplied(_) => Err(Errno(EACCES)),
             FileObject::Mqueue(_) if !self.fmode().1 => Err(Errno(EBADF)),
@@ -548,6 +566,19 @@ impl OpenFile {
             FileObject::PathOnly => Err(Errno(EBADF)),
             _ => Err(Errno(ESPIPE)),
         }
+    }
+
+    fn workspace_write_len(
+        &self,
+        entry: &crate::user::supplied_fs::Entry,
+        offset: Option<u64>,
+        len: usize,
+    ) -> Result<usize, Errno> {
+        let Some(memfd) = &self.memfd else {
+            return Ok(len);
+        };
+        let size = entry.len();
+        memfd.write_len(offset.unwrap_or(size), len, size)
     }
 
     /// `lseek`.

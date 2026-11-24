@@ -1540,6 +1540,10 @@ pub(super) fn ftruncate_file(c: &mut Ctx<'_>, file: &OpenFile, len: i64) -> SysR
         FileObject::Mqueue(h) => super::mqueue::truncate(file, h, len),
         FileObject::Supplied(entry) if entry.workspace_file().is_some() => {
             let workspace = entry.workspace_file().expect("checked workspace file");
+            let _operation = file.lock_workspace_memfd()?;
+            if let Some(memfd) = &file.memfd {
+                memfd.check_resize(entry.len(), len as u64)?;
+            }
             workspace.resize(len as u64)?;
             c.p.space
                 .truncated(crate::user::mm::PageSource::identity(workspace), len as u64);
@@ -1573,6 +1577,8 @@ pub fn fallocate(c: &mut Ctx<'_>, fd: i32, mode: u32, off: i64, len: i64) -> Sys
 /// `vfs_fallocate` on an open file.
 pub(super) fn fallocate_file(file: &OpenFile, mode: u32, off: i64, len: i64) -> SysResult {
     const FALLOC_FL_KEEP_SIZE: u32 = 1;
+    const FALLOC_FL_PUNCH_HOLE: u32 = 2;
+    const PUNCH_KEEP: u32 = FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE;
     if off < 0 || len <= 0 {
         return Err(Errno(EINVAL));
     }
@@ -1586,10 +1592,30 @@ pub(super) fn fallocate_file(file: &OpenFile, mode: u32, off: i64, len: i64) -> 
     if file.ftype != FileType::Regular {
         return Err(Errno(ENODEV));
     }
+    let end = (off as u64).checked_add(len as u64).ok_or(Errno(EFBIG))?;
+    if let (FileObject::Supplied(entry), Some(memfd)) = (&file.object, &file.memfd) {
+        let workspace = entry.workspace_file().expect("workspace memfd");
+        let _operation = file.lock_workspace_memfd()?;
+        let size = entry.len();
+        return match mode {
+            0 | FALLOC_FL_KEEP_SIZE => {
+                memfd.check_resize(size, size.max(end))?;
+                if mode == 0 && end > size {
+                    workspace.resize(end)?;
+                }
+                Ok(0)
+            }
+            PUNCH_KEEP if memfd.write_sealed() => Err(Errno(EPERM)),
+            PUNCH_KEEP => {
+                workspace.punch_hole(off as u64, end)?;
+                Ok(0)
+            }
+            _ => Err(Errno(EOPNOTSUPP)),
+        };
+    }
     let FileObject::Host(f) = &file.object else {
         return Err(Errno(ENODEV));
     };
-    let end = (off as u64).checked_add(len as u64).ok_or(Errno(EFBIG))?;
     let size = f.metadata()?.len();
     match mode {
         0 | FALLOC_FL_KEEP_SIZE => {

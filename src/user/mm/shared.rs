@@ -91,16 +91,32 @@ impl SharedFileExtent {
     }
 
     pub(crate) fn invalidate(&self, identity: SourceIdentity, length: u64) {
-        let spaces: Vec<_> = self
-            .spaces
+        for space in self.address_spaces() {
+            space.truncated(identity, length);
+        }
+    }
+
+    pub(crate) fn any_mapping(
+        &self,
+        identity: SourceIdentity,
+        predicate: impl Fn(&super::Vma) -> bool,
+    ) -> bool {
+        self.address_spaces().into_iter().any(|space| {
+            space.vma_snapshot().iter().any(|vma| {
+                matches!(&vma.backing, super::Backing::Shared { object, .. } if object.identity() == identity)
+                    && predicate(vma)
+            })
+        })
+    }
+
+    fn address_spaces(&self) -> Vec<super::AddressSpace> {
+        self.spaces
             .lock()
             .unwrap()
             .iter()
             .filter_map(Weak::upgrade)
-            .collect();
-        for inner in spaces {
-            super::AddressSpace { inner }.truncated(identity, length);
-        }
+            .map(|inner| super::AddressSpace { inner })
+            .collect()
     }
 }
 

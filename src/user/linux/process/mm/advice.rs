@@ -155,14 +155,16 @@ impl MmState {
                     return Err(Errno(EACCES));
                 }
                 MADV_REMOVE => match &vma.backing {
-                    // shmem_fallocate: a write-sealed memfd cannot be punched.
-                    Backing::Shared { object, .. }
-                        if crate::user::linux::fs::memfd::Memfd::find(object.identity())
-                            .is_some_and(|m| m.write_sealed()) =>
-                    {
-                        return Err(Errno(EPERM));
-                    }
                     Backing::Shared { object, offset } => {
+                        let memfd = crate::user::linux::fs::memfd::Memfd::find(object.identity());
+                        let _operation = memfd
+                            .as_ref()
+                            .map(|memfd| memfd.lock_workspace_operations())
+                            .transpose()?;
+                        // shmem_fallocate: a write-sealed memfd cannot be punched.
+                        if memfd.as_ref().is_some_and(|memfd| memfd.write_sealed()) {
+                            return Err(Errno(EPERM));
+                        }
                         let at = offset + (lo - vma.start);
                         object.zero_range(at, hi - lo).map_err(Errno::from)?;
                         false
