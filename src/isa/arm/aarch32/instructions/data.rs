@@ -532,50 +532,47 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Extension Operations
     // =========================================================================
 
-    pub(crate) fn exec_sxtb(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let (d, m) = self.dm_ops(insn);
-        let rotation = if insn.state.is_thumb() {
-            0
+    fn extension_operand(&self, insn: &DecodedInsn) -> (usize, u32) {
+        let raw = insn.raw;
+        let (d, m, rotation) = if insn.state.is_thumb() && insn.size == 4 {
+            // Rotated T32 sources decode as ShiftedReg and are omitted by dm_ops.
+            (
+                ((raw >> 8) & 0xf) as usize,
+                (raw & 0xf) as usize,
+                (raw >> 4) & 3,
+            )
         } else {
-            ((insn.raw >> 10) & 3) * 8
+            let (d, m) = self.dm_ops(insn);
+            let rotation = if insn.state.is_thumb() {
+                0
+            } else {
+                (raw >> 10) & 3
+            };
+            (d, m, rotation)
         };
-        let rotated = self.reg(m).rotate_right(rotation);
+        (d, self.reg(m).rotate_right(rotation * 8))
+    }
+
+    pub(crate) fn exec_sxtb(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let (d, rotated) = self.extension_operand(insn);
         let result = sign_extend(rotated & 0xFF, 8);
         self.set_reg(d, result)
     }
 
     pub(crate) fn exec_sxth(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let (d, m) = self.dm_ops(insn);
-        let rotation = if insn.state.is_thumb() {
-            0
-        } else {
-            ((insn.raw >> 10) & 3) * 8
-        };
-        let rotated = self.reg(m).rotate_right(rotation);
+        let (d, rotated) = self.extension_operand(insn);
         let result = sign_extend(rotated & 0xFFFF, 16);
         self.set_reg(d, result)
     }
 
     pub(crate) fn exec_uxtb(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let (d, m) = self.dm_ops(insn);
-        let rotation = if insn.state.is_thumb() {
-            0
-        } else {
-            ((insn.raw >> 10) & 3) * 8
-        };
-        let rotated = self.reg(m).rotate_right(rotation);
+        let (d, rotated) = self.extension_operand(insn);
         let result = rotated & 0xFF;
         self.set_reg(d, result)
     }
 
     pub(crate) fn exec_uxth(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let (d, m) = self.dm_ops(insn);
-        let rotation = if insn.state.is_thumb() {
-            0
-        } else {
-            ((insn.raw >> 10) & 3) * 8
-        };
-        let rotated = self.reg(m).rotate_right(rotation);
+        let (d, rotated) = self.extension_operand(insn);
         let result = rotated & 0xFFFF;
         self.set_reg(d, result)
     }
@@ -611,8 +608,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let shift_type = if sh { ShiftType::ASR } else { ShiftType::LSL };
         let operand = shift_c(self.reg(n), shift_type, shift_amount, false).0 as i32;
 
-        let max_val = (1i32 << (sat_imm - 1)) - 1;
-        let min_val = -(1i32 << (sat_imm - 1));
+        let max_val = i32::MAX >> (32 - sat_imm);
+        let min_val = i32::MIN >> (32 - sat_imm);
 
         let result = if operand > max_val {
             self.cpu.cpsr.q = true;

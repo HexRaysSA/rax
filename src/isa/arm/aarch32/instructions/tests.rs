@@ -70,6 +70,130 @@ fn t32_literal_load_uses_aligned_pc_plus_four_and_signed_u_offset() {
 }
 
 #[test]
+fn most_significant_multiply_preserves_result_bits_after_signed_overflow() {
+    for (arm, thumb, rn, rm, ra, expected) in [
+        (
+            0xe750_3211,
+            0xfb51_3002,
+            i32::MIN,
+            i32::MIN,
+            i32::MAX,
+            0xbfff_ffff,
+        ),
+        (
+            0xe750_32d1,
+            0xfb61_3002,
+            i32::MIN,
+            i32::MIN,
+            i32::MIN,
+            0x4000_0000,
+        ),
+        (
+            0xe750_3211,
+            0xfb51_3002,
+            65_536,
+            32_768,
+            i32::MAX,
+            0x7fff_ffff,
+        ),
+        (
+            0xe750_3231,
+            0xfb51_3012,
+            65_536,
+            32_768,
+            i32::MAX,
+            0x8000_0000,
+        ),
+        (
+            0xe750_32f1,
+            0xfb61_3012,
+            -65_536,
+            32_768,
+            i32::MAX,
+            0x8000_0000,
+        ),
+        (0xe750_f231, 0xfb51_f012, 65_536, 32_768, i32::MAX, 1),
+    ] {
+        for insn in [a32(arm), t32(thumb)] {
+            let mut cpu = make_cpu();
+            cpu.cpsr.t = insn.state.is_thumb();
+            cpu.cpsr.q = true;
+            cpu.cpsr.v = true;
+            let saved_flags = cpu.cpsr.to_u32();
+            cpu.regs[1..4].copy_from_slice(&[rn as u32, rm as u32, ra as u32]);
+            let result = Executor::new(&mut cpu, &mut make_mem()).execute(&insn);
+            completes(result);
+            assert_eq!(cpu.regs[0], expected, "{:#010x}", insn.raw);
+            assert_eq!(cpu.cpsr.to_u32(), saved_flags, "{:#010x}", insn.raw);
+        }
+    }
+}
+
+#[test]
+fn ssat_32_returns_the_shifted_operand_without_saturating() {
+    for (arm, thumb, operand, expected) in [
+        (0xe6bf_0011, 0xf301_001f, 0x8000_0000, 0x8000_0000),
+        (0xe6bf_0011, 0xf301_001f, 0x7fff_ffff, 0x7fff_ffff),
+        (0xe6bf_0191, 0xf301_00df, 0x1000_0000, 0x8000_0000),
+        (0xe6bf_01d1, 0xf321_00df, 0x8000_0000, 0xf000_0000),
+    ] {
+        for insn in [a32(arm), t32(thumb)] {
+            for q in [false, true] {
+                let mut cpu = make_cpu();
+                cpu.cpsr.t = insn.state.is_thumb();
+                cpu.cpsr.q = q;
+                cpu.regs[1] = operand;
+                let result = Executor::new(&mut cpu, &mut make_mem()).execute(&insn);
+                completes(result);
+                assert_eq!(cpu.regs[0], expected, "{:#010x}", insn.raw);
+                assert_eq!(cpu.cpsr.q, q, "{:#010x}", insn.raw);
+            }
+        }
+    }
+}
+
+#[test]
+fn extend_byte_and_halfword_use_the_rotation_of_each_encoding() {
+    for (arm, thumb16, thumb32, expected) in [
+        (
+            0xe6af_0071,
+            0xb268,
+            0xfa4f_f081,
+            [0xffff_ff8f, 0xffff_ffab, 0x34, 0xffff_ff97],
+        ),
+        (
+            0xe6bf_0071,
+            0xb228,
+            0xfa0f_f081,
+            [0xffff_ab8f, 0x34ab, 0xffff_9734, 0xffff_8f97],
+        ),
+        (0xe6ef_0071, 0xb2e8, 0xfa5f_f081, [0x8f, 0xab, 0x34, 0x97]),
+        (
+            0xe6ff_0071,
+            0xb2a8,
+            0xfa1f_f081,
+            [0xab8f, 0x34ab, 0x9734, 0x8f97],
+        ),
+    ] {
+        let check = |insn: DecodedInsn, source: usize, expected| {
+            let mut cpu = make_cpu();
+            cpu.cpsr.t = insn.state.is_thumb();
+            cpu.regs[source] = 0x9734_ab8f;
+            let flags = cpu.cpsr.to_u32();
+            completes(Executor::new(&mut cpu, &mut make_mem()).execute(&insn));
+            assert_eq!(cpu.regs[0], expected, "{:#010x}", insn.raw);
+            assert_eq!(cpu.cpsr.to_u32(), flags, "{:#010x}", insn.raw);
+        };
+        for (rotate, result) in expected.into_iter().enumerate() {
+            check(a32(arm | (rotate as u32) << 10), 1, result);
+            check(t32(thumb32 | (rotate as u32) << 4), 1, result);
+        }
+        let insn = crate::isa::arm::decoder::ThumbDecoder::decode_16bit(thumb16).unwrap();
+        check(insn, 5, expected[0]);
+    }
+}
+
+#[test]
 fn test_adds_sets_flags() {
     let mut cpu = make_cpu();
     let mut mem = make_mem();

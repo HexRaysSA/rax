@@ -1097,9 +1097,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         } else {
             (self.reg(ra) as i32 as i64) << 32
         };
-        let mut result = if sub { acc - prod } else { acc + prod };
+        // The instruction returns bits [63:32] of the full sum or
+        // difference. Wrapping at bit 64 preserves those bits on overflow.
+        let mut result = if sub {
+            acc.wrapping_sub(prod)
+        } else {
+            acc.wrapping_add(prod)
+        };
         if round {
-            result += 0x8000_0000; // rounding
+            result = result.wrapping_add(0x8000_0000);
         }
         self.set_reg(rd, (result >> 32) as u32)
     }
