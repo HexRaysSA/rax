@@ -3,10 +3,59 @@
 use super::{CHUNK, Ctx, Errno, FileKind, Rv, SysResult};
 use crate::error::MemoryAccessKind;
 use crate::user::darwin::fd::EmbeddedFile;
+use crate::user::darwin::io::{O_ACCMODE, O_RDONLY};
 use crate::user::supplied_fs::Entry;
 
 const EXTENDED_DIRECTORY_BUFFER: u64 = 1024;
 const END_OF_DIRECTORY: u64 = i32::MAX as u64;
+
+pub(super) fn preallocate(ctx: &Ctx<'_>, file: &EmbeddedFile, arg: u64) -> SysResult {
+    const PHYSICAL_EOF: i32 = 3;
+    const VOLUME_POSITION: i32 = 4;
+    const ALLOCATION_FLAGS: u32 = 0x0e;
+
+    let (workspace, access) = match file {
+        EmbeddedFile::Workspace { .. } => {
+            let (workspace, access) = file.workspace().ok_or(Errno::EBADF)?;
+            (Some(workspace), access)
+        }
+        EmbeddedFile::Null { access, .. }
+        | EmbeddedFile::Zero { access, .. }
+        | EmbeddedFile::Resource { access, .. } => (None, *access),
+        _ => return Err(Errno::EBADF),
+    };
+    if access & O_ACCMODE == O_RDONLY {
+        return Err(Errno::EBADF);
+    }
+    let mut request = ctx.read(arg, 32)?;
+    let flags = u32::from_le_bytes(request[..4].try_into().unwrap()) & ALLOCATION_FLAGS;
+    let mode = i32::from_le_bytes(request[4..8].try_into().unwrap());
+    let offset = i64::from_le_bytes(request[8..16].try_into().unwrap());
+    let length = i64::from_le_bytes(request[16..24].try_into().unwrap());
+    match mode {
+        PHYSICAL_EOF if offset == 0 => {}
+        VOLUME_POSITION if offset > 0 => {}
+        _ => return Err(Errno::EINVAL),
+    }
+
+    let (result, allocated): (Result<(), Errno>, i64) = match workspace {
+        Some(_) if length < 0 || mode == VOLUME_POSITION => (Err(Errno::EINVAL), 0),
+        #[cfg(target_os = "macos")]
+        Some(file) => {
+            let (result, allocated) = file.darwin_preallocate(flags, length as u64);
+            (result.map_err(Errno::from), allocated)
+        }
+        #[cfg(not(target_os = "macos"))]
+        Some(_) => {
+            let _ = flags;
+            (Err(Errno::ENOTSUP), 0)
+        }
+        None => (Err(Errno::ENOTSUP), 0),
+    };
+    request[24..32].copy_from_slice(&allocated.to_le_bytes());
+    let copyout = ctx.write(arg, &request);
+    result.and(copyout).map(|()| Rv::one(0))
+}
 
 /// Closed VFS directory records and the caller's independent position and EOF
 /// outputs. Directory positions belong to the open description and are opaque.

@@ -502,6 +502,22 @@ for these cases and for short copies at the file-size limit, `SIGXFSZ`,
 late position copyback errors, copies between ordinary memfds and rejection of
 a copy from an ordinary memfd to a huge-page memfd.
 
+### Data-fork preallocation in the closed Darwin workspace
+
+On macOS, `F_PREALLOCATE` uses an anonymous backing file for a writable
+workspace data fork. The inode retains the allocation across descriptor closes
+and renames. The workspace accounts for the allocation in its byte quota,
+lets file growth consume that credit, and releases remaining credit on a
+shrinking truncate. The command preserves logical EOF and descriptor position.
+
+The ARM64 and Rosetta x86-64 controls on macOS 27 APFS compare the returned
+allocation size, physical blocks in 512-byte units, sparse file growth,
+repeat and reopened calls, and late guest copyout faults. Synthetic tests
+exercise descriptor and positional checks in both guest ABIs, including the
+explicit unavailable result on hosts without Darwin backing. Resource-fork
+preallocation remains outside this data-fork implementation.
+[XNU descriptor command](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_descrip.c).
+
 ### Asynchronous I/O
 
 `src/user/linux/tests/aio.rs` (13 tests, 12 on every 64-bit ABI): `io_setup`'s

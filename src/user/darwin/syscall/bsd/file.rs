@@ -998,6 +998,9 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
             }
             return Ok(Rv::one(u64::from(end.no_sigpipe())));
         }
+        F_PREALLOCATE if let FileKind::Embedded(object) = &file.kind => {
+            return embedded::preallocate(ctx, object, arg);
+        }
         F_FULLFSYNC | F_BARRIERFSYNC
             if matches!(&file.kind, FileKind::Embedded(object) if object.entry().is_some_and(|entry|
                 matches!(&entry.kind, Kind::Workspace(_) | Kind::WorkspaceDirectory(_) | Kind::WorkspaceSymlink(_)))) =>

@@ -202,6 +202,10 @@ impl EmbeddedFile {
             sec: time.seconds,
             nsec: time.nanoseconds,
         };
+        let blocks = match self.entry().and_then(Entry::workspace_file) {
+            Some(file) => file.darwin_allocated_blocks()?,
+            None => None,
+        };
         Ok(Stat {
             dev: if self.entry().is_some() {
                 0x524158
@@ -228,7 +232,7 @@ impl EmbeddedFile {
                     },
                 ),
             blksize: 4096,
-            blocks: (size as u64).div_ceil(512) as i64,
+            blocks: blocks.unwrap_or_else(|| (size as u64).div_ceil(512) as i64),
             atime: to_timespec(times.accessed),
             mtime: to_timespec(times.modified),
             ctime: to_timespec(times.changed),

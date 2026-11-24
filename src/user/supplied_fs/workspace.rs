@@ -5,7 +5,7 @@ use super::Error;
 use crate::user::mm::{
     MappedFile, PageSource, SharedFileExtent, SharedObject, SourceIdentity, anonymous_file,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, Weak};
@@ -22,6 +22,7 @@ pub(in crate::user) use xattr::{
 
 const MAX_BYTES: usize = 16 << 20;
 const MAX_NODES: usize = 1024;
+const DARWIN_BLOCK_BYTES: usize = 4096;
 const SHARED_CAPACITY: Option<u64> = if cfg!(windows) {
     Some(MAX_BYTES as u64)
 } else {
@@ -248,33 +249,107 @@ struct Inode {
 struct RegularFile {
     metadata: Inode,
     contents: Mutex<Contents>,
+    flavor: WorkspaceFlavor,
 }
 
 #[derive(Debug)]
 enum Contents {
-    Bytes(Arc<Vec<u8>>),
+    Bytes(ByteContents),
     Shared(SharedContents),
+}
+
+#[derive(Clone, Debug)]
+struct ByteContents {
+    data: Arc<Vec<u8>>,
+    darwin_blocks: Option<Arc<BTreeSet<usize>>>,
 }
 
 #[derive(Debug)]
 struct SharedContents {
     file: MappedFile,
     extent: Arc<SharedFileExtent>,
+    reservation: usize,
     #[cfg(unix)]
     storage_page: u64,
 }
 
+impl ByteContents {
+    fn new(data: Arc<Vec<u8>>, flavor: WorkspaceFlavor) -> Self {
+        let darwin_blocks = (cfg!(target_os = "macos") && flavor == WorkspaceFlavor::Darwin)
+            .then(|| Arc::new((0..data.len().div_ceil(DARWIN_BLOCK_BYTES)).collect()));
+        Self {
+            data,
+            darwin_blocks,
+        }
+    }
+
+    fn resize(&mut self, len: usize) -> Result<(), Error> {
+        let old = self.data.len();
+        if len > old {
+            let data = Arc::make_mut(&mut self.data);
+            data.try_reserve_exact(len - old)
+                .map_err(|_| Error::NoSpace)?;
+            data.resize(len, 0);
+        } else {
+            if len == 0 {
+                self.data = Arc::default();
+            } else {
+                let data = Arc::make_mut(&mut self.data);
+                data.truncate(len);
+                data.shrink_to_fit();
+            }
+            if let Some(blocks) = &mut self.darwin_blocks {
+                let first_discarded = len.div_ceil(DARWIN_BLOCK_BYTES);
+                if blocks.range(first_discarded..).next().is_some() {
+                    Arc::make_mut(blocks).split_off(&first_discarded);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn write(&mut self, start: usize, input: &[u8]) {
+        let end = start + input.len();
+        Arc::make_mut(&mut self.data)[start..end].copy_from_slice(input);
+        if let Some(blocks) = &mut self.darwin_blocks {
+            let touched = start / DARWIN_BLOCK_BYTES..end.div_ceil(DARWIN_BLOCK_BYTES);
+            Arc::make_mut(blocks).extend(touched);
+        }
+    }
+}
+
 impl Contents {
+    fn empty(flavor: WorkspaceFlavor) -> Self {
+        Self::Bytes(ByteContents::new(Arc::default(), flavor))
+    }
+
     fn len(&self) -> usize {
         match self {
-            Self::Bytes(bytes) => bytes.len(),
+            Self::Bytes(bytes) => bytes.data.len(),
             Self::Shared(shared) => shared.extent.len() as usize,
+        }
+    }
+
+    fn reservation(&self) -> usize {
+        match self {
+            Self::Bytes(_) => 0,
+            Self::Shared(shared) => shared.reservation,
+        }
+    }
+
+    fn shared(&mut self) -> Result<&mut SharedContents, Error> {
+        if let Self::Bytes(bytes) = self {
+            *self = Self::Shared(SharedContents::new(bytes)?);
+        }
+        match self {
+            Self::Shared(shared) => Ok(shared),
+            Self::Bytes(_) => unreachable!("workspace file backing initialized"),
         }
     }
 
     fn snapshot(&self) -> Result<Arc<Vec<u8>>, Error> {
         match self {
-            Self::Bytes(bytes) => Ok(bytes.clone()),
+            Self::Bytes(bytes) => Ok(bytes.data.clone()),
             Self::Shared(shared) => {
                 let mut bytes = Vec::new();
                 bytes
@@ -292,17 +367,28 @@ impl Contents {
 }
 
 impl SharedContents {
-    fn new(bytes: &[u8]) -> Result<Self, Error> {
+    fn new(bytes: &ByteContents) -> Result<Self, Error> {
         let file = anonymous_file().map_err(|_| Error::Io)?;
         #[cfg(windows)]
         mapped_windows::mark_sparse(&file).map_err(|_| Error::Io)?;
-        file.set_len(SHARED_CAPACITY.unwrap_or(bytes.len() as u64))
+        let len = bytes.data.len();
+        file.set_len(SHARED_CAPACITY.unwrap_or(len as u64))
             .map_err(|_| Error::Io)?;
         let file = MappedFile::new(file);
-        file.write_all_at(0, bytes).map_err(|_| Error::Io)?;
+        if let Some(blocks) = &bytes.darwin_blocks {
+            for block in blocks.iter() {
+                let start = block * DARWIN_BLOCK_BYTES;
+                let end = (start + DARWIN_BLOCK_BYTES).min(len);
+                file.write_all_at(start as u64, &bytes.data[start..end])
+                    .map_err(|_| Error::Io)?;
+            }
+        } else {
+            file.write_all_at(0, &bytes.data).map_err(|_| Error::Io)?;
+        }
         Ok(Self {
             file,
-            extent: Arc::new(SharedFileExtent::new(bytes.len() as u64)),
+            extent: Arc::new(SharedFileExtent::new(len as u64)),
+            reservation: 0,
             #[cfg(unix)]
             storage_page: 1,
         })
@@ -489,7 +575,8 @@ impl Workspace {
         let file = Arc::new(WorkspaceFile {
             inode: Arc::new(RegularFile {
                 metadata: self.inode(ino, mode & 0o7777, owner),
-                contents: Mutex::new(Contents::Bytes(Arc::new(Vec::new()))),
+                contents: Mutex::new(Contents::empty(self.flavor)),
+                flavor: self.flavor,
             }),
             placement: Placement::new(self, parent, &name),
         });
@@ -526,7 +613,8 @@ impl Workspace {
         Ok(Arc::new(WorkspaceFile {
             inode: Arc::new(RegularFile {
                 metadata,
-                contents: Mutex::new(Contents::Bytes(Arc::new(Vec::new()))),
+                contents: Mutex::new(Contents::empty(self.flavor)),
+                flavor: self.flavor,
             }),
             placement: Placement::with_location(self, LeafLocation::Detached(display_path)),
         }))
@@ -557,7 +645,8 @@ impl Workspace {
         Ok(Arc::new(WorkspaceFile {
             inode: Arc::new(RegularFile {
                 metadata,
-                contents: Mutex::new(Contents::Bytes(Arc::new(Vec::new()))),
+                contents: Mutex::new(Contents::empty(self.flavor)),
+                flavor: self.flavor,
             }),
             placement: Placement::with_location(
                 self,
@@ -614,7 +703,7 @@ impl Workspace {
         opened_for_read: bool,
     ) -> Result<(), Error> {
         enum Data {
-            File(Arc<Vec<u8>>),
+            File(ByteContents),
             Symlink(Vec<u8>),
         }
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
@@ -627,11 +716,11 @@ impl Workspace {
                     return Err(Error::AccessDenied);
                 }
                 let contents = file.inode.contents.lock().map_err(|_| Error::Io)?;
-                (
-                    Data::File(contents.snapshot()?),
-                    file.attributes(),
-                    contents.len(),
-                )
+                let bytes = match &*contents {
+                    Contents::Bytes(bytes) => bytes.clone(),
+                    Contents::Shared(_) => ByteContents::new(contents.snapshot()?, self.flavor),
+                };
+                (Data::File(bytes), file.attributes(), contents.len())
             }
             Node::Symlink(link) => {
                 let target = link.target();
@@ -676,6 +765,7 @@ impl Workspace {
                 inode: Arc::new(RegularFile {
                     metadata,
                     contents: Mutex::new(Contents::Bytes(contents)),
+                    flavor: self.flavor,
                 }),
                 placement,
             })),
@@ -1020,6 +1110,87 @@ fn allocate_inode(namespace: &mut Namespace, budget: &mut Budget) -> Result<u64,
 }
 
 impl WorkspaceFile {
+    fn uses_darwin_backing(&self) -> bool {
+        cfg!(target_os = "macos") && self.inode.flavor == WorkspaceFlavor::Darwin
+    }
+
+    pub(in crate::user) fn darwin_allocated_blocks(&self) -> Result<Option<i64>, Error> {
+        #[cfg(target_os = "macos")]
+        if self.uses_darwin_backing() {
+            use std::os::unix::fs::MetadataExt;
+            let contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
+            let blocks = match &*contents {
+                Contents::Bytes(bytes) => bytes
+                    .darwin_blocks
+                    .as_ref()
+                    .map_or(0, |blocks| blocks.len() * (DARWIN_BLOCK_BYTES / 512)),
+                Contents::Shared(shared) => {
+                    shared.file.metadata().map_err(|_| Error::Io)?.blocks() as usize
+                }
+            };
+            return Ok(Some(blocks as i64));
+        }
+        Ok(None)
+    }
+
+    /// Reserve native storage on this guest-owned data fork. The workspace
+    /// charges a whole block per touched allocation unit. File growth uses
+    /// that credit and a shrinking truncate releases it.
+    #[cfg(target_os = "macos")]
+    pub(in crate::user) fn darwin_preallocate(
+        &self,
+        flags: u32,
+        length: u64,
+    ) -> (io::Result<()>, i64) {
+        use std::os::fd::AsRawFd;
+
+        let allocate = || {
+            if !self.uses_darwin_backing() {
+                return Err(io::Error::from_raw_os_error(libc::ENOTSUP));
+            }
+            let mut contents = self
+                .inode
+                .contents
+                .lock()
+                .map_err(|_| io::Error::other(Error::Io))?;
+            let mut budget = self
+                .inode
+                .metadata
+                .budget
+                .lock()
+                .map_err(|_| io::Error::other(Error::Io))?;
+            let available = (MAX_BYTES - budget.bytes) / DARWIN_BLOCK_BYTES * DARWIN_BLOCK_BYTES;
+            if length > available as u64 && (flags & libc::F_ALLOCATEALL != 0 || available == 0) {
+                return Err(io::Error::from_raw_os_error(libc::ENOSPC));
+            }
+            let desired = length.min(available as u64);
+            let shared = contents.shared().map_err(io::Error::other)?;
+            let mut request = libc::fstore_t {
+                fst_flags: flags,
+                fst_posmode: libc::F_PEOFPOSMODE,
+                fst_offset: 0,
+                fst_length: desired as i64,
+                fst_bytesalloc: 0,
+            };
+            // SAFETY: the descriptor belongs to this workspace inode and the
+            // native request is a live, exclusive fstore_t.
+            let result =
+                unsafe { libc::fcntl(shared.file.as_raw_fd(), libc::F_PREALLOCATE, &mut request) };
+            let result = if result < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(())
+            };
+            let allocated = request.fst_bytesalloc.max(0);
+            let credit = (allocated.min(available as i64) as usize).div_ceil(DARWIN_BLOCK_BYTES)
+                * DARWIN_BLOCK_BYTES;
+            shared.reservation += credit;
+            budget.bytes += credit;
+            Ok((result, allocated))
+        };
+        allocate().unwrap_or_else(|error| (Err(error), 0))
+    }
+
     pub(crate) fn is_tmpfile(&self) -> bool {
         self.placement
             .location
@@ -1080,12 +1251,7 @@ impl WorkspaceFile {
         keep: Option<crate::user::mm::Keep>,
     ) -> Result<Arc<SharedObject>, Error> {
         let mut contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
-        if let Contents::Bytes(bytes) = &*contents {
-            *contents = Contents::Shared(SharedContents::new(bytes)?);
-        }
-        let Contents::Shared(shared) = &mut *contents else {
-            unreachable!("workspace mapping storage initialized");
-        };
+        let shared = contents.shared()?;
         #[cfg(unix)]
         shared
             .ensure_mapping_page(guest_page)
@@ -1132,7 +1298,9 @@ impl WorkspaceFile {
             return Ok(());
         }
         match &mut *contents {
-            Contents::Bytes(bytes) => Arc::make_mut(bytes)[start as usize..end as usize].fill(0),
+            Contents::Bytes(bytes) => {
+                Arc::make_mut(&mut bytes.data)[start as usize..end as usize].fill(0)
+            }
             Contents::Shared(shared) => {
                 let zeros = [0; 4096];
                 let mut offset = start;
@@ -1159,26 +1327,25 @@ impl WorkspaceFile {
             return Ok(());
         }
         let mut budget = self.inode.metadata.budget.lock().map_err(|_| Error::Io)?;
-        if len.saturating_sub(old) > MAX_BYTES - budget.bytes {
+        let reserved = contents.reservation();
+        let retained = if len > old {
+            reserved.saturating_sub(len - old)
+        } else {
+            0
+        };
+        let current_charge = old + reserved;
+        let new_charge = len + retained;
+        if new_charge.saturating_sub(current_charge) > MAX_BYTES - budget.bytes {
             return Err(Error::NoSpace);
         }
         match contents {
-            Contents::Bytes(bytes) if len > old => {
-                let bytes = Arc::make_mut(bytes);
-                bytes
-                    .try_reserve_exact(len - old)
-                    .map_err(|_| Error::NoSpace)?;
-                bytes.resize(len, 0);
+            Contents::Bytes(bytes) => bytes.resize(len)?,
+            Contents::Shared(shared) => {
+                shared.resize(self.identity(), old, len)?;
+                shared.reservation = retained;
             }
-            Contents::Bytes(bytes) if len == 0 => *bytes = Arc::default(),
-            Contents::Bytes(bytes) => {
-                let bytes = Arc::make_mut(bytes);
-                bytes.truncate(len);
-                bytes.shrink_to_fit();
-            }
-            Contents::Shared(shared) => shared.resize(self.identity(), old, len)?,
         }
-        budget.bytes = budget.bytes - old + len;
+        budget.bytes = budget.bytes - current_charge + new_charge;
         Ok(())
     }
 
@@ -1196,7 +1363,7 @@ impl WorkspaceFile {
             self.resize_locked(&mut bytes, end)?;
         }
         match &mut *bytes {
-            Contents::Bytes(bytes) => Arc::make_mut(bytes)[start..end].copy_from_slice(input),
+            Contents::Bytes(bytes) => bytes.write(start, input),
             Contents::Shared(shared) => shared
                 .file
                 .write_all_at(offset, input)
@@ -1265,7 +1432,7 @@ impl Drop for RegularFile {
                 .contents
                 .get_mut()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            budget.bytes -= bytes.len();
+            budget.bytes -= bytes.len() + bytes.reservation();
         }
     }
 }
@@ -1300,7 +1467,7 @@ impl PageSource for WorkspaceFile {
         let count = out.len().min(bytes.len() - start);
         match &*bytes {
             Contents::Bytes(bytes) => {
-                out[..count].copy_from_slice(&bytes[start..start + count]);
+                out[..count].copy_from_slice(&bytes.data[start..start + count]);
                 Ok(count)
             }
             Contents::Shared(shared) => shared.file.read_at(offset, &mut out[..count]),

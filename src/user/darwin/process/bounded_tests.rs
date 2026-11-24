@@ -1099,6 +1099,128 @@ fn closed_workspace_sync_commands_accept_vnodes_and_reject_pipes() {
 }
 
 #[test]
+fn closed_workspace_preallocation_reserves_blocks_without_changing_eof() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr},
+        fd::FileKind,
+        io::{O_CREAT, O_RDONLY, O_RDWR},
+        syscall::{
+            Ctx, bsd,
+            bsd::file::{self, cmd},
+        },
+    };
+    use crate::user::supplied_fs::WorkspaceFlavor;
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process(abi);
+        let files = p
+            .proc
+            .vfs
+            .files()
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        p.proc.vfs = Vfs::supplied(files);
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let path = thread.cpu.sp() - 512;
+        let buffer = path + 128;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::FCNTL),
+            pc: ENTRY,
+        };
+        ctx.write(path, b"/tmp/preallocate\0").unwrap();
+        let mut open = |flags| {
+            bsd::call(
+                &mut ctx,
+                nr::OPEN,
+                &[path, u64::from(flags), 0o600, 0, 0, 0, 0, 0],
+            )
+            .unwrap()
+            .0 as i32
+        };
+        let writable = open(O_CREAT | O_RDWR);
+        let readonly = open(O_RDONLY);
+        let pipe = file::pipe(&mut ctx).unwrap().0 as i32;
+        let call = |ctx: &mut Ctx<'_>, fd, argument| {
+            bsd::call(
+                ctx,
+                nr::FCNTL,
+                &[
+                    fd as u64,
+                    cmd::F_PREALLOCATE as u64,
+                    argument,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ],
+            )
+        };
+        let mut request = [0; 32];
+        request[..4].copy_from_slice(&4u32.to_le_bytes());
+        request[16..24].copy_from_slice(&4096i64.to_le_bytes());
+        request[24..].copy_from_slice(&0x123456_i64.to_le_bytes());
+        ctx.write(buffer, &request).unwrap();
+        assert_eq!(call(&mut ctx, writable, buffer), Err(Errno::EINVAL));
+        assert_eq!(ctx.read(buffer, 32).unwrap(), request);
+        for fd in [readonly, pipe, -1] {
+            assert_eq!(call(&mut ctx, fd, u64::MAX), Err(Errno::EBADF));
+        }
+        assert_eq!(call(&mut ctx, writable, u64::MAX), Err(Errno::EFAULT));
+
+        request[4..8].copy_from_slice(&3i32.to_le_bytes());
+        request[16..24].copy_from_slice(&((16i64 << 20) + 1).to_le_bytes());
+        ctx.write(buffer, &request).unwrap();
+        let unsupported = if cfg!(target_os = "macos") {
+            Errno::ENOSPC
+        } else {
+            Errno::ENOTSUP
+        };
+        assert_eq!(call(&mut ctx, writable, buffer), Err(unsupported));
+        assert_eq!(ctx.read(buffer + 24, 8).unwrap(), [0; 8]);
+        request[16..24].copy_from_slice(&4096i64.to_le_bytes());
+        ctx.write(buffer, &request).unwrap();
+        if !cfg!(target_os = "macos") {
+            assert_eq!(call(&mut ctx, writable, buffer), Err(Errno::ENOTSUP));
+            assert_eq!(ctx.read(buffer + 24, 8).unwrap(), [0; 8]);
+            continue;
+        }
+
+        let capacity = |ctx: &Ctx<'_>| {
+            ctx.proc
+                .vfs
+                .files()
+                .unwrap()
+                .workspace_capacity()
+                .unwrap()
+                .bytes_available
+        };
+        let initial = capacity(&ctx);
+        file::lseek(&mut ctx, writable, 7, 0).unwrap();
+        assert_eq!(call(&mut ctx, writable, buffer).unwrap().0, 0);
+        assert_eq!(ctx.read(buffer + 24, 8).unwrap(), 4096i64.to_le_bytes());
+        assert_eq!(file::lseek(&mut ctx, writable, 0, 1).unwrap().0, 7);
+        assert_eq!(capacity(&ctx), initial - 4096);
+        let opened = ctx.proc.fds.file(readonly).unwrap();
+        let FileKind::Embedded(object) = &opened.kind else {
+            panic!("private workspace descriptor expected");
+        };
+        let info = object.stat().unwrap();
+        assert_eq!((info.size, info.blocks), (0, 8));
+        file::ftruncate(&mut ctx, writable, 4096).unwrap();
+        assert_eq!(capacity(&ctx), initial - 4096);
+        file::ftruncate(&mut ctx, writable, 0).unwrap();
+        assert_eq!(
+            (object.stat().unwrap().size, object.stat().unwrap().blocks),
+            (0, 0)
+        );
+        assert_eq!(capacity(&ctx), initial);
+    }
+}
+
+#[test]
 fn closed_workspace_shared_mappings_follow_darwin_guest_pages() {
     use crate::user::darwin::{
         abi::{Errno, tables::nr},
