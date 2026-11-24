@@ -146,6 +146,53 @@ fn incompatible_cpu_count_rejects_before_runtime_trace_side_effects() {
     assert!(!trace.exists());
 }
 #[test]
+fn cpu_register_set_alone_cannot_resume_a_fresh_smp_vm() {
+    for count in [2, 4] {
+        let f = Fixture::new();
+        let mut config = f.config(ArchKind::X86_64, RAM);
+        config.vcpus = count;
+        let source = Vmm::new_resume(config).unwrap();
+        let full = source.take_snapshot_bundle(53).unwrap();
+        let projection = SnapshotBundle::new(source.take_snapshot(53).unwrap())
+            .with_cpus(source.capture_cpu_states().unwrap())
+            .unwrap()
+            .with_pci(full.pci().unwrap().to_devices().unwrap())
+            .unwrap();
+        let path = f.dir.join("projected-cpu-set.rxc");
+        projection.save(&path).unwrap();
+        let loaded = SnapshotBundle::load(&path).unwrap();
+        assert_eq!(loaded.cpus().unwrap().entries().len(), usize::from(count));
+        assert!(loaded.execution().is_none());
+        drop(source);
+        std::fs::remove_file(&f.kernel).unwrap();
+
+        let trace = f.dir.join("unexpected.trace");
+        let resume = VmConfig::from_checkpoint_bundle(
+            &loaded,
+            CliConfig {
+                trace: cfg!(feature = "trace").then_some(trace.clone()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let error = Vmm::new_resume_bundle(resume, &loaded)
+            .err()
+            .expect("CPU register projection resumed without scheduler state");
+        assert!(
+            error.to_string().contains("execution coordinator"),
+            "{error}"
+        );
+        assert!(!trace.exists());
+
+        let resume = VmConfig::from_checkpoint_bundle(&full, CliConfig::default()).unwrap();
+        let restored = Vmm::new_resume_bundle(resume, &full).unwrap();
+        assert_eq!(
+            restored.capture_cpu_states().unwrap().len(),
+            usize::from(count)
+        );
+    }
+}
+#[test]
 fn incompatible_architecture_rejects_before_runtime_creation() {
     let f = Fixture::new();
     let b = SnapshotBundle::new(f.base());

@@ -400,6 +400,7 @@ impl VmConfig {
 
     /// Validate resume configuration without requiring source paths when the
     /// actual bundle contains the represented endpoint/media state.
+    /// Multi-vCPU resume requires the saved scheduler and local controllers.
     pub fn validate_resume_bundle(
         &self,
         bundle: &crate::vm::snapshot::SnapshotBundle,
@@ -427,10 +428,17 @@ impl VmConfig {
                 "checkpoint CPU count does not match target machine".to_string(),
             ));
         }
-        if self.vcpus > 1 && bundle.cpus().is_none() {
-            return Err(Error::InvalidConfig(
-                "checkpoint is missing additional CPU state".to_string(),
-            ));
+        if self.vcpus > 1 {
+            if bundle.cpus().is_none() {
+                return Err(Error::InvalidConfig(
+                    "checkpoint is missing additional CPU state".to_string(),
+                ));
+            }
+            if bundle.execution().is_none() {
+                return Err(Error::InvalidConfig(
+                    "SMP checkpoint is missing execution coordinator state".to_string(),
+                ));
+            }
         }
         if self.pci_devices != base.config.pci_devices {
             return Err(Error::InvalidConfig(
