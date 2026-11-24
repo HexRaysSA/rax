@@ -110,3 +110,49 @@ completed path. The checkpoint cases that passed include one-, two-, and
 four-vCPU continuation, pending input and output, and rollback after a late
 SDK GIC rejection. The test executable SHA-256 is
 `0c3b3d43a49e165fb06d2e3ef3873c8246f780475b77a55fdc64ce5f86777c6c`.
+
+## Guest-initiated streaming entry
+
+The public-SDK [mode-entry probe](streaming-mode-entry.cpp) compares a
+non-streaming vCPU, an SDK streaming-mode setter and a guest `SMSTART SM`.
+Each mode runs with and without the SDK SME state getter. The guest reads
+SVCR every time. All 18 entries reached the expected PC and data abort
+at IPA `0x09000000`. Both streaming entry methods produced guest SVCR=1
+with ZA disabled for all their entries.
+
+| Mode | Same entry after guest writes FPSR=1 | Reentry without status write | Reentry after host writes FPSR=4 |
+|---|---|---|---|
+| Non-streaming | `0x1` | `0x1` | `0x4` |
+| Host SDK setter | `0x1` | `0x0800009f` | `0x0800009f` |
+| Guest `SMSTART SM` | `0x1` | `0x0800009f` | `0x0800009f` |
+
+| ID | Assumption | Falsification probe | Result |
+|---|---|---|---|
+| F5 | The loss requires the host SDK SME mode setter. | Execute guest `SMSTART SM` before writing FPSR, verify guest SVCR, then reenter. | Falsified on the tested host. All eight later streaming reads differ from the expected values. |
+| F6 | Reading SME state through the SDK causes the loss. | Omit the SDK mode getter while still reading guest SVCR. | Falsified on the tested host. The getter does not change any guest result. |
+
+Two signed runs produced byte-identical [stdout](streaming-mode-entry.stdout)
+on Apple M4 Max with macOS 27.3 build 26C5035r and SDK 27.2. The signed
+executable passed strict verification before either run. Stdout SHA-256 is
+`83f91f6935d96098aab2858796398e212cb8ce277e12f2937e4c3b5ba8eb07`.
+From the repository root:
+
+```sh
+probe_dir=$(mktemp -d)
+xcrun clang++ -std=c++17 -Wall -Wextra -Werror \
+  docs/development/hvf-streaming-fpsr-sdk/streaming-mode-entry.cpp \
+  -framework Hypervisor -o "$probe_dir/streaming-mode-entry" &&
+codesign --sign - --entitlements rax.entitlements --timestamp=none \
+  "$probe_dir/streaming-mode-entry" &&
+codesign --verify --strict "$probe_dir/streaming-mode-entry" &&
+"$probe_dir/streaming-mode-entry"
+probe_status=$?
+rm -f "$probe_dir/streaming-mode-entry"
+rmdir "$probe_dir"
+test "$probe_status" -eq 0
+```
+
+The failure affects ordinary native vCPU reentry even when the guest alone
+enables streaming mode. A transparent production repair and the underlying
+kernel mechanism remain unknown. This probe covers one host/SDK pair and
+tests ZA disabled. C-STATE remains open.
