@@ -234,6 +234,7 @@ pub(crate) struct Namespace {
     csr_server: Option<Arc<csr::CsrServer>>,
     pub(crate) activation_context: Option<Arc<csr::activation::ActivationContext>>,
     pub(crate) policy_lookup_names: Option<Arc<policy_lookup::Catalog>>,
+    pub(crate) domain_policy: Option<Arc<policy_lookup::StandalonePolicy>>,
     pub(crate) privilege_display_names:
         Option<Arc<super::security::privilege_names::DisplayCatalog>>,
     pub(crate) lsa_authentication_initialized: bool,
@@ -500,6 +501,7 @@ impl Namespace {
             csr_server: None,
             activation_context: None,
             policy_lookup_names: None,
+            domain_policy: None,
             privilege_display_names: None,
             lsa_authentication_initialized: false,
             cache_server: None,

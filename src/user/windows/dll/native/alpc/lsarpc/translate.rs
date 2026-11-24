@@ -1,7 +1,7 @@
 //! The local Policy Lookup request and successful reply for one selected token SID.
 
 use super::exchange::word;
-use crate::user::windows::object_namespace::policy_lookup::{Name, Translation};
+use crate::user::windows::object_namespace::policy_lookup::{AccountDomain, Name, Translation};
 use crate::user::windows::objects::LsarpcPolicyContext;
 use crate::user::windows::security;
 
@@ -73,14 +73,14 @@ fn u64_field(body: &mut Vec<u8>, value: u64) {
     body.extend_from_slice(&value.to_le_bytes());
 }
 
-fn name_header(body: &mut Vec<u8>, name: &Name) {
+pub(super) fn name_header(body: &mut Vec<u8>, name: &Name) {
     body.resize(body.len().next_multiple_of(8), 0);
     body.extend_from_slice(&(name.units.len() as u16 * 2).to_le_bytes());
     body.extend_from_slice(&(name.maximum_units * 2).to_le_bytes());
     u64_field(body, UNIQUE_REFERENT);
 }
 
-fn name_buffer(body: &mut Vec<u8>, name: &Name) {
+pub(super) fn name_buffer(body: &mut Vec<u8>, name: &Name) {
     u64_field(body, u64::from(name.maximum_units));
     u64_field(body, 0);
     u64_field(body, name.units.len() as u64);
@@ -118,13 +118,13 @@ pub(super) fn append_success(body: &mut Vec<u8>, translation: &Translation) {
     body.resize(body.len() + 32, 0);
 }
 
-fn name_header_ndr32(body: &mut Vec<u8>, name: &Name) {
+pub(super) fn name_header_ndr32(body: &mut Vec<u8>, name: &Name) {
     body.extend_from_slice(&(name.units.len() as u16 * 2).to_le_bytes());
     body.extend_from_slice(&(name.maximum_units * 2).to_le_bytes());
     u32_field(body, UNIQUE_REFERENT as u32);
 }
 
-fn name_buffer_ndr32(body: &mut Vec<u8>, name: &Name) {
+pub(super) fn name_buffer_ndr32(body: &mut Vec<u8>, name: &Name) {
     u32_field(body, u32::from(name.maximum_units));
     u32_field(body, 0);
     u32_field(body, name.units.len() as u32);
@@ -132,6 +132,22 @@ fn name_buffer_ndr32(body: &mut Vec<u8>, name: &Name) {
         body.extend_from_slice(&unit.to_le_bytes());
     }
     body.resize(body.len().next_multiple_of(4), 0);
+}
+
+pub(super) fn append_account_domain(body: &mut Vec<u8>, domain: &AccountDomain, classic: bool) {
+    let count = domain.sid[1];
+    if classic {
+        name_header_ndr32(body, &domain.name);
+        u32_field(body, UNIQUE_REFERENT as u32);
+        name_buffer_ndr32(body, &domain.name);
+        u32_field(body, u32::from(count));
+    } else {
+        name_header(body, &domain.name);
+        u64_field(body, UNIQUE_REFERENT);
+        name_buffer(body, &domain.name);
+        u64_field(body, u64::from(count));
+    }
+    body.extend_from_slice(&domain.sid);
 }
 
 pub(super) fn append_success_ndr32(body: &mut Vec<u8>, translation: &Translation) {

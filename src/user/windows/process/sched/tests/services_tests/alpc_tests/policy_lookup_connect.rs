@@ -1,7 +1,9 @@
 use super::lsarpc_connect::invoke;
 use super::*;
 use crate::user::windows::nt::status::{STATUS_INVALID_HANDLE, STATUS_SERVER_SID_MISMATCH};
-use crate::user::windows::object_namespace::policy_lookup::{Catalog as Names, Name, Translation};
+use crate::user::windows::object_namespace::policy_lookup::{
+    AccountDomain, Catalog as Names, Name, StandalonePolicy, Translation,
+};
 use crate::user::windows::objects::LsarpcInterface;
 use crate::user::windows::security::{Group, Subject};
 use crate::user::windows::wnf::Catalog;
@@ -229,6 +231,29 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         let context = &reply[24..44];
         assert_ne!(context, [0; 20]);
         let view_context = open_without_qos(p, &mut thread, base + 0x400, handle, false);
+        p.native.as_mut().unwrap().object_namespace.domain_policy =
+            Some(Arc::new(StandalonePolicy {
+                dns_name: Name {
+                    units: "TESTGROUP".encode_utf16().collect(),
+                    maximum_units: 10,
+                },
+                account_domain: Some(AccountDomain {
+                    name: Name {
+                        units: "TESTBOX".encode_utf16().collect(),
+                        maximum_units: 8,
+                    },
+                    sid: ACCOUNT_DOMAIN_SID.to_vec(),
+                }),
+            }));
+        assert_policy_queries(
+            p,
+            &mut thread,
+            base + 0x400,
+            handle,
+            false,
+            &view_context,
+            context,
+        );
 
         let mut domain_sid = vec![1, 4, 0, 0, 0, 0, 0, 5];
         domain_sid.extend(
@@ -331,6 +356,15 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
             );
             let opened = exchange(p, &mut thread, arena, handle, 0, &open);
             assert_eq!(read_word(&opened, 44), 0);
+            assert_policy_queries(
+                p,
+                &mut thread,
+                arena,
+                handle,
+                true,
+                &classic_view_context,
+                &opened[24..44],
+            );
             let mut classic = [0; 152];
             words(
                 &mut classic,
@@ -492,6 +526,70 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         assert_eq!(read_word(&reply, 44), STATUS_INVALID_HANDLE);
         assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup);
         assert_translation_rejected(p, &mut thread, base + 0x400, handle, &lookup_group);
+    }
+}
+
+const ACCOUNT_DOMAIN_SID: [u8; 24] = [
+    1, 4, 0, 0, 0, 0, 0, 5, 21, 0, 0, 0, 11, 0, 0, 0, 22, 0, 0, 0, 33, 0, 0, 0,
+];
+
+fn assert_policy_queries(
+    p: &mut Proc,
+    thread: &mut Thread,
+    arena: u64,
+    handle: u64,
+    classic: bool,
+    view_context: &[u8],
+    lookup_context: &[u8],
+) {
+    let (size, syntax, union_at, name_at, data_at) = if classic {
+        (86, 0, 28, 32, 88)
+    } else {
+        (88, 1, 32, 40, 136)
+    };
+    let mut query = [0; 88];
+    words(&mut query, &[(12, 24), (16, syntax), (20, 5), (84, 12)]);
+    query[64..84].copy_from_slice(view_context);
+    let reply = exchange(p, thread, arena, handle, 0, &query[..size]);
+    assert_eq!(read_word(&reply, 12), 24);
+    assert_eq!(read_word(&reply, union_at), 12);
+    assert_eq!(read_word(&reply, name_at), (20 << 16) | 18);
+    assert_eq!(
+        &reply[data_at..data_at + 18],
+        b"T\0E\0S\0T\0G\0R\0O\0U\0P\0"
+    );
+    assert_eq!(&reply[data_at + 18..], &[0; 6]);
+
+    words(&mut query, &[(84, 5)]);
+    let reply = exchange(p, thread, arena, handle, 0, &query[..size]);
+    let (name_data, sid_count, sid_data) = if classic {
+        (56, 72, 76)
+    } else {
+        (88, 104, 112)
+    };
+    assert_eq!(read_word(&reply, 12), 24);
+    assert_eq!(read_word(&reply, union_at), 5);
+    assert_eq!(read_word(&reply, name_at), (16 << 16) | 14);
+    assert_eq!(&reply[name_data..name_data + 14], b"T\0E\0S\0T\0B\0O\0X\0");
+    assert_eq!(read_word(&reply, sid_count), 4);
+    assert_eq!(
+        &reply[sid_data..sid_data + ACCOUNT_DOMAIN_SID.len()],
+        &ACCOUNT_DOMAIN_SID
+    );
+    assert_eq!(&reply[sid_data + ACCOUNT_DOMAIN_SID.len()..], &[0; 4]);
+
+    for class in [5, 12] {
+        words(&mut query, &[(84, class)]);
+        query[64..84].copy_from_slice(lookup_context);
+        let denied = exchange(p, thread, arena, handle, 0, &query[..size]);
+        assert_eq!(read_word(&denied, 12), 24);
+        assert_eq!(read_word(&denied, 24), 0);
+        assert_eq!(read_word(&denied, union_at), STATUS_ACCESS_DENIED);
+
+        query[64..84].fill(0);
+        let missing = exchange(p, thread, arena, handle, 0, &query[..size]);
+        assert_eq!(read_word(&missing, 24), 0);
+        assert_eq!(read_word(&missing, union_at), STATUS_INVALID_HANDLE);
     }
 }
 

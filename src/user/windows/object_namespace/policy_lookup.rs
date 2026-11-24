@@ -8,6 +8,23 @@ pub(crate) struct Name {
     pub(crate) maximum_units: u16,
 }
 
+/// Domain policy for the measured standalone-machine profile.
+pub(crate) struct StandalonePolicy {
+    pub(crate) dns_name: Name,
+    pub(crate) account_domain: Option<AccountDomain>,
+}
+
+pub(crate) struct AccountDomain {
+    pub(crate) name: Name,
+    pub(crate) sid: Vec<u8>,
+}
+
+impl std::fmt::Debug for StandalonePolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StandalonePolicy").finish_non_exhaustive()
+    }
+}
+
 pub(crate) struct Translation {
     pub(crate) kind: u32,
     pub(crate) domain_sid: Vec<u8>,
@@ -39,12 +56,15 @@ impl std::fmt::Debug for Catalog {
 
 #[cfg(windows)]
 mod installed {
-    use super::{BTreeMap, Catalog, Name, Subject, Translation};
+    use super::{AccountDomain, BTreeMap, Catalog, Name, StandalonePolicy, Subject, Translation};
     use crate::user::windows::security;
     use std::ffi::c_void;
     use std::ptr::{null, null_mut};
 
     const POLICY_LOOKUP_NAMES: u32 = 0x0800;
+    const POLICY_VIEW_LOCAL_INFORMATION: u32 = 0x0001;
+    const POLICY_ACCOUNT_DOMAIN_INFORMATION: u32 = 5;
+    const POLICY_DNS_DOMAIN_INFORMATION: u32 = 12;
     const STATUS_SOME_NOT_MAPPED: i32 = 0x107;
     const SID_TYPE_USER: u32 = 1;
     const SID_TYPE_GROUP: u32 = 2;
@@ -85,6 +105,15 @@ mod installed {
     }
 
     #[repr(C)]
+    struct DnsDomainInformation {
+        name: Unicode,
+        dns_domain: Unicode,
+        dns_forest: Unicode,
+        guid: [u32; 4],
+        sid: *const u8,
+    }
+
+    #[repr(C)]
     struct TranslatedName {
         kind: u32,
         name: Unicode,
@@ -110,6 +139,7 @@ mod installed {
             names: *mut *mut TranslatedName,
         ) -> i32;
         fn LsaClose(policy: Handle) -> i32;
+        fn LsaQueryInformationPolicy(policy: Handle, class: u32, buffer: *mut *mut c_void) -> i32;
         fn LsaFreeMemory(memory: *mut c_void) -> i32;
     }
 
@@ -127,7 +157,7 @@ mod installed {
     impl<T> Drop for Allocation<T> {
         fn drop(&mut self) {
             if !self.0.is_null() {
-                // SAFETY: this allocation was returned by LsaLookupSids2.
+                // SAFETY: this allocation was returned by LSA with ownership.
                 unsafe { LsaFreeMemory(self.0.cast()) };
             }
         }
@@ -157,25 +187,30 @@ mod installed {
         })
     }
 
-    fn copy_translation(name: &TranslatedName, domain: &Domain) -> Option<Translation> {
-        if domain.sid.is_null() {
+    fn copy_sid(sid: *const u8) -> Option<Vec<u8>> {
+        if sid.is_null() {
             return None;
         }
         // SAFETY: the native domain SID has its fixed header and count-declared
         // length within the live LSA allocation.
-        let count = unsafe { *domain.sid.add(1) };
+        let count = unsafe { *sid.add(1) };
         if count > 15 {
             return None;
         }
         // SAFETY: the native allocation owns the previously bounded SID.
-        let sid = unsafe { std::slice::from_raw_parts(domain.sid, 8 + 4 * usize::from(count)) };
+        let sid = unsafe { std::slice::from_raw_parts(sid, 8 + 4 * usize::from(count)) };
+        Some(security::sid(sid)?.to_vec())
+    }
+
+    fn copy_translation(name: &TranslatedName, domain: &Domain) -> Option<Translation> {
+        let domain_sid = copy_sid(domain.sid)?;
         let account = copy_name(&name.name)?;
         if account.units.is_empty() {
             return None;
         }
         Some(Translation {
             kind: name.kind,
-            domain_sid: security::sid(sid)?.to_vec(),
+            domain_sid,
             domain: copy_name(&domain.name)?,
             account,
         })
@@ -242,12 +277,7 @@ mod installed {
         }
     }
 
-    /// Resolve only the selected host token during runtime selection.
-    pub(super) fn capture(subject: &Subject) -> Option<Catalog> {
-        let user = subject.user.as_slice();
-        if security::sid(user)? != user {
-            return None;
-        }
+    fn open_policy(access: u32) -> Option<Policy> {
         let attributes = ObjectAttributes {
             length: std::mem::size_of::<ObjectAttributes>() as u32,
             root: null_mut(),
@@ -258,11 +288,21 @@ mod installed {
         };
         let mut policy = Policy(null_mut());
         // SAFETY: this opens the local query policy into exclusive output storage.
-        if unsafe { LsaOpenPolicy(null(), &attributes, POLICY_LOOKUP_NAMES, &mut policy.0) } != 0
+        if unsafe { LsaOpenPolicy(null(), &attributes, access, &mut policy.0) } != 0
             || policy.0.is_null()
         {
             return None;
         }
+        Some(policy)
+    }
+
+    /// Resolve only the selected host token during runtime selection.
+    pub(super) fn capture(subject: &Subject) -> Option<Catalog> {
+        let user = subject.user.as_slice();
+        if security::sid(user)? != user {
+            return None;
+        }
+        let policy = open_policy(POLICY_LOOKUP_NAMES)?;
         let mut entries = BTreeMap::new();
         // Mixed batches can change the primary user's counted name metadata.
         add_translations(&policy, &[user], |kind| kind == SID_TYPE_USER, &mut entries);
@@ -288,6 +328,48 @@ mod installed {
             entries,
         })
     }
+
+    fn query_policy(policy: &Policy, class: u32) -> Option<Allocation<c_void>> {
+        let mut result = Allocation::<c_void>(null_mut());
+        // SAFETY: this fixed local query uses a live policy and an exclusive output.
+        let status = unsafe { LsaQueryInformationPolicy(policy.0, class, &mut result.0) };
+        (status == 0).then_some(result)
+    }
+
+    fn account_domain(policy: &Policy) -> Option<AccountDomain> {
+        let allocation = query_policy(policy, POLICY_ACCOUNT_DOMAIN_INFORMATION)?;
+        // SAFETY: the successful query owns a live POLICY_ACCOUNT_DOMAIN_INFO.
+        let domain = unsafe { allocation.0.cast::<Domain>().as_ref() }?;
+        Some(AccountDomain {
+            name: copy_name(&domain.name)?,
+            sid: copy_sid(domain.sid)?,
+        })
+    }
+
+    pub(super) fn capture_domain_policy() -> Option<StandalonePolicy> {
+        let policy = open_policy(POLICY_VIEW_LOCAL_INFORMATION)?;
+        let allocation = query_policy(&policy, POLICY_DNS_DOMAIN_INFORMATION)?;
+        // SAFETY: the successful query owns a live POLICY_DNS_DOMAIN_INFO.
+        let result = unsafe { allocation.0.cast::<DnsDomainInformation>().as_ref() }?;
+        let is_absent =
+            |name: &Unicode| name.length == 0 && name.maximum == 0 && name.buffer.is_null();
+        if !is_absent(&result.dns_domain)
+            || !is_absent(&result.dns_forest)
+            || result.guid != [0; 4]
+            || !result.sid.is_null()
+        {
+            return None;
+        }
+        Some(StandalonePolicy {
+            dns_name: copy_name(&result.name)?,
+            account_domain: account_domain(&policy),
+        })
+    }
+}
+
+#[cfg(windows)]
+pub(crate) fn capture_domain_policy() -> Option<StandalonePolicy> {
+    installed::capture_domain_policy()
 }
 
 pub(crate) fn capture(subject: &Subject) -> Option<Catalog> {

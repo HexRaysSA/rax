@@ -11,6 +11,9 @@ use crate::user::windows::objects::{LsarpcPolicies, LsarpcPolicyContext, ObjId};
 const OPEN: u32 = 0;
 const CLOSE: u32 = 1;
 const TRANSLATE_SIDS: u32 = 2;
+const QUERY_INFORMATION: u32 = 5;
+const ACCOUNT_DOMAIN_INFORMATION: u16 = 5;
+const DNS_DOMAIN_INFORMATION: u16 = 12;
 const POLICY_VIEW_LOCAL_INFORMATION: u32 = 0x1;
 const OPEN_WITHOUT_QOS_BYTES: usize = 124;
 const OPEN_REQUEST_BYTES: usize = 136;
@@ -38,6 +41,7 @@ pub(super) fn response(
         ),
         CLOSE => policy::close(payload, contexts)?,
         TRANSLATE_SIDS => translate_sid(c, payload, contexts)?,
+        QUERY_INFORMATION => query_policy(c, payload, contexts, false)?,
         _ => return None,
     };
     policy::echo_call_id(&mut response, payload);
@@ -72,6 +76,7 @@ pub(super) fn response_ndr32(
             translate::append_success_ndr32(&mut response.body, lookup(c, contexts, context, sid)?);
             response
         }
+        QUERY_INFORMATION => query_policy(c, payload, contexts, true)?,
         _ => return None,
     };
     policy::echo_call_id(&mut response, payload);
@@ -82,6 +87,65 @@ fn translate_sid(c: &Ctx, payload: &[u8], contexts: &LsarpcPolicies) -> Option<R
     let (context, sid) = translate::request(payload)?;
     let mut response = policy::reply(24);
     translate::append_success(&mut response.body, lookup(c, contexts, context, sid)?);
+    Some(response)
+}
+
+fn query_policy(
+    c: &Ctx,
+    payload: &[u8],
+    contexts: &LsarpcPolicies,
+    classic: bool,
+) -> Option<Response> {
+    let request_size = if classic { 86 } else { 88 };
+    if payload.len() != request_size
+        || payload[24..64].iter().any(|&byte| byte != 0)
+        || payload[86..].iter().any(|&byte| byte != 0)
+    {
+        return None;
+    }
+    let class = u16::from_le_bytes([payload[84], payload[85]]);
+    if !matches!(class, ACCOUNT_DOMAIN_INFORMATION | DNS_DOMAIN_INFORMATION) {
+        return None;
+    }
+    let context = payload[64..84].try_into().expect("checked context extent");
+    let result_offset = if classic { 28 } else { 32 };
+    let mut response = policy::reply(result_offset + 4);
+    if !contexts.grants(&context, POLICY_VIEW_LOCAL_INFORMATION) {
+        let status = if contexts.contains(&context) {
+            STATUS_ACCESS_DENIED
+        } else {
+            STATUS_INVALID_HANDLE
+        };
+        put_word(&mut response.body, result_offset, status);
+        return Some(response);
+    }
+    let policy =
+        c.p.native
+            .as_ref()?
+            .object_namespace
+            .domain_policy
+            .as_ref()?;
+    // The non-null out pointer precedes the information union discriminant.
+    let body = &mut response.body;
+    body.resize(if classic { 32 } else { 40 }, 0);
+    put_word(body, 24, 0x20000);
+    put_word(body, result_offset, u32::from(class));
+    match (class, classic) {
+        (ACCOUNT_DOMAIN_INFORMATION, _) => {
+            translate::append_account_domain(body, policy.account_domain.as_ref()?, classic);
+        }
+        (_, true) => {
+            translate::name_header_ndr32(body, &policy.dns_name);
+            body.resize(76, 0); // DNS name, forest name, GUID, SID.
+            translate::name_buffer_ndr32(body, &policy.dns_name);
+        }
+        (_, false) => {
+            translate::name_header(body, &policy.dns_name);
+            body.resize(112, 0); // DNS name, forest name, GUID, SID.
+            translate::name_buffer(body, &policy.dns_name);
+        }
+    }
+    body.resize(body.len().next_multiple_of(4) + 4, 0); // NTSTATUS.
     Some(response)
 }
 

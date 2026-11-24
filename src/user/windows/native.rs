@@ -204,7 +204,12 @@ impl NativeRuntime {
             runtime.object_namespace.privilege_display_names =
                 super::security::privilege_names::capture().map(std::sync::Arc::new);
             #[cfg(windows)]
-            runtime.object_namespace.capture_lsa_authentication_event();
+            {
+                runtime.object_namespace.domain_policy =
+                    super::object_namespace::policy_lookup::capture_domain_policy()
+                        .map(std::sync::Arc::new);
+                runtime.object_namespace.capture_lsa_authentication_event();
+            }
         }
         if arm64_29708 && arch == WinArch::Arm64 && token_session == 1 {
             runtime.object_namespace.activation_context =
