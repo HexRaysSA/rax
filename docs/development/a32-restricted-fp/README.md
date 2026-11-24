@@ -29,6 +29,14 @@ private virtual-PE identifier is not a claim of a physical vendor assignment.
 Checks follow the instruction's actual control dependencies. Explicit rounding
 forms are distinguished from FPSCR.RMode. Scalar half arithmetic uses FZ16;
 half precision conversion follows FPConvert, observes AHP, and ignores FZ16.
+Scalar integer-to-floating conversions have a minimum nonzero magnitude of 1,
+so they need no flush-to-zero support. Fixed-to-floating conversions use
+`FixedToFP` with a minimum nonzero magnitude of 2 raised to the negative
+fraction-bit count. The scalar encodings allow at most 32 fraction bits.
+Only binary16 can produce a subnormal at that scale, starting at 15 fraction
+bits because its minimum normal value is 2 raised to the power of -14.
+Floating-to-integer and floating-to-fixed conversions still check the flush
+control for the input precision.
 Alternative-half conversion does not require NaN propagation. Comparisons do
 not require rounding or default-NaN controls. Bit/storage transfers, selection,
 absolute/negate, and independent Advanced SIMD operations retain their existing
@@ -41,9 +49,9 @@ scalar and FPSID-query interpreter frontiers.
 
 ## Evidence and reproduction
 
-`qualification.json` records the observed baseline failure, complete owning
-suite results, exact commands/environment, assumptions, source hashes, and
-remaining scope. `cases.json` contains reviewed primary-derived instruction
+`qualification.json` records the original qualification, including its
+baseline failure, test results, commands, assumptions, and source hashes.
+`cases.json` contains reviewed primary-derived instruction
 control dependencies and LLVM-derived ARM/Thumb words. The encoding tool checks
 those words; it does not derive or independently validate semantic metadata:
 
@@ -62,6 +70,9 @@ Denied operations must leave the complete serialized CPU and observed memory
 unchanged. Separate cases cover all 14 reserved values for each capability,
 access-trap priority, failed ARM/Thumb predicates, independent operations, and
 128 guest FPSCR write/read combinations.
+The fixed-to-binary16 boundary test also distinguishes FZ16 from FZ at 14
+and 15 fraction bits and checks the completed result, FPSCR.UFC, and the
+unsupported-mode frontier in both instruction sets.
 Another 3,072 reads check stable FPSID identity across capability/control/base-value
 combinations. A 32-case mixed-width test checks the identity, successful full-profile
 arithmetic, unsupported-mode faults, and competing EL2 access traps together.

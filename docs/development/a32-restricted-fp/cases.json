@@ -321,7 +321,7 @@
       "assembly": "vcvt.f16.s32 s0,s2",
       "rounding": "fpscr",
       "nan": false,
-      "flush": "half",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005038529,
       "thumb": 4005038529
@@ -411,7 +411,7 @@
       "assembly": "vcvt.f16.u32 s0,s2",
       "rounding": "fpscr",
       "nan": false,
-      "flush": "half",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005038401,
       "thumb": 4005038401
@@ -751,7 +751,7 @@
       "assembly": "vcvt.f32.s32 s0,s2",
       "rounding": "fpscr",
       "nan": false,
-      "flush": "base",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005038785,
       "thumb": 4005038785
@@ -771,7 +771,7 @@
       "assembly": "vcvt.f32.s32 s0,s0,#16",
       "rounding": "nearest",
       "nan": false,
-      "flush": "base",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005169864,
       "thumb": 4005169864
@@ -841,7 +841,7 @@
       "assembly": "vcvt.f32.u32 s0,s2",
       "rounding": "fpscr",
       "nan": false,
-      "flush": "base",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005038657,
       "thumb": 4005038657
@@ -861,7 +861,7 @@
       "assembly": "vcvt.f32.u32 s0,s0,#16",
       "rounding": "nearest",
       "nan": false,
-      "flush": "base",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005235400,
       "thumb": 4005235400
@@ -1181,7 +1181,7 @@
       "assembly": "vcvt.f64.s32 d0,s2",
       "rounding": "fpscr",
       "nan": false,
-      "flush": "base",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005039041,
       "thumb": 4005039041
@@ -1201,7 +1201,7 @@
       "assembly": "vcvt.f64.s32 d0,d0,#16",
       "rounding": "nearest",
       "nan": false,
-      "flush": "base",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005170120,
       "thumb": 4005170120
@@ -1271,7 +1271,7 @@
       "assembly": "vcvt.f64.u32 d0,s2",
       "rounding": "fpscr",
       "nan": false,
-      "flush": "base",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005038913,
       "thumb": 4005038913
@@ -1291,7 +1291,7 @@
       "assembly": "vcvt.f64.u32 d0,d0,#16",
       "rounding": "nearest",
       "nan": false,
-      "flush": "base",
+      "flush": "none",
       "kind": "scalar",
       "arm": 4005235656,
       "thumb": 4005235656

@@ -47,6 +47,10 @@ fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
         && fields.mnemonic == insn.mnemonic
         && fields.mnemonic != Mnemonic::UNDEFINED
     {
+        // FixedToFP's smallest nonzero magnitude is 2^-fbits. The scale
+        // is at most 32, so only binary16 can reach the subnormal range,
+        // and it does so only below the minimum normal 2^-14.
+        let uses_flush = fields.to_fixed || (fields.fp_bits == 16 && fields.fractional_bits > 14);
         return Some(Requirements {
             rounding: if fields.to_fixed {
                 Rounding::ConvertZero
@@ -54,7 +58,7 @@ fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
                 Rounding::Nearest
             },
             nan: false,
-            flush: Some(1 << if fields.fp_bits == 16 { 19 } else { 24 }),
+            flush: uses_flush.then_some(1 << if fields.fp_bits == 16 { 19 } else { 24 }),
         });
     }
     if matches!(kind(insn, false), HalfKind::ScalarConversion { .. }) {
@@ -132,8 +136,15 @@ fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
         | Mnemonic::VCVT_F32_S32
         | Mnemonic::VCVT_F32_U32
         | Mnemonic::VCVT_F64_S32
-        | Mnemonic::VCVT_F64_U32
-        | Mnemonic::VCVTR_S32_F16
+        | Mnemonic::VCVT_F64_U32 => {
+            // An unscaled integer is zero or has magnitude at least one.
+            return Some(Requirements {
+                rounding: Rounding::Fpscr,
+                nan: false,
+                flush: None,
+            });
+        }
+        Mnemonic::VCVTR_S32_F16
         | Mnemonic::VCVTR_U32_F16
         | Mnemonic::VCVTR_S32_F32
         | Mnemonic::VCVTR_U32_F32

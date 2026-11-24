@@ -86,6 +86,65 @@ fn supported(case: &Case, support: u32, control: u32) -> bool {
 }
 
 #[test]
+fn fixed_to_half_flush_admission_changes_above_fourteen_fraction_bits() {
+    for thumb in [false, true] {
+        for (raw, fractional_bits) in [
+            (0xeeba_0941, 14), // VCVT.F16.S16 S0, S0, #14
+            (0xeeba_0960, 15), // VCVT.F16.S16 S0, S0, #15
+            (0xeebb_09c9, 14), // VCVT.F16.U32 S0, S0, #14
+            (0xeebb_09e8, 15), // VCVT.F16.U32 S0, S0, #15
+        ] {
+            for (support, control) in [(3, 0), (3, 1 << 24), (3, 1 << 19), (7, 0)] {
+                let mut cpu = configured(thumb, support, control);
+                cpu.vfp.fpscr = Fpscr::from_bits(control);
+                cpu.vfp.write_s_bits(0, 1);
+                let before = cpu.vfp.dregs;
+                let insn = if thumb {
+                    ThumbDecoder::decode_32bit(raw)
+                } else {
+                    Aarch32Decoder::decode(raw)
+                }
+                .unwrap();
+                let result = Executor::new(&mut cpu, &mut FlatMemory::new(4096, 0)).execute(&insn);
+                let context = (thumb, raw, support, control);
+                if fractional_bits == 14 {
+                    assert!(
+                        matches!(result, ExecResult::Continue),
+                        "{context:?}: {result:?}"
+                    );
+                    assert_eq!(cpu.vfp.read_h_bits(0), 0x0400, "{context:?}");
+                    assert_eq!(cpu.vfp.fpscr.bits(), control, "{context:?}");
+                } else if control & (1 << 19) != 0 {
+                    assert!(
+                        matches!(result, ExecResult::Continue),
+                        "{context:?}: {result:?}"
+                    );
+                    assert_eq!(cpu.vfp.read_h_bits(0), 0, "{context:?}");
+                    assert_eq!(cpu.vfp.fpscr.bits(), control | (1 << 3), "{context:?}");
+                } else if support == 7 {
+                    assert!(
+                        matches!(result, ExecResult::Continue),
+                        "{context:?}: {result:?}"
+                    );
+                    assert_eq!(cpu.vfp.read_h_bits(0), 0x0200, "{context:?}");
+                    assert_eq!(cpu.vfp.fpscr.bits(), control, "{context:?}");
+                } else {
+                    assert!(
+                        matches!(
+                            result,
+                            ExecResult::Exception(ExceptionType::UndefinedInstruction)
+                        ),
+                        "{context:?}: {result:?}"
+                    );
+                    assert_eq!(cpu.vfp.dregs, before, "{context:?}");
+                    assert_eq!(cpu.vfp.fpscr.bits(), control, "{context:?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn scalar_mode_matrix_preserves_the_unsupported_instruction_frontier() {
     let cases = cases();
     let mut denied = 0;
