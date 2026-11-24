@@ -18,9 +18,9 @@ impl X86_64Vcpu {
                 ));
             }
             self.validate_context_projection(state, emulator, &context.data, machine)?;
-        } else if machine && self.io_pending.is_some() {
+        } else if machine && self.pending_software_port_io()?.is_some() {
             return Err(Error::InvalidConfig(
-                "cannot apply a public CPU projection to a vCPU with pending port input".into(),
+                "cannot apply a public CPU projection to a vCPU with pending port I/O".into(),
             ));
         }
         Ok(())
@@ -281,9 +281,15 @@ impl VCpu for X86_64Vcpu {
         Some((self.bios_cdrom.clone(), self.bios_mem_bytes))
     }
 
-    fn pending_software_port_input(&self) -> Result<Option<VcpuExit>> {
+    fn pending_software_port_io(&self) -> Result<Option<VcpuExit>> {
         let Some(input) = &self.io_pending else {
-            return Ok(None);
+            return Ok(match &self.jit_callout_exit {
+                Some(VcpuExit::IoOut { port, data }) => Some(VcpuExit::IoOut {
+                    port: *port,
+                    data: data.clone(),
+                }),
+                _ => None,
+            });
         };
         let port = input
             .port
@@ -300,6 +306,22 @@ impl VCpu for X86_64Vcpu {
                 count: input.count,
             }
         }))
+    }
+
+    fn stage_software_port_output(&mut self, port: u16, data: &[u8]) -> bool {
+        debug_assert!(self.jit_callout_exit.is_none());
+        self.jit_callout_exit = Some(VcpuExit::IoOut {
+            port,
+            data: data.to_vec(),
+        });
+        true
+    }
+
+    fn complete_io_out(&mut self) -> Result<()> {
+        if matches!(self.jit_callout_exit, Some(VcpuExit::IoOut { .. })) {
+            self.jit_callout_exit = None;
+        }
+        Ok(())
     }
 
     fn complete_io_in(&mut self, data: &[u8]) {

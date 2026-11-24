@@ -21,7 +21,8 @@ remains 4.
 | XCR0 and XGETBV1 | Preserve both controls; validate XCR0 against the selected ISA configuration before publication |
 | Optional ISA capabilities | Preserve all nine software capability switches; reset retains the selected configuration |
 | Input completion | Preserve port, width, register or memory destination, and batch count, separately from any undelivered JIT exit |
-| Deferred native exits and VSIB restart | Use a stable exit representation independent of debug build features; deliver a pending exit once before further execution, without retirement |
+| Port output | Retain the port and sampled operand in the deferred-exit record until device dispatch acknowledges the write |
+| Deferred JIT exits and VSIB restart | Use a stable exit representation independent of debug build features; deliver a pending exit once before further execution, without retirement |
 | User mode | Preserve pending syscall/exception traps, compatibility mode, consumed debug status, and all 128 private GDT bytes |
 | Memory observations | Preserve recording/fetch configuration and ordered buffered access records; draining consumes each record once |
 | Inline LAPIC | Preserve every modeled field and elapsed timer phase; restore rebases phase into the target clock domain |
@@ -62,16 +63,22 @@ budget or complete SMP scheduling.
 
 Software-x86 records `RAXX8609` and `RAXX8610` append the issued input port and
 preserve the NMI block flag. `RAXX8610` also requires the PC I/O APIC binding.
-On resume the VMM completes the saved read through the device dispatcher before
-polling host input or entering any CPU. The completion leaves the scheduling cursor and
-retirement count in place. Each additional `REP INS` element issues its own
-request during ordinary execution.
+On resume the VMM dispatches issued port reads and writes before polling host
+input or entering any CPU. Dispatch leaves the scheduling cursor and retirement
+count in place. Each additional `REP INS` or `REP OUTS` element issues its own
+request during ordinary execution. A saved output to ACPI S5 shuts the machine
+down at that boundary.
+
+Writes use the existing deferred `IoOut` record. Machine restore admits one
+pending port transaction per vCPU and accepts output widths of 1, 2, or 4 bytes.
+The VMM clears the saved write after device acceptance. A failed acquisition of
+either the legacy PIC or UART lock leaves the UART and the pending write intact.
 
 Older records can recover the port from a queued JIT input exit whose width and
 count match the pending destination. Machine restore rejects a pending input
 with no recoverable port. Standalone context import still permits explicit
 completion by the caller. A base-only snapshot cannot capture or replace a live
-VM with an issued software-x86 input.
+VM with issued software-x86 port I/O.
 
 ## Immutable resource section
 

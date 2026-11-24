@@ -190,6 +190,15 @@ pub(super) fn write(
         return Ok(true);
     }
     if (SERIAL_BASE..SERIAL_BASE + 8).contains(&port) {
+        // Capture acquires the legacy PIC before the UART. Admit both owners
+        // before any output reaches the UART so a failed lock is retryable.
+        let route = serial_irq
+            .map(|irq| {
+                pic.lock().map(|pic| (irq, pic)).map_err(|_| {
+                    Error::Emulator("serial interrupt controller lock poisoned".into())
+                })
+            })
+            .transpose()?;
         let pending = {
             let mut serial = serial
                 .lock()
@@ -199,10 +208,9 @@ pub(super) fn write(
             }
             serial.has_pending_interrupt()
         };
-        if let Some(irq) = serial_irq {
-            pic.lock()
-                .map_err(|_| Error::Emulator("serial interrupt controller lock poisoned".into()))?
-                .set_irq(irq as u8, pending);
+        if let Some((irq, mut pic)) = route {
+            pic.set_irq(irq as u8, pending);
+            drop(pic);
             if vm.uses_native_x86_irqchip() {
                 publish_native_serial_irq(vm, irq, pending)?;
             }

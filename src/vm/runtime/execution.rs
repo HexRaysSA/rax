@@ -187,11 +187,11 @@ impl Vmm {
         let _timing = self.timing_context.enter();
         info!(cpus = self.vcpus.len(), "starting execution coordinator");
 
-        // The saved CPU already issued the read and the scheduler advanced.
+        // The saved CPU already issued the transaction and the scheduler advanced.
         // Finish the previous turn before admitting new input or CPU entry.
         for cpu_index in 0..self.vcpus.len() {
-            if let Some(exit) = self.vcpus[cpu_index].pending_software_port_input()? {
-                self.apply_execution_turn(
+            if let Some(exit) = self.vcpus[cpu_index].pending_software_port_io()?
+                && self.apply_execution_turn(
                     ExecutionTurn {
                         cpu_index,
                         exit,
@@ -199,7 +199,9 @@ impl Vmm {
                         debug_step_completed: false,
                     },
                     true,
-                )?;
+                )?
+            {
+                return Ok(());
             }
         }
 

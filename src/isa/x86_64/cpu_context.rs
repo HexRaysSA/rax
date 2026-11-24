@@ -464,10 +464,10 @@ impl X86_64Vcpu {
         state: &CpuState,
         emulator: &crate::vm::snapshot::EmulatorState,
         raw: &[u8],
-        require_input_port: bool,
+        require_port_io: bool,
     ) -> Result<()> {
         let context = Context::decode(raw, self)?;
-        if require_input_port
+        if require_port_io
             && context
                 .io_pending
                 .as_ref()
@@ -476,6 +476,12 @@ impl X86_64Vcpu {
             return Err(Error::InvalidConfig(
                 "checkpoint pending software x86 input has no port".into(),
             ));
+        }
+        if require_port_io
+            && let Some(ExitContext::IoOut { data, .. }) = &context.pending_exit
+            && (context.io_pending.is_some() || !matches!(data.len(), 1 | 2 | 4))
+        {
+            return Err(invalid("invalid pending port output"));
         }
         let mut candidate = X86_64Vcpu::new(context.id, self.mmu.checkpoint_memory());
         candidate.regs = context.regs;

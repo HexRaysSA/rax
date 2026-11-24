@@ -221,6 +221,47 @@ fn pc_s5_remains_terminal_after_detached_checkpoint_restore() {
     ));
 }
 
+#[test]
+fn detached_x86_resume_dispatches_issued_s5_without_fetching_an_instruction() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut source = Fixture::with_retired_clock();
+    let s5 = [0x66, 0xba, 0x04, 0x06, 0x66, 0xb8, 0x00, 0x20, 0x66, 0xef];
+    let mut code = s5.to_vec();
+    store32(&mut code, FLAGS as u32, 1);
+    code.extend_from_slice(&s5); // Bound execution if the saved write is lost.
+    source.write(BSP, &code);
+    let turn = source.vm.execute_turn().unwrap().unwrap();
+    assert!(matches!(turn.exit, VcpuExit::IoOut { port: 0x604, data } if data == [0, 0x20]));
+    assert!(!source.vm.pc_powered_off());
+    let retired = source.vm.coordinator.retired;
+    let path = source.kernel.with_extension("rxc");
+    source
+        .vm
+        .take_snapshot_bundle(retired)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    drop(source);
+
+    let bundle = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+    assert!(!target.pc_powered_off());
+    target.run().unwrap();
+    target.run().unwrap();
+    assert!(target.pc_powered_off());
+    let marker: u32 = target
+        .guest_mem
+        .memory()
+        .read_obj(GuestAddress(FLAGS))
+        .unwrap();
+    assert_eq!(marker, 0);
+    assert_eq!(target.vcpus[0].current_pc(), BSP + s5.len() as u64);
+    assert_eq!(target.coordinator.retired, retired);
+}
+
 fn bsp_program() -> Vec<u8> {
     let mut code = Vec::new();
     store32(&mut code, FLAGS as u32, 1);
@@ -477,7 +518,7 @@ fn detached_x86_resume_services_pending_ap_input_before_entering_any_cpu() {
                 .err()
                 .expect("base-only capture lost the issued input")
                 .to_string()
-                .contains("pending software x86 port input")
+                .contains("pending software x86 port I/O")
         );
         assert!(
             source
@@ -485,7 +526,7 @@ fn detached_x86_resume_services_pending_ap_input_before_entering_any_cpu() {
                 .restore_snapshot(bundle.base())
                 .unwrap_err()
                 .to_string()
-                .contains("pending software x86 port input")
+                .contains("pending software x86 port I/O")
         );
         bundle.save(&path).unwrap();
         drop(source);
@@ -509,6 +550,135 @@ fn detached_x86_resume_services_pending_ap_input_before_entering_any_cpu() {
         let remaining = IoDevice::read(&mut *resumed.serial.lock().unwrap(), 0x3f8);
         assert_eq!(remaining, if repeat { 0x99 } else { 0x71 });
     }
+}
+
+#[test]
+fn detached_x86_resume_dispatches_issued_ap_output_before_bsp_entry() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    const DATA: u64 = 0x7100;
+    for repeat in [false, true] {
+        let mut source = Fixture::with_memory(2, 128 << 20);
+        // Park until the AP has issued its write, then read COM1 into FLAGS.
+        source.write(
+            BSP,
+            &[
+                0xf4, 0x66, 0xba, 0xf8, 0x03, 0xbf, 0, 0x70, 0, 0, 0x6c, 0xf4,
+            ],
+        );
+        let mut ap_code = vec![0xba, 0xf8, 0x03]; // MOV DX,0x3f8
+        if repeat {
+            ap_code.extend_from_slice(&[0xbe, 0x00, 0x71, 0xb9, 2, 0, 0xf3, 0x6e]);
+            source.write(DATA, &[0x5a, 0xc3]);
+        } else {
+            ap_code.extend_from_slice(&[0xb0, 0x5a, 0xee]); // MOV AL,0x5a; OUT DX,AL
+        }
+        ap_code.extend_from_slice(&[0xba, 0x04, 0x06, 0xb8, 0x00, 0x20, 0xef]); // ACPI S5
+        source.write(AP, &ap_code);
+        {
+            let mut uart = source.vm.serial.lock().unwrap();
+            IoDevice::write(&mut *uart, 0x3fa, 1); // Enable the RX FIFO.
+            IoDevice::write(&mut *uart, 0x3fc, 0x10); // Enable loopback.
+            let mut bsp = source.vm.local_apics[0].lock().unwrap();
+            bsp.write_register(0x310, 1 << 24);
+            bsp.write_register(0x300, 0x4500);
+            bsp.write_register(0x300, 0x0609);
+        }
+        let bsp = source.vm.execute_turn().unwrap().unwrap();
+        assert_eq!(bsp.cpu_index, 0);
+        assert!(matches!(bsp.exit, VcpuExit::Hlt));
+        let ap = source.vm.execute_turn().unwrap().unwrap();
+        assert_eq!(ap.cpu_index, 1);
+        assert!(matches!(ap.exit, VcpuExit::IoOut { port: 0x3f8, data } if data == [0x5a]));
+        source.vm.vcpus[0].wake();
+        if repeat {
+            source.write(DATA, &[0xff]); // Distinguish delivery from rereading the operand.
+        }
+
+        let path = source.kernel.with_extension("rxc");
+        let bundle = source
+            .vm
+            .take_snapshot_bundle(source.vm.coordinator.retired)
+            .unwrap();
+        assert_eq!(bundle.execution().unwrap().cursor(), 0);
+        assert!(!bundle.base().devices.serial.has_input());
+        assert!(matches!(
+            source.vm.take_snapshot(source.vm.coordinator.retired),
+            Err(Error::InvalidConfig(message)) if message.contains("pending software x86 port I/O")
+        ));
+        bundle.save(&path).unwrap();
+        drop(source);
+
+        let bundle = SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        target.run().unwrap();
+        assert!(target.pc_powered_off());
+        let value: u8 = target
+            .guest_mem
+            .memory()
+            .read_obj(GuestAddress(FLAGS))
+            .unwrap();
+        assert_eq!(value, 0x5a, "BSP must see the already-issued AP byte");
+        let mut uart = target.serial.lock().unwrap();
+        if repeat {
+            assert_eq!(IoDevice::read(&mut *uart, 0x3f8), 0xc3);
+        }
+        assert!(!uart.has_input(), "AP output was delivered twice");
+    }
+}
+
+#[test]
+fn failing_pio_dispatch_retains_output_without_mutating_the_uart() {
+    let mut source = Fixture::new(1);
+    source.write(
+        BSP,
+        &[
+            0x66, 0xba, 0xf8, 0x03, 0xb0, 0x5a, 0xee, // OUT DX,AL to COM1
+            0x66, 0xba, 0x04, 0x06, 0x66, 0xb8, 0x00, 0x20, 0x66, 0xef, // ACPI S5
+        ],
+    );
+    {
+        let mut uart = source.vm.serial.lock().unwrap();
+        IoDevice::write(&mut *uart, 0x3fa, 1);
+        IoDevice::write(&mut *uart, 0x3fc, 0x10);
+    }
+    assert!(source.vm.serial_irq.is_some());
+    let turn = source.vm.execute_turn().unwrap().unwrap();
+    assert!(matches!(turn.exit, VcpuExit::IoOut { port: 0x3f8, data } if data == [0x5a]));
+    let retired = source.vm.coordinator.retired;
+    let pic = source.vm.pic.clone();
+    assert!(
+        std::panic::catch_unwind(|| {
+            let _guard = pic.lock().unwrap();
+            panic!("inject a PIC lock failure before UART dispatch");
+        })
+        .is_err()
+    );
+    assert!(
+        source
+            .vm
+            .run()
+            .unwrap_err()
+            .to_string()
+            .contains("serial interrupt controller lock poisoned")
+    );
+    assert!(!source.vm.serial.lock().unwrap().has_input());
+    assert_eq!(source.vm.coordinator.retired, retired);
+
+    pic.clear_poison();
+    source.vm.run().unwrap();
+    assert!(source.vm.pc_powered_off());
+    assert!(
+        source.vm.vcpus[0]
+            .pending_software_port_io()
+            .unwrap()
+            .is_none()
+    );
+    let mut uart = source.vm.serial.lock().unwrap();
+    assert_eq!(IoDevice::read(&mut *uart, 0x3f8), 0x5a);
+    assert!(!uart.has_input());
 }
 
 #[test]

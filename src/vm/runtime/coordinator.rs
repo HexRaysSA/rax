@@ -234,10 +234,18 @@ impl Vmm {
             if wrapped {
                 self.last_snapshot_insn = 0;
             }
-            self.route_interprocessor_requests()?;
-            self.poll_vm_clocks()?;
-            if !self.coordinator.online[index] {
-                return Ok(None);
+            let staged_port_output = match &result.stop {
+                RetirementStop::Exit(VcpuExit::IoOut { port, data }) => {
+                    self.vcpus[index].stage_software_port_output(*port, data)
+                }
+                _ => false,
+            };
+            if !staged_port_output {
+                self.route_interprocessor_requests()?;
+                self.poll_vm_clocks()?;
+                if !self.coordinator.online[index] {
+                    return Ok(None);
+                }
             }
             match result.stop {
                 RetirementStop::BudgetExhausted => (),

@@ -104,7 +104,7 @@ fn pending_register_input_completes_once_with_the_original_retirement_count() {
     target.restore_context(&raw).unwrap();
     assert!(target.nmi_blocked);
     assert!(matches!(
-        target.pending_software_port_input().unwrap(),
+        target.pending_software_port_io().unwrap(),
         Some(VcpuExit::IoIn {
             port: 0x80,
             size: 1
@@ -112,7 +112,7 @@ fn pending_register_input_completes_once_with_the_original_retirement_count() {
     ));
     source.complete_io_in(&[0xa5]);
     target.complete_io_in(&[0xa5]);
-    assert!(target.pending_software_port_input().unwrap().is_none());
+    assert!(target.pending_software_port_io().unwrap().is_none());
     assert_eq!(rax(&source), 0x112233a5);
     assert_eq!(rax(&target), rax(&source));
     assert_eq!(target.instruction_count(), source.instruction_count());
@@ -153,7 +153,7 @@ fn legacy_input_requires_a_queued_request_for_machine_resume() {
         .unwrap();
     target.restore_context(&queued).unwrap();
     assert!(matches!(
-        target.pending_software_port_input().unwrap(),
+        target.pending_software_port_io().unwrap(),
         Some(VcpuExit::IoIn {
             port: 0x80,
             size: 1
@@ -456,6 +456,55 @@ fn saved_deferred_exit_precedes_execution_and_is_published_only_once() {
     assert!(target.step_insn().unwrap().is_none());
     assert_eq!(target.instruction_count(), 6);
     assert_eq!(rax(&target) & 0xff, 0x31);
+
+    target.restore_context(&raw).unwrap();
+    assert!(
+        matches!(target.pending_software_port_io().unwrap(), Some(VcpuExit::IoOut { port: 0x80, data }) if data == [0x5a])
+    );
+    target.complete_io_out().unwrap();
+    target.complete_io_out().unwrap();
+    assert!(target.pending_software_port_io().unwrap().is_none());
+    assert_eq!(target.instruction_count(), 5);
+    assert!(target.step_insn().unwrap().is_none());
+}
+
+#[test]
+fn machine_checkpoint_admits_only_a_single_valid_pending_port_transaction() {
+    let (mut source, _) = cpu(&[0xe4, 0x80, 0xf4]);
+    let state = source.get_state().unwrap();
+    let emulator = source.get_emulator_state().unwrap();
+    for width in [0, 1, 2, 3, 4, 5] {
+        source.jit_callout_exit = Some(VcpuExit::IoOut {
+            port: 0x80,
+            data: vec![0x5a; width],
+        });
+        let raw = source.save_context().unwrap();
+        assert_eq!(
+            source
+                .validate_context_projection(&state, &emulator, &raw, true)
+                .is_ok(),
+            matches!(width, 1 | 2 | 4)
+        );
+    }
+    source.jit_callout_exit = None;
+    source.step_insn().unwrap();
+    source.jit_callout_exit = Some(VcpuExit::IoOut {
+        port: 0x80,
+        data: vec![0x5a],
+    });
+    let raw = source.save_context().unwrap();
+    let error = source
+        .validate_context_projection(
+            &source.get_state().unwrap(),
+            &source.get_emulator_state().unwrap(),
+            &raw,
+            true,
+        )
+        .unwrap_err();
+    assert!(
+        error.to_string().contains("invalid pending port output"),
+        "{error}"
+    );
 }
 
 #[test]

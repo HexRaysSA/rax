@@ -933,11 +933,11 @@ impl Vmm {
         self.pc_devices.as_ref().is_some_and(|pc| pc.powered_off())
     }
 
-    fn validate_base_snapshot_port_input(&self) -> Result<()> {
+    fn validate_base_snapshot_port_io(&self) -> Result<()> {
         for cpu in &self.vcpus {
-            if cpu.pending_software_port_input()?.is_some() {
+            if cpu.pending_software_port_io()?.is_some() {
                 return Err(Error::InvalidConfig(
-                    "pending software x86 port input requires a complete checkpoint".into(),
+                    "pending software x86 port I/O requires a complete checkpoint".into(),
                 ));
             }
         }
@@ -970,7 +970,7 @@ impl Vmm {
             ));
         }
         self.validate_base_snapshot_clock()?;
-        self.validate_base_snapshot_port_input()?;
+        self.validate_base_snapshot_port_io()?;
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();
