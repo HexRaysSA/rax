@@ -836,10 +836,11 @@ fn tcpip_parameters_shares_selected_dns_identity_in_both_views() {
 }
 
 #[test]
-fn dns_client_startup_keys_preserve_opens_without_projecting_values() {
+fn dns_client_startup_keys_preserve_open_metadata() {
     for subject in [
         ProcessConfigKey::DnsClientParameters,
         ProcessConfigKey::DnsClientPolicy,
+        ProcessConfigKey::DnsClientSystemPolicy,
     ] {
         let root = SnapshotRoot::ProcessConfig(subject);
         let canonical = subject.path().replace("CurrentControlSet", "ControlSet001");
@@ -860,6 +861,63 @@ fn dns_client_startup_keys_preserve_opens_without_projecting_values() {
                 assert!(!key.covers_value(&units("UnselectedValue")));
                 assert!(key.ordered_values().is_none());
                 assert!(key.child_metadata().is_none());
+            }
+        }
+    }
+}
+
+#[test]
+fn dns_client_policy_captures_primary_domain_name_and_preserves_absence() {
+    let subject = ProcessConfigKey::DnsClientPolicy;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let value = Value {
+        name: units("PrimaryDomainName"),
+        kind: 1,
+        data: "example.test\0"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect(),
+    };
+    for values in [vec![], vec![value.clone()]] {
+        let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            registry = registry
+                .with_snapshot_selection(
+                    root,
+                    &[],
+                    view,
+                    Ok((header(subject.path(), values.clone()), None)),
+                )
+                .unwrap();
+        }
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            let Lookup::Present(key) = registry.lookup_view(&units(subject.path()), view) else {
+                panic!("DNS Client policy missing in {view:?}");
+            };
+            let name = units("primarydomainname");
+            assert!(key.covers_value(&name));
+            assert_eq!(key.value(&name), values.first());
+            assert!(!key.covers_value(&units("UnselectedValue")));
+        }
+    }
+}
+
+#[test]
+fn dns_client_system_policy_preserves_native_absence_class() {
+    let root = SnapshotRoot::ProcessConfig(ProcessConfigKey::DnsClientSystemPolicy);
+    let path = root.path(&[]).unwrap();
+    for status in [STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND] {
+        let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            registry = registry
+                .with_snapshot_selection(root, &[], view, Err(status))
+                .unwrap();
+        }
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            match (status, registry.lookup_view(&path, view)) {
+                (STATUS_OBJECT_NAME_NOT_FOUND, Lookup::Missing)
+                | (STATUS_OBJECT_PATH_NOT_FOUND, Lookup::MissingPath) => {}
+                _ => panic!("wrong DNS Client system policy lookup for {status:#x} in {view:?}"),
             }
         }
     }

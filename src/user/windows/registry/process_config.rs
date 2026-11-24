@@ -17,6 +17,7 @@ pub(crate) enum ProcessConfigKey {
     TcpipParameters,
     DnsClientParameters,
     DnsClientPolicy,
+    DnsClientSystemPolicy,
     WinsockParameters,
     WinsockAppIdCatalog,
     WinsockProtocolCatalog,
@@ -28,13 +29,14 @@ pub(crate) enum ProcessConfigKey {
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 13] = [
+    pub(super) const ALL: [Self; 14] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
         Self::TcpipParameters,
         Self::DnsClientParameters,
         Self::DnsClientPolicy,
+        Self::DnsClientSystemPolicy,
         // Capture the fixed children before linking the Parameters handle.
         Self::WinsockAppIdCatalog,
         Self::WinsockProtocolCatalog,
@@ -60,6 +62,9 @@ impl ProcessConfigKey {
             }
             Self::DnsClientPolicy => {
                 r"\Registry\Machine\Software\Policies\Microsoft\Windows NT\DNSClient"
+            }
+            Self::DnsClientSystemPolicy => {
+                r"\Registry\Machine\Software\Policies\Microsoft\System\DNSClient"
             }
             Self::WinsockParameters => {
                 r"\Registry\Machine\System\CurrentControlSet\Services\WinSock2\Parameters"
@@ -100,6 +105,7 @@ impl ProcessConfigKey {
             ],
             Self::ActiveComputerName => &["ComputerName"],
             Self::TcpipParameters => &["Hostname", "NV Hostname", "Domain", "NV Domain"],
+            Self::DnsClientPolicy => &["PrimaryDomainName"],
             Self::WinsockParameters => &[
                 "Current_NameSpace_Catalog",
                 "Current_Protocol_Catalog",
@@ -108,7 +114,7 @@ impl ProcessConfigKey {
                 "Ws2_32NumHandleBuckets",
             ],
             Self::DnsClientParameters
-            | Self::DnsClientPolicy
+            | Self::DnsClientSystemPolicy
             | Self::WinsockAppIdCatalog
             | Self::Ccg
             | Self::OsDataAppCompatFlags => &[],
@@ -127,6 +133,7 @@ impl ProcessConfigKey {
             Self::TcpipParameters => "TCP/IP host and domain configuration",
             Self::DnsClientParameters => "DNS Client parameters",
             Self::DnsClientPolicy => "DNS Client policy",
+            Self::DnsClientSystemPolicy => "DNS Client system policy",
             Self::WinsockParameters => "Winsock catalog selection",
             Self::WinsockAppIdCatalog => "Winsock application-ID catalog",
             Self::WinsockProtocolCatalog => Catalog::Protocol.label(),
