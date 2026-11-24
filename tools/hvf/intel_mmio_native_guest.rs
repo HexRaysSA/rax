@@ -1539,6 +1539,12 @@ fn main() {
         irq_vectoring::run(&output);
         return;
     }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--real-mode-gp")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        irq_vectoring::run_real_mode_gp(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--irq-window")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

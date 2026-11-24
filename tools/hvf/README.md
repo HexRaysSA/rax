@@ -441,6 +441,13 @@ This covers arbitration at the adapter boundary. Interrupt-controller retention,
 VM-entry failure recovery, event-delivery faults and pending debug state,
 concurrent callers and native Intel delivery require separate validation.
 
+The `real-mode-gp` profile in `native-intel-hvf-mmio.yml` uses an invalid
+guest `WRMSR` to `IA32_PAT` to provoke `#GP`. One case enters the handler
+directly. The other interrupts delivery on the IVT gate read and restores the
+pending fault on a fresh SDK owner. Both cases require one visit to the
+handler, a 6-byte `IP:CS:FLAGS` frame, and successful `IRET` to the next
+instruction with the original stack pointer and PAT value.
+
 ### Hosted Intel NMI entry
 
 The real RAX `nmi-hot-entry` case reached its initial port exit with IF clear.

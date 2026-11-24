@@ -1,4 +1,4 @@
-//! Native IRQ delivery interrupted by an EPT violation on the IDT gate.
+//! Native IRQ and exception delivery, including interruption on the gate read.
 use super::*;
 use rax::devices::{
     bus::{IoDevice, MmioDevice},
@@ -69,6 +69,20 @@ fn enter(cpu: &mut dyn VCpu) -> rax::error::Result<VcpuExit> {
     ))
 }
 
+fn interrupted_gpa(cpu: &mut dyn VCpu) -> (String, u64) {
+    let error = enter(cpu).unwrap_err().to_string();
+    assert!(error.contains("event retained for retry"), "{error}");
+    let gpa_hex = error
+        .split("EPT GPA 0x")
+        .nth(1)
+        .unwrap()
+        .split_whitespace()
+        .next()
+        .unwrap();
+    let gpa = u64::from_str_radix(gpa_hex, 16).unwrap();
+    (error, gpa)
+}
+
 fn trial(output: &Path, case: usize, recreate: bool) {
     let memory = guest_memory(&[0xe6, START_PORT as u8]); // OUT 0x80,AL
     word(
@@ -104,16 +118,7 @@ fn trial(output: &Path, case: usize, recreate: bool) {
     assert!(cpu.inject_interrupt(VECTOR).unwrap());
     let before = state(cpu.as_ref()).regs;
     eprintln!("IRQ vectoring case {case}: deliver to the covered gate");
-    let error = enter(cpu.as_mut()).unwrap_err().to_string();
-    assert!(error.contains("event retained for retry"), "{error}");
-    let gpa_hex = error
-        .split("EPT GPA 0x")
-        .nth(1)
-        .unwrap()
-        .split_whitespace()
-        .next()
-        .unwrap();
-    let gpa = u64::from_str_radix(gpa_hex, 16).unwrap();
+    let (error, gpa) = interrupted_gpa(cpu.as_mut());
     assert!((GATE..GATE + 16).contains(&gpa), "EPT GPA {gpa:#x}");
     let stopped = state(cpu.as_ref()).regs;
     assert_eq!(
@@ -167,4 +172,117 @@ pub(super) fn run(output: &Path) {
         trial(output, case, recreate);
     }
     println!("{{\"cases\":2,\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+pub(super) fn run_real_mode_gp(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    for (case, recreate) in [false, true].into_iter().enumerate() {
+        real_mode_gp(output, case, recreate);
+    }
+    println!("{{\"cases\":2,\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn real_mode_gp(output: &Path, case: usize, recreate: bool) {
+    const CODE: u16 = 0x6000;
+    const HANDLER: u16 = 0xb000;
+    const VISITS: u16 = 0xa000;
+    const SP: u16 = 0xe000;
+    const GATE: u64 = IDT + 13 * 4;
+
+    let memory = GuestMemoryWrapper::new(RAM).unwrap();
+    let mut handler = vec![0xff, 0x06]; // INC WORD [visits].
+    handler.extend(VISITS.to_le_bytes());
+    handler.extend([
+        0x55, // PUSH BP.
+        0x89, 0xe5, // MOV BP,SP.
+        0x83, 0x46, 0x02, 0x02, // ADD WORD [BP+2],2. Skip the faulting WRMSR.
+        0x5d, // POP BP.
+        0xcf, // IRET.
+    ]);
+    for (address, bytes) in [
+        (u64::from(CODE), &[0x0f, 0x30, 0xf4][..]), // WRMSR; HLT.
+        (u64::from(HANDLER), handler.as_slice()),
+        (GATE, &u32::from(HANDLER).to_le_bytes()), // Real-mode IP, CS.
+    ] {
+        memory
+            .memory()
+            .write_slice(bytes, GuestAddress(address))
+            .unwrap();
+    }
+    let mut pci = covered_idt();
+    if !recreate {
+        expose_idt(&pci);
+    }
+    let (mut vm, mut cpu) = machine(&memory, &pci);
+    let mut start = X86_64CpuState::default();
+    start.regs.rip = u64::from(CODE);
+    start.regs.rsp = u64::from(SP);
+    start.regs.rflags = 2;
+    start.regs.rcx = 0x277; // IA32_PAT.
+    start.regs.rax = 2; // A reserved PAT memory type.
+    start.sregs.cr0 = 0x10;
+    start.sregs.dr6 = 0xffff_0ff0;
+    start.sregs.dr7 = 0x400;
+    start.sregs.idt.base = IDT;
+    start.sregs.idt.limit = 0x3ff;
+    let data = Segment {
+        limit: 0xffff,
+        type_: 3,
+        present: true,
+        s: true,
+        ..Default::default()
+    };
+    start.sregs.cs = data.clone();
+    start.sregs.ss = data.clone();
+    start.sregs.ds = data.clone();
+    start.sregs.es = data.clone();
+    start.sregs.fs = data.clone();
+    start.sregs.gs = data;
+    start.sregs.tr = Segment {
+        limit: 0xffff,
+        type_: 11,
+        present: true,
+        ..Default::default()
+    };
+    start.sregs.ldt.unusable = true;
+    cpu.set_state(&CpuState::X86_64(start)).unwrap();
+    let pat = cpu.get_emulator_state().unwrap().pat;
+
+    if recreate {
+        let (_, gpa) = interrupted_gpa(cpu.as_mut());
+        assert!((GATE..GATE + 4).contains(&gpa), "EPT GPA {gpa:#x}");
+        let regs = state(cpu.as_ref()).regs;
+        assert_eq!((regs.rip, regs.rsp), (u64::from(CODE), u64::from(SP)));
+        assert_eq!(read_word(&memory, u64::from(VISITS)), 0);
+        let (saved, context) = {
+            let boundary = vm.checkpoint_boundary().unwrap();
+            cpu.capture_checkpoint_record(&boundary, None).unwrap()
+        };
+        assert!(context.is_some());
+        drop(cpu);
+        drop(vm);
+        pci = covered_idt();
+        (vm, cpu) = machine(&memory, &pci);
+        cpu.restore_checkpoint_context(&saved.state, &saved.emulator, context.as_ref())
+            .unwrap();
+        expose_idt(&pci);
+    }
+    assert!(matches!(enter(cpu.as_mut()).unwrap(), VcpuExit::Hlt));
+    let regs = state(cpu.as_ref()).regs;
+    assert_eq!((regs.rip, regs.rsp), (u64::from(CODE) + 3, u64::from(SP)));
+    assert_eq!((regs.rax, regs.rdx, regs.rflags), (2, 0, 2));
+    assert_eq!(cpu.get_emulator_state().unwrap().pat, pat);
+    let visits = read_word(&memory, u64::from(VISITS));
+    let frame = read_word(&memory, u64::from(SP) - 8);
+    // IRET consumed only IP, CS and FLAGS. The handler advanced IP by 2.
+    assert_eq!(frame, (2 << 48) | (u64::from(CODE + 2) << 16));
+    assert_eq!(visits, 1);
+    drop(cpu);
+    drop(vm);
+
+    writeln!(
+        OpenOptions::new().append(true).create(true).open(output).unwrap(),
+        "{{\"case\":{case},\"name\":\"real-mode-gp\",\"fresh_owner\":{recreate},\"frame\":{frame},\"handler_visits\":{visits},\"resumed_rip\":{},\"resumed_rsp\":{},\"passed\":true}}",
+        regs.rip, regs.rsp,
+    ).unwrap();
 }

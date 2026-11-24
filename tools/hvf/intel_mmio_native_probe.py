@@ -16,7 +16,7 @@ PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "vmm-startup": 9
                  "adx": 32, "crc32": 20, "cmov": 12, "popcnt": 12, "movbe": 12,
                  "cmpxchg8b": 12, "cmpxchg16b": 16, "entry-irq": 2, "bit-scan": 36, "bit-count": 48,
                  "implicit-multiply": 32, "implicit-divide": 80, "irq-window": 3, "nmi-window": 3,
-                 "port-debug": 446, "level-irq": 2, "irq-vectoring": 2,
+                 "port-debug": 446, "level-irq": 2, "irq-vectoring": 2, "real-mode-gp": 2,
                  "movnti": 8, "nmi-baseline": 1, "legacy-xmm": 50, "nmi-hot-entry": 1, "vex-xmm": 80,
                  "legacy-ntstore": 9, "vex-ntstore": 36, "xmm-lanes": 48, "vector-logic": 132,
                  "vector-compare": 104, "vector-add-sub": 328, "vector-saturating": 328,

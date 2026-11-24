@@ -48,6 +48,7 @@ on:
           - entry-irq
           - irq-window
           - irq-vectoring
+          - real-mode-gp
           - level-irq
           - nmi-baseline
           - nmi-hot-entry
