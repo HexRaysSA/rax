@@ -192,6 +192,21 @@ fn legacy_pae_requires_private_paging_bank_and_resumes_from_it() {
         (Vmcs::VMCS_GUEST_PDPTE2, 0x4001),
         (Vmcs::VMCS_GUEST_PDPTE3, 0x5001),
     ];
+    let run_output = |vm: &mut Vmm, expected, phase| {
+        let cpu = &mut vm.vcpus[0];
+        let exit = (0..100)
+            .find_map(|_| {
+                cpu.run_host_slice(std::time::Duration::from_millis(10))
+                    .unwrap_or_else(|error| panic!("{phase}: {error}"))
+            })
+            .unwrap_or_else(|| panic!("{phase}: guest did not reach an exit"));
+        assert!(
+            matches!(&exit, VcpuExit::IoOut { port: 0xe9, data } if data.as_slice() == [expected]),
+            "{phase}: expected port byte {expected:#04x}, got {exit:?} at RIP {:#x}",
+            cpu.current_pc(),
+        );
+        cpu.complete_io_out().unwrap();
+    };
     let paths = Paths::new(1);
     let mut source = Vmm::new_resume(paths.config(1)).unwrap();
     let mut projected = source.take_snapshot(0).unwrap();
@@ -206,10 +221,27 @@ fn legacy_pae_requires_private_paging_bank_and_resumes_from_it() {
             .write_slice(&word.to_le_bytes(), GuestAddress(address))
             .unwrap();
     }
-    // The first instruction fetch requires the cached PDPTE because the
-    // corresponding entry at CR3 is zero.
+    for (index, (_, value)) in CACHED.iter().enumerate() {
+        memory
+            .write_slice(
+                &value.to_le_bytes(),
+                GuestAddress(PDPT.0 + index as u64 * 8),
+            )
+            .unwrap();
+    }
+    // Enable paging in the guest so the processor loads PDPTEs from RAM.
+    // Use two port writes to distinguish the source and resumed frontiers.
     memory
-        .write_slice(&[0xb0, 0x5a, 0xe6, 0xe9, 0xf4], GuestAddress(CODE))
+        .write_slice(
+            &[
+                0xb8, 0x33, 0x00, 0x01, 0x80, // MOV EAX, 0x80010033
+                0x0f, 0x22, 0xc0, // MOV CR0, EAX
+                0xb0, 0x5a, 0xe6, 0xe9, // MOV AL, 0x5a; OUT 0xe9, AL
+                0xb0, 0xa5, 0xe6, 0xe9, // MOV AL, 0xa5; OUT 0xe9, AL
+                0xf4,
+            ],
+            GuestAddress(CODE),
+        )
         .unwrap();
 
     let mut state = protected_long_mode_state();
@@ -218,8 +250,17 @@ fn legacy_pae_requires_private_paging_bank_and_resumes_from_it() {
     state.sregs.cs.db = true;
     state.sregs.gdt.limit = 31;
     state.sregs.efer = 0;
-    let state = CpuState::X86_64(state);
-    source.vcpus[0].set_state(&state).unwrap();
+    state.sregs.cr0 &= !(1 << 31);
+    source.vcpus[0].set_state(&CpuState::X86_64(state)).unwrap();
+    run_output(&mut source, 0x5a, "source PAE entry with valid RAM PDPT");
+    let state = source.vcpus[0].get_state().unwrap();
+    assert_eq!(state.pc(), CODE + 12);
+
+    source
+        .guest_mem
+        .memory()
+        .write_slice(&[0; 32], PDPT)
+        .unwrap();
     let error = source
         .take_snapshot(0)
         .err()
@@ -238,37 +279,21 @@ fn legacy_pae_requires_private_paging_bank_and_resumes_from_it() {
             .memory()
             .read_obj::<u8>(GuestAddress(CODE))
             .unwrap(),
-        0xb0
+        0xb8
     );
 
-    // Seed the hardware bank through the full checkpoint path. Logically
-    // cached entries can differ from the table bytes after a guest RAM write.
+    // Confirm the source still owns the actual cached entries after removing
+    // the RAM table, before checking the fresh owner's admission and entry.
     let bundle = source.take_snapshot_bundle(0).unwrap();
-    let cpus = bundle.cpus().unwrap().entries().to_vec();
-    let shared = bundle.vm_context().cloned();
-    let mut records = bundle.backend_contexts().unwrap().entries().to_vec();
-    let record = records[0].as_mut().unwrap();
-    let mut bank = Context::decode(&record.data).unwrap();
+    let captured = bundle.backend_contexts().unwrap();
+    let bank = Context::decode(&captured.entries()[0].as_ref().unwrap().data).unwrap();
     for (field, value) in CACHED {
-        bank.vmcs
-            .iter_mut()
-            .find(|reg| reg.id == field as u32)
-            .unwrap()
-            .value = value;
+        assert_eq!(bank.vmcs(field as u32).unwrap(), value, "source {field:?}");
     }
-    record.data = bank.encode().unwrap();
-    let seeded = bundle
-        .with_checkpoint_records(cpus, records, shared)
-        .unwrap();
-    source.restore_snapshot_bundle(&seeded).unwrap();
-    drop(seeded);
 
     let checkpoint = paths.0.join("legacy-pae.rxc");
-    source
-        .take_snapshot_bundle(0)
-        .unwrap()
-        .save(&checkpoint)
-        .unwrap();
+    bundle.save(&checkpoint).unwrap();
+    drop(bundle);
     drop(source);
     std::fs::remove_file(paths.0.join("kernel")).unwrap();
     let loaded = SnapshotBundle::load(&checkpoint).unwrap();
@@ -291,19 +316,8 @@ fn legacy_pae_requires_private_paging_bank_and_resumes_from_it() {
             assert_eq!(restored.vmcs(field as u32).unwrap(), value);
         }
     }
-    let exit = (0..100)
-        .find_map(|_| {
-            target.vcpus[0]
-                .run_host_slice(std::time::Duration::from_millis(10))
-                .unwrap()
-        })
-        .expect("restored legacy PAE guest did not reach I/O");
-    assert!(
-        matches!(exit, VcpuExit::IoOut { port: 0xe9, data } if data == [0x5a]),
-        "restored PAE guest did not execute the port write"
-    );
-    target.vcpus[0].complete_io_out().unwrap();
-    assert_eq!(target.vcpus[0].get_state().unwrap().pc(), CODE + 4);
+    run_output(&mut target, 0xa5, "restored PAE entry with zeroed RAM PDPT");
+    assert_eq!(target.vcpus[0].get_state().unwrap().pc(), CODE + 16);
 }
 
 #[test]
