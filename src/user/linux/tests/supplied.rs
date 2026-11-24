@@ -341,10 +341,14 @@ fn installed_library_links_support_metadata_and_path_descriptors_all_abis() {
     symlink("loop", lib64.join("loop")).unwrap();
     symlink("/unselected/loader", lib64.join("outside")).unwrap();
     let files = Files::default()
-        .with_linux_library_roots(BTreeMap::from([
-            ("/lib64".into(), fixture.dir.join("lib64")),
-            ("/usr/lib64".into(), lib64),
-        ]))
+        .with_linux_library_roots(
+            BTreeMap::from([
+                ("/lib64".into(), fixture.dir.join("lib64")),
+                ("/usr/lib64".into(), lib64),
+            ]),
+            None,
+            &[],
+        )
         .unwrap();
     assert_eq!(
         files

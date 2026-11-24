@@ -199,7 +199,7 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn accept_runtime_file(guest: &str, file: &std::fs::File) -> io::Result<bool> {
+fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -> io::Result<bool> {
     use crate::user::image::macho::{MH_BUNDLE, MH_DYLIB};
 
     if let Some(module) = guest

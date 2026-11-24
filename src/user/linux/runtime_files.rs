@@ -5,17 +5,21 @@
 use crate::user::supplied_fs::WorkspaceFlavor;
 use crate::user::supplied_fs::{Device, Files};
 use std::io;
-#[cfg(any(target_os = "linux", all(test, unix)))]
-use std::path::Path;
 #[cfg(any(target_os = "linux", test))]
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 #[cfg(any(target_os = "linux", test))]
 mod ld_cache;
 
+#[cfg(any(target_os = "linux", test))]
+const PERL_MODULE_ROOTS: &[&str] = &["/usr/share/perl", "/usr/share/perl5"];
+
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
-/// installed ELF libraries that cache names outside the roots, and installed
-/// timezone, protocol and service data. Include guest loopback names and a
-/// synthetic `/dev/null` in the guest namespace. Explicit
+/// installed ELF libraries that cache names outside the roots, plus installed
+/// Perl modules, timezone, protocol and service data. Include guest loopback
+/// names and a synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
 pub fn native(files: &Files) -> io::Result<Files> {
@@ -48,6 +52,12 @@ fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
     let zoneinfo = root.join("usr/share/zoneinfo");
     if zoneinfo.is_dir() {
         roots.insert("/usr/share/zoneinfo".into(), zoneinfo);
+    }
+    for &path in PERL_MODULE_ROOTS {
+        let host = root.join(path.trim_start_matches('/'));
+        if host.symlink_metadata().is_ok_and(|info| info.is_dir()) {
+            roots.insert(path.into(), host);
+        }
     }
     let cache = root.join("etc/ld.so.cache");
     let files = select(files, roots, cache.is_file().then_some(cache))?;
@@ -102,20 +112,43 @@ fn select(
     cache: Option<PathBuf>,
 ) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
-    let root_names = roots.keys().cloned().collect::<Vec<_>>();
+    let library_roots = roots
+        .keys()
+        .filter(|name| !PERL_MODULE_ROOTS.contains(&name.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
     let files = files
         .with_device(Device::Null)
         .and_then(|files| files.with_device(Device::Zero))
         .and_then(|files| files.with_device(Device::Urandom))
         .map_err(io::Error::other)?;
-    let files = files.with_linux_library_roots(roots)?;
+    let files =
+        files.with_linux_library_roots(roots, Some(accept_installed_file), PERL_MODULE_ROOTS)?;
     let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
         return Ok(files);
     };
     let files = files.with_host_file("/etc/ld.so.cache".into(), &cache)?;
     #[cfg(target_os = "linux")]
-    let files = with_cached_libraries(files, &root_names)?;
+    let files = with_cached_libraries(files, &library_roots)?;
     Ok(files)
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn accept_installed_file(path: &str, host: &Path, _: &std::fs::File) -> io::Result<bool> {
+    let perl_module = PERL_MODULE_ROOTS.iter().any(|&root| {
+        path.strip_prefix(root)
+            .is_some_and(|relative| relative.starts_with('/'))
+    });
+    Ok(!perl_module || (is_perl_runtime_file(Path::new(path)) && is_perl_runtime_file(host)))
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn is_perl_runtime_file(path: &Path) -> bool {
+    path.ends_with("unicore/version")
+        || matches!(
+            path.extension().and_then(std::ffi::OsStr::to_str),
+            Some("pm" | "pl" | "al" | "ph")
+        )
 }
 
 #[cfg(target_os = "linux")]
@@ -176,6 +209,89 @@ fn open_cached_library(path: &std::path::Path) -> io::Result<crate::user::mm::Ho
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_perl_modules_follow_version_aliases_within_read_only_roots() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, os::unix::fs::symlink, sync::Arc};
+
+        let fixture = TestFile::new(b"unselected", 10);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let perl = root.join("usr/share/perl");
+        let version = perl.join("5.38.2");
+        let vendor = root.join("usr/share/perl5");
+        for path in [&lib, &version.join("unicore"), &vendor] {
+            fs::create_dir_all(path).unwrap();
+        }
+        fs::write(version.join("Core.pm"), b"package Core; 1;").unwrap();
+        fs::write(version.join("unicore/Data.pl"), b"1;").unwrap();
+        fs::write(version.join("unicore/version"), b"15.0.0\n").unwrap();
+        fs::write(version.join("README"), b"unselected").unwrap();
+        fs::write(vendor.join("Vendor.pm"), b"package Vendor; 1;").unwrap();
+        fs::write(lib.join("Outside.pm"), b"outside").unwrap();
+        symlink("5.38.2", perl.join("5.38")).unwrap();
+        symlink(&fixture.path, version.join("Outside.pm")).unwrap();
+        symlink("../../../lib/Outside.pm", version.join("OtherRoot.pm")).unwrap();
+        symlink("README", version.join("Disguised.pm")).unwrap();
+
+        let files = Files::default();
+        let selected = select_installed(&files, root).unwrap();
+        let core = "/usr/share/perl/5.38/Core.pm";
+        assert_eq!(&*selected.read(core).unwrap(), b"package Core; 1;");
+        assert_eq!(
+            selected
+                .lookup_with_follow("/usr/share/perl/5.38", false)
+                .unwrap()
+                .1
+                .link_target(),
+            Some(&b"5.38.2"[..])
+        );
+        assert_eq!(
+            &*selected.read("/usr/share/perl5/Vendor.pm").unwrap(),
+            b"package Vendor; 1;"
+        );
+        assert_eq!(
+            &*selected
+                .read("/usr/share/perl/5.38/unicore/version")
+                .unwrap(),
+            b"15.0.0\n"
+        );
+        assert_eq!(
+            &*selected
+                .read("/usr/share/perl/5.38/unicore/Data.pl")
+                .unwrap(),
+            b"1;"
+        );
+        assert_eq!(&*selected.read("/usr/lib/Outside.pm").unwrap(), b"outside");
+        for path in [
+            "/usr/share/perl/5.38/README",
+            "/usr/share/perl/5.38/Disguised.pm",
+            "/usr/share/perl/5.38/Outside.pm",
+            "/usr/share/perl/5.38/OtherRoot.pm",
+        ] {
+            assert!(
+                matches!(selected.read(path), Err(Error::NotFound)),
+                "{path}"
+            );
+        }
+        assert!(matches!(
+            selected.unlink_workspace_file(core, (0, 0), &[]),
+            Err(Error::ReadOnly)
+        ));
+
+        let supplied = files
+            .with_file(core.into(), Arc::from(&b"supplied"[..]))
+            .unwrap();
+        assert_eq!(
+            &*select_installed(&supplied, root)
+                .unwrap()
+                .read(core)
+                .unwrap(),
+            b"supplied"
+        );
+    }
 
     #[cfg(target_os = "linux")]
     #[test]

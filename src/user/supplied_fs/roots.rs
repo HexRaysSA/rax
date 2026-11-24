@@ -10,7 +10,7 @@ use std::{
 };
 
 const MAX_ENTRIES: usize = 2048;
-pub(super) type AcceptFile = fn(&str, &std::fs::File) -> std::io::Result<bool>;
+pub(super) type AcceptFile = fn(&str, &Path, &std::fs::File) -> std::io::Result<bool>;
 
 #[derive(Debug)]
 pub(super) struct Origin {
@@ -31,13 +31,18 @@ impl Origin {
     };
 
     #[cfg(any(target_os = "linux", test))]
-    pub(super) const LINUX_INSTALLED: Self = Self {
-        inode_base: 0xc000_0000_0000_0000,
-        accept: None,
-        observe_symlinks: true,
-        confined_mounts: &[],
-        max_entries: MAX_ENTRIES,
-    };
+    pub(super) fn linux_installed(
+        accept: Option<AcceptFile>,
+        confined_mounts: &'static [&'static str],
+    ) -> Self {
+        Self {
+            inode_base: 0xc000_0000_0000_0000,
+            accept,
+            observe_symlinks: true,
+            confined_mounts,
+            max_entries: MAX_ENTRIES,
+        }
+    }
 
     #[cfg(any(target_os = "macos", test))]
     pub(super) fn darwin_installed(
@@ -259,9 +264,22 @@ impl Roots {
         if !host_entry_has_name(&parent, name).map_err(path_error)? {
             return Ok(None);
         }
-        link_target(&parent.join(name))?
-            .map(|target| self.insert(path, Kind::Symlink(target)))
-            .transpose()
+        let Some(target) = link_target(&parent.join(name))? else {
+            return Ok(None);
+        };
+        // A confined mount may expose internal aliases. An alias leaving the
+        // mount must not be followed through another selected guest root.
+        if self
+            .mount(path)
+            .is_some_and(|(root, _)| self.origin.confined_mounts.contains(&root))
+        {
+            match self.host(path) {
+                Ok(_) => {}
+                Err(Error::NotFound) => return Ok(None),
+                Err(error) => return Err(error),
+            }
+        }
+        self.insert(path, Kind::Symlink(target)).map(Some)
     }
 
     pub(super) fn lookup(&self, path: &str) -> Result<Entry, Error> {
@@ -286,12 +304,12 @@ impl Roots {
             use std::os::unix::fs::OpenOptionsExt;
             options.custom_flags(libc::O_NONBLOCK);
         }
-        let file = options.open(host).map_err(|_| Error::Io)?;
+        let file = options.open(&host).map_err(|_| Error::Io)?;
         if !file.metadata().map_err(|_| Error::Io)?.is_file() {
             return Err(Error::NotFound);
         }
         if let Some(accept) = self.origin.accept
-            && !accept(path, &file).map_err(|_| Error::Io)?
+            && !accept(path, &host, &file).map_err(|_| Error::Io)?
         {
             return Err(Error::NotFound);
         }

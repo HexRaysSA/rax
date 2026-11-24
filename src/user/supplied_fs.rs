@@ -708,8 +708,13 @@ impl Files {
     pub(super) fn with_linux_library_roots(
         &self,
         roots: BTreeMap<String, std::path::PathBuf>,
+        accept: Option<roots::AcceptFile>,
+        confined_mounts: &'static [&'static str],
     ) -> std::io::Result<Self> {
-        self.with_library_roots(roots, roots::Origin::LINUX_INSTALLED)
+        self.with_library_roots(
+            roots,
+            roots::Origin::linux_installed(accept, confined_mounts),
+        )
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos", test))]
@@ -2021,7 +2026,11 @@ mod tests {
             .unwrap();
         assert_eq!(&*both.read("/lib/escape").unwrap(), b"outside");
         let installed = Files::default()
-            .with_linux_library_roots(BTreeMap::from([("/lib".into(), fixture.dir.clone())]))
+            .with_linux_library_roots(
+                BTreeMap::from([("/lib".into(), fixture.dir.clone())]),
+                None,
+                &[],
+            )
             .unwrap();
         assert!(
             installed
