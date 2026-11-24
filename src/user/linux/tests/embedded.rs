@@ -128,7 +128,11 @@ fn closed_linux_workspace_fallocate_accounts_for_reservations_and_punches_mappin
     const AT_FDCWD: u64 = -100i64 as u64;
     const KEEP_SIZE: u64 = 1;
     const PUNCH_KEEP: u64 = 3;
+    #[cfg(unix)]
     let page = crate::user::mm::native_page_size();
+    // The unsupported-host case only needs a guest-aligned range.
+    #[cfg(not(unix))]
+    let page = crate::user::linux::abi::PAGE_SIZE;
     for abi in ABIS {
         let files = Files::default().with_temp_workspace(WorkspaceFlavor::Linux);
         let mut h = Harness::embedded_with_supplied(abi, files);
