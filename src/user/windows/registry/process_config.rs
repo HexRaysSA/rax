@@ -89,6 +89,7 @@ impl ProcessConfigKey {
                 "Current_Protocol_Catalog",
                 "NameSpace_Callout",
                 "WinSock_Registry_Version",
+                "Ws2_32NumHandleBuckets",
             ],
             Self::WinsockAppIdCatalog | Self::Ccg | Self::OsDataAppCompatFlags => &[],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),

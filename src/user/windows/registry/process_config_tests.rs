@@ -181,6 +181,9 @@ fn winsock_parameters_exposes_only_selected_values_in_both_views() {
                 assert!(key.covers_value(&expected.name));
                 assert_eq!(key.value(&expected.name), Some(expected));
             }
+            let optional_buckets = units("ws2_32numhandlebuckets");
+            assert!(key.covers_value(&optional_buckets));
+            assert!(key.value(&optional_buckets).is_none());
             assert!(!key.covers_value(&units("AutodialDLL")));
             assert!(matches!(
                 key.relative(&units("Protocol_Catalog9")),
