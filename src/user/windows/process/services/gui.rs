@@ -232,6 +232,41 @@ pub(super) fn process_dpi(
     )
 }
 
+pub(super) fn set_process_dpi_awareness(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    wow64: bool,
+) -> Outcome {
+    let selected = p.native.as_ref().is_some_and(|runtime| {
+        (
+            runtime.version.major,
+            runtime.version.minor,
+            runtime.version.build,
+            runtime.version.product_type,
+        ) == (10, 0, 29708, 1)
+            && runtime.object_namespace.native_machine == Some(WinArch::Arm64.machine())
+    });
+    let session_zero = p
+        .objects
+        .wnf_queries()
+        .is_some_and(|queries| queries.session == 0);
+    if !selected || !session_zero || p.arch != WinArch::Arm64 || wow64 {
+        return failure("process DPI awareness setter requires the observed ARM64 session 0");
+    }
+    let Some([context, fallback]) = arguments(p, t, sp) else {
+        return failure("process DPI awareness setter arguments are unreadable");
+    };
+    if (context as u32, fallback as u32) != (0x12, 0) {
+        return failure("process DPI awareness setter arguments are outside the observed profile");
+    }
+
+    // This raw session-0 call returns FALSE with the existing context and
+    // last error intact. The public USER32 setter can set last error itself.
+    convert(p, t, sp, resume, wow64, Some(Completion::Value(0)))
+}
+
 fn first_argument(p: &Proc, t: &Thread, sp: u64) -> Option<u64> {
     match t.cpu.instruction_arch() {
         WinArch::Arm64 => Some(t.cpu.call_gpr(0)),

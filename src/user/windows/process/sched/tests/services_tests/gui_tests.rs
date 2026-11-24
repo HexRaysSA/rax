@@ -712,3 +712,86 @@ fn process_dpi_absence_preserves_guest_gui_state() {
     assert_eq!(t.cpu.pc(), resume);
     assert!(p.gui.threads.is_empty());
 }
+
+#[test]
+fn process_dpi_awareness_setter_preserves_session_zero_state_and_last_error() {
+    use crate::user::windows::wnf::{Catalog, Queries};
+
+    let arch = WinArch::Arm64;
+    let (mut process, mut t, entry) = setup(arch);
+    let p = process.state_mut();
+    let runtime = p.native.as_mut().unwrap();
+    runtime.version.build = 29708;
+    runtime.object_namespace.native_machine = Some(arch.machine());
+    let set_session = |p: &mut Proc, session| {
+        let queries = Queries::selected(Vec::new(), session).unwrap();
+        p.objects
+            .select_wnf_catalog(Catalog::default().with_queries(queries));
+    };
+    let module = p.modules.nt_services.as_ref().unwrap().0;
+    let number = 0x1589;
+    p.modules.win32u_services = Some((
+        module,
+        named_table(arch, "NtUserSetProcessDpiAwarenessContext", number),
+    ));
+    let resume = entry + 0x4000;
+    t.cpu.set_pc(resume);
+    let sp = t.cpu.sp();
+    let offsets = crate::user::windows::layout::offsets(arch);
+    let error = t.teb + offsets.teb_last_error;
+    let status = t.teb + offsets.teb_last_status;
+    p.space.w32(error, 0x1234_5678).unwrap();
+    p.space.w32(status, 0x8765_4321).unwrap();
+    let dispatch = super::super::super::super::services::dispatch;
+    arguments(p, &mut t, [0x12, 0, 0]);
+    assert!(matches!(
+        dispatch(p, &mut t, number, resume - 4),
+        Some(Outcome::Fail(reason)) if reason.contains("observed ARM64 session 0")
+    ));
+    set_session(p, 1);
+    assert!(matches!(
+        dispatch(p, &mut t, number, resume - 4),
+        Some(Outcome::Fail(reason)) if reason.contains("observed ARM64 session 0")
+    ));
+    set_session(p, 0);
+    arguments(p, &mut t, [0x12, 1, 0]);
+    assert!(matches!(
+        dispatch(p, &mut t, number, resume - 4),
+        Some(Outcome::Fail(reason)) if reason.contains("arguments are outside")
+    ));
+    assert!(p.gui.threads.is_empty());
+    assert_eq!(t.cpu.pc(), resume);
+
+    arguments(p, &mut t, [0x12, 0, 0]);
+    assert_eq!(
+        dispatch(p, &mut t, number, resume - 4),
+        Some(Outcome::Continue)
+    );
+    assert_eq!(t.cpu.pc(), entry);
+    assert_eq!(
+        p.gui.threads[&t.tid].callbacks[0].completion,
+        Completion::Value(0)
+    );
+    arguments(p, &mut t, [1, u64::from(u32::MAX), 0]);
+    assert_eq!(
+        dispatch(p, &mut t, 5, entry + 0x100),
+        Some(Outcome::Continue)
+    );
+    let process_dpi_state = p.gui.value;
+    assert_eq!(t.cpu.gpr(0), 0);
+    assert_eq!(t.cpu.pc(), resume);
+    assert_eq!(t.cpu.sp(), sp);
+
+    arguments(p, &mut t, [0x12, 0, 0]);
+    assert_eq!(
+        dispatch(p, &mut t, number, resume - 4),
+        Some(Outcome::Continue)
+    );
+    assert_eq!(t.cpu.gpr(0), 0);
+    assert_eq!(t.cpu.pc(), resume);
+    assert_eq!(t.cpu.sp(), sp);
+    assert_eq!(p.gui.value, process_dpi_state);
+    assert!(p.gui.threads[&t.tid].callbacks.is_empty());
+    assert_eq!(p.space.u32(error).unwrap(), 0x1234_5678);
+    assert_eq!(p.space.u32(status).unwrap(), 0x8765_4321);
+}

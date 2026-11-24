@@ -4164,3 +4164,18 @@ the selected view and the exported leaf, with the complete instruction
 sequence, transition thunk, and live transition slot checked before dispatch.
 Additional GUI services and other installed-image pairs remain outside this
 measured profile.
+
+### Cold native ARM64 process DPI bootstrap in session 0
+
+On Windows 11 ARM64 build 29708, the installed USER32 startup for
+`where.exe` sends DWORDs `0x12` and `0` to the selected
+`NtUserSetProcessDpiAwarenessContext` leaf in session 0. Native plain
+and manifested control processes returned `FALSE` on the first and
+repeated raw calls, preserving the effective context and last error.
+RAX returns that measured result through the guest GUI conversion path
+for the matching process session, kernel, architecture and arguments.
+The installed ARM64 `where.exe cmd.exe` completes with a cold launcher in
+session 0 and matches native stdout, stderr and exit status. Desktop session 1
+yielded a different native control result for the unmanifested process.
+Coverage of the raw service is limited to the observed session-0 call.
+[Public USER32 DPI setter contract](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setprocessdpiawarenesscontext).
