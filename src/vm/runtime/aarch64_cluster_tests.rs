@@ -482,6 +482,102 @@ fn capture_rejects_private_cpu_power_disagreement_with_psci_graph() {
 }
 
 #[test]
+fn psci_publication_keeps_a_checkpointable_frontier_when_shutdown_intervenes() {
+    use crate::backend::Vm;
+    use crate::backend::emulator::aarch64::cluster::ArmCluster;
+    use crate::vm::vcpu::CpuPowerRequest;
+
+    // Shutdown occurs at the split acknowledgement boundary. Use the real
+    // cluster and vCPUs; only the timing of shutdown is substituted here.
+    struct InterveningShutdown {
+        cluster: Arc<ArmCluster>,
+    }
+
+    impl Vm for InterveningShutdown {
+        fn take_cpu_power_requests(&self) -> Result<Vec<CpuPowerRequest>> {
+            self.cluster.pending_requests()
+        }
+
+        fn complete_cpu_start(&self, cpu_id: u32) -> Result<()> {
+            self.cluster.replace_terminal_with(true, || Ok(()))?;
+            self.cluster.complete_start(cpu_id)
+        }
+
+        fn complete_cpu_stop(&self, cpu_id: u32) -> Result<()> {
+            self.cluster.replace_terminal_with(true, || Ok(()))?;
+            self.cluster.complete_stop(cpu_id)
+        }
+
+        fn create_vcpu(&self, _: u32, _: Arc<vm_memory::GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {
+            unreachable!()
+        }
+
+        fn set_irq_line(&self, _: u32, _: bool) -> Result<()> {
+            unreachable!()
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    let mut source = Fixture::new(3);
+    let cluster = source.cluster();
+    assert_eq!(cluster.request_on(1, CODE, 0x8400_0002, 0x3c5).unwrap(), 0);
+    source.vm.route_interprocessor_requests().unwrap();
+    assert_eq!(cluster.request_on(2, CODE + 4, 0x1234, 0x3c5).unwrap(), 0);
+    source
+        .vm
+        .guest_mem
+        .memory()
+        .write_obj(0xd400_0002u32.to_le(), GuestAddress(CODE))
+        .unwrap();
+    assert!(matches!(
+        source.vm.vcpus[1].step_insn().unwrap(),
+        Some(VcpuExit::Hlt)
+    ));
+    let backend = std::mem::replace(
+        &mut source.vm.vm,
+        Box::new(InterveningShutdown {
+            cluster: Arc::clone(&cluster),
+        }),
+    );
+    let error = source.vm.route_interprocessor_requests().unwrap_err();
+    source.vm.vm = backend;
+    assert!(error.to_string().contains("VM is shut down"));
+    let path = source.kernel.with_extension("rxc");
+    source
+        .vm
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    assert_eq!(source.vm.coordinator.online, [true, true, true]);
+    drop(source);
+    let saved = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&saved, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &saved).unwrap();
+    assert_eq!(target.coordinator.online, [true, true, true]);
+    assert!(target.vm.firmware_shutdown().unwrap());
+    target.vcpus[0].wake();
+    assert_eq!(
+        target.vm.take_cpu_power_requests().unwrap(),
+        [CpuPowerRequest::Off { cpu_id: 1 }]
+    );
+    target.route_interprocessor_requests().unwrap();
+    assert_eq!(target.coordinator.online, [true, false, true]);
+    assert!(target.vm.take_cpu_power_requests().unwrap().is_empty());
+    assert!(matches!(
+        target.vcpus[1].step_insn().unwrap(),
+        Some(VcpuExit::Hlt)
+    ));
+    let started = target.vcpus[2].get_state().unwrap();
+    let regs = &started.as_aarch64().unwrap().regs;
+    assert_eq!((regs.pc, regs.x[0]), (CODE + 4, 0x1234));
+}
+
+#[test]
 fn retained_psci_requests_restore_and_run_the_right_secondaries() {
     const HVC: u32 = 0xd400_0002;
     const CPU_OFF: u64 = 0x8400_0002;

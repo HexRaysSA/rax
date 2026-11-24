@@ -190,7 +190,17 @@ mod timing_tests {
 
 impl VCpu for HvfArm64Vcpu {
     fn start_aarch64_cpu(&mut self, entry: u64, context: u64, pstate: u64) -> Result<()> {
-        self.request(move |core| core.start_cpu(entry, context, pstate))
+        self.request(move |core| core.start_cpu(entry, context, pstate, false))
+    }
+
+    fn start_coordinated_aarch64_cpu(
+        &mut self,
+        _vm: &dyn crate::backend::Vm,
+        entry: u64,
+        context: u64,
+        pstate: u64,
+    ) -> Result<()> {
+        self.request(move |core| core.start_cpu(entry, context, pstate, true))
     }
     fn validate_checkpoint_state(
         &self,

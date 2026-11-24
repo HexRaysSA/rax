@@ -154,7 +154,8 @@ pub trait Vm: Send + Sync {
         ))
     }
 
-    /// Acknowledge powerdown after removing the CPU from scheduling.
+    /// Acknowledge powerdown of a CPU that already blocks guest entry.
+    /// The coordinator clears its online bit after this succeeds.
     fn complete_cpu_stop(&self, _cpu_id: u32) -> Result<()> {
         Ok(())
     }

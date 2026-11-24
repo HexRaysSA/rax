@@ -252,11 +252,25 @@ pub trait VCpu: Send {
     }
 
     /// Install the reset state and return width/EL selected by PSCI CPU_ON.
-    /// The coordinator publishes online status only after this succeeds.
+    /// This low-level operation leaves request acknowledgement to the caller.
     fn start_aarch64_cpu(&mut self, _entry: u64, _context: u64, _pstate: u64) -> Result<()> {
         Err(Error::InvalidConfig(
             "AArch64 startup is not supported by this backend".into(),
         ))
+    }
+
+    /// Install a requested PSCI entry state and acknowledge the request.
+    /// Backends sharing a firmware power lock must serialize both updates
+    /// against VM shutdown. The VMM publishes the online bit on success.
+    fn start_coordinated_aarch64_cpu(
+        &mut self,
+        vm: &dyn crate::backend::Vm,
+        entry: u64,
+        context: u64,
+        pstate: u64,
+    ) -> Result<()> {
+        self.start_aarch64_cpu(entry, context, pstate)?;
+        vm.complete_cpu_start(self.id())
     }
 
     /// Leave a halted or waiting state (x86 `HLT`, AArch64 `WFI`/`WFE`, a

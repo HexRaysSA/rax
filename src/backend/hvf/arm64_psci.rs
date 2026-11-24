@@ -121,19 +121,41 @@ impl HvfArm64Core {
         }
         Ok(())
     }
-    pub(super) fn start_cpu(&mut self, entry: u64, context: u64, pstate: u64) -> Result<()> {
-        // Keep shutdown serialized with startup until owner state is installed.
+    pub(super) fn start_cpu(
+        &mut self,
+        entry: u64,
+        context: u64,
+        pstate: u64,
+        acknowledge: bool,
+    ) -> Result<()> {
+        // Keep shutdown serialized with installation and acknowledgement.
         let lifetime = Arc::clone(&self._vm);
-        let power = lifetime.power()?;
-        let big_endian = power
-            .as_ref()
-            .ok_or_else(|| Error::InvalidConfig("native CPU topology is not configured".into()))?
-            .start_endianness(self.id, entry, context, pstate)?;
+        let mut guard = lifetime.power()?;
+        let power = guard
+            .as_mut()
+            .ok_or_else(|| Error::InvalidConfig("native CPU topology is not configured".into()))?;
+        let id = self.id;
+        let big_endian = power.start_endianness(id, entry, context, pstate)?;
         if pstate != ENTRY_PSTATE {
             return Err(Error::InvalidConfig(
                 "native CPU_ON requires EL1h with DAIF masked".into(),
             ));
         }
+        let mut install = || self.install_psci_entry(entry, context, pstate, big_endian);
+        if acknowledge {
+            power.complete_with(id, true, install)
+        } else {
+            install()
+        }
+    }
+
+    fn install_psci_entry(
+        &mut self,
+        entry: u64,
+        context: u64,
+        pstate: u64,
+        big_endian: bool,
+    ) -> Result<()> {
         // DEN0022D 6.4.3: preserve the SDK platform's initial SCTLR RES bits,
         // clear I/C/M, and copy the caller's EL1 data endianness.
         let mut state = Aarch64CpuState::default();
@@ -161,7 +183,6 @@ impl HvfArm64Core {
         self.pending_io_reply = None;
         self.io_completion_error = None;
         self.shutdown = false;
-        drop(power);
         Ok(())
     }
 }

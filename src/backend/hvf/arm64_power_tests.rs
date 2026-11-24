@@ -44,6 +44,39 @@ fn native_power_transitions_remain_pending_until_individual_acknowledgements() {
 }
 
 #[test]
+fn native_start_publication_runs_only_for_an_admitted_request_and_retries_after_failure() {
+    let mut power = Power::new(3);
+    assert_eq!(start(&mut power, 2), 0);
+    assert_eq!(start(&mut power, 1), 0);
+    let original = power.clone();
+    let error = power
+        .complete_with(2, true, || {
+            Err(Error::Emulator("owner rejected state".into()))
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("owner rejected state"));
+    assert_eq!(power, original);
+
+    power.shutdown = true;
+    assert!(
+        power
+            .complete_with(2, true, || panic!("terminal VM"))
+            .is_err()
+    );
+    power.shutdown = false;
+    assert!(
+        power
+            .complete_with(0, true, || panic!("no request"))
+            .is_err()
+    );
+    assert_eq!(power, original);
+
+    power.complete_with(2, true, || Ok(())).unwrap();
+    assert_eq!(power.states, [State::On, State::Starting, State::On]);
+    assert_eq!(power.pending, original.pending[1..]);
+}
+
+#[test]
 fn native_power_rejects_reserved_affinities_wrapping_unaligned_and_outside_entries() {
     let mut power = Power::new(2);
     for target in [2, 255, 256, 1 << 24, 1 << 31, 1 << 32, u64::MAX] {

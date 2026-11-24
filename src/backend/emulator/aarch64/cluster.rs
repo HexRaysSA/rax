@@ -305,13 +305,36 @@ impl ArmCluster {
         Ok(result)
     }
 
-    pub(super) fn install_cpu_start(&self, install: impl FnOnce() -> Result<()>) -> Result<()> {
-        let _control = self
+    pub(super) fn install_cpu_start(
+        &self,
+        request: Option<CpuPowerRequest>,
+        install: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        let mut control = self
             .control
             .lock()
             .map_err(|_| invalid("control lock poisoned"))?;
         self.require_running()?;
-        install()
+        let Some(request) = request else {
+            return install();
+        };
+        let CpuPowerRequest::Start { cpu_id, .. } = request else {
+            return Err(invalid("CPU startup requires a start request"));
+        };
+        let id = cpu_id as usize;
+        if control.states.get(id) != Some(&PowerState::OnPending) {
+            return Err(invalid("CPU startup disagrees with CPU state"));
+        }
+        let index = control
+            .requests
+            .iter()
+            .position(|pending| *pending == request)
+            .ok_or_else(|| invalid("CPU startup without matching request"))?;
+        // No shutdown or new power request can interleave these updates.
+        install()?;
+        control.requests.remove(index);
+        control.states[id] = PowerState::On;
+        Ok(())
     }
 
     fn require_running(&self) -> Result<()> {
@@ -574,8 +597,8 @@ impl ArmClusterCheckpoint {
         if self.control.states.len() != online.len() || online.is_empty() || online.len() > 255 {
             return Err(invalid("invalid saved CPU count"));
         }
-        // Power transitions stay queued until acknowledged. For a stop, the
-        // coordinator may have already cleared the scheduling bit.
+        // Legacy VMMs could clear a scheduling bit before acknowledging a
+        // stop. Continue to admit both captured forms.
         if self.control.requests.len() > online.len() {
             return Err(invalid("power queue exceeds CPU count"));
         }

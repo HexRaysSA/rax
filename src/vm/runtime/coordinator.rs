@@ -362,8 +362,7 @@ impl Vmm {
                         let cpu = self.vcpus.get_mut(index).ok_or_else(|| {
                             Error::Emulator("CPU_ON target exceeds VMM topology".into())
                         })?;
-                        cpu.start_aarch64_cpu(entry, context, pstate)?;
-                        self.vm.complete_cpu_start(cpu_id)?;
+                        cpu.start_coordinated_aarch64_cpu(&*self.vm, entry, context, pstate)?;
                         self.coordinator.online[index] = true;
                     }
                     crate::vm::vcpu::CpuPowerRequest::Off { cpu_id } => {
@@ -374,8 +373,8 @@ impl Vmm {
                             .ok_or_else(|| {
                                 Error::Emulator("CPU_OFF target exceeds VMM topology".into())
                             })?;
-                        *online = false;
                         self.vm.complete_cpu_stop(cpu_id)?;
+                        *online = false;
                     }
                 }
             }

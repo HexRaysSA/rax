@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::isa::arm::common::features::ArmFeatures;
+use crate::vm::vcpu::CpuPowerRequest;
 
 impl Aarch64Vcpu {
     pub(super) fn stopped_exit(&self) -> Option<VcpuExit> {
@@ -25,6 +26,38 @@ impl Aarch64Vcpu {
             self.shutdown = true;
         }
         Ok(())
+    }
+
+    fn install_psci_entry(
+        &mut self,
+        entry: u64,
+        context: u64,
+        pstate: u64,
+        acknowledge: bool,
+    ) -> Result<()> {
+        let cluster = self.cluster.clone();
+        let request = acknowledge.then_some(CpuPowerRequest::Start {
+            cpu_id: self.id,
+            entry,
+            context,
+            pstate,
+        });
+        let mut install = || {
+            self.cpu
+                .enter_psci(entry, context, pstate)
+                .map_err(|e| Error::Emulator(e.to_string()))?;
+            self.powered_off = false;
+            self.shutdown = false;
+            self.insn_count.store(0, Ordering::Relaxed);
+            Ok(())
+        };
+        match cluster {
+            Some(cluster) => cluster.install_cpu_start(request, install),
+            None if acknowledge => Err(Error::InvalidConfig(
+                "coordinated PSCI startup requires an AArch64 cluster".into(),
+            )),
+            None => install(),
+        }
     }
 }
 
@@ -394,20 +427,17 @@ impl VCpu for Aarch64Vcpu {
     }
 
     fn start_aarch64_cpu(&mut self, entry: u64, context: u64, pstate: u64) -> Result<()> {
-        let cluster = self.cluster.clone();
-        let mut install = || {
-            self.cpu
-                .enter_psci(entry, context, pstate)
-                .map_err(|e| Error::Emulator(e.to_string()))?;
-            self.powered_off = false;
-            self.shutdown = false;
-            self.insn_count.store(0, Ordering::Relaxed);
-            Ok(())
-        };
-        match cluster {
-            Some(cluster) => cluster.install_cpu_start(install),
-            None => install(),
-        }
+        self.install_psci_entry(entry, context, pstate, false)
+    }
+
+    fn start_coordinated_aarch64_cpu(
+        &mut self,
+        _vm: &dyn crate::backend::Vm,
+        entry: u64,
+        context: u64,
+        pstate: u64,
+    ) -> Result<()> {
+        self.install_psci_entry(entry, context, pstate, true)
     }
 
     fn complete_io_in(&mut self, _data: &[u8]) {

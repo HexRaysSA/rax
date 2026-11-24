@@ -587,19 +587,33 @@ further native entry until the coordinator removes it from the online set.
 including a request made by a secondary CPU. Explicit `wake` and state replacement remain
 the public restart operations; register overlays retain the terminal state.
 
-Shared native version 02 retains ordered start/stop requests, per-CPU power
+Shared native version 02 introduced the ordered start/stop queue, per-CPU power
 states, the caller's endianness for each pending start and VM-wide shutdown.
+Version 03 retains these fields alongside the virtual-counter sample.
 While the VM is running, requests are inspected without consumption and removed
 individually after successful publication. Shutdown keeps them in the graph
 and prevents the coordinator from observing them or acknowledging a previous
-offer. The owner holds the power lock from startup admission until it installs
-the entry state, so shutdown and startup installation are serialized.
+offer. The software and native VMM startup paths hold the power lock from
+request admission through both entry installation and acknowledgement.
+The coordinator marks the CPU online only after that operation succeeds.
+An unacknowledged stop blocks guest entry in the backend, so the coordinator
+can retain its online bit until the backend acknowledges the stop. The
+checkpoint reader also admits older images with the bit already cleared.
 Explicit wake makes the retained requests available in their original order.
 A partial startup failure leaves every unacknowledged request available for
 retry and checkpointing. Bundle admission checks the power graph against the
 coordinator's online set. Native file completion also requires the coordinator
 and VM clock sections. Earlier experimental version 01 records lack this
 information and are rejected explicitly.
+
+| ID | Assumption and basis | Dependent result | Falsification probe | Status |
+|---|---|---|---|---|
+| PS1 | The backend blocks a CPU with an unacknowledged stop before it can execute another instruction. | The VMM may retain the online bit on acknowledgement failure. | Execute CPU_OFF, intervene with shutdown at acknowledgement, restore the file and wake. The stopped CPU must still return HLT after retry. | Covered by the coordinator regression and existing native CPU_OFF test. |
+| PS2 | Startup preparation and acknowledgement use the same backend power lock. | A shutdown cannot strand a started CPU with a pending graph entry. | Interrupt the old split acknowledgement, check the resulting file, and exercise a failed native register write while an additional start remains queued. | Covered by the coordinator and native partial-start regressions. |
+
+With Q queued requests, acknowledgement takes O(Q) time and O(1) additional
+storage. The low-level embedding API can still install and acknowledge startup
+in separate calls. Both paths use the same checkpoint encoding.
 
 The primary contract is [Arm DEN 0022D](../../specifications/arm/psci-den0022.pdf),
 sections 5.5-5.7, 5.10 and 6.4. The signed native regressions cover actual guest

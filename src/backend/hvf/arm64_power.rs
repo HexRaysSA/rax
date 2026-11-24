@@ -95,8 +95,8 @@ impl Power {
             return Err(invalid());
         }
         for (&state, &online) in self.states.iter().zip(online) {
-            // A stop may have disabled the coordinator immediately before its
-            // acknowledgement failed. Retaining it makes that stop retryable.
+            // Legacy VMMs could clear the online bit before acknowledging
+            // a stop. Continue to admit both captured forms.
             if state != State::Stopping && online != (state == State::On) {
                 return Err(invalid());
             }
@@ -187,6 +187,15 @@ impl Power {
             .ok_or_else(invalid)
     }
     pub fn complete(&mut self, id: u32, start: bool) -> Result<()> {
+        self.complete_with(id, start, || Ok(()))
+    }
+
+    pub(super) fn complete_with(
+        &mut self,
+        id: u32,
+        start: bool,
+        install: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
         self.require_running()?;
         let expected = if start {
             State::Starting
@@ -204,6 +213,7 @@ impl Power {
                 CpuPowerRequest::Off { cpu_id } => !start && cpu_id == id,
             })
             .ok_or_else(invalid)?;
+        install()?;
         self.pending.remove(index);
         self.states[id as usize] = if start { State::On } else { State::Off };
         Ok(())
