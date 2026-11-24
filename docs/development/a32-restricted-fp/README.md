@@ -35,7 +35,12 @@ destination, and the smallest source magnitudes, 2^-24 and 2^-149, respectively,
 are normal in their wider destination formats. Binary32 input flushing and
 applicable NaN handling still use the guest controls.
 Scalar integer-to-floating conversions have a minimum nonzero magnitude of 1,
-so they need no flush-to-zero support. Fixed-to-floating conversions use
+so they need no flush-to-zero support. Binary64 has 53 bits of significand
+precision, so every signed or unsigned 32-bit integer converts exactly.
+RAX therefore admits these two conversions independently of rounding and
+arithmetic exception capabilities. Integer conversions to binary16 and
+binary32 can round and still depend on those capabilities.
+Fixed-to-floating conversions use
 `FixedToFP` with a minimum nonzero magnitude of 2 raised to the negative
 fraction-bit count. The scalar encodings allow at most 32 fraction bits.
 Only binary16 can produce a subnormal at that scale, starting at 15 fraction
@@ -82,6 +87,10 @@ Another 640 executions cover the five exact widening encodings, all four
 FPSCR.RMode values, all sixteen MVFR0.FPRound values, and both instruction sets.
 They verify the destination bit pattern for the smallest positive source
 subnormal and preservation of FPSCR.
+The two 32-bit integer-to-binary64 encodings have 3,072 cases across the
+instruction sets, four integer boundary patterns, every rounding capability
+and mode, and absent, enabled, and reserved trapping capabilities. The cases
+compare the full FP register bank and FPSCR against exact conversion.
 Another 3,072 reads check stable FPSID identity across capability/control/base-value
 combinations. A 32-case mixed-width test checks the identity, successful full-profile
 arithmetic, unsupported-mode faults, and competing EL2 access traps together.
@@ -114,7 +123,10 @@ hardware/support-code split; B1.11.4–5 define bounce handling and subarchitect
 support; B4.1.59 defines FPSID subarchitecture identification;
 MVFR0/MVFR1 define the capability fields. The retained Armv8-A DDI0487B.a
 G6.2.107–108 and `docs/architecture/arm/asl/{arm_defs,arm_instrs}.asl` supply
-register and instruction/operation details. LLVM establishes encodings only.
+register and instruction/operation details. Arm DDI0597 ID032025 specifies
+`FixedToFP` with a zero fractional scale for scalar integer-to-floating
+conversion. [Local Arm A32/T32 instruction reference](../../specifications/arm/aarch32-isa-2025-03.pdf).
+LLVM establishes encodings only.
 
 These are synthetic profile combinations, not a claim that a named physical
 Arm processor implements every combination. Physical restricted AArch32

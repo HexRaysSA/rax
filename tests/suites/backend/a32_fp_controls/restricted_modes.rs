@@ -253,6 +253,44 @@ fn scalar_widening_converts_the_smallest_subnormal_with_any_rounding_mode() {
 }
 
 #[test]
+fn scalar_i32_to_f64_is_independent_of_rounding_and_exception_capabilities() {
+    let cases = cases();
+    for name in ["vcvt_f64_s32", "vcvt_f64_u32"] {
+        let case = cases.iter().find(|case| case.name == name).unwrap();
+        for thumb in [false, true] {
+            for trap in [0, 1, 15] {
+                for round in 0..16 {
+                    for mode in 0..4 {
+                        for source in [0, 0x7fff_ffff, 0x8000_0000, 0xffff_ffff] {
+                            let mut cpu = configured(thumb, 0, 0);
+                            cpu.vfp.mvfr0 =
+                                (cpu.vfp.mvfr0 & !(15 << 12)) | (round << 28) | (trap << 12);
+                            let fpscr = (mode << 22) | (0x9f00 * u32::from(trap == 1)) | 0x80;
+                            cpu.vfp.fpscr = Fpscr::from_bits(fpscr);
+                            cpu.vfp.write_s_bits(2, source);
+                            let mut expected = cpu.vfp.dregs;
+                            expected[0] = if name == "vcvt_f64_s32" {
+                                f64::from(source as i32).to_bits()
+                            } else {
+                                f64::from(source).to_bits()
+                            };
+                            let result = execute(&mut cpu, case, &mut FlatMemory::new(4096, 0));
+                            let context = (name, thumb, trap, round, mode, source);
+                            assert!(
+                                matches!(result, ExecResult::Continue),
+                                "{context:?}: {result:?}"
+                            );
+                            assert_eq!(cpu.vfp.dregs, expected, "{context:?}");
+                            assert_eq!(cpu.vfp.fpscr.bits(), fpscr, "{context:?}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn scalar_sign_and_select_do_not_require_a_trapping_capability() {
     const NEGATIVE_SNAN: u32 = 0xff80_0042;
     const POSITIVE_SNAN: u32 = 0x7f80_0021;

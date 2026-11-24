@@ -1179,7 +1179,7 @@
     {
       "name": "vcvt_f64_s32",
       "assembly": "vcvt.f64.s32 d0,s2",
-      "rounding": "fpscr",
+      "rounding": "none",
       "nan": false,
       "flush": "none",
       "kind": "scalar",
@@ -1269,7 +1269,7 @@
     {
       "name": "vcvt_f64_u32",
       "assembly": "vcvt.f64.u32 d0,s2",
-      "rounding": "fpscr",
+      "rounding": "none",
       "nan": false,
       "flush": "none",
       "kind": "scalar",

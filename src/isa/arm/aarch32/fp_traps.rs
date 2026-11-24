@@ -10,6 +10,7 @@ pub(crate) const STATUS: u32 = 0x9f;
 pub(crate) const ENABLES: u32 = STATUS << 8;
 /// Scalar operations that can signal an FP arithmetic exception.
 /// Transfers, sign edits, and conditional selects operate on register bits.
+/// Unscaled 32-bit integer conversions to binary64 are exact.
 pub(crate) fn can_signal(insn: &DecodedInsn) -> bool {
     fp_access_kind(insn).is_some_and(|kind| !kind.advsimd)
         && !matches!(
@@ -34,6 +35,8 @@ pub(crate) fn can_signal(insn: &DecodedInsn) -> bool {
                 | Mnemonic::VSELGE
                 | Mnemonic::VSELGT
                 | Mnemonic::VSELVS
+                | Mnemonic::VCVT_F64_S32
+                | Mnemonic::VCVT_F64_U32
                 | Mnemonic::VLDR
                 | Mnemonic::VSTR
                 | Mnemonic::VLDM

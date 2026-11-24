@@ -140,12 +140,18 @@ fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
         Mnemonic::VCVT_F16_S32
         | Mnemonic::VCVT_F16_U32
         | Mnemonic::VCVT_F32_S32
-        | Mnemonic::VCVT_F32_U32
-        | Mnemonic::VCVT_F64_S32
-        | Mnemonic::VCVT_F64_U32 => {
+        | Mnemonic::VCVT_F32_U32 => {
             // An unscaled integer is zero or has magnitude at least one.
             return Some(Requirements {
                 rounding: Rounding::Fpscr,
+                nan: false,
+                flush: None,
+            });
+        }
+        Mnemonic::VCVT_F64_S32 | Mnemonic::VCVT_F64_U32 => {
+            // Binary64 represents every 32-bit integer exactly.
+            return Some(Requirements {
+                rounding: Rounding::None,
                 nan: false,
                 flush: None,
             });
