@@ -18,6 +18,12 @@ const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.p
 const FILE_MAGIC_DATABASE: &str = "/usr/share/file/magic.mgc";
 
 #[cfg(any(target_os = "macos", test))]
+const OPENSSL_CONFIG: &str = "/private/etc/ssl/openssl.cnf";
+
+#[cfg(any(target_os = "macos", test))]
+const OPENSSL_TEMPLATE: &str = "System/Library/Templates/Data/private/etc/ssl/openssl.cnf";
+
+#[cfg(any(target_os = "macos", test))]
 const SHELL_SELECTOR: &str = "/private/var/select/sh";
 
 #[cfg(any(target_os = "macos", test))]
@@ -121,8 +127,18 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
             ),
         ],
     )?;
-    let files = select_system_file(files, root, SYSTEM_VERSION_PLIST)?;
-    let files = select_system_file(files, root, FILE_MAGIC_DATABASE)?;
+    let files = select_system_file(
+        files,
+        SYSTEM_VERSION_PLIST,
+        &root.join(SYSTEM_VERSION_PLIST.trim_start_matches('/')),
+    )?;
+    let files = select_system_file(
+        files,
+        FILE_MAGIC_DATABASE,
+        &root.join(FILE_MAGIC_DATABASE.trim_start_matches('/')),
+    )?;
+    // Use the OS template from the system volume rather than local TLS configuration.
+    let files = select_system_file(files, OPENSSL_CONFIG, &root.join(OPENSSL_TEMPLATE))?;
     let files = files
         .with_device(Device::Null)
         .and_then(|files| files.with_device(Device::Zero))
@@ -189,16 +205,15 @@ fn accept_runtime_file(guest: &str, file: &std::fs::File) -> io::Result<bool> {
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn select_system_file(files: Files, root: &std::path::Path, path: &str) -> io::Result<Files> {
+fn select_system_file(files: Files, path: &str, host: &std::path::Path) -> io::Result<Files> {
     use crate::user::supplied_fs::Error;
 
     if !matches!(files.lookup(path), Err(Error::NotFound)) {
         return Ok(files);
     }
     // Keep adjacent files and symlink targets outside the supplied namespace.
-    let host = root.join(path.trim_start_matches('/'));
-    match std::fs::symlink_metadata(&host) {
-        Ok(metadata) if metadata.is_file() => files.with_host_file(path.into(), &host),
+    match std::fs::symlink_metadata(host) {
+        Ok(metadata) if metadata.is_file() => files.with_host_file(path.into(), host),
         Ok(_) => Ok(files),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(files),
         Err(error) => Err(error),
@@ -494,6 +509,49 @@ mod tests {
             let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
             assert!(selected.lookup(SYSTEM_VERSION_PLIST).is_err());
         }
+    }
+
+    #[test]
+    fn openssl_config_comes_from_the_system_template() {
+        use crate::user::supplied_fs::Error;
+
+        let fixture = TestFile::new(b"dyld", 4);
+        let dyld = fixture.dir.join("usr/lib/dyld");
+        let cache_dir = fixture.dir.join("System/Library/dyld");
+        let template = fixture.dir.join(OPENSSL_TEMPLATE);
+        let local = fixture.dir.join(OPENSSL_CONFIG.trim_start_matches('/'));
+        std::fs::create_dir_all(dyld.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(template.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(local.parent().unwrap()).unwrap();
+        std::fs::write(dyld, b"dyld").unwrap();
+        std::fs::write(cache_dir.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        std::fs::write(local, b"local config").unwrap();
+        std::fs::write(template.with_file_name("cert.pem"), b"neighbor").unwrap();
+
+        let absent = select_native_root(&Files::default(), &fixture.dir).unwrap();
+        assert!(matches!(
+            absent.lookup(OPENSSL_CONFIG),
+            Err(Error::NotFound)
+        ));
+
+        std::fs::write(&template, b"system config").unwrap();
+        let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
+        assert_eq!(&*selected.read(OPENSSL_CONFIG).unwrap(), b"system config");
+        assert!(matches!(
+            selected.lookup("/private/etc/ssl/cert.pem"),
+            Err(Error::NotFound)
+        ));
+        assert!(matches!(
+            selected.lookup(&format!("/{OPENSSL_TEMPLATE}")),
+            Err(Error::NotFound)
+        ));
+
+        let supplied = Files::default()
+            .with_file(OPENSSL_CONFIG.into(), Arc::from(&b"guest config"[..]))
+            .unwrap();
+        let selected = select_native_root(&supplied, &fixture.dir).unwrap();
+        assert_eq!(&*selected.read(OPENSSL_CONFIG).unwrap(), b"guest config");
     }
 
     #[test]
