@@ -125,6 +125,16 @@ fn lookup_display(call: u32, context: &[u8], name: &str, languages: [u16; 2]) ->
     packet
 }
 
+fn lookup_display_ndr32(call: u32, context: &[u8], name: &str, languages: [u16; 2]) -> Vec<u8> {
+    let mut packet = lookup_ndr32(call, context, name);
+    write_word(&mut packet, 20, 33);
+    packet.truncate(104 + name.encode_utf16().count() * 2);
+    for language in languages {
+        packet.extend_from_slice(&language.to_le_bytes());
+    }
+    packet
+}
+
 fn close(call: u32, context: &[u8]) -> Vec<u8> {
     let mut payload = into_call(84, call, 0);
     payload[64..84].copy_from_slice(context);
@@ -672,7 +682,11 @@ fn native_lsarpc_policy_contexts_own_lookup_rights_and_lifetime() {
 
 #[test]
 fn native_lsarpc_privilege_display_uses_captured_languages() {
-    for arch in WinArch::ALL {
+    let profiles = WinArch::ALL
+        .into_iter()
+        .map(|arch| (arch, false))
+        .chain([(WinArch::X86, true)]);
+    for (arch, classic) in profiles {
         let (mut process, mut thread) = fixture(arch, "NtAlpcSendWaitReceivePort", SERVICE);
         let p = process.state_mut();
         super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
@@ -684,28 +698,46 @@ fn native_lsarpc_privilege_display_uses_captured_languages() {
         let mut send = |p: &mut Proc, payload: &[u8]| {
             exchange(p, &mut thread, [base, port, 0x7e00_0000, 4096], payload)
         };
-        assert_eq!(send(p, &bind()).1, STATUS_SUCCESS);
-        let (_, status, opened) = send(p, &open(3, POLICY_LOOKUP_NAMES, 1));
+        let mut request = bind();
+        let mut open_request = open(3, POLICY_LOOKUP_NAMES, 1);
+        let lookup_display = if classic {
+            write_word(&mut request, 32, 1);
+            open_request = open_ndr32(3, POLICY_LOOKUP_NAMES, 1);
+            lookup_display_ndr32
+        } else {
+            lookup_display
+        };
+        assert_eq!(send(p, &request).1, STATUS_SUCCESS);
+        let (_, status, opened) = send(p, &open_request);
         assert_eq!(status, STATUS_SUCCESS);
         let context = &opened[40..60];
 
-        // Native ARM64 build 29708, including both text-length alignment cases.
+        // Exercise both UTF-16 text-length alignments and a language fallback.
         let privilege = "SeCreateTokenPrivilege";
-        for (requested, language, text, reply_bytes) in [
-            ([0x0409, 0x0009], 0x0409_u16, "Create a token object", 156),
-            ([0x040c, 0x0409], 0x040c, "Créer un objet-jeton", 152),
+        for (requested, language, text, classic_bytes, wide_bytes) in [
+            (
+                [0x0409, 0x0009],
+                0x0409_u16,
+                "Create a token object",
+                96,
+                156,
+            ),
+            ([0x040c, 0x0409], 0x040c, "Créer un objet-jeton", 96, 152),
         ] {
             let units: Vec<_> = text.encode_utf16().collect();
             let catalog = DisplayCatalog {
                 requested,
-                names: [(
-                    2,
-                    DisplayName {
-                        units: units.clone(),
-                        language,
-                    },
-                )]
-                .into(),
+                names: [2, 19]
+                    .map(|value| {
+                        (
+                            value,
+                            DisplayName {
+                                units: units.clone(),
+                                language,
+                            },
+                        )
+                    })
+                    .into(),
             };
             p.native
                 .as_mut()
@@ -715,21 +747,26 @@ fn native_lsarpc_privilege_display_uses_captured_languages() {
 
             let (_, status, result) = send(p, &lookup_display(4, context, privilege, requested));
             assert_eq!(status, STATUS_SUCCESS);
-            let mut expected = vec![0; reply_bytes];
+            let mut expected = vec![0; if classic { classic_bytes } else { wide_bytes }];
             let length = units.len() as u32 * 2;
+            let (length_at, referent_at, capacity_at, count_at, text_at) = if classic {
+                (28, 32, 36, 44, 48)
+            } else {
+                (32, 40, 48, 64, 72)
+            };
             for (offset, value) in [
                 (0, 3),
                 (12, 4),
                 (24, 0x20000),
-                (32, ((length + 2) << 16) | length),
-                (40, 0x20000),
-                (48, units.len() as u32 + 1),
-                (64, units.len() as u32),
+                (length_at, ((length + 2) << 16) | length),
+                (referent_at, if classic { 0x20004 } else { 0x20000 }),
+                (capacity_at, units.len() as u32 + 1),
+                (count_at, units.len() as u32),
             ] {
                 write_word(&mut expected, offset, value);
             }
-            let end = 72 + length as usize;
-            for (unit, chunk) in units.iter().zip(expected[72..end].chunks_exact_mut(2)) {
+            let end = text_at + length as usize;
+            for (unit, chunk) in units.iter().zip(expected[text_at..end].chunks_exact_mut(2)) {
                 chunk.copy_from_slice(&unit.to_le_bytes());
             }
             expected[end..end + 2].copy_from_slice(&language.to_le_bytes());
@@ -738,6 +775,13 @@ fn native_lsarpc_privilege_display_uses_captured_languages() {
             // A successful match in the first language makes the fallback irrelevant.
             let (_, status, result) =
                 send(p, &lookup_display(4, context, privilege, [requested[0], 0]));
+            assert_eq!(status, STATUS_SUCCESS);
+            assert_eq!(result, expected);
+            // The language pair follows the counted string even when the string ends at 2 mod 4.
+            let (_, status, result) = send(
+                p,
+                &lookup_display(4, context, "SeShutdownPrivilege", requested),
+            );
             assert_eq!(status, STATUS_SUCCESS);
             assert_eq!(result, expected);
         }
@@ -756,8 +800,9 @@ fn native_lsarpc_privilege_display_uses_captured_languages() {
         ] {
             let (_, status, result) = send(p, &lookup_display(7, token, name, [0x040c, 0x0409]));
             assert_eq!(status, STATUS_SUCCESS);
-            let mut expected = vec![0; 72];
-            for (offset, value) in [(0, 3), (12, 7), (36, rpc_status)] {
+            let (size, status_at) = if classic { (36, 32) } else { (72, 36) };
+            let mut expected = vec![0; size];
+            for (offset, value) in [(0, 3), (12, 7), (status_at, rpc_status)] {
                 write_word(&mut expected, offset, value);
             }
             assert_eq!(result, expected);

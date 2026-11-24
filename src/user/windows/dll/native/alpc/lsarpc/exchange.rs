@@ -60,16 +60,26 @@ pub(in crate::user::windows::dll::native) fn exchange(
                     "LSARPC local RPC operation {operation} has a nonzero ALPC data info offset"
                 )));
             }
+            let display_names = || {
+                c.p.native
+                    .as_ref()
+                    .and_then(|runtime| runtime.object_namespace.privilege_display_names.as_deref())
+            };
             let response = match (peer.interface, peer.transfer_syntax) {
-                (LsarpcInterface::Policy, Some(bind::NDR32)) => {
-                    policy::response_ndr32(payload, request_type, association, &peer.policies)
-                }
-                (LsarpcInterface::Policy, Some(bind::NDR64)) => {
-                    let names = c.p.native.as_ref().and_then(|runtime| {
-                        runtime.object_namespace.privilege_display_names.as_deref()
-                    });
-                    policy::response(payload, request_type, association, &peer.policies, names)
-                }
+                (LsarpcInterface::Policy, Some(bind::NDR32)) => policy::response_ndr32(
+                    payload,
+                    request_type,
+                    association,
+                    &peer.policies,
+                    display_names(),
+                ),
+                (LsarpcInterface::Policy, Some(bind::NDR64)) => policy::response(
+                    payload,
+                    request_type,
+                    association,
+                    &peer.policies,
+                    display_names(),
+                ),
                 (LsarpcInterface::PolicyLookup, Some(bind::NDR32)) => {
                     policy_lookup::response_ndr32(
                         c,

@@ -201,10 +201,10 @@ impl NativeRuntime {
         if arm64_29708 && matches!(arch, WinArch::Arm64 | WinArch::X86) {
             runtime.object_namespace.policy_lookup_names =
                 super::object_namespace::policy_lookup::capture(&subject).map(std::sync::Arc::new);
-        }
-        if arm64_29708 && arch == WinArch::Arm64 {
             runtime.object_namespace.privilege_display_names =
                 super::security::privilege_names::capture().map(std::sync::Arc::new);
+        }
+        if arm64_29708 && arch == WinArch::Arm64 {
             #[cfg(windows)]
             runtime.object_namespace.capture_lsa_authentication_event();
         }

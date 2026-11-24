@@ -3,7 +3,7 @@
 use super::exchange::{Response, put_word, word};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{LsarpcPolicies, LsarpcPolicyContext, ObjId};
-use crate::user::windows::security::privilege_names::{self, DisplayCatalog};
+use crate::user::windows::security::privilege_names::{self, DisplayCatalog, DisplayName};
 
 pub(super) const CALL: u32 = 0;
 pub(super) const NDR32_CALL_CONTEXT: u32 = 0;
@@ -74,11 +74,15 @@ pub(super) fn response_ndr32(
     request_type: u16,
     association: ObjId,
     contexts: &LsarpcPolicies,
+    display_names: Option<&DisplayCatalog>,
 ) -> Option<Response> {
     let mut response = match operation(payload, request_type, NDR32_CALL_CONTEXT)? {
         OPEN => open_ndr32(payload, association, contexts)?,
         LOOKUP_PRIVILEGE_VALUE => lookup_value_ndr32(payload, contexts)?,
         LOOKUP_PRIVILEGE_NAME => lookup_name_ndr32(payload, contexts)?,
+        LOOKUP_PRIVILEGE_DISPLAY_NAME => {
+            lookup_display_name_ndr32(payload, contexts, display_names)?
+        }
         CLOSE => close_ndr32(payload, contexts)?,
         _ => return None,
     };
@@ -212,14 +216,25 @@ fn lookup_value(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
 }
 
 fn lookup_value_ndr32(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
+    let (context, end) = lookup_name_input_ndr32(payload)?;
+    if end.next_multiple_of(4) != payload.len() {
+        return None;
+    }
+    Some(lookup_value_reply(
+        LOOKUP_NDR32_REPLY_BYTES,
+        context,
+        &payload[INPUT_NDR32_NAME_AT..end],
+        contexts,
+    ))
+}
+
+fn lookup_name_input_ndr32(payload: &[u8]) -> Option<(LsarpcPolicyContext, usize)> {
     if payload.len() < INPUT_NDR32_NAME_AT || payload[24..64].iter().any(|&byte| byte != 0) {
         return None;
     }
     let (length, maximum) = name_lengths(payload, 84)?;
-    let end = INPUT_NDR32_NAME_AT + length;
     // The classic deferred WCHAR array uses three 32-bit counts.
-    if end.next_multiple_of(4) != payload.len()
-        || word(payload, 88) == 0
+    if word(payload, 88) == 0
         || word(payload, 92) != (maximum / 2) as u32
         || word(payload, 96) != 0
         || word(payload, 100) != (length / 2) as u32
@@ -227,12 +242,7 @@ fn lookup_value_ndr32(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Respo
         return None;
     }
     let context = payload[64..84].try_into().expect("checked context extent");
-    Some(lookup_value_reply(
-        LOOKUP_NDR32_REPLY_BYTES,
-        context,
-        &payload[INPUT_NDR32_NAME_AT..end],
-        contexts,
-    ))
+    Some((context, INPUT_NDR32_NAME_AT + length))
 }
 
 fn lookup_value_reply(
@@ -334,10 +344,15 @@ fn lookup_name_ndr32(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Respon
         }
     };
     let units: Vec<u16> = name.encode_utf16().collect();
+    let end = RESULT_NDR32_NAME_AT + 2 * units.len();
+    let mut response = reply(end.next_multiple_of(4) + 4);
+    put_name_ndr32(&mut response.body, &units);
+    Some(response)
+}
+
+fn put_name_ndr32(body: &mut [u8], units: &[u16]) {
     let length = (2 * units.len()) as u16;
     let end = RESULT_NDR32_NAME_AT + usize::from(length);
-    let mut response = reply(end.next_multiple_of(4) + 4);
-    let body = &mut response.body;
     // Classic NDR uses 32-bit unique pointers and deferred array counts.
     put_word(body, 24, 0x20000);
     body[28..30].copy_from_slice(&length.to_le_bytes());
@@ -346,12 +361,11 @@ fn lookup_name_ndr32(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Respon
     put_word(body, 36, units.len() as u32 + 1);
     put_word(body, 44, units.len() as u32);
     for (unit, bytes) in units
-        .into_iter()
+        .iter()
         .zip(body[RESULT_NDR32_NAME_AT..end].chunks_exact_mut(2))
     {
         bytes.copy_from_slice(&unit.to_le_bytes());
     }
-    Some(response)
 }
 
 fn lookup_display_name(
@@ -360,21 +374,16 @@ fn lookup_display_name(
     names: Option<&DisplayCatalog>,
 ) -> Option<Response> {
     let (context, end) = lookup_name_input(payload)?;
-    if end + 4 != payload.len() {
-        return None;
-    }
-    if !contexts.contains(&context) {
-        return Some(display_error(STATUS_INVALID_HANDLE));
-    }
-    let Some(value) = decode_name(&payload[INPUT_NAME_AT..end]) else {
-        return Some(display_error(STATUS_NO_SUCH_PRIVILEGE));
+    let tail = payload.get(end..)?;
+    let display = match display_name(context, &payload[INPUT_NAME_AT..end], tail, contexts, names)?
+    {
+        Ok(display) => display,
+        Err(status) => {
+            let mut response = reply(72);
+            put_word(&mut response.body, 36, status);
+            return Some(response);
+        }
     };
-
-    let requested = [
-        u16::from_le_bytes([payload[end], payload[end + 1]]),
-        u16::from_le_bytes([payload[end + 2], payload[end + 3]]),
-    ];
-    let display = names?.get(value, requested)?;
     let end = RESULT_NAME_AT + 2 * display.units.len();
     let mut response = reply(end.next_multiple_of(4) + 40);
     put_name(&mut response.body, &display.units);
@@ -382,10 +391,56 @@ fn lookup_display_name(
     Some(response)
 }
 
-fn display_error(status: u32) -> Response {
-    let mut response = reply(72);
-    put_word(&mut response.body, 36, status);
-    response
+fn lookup_display_name_ndr32(
+    payload: &[u8],
+    contexts: &LsarpcPolicies,
+    names: Option<&DisplayCatalog>,
+) -> Option<Response> {
+    let (context, end) = lookup_name_input_ndr32(payload)?;
+    let tail = payload.get(end..)?;
+    let display = match display_name(
+        context,
+        &payload[INPUT_NDR32_NAME_AT..end],
+        tail,
+        contexts,
+        names,
+    )? {
+        Ok(display) => display,
+        Err(status) => {
+            let mut response = reply(36);
+            put_word(&mut response.body, 32, status);
+            return Some(response);
+        }
+    };
+    let end = RESULT_NDR32_NAME_AT + 2 * display.units.len();
+    // LanguageReturned is a 16-bit scalar followed by an aligned NTSTATUS.
+    let mut response = reply((end + 2).next_multiple_of(4) + 4);
+    put_name_ndr32(&mut response.body, &display.units);
+    response.body[end..end + 2].copy_from_slice(&display.language.to_le_bytes());
+    Some(response)
+}
+
+fn display_name<'a>(
+    context: LsarpcPolicyContext,
+    name: &[u8],
+    languages: &[u8],
+    contexts: &LsarpcPolicies,
+    names: Option<&'a DisplayCatalog>,
+) -> Option<Result<&'a DisplayName, u32>> {
+    let &[client_lo, client_hi, system_lo, system_hi] = languages else {
+        return None;
+    };
+    if !contexts.contains(&context) {
+        return Some(Err(STATUS_INVALID_HANDLE));
+    }
+    let Some(value) = decode_name(name) else {
+        return Some(Err(STATUS_NO_SUCH_PRIVILEGE));
+    };
+    let requested = [
+        u16::from_le_bytes([client_lo, client_hi]),
+        u16::from_le_bytes([system_lo, system_hi]),
+    ];
+    Some(Ok(names?.get(value, requested)?))
 }
 
 fn put_name(body: &mut [u8], units: &[u16]) {
