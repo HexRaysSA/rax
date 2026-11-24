@@ -3,6 +3,139 @@ use super::*;
 use crate::backend::intel_hvf_xsave::{Component, Layout};
 
 #[test]
+fn active_vm_entry_event_must_match_its_checkpoint_state() {
+    const IRQ: u64 = 0x8000_0040;
+    const NMI: u64 = 0x8000_0202;
+    const DB: u64 = 0x8000_0301;
+    const GP: u64 = 0x8000_0b0d;
+    const MC: u64 = 0x8000_0312;
+    const INT: u64 = 0x8000_0480;
+    const MTF: u64 = 0x8000_0700;
+    let mut mismatches = Vec::new();
+    for (name, info, error, length, activity, blocking, misc, accepts) in [
+        ("reserved event bit", IRQ | (1 << 12), 0, 0, 0, 0, 0, false),
+        ("reserved event type", 0x8000_0140, 0, 0, 0, 0, 0, false),
+        ("wrong NMI vector", NMI + 1, 0, 0, 0, 0, 0, false),
+        ("wrong exception vector", 0x8000_0320, 0, 0, 0, 0, 0, false),
+        ("wrong MTF vector", MTF + 1, 0, 0, 0, 0, 0, false),
+        (
+            "IRQ with an error code",
+            IRQ | (1 << 11),
+            0,
+            0,
+            0,
+            0,
+            0,
+            false,
+        ),
+        (
+            "exception error code overflow",
+            GP,
+            0x1_0000,
+            0,
+            0,
+            0,
+            0,
+            false,
+        ),
+        ("zero INT length", INT, 0, 0, 0, 0, 0, false),
+        ("INT length overflow", INT, 0, 16, 0, 0, 0, false),
+        ("IRQ in the STI shadow", IRQ, 0, 0, 0, 1, 0, false),
+        ("IRQ in the MOV SS shadow", IRQ, 0, 0, 0, 2, 0, false),
+        (
+            "blocked virtual NMI",
+            NMI,
+            0,
+            0,
+            0,
+            BLOCKING_BY_NMI,
+            0,
+            false,
+        ),
+        ("exception while halted", GP, 0, 0, 1, 0, 0, false),
+        ("IRQ in shutdown", IRQ, 0, 0, 2, 0, 0, false),
+        ("NMI waiting for SIPI", NMI, 0, 0, 3, 0, 0, false),
+        ("invalid activity state", IRQ, 0, 0, 4, 0, 0, false),
+        ("IRQ in HLT", IRQ, 0, 0, 1, 0, 0, true),
+        ("debug exception in HLT", DB, 0, 0, 1, 0, 0, true),
+        ("machine check in shutdown", MC, 0, 0, 2, 0, 0, true),
+        ("NMI in shutdown", NMI, 0, 0, 2, 0, 0, true),
+        ("pending MTF in HLT", MTF, 0, 0, 1, 0, 0, true),
+        ("valid exception payload", GP, 0xffff, 0, 0, 0, 0, true),
+        ("valid INT length", INT, 0, 15, 0, 0, 0, true),
+        ("zero INT length permitted", INT, 0, 0, 0, 0, 1 << 30, true),
+        (
+            "unused payloads",
+            IRQ,
+            0xffff_ffff,
+            0xffff_ffff,
+            0,
+            0,
+            0,
+            true,
+        ),
+        (
+            "nonpending slot",
+            0x001f_ff40,
+            0xffff_ffff,
+            0xffff_ffff,
+            3,
+            0,
+            0,
+            true,
+        ),
+    ] {
+        let mut saved = context();
+        saved.profile.capabilities.misc = misc;
+        saved
+            .profile
+            .controls
+            .iter_mut()
+            .find(|field| field.id == V::VMCS_CTRL_PIN_BASED as u32)
+            .unwrap()
+            .value = VIRTUAL_NMIS | NMI_EXITING;
+        for (id, value) in [
+            (V::VMCS_CTRL_PIN_BASED, VIRTUAL_NMIS | NMI_EXITING),
+            (V::VMCS_GUEST_CR0, 1),
+            (V::VMCS_GUEST_ACTIVITY_STATE, activity),
+            (V::VMCS_GUEST_INTERRUPTIBILITY_STATE, blocking),
+            (V::VMCS_CTRL_VMENTRY_IRQ_INFO, info),
+            (V::VMCS_CTRL_VMENTRY_EXCEPTION_ERROR, error),
+            (V::VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH, length),
+        ] {
+            saved
+                .vmcs
+                .iter_mut()
+                .find(|field| field.id == id as u32)
+                .unwrap()
+                .value = value;
+        }
+        saved
+            .registers
+            .iter_mut()
+            .find(|field| field.id == R::HV_X86_RFLAGS as u32)
+            .unwrap()
+            .value = 0x202;
+        refresh(&mut saved);
+        // Construct the bytes independently of encode() to test read admission
+        // for files produced before the event checks were present.
+        let mut raw = CPU_TAG.to_vec();
+        raw.extend(crate::codec::serialize_limited(&saved, CPU_LIMIT).unwrap());
+        let captured = saved.encode();
+        let decoded = Context::decode(&raw);
+        if captured.is_ok() != accepts || decoded.is_ok() != accepts {
+            mismatches.push((name, captured.err(), decoded.err()));
+        } else if accepts {
+            assert_eq!(decoded.unwrap().encode().unwrap(), raw, "{name}");
+        }
+    }
+    assert!(
+        mismatches.is_empty(),
+        "checkpoint admission: {mismatches:?}"
+    );
+}
+
+#[test]
 fn legacy_nmi_context_admission_preserves_a_queued_event_only_with_virtual_blocking() {
     let pin_id = V::VMCS_CTRL_PIN_BASED as u32;
     let entry_id = V::VMCS_CTRL_VMENTRY_IRQ_INFO as u32;

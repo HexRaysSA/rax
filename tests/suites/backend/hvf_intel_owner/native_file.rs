@@ -93,6 +93,18 @@ fn actual_vmm_files_restore_one_two_four_native_cpu_records_and_ram() {
         let mut vm = Vmm::new_resume(paths.config(count)).unwrap();
         set_distinct_native_state();
         vm.guest_mem().write_all(&[0x51; 4096]).unwrap();
+        {
+            let mut sdk = SDK.lock().unwrap();
+            for (&id, cpu) in &mut sdk.cpus {
+                cpu.registers.insert(1, 0x202); // RFLAGS.IF
+                if id == 0 {
+                    cpu.vmcs.insert(0x4016, 0x8000_0301); // #DB with STI blocking.
+                } else {
+                    cpu.vmcs.insert(0x4824, 0);
+                    cpu.vmcs.insert(0x4016, 0x8000_0040 + u64::from(id));
+                }
+            }
+        }
         let saved = vm.take_snapshot_bundle(0).unwrap();
         saved.save(&paths.checkpoint).unwrap();
         let loaded = SnapshotBundle::load(&paths.checkpoint).unwrap();
@@ -110,6 +122,7 @@ fn actual_vmm_files_restore_one_two_four_native_cpu_records_and_ram() {
                 cpu.fpstate[160..416].fill(0);
                 cpu.fpstate[576..832].fill(0);
                 cpu.vmcs.insert(0x4824, 0);
+                cpu.vmcs.insert(0x4016, 0);
             }
             sdk.tsc += 50_000;
         }
@@ -118,11 +131,58 @@ fn actual_vmm_files_restore_one_two_four_native_cpu_records_and_ram() {
         let restored = vm.take_snapshot_bundle(0).unwrap();
         assert_eq!(architectural_bytes(&restored), architectural_bytes(&saved));
         assert_eq!(vm.guest_mem().try_read_all().unwrap(), vec![0x51; 4096]);
+        for (&id, cpu) in &SDK.lock().unwrap().cpus {
+            let expected = if id == 0 {
+                0x8000_0301
+            } else {
+                0x8000_0040 + u64::from(id)
+            };
+            assert_eq!(cpu.vmcs[&0x4016], expected);
+        }
         drop(vm);
         let sdk = SDK.lock().unwrap();
         assert!(!sdk.live);
         assert_eq!(sdk.wrong_owner, 0);
     }
+}
+
+#[test]
+fn vmm_capture_rejects_a_blocked_queued_interrupt_on_the_last_cpu() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    reset_model();
+    let paths = Paths::new();
+    let vm = Vmm::new_resume(paths.config(2)).unwrap();
+    vm.guest_mem().write_all(&[0x51; 4096]).unwrap();
+    {
+        let mut sdk = SDK.lock().unwrap();
+        let cpu = sdk.cpus.get_mut(&1).unwrap();
+        cpu.registers.insert(1, 2); // RFLAGS.IF is clear.
+        cpu.vmcs.insert(0x4016, 0x8000_0041);
+    }
+    let error = vm
+        .take_snapshot_bundle(0)
+        .err()
+        .expect("the final CPU's blocked interrupt must prevent capture");
+    assert!(
+        error
+            .to_string()
+            .contains("queued VM-entry event is blocked"),
+        "{error}"
+    );
+    assert_eq!(vm.guest_mem().try_read_all().unwrap(), vec![0x51; 4096]);
+    {
+        let mut sdk = SDK.lock().unwrap();
+        let cpu = sdk.cpus.get_mut(&1).unwrap();
+        assert_eq!(cpu.vmcs[&0x4016], 0x8000_0041);
+        cpu.registers.insert(1, 0x202);
+    }
+    vm.take_snapshot_bundle(0)
+        .unwrap()
+        .save(&paths.checkpoint)
+        .unwrap();
+    drop(vm);
 }
 
 #[test]

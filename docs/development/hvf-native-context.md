@@ -62,6 +62,24 @@ their tag. Decoders reject unknown versions, truncated/trailing bytes, malformed
 field banks, invalid XCR0, and inconsistent pending transactions. These limits
 are distinct from the outer checkpoint section limits.
 
+### Queued VM-entry events
+
+Capture, decode, and destination admission validate an active VM-entry event
+against its saved guest state before any restore writes begin. An external
+interrupt requires RFLAGS.IF and no STI or MOV SS blocking. A virtual NMI
+requires no STI, MOV SS, or virtual-NMI blocking. HLT and shutdown admit only
+the event types permitted by Intel VMX. Wait-for-SIPI admits none. The checks
+also cover reserved event encodings and the active error-code and instruction-
+length payloads. The SDK does not expose `IA32_VMX_BASIC[56]` in the recorded
+profile, so the per-vector error-code matching controlled by that bit remains
+an SDK/VM-entry check. [Intel SDM Vol. 3C §§28.2.1.3, 28.3.1.4–5](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Dependent behavior | Validation probe |
+| --- | --- | --- |
+| A clear valid bit leaves the event inactive. | Inactive slot and unused payload values remain byte-for-byte compatible. | Decode and re-encode records with stale data in the inactive or unused fields. |
+| Guest activity and interruptibility constrain each queued event. | Capture and decode reject an incompatible record before restore. | Check NMI and IRQ blocking, HLT and shutdown exceptions, wait-for-SIPI, and valid versus reserved fields. |
+| The event belongs to the stopped CPU's VMCS. | A file restores each queued event to its original owner. | Save and restore 1, 2, and 4 CPUs with distinct queued events in the SDK model. |
+
 ## Publication and rollback
 
 The VM boundary excludes owner requests, IRQ-queue writes, CPU lifetime changes,

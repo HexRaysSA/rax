@@ -492,6 +492,7 @@ impl Context {
         bank(&self.vmcs, &self.profile.fields)?;
         bank(&self.msrs, MSRS)?;
         self.profile.check_controls(&self.vmcs, false)?;
+        self.validate_entry_event()?;
         self.profile.xsave.validate_image(&self.fp)?;
         if self.tpr > 255
             || self.msr(TSC_AUX)? >> 32 != 0
@@ -645,6 +646,71 @@ impl Context {
         }
         Ok(())
     }
+
+    fn validate_entry_event(&self) -> Result<()> {
+        const VALID: u64 = 1 << 31;
+        const DELIVER_ERROR: u64 = 1 << 11;
+        const ZERO_LENGTH_INJECTION: u64 = 1 << 30;
+        const UNRESTRICTED_GUEST: u64 = 1 << 7;
+        let info = self.vmcs(V::VMCS_CTRL_VMENTRY_IRQ_INFO as u32)?;
+        if info & VALID == 0 {
+            return Ok(());
+        }
+
+        // Intel SDM Vol. 3C §28.2.1.3 (event fields) and §28.3.1 (guest state).
+        let kind = (info >> 8) & 7;
+        let vector = info & 0xff;
+        let kind_and_vector_valid = match kind {
+            2 => vector == 2,
+            3 => vector <= 31,
+            7 => vector == 0 && (self.profile.capabilities.primary >> 32) & MONITOR_TRAP != 0,
+            _ => kind != 1,
+        };
+        if info & !(VALID | 0xfff) != 0 || !kind_and_vector_valid {
+            return Err(invalid("invalid queued VM-entry event information"));
+        }
+        if info & DELIVER_ERROR != 0 {
+            let unrestricted = self.vmcs(V::VMCS_CTRL_CPU_BASED2 as u32)? & UNRESTRICTED_GUEST != 0;
+            let real_address = self.vmcs(V::VMCS_GUEST_CR0 as u32)? & 1 == 0;
+            if kind != 3
+                || (unrestricted && real_address)
+                || self.vmcs(V::VMCS_CTRL_VMENTRY_EXCEPTION_ERROR as u32)? > u64::from(u16::MAX)
+            {
+                return Err(invalid("invalid queued VM-entry exception error code"));
+            }
+        }
+        if matches!(kind, 4..=6) {
+            let length = self.vmcs(V::VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH as u32)?;
+            if length > 15
+                || (length == 0 && self.profile.capabilities.misc & ZERO_LENGTH_INJECTION == 0)
+            {
+                return Err(invalid("invalid queued VM-entry instruction length"));
+            }
+        }
+
+        let activity = self.vmcs(V::VMCS_GUEST_ACTIVITY_STATE as u32)?;
+        let allowed = match activity {
+            0 => true,
+            1 => matches!((kind, vector), (0 | 2 | 7, _) | (3, 1 | 18)),
+            2 => matches!((kind, vector), (2, _) | (3, 18)),
+            _ => false,
+        };
+        if !allowed {
+            return Err(invalid(
+                "queued VM-entry event conflicts with guest activity",
+            ));
+        }
+        let blocking = self.vmcs(V::VMCS_GUEST_INTERRUPTIBILITY_STATE as u32)?;
+        let rflags = self.register(R::HV_X86_RFLAGS as u32)?;
+        if (matches!(kind, 0 | 2) && blocking & 3 != 0)
+            || (kind == 0 && rflags & (1 << 9) == 0)
+            || (kind == 2 && self.profile.virtual_nmis() && blocking & BLOCKING_BY_NMI != 0)
+        {
+            return Err(invalid("queued VM-entry event is blocked by guest state"));
+        }
+        Ok(())
+    }
+
     pub fn admit(
         &self,
         id: u32,

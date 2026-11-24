@@ -17,8 +17,8 @@ fn seed(id: u32, cache: u64) {
     cpu.vmcs.insert(0x6804, 0x40220);
     cpu.vmcs.insert(0x6006, 0x40220);
     cpu.vmcs.insert(0x2806, 0x500); // EFER.
-    cpu.vmcs.insert(0x4824, 3); // STI and MOV SS shadows.
-    cpu.vmcs.insert(0x4016, 0x8000_0051); // An accepted interrupt.
+    cpu.vmcs.insert(0x4824, 1); // STI shadow blocks an external interrupt.
+    cpu.vmcs.insert(0x4016, 0x8000_0b0d); // A queued #GP can enter through the shadow.
     cpu.vmcs.insert(0x6822, 1 << 14); // Pending single-step exception.
     cpu.vmcs.insert(0x482a, 0x10); // SYSENTER remains intact.
     cpu.vmcs.insert(0x6824, 0x8000);

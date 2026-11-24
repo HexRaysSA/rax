@@ -573,6 +573,8 @@ fn native_raw_record_restores_full_tpr_apic_role_and_pending_guest_event() {
     {
         let mut sdk = SDK.lock().unwrap();
         let native = sdk.cpus.values_mut().next().unwrap();
+        native.registers.insert(36, 1); // CR0.PE in the SDK register view.
+        native.vmcs.insert(0x6800, 1); // Protected-mode guest CR0.
         native.vmcs.insert(0x4016, 0x8000_0b0d); // queued #GP with error code
         native.vmcs.insert(0x4018, 0x20);
         native.vmcs.insert(0x401a, 0);
