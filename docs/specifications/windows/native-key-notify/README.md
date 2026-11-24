@@ -140,3 +140,24 @@ three-ABI observations to the shared replay. The initial thread observer's
 failed handle-count verdict remains separate from the successful unchanged
 repetitions. See [the build-29698 startup controls](../native-startup-build-29698/README.md)
 for the complete provenance, follow-up controls and limits of that result.
+
+## Windows 10.0.29708 ARM64 kernel
+
+The independent build-29708 capture exercised all six producers in ARM64,
+AMD64 compatibility and x86 compatibility processes. All 1,488 selected
+notification rows match the corresponding build-29698 rows field for field.
+The [build-29708 replay manifest](controls-arm64-29708-v1.json) records the
+raw report hashes and references those identical datasets. Replay uses the
+captured build and native machine to select the store recipe.
+
+Both full capture attempts reached the x86 thread probe's final handle-count
+check and returned 11. Three further runs of the same first-attempt executable
+produced identical notification rows. One had 83 handles before and after.
+The other two had 83 before and 85 after. The selected replay uses the
+unchanged-count sample. The remaining x86 producers passed with unchanged
+counts. The identities and cause of the additional handles are unknown.
+
+The profile is limited to build 29708 on an ARM64 kernel. A different
+notification row, store order or native machine would falsify reuse of this
+recipe. The replay covers startup admission and notification cleanup under
+the existing immutable-registry model.

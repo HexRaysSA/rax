@@ -27,6 +27,10 @@ pub(super) fn corpus() -> Json {
                 env!("CARGO_MANIFEST_DIR"),
                 "/docs/specifications/windows/native-startup-build-29698/notify-v1.json"
             )),
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/specifications/windows/native-key-notify/controls-arm64-29708-v1.json"
+            )),
         ]
         .into_iter()
         .map(str::to_owned)
@@ -48,6 +52,20 @@ pub(super) fn corpus() -> Json {
             }
         }
         for source in profile["reports"].as_array().unwrap() {
+            if let Some(reference) = profile.get("reference_kernel") {
+                let baseline = result["reports"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|report| {
+                        &report["kernel"] == reference
+                            && report["native_machine"] == profile["native_machine"]
+                            && report["architecture"] == source["architecture"]
+                    })
+                    .expect("referenced kernel and process ABI must precede this profile");
+                assert_eq!(source["datasets"], baseline["datasets"]);
+                assert_eq!(source["pointer_bytes"], baseline["pointer_bytes"]);
+            }
             let mut report = source.clone();
             report["kernel"] = profile["kernel"].clone();
             report["native_machine"] = profile["native_machine"].clone();

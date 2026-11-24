@@ -1,0 +1,201 @@
+{
+  "schema": "rax-native-key-notify-v1",
+  "state": "complete",
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "native_machine": 43620,
+  "reference_kernel": [
+    10,
+    0,
+    29698
+  ],
+  "source_hashes": {
+    "CMakeLists.txt": "92c73276757bcd8e1ac0cebfbaa3c96676fbd9bda3a0e0160b4efebad1adfc41",
+    "probe-completion-v5.c": "04c0cc51e8423b03d6744527fa7248d90988114fa18d46c88907d87d0c49fabe",
+    "probe-admission-v2.c": "090280bd9ffc5e0479c4bb70da083fe9142572aa145d5d30724b960f154b9ecf",
+    "probe-completion-stores-v6.c": "8644efffd3181f602c31af970edbc079ac858139f52a25281c68679d22a4f7c4",
+    "probe-flags-v4.c": "78c326c645e6ee956ab045e0e5f11c3e4157e4fc61b51edba1c98e0832afea6a",
+    "probe-lifetime-v1.c": "7339222b2667d8ec4a1363fcb017f751654c02be7fe9baabd7d5d54125421b44",
+    "probe-thread-v3.c": "f4e164172f3294f770570c9085b4666c6234eec1adad8058b294c21f328b5d38"
+  },
+  "datasets": {},
+  "reports": [
+    {
+      "architecture": "arm64",
+      "pointer_bytes": 8,
+      "datasets": {
+        "lifetime": "078f23b961ecd39a56bca97c616f7c3a6b209e1e49b12d20420c073ec12b015d",
+        "admission": "1e8c5aff7c547490d9013e97363beff63db9eecc486a0fc08375df48c81a5e16",
+        "thread": "6ad7a2342d6e5c25e87d020a741979302e2562bdf89495ac68b04ada9e6a5b9a",
+        "flags": "5b1a56b484a29dee1a07478f5d300b5b36a13083f65fe5a8e5340412881530bb",
+        "completion": "cdd73f1d1d33865f878ffb91c127928dc435fb3e582d3312fb4ceda4f160bd83",
+        "completion_stores": "dae026fa5488ed9b5dd5d708114cb01ad67f838b2ec771ce1942487d344a4c2d"
+      },
+      "handles": {
+        "lifetime": [
+          45,
+          45
+        ],
+        "admission": [
+          45,
+          45
+        ],
+        "thread": [
+          45,
+          45
+        ],
+        "flags": [
+          45,
+          45
+        ],
+        "completion": [
+          45,
+          45
+        ],
+        "completion_stores": [
+          45,
+          45
+        ]
+      },
+      "raw_report_sha256": {
+        "lifetime": "2741fdeca937cb986c2485a4a3ef96fdb8adfad81becd644f3525fd8b9badf35",
+        "admission": "b47f4a0817486bcc2bf8e1df00d83ed98aab631b225237b25e3da6c9644f232b",
+        "thread": "0929b88e11da6e8075d7abd8b2db1fe5ff24fd2b3cc36f9bd45c4c0a5991c144",
+        "flags": "cbe677fad6b744b07bdf49cecee523ccee21a6de2d577da676bdadfd5ea7bc37",
+        "completion": "68d1a4f9103b617c5c6439c8a4b4498e6fd8f04b417d868e3c69b8a760e91900",
+        "completion_stores": "1343dbac2297864b41223343463c73e8e3d38f2dd16534aa37ebf965928aa23b"
+      }
+    },
+    {
+      "architecture": "x64",
+      "pointer_bytes": 8,
+      "datasets": {
+        "lifetime": "078f23b961ecd39a56bca97c616f7c3a6b209e1e49b12d20420c073ec12b015d",
+        "admission": "1e8c5aff7c547490d9013e97363beff63db9eecc486a0fc08375df48c81a5e16",
+        "thread": "6ad7a2342d6e5c25e87d020a741979302e2562bdf89495ac68b04ada9e6a5b9a",
+        "flags": "5b1a56b484a29dee1a07478f5d300b5b36a13083f65fe5a8e5340412881530bb",
+        "completion": "cdd73f1d1d33865f878ffb91c127928dc435fb3e582d3312fb4ceda4f160bd83",
+        "completion_stores": "dae026fa5488ed9b5dd5d708114cb01ad67f838b2ec771ce1942487d344a4c2d"
+      },
+      "handles": {
+        "lifetime": [
+          61,
+          61
+        ],
+        "admission": [
+          61,
+          61
+        ],
+        "thread": [
+          61,
+          61
+        ],
+        "flags": [
+          61,
+          61
+        ],
+        "completion": [
+          61,
+          61
+        ],
+        "completion_stores": [
+          61,
+          61
+        ]
+      },
+      "raw_report_sha256": {
+        "lifetime": "8bc4a839ff817664b0ff3dde7694c258ad9b6731915277012f94b6b1b7137937",
+        "admission": "a4ccb87af16438dc562c881b45d8785a8e20cc38d3a48cf936bd1822112cd1bc",
+        "thread": "633f39f262ba95cf7110d98eba599fe63233edca41db79e5f05a2e8ad4543328",
+        "flags": "81e150136b98bd3e67de9432e46c6d303115a5f9410defdc636dc3a2918f53e7",
+        "completion": "a9b6febfd6e16b229d580749377dd3ad70d4b4561c7dd64f535469118e86d2cd",
+        "completion_stores": "dc24f2a73365efe227baea1b90b8971714ecd1b551d1cdcbad25cd41d45999e6"
+      }
+    },
+    {
+      "architecture": "x86",
+      "pointer_bytes": 4,
+      "datasets": {
+        "lifetime": "503197126c07b740be43bb5f529e335c35ada6e1989973f7cd38a39920028186",
+        "admission": "facccbb46db18b3b4366848c15085d6c8011236b8b8dc7c4a0cf529eeac176d9",
+        "thread": "4b1ab65edbd67c6e940cfa6de28c2ac83005f079b01264414ff7e52cc4e23e74",
+        "flags": "90b12f882c962f63ca8e17042f2429a41f3ac910ba4cc800e56083dd2d835e9b",
+        "completion": "b292cf2ce27cd9f9a99851c8ddcdcdf5196e8bbccfdd00839e33127f68d2b938",
+        "completion_stores": "4f3dcaf87cd2e2daf9dee6186400e117e9b210abadad24e758b0f9347ad94a75"
+      },
+      "handles": {
+        "lifetime": [
+          74,
+          74
+        ],
+        "admission": [
+          74,
+          74
+        ],
+        "thread": [
+          83,
+          83
+        ],
+        "flags": [
+          83,
+          83
+        ],
+        "completion": [
+          83,
+          83
+        ],
+        "completion_stores": [
+          83,
+          83
+        ]
+      },
+      "raw_report_sha256": {
+        "lifetime": "63b56f1648a010441a2c364f8c7179adae71fe537034515f01756368c01be232",
+        "admission": "b783767eb9a9a49306966b392f4313634934d62149134ec4030dd4d86e193ffe",
+        "thread": "350b01e428843d3fd063d293c1e3228050948e5fca9c28476347444e2b1a3f21",
+        "flags": "9a701e270523f63eeee61469df111cf5c968b677a3e656ff67dc3bd37f3f26c5",
+        "completion": "5706d2e44572441cabbdfccc5285f7a5c4a44d20fa84533da8a45733bc28d3d2",
+        "completion_stores": "74d3a19af5b96cf761a012ca1f3f1bc11819824f839f4327fcaca57466b581e4"
+      }
+    }
+  ],
+  "provenance": {
+    "observation_count": 1488,
+    "failed_capture_stderr_sha256": [
+      "79514d4ce8922514bcfb715b148559f563b5708f0a6ad580ab26546404e655ed",
+      "28f59982bcc651ea784ca519c4d8456d4a8cd6e39f8b2bddef523ee179b4eba2"
+    ],
+    "x86_supplement_image_sha256": {
+      "flags": "708915e55804b7ef1bea1e9059734ade2ff7a25a4c161c0c6bbfa41408877591",
+      "completion": "f6126bf7791eda11f8bf9b32cc5f01c5c8c1163ed03faed01a56c4bc085f04d2",
+      "completion_stores": "73518f4209eb86960cb5f93a2438fe5ad889c6102b3af4756c0604ade87d49f7",
+      "thread": "aadaba05ddb970d0eaeef060b0b58c819d49da59bf490019d7ca649d66d5654d"
+    },
+    "x86_thread_repetitions": [
+      {
+        "handles": [
+          83,
+          83
+        ],
+        "raw_report_sha256": "350b01e428843d3fd063d293c1e3228050948e5fca9c28476347444e2b1a3f21"
+      },
+      {
+        "handles": [
+          83,
+          85
+        ],
+        "raw_report_sha256": "c3e91d2798bd90e3498a9adafbcd3ce79ae1d7db1d332638d9c66f614312fa6a"
+      },
+      {
+        "handles": [
+          83,
+          85
+        ],
+        "raw_report_sha256": "c3e91d2798bd90e3498a9adafbcd3ce79ae1d7db1d332638d9c66f614312fa6a"
+      }
+    ]
+  }
+}
