@@ -489,6 +489,27 @@ fn native_file_open_closed_system_drive_lists_only_guest_directories() {
         let mut h = Harness::new(arch);
         let installed = selection(&mut h);
         std::fs::create_dir(installed.join("foreign")).unwrap();
+        let native = h.process.state_mut().native.as_mut().unwrap();
+        let (reported_system, installed_system) = if arch == WinArch::X86 {
+            ("syswow64", "SysWOW64")
+        } else {
+            ("system32", "System32")
+        };
+        native.guest_root = r"C:\WINDOWS".into();
+        native.guest_directory = format!(r"C:\WINDOWS\{reported_system}");
+        // Model the normalized DOS spelling returned by Windows
+        // canonicalization. A different target must not rename guest entries.
+        let (captured_parent, windows_entry, system_entry) = if arch == WinArch::X64 {
+            (r"D:\Other", "WINDOWS", reported_system)
+        } else {
+            (r"C:\Windows", "Windows", installed_system)
+        };
+        native.directory = PathBuf::from(format!(r"\\?\{captured_parent}\{installed_system}"));
+        let utf16 = |name: &str| {
+            name.encode_utf16()
+                .flat_map(u16::to_le_bytes)
+                .collect::<Vec<_>>()
+        };
         let output = h.base;
         let io = h.base + PAGE_SIZE;
         let attrs = h.attrs();
@@ -506,10 +527,7 @@ fn native_file_open_closed_system_drive_lists_only_guest_directories() {
         assert_eq!(space.u32(output).unwrap(), 0);
         assert_eq!(space.u32(output + 56).unwrap(), 0x10);
         assert_eq!(space.u32(output + 60).unwrap(), 14);
-        assert_eq!(
-            space.bytes(output + 94, 14).unwrap(),
-            b"W\0i\0n\0d\0o\0w\0s\0"
-        );
+        assert_eq!(space.bytes(output + 94, 14).unwrap(), utf16(windows_entry));
         assert_eq!(
             h.invoke_api("NtQueryDirectoryFileEx", &scan),
             STATUS_NO_MORE_FILES
@@ -533,17 +551,7 @@ fn native_file_open_closed_system_drive_lists_only_guest_directories() {
             STATUS_SUCCESS
         );
         let space = &h.process.state().space;
-        let utf16 = |name: &str| {
-            name.encode_utf16()
-                .flat_map(u16::to_le_bytes)
-                .collect::<Vec<_>>()
-        };
-        let first = if arch == WinArch::X86 {
-            "SysWOW64"
-        } else {
-            "System32"
-        };
-        assert_eq!(space.bytes(output + 12, 16).unwrap(), utf16(first));
+        assert_eq!(space.bytes(output + 12, 16).unwrap(), utf16(system_entry));
         let next = u64::from(space.u32(output).unwrap());
         if arch == WinArch::X86 {
             assert_ne!(next, 0);

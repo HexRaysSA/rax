@@ -3872,6 +3872,14 @@ describes the two installed NT calls, eight admitted classes, retained cursor
 ownership and matching native CMD controls. Asynchronous scheduling and APC
 delivery remain active work.
 
+The closed installed drive lists the admitted Windows and system directories
+using their normalized filesystem spelling when it matches the selected DOS
+path under the guest upcase table. This keeps directory-entry spelling distinct
+from the strings returned by the installed system-directory APIs. On Windows
+11 ARM64 build 29708, the installed ARM64 path APIs and `where.exe cmd.exe`
+match native stdout, stderr and exit status. The installed WoW64 `where.exe`
+matches under the supported desktop session on the same build.
+
 ### Fixed process startup registry configuration
 
 Installed process startup snapshots named values under the RPC configuration and
