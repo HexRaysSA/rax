@@ -359,6 +359,47 @@ fn native_lsarpc_classic_privilege_lookup_uses_a_live_local_context() {
         );
     }
 
+    for (low, name) in [(23, "SeChangeNotifyPrivilege"), (34, "SeTimeZonePrivilege")] {
+        let mut request = lookup_name(8, context, low, 0);
+        write_word(&mut request, 16, 0);
+        let (outcome, status, response) = exchange(p, &mut thread, [base, port, 0, 4096], &request);
+        assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
+        let units: Vec<u16> = name.encode_utf16().collect();
+        let length = (2 * units.len()) as u32;
+        let end = 48 + length as usize;
+        let mut expected = vec![0; end.next_multiple_of(4) + 4];
+        for (offset, value) in [
+            (0, 3),
+            (12, 8),
+            (24, 0x20000),
+            (28, ((length + 2) << 16) | length),
+            (32, 0x20004),
+            (36, units.len() as u32 + 1),
+            (44, units.len() as u32),
+        ] {
+            write_word(&mut expected, offset, value);
+        }
+        for (bytes, unit) in expected[48..end].chunks_exact_mut(2).zip(units) {
+            bytes.copy_from_slice(&unit.to_le_bytes());
+        }
+        assert_eq!(response, expected);
+    }
+    for (target, low, high, expected) in [
+        (port, 0, 0, 0xc000_0060),
+        (port, 23, 1, 0xc000_0060),
+        (foreign_port, 23, 0, STATUS_INVALID_HANDLE),
+    ] {
+        let mut request = lookup_name(9, context, low, high);
+        write_word(&mut request, 16, 0);
+        let (outcome, status, response) =
+            exchange(p, &mut thread, [base, target, 0, 4096], &request);
+        assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
+        assert_eq!(response.len(), 32);
+        assert_eq!(word(&response, 12), 9);
+        assert_eq!(word(&response, 24), 0);
+        assert_eq!(word(&response, 28), expected);
+    }
+
     let mut invalid = lookup_ndr32(5, context, "SeDebugPrivilege");
     write_word(&mut invalid, 100, 4096);
     let (outcome, _, _) = exchange(p, &mut thread, [base, port, 0, 4096], &invalid);
@@ -376,6 +417,11 @@ fn native_lsarpc_classic_privilege_lookup_uses_a_live_local_context() {
     let (outcome, status, response) = exchange(p, &mut thread, [base, port, 0, 4096], &request);
     assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
     assert_eq!(word(&response, 32), STATUS_INVALID_HANDLE);
+    let mut request = lookup_name(10, context, 23, 0);
+    write_word(&mut request, 16, 0);
+    let (outcome, status, response) = exchange(p, &mut thread, [base, port, 0, 4096], &request);
+    assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
+    assert_eq!(word(&response, 28), STATUS_INVALID_HANDLE);
 }
 
 #[test]

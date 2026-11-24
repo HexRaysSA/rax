@@ -18,6 +18,7 @@ const REPLY: u32 = 3;
 const RPC_HEADER_BYTES: usize = 24;
 const INPUT_NDR32_NAME_AT: usize = 104;
 const INPUT_NAME_AT: usize = 128;
+const RESULT_NDR32_NAME_AT: usize = 48;
 const RESULT_NAME_AT: usize = 72;
 const CLOSE_NDR32_REPLY_BYTES: usize = 48;
 const CLOSE_REPLY_BYTES: usize = 92;
@@ -77,6 +78,7 @@ pub(super) fn response_ndr32(
     let mut response = match operation(payload, request_type, NDR32_CALL_CONTEXT)? {
         OPEN => open_ndr32(payload, association, contexts)?,
         LOOKUP_PRIVILEGE_VALUE => lookup_value_ndr32(payload, contexts)?,
+        LOOKUP_PRIVILEGE_NAME => lookup_name_ndr32(payload, contexts)?,
         CLOSE => close_ndr32(payload, contexts)?,
         _ => return None,
     };
@@ -293,19 +295,20 @@ fn decode_name(bytes: &[u8]) -> Option<u32> {
         .and_then(privilege_names::value)
 }
 
-fn lookup_name(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
+fn privilege_name(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Result<&'static str, u32>> {
     if payload.len() != 92 || payload[24..64].iter().any(|&b| b != 0) {
         return None;
     }
     let context = payload[64..84].try_into().expect("checked context extent");
-    let result = if !contexts.contains(&context) {
+    Some(if !contexts.contains(&context) {
         Err(STATUS_INVALID_HANDLE)
     } else {
-        let low = word(payload, 84);
-        let high = word(payload, 88);
-        privilege_names::name(low, high).ok_or(STATUS_NO_SUCH_PRIVILEGE)
-    };
-    let name = match result {
+        privilege_names::name(word(payload, 84), word(payload, 88)).ok_or(STATUS_NO_SUCH_PRIVILEGE)
+    })
+}
+
+fn lookup_name(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
+    let name = match privilege_name(payload, contexts)? {
         Ok(name) => name,
         Err(status) => {
             let mut response = reply(40);
@@ -318,6 +321,36 @@ fn lookup_name(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
     let end = RESULT_NAME_AT + 2 * units.len();
     let mut response = reply(end.next_multiple_of(4) + 8);
     put_name(&mut response.body, &units);
+    Some(response)
+}
+
+fn lookup_name_ndr32(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
+    let name = match privilege_name(payload, contexts)? {
+        Ok(name) => name,
+        Err(status) => {
+            let mut response = reply(32);
+            put_word(&mut response.body, 28, status);
+            return Some(response);
+        }
+    };
+    let units: Vec<u16> = name.encode_utf16().collect();
+    let length = (2 * units.len()) as u16;
+    let end = RESULT_NDR32_NAME_AT + usize::from(length);
+    let mut response = reply(end.next_multiple_of(4) + 4);
+    let body = &mut response.body;
+    // Classic NDR uses 32-bit unique pointers and deferred array counts.
+    put_word(body, 24, 0x20000);
+    body[28..30].copy_from_slice(&length.to_le_bytes());
+    body[30..32].copy_from_slice(&(length + 2).to_le_bytes());
+    put_word(body, 32, 0x20004);
+    put_word(body, 36, units.len() as u32 + 1);
+    put_word(body, 44, units.len() as u32);
+    for (unit, bytes) in units
+        .into_iter()
+        .zip(body[RESULT_NDR32_NAME_AT..end].chunks_exact_mut(2))
+    {
+        bytes.copy_from_slice(&unit.to_le_bytes());
+    }
     Some(response)
 }
 
