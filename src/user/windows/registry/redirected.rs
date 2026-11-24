@@ -39,6 +39,16 @@ pub(crate) enum ViewRoot {
     ProcessConfig(ProcessConfigKey),
 }
 
+impl ViewRoot {
+    fn admits_suffix(self, suffix: &[u16]) -> bool {
+        !matches!(
+            self,
+            Self::ProcessConfig(subject)
+                if !suffix.is_empty() && !subject.captures_child_membership()
+        )
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RegistryViews {
     pub(super) roots: BTreeMap<(ViewRoot, RegistryView), Option<Arc<Key>>>,
@@ -66,9 +76,7 @@ impl RegistryViews {
                 && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
             {
                 let suffix = &normalized[prefix.len()..];
-                // Fixed process configuration headers own exact absolute
-                // names. A child can be an independently captured subject.
-                if matches!(selected, ViewRoot::ProcessConfig(_)) && !suffix.is_empty() {
+                if !selected.admits_suffix(suffix) {
                     continue;
                 }
                 return self.lookup_selected(selected, view, suffix);
@@ -126,7 +134,7 @@ impl RegistryViews {
                     && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
                 {
                     let suffix = &normalized[prefix.len()..];
-                    if matches!(kind, ViewRoot::ProcessConfig(_)) && !suffix.is_empty() {
+                    if !kind.admits_suffix(suffix) {
                         continue;
                     }
                     return root.relative(suffix);

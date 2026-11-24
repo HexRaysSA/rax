@@ -59,6 +59,14 @@ pub(super) fn stable_bounded(
     stable_with_values(key, budget, reserved, key_limit, values)
 }
 
+pub(super) fn stable_child_membership(
+    key: &OwnedKey,
+    budget: &ValueBudget,
+) -> io::Result<Vec<BasicChild>> {
+    stable_with_values(key, budget, 0, MAX_TREE_KEYS, |_, _, _| Ok(Vec::new()))
+        .map(|(_, children)| children)
+}
+
 pub(super) fn stable_ordered_values(
     key: &OwnedKey,
     budget: &ValueBudget,

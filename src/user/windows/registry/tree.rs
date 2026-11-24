@@ -428,7 +428,11 @@ impl Key {
                 }
             }
             let Some(children) = &key.subkeys else {
-                return if key.children == 0 || key.current_version_missing_child(component) {
+                return if key.children == 0
+                    && (key.open_denial.is_none() || !key.uses_winsock_catalog_membership())
+                    || key.current_version_missing_child(component)
+                    || key.knows_winsock_child_absent(&folded)
+                {
                     Lookup::Missing
                 } else {
                     Lookup::Unselected

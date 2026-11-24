@@ -345,7 +345,7 @@ impl Registry {
             Ok((header, children)) => {
                 if let SnapshotRoot::ProcessConfig(subject) = root {
                     if children.is_some()
-                        || header.enumeration.is_some()
+                        || header.enumeration.is_some() && !subject.captures_child_membership()
                         || !subject.accepts_values(view, &header.values)
                         || header.values.iter().any(|value| {
                             !process_config::covers_name(

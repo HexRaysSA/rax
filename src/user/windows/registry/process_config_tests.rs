@@ -316,6 +316,48 @@ fn winsock_app_id_catalog_preserves_absence_and_rejects_a_different_physical_par
 }
 
 #[test]
+fn winsock_app_id_catalog_resolves_only_proven_missing_children() {
+    let subject = ProcessConfigKey::WinsockAppIdCatalog;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let logical = subject.path();
+    let physical = logical.replace("CurrentControlSet", "ControlSet001");
+    let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        let mut header = header(&physical, vec![]);
+        header.children = 1;
+        header.enumeration = Some(vec![BasicChild {
+            name: units("1234ABCD"),
+            last_write: 1,
+        }]);
+        registry = registry
+            .with_snapshot_selection(root, &[], view, Ok((header, None)))
+            .unwrap();
+        let Lookup::Present(key) = registry.lookup_view(&units(logical), view) else {
+            panic!("Winsock application-ID catalog did not resolve");
+        };
+        assert!(key.child_metadata().is_none());
+        for name in ["1234abcd", r"1234ABCD\Child"] {
+            assert!(matches!(key.relative(&units(name)), Lookup::Unselected));
+            for path in [logical, &physical] {
+                assert!(matches!(
+                    registry.lookup_view(&units(&format!(r"{path}\{name}")), view),
+                    Lookup::Unselected
+                ));
+            }
+        }
+        for name in ["8765FEDC", r"8765FEDC\Child"] {
+            assert!(matches!(key.relative(&units(name)), Lookup::Missing));
+            for path in [logical, &physical] {
+                assert!(matches!(
+                    registry.lookup_view(&units(&format!(r"{path}\{name}")), view),
+                    Lookup::Missing
+                ));
+            }
+        }
+    }
+}
+
+#[test]
 fn process_config_machine_appcompat_flags_projects_only_native_log_flags() {
     let subject = ProcessConfigKey::MachineAppCompatFlags;
     let root = SnapshotRoot::ProcessConfig(subject);

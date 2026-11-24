@@ -11,6 +11,10 @@ pub(crate) struct BasicChild {
 
 impl Key {
     pub(crate) fn child_metadata(&self) -> Option<&[BasicChild]> {
+        // This catalog uses its complete names only to resolve absence.
+        if self.uses_winsock_catalog_membership() {
+            return None;
+        }
         self.enumeration.as_deref()
     }
 }

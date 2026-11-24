@@ -22,7 +22,7 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
                 Ok(key) => {
                     let canonical = canonical_hive_name(&key, subject.label())?;
                     subject.check_name(&registry, view, &canonical)?;
-                    capture_header(subject, &key, canonical, || {
+                    capture_header(&registry, subject, &key, canonical, || {
                         capture_values(&key, subject.values())
                     })?
                     .map(|header| (header, None))
@@ -55,7 +55,7 @@ fn capture_disabled_extensions(registry: Registry) -> io::Result<Registry> {
     };
     let canonical = canonical_hive_name(&key, subject.label())?;
     subject.check_name(&registry, view, &canonical)?;
-    let Ok(header) = capture_header(subject, &key, canonical, || {
+    let Ok(header) = capture_header(&registry, subject, &key, canonical, || {
         capture_values_with(&key, || Ok(disabled_extension_flag(&key)))
     })?
     else {
@@ -97,6 +97,7 @@ fn disabled_extension_flag(key: &OwnedKey) -> Vec<Value> {
 }
 
 fn capture_header(
+    registry: &Registry,
     subject: ProcessConfigKey,
     key: &OwnedKey,
     canonical: Vec<u16>,
@@ -106,7 +107,17 @@ fn capture_header(
     if access.maximum_access & 1 == 0 {
         return Ok(Err(STATUS_ACCESS_DENIED));
     }
-    let (children, values) = values()?;
+    const KEY_ENUMERATE_SUB_KEYS: u32 = 0x0008;
+    let (children, values, enumeration) = if subject.captures_child_membership()
+        && access.maximum_access & KEY_ENUMERATE_SUB_KEYS != 0
+    {
+        let entries =
+            super::key_enumeration::stable_child_membership(key, &registry.value_budget()?)?;
+        (entries.len() as u32, Vec::new(), Some(entries))
+    } else {
+        let (children, values) = values()?;
+        (children, values, None)
+    };
     if canonical_hive_name(key, subject.label())? != canonical
         || super::native_key::basic(key, subject.label())? != access.maximum_access
     {
@@ -115,7 +126,7 @@ fn capture_header(
     Ok(Ok(CommandHeader {
         canonical,
         children,
-        enumeration: None,
+        enumeration,
         access,
         values,
     }))

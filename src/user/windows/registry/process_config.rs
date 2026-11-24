@@ -108,6 +108,10 @@ impl ProcessConfigKey {
         }
     }
 
+    pub(super) fn captures_child_membership(self) -> bool {
+        self == Self::WinsockAppIdCatalog
+    }
+
     pub(super) fn link_children(
         self,
         registry: &Registry,
@@ -185,6 +189,29 @@ impl ProcessConfigKey {
             "{} canonical name is outside fixed selection",
             self.label()
         )))
+    }
+}
+
+impl Key {
+    pub(super) fn uses_winsock_catalog_membership(&self) -> bool {
+        self.logical_path.as_deref().is_some_and(|path| {
+            path.iter()
+                .copied()
+                .eq(ProcessConfigKey::WinsockAppIdCatalog.path().encode_utf16())
+        })
+    }
+
+    pub(super) fn knows_winsock_child_absent(&self, folded: &[u16]) -> bool {
+        self.uses_winsock_catalog_membership()
+            && self.enumeration.as_ref().is_some_and(|entries| {
+                !entries.iter().any(|child| {
+                    child
+                        .name
+                        .iter()
+                        .map(|&u| self.upcase[usize::from(u)])
+                        .eq(folded.iter().copied())
+                })
+            })
     }
 }
 
