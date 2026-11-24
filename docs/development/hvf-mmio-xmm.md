@@ -996,3 +996,17 @@ run qualifies result bytes and flags only. The physical Intel Linux
 host was unreachable from this session. The observation stream
 SHA-256 is
 `aa082edda24bed64dc24b8231e35223bfd3920477c2771173bd8cbc59370b44c`.
+
+The hosted Intel job at `bd7f3ffcbe978b67fa7b0a1ba321f6308f7aa7f4`
+passed all 364 cases. The untranslated Intel process ran inside a macOS
+15.7.9 VM (build 24G830). All 176 direct and 176 reconstructed-owner
+destination signatures matched the independent RAM run. The 12 legacy
+misalignment cases reported guest #GP(0) at RIP `0x10000`. Bare-metal
+Intel macOS remains unverified.
+[Hosted minimum and maximum execution](https://github.com/HexRaysSA/rax/actions/runs/45318040784/job/138189559507)
+
+Verification checked both artifact ZIP digests against GitHub metadata,
+the Hypervisor entitlement, the executable signature, and the hashes of
+4,921 engine input paths and 20 consumer input paths at the tested
+revision. The 364-row execution stream SHA-256 is
+`63b3cc22c31f61b36670b876d3ed59d687347ed1aab638f74bb035d7b3d03a45`.
