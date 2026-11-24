@@ -31,16 +31,15 @@ fn ins_common(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, size: u8) -> Result<
 
     vcpu.check_io_permission(port, size)?;
 
-    // `rep ins` is emulated one element per VM exit: each iteration performs the
-    // port input into ES:[RDI], advances RDI by the operand size (honoring DF),
-    // and decrements RCX. The instruction is only retired (RIP advanced) once
-    // RCX reaches zero; until then RIP is left pointing at the same instruction
-    // so it re-executes for the next element. This keeps each port read a
-    // discrete `IoIn` exit, matching hardware semantics where every string
-    // element is an individual port access (a batched fast path is invisible to
-    // FIFO-style devices and to consumers that count discrete port reads).
-    // ES:[RDI]: ES's base outside 64-bit mode (get_segment_base), wrapped.
     let addr = vcpu.segment_linear(vcpu.get_segment_base(Some(0x26)), di_addr(vcpu, addr_size));
+    // Intel SDM Vol. 2, INS: check the entire destination before issuing the
+    // port read so a write fault leaves the current element restartable.
+    vcpu.mmu
+        .preflight_operand_write(addr, usize::from(size), &vcpu.sregs)?;
+
+    // Issue one port read per element. The VMM completes the store before
+    // the next element runs. RIP stays at this instruction while REP has
+    // elements left.
     vcpu.set_io_pending_mem(port, size, addr);
     update_di(vcpu, addr_size, size, df);
 

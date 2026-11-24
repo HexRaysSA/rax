@@ -180,6 +180,75 @@ fn legacy_input_requires_a_queued_request_for_machine_resume() {
 }
 
 #[test]
+fn string_input_fault_preserves_the_completed_rep_prefix_and_issues_no_new_read() {
+    let (mut vcpu, memory) = cpu(&[0xf3, 0x6d, 0xf4]); // REP INSW; HLT
+    for (address, entry) in [(0x3000, 0x4003u32), (0x4000, 0x0003), (0x4004, 0x1003)] {
+        memory
+            .write_slice(&entry.to_le_bytes(), GuestAddress(address))
+            .unwrap();
+    }
+    vcpu.sregs.cr0 = 0x8001_0001; // PG, WP, PE
+    vcpu.sregs.cr3 = 0x3000;
+    vcpu.regs.rdi = 0x1ffd;
+    vcpu.regs.rcx = 2;
+    vcpu.regs.rdx = 0x80;
+    memory
+        .write_slice(&[0xcc; 3], GuestAddress(0x1ffd))
+        .unwrap();
+
+    assert!(matches!(
+        vcpu.step_insn().unwrap(),
+        Some(VcpuExit::IoIn {
+            port: 0x80,
+            size: 2
+        })
+    ));
+    vcpu.complete_io_in(&[0x9a, 0x87]);
+    let before = (vcpu.regs.rip, vcpu.regs.rdi, vcpu.regs.rcx, vcpu.insn_count);
+    assert_eq!((before.0, before.1, before.2), (0x100, 0x1fff, 1));
+
+    // Second element crosses into an absent page, then into a present but
+    // read-only page. Both faults must precede the I/O exit and retirement.
+    for (pte, error_code) in [(0, 2), (0x2001u32, 3)] {
+        memory
+            .write_slice(&pte.to_le_bytes(), GuestAddress(0x4008))
+            .unwrap();
+        let result = vcpu.step();
+        assert!(
+            matches!(result, Err(Error::PageFault { vaddr: 0x2000, error_code: code }) if code == error_code),
+            "{result:?}"
+        );
+        assert_eq!(
+            (vcpu.regs.rip, vcpu.regs.rdi, vcpu.regs.rcx, vcpu.insn_count),
+            before
+        );
+        assert!(vcpu.pending_software_port_io().unwrap().is_none());
+        let mut bytes = [0; 3];
+        memory.read_slice(&mut bytes, GuestAddress(0x1ffd)).unwrap();
+        assert_eq!(bytes, [0x9a, 0x87, 0xcc]);
+    }
+
+    memory
+        .write_slice(&0x2003u32.to_le_bytes(), GuestAddress(0x4008))
+        .unwrap();
+    assert!(matches!(
+        vcpu.step_insn().unwrap(),
+        Some(VcpuExit::IoIn {
+            port: 0x80,
+            size: 2
+        })
+    ));
+    vcpu.complete_io_in(&[0x65, 0x43]);
+    assert_eq!(
+        (vcpu.regs.rip, vcpu.regs.rdi, vcpu.regs.rcx),
+        (0x102, 0x2001, 0)
+    );
+    let mut bytes = [0; 4];
+    memory.read_slice(&mut bytes, GuestAddress(0x1ffd)).unwrap();
+    assert_eq!(bytes, [0x9a, 0x87, 0x65, 0x43]);
+}
+
+#[test]
 fn repeated_string_input_restores_the_exact_pending_destination_in_both_directions() {
     for backward in [false, true] {
         let (mut source, memory) = cpu(&[0xf3, 0x6c, 0xf4]);

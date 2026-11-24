@@ -935,7 +935,17 @@ impl Mmu {
                 "write range wraps the linear-address space at {vaddr:#x}"
             )));
         }
+        self.preflight_operand_write(vaddr, len, sregs)
+    }
 
+    /// Check the pages and physical backing of one store using the same
+    /// address progression as the actual write.
+    pub(super) fn preflight_operand_write(
+        &mut self,
+        vaddr: u64,
+        len: usize,
+        sregs: &SystemRegisters,
+    ) -> Result<()> {
         let mut current = vaddr;
         let mut remaining = len;
         while remaining != 0 {
