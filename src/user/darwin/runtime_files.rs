@@ -1,6 +1,6 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type database,
-//! and installed Perl modules.
+//! and installed Perl and Ruby modules.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -28,6 +28,17 @@ const OPENSSL_TEMPLATE: &str = "System/Library/Templates/Data/private/etc/ssl/op
 const SHELL_SELECTOR: &str = "/private/var/select/sh";
 
 #[cfg(any(target_os = "macos", test))]
+// The installed Ruby configuration launches uname and /bin/sh. The shell
+// wrapper recognizes only these installed interpreter paths.
+const RUNTIME_PROGRAMS: [&str; 5] = [
+    "/usr/bin/uname",
+    "/bin/sh",
+    "/bin/bash",
+    "/bin/dash",
+    "/bin/zsh",
+];
+
+#[cfg(any(target_os = "macos", test))]
 const ZONEINFO_PATHS: [&str; 2] = ["/var/db/timezone/zoneinfo", "/usr/share/zoneinfo"];
 
 #[cfg(any(target_os = "macos", test))]
@@ -35,6 +46,9 @@ const LOCALE_ROOT: &str = "/usr/share/locale";
 
 #[cfg(any(target_os = "macos", test))]
 const PERL_ROOT: &str = "/System/Library/Perl";
+
+#[cfg(any(target_os = "macos", test))]
+const RUBY_VERSIONS: &str = "/System/Library/Frameworks/Ruby.framework/Versions";
 
 /// Public kernel version strings collected when selecting the installed runtime.
 #[derive(Clone, Debug)]
@@ -101,6 +115,7 @@ pub(super) fn native_for_executable(files: &Files, executable: Option<&str>) -> 
     {
         let root = std::path::Path::new("/");
         let selected = select_native_root(files, root)?;
+        let selected = select_runtime_programs(selected, root, executable)?;
         select_shell_variant(selected, root, executable)
     }
     #[cfg(not(target_os = "macos"))]
@@ -153,6 +168,7 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         "/System/Library/PrivateFrameworks",
         // Perl installs its dylib beside its versioned language runtime.
         PERL_ROOT,
+        RUBY_VERSIONS,
         "/System/Cryptexes/OS/usr/lib",
         "/System/Cryptexes/OS/System/Library/Perl",
         "/System/Volumes/Preboot/Cryptexes/OS/usr/lib",
@@ -177,7 +193,7 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
     let files = files.with_native_library_roots(
         roots,
         Some(accept_runtime_file),
-        &[LOCALE_ROOT, PERL_ROOT],
+        &[LOCALE_ROOT, PERL_ROOT, RUBY_VERSIONS],
     )?;
     crate::user::supplied_fs::timezone::select_default(files, root)
 }
@@ -194,6 +210,19 @@ fn accept_runtime_file(guest: &str, file: &std::fs::File) -> io::Result<bool> {
             return Ok(true);
         }
         if module.ends_with(".bundle") && module.split('/').any(|part| part == "auto") {
+            return dylibs::accept(file, MH_BUNDLE);
+        }
+    }
+    if let Some((_, module)) = guest
+        .strip_prefix(RUBY_VERSIONS)
+        .and_then(|tail| tail.strip_prefix('/'))
+        .and_then(|path| path.split_once("/usr/lib/ruby/"))
+        .filter(|(version, _)| !version.contains('/'))
+    {
+        if module.ends_with(".rb") || module.ends_with(".gemspec") {
+            return Ok(true);
+        }
+        if module.ends_with(".bundle") {
             return dylibs::accept(file, MH_BUNDLE);
         }
     }
@@ -241,23 +270,42 @@ fn select_system_file(files: Files, path: &str, host: &std::path::Path) -> io::R
 }
 
 #[cfg(any(target_os = "macos", test))]
+fn overlaps_executable(path: &str, executable: Option<&str>) -> bool {
+    let descends = |child: &str, parent: &str| {
+        child
+            .strip_prefix(parent)
+            .is_some_and(|tail| tail.starts_with('/'))
+    };
+    // The main executable is inserted after native runtime selection.
+    executable.is_some_and(|image| image == path || descends(image, path) || descends(path, image))
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn select_runtime_programs(
+    mut files: Files,
+    root: &std::path::Path,
+    executable: Option<&str>,
+) -> io::Result<Files> {
+    for program in RUNTIME_PROGRAMS {
+        if !overlaps_executable(program, executable) {
+            files =
+                select_system_file(files, program, &root.join(program.trim_start_matches('/')))?;
+        }
+    }
+    Ok(files)
+}
+
+#[cfg(any(target_os = "macos", test))]
 fn select_shell_variant(
     files: Files,
     root: &std::path::Path,
     executable: Option<&str>,
 ) -> io::Result<Files> {
-    let descends = |path: &str, parent: &str| {
-        path.strip_prefix(parent)
-            .is_some_and(|tail| tail.starts_with('/'))
-    };
-    // The executable is inserted after runtime selection and has priority.
-    if executable.is_some_and(|path| {
-        path == SHELL_SELECTOR || descends(path, SHELL_SELECTOR) || descends(SHELL_SELECTOR, path)
-    }) {
+    if overlaps_executable(SHELL_SELECTOR, executable) {
         return Ok(files);
     }
     // The installed /bin/sh wrapper recognizes these guest paths. Retain
-    // the link bytes alone. The destination must be supplied separately.
+    // the link bytes. The destination is resolved inside the guest namespace.
     let host = root.join(SHELL_SELECTOR.trim_start_matches('/'));
     let Ok(target) = std::fs::read_link(host) else {
         return Ok(files);
@@ -447,6 +495,41 @@ mod tests {
             selected.lookup_with_follow(SHELL_SELECTOR, false),
             Err(Error::NotFound)
         ));
+    }
+
+    #[test]
+    fn installed_child_programs_are_fixed_and_preserve_main_image_precedence() {
+        let fixture = TestFile::new(b"unused", 8);
+        let root = &fixture.dir;
+        std::fs::create_dir_all(root.join("usr/bin")).unwrap();
+        std::fs::create_dir_all(root.join("bin")).unwrap();
+        for program in RUNTIME_PROGRAMS {
+            std::fs::write(root.join(program.trim_start_matches('/')), program).unwrap();
+        }
+        std::fs::write(root.join("usr/bin/other"), b"unselected").unwrap();
+        std::fs::write(root.join("bin/cat"), b"unselected").unwrap();
+
+        let files = select_runtime_programs(Files::default(), root, Some("/usr/bin/ruby")).unwrap();
+        for program in RUNTIME_PROGRAMS {
+            assert_eq!(&*files.read(program).unwrap(), program.as_bytes());
+        }
+        assert!(files.lookup("/usr/bin/other").is_err());
+        assert!(files.lookup("/bin/cat").is_err());
+        for (image, program) in [
+            ("/usr/bin/uname", "/usr/bin/uname"),
+            ("/usr/bin", "/usr/bin/uname"),
+            ("/usr/bin/uname/child", "/usr/bin/uname"),
+            ("/bin/sh", "/bin/sh"),
+            ("/bin", "/bin/bash"),
+        ] {
+            let files = select_runtime_programs(Files::default(), root, Some(image)).unwrap();
+            assert!(files.lookup(program).is_err(), "{image}");
+        }
+        let supplied = Files::default()
+            .with_file("/bin/sh".into(), Arc::from(&b"caller shell"[..]))
+            .unwrap();
+        let files = select_runtime_programs(supplied, root, Some("/usr/bin/ruby")).unwrap();
+        assert_eq!(&*files.read("/bin/sh").unwrap(), b"caller shell");
     }
 
     #[test]
@@ -800,7 +883,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn installed_perl_modules_are_read_only_and_confined_to_the_system_tree() {
+    fn installed_language_modules_are_read_only_and_confined_to_the_system_tree() {
         use crate::user::image::macho::{CPU_TYPE_X86_64, MH_BUNDLE, MH_EXECUTE, MH_MAGIC_64};
         use crate::user::supplied_fs::Error;
         use std::{fs, os::unix::fs::symlink};
@@ -811,7 +894,9 @@ mod tests {
         let cache = root.join("System/Library/dyld");
         let perl = root.join("System/Library/Perl/5.34");
         let xs = perl.join("darwin-thread-multi-2level/auto/Example");
-        for dir in [&lib, &cache, &xs] {
+        let versions = root.join(RUBY_VERSIONS.trim_start_matches('/'));
+        let ruby = versions.join("2.6/usr/lib/ruby/2.6.0");
+        for dir in [&lib, &cache, &xs, &ruby] {
             fs::create_dir_all(dir).unwrap();
         }
         fs::write(lib.join("dyld"), b"dyld").unwrap();
@@ -819,6 +904,16 @@ mod tests {
         fs::write(perl.join("Example.pm"), b"package Example; 1;").unwrap();
         fs::write(lib.join("Other.pm"), b"outside installed Perl").unwrap();
         symlink(lib.join("Other.pm"), perl.join("Escape.pm")).unwrap();
+        fs::write(ruby.join("example.rb"), b"Example = 42").unwrap();
+        fs::write(ruby.join("example.gemspec"), b"Gem::Specification.new").unwrap();
+        fs::write(
+            versions.join("2.6/unselected.rb"),
+            b"file outside the runtime tree",
+        )
+        .unwrap();
+        fs::write(lib.join("outside.rb"), b"outside Ruby").unwrap();
+        symlink(lib.join("outside.rb"), ruby.join("escape.rb")).unwrap();
+        symlink("2.6", versions.join("Current")).unwrap();
 
         let mut header = [0u8; 32];
         header[..4].copy_from_slice(&MH_MAGIC_64.to_le_bytes());
@@ -827,8 +922,10 @@ mod tests {
         fs::write(xs.join("Example.bundle"), header).unwrap();
         fs::write(perl.join("Unqualified.bundle"), header).unwrap();
         fs::write(lib.join("Other.bundle"), header).unwrap();
+        fs::write(ruby.join("example.bundle"), header).unwrap();
         header[12..16].copy_from_slice(&MH_EXECUTE.to_le_bytes());
         fs::write(xs.join("Executable.bundle"), header).unwrap();
+        fs::write(ruby.join("executable.bundle"), header).unwrap();
 
         let selected = select_native_root(&Files::default(), root).unwrap();
         let module = "/System/Library/Perl/5.34/Example.pm";
@@ -839,12 +936,23 @@ mod tests {
         assert_eq!(&*selected.read(module).unwrap(), b"package Example; 1;");
         let entry = selected.lookup(bundle).unwrap().1;
         assert!(entry.host_file().is_some());
+        let ruby_root = format!("{RUBY_VERSIONS}/Current/usr/lib/ruby/2.6.0");
+        for name in ["example.rb", "example.gemspec", "example.bundle"] {
+            let path = format!("{ruby_root}/{name}");
+            assert!(
+                selected.lookup(&path).unwrap().1.host_file().is_some(),
+                "{path}"
+            );
+        }
         for path in [
             "/System/Library/Perl/5.34/Escape.pm",
             "/System/Library/Perl/5.34/Unqualified.bundle",
             "/System/Library/Perl/5.34/darwin-thread-multi-2level/auto/Example/Executable.bundle",
             "/usr/lib/Other.pm",
             "/usr/lib/Other.bundle",
+            &format!("{ruby_root}/escape.rb"),
+            &format!("{ruby_root}/executable.bundle"),
+            &format!("{RUBY_VERSIONS}/2.6/unselected.rb"),
         ] {
             assert!(
                 matches!(selected.lookup(path), Err(Error::NotFound)),

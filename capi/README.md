@@ -765,6 +765,14 @@ and their Mach-O extension bundles below /System/Library/Perl. The mount is
 read-only and resolves files within that system tree. Explicit supplied files
 can override the installed modules.
 
+The installed Ruby runtime selects standard-library sources, default gem
+specifications and Mach-O extension bundles from the versioned system Ruby
+framework. A fixed read-only set of child images includes /usr/bin/uname,
+/bin/sh and the shell wrapper's supported interpreters. Those children
+execute in the same guest namespace. The installed Ruby regex, JSON, and
+SHA-256 checks matched native ARM64 and Rosetta x86-64 runs with the default
+gem startup, using no SDKROOT override.
+
 On Linux and Darwin, native-runtime sessions start with a private guest
 /tmp. A session can create named directories and create, read, append,
 truncate, and unlink regular files anywhere in that tree. It can create
