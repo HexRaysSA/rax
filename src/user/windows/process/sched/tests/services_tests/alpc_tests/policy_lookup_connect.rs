@@ -348,6 +348,17 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
             assert_eq!(&translated[156..162], b"a\0b\0c\0");
             assert_eq!(read_word(&translated, 164), 1);
             assert_eq!(read_word(&translated, 168), 0);
+            let mut close = [0; 84];
+            words(&mut close, &[(12, 19), (20, 1)]);
+            close[64..84].copy_from_slice(&opened[24..44]);
+            let closed = exchange(p, &mut thread, arena, handle, 0, &close);
+            assert_eq!(closed.len(), 48);
+            assert_eq!(read_word(&closed, 12), 19);
+            assert_eq!(&closed[24..44], &[0; 20]);
+            assert_eq!(read_word(&closed, 44), 0);
+            let duplicate = exchange(p, &mut thread, arena, handle, 0, &close);
+            assert_eq!(read_word(&duplicate, 44), STATUS_INVALID_HANDLE);
+            assert_translation_rejected(p, &mut thread, arena, handle, &classic);
             words(&mut bind, &[(32, 3)]);
             let rebound = exchange(p, &mut thread, arena, handle, 0x4000, &bind);
             words(&mut bind, &[(32, 2)]);

@@ -47,6 +47,7 @@ pub(super) fn response_ndr32(
             let desired = policy::open_access_ndr32(payload)?;
             open_reply(OPEN_NDR32_REPLY_BYTES, desired, association, contexts)
         }
+        CLOSE => policy::close_ndr32(payload, contexts)?,
         TRANSLATE_SIDS => {
             let (context, sid) = translate::request_ndr32(payload)?;
             let mut response = policy::reply(24);

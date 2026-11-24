@@ -77,7 +77,7 @@ pub(super) fn response_ndr32(
     let mut response = match operation(payload, request_type, NDR32_CALL_CONTEXT)? {
         OPEN => open_ndr32(payload, association, contexts)?,
         LOOKUP_PRIVILEGE_VALUE => lookup_value_ndr32(payload, contexts)?,
-        CLOSE => close_with_size(payload, contexts, CLOSE_NDR32_REPLY_BYTES)?,
+        CLOSE => close_ndr32(payload, contexts)?,
         _ => return None,
     };
     echo_call_id(&mut response, payload);
@@ -373,6 +373,10 @@ fn put_name(body: &mut [u8], units: &[u16]) {
 
 pub(super) fn close(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
     close_with_size(payload, contexts, CLOSE_REPLY_BYTES)
+}
+
+pub(super) fn close_ndr32(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
+    close_with_size(payload, contexts, CLOSE_NDR32_REPLY_BYTES)
 }
 
 fn close_with_size(payload: &[u8], contexts: &LsarpcPolicies, size: usize) -> Option<Response> {
