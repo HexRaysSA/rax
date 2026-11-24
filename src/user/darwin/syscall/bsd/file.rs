@@ -27,6 +27,7 @@ use crate::user::supplied_fs::Kind;
 
 mod closed_pipe;
 mod embedded;
+pub(super) use embedded::getattrlistbulk;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod fifo_io;
 #[cfg(target_os = "linux")]

@@ -6,6 +6,9 @@ use crate::user::darwin::fd::EmbeddedFile;
 use crate::user::darwin::io::{O_ACCMODE, O_RDONLY};
 use crate::user::supplied_fs::Entry;
 
+mod bulk;
+pub(in crate::user::darwin::syscall::bsd) use bulk::getattrlistbulk;
+
 const EXTENDED_DIRECTORY_BUFFER: u64 = 1024;
 const END_OF_DIRECTORY: u64 = i32::MAX as u64;
 

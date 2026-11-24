@@ -1252,7 +1252,20 @@ mod tests {
             .unwrap();
         assert!(version.status.success());
         assert!(version.stderr.is_empty());
+        let listing = std::process::Command::new("/bin/ls")
+            .args(["-1", "/bin"])
+            .env_clear()
+            .env("LC_ALL", "C")
+            .output()
+            .unwrap();
+        assert!(listing.status.success());
+        assert!(listing.stderr.is_empty());
         for (path, arguments, expected) in [
+            (
+                "/bin/ls",
+                vec![b"-1".to_vec(), b"/bin".to_vec()],
+                listing.stdout,
+            ),
             ("/usr/bin/true", vec![], vec![]),
             (
                 "/usr/bin/printf",

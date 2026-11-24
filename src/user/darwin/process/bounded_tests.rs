@@ -1026,6 +1026,80 @@ fn supplied_mmap_preserves_copy_on_write_eof_and_guest_page_granularity() {
 }
 
 #[test]
+fn closed_bulk_directory_attributes_page_and_preserve_failed_cursor() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr},
+        arch::Rv,
+        io::O_RDONLY,
+        syscall::{Ctx, bsd},
+    };
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut process = process(abi);
+        let files = process
+            .proc
+            .vfs
+            .files()
+            .unwrap()
+            .with_file("/listing/file".into(), Arc::from(&b"x"[..]))
+            .unwrap()
+            .with_file("/listing/sub/child".into(), Arc::from(&b"z"[..]))
+            .unwrap()
+            .with_native_symlink("/listing/link", "/listing/file")
+            .unwrap();
+        process.proc.vfs = Vfs::supplied(files);
+        let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+        let path = thread.cpu.sp() - 512;
+        let list = path + 32;
+        let buffer = path + 64;
+        let mut ctx = Ctx {
+            proc: &mut process.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::GETATTRLISTBULK),
+            pc: ENTRY,
+        };
+        ctx.write(path, b"/listing ").unwrap();
+        let mut request = [0; 24];
+        request[0] = 5;
+        request[4..8].copy_from_slice(&0x8200_000bu32.to_le_bytes());
+        request[16] = 1;
+        ctx.write(list, &request).unwrap();
+
+        let call = |ctx: &mut Ctx<'_>, number, args: &[u64]| {
+            let mut registers = [0; 8];
+            registers[..args.len()].copy_from_slice(args);
+            bsd::call(ctx, number, &registers)
+        };
+        let fd = call(&mut ctx, nr::OPEN, &[path, u64::from(O_RDONLY)])
+            .unwrap()
+            .0;
+        let bulk = |ctx: &mut Ctx<'_>, output, size| {
+            call(ctx, nr::GETATTRLISTBULK, &[fd, list, output, size, 8])
+        };
+        assert_eq!(bulk(&mut ctx, buffer, 0), Err(Errno::EINVAL));
+        assert_eq!(bulk(&mut ctx, buffer, 1), Err(Errno::ERANGE));
+        assert_eq!(bulk(&mut ctx, 1, 64), Err(Errno::EFAULT));
+        let check = |ctx: &mut Ctx<'_>, name: &[u8], length, kind, file_bits| {
+            assert_eq!(bulk(ctx, buffer, 64), Ok(Rv::one(1)));
+            assert_eq!(ctx.read_u32(buffer).unwrap(), length);
+            assert_eq!(ctx.read_u32(buffer + 4).unwrap(), 0x8200_000b);
+            assert_eq!(ctx.read_u32(buffer + 16).unwrap(), file_bits);
+            assert_eq!(ctx.read_u32(buffer + 36).unwrap(), kind);
+            let relative = u64::from(ctx.read_u32(buffer + 24).unwrap());
+            let name_bytes = ctx.read_u32(buffer + 28).unwrap() as usize;
+            assert_eq!(ctx.read(buffer + 24 + relative, name_bytes).unwrap(), name);
+        };
+        check(&mut ctx, b"file ", 64, 1, 1);
+        check(&mut ctx, b"link ", 64, 5, 1);
+        check(&mut ctx, b"sub ", 56, 2, 0);
+        assert_eq!(bulk(&mut ctx, buffer, 64), Ok(Rv::one(0)));
+        assert_eq!(bulk(&mut ctx, buffer, 64), Ok(Rv::one(0)));
+        assert_eq!(call(&mut ctx, nr::LSEEK, &[fd, 0, 0]), Ok(Rv::one(0)));
+        check(&mut ctx, b"file ", 64, 1, 1);
+    }
+}
+
+#[test]
 fn closed_workspace_directory_stat_reports_apfs_size_and_blocks() {
     use crate::user::darwin::{
         abi::{tables::nr, types::STAT64_SIZE},
