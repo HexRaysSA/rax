@@ -62,14 +62,40 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
         }
         p.space.w32(port + 16 + 6 * width, 4093).unwrap();
 
+        let flags = if arch == WinArch::X86 {
+            0x4002_0000
+        } else {
+            0x0002_0000
+        };
         let args = [
-            out, server, client, port, 0x20000, descriptor, 0, 0, 0, input, 0,
+            out, server, client, port, flags, descriptor, 0, 0, 0, input, 0,
         ];
         let original_handles = p.objects.handle_count();
         let canary = 0x1122_3344;
         p.space.wptr(out, width, canary).unwrap();
         p.space.w32(input + 4, 0xa5a5_a5a5).unwrap();
         p.space.wr(descriptor, &security).unwrap();
+
+        let mut wrong_profile = args;
+        if arch == WinArch::X86 {
+            wrong_profile[2] = 0;
+        } else {
+            wrong_profile[4] = 0x4002_0000;
+        }
+        let result = invoke(
+            p,
+            &mut thread,
+            "NtAlpcConnectPortEx",
+            CONNECT,
+            &wrong_profile,
+        );
+        assert!(
+            matches!(result, Outcome::Fail(ref message) if message.contains("connection options"))
+        );
+        assert_eq!(p.space.ptr(out, width).unwrap(), canary);
+        assert_eq!(p.space.u32(input + 4).unwrap(), 0xa5a5_a5a5);
+        assert_eq!(p.objects.handle_count(), original_handles);
+
         // READ_CONTROL by itself does not authenticate the server.
         p.space.w32(descriptor + 32, 0x0002_0000).unwrap();
 

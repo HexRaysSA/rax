@@ -14,7 +14,8 @@ mod information;
 pub(super) mod lsarpc;
 mod theme;
 
-const SYNCHRONOUS: u32 = 0x0002_0000;
+pub(super) const SYNCHRONOUS: u32 = 0x0002_0000;
+pub(super) const WOW64_SYNCHRONOUS: u32 = SYNCHRONOUS | 0x4000_0000;
 
 struct Connection {
     out: u64,
@@ -148,7 +149,7 @@ fn capture(c: &mut Ctx) -> ApiResult {
     }
     let wide_wow64 = c.arch() == WinArch::X86
         && lsarpc_peer == Some(LsarpcInterface::Policy)
-        && flags == lsarpc::WOW64_SYNCHRONOUS;
+        && flags == WOW64_SYNCHRONOUS;
     if flags != SYNCHRONOUS && !wide_wow64 {
         return Err(c.unsupported(format!("NtAlpcSendWaitReceivePort flags {flags:#x}")));
     }

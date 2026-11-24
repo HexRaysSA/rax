@@ -1,4 +1,5 @@
 //! Bounded connection capture and transactional guest-owned handle transfer.
+use super::alpc::{SYNCHRONOUS, WOW64_SYNCHRONOUS};
 use super::query::{guard_result, probe_write};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
@@ -44,7 +45,14 @@ fn checked(c: &mut Ctx) -> ApiResult {
         input: c.ptr(9)?,
         timeout: c.ptr(10)?,
     };
-    if arguments.flags != 0x20000 || arguments.output != 0 || arguments.timeout != 0 {
+    // The installed WoW64 RPC client sets the native message-width flag on
+    // Policy Lookup connections even when there is no connection message.
+    let wow64_policy_lookup =
+        c.arch() == WinArch::X86 && arguments.client != 0 && arguments.flags == WOW64_SYNCHRONOUS;
+    if (arguments.flags != SYNCHRONOUS && !wow64_policy_lookup)
+        || arguments.output != 0
+        || arguments.timeout != 0
+    {
         return Err(c.unsupported("NtAlpcConnectPortEx connection options are not selected"));
     }
     if arguments.client != 0 {

@@ -1,5 +1,5 @@
 //! Process-local connection for the installed account-lookup RPC client.
-use super::{Connection, Ctx, Flow, Mem, Object, SYNCHRONOUS, probe_write};
+use super::{Connection, Ctx, Flow, Mem, Object, SYNCHRONOUS, WOW64_SYNCHRONOUS, probe_write};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::ApiResult;
 use crate::user::windows::nt::status::*;
@@ -19,7 +19,6 @@ mod translate;
 pub(super) use exchange::exchange;
 pub(super) const MAX_MESSAGE: usize = 4096;
 pub(super) const PORT_FLAGS: u32 = 0x0209_0000;
-pub(super) const WOW64_SYNCHRONOUS: u32 = SYNCHRONOUS | 0x4000_0000;
 
 pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
     // The installed x86 RPC client supplies this flag at the WoW64 entry.
