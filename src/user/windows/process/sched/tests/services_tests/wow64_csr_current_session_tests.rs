@@ -112,6 +112,26 @@ fn setup_selected(
 }
 
 #[test]
+fn wow64_csr_29708_base_connect_binds_the_observed_session_zero_geometry() {
+    let (mut process, mut thread, b) = setup_selected(29708, 0, 0x7fff_0000_0000, 0x750, 0x724);
+    let p = process.state_mut();
+    let handles = p.objects.handle_count();
+    assert_eq!(invoke(p, &mut thread, &args(b)), STATUS_SUCCESS);
+    assert_eq!(p.objects.handle_count(), handles + 1);
+    assert_eq!(p.space.bytes(b + 4096, 8).unwrap(), [0xa5; 8]);
+    assert_eq!(p.space.u8(b + 8192).unwrap(), 0);
+    publication(p, true);
+
+    let (mut other_session, mut thread, b) =
+        setup_selected(29708, 2, 0x7fff_0000_0000, 0x750, 0x724);
+    let p = other_session.state_mut();
+    let handles = p.objects.handle_count();
+    assert!(matches!(call(p, &mut thread, &args(b)), Outcome::Fail(_)));
+    assert_eq!(p.objects.handle_count(), handles);
+    assert!(p.wow64.as_ref().unwrap().csr.is_none());
+}
+
+#[test]
 fn wow64_csr_29704_refuses_unmeasured_identity_without_caller_or_resource_changes() {
     for variant in 0..11 {
         let (mut process, mut thread, b) = setup_29704(1);

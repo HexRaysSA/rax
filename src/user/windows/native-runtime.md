@@ -4096,6 +4096,26 @@ four bytes. Native ARM64, x64 and WoW64 on build 29708 returned a NULL
 process-trust SID for the sampled ordinary process token. The capture retains
 payload bytes independently of the guest ABI or object handle.
 
+## WoW64 BASE startup in session 0 on ARM64 kernel 29708
+
+The measured Windows 11 build 29708 session 0 exposes the same CSR
+SharedSection geometry to ARM64 and x86 processes. In both process PEBs,
+the statics pointer lies 1872 bytes from the section base. The section has
+a 20,480-byte read-only committed prefix and a 1,028,096-byte reserved
+tail. The installed `SysWOW64\\findstr.exe` uses the BASE connection
+during ordinary process startup.
+
+The guest BASE connection admits this profile after binding the native
+kernel, architecture and session to the selected CSR server. It checks
+both guest PEB session fields, then publishes the owned connection and
+client views. The preview USER, BASE NLS and child-start profiles each use
+their session 1 admission checks. The bounded regression exercises
+session 0 publication and rejection of an unmeasured session.
+The installed x86 `findstr.exe` comparison on session 0 advances from the
+BASE connection at turn 511 to the license-value query at turn 1064.
+The native ARM64 executable still matches stdout, stderr and exit status
+for both a matching and a nonmatching input.
+
 ## WoW64 USER startup on ARM64 kernel 29708
 
 The selected x86 User32 image calls the private WoW64 service `0x2000` as

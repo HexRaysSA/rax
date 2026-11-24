@@ -46,7 +46,7 @@ pub(super) fn user_connect(c: &mut Ctx) -> ApiResult {
 }
 
 fn write_user_connection(c: &mut Ctx) -> ApiResult {
-    let server = selected(c)?;
+    let server = selected(c, false)?;
     let state = c.p.wow64.as_ref().expect("selected WoW64 state");
     if state.csr.is_none() {
         return Err(c.unsupported("WoW64 USER requires the selected process CSR connection"));
@@ -101,7 +101,7 @@ pub(super) fn base_nls(c: &mut Ctx) -> ApiResult {
 }
 
 fn write_base_nls(c: &mut Ctx) -> ApiResult {
-    let server = selected(c)?;
+    let server = selected(c, false)?;
     if !c.p.wow64.as_ref().is_some_and(|state| state.csr.is_some()) {
         return Err(c.unsupported("WoW64 BASE NLS requires the selected process CSR connection"));
     }
@@ -117,7 +117,7 @@ fn write_base_nls(c: &mut Ctx) -> ApiResult {
     Flow::ret(STATUS_SUCCESS.into())
 }
 
-fn selected(c: &Ctx) -> Result<Arc<CsrServer>, ApiErr> {
+fn selected(c: &Ctx, base_connect: bool) -> Result<Arc<CsrServer>, ApiErr> {
     let unsupported = || c.unsupported("unmeasured WoW64 CSR kernel, architecture or session");
     let state = c.p.wow64.as_ref().ok_or_else(unsupported)?;
     let server =
@@ -127,7 +127,9 @@ fn selected(c: &Ctx) -> Result<Arc<CsrServer>, ApiErr> {
     let metadata = &server.metadata;
     let measured = match (state.machine, metadata.arch, state.kernel) {
         (0xaa64, WinArch::Arm64, (10, 0, 29695 | 29698 | 29704)) => true,
-        (0xaa64, WinArch::Arm64, (10, 0, 29708)) => metadata.session == 1,
+        (0xaa64, WinArch::Arm64, (10, 0, 29708)) => {
+            metadata.session == 1 || (base_connect && metadata.session == 0)
+        }
         (0xaa64, WinArch::Arm64, ARM64_PLAIN_STARTUP_KERNEL) => {
             supports_arm64_plain_startup(state.kernel, metadata.session)
         }
@@ -193,7 +195,7 @@ fn native_publication(c: &Ctx, server: &CsrServer) -> Result<(), ApiErr> {
 fn checked(c: &mut Ctx) -> ApiResult {
     let (root, server_id, buffer, bytes, inside) =
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
-    let server = selected(c)?;
+    let server = selected(c, true)?;
     if server_id != 1 {
         return Err(c.unsupported("WoW64 CSR server other than measured BASE server1"));
     }
