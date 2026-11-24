@@ -93,6 +93,42 @@ fn owned_clock_ticks_and_timer_threshold_are_independent_of_ambient_clock() {
     assert!(!clint_signals(&platform, 1).unwrap().2);
     assert_eq!(read(&platform, TIME, 8), 10);
 }
+
+#[test]
+fn idle_timer_deadline_handles_fractional_phase_and_clock_epoch_wrap() {
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::RetiredWithIdle));
+    let platform = Platform::new(1, 0x8000000, clock.clone(), false).unwrap();
+    let mut saved = clock.checkpoint_state();
+    saved.elapsed_nanos = 199;
+    saved.subnanosecond_quanta = 2;
+    clock.restore_checkpoint_state(&saved).unwrap();
+    write(&platform, COMPARE, 2, 8);
+    assert_eq!(clint_signals(&platform, 0), Some((1, false, false)));
+    assert_eq!(platform.next_timer_assertion(0).unwrap(), Some(1));
+    clock.advance_idle(1).unwrap();
+    assert_eq!(clint_signals(&platform, 0), Some((2, false, true)));
+
+    saved.elapsed_nanos = u64::MAX;
+    for (offset, compare, delay) in [
+        (u64::MAX, u64::MAX, Some(1)),
+        (u64::MAX - 5, u64::MAX - 4, Some(301)),
+        (0, u64::MAX, None),
+    ] {
+        clock.restore_checkpoint_state(&saved).unwrap();
+        platform.state.lock().unwrap().registers.offset = offset;
+        write(&platform, COMPARE, compare, 8);
+        assert!(!clint_signals(&platform, 0).unwrap().2);
+        assert_eq!(platform.next_timer_assertion(0).unwrap(), delay);
+        if let Some(delay) = delay {
+            if delay > 1 {
+                clock.advance_idle(delay - 1).unwrap();
+                assert!(!clint_signals(&platform, 0).unwrap().2);
+            }
+            clock.advance_idle(1).unwrap();
+            assert_eq!(clint_signals(&platform, 0), Some((compare, false, true)));
+        }
+    }
+}
 #[test]
 fn timer_halves_and_writable_time_preserve_other_bits_and_wrap() {
     let (clock, platform) = fixture(1);

@@ -8,7 +8,7 @@ use crate::devices::bus::MmioDevice;
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
 use crate::isa::riscv::{MemError, MemResult};
-use crate::vm::timing::TimingContext;
+use crate::vm::timing::{CLOCK_EPOCH_QUANTA, ClockMode, RETIREMENT_FREQUENCY_HZ, TimingContext};
 use serde::{Deserialize, Serialize};
 use std::sync::{
     Arc, Mutex, OnceLock,
@@ -268,6 +268,9 @@ impl Platform {
     pub(crate) fn enabled(&self) -> bool {
         self.profile.load(Ordering::Acquire) & CLINT_PROFILE != 0
     }
+    pub(super) fn has_idle_clock(&self) -> bool {
+        self.clock.mode() == ClockMode::RetiredWithIdle
+    }
     pub(crate) fn plic_enabled(&self) -> bool {
         self.profile.load(Ordering::Acquire) & PLIC_PROFILE != 0
     }
@@ -458,6 +461,39 @@ impl Platform {
                 .as_ref()
                 .map(|plic| plic.hart_lines(id)),
         }))
+    }
+
+    pub(super) fn next_timer_assertion(&self, id: u32) -> Result<Option<u128>> {
+        let clock = self.clock.checkpoint_state();
+        let ticks = clock.counter_ticks(FREQUENCY_HZ);
+        let state = self
+            .state
+            .lock()
+            .map_err(|_| invalid("state lock poisoned"))?;
+        if !state.enabled {
+            return Ok(None);
+        }
+        let compare = *state
+            .registers
+            .compare
+            .get(id as usize)
+            .ok_or_else(|| invalid("hart outside topology"))?;
+        let offset = state.registers.offset;
+        let now = ticks.wrapping_add(offset);
+        if now >= compare {
+            return Ok(None);
+        }
+        const QUANTA_PER_TICK: u128 = (RETIREMENT_FREQUENCY_HZ / FREQUENCY_HZ) as u128;
+        let before_wrap = (u128::from(ticks) + u128::from(compare - now)) * QUANTA_PER_TICK;
+        let asserted_at = if before_wrap < CLOCK_EPOCH_QUANTA {
+            before_wrap
+        } else {
+            // At elapsed-clock wrap, the base tick resets to zero, while
+            // the guest-programmed MTIME offset is retained.
+            CLOCK_EPOCH_QUANTA + u128::from(compare.saturating_sub(offset)) * QUANTA_PER_TICK
+        };
+        let delay = asserted_at - clock.elapsed_quanta();
+        Ok((delay < CLOCK_EPOCH_QUANTA).then_some(delay))
     }
     pub(crate) fn checkpoint(&self) -> Result<Option<PlatformCheckpoint>> {
         self.checkpoint_with(Ok)

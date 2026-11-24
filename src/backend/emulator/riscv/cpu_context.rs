@@ -18,6 +18,7 @@ pub(super) struct PendingActivation {
 }
 
 const TAG: &[u8; 8] = b"RAXRV005";
+const WAITING_TAG: &[u8; 8] = b"RAXRV006";
 const SPLIT_SEIP_TAG: &[u8; 8] = b"RAXRV004";
 const PLATFORM_TAG: &[u8; 8] = b"RAXRV003";
 const PREVIOUS_TAG: &[u8; 8] = b"RAXRV002";
@@ -46,6 +47,8 @@ struct Context {
     platform: bool,
     #[serde(skip)]
     plic: bool,
+    #[serde(skip)]
+    waiting_for_interrupt: bool,
 }
 
 fn invalid(message: impl std::fmt::Display) -> Error {
@@ -58,6 +61,7 @@ struct Header {
     external_seip: bool,
     payload_offset: usize,
     has_reservation_record: bool,
+    waiting_for_interrupt: bool,
 }
 
 impl Header {
@@ -77,7 +81,7 @@ impl Header {
         };
         let ((platform, plic), external_seip, payload_offset, has_reservation_record) =
             match raw.get(..8) {
-                Some(tag) if tag == TAG => (
+                Some(tag) if tag == TAG || tag == WAITING_TAG => (
                     profiles()?,
                     flag(9, "invalid external SEIP level")?,
                     Self::MAX_LEN,
@@ -105,6 +109,7 @@ impl Header {
             external_seip,
             payload_offset,
             has_reservation_record,
+            waiting_for_interrupt: raw.starts_with(WAITING_TAG),
         })
     }
 }
@@ -118,7 +123,12 @@ impl Context {
     fn encode(&self) -> Result<Vec<u8>> {
         let payload = crate::codec::serialize_limited(&(self.reservation, self), MAX_PAYLOAD)
             .map_err(invalid)?;
-        let mut raw = TAG.to_vec();
+        let mut raw = if self.waiting_for_interrupt {
+            WAITING_TAG
+        } else {
+            TAG
+        }
+        .to_vec();
         raw.push(u8::from(self.platform) | (u8::from(self.plic) << 1));
         raw.push(u8::from(self.cpu.external_seip()));
         raw.extend_from_slice(&payload);
@@ -160,6 +170,17 @@ impl Context {
                 "invalid process-mode privilege, event queue or external SEIP line",
             ));
         }
+        if self.waiting_for_interrupt
+            && (self.halted
+                || self.user.is_some()
+                || !self.pending.is_empty()
+                || !self.platform
+                || !target.platform.as_ref().is_some_and(|p| p.has_idle_clock()))
+        {
+            return Err(invalid(
+                "interrupt wait requires an idle-enabled system hart",
+            ));
+        }
         for event in &self.pending {
             match event {
                 PendingEvent::MmioWrite { addr, data }
@@ -196,6 +217,7 @@ impl Context {
         };
         context.platform = header.platform;
         context.plic = header.plic;
+        context.waiting_for_interrupt = header.waiting_for_interrupt;
         context.cpu.set_external_seip(header.external_seip);
         context.validate(target)?;
         Ok(context)
@@ -283,6 +305,7 @@ impl RiscVVcpu {
             pending,
             tohost_addr,
             halted,
+            waiting_for_interrupt,
             devices_enabled,
             platform,
             user,
@@ -323,6 +346,7 @@ impl RiscVVcpu {
             pending: events.clone(),
             tohost: *tohost,
             halted: *halted,
+            waiting_for_interrupt: *waiting_for_interrupt,
             devices_enabled: *devices_enabled,
             platform: platform.as_ref().is_some_and(|p| p.enabled()),
             plic: platform.as_ref().is_some_and(|p| p.plic_enabled()),
@@ -408,6 +432,7 @@ impl RiscVVcpu {
         *events = context.pending;
         *tohost = context.tohost;
         self.halted = context.halted;
+        self.waiting_for_interrupt = context.waiting_for_interrupt;
         if let (Some((mut fault, trap, ecalls)), Some(saved)) = (user_parts, context.user) {
             *fault = saved.last_fault;
             *trap = saved.trap;

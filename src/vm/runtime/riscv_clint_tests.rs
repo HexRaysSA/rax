@@ -100,6 +100,107 @@ fn platform(vm: &Vmm) -> Arc<crate::backend::emulator::riscv::platform::Platform
         .riscv_platform()
         .unwrap()
 }
+
+#[test]
+fn idle_clock_file_preserves_riscv_wait_and_timer_wake_order() {
+    use crate::vm::snapshot::SnapshotBundle;
+    const BASE: u64 = 0x8000_8100;
+    let results = |vm: &Vmm, count| {
+        (0..count)
+            .map(|hart| {
+                u64::from_le(
+                    vm.guest_mem
+                        .memory()
+                        .read_obj(GuestAddress(BASE + 8 * hart))
+                        .unwrap(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    // Each hart writes MTIMECMP = 8 + 2*hart, then executes WFI with MTIE
+    // set and global MIE clear. After recording rdtime it masks MTIE and
+    // waits again. Entering the final illegal instruction is a failure.
+    let code = [
+        0xf1402573u32,
+        0x08000293,
+        0x30429073,
+        0x02004337,
+        0x00351393,
+        0x00730333,
+        0x00800293,
+        0x00151393,
+        0x007282b3,
+        0x00533023,
+        0x10500073,
+        0xc01022f3,
+        0x10001337,
+        0x00331313,
+        0x10030313,
+        0x00730333,
+        0x00730333,
+        0x00730333,
+        0x00730333,
+        0x00533023,
+        0x30401073,
+        0x10500073,
+        0xc0001073,
+    ]
+    .into_iter()
+    .flat_map(u32::to_le_bytes)
+    .collect::<Vec<_>>();
+    for count in [1u8, 2, 4] {
+        let mut source = Fixture::with_code(count, code.clone(), ClockMode::RetiredWithIdle);
+        let harts = u64::from(count);
+        for _ in 0..count {
+            source.vm.execute_turn().unwrap();
+        }
+        assert_eq!(source.vm.coordinator.retired, 11 * harts);
+        assert_eq!(results(&source.vm, harts), vec![0; usize::from(count)]);
+        let saved = source.vm.take_snapshot_bundle(11 * harts).unwrap();
+        for record in saved.backend_contexts().unwrap().entries() {
+            assert!(record.as_ref().unwrap().data.starts_with(b"RAXRV006"));
+        }
+        let file = source.kernel.with_extension("rxc");
+        saved.save(&file).unwrap();
+        let loaded = SnapshotBundle::load(&file).unwrap();
+        std::fs::remove_file(&source.kernel).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+        let mut restored = Vmm::new_resume_bundle(config, &loaded).unwrap();
+        assert_eq!(contexts(&restored), contexts(&source.vm));
+        assert_eq!(restored.coordinator, source.vm.coordinator);
+        for waking in 0..harts {
+            for vm in [&mut source.vm, &mut restored] {
+                let expected = (0..harts)
+                    .map(|hart| if hart <= waking { 8 + 2 * hart } else { 0 })
+                    .collect::<Vec<_>>();
+                for _ in 0..harts {
+                    vm.execute_turn().unwrap();
+                    if results(vm, harts) == expected {
+                        break;
+                    }
+                }
+                assert_eq!(results(vm, harts), expected);
+            }
+            assert_eq!(contexts(&restored), contexts(&source.vm));
+            assert_eq!(restored.coordinator, source.vm.coordinator);
+            assert_eq!(
+                restored.timing_context.checkpoint_state(),
+                source.vm.timing_context.checkpoint_state()
+            );
+        }
+        let before = restored.timing_context.checkpoint_state();
+        assert_eq!(before.retired_units, 22 * harts);
+        for record in contexts(&restored).iter().flatten() {
+            assert!(record.data.starts_with(b"RAXRV006"));
+        }
+        for _ in 0..count {
+            let turn = restored.execute_turn().unwrap().unwrap();
+            assert!(matches!(turn.exit, VcpuExit::Hlt));
+        }
+        assert_eq!(restored.timing_context.checkpoint_state(), before);
+    }
+}
+
 #[test]
 fn pending_clint_file_resumes_new_interrupt_work_on_one_two_and_four_harts() {
     use crate::vm::snapshot::SnapshotBundle;

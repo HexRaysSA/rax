@@ -274,9 +274,10 @@ impl Aarch64Vcpu {
             .flatten()
             .find(|record| record.kind == AARCH64_CONTEXT && counter_clock::is_tag(&record.data))
         else {
-            if bundle
-                .clock()
-                .is_some_and(|clock| clock.mode == crate::vm::timing::ClockMode::RetiredWithIdle)
+            if bundle.base().config.arch == crate::config::ArchKind::Aarch64
+                && bundle.clock().is_some_and(|clock| {
+                    clock.mode == crate::vm::timing::ClockMode::RetiredWithIdle
+                })
             {
                 return Err(invalid(
                     "idle-enabled clock requires shared system counter records",

@@ -14,8 +14,9 @@ impl Vmm {
     /// board clocks and entropy sources still require their own wiring for
     /// whole-machine determinism.
     /// This is not a physical cycle model or an external-event replay mode.
-    /// `RetiredWithIdle` additionally advances the software AArch64 VM clock to
-    /// timer deadlines while every online processor is waiting for interrupt.
+    /// `RetiredWithIdle` additionally advances software AArch64 and RV64 VM
+    /// clocks to timer deadlines while every online processor is waiting for
+    /// interrupt.
     /// Native backends reject retirement clock modes before constructing resources.
     pub fn new_with_clock(config: VmConfig, mode: ClockMode) -> Result<Self> {
         Self::build_with_contexts(config, ConstructionMode::Boot, None, mode)

@@ -21,8 +21,12 @@ impl RiscVCpu {
         self.mip | (u64::from(self.external_seip) * MIP_SEIP)
     }
 
-    pub(super) fn locally_enabled_interrupt_pending(&self) -> bool {
+    pub(crate) fn locally_enabled_interrupt_pending(&self) -> bool {
         self.interrupt_pending() & self.mie & IMPLEMENTED_INTERRUPT_MASK != 0
+    }
+
+    pub(crate) fn machine_timer_interrupt_enabled(&self) -> bool {
+        self.mie & MIP_MTIP != 0
     }
 
     /// Take one eligible interrupt before instruction fetch. Interpreted and

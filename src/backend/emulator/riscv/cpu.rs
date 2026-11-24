@@ -35,7 +35,7 @@ mod atomic_tests;
 #[path = "cpu_reservations.rs"]
 mod reservations;
 use super::platform::{UART_BASE, UART_LEN};
-use crate::vm::vcpu::{CpuState, MemAccess, VCpu, VcpuExit};
+use crate::vm::vcpu::{ClockIdle, CpuState, MemAccess, VCpu, VcpuExit};
 use reservations::overlaps_uart;
 
 /// 16550 Line Status Register offset and the "ready to transmit" bits.
@@ -507,6 +507,7 @@ pub struct RiscVVcpu {
     pending: EventSink,
     tohost_addr: Arc<Mutex<Option<u64>>>,
     halted: bool,
+    waiting_for_interrupt: bool,
     devices_enabled: bool,
     platform: Option<Arc<super::platform::Platform>>,
     /// Process-level execution in U-mode ([`RiscVVcpu::new_user`]).
@@ -610,6 +611,7 @@ impl RiscVVcpu {
             pending,
             tohost_addr,
             halted: false,
+            waiting_for_interrupt: false,
             devices_enabled,
             platform,
             user: None,
@@ -652,6 +654,7 @@ impl RiscVVcpu {
             pending: Arc::new(Mutex::new(VecDeque::new())),
             tohost_addr: Arc::new(Mutex::new(None)),
             halted: false,
+            waiting_for_interrupt: false,
             devices_enabled: false,
             platform: None,
             physical_memory: mem,
@@ -774,6 +777,12 @@ impl RiscVVcpu {
             return Ok(Some(exit));
         }
         self.poll_vm_clock()?;
+        if self.waiting_for_interrupt {
+            if !self.cpu.locally_enabled_interrupt_pending() {
+                return Ok(Some(VcpuExit::Hlt));
+            }
+            self.waiting_for_interrupt = false;
+        }
         let exit = self.cpu.step();
         self.poll_vm_clock()?;
         let architectural_traps = || {
@@ -782,6 +791,10 @@ impl RiscVVcpu {
                 .is_some_and(|platform| platform.architectural_traps())
         };
         let terminal = match exit {
+            RiscVExit::Wfi if self.platform.as_ref().is_some_and(|p| p.has_idle_clock()) => {
+                self.waiting_for_interrupt = true;
+                return Ok(Some(VcpuExit::Hlt));
+            }
             RiscVExit::Continue | RiscVExit::Wfi => None,
             RiscVExit::Ecall if architectural_traps() => {
                 self.cpu.deliver_ecall_trap();
@@ -831,6 +844,19 @@ pub(crate) fn context_platform_profiles(raw: &[u8]) -> Result<(bool, bool)> {
 }
 
 impl VCpu for RiscVVcpu {
+    fn clock_idle(&self) -> Result<ClockIdle> {
+        if !self.waiting_for_interrupt || self.cpu.locally_enabled_interrupt_pending() {
+            return Ok(ClockIdle::Runnable);
+        }
+        let timer_delay_quanta = match &self.platform {
+            Some(platform) if self.cpu.machine_timer_interrupt_enabled() => {
+                platform.next_timer_assertion(self.id)?
+            }
+            _ => None,
+        };
+        Ok(ClockIdle::Waiting { timer_delay_quanta })
+    }
+
     fn poll_vm_clock(&mut self) -> Result<()> {
         if let Some(platform) = &self.platform
             && let Some(signals) = platform.signals(self.id)?
@@ -1051,7 +1077,7 @@ impl VCpu for RiscVVcpu {
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
         self.apply_public_state(state)?;
         self.cpu.clear_reservation();
-        self.halted = false;
+        self.wake();
         if let Some(user) = self.user.as_mut() {
             user.trap = None;
         }
@@ -1091,6 +1117,7 @@ impl VCpu for RiscVVcpu {
 
     fn wake(&mut self) {
         self.halted = false;
+        self.waiting_for_interrupt = false;
     }
 
     fn translate_addr(&mut self, vaddr: u64, access: MemAccess) -> Result<u64> {

@@ -631,9 +631,10 @@ fn validate_clock_mode(backend: BackendKind, arch: ArchKind, mode: ClockMode) ->
             "retired VM clock requires the software backend".into(),
         ));
     }
-    if mode == ClockMode::RetiredWithIdle && arch != ArchKind::Aarch64 {
+    if mode == ClockMode::RetiredWithIdle && !matches!(arch, ArchKind::Aarch64 | ArchKind::Riscv64)
+    {
         return Err(Error::InvalidConfig(
-            "idle-enabled VM clock requires software AArch64".into(),
+            "idle-enabled VM clock requires software AArch64 or Riscv64".into(),
         ));
     }
     Ok(())
@@ -660,6 +661,14 @@ pub(crate) fn validate_checkpoint_clock(
         if execution.retired() != clock.retired_units {
             return Err(Error::InvalidConfig(
                 "retired VM clock and coordinator counts disagree".into(),
+            ));
+        }
+        if clock.mode == ClockMode::RetiredWithIdle
+            && bundle.base().config.arch == ArchKind::Riscv64
+            && execution.riscv_platform.is_none()
+        {
+            return Err(Error::InvalidConfig(
+                "idle-enabled RISC-V checkpoint requires shared interrupt and timer state".into(),
             ));
         }
         if bundle.cpus().is_none()

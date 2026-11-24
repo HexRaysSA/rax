@@ -81,6 +81,45 @@ The new mode selection and admission cost O(C) time for C CPU records and O(1)
 additional state. Existing codec, RAM and device capture costs retain their
 independent bounds. These are algorithmic bounds, not measured throughput.
 
+## RV64 idle advancement
+
+The software RV64 VMM also accepts `ClockMode::RetiredWithIdle`. WFI retires
+once, yields the turn, and leaves the hart waiting until a locally enabled
+interrupt is pending. The usual trap rules still determine whether the hart
+takes an interrupt or resumes at the following instruction. A pending
+machine-timer interrupt can wake WFI with global MIE clear when MTIE is set.
+Wall time and plain retirement time keep their existing WFI hint behavior.
+
+When every online hart is waiting, the coordinator advances to the earliest
+eligible ACLINT machine-timer deadline and polls the shared interrupt
+controllers again before selecting a hart. The 10,000,000 Hz counter advances
+one tick every 100 ns, exactly 300 retirement-clock quanta. For current base
+tick `t`, unsigned MTIME `m`, and MTIMECMP `c > m`, the first candidate is
+`300 * (t + c - m)` quanta since the start of the elapsed-clock epoch.
+At the epoch wrap the base tick restarts at zero and the guest MTIME offset
+persists, so the coordinator checks the wrapped epoch for the first assertion.
+The deadline scan takes O(H) time for H harts and O(1) auxiliary space.
+
+Complete idle-enabled RV64 checkpoints require the shared interrupt and timer
+record. A waiting hart uses the `RAXRV006` private tag with the same payload
+layout as `RAXRV005`. A runnable hart can still use `RAXRV005`. Earlier tags
+restore without a latched wait. The runtime test compares an uninterrupted VM
+with a VM restored from a real file after removing the source kernel. For
+one, two, and four harts it checks the order of the wakes, the guest's exact
+`rdtime` observations, and the coordinator, CPU and clock records.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A locally enabled timer wakes WFI with global MIE clear | A bare-metal QEMU virt fixture at each of the three hart counts checks MTIP and rejects a wake before the programmed comparator. |
+| Idle time preserves the first possible assertion | Step to a fractional boundary and across the elapsed-clock epoch wrap. Assert the level is low until the reported deadline and high at the deadline. Include a comparator the next epoch cannot reach. |
+| A latched wait survives file restoration | Remove the kernel and compare wake order, timestamps and execution state against uninterrupted execution. Verify that time stops once every hart waits with MTIE masked. |
+
+The RISC-V privileged ISA specifies local enable behavior for WFI and an
+unsigned MTIME/MTIMECMP comparison. The QEMU witness covers those wake
+conditions. The RAX runtime test covers its own deterministic time and file
+format. Physical RV64 timing and replay of external inputs are outside this
+qualification. [RISC-V Privileged ISA](https://docs.riscv.org/reference/isa/priv/machine.html)
+
 ## Evidence
 
 The observed parent-engine regression writes a real complete retired-clock file
@@ -114,6 +153,7 @@ audit ledger retains all four original findings as partially validated.
 The follow-up [S5L elapsed-clock group](../s5l-selected-clock/README.md) now
 binds S5L boot/heartbeat elapsed consumers to this selected clock and restores
 them from the incoming logical publication epoch. Synthetic timer profiles,
-other board consumers, idle policy outside AArch64 and full replay remain open.
+other board consumers, idle policy outside AArch64 and RV64, and full replay
+remain open.
 The [selected RTC calendar follow-up](../rtc-selected-clock/README.md) now binds
 PC CMOS and S5L PMU calendars; Wall external input is still not replayed.
