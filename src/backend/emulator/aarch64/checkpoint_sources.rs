@@ -1,10 +1,13 @@
 //! Framed owned-GIC source records and complete VM timer-input admission.
 use super::*;
 
-pub(super) const TAG: &[u8; 8] = b"RAXA6407";
+pub(super) const TAG: &[u8; 8] = b"RAXA6409";
+pub(super) const PRE_APR_TAG: &[u8; 8] = b"RAXA6407";
 const PREVIOUS_SOURCE_TAG: &[u8; 8] = b"RAXA6405";
 
-use crate::isa::arm::aarch64::gic::checkpoint::{LegacyGicCheckpoint, SourceGicCheckpoint};
+use crate::isa::arm::aarch64::gic::checkpoint::{
+    LegacyGicCheckpoint, PreAprGicCheckpoint, SourceGicCheckpoint,
+};
 
 fn upgrade_gic<T>(old: Context<T>, upgrade: fn(T) -> Result<GicCheckpoint>) -> Result<Context> {
     let Context {
@@ -49,44 +52,57 @@ pub(super) fn decode(raw: &[u8]) -> Result<Context> {
     if raw.len() > MAX_PAYLOAD + 8 {
         return Err(invalid("record exceeds budget"));
     }
-    let owned_sources = raw.starts_with(TAG) || raw.starts_with(counter_clock::OWNED_TAG);
-    let previous_sources =
-        raw.starts_with(PREVIOUS_SOURCE_TAG) || raw.starts_with(counter_clock::PREVIOUS_OWNED_TAG);
-    let (payload, clock) = if counter_clock::is_tag(raw) {
-        let header = raw
-            .get(8..8 + counter_clock::SIZE)
+    let (tag, payload) = raw
+        .split_at_checked(8)
+        .ok_or_else(|| invalid("invalid tag"))?;
+    let tag: &[u8; 8] = tag.try_into().unwrap();
+    let (payload, clock) = if counter_clock::is_tag(tag) {
+        let (header, payload) = payload
+            .split_at_checked(counter_clock::SIZE)
             .ok_or_else(|| invalid("truncated system counter header"))?;
-        (
-            &raw[8 + counter_clock::SIZE..],
-            Some(counter_clock::decode(header)?),
-        )
+        (payload, Some(counter_clock::decode(header)?))
     } else {
-        let payload = raw
-            .strip_prefix(TAG)
-            .or_else(|| raw.strip_prefix(PREVIOUS_SOURCE_TAG))
-            .or_else(|| raw.strip_prefix(super::TAG))
-            .or_else(|| raw.strip_prefix(PREVIOUS_TAG))
-            .or_else(|| raw.strip_prefix(LEGACY_TAG))
-            .ok_or_else(|| invalid("invalid tag"))?;
         (payload, None)
     };
-    let mut state: Context = if owned_sources {
-        crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?
-    } else if previous_sources {
-        upgrade_gic(
-            crate::codec::deserialize_limited::<Context<SourceGicCheckpoint>, MAX_PAYLOAD>(payload)
+    let (mut state, requires_owned): (Context, bool) = match tag {
+        TAG | counter_clock::OWNED_TAG => (
+            crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?,
+            true,
+        ),
+        PRE_APR_TAG | counter_clock::PRE_APR_OWNED_TAG => (
+            upgrade_gic(
+                crate::codec::deserialize_limited::<Context<PreAprGicCheckpoint>, MAX_PAYLOAD>(
+                    payload,
+                )
                 .map_err(invalid)?,
-            SourceGicCheckpoint::upgrade,
-        )?
-    } else {
-        upgrade_gic(
-            crate::codec::deserialize_limited::<Context<LegacyGicCheckpoint>, MAX_PAYLOAD>(payload)
+                PreAprGicCheckpoint::upgrade,
+            )?,
+            true,
+        ),
+        PREVIOUS_SOURCE_TAG | counter_clock::PREVIOUS_OWNED_TAG => (
+            upgrade_gic(
+                crate::codec::deserialize_limited::<Context<SourceGicCheckpoint>, MAX_PAYLOAD>(
+                    payload,
+                )
                 .map_err(invalid)?,
-            LegacyGicCheckpoint::upgrade,
-        )?
+                SourceGicCheckpoint::upgrade,
+            )?,
+            true,
+        ),
+        super::TAG | PREVIOUS_TAG | LEGACY_TAG | counter_clock::TAG => (
+            upgrade_gic(
+                crate::codec::deserialize_limited::<Context<LegacyGicCheckpoint>, MAX_PAYLOAD>(
+                    payload,
+                )
+                .map_err(invalid)?,
+                LegacyGicCheckpoint::upgrade,
+            )?,
+            false,
+        ),
+        _ => return Err(invalid("invalid tag")),
     };
     state.counter_clock = clock;
-    if (owned_sources || previous_sources) && state.owned_gic.is_none() {
+    if requires_owned && state.owned_gic.is_none() {
         return Err(invalid("owned-GIC source record has no controller"));
     }
     validate_owned(&state)?;

@@ -7,6 +7,7 @@
 //! - SGI, PPI, and SPI support
 //! - Interrupt prioritization and routing
 
+mod active_priority;
 pub mod checkpoint;
 mod cpu_interface;
 mod distributor_state;
@@ -258,6 +259,9 @@ pub struct CpuInterface {
     pub running_priority: u8,
     /// Group priorities recorded at acknowledgement (stack).
     pub active_priorities: Vec<(u32, u8)>, // (INTID, priority)
+    /// Physical active-priority registers, captured by the containing controller.
+    #[serde(skip)]
+    pub active_priority_registers: [[u32; 4]; 2],
     /// Highest pending priority.
     pub highest_pending_priority: u8,
     /// Highest pending interrupt ID.
@@ -313,6 +317,7 @@ impl CpuInterface {
             eoi_mode: false,
             running_priority: 0xFF,
             active_priorities: Vec::new(),
+            active_priority_registers: [[0; 4]; 2],
             highest_pending_priority: 0xFF,
             highest_pending_intid: INTID_SPURIOUS,
             highest_pending_group: None,
@@ -333,14 +338,6 @@ impl CpuInterface {
     /// Check if there's a pending interrupt to signal.
     pub fn pending_interrupt(&self) -> bool {
         self.preempting_group().is_some()
-    }
-
-    fn interrupt_exists(&self, intid: u32, spis: &[InterruptConfig]) -> bool {
-        if intid < SPI_START {
-            self.private_interrupts.get(intid as usize).is_some()
-        } else {
-            spis.get((intid - SPI_START) as usize).is_some()
-        }
     }
 
     fn interrupt_config_mut<'a>(
@@ -392,9 +389,12 @@ impl CpuInterface {
             config.state.clear_pending();
         }
 
-        // Push to active stack
+        // Guest writes to the redistributor and APRs can recycle an INTID
+        // without an EOIR. Retain at most one acknowledgement per INTID.
+        self.active_priorities
+            .retain(|(active, _)| *active != intid);
         self.active_priorities.push((intid, priority));
-        self.running_priority = priority;
+        self.activate_priority(group, priority);
 
         // Update pending
         self.update_pending(spis);
@@ -408,9 +408,9 @@ impl CpuInterface {
             return;
         }
 
-        if !self.interrupt_exists(intid, spis) {
+        let Some(group) = self.interrupt_group(intid, spis) else {
             return;
-        }
+        };
 
         // Find in active stack
         if let Some(pos) = self
@@ -421,12 +421,7 @@ impl CpuInterface {
             self.active_priorities.remove(pos);
         }
 
-        // Update running priority
-        self.running_priority = self
-            .active_priorities
-            .last()
-            .map(|(_, p)| *p)
-            .unwrap_or(0xFF);
+        self.drop_active_priority(group);
 
         // Deactivate interrupt (if not in EOI mode 1)
         if !self.eoi_mode {

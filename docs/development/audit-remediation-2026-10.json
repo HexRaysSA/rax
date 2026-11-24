@@ -200471,6 +200471,17 @@
       "scope": "The software physical GICv3 CPU interface applies per-PE binary points and CBPR to preemption, preserves acknowledged group priority through nested priority drop, and derives pending selection after a detached checkpoint. Two- and four-vCPU guest checkpoints exercise per-PE active and blocked pending interrupts. QEMU 11.1.2 matched independent Cortex-A57 and max observations. Hardware GIC, complete security and virtualization profiles, and other backend checkpoint and SMP paths remain open.",
       "qualification": "docs/development/a64-gic-interface/README.md#physical-interrupt-preemption-and-binary-points",
       "full_goal_complete": false
+    },
+    {
+      "id": "a64-gic-active-priorities-2026-11-24",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The software physical GICv3 exposes eight active-priority words per PE, updates them on acknowledgement and priority drop, and uses them for IRQ preemption. Shared and owned checkpoints retain software-written words and migrate older acknowledged ranks. Detached two- and four-vCPU guests check each PE's acknowledged and APR-only priorities. Hardware GIC, AArch32 CPU-interface aliases, virtual and secure profiles, and other backend checkpoint and SMP paths remain open.",
+      "qualification": "docs/development/a64-gic-interface/README.md#physical-active-priority-registers",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

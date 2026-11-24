@@ -146,12 +146,20 @@ fn owned_source_mismatch_and_invalid_source_bytes_reject_before_cpu_or_ram_publi
         Some("timer inputs"),
     )];
     let mut bad_bool = original.clone();
-    *bad_bool.data.last_mut().unwrap() = 2;
+    // The existing source-bank corruption cases precede the one-PE APR vector.
+    let apr_bytes = crate::codec::serialize(&vec![[[0u32; 4]; 2]])
+        .unwrap()
+        .len();
+    let index = bad_bool.data.len() - apr_bytes - 1;
+    bad_bool.data[index] = 2;
     cases.push((bad_bool, None));
-    let mut bad_shape = original;
-    let index = bad_shape.data.len() - 3;
+    let mut bad_shape = original.clone();
+    let index = bad_shape.data.len() - apr_bytes - 3;
     bad_shape.data[index] = 1;
     cases.push((bad_shape, None));
+    let mut bad_apr = original;
+    *bad_apr.data.last_mut().unwrap() = 0x80;
+    cases.push((bad_apr, Some("interrupt state is invalid")));
     let destination = memory();
     destination
         .write_slice(&[0x77; 16], GuestAddress(0x100))
@@ -246,9 +254,65 @@ fn source_bearing_owned_frames_migrate_readback_and_keep_pending_sources_in_both
         drop(gic);
         let current = target.capture_backend_context().unwrap().unwrap();
         assert!(current.data.starts_with(if mode.is_some() {
-            b"RAXA6408"
+            counter_clock::OWNED_TAG
         } else {
-            b"RAXA6407"
+            gic_sources::TAG
         }));
+    }
+}
+
+#[test]
+fn owned_later_legacy_frames_restore_acknowledged_priorities_with_and_without_clock() {
+    use crate::isa::arm::aarch64::gic::checkpoint::PreAprGicCheckpoint;
+
+    for mode in [None, Some(ClockMode::Retired)] {
+        let clock = mode.map(|mode| Arc::new(TimingContext::with_mode(mode)));
+        let _scope = clock.as_ref().map(|clock| clock.enter());
+        let source = Aarch64Vcpu::new(0, memory());
+        {
+            let handle = source.cpu.gic_handle().unwrap();
+            let mut gic = handle.lock().unwrap();
+            gic.write_dist(0, 2);
+            gic.set_group_enable(0, true, true);
+            gic.write_redist(0, 0x14, 0);
+            gic.write_redist(0, 0x10100, 1 << 7);
+            gic.write_redist(0, 0x10200, 1 << 7);
+            gic.cpu_mut(0).unwrap().private_interrupts[7].priority = 0x60;
+            assert_eq!(gic.acknowledge(0), 7);
+        }
+        let saved = state(&source);
+        let old: Context<PreAprGicCheckpoint> =
+            serde_json::from_value(serde_json::to_value(&saved).unwrap()).unwrap();
+        let mut data = if let Some(clock) = saved.counter_clock {
+            let mut data = counter_clock::PRE_APR_OWNED_TAG.to_vec();
+            data.extend_from_slice(&counter_clock::encode(clock).unwrap());
+            data
+        } else {
+            gic_sources::PRE_APR_TAG.to_vec()
+        };
+        data.extend_from_slice(&crate::codec::serialize(&old).unwrap());
+        let record = BackendContext {
+            kind: AARCH64_CONTEXT,
+            data,
+        };
+        let mut target = Aarch64Vcpu::new(0, memory());
+        target
+            .restore_checkpoint_context(
+                &source.get_state().unwrap(),
+                &Default::default(),
+                Some(&record),
+            )
+            .unwrap();
+        assert_eq!(graph(&source), graph(&target));
+        let handle = target.cpu.gic_handle().unwrap();
+        assert_eq!(
+            handle
+                .lock()
+                .unwrap()
+                .cpu(0)
+                .unwrap()
+                .active_priority_register(1, 1),
+            1 << 16
+        );
     }
 }

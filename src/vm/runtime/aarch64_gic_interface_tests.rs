@@ -193,8 +193,8 @@ fn irq_and_fiq_handlers_preserve_bank_semantics_across_source_free_vm_files() {
 }
 
 #[test]
-fn detached_gic_binary_points_preserve_preemption_on_each_guest_pe() {
-    let program: [u32; 25] = [
+fn detached_gic_binary_points_and_active_priority_registers_continue_on_each_guest_pe() {
+    let program: [u32; 31] = [
         0xd518_cc8d, // MSR ICC_CTLR_EL1,X13: select common or separate BPRs.
         0xd518_4609, // MSR ICC_PMR_EL1,X9.
         0xd518_ccea, // MSR ICC_IGRPEN1_EL1,X10.
@@ -212,13 +212,19 @@ fn detached_gic_binary_points_preserve_preemption_on_each_guest_pe() {
         0xd538_cc02, // MRS X2,ICC_IAR1_EL1: acknowledge SGI7.
         0xb902_02d2, // STR W18,[X22,#0x200]: pend SGI8.
         0xd538_cb63, // MRS X3,ICC_RPR_EL1: running group priority.
+        0xd538_c928, // MRS X8,ICC_AP1R1_EL1: rank from SGI7 acknowledgement.
+        0xd518_c8f7, // MSR ICC_AP0R3_EL1,X23: a rank with no acknowledged INTID.
         0xd503_207f, // WFI: checkpoint boundary with SGI7 still active.
+        0xd538_c8f8, // MRS X24,ICC_AP0R3_EL1.
+        0xd538_c939, // MRS X25,ICC_AP1R1_EL1.
         0xd538_cc44, // MRS X4,ICC_HPPIR1_EL1: SGI8 remains visible.
         0xd538_cc05, // MRS X5,ICC_IAR1_EL1: blocked by the active group priority.
         0xd518_cc22, // MSR ICC_EOIR1_EL1,X2: drop SGI7's priority.
         0xd538_cc06, // MRS X6,ICC_IAR1_EL1: SGI8 can now run.
         0xd518_cc26, // MSR ICC_EOIR1_EL1,X6.
-        0xd538_cb67, // MRS X7,ICC_RPR_EL1: idle.
+        0xd538_cb67, // MRS X7,ICC_RPR_EL1: the software-written Group 0 rank.
+        0xd518_c8ff, // MSR ICC_AP0R3_EL1,XZR.
+        0xd538_cb7a, // MRS X26,ICC_RPR_EL1: idle.
         0xd503_207f, // WFI: end of continuation.
     ];
     let bytes = program
@@ -264,6 +270,7 @@ fn detached_gic_binary_points_preserve_preemption_on_each_guest_pe() {
                 redist + 0x14,
                 redist + 0x10000,
             ]);
+            cpu.regs.x[23] = 1 << id;
             source.vm.vcpus[id]
                 .set_state(&CpuState::Aarch64(cpu))
                 .unwrap();
@@ -276,14 +283,15 @@ fn detached_gic_binary_points_preserve_preemption_on_each_guest_pe() {
                 &state(&source.vm, id).regs.x[..4],
                 &[5, (id % 2) as u64, 7, 0x60]
             );
-            assert_eq!(source.vm.vcpus[id].instruction_count(), 18);
+            assert_eq!(state(&source.vm, id).regs.x[8], 1 << 16);
+            assert_eq!(source.vm.vcpus[id].instruction_count(), 20);
             assert!(!cluster.irq_line_for_test(id).load(Ordering::Acquire));
         }
 
         let path = source.kernel.with_extension("gic-binary-point.rxc");
         source
             .vm
-            .take_snapshot_bundle(18 * u64::from(count))
+            .take_snapshot_bundle(20 * u64::from(count))
             .unwrap()
             .save(&path)
             .unwrap();
@@ -309,11 +317,24 @@ fn detached_gic_binary_points_preserve_preemption_on_each_guest_pe() {
             let turn = target.execute_turn().unwrap().unwrap();
             assert_eq!(turn.cpu_index, id);
             assert!(matches!(turn.exit, VcpuExit::Hlt));
+            let regs = state(&target, id).regs;
+            let residual_priority = 0xc0 + 2 * id as u64;
             assert_eq!(
-                &state(&target, id).regs.x[..8],
-                &[5, (id % 2) as u64, 7, 0x60, 8, 1023, 8, 0xff]
+                &regs.x[..9],
+                &[
+                    5,
+                    (id % 2) as u64,
+                    7,
+                    0x60,
+                    8,
+                    1023,
+                    8,
+                    residual_priority,
+                    1 << 16
+                ]
             );
-            assert_eq!(target.vcpus[id].instruction_count(), 25);
+            assert_eq!(&regs.x[24..27], &[1 << id, 1 << 16, 0xff]);
+            assert_eq!(target.vcpus[id].instruction_count(), 31);
             assert!(!cluster.irq_line_for_test(id).load(Ordering::Acquire));
         }
     }

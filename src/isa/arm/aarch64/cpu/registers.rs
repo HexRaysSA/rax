@@ -337,8 +337,15 @@ impl AArch64Cpu {
             (3, 0, 12, 8, 3) => gic.cpu(self.gic_cpu_id)?.binary_point(0) as u64,
             // ICC_BPR1_EL1
             (3, 0, 12, 12, 3) => gic.cpu(self.gic_cpu_id)?.binary_point(1) as u64,
-            // ICC_AP0R / ICC_AP1R (active priorities: RAZ)
-            (3, 0, 12, 8, 4..=7) | (3, 0, 12, 9, 0..=3) => 0,
+            // ICC_AP0Rn_EL1 and ICC_AP1Rn_EL1, four 32-bit registers per group.
+            (3, 0, 12, 8, n @ 4..=7) => {
+                gic.cpu(self.gic_cpu_id)?
+                    .active_priority_register(0, usize::from(n - 4)) as u64
+            }
+            (3, 0, 12, 9, n @ 0..=3) => {
+                gic.cpu(self.gic_cpu_id)?
+                    .active_priority_register(1, usize::from(n)) as u64
+            }
             // ICC_RPR_EL1
             (3, 0, 12, 11, 3) => gic.cpu(self.gic_cpu_id)?.running_priority_register() as u64,
             // ICC_CTLR_EL1: PRIbits=7 (8 priority bits), IDbits=0 (16-bit)
@@ -383,8 +390,16 @@ impl AArch64Cpu {
             (3, 0, 12, 8, 3) => gic.set_binary_point(self.gic_cpu_id, 0, value),
             // ICC_BPR1_EL1
             (3, 0, 12, 12, 3) => gic.set_binary_point(self.gic_cpu_id, 1, value),
-            // ICC_AP0R / ICC_AP1R: WI
-            (3, 0, 12, 8, 4..=7) | (3, 0, 12, 9, 0..=3) => {}
+            // ICC_AP0Rn_EL1 and ICC_AP1Rn_EL1. Bits [63:32] are RES0.
+            (3, 0, 12, 8, n @ 4..=7) => gic.write_active_priority_register(
+                self.gic_cpu_id,
+                0,
+                usize::from(n - 4),
+                value as u32,
+            ),
+            (3, 0, 12, 9, n @ 0..=3) => {
+                gic.write_active_priority_register(self.gic_cpu_id, 1, usize::from(n), value as u32)
+            }
             // ICC_DIR_EL1
             (3, 0, 12, 11, 1) => gic.deactivate(self.gic_cpu_id, value as u32),
             // ICC_SGI1R_EL1 / ICC_ASGI1R_EL1 / ICC_SGI0R_EL1

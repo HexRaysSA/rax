@@ -1,4 +1,5 @@
 //! Complete represented GIC state, retaining target-owned IRQ line handles.
+use super::active_priority::{running_priority, set_priority_bit};
 use super::sources::SourceBank;
 use super::{CpuInterface, Gic, GicConfig, InterruptConfig};
 use crate::error::{Error, Result};
@@ -10,6 +11,50 @@ pub struct GicCheckpoint {
     spis: Vec<InterruptConfig>,
     cpu_interfaces: Vec<CpuInterface>,
     sources: SourceBank,
+    active_priority_registers: Vec<[[u32; 4]; 2]>,
+}
+
+/// Frozen distributor/source layout from before APRs became guest-writable.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct PreAprGicCheckpoint {
+    config: GicConfig,
+    dist_groups: u8,
+    spis: Vec<InterruptConfig>,
+    cpu_interfaces: Vec<CpuInterface>,
+    sources: SourceBank,
+}
+
+impl PreAprGicCheckpoint {
+    pub(crate) fn upgrade(self) -> Result<GicCheckpoint> {
+        let mut state = GicCheckpoint {
+            config: self.config,
+            dist_groups: self.dist_groups,
+            spis: self.spis,
+            cpu_interfaces: self.cpu_interfaces,
+            sources: self.sources,
+            active_priority_registers: Vec::new(),
+        };
+        for cpu in &mut state.cpu_interfaces {
+            let mut registers = [[0; 4]; 2];
+            for (intid, priority) in &cpu.active_priorities {
+                let group = cpu.interrupt_group(*intid, &state.spis).ok_or_else(|| {
+                    Error::Emulator("legacy GIC active priority has no interrupt binding".into())
+                })?;
+                set_priority_bit(&mut registers, group, *priority);
+            }
+            let recorded = cpu.running_priority_register();
+            cpu.running_priority = running_priority(&registers);
+            if recorded != cpu.running_priority {
+                return Err(Error::Emulator(
+                    "legacy GIC running priority disagrees with active interrupts".into(),
+                ));
+            }
+            state.active_priority_registers.push(registers);
+        }
+        state.validate_shape(state.cpu_interfaces.len())?;
+        state.update_selection();
+        Ok(state)
+    }
 }
 
 /// Frozen source-bearing layout used by private6405/06 and sharedEXE05/06.
@@ -29,16 +74,14 @@ impl SourceGicCheckpoint {
     pub(crate) fn upgrade(self) -> Result<GicCheckpoint> {
         // The former public readback expanded true to both enables. This is
         // a logical migration; individual historical writes are not recoverable.
-        let mut state = GicCheckpoint {
+        PreAprGicCheckpoint {
             config: self.config,
             dist_groups: if self.dist_enabled { 3 } else { 0 },
             spis: self.spis,
             cpu_interfaces: self.cpu_interfaces,
             sources: self.sources,
-        };
-        state.validate_shape(state.cpu_interfaces.len())?;
-        state.update_selection();
-        Ok(state)
+        }
+        .upgrade()
     }
 }
 
@@ -98,6 +141,17 @@ impl GicCheckpoint {
     }
 
     #[cfg(test)]
+    pub(crate) fn pre_apr_for_test(&self) -> PreAprGicCheckpoint {
+        PreAprGicCheckpoint {
+            config: self.config.clone(),
+            dist_groups: self.dist_groups,
+            spis: self.spis.clone(),
+            cpu_interfaces: self.cpu_interfaces.clone(),
+            sources: self.sources.clone(),
+        }
+    }
+
+    #[cfg(test)]
     pub(crate) fn legacy_fields_for_test(&self) -> serde_json::Value {
         let mut value = serde_json::to_value(self).unwrap();
         let object = value.as_object_mut().unwrap();
@@ -127,6 +181,7 @@ impl GicCheckpoint {
             || count == 0
             || count != usize::from(self.config.num_cpus)
             || self.cpu_interfaces.len() != count
+            || self.active_priority_registers.len() != count
             || self.spis.len() != usize::from(self.config.num_spis)
             || self.spis.len() > 992
             || !self.sources.valid(&self.cpu_interfaces, &self.spis)
@@ -145,6 +200,7 @@ impl GicCheckpoint {
                     .any(|(intid, _)| *intid >= 1020)
                 || cpu.bpr0 > 7
                 || cpu.bpr1 > 7
+                || cpu.running_priority != running_priority(&self.active_priority_registers[id])
             {
                 return Err(invalid());
             }
@@ -164,6 +220,11 @@ impl Gic {
             spis: self.spis.clone(),
             cpu_interfaces: self.cpu_interfaces.clone(),
             sources: self.sources.clone(),
+            active_priority_registers: self
+                .cpu_interfaces
+                .iter()
+                .map(|cpu| cpu.active_priority_registers)
+                .collect(),
         };
         state
             .sources
@@ -196,6 +257,13 @@ impl Gic {
         self.spis = state.spis;
         self.cpu_interfaces = state.cpu_interfaces;
         self.sources = state.sources;
+        for (cpu, registers) in self
+            .cpu_interfaces
+            .iter_mut()
+            .zip(state.active_priority_registers)
+        {
+            cpu.active_priority_registers = registers;
+        }
         self.update_all_cpus();
     }
 }

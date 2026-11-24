@@ -201,6 +201,58 @@ software physical CPU interface with a single security state. High-impact
 open scope includes hardware GIC save/restore, complete security and
 virtualization profiles, and other backend checkpoint and SMP paths.
 
+## Physical active-priority registers
+
+Each PE now exposes four 32-bit `ICC_AP0Rn_EL1` registers for Group 0 and
+four `ICC_AP1Rn_EL1` registers for Group 1. For the represented eight-bit
+priority interface, register `n`, bit `b`, represents group priority
+`2 * (32 * n + b)`. Acknowledgement sets the bit for its group and rank.
+RPR reads the highest priority across both banks or `0xff` when both are
+empty. EOIR drops a priority, and DIR changes the distributor's active
+state when priority drop and deactivation are split. Guest APR writes
+change RPR and can change whether an interrupt can preempt. The
+redistributor and distributor active bits belong to the interrupt itself.
+[Arm IHI0069H, §§4.8.4 and 12.2.1–2](../../specifications/arm/gic-ihi0069.pdf).
+
+The checkpoint stores all eight words per PE. Shared execution frames use
+`RAXEXE15`/`RAXEXE16`, and owned-controller records use
+`RAXA6409`/`RAXA6410`. Earlier tags remain readable. For old checkpoints,
+the reader derives APRs from recorded priorities and each interrupt's saved
+group. Older raw ranks are rounded down to the nearest even encoding.
+Record admission rejects a discrepancy between the derived RPR and the
+saved running priority, as well as an APR count that differs from the PE
+count. The earlier source-latch admission rules still apply.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| An acknowledged rank is visible on its group's APR bank. | Nest four interrupts across both groups and all four bank indices. Verify each bit, reverse the acknowledgement sequence with EOIR, and test DIR separately. |
+| A priority installed by MSR can exist independently of an interrupt's active state. | Block a pending IRQ with an APR-only priority. Verify that distributor active bits stay clear and clearing the APR republishes the existing IRQ line. |
+| A same-version detached image can contain a priority with no acknowledged INTID. | Write a different APR-only rank on each of two or four vCPUs, discard the source, then read both banks and independently drop the acknowledged and software-written priorities. |
+| Earlier checkpoint layouts contain enough information to reconstruct their represented priority active state. | Decode old shared frames with and without PL011 and both older owned-controller profiles. Compare the migrated state and reject a new frame whose APRs disagree with RPR. |
+
+The baseline RAX guest acknowledged an interrupt and read a zero APR word
+for both groups. The same transfer probe produced 26 matching observations
+each on the corrected RAX software VMM and on QEMU 11.1.2 with Cortex-A57
+and `max`. The guest derived its APR index from each model's reported
+priority width and checked that clearing and restoring the bit changed RPR
+and IRQ admission while preserving the interrupt's active state. The
+controller and detached-checkpoint regressions passed, as did all 47,530
+tests in the six owning integration executables. The C API suite passed
+258 tests with 21 ignored, and the JIT-enabled library passed Clippy.
+The unfiltered library process received SIGKILL after emitting 12,975
+results, including the previously reproduced Darwin codesign failure.
+All 16 execution-frame tests passed when run directly from that binary.
+Logs, probe source and executable hashes are in
+`/Users/int/dev/rax-audit-work/four-findings-a64-gic-active-priorities-2026-11-24`.
+[QEMU CPU interface](https://qemu.googlesource.com/qemu/%2B/108d99742af1fa6e977dcfac9d4151b7915e33a3/hw/intc/arm_gicv3_cpuif.c).
+
+RPR selection visits at most four 32-bit word pairs. APR writes reuse the
+physical router's O(P(32+S)) update to republish the IRQ line, where P is
+the PE count and S is the number of SPI entries. The per-PE wire payload
+adds 32 bytes of APR data and the vector adds one 8-byte count. Native
+controllers, AArch32 GIC CPU-system-register aliases, virtual or secure
+APR banks, and GICv3.3 NMI behavior remain outside this validation scope.
+
 ## Evidence and limits
 
 qualification.json records the exact tested source and executable hashes,

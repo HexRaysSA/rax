@@ -240,6 +240,99 @@ fn redistributor_set_active_preserves_private_pending_without_priority_drop() {
 }
 
 #[test]
+fn active_priority_registers_track_nested_groups_and_priority_drop_separately_from_dir() {
+    let mut gic = controller(2);
+    gic.set_cpu_control(1, 2); // Split priority drop and deactivation.
+    for (intid, priority, group) in [(7, 0xe0, 0), (8, 0xa0, 1), (9, 0x60, 0), (10, 0x20, 1)] {
+        gic.cpu_mut(1).unwrap().private_interrupts[intid].priority = priority;
+        request(&mut gic, 1, intid as u32, group);
+        assert_eq!(gic.acknowledge_group(1, group), intid as u32);
+        let register = usize::from(priority / 64);
+        assert_eq!(
+            gic.cpu(1)
+                .unwrap()
+                .active_priority_register(group as usize, register),
+            1 << 16
+        );
+        assert_eq!(gic.cpu(1).unwrap().running_priority_register(), priority);
+    }
+    let source = gic.checkpoint();
+    let old = crate::codec::serialize(&source.pre_apr_for_test()).unwrap();
+    let legacy: super::checkpoint::PreAprGicCheckpoint =
+        crate::codec::deserialize_strict(&old).unwrap();
+    let migrated = legacy.upgrade().unwrap();
+    assert_eq!(
+        crate::codec::serialize(&migrated).unwrap(),
+        crate::codec::serialize(&source).unwrap()
+    );
+
+    for (intid, group, register, successor) in [
+        (10, 1, 0, 0x60),
+        (9, 0, 1, 0xa0),
+        (8, 1, 2, 0xe0),
+        (7, 0, 3, 0xff),
+    ] {
+        gic.end_of_interrupt_group(1, intid, group);
+        let cpu = gic.cpu(1).unwrap();
+        assert_eq!(cpu.active_priority_register(group as usize, register), 0);
+        assert_eq!(cpu.running_priority_register(), successor);
+        assert!(cpu.private_interrupts[intid as usize].state.is_active());
+        gic.deactivate(1, intid);
+        assert!(
+            !gic.cpu(1).unwrap().private_interrupts[intid as usize]
+                .state
+                .is_active()
+        );
+    }
+    assert_eq!(gic.cpu(0).unwrap().active_priority_registers, [[0; 4]; 2]);
+}
+
+#[test]
+fn apr_only_priority_reaches_restored_irq_line_and_does_not_change_active_state() {
+    let mut gic = controller(2);
+    gic.cpu_mut(1).unwrap().private_interrupts[7].priority = 0x60;
+    request(&mut gic, 1, 7, 1);
+    let irq = gic.irq_line(1).unwrap();
+    assert!(irq.load(Ordering::Acquire));
+    gic.write_active_priority_register(1, 0, 0, 1 << 16);
+    assert_eq!(gic.cpu(1).unwrap().running_priority_register(), 0x20);
+    assert!(gic.cpu(1).unwrap().active_priorities.is_empty());
+    assert_eq!(gic.read_redist(1, 0x10300), 0);
+    assert!(!irq.load(Ordering::Acquire));
+
+    let state = gic.checkpoint();
+    let mut malformed = serde_json::to_value(&state).unwrap();
+    malformed["active_priority_registers"][1][0][0] = 0.into();
+    assert!(
+        gic.validate_checkpoint(&serde_json::from_value(malformed).unwrap())
+            .is_err()
+    );
+    let raw = crate::codec::serialize(&state).unwrap();
+    let mut restored = controller(2);
+    let irq = restored.irq_line(1).unwrap();
+    let record = crate::codec::deserialize_strict(&raw).unwrap();
+    restored.validate_checkpoint(&record).unwrap();
+    restored.restore_checkpoint(record);
+    assert!(!irq.load(Ordering::Acquire));
+    assert!(Arc::ptr_eq(&restored.irq_line(1).unwrap(), &irq));
+    assert_eq!(
+        restored.cpu(1).unwrap().active_priority_register(0, 0),
+        1 << 16
+    );
+    assert_eq!(restored.cpu(1).unwrap().running_priority_register(), 0x20);
+
+    restored.write_active_priority_register(1, 0, 0, 0);
+    assert!(irq.load(Ordering::Acquire));
+    assert_eq!(restored.read_redist(1, 0x10300), 0);
+    assert_eq!(restored.acknowledge_group(1, 1), 7);
+    assert_eq!(restored.read_redist(1, 0x10300), 1 << 7);
+    assert_eq!(
+        restored.cpu(1).unwrap().active_priority_register(1, 1),
+        1 << 16
+    );
+}
+
+#[test]
 fn binary_point_blocks_equal_group_preemption_and_retains_nested_priority() {
     for group in [0, 1] {
         for count in [2, 4] {

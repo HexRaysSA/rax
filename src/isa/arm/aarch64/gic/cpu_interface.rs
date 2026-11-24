@@ -47,7 +47,7 @@ impl CpuInterface {
         }
     }
 
-    fn interrupt_group(&self, intid: u32, spis: &[InterruptConfig]) -> Option<u8> {
+    pub(super) fn interrupt_group(&self, intid: u32, spis: &[InterruptConfig]) -> Option<u8> {
         let config = if intid < SPI_START {
             self.private_interrupts.get(intid as usize)
         } else {

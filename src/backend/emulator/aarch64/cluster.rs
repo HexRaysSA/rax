@@ -9,7 +9,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::error::{Error, Result};
 use crate::isa::arm::aarch64::cpu::AArch64Cpu;
-use crate::isa::arm::aarch64::gic::{Gic, GicConfig, checkpoint::GicCheckpoint};
+use crate::isa::arm::aarch64::gic::checkpoint::{GicCheckpoint, PreAprGicCheckpoint};
+use crate::isa::arm::aarch64::gic::{Gic, GicConfig};
 use crate::machine::arm_virt::{AARCH64_GICD_BASE, AARCH64_UART_IRQ, aarch64_redist_frame};
 use crate::vm::vcpu::{Aarch64SystemRegisters, CpuPowerRequest};
 use vm_memory::{GuestAddress, GuestMemory, GuestMemoryMmap};
@@ -34,9 +35,9 @@ struct Control {
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct ArmClusterCheckpoint {
+pub struct ArmClusterCheckpoint<GicState = GicCheckpoint> {
     control: Control,
-    gic: GicCheckpoint,
+    gic: GicState,
     high_redist_base: u64,
     pub(crate) shutdown: bool,
 }
@@ -465,14 +466,37 @@ impl ArmClusterCheckpoint {
     }
 
     pub(crate) fn decode_without_terminal(raw: &[u8]) -> Result<Self> {
-        LegacyCluster::<GicCheckpoint>::decode(raw)?.upgrade(Ok)
+        LegacyCluster::<PreAprGicCheckpoint>::decode(raw)?.upgrade(PreAprGicCheckpoint::upgrade)
+    }
+
+    pub(crate) fn decode_pre_apr(raw: &[u8]) -> Result<Self> {
+        let previous: ArmClusterCheckpoint<PreAprGicCheckpoint> =
+            crate::codec::deserialize_limited::<_, { 64 * 1024 * 1024 }>(raw)
+                .map_err(|error| invalid(&error.to_string()))?;
+        Ok(Self {
+            control: previous.control,
+            gic: previous.gic.upgrade()?,
+            high_redist_base: previous.high_redist_base,
+            shutdown: previous.shutdown,
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn pre_apr_bytes_for_test(&self) -> Vec<u8> {
+        crate::codec::serialize(&ArmClusterCheckpoint {
+            control: self.control.clone(),
+            gic: self.gic.pre_apr_for_test(),
+            high_redist_base: self.high_redist_base,
+            shutdown: self.shutdown,
+        })
+        .unwrap()
     }
 
     #[cfg(test)]
     pub(crate) fn without_terminal_bytes_for_test(&self) -> Vec<u8> {
         crate::codec::serialize(&LegacyCluster {
             control: self.control.clone(),
-            gic: &self.gic,
+            gic: self.gic.pre_apr_for_test(),
             high_redist_base: self.high_redist_base,
         })
         .unwrap()

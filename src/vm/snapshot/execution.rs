@@ -13,8 +13,10 @@ const SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE07";
 const PREVIOUS_SOURCE_ARM_TAG: &[u8; 8] = b"RAXEXE05";
 const SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE08";
 const PREVIOUS_SOURCE_UART_TAG: &[u8; 8] = b"RAXEXE06";
-const ARM_POWER_TAG: &[u8; 8] = b"RAXEXE13";
-const ARM_POWER_UART_TAG: &[u8; 8] = b"RAXEXE14";
+const PRE_APR_POWER_TAG: &[u8; 8] = b"RAXEXE13";
+const PRE_APR_POWER_UART_TAG: &[u8; 8] = b"RAXEXE14";
+const ARM_POWER_TAG: &[u8; 8] = b"RAXEXE15";
+const ARM_POWER_UART_TAG: &[u8; 8] = b"RAXEXE16";
 const SNAPSHOT_SCHEDULE_TAG: &[u8; 8] = b"RAXSCH01";
 pub(super) const MAX_SECTION: u64 = 64 * 1024 * 1024;
 const MAX_CONTROL: usize = 4096;
@@ -297,6 +299,24 @@ mod tests {
             );
             let restored = ExecutionSnapshot::decode(&terminal, 1).unwrap();
             assert!(restored.arm_cluster.as_ref().unwrap().shutdown);
+
+            let platform = state.arm_cluster.as_ref().unwrap().pre_apr_bytes_for_test();
+            let mut previous = fixture();
+            previous[..8].copy_from_slice(if uart {
+                PRE_APR_POWER_UART_TAG
+            } else {
+                PRE_APR_POWER_TAG
+            });
+            previous.extend_from_slice(&(platform.len() as u32).to_le_bytes());
+            previous.extend_from_slice(&platform);
+            if let Some(uart) = &state.pl011 {
+                let bytes = crate::codec::serialize(uart).unwrap();
+                previous.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+                previous.extend_from_slice(&bytes);
+            }
+            let previous = ExecutionSnapshot::decode(&previous, 1).unwrap();
+            assert!(previous.arm_cluster.as_ref().unwrap().shutdown);
+            assert_eq!(previous.encoded().unwrap(), terminal);
 
             // An extended tag cannot silently admit a record missing the bool.
             old[..8].copy_from_slice(&terminal[..8]);
@@ -614,6 +634,8 @@ impl ExecutionSnapshot {
             SOURCE_UART_TAG,
             PREVIOUS_SOURCE_ARM_TAG,
             PREVIOUS_SOURCE_UART_TAG,
+            PRE_APR_POWER_TAG,
+            PRE_APR_POWER_UART_TAG,
             ARM_POWER_TAG,
             ARM_POWER_UART_TAG,
         ]
@@ -674,6 +696,8 @@ impl ExecutionSnapshot {
             || tag == SOURCE_UART_TAG
             || tag == PREVIOUS_SOURCE_ARM_TAG
             || tag == PREVIOUS_SOURCE_UART_TAG
+            || tag == PRE_APR_POWER_TAG
+            || tag == PRE_APR_POWER_UART_TAG
             || tag == ARM_POWER_TAG
             || tag == ARM_POWER_UART_TAG
         {
@@ -691,6 +715,8 @@ impl ExecutionSnapshot {
                         crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_previous_sources(reader.take(length)?)?
                     } else if tag == SOURCE_ARM_TAG || tag == SOURCE_UART_TAG {
                         crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_without_terminal(reader.take(length)?)?
+                    } else if tag == PRE_APR_POWER_TAG || tag == PRE_APR_POWER_UART_TAG {
+                        crate::backend::emulator::aarch64::cluster::ArmClusterCheckpoint::decode_pre_apr(reader.take(length)?)?
                     } else {
                         crate::codec::deserialize_limited::<_, { MAX_SECTION as usize }>(
                             reader.take(length)?,
@@ -706,6 +732,7 @@ impl ExecutionSnapshot {
         let pl011 = if tag == UART_TAG
             || tag == SOURCE_UART_TAG
             || tag == PREVIOUS_SOURCE_UART_TAG
+            || tag == PRE_APR_POWER_UART_TAG
             || tag == ARM_POWER_UART_TAG
         {
             let length = reader.u32()? as usize;
