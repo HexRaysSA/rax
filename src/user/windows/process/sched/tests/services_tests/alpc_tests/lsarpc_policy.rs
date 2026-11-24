@@ -90,6 +90,23 @@ fn lookup(call: u32, context: &[u8], name: &str) -> Vec<u8> {
     payload
 }
 
+fn lookup_ndr32(call: u32, context: &[u8], name: &str) -> Vec<u8> {
+    let units = name.encode_utf16().collect::<Vec<_>>();
+    let length = (units.len() * 2) as u16;
+    let mut payload = into_call((104 + usize::from(length)).next_multiple_of(4), call, 31);
+    write_word(&mut payload, 16, 0);
+    payload[64..84].copy_from_slice(context);
+    payload[84..86].copy_from_slice(&length.to_le_bytes());
+    payload[86..88].copy_from_slice(&(length + 2).to_le_bytes());
+    write_word(&mut payload, 88, 0x20000);
+    write_word(&mut payload, 92, units.len() as u32 + 1);
+    write_word(&mut payload, 100, units.len() as u32);
+    for (unit, chunk) in units.into_iter().zip(payload[104..].chunks_exact_mut(2)) {
+        chunk.copy_from_slice(&unit.to_le_bytes());
+    }
+    payload
+}
+
 fn lookup_name(call: u32, context: &[u8], low: u32, high: u32) -> Vec<u8> {
     let mut payload = into_call(92, call, 32);
     payload[64..84].copy_from_slice(context);
@@ -294,6 +311,71 @@ fn native_lsarpc_policy_open_accepts_the_classic_transfer_syntax() {
         let (outcome, _, _) = exchange(p, &mut thread, [base, port, 0, 4096], &invalid);
         assert!(matches!(outcome, Outcome::Fail(message) if message.contains("operation 130")));
     }
+}
+
+#[test]
+fn native_lsarpc_classic_privilege_lookup_uses_a_live_local_context() {
+    let (mut process, mut thread) = fixture(WinArch::X86, "NtAlpcSendWaitReceivePort", SERVICE);
+    let p = process.state_mut();
+    super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
+    let base =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let port = new_port(p);
+    let foreign_port = new_port(p);
+    let mut bind = bind();
+    write_word(&mut bind, 32, 1);
+    for port in [port, foreign_port] {
+        let (outcome, status, response) = exchange(p, &mut thread, [base, port, 0, 4096], &bind);
+        assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
+        assert_eq!(word(&response, 32), 1);
+    }
+    let request = open_ndr32(1, POLICY_LOOKUP_NAMES, 1);
+    let (outcome, status, response) = exchange(p, &mut thread, [base, port, 0, 4096], &request);
+    assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
+    let context = &response[40..60];
+
+    for (call, target, name, value, expected) in [
+        (2, port, "SeDebugPrivilege", 20, STATUS_SUCCESS),
+        (3, port, "SeUnknownPrivilege", 0, 0xc000_0060),
+        (
+            4,
+            foreign_port,
+            "SeDebugPrivilege",
+            0,
+            STATUS_INVALID_HANDLE,
+        ),
+    ] {
+        let request = lookup_ndr32(call, context, name);
+        let (outcome, status, response) =
+            exchange(p, &mut thread, [base, target, 0, 4096], &request);
+        assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
+        assert_eq!(response.len(), 36);
+        assert_eq!(word(&response, 12), call);
+        assert_eq!(
+            [24, 28, 32].map(|offset| word(&response, offset)),
+            [value, 0, expected]
+        );
+    }
+
+    let mut invalid = lookup_ndr32(5, context, "SeDebugPrivilege");
+    write_word(&mut invalid, 100, 4096);
+    let (outcome, _, _) = exchange(p, &mut thread, [base, port, 0, 4096], &invalid);
+    assert!(matches!(outcome, Outcome::Fail(message) if message.contains("operation 31")));
+
+    let mut request = close(6, context);
+    write_word(&mut request, 16, 0);
+    let (outcome, status, response) = exchange(p, &mut thread, [base, port, 0, 4096], &request);
+    assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
+    assert_eq!(response.len(), 48);
+    assert_eq!(word(&response, 12), 6);
+    assert_eq!(response[24..48], [0; 24]);
+
+    let request = lookup_ndr32(7, context, "SeDebugPrivilege");
+    let (outcome, status, response) = exchange(p, &mut thread, [base, port, 0, 4096], &request);
+    assert_eq!((outcome, status), (Outcome::Continue, STATUS_SUCCESS));
+    assert_eq!(word(&response, 32), STATUS_INVALID_HANDLE);
 }
 
 #[test]

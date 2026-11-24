@@ -16,9 +16,12 @@ const LOOKUP_PRIVILEGE_DISPLAY_NAME: u32 = 33;
 const OPEN: u32 = 130;
 const REPLY: u32 = 3;
 const RPC_HEADER_BYTES: usize = 24;
+const INPUT_NDR32_NAME_AT: usize = 104;
 const INPUT_NAME_AT: usize = 128;
 const RESULT_NAME_AT: usize = 72;
+const CLOSE_NDR32_REPLY_BYTES: usize = 48;
 const CLOSE_REPLY_BYTES: usize = 92;
+const LOOKUP_NDR32_REPLY_BYTES: usize = 36;
 const LOOKUP_REPLY_BYTES: usize = 80;
 const OPEN_NDR32_BYTES: usize = 120;
 const OPEN_NDR32_REPLY_BYTES: usize = 64;
@@ -71,8 +74,18 @@ pub(super) fn response_ndr32(
     association: ObjId,
     contexts: &LsarpcPolicies,
 ) -> Option<Response> {
-    if operation(payload, request_type, NDR32_CALL_CONTEXT)? != OPEN
-        || payload.len() != OPEN_NDR32_BYTES
+    let mut response = match operation(payload, request_type, NDR32_CALL_CONTEXT)? {
+        OPEN => open_ndr32(payload, association, contexts)?,
+        LOOKUP_PRIVILEGE_VALUE => lookup_value_ndr32(payload, contexts)?,
+        CLOSE => close_with_size(payload, contexts, CLOSE_NDR32_REPLY_BYTES)?,
+        _ => return None,
+    };
+    echo_call_id(&mut response, payload);
+    Some(response)
+}
+
+fn open_ndr32(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option<Response> {
+    if payload.len() != OPEN_NDR32_BYTES
         || payload[24..68].iter().any(|&byte| byte != 0)
         || word(payload, 68) != 24
         || payload[72..88].iter().any(|&byte| byte != 0)
@@ -89,15 +102,13 @@ pub(super) fn response_ndr32(
     // The classic stub uses a 32-bit QoS referent and a 16-bit enum.
     // The reply's scalar outputs and 20-byte context have the same offsets
     // as in the NDR64 stub, without its trailing transport padding.
-    let mut response = open_reply(
+    Some(open_reply(
         OPEN_NDR32_REPLY_BYTES,
         association,
         contexts,
         word(payload, 104),
         word(payload, 100),
-    );
-    echo_call_id(&mut response, payload);
-    Some(response)
+    ))
 }
 
 pub(super) fn operation(payload: &[u8], request_type: u16, context: u32) -> Option<u32> {
@@ -184,11 +195,49 @@ fn lookup_value(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
         return None;
     }
 
-    let mut response = reply(LOOKUP_REPLY_BYTES);
+    Some(lookup_value_reply(
+        LOOKUP_REPLY_BYTES,
+        context,
+        &payload[INPUT_NAME_AT..end],
+        contexts,
+    ))
+}
+
+fn lookup_value_ndr32(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
+    if payload.len() < INPUT_NDR32_NAME_AT || payload[24..64].iter().any(|&byte| byte != 0) {
+        return None;
+    }
+    let (length, maximum) = name_lengths(payload, 84)?;
+    let end = INPUT_NDR32_NAME_AT + length;
+    // The classic deferred WCHAR array uses three 32-bit counts.
+    if end.next_multiple_of(4) != payload.len()
+        || word(payload, 88) == 0
+        || word(payload, 92) != (maximum / 2) as u32
+        || word(payload, 96) != 0
+        || word(payload, 100) != (length / 2) as u32
+    {
+        return None;
+    }
+    let context = payload[64..84].try_into().expect("checked context extent");
+    Some(lookup_value_reply(
+        LOOKUP_NDR32_REPLY_BYTES,
+        context,
+        &payload[INPUT_NDR32_NAME_AT..end],
+        contexts,
+    ))
+}
+
+fn lookup_value_reply(
+    size: usize,
+    context: LsarpcPolicyContext,
+    name: &[u8],
+    contexts: &LsarpcPolicies,
+) -> Response {
+    let mut response = reply(size);
     let status = if !contexts.contains(&context) {
         STATUS_INVALID_HANDLE
     } else {
-        match decode_name(&payload[INPUT_NAME_AT..end]) {
+        match decode_name(name) {
             Some(value) => {
                 put_word(&mut response.body, 24, value);
                 STATUS_SUCCESS
@@ -197,7 +246,7 @@ fn lookup_value(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
         }
     };
     put_word(&mut response.body, 32, status);
-    Some(response)
+    response
 }
 
 fn lookup_name_input(payload: &[u8]) -> Option<(LsarpcPolicyContext, usize)> {
@@ -205,13 +254,9 @@ fn lookup_name_input(payload: &[u8]) -> Option<(LsarpcPolicyContext, usize)> {
         return None;
     }
 
-    let length = usize::from(u16::from_le_bytes([payload[88], payload[89]]));
-    let maximum = usize::from(u16::from_le_bytes([payload[90], payload[91]]));
+    let (length, maximum) = name_lengths(payload, 88)?;
     // RPC_UNICODE_STRING with a deferred conformant varying WCHAR array.
-    if length % 2 != 0
-        || maximum % 2 != 0
-        || length > maximum
-        || qword(payload, 96) == 0
+    if qword(payload, 96) == 0
         || qword(payload, 104) != (maximum / 2) as u64
         || qword(payload, 112) != 0
         || qword(payload, 120) != (length / 2) as u64
@@ -220,6 +265,15 @@ fn lookup_name_input(payload: &[u8]) -> Option<(LsarpcPolicyContext, usize)> {
     }
     let context = payload[64..84].try_into().expect("checked context extent");
     Some((context, INPUT_NAME_AT + length))
+}
+
+fn name_lengths(payload: &[u8], offset: usize) -> Option<(usize, usize)> {
+    let length = usize::from(u16::from_le_bytes([payload[offset], payload[offset + 1]]));
+    let maximum = usize::from(u16::from_le_bytes([
+        payload[offset + 2],
+        payload[offset + 3],
+    ]));
+    (length % 2 == 0 && maximum % 2 == 0 && length <= maximum).then_some((length, maximum))
 }
 
 fn decode_name(bytes: &[u8]) -> Option<u32> {
@@ -312,11 +366,15 @@ fn put_name(body: &mut [u8], units: &[u16]) {
 }
 
 pub(super) fn close(payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
+    close_with_size(payload, contexts, CLOSE_REPLY_BYTES)
+}
+
+fn close_with_size(payload: &[u8], contexts: &LsarpcPolicies, size: usize) -> Option<Response> {
     if payload.len() != 84 || payload[24..64].iter().any(|&b| b != 0) {
         return None;
     }
     let context = payload[64..84].try_into().expect("checked context extent");
-    let mut response = reply(CLOSE_REPLY_BYTES);
+    let mut response = reply(size);
     if contexts.contains(&context) {
         response.policy = Change::Close(context);
     } else {
