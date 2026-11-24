@@ -1365,8 +1365,8 @@ impl run_loop::ExitHandler for HvfCore {
                 )
             }
             mmio::Action::VectorLogic { input, source } => {
-                let size = input.encoding.size();
-                let left = self.read_mmio_vector(source, size)?;
+                let left = self.read_mmio_vector(source, input.encoding.size())?;
+                let size = input.memory_size();
                 self.mmio_input
                     .begin_vector_logic(input, left)
                     .map_err(Error::Emulator)?;

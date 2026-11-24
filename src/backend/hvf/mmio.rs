@@ -961,7 +961,7 @@ impl InputState {
             Pending::Xmm(input) | Pending::VexXmm(input) => (input.size, None),
             Pending::Ymm(_) => (YMM_BYTES, None),
             Pending::XmmLane { .. } => (xmm_lane::BYTES, None),
-            Pending::VectorLogic { input, .. } => (input.encoding.size(), None),
+            Pending::VectorLogic { input, .. } => (input.memory_size(), None),
             Pending::VectorBitTest { input, .. } => (input.encoding.size(), None),
         })
     }

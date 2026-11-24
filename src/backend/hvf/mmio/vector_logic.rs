@@ -125,6 +125,45 @@ impl MinMaxLane {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum Shift {
+    LeftWord,
+    LeftDoubleword,
+    LeftQuadword,
+    RightWord,
+    RightDoubleword,
+    RightQuadword,
+    ArithmeticWord,
+    ArithmeticDoubleword,
+}
+
+impl Shift {
+    fn result<const N: usize>(self, left: &[u8; 32], count: u64) -> [u8; N] {
+        let width = match self {
+            Self::LeftWord | Self::RightWord | Self::ArithmeticWord => 2,
+            Self::LeftDoubleword | Self::RightDoubleword | Self::ArithmeticDoubleword => 4,
+            Self::LeftQuadword | Self::RightQuadword => 8,
+        };
+        let bits = (width * 8) as u64;
+        let mut result = [0; N];
+        if count >= bits && !matches!(self, Self::ArithmeticWord | Self::ArithmeticDoubleword) {
+            return result;
+        }
+        let count = count.min(bits - 1);
+        for (lane, output) in left.chunks_exact(width).zip(result.chunks_exact_mut(width)) {
+            let value = read_element(lane);
+            let shifted = match self {
+                Self::LeftWord | Self::LeftDoubleword | Self::LeftQuadword => value << count,
+                Self::RightWord | Self::RightDoubleword | Self::RightQuadword => value >> count,
+                Self::ArithmeticWord => ((value as i16) >> count) as u64,
+                Self::ArithmeticDoubleword => ((value as i32) >> count) as u64,
+            };
+            output.copy_from_slice(&shifted.to_le_bytes()[..width]);
+        }
+        result
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
     And,
     AndNot,
@@ -138,6 +177,7 @@ enum Operation {
     SaturatingSubtract(Saturation),
     Minimum(MinMaxLane),
     Maximum(MinMaxLane),
+    UniformShift(Shift),
 }
 
 impl Operation {
@@ -183,8 +223,23 @@ impl Operation {
             "pmaxuw" => Self::Maximum(MinMaxLane::UnsignedWord),
             "pmaxsd" => Self::Maximum(MinMaxLane::SignedDoubleword),
             "pmaxud" => Self::Maximum(MinMaxLane::UnsignedDoubleword),
+            "psllw" => Self::UniformShift(Shift::LeftWord),
+            "pslld" => Self::UniformShift(Shift::LeftDoubleword),
+            "psllq" => Self::UniformShift(Shift::LeftQuadword),
+            "psrlw" => Self::UniformShift(Shift::RightWord),
+            "psrld" => Self::UniformShift(Shift::RightDoubleword),
+            "psrlq" => Self::UniformShift(Shift::RightQuadword),
+            "psraw" => Self::UniformShift(Shift::ArithmeticWord),
+            "psrad" => Self::UniformShift(Shift::ArithmeticDoubleword),
             _ => return None,
         })
+    }
+
+    fn memory_size(self, encoding: Encoding) -> u8 {
+        match self {
+            Self::UniformShift(_) => 16,
+            _ => encoding.size(),
+        }
     }
 
     fn result<const N: usize>(self, left: &[u8; 32], right: &[u8]) -> [u8; N] {
@@ -239,6 +294,7 @@ impl Operation {
                     }
                 })
             }
+            Self::UniformShift(shift) => shift.result(left, read_element(&right[..8])),
         }
     }
 }
@@ -269,6 +325,10 @@ pub(crate) struct Input {
 }
 
 impl Input {
+    pub(crate) fn memory_size(&self) -> u8 {
+        self.operation.memory_size(self.encoding)
+    }
+
     pub(super) fn validate(&self) -> Result<(), String> {
         if self.index >= 16 || !(1..=15).contains(&self.length) {
             return Err("invalid HVF MMIO vector logic descriptor".into());
@@ -277,7 +337,7 @@ impl Input {
     }
 
     pub(super) fn effect(&self, left: &[u8; 32], data: &[u8]) -> Result<Effect, String> {
-        let size = self.encoding.size();
+        let size = self.memory_size();
         if data.len() != usize::from(size) {
             return Err(format!(
                 "HVF MMIO vector logic expected {size} bytes, received {}",
@@ -338,13 +398,13 @@ pub(super) fn prepare<M: PhysicalMemory>(
         }
         _ => return Err("wrong operands for vector logic MMIO".into()),
     };
-    let size = encoding.size();
-    let width = u32::from(size) * 8;
+    let width = u32::from(encoding.size()) * 8;
+    let memory_size = operation.memory_size(encoding);
     if !read
         || !instruction.operands_complete
         || instruction.flow != Flow::Next
         || right.kind != OperandKind::Memory
-        || right.width_bits != width
+        || right.width_bits != u32::from(memory_size) * 8
         || !right.read
         || right.write
         || right.conditional
@@ -356,7 +416,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
     if !vex && record.linear & 15 != 0 {
         return Err("misaligned legacy vector logic MMIO input".into());
     }
-    validate_memory(context, memory, record, right, size)?;
+    validate_memory(context, memory, record, right, memory_size)?;
     let length = u64::from(instruction.size);
     let input = Input {
         index,

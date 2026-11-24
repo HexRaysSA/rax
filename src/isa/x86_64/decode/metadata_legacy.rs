@@ -290,11 +290,15 @@ pub(super) fn decode_0f(
         0x54..=0x57
         | 0x64..=0x66
         | 0x74..=0x76
-        | 0xd4
+        | 0xd1..=0xd4
         | 0xd8..=0xdf
+        | 0xe1..=0xe2
         | 0xe8..=0xef
+        | 0xf1..=0xf3
         | 0xf8..=0xfe => {
-            let names = packed_binary_mnemonics(1, u8::from(ctx.operand_size_override), op);
+            let prefix = u8::from(ctx.operand_size_override);
+            let names = packed_binary_mnemonics(1, prefix, op)
+                .or_else(|| packed_uniform_shift_mnemonics(1, prefix, op));
             let Some((name, _)) = names.filter(|_| ctx.rep_prefix.is_none() && !ctx.has_rex2())
             else {
                 *unsupported = true;

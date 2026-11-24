@@ -690,6 +690,25 @@ mod legacy;
 #[path = "metadata_vex.rs"]
 mod vex;
 use legacy::{decode_0f, fixed_legacy};
+
+fn packed_uniform_shift_mnemonics(
+    map: u8,
+    prefix: u8,
+    opcode: u8,
+) -> Option<(&'static str, &'static str)> {
+    Some(match (map, prefix, opcode) {
+        (1, 1, 0xf1) => ("psllw", "vpsllw"),
+        (1, 1, 0xf2) => ("pslld", "vpslld"),
+        (1, 1, 0xf3) => ("psllq", "vpsllq"),
+        (1, 1, 0xd1) => ("psrlw", "vpsrlw"),
+        (1, 1, 0xd2) => ("psrld", "vpsrld"),
+        (1, 1, 0xd3) => ("psrlq", "vpsrlq"),
+        (1, 1, 0xe1) => ("psraw", "vpsraw"),
+        (1, 1, 0xe2) => ("psrad", "vpsrad"),
+        _ => return None,
+    })
+}
+
 fn packed_binary_mnemonics(
     map: u8,
     prefix: u8,

@@ -34,6 +34,7 @@ on:
           - vector-add-sub
           - vector-saturating
           - vector-min-max
+          - vector-uniform-shifts
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

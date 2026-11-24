@@ -30,7 +30,10 @@ pub(super) fn decode_xmm_transfer(
         ((!vex >> 5) & 4, vex & 0x7f, 1)
     };
     let opcode = ctx.consume_u8().ok()?;
-    let binary = packed_binary_mnemonics(map, flags & 3, opcode).map(|(_, vex)| vex);
+    let uniform_shift = packed_uniform_shift_mnemonics(map, flags & 3, opcode);
+    let binary = uniform_shift
+        .or_else(|| packed_binary_mnemonics(map, flags & 3, opcode))
+        .map(|(_, vex)| vex);
     let bit_test = match (map, flags & 3, opcode) {
         (2, 1, 0x17) => Some("vptest"),
         (2, 1, 0x0e) if flags & 0x80 == 0 => Some("vtestps"),
@@ -86,7 +89,9 @@ pub(super) fn decode_xmm_transfer(
     }
     ctx.rex = (bits == 64).then_some(0x40 | extensions);
     let raw_rm = modrm_byte & 7;
-    let (group, _, mut rm) = modrm(ctx, address_bits, size, bits == 64)?;
+    // Uniform shifts always encode an XMM or m128 count, including VEX.256.
+    let rm_size = if uniform_shift.is_some() { 16 } else { size };
+    let (group, _, mut rm) = modrm(ctx, address_bits, rm_size, bits == 64)?;
     if matches!(opcode, 0x2b | 0xe7) && rm.kind != OperandKind::Memory {
         return None;
     }
@@ -96,8 +101,13 @@ pub(super) fn decode_xmm_transfer(
         ("xmm", 128)
     };
     if vector_rm && rm.kind == OperandKind::Register {
-        rm.width_bits = register_width;
-        rm.reg = format!("{bank}{}", raw_rm | ctx.any_rex_b());
+        let (rm_bank, rm_width) = if uniform_shift.is_some() {
+            ("xmm", 128)
+        } else {
+            (bank, register_width)
+        };
+        rm.width_bits = rm_width;
+        rm.reg = format!("{rm_bank}{}", raw_rm | ctx.any_rex_b());
     }
     let vector = Operand {
         kind: OperandKind::Register,

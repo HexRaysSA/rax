@@ -578,7 +578,7 @@ pub(super) fn run_integer_comparisons(output: &Path) {
                 let (left, reply, expected) = comparison_vectors(element, equal, rotation, width);
                 for restore in [false, true] {
                     let value =
-                        packed_binary_case(code, width, vex, restore, left, reply, expected);
+                        packed_binary_case(code, vex, restore, left, &reply[..width], expected);
                     let phase = if restore { "restored" } else { "direct" };
                     record(
                         output,
@@ -696,11 +696,10 @@ pub(super) fn run_integer_min_max(output: &Path) {
                 for (restore, phase) in [(false, "direct"), (true, "restored")] {
                     let value = packed_binary_case(
                         code,
-                        width,
                         encoding != "legacy",
                         restore,
                         qwords(left),
-                        reply,
+                        &reply[..width],
                         qwords(expected),
                     );
                     record(
@@ -718,6 +717,89 @@ pub(super) fn run_integer_min_max(output: &Path) {
             output,
             case,
             &format!("vector-min-max-legacy-{mnemonic}-misaligned"),
+            16,
+            alignment_fault(&legacy, false, 3),
+        );
+        case += 1;
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+pub(super) fn run_uniform_shifts(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    for (opcode, mnemonic, element, left_shift, arithmetic) in [
+        (0xf1, "psllw", 2, true, false),
+        (0xf2, "pslld", 4, true, false),
+        (0xf3, "psllq", 8, true, false),
+        (0xd1, "psrlw", 2, false, false),
+        (0xd2, "psrld", 4, false, false),
+        (0xd3, "psrlq", 8, false, false),
+        (0xe1, "psraw", 2, false, true),
+        (0xe2, "psrad", 4, false, true),
+    ] {
+        let legacy = [0x66, 0x44, 0x0f, opcode, 0x3f];
+        let bits = (element * 8) as u64;
+        let limit = 1_i128 << (bits - 1);
+        let lanes = [-limit, limit - 1, -0x1234, 0x1235, -1, 1, 0];
+        let qwords = |bytes: [u8; 32]| {
+            std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+        };
+        let mut left = [0; 32];
+        for (index, lane) in left.chunks_exact_mut(element).enumerate() {
+            lane.copy_from_slice(&lanes[index % lanes.len()].to_le_bytes()[..element]);
+        }
+        for (code, encoding, width) in [
+            (&legacy[..], "legacy", 16),
+            (&[0xc5, 0x39, opcode, 0x7f, 3], "vex2-128", 16),
+            (&[0xc5, 0x3d, opcode, 0x7f, 3], "vex2-256", 32),
+            (&[0xc4, 0x61, 0x39, opcode, 0x7f, 3], "vex3-128-w0", 16),
+            (&[0xc4, 0x61, 0x3d, opcode, 0x7f, 3], "vex3-256-w0", 32),
+            (&[0xc4, 0x61, 0xb9, opcode, 0x7f, 3], "vex3-128-w1", 16),
+            (&[0xc4, 0x61, 0xbd, opcode, 0x7f, 3], "vex3-256-w1", 32),
+        ] {
+            for count in [0, 1, bits - 1, bits, bits + 1, 0x100, u64::MAX] {
+                let mut reply = [0xff; 16];
+                reply[..8].copy_from_slice(&count.to_le_bytes());
+                let mut expected = [0; 32];
+                for (index, lane) in expected[..width].chunks_exact_mut(element).enumerate() {
+                    let value = lanes[index % lanes.len()];
+                    let raw = value.rem_euclid(2 * limit);
+                    let value = if arithmetic {
+                        value >> count.min(bits - 1)
+                    } else if count >= bits {
+                        0
+                    } else if left_shift {
+                        raw << count
+                    } else {
+                        raw >> count
+                    };
+                    lane.copy_from_slice(&value.to_le_bytes()[..element]);
+                }
+                for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                    let value = packed_binary_case(
+                        code,
+                        encoding != "legacy",
+                        restore,
+                        qwords(left),
+                        &reply,
+                        qwords(expected),
+                    );
+                    record(
+                        output,
+                        case,
+                        &format!("vector-uniform-shifts-{encoding}-{mnemonic}-{count}-{phase}"),
+                        reply.len(),
+                        value,
+                    );
+                    case += 1;
+                }
+            }
+        }
+        record(
+            output,
+            case,
+            &format!("vector-uniform-shifts-legacy-{mnemonic}-misaligned"),
             16,
             alignment_fault(&legacy, false, 3),
         );
@@ -773,7 +855,7 @@ pub(super) fn run_integer_add_subtract(output: &Path, saturating: bool) {
                     arithmetic_vectors(element, subtract, saturation, rotation, width);
                 for (restore, phase) in [(false, "direct"), (true, "restored")] {
                     let value =
-                        packed_binary_case(code, width, vex, restore, left, reply, expected);
+                        packed_binary_case(code, vex, restore, left, &reply[..width], expected);
                     record(
                         output,
                         case,
@@ -850,11 +932,10 @@ fn arithmetic_vectors(
 
 fn packed_binary_case(
     code: &[u8],
-    width: usize,
     vex: bool,
     restore: bool,
     left: [u64; 4],
-    reply: [u8; 32],
+    reply: &[u8],
     expected: [u64; 4],
 ) -> u64 {
     const FLAGS: u64 = 0x8d7;
@@ -882,7 +963,7 @@ fn packed_binary_case(
     let pending = |cpu: &mut dyn VCpu| {
         let exit = event(cpu);
         assert!(
-            matches!(exit, VcpuExit::MmioRead { addr, size } if addr == address && usize::from(size) == width),
+            matches!(exit, VcpuExit::MmioRead { addr, size } if addr == address && usize::from(size) == reply.len()),
             "unexpected packed binary exit for {code:02x?}: {exit:?}",
         );
         assert!(cpu.io_completion_result().is_err());
@@ -897,7 +978,7 @@ fn packed_binary_case(
     if vex {
         upper[15] = [c, d];
     }
-    cpu.complete_io_in(&reply[..width]);
+    cpu.complete_io_in(reply);
     cpu.io_completion_result().unwrap();
     let retired = state(cpu.as_ref());
     assert_eq!(retired.regs.rip, CODE + code.len() as u64);

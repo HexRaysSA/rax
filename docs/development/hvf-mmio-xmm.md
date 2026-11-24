@@ -1010,3 +1010,48 @@ the Hypervisor entitlement, the executable signature, and the hashes of
 4,921 engine input paths and 20 consumer input paths at the tested
 revision. The 364-row execution stream SHA-256 is
 `63b3cc22c31f61b36670b876d3ed59d687347ed1aab638f74bb035d7b3d03a45`.
+
+## Packed uniform shifts with a device count
+
+Intel HVF plans one 16 B device read for each legacy SSE and VEX memory
+form of PSLLW/D/Q, PSRLW/D/Q, and PSRAW/D. VEX.256 reads a 32 B source
+register and still reads 16 B from the device. Only the low 64 bits of
+the reply supply the unsigned count shared by every lane. Logical
+shifts zero the lane at or above its width. Arithmetic right shifts
+saturate the count at the lane width minus one. The operations
+preserve RFLAGS. Legacy SSE preserves the upper YMM half, VEX.128
+clears it, and VEX.256 replaces it. VEX.W is ignored.
+[Intel SDM Volume 2B, PSLLW through PSRLQ](https://cdrdv2-public.intel.com/782151/253667-sdm-vol-2b.pdf)
+
+The decoder, address validation, data-breakpoint range, live SDK exit,
+and pending-read descriptor use the encoded count operand width. The
+checkpoint appends one operation variant and holds the captured source
+register and instruction length alongside the destination. Completion
+takes O(n) time for n lanes and bounded storage for a 32 B result.
+MMX, EVEX, immediate, register-count and per-element shifts are outside
+this MMIO profile.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The count read is exactly 16 B even with a YMM destination. | High | Place the last count byte at a page boundary with RAM immediately after it. Verify the saved descriptor width and reject both 15 B and 32 B replies before any architectural write. |
+| The instructions use the full low qword and ignore the high qword. | High | Set the high qword to all ones and exercise counts 0, 1, width minus 1, width, width plus 1, 256, and 2^64 minus 1 across all 56 encodings. |
+| The captured request is sufficient to retire once. | High | Serialize every descriptor, reload it, and submit the same reply twice. The native profile replaces the original opcode with UD2 before restoring a fresh SDK owner. |
+| The selected memory forms have distinct alignment and upper-register behavior. | High | Reject misaligned legacy SSE during planning and check #GP(0) in the native guest. Use unaligned VEX reads and inspect the full vector banks and RFLAGS before and after completion. |
+
+At parent `33c1dd8d3`, all 56 encodings failed MMIO metadata
+admission. The baseline log SHA-256 is
+`360fad236fced8e233235815bb3d72eb5be745d4b0fa22e62115a68de3fb1b0d`.
+The repaired Apple Silicon build passed 144 MMIO, 102 ISA-oracle,
+16 Actions policy, and 28,561 x86-64 tests. Three x86-64 tests were
+ignored. All 55 Python HVF tool tests passed.
+
+An independent RAM executable under Rosetta matched 392 results,
+upper register halves, and before/after RFLAGS pairs. Its observation
+stream SHA-256 is
+`68bcbac5b403ce36464518db90136f4e410c4cdcf49a5254fd767c2f009174af`.
+The Intel macOS guest consumer cross-built and passed strict signature
+verification. Its executable SHA-256 is
+`36865c5861258331c63a26e023be832d0c48201b64ae232cef084bfe46154110`.
+The `vector-uniform-shifts` native profile expects 392 direct reads, 392
+fresh-owner completions, and eight legacy alignment faults. Native
+Intel guest execution remains to be verified.

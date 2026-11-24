@@ -73,7 +73,7 @@ impl HvfCore {
             Action::XmmWrite(input) => (input.size, true),
             Action::XmmLaneRead { .. } => (mmio::xmm_lane::BYTES, false),
             Action::XmmLaneWrite(_) => (mmio::xmm_lane::BYTES, true),
-            Action::VectorLogic { input, .. } => (input.encoding.size(), false),
+            Action::VectorLogic { input, .. } => (input.memory_size(), false),
             Action::VectorBitTest { input, .. } => (input.encoding.size(), false),
             Action::YmmRead(_) => (mmio::YMM_BYTES, false),
             Action::YmmWrite(_) => (mmio::YMM_BYTES, true),
