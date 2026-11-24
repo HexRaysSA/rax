@@ -164,14 +164,17 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 (2, NSACR) => zero |= 1 << 14,
                 _ => {}
             }
+            if bank == 0 && register == CPACR {
+                zero |= 0x00f0_0000;
+            }
             // D32 is necessary for Advanced SIMD. Instruction admission
             // also requires MVFR1.SIMDLS or SIMDInt for the relevant class.
             let mvfr1 = self.cpu.vfp.mvfr1;
             let advsimd = bank == 2 && ((mvfr1 >> 8) & 15 == 1 || (mvfr1 >> 12) & 15 == 1);
-            if matches!(bank, 1 | 2) && !advsimd {
-                one |= match register {
-                    CPACR => 1 << 31,
-                    NSACR | HCPTR => 1 << 15,
+            if !advsimd {
+                one |= match (bank, register) {
+                    (1 | 2, CPACR) => 1 << 31,
+                    (1 | 2, NSACR) | (0..=2, HCPTR) => 1 << 15,
                     _ => 0,
                 };
             }

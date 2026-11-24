@@ -133,3 +133,34 @@ checkpoint/SMP/Intel findings; this register-bank correction does not close them
 Physical A32 execution is unverified. QEMU build identity beyond its version
 string is unknown. No native lowering changes follow: the A32/T32 SMIR lifters
 admit scalar integer forms and reject these FP families before native execution.
+
+## Standalone profile with no FP or Advanced SIMD
+
+With `MVFR0.SIMDReg=0`, CPACR.cp10 and CPACR.cp11 read zero and ignore
+writes. HCPTR.TASE reads one and ignores writes. These are the absent
+coprocessor and trap rules in Arm DDI0406C.d B4.1.40 and B4.1.64.
+[Arm DDI0406C.d](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+
+The regression writes each field zero, one, then zero in ARM and Thumb.
+It also checks that a VFP operation and an Advanced SIMD operation fail
+before changing any registers. The baseline retained writes to CPACR
+bits [23:20] and could clear HCPTR.TASE in both instruction sets.
+
+QEMU 11.1.2 accepted Cortex-A15 with `vfp=off,neon=off,vfp-d32=off`.
+CPACR read back zero after writes of both zero and `0x00f00000`. With
+the default Cortex-A15 features, it read back `0x00f00000` after the
+enable write. QEMU allowed HCPTR.TASE to be cleared in the synthetic
+no-FP configuration. The HCPTR expectation follows the Arm manual.
+Physical no-FP AArch32 hardware remains unverified.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The zero register-bank field represents absence of CP10/CP11 FP and SIMD functionality. | High | Write all ones to the access fields and attempt ordinary scalar and SIMD additions. Nonzero readback or any retired FP instruction falsifies the mapping. |
+| HCPTR.TASE is fixed with both extensions absent, independently of the NSACR clamp. | Medium | In Hyp, allow both coprocessors through NSACR and clear NSACR.NSASEDIS. Write TASE zero and one. Zero readback falsifies the trap view. |
+
+The baseline at `35024d3e6` failed the paired regression. The baseline log
+SHA-256 is `81499ad465a876aa5c37210e9f5e353f66ba835de4aa4c92084929367638ce79`.
+The five unfiltered owning targets passed all 47,693 tests with zero failures
+or skips. The corrected log SHA-256 is
+`80a476c740f3f747af66cdc28fec4411263c0bd57b729a2b3c8c3f401640f459`.
+The access masks use O(1) time and space.

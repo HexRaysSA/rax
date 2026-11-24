@@ -311,3 +311,50 @@ fn standalone_d32_without_advsimd_preserves_high_scalar_registers() {
         }
     }
 }
+
+#[test]
+fn standalone_without_fp_masks_cpacr_access_and_keeps_tase_set() {
+    let mut readbacks = Vec::new();
+    for thumb in [false, true] {
+        for (mode, write, read, mask, set) in [
+            (
+                ProcessorMode::Supervisor,
+                0xee01_0f50,
+                0xee11_0f50,
+                0x00f0_0000,
+                0,
+            ),
+            (ProcessorMode::Hyp, 0xee81_0f51, 0xee91_0f51, 0x8000, 0x8000),
+        ] {
+            let mut c = cpu(thumb, mode, 0x00f0_0000);
+            c.vfp.mvfr0 = 0;
+            c.vfp.mvfr1 = 0;
+            c.vfp.mvfr2 = 0;
+            // Leave the NSACR clamp disabled so it cannot force TASE high.
+            c.cp15.nsacr = 0xc00;
+
+            for written in [0, mask, 0] {
+                c.regs[0] = written;
+                let mut memory = NoMemory;
+                let mut executor = Executor::new(&mut c, &mut memory);
+                assert!(matches!(
+                    executor.execute(&decode(write, thumb)),
+                    ExecResult::Continue
+                ));
+                assert!(matches!(
+                    executor.execute(&decode(read, thumb)),
+                    ExecResult::Continue
+                ));
+                if c.regs[0] & mask != set {
+                    readbacks.push((thumb, mode as u8, written, c.regs[0] & mask, set));
+                }
+            }
+            denied(&mut c, &decode(VFP[0][thumb as usize], thumb));
+            denied(&mut c, &decode(ADVSIMD[0][thumb as usize], thumb));
+        }
+    }
+    assert!(
+        readbacks.is_empty(),
+        "incorrect absent-FP controls: {readbacks:#x?}"
+    );
+}
