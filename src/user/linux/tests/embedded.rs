@@ -121,6 +121,77 @@ fn closed_linux_workspace_shared_mappings_are_coherent_on_all_abis() {
 }
 
 #[test]
+fn closed_linux_workspace_fallocate_accounts_for_reservations_and_punches_mappings() {
+    use crate::user::linux::abi::open::{O_RDWR, O_TMPFILE_BIT};
+    use crate::user::supplied_fs::{Files, WorkspaceFlavor};
+
+    const AT_FDCWD: u64 = -100i64 as u64;
+    const KEEP_SIZE: u64 = 1;
+    const PUNCH_KEEP: u64 = 3;
+    let page = crate::user::mm::native_page_size();
+    for abi in ABIS {
+        let files = Files::default().with_temp_workspace(WorkspaceFlavor::Linux);
+        let mut h = Harness::embedded_with_supplied(abi, files);
+        let path = h.scratch;
+        h.proc.space().write_raw(path, b"/tmp\0").unwrap();
+        let fd = h.ok(
+            Sysno::Openat,
+            &[
+                AT_FDCWD,
+                path,
+                u64::from(abi.open_flags().directory | O_TMPFILE_BIT | O_RDWR),
+                0o600,
+            ],
+        );
+        let args = |mode, offset, len| -> [u64; 6] {
+            if abi.is_compat() {
+                [fd, mode, offset, 0, len, 0]
+            } else {
+                [fd, mode, offset, len, 0, 0]
+            }
+        };
+        if !cfg!(target_os = "linux") {
+            assert_eq!(h.err(Sysno::Fallocate, &args(0, page, page)), ENODEV);
+            continue;
+        }
+        let free = |h: &Harness| {
+            h.proc
+                .state
+                .vfs
+                .supplied()
+                .unwrap()
+                .workspace_capacity()
+                .unwrap()
+                .bytes_available
+        };
+        let before = free(&h);
+        assert_eq!(h.ok(Sysno::Fallocate, &args(0, page, page)), 0);
+        assert_eq!(free(&h), before - 2 * page);
+        for _ in 0..2 {
+            assert_eq!(h.ok(Sysno::Fallocate, &args(KEEP_SIZE, 3 * page, page)), 0);
+            assert_eq!(free(&h), before - 3 * page);
+            assert_eq!(h.ok(Sysno::Lseek, &[fd, 0, 2]), 2 * page);
+        }
+        let mmap = if abi.is_compat() {
+            Sysno::Mmap2
+        } else {
+            Sysno::Mmap
+        };
+        let mapping = h.ok(mmap, &[0, 2 * page, 3, 1, fd, 0]);
+        h.proc.space().write(mapping + page, b"P").unwrap();
+        assert_eq!(h.ok(Sysno::Fallocate, &args(PUNCH_KEEP, page, page)), 0);
+        let mut byte = [1];
+        h.proc.space().read(mapping + page, &mut byte).unwrap();
+        assert_eq!(byte, [0]);
+        h.ok(Sysno::Munmap, &[mapping, 2 * page]);
+        h.ok(Sysno::Ftruncate, &[fd, 1]);
+        assert_eq!(free(&h), before - 1);
+        h.ok(Sysno::Close, &[fd]);
+        assert_eq!(free(&h), before);
+    }
+}
+
+#[test]
 fn closed_linux_tmpfiles_are_private_and_can_be_published_once_on_all_abis() {
     use crate::user::linux::abi::open::{O_ACCMODE, O_CLOEXEC, O_EXCL, O_RDWR, O_TMPFILE_BIT};
     use crate::user::supplied_fs::{Files, WorkspaceFlavor};

@@ -525,6 +525,17 @@ The workspace accounts for the reservation until file growth consumes it, a
 shrinking truncate releases it, or the guest removes the inode or fork.
 Descriptor reopen preserves the reservation and starts a new cursor.
 
+### Allocation in the closed Linux workspace
+
+On a Linux host, workspace files, unnamed temporary files, and ordinary
+memfds use native tmpfs allocation for `fallocate` mode 0, keep-size allocation,
+and hole punching. The syscall and `IORING_OP_FALLOCATE` use the same path.
+Logical growth and pages reserved beyond EOF count toward the workspace quota.
+An overlapping keep-size request charges each tail page once, and shrinking
+the file releases its tail charge. The guest sees allocation in 512-byte stat
+blocks and zeroes through existing shared mappings after a hole punch.
+[Linux tmpfs allocation implementation](https://github.com/torvalds/linux/blob/v6.8/mm/shmem.c).
+
 ### Asynchronous I/O
 
 `src/user/linux/tests/aio.rs` (13 tests, 12 on every 64-bit ABI): `io_setup`'s

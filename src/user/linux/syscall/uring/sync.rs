@@ -100,7 +100,7 @@ fn run(c: &mut Ctx<'_>, st: &mut State, req: &mut Req) -> SysResult {
             sync_file_range_file(&file, sqe.off as i64, i64::from(sqe.len), sqe.op_flags)
         }
         // vfs_fallocate: the mode in `len`, the length in `addr`.
-        op::FALLOCATE => fallocate_file(&file, sqe.len, sqe.off as i64, sqe.addr as i64),
+        op::FALLOCATE => fallocate_file(c, &file, sqe.len, sqe.off as i64, sqe.addr as i64),
         // vfs_fadvise: the length in `addr`, or `len` when that is zero.
         op::FADVISE => fadvise_file(&file, addr_or_len(sqe.addr, sqe.len) as i64, sqe.op_flags),
         // do_ftruncate.

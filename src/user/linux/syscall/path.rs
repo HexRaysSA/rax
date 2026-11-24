@@ -219,6 +219,12 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
 /// Metadata of a supplied entry, including guest character devices.
 fn supplied_stat(entry: &Entry) -> Stat {
     let size = entry.len().min(i64::MAX as u64) as i64;
+    let blocks = (size as u64).div_ceil(512) as i64;
+    #[cfg(target_os = "linux")]
+    let blocks = entry
+        .workspace_file()
+        .and_then(|file| file.linux_allocated_blocks())
+        .unwrap_or(blocks);
     let (uid, gid) = entry.workspace_owner().unwrap_or((0, 0));
     let timestamps = entry.workspace_timestamps();
     let times = timestamps.unwrap_or_default();
@@ -259,7 +265,7 @@ fn supplied_stat(entry: &Entry) -> Stat {
         },
         size,
         blksize: 4096,
-        blocks: (size as u64).div_ceil(512) as i64,
+        blocks,
         atime: to_timespec(times.accessed),
         mtime: to_timespec(times.modified),
         ctime: to_timespec(times.changed),

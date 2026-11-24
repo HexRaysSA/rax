@@ -12,6 +12,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 #[cfg(target_os = "macos")]
 mod darwin_allocation;
+#[cfg(target_os = "linux")]
+mod linux_allocation;
 #[cfg(windows)]
 mod mapped_windows;
 mod metadata;
@@ -263,7 +265,19 @@ enum Contents {
 #[derive(Clone, Debug)]
 struct ByteContents {
     data: Arc<Vec<u8>>,
-    darwin_blocks: Option<Arc<BTreeSet<usize>>>,
+    blocks: Option<MemoryBlocks>,
+}
+
+#[derive(Clone, Debug)]
+struct MemoryBlocks {
+    bytes: usize,
+    written: Arc<BTreeSet<usize>>,
+}
+
+impl MemoryBlocks {
+    fn sectors(&self) -> i64 {
+        (self.written.len() * (self.bytes / 512)) as i64
+    }
 }
 
 #[derive(Debug)]
@@ -271,18 +285,25 @@ struct SharedContents {
     file: MappedFile,
     extent: Arc<SharedFileExtent>,
     reservation: usize,
+    #[cfg(target_os = "linux")]
+    linux_tail: Option<linux_allocation::Tail>,
     #[cfg(unix)]
     storage_page: u64,
 }
 
 impl ByteContents {
     fn new(data: Arc<Vec<u8>>, flavor: WorkspaceFlavor) -> Self {
-        let darwin_blocks = (cfg!(target_os = "macos") && flavor == WorkspaceFlavor::Darwin)
-            .then(|| Arc::new((0..data.len().div_ceil(DARWIN_BLOCK_BYTES)).collect()));
-        Self {
-            data,
-            darwin_blocks,
-        }
+        let block_bytes = match flavor {
+            WorkspaceFlavor::Darwin if cfg!(target_os = "macos") => Some(DARWIN_BLOCK_BYTES),
+            #[cfg(target_os = "linux")]
+            WorkspaceFlavor::Linux => Some(crate::user::mm::native_page_size() as usize),
+            _ => None,
+        };
+        let blocks = block_bytes.map(|bytes| MemoryBlocks {
+            bytes,
+            written: Arc::new((0..data.len().div_ceil(bytes)).collect()),
+        });
+        Self { data, blocks }
     }
 
     fn resize(&mut self, len: usize) -> Result<(), Error> {
@@ -300,10 +321,10 @@ impl ByteContents {
                 data.truncate(len);
                 data.shrink_to_fit();
             }
-            if let Some(blocks) = &mut self.darwin_blocks {
-                let first_discarded = len.div_ceil(DARWIN_BLOCK_BYTES);
-                if blocks.range(first_discarded..).next().is_some() {
-                    Arc::make_mut(blocks).split_off(&first_discarded);
+            if let Some(blocks) = &mut self.blocks {
+                let first_discarded = len.div_ceil(blocks.bytes);
+                if blocks.written.range(first_discarded..).next().is_some() {
+                    Arc::make_mut(&mut blocks.written).split_off(&first_discarded);
                 }
             }
         }
@@ -313,9 +334,9 @@ impl ByteContents {
     fn write(&mut self, start: usize, input: &[u8]) {
         let end = start + input.len();
         Arc::make_mut(&mut self.data)[start..end].copy_from_slice(input);
-        if let Some(blocks) = &mut self.darwin_blocks {
-            let touched = start / DARWIN_BLOCK_BYTES..end.div_ceil(DARWIN_BLOCK_BYTES);
-            Arc::make_mut(blocks).extend(touched);
+        if let Some(blocks) = &mut self.blocks {
+            let touched = start / blocks.bytes..end.div_ceil(blocks.bytes);
+            Arc::make_mut(&mut blocks.written).extend(touched);
         }
     }
 }
@@ -336,6 +357,20 @@ impl Contents {
         match self {
             Self::Bytes(_) => 0,
             Self::Shared(shared) => shared.reservation,
+        }
+    }
+
+    fn reservation_after_resize(&self, old: usize, new: usize) -> usize {
+        #[cfg(target_os = "linux")]
+        if let Self::Shared(shared) = self
+            && let Some(tail) = &shared.linux_tail
+        {
+            return tail.charge_after_resize(old, new);
+        }
+        if new > old {
+            self.reservation().saturating_sub(new - old)
+        } else {
+            0
         }
     }
 
@@ -377,10 +412,10 @@ impl SharedContents {
         file.set_len(SHARED_CAPACITY.unwrap_or(len as u64))
             .map_err(|_| Error::Io)?;
         let file = MappedFile::new(file);
-        if let Some(blocks) = &bytes.darwin_blocks {
-            for block in blocks.iter() {
-                let start = block * DARWIN_BLOCK_BYTES;
-                let end = (start + DARWIN_BLOCK_BYTES).min(len);
+        if let Some(blocks) = &bytes.blocks {
+            for block in blocks.written.iter() {
+                let start = block * blocks.bytes;
+                let end = (start + blocks.bytes).min(len);
                 file.write_all_at(start as u64, &bytes.data[start..end])
                     .map_err(|_| Error::Io)?;
             }
@@ -391,6 +426,8 @@ impl SharedContents {
             file,
             extent: Arc::new(SharedFileExtent::new(len as u64)),
             reservation: 0,
+            #[cfg(target_os = "linux")]
+            linux_tail: None,
             #[cfg(unix)]
             storage_page: 1,
         })
@@ -1112,6 +1149,73 @@ fn allocate_inode(namespace: &mut Namespace, budget: &mut Budget) -> Result<u64,
 }
 
 impl WorkspaceFile {
+    #[cfg(target_os = "linux")]
+    pub(in crate::user) fn linux_allocated_blocks(&self) -> Option<i64> {
+        use std::os::unix::fs::MetadataExt;
+        if self.inode.flavor != WorkspaceFlavor::Linux {
+            return None;
+        }
+        let contents = self.inode.contents.lock().ok()?;
+        match &*contents {
+            Contents::Bytes(bytes) => bytes.blocks.as_ref().map(MemoryBlocks::sectors),
+            Contents::Shared(shared) => Some(shared.file.metadata().ok()?.blocks() as i64),
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(in crate::user) fn linux_allocate(
+        &self,
+        mode: i32,
+        offset: i64,
+        length: i64,
+        end: u64,
+    ) -> io::Result<()> {
+        let mut contents = self
+            .inode
+            .contents
+            .lock()
+            .map_err(|_| io::Error::other(Error::Io))?;
+        let old = contents.len();
+        let new = if mode == 0 {
+            let end = usize::try_from(end)
+                .ok()
+                .filter(|&end| end <= MAX_BYTES)
+                .ok_or_else(|| io::Error::from_raw_os_error(libc::EFBIG))?;
+            old.max(end)
+        } else {
+            old
+        };
+        let mut tail = match &*contents {
+            Contents::Shared(shared) => shared.linux_tail.clone().unwrap_or_default(),
+            Contents::Bytes(_) => linux_allocation::Tail::default(),
+        };
+        if mode == libc::FALLOC_FL_KEEP_SIZE {
+            tail.reserve(offset as u64, end, new)?;
+        }
+        let retained = tail.charge_after_resize(old, new);
+        tail.resize(old, new);
+        let current_charge = old + contents.reservation();
+        let new_charge = new + retained;
+        let mut budget = self
+            .inode
+            .metadata
+            .budget
+            .lock()
+            .map_err(|_| io::Error::other(Error::Io))?;
+        if new_charge.saturating_sub(current_charge) > MAX_BYTES - budget.bytes {
+            return Err(io::Error::from_raw_os_error(libc::ENOSPC));
+        }
+        let shared = contents.shared().map_err(io::Error::other)?;
+        linux_allocation::allocate(&shared.file, mode, offset, length)?;
+        shared.extent.set_len(new as u64);
+        shared.linux_tail = Some(tail);
+        shared.reservation = retained;
+        budget.bytes = budget.bytes - current_charge + new_charge;
+        drop(budget);
+        self.attributes().modified();
+        Ok(())
+    }
+
     fn uses_darwin_backing(&self) -> bool {
         cfg!(target_os = "macos") && self.inode.flavor == WorkspaceFlavor::Darwin
     }
@@ -1121,19 +1225,16 @@ impl WorkspaceFile {
         if self.uses_darwin_backing() {
             use std::os::unix::fs::MetadataExt;
             let blocks = match &*self.inode.contents.lock().map_err(|_| Error::Io)? {
-                Contents::Bytes(bytes) => bytes
-                    .darwin_blocks
-                    .as_ref()
-                    .map_or(0, |blocks| blocks.len() * (DARWIN_BLOCK_BYTES / 512)),
+                Contents::Bytes(bytes) => bytes.blocks.as_ref().map_or(0, MemoryBlocks::sectors),
                 Contents::Shared(shared) => {
-                    shared.file.metadata().map_err(|_| Error::Io)?.blocks() as usize
+                    shared.file.metadata().map_err(|_| Error::Io)?.blocks() as i64
                 }
             };
             let fork_blocks = self
                 .attributes()
                 .xattrs(0, (0, 0), &[])?
                 .resource_parent_blocks()?;
-            return Ok(Some(blocks as i64 + fork_blocks));
+            return Ok(Some(blocks + fork_blocks));
         }
         Ok(None)
     }
@@ -1280,7 +1381,23 @@ impl WorkspaceFile {
         }
         match &mut *contents {
             Contents::Bytes(bytes) => {
-                Arc::make_mut(&mut bytes.data)[start as usize..end as usize].fill(0)
+                let start = start as usize;
+                let end = end as usize;
+                Arc::make_mut(&mut bytes.data)[start..end].fill(0);
+                if let Some(blocks) = &mut bytes.blocks {
+                    let removed = start.div_ceil(blocks.bytes)..end / blocks.bytes;
+                    Arc::make_mut(&mut blocks.written).retain(|page| !removed.contains(page));
+                }
+            }
+            #[cfg(target_os = "linux")]
+            Contents::Shared(shared) if self.inode.flavor == WorkspaceFlavor::Linux => {
+                linux_allocation::allocate(
+                    &shared.file,
+                    libc::FALLOC_FL_KEEP_SIZE | libc::FALLOC_FL_PUNCH_HOLE,
+                    start as i64,
+                    (end - start) as i64,
+                )
+                .map_err(|_| Error::Io)?;
             }
             Contents::Shared(shared) => {
                 let zeros = [0; 4096];
@@ -1309,11 +1426,7 @@ impl WorkspaceFile {
         }
         let mut budget = self.inode.metadata.budget.lock().map_err(|_| Error::Io)?;
         let reserved = contents.reservation();
-        let retained = if len > old {
-            reserved.saturating_sub(len - old)
-        } else {
-            0
-        };
+        let retained = contents.reservation_after_resize(old, len);
         let current_charge = old + reserved;
         let new_charge = len + retained;
         if new_charge.saturating_sub(current_charge) > MAX_BYTES - budget.bytes {
@@ -1323,6 +1436,10 @@ impl WorkspaceFile {
             Contents::Bytes(bytes) => bytes.resize(len)?,
             Contents::Shared(shared) => {
                 shared.resize(self.identity(), old, len)?;
+                #[cfg(target_os = "linux")]
+                if let Some(tail) = &mut shared.linux_tail {
+                    tail.resize(old, len);
+                }
                 shared.reservation = retained;
             }
         }

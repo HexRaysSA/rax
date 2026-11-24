@@ -1566,16 +1566,20 @@ pub(super) fn ftruncate_file(c: &mut Ctx<'_>, file: &OpenFile, len: i64) -> SysR
     }
 }
 
-/// `fallocate`: mode 0 extends the file, `FALLOC_FL_KEEP_SIZE` only
-/// reserves; hole punching and range manipulation are unsupported by the
-/// emulated file system.
+/// `fallocate` on an open descriptor, including the private tmpfs workspace.
 pub fn fallocate(c: &mut Ctx<'_>, fd: i32, mode: u32, off: i64, len: i64) -> SysResult {
     let file = c.p.fds.file(fd)?;
-    fallocate_file(&file, mode, off, len)
+    fallocate_file(c, &file, mode, off, len)
 }
 
 /// `vfs_fallocate` on an open file.
-pub(super) fn fallocate_file(file: &OpenFile, mode: u32, off: i64, len: i64) -> SysResult {
+pub(super) fn fallocate_file(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    mode: u32,
+    off: i64,
+    len: i64,
+) -> SysResult {
     const FALLOC_FL_KEEP_SIZE: u32 = 1;
     const FALLOC_FL_PUNCH_HOLE: u32 = 2;
     const PUNCH_KEEP: u32 = FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE;
@@ -1592,7 +1596,39 @@ pub(super) fn fallocate_file(file: &OpenFile, mode: u32, off: i64, len: i64) -> 
     if file.ftype != FileType::Regular {
         return Err(Errno(ENODEV));
     }
-    let end = (off as u64).checked_add(len as u64).ok_or(Errno(EFBIG))?;
+    let end = off.checked_add(len).ok_or(Errno(EFBIG))? as u64;
+    if matches!(mode, 0 | FALLOC_FL_KEEP_SIZE) && end > c.p.rlimits[1].0 {
+        c.send_signal_to_caller(super::super::signal::SIGXFSZ);
+        return Err(Errno(EFBIG));
+    }
+    #[cfg(target_os = "linux")]
+    if let FileObject::Supplied(entry) = &file.object
+        && let Some(workspace) = entry.workspace_file()
+        && file.memfd.as_ref().is_none_or(|memfd| !memfd.hugetlb)
+    {
+        let memfd = &file.memfd;
+        let _operation = memfd
+            .as_ref()
+            .map(|_| file.lock_workspace_memfd())
+            .transpose()?;
+        match mode {
+            0 | FALLOC_FL_KEEP_SIZE => {
+                if let Some(memfd) = memfd {
+                    let size = entry.len();
+                    memfd.check_resize(size, size.max(end))?;
+                }
+            }
+            PUNCH_KEEP if memfd.as_ref().is_some_and(|memfd| memfd.write_sealed()) => {
+                return Err(Errno(EPERM));
+            }
+            PUNCH_KEEP => {}
+            _ => return Err(Errno(EOPNOTSUPP)),
+        }
+        workspace.linux_allocate(mode as i32, off, len, end)?;
+        super::notify::allocated(file);
+        return Ok(0);
+    }
+
     if let (FileObject::Supplied(entry), Some(memfd)) = (&file.object, &file.memfd) {
         let workspace = entry.workspace_file().expect("workspace memfd");
         let _operation = file.lock_workspace_memfd()?;
