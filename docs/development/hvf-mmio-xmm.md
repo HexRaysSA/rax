@@ -1056,9 +1056,10 @@ target supplies model SDK calls. The verification log SHA-256 is
 The guest consumer cross-built from `0d6097e60` and passed strict
 signature verification. Its executable SHA-256 is
 `ffd0aedf792ba587cbf7af9fe381b3b149d3dffa66c17a7a5614638250dabce8`.
-The `vector-uniform-shifts` native profile expects 392 direct reads, 392
-fresh-owner completions, and eight legacy alignment faults. Native
-Intel guest execution remains to be verified.
+At `870127acc`, the `vector-uniform-shifts` profile passed 392 direct
+reads, 392 fresh-owner completions, and eight legacy alignment fault
+cases on GitHub-hosted Intel macOS.
+[Hosted uniform-shift execution](https://github.com/HexRaysSA/rax/actions/runs/45478645398/job/138745518634)
 
 ## AVX2 per-element shifts with device counts
 
@@ -1095,10 +1096,10 @@ The Intel-target build passed all 100 owner model tests and all 146
 portable MMIO tests under Rosetta. All 55 Python HVF tooling tests
 passed. The C API suite passed 259 tests with 21 ignored. An independent
 RAM probe executed 140 raw x86-64 cases under Rosetta and matched the
-full vector results and before/after RFLAGS. The `vector-variable-shifts` workflow
-profile is configured for 70 direct guest reads and 70 fresh-owner
-checkpoint continuations. Native Intel execution of this profile remains
-open.
+full vector results and before/after RFLAGS. At `870127acc`, the
+`vector-variable-shifts` profile passed 70 direct guest reads and 70
+fresh-owner checkpoint completions on GitHub-hosted Intel macOS.
+[Hosted variable-shift execution](https://github.com/HexRaysSA/rax/actions/runs/45478695798/job/138745701864)
 
 ## Packed integer unpack with a device operand
 
@@ -1128,10 +1129,11 @@ observation stream SHA-256 is
 `50eeba1759a2b951d921ec68174f9d7ed61cdc411bc400fb70110b35be40ea99`.
 The Apple Silicon build passed 147 MMIO and 28,561 x86-64 tests, with
 three x86-64 tests ignored. All 55 Python HVF tool tests passed.
-The `vector-unpack` native profile covers 40 direct reads, 40 fresh-owner
-checkpoint completions, and eight legacy misalignment faults. The
-Intel-target guest cross-built and passed strict signature verification.
-Native Intel execution of this profile remains open.
+The Intel-target guest cross-built and passed strict signature verification.
+At `870127acc`, the `vector-unpack` profile passed 40 direct reads, 40
+fresh-owner checkpoint completions, and eight legacy alignment fault cases
+on GitHub-hosted Intel macOS.
+[Hosted unpack execution](https://github.com/HexRaysSA/rax/actions/runs/45478730327/job/138745819912)
 
 ## Packed integer multiplication with a device operand
 
@@ -1167,9 +1169,10 @@ results and RFLAGS pairs. Its observation stream SHA-256 is
 `401154183c32f63ec23f431da3ad2a43ccff39b7c65dbdb4be6c24341f16af0d`.
 The Apple Silicon build passed 149 MMIO, 102 ISA-oracle, 16 Actions
 policy, and 28,561 x86-64 tests. Three x86-64 tests were ignored. All
-55 Python HVF tool tests passed. The `vector-multiply` profile expects
-110 direct reads, 110 fresh-owner checkpoint completions, and nine
-legacy misalignment faults. The Intel macOS guest consumer cross-built
+55 Python HVF tool tests passed. The Intel macOS guest consumer cross-built
 and passed strict signature verification. Its executable SHA-256 is
 `ac228aecd29ed97e922986f3f9aedc40b6edac3d98c46c1f51a5b62bae5a9f0b`.
-Native Intel execution of this profile remains open.
+At `870127acc`, the `vector-multiply` profile passed 110 direct reads, 110
+fresh-owner checkpoint completions, and nine legacy alignment fault cases
+on GitHub-hosted Intel macOS.
+[Hosted multiply execution](https://github.com/HexRaysSA/rax/actions/runs/45478777263/job/138745997273)
