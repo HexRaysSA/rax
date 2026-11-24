@@ -1,4 +1,4 @@
-# Executes an actual native AP up to an undispatched MMIO exit.
+# Qualifies in-flight MMIO and private paging state on native Intel HVF.
 name: Native Intel HVF pending checkpoint
 
 on:
@@ -64,6 +64,15 @@ jobs:
           grep -Fx 'native pending XMM passed count=4 ap=3 read=false' "$EVIDENCE/native.log"
           test -s "$RAX_NATIVE_CHECKPOINT_EVIDENCE/pending-xmm-ap1-2cpus.rxc"
           test -s "$RAX_NATIVE_CHECKPOINT_EVIDENCE/pending-xmm-ap3-4cpus.rxc"
+      - name: Resume legacy PAE with cached PDPTEs that differ from RAM
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          shasum -a 256 -c "$EVIDENCE/executable.sha256"
+          binary="$(cat "$RUNNER_TEMP/rax-hvf-checkpoint-test-path")"
+          "$binary" vm::runtime::native_intel_checkpoint_tests::legacy_pae_requires_private_paging_bank_and_resumes_from_it \
+            --exact --ignored --nocapture --test-threads=1 2>&1 | tee "$EVIDENCE/legacy-pae.log"
+          grep -F 'test result: ok. 1 passed;' "$EVIDENCE/legacy-pae.log"
       - name: Preserve native qualification evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

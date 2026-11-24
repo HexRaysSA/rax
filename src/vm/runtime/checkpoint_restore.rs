@@ -13,14 +13,15 @@ impl Vmm {
 
         // The hardware can cache pointers that differ from the table in RAM.
         // A native overlay can also retain pointers from the destination CPU.
-        if (source == BackendKind::Kvm || self.backend_kind == BackendKind::Kvm)
+        let caches_pdptrs = |backend| matches!(backend, BackendKind::Kvm | BackendKind::Hvf);
+        if (caches_pdptrs(source) || caches_pdptrs(self.backend_kind))
             && let CpuState::X86_64(cpu) = state
             && cpu.sregs.cr0 & CR0_PG != 0
             && cpu.sregs.cr4 & CR4_PAE != 0
             && cpu.sregs.efer & EFER_LMA == 0
         {
             return Err(Error::InvalidConfig(
-                "active KVM PAE requires a complete KVM checkpoint with cached PDPTRs".into(),
+                "active native x86 PAE requires a complete checkpoint with cached PDPTRs".into(),
             ));
         }
         Ok(())
@@ -208,7 +209,13 @@ impl Vmm {
         }
         for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
             if !native_kvm {
-                self.validate_legacy_checkpoint_cpu(snapshot.config.backend, state)?;
+                // The producer graph and target have already admitted the
+                // complete Intel record, which carries the VMCS PDPTE bank.
+                if !context
+                    .is_some_and(|record| record.kind == crate::vm::snapshot::HVF_INTEL_CONTEXT)
+                {
+                    self.validate_legacy_checkpoint_cpu(snapshot.config.backend, state)?;
+                }
                 vcpu.validate_checkpoint_for_machine(&snapshot.config, state, emulator, *context)?;
             }
             if bundle.backend_contexts().is_some()

@@ -1,5 +1,8 @@
-//! Signed Intel HVF integration tests for state captured before device dispatch.
+//! Signed Intel HVF integration tests for private CPU and in-flight state.
 use super::*;
+use crate::backend::intel_hvf_context::Context;
+use crate::backend::intel_hvf_projection::Read;
+use crate::backend::intel_hvf_registers::hv_vmx_vmcs_field_t as Vmcs;
 use crate::config::{CliConfig, MemorySize};
 use crate::devices::bus::MmioDevice;
 use crate::vm::snapshot::{HVF_INTEL_CONTEXT, SnapshotBundle};
@@ -20,7 +23,7 @@ struct Paths(PathBuf);
 impl Paths {
     fn new(count: u8) -> Self {
         let directory = std::env::temp_dir().join(format!(
-            "rax-intel-vmm-pending-xmm-{}-{count}",
+            "rax-intel-vmm-checkpoint-{}-{count}",
             std::process::id()
         ));
         std::fs::create_dir(&directory).unwrap();
@@ -85,38 +88,7 @@ fn attach(vm: &mut Vmm, accesses: &Arc<Mutex<Vec<Access>>>) {
         .unwrap();
 }
 
-fn install_program(vm: &mut Vmm, ap: usize, read: bool) {
-    let memory = vm.guest_mem.memory();
-    for (address, word) in [
-        (0x1000, 0x2003u64),             // PML4 to PDPT.
-        (0x2000, 0x3003),                // PD for RAM.
-        (0x2008, 0x4003),                // PD for the device.
-        (0x3000, 0x0083),                // Identity-map the first 2 MiB.
-        (0x4000, 0x4000_009b),           // Identity-map the MMIO region uncached.
-        (0x9008, 0x00af_9b00_0000_ffff), // 64-bit code descriptor.
-        (0x9010, 0x00cf_9300_0000_ffff), // Data descriptor.
-        (0x9018, 0x0000_8b00_8000_0067), // Busy 64-bit TSS descriptor.
-        (0x8004, 0x1f_0000),             // RSP0.
-    ] {
-        memory
-            .write_slice(&word.to_le_bytes(), GuestAddress(address))
-            .unwrap();
-    }
-    memory
-        .write_slice(&0x68u16.to_le_bytes(), GuestAddress(0x8066))
-        .unwrap();
-
-    // The first instruction is MOVLPD (load) or MOVHPD (store) at [RDI+3].
-    // MOV DX,0x604; MOV AX,0x2000; OUT DX,AX shuts down the VMM after retirement.
-    let opcode = if read { 0x12 } else { 0x17 };
-    let program = [
-        0x66, 0x44, 0x0f, opcode, 0x7f, 3, 0x66, 0xba, 4, 6, 0x66, 0xb8, 0, 0x20, 0x66, 0xef, 0xf4,
-    ];
-    memory.write_slice(&program, GuestAddress(CODE)).unwrap();
-    memory
-        .write_slice(&[0xf4, 0xeb, 0xfd], GuestAddress(CODE + 0x100))
-        .unwrap();
-
+fn protected_long_mode_state() -> X86_64CpuState {
     let data = Segment {
         selector: 16,
         limit: u32::MAX,
@@ -163,6 +135,42 @@ fn install_program(vm: &mut Vmm, ap: usize, read: bool) {
     state.sregs.efer = 0x500;
     state.sregs.dr6 = 0xffff_0ff0;
     state.sregs.dr7 = 0x400;
+    state
+}
+
+fn install_program(vm: &mut Vmm, ap: usize, read: bool) {
+    let memory = vm.guest_mem.memory();
+    for (address, word) in [
+        (0x1000, 0x2003u64),             // PML4 to PDPT.
+        (0x2000, 0x3003),                // PD for RAM.
+        (0x2008, 0x4003),                // PD for the device.
+        (0x3000, 0x0083),                // Identity-map the first 2 MiB.
+        (0x4000, 0x4000_009b),           // Identity-map the MMIO region uncached.
+        (0x9008, 0x00af_9b00_0000_ffff), // 64-bit code descriptor.
+        (0x9010, 0x00cf_9300_0000_ffff), // Data descriptor.
+        (0x9018, 0x0000_8b00_8000_0067), // Busy 64-bit TSS descriptor.
+        (0x8004, 0x1f_0000),             // RSP0.
+    ] {
+        memory
+            .write_slice(&word.to_le_bytes(), GuestAddress(address))
+            .unwrap();
+    }
+    memory
+        .write_slice(&0x68u16.to_le_bytes(), GuestAddress(0x8066))
+        .unwrap();
+
+    // The first instruction is MOVLPD (load) or MOVHPD (store) at [RDI+3].
+    // MOV DX,0x604; MOV AX,0x2000; OUT DX,AX shuts down the VMM after retirement.
+    let opcode = if read { 0x12 } else { 0x17 };
+    let program = [
+        0x66, 0x44, 0x0f, opcode, 0x7f, 3, 0x66, 0xba, 4, 6, 0x66, 0xb8, 0, 0x20, 0x66, 0xef, 0xf4,
+    ];
+    memory.write_slice(&program, GuestAddress(CODE)).unwrap();
+    memory
+        .write_slice(&[0xf4, 0xeb, 0xfd], GuestAddress(CODE + 0x100))
+        .unwrap();
+
+    let mut state = protected_long_mode_state();
     vm.vcpus[0]
         .set_state(&CpuState::X86_64(state.clone()))
         .unwrap();
@@ -172,6 +180,130 @@ fn install_program(vm: &mut Vmm, ap: usize, read: bool) {
     vm.vcpus[ap].set_state(&CpuState::X86_64(state)).unwrap();
     vm.coordinator.online[ap] = true;
     vm.coordinator.cursor = ap;
+}
+
+#[test]
+#[ignore = "requires Intel macOS and com.apple.security.hypervisor entitlement"]
+fn legacy_pae_requires_private_paging_bank_and_resumes_from_it() {
+    const PDPT: GuestAddress = GuestAddress(0x1000);
+    const CACHED: [(Vmcs, u64); 4] = [
+        (Vmcs::VMCS_GUEST_PDPTE0, 0x2001),
+        (Vmcs::VMCS_GUEST_PDPTE1, 0x3001),
+        (Vmcs::VMCS_GUEST_PDPTE2, 0x4001),
+        (Vmcs::VMCS_GUEST_PDPTE3, 0x5001),
+    ];
+    let paths = Paths::new(1);
+    let mut source = Vmm::new_resume(paths.config(1)).unwrap();
+    let mut projected = source.take_snapshot(0).unwrap();
+    let memory = source.guest_mem.memory();
+    for (address, word) in [
+        (0x2000, 0x83u64),               // Identity-map the first 2 MiB.
+        (0x9008, 0x00cf_9b00_0000_ffff), // 32-bit code descriptor.
+        (0x9010, 0x00cf_9300_0000_ffff), // Data descriptor.
+        (0x9018, 0x0000_8b00_8000_0067), // Busy 32-bit TSS descriptor.
+    ] {
+        memory
+            .write_slice(&word.to_le_bytes(), GuestAddress(address))
+            .unwrap();
+    }
+    // The first instruction fetch requires the cached PDPTE because the
+    // corresponding entry at CR3 is zero.
+    memory
+        .write_slice(&[0xb0, 0x5a, 0xe6, 0xe9, 0xf4], GuestAddress(CODE))
+        .unwrap();
+
+    let mut state = protected_long_mode_state();
+    state.regs.rip = CODE;
+    state.sregs.cs.l = false;
+    state.sregs.cs.db = true;
+    state.sregs.gdt.limit = 31;
+    state.sregs.efer = 0;
+    let state = CpuState::X86_64(state);
+    source.vcpus[0].set_state(&state).unwrap();
+    let error = source
+        .take_snapshot(0)
+        .err()
+        .expect("legacy PAE capture succeeded");
+    assert!(error.to_string().contains("cached PDPTRs"), "{error}");
+
+    // Use a foreign projected producer to exercise the target-side check.
+    // Successful RAM publication would erase the program.
+    projected.config.backend = BackendKind::Emulator;
+    projected.cpu_state = state;
+    let error = source.restore_snapshot(&projected).unwrap_err();
+    assert!(error.to_string().contains("cached PDPTRs"), "{error}");
+    assert_eq!(
+        source
+            .guest_mem
+            .memory()
+            .read_obj::<u8>(GuestAddress(CODE))
+            .unwrap(),
+        0xb0
+    );
+
+    // Seed the hardware bank through the full checkpoint path. Logically
+    // cached entries can differ from the table bytes after a guest RAM write.
+    let bundle = source.take_snapshot_bundle(0).unwrap();
+    let cpus = bundle.cpus().unwrap().entries().to_vec();
+    let shared = bundle.vm_context().cloned();
+    let mut records = bundle.backend_contexts().unwrap().entries().to_vec();
+    let record = records[0].as_mut().unwrap();
+    let mut bank = Context::decode(&record.data).unwrap();
+    for (field, value) in CACHED {
+        bank.vmcs
+            .iter_mut()
+            .find(|reg| reg.id == field as u32)
+            .unwrap()
+            .value = value;
+    }
+    record.data = bank.encode().unwrap();
+    let seeded = bundle
+        .with_checkpoint_records(cpus, records, shared)
+        .unwrap();
+    source.restore_snapshot_bundle(&seeded).unwrap();
+    drop(seeded);
+
+    let checkpoint = paths.0.join("legacy-pae.rxc");
+    source
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&checkpoint)
+        .unwrap();
+    drop(source);
+    std::fs::remove_file(paths.0.join("kernel")).unwrap();
+    let loaded = SnapshotBundle::load(&checkpoint).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &loaded).unwrap();
+    let mut pdpt = [0xff; 32];
+    target
+        .guest_mem
+        .memory()
+        .read_slice(&mut pdpt, PDPT)
+        .unwrap();
+    assert_eq!(pdpt, [0; 32]);
+    {
+        let boundary = target.vm.checkpoint_boundary().unwrap();
+        let (_, record) = target.vcpus[0]
+            .capture_checkpoint_record(&boundary, None)
+            .unwrap();
+        let restored = Context::decode(&record.unwrap().data).unwrap();
+        for (field, value) in CACHED {
+            assert_eq!(restored.vmcs(field as u32).unwrap(), value);
+        }
+    }
+    let exit = (0..100)
+        .find_map(|_| {
+            target.vcpus[0]
+                .run_host_slice(std::time::Duration::from_millis(10))
+                .unwrap()
+        })
+        .expect("restored legacy PAE guest did not reach I/O");
+    assert!(
+        matches!(exit, VcpuExit::IoOut { port: 0xe9, data } if data == [0x5a]),
+        "restored PAE guest did not execute the port write"
+    );
+    target.vcpus[0].complete_io_out().unwrap();
+    assert_eq!(target.vcpus[0].get_state().unwrap().pc(), CODE + 4);
 }
 
 #[test]

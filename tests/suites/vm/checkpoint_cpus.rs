@@ -244,16 +244,21 @@ fn runtime_restores_every_public_and_represented_private_register() {
 
 #[test]
 fn legacy_kvm_pae_base_requires_the_private_paging_bank() {
-    check_legacy_kvm_paging_projection(1);
+    check_legacy_paging_projection(BackendKind::Kvm, 1);
 }
 
 #[test]
 fn legacy_kvm_pae_bundle_requires_the_private_paging_bank_on_each_cpu() {
-    check_legacy_kvm_paging_projection(2);
-    check_legacy_kvm_paging_projection(4);
+    check_legacy_paging_projection(BackendKind::Kvm, 2);
+    check_legacy_paging_projection(BackendKind::Kvm, 4);
 }
 
-fn check_legacy_kvm_paging_projection(count: u8) {
+#[test]
+fn legacy_intel_hvf_pae_base_requires_the_private_paging_bank() {
+    check_legacy_paging_projection(BackendKind::Hvf, 1);
+}
+
+fn check_legacy_paging_projection(source: BackendKind, count: u8) {
     let f = Fixture::new();
     for (cr0, cr4, efer, needs_private_state) in [
         (0x8000_0001, 1 << 5, 0, true),
@@ -263,7 +268,7 @@ fn check_legacy_kvm_paging_projection(count: u8) {
     ] {
         let original = f.bundle(count);
         let mut base = f.base(count);
-        base.config.backend = BackendKind::Kvm;
+        base.config.backend = source;
         let mut entries = original.cpus().unwrap().entries().to_vec();
         let last = entries.last_mut().unwrap();
         let CpuState::X86_64(cpu) = &mut last.state else {
