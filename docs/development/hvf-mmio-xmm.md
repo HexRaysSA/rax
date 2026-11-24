@@ -1049,9 +1049,13 @@ An independent RAM executable under Rosetta matched 392 results,
 upper register halves, and before/after RFLAGS pairs. Its observation
 stream SHA-256 is
 `68bcbac5b403ce36464518db90136f4e410c4cdcf49a5254fd767c2f009174af`.
-The Intel macOS guest consumer cross-built and passed strict signature
-verification. Its executable SHA-256 is
-`36865c5861258331c63a26e023be832d0c48201b64ae232cef084bfe46154110`.
+The Intel macOS cross-target `hvf_intel_owner` and `hvf_mmio` targets
+passed 104 and 144 tests, respectively, under Rosetta. The owner
+target supplies model SDK calls. The verification log SHA-256 is
+`5609fb8ed6a800c1f425db48f78def33777e514fc76a29c502fdd22645e5a3bc`.
+The guest consumer cross-built from `0d6097e60` and passed strict
+signature verification. Its executable SHA-256 is
+`ffd0aedf792ba587cbf7af9fe381b3b149d3dffa66c17a7a5614638250dabce8`.
 The `vector-uniform-shifts` native profile expects 392 direct reads, 392
 fresh-owner completions, and eight legacy alignment faults. Native
 Intel guest execution remains to be verified.
