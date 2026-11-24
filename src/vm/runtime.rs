@@ -327,6 +327,14 @@ pub struct Vmm {
     snapshot_out: std::path::PathBuf,
 }
 
+fn publish_native_serial_irq(vm: &dyn Vm, irq: u32, pending: bool) -> Result<()> {
+    #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+    if let Some(kvm) = vm.as_any().downcast_ref::<crate::backend::kvm::KvmVm>() {
+        return kvm.set_irq_line_if_changed(irq, pending);
+    }
+    vm.set_irq_line(irq, pending)
+}
+
 fn drive_legacy_serial_irq(
     vm: &dyn Vm,
     pic: &Arc<std::sync::Mutex<DualPic>>,
@@ -342,7 +350,7 @@ fn drive_legacy_serial_irq(
     }
 
     if vm.uses_native_x86_irqchip() {
-        if let Err(e) = vm.set_irq_line(irq, pending) {
+        if let Err(e) = publish_native_serial_irq(vm, irq, pending) {
             debug!(irq, pending, error = %e, "failed to drive serial irq line");
         }
     }

@@ -136,18 +136,7 @@ impl Vmm {
             return Ok(());
         };
         if self.vm.uses_native_x86_irqchip() {
-            #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
-            if let Some(kvm) = self
-                .vm
-                .as_any()
-                .downcast_ref::<crate::backend::kvm::KvmVm>()
-            {
-                return kvm
-                    .set_irq_line_if_changed(u32::from(pin), asserted)
-                    .inspect_err(|_| self.vm.poison_checkpoint_restore());
-            }
-            self.vm
-                .set_irq_line(u32::from(pin), asserted)
+            publish_native_serial_irq(self.vm.as_ref(), u32::from(pin), asserted)
                 .inspect_err(|_| self.vm.poison_checkpoint_restore())
         } else {
             self.publish_software_serial_level(pin, asserted)

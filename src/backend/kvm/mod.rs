@@ -138,7 +138,7 @@ impl KvmVm {
         self.memory.power_off()
     }
 
-    /// Reconcile a device source before capture without replaying a held edge.
+    /// Publish a device level without making a held edge pending again.
     pub(crate) fn set_irq_line_if_changed(&self, irq: u32, level: bool) -> Result<()> {
         self.publish_irq_line(irq, level, false)
     }

@@ -1,5 +1,5 @@
 //! Width-preserving fixed-port reads for scalar and batched PIO input.
-use super::SERIAL_BASE;
+use super::{SERIAL_BASE, publish_native_serial_irq};
 use crate::backend::Vm;
 use crate::config::BackendKind;
 use crate::devices::bus::{IoBus, IoDevice};
@@ -204,7 +204,7 @@ pub(super) fn write(
                 .map_err(|_| Error::Emulator("serial interrupt controller lock poisoned".into()))?
                 .set_irq(irq as u8, pending);
             if vm.uses_native_x86_irqchip() {
-                vm.set_irq_line(irq, pending)?;
+                publish_native_serial_irq(vm, irq, pending)?;
             }
         }
     } else if port == 0xe9 {

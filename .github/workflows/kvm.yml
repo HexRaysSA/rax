@@ -92,6 +92,7 @@ jobs:
             --include-ignored --test-threads=1 --nocapture --color never | tee "$witness"
           grep -F -x "test ${tests}follows_the_saved_source_after_detached_restore ... ok" "$witness"
           grep -F -x "test ${tests}disagreement_rejects_before_publishing_the_vm ... ok" "$witness"
+          grep -F -x "test ${tests}runtime_leaves_delivered_edge_clear_while_held ... ok" "$witness"
 
       - name: Native parallel PIO continuation after detached restore
         run: |

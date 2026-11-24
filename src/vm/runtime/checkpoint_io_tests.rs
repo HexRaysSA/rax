@@ -1039,6 +1039,96 @@ fn native_uart_irq4_disagreement_rejects_before_publishing_the_vm() {
 
 #[test]
 #[ignore = "requires the managed native KVM irqchip"]
+fn native_uart_irq4_runtime_leaves_delivered_edge_clear_while_held() {
+    use crate::backend::kvm::KvmVm;
+    use kvm_bindings::{KVM_IRQCHIP_IOAPIC, kvm_irqchip};
+
+    let redelivered = |console_poll| {
+        let mut fixture = Fixture::with_construction(
+            1,
+            2 * 1024 * 1024,
+            ConstructionMode::Checkpoint {
+                initialize_kvm_irqchip: true,
+            },
+        );
+        let mut program = Vec::new();
+        store32(&mut program, 0xfee0_00f0, 0x1ff); // Enable the BSP LAPIC.
+        store32(&mut program, 0xfec0_0000, 0x18); // I/O APIC pin 4 low.
+        store32(&mut program, 0xfec0_0010, 0x41); // Unmasked edge to vector 41h.
+        program.extend_from_slice(&[0xb0, 0x5a, 0xe6, 0x80]); // Ready marker.
+        program.extend_from_slice(&[0x67, 0x66, 0xa1, 0x20, 0x02, 0xe0, 0xfe]);
+        program.extend_from_slice(&[0xe6, 0x80]); // Echo the LAPIC IRR bit.
+        program.extend_from_slice(&[0xba, 0xff, 0x03, 0xb0, 0x77, 0xee, 0xf4]);
+        fixture.prepare(0, &program);
+        for (port, value) in [(0x3fc, 8), (0x3f9, 1)] {
+            fixture
+                .vm
+                .checkpoint_io_service(
+                    0,
+                    VcpuExit::IoOut {
+                        port,
+                        data: vec![value],
+                    },
+                )
+                .unwrap();
+        }
+        assert!(matches!(fixture.exit(0), VcpuExit::IoOut { port: 0x80, data } if data == [0x5a]));
+        assert_eq!(fixture.settle(0), CheckpointIoState::Complete);
+        let drive_uart = |vmm: &Vmm| {
+            let pending = vmm.serial.lock().unwrap().has_pending_interrupt();
+            assert!(pending);
+            drive_legacy_serial_irq(vmm.vm.as_ref(), &vmm.pic, Some(4), pending);
+        };
+        fixture.vm.serial.lock().unwrap().queue_input(&[0x7b]);
+        drive_uart(&fixture.vm);
+        assert!(matches!(
+            fixture.exit(0),
+            VcpuExit::IoOut { port: 0x80, data } if data.len() == 1 && data[0] & 2 != 0
+        ));
+
+        assert_eq!(fixture.settle(0), CheckpointIoState::Complete);
+
+        let edge_pending = |vmm: &Vmm| {
+            let native = vmm.vm.as_any().downcast_ref::<KvmVm>().unwrap();
+            let mut chip = kvm_irqchip {
+                chip_id: KVM_IRQCHIP_IOAPIC,
+                ..Default::default()
+            };
+            // SAFETY: the read is synchronous with the stopped vCPU and the FD
+            // borrow stays local to the ioctl.
+            unsafe { native.vm_fd() }.get_irqchip(&mut chip).unwrap();
+            // SAFETY: GET_IRQCHIP initialized the selected I/O APIC member.
+            unsafe { chip.chip.ioapic.irr & (1 << 4) != 0 }
+        };
+        assert!(
+            !edge_pending(&fixture.vm),
+            "the first edge was not delivered"
+        );
+        if console_poll {
+            drive_uart(&fixture.vm);
+        } else {
+            let exit = fixture.exit(0);
+            assert!(
+                matches!(&exit, VcpuExit::IoOut { port: 0x3ff, data } if data == &[0x77]),
+                "expected the guest UART scratch write, got {exit:?}"
+            );
+            assert_eq!(fixture.settle(0), CheckpointIoState::Complete);
+        }
+        assert!(fixture.vm.serial.lock().unwrap().has_pending_interrupt());
+        edge_pending(&fixture.vm)
+    };
+
+    let console_poll = redelivered(true);
+    let scratch_write = redelivered(false);
+    assert_eq!(
+        (console_poll, scratch_write),
+        (false, false),
+        "a console poll or UART scratch write reissued the delivered UART edge"
+    );
+}
+
+#[test]
+#[ignore = "requires the managed native KVM irqchip"]
 fn native_rtc_irq8_acknowledgement_updates_the_restored_kernel_line() {
     use crate::backend::kvm::{CheckpointImage, KvmVm};
     use crate::vm::snapshot::SnapshotBundle;

@@ -163,6 +163,11 @@ respectively, with zero failures or skips. The log SHA-256 is
 The native checkpoint-dispatch suite passed all 19 tests, including both
 IRQ4 regressions. Its log SHA-256 is
 `cd980e912b96e133f288140d4ab6a995c71536c786c15409c2c7a1ff6d402fe6`.
+The hosted KVM job for `ffbf9ab90` passed all 13 configured test steps and
+its release build. Its dedicated IRQ4 step requires both named test results.
+The opt-in unfiltered step was skipped on this push.
+[Hosted KVM job](https://github.com/HexRaysSA/rax/actions/runs/45307893313/job/138156097668)
+
 An earlier run hit its timeout in the native checkpoint-dispatch suite. An
 overlapping integration retry then lost its scratch checkpoint file during
 cleanup. Two earlier host-slice runs also failed the raw-vCPU worker-identity
@@ -190,8 +195,46 @@ test count. Its log SHA-256 is
 
 Capture refresh and admission take O(1) time and space. Kernel LAPIC timer
 phase and general in-flight owner completeness remain high-impact C-STATE
-requirements. The direct ioctl result also makes repeated level submissions
-from other callers a high-impact coverage item for native interrupt progress.
+requirements.
+
+### Held IRQ4 during live execution
+
+The live console and port-output paths now share the managed UART level
+publisher with capture and port-input settlement. On KVM, the comparison
+and publication share the native line lock. An empty console poll or
+unrelated UART register write therefore preserves the exported I/O APIC
+state when the UART source remains high.
+
+The native test uses a guest with IF clear, an enabled BSP LAPIC and an
+edge-triggered pin 4 routed to vector `0x41`. The guest first reports
+`LAPIC.IRR[0x41] = 1`. The exported I/O APIC then reports the edge
+delivered. Two independent fixtures repeat the console input path and
+settle a guest write to COM1's scratch register. Before the fix, both
+fixtures reported the edge pending again. With the fix, neither does, and
+the UART's source remains high in both.
+
+The baseline log SHA-256 is
+`4ba1ec819442728052bcc71c4fcccdba0bda8d9b2e30f2740a2c2662a679ba7c`.
+The corrected live case log SHA-256 is
+`33a42d3a31dd41f8c056e5858a2a6ffacfb1cd2060fca7f52bbe6130928102f4`.
+All three focused native UART tests passed with zero failures or skips.
+
+The same five unfiltered native integration binaries passed all 87 tests.
+The native checkpoint-dispatch suite passed all 20 tests. Neither run had
+any failures or skips. The log SHA-256 digests are
+`7d4cb0ab10e62ef1000b8453a163939fc3b71defce3b9cb4446f3fad14a3fae9`
+and `4fa7bf267ed109f28054c6e7884dd44b68943b37b20d2221f1d644c4f87bce8f`.
+
+The unfiltered library run reproduced the Darwin codesign failure. The
+Windows LPC replay passed with its tracked fixtures present. The run
+reached the 13,993 of 14,438 progress marker and timed out at 3,200 s in
+the AArch64 cluster checkpoint tests, without a final test count. Its log
+SHA-256 is `38178076b55bf145eac53a32b2ef2e37c67e78acf65430f7f586dd1b8f58f25f`.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The first assertion reached the intended LAPIC vector before testing the repeated operation. | High | Require guest readback of the LAPIC IRR bit and a clear native I/O APIC pending bit before each operation. |
+| Console poll and scratch output leave the RX cause asserted. | High | Require the UART source high both before and after the operation. A new pending I/O APIC edge falsifies conservation. |
 
 ## Software PIT speaker wiring
 
