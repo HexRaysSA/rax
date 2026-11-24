@@ -2,8 +2,8 @@
 
 use std::cell::{Cell, RefCell};
 
-use crate::isa::arm::aarch32::cpu::{ArmMemory, MemoryError};
-use crate::isa::arm::aarch32::instructions::{ExclusiveAccess, ExclusiveMonitor};
+use crate::isa::arm::aarch32::cpu::{ArmMemory, Armv7Cpu, MemoryError};
+use crate::isa::arm::aarch32::instructions::{ExclusiveAccess, ExclusiveMonitor, ExecResult};
 use crate::isa::arm::aarch64::cpu::AArch64Cpu;
 use crate::isa::arm::common::cpu::{AccessType, ArmError, MemoryFaultInfo, MemoryFaultType};
 
@@ -28,11 +28,17 @@ impl<'a> Aarch32Memory<'a> {
         }
     }
 
-    pub fn preflight(
+    pub fn admit(
         &self,
         instruction: &crate::isa::arm::decoder::DecodedInsn,
-    ) -> Result<(), ArmError> {
-        self.cpu.borrow().check_aarch32_instruction(instruction)
+        state: &mut Armv7Cpu,
+    ) -> Result<Option<ExecResult>, ArmError> {
+        let mut cpu = self.cpu.borrow_mut();
+        let gic_transfer = cpu.execute_aarch32_gic_transfer(instruction, state)?;
+        if gic_transfer.is_none() {
+            cpu.check_aarch32_instruction(instruction)?;
+        }
+        Ok(gic_transfer)
     }
 
     fn result<T>(&self, address: u32, result: Result<T, ArmError>) -> Result<T, MemoryError> {

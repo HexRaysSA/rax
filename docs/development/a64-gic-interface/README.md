@@ -253,7 +253,48 @@ adds 32 bytes of APR data and the vector adds one 8-byte count. Native
 controllers, AArch32 GIC CPU-system-register aliases, virtual or secure
 APR banks, and GICv3.3 NMI behavior remain outside this validation scope.
 
-## Evidence and limits
+## AArch32 physical CPU interface aliases
+
+An AArch32 EL1 guest on a mixed-width PE can reach the shared physical
+GICv3 interface through CP15. The A32 and T32 scalar transfers use the
+same priority, acknowledge, deactivation, control and group-enable state
+as the AArch64 accesses. The three SGI aliases concatenate the pair as
+`Rt2:Rt`, preserving the 64-bit target and routing fields. The software
+controller already includes these values in its checkpoints.
+[Arm IHI0069H, Table 12-7](../../specifications/arm/gic-ihi0069.pdf).
+
+The instruction predicate and architectural access checks precede the
+GIC operation. The existing CP15 HSTR path owns syndrome generation for
+intercepted transfers. EL0 and invalid transfer directions take the
+undefined-instruction path. Transfers that require virtual GIC state or
+higher-EL GIC routing traps report an unsupported execution state before
+touching the physical controller. The system register interface retains
+the software controller's always-enabled setting.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The AArch32 and AArch64 aliases address the same physical PE state. | After an A32 or T32 acknowledge, check IAR, RPR and APR. Write a second APR, drop the first and read the resulting register state from the AArch64 CPU-interface path. |
+| The bridge can reuse the existing predicate and HSTR policy. | Exercise failed A32 and T32 predicates and then take an HSTR trap at the same address. Check the pending INTID, destination register and retirement count. |
+| The SGI operand pair preserves upper routing bits. | Set IRM in the high word and use an empty target list. Observe the pending bit on a peer PE and check that the source PE remains clear. |
+| Unsupported routing can be identified before physical acknowledgement. | Apply IMO and FMO separately and probe common and bank-specific registers. Check that only a selected route prevents physical execution. |
+
+The external probe entered AArch32 EL1 by ERET from AArch64 EL2. After
+retiring a `CNTFRQ` read it attempted `ICC_RPR` at `0x40200038`. The
+baseline RAX executable stopped with `UnsupportedExecutionState` and
+14 retirements. QEMU 11.1.2 with Cortex-A57 and `max` each returned the
+idle RPR and exited successfully. The RAX candidate also returned `0xff`
+and retired the transfer as instruction 15. All five focused regressions
+and 47,530 tests in the six owning executables passed, and the
+JIT-enabled library passed Clippy. Probe source, per-step
+observations and hashes are in
+`/Users/int/dev/rax-audit-work/four-findings-a32-gic-aliases-2026-11-24`.
+
+Alias decoding takes constant time and space. Controller effects retain
+the AArch64 path's costs. Independent instruction-by-instruction coverage
+of the remaining GIC routing traps, virtual registers and separate secure
+banks remains open, as does native execution on physical Arm hardware.
+
+## Evidence and limits for the initial CPU-interface group
 
 qualification.json records the exact tested source and executable hashes,
 commands, observed reds/greens, Assumption Register, host/toolchain and omitted

@@ -3,6 +3,7 @@
 mod exceptions;
 mod firmware;
 mod fp_controls;
+mod gic;
 mod memory;
 mod preflight;
 mod state;
@@ -96,14 +97,22 @@ impl AArch64Cpu {
             let mut executor = Executor::new(&mut state, &mut memory);
             executor.exclusive_monitor = monitor;
             let executes = executor.condition_matches(&decoded);
-            if executes {
-                if let Err(error) = executor.mem.preflight(&decoded) {
+            let admitted = if executes {
+                executor.mem.admit(&decoded, executor.cpu)
+            } else {
+                Ok(None)
+            };
+            let handled = match admitted {
+                Ok(handled) => handled,
+                Err(error) => {
                     self.aarch32_monitor = std::mem::take(&mut executor.exclusive_monitor);
                     return Err(error);
                 }
+            };
+            if executes && handled.is_none() {
                 executor.mem.access = executor.exclusive_access(&decoded);
             }
-            let result = executor.execute(&decoded);
+            let result = handled.unwrap_or_else(|| executor.execute(&decoded));
             monitor = std::mem::take(&mut executor.exclusive_monitor);
             let status = executor
                 .mem

@@ -200482,6 +200482,17 @@
       "scope": "The software physical GICv3 exposes eight active-priority words per PE, updates them on acknowledgement and priority drop, and uses them for IRQ preemption. Shared and owned checkpoints retain software-written words and migrate older acknowledged ranks. Detached two- and four-vCPU guests check each PE's acknowledged and APR-only priorities. Hardware GIC, AArch32 CPU-interface aliases, virtual and secure profiles, and other backend checkpoint and SMP paths remain open.",
       "qualification": "docs/development/a64-gic-interface/README.md#physical-active-priority-registers",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-gic-cpu-interface-aliases-2026-11-24",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "A32 and T32 CP15 transfers reach the shared physical GICv3 CPU interface on a mixed-width PE. The bridge preserves predicate and HSTR ordering, checks transfer direction and privilege, and joins both operands for SGI targeting. It reuses checkpoint-owned GIC state. Virtual, separate secure and higher-exception-level routing remain open.",
+      "qualification": "docs/development/a64-gic-interface/README.md#aarch32-physical-cpu-interface-aliases",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
