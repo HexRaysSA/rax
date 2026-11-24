@@ -1428,10 +1428,13 @@ fn main() {
         xmm::run_integer_comparisons(&output);
         return;
     }
-    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-add-sub")) {
+    if let Some(profile) = std::env::args_os()
+        .nth(1)
+        .filter(|profile| profile == "--vector-add-sub" || profile == "--vector-saturating")
+    {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        xmm::run_integer_add_subtract(&output);
+        xmm::run_integer_add_subtract(&output, profile == "--vector-saturating");
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-bit-test")) {

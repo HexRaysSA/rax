@@ -291,9 +291,11 @@ pub(super) fn decode_0f(
         | 0x64..=0x66
         | 0x74..=0x76
         | 0xd4
-        | 0xdb
+        | 0xd8..=0xd9
+        | 0xdb..=0xdd
         | 0xdf
-        | 0xeb
+        | 0xe8..=0xe9
+        | 0xeb..=0xed
         | 0xef
         | 0xf8..=0xfe => {
             let names = packed_binary_mnemonics(1, u8::from(ctx.operand_size_override), op);

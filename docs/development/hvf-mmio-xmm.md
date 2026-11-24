@@ -896,3 +896,42 @@ consumer inputs. The observation stream SHA-256 was
 `cd4b7d8a1f681d25f7debfa126cf81e1044821b54bab2340095f94d095b9b86e`.
 The Intel process ran untranslated inside a hosted macOS VM.
 [Hosted packed addition and subtraction execution](https://github.com/HexRaysSA/rax/actions/runs/45152935165)
+
+## Packed saturating integer addition and subtraction
+
+Legacy SSE and VEX `PADDSB/W`, `PADDUSB/W`, `PSUBSB/W` and
+`PSUBUSB/W` read one 16 B or 32 B device operand. Subtraction uses
+the legacy destination or the explicit VEX register source as its
+minuend. Signed lanes clamp to −128 through 127 or −32,768 through
+32,767. Unsigned lanes clamp to 0 through 255 or 0 through 65,535.
+The largest intermediate is 131,070, so widening each lane to a signed
+32-bit integer covers every sum and difference. Legacy instructions
+require 16 B alignment and preserve the upper YMM half. VEX.128 clears
+that half and VEX.256 writes the full register. RFLAGS is preserved.
+The pending vector record appends the saturation operations after its
+existing values. Completion takes O(width) time and bounded storage for
+at most 32 B of device input. MMX and EVEX are separate profiles.
+[Intel SDM Volume 2B, PADDSB/PADDSW, PADDUSB/PADDUSW, PSUBSB/PSUBSW and PSUBUSB/PSUBUSW](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The second operand supplies exactly one device read. | High | Exercise legacy SSE, VEX2 and VEX3 at each legal width. Check the register roles, reject a write exit and a register-only form, and require legacy misalignment to fault before requesting device data. |
+| Saturation is independent in every lane. | High | Rotate distinct register and device inputs through each signed and unsigned limit and an in-range result. Compare each lane, the upper YMM half and unchanged RFLAGS. |
+| The saved request contains enough state for one retirement. | High | Round-trip each pending operation, complete it twice and verify one register update and one RIP advance. Rebuild the native owner after replacing the instruction with UD2. |
+
+All 40 encodings failed baseline MMIO admission. The regression log
+SHA-256 is
+`c8150cff2a01c6ae5869395d9037dee1a3f58680bed0787268fa89c97d70a23d`.
+An independent physical Intel Xeon E5-1650 v3 RAM oracle confirmed
+320 operand cases with unchanged flags and eight legacy misalignment
+faults. The observation stream SHA-256 is
+`27b2eb1489b3fb324465a0cd4742560987e25614e2dec0a71ad49e6264e1777b`.
+
+On Apple Silicon under Rosetta the Intel macOS target passed all 141
+portable MMIO tests. Their log SHA-256 is
+`2ea1406bc7cd0a1a0da614f7f99a852d0d4907135c94b716869193c159dff426`.
+All 55 Python host-tool tests passed. The Intel guest consumer linked
+and passed strict signature and Hypervisor entitlement checks. The
+`vector-saturating` workflow profile exercises 160 direct device reads,
+160 reads completed on fresh vCPU owners and eight legacy alignment
+faults.

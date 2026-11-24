@@ -32,6 +32,7 @@ on:
           - vector-logic
           - vector-compare
           - vector-add-sub
+          - vector-saturating
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

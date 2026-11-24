@@ -26,6 +26,52 @@ fn read_element(lane: &[u8]) -> u64 {
     u64::from_le_bytes(bytes)
 }
 
+fn map_integer_lanes<const N: usize>(
+    left: &[u8; 32],
+    right: &[u8],
+    width: usize,
+    lane_result: impl Fn(u64, u64) -> u64,
+) -> [u8; N] {
+    let mut result = [0; N];
+    for ((left, right), target) in left
+        .chunks_exact(width)
+        .zip(right.chunks_exact(width))
+        .zip(result.chunks_exact_mut(width))
+    {
+        let lane = lane_result(read_element(left), read_element(right));
+        target.copy_from_slice(&lane.to_le_bytes()[..width]);
+    }
+    result
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum Saturation {
+    SignedByte,
+    SignedWord,
+    UnsignedByte,
+    UnsignedWord,
+}
+
+impl Saturation {
+    fn bytes(self) -> usize {
+        match self {
+            Self::SignedByte | Self::UnsignedByte => 1,
+            Self::SignedWord | Self::UnsignedWord => 2,
+        }
+    }
+
+    fn lane(self, left: u64, right: u64, subtract: bool) -> u64 {
+        let (left, right, min, max) = match self {
+            Self::SignedByte => (left as i8 as i32, right as i8 as i32, -128, 127),
+            Self::SignedWord => (left as i16 as i32, right as i16 as i32, -32768, 32767),
+            Self::UnsignedByte => (left as i32, right as i32, 0, 255),
+            Self::UnsignedWord => (left as i32, right as i32, 0, 65535),
+        };
+        let result = if subtract { left - right } else { left + right };
+        result.clamp(min, max) as u64
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Comparison {
     Equal,
@@ -58,6 +104,8 @@ enum Operation {
     Compare(Comparison, Element),
     Add(Element),
     Subtract(Element),
+    SaturatingAdd(Saturation),
+    SaturatingSubtract(Saturation),
 }
 
 impl Operation {
@@ -83,6 +131,14 @@ impl Operation {
             "psubw" => Self::Subtract(Element::Word),
             "psubd" => Self::Subtract(Element::Doubleword),
             "psubq" => Self::Subtract(Element::Quadword),
+            "paddsb" => Self::SaturatingAdd(Saturation::SignedByte),
+            "paddsw" => Self::SaturatingAdd(Saturation::SignedWord),
+            "paddusb" => Self::SaturatingAdd(Saturation::UnsignedByte),
+            "paddusw" => Self::SaturatingAdd(Saturation::UnsignedWord),
+            "psubsb" => Self::SaturatingSubtract(Saturation::SignedByte),
+            "psubsw" => Self::SaturatingSubtract(Saturation::SignedWord),
+            "psubusb" => Self::SaturatingSubtract(Saturation::UnsignedByte),
+            "psubusw" => Self::SaturatingSubtract(Saturation::UnsignedWord),
             _ => return None,
         })
     }
@@ -110,24 +166,20 @@ impl Operation {
                 result
             }
             Self::Add(element) | Self::Subtract(element) => {
-                let width = element.bytes();
                 let subtract = matches!(self, Self::Subtract(_));
-                let mut result = [0; N];
-                for ((left, right), target) in left
-                    .chunks_exact(width)
-                    .zip(right.chunks_exact(width))
-                    .zip(result.chunks_exact_mut(width))
-                {
-                    let left = read_element(left);
-                    let right = read_element(right);
-                    let lane = if subtract {
+                map_integer_lanes(left, right, element.bytes(), |left, right| {
+                    if subtract {
                         left.wrapping_sub(right)
                     } else {
                         left.wrapping_add(right)
-                    };
-                    target.copy_from_slice(&lane.to_le_bytes()[..width]);
-                }
-                result
+                    }
+                })
+            }
+            Self::SaturatingAdd(saturation) | Self::SaturatingSubtract(saturation) => {
+                let subtract = matches!(self, Self::SaturatingSubtract(_));
+                map_integer_lanes(left, right, saturation.bytes(), |left, right| {
+                    saturation.lane(left, right, subtract)
+                })
             }
         }
     }

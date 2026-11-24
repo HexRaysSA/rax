@@ -630,19 +630,39 @@ fn comparison_vectors(
     (qwords(left), reply, qwords(expected))
 }
 
-pub(super) fn run_integer_add_subtract(output: &Path) {
+pub(super) fn run_integer_add_subtract(output: &Path, saturating: bool) {
     assert!(!output.exists(), "observations must be new");
     let mut case = 0;
-    for (opcode, mnemonic, element, subtract) in [
-        (0xfc, "paddb", 1, false),
-        (0xfd, "paddw", 2, false),
-        (0xfe, "paddd", 4, false),
-        (0xd4, "paddq", 8, false),
-        (0xf8, "psubb", 1, true),
-        (0xf9, "psubw", 2, true),
-        (0xfa, "psubd", 4, true),
-        (0xfb, "psubq", 8, true),
-    ] {
+    let (profile, forms) = if saturating {
+        (
+            "vector-saturating",
+            [
+                (0xec, "paddsb", 1, false, Some(true)),
+                (0xed, "paddsw", 2, false, Some(true)),
+                (0xdc, "paddusb", 1, false, Some(false)),
+                (0xdd, "paddusw", 2, false, Some(false)),
+                (0xe8, "psubsb", 1, true, Some(true)),
+                (0xe9, "psubsw", 2, true, Some(true)),
+                (0xd8, "psubusb", 1, true, Some(false)),
+                (0xd9, "psubusw", 2, true, Some(false)),
+            ],
+        )
+    } else {
+        (
+            "vector-add-sub",
+            [
+                (0xfc, "paddb", 1, false, None),
+                (0xfd, "paddw", 2, false, None),
+                (0xfe, "paddd", 4, false, None),
+                (0xd4, "paddq", 8, false, None),
+                (0xf8, "psubb", 1, true, None),
+                (0xf9, "psubw", 2, true, None),
+                (0xfa, "psubd", 4, true, None),
+                (0xfb, "psubq", 8, true, None),
+            ],
+        )
+    };
+    for (opcode, mnemonic, element, subtract, saturation) in forms {
         let legacy = [0x66, 0x44, 0x0f, opcode, 0x3f];
         for (code, encoding, width) in [
             (&legacy[..], "legacy", 16),
@@ -654,14 +674,14 @@ pub(super) fn run_integer_add_subtract(output: &Path) {
             let vex = encoding != "legacy";
             for rotation in 0..4 {
                 let (left, reply, expected) =
-                    arithmetic_vectors(element, subtract, rotation, width);
+                    arithmetic_vectors(element, subtract, saturation, rotation, width);
                 for (restore, phase) in [(false, "direct"), (true, "restored")] {
                     let value =
                         packed_binary_case(code, width, vex, restore, left, reply, expected);
                     record(
                         output,
                         case,
-                        &format!("vector-add-sub-{encoding}-{mnemonic}-{rotation}-{phase}"),
+                        &format!("{profile}-{encoding}-{mnemonic}-{rotation}-{phase}"),
                         width,
                         value,
                     );
@@ -672,7 +692,7 @@ pub(super) fn run_integer_add_subtract(output: &Path) {
         record(
             output,
             case,
-            &format!("vector-add-sub-legacy-{mnemonic}-misaligned"),
+            &format!("{profile}-legacy-{mnemonic}-misaligned"),
             16,
             alignment_fault(&legacy, false, 3),
         );
@@ -684,11 +704,30 @@ pub(super) fn run_integer_add_subtract(output: &Path) {
 fn arithmetic_vectors(
     element: usize,
     subtract: bool,
+    saturation: Option<bool>,
     rotation: usize,
     width: usize,
 ) -> ([u64; 4], [u8; 32], [u64; 4]) {
-    let modulus = 1_u128 << (element * 8);
-    let pairs = [(modulus - 1, 1), (0, 1), (modulus / 2, modulus / 2), (7, 9)];
+    let modulus = 1_i128 << (element * 8);
+    let (min, max) = if saturation == Some(true) {
+        (-modulus / 2, modulus / 2 - 1)
+    } else {
+        (0, modulus - 1)
+    };
+    let pairs: &[(i128, i128)] = if saturation.is_some() {
+        &[
+            (max, 1),
+            (min, 1),
+            (min, min),
+            (max, min),
+            (max, max),
+            (7, 9),
+            (17, 9),
+            (0, 0),
+        ]
+    } else {
+        &[(modulus - 1, 1), (0, 1), (modulus / 2, modulus / 2), (7, 9)]
+    };
     let mut left = [0; 32];
     let mut reply = [0; 32];
     let mut expected = [0; 32];
@@ -698,8 +737,13 @@ fn arithmetic_vectors(
         left[lane.clone()].copy_from_slice(&x.to_le_bytes()[..element]);
         reply[lane.clone()].copy_from_slice(&y.to_le_bytes()[..element]);
         if start < width {
-            let result = if subtract { x + modulus - y } else { x + y };
-            expected[lane].copy_from_slice(&(result % modulus).to_le_bytes()[..element]);
+            let result = if subtract { x - y } else { x + y };
+            let result = if saturation.is_some() {
+                result.clamp(min, max)
+            } else {
+                result.rem_euclid(modulus)
+            };
+            expected[lane].copy_from_slice(&result.to_le_bytes()[..element]);
         }
     }
     let qwords = |bytes: [u8; 32]| {
