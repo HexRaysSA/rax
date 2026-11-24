@@ -336,6 +336,81 @@ fn actual_saved_two_and_four_cpu_guests_resume_the_same_interleaving() {
 }
 
 #[test]
+fn coordinated_checkpoint_cannot_omit_an_aps_pending_input() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut source = Fixture::with_memory(2, 128 << 20);
+    source.write(BSP, &[0xf4]);
+    // IN AL,0xe9; OUT 0xe9,AL; HLT, in the AP's SIPI mode.
+    source.write(AP, &[0xe4, 0xe9, 0xe6, 0xe9, 0xf4]);
+    {
+        let mut bsp = source.vm.local_apics[0].lock().unwrap();
+        bsp.write_register(0x310, 1 << 24);
+        bsp.write_register(0x300, 0x4500);
+        bsp.write_register(0x300, 0x0609);
+    }
+    let bsp = source.vm.execute_turn().unwrap().unwrap();
+    assert_eq!(bsp.cpu_index, 0);
+    assert!(matches!(bsp.exit, VcpuExit::Hlt));
+    let ap = source.vm.execute_turn().unwrap().unwrap();
+    assert_eq!(ap.cpu_index, 1);
+    assert!(matches!(
+        ap.exit,
+        VcpuExit::IoIn {
+            port: 0xe9,
+            size: 1
+        }
+    ));
+
+    let full = source.vm.take_snapshot_bundle(2).unwrap();
+    assert_eq!(full.execution().unwrap().online(), &[true, true]);
+    let path = source.kernel.with_extension("rxc");
+    full.save(&path).unwrap();
+    let mut missing = SnapshotBundle::load(&path).unwrap();
+    assert!(missing.take_backend_contexts().is_some());
+    missing.save(&path).unwrap();
+    let missing = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+
+    let config = VmConfig::from_checkpoint_bundle(&missing, CliConfig::default()).unwrap();
+    let error = match Vmm::new_resume_bundle(config, &missing) {
+        Ok(mut resumed) => {
+            let ap = &mut resumed.vcpus[1];
+            ap.complete_io_in(&[0x5a]);
+            panic!(
+                "restored an AP without its pending input: {:?}",
+                ap.step_insn().unwrap()
+            );
+        }
+        Err(error) => error,
+    };
+    assert!(
+        error.to_string().contains("missing private context"),
+        "{error}"
+    );
+
+    let mut target = Fixture::with_memory(2, 128 << 20);
+    target.write(FLAGS + 4, &0x5678u32.to_le_bytes());
+    let online = target.vm.coordinator.online.clone();
+    let error = target.vm.restore_snapshot_bundle(&missing).unwrap_err();
+    assert!(
+        error.to_string().contains("missing private context"),
+        "{error}"
+    );
+    assert_eq!(target.flag(1), 0x5678);
+    assert_eq!(target.vm.coordinator.online, online);
+
+    let config = VmConfig::from_checkpoint_bundle(&full, CliConfig::default()).unwrap();
+    let mut resumed = Vmm::new_resume_bundle(config, &full).unwrap();
+    let ap = &mut resumed.vcpus[1];
+    ap.complete_io_in(&[0x5a]);
+    assert!(matches!(
+        ap.step_insn().unwrap(),
+        Some(VcpuExit::IoOut { port: 0xe9, data }) if data == [0x5a]
+    ));
+}
+
+#[test]
 fn checkpoint_keeps_an_unprocessed_init_sipi_and_fixed_ipi_fifo() {
     let mut fixture = Fixture::with_memory(2, 128 * 1024 * 1024);
     {

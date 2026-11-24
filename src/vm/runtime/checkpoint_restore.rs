@@ -207,6 +207,10 @@ impl Vmm {
         } else {
             states.push((&snapshot.cpu_state, &snapshot.emulator_state, None));
         }
+        // A saved x86 coordinator resumes execution at the captured frontier.
+        // Public CPU records alone do not carry work such as unfinished input.
+        let requires_private_contexts = bundle.backend_contexts().is_some()
+            || (snapshot.config.arch == ArchKind::X86_64 && bundle.execution().is_some());
         for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
             if !native_kvm {
                 // The producer graph and target have already admitted the
@@ -218,7 +222,7 @@ impl Vmm {
                 }
                 vcpu.validate_checkpoint_for_machine(&snapshot.config, state, emulator, *context)?;
             }
-            if bundle.backend_contexts().is_some()
+            if requires_private_contexts
                 && context.is_none()
                 && let Some(kind) = vcpu.required_private_checkpoint_kind()
             {
