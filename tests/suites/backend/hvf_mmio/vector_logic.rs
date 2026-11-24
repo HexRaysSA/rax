@@ -805,3 +805,136 @@ fn packed_uniform_shifts_reject_other_forms_and_misaligned_sse() {
         );
     }
 }
+
+#[test]
+fn avx2_variable_shifts_read_every_device_count_and_restore_once() {
+    let mut failures = Vec::new();
+    for (opcode, w, mnemonic, left_shift, arithmetic) in [
+        (0x45, 0, "vpsrlvd", false, false),
+        (0x45, 0x80, "vpsrlvq", false, false),
+        (0x46, 0, "vpsravd", false, true),
+        (0x47, 0, "vpsllvd", true, false),
+        (0x47, 0x80, "vpsllvq", true, false),
+    ] {
+        let element = if w == 0 { 4 } else { 8 };
+        let bits = (8 * element) as u64;
+        let limit = 1_i128 << (bits - 1);
+        let lanes = [-limit, limit - 1, -0x1234, 0x1235, -1, 1, 0, 0x188];
+        let counts = [0, 1, bits - 1, bits, bits + 1, 0x100, u64::MAX];
+        for (encoding, l) in [(Encoding::Vex128, 0), (Encoding::Vex256, 4)] {
+            let width = usize::from(encoding.size());
+            for (code_bits, p0, vvvv, target, source) in [
+                (64, 0x62, 0x38, 15, 8),
+                (64, 0x62, 0, 15, 15),
+                (32, 0xe2, 0x68, 7, 2),
+            ] {
+                let code = [0xc4, p0, w | vvvv | l | 1, opcode, 0x7f, 3];
+                let (mut context, mut memory, mut exit) = fixture(&code);
+                context.code_bits = code_bits;
+                // A VEX device operand may be unaligned and cross a page.
+                exit.linear += 4096 - width as u64 + 3;
+                exit.physical += 4096 - width as u64 + 3;
+                context.registers[7] = exit.linear - 3;
+                let following = exit.physical + width as u64;
+                memory.bytes(following, &[0xa5]);
+                let plan = match prepare(&context, &mut memory, exit) {
+                    Ok(plan) => plan,
+                    Err(error) => {
+                        failures.push(format!("{mnemonic} {code_bits}-bit {code:02x?}: {error}"));
+                        continue;
+                    }
+                };
+                let Action::VectorLogic {
+                    input,
+                    source: decoded_source,
+                } = plan.action
+                else {
+                    panic!("wrong action for {mnemonic}: {:?}", plan.action);
+                };
+                assert_eq!(decoded_source, source);
+                assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+                assert_eq!(
+                    (input.encoding, input.index, input.length),
+                    (encoding, target, code.len() as u64)
+                );
+                assert_eq!(usize::from(input.memory_size()), width);
+
+                for round in 0..counts.len() {
+                    let mut left = [0; 32];
+                    let mut reply = [0; 32];
+                    let mut expected = [0; 32];
+                    for (index, start) in (0..width).step_by(element).enumerate() {
+                        let lane = lanes[index];
+                        let raw = lane.rem_euclid(2 * limit);
+                        let count = counts[(index + round) % counts.len()];
+                        let result = if arithmetic {
+                            lane >> count.min(bits - 1)
+                        } else if count >= bits {
+                            0
+                        } else if left_shift {
+                            raw << count
+                        } else {
+                            raw >> count
+                        };
+                        let range = start..start + element;
+                        left[range.clone()].copy_from_slice(&lane.to_le_bytes()[..element]);
+                        reply[range.clone()].copy_from_slice(&count.to_le_bytes()[..element]);
+                        expected[range].copy_from_slice(&result.to_le_bytes()[..element]);
+                    }
+                    let mut pending = mmio::InputState::default();
+                    pending.begin_vector_logic(input.clone(), left).unwrap();
+                    let record = rax::codec::serialize(&pending).unwrap();
+                    let mut restored: mmio::InputState =
+                        rax::codec::deserialize_strict(&record).unwrap();
+                    restored.validate_checkpoint().unwrap();
+                    assert_eq!(restored.descriptor(), Some((width as u8, None)));
+                    let mut host = Host::default();
+                    restored.complete(&mut host, &reply[..width]);
+                    restored.complete(&mut host, &reply[..width]);
+                    let expected = if width == 32 {
+                        Write::Ymm(target, expected)
+                    } else {
+                        Write::Xmm(target, expected[..16].try_into().unwrap(), true)
+                    };
+                    assert_eq!(
+                        host.0,
+                        [expected, Write::Retire(input.length)],
+                        "{mnemonic} {code_bits}-bit {code:02x?} round {round}"
+                    );
+                    for bad_size in [width - 1, width + 1] {
+                        let mut restored: mmio::InputState =
+                            rax::codec::deserialize_strict(&record).unwrap();
+                        let mut host = Host::default();
+                        restored.complete(&mut host, &[0; 33][..bad_size]);
+                        assert!(host.0.is_empty());
+                        assert!(restored.failure().is_some());
+                    }
+                }
+                memory.bytes(following - 1, &[0xa5]);
+                assert!(prepare(&context, &mut memory, exit).is_err());
+                memory.bytes.remove(&(following - 1));
+                exit.qualification = 0x182;
+                assert!(prepare(&context, &mut memory, exit).is_err());
+                assert!(memory.reads.iter().all(|&(addr, _)| addr < exit.physical));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn avx2_variable_shift_rejects_non_mmio_and_reserved_encodings() {
+    for code in [
+        &[0xc4, 0x62, 0x39, 0x47, 0xff][..],   // Register count.
+        &[0xc4, 0x62, 0x39, 0x47, 0x7f],       // Truncated displacement.
+        &[0xc4, 0x62, 0xb9, 0x46, 0x3f],       // Reserved VEX.W=1 arithmetic shift.
+        &[0xc4, 0x62, 0x3a, 0x47, 0x3f],       // Reserved mandatory prefix.
+        &[0xc5, 0x39, 0x47, 0x3f],             // Wrong VEX map.
+        &[0x66, 0x44, 0x0f, 0x38, 0x47, 0x3f], // Legacy map.
+        &[0x62, 0x72, 0x3d, 0x28, 0x47, 0x3f], // EVEX.
+    ] {
+        let (context, mut memory, exit) = fixture(code);
+        assert!(prepare(&context, &mut memory, exit).is_err(), "{code:02x?}");
+        assert!(memory.reads.iter().all(|&(addr, _)| addr < exit.physical));
+    }
+}

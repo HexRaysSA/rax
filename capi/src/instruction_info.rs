@@ -392,6 +392,32 @@ mod tests {
     }
 
     #[test]
+    fn avx2_variable_shift_reports_full_count_operand_width() {
+        for (prefix, width, bank) in [(0x39, 128, 'x'), (0x3d, 256, 'y')] {
+            for (modrm, kind) in [(0x7f, RAX_OPERAND_MEMORY), (0xff, RAX_OPERAND_REGISTER)] {
+                let bytes = [0xc4, 0x62, prefix, 0x47, modrm, 3];
+                let size = if kind == RAX_OPERAND_MEMORY { 6 } else { 5 };
+                let x = decode(RAX_MODE_64, &bytes[..size]);
+                assert_eq!((x.decoded.size, x.operand_count), (size as u32, 3));
+                assert_eq!(
+                    x.flags,
+                    RAX_INSTRUCTION_BASIC_COMPLETE | RAX_INSTRUCTION_OPERANDS_COMPLETE
+                );
+                assert_eq!(&x.mnemonic[..8], b"vpsllvd\0");
+                let [destination, data, count, ..] = x.operands;
+                assert_eq!(destination.reg, text(&format!("{bank}mm15")));
+                assert_eq!(destination.access, RAX_OPERAND_WRITE);
+                assert_eq!(data.reg, text(&format!("{bank}mm8")));
+                assert_eq!(data.access, RAX_OPERAND_READ);
+                assert_eq!(
+                    (count.kind, count.width_bits, count.access),
+                    (kind, width, RAX_OPERAND_READ)
+                );
+            }
+        }
+    }
+
+    #[test]
     fn far_pointer_branches_have_no_static_target() {
         for (mode, bytes, flow) in [
             (

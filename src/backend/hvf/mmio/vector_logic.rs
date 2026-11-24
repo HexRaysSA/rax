@@ -137,26 +137,33 @@ enum Shift {
 }
 
 impl Shift {
-    fn result<const N: usize>(self, left: &[u8; 32], count: u64) -> [u8; N] {
-        let width = match self {
+    fn bytes(self) -> usize {
+        match self {
             Self::LeftWord | Self::RightWord | Self::ArithmeticWord => 2,
             Self::LeftDoubleword | Self::RightDoubleword | Self::ArithmeticDoubleword => 4,
             Self::LeftQuadword | Self::RightQuadword => 8,
-        };
-        let bits = (width * 8) as u64;
-        let mut result = [0; N];
+        }
+    }
+
+    fn lane(self, value: u64, count: u64) -> u64 {
+        let bits = (self.bytes() * 8) as u64;
         if count >= bits && !matches!(self, Self::ArithmeticWord | Self::ArithmeticDoubleword) {
-            return result;
+            return 0;
         }
         let count = count.min(bits - 1);
+        match self {
+            Self::LeftWord | Self::LeftDoubleword | Self::LeftQuadword => value << count,
+            Self::RightWord | Self::RightDoubleword | Self::RightQuadword => value >> count,
+            Self::ArithmeticWord => ((value as i16) >> count) as u64,
+            Self::ArithmeticDoubleword => ((value as i32) >> count) as u64,
+        }
+    }
+
+    fn uniform<const N: usize>(self, left: &[u8; 32], count: u64) -> [u8; N] {
+        let width = self.bytes();
+        let mut result = [0; N];
         for (lane, output) in left.chunks_exact(width).zip(result.chunks_exact_mut(width)) {
-            let value = read_element(lane);
-            let shifted = match self {
-                Self::LeftWord | Self::LeftDoubleword | Self::LeftQuadword => value << count,
-                Self::RightWord | Self::RightDoubleword | Self::RightQuadword => value >> count,
-                Self::ArithmeticWord => ((value as i16) >> count) as u64,
-                Self::ArithmeticDoubleword => ((value as i32) >> count) as u64,
-            };
+            let shifted = self.lane(read_element(lane), count);
             output.copy_from_slice(&shifted.to_le_bytes()[..width]);
         }
         result
@@ -178,10 +185,19 @@ enum Operation {
     Minimum(MinMaxLane),
     Maximum(MinMaxLane),
     UniformShift(Shift),
+    VariableShift(Shift),
 }
 
 impl Operation {
     fn mnemonic(name: &str) -> Option<Self> {
+        match name {
+            "vpsrlvd" => return Some(Self::VariableShift(Shift::RightDoubleword)),
+            "vpsrlvq" => return Some(Self::VariableShift(Shift::RightQuadword)),
+            "vpsravd" => return Some(Self::VariableShift(Shift::ArithmeticDoubleword)),
+            "vpsllvd" => return Some(Self::VariableShift(Shift::LeftDoubleword)),
+            "vpsllvq" => return Some(Self::VariableShift(Shift::LeftQuadword)),
+            _ => {}
+        }
         Some(match name.strip_prefix('v').unwrap_or(name) {
             "andps" | "andpd" | "pand" => Self::And,
             "andnps" | "andnpd" | "pandn" => Self::AndNot,
@@ -294,7 +310,12 @@ impl Operation {
                     }
                 })
             }
-            Self::UniformShift(shift) => shift.result(left, read_element(&right[..8])),
+            Self::UniformShift(shift) => shift.uniform(left, read_element(&right[..8])),
+            Self::VariableShift(shift) => {
+                map_integer_lanes(left, right, shift.bytes(), |value, count| {
+                    shift.lane(value, count)
+                })
+            }
         }
     }
 }
@@ -332,6 +353,11 @@ impl Input {
     pub(super) fn validate(&self) -> Result<(), String> {
         if self.index >= 16 || !(1..=15).contains(&self.length) {
             return Err("invalid HVF MMIO vector logic descriptor".into());
+        }
+        if let Operation::VariableShift(shift) = self.operation
+            && (self.encoding == Encoding::Legacy || shift.bytes() == 2)
+        {
+            return Err("invalid AVX2 variable shift descriptor".into());
         }
         Ok(())
     }

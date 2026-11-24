@@ -31,9 +31,19 @@ pub(super) fn decode_xmm_transfer(
     };
     let opcode = ctx.consume_u8().ok()?;
     let uniform_shift = packed_uniform_shift_mnemonics(map, flags & 3, opcode);
+    // Intel SDM Vol. 2C, VPSLLVD/Q, VPSRAVD, VPSRLVD/Q.
+    let variable_shift = match (map, flags & 3, flags & 0x80 != 0, opcode) {
+        (2, 1, false, 0x45) => Some("vpsrlvd"),
+        (2, 1, true, 0x45) => Some("vpsrlvq"),
+        (2, 1, false, 0x46) => Some("vpsravd"),
+        (2, 1, false, 0x47) => Some("vpsllvd"),
+        (2, 1, true, 0x47) => Some("vpsllvq"),
+        _ => None,
+    };
     let binary = uniform_shift
         .or_else(|| packed_binary_mnemonics(map, flags & 3, opcode))
-        .map(|(_, vex)| vex);
+        .map(|(_, vex)| vex)
+        .or(variable_shift);
     let bit_test = match (map, flags & 3, opcode) {
         (2, 1, 0x17) => Some("vptest"),
         (2, 1, 0x0e) if flags & 0x80 == 0 => Some("vtestps"),

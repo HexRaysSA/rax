@@ -808,6 +808,77 @@ pub(super) fn run_uniform_shifts(output: &Path) {
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
+pub(super) fn run_variable_shifts(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    for (opcode, w, mnemonic, left_shift, arithmetic) in [
+        (0x45, 0, "vpsrlvd", false, false),
+        (0x45, 0x80, "vpsrlvq", false, false),
+        (0x46, 0, "vpsravd", false, true),
+        (0x47, 0, "vpsllvd", true, false),
+        (0x47, 0x80, "vpsllvq", true, false),
+    ] {
+        let element = if w == 0 { 4 } else { 8 };
+        let bits = (element * 8) as u64;
+        let limit = 1_i128 << (bits - 1);
+        let lanes = [-limit, limit - 1, -0x1234, 0x1235, -1, 1, 0, 0x188];
+        let counts = [0, 1, bits - 1, bits, bits + 1, 0x100, u64::MAX];
+        let mut left = [0; 32];
+        for (value, lane) in lanes.iter().zip(left.chunks_exact_mut(element)) {
+            lane.copy_from_slice(&value.to_le_bytes()[..element]);
+        }
+        for (l, width) in [(0, 16), (4, 32)] {
+            let code = [0xc4, 0x62, w | 0x39 | l, opcode, 0x7f, 3];
+            for round in 0..counts.len() {
+                let mut reply = [0; 32];
+                let mut expected = [0; 32];
+                for (index, start) in (0..width).step_by(element).enumerate() {
+                    let lane = lanes[index];
+                    let raw = lane.rem_euclid(2 * limit);
+                    let count = counts[(index + round) % counts.len()];
+                    let shifted = if arithmetic {
+                        lane >> count.min(bits - 1)
+                    } else if count >= bits {
+                        0
+                    } else if left_shift {
+                        raw << count
+                    } else {
+                        raw >> count
+                    };
+                    reply[start..start + element].copy_from_slice(&count.to_le_bytes()[..element]);
+                    expected[start..start + element]
+                        .copy_from_slice(&shifted.to_le_bytes()[..element]);
+                }
+                for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                    let value = packed_binary_case(
+                        &code,
+                        true,
+                        restore,
+                        qwords(left),
+                        &reply[..width],
+                        qwords(expected),
+                    );
+                    record(
+                        output,
+                        case,
+                        &format!(
+                            "vector-variable-shifts-{mnemonic}-{}-{round}-{phase}",
+                            width * 8
+                        ),
+                        width,
+                        value,
+                    );
+                    case += 1;
+                }
+            }
+        }
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 pub(super) fn run_integer_add_subtract(output: &Path, saturating: bool) {
     assert!(!output.exists(), "observations must be new");
     let mut case = 0;

@@ -1443,12 +1443,16 @@ fn main() {
         xmm::run_integer_min_max(&output);
         return;
     }
-    if std::env::args_os().nth(1).as_deref()
-        == Some(std::ffi::OsStr::new("--vector-uniform-shifts"))
-    {
+    if let Some(profile) = std::env::args_os().nth(1).filter(|profile| {
+        profile == "--vector-uniform-shifts" || profile == "--vector-variable-shifts"
+    }) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        xmm::run_uniform_shifts(&output);
+        if profile == "--vector-variable-shifts" {
+            xmm::run_variable_shifts(&output);
+        } else {
+            xmm::run_uniform_shifts(&output);
+        }
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-bit-test")) {

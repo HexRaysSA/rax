@@ -1059,3 +1059,43 @@ signature verification. Its executable SHA-256 is
 The `vector-uniform-shifts` native profile expects 392 direct reads, 392
 fresh-owner completions, and eight legacy alignment faults. Native
 Intel guest execution remains to be verified.
+
+## AVX2 per-element shifts with device counts
+
+Intel HVF supports the AVX2 VEX memory forms of VPSLLVD/Q, VPSRLVD/Q, and
+VPSRAVD. The instruction requests 16 B with an XMM destination or 32 B
+with a YMM destination. Each destination element uses the full unsigned
+32-bit or 64-bit count in the corresponding little-endian device
+element. Logical shifts produce zero when the count reaches the element
+width. Arithmetic right shifts at that boundary produce the sign fill.
+The VEX.128 form clears the upper half of the destination YMM register.
+The VEX.256 form replaces the full register. RFLAGS are preserved.
+[Intel SDM Vol. 2C, VPSLLVW through VPSRLVQ](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The pending-read descriptor derives the input width from the vector
+encoding and stores the source vector, destination and instruction
+length. Completion processes at most eight
+lanes in O(n) time for n lanes and uses a fixed 32 B result buffer. The
+new operation follows the existing wire variants. The supported VEX
+encodings use map 0F38 with mandatory prefix 66. The public instruction
+metadata API reports all three operands and the encoded count width
+for both memory and register forms. Register forms use the ordinary
+execution path. EVEX uses a separate instruction profile.
+
+| Assumption | Dependent behavior | Validation probe |
+| --- | --- | --- |
+| VEX.L determines the device width for this family. | The requested width is 16 B or 32 B. | Place the read across a page boundary and RAM immediately after it. Move RAM one byte earlier and require planning to reject before any device access. |
+| Each lane consumes its own full-width count. | Large counts zero logical lanes or sign-fill arithmetic lanes. | Rotate counts 0, 1, width minus 1, width, width plus 1, 256 and the all-ones element through all lanes. |
+| The saved source is sufficient for completion. | A pending read can write and retire once after restore, including when source and destination alias. | Restore each descriptor, submit the reply twice and verify one write and one retirement. Reject replies one byte short or long. |
+
+The baseline rejected all 30 legal cases in the MMIO planning matrix.
+The Apple Silicon build passed 146 MMIO, 102 ISA-oracle, 16 Actions
+policy, and 28,561 x86-64 tests, with three x86-64 cases ignored.
+The Intel-target build passed all 100 owner model tests and all 146
+portable MMIO tests under Rosetta. All 55 Python HVF tooling tests
+passed. The C API suite passed 259 tests with 21 ignored. An independent
+RAM probe executed 140 raw x86-64 cases under Rosetta and matched the
+full vector results and before/after RFLAGS. The `vector-variable-shifts` workflow
+profile is configured for 70 direct guest reads and 70 fresh-owner
+checkpoint continuations. Native Intel execution of this profile remains
+open.
