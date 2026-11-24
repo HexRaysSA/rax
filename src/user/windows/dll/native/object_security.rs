@@ -1,4 +1,4 @@
-//! Query immutable security metadata for the selected RPC directory.
+//! Query the immutable descriptor of a supported guest object.
 
 use super::query::{probe_write, write_guard_result};
 use crate::user::windows::arch::WinArch;
@@ -13,6 +13,7 @@ use crate::user::windows::object_namespace::rpc_security::{
     SE_SELF_RELATIVE,
 };
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
+use std::borrow::Cow;
 
 pub(super) fn query(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
@@ -35,8 +36,10 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if handle == c.arch().ptr(CURRENT_PROCESS) || handle == c.arch().ptr(CURRENT_THREAD) {
         return Err(c.unsupported("security descriptor of a process or thread is not captured"));
     }
+    let event = c.p.objects.event_security(handle);
     let directory = match c.p.objects.get(handle) {
-        Some(Object::Directory(directory)) if directory.is_rpc_control() => directory,
+        Some(Object::Directory(directory)) if directory.is_rpc_control() => Some(directory),
+        Some(Object::Event { .. }) if event.is_some() => None,
         Some(_) => return Err(c.unsupported("security descriptor of this object is not captured")),
         None => return Flow::ret(STATUS_INVALID_HANDLE.into()),
     };
@@ -50,16 +53,23 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if c.p.objects.access(handle).unwrap_or(0) & access != access {
         return Flow::ret(STATUS_ACCESS_DENIED.into());
     }
-    let descriptor = directory
-        .rpc_security
-        .as_ref()
-        .and_then(|security| security.descriptor(mask))
-        .ok_or_else(|| c.unsupported(format!("RPC directory security information {mask:#x}")))?;
+    let descriptor = if let Some(event) = event {
+        event
+            .descriptor(mask)
+            .map(Cow::Owned)
+            .ok_or_else(|| c.unsupported(format!("NT event security information {mask:#x}")))?
+    } else {
+        directory
+            .and_then(|directory| directory.rpc_security.as_ref())
+            .and_then(|security| security.descriptor(mask))
+            .map(Cow::Borrowed)
+            .ok_or_else(|| c.unsupported(format!("RPC directory security information {mask:#x}")))?
+    };
     let required = descriptor.len() as u32;
     let status = if length < required {
         STATUS_BUFFER_TOO_SMALL
     } else {
-        c.mem().wr(output, descriptor)?;
+        c.mem().wr(output, &descriptor)?;
         STATUS_SUCCESS
     };
     c.mem().w32(returned, required)?;

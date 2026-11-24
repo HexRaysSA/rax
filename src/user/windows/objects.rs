@@ -320,6 +320,7 @@ impl Object {
 #[derive(Debug)]
 struct Entry {
     obj: Object,
+    event_security: Option<Box<super::security::event::EventSecurity>>,
     /// Registry key-body tags survive duplicated handles, independently of
     /// immutable snapshot identity and the caller's low handle bits.
     registry_tags: Option<u32>,
@@ -424,6 +425,7 @@ impl Objects {
             next,
             Entry {
                 obj,
+                event_security: None,
                 registry_tags,
                 registry_views: None,
                 runtime_library: false,
@@ -439,6 +441,23 @@ impl Objects {
         );
         self.next = next;
         Some(next)
+    }
+
+    pub(crate) fn set_event_security(
+        &mut self,
+        id: ObjId,
+        security: super::security::event::EventSecurity,
+    ) {
+        let entry = self.objs.get_mut(&id).expect("new event object");
+        assert!(matches!(entry.obj, Object::Event { .. }));
+        entry.event_security = Some(Box::new(security));
+    }
+
+    pub(crate) fn event_security(
+        &self,
+        handle: u64,
+    ) -> Option<&super::security::event::EventSecurity> {
+        self.objs.get(&self.id(handle)?)?.event_security.as_deref()
     }
 
     pub(crate) fn set_thread_start(&mut self, id: ObjId, start: u64, flags: u32) {

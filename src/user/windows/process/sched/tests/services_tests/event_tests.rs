@@ -3,8 +3,11 @@
 mod clear;
 #[path = "event_open_tests.rs"]
 mod open;
+#[path = "event_security_tests.rs"]
+mod security;
 
 use super::*;
+use crate::user::windows::loader::services::tests::named_table;
 
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
     let sp = t.cpu.sp();
@@ -104,7 +107,7 @@ pub(super) fn setup(arch: WinArch) -> (super::super::super::super::WindowsProces
 }
 pub(super) fn call(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> Outcome {
     let module = p.modules.nt_services.as_ref().unwrap().0;
-    p.modules.nt_services = Some((module, table(p.arch, name, 0x48)));
+    p.modules.nt_services = Some((module, named_table(p.arch, name, 0x48)));
     let sp = t.cpu.sp();
     arguments(p, t, args);
     let result = dispatch(p, t);

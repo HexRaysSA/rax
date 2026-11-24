@@ -4,7 +4,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::Object;
+use crate::user::windows::objects::{ObjId, Object};
 
 const ALL_ACCESS: u32 = 0x001F_0003;
 
@@ -25,6 +25,16 @@ pub(super) fn capture(
     address: u64,
     kind: &str,
 ) -> Result<Result<Attributes, u32>, ApiErr> {
+    let fields = capture_fields(c, address)?;
+    if c.arch() == WinArch::X86
+        && let Ok(attrs) = &fields
+    {
+        supported_attributes(c, attrs, kind)?;
+    }
+    Ok(fields)
+}
+
+pub(super) fn capture_fields(c: &Ctx, address: u64) -> Result<Result<Attributes, u32>, ApiErr> {
     if address == 0 {
         return Ok(Ok(Attributes::default()));
     }
@@ -54,11 +64,6 @@ pub(super) fn capture(
         security: c.read_ptr(address + if wow { 16 } else { 32 })?,
         qos: c.read_ptr(address + if wow { 20 } else { 40 })?,
     };
-    // Conversion of named/security structures needs its own object-manager
-    // contract. Never interpret an NT directory name as a Win32 Local name.
-    if wow {
-        supported_attributes(c, &attrs, kind)?;
-    }
     Ok(Ok(attrs))
 }
 
@@ -106,6 +111,16 @@ pub(super) fn publish(c: &mut Ctx, out: u64, inherit: bool, grant: u32, obj: Obj
     let Some(id) = c.p.objects.try_create(obj) else {
         return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into());
     };
+    publish_created(c, out, inherit, grant, id)
+}
+
+pub(super) fn publish_created(
+    c: &mut Ctx,
+    out: u64,
+    inherit: bool,
+    grant: u32,
+    id: ObjId,
+) -> ApiResult {
     let Some(handle) = c.p.objects.open_access(id, inherit, grant) else {
         c.p.objects.release(id);
         return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into());
