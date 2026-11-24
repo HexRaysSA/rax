@@ -84,7 +84,13 @@ fn native_open_event_shares_named_identity_and_last_handle_lifetime_all_abis() {
 
 #[test]
 fn native_lsa_readiness_event_retains_its_signal_and_wait_only_grant() {
-    let (mut process, mut thread, out) = setup(WinArch::Arm64);
+    for arch in [WinArch::Arm64, WinArch::X86] {
+        lsa_readiness_event_retains_its_signal_and_wait_only_grant(arch);
+    }
+}
+
+fn lsa_readiness_event_retains_its_signal_and_wait_only_grant(arch: WinArch) {
+    let (mut process, mut thread, out) = setup(arch);
     let p = process.state_mut();
     super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
     p.object_namespace = reparse_tests::sample(1);
@@ -123,7 +129,11 @@ fn native_lsa_readiness_event_retains_its_signal_and_wait_only_grant() {
         STATUS_ACCESS_DENIED
     );
 
-    let current = u64::MAX;
+    let current = if arch.is64() {
+        u64::MAX
+    } else {
+        u32::MAX.into()
+    };
     assert_eq!(
         status(
             p,
