@@ -112,7 +112,7 @@ impl CsrMetadata {
     fn child_start_profile(&self) -> Option<(WinArch, (u32, u32, u32))> {
         matches!(
             (self.arch, self.kernel, self.session),
-            (WinArch::Arm64, (10, 0, 29708), 1)
+            (WinArch::Arm64, (10, 0, 29708), 0 | 1)
                 | (WinArch::Arm64, ARM64_PLAIN_STARTUP_KERNEL, 2)
                 | (WinArch::X64, (10, 0, 20348 | 26100), 2)
         )

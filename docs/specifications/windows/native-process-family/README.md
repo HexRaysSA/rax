@@ -51,6 +51,11 @@ into the captured response. The native controls observed
 the replies for the two installed images. The exchange uses guest-owned
 memory and does not contact the host CSR server.
 
+On ARM64 build 29708.1003 in session 0, installed `cmd.exe` launches
+an installed child by absolute path or by executable basename. Native
+and guest stdout, stderr, and exit status match for both forms and for
+a child that exits with status 23.
+
 The manifest parser accepts bounded UTF-8 and BOM-marked UTF-16 input with a
 single Win32 assembly identity and no assembly dependencies. Full side-by-side
 activation and other CSR child-start profiles remain outside this model.

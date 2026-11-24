@@ -135,8 +135,12 @@ fn csr_kernel_profile_selects_independently_captured_29708_session1_metadata_and
 fn csr_child_start_admits_only_observed_architecture_kernel_and_session() {
     let (_, metadata) = captured_profile(PROFILE_29708);
     for (arch, build, session, admitted) in [
+        (WinArch::Arm64, 29707, 0, false),
+        (WinArch::Arm64, 29708, 0, true),
         (WinArch::Arm64, 29708, 1, true),
         (WinArch::Arm64, 29708, 2, false),
+        (WinArch::Arm64, 29709, 0, false),
+        (WinArch::X64, 29708, 0, false),
         (WinArch::Arm64, 26200, 1, false),
         (WinArch::Arm64, 26200, 2, true),
         (WinArch::X64, 20348, 2, true),
