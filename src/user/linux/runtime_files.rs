@@ -17,6 +17,8 @@ mod ld_cache;
 const PERL_MODULE_ROOTS: &[&str] = &["/usr/share/perl", "/usr/share/perl5"];
 #[cfg(any(target_os = "linux", test))]
 const PROGRAM_ROOTS: &[&str] = &["/bin", "/usr/bin"];
+#[cfg(target_os = "linux")]
+const STDBUF_LIBRARY: &str = "/usr/libexec/coreutils/libstdbuf.so";
 #[cfg(any(target_os = "linux", test))]
 const CONFINED_ROOTS: &[&str] = &[
     PERL_MODULE_ROOTS[0],
@@ -27,7 +29,8 @@ const CONFINED_ROOTS: &[&str] = &[
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, plus installed
-/// executable programs, Perl modules, timezone, protocol and service data. Include
+/// executable programs, the packaged stdbuf helper, Perl modules, timezone,
+/// protocol and service data. Include
 /// guest loopback names and a synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
@@ -119,6 +122,15 @@ fn select_installed_for_executable(
     }
     let cache = root.join("etc/ld.so.cache");
     let files = select(files, roots, cache.is_file().then_some(cache))?;
+    let files = if unshadowed(STDBUF_LIBRARY)
+        && matches!(
+            files.lookup_with_follow(STDBUF_LIBRARY, false),
+            Err(Error::NotFound)
+        ) {
+        with_stdbuf_library(files, root)?
+    } else {
+        files
+    };
     // The libc files backend reads these tables for local name lookups.
     let databases = ["/etc/protocols", "/etc/services"]
         .into_iter()
@@ -264,7 +276,7 @@ fn with_cached_libraries(files: Files, roots: &[String]) -> io::Result<Files> {
             continue;
         }
         // Stale entries and files unusable as shared objects remain absent.
-        if let Ok(source) = open_cached_library(path) {
+        if let Ok(source) = open_installed_shared_object(path, 0) {
             selected.insert(name.to_owned(), source.into());
         }
     }
@@ -274,15 +286,38 @@ fn with_cached_libraries(files: Files, roots: &[String]) -> io::Result<Files> {
 }
 
 #[cfg(target_os = "linux")]
-fn open_cached_library(path: &std::path::Path) -> io::Result<crate::user::mm::HostFileSource> {
+fn with_stdbuf_library(files: Files, root: &Path) -> io::Result<Files> {
+    // Coreutils can install this helper outside the normal library roots and
+    // addresses it directly. Admit only the regular ELF backing at that path.
+    let source = root.canonicalize().ok().and_then(|root| {
+        let path = root.join(STDBUF_LIBRARY.trim_start_matches('/'));
+        let parent = path.parent()?;
+        if parent.canonicalize().ok().as_deref() != Some(parent) {
+            return None;
+        }
+        open_installed_shared_object(&path, libc::O_NOFOLLOW).ok()
+    });
+    let Some(source) = source else {
+        return Ok(files);
+    };
+    files
+        .with_selected_backings(BTreeMap::from([(STDBUF_LIBRARY.into(), source.into())]))
+        .map_err(io::Error::other)
+}
+
+#[cfg(target_os = "linux")]
+fn open_installed_shared_object(
+    path: &Path,
+    flags: libc::c_int,
+) -> io::Result<crate::user::mm::HostFileSource> {
     use crate::user::mm::HostFileSource;
     use std::os::unix::fs::{FileExt, OpenOptionsExt};
 
     let file = std::fs::OpenOptions::new()
         .read(true)
-        .custom_flags(libc::O_NONBLOCK)
+        .custom_flags(libc::O_NONBLOCK | flags)
         .open(path)?;
-    let invalid = || io::Error::new(io::ErrorKind::InvalidData, "cached ELF shared object");
+    let invalid = || io::Error::new(io::ErrorKind::InvalidData, "installed ELF shared object");
     if !file.metadata()?.is_file() {
         return Err(invalid());
     }
@@ -303,6 +338,75 @@ fn open_cached_library(path: &std::path::Path) -> io::Result<crate::user::mm::Ho
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_stdbuf_selects_only_the_packaged_read_only_shared_object() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, os::unix::fs::symlink, sync::Arc};
+
+        let fixture = TestFile::new(b"unused", 6);
+        let root = &fixture.dir;
+        let libexec = root.join("usr/libexec");
+        let package = libexec.join("coreutils");
+        fs::create_dir_all(root.join("usr/lib")).unwrap();
+        fs::create_dir_all(&package).unwrap();
+        let path = package.join("libstdbuf.so");
+        let sibling = package.join("unselected.so");
+        let files = Files::default();
+        let missing = |files: &Files| {
+            assert!(matches!(files.read(STDBUF_LIBRARY), Err(Error::NotFound)));
+        };
+        missing(&select_installed(&files, root).unwrap());
+        fs::write(&path, b"not ELF").unwrap();
+        missing(&select_installed(&files, root).unwrap());
+
+        let mut elf = [0; 64];
+        elf[..7].copy_from_slice(b"\x7fELF\x02\x01\x01");
+        elf[16] = 3;
+        fs::write(&path, elf).unwrap();
+        fs::write(&sibling, elf).unwrap();
+        let selected = select_installed(&files, root).unwrap();
+        assert_eq!(&*selected.read(STDBUF_LIBRARY).unwrap(), &elf);
+        assert!(matches!(
+            selected.read("/usr/libexec/coreutils/unselected.so"),
+            Err(Error::NotFound)
+        ));
+        assert!(matches!(
+            selected.unlink_workspace_file(STDBUF_LIBRARY, (0, 0), &[]),
+            Err(Error::ReadOnly)
+        ));
+
+        let supplied = files
+            .with_file(STDBUF_LIBRARY.into(), Arc::from(&b"supplied"[..]))
+            .unwrap();
+        assert_eq!(
+            &*select_installed(&supplied, root)
+                .unwrap()
+                .read(STDBUF_LIBRARY)
+                .unwrap(),
+            b"supplied"
+        );
+        for main in ["/usr/libexec", "/usr/libexec/coreutils", STDBUF_LIBRARY] {
+            let selected = select_installed_for_executable(&files, root, Some(main)).unwrap();
+            missing(&selected);
+            assert!(
+                selected
+                    .with_file(main.into(), Arc::from(&b"main"[..]))
+                    .is_ok()
+            );
+        }
+
+        fs::remove_file(&path).unwrap();
+        symlink(&sibling, &path).unwrap();
+        missing(&select_installed(&files, root).unwrap());
+        fs::remove_file(&path).unwrap();
+        fs::write(path, elf).unwrap();
+        let elsewhere = root.join("other");
+        fs::rename(&package, &elsewhere).unwrap();
+        symlink(elsewhere, package).unwrap();
+        missing(&select_installed(&files, root).unwrap());
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
