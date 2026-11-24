@@ -37,3 +37,15 @@ call site, with an owned CSR connection and matching suspended guest child.
 It derives the assembly name from that child's mapped manifest and
 completes registration after probing and writing the caller's outputs.
 The modeled request has no host CSR side effects.
+
+On Windows ARM64 build 29708.1003 in session 0, the installed SysWOW64
+`cmd.exe` also completed this path through the closed C API. The installed
+parent and child used the same stock image. Native and emulated stdout,
+stderr, and exit status matched for absolute and basename launches and for
+a child that returned status 23. The comparator used the installed SysWOW64
+NTDLL and a 65,536-turn limit so both guest processes could finish.
+
+The session 0 path requires the same owned BASE connection, matching PEB
+sessions, and suspended child as session 1. The dispatcher regression
+checks that both sessions reach handle validation after connecting and
+that a foreign or unsupported session leaves the packet and handles intact.

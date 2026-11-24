@@ -15,7 +15,7 @@ pub(in crate::user::windows::dll::native) fn create_process(c: &mut Ctx) -> ApiR
 }
 
 fn register(c: &mut Ctx) -> ApiResult {
-    let server = selected(c, false)?;
+    let server = selected(c, true)?;
     if server.metadata.arch != WinArch::Arm64
         || server.metadata.kernel != (10, 0, 29708)
         || !c.p.wow64.as_ref().is_some_and(|state| state.csr.is_some())

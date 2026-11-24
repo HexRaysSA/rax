@@ -132,6 +132,63 @@ fn wow64_csr_29708_base_connect_binds_the_observed_session_zero_geometry() {
 }
 
 #[test]
+fn wow64_csr_29708_child_registration_requires_the_owned_session_connection() {
+    use crate::user::windows::dll::WOW64_BASE_CREATE_PROCESS;
+    use crate::user::windows::hle::{ApiErr, Ctx, Flow, Value};
+
+    let mut request = [0; 0x110];
+    request[0x10..0x14].copy_from_slice(&0x0008_0000u32.to_le_bytes());
+    request[0x20..0x24].copy_from_slice(&0x40u32.to_le_bytes());
+    request[0x24..0x28].copy_from_slice(&0x6001u32.to_le_bytes());
+
+    for session in [0, 1, 2] {
+        let (mut process, mut thread, b) =
+            setup_selected(29708, session, 0x7fff_0000_0000, 0x750, 0x724);
+        let p = process.state_mut();
+        let address = b + 0x3000;
+        p.space.wr(address, &request).unwrap();
+        let register = |p: &mut Proc, thread: &mut Thread| {
+            let sp = thread.cpu.sp();
+            p.space.w32(sp + 4, address as u32).unwrap();
+            (WOW64_BASE_CREATE_PROCESS.imp)(&mut Ctx {
+                p,
+                t: thread,
+                api: &WOW64_BASE_CREATE_PROCESS,
+                entry_pc: 0x1234_0004,
+                entry_sp: sp,
+                ret_addr: 0,
+                cursor: sp - 256,
+            })
+        };
+        assert!(matches!(
+            register(p, &mut thread),
+            Err(ApiErr::Unimplemented(_))
+        ));
+
+        if session < 2 {
+            assert_eq!(invoke(p, &mut thread, &args(b)), STATUS_SUCCESS);
+            let handles = p.objects.handle_count();
+            assert!(matches!(
+                register(p, &mut thread),
+                Ok(Flow::Ret(Value::Int(code))) if code == u64::from(STATUS_INVALID_HANDLE)
+            ));
+            p.space.w32(p.peb + 0x1d4, 2).unwrap();
+            assert!(matches!(
+                register(p, &mut thread),
+                Err(ApiErr::Unimplemented(_))
+            ));
+            assert_eq!(p.objects.handle_count(), handles);
+        } else {
+            let handles = p.objects.handle_count();
+            assert!(matches!(call(p, &mut thread, &args(b)), Outcome::Fail(_)));
+            assert_eq!(p.objects.handle_count(), handles);
+            assert!(p.wow64.as_ref().unwrap().csr.is_none());
+        }
+        assert_eq!(p.space.bytes(address, request.len()).unwrap(), request);
+    }
+}
+
+#[test]
 fn wow64_csr_29708_user_connect_requires_owned_base_and_maps_readonly_views() {
     use crate::user::windows::dll::WOW64_USER_CONNECT;
     use crate::user::windows::hle::{Ctx, Flow, Value};
