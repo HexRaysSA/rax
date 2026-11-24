@@ -4,7 +4,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::Object;
+use crate::user::windows::objects::{LsarpcInterface, Object};
 
 mod activation;
 mod cache;
@@ -124,8 +124,10 @@ fn capture(c: &mut Ctx) -> ApiResult {
     if c.p.objects.access(port).unwrap_or(0) & 1 == 0 {
         return Flow::ret(STATUS_ACCESS_DENIED.into());
     }
-    let lsarpc_peer =
-        matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.is_lsarpc());
+    let lsarpc_peer = match c.p.objects.get(port) {
+        Some(Object::LpcPort(endpoint)) => endpoint.lsarpc_peer().map(|peer| peer.interface),
+        _ => None,
+    };
     let cache_peer = matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.cache_peer().is_some());
     if flags == 0x10000 && cache_peer {
         return cache::release_reply(
@@ -144,7 +146,10 @@ fn capture(c: &mut Ctx) -> ApiResult {
     if flags == u32::MAX || send == 0 {
         return Flow::ret(STATUS_INVALID_PARAMETER_2.into());
     }
-    if flags != 0x20000 {
+    let wide_wow64 = c.arch() == WinArch::X86
+        && lsarpc_peer == Some(LsarpcInterface::Policy)
+        && flags == lsarpc::WOW64_SYNCHRONOUS;
+    if flags != SYNCHRONOUS && !wide_wow64 {
         return Err(c.unsupported(format!("NtAlpcSendWaitReceivePort flags {flags:#x}")));
     }
     if receive == 0 {
@@ -163,10 +168,16 @@ fn capture(c: &mut Ctx) -> ApiResult {
     let capacity = match wow_capacity {
         Some(capacity) => capacity,
         None if length != 0 => c.read_ptr(length)?,
-        None if lsarpc_peer => lsarpc::MAX_MESSAGE as u64,
+        None if lsarpc_peer.is_some() => lsarpc::MAX_MESSAGE as u64,
         None => 952,
     };
-    let header = if c.arch().is64() { 40 } else { 24 };
+    // The installed WoW64 RPC client can supply native messages and
+    // attributes while the thunk still accepts a 32-bit receive length.
+    let converted_message = c.arch() == WinArch::X86 && !wide_wow64;
+    let header = if converted_message { 24 } else { 40 };
+    if wide_wow64 && (send_attributes % 8 != 0 || receive_attributes % 8 != 0) {
+        return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
+    }
     probe_write(c, receive, header)?;
     if receive_attributes != 0 {
         c.mem().bytes(receive_attributes, 8)?;
@@ -175,7 +186,7 @@ fn capture(c: &mut Ctx) -> ApiResult {
     c.mem().rd(send, &mut prefix)?;
     let data_bytes = u16::from_le_bytes(prefix[..2].try_into().expect("message data length"));
     let supplied_total = u16::from_le_bytes(prefix[2..4].try_into().expect("message total length"));
-    let wire_total = if c.arch() == WinArch::X86 {
+    let wire_total = if converted_message {
         // The thunk constructs a64-bit PORT_MESSAGE with16-bit length words.
         // Its TotalLength ignores the caller's word and wraps in that width.
         usize::from(data_bytes.wrapping_add(40))
@@ -185,7 +196,7 @@ fn capture(c: &mut Ctx) -> ApiResult {
     if wire_total < 40 || usize::from(data_bytes) > wire_total - 40 {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
-    let limit = if lsarpc_peer {
+    let limit = if lsarpc_peer.is_some() {
         lsarpc::MAX_MESSAGE
     } else {
         952
@@ -193,18 +204,19 @@ fn capture(c: &mut Ctx) -> ApiResult {
     if wire_total > limit {
         return Flow::ret(0xC000_002F); // STATUS_PORT_MESSAGE_TOO_LONG
     }
-    let total = if c.arch() == WinArch::X86 {
+    let total = if converted_message {
         usize::from(data_bytes) + header
     } else {
         wire_total
     };
     let message = c.mem().bytes(send, total)?;
-    if lsarpc_peer {
+    if lsarpc_peer.is_some() {
         return lsarpc::exchange(
             c,
             port,
             [send_attributes, receive, length, receive_attributes],
             capacity,
+            if converted_message { 4 } else { 8 },
             &message,
         );
     }

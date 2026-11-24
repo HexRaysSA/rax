@@ -27,16 +27,30 @@ enum Case {
     PartialMessage,
     PartialMessageSeparateAttributes,
     OriginalClosed,
+    MismatchedWideLength,
+    MisalignedSendAttributes,
+    MisalignedReceiveAttributes,
 }
 
 #[test]
 fn native_lsarpc_bind_replays_wire_order_and_port_state() {
-    for arch in WinArch::ALL {
+    for (arch, wide_wow64) in WinArch::ALL
+        .into_iter()
+        .map(|arch| (arch, false))
+        .chain([(WinArch::X86, true)])
+    {
         let (mut process, mut thread) = fixture(arch, "NtClose", SERVICE);
         let p = process.state_mut();
         super::super::native_profile::kernel_profile(p, PROFILE_BUILD, 0xaa64);
-        let width = arch.ptr_size();
-        let header = if arch.is64() { 40 } else { 24 };
+        let length_width = arch.ptr_size();
+        let width = if wide_wow64 { 8 } else { length_width };
+        let header = if width == 8 { 40 } else { 24 };
+        let cookie = if wide_wow64 {
+            (1 << 48) | COOKIE
+        } else {
+            COOKIE
+        };
+        let flags = if wide_wow64 { 0x40020000 } else { 0x20000 };
         let total = header + 72;
         let base =
             p.vm.allocate(
@@ -87,7 +101,17 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
             Case::PartialMessage,
             Case::PartialMessageSeparateAttributes,
             Case::OriginalClosed,
-        ] {
+        ]
+        .into_iter()
+        .chain(
+            [
+                Case::MismatchedWideLength,
+                Case::MisalignedSendAttributes,
+                Case::MisalignedReceiveAttributes,
+            ]
+            .into_iter()
+            .filter(|_| wide_wow64),
+        ) {
             if case == Case::OriginalClosed {
                 p.objects.close(original).unwrap();
                 handle = alias;
@@ -99,7 +123,8 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
                 0x4000
             };
             request[..2].copy_from_slice(&72u16.to_le_bytes());
-            request[2..4].copy_from_slice(&(total as u16).to_le_bytes());
+            let supplied_total = total - usize::from(case == Case::MismatchedWideLength);
+            request[2..4].copy_from_slice(&(supplied_total as u16).to_le_bytes());
             request[4..6].copy_from_slice(&requested_type.to_le_bytes());
             let offered = match case {
                 Case::ClassicSyntax => 1,
@@ -133,13 +158,16 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
                 .unwrap();
             let initial_capacity = if case == Case::Short { total - 1 } else { 4096 };
             p.space
-                .wptr(length, width, initial_capacity as u64)
+                .wptr(length, length_width, initial_capacity as u64)
                 .unwrap();
+            if wide_wow64 {
+                p.space.w32(length + 4, 1).unwrap();
+            }
             p.space.wr(attributes, &[0; 44]).unwrap();
             p.space.w32(attributes, CONTEXT).unwrap();
             p.space.w32(attributes + 4, CONTEXT).unwrap();
             p.space.w32(attributes + 36, 0xa5a5_a5a5).unwrap();
-            p.space.wptr(attributes + 8 + width, width, COOKIE).unwrap();
+            p.space.wptr(attributes + 8 + width, width, cookie).unwrap();
 
             let receive = match case {
                 Case::SeparateOutput => separate,
@@ -149,17 +177,19 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
                 }
                 _ => send,
             };
-            let send_attr = if case == Case::NoSendContext {
-                0
-            } else {
-                attributes
+            let send_attr = match case {
+                Case::NoSendContext => 0,
+                Case::MisalignedSendAttributes => attributes + 4,
+                _ => attributes,
             };
-            let receive_attr = if case == Case::PartialMessageSeparateAttributes {
-                p.space.w32(separate, CONTEXT).unwrap();
-                p.space.w32(separate + 4, 0).unwrap();
-                separate
-            } else {
-                attributes
+            let receive_attr = match case {
+                Case::PartialMessageSeparateAttributes => {
+                    p.space.w32(separate, CONTEXT).unwrap();
+                    p.space.w32(separate + 4, 0).unwrap();
+                    separate
+                }
+                Case::MisalignedReceiveAttributes => attributes + 4,
+                _ => attributes,
             };
             let attributes_before = p.space.bytes(receive_attr, 44).unwrap();
             if case == Case::ReadOnlyLength {
@@ -171,6 +201,10 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
 
             let status = match case {
                 Case::Short => STATUS_BUFFER_TOO_SMALL,
+                Case::MismatchedWideLength => STATUS_INVALID_PARAMETER,
+                Case::MisalignedSendAttributes | Case::MisalignedReceiveAttributes => {
+                    STATUS_DATATYPE_MISALIGNMENT
+                }
                 Case::ReadOnlyLength if arch.is64() => STATUS_ACCESS_VIOLATION,
                 Case::ReadOnlyAttributes
                 | Case::ReadOnlyMessage
@@ -186,7 +220,7 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
                     SERVICE,
                     &[
                         handle,
-                        0x20000,
+                        flags,
                         send,
                         send_attr,
                         receive,
@@ -210,23 +244,26 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
                 initial_capacity
             };
             assert_eq!(
-                p.space.ptr(length, width).unwrap(),
+                p.space.ptr(length, length_width).unwrap(),
                 published as u64,
                 "{arch} {case:?}"
             );
+            if wide_wow64 {
+                assert_eq!(p.space.u32(length + 4).unwrap(), 1, "{arch} {case:?}");
+            }
             assert_eq!(
                 invoke(
                     p,
                     &mut thread,
                     "NtAlpcQueryInformation",
                     QUERIED,
-                    &[handle, 0, query, 8 + width, 0]
+                    &[handle, 0, query, 8 + length_width, 0]
                 ),
                 Outcome::Continue
             );
             assert_eq!(thread.cpu.gpr(0), 0);
             assert_eq!(p.space.u32(query + 4).unwrap(), sequence);
-            assert_eq!(p.space.ptr(query + 8, width).unwrap(), original);
+            assert_eq!(p.space.ptr(query + 8, length_width).unwrap(), original);
             if receive != send || status != STATUS_SUCCESS {
                 assert_eq!(
                     p.space.bytes(send, request.len()).unwrap(),
@@ -249,7 +286,7 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
                 }
                 assert_eq!(
                     p.space.u16(receive + 4).unwrap(),
-                    if arch.is64() { 0x4002 } else { 0x5002 }
+                    if width == 8 { 0x4002 } else { 0x5002 }
                 );
                 assert_eq!(p.space.u32(receive + header as u64 + 32).unwrap(), 2);
                 assert_eq!(p.space.bytes(bad_message, 4).unwrap(), [0xa5; 4]);
@@ -262,9 +299,12 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
             let selected = if offered & 2 != 0 { 2u32 } else { 1 };
             assert_eq!(p.space.u32(attributes + 4).unwrap(), CONTEXT);
             assert_eq!(p.space.ptr(attributes + 8, width).unwrap(), original);
-            let cookie = if send_attr == 0 { 0 } else { COOKIE };
-            assert_eq!(p.space.ptr(attributes + 8 + width, width).unwrap(), cookie);
-            let expected_padding = if arch.is64() { 0 } else { 0xa5a5_a5a5 };
+            let reply_cookie = if send_attr == 0 { 0 } else { cookie };
+            assert_eq!(
+                p.space.ptr(attributes + 8 + width, width).unwrap(),
+                reply_cookie
+            );
+            let expected_padding = if width == 8 { 0 } else { 0xa5a5_a5a5 };
             assert_eq!(p.space.u32(attributes + 36).unwrap(), expected_padding);
             let offset = attributes + 8 + 2 * width;
             assert_eq!(p.space.u32(offset).unwrap(), sequence);
@@ -283,7 +323,7 @@ fn native_lsarpc_bind_replays_wire_order_and_port_state() {
                 continue;
             }
             let native_type = if fault.is_some() { 0 } else { requested_type };
-            let reply_kind = native_type | 2 | if arch.is64() { 0 } else { 0x1000 };
+            let reply_kind = native_type | 2 | if width == 8 { 0 } else { 0x1000 };
             assert_eq!(p.space.u16(receive).unwrap(), (reply_total - header) as u16);
             assert_eq!(p.space.u16(receive + 2).unwrap(), reply_total as u16);
             assert_eq!(p.space.u16(receive + 4).unwrap(), reply_kind);

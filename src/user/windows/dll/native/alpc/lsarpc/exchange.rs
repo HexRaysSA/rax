@@ -27,6 +27,7 @@ pub(in crate::user::windows::dll::native) fn exchange(
     handle: u64,
     [send_attributes, receive, length, receive_attributes]: [u64; 4],
     capacity: u64,
+    message_pointer_size: u64,
     request: &[u8],
 ) -> ApiResult {
     let association = c.p.objects.id(handle).expect("checked LSARPC handle");
@@ -34,9 +35,10 @@ pub(in crate::user::windows::dll::native) fn exchange(
         unreachable!("checked LSARPC port");
     };
     let peer = endpoint.lsarpc_peer().expect("checked LSARPC peer");
-    let width = c.psize() as usize;
-    let wow64 = width == 4;
-    let header = if wow64 { 24 } else { 40 };
+    let width = message_pointer_size as usize;
+    let converted_message = width == 4;
+    let converted_length = c.psize() == 4;
+    let header = if converted_message { 24 } else { 40 };
     let payload = &request[header..];
     let request_type = u16::from_le_bytes([request[4], request[5]]);
     let valid_length = u16::from_le_bytes([request[0], request[1]]) as usize == payload.len();
@@ -102,10 +104,14 @@ pub(in crate::user::windows::dll::native) fn exchange(
                     || (valid == (CONTEXT_ATTRIBUTE | WORK_ON_BEHALF_ATTRIBUTE)
                         && word(&masks, 0) == RPC_ATTRIBUTES) =>
             {
-                let offset = context_offset(word(&masks, 0), wow64).ok_or_else(|| {
-                    c.unsupported("LSARPC send context layout is outside the selected profile")
-                })?;
-                c.read_ptr(send_attributes + (offset + width) as u64)?
+                let offset =
+                    context_offset(word(&masks, 0), converted_message).ok_or_else(|| {
+                        c.unsupported("LSARPC send context layout is outside the selected profile")
+                    })?;
+                c.mem().ptr(
+                    send_attributes + (offset + width) as u64,
+                    message_pointer_size,
+                )?
             }
             _ => {
                 return Err(c.unsupported(
@@ -124,22 +130,25 @@ pub(in crate::user::windows::dll::native) fn exchange(
         match allocated {
             0 => 8,
             _ => {
-                receive_context = context_offset(allocated, wow64).ok_or_else(|| {
-                    c.unsupported("LSARPC receive context layout is outside the selected profile")
-                })?;
+                receive_context =
+                    context_offset(allocated, converted_message).ok_or_else(|| {
+                        c.unsupported(
+                            "LSARPC receive context layout is outside the selected profile",
+                        )
+                    })?;
                 put_word(&mut attributes, 4, CONTEXT_ATTRIBUTE);
                 put_ptr(&mut attributes, 8, width, u64::from(peer.context));
                 put_ptr(&mut attributes, 8 + width, width, cookie);
                 put_word(&mut attributes, sequence_offset + 4, message_id);
                 put_word(&mut attributes, sequence_offset + 8, callback);
-                if wow64 { 28 } else { 40 }
+                if converted_message { 28 } else { 40 }
             }
         }
     } else {
         0
     };
 
-    if !wow64 && length != 0 {
+    if !converted_length && length != 0 {
         probe_write(c, length, width)?;
     }
     let aliases_send = send_attributes == receive_attributes;
@@ -182,7 +191,7 @@ pub(in crate::user::windows::dll::native) fn exchange(
         let mut reply = vec![0; total];
         reply[0..2].copy_from_slice(&(payload_bytes as u16).to_le_bytes());
         reply[2..4].copy_from_slice(&(total as u16).to_le_bytes());
-        let kind = response.request_type | 2 | if wow64 { 0x1000 } else { 0 };
+        let kind = response.request_type | 2 | if converted_message { 0x1000 } else { 0 };
         reply[4..6].copy_from_slice(&kind.to_le_bytes());
         put_ptr(&mut reply, 8, width, u64::from(SERVER_PROCESS));
         put_ptr(&mut reply, 8 + width, width, u64::from(SERVER_THREAD));
@@ -213,7 +222,7 @@ pub(in crate::user::windows::dll::native) fn exchange(
     }
     if length != 0 {
         let result = c.write_ptr(length, total as u64);
-        if !wow64 {
+        if !converted_length {
             result?;
         }
     }
@@ -243,10 +252,10 @@ pub(in crate::user::windows::dll::native) fn exchange(
 
 // AlpcGetMessageAttribute gives context offset 8 for context-only buffers
 // and skips the aligned view allocation in the installed caller's mask.
-fn context_offset(allocated: u32, wow64: bool) -> Option<usize> {
+fn context_offset(allocated: u32, converted_message: bool) -> Option<usize> {
     match allocated {
         CONTEXT_ATTRIBUTE => Some(8),
-        0x6000_0000 | RPC_ATTRIBUTES => Some(if wow64 { 24 } else { 40 }),
+        0x6000_0000 | RPC_ATTRIBUTES => Some(if converted_message { 24 } else { 40 }),
         _ => None,
     }
 }

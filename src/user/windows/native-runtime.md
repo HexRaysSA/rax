@@ -3954,6 +3954,14 @@ Native64 requires a writable length destination. WoW64 keeps the
 native length private and can return the reply when the final 32-bit length
 store faults.
 
+For the selected LSARPC Policy endpoint, the WoW64 exchange flag
+`0x40020000` uses the native 40-byte message header and native context
+attribute layout. The receive length still occupies 4 bytes. On build
+29708 the message pointers admit 4-byte alignment and non-null attribute
+pointers require 8-byte alignment. A 72-byte bind returns a 112-byte
+reply without the converted-message type bit. Native sizing checks the
+supplied total length.
+
 A bound NDR64 connection accepts the local calls from the installed policy
 client. `LsarOpenPolicy3` creates a context for `POLICY_LOOKUP_NAMES` at
 revision 1. The context belongs to the virtual ALPC association, including
