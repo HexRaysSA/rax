@@ -907,3 +907,40 @@ rejected canonical `VMOV.F16` at feature admission.
 
 Physical AArch32 qualification and the remaining optional profile, security
 and debug controls stay open.
+
+## VMRS and VMSR reserved fields
+
+The shared A32 and T32 decoder selects Undefined Instruction for `VMRS` and
+`VMSR` when any bit in [7:5] or [3:0] is set. Bit 4 remains the register-transfer
+selector. The encoding diagrams mark the checked bits `(0)`, and Armv8-A
+permits selecting Undefined for those values. The decoder checks the fields
+with a constant-time mask before FP access checks can read or write state or
+select an FP access trap. The existing conditional execution rules still
+apply. [Arm DDI 0597 ID032025, pp. 1124–1125 and 1127–1128](../specifications/arm/aarch32-isa-2025-03.pdf)
+[Arm DDI 0487B.a, § K1.1.9](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe | Result |
+| --- | --- | --- |
+| The two transfer directions share the same seven SBZ bits in A32 and T32. | For each encoding, vary all 127 nonzero field patterns over the tested GPR and special-register selectors. Check the corresponding zero-field decode. | The parent decoded `0xeef00a11` as `VMRS`. The candidate classified all 34,290 nonzero combinations as Undefined and retained all 272 canonical decodes, including `VMRS APSR_nzcv, FPSCR`. |
+| Reserved forms select Undefined before a competing FP access trap when the predicate passes. | Compare GPRs, FPSCR, FPEXC and CPSR on the standalone path for passing and failing predicates. Compare canonical controls with CPTR_EL2.TFP set on the mixed-width path. | The parent executed `0xeef12aff` and returned `Continue`. The candidate preserved state and retirement on rejection and preserved state when the predicate failed. Canonical controls retained the EL2 FP access trap. |
+| The guest Undefined marker distinguishes rejection from a retired instruction. | Reset R2 and FPSCR before each word, set the marker only in the Undefined vector, and verify both values after resuming. Include the zero-field read and write as positive controls. | On QEMU 11.1.2, `cortex-a15` and `max` agreed in A32 and T32. All 1,016 nonzero FPSCR transfers took Undefined and preserved R2 and FPSCR. All eight canonical transfers retired with the expected register effects. |
+
+The pre-fix regression log SHA-256 is
+`d1deef0a137eb1c6aca8395d012798f56b46bb2365535b4c0e9172ce28086462`.
+The independent QEMU receipt SHA-256 is
+`cba3049e0b9605bc35e3ca1ae959c592c1e9bd3811de6eb3df729d4d2eee95b3`.
+On macOS Arm64, five unfiltered targets passed 47,697 tests with no failures
+or ignored cases. The targets were `a32_fp_controls` (205), `a32_fp_pairs` (5),
+`arm` (46,850), `arm_vfp_a32` (535), and `isa_oracle` (102). The combined
+log SHA-256 is
+`ba5748685ede5bed8b562427ce69f74dcddd4ef471f05c198247d8bd7e4fe39b`.
+Formatting, whitespace and scoped Clippy checks passed. The unfiltered
+library run reproduced the existing Darwin code-signing failure. The isolated
+rerun returned `EINVAL` where the test expects `EPERM`. Its log SHA-256 is
+`2c07b7fc49ab9a8ef95a4e4ef6866ac87f034f2957d3678eacddea4a886d2a30`.
+[Prior PC checkpoint qualification](pc-machine-checkpoint/README.md#acpi-s5-power-off-across-restore)
+
+The Linux-only `arm_diff32` harness requires `qemu-arm` and was omitted on
+macOS. The independent controls ran system-mode guests with `qemu-system-arm`.
+Physical AArch32 execution and the remaining profile, security and debug
+controls stay open.

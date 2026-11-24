@@ -223,9 +223,9 @@ impl Aarch32Decoder {
         }
         if coproc == 0b1010 && opcode != 0 {
             // This space allocates only the single-register VMOV (opcode 0)
-            // and the special-register transfers (opcode 7). Unallocated
-            // opcodes must not fall through to generic coprocessor metadata.
-            if opcode != 7 {
+            // and the special-register transfers (opcode 7). Select Undefined
+            // for VMRS/VMSR with nonzero (0) fields at [7:5] or [3:0].
+            if opcode != 7 || raw & 0xef != 0 {
                 return Some(DecodedInsn::new(
                     Mnemonic::UNDEFINED,
                     ExecutionState::Aarch32,

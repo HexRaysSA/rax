@@ -99,6 +99,97 @@ fn conditional_cp10_transfer_opcodes_do_not_resolve_to_system_operations() {
 }
 
 #[test]
+fn vmrs_vmsr_reserved_fields_fail_decode() {
+    for thumb in [false, true] {
+        for (base, registers, canonical) in [
+            (0xeef0_0a10, &[0, 1, 5, 6, 7, 8][..], Mnemonic::VMRS),
+            (0xeee0_0a10, &[0, 1, 8][..], Mnemonic::VMSR),
+        ] {
+            for &register in registers {
+                for core in 0..15 {
+                    let word = base | register << 16 | core << 12;
+                    assert_eq!(decode(word, thumb).mnemonic, canonical);
+                    for field in 1..128 {
+                        // [7:5] and [3:0] are SBZ. Bit 4 remains the transfer selector.
+                        let raw = word | ((field & 0x70) << 1) | (field & 0xf);
+                        assert_eq!(
+                            decode(raw, thumb).mnemonic,
+                            Mnemonic::UNDEFINED,
+                            "raw={raw:08x}, thumb={thumb}"
+                        );
+                    }
+                }
+            }
+        }
+        assert_eq!(decode(0xeef1_fa10, thumb).mnemonic, Mnemonic::VMRS);
+    }
+}
+
+#[test]
+fn vmrs_vmsr_reserved_fields_precede_fp_access_and_preserve_predication() {
+    for thumb in [false, true] {
+        for word in [0xeef1_2a10, 0xeee1_2a10, 0xeef1_fa10, 0xeee8_2a10] {
+            for skip in [false, true] {
+                let mut raw = word | 0xef;
+                let mut cpu = Armv7Cpu::new();
+                cpu.cpsr.t = thumb;
+                if skip && thumb {
+                    cpu.cpsr.it_state = 0x18; // IT NE, with Z=1 below.
+                } else if skip {
+                    raw ^= 0xf000_0000; // NE, with Z=1 below.
+                }
+                cpu.cpsr.z = true;
+                cpu.regs[2] = 0x00c0_0000;
+                cpu.vfp.fpscr = Fpscr::from_bits(0xa000_0001);
+                let before = (
+                    cpu.regs,
+                    cpu.vfp.fpscr.bits(),
+                    cpu.vfp.fpexc,
+                    cpu.cpsr.to_u32(),
+                );
+                let mut memory = FlatMemory::new(32, 0);
+                let result = Executor::new(&mut cpu, &mut memory).execute(&decode(raw, thumb));
+                assert!(
+                    matches!(result, ExecResult::Continue) && skip
+                        || matches!(result, ExecResult::Undefined) && !skip,
+                    "raw={raw:08x}, thumb={thumb}, skip={skip}: {result:?}"
+                );
+                assert_eq!(
+                    (
+                        cpu.regs,
+                        cpu.vfp.fpscr.bits(),
+                        cpu.vfp.fpexc,
+                        cpu.cpsr.to_u32()
+                    ),
+                    before
+                );
+            }
+
+            let raw = word | 0x80;
+            let mut cpu = super::mixed(raw, thumb, 2, false, true);
+            let before = (cpu.get_gpr(2), cpu.export_sregs());
+            assert!(
+                matches!(cpu.step(), Err(ArmError::UndefinedInstruction(value)) if value == raw),
+                "raw={raw:08x}, thumb={thumb}"
+            );
+            assert_eq!((cpu.get_gpr(2), cpu.export_sregs()), before);
+            assert_eq!(cpu.get_pc(), 0x100);
+            assert_eq!(cpu.instruction_count(), 0);
+
+            let mut cpu = super::mixed(word, thumb, 2, false, true);
+            assert!(matches!(
+                cpu.step(),
+                Err(ArmError::ArchitecturalException {
+                    ec: 7,
+                    target_el: Some(2),
+                    ..
+                })
+            ));
+        }
+    }
+}
+
+#[test]
 fn invalid_single_vmov_fields_cannot_take_a_higher_level_fp_trap() {
     for thumb in [false, true] {
         for word in [0xee01_0990, 0xee11_0990, 0xee01_0a90, 0xee11_0a90] {

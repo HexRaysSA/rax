@@ -200406,6 +200406,16 @@
       "scope": "The PC checkpoint retains accepted ACPI S5 power-off and fences every vCPU before dispatch. The two-vCPU detached file test checks both program counters, the retirement count, and both guest RAM markers. Separate tests cover the stopped I/O callback and failed publication. A QEMU PIIX4 control confirmed the input and VM-wide shutdown semantics. Native Intel HVF qualification of this continuation remains open.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#acpi-s5-power-off-across-restore",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-vmrs-vmsr-reserved-fields-2026-11-24",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Reserved VMRS and VMSR fields select Undefined in ARM and Thumb before FP access checks. The regression covers 34,290 nonzero words and preserves predicate behavior and canonical trap selection. Five complete integration targets passed 47,697 tests. Independent QEMU controls took Undefined for 1,016 reserved FPSCR reads and writes and retained eight canonical transfers. Physical AArch32 and the remaining profile, security and debug controls stay open.",
+      "qualification": "docs/development/a32-fp-controls.md#vmrs-and-vmsr-reserved-fields",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
