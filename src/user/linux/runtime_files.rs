@@ -32,14 +32,24 @@ const CONFINED_ROOTS: &[&str] = &[
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
 pub fn native(files: &Files) -> io::Result<Files> {
+    select_native(files, None)
+}
+
+/// Select the native runtime without mounting a program directory over
+/// the explicit main image's absolute guest path.
+pub fn native_for_executable(files: &Files, executable: &str) -> io::Result<Files> {
+    select_native(files, Some(executable))
+}
+
+fn select_native(files: &Files, executable: Option<&str>) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     {
-        select_installed(files, Path::new("/"))
+        select_installed_for_executable(files, Path::new("/"), executable)
             .map(|files| files.with_temp_workspace(WorkspaceFlavor::Linux))
     }
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = files;
+        let _ = (files, executable);
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "native Linux runtime selection requires a Linux host",
@@ -47,8 +57,17 @@ pub fn native(files: &Files) -> io::Result<Files> {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", test))]
 fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
+    select_installed_for_executable(files, root, None)
+}
+
+#[cfg(target_os = "linux")]
+fn select_installed_for_executable(
+    files: &Files,
+    root: &Path,
+    executable: Option<&str>,
+) -> io::Result<Files> {
     use crate::user::supplied_fs::Error;
 
     let mut roots = installed_roots(root);
@@ -70,18 +89,29 @@ fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
     }
     let bin = root.join("bin");
     let usr_bin = root.join("usr/bin");
-    let usr_bin_selected = usr_bin.symlink_metadata().is_ok_and(|info| info.is_dir());
+    let unshadowed = |mount: &str| {
+        !executable.is_some_and(|image| {
+            image == mount
+                || mount
+                    .strip_prefix(image)
+                    .is_some_and(|tail| tail.starts_with('/'))
+        })
+    };
+    let usr_bin_selected =
+        unshadowed(PROGRAM_ROOTS[1]) && usr_bin.symlink_metadata().is_ok_and(|info| info.is_dir());
     // /bin may be a distinct directory or the distribution alias for /usr/bin.
-    if bin.symlink_metadata().is_ok_and(|info| {
-        info.is_dir()
-            || (info.is_symlink()
-                && usr_bin_selected
-                && bin
-                    .canonicalize()
-                    .ok()
-                    .zip(usr_bin.canonicalize().ok())
-                    .is_some_and(|(bin, usr_bin)| bin == usr_bin))
-    }) {
+    if unshadowed(PROGRAM_ROOTS[0])
+        && bin.symlink_metadata().is_ok_and(|info| {
+            info.is_dir()
+                || (info.is_symlink()
+                    && usr_bin_selected
+                    && bin
+                        .canonicalize()
+                        .ok()
+                        .zip(usr_bin.canonicalize().ok())
+                        .is_some_and(|(bin, usr_bin)| bin == usr_bin))
+        })
+    {
         roots.insert(PROGRAM_ROOTS[0].into(), bin);
     }
     if usr_bin_selected {
@@ -339,6 +369,15 @@ mod tests {
             .unwrap();
         assert_eq!(&*selected.read("/bin/program").unwrap(), b"guest main");
         assert_eq!(&*selected.read("/usr/bin/program").unwrap(), &elf);
+
+        for path in ["/bin", "/usr/bin"] {
+            let selected =
+                select_installed_for_executable(&Files::default(), root, Some(path)).unwrap();
+            let selected = selected
+                .with_file(path.into(), Arc::from(&b"guest main"[..]))
+                .unwrap();
+            assert_eq!(&*selected.read(path).unwrap(), b"guest main");
+        }
     }
 
     #[cfg(target_os = "linux")]
