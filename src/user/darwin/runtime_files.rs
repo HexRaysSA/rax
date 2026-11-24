@@ -1,5 +1,5 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
-//! system metadata, including timezone and locale data.
+//! system metadata, including timezone and locale data and the file-type database.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -13,6 +13,9 @@ mod dylibs;
 
 #[cfg(any(target_os = "macos", test))]
 const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.plist";
+
+#[cfg(any(target_os = "macos", test))]
+const FILE_MAGIC_DATABASE: &str = "/usr/share/file/magic.mgc";
 
 #[cfg(any(target_os = "macos", test))]
 const SHELL_SELECTOR: &str = "/private/var/select/sh";
@@ -118,7 +121,8 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
             ),
         ],
     )?;
-    let files = select_system_version(files, root)?;
+    let files = select_system_file(files, root, SYSTEM_VERSION_PLIST)?;
+    let files = select_system_file(files, root, FILE_MAGIC_DATABASE)?;
     let files = files
         .with_device(Device::Null)
         .and_then(|files| files.with_device(Device::Zero))
@@ -185,19 +189,16 @@ fn accept_runtime_file(guest: &str, file: &std::fs::File) -> io::Result<bool> {
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn select_system_version(files: Files, root: &std::path::Path) -> io::Result<Files> {
+fn select_system_file(files: Files, root: &std::path::Path, path: &str) -> io::Result<Files> {
     use crate::user::supplied_fs::Error;
 
-    if !matches!(files.lookup(SYSTEM_VERSION_PLIST), Err(Error::NotFound)) {
+    if !matches!(files.lookup(path), Err(Error::NotFound)) {
         return Ok(files);
     }
-    // CoreFoundation's system version lookup reads this installed metadata.
-    // Admit the regular file at this path only.
-    let host = root.join(SYSTEM_VERSION_PLIST.trim_start_matches('/'));
+    // Keep adjacent files and symlink targets outside the supplied namespace.
+    let host = root.join(path.trim_start_matches('/'));
     match std::fs::symlink_metadata(&host) {
-        Ok(metadata) if metadata.is_file() => {
-            files.with_host_file(SYSTEM_VERSION_PLIST.into(), &host)
-        }
+        Ok(metadata) if metadata.is_file() => files.with_host_file(path.into(), &host),
         Ok(_) => Ok(files),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(files),
         Err(error) => Err(error),
@@ -414,13 +415,16 @@ mod tests {
     }
 
     #[test]
-    fn system_version_metadata_is_selected_without_neighboring_files() {
+    fn fixed_system_files_are_selected_without_neighboring_files() {
         let fixture = TestFile::new(b"dyld", 4);
         let dyld = fixture.dir.join("usr/lib/dyld");
         let cache_dir = fixture.dir.join("System/Library/dyld");
         let version = fixture
             .dir
             .join(SYSTEM_VERSION_PLIST.trim_start_matches('/'));
+        let magic = fixture
+            .dir
+            .join(FILE_MAGIC_DATABASE.trim_start_matches('/'));
         std::fs::create_dir_all(dyld.parent().unwrap()).unwrap();
         std::fs::create_dir_all(&cache_dir).unwrap();
         std::fs::create_dir_all(version.parent().unwrap()).unwrap();
@@ -428,8 +432,16 @@ mod tests {
         std::fs::write(cache_dir.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
         std::fs::write(&version, b"installed").unwrap();
         std::fs::write(version.with_file_name("Unselected.plist"), b"other").unwrap();
+        std::fs::create_dir_all(magic.with_file_name("magic")).unwrap();
+        std::fs::write(&magic, b"compiled magic database").unwrap();
+        std::fs::write(magic.with_file_name("magic").join("source"), b"other").unwrap();
         let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
         assert_eq!(&*selected.read(SYSTEM_VERSION_PLIST).unwrap(), b"installed");
+        assert_eq!(
+            &*selected.read(FILE_MAGIC_DATABASE).unwrap(),
+            b"compiled magic database"
+        );
+        assert!(selected.lookup("/usr/share/file/magic").is_err());
         assert!(
             selected
                 .lookup("/System/Library/CoreServices/Unselected.plist")
@@ -438,9 +450,18 @@ mod tests {
 
         let supplied = Files::default()
             .with_file(SYSTEM_VERSION_PLIST.into(), Arc::from(&b"supplied"[..]))
+            .unwrap()
+            .with_file(
+                FILE_MAGIC_DATABASE.into(),
+                Arc::from(&b"supplied magic"[..]),
+            )
             .unwrap();
         let selected = select_native_root(&supplied, &fixture.dir).unwrap();
         assert_eq!(&*selected.read(SYSTEM_VERSION_PLIST).unwrap(), b"supplied");
+        assert_eq!(
+            &*selected.read(FILE_MAGIC_DATABASE).unwrap(),
+            b"supplied magic"
+        );
 
         let caller = TestFile::new(b"caller", 6);
         std::fs::write(caller.dir.join("SystemVersion.plist"), b"mounted").unwrap();
