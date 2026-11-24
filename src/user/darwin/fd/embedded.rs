@@ -14,7 +14,7 @@ use crate::user::darwin::io::{
     O_ACCMODE, O_APPEND, O_CREAT, O_EXCL, O_EXEC, O_RDONLY, O_TRUNC, O_WRONLY,
 };
 use crate::user::mm::{PageSource, SourceIdentity};
-use crate::user::supplied_fs::{Device, Entry, WorkspaceTimestamp, Xattrs};
+use crate::user::supplied_fs::{Device, Entry, WorkspaceFlavor, WorkspaceTimestamp, Xattrs};
 
 pub(crate) const RESOURCE_FORK_SUFFIX: &str = "/..namedfork/rsrc";
 
@@ -159,10 +159,11 @@ impl EmbeddedFile {
 
     /// Virtual metadata for immutable supplied files and private guest inodes.
     pub fn stat(&self) -> Result<Stat, Errno> {
-        let (uid, gid) = self
-            .entry()
-            .and_then(Entry::workspace_owner)
-            .unwrap_or((0, 0));
+        let entry = self.entry();
+        let (uid, gid) = entry.and_then(Entry::workspace_owner).unwrap_or((0, 0));
+        let directory_links = entry
+            .and_then(Entry::workspace_directory)
+            .map(|directory| directory.link_count(WorkspaceFlavor::Darwin));
         let (ino, mode, size) = match self {
             Self::Resource { fork, .. } => {
                 return Self::resource_stat(&fork.entry, fork.attributes.resource_stat()?);
@@ -170,7 +171,9 @@ impl EmbeddedFile {
             Self::Supplied { entry, .. } | Self::Workspace { entry, .. } => {
                 let permissions = entry.workspace_mode().unwrap_or(0o555) as u16;
                 if entry.is_dir() {
-                    (entry.ino, 0o040000 | permissions, 0)
+                    // APFS reports 32 bytes per entry, including "." and "..".
+                    let size = directory_links.map_or(0, |links| i64::from(links) * 32);
+                    (entry.ino, 0o040000 | permissions, size)
                 } else {
                     let mode = if entry.link_target().is_some() {
                         0o120000 | entry.workspace_mode().unwrap_or(0o755) as u16
@@ -191,45 +194,34 @@ impl EmbeddedFile {
             Self::Zero { ino, .. } => return Ok(Self::device_stat(Device::Zero, *ino)),
             Self::Pipe(end) => return Ok(end.stat()),
         };
-        let times = self
-            .entry()
+        let times = entry
             .and_then(Entry::workspace_timestamps)
             .unwrap_or_default();
         let to_timespec = |time: WorkspaceTimestamp| Timespec {
             sec: time.seconds,
             nsec: time.nanoseconds,
         };
-        let blocks = match self.entry().and_then(Entry::workspace_file) {
-            Some(file) => file.darwin_allocated_blocks()?,
-            None => None,
+        let blocks = if directory_links.is_some() {
+            0
+        } else {
+            let allocated = match entry.and_then(Entry::workspace_file) {
+                Some(file) => file.darwin_allocated_blocks()?,
+                None => None,
+            };
+            allocated.unwrap_or_else(|| (size as u64).div_ceil(512) as i64)
         };
         Ok(Stat {
-            dev: if self.entry().is_some() {
-                0x524158
-            } else {
-                0x524159
-            },
+            dev: if entry.is_some() { 0x524158 } else { 0x524159 },
             ino,
             mode,
             size,
             uid,
             gid,
-            nlink: self
-                .entry()
-                .and_then(Entry::workspace_directory)
-                .map_or_else(
-                    || {
-                        self.entry()
-                            .and_then(Entry::workspace_leaf_links)
-                            .unwrap_or(1) as u16
-                    },
-                    |directory| {
-                        directory.link_count(crate::user::supplied_fs::WorkspaceFlavor::Darwin)
-                            as u16
-                    },
-                ),
+            nlink: directory_links
+                .or_else(|| entry.and_then(Entry::workspace_leaf_links))
+                .unwrap_or(1) as u16,
             blksize: 4096,
-            blocks: blocks.unwrap_or_else(|| (size as u64).div_ceil(512) as i64),
+            blocks,
             atime: to_timespec(times.accessed),
             mtime: to_timespec(times.modified),
             ctime: to_timespec(times.changed),

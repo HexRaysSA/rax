@@ -502,6 +502,16 @@ for these cases and for short copies at the file-size limit, `SIGXFSZ`,
 late position copyback errors, copies between ordinary memfds and rejection of
 a copy from an ordinary memfd to a huge-page memfd.
 
+### Directory stat in the closed Darwin workspace
+
+Path and descriptor stat on guest-owned workspace directories report 32
+bytes per workspace entry, including the implicit "." and "..", and zero
+allocated 512-byte blocks. Both fields use the APFS layout measured on
+macOS 27. The size and link count use one snapshot of the virtual directory's
+entry count, including for an open descriptor retained after removal.
+ARM64 and Rosetta x86-64 controls compare initial creation, long names,
+hard links, renames and retained descriptors against native APFS.
+
 ### Data-fork preallocation in the closed Darwin workspace
 
 On macOS, `F_PREALLOCATE` uses an anonymous backing file for a writable

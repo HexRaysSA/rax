@@ -1026,6 +1026,71 @@ fn supplied_mmap_preserves_copy_on_write_eof_and_guest_page_granularity() {
 }
 
 #[test]
+fn closed_workspace_directory_stat_reports_apfs_size_and_blocks() {
+    use crate::user::darwin::{
+        abi::{tables::nr, types::STAT64_SIZE},
+        io::{O_CREAT, O_RDONLY, O_WRONLY},
+        syscall::{Ctx, bsd},
+    };
+    use crate::user::supplied_fs::WorkspaceFlavor;
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut process = process(abi);
+        let files = process
+            .proc
+            .vfs
+            .files()
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        process.proc.vfs = Vfs::supplied(files);
+        let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+        let directory = thread.cpu.sp() - 512;
+        let child = directory + 64;
+        let buffer = child + 64;
+        let mut ctx = Ctx {
+            proc: &mut process.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::STAT64),
+            pc: ENTRY,
+        };
+        ctx.write(directory, b"/tmp/dir-stat\0").unwrap();
+        ctx.write(child, b"/tmp/dir-stat/data\0").unwrap();
+
+        let call = |ctx: &mut Ctx<'_>, number, args: &[u64]| {
+            let mut registers = [0; 8];
+            registers[..args.len()].copy_from_slice(args);
+            bsd::call(ctx, number, &registers).unwrap().0
+        };
+        let check = |ctx: &mut Ctx<'_>, number, target, links, size| {
+            assert_eq!(call(ctx, number, &[target, buffer]), 0);
+            let bytes = ctx.read(buffer, STAT64_SIZE).unwrap();
+            assert_eq!(u16::from_le_bytes(bytes[6..8].try_into().unwrap()), links);
+            assert_eq!(i64::from_le_bytes(bytes[96..104].try_into().unwrap()), size);
+            assert_eq!(i64::from_le_bytes(bytes[104..112].try_into().unwrap()), 0);
+        };
+
+        call(&mut ctx, nr::MKDIR, &[directory, 0o700]);
+        let fd = call(&mut ctx, nr::OPEN, &[directory, u64::from(O_RDONLY)]);
+        check(&mut ctx, nr::STAT64, directory, 2, 64);
+        let file = call(
+            &mut ctx,
+            nr::OPEN,
+            &[child, u64::from(O_CREAT | O_WRONLY), 0o600],
+        );
+        call(&mut ctx, nr::CLOSE, &[file]);
+        check(&mut ctx, nr::STAT64, directory, 3, 96);
+        check(&mut ctx, nr::FSTAT64, fd, 3, 96);
+        call(&mut ctx, nr::UNLINK, &[child]);
+        call(&mut ctx, nr::RMDIR, &[directory]);
+
+        call(&mut ctx, nr::MKDIR, &[directory, 0o700]);
+        call(&mut ctx, nr::MKDIR, &[child, 0o700]);
+        check(&mut ctx, nr::LSTAT64, directory, 3, 96);
+        check(&mut ctx, nr::FSTAT64, fd, 2, 64);
+    }
+}
+
+#[test]
 fn closed_workspace_sync_commands_accept_vnodes_and_reject_pipes() {
     use crate::user::darwin::{
         abi::{Errno, tables::nr},
