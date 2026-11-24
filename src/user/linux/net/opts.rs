@@ -6,7 +6,9 @@
 //! |---|---|
 //! | Kept by the personality | `SO_TYPE`, `SO_DOMAIN`, `SO_PROTOCOL`, `SO_COOKIE`, `SO_ACCEPTCONN`, `SO_SNDBUF`/`SO_RCVBUF` as Linux reports them (the value set doubled, Linux's defaults and minimums), the receive and send timeouts (which the emulated blocking honors), `SO_PEERCRED` |
 //! | Passed to the host | the boolean `SOL_SOCKET` options (reported as 0 or 1), `SO_LINGER`, `SO_RCVLOWAT`, `SO_ERROR`, and the `IPPROTO_IP`, `IPPROTO_IPV6`, and `IPPROTO_TCP` options the host shares |
-//! | Recorded only (accepted and reported back; no effect) | `SO_DEBUG`, `SO_PRIORITY`, `SO_NO_CHECK`, `SO_PASSCRED`, `SO_TIMESTAMP*`, `SO_MARK`, `SO_BUSY_POLL`, `SO_INCOMING_CPU`, `SO_ZEROCOPY`, `TCP_QUICKACK`, `TCP_USER_TIMEOUT`, `TCP_FASTOPEN`, and the others marked so in [`carriage`] |
+//! | Recorded only (accepted and reported back; no effect) | `SO_DEBUG`, `SO_PRIORITY`, `SO_NO_CHECK`, `SO_PASSCRED`, `SO_TIMESTAMP*`, `SO_MARK`, `SO_BUSY_POLL`, `SO_INCOMING_CPU`, `SO_ZEROCOPY`, `TCP_QUICKACK`, `TCP_USER_TIMEOUT (non-Linux hosts)`, `TCP_FASTOPEN`, and the others marked so in [`carriage`] |
+//!
+//! On Linux hosts TCP_USER_TIMEOUT is passed to the host TCP stack; other hosts record it.
 //!
 //! Errors follow the kernel: an option of `SOL_SOCKET` needs at least an
 //! `int` (`EINVAL`), an unknown one is `ENOPROTOOPT`, and a level the
@@ -149,9 +151,13 @@ fn carriage(s: &Socket, level: i32, opt: i32) -> Result<Host, Errno> {
             5 => Int(libc::IPPROTO_TCP, libc::TCP_KEEPINTVL),
             6 => Int(libc::IPPROTO_TCP, libc::TCP_KEEPCNT),
             // TCP_SYNCNT, TCP_LINGER2, TCP_DEFER_ACCEPT, TCP_WINDOW_CLAMP,
-            // TCP_QUICKACK, TCP_USER_TIMEOUT, TCP_FASTOPEN, TCP_TIMESTAMP,
-            // TCP_NOTSENT_LOWAT, TCP_FASTOPEN_CONNECT.
-            7 | 8 | 9 | 10 | 12 | 18 | 23 | 24 | 25 | 30 => Record,
+            // TCP_QUICKACK, TCP_FASTOPEN, TCP_TIMESTAMP, TCP_NOTSENT_LOWAT,
+            // TCP_FASTOPEN_CONNECT.
+            7 | 8 | 9 | 10 | 12 | 23 | 24 | 25 | 30 => Record,
+            #[cfg(target_os = "linux")]
+            18 => Int(libc::IPPROTO_TCP, libc::TCP_USER_TIMEOUT),
+            #[cfg(not(target_os = "linux"))]
+            18 => Record,
             _ => return Err(Errno(ENOPROTOOPT)),
         },
         // SOL_UDP: UDP_CORK, UDP_ENCAP, UDP_NO_CHECK6_TX/RX, UDP_SEGMENT,
@@ -467,5 +473,28 @@ mod tests {
     fn timeval_reports_zero_for_no_limit() {
         assert_eq!(timeval(None), tv(0, 0));
         assert_eq!(timeval(Some(Duration::from_millis(1500))), tv(1, 500_000));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn tcp_user_timeout_is_applied_to_the_linux_host_socket() {
+        let fd = sys::socket(libc::AF_INET, libc::SOCK_STREAM, libc::IPPROTO_TCP).unwrap();
+        let socket = Socket::new(fd, lx::AF_INET, lx::SOCK_STREAM, lx::IPPROTO_TCP);
+
+        set(&socket, lx::IPPROTO_TCP, 18, &200i32.to_le_bytes(), false).unwrap();
+        assert_eq!(
+            get(&socket, lx::IPPROTO_TCP, 18),
+            Ok(200i32.to_le_bytes().to_vec())
+        );
+        assert_eq!(
+            sys::getsockopt_int(&socket.file, libc::IPPROTO_TCP, libc::TCP_USER_TIMEOUT),
+            Ok(200)
+        );
+
+        set(&socket, lx::IPPROTO_TCP, 18, &0i32.to_le_bytes(), false).unwrap();
+        assert_eq!(
+            sys::getsockopt_int(&socket.file, libc::IPPROTO_TCP, libc::TCP_USER_TIMEOUT),
+            Ok(0)
+        );
     }
 }
