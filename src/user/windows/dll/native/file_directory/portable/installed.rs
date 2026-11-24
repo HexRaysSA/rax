@@ -76,7 +76,3 @@ pub(super) fn collect(c: &Ctx, directory: &str) -> Checked<Vec<DirectoryEntry>> 
         .unsupported("installed directory enumeration adapter is unavailable")
         .into());
 }
-
-pub(super) fn executable_name(name: &[u16]) -> bool {
-    matches!(name, [_, .., 46, 69 | 101, 88 | 120, 69 | 101])
-}

@@ -58,7 +58,7 @@ fn capture(
     c: &Ctx,
     retained: &File,
     host_path: &Path,
-    executables_only: bool,
+    regular_files_only: bool,
 ) -> Checked<Vec<DirectoryEntry>> {
     let duplicate = retained
         .try_clone()
@@ -99,7 +99,7 @@ fn capture(
         let native_name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) };
         let name = match native_name.to_str() {
             Ok(name) => name,
-            Err(_) if executables_only => continue,
+            Err(_) if regular_files_only => continue,
             Err(_) => {
                 return Err(c
                     .unsupported("directory entry has no UTF-8 Windows mapping")
@@ -107,10 +107,7 @@ fn capture(
             }
         };
         let units: Vec<_> = name.encode_utf16().collect();
-        if executables_only && !super::installed::executable_name(&units) {
-            continue;
-        }
-        if !executables_only {
+        if !regular_files_only {
             account(c, &mut bytes, entries.len(), units.len())?;
         }
         #[cfg(target_os = "linux")]
@@ -126,7 +123,7 @@ fn capture(
         if descriptor < 0 {
             let error = std::io::Error::last_os_error();
             if error.kind() == std::io::ErrorKind::NotFound
-                || (executables_only && error.raw_os_error() == Some(libc::ELOOP))
+                || (regular_files_only && error.raw_os_error() == Some(libc::ELOOP))
             {
                 continue;
             }
@@ -139,14 +136,14 @@ fn capture(
         let stat = child
             .metadata()
             .map_err(|error| c.unsupported(format!("directory child identity: {error}")))?;
-        if executables_only {
+        if regular_files_only {
             if !stat.is_file() {
                 continue;
             }
             account(c, &mut bytes, entries.len(), units.len())?;
         }
         let info = metadata::descriptor(c, &host_path.join(name), &child)?;
-        let ea = if executables_only {
+        let ea = if regular_files_only {
             None
         } else {
             posix::directory_ea(&child)

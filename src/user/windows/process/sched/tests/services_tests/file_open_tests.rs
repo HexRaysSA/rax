@@ -421,7 +421,8 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
         let installed = selection(&mut h);
         std::fs::write(installed.join("CMD.exe"), b"selected image").unwrap();
         std::fs::write(installed.join("Discovered.EXE"), b"installed image").unwrap();
-        std::fs::write(installed.join("hidden.dll"), b"library").unwrap();
+        std::fs::write(installed.join("Resident.DLL"), b"library").unwrap();
+        std::fs::write(installed.join("resource"), b"data").unwrap();
         std::fs::create_dir(installed.join("directory.exe")).unwrap();
         #[cfg(unix)]
         std::os::unix::fs::symlink(installed.join("Discovered.EXE"), installed.join("link.exe"))
@@ -460,7 +461,7 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
             let query_name = h.attrs() + 64;
             let args = [directory, 0, 0, 0, io, output, 256, 12, 1, query_name];
             let peek = [directory, 0, 0, 0, io, output, 256, 12, 16, query_name];
-            for hidden in ["missing.exe", "hidden.dll", "directory.exe", "link.exe"] {
+            for hidden in ["missing.exe", "missing.dll", "directory.exe", "link.exe"] {
                 h.name(hidden);
                 assert_eq!(
                     h.invoke_api("NtQueryDirectoryFileEx", &peek),
@@ -468,8 +469,12 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
                     "{hidden}"
                 );
             }
-            for (pattern, spelling) in [("cMd.EXE", "CMD.exe"), ("di?covered.*", "Discovered.EXE")]
-            {
+            for (pattern, spelling) in [
+                ("cMd.EXE", "CMD.exe"),
+                ("di?covered.*", "Discovered.EXE"),
+                ("resident.dll", "Resident.DLL"),
+                ("reso?r*", "resource"),
+            ] {
                 h.name(pattern);
                 assert_eq!(
                     h.invoke_api("NtQueryDirectoryFileEx", &args),
@@ -485,11 +490,24 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
                     STATUS_NO_MORE_FILES
                 );
             }
-            h.name(r"\??\C:\Windows\System32\Discovered.EXE");
+            h.name("resident.dll");
+            let full_info = [directory, 0, 0, 0, io, output, 256, 2, 1, query_name];
             assert_eq!(
-                h.open_with(output, io, 0x100080, 7, 0x60),
-                STATUS_ACCESS_DENIED
+                h.invoke_api("NtQueryDirectoryFileEx", &full_info),
+                STATUS_SUCCESS
             );
+            assert_eq!(h.process.state().space.u64(output + 40).unwrap(), 7);
+
+            for path in [
+                r"\??\C:\Windows\System32\Discovered.EXE",
+                r"\??\C:\Windows\System32\resource",
+            ] {
+                h.name(path);
+                assert_eq!(
+                    h.open_with(output, io, 0x100080, 7, 0x60),
+                    STATUS_ACCESS_DENIED
+                );
+            }
             h.process.state_mut().objects.close(directory).unwrap();
         }
     }

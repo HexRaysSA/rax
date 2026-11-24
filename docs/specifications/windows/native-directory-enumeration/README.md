@@ -86,12 +86,12 @@ Native Windows enumeration is delegated to the filesystem; no filesystem
 complexity claim follows from the portable matcher.
 
 The closed installed namespace synthesizes the parent directories. Within its
-system directory it snapshots regular `.exe` entries from the selected local
-directory. The projection captures installed long names, timestamps, logical
-and allocated sizes, attributes, and file IDs. The WoW64 System32 alias uses
-the selected SysWOW64 view. The host search uses a private directory handle
-and a fixed extension filter. The guest expression applies to the resulting
-snapshot. Reparse points and subdirectories are excluded.
+system directory it snapshots regular files from the selected local directory.
+The projection captures installed long names, Windows short names when
+present, timestamps, logical and allocated sizes, attributes, and file IDs.
+The WoW64 System32 alias uses the selected SysWOW64 view. The host scan uses a
+private directory handle. The guest expression applies to the resulting snapshot.
+Reparse points and subdirectories are excluded.
 Directory records grant no file-open or child-process rights.
 
 ## Independent evidence
