@@ -4,7 +4,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::{LsarpcInterface, Object};
+use crate::user::windows::objects::Object;
 
 mod activation;
 mod cache;
@@ -147,9 +147,8 @@ fn capture(c: &mut Ctx) -> ApiResult {
     if flags == u32::MAX || send == 0 {
         return Flow::ret(STATUS_INVALID_PARAMETER_2.into());
     }
-    let wide_wow64 = c.arch() == WinArch::X86
-        && lsarpc_peer == Some(LsarpcInterface::Policy)
-        && flags == WOW64_SYNCHRONOUS;
+    let wide_wow64 =
+        c.arch() == WinArch::X86 && lsarpc_peer.is_some() && flags == WOW64_SYNCHRONOUS;
     if flags != SYNCHRONOUS && !wide_wow64 {
         return Err(c.unsupported(format!("NtAlpcSendWaitReceivePort flags {flags:#x}")));
     }

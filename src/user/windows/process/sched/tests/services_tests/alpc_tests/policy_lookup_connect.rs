@@ -139,6 +139,26 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
                 (32, 3),
             ],
         );
+        if arch == WinArch::X86 {
+            // The installed WoW64 client sends the classic bind in a native
+            // 40-byte header while its receive length remains 32-bit.
+            words(&mut bind, &[(32, 1)]);
+            let length_canary = 0xfeed_face;
+            let arena = base + 0x400;
+            p.space.w32(arena + 1024 + 4, length_canary).unwrap();
+            let (result, header, reply, length) =
+                submit(p, &mut thread, arena, handle, 0x4002_0000, 0x4000, &bind);
+            assert_eq!(result, Outcome::Continue);
+            assert_eq!(thread.cpu.gpr(0), 0);
+            assert_eq!(header, 40);
+            assert_eq!(p.space.u16(reply).unwrap(), 72);
+            assert_eq!(p.space.u16(reply + 2).unwrap(), 112);
+            assert_eq!(p.space.u16(reply + 4).unwrap(), 0x4002);
+            assert_eq!(p.space.u32(length).unwrap(), 112);
+            assert_eq!(p.space.u32(length + 4).unwrap(), length_canary);
+            assert_eq!(p.space.bytes(reply + header, 72).unwrap(), bind);
+            words(&mut bind, &[(32, 3)]);
+        }
         let reply = exchange(p, &mut thread, base + 0x400, handle, 0x4000, &bind);
         words(&mut bind, &[(32, 2)]);
         assert_eq!(reply, bind);
@@ -361,7 +381,8 @@ fn exchange(
     packet_type: u16,
     payload: &[u8],
 ) -> Vec<u8> {
-    let (result, header, reply, length) = submit(p, thread, arena, handle, packet_type, payload);
+    let (result, header, reply, length) =
+        submit(p, thread, arena, handle, 0x0002_0000, packet_type, payload);
     assert_eq!(result, Outcome::Continue);
     assert_eq!(thread.cpu.gpr(0), 0);
     let len = p.space.u16(reply).unwrap();
@@ -377,7 +398,7 @@ fn assert_translation_rejected(
     handle: u64,
     payload: &[u8],
 ) {
-    let (result, _, reply, length) = submit(p, thread, arena, handle, 0, payload);
+    let (result, _, reply, length) = submit(p, thread, arena, handle, 0x0002_0000, 0, payload);
     assert!(
         matches!(result, Outcome::Fail(ref message) if message.contains("local RPC operation 2")),
         "{result:?}"
@@ -391,10 +412,15 @@ fn submit(
     thread: &mut Thread,
     arena: u64,
     handle: u64,
+    flags: u64,
     packet_type: u16,
     payload: &[u8],
 ) -> (Outcome, u64, u64, u64) {
-    let header = if p.arch.is64() { 40 } else { 24 };
+    let header = if p.arch.is64() || flags == 0x4002_0000 {
+        40
+    } else {
+        24
+    };
     let capacity = 512;
     let reply = arena + capacity;
     let length = reply + capacity;
@@ -413,7 +439,7 @@ fn submit(
         thread,
         "NtAlpcSendWaitReceivePort",
         SERVICE,
-        &[handle, 0x20000, arena, 0, reply, length, 0, 0],
+        &[handle, flags, arena, 0, reply, length, 0, 0],
     );
     (result, header, reply, length)
 }
