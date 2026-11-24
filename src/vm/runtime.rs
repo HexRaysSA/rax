@@ -965,6 +965,7 @@ impl Vmm {
             .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
 
         let cpu_state = vcpu.get_state()?;
+        self.validate_legacy_checkpoint_cpu(self.backend_kind, &cpu_state)?;
         let emulator_state = vcpu.get_emulator_state().unwrap_or_default();
         let devices = self.capture_devices()?;
         let memory = self.guest_mem.try_read_all()?;

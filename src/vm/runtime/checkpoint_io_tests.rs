@@ -17,6 +17,46 @@ const TAIL: &[u8] = &[0xc6, 0x06, 0x00, 0x20, 0xaa, 0xf4];
 
 #[test]
 #[ignore = "requires native Linux KVM; executed by the KVM CI job"]
+fn runtime_native_pae_requires_the_complete_checkpoint() {
+    let mut fixture = Fixture::new(1);
+    let vm = &mut fixture.vm;
+    let mut projected = vm.take_snapshot(0).unwrap();
+    // With a software producer label, only the native target's admission
+    // can detect that publishing this state would omit the cached PDPTRs.
+    projected.config.backend = BackendKind::Emulator;
+    let original = crate::codec::serialize(&projected.cpu_state).unwrap();
+    let CpuState::X86_64(cpu) = &mut projected.cpu_state else {
+        unreachable!();
+    };
+    cpu.sregs.cr0 |= (1 << 31) | 1;
+    cpu.sregs.cr3 = 0x2000;
+    cpu.sregs.cr4 |= 1 << 5;
+    cpu.sregs.efer = 0;
+    let memory = vm.guest_mem.memory();
+    memory.write_obj(0x3001u64, GuestAddress(0x2000)).unwrap();
+
+    let error = vm.restore_snapshot(&projected).unwrap_err();
+    assert!(error.to_string().contains("cached PDPTRs"), "{error}");
+    let live = vm.vcpus[0].get_state().unwrap();
+    assert_eq!(crate::codec::serialize(&live).unwrap(), original);
+    let memory = vm.guest_mem.memory();
+    assert_eq!(
+        memory.read_obj::<u64>(GuestAddress(0x2000)).unwrap(),
+        0x3001
+    );
+
+    vm.vcpus[0].set_state(&projected.cpu_state).unwrap();
+    memory.write_obj(0u64, GuestAddress(0x2000)).unwrap();
+    let Err(error) = vm.take_snapshot(0) else {
+        panic!("native active PAE was captured without its private paging bank");
+    };
+    assert!(error.to_string().contains("cached PDPTRs"), "{error}");
+    let complete = vm.take_snapshot_bundle(0).unwrap();
+    assert!(complete.has_kvm_context());
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; executed by the KVM CI job"]
 fn late_projected_cpu_rejection_rolls_back_the_entire_stopped_cpu_set() {
     use crate::vm::snapshot::SnapshotBundle;
 

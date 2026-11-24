@@ -241,6 +241,68 @@ fn runtime_restores_every_public_and_represented_private_register() {
         assert_eq!(vm.guest_mem().try_read_all().unwrap(), vec![0x33; RAM]);
     }
 }
+
+#[test]
+fn legacy_kvm_pae_base_requires_the_private_paging_bank() {
+    check_legacy_kvm_paging_projection(1);
+}
+
+#[test]
+fn legacy_kvm_pae_bundle_requires_the_private_paging_bank_on_each_cpu() {
+    check_legacy_kvm_paging_projection(2);
+    check_legacy_kvm_paging_projection(4);
+}
+
+fn check_legacy_kvm_paging_projection(count: u8) {
+    let f = Fixture::new();
+    for (cr0, cr4, efer, needs_private_state) in [
+        (0x8000_0001, 1 << 5, 0, true),
+        (0x0000_0001, 1 << 5, 0, false),
+        (0x8000_0001, 0, 0, false),
+        (0x8000_0001, 1 << 5, (1 << 8) | (1 << 10), false),
+    ] {
+        let original = f.bundle(count);
+        let mut base = f.base(count);
+        base.config.backend = BackendKind::Kvm;
+        let mut entries = original.cpus().unwrap().entries().to_vec();
+        let last = entries.last_mut().unwrap();
+        let CpuState::X86_64(cpu) = &mut last.state else {
+            unreachable!();
+        };
+        cpu.sregs.cr0 = cr0;
+        cpu.sregs.cr3 = 0x200;
+        cpu.sregs.cr4 = cr4;
+        cpu.sregs.efer = efer;
+        base.cpu_state = entries[0].state.clone();
+
+        let mut vm = Vmm::new_resume(f.config(count)).unwrap();
+        vm.guest_mem().write_all(&[0xa5; RAM]).unwrap();
+        let before = all_bytes(&vm.capture_cpu_states().unwrap());
+        let result = if count == 1 {
+            vm.restore_snapshot(&base)
+        } else {
+            let bundle = SnapshotBundle::new(base)
+                .with_cpus(entries.clone())
+                .unwrap()
+                .with_pci(original.pci().unwrap().to_devices().unwrap())
+                .unwrap();
+            vm.restore_snapshot_bundle(&bundle)
+        };
+        let after = all_bytes(&vm.capture_cpu_states().unwrap());
+        let ram = vm.guest_mem().try_read_all().unwrap();
+        if needs_private_state {
+            let error = result.expect_err("legacy active PAE has no saved PDPTRs");
+            assert!(error.to_string().contains("cached PDPTRs"), "{error}");
+            assert_eq!(after, before);
+            assert_eq!(ram, [0xa5; RAM]);
+        } else {
+            result.unwrap();
+            assert_eq!(after, all_bytes(&entries));
+            assert_eq!(ram, [0x33; RAM]);
+        }
+    }
+}
+
 #[test]
 fn late_invalid_private_state_precedes_every_cpu_and_ram_assignment() {
     let f = Fixture::new();

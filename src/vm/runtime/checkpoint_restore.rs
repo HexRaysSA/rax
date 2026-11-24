@@ -2,6 +2,30 @@
 use super::*;
 
 impl Vmm {
+    pub(super) fn validate_legacy_checkpoint_cpu(
+        &self,
+        source: BackendKind,
+        state: &CpuState,
+    ) -> Result<()> {
+        const CR0_PG: u64 = 1 << 31;
+        const CR4_PAE: u64 = 1 << 5;
+        const EFER_LMA: u64 = 1 << 10;
+
+        // The hardware can cache pointers that differ from the table in RAM.
+        // A native overlay can also retain pointers from the destination CPU.
+        if (source == BackendKind::Kvm || self.backend_kind == BackendKind::Kvm)
+            && let CpuState::X86_64(cpu) = state
+            && cpu.sregs.cr0 & CR0_PG != 0
+            && cpu.sregs.cr4 & CR4_PAE != 0
+            && cpu.sregs.efer & EFER_LMA == 0
+        {
+            return Err(Error::InvalidConfig(
+                "active KVM PAE requires a complete KVM checkpoint with cached PDPTRs".into(),
+            ));
+        }
+        Ok(())
+    }
+
     fn validate_snapshot_target(&self, snapshot: &Snapshot) -> Result<()> {
         if let CpuState::X86_64(cpu) = &snapshot.cpu_state {
             let tpr = snapshot.devices.lapic.priority_handle().load();
@@ -184,6 +208,7 @@ impl Vmm {
         }
         for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
             if !native_kvm {
+                self.validate_legacy_checkpoint_cpu(snapshot.config.backend, state)?;
                 vcpu.validate_checkpoint_for_machine(&snapshot.config, state, emulator, *context)?;
             }
             if bundle.backend_contexts().is_some()
@@ -615,6 +640,7 @@ impl Vmm {
             ));
         }
         self.validate_snapshot_target(snapshot)?;
+        self.validate_legacy_checkpoint_cpu(snapshot.config.backend, &snapshot.cpu_state)?;
         let vcpu = self
             .vcpus
             .first()
