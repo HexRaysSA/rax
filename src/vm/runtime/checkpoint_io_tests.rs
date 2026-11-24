@@ -891,6 +891,154 @@ fn failed_second_cpu_setter_rolls_back_first_cpu_and_preserves_target_ram() {
 
 #[test]
 #[ignore = "requires the managed native KVM irqchip"]
+fn native_uart_irq4_follows_the_saved_source_after_detached_restore() {
+    use crate::backend::kvm::KvmVm;
+    use crate::vm::snapshot::SnapshotBundle;
+    use kvm_bindings::{KVM_IRQCHIP_PIC_MASTER, kvm_irqchip};
+
+    let mut source = Fixture::with_construction(
+        1,
+        128 << 20,
+        ConstructionMode::Checkpoint {
+            initialize_kvm_irqchip: true,
+        },
+    );
+    source.prepare(0, &[0xec, 0xe6, 0x80, 0xf4]); // IN AL,DX; OUT 80h,AL; HLT.
+    for (port, value) in [(0x3fc, 8), (0x3f9, 1)] {
+        source
+            .vm
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port,
+                    data: vec![value],
+                },
+            )
+            .unwrap();
+    }
+    // The RX source can change independently before the checkpoint boundary.
+    source.vm.serial.lock().unwrap().queue_input(&[0x7b]);
+    let path = source.kernel.with_extension("rxc");
+    source
+        .vm
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    drop(source);
+    let image = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&image, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &image).unwrap();
+    let io = (0..100)
+        .find_map(|_| {
+            target.vcpus[0]
+                .run_host_slice(Duration::from_millis(10))
+                .unwrap()
+        })
+        .expect("resumed UART register read");
+    assert!(matches!(
+        io,
+        VcpuExit::IoIn {
+            port: 0x3f8,
+            size: 1
+        }
+    ));
+
+    let native = target.vm.as_any().downcast_ref::<KvmVm>().unwrap();
+    let irq4 = || {
+        let mut chip = kvm_irqchip {
+            chip_id: KVM_IRQCHIP_PIC_MASTER,
+            ..Default::default()
+        };
+        // SAFETY: this synchronous read runs while the test owns the stopped
+        // vCPU. No unmanaged native object or FD alias escapes the closure.
+        unsafe { native.vm_fd() }.get_irqchip(&mut chip).unwrap();
+        // SAFETY: GET_IRQCHIP initialized the selected master PIC member.
+        unsafe { chip.chip.pic.last_irr & (1 << 4) != 0 }
+    };
+    assert!(
+        irq4(),
+        "the restored kernel PIC lost the pending UART source"
+    );
+    assert_eq!(
+        target.vcpus[0]
+            .settle_checkpoint_io(&mut |event| target.checkpoint_io_service(0, event))
+            .unwrap(),
+        CheckpointIoState::Complete
+    );
+    assert!(!irq4(), "settling the UART read left IRQ4 asserted");
+    let output = (0..100)
+        .find_map(|_| {
+            target.vcpus[0]
+                .run_host_slice(Duration::from_millis(10))
+                .unwrap()
+        })
+        .expect("resumed UART result");
+    assert!(matches!(output, VcpuExit::IoOut { port: 0x80, data } if data == [0x7b]));
+}
+
+#[test]
+#[ignore = "requires the managed native KVM irqchip"]
+fn native_uart_irq4_disagreement_rejects_before_publishing_the_vm() {
+    let native_profile = ConstructionMode::Checkpoint {
+        initialize_kvm_irqchip: true,
+    };
+    let mut source = Fixture::with_construction(1, 128 << 20, native_profile);
+    source.prepare(0, &[0xf4]);
+    for (port, value) in [(0x3fc, 8), (0x3f9, 1)] {
+        source
+            .vm
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port,
+                    data: vec![value],
+                },
+            )
+            .unwrap();
+    }
+    let mut idle = source.vm.take_snapshot_bundle(0).unwrap();
+    let idle_lines = idle.take_vm_context();
+    drop(idle);
+    source.vm.serial.lock().unwrap().queue_input(&[0x7b]);
+    let asserted = source.vm.take_snapshot_bundle(0).unwrap();
+    let cpus = asserted.cpus().unwrap().entries().to_vec();
+    let contexts = asserted.backend_contexts().unwrap().entries().to_vec();
+    let mixed = asserted
+        .with_checkpoint_records(cpus, contexts, idle_lines)
+        .unwrap();
+    drop(source);
+
+    let mut target = Fixture::with_construction(1, 128 << 20, native_profile);
+    let address = GuestAddress(0x2000);
+    target
+        .vm
+        .guest_mem
+        .memory()
+        .write_obj(0x5a_u8, address)
+        .unwrap();
+    let pc = target.vm.vcpus[0].current_pc();
+    let error = target.vm.restore_snapshot_bundle(&mixed).unwrap_err();
+    assert!(
+        error.to_string().contains("native serial IRQ line"),
+        "{error}"
+    );
+    assert_eq!(target.vm.vcpus[0].current_pc(), pc);
+    assert_eq!(
+        target
+            .vm
+            .guest_mem
+            .memory()
+            .read_obj::<u8>(address)
+            .unwrap(),
+        0x5a
+    );
+    assert!(!target.vm.serial.lock().unwrap().has_input());
+}
+
+#[test]
+#[ignore = "requires the managed native KVM irqchip"]
 fn native_rtc_irq8_acknowledgement_updates_the_restored_kernel_line() {
     use crate::backend::kvm::{CheckpointImage, KvmVm};
     use crate::vm::snapshot::SnapshotBundle;

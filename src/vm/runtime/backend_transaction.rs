@@ -15,6 +15,7 @@ pub(super) struct BackendRestore<'a, 'boundary, 'scope> {
     pub timing: &'a Arc<crate::vm::timing::TimingContext>,
     pub disposable: bool,
     pub rtc_irq_level: Option<bool>,
+    pub serial_irq: Option<u32>,
 }
 
 impl BackendRestore<'_, '_, '_> {
@@ -140,6 +141,10 @@ impl BackendRestore<'_, '_, '_> {
         })?;
         let source = CheckpointImage::from_checkpoint_bundle(self.bundle)?;
         source.validate_rtc_irq_level(self.rtc_irq_level)?;
+        source.validate_serial_irq_level(
+            self.serial_irq,
+            self.bundle.base().devices.serial.has_pending_interrupt(),
+        )?;
         let phase = self.bundle.clock().copied().ok_or_else(|| {
             Error::InvalidConfig("native KVM checkpoint requires a software-device clock".into())
         })?;

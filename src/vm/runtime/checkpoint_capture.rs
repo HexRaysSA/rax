@@ -98,6 +98,10 @@ impl Vmm {
                     let native = kvm
                         .map(|kvm| -> Result<_> {
                             let (banks, sampled_at) = kvm.capture_native_banks_at(&boundary)?;
+                            banks.validate_serial_irq_level(
+                                self.serial_irq,
+                                serial.has_pending_interrupt(),
+                            )?;
                             Ok((banks.into_checkpoint_capture()?, sampled_at))
                         })
                         .transpose()?;

@@ -83,6 +83,10 @@ impl KvmVm {
 }
 
 impl Lines {
+    pub(super) fn level(&self, gsi: u32) -> Option<bool> {
+        self.levels.get(gsi as usize).copied()
+    }
+
     pub(super) fn record(&mut self, gsi: u32, level: bool) {
         // CREATE_IRQCHIP installs only GSIs 0..24. Unrouted IRQ_LINE calls
         // have no controller effect; retain their existing SDK return value.

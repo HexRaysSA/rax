@@ -138,6 +138,25 @@ impl KvmVm {
         self.memory.power_off()
     }
 
+    /// Reconcile a device source before capture without replaying a held edge.
+    pub(crate) fn set_irq_line_if_changed(&self, irq: u32, level: bool) -> Result<()> {
+        self.publish_irq_line(irq, level, false)
+    }
+
+    fn publish_irq_line(&self, irq: u32, level: bool, force: bool) -> Result<()> {
+        let _entry = self.memory.entry()?;
+        let mut lines = self
+            .memory
+            .irq_lines
+            .lock()
+            .map_err(|_| Error::Emulator("native IRQ line ownership lock poisoned".into()))?;
+        if force || lines.level(irq) != Some(level) {
+            self.memory.vm_fd.set_irq_line(irq, level)?;
+            lines.record(irq, level);
+        }
+        Ok(())
+    }
+
     /// Access the native VM without the managed ownership boundary.
     ///
     /// # Safety
@@ -355,15 +374,7 @@ impl Vm for KvmVm {
     }
 
     fn set_irq_line(&self, irq: u32, level: bool) -> Result<()> {
-        let _entry = self.memory.entry()?;
-        let mut lines = self
-            .memory
-            .irq_lines
-            .lock()
-            .map_err(|_| Error::Emulator("native IRQ line ownership lock poisoned".into()))?;
-        self.memory.vm_fd.set_irq_line(irq, level)?;
-        lines.record(irq, level);
-        Ok(())
+        self.publish_irq_line(irq, level, true)
     }
 
     fn as_any(&self) -> &dyn Any {

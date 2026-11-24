@@ -120,6 +120,79 @@ detached checkpoint. Settling the guest's stopped Register C read lowered
 the kernel line. The resumed guest reported the expected `0xc0` byte.
 [Hosted KVM run for `db443e45b`](https://github.com/HexRaysSA/rax/actions/runs/44750698131/job/136337513983)
 
+## Native UART IRQ4 checkpoint coherence
+
+For the native PC interrupt controller, capture synchronizes GSI4 from the
+16550 interrupt source before reading the controller banks. The source
+includes the MCR.OUT2 gate. A synchronization submits only changed levels,
+under the existing native line lock. Reissuing a held edge can clear the Linux
+I/O APIC's `irr_delivered` bit, which `GET_IRQCHIP` uses to distinguish
+delivered interrupts from pending ones. The UART and the saved GSI4 must agree
+at capture and before restore publishes CPU, RAM or device state. A file with
+inconsistent fields is rejected. Consistent files use the existing schema.
+[Linux v6.8 I/O APIC implementation](../kvm-native-private-state/references/linux-ioapic-v6.8.c)
+
+On Linux `6.8.0-138-generic`, a direct KVM probe enabled the BSP LAPIC,
+routed I/O APIC pin 4 in edge mode to vector `0x41`, and sampled the native
+controller. The first high level set `LAPIC.IRR[0x41]` and left the exported
+I/O APIC `irr[4]` clear. Issuing high again set the exported `irr[4]`.
+Deasserting the level cleared it. This is the native control for skipping
+unchanged levels during capture.
+
+Both production regressions fail at `b9db749aa` on the same physical Intel
+Xeon E5-1650 v3. A detached restore retained the queued byte with the input
+level low, and the stopped restore accepted mismatched controller and UART
+records. The baseline log SHA-256 is
+`9cadb96b70b6a96427cca0c587053d7584274237c25b9ef5c977e4129acc9555`.
+The corrected build passes both native regressions. The restored PIC input
+is high before RBR settlement and low afterward, and the guest echoes
+`0x7b`. Rejection preserves the destination's PC, RAM marker, and UART FIFO.
+The focused corrected log SHA-256 is
+`66a8dc12b98bd8c185f8a1ce2217c79399eca8fad3c644b57d80c4b88642a43d`.
+All 29 portable PC interrupt tests pass on macOS Arm64.
+The unfiltered macOS Arm64 library run encountered a Darwin codesign test
+failure and ended with SIGKILL before a final count. An isolated run of
+`closed_dispatcher_copies_self_status_without_host_observation` returned
+`EINVAL` where the test expects `EPERM`. The unfiltered log SHA-256 is
+`47c0b192a8204e44f25d5ff02e2b8ecad8c3e10ac40288825a8980d331313e7a`.
+
+The native owning `checkpoint_cpus`, `kvm_host_slices`, `kvm_minimal`,
+`kvm_smp`, and `realmode_boot` binaries passed 13, 17, 15, 32, and 10 tests
+respectively, with zero failures or skips. The log SHA-256 is
+`6c560d2ae36494cb5743f9b16b2288e2c787c8ab1784053e23615062095b21a9`.
+The native checkpoint-dispatch suite passed all 19 tests, including both
+IRQ4 regressions. Its log SHA-256 is
+`cd980e912b96e133f288140d4ab6a995c71536c786c15409c2c7a1ff6d402fe6`.
+An earlier run hit its timeout in the native checkpoint-dispatch suite. An
+overlapping integration retry then lost its scratch checkpoint file during
+cleanup. Two earlier host-slice runs also failed the raw-vCPU worker-identity
+assertion. The fresh unfiltered `kvm_host_slices` run passed that assertion,
+as did the unchanged base and six isolated base repetitions. The cause of
+the intermittent worker-identity failure remains unknown.
+
+The full Linux library build used `35024d3e6` plus the tested Rust changes,
+with `x86_64-suite,smir-jit,kvm,debug` enabled. Its Windows LPC replay
+initially failed with an incomplete fixture archive. The same executable
+passed that replay after restoring the tracked fixture directory from the
+tested revision. The isolated retry log SHA-256 is
+`6edf77090fd104f23c7c807a9a8d361e5ab7c9e1047c13b5b1c23664183db552`.
+The Linux run also reported the Darwin codesign failure seen on macOS. It
+reached the 14,017 of 14,436 progress marker and timed out at 3,200 s while
+running AArch64 cluster checkpoint tests. The library run has no final
+test count. Its log SHA-256 is
+`d5f0cb01d2a86b11dc1c5acb49e85924000fc90b4bfc16504b086c51ea842586`.
+
+| ID | Assumption and basis | Dependent result | Stress test and falsification probe |
+| --- | --- | --- | --- |
+| UART1 | The managed PC's GSI4 is the COM1 wire and `has_pending_interrupt` includes OUT2. | Conserved IRQ4 input and FIFO state. | Queue one RX byte with its IRQ enabled. Write and reload the file after destroying the source. A cleared restored PIC input or a lost RX byte falsifies the mapping. |
+| UART2 | An acknowledged UART read releases the source after the last RX byte. | No held IRQ4 after settlement. | Observe the native master PIC before and after settling the real guest RBR read, then check the guest's echo. A stale assertion or incorrect echo falsifies continuation. |
+| UART3 | A valid native file has the same UART source and GSI4 level. | Restore admission before publication. | Combine the asserted UART image with an idle controller image. Acceptance or mutation of destination CPU, RAM, or serial state falsifies the check. |
+
+Capture refresh and admission take O(1) time and space. Kernel LAPIC timer
+phase and general in-flight owner completeness remain high-impact C-STATE
+requirements. The direct ioctl result also makes repeated level submissions
+from other callers a high-impact coverage item for native interrupt progress.
+
 ## Software PIT speaker wiring
 
 On PC VMMs using the software PIT, port `0x61` drives channel 2 GATE and

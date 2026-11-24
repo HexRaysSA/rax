@@ -131,16 +131,21 @@ impl Vmm {
         Ok(())
     }
 
-    /// Reads can acknowledge an RX, THRE, modem or line-status cause.
-    /// Publish the post-read wire before returning a settled boundary.
-    pub(super) fn sync_pc_serial_pio_input(&self, port: u16) -> Result<()> {
-        if !(SERIAL_BASE..SERIAL_BASE + 8).contains(&port) {
-            return Ok(());
-        }
+    fn publish_pc_serial_level(&self) -> Result<()> {
         let Some((pin, asserted)) = self.pc_serial_level()? else {
             return Ok(());
         };
         if self.vm.uses_native_x86_irqchip() {
+            #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+            if let Some(kvm) = self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::kvm::KvmVm>()
+            {
+                return kvm
+                    .set_irq_line_if_changed(u32::from(pin), asserted)
+                    .inspect_err(|_| self.vm.poison_checkpoint_restore());
+            }
             self.vm
                 .set_irq_line(u32::from(pin), asserted)
                 .inspect_err(|_| self.vm.poison_checkpoint_restore())
@@ -149,16 +154,20 @@ impl Vmm {
         }
     }
 
+    /// Reads can acknowledge an RX, THRE, modem or line-status cause.
+    /// Publish the post-read wire before returning a settled boundary.
+    pub(super) fn sync_pc_serial_pio_input(&self, port: u16) -> Result<()> {
+        if !(SERIAL_BASE..SERIAL_BASE + 8).contains(&port) {
+            return Ok(());
+        }
+        self.publish_pc_serial_level()
+    }
+
     /// Advance RTC sources and publish all changed levels before capture.
     /// Leave queued controller events for the next dispatch boundary.
     pub(super) fn refresh_pc_irq_sources(&self) -> Result<()> {
         self.poll_pc_rtc()?;
-        if !self.vm.uses_native_x86_irqchip()
-            && let Some((pin, asserted)) = self.pc_serial_level()?
-        {
-            self.publish_software_serial_level(pin, asserted)?;
-        }
-        Ok(())
+        self.publish_pc_serial_level()
     }
 
     pub(super) fn route_pc_interrupts(&self) -> Result<()> {

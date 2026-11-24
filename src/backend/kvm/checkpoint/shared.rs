@@ -48,6 +48,10 @@ impl Image {
         self.levels[usize::from(crate::devices::rtc::RTC_IRQ)]
     }
 
+    pub(super) fn irq_level(&self, gsi: u32) -> Option<bool> {
+        self.levels.get(gsi as usize).copied()
+    }
+
     pub(super) fn capture(vm: &VmFd, lines: &irq::Lines) -> Result<Self> {
         let chip = read(vm, KVM_IRQCHIP_IOAPIC)?;
         // SAFETY: successful GET_IRQCHIP with the IOAPIC ID initializes this

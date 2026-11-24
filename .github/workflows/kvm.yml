@@ -83,6 +83,16 @@ jobs:
             --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
           grep -F -x "test $case_name ... ok" "$witness"
 
+      - name: Native UART IRQ4 checkpoint source and controller coherence
+        run: |
+          set -o pipefail
+          tests=vm::runtime::checkpoint_io::tests::native_uart_irq4_
+          witness="$RUNNER_TEMP/rax-kvm-uart-irq4.out"
+          cargo test --locked --features x86_64-suite --lib "$tests" -- \
+            --include-ignored --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test ${tests}follows_the_saved_source_after_detached_restore ... ok" "$witness"
+          grep -F -x "test ${tests}disagreement_rejects_before_publishing_the_vm ... ok" "$witness"
+
       - name: Native parallel PIO continuation after detached restore
         run: |
           set -o pipefail

@@ -505,6 +505,7 @@ impl Vmm {
                     timing: timing_context,
                     disposable,
                     rtc_irq_level,
+                    serial_irq: self.serial_irq,
                 }
                 .commit(physical, memory.as_deref())?;
             } else {

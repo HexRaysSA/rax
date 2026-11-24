@@ -67,6 +67,17 @@ impl Image {
         Ok(())
     }
 
+    pub(crate) fn validate_serial_irq_level(&self, irq: Option<u32>, asserted: bool) -> Result<()> {
+        if let (Some(chip), Some(irq)) = (&self.shared, irq)
+            && chip.irq_level(irq) != Some(asserted)
+        {
+            return Err(invalid(
+                "native serial IRQ line differs from the UART source",
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn into_checkpoint_capture(self) -> Result<Capture> {
         let count = self.cpus.len();
         let mut cpus = Vec::with_capacity(count);
