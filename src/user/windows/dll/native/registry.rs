@@ -294,6 +294,88 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         probe_write(c, out, 4)?;
         c.write_ptr(out, 0)?;
     }
+    let handle = open_resolved(c, access, attrs, options, false)?;
+    if let Err(fault) = c.write_ptr(out, u64::from(handle)) {
+        // The measured WoW64 NULL-output successful open leaks its handle.
+        // A NULL output on an earlier failure skips copy-back entirely.
+        if !wow || out != 0 {
+            let _ = c.p.objects.close(u64::from(handle));
+        }
+        return Err(fault.into());
+    }
+    Ok(STATUS_SUCCESS)
+}
+
+/// Open an existing snapshot key from NtCreateKey's regular nonvolatile path.
+/// Captured registry access ceilings apply to the resulting handle.
+pub(super) fn create(c: &mut Ctx) -> ApiResult {
+    let result = create_checked(c);
+    finish(c, result)
+}
+
+fn create_checked(c: &mut Ctx) -> Checked<u32> {
+    let (out, access, address, title, class, options, disposition) = (
+        c.ptr(0)?,
+        c.u32(1)?,
+        c.ptr(2)?,
+        c.u32(3)?,
+        c.ptr(4)?,
+        c.u32(5)?,
+        c.ptr(6)?,
+    );
+    let wow = c.arch() == WinArch::X86;
+    if !wow {
+        probe_write(c, out, c.psize() as usize)?;
+        c.write_ptr(out, 0)?;
+    }
+    let attrs = attributes(c, address)?;
+    if class != 0 {
+        // Capture its guest bytes before output publication. Opening an
+        // existing key leaves its original class and value data intact.
+        text(c, name(c, class)?, false)?;
+    }
+    if wow && out != 0 {
+        probe_write(c, out, 4)?;
+        c.write_ptr(out, 0)?;
+    }
+    if disposition != 0 {
+        probe_write(c, disposition, 4)?;
+    }
+    if title != 0 || options != 0 {
+        return Err(c.unsupported("registry key creation options").into());
+    }
+
+    let handle = open_resolved(c, access, attrs, 0, true)?;
+    let publish = (|| -> Result<(), MemFault> {
+        // Native writes Disposition after KeyHandle. WoW64 copies its
+        // temporary native handle to the caller after the Disposition write.
+        if !wow {
+            c.write_ptr(out, u64::from(handle))?;
+        }
+        if disposition != 0 {
+            const REG_OPENED_EXISTING_KEY: u32 = 2;
+            c.mem().w32(disposition, REG_OPENED_EXISTING_KEY)?;
+        }
+        if wow {
+            c.write_ptr(out, u64::from(handle))?;
+        }
+        Ok(())
+    })();
+    if let Err(fault) = publish {
+        let _ = c.p.objects.close(u64::from(handle));
+        return Err(fault.into());
+    }
+    Ok(STATUS_SUCCESS)
+}
+
+fn open_resolved(
+    c: &mut Ctx,
+    access: u32,
+    attrs: Attributes,
+    options: u32,
+    create: bool,
+) -> Checked<u32> {
+    let wow = c.arch() == WinArch::X86;
     let absolute = attrs.name.units.first() == Some(&(b'\\' as u16));
     if wow && attrs.root != 0 && absolute {
         return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
@@ -386,6 +468,9 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         };
         match selected {
             Lookup::Present(key) => key,
+            Lookup::Missing if create => {
+                return Err(c.unsupported("creating a new registry key").into());
+            }
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
             Lookup::MissingPath => return status(STATUS_OBJECT_PATH_NOT_FOUND),
             Lookup::Unselected => {
@@ -404,6 +489,9 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         views = Some(c.p.registry.views.clone());
         match c.p.registry.lookup_view(&attrs.name.units, view) {
             Lookup::Present(key) => key,
+            Lookup::Missing if create => {
+                return Err(c.unsupported("creating a new registry key").into());
+            }
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
             Lookup::MissingPath => return status(STATUS_OBJECT_PATH_NOT_FOUND),
             Lookup::Unselected => {
@@ -486,15 +574,7 @@ fn open_checked(c: &mut Ctx, options: u32) -> Checked<u32> {
         c.p.objects.release(id);
         return status(STATUS_INSUFFICIENT_RESOURCES);
     };
-    if let Err(fault) = c.write_ptr(out, u64::from(handle)) {
-        // The measured WoW64 NULL-output successful open leaks its handle.
-        // A NULL output on an earlier failure skips copy-back entirely.
-        if !wow || out != 0 {
-            let _ = c.p.objects.close(u64::from(handle));
-        }
-        return Err(fault.into());
-    }
-    Ok(STATUS_SUCCESS)
+    Ok(handle)
 }
 
 pub(super) fn query(c: &mut Ctx) -> ApiResult {

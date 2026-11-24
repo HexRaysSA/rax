@@ -1396,3 +1396,11 @@ fn mapped_files_same(c: &mut Ctx) -> ApiResult {
     })?;
     Flow::ret(status.into())
 }
+
+// Append this service without changing existing synthetic exports.
+pub(super) static KEY_CREATE_EXPORTS: &[Export] = &[Export::func(
+    "NtCreateKey",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32, Ptr, I32, Ptr],
+    registry::create,
+)];

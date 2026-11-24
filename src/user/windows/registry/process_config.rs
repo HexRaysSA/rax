@@ -14,6 +14,7 @@ pub(crate) enum ProcessConfigKey {
     Rpc,
     RpcPolicy,
     ActiveComputerName,
+    TcpipParameters,
     WinsockParameters,
     WinsockAppIdCatalog,
     WinsockProtocolCatalog,
@@ -25,10 +26,11 @@ pub(crate) enum ProcessConfigKey {
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 10] = [
+    pub(super) const ALL: [Self; 11] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
+        Self::TcpipParameters,
         // Capture the fixed children before linking the Parameters handle.
         Self::WinsockAppIdCatalog,
         Self::WinsockProtocolCatalog,
@@ -45,6 +47,9 @@ impl ProcessConfigKey {
             Self::RpcPolicy => r"\Registry\Machine\Software\Policies\Microsoft\Windows NT\Rpc",
             Self::ActiveComputerName => {
                 r"\Registry\Machine\System\CurrentControlSet\Control\ComputerName\ActiveComputerName"
+            }
+            Self::TcpipParameters => {
+                r"\Registry\Machine\System\CurrentControlSet\Services\Tcpip\Parameters"
             }
             Self::WinsockParameters => {
                 r"\Registry\Machine\System\CurrentControlSet\Services\WinSock2\Parameters"
@@ -84,6 +89,7 @@ impl ProcessConfigKey {
                 "EnableTcpPortScaling",
             ],
             Self::ActiveComputerName => &["ComputerName"],
+            Self::TcpipParameters => &["Hostname", "NV Hostname", "Domain", "NV Domain"],
             Self::WinsockParameters => &[
                 "Current_NameSpace_Catalog",
                 "Current_Protocol_Catalog",
@@ -104,6 +110,7 @@ impl ProcessConfigKey {
             Self::Rpc => "RPC configuration",
             Self::RpcPolicy => "RPC policy",
             Self::ActiveComputerName => "active computer name",
+            Self::TcpipParameters => "TCP/IP host and domain configuration",
             Self::WinsockParameters => "Winsock catalog selection",
             Self::WinsockAppIdCatalog => "Winsock application-ID catalog",
             Self::WinsockProtocolCatalog => Catalog::Protocol.label(),

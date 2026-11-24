@@ -809,3 +809,28 @@ fn process_config_rejects_data_outside_the_fixed_projection() {
             .is_err()
     );
 }
+
+#[test]
+fn tcpip_parameters_shares_selected_dns_identity_in_both_views() {
+    let subject = ProcessConfigKey::TcpipParameters;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let canonical = subject.path().replace("CurrentControlSet", "ControlSet001");
+    let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        registry = registry
+            .with_snapshot_selection(root, &[], view, Ok((header(&canonical, vec![]), None)))
+            .unwrap();
+    }
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        for path in [root.path(&[]).unwrap(), units(&canonical)] {
+            let Lookup::Present(key) = registry.lookup_view(&path, view) else {
+                panic!("TCP/IP parameters not shared into {view:?}");
+            };
+            assert!(key.covers_value(&units("hostname")));
+            assert!(key.covers_value(&units("nv hostname")));
+            assert!(key.covers_value(&units("domain")));
+            assert!(key.covers_value(&units("nv domain")));
+            assert!(!key.covers_value(&units("UnselectedValue")));
+        }
+    }
+}

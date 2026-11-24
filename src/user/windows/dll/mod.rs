@@ -91,6 +91,7 @@ pub(crate) fn nt_service(
         .chain(native::EXTENDED_SECTION_UNMAP_EXPORTS)
         .chain(native::DELAY_EXPORTS)
         .chain(native::APC_QUEUE_EXPORTS)
+        .chain(native::KEY_CREATE_EXPORTS)
         .chain(native::INSTALLED_ONLY_SERVICES)
         .find_map(|export| {
             if export.name == name
@@ -174,6 +175,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::EXTENDED_SECTION_UNMAP_EXPORTS,
         native::DELAY_EXPORTS,
         native::APC_QUEUE_EXPORTS,
+        native::KEY_CREATE_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {

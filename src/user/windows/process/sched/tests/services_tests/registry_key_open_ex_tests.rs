@@ -363,3 +363,72 @@ fn native_open_key_ex_installed_leaf_uses_four_slots_and_ret16() {
         assert_eq!((p.objects.handle_count(), p.objects.iter().count()), before);
     }
 }
+
+#[test]
+fn native_create_key_opens_an_existing_snapshot_and_reports_disposition() {
+    for arch in WinArch::ALL {
+        let (mut process, mut t, out) = setup(arch);
+        let p = process.state_mut();
+        let attrs = out + PAGE_SIZE * 2;
+        let object_name = attrs + 64;
+        let class = attrs + 256;
+        let disposition = out + 65;
+        unicode(p, object_name, attrs + 128, NLS_KEY);
+        attributes(p, attrs, object_name, 0, 0x40);
+        unicode(p, class, attrs + 320, "Probe");
+        let before = (p.objects.handle_count(), p.objects.iter().count());
+
+        for access in [1, 0x0002_0019] {
+            for disposition_ptr in [0, disposition, disposition + 3] {
+                p.space.wr(out + 64, &[0xA5; 12]).unwrap();
+                assert_eq!(
+                    call(
+                        p,
+                        &mut t,
+                        "NtCreateKey",
+                        &[out, access, attrs, 0, class, 0, disposition_ptr]
+                    ),
+                    STATUS_SUCCESS,
+                );
+                let key = p.space.ptr(out, arch.ptr_size()).unwrap();
+                assert!(matches!(p.objects.get(key), Some(Object::Key(_))));
+                assert_eq!(p.objects.access(key), Some(access as u32));
+                if disposition_ptr != 0 {
+                    assert_eq!(p.space.u32(disposition_ptr).unwrap(), 2);
+                    assert_eq!(p.space.u8(disposition_ptr - 1).unwrap(), 0xA5);
+                    assert_eq!(p.space.u8(disposition_ptr + 4).unwrap(), 0xA5);
+                } else {
+                    assert_eq!(p.space.u32(disposition).unwrap(), 0xA5A5_A5A5);
+                }
+                assert_eq!(call(p, &mut t, "NtClose", &[key]), STATUS_SUCCESS);
+            }
+        }
+
+        p.space.w32(disposition, 0xA5A5_A5A5).unwrap();
+        assert_eq!(
+            call(
+                p,
+                &mut t,
+                "NtCreateKey",
+                &[out, 0, attrs, 0, class, 0, disposition]
+            ),
+            STATUS_ACCESS_DENIED,
+        );
+        assert_eq!(p.space.ptr(out, arch.ptr_size()).unwrap(), 0);
+        assert_eq!(p.space.u32(disposition).unwrap(), 0xA5A5_A5A5);
+        assert_eq!((p.objects.handle_count(), p.objects.iter().count()), before);
+
+        assert_eq!(
+            call(p, &mut t, "NtCreateKey", &[out, 1, attrs, 0, class, 0, out]),
+            STATUS_SUCCESS,
+        );
+        let aliased = p.space.ptr(out, arch.ptr_size()).unwrap();
+        assert_eq!(p.objects.handle_count(), before.0 + 1);
+        if arch == WinArch::X86 {
+            assert!(matches!(p.objects.get(aliased), Some(Object::Key(_))));
+            assert_eq!(call(p, &mut t, "NtClose", &[aliased]), STATUS_SUCCESS);
+        } else {
+            assert_eq!(aliased, 2);
+        }
+    }
+}
