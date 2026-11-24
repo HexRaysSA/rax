@@ -227,6 +227,118 @@ fn invalid_single_vmov_fields_cannot_take_a_higher_level_fp_trap() {
 }
 
 #[test]
+fn cp11_lane_and_duplicate_transfers_check_reserved_low_nibble() {
+    for thumb in [false, true] {
+        for (word, mnemonic) in [
+            (0xee40_0b10, Mnemonic::VMOV), // Core to byte.
+            (0xee00_0b30, Mnemonic::VMOV), // Core to halfword.
+            (0xee00_0b10, Mnemonic::VMOV), // Core to word.
+            (0xee50_0b10, Mnemonic::VMOV), // Signed byte to core.
+            (0xeed0_0b10, Mnemonic::VMOV), // Unsigned byte to core.
+            (0xee10_0b30, Mnemonic::VMOV), // Signed halfword to core.
+            (0xee90_0b30, Mnemonic::VMOV), // Unsigned halfword to core.
+            (0xee10_0b10, Mnemonic::VMOV), // Word to core.
+            (0xeec0_0b10, Mnemonic::VDUP),
+            (0xee80_0b30, Mnemonic::VDUP),
+            (0xee80_0b10, Mnemonic::VDUP),
+            (0xeea0_0b30, Mnemonic::VDUP), // Q destination.
+        ] {
+            let quad = mnemonic == Mnemonic::VDUP && word & (1 << 21) != 0;
+            for d in 0..32 {
+                for t in 0..16 {
+                    let base = word | ((d & 15) << 16) | ((d >> 4) << 7) | (t << 12);
+                    for low in 0..16 {
+                        let raw = base | low;
+                        let expected = if low != 0 || t == 15 || quad && d & 1 != 0 {
+                            Mnemonic::UNDEFINED
+                        } else {
+                            mnemonic
+                        };
+                        assert_eq!(decode(raw, thumb).mnemonic, expected, "{raw:08x}, {thumb}");
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn cp11_reserved_low_nibble_precedes_fp_access_and_respects_predicates() {
+    const CORE: u32 = 0x8122_33d5;
+    const VECTOR: u64 = 0x89ab_cdef_7654_fedc;
+    for thumb in [false, true] {
+        for (word, core_after, vector_after) in [
+            (0xee40_2b10, CORE, 0x89ab_cdef_7654_fed5),
+            (0xee50_2b10, 0xffff_ffdc, VECTOR),
+            (0xee80_2b30, CORE, 0x33d5_33d5_33d5_33d5),
+        ] {
+            for low in [0, 1, 15] {
+                for skip in [false, true] {
+                    let mut raw = word | low;
+                    let mut cpu = Armv7Cpu::new();
+                    cpu.cpsr.t = thumb;
+                    cpu.cpsr.z = true;
+                    if skip && thumb {
+                        cpu.cpsr.it_state = 0x18; // IT NE, Z=1.
+                    } else if skip {
+                        raw ^= 0xf000_0000; // NE, Z=1.
+                    }
+                    cpu.cp15.cpacr = Cpacr::from_bits(0x00f0_0000);
+                    cpu.vfp.fpexc = 1 << 30;
+                    cpu.regs[2] = CORE;
+                    cpu.vfp.dregs.fill(VECTOR);
+                    let mut regs = cpu.regs;
+                    let mut vectors = cpu.vfp.dregs;
+                    let fpscr = cpu.vfp.fpscr.bits();
+                    let mut memory = FlatMemory::new(32, 0);
+                    let result = Executor::new(&mut cpu, &mut memory).execute(&decode(raw, thumb));
+                    if low == 0 && !skip {
+                        regs[2] = core_after;
+                        vectors[0] = vector_after;
+                    }
+                    assert!(
+                        matches!(result, ExecResult::Continue) && (low == 0 || skip)
+                            || matches!(result, ExecResult::Undefined) && low != 0 && !skip,
+                        "raw={raw:08x}, thumb={thumb}, skipped={skip}: {result:?}"
+                    );
+                    assert_eq!(
+                        (cpu.regs, cpu.vfp.dregs, cpu.vfp.fpscr.bits()),
+                        (regs, vectors, fpscr)
+                    );
+                }
+            }
+
+            let raw = word | 1;
+            let mut cpu = super::mixed(raw, thumb, 2, false, true);
+            let before = (cpu.get_gpr(2), cpu.get_simd(0), cpu.export_sregs());
+            assert!(
+                matches!(cpu.step(), Err(ArmError::UndefinedInstruction(value)) if value == raw),
+                "raw={raw:08x}, thumb={thumb}"
+            );
+            assert_eq!(
+                (cpu.get_gpr(2), cpu.get_simd(0), cpu.export_sregs()),
+                before
+            );
+            assert_eq!(cpu.get_pc(), 0x100);
+            assert_eq!(cpu.instruction_count(), 0);
+            let mut cpu = super::mixed(word, thumb, 2, false, true);
+            let result = cpu.step();
+            assert!(
+                matches!(
+                    result,
+                    Err(ArmError::ArchitecturalException {
+                        ec: 7,
+                        target_el: Some(2),
+                        ..
+                    })
+                ),
+                "raw={word:08x}, thumb={thumb}: {result:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn generic_unconditional_families_and_conditional_svc_keep_their_allocation() {
     for thumb in [false, true] {
         for coprocessor in (0..8).chain(12..16) {

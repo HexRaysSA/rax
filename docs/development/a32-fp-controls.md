@@ -1026,3 +1026,27 @@ cases. The targets were `a32_fp_controls` (208), `a32_fp_pairs` (5), `arm`
 (46,850), `arm_vfp_a32` (535) and `isa_oracle` (102). The combined log SHA-256
 is `7bcacbb8c8de8bccf826e2803740389832567fb540a93be3c6ba33c1db34f2d4`.
 Physical AArch32 behavior for these fields remains unverified.
+
+## Lane VMOV and core-register VDUP reserved fields
+
+Both directions of lane `VMOV` and the core-register form of `VDUP` mark
+bits [3:0] `(0)` in A32 A1 and T32 T1. RAX selects Undefined Instruction
+for nonzero values before checking FP permissions. The shared decoder
+uses a constant-time mask. The condition and Thumb IT rules still apply.
+[Arm DDI 0597 ID032025, pp. 920-921, 1103-1104 and 1116-1117](../specifications/arm/aarch32-isa-2025-03.pdf)
+[Arm DDI 0487B.a, § K1.1.9](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe | Result |
+| --- | --- | --- |
+| Both instruction sets reserve the same four bits. | Vary all 16 field values over 12 transfer forms, every D and core register selector, and both instruction sets. Include canonical and pre-existing invalid operands. | The parent decoded `0xee400b11` as `VMOV` and executed `0xee402b11`. |
+| The encoding check precedes FP access and has no data effects. | Compare GPRs, vector registers, FPSCR and retirement on the software paths, with an EL2 access trap armed on the mixed-width PE. Check ARM condition and Thumb IT skips. | Canonical controls reach the intended operation or EL2 access trap. The reserved words preserve register state and do not retire on the mixed-width PE. |
+| The independent guest distinguishes Undefined from canonical execution. | Reset R2, D0 and D1 before each word. Check the vector handler marker and original state on rejection. Check the result and untouched registers on canonical operations. | QEMU 11.1.2 `cortex-a15` and `max` rejected all 720 nonzero cases and executed all 48 canonical cases. |
+
+The decode matrix covers 196,608 inputs. The independent QEMU receipt
+SHA-256 is `81e00d4b61dfd3e873f57654f087df4675238e75f5655473690fc081a821fa86`.
+On macOS Arm64, all 47,708 tests passed across five complete targets with no
+failures or ignored tests. The targets were `a32_fp_controls` (216),
+`a32_fp_pairs` (5), `arm` (46,850), `arm_vfp_a32` (535), and `isa_oracle` (102).
+The combined log SHA-256 is
+`a72f67d5233e1e81d22ff1afa60f2fa9d6284f536478923c472ea534e030aceb`.
+Physical AArch32 execution remains unverified.

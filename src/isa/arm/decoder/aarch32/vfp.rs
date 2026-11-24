@@ -172,7 +172,8 @@ impl Aarch32Decoder {
     }
 
     pub(crate) fn vmov_lane_transfer(raw: u32) -> Option<VmovLaneTransfer> {
-        if raw & 0x0f00_0f10 != 0x0e00_0b10 || raw >> 28 == 15 {
+        // Both VMOV lane directions mark bits [3:0] as (0).
+        if raw & 0x0f00_0f1f != 0x0e00_0b10 || raw >> 28 == 15 {
             return None;
         }
         let rt = ((raw >> 12) & 15) as u8;
@@ -308,7 +309,8 @@ impl Aarch32Decoder {
         let q = ((raw >> 21) & 1) != 0;
         let vd = (raw >> 16) & 0xF;
         let rt = (raw >> 12) & 0xF;
-        if (b == 1 && e == 1) || (q && (vd & 1) != 0) || rt == 15 {
+        // Core-register VDUP also marks bits [3:0] as (0).
+        if raw & 0xf != 0 || (b == 1 && e == 1) || (q && (vd & 1) != 0) || rt == 15 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
