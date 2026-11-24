@@ -8,9 +8,9 @@ use super::{
 use crate::isa::arm::decoder::{DecodedInsn, Mnemonic};
 pub(crate) const STATUS: u32 = 0x9f;
 pub(crate) const ENABLES: u32 = STATUS << 8;
-/// Storage/system transfers never process IEEE operands. In particular their
-/// memory and read-only-register effects must not be replayed or masked.
-pub(crate) fn is_computation(insn: &DecodedInsn) -> bool {
+/// Scalar operations that can signal an FP arithmetic exception.
+/// Transfers, sign edits, and conditional selects operate on register bits.
+pub(crate) fn can_signal(insn: &DecodedInsn) -> bool {
     fp_access_kind(insn).is_some_and(|kind| !kind.advsimd)
         && !matches!(
             insn.mnemonic,
@@ -28,6 +28,12 @@ pub(crate) fn is_computation(insn: &DecodedInsn) -> bool {
                 | Mnemonic::VMOV_F16_CORE
                 | Mnemonic::VMOVX_F16
                 | Mnemonic::VINS_F16
+                | Mnemonic::VABS
+                | Mnemonic::VNEG
+                | Mnemonic::VSELEQ
+                | Mnemonic::VSELGE
+                | Mnemonic::VSELGT
+                | Mnemonic::VSELVS
                 | Mnemonic::VLDR
                 | Mnemonic::VSTR
                 | Mnemonic::VLDM
@@ -54,7 +60,7 @@ impl Transaction {
         if super::fp_admission::output_flushes(insn, &cpu.vfp) {
             enabled &= !8;
         }
-        if enabled == 0 || !cpu.vfp.trapping_profile() || !is_computation(insn) {
+        if enabled == 0 || !cpu.vfp.trapping_profile() || !can_signal(insn) {
             return None;
         }
         let saved = cpu.vfp.clone();

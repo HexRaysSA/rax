@@ -209,6 +209,76 @@ fn restricted_vfp_controls_do_not_disable_storage_or_advanced_simd() {
 }
 
 #[test]
+fn scalar_sign_and_select_do_not_require_a_trapping_capability() {
+    const NEGATIVE_SNAN: u32 = 0xff80_0042;
+    const POSITIVE_SNAN: u32 = 0x7f80_0021;
+    const VADD: u32 = 0xee31_0a02; // VADD.F32 S0, S2, S4.
+    for thumb in [false, true] {
+        for trap in 0..16 {
+            for (raw, expected) in [
+                (0xeeb0_0ac1, NEGATIVE_SNAN & 0x7fff_ffff), // VABS.F32
+                (0xeeb1_0a41, NEGATIVE_SNAN ^ 0x8000_0000), // VNEG.F32
+                (0xfe01_0a02, NEGATIVE_SNAN),               // VSELEQ.F32
+                (0xfe21_0a02, NEGATIVE_SNAN),               // VSELGE.F32
+                (0xfe31_0a02, POSITIVE_SNAN),               // VSELGT.F32
+                (0xfe11_0a02, POSITIVE_SNAN),               // VSELVS.F32
+                (VADD, 0x7fc0_0000),
+            ] {
+                let mut cpu = configured(thumb, 7, 1 << 25);
+                cpu.cpsr.z = true;
+                cpu.cpsr.n = false;
+                cpu.cpsr.v = false;
+                cpu.vfp.mvfr0 = (cpu.vfp.mvfr0 & !(15 << 12)) | (trap << 12);
+                // Preserve a pre-existing cumulative flag. An enabled invalid
+                // operation trap provides the arithmetic control.
+                let fpscr = (1 << 25) | (1 << 7) | (u32::from(trap == 1) << 8);
+                cpu.vfp.fpscr = Fpscr::from_bits(fpscr);
+                cpu.vfp.write_s_bits(2, NEGATIVE_SNAN);
+                cpu.vfp.write_s_bits(4, POSITIVE_SNAN);
+                let before = cpu.vfp.dregs;
+                let insn = if thumb {
+                    ThumbDecoder::decode_32bit(raw)
+                } else {
+                    Aarch32Decoder::decode(raw)
+                }
+                .unwrap();
+                let result = Executor::new(&mut cpu, &mut FlatMemory::new(4096, 0)).execute(&insn);
+                let context = (thumb, trap, raw);
+                if raw == VADD && trap != 0 {
+                    if trap == 1 {
+                        assert!(
+                            matches!(
+                                result,
+                                ExecResult::Exception(ExceptionType::FloatingPoint(1))
+                            ),
+                            "{context:?}: {result:?}"
+                        );
+                    } else {
+                        assert!(
+                            matches!(result, ExecResult::Undefined),
+                            "{context:?}: {result:?}"
+                        );
+                    }
+                    assert_eq!(cpu.vfp.dregs, before, "{context:?}");
+                    assert_eq!(cpu.vfp.fpscr.bits(), fpscr, "{context:?}");
+                } else {
+                    assert!(
+                        matches!(result, ExecResult::Continue),
+                        "{context:?}: {result:?}"
+                    );
+                    assert_eq!(cpu.vfp.read_s_bits(0), expected, "{context:?}");
+                    assert_eq!(
+                        cpu.vfp.fpscr.bits(),
+                        fpscr | u32::from(raw == VADD),
+                        "{context:?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn restricted_capabilities_do_not_force_guest_fpscr_writes_or_reads() {
     let cases = cases();
     let write = cases.iter().find(|case| case.name == "vmsr").unwrap();

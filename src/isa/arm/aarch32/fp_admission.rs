@@ -81,7 +81,7 @@ pub(crate) fn instruction_supported(
     {
         return false;
     }
-    if !advsimd && super::fp_traps::is_computation(insn) && (state.mvfr0 >> 12) & 15 > 1 {
+    if !advsimd && super::fp_traps::can_signal(insn) && (state.mvfr0 >> 12) & 15 > 1 {
         return false;
     }
     if advsimd {
