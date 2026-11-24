@@ -69,10 +69,11 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let flags = number(&packet, 4);
     let arm_29708_cmd_flags =
         arch == WinArch::Arm64 && native.version.build == 29708 && matches!(flags, 0x14 | 0x34);
-    // Closed CMD reaches the same installed lookup with bit 2 set on
-    // the hosted profiles. The native ARM64 replies for 0x10 and 0x30
-    // have identical contents.
-    let request_flags = if arch == WinArch::X64 || windows_11_arm {
+    // Closed CMD reaches the same installed lookup with bit 2 set on these
+    // profiles. Both spellings of the stock WoW64 CMD reply match the replies
+    // for 0x10 and 0x30 byte for byte on the captured ARM64 build.
+    let wow_29708 = wow && native.version.build == 29708;
+    let request_flags = if arch == WinArch::X64 || windows_11_arm || wow_29708 {
         flags & !0x04
     } else {
         flags

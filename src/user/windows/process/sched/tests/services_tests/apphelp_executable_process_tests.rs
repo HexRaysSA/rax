@@ -278,7 +278,7 @@ fn apphelp_executable_process_replays_wow64_cmd_lookup_and_invalid_handle() {
         "../../../../../../../docs/specifications/windows/native-apphelp-cache/executable-process-29708-wow64.json"
     ))
     .unwrap();
-    assert_eq!(observations.len(), 6);
+    assert_eq!(observations.len(), 10);
     for row in observations {
         let (mut process, mut thread) = fixture(WinArch::X86, "NtApphelpCacheControl", SERVICE);
         let p = process.state_mut();
