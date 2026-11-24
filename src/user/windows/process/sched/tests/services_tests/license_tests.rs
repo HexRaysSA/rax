@@ -496,7 +496,7 @@ fn wow64_startup_license_replays_the_observed_stock_cmd_queries() {
 }
 
 #[test]
-fn wow64_startup_license_replays_measured_release_builds() {
+fn wow64_startup_license_replays_measured_builds_and_sessions() {
     use crate::user::windows::policy::{APP_SERVER_MODE_NAME, WOW64_STARTUP_NAMES};
     use crate::user::windows::process::wow64;
 
@@ -506,6 +506,15 @@ fn wow64_startup_license_replays_measured_release_builds() {
         machine: u16,
         rows: usize,
         values: std::collections::BTreeMap<String, String>,
+        #[serde(default)]
+        clears_length_for_missing: Vec<String>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct SessionCapture {
+        #[serde(flatten)]
+        profile: Capture,
+        sessions: [u32; 2],
     }
 
     const GUARD: u64 = 8;
@@ -523,6 +532,16 @@ fn wow64_startup_license_replays_measured_release_builds() {
             .collect::<Vec<_>>(),
         [(20348, 0x8664), (26100, 0x8664), (26200, 0xaa64)]
     );
+    let arm64_29708: SessionCapture = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-startup-license/wow64-29708-arm64-sessions.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        (arm64_29708.profile.build, arm64_29708.profile.machine),
+        (29708, 0xaa64)
+    );
+    assert_eq!(arm64_29708.sessions, [0, 1]);
+
     let initial: Vec<_> = (0..CAPACITY + 2 * GUARD as u32)
         .map(|index| b'A' + (index % 26) as u8)
         .collect();
@@ -533,7 +552,13 @@ fn wow64_startup_license_replays_measured_release_builds() {
     .into_iter()
     .chain(WOW64_STARTUP_NAMES);
 
-    for profile in profiles {
+    let profiles = profiles.iter().map(|profile| (profile, None)).chain(
+        arm64_29708
+            .sessions
+            .into_iter()
+            .map(|session| (&arm64_29708.profile, Some(session))),
+    );
+    for (profile, session) in profiles {
         let values: std::collections::BTreeMap<_, _> = names
             .clone()
             .filter_map(|(name, kind)| {
@@ -555,6 +580,9 @@ fn wow64_startup_license_replays_measured_release_builds() {
         native_profile::kernel_profile(p, profile.build, profile.machine);
         Arc::make_mut(&mut p.cfg).version.build = profile.build;
         wow64::initialize_test_profile(p, profile.machine).unwrap();
+        if let Some(session) = session {
+            p.wow64.as_mut().unwrap().session = session;
+        }
         // The guest version can differ from the installed kernel captured by the loader.
         Arc::make_mut(&mut p.cfg).version.build = 12345;
         p.native.as_mut().unwrap().policy_catalog =
@@ -630,12 +658,21 @@ fn wow64_startup_license_replays_measured_release_builds() {
                                 }
                                 _ => (
                                     STATUS_OBJECT_NAME_NOT_FOUND,
-                                    UNCHANGED_LENGTH,
+                                    if profile
+                                        .clears_length_for_missing
+                                        .iter()
+                                        .any(|name| name == spelling)
+                                    {
+                                        0
+                                    } else {
+                                        UNCHANGED_LENGTH
+                                    },
                                     UNCHANGED_KIND,
                                 ),
                             };
                             let case = (
                                 profile.build,
+                                session,
                                 spelling,
                                 maximum,
                                 capacity,
@@ -657,20 +694,32 @@ fn wow64_startup_license_replays_measured_release_builds() {
         }
         assert_eq!(count, profile.rows);
 
-        // Refuse stale WoW64 metadata even if the installed license catalog exists.
+        // The installed catalog alone cannot qualify stale metadata or an unmeasured session.
+        let reject = |p: &mut Proc, thread: &mut Thread| {
+            p.space.wr(storage, &initial).unwrap();
+            p.space.w32(kind, UNCHANGED_KIND).unwrap();
+            p.space.w32(required, UNCHANGED_LENGTH).unwrap();
+            super::nls_tests::arguments(
+                p,
+                thread,
+                &[descriptor, kind, storage + GUARD, 4, required],
+            );
+            thread.cpu.set_gpr(0, SERVICE.into());
+            assert!(matches!(
+                super::nls_tests::dispatch(p, thread),
+                Outcome::Fail(reason) if reason.contains("unmeasured NtQueryLicenseValue profile")
+            ));
+            assert_eq!(p.space.u32(required).unwrap(), UNCHANGED_LENGTH);
+            assert_eq!(p.space.u32(kind).unwrap(), UNCHANGED_KIND);
+            assert_eq!(p.space.bytes(storage, initial.len()).unwrap(), initial);
+        };
         p.wow64.as_mut().unwrap().kernel.2 += 1;
-        super::nls_tests::arguments(
-            p,
-            &mut thread,
-            &[descriptor, kind, storage + GUARD, 4, required],
-        );
-        thread.cpu.set_gpr(0, SERVICE.into());
-        assert!(matches!(
-            super::nls_tests::dispatch(p, &mut thread),
-            Outcome::Fail(reason) if reason.contains("unmeasured NtQueryLicenseValue profile")
-        ));
-        assert_eq!(p.space.u32(required).unwrap(), UNCHANGED_LENGTH);
-        assert_eq!(p.space.u32(kind).unwrap(), UNCHANGED_KIND);
-        assert_eq!(p.space.bytes(storage, initial.len()).unwrap(), initial);
+        reject(p, &mut thread);
+        if session.is_some() {
+            let state = p.wow64.as_mut().unwrap();
+            state.kernel.2 -= 1;
+            state.session = 2;
+            reject(p, &mut thread);
+        }
     }
 }

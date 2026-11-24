@@ -40,7 +40,9 @@ fn query(c: &mut Ctx) -> ApiResult {
         && match c.arch() {
             WinArch::Arm64 => true,
             WinArch::X64 => arm64,
-            WinArch::X86 => arm64 && wow64_state.is_some_and(|state| state.session == 1),
+            WinArch::X86 => {
+                arm64 && wow64_state.is_some_and(|state| matches!(state.session, 0 | 1))
+            }
         };
     if !preserves_missing_outputs && !legacy_profile {
         return Err(c.unsupported("unmeasured NtQueryLicenseValue profile"));
@@ -85,7 +87,9 @@ fn query(c: &mut Ctx) -> ApiResult {
         if !String::from_utf16(&units).is_ok_and(|name| name.eq_ignore_ascii_case(selected)) {
             return Err(c.unsupported("NtQueryLicenseValue startup name is not captured"));
         }
-        if clear_missing {
+        // The measured WoW64 leaf also clears the length for the four
+        // lowercase MUI names. AppServerMode leaves the output undisturbed.
+        if clear_missing || (legacy_profile && wow64 && selected != APP_SERVER_MODE_NAME) {
             c.mem().w32(required, 0)?;
         }
         return Flow::ret(STATUS_OBJECT_NAME_NOT_FOUND.into());

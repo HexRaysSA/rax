@@ -15,6 +15,17 @@ the size and leaves the type undisturbed. The guest ABI and captured
 host identity select the profile. The captured values describe one host
 and are evidence for replay. Each installed run captures its own values.
 
+A separate x86 probe on build 29708 returned byte-identical output for all
+448 fixed queries run in sessions 0 and 1. In addition to the missing
+WindowsExcludedProcs and lowercase DeviceFamilyID names, all four lowercase
+MUI names clear the required length and preserve the type and destination.
+Lowercase AppServerMode preserves all three outputs. The
+[fixed-query capture](wow64-29708-arm64-sessions.json) records the host
+identity, input hashes and returned values. Both sessions replay the same
+matrix. The guest still requires matching installed kernel and WoW64 machine
+metadata and rejects unmeasured sessions. The
+[matrix producer](probe-startup-matrix.rs) defines the same fixed inputs.
+
 An AMD64 process on Windows ARM64 build 29708 uses the native64
 `NtQueryLicenseValue` contract for `Kernel-OneCore-DeviceFamilyID` and
 `TerminalServices-RemoteConnectionManager-AllowAppServerMode`. The
