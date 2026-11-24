@@ -77,6 +77,10 @@ jobs:
             binutils \
             gcc-riscv64-linux-gnu
 
+      - name: Install AArch32 oracle compiler and sysroot
+        if: matrix.arch == 'arm'
+        run: sudo apt-get install -y --no-install-recommends gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
+
       - name: Resolve LLVM tools onto PATH (unsuffixed names)
         run: |
           set -euxo pipefail
@@ -138,6 +142,7 @@ jobs:
 
       - name: cargo test (${{ matrix.arch }} differential)
         env:
+          A32DIFF_REQUIRE: ${{ matrix.arch == 'arm' && '1' || '0' }}
           MATRIX_TESTS: ${{ matrix.tests }}
           APX_TESTS: ${{ steps.apx.outputs.tests }}
           EVEX_SKIPS: ${{ steps.evex.outputs.skips }}

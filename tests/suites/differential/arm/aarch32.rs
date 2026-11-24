@@ -1,29 +1,26 @@
-//! AArch32 (A32 + T16/T32 Thumb) differential test harness: the rax AArch32
-//! interpreter vs. QEMU (hardware oracle).
-//!
-//! The rax software interpreter (`src/isa/arm/aarch32/cpu.rs` +
-//! `src/isa/arm/decoder/{aarch32,thumb}.rs`) is checked against a hardware-semantics
-//! reference produced by running each instruction under `qemu-arm` (user mode).
+//! Differential tests for the RAX AArch32 user CPU and interpreter against
+//! `qemu-arm` (Cortex-A15 user mode), covering ARM and both Thumb widths.
 //! The reference harness is `tools/arm-diff/oracle-a32.c`, built on demand into a
 //! static 32-bit ARM ELF. This mirrors `tests/suites/differential/arm/aarch64.rs` (the AArch64 harness).
 //!
-//! For each `(instruction, mode, initial state)` triple we:
-//!   1. run it on the oracle (R0..R14, CPSR flags, D0..D31, scratch captured), and
-//!   2. run it on the rax `Armv7Cpu` from the *identical* initial state,
-//! then compare the register file. Any divergence is an interpreter bug.
+//! Both engines run the same instruction and input. The tests compare R0..R14,
+//! successor PC relative to the instruction, CPSR flags and execution state,
+//! D0..D31, FPSCR, and the scratch window.
 //!
-//! Robustness: if the cross compiler or `qemu-arm` is unavailable, every test
-//! self-skips (returns without failing) so the suite is green anywhere.
+//! The oracle tests require both tools with `A32DIFF_REQUIRE=1`. Otherwise,
+//! missing tools skip the external comparison. A broken oracle fails the test.
 
 #![cfg(target_os = "linux")]
 
-use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::ffi::OsStr;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 
-use rax::isa::arm::decoder::{Aarch32Decoder, ThumbDecoder};
-use rax::isa::arm::execution::{ArmMemory, FlatMemory};
-use rax::isa::arm::{Armv7Cpu, ExecResult, Executor};
+use rax::isa::arm::aarch32::vfp::Fpscr;
+use rax::user::cpu::arm::{A32Exit, A32UserCpu};
+use rax::user::mm::{AddressSpace, Mapping, Perms, SpaceConfig};
 
 // ---------------------------------------------------------------------------
 // Wire format -- must match tools/arm-diff/oracle-a32.c byte for byte.
@@ -33,7 +30,7 @@ use rax::isa::arm::{Armv7Cpu, ExecResult, Executor};
 #[derive(Clone, Copy)]
 struct ArmState32 {
     r: [u32; 15],       // R0..R14
-    pc: u32,            // input: unused; output: post-instruction PC
+    pc: u32,            // output: next PC relative to the instruction
     cpsr: u32,          // NZCVQ (31:27) + GE (19:16) + T (5)
     fpscr: u32,         // VFP status/control
     d: [u64; 32],       // D0..D31 (NEON Q0..Q15)
@@ -74,15 +71,15 @@ struct OutCase32 {
     valid: u32,
 }
 
-const WIRE_MAGIC: u32 = 0x3132_3341; // 'A','3','2','1'
+const WIRE_MAGIC: u32 = 0x3232_3341; // 'A','3','2','2'
 
 // Compile-time guarantee the layout matches the C side.
 const _: () = assert!(core::mem::size_of::<ArmState32>() == 584);
 const _: () = assert!(core::mem::size_of::<InCase32>() == 592);
 const _: () = assert!(core::mem::size_of::<OutCase32>() == 592);
 
-// CPSR bits we compare: N Z C V Q (31:27) and GE (19:16).
-const CPSR_CMP_MASK: u32 = 0xF800_0000 | 0x000F_0000;
+// CPSR bits we compare: NZCVQ (31:27), GE (19:16), and T (5).
+const CPSR_CMP_MASK: u32 = 0xf80f_0020;
 
 // ---------------------------------------------------------------------------
 // Byte (de)serialisation helpers.
@@ -101,49 +98,53 @@ fn read_struct<T: Copy>(buf: &[u8], off: usize) -> T {
 // Oracle: build on demand, run a whole batch through one qemu invocation.
 // ---------------------------------------------------------------------------
 
-fn oracle_path() -> Option<PathBuf> {
-    if which("qemu-arm").is_none() {
-        return None;
-    }
-    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tools/arm-diff");
-    let bin = dir.join("oracle-a32");
-    let need_build = match (bin.metadata(), dir.join("oracle-a32.c").metadata()) {
-        (Ok(b), Ok(c)) => match (b.modified(), c.modified()) {
-            (Ok(bm), Ok(cm)) => bm < cm,
-            _ => true,
-        },
-        _ => true,
-    };
-    if need_build {
-        let status = Command::new("bash")
-            .arg(dir.join("build-a32.sh"))
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-        match status {
-            Ok(s) if s.success() => {}
-            _ => return None,
-        }
-    }
-    if bin.exists() { Some(bin) } else { None }
+fn oracle_path() -> Option<&'static Path> {
+    static ORACLE: OnceLock<Option<PathBuf>> = OnceLock::new();
+    ORACLE
+        .get_or_init(|| {
+            let compiler =
+                std::env::var_os("ARM32_CC").unwrap_or_else(|| "arm-linux-gnueabihf-gcc".into());
+            let missing = [OsStr::new("qemu-arm"), compiler.as_os_str()]
+                .into_iter()
+                .find(|tool| !tool_available(tool));
+            if let Some(tool) = missing {
+                assert_ne!(
+                    std::env::var_os("A32DIFF_REQUIRE").as_deref(),
+                    Some(OsStr::new("1")),
+                    "required AArch32 oracle tool {tool:?} is unavailable"
+                );
+                eprintln!("[arm_diff32] optional oracle tool {tool:?} is unavailable");
+                return None;
+            }
+            let output_dir = Path::new(env!("CARGO_TARGET_TMPDIR"));
+            std::fs::create_dir_all(output_dir).expect("create AArch32 oracle build directory");
+            let binary = output_dir.join(format!("oracle-a32-{}", std::process::id()));
+            let status = Command::new("bash")
+                .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tools/arm-diff/build-a32.sh"))
+                .arg(&binary)
+                .stdout(Stdio::null())
+                .status()
+                .expect("launch AArch32 oracle build");
+            assert!(status.success(), "AArch32 oracle build failed: {status}");
+            Some(binary)
+        })
+        .as_deref()
 }
 
-fn which(prog: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    for dir in std::env::split_paths(&path) {
-        let cand = dir.join(prog);
-        if cand.is_file() {
-            return Some(cand);
-        }
+fn tool_available(program: &OsStr) -> bool {
+    let path = Path::new(program);
+    if path.components().count() > 1 {
+        return path.is_file();
     }
-    None
+    std::env::var_os("PATH")
+        .is_some_and(|search| std::env::split_paths(&search).any(|dir| dir.join(path).is_file()))
 }
 
-fn run_oracle(oracle: &PathBuf, cases: &[(u32, u32, ArmState32)]) -> Option<Vec<OutCase32>> {
+fn run_oracle(oracle: &Path, cases: &[(String, u32, u32, ArmState32)]) -> Vec<OutCase32> {
     let mut payload = Vec::with_capacity(8 + cases.len() * std::mem::size_of::<InCase32>());
     payload.extend_from_slice(&WIRE_MAGIC.to_le_bytes());
     payload.extend_from_slice(&(cases.len() as u32).to_le_bytes());
-    for (insn, mode, st) in cases {
+    for (_, insn, mode, st) in cases {
         let ic = InCase32 {
             insn: *insn,
             mode: *mode,
@@ -153,106 +154,125 @@ fn run_oracle(oracle: &PathBuf, cases: &[(u32, u32, ArmState32)]) -> Option<Vec<
     }
 
     let mut child = Command::new("qemu-arm")
+        .args(["-cpu", "cortex-a15"])
         .arg(oracle)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
         .spawn()
-        .ok()?;
+        .expect("launch the AArch32 oracle under QEMU");
     let mut stdin = child.stdin.take().unwrap();
-    let writer = std::thread::spawn(move || {
-        let _ = stdin.write_all(&payload);
-    });
-    let mut out = Vec::new();
-    child.stdout.take().unwrap().read_to_end(&mut out).ok()?;
-    let _ = writer.join();
-    let status = child.wait().ok()?;
-    if !status.success() || out.len() < 8 {
-        return None;
-    }
-    let magic = u32::from_le_bytes([out[0], out[1], out[2], out[3]]);
-    let count = u32::from_le_bytes([out[4], out[5], out[6], out[7]]) as usize;
-    if magic != WIRE_MAGIC || count != cases.len() {
-        return None;
-    }
-    let mut res = Vec::with_capacity(count);
-    let mut off = 8;
-    for _ in 0..count {
-        res.push(read_struct::<OutCase32>(&out, off));
-        off += std::mem::size_of::<OutCase32>();
-    }
-    Some(res)
+    let writer = std::thread::spawn(move || stdin.write_all(&payload));
+    let output = child
+        .wait_with_output()
+        .expect("read AArch32 oracle output");
+    assert!(
+        output.status.success(),
+        "AArch32 oracle exited with {}",
+        output.status
+    );
+    writer
+        .join()
+        .expect("oracle input writer panicked")
+        .expect("write AArch32 oracle input");
+
+    let out = output.stdout;
+    let record_size = std::mem::size_of::<OutCase32>();
+    assert_eq!(
+        out.len(),
+        8 + cases.len() * record_size,
+        "oracle output size"
+    );
+    assert_eq!(
+        u32::from_le_bytes(out[..4].try_into().unwrap()),
+        WIRE_MAGIC,
+        "oracle wire version"
+    );
+    assert_eq!(
+        u32::from_le_bytes(out[4..8].try_into().unwrap()) as usize,
+        cases.len(),
+        "oracle record count"
+    );
+    out[8..]
+        .chunks_exact(record_size)
+        .zip(cases)
+        .map(|(record, (label, ..))| {
+            let state = read_struct::<OutCase32>(record, 0);
+            assert_eq!(
+                state.valid, 1,
+                "{label}: QEMU did not capture the VFP frame"
+            );
+            state
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
 // rax: run one instruction from an identical initial state.
 // ---------------------------------------------------------------------------
 
-/// Returns `Some(out_state)` if rax executed the instruction, or `None` if rax
-/// treated it as undefined / errored.
+/// Returns the architectural state after one instruction, or None on a guest trap.
 fn run_rax(insn: u32, mode: u32, input: &ArmState32) -> Option<ArmState32> {
-    let mut mem = FlatMemory::new(0x0040_0000, 0);
-    // Install the scratch window.
-    for (i, w) in input.scratch.iter().enumerate() {
-        mem.write_word(SCRATCH_ADDR + (i as u32) * 4, *w).ok()?;
-    }
-
-    let mut cpu = Armv7Cpu::new();
-    cpu.cpsr.t = mode != 0;
-    for i in 0..15usize {
-        cpu.set_reg(i, input.r[i]);
-    }
-    let ps = input.cpsr;
-    cpu.cpsr.n = ps & (1 << 31) != 0;
-    cpu.cpsr.z = ps & (1 << 30) != 0;
-    cpu.cpsr.c = ps & (1 << 29) != 0;
-    cpu.cpsr.v = ps & (1 << 28) != 0;
-    cpu.cpsr.q = ps & (1 << 27) != 0;
-    cpu.cpsr.ge = ((ps >> 16) & 0xF) as u8;
-
-    let decoded = match mode {
-        0 => Aarch32Decoder::decode(insn).ok()?,
-        1 => ThumbDecoder::decode_16bit(insn as u16).ok()?,
-        _ => ThumbDecoder::decode_32bit(insn).ok()?,
+    const CODE_ADDR: u64 = 0x10_000;
+    const PAGE_SIZE: u64 = 4096;
+    let space = AddressSpace::new(SpaceConfig {
+        va_limit: 1 << 32,
+        arena_bytes: 4 * PAGE_SIZE,
+        reserved_phys: Vec::new(),
+    })
+    .expect("allocate AArch32 test memory");
+    let rw = Perms::READ | Perms::WRITE;
+    space
+        .map(CODE_ADDR, PAGE_SIZE, Mapping::anonymous(rw | Perms::EXEC))
+        .expect("map instruction page");
+    space
+        .map(u64::from(SCRATCH_ADDR), PAGE_SIZE, Mapping::anonymous(rw))
+        .expect("map scratch page");
+    let (code, width) = match mode {
+        0 => (insn.to_le_bytes(), 4),
+        1 => (insn.to_le_bytes(), 2),
+        2 => (insn.rotate_left(16).to_le_bytes(), 4),
+        _ => panic!("unknown AArch32 oracle mode {mode}"),
     };
+    space
+        .write(CODE_ADDR, &code[..width])
+        .expect("install instruction");
+    space
+        .write(u64::from(SCRATCH_ADDR), as_bytes(&input.scratch))
+        .expect("install scratch data");
 
-    {
-        let mut exec = Executor::new(&mut cpu, &mut mem);
-        match exec.execute(&decoded) {
-            ExecResult::Continue | ExecResult::Branch(_) => {}
-            _ => return None,
-        }
+    let mut cpu = A32UserCpu::new(&space);
+    cpu.set_pc(CODE_ADDR);
+    let core = cpu.core_mut();
+    core.regs[..15].copy_from_slice(&input.r);
+    core.cpsr.n = input.cpsr & (1 << 31) != 0;
+    core.cpsr.z = input.cpsr & (1 << 30) != 0;
+    core.cpsr.c = input.cpsr & (1 << 29) != 0;
+    core.cpsr.v = input.cpsr & (1 << 28) != 0;
+    core.cpsr.q = input.cpsr & (1 << 27) != 0;
+    core.cpsr.ge = ((input.cpsr >> 16) & 0xf) as u8;
+    core.cpsr.t = mode != 0;
+    core.vfp.dregs = input.d;
+    core.vfp.fpscr = Fpscr::from_bits(input.fpscr);
+
+    match cpu.step_instruction() {
+        None => (),
+        Some(A32Exit::Internal(reason)) => panic!("AArch32 test CPU failed: {reason}"),
+        Some(_) => return None,
     }
 
-    // Capture: pass d-regs / fpscr / pc through unchanged (rax has no AArch32
-    // VFP model yet), which is correct for integer instructions.
-    let mut out = *input;
-    for i in 0..15usize {
-        out.r[i] = cpu.reg(i);
-    }
-    let mut cpsr = 0u32;
-    if cpu.cpsr.n {
-        cpsr |= 1 << 31;
-    }
-    if cpu.cpsr.z {
-        cpsr |= 1 << 30;
-    }
-    if cpu.cpsr.c {
-        cpsr |= 1 << 29;
-    }
-    if cpu.cpsr.v {
-        cpsr |= 1 << 28;
-    }
-    if cpu.cpsr.q {
-        cpsr |= 1 << 27;
-    }
-    cpsr |= ((cpu.cpsr.ge & 0xF) as u32) << 16;
-    if cpu.cpsr.t {
-        cpsr |= 1 << 5;
-    }
-    out.cpsr = cpsr;
-    for (i, w) in out.scratch.iter_mut().enumerate() {
-        *w = mem.read_word(SCRATCH_ADDR + (i as u32) * 4).ok()?;
+    let core = cpu.core();
+    let mut out = ArmState32::zeroed();
+    out.r.copy_from_slice(&core.regs[..15]);
+    out.pc = (cpu.pc() as u32).wrapping_sub(CODE_ADDR as u32);
+    out.cpsr = core.cpsr.to_u32();
+    out.d = core.vfp.dregs;
+    out.fpscr = core.vfp.fpscr.bits();
+    let mut scratch = [0; 256];
+    space
+        .read(u64::from(SCRATCH_ADDR), &mut scratch)
+        .expect("capture scratch data");
+    for (word, bytes) in out.scratch.iter_mut().zip(scratch.chunks_exact(4)) {
+        *word = u32::from_le_bytes(bytes.try_into().unwrap());
     }
     Some(out)
 }
@@ -273,7 +293,6 @@ fn compare_case(
     mode: u32,
     input: &ArmState32,
     oracle: &OutCase32,
-    cmp_vfp: bool,
     mismatches: &mut Vec<Mismatch>,
 ) {
     let rax = run_rax(insn, mode, input);
@@ -284,7 +303,7 @@ fn compare_case(
                 label: label.into(),
                 insn,
                 detail: format!(
-                    "hw faulted (sig {}) but rax executed the encoding",
+                    "QEMU faulted (sig {}) but RAX executed the encoding",
                     oracle.trapped
                 ),
             });
@@ -297,7 +316,7 @@ fn compare_case(
             mismatches.push(Mismatch {
                 label: label.into(),
                 insn,
-                detail: "hw executed but rax rejected the encoding (undefined/err)".into(),
+                detail: "QEMU executed but RAX rejected the encoding (undefined/err)".into(),
             });
             return;
         }
@@ -307,7 +326,7 @@ fn compare_case(
     for i in 0..15 {
         if rax.r[i] != oracle.st.r[i] {
             diffs.push(format!(
-                "r{i}: rax={:#010x} hw={:#010x}",
+                "r{i}: rax={:#010x} qemu={:#010x}",
                 rax.r[i], oracle.st.r[i]
             ));
         }
@@ -316,24 +335,34 @@ fn compare_case(
     let hw_cpsr = oracle.st.cpsr & CPSR_CMP_MASK;
     if rax_cpsr != hw_cpsr {
         diffs.push(format!(
-            "cpsr(NZCVQ+GE): rax={:#010x} hw={:#010x}",
+            "cpsr(NZCVQ+GE+T): rax={:#010x} qemu={:#010x}",
             rax_cpsr, hw_cpsr
         ));
     }
-    if cmp_vfp {
-        for r in 0..32 {
-            if rax.d[r] != oracle.st.d[r] {
-                diffs.push(format!(
-                    "d{r}: rax={:#018x} hw={:#018x}",
-                    rax.d[r], oracle.st.d[r]
-                ));
-            }
+    if rax.pc != oracle.st.pc {
+        diffs.push(format!(
+            "pc offset: rax={:#010x} qemu={:#010x}",
+            rax.pc, oracle.st.pc
+        ));
+    }
+    if rax.fpscr != oracle.st.fpscr {
+        diffs.push(format!(
+            "fpscr: rax={:#010x} qemu={:#010x}",
+            rax.fpscr, oracle.st.fpscr
+        ));
+    }
+    for r in 0..32 {
+        if rax.d[r] != oracle.st.d[r] {
+            diffs.push(format!(
+                "d{r}: rax={:#018x} qemu={:#018x}",
+                rax.d[r], oracle.st.d[r]
+            ));
         }
     }
     for i in 0..64 {
         if rax.scratch[i] != oracle.st.scratch[i] {
             diffs.push(format!(
-                "scratch[{i}]: rax={:#010x} hw={:#010x}",
+                "scratch[{i}]: rax={:#010x} qemu={:#010x}",
                 rax.scratch[i], oracle.st.scratch[i]
             ));
         }
@@ -405,7 +434,7 @@ fn gen_input(rng: &mut Rng, scratch_reg: Option<usize>) -> ArmState32 {
 // Test driver.
 // ---------------------------------------------------------------------------
 
-fn run_batch(name: &str, batch: Vec<(String, u32, u32, ArmState32)>, cmp_vfp: bool) {
+fn run_batch(name: &str, batch: Vec<(String, u32, u32, ArmState32)>) {
     let oracle = match oracle_path() {
         Some(p) => p,
         None => {
@@ -414,40 +443,19 @@ fn run_batch(name: &str, batch: Vec<(String, u32, u32, ArmState32)>, cmp_vfp: bo
         }
     };
 
-    let labels: Vec<String> = batch.iter().map(|(l, _, _, _)| l.clone()).collect();
-    let modes: Vec<u32> = batch.iter().map(|(_, _, m, _)| *m).collect();
-    let cases: Vec<(u32, u32, ArmState32)> =
-        batch.iter().map(|(_, i, m, s)| (*i, *m, *s)).collect();
-
-    let outs = match run_oracle(&oracle, &cases) {
-        Some(o) => o,
-        None => {
-            eprintln!("[arm_diff32] {name}: oracle run failed -> skipping");
-            return;
-        }
-    };
-    assert_eq!(outs.len(), cases.len());
-
+    let outs = run_oracle(oracle, &batch);
     let mut mismatches = Vec::new();
-    for (i, ((insn, _mode, st), out)) in cases.iter().zip(outs.iter()).enumerate() {
-        compare_case(
-            &labels[i],
-            *insn,
-            modes[i],
-            st,
-            out,
-            cmp_vfp,
-            &mut mismatches,
-        );
+    for ((label, insn, mode, state), out) in batch.iter().zip(&outs) {
+        compare_case(label, *insn, *mode, state, out, &mut mismatches);
     }
 
     if !mismatches.is_empty() {
         use std::collections::BTreeMap;
         // Classify each mismatch.
         let kind = |d: &str| -> &'static str {
-            if d.starts_with("hw executed but rax rejected") {
+            if d.starts_with("QEMU executed but RAX rejected") {
                 "decode-gap"
-            } else if d.starts_with("hw faulted") {
+            } else if d.starts_with("QEMU faulted") {
                 "over-permissive"
             } else {
                 "value"
@@ -467,7 +475,7 @@ fn run_batch(name: &str, batch: Vec<(String, u32, u32, ArmState32)>, cmp_vfp: bo
         eprintln!(
             "\n==== {name}: {} mismatches across {} cases ====",
             mismatches.len(),
-            cases.len()
+            batch.len()
         );
         eprintln!("-- by kind --");
         for (k, c) in &by_kind {
@@ -489,6 +497,10 @@ fn run_batch(name: &str, batch: Vec<(String, u32, u32, ArmState32)>, cmp_vfp: bo
         }
         panic!("{name}: {} mismatches (see above)", mismatches.len());
     }
+    eprintln!(
+        "[arm_diff32] {name}: {} cases matched QEMU Cortex-A15",
+        batch.len()
+    );
 }
 
 // The generated comprehensive integer sweep table.
@@ -515,7 +527,7 @@ fn integer_sweep(name: &str, modes: &[u8], n_inputs: usize, seed: u64) {
             batch.push((label.to_string(), *insn, *mode as u32, st));
         }
     }
-    run_batch(name, batch, false);
+    run_batch(name, batch);
 }
 
 /// Run the memory sweep: r1 points at the scratch window, r2 holds a small
@@ -540,7 +552,7 @@ fn memory_sweep(name: &str, modes: &[u8], n_inputs: usize, seed: u64) {
             batch.push((label.to_string(), *insn, *mode as u32, st));
         }
     }
-    run_batch(name, batch, false);
+    run_batch(name, batch);
 }
 
 /// A32 (ARM) load/store sweep (single/dual/multiple, all addressing modes).
@@ -577,4 +589,128 @@ fn diff_t32_integer_sweep() {
 #[test]
 fn diff_t16_integer_sweep() {
     integer_sweep("t16_integer_sweep", &[1], 24, 0xA32_0003);
+}
+
+struct VfpAuditCase {
+    label: &'static str,
+    insn: u32,
+    inputs: [u32; 2],
+    fpscr: u32,
+    result: u32,
+    flags: u32,
+}
+
+const VFP_AUDIT_CASES: [VfpAuditCase; 6] = [
+    VfpAuditCase {
+        label: "infinity plus one",
+        insn: 0xee30_0a20,
+        inputs: [0x7f80_0000, 0x3f80_0000],
+        fpscr: 0,
+        result: 0x7f80_0000,
+        flags: 0,
+    },
+    VfpAuditCase {
+        label: "quiet NaN plus one",
+        insn: 0xee30_0a20,
+        inputs: [0x7fc0_0000, 0x3f80_0000],
+        fpscr: 0,
+        result: 0x7fc0_0000,
+        flags: 0,
+    },
+    VfpAuditCase {
+        label: "one divided by zero",
+        insn: 0xee80_0a20,
+        inputs: [0x3f80_0000, 0],
+        fpscr: 0,
+        result: 0x7f80_0000,
+        flags: 2,
+    },
+    VfpAuditCase {
+        label: "zero divided by zero",
+        insn: 0xee80_0a20,
+        inputs: [0, 0],
+        fpscr: 0,
+        result: 0x7fc0_0000,
+        flags: 1,
+    },
+    VfpAuditCase {
+        label: "round toward positive infinity",
+        insn: 0xee30_0a20,
+        inputs: [0x3f80_0000, 0x3380_0000],
+        fpscr: 1 << 22,
+        result: 0x3f80_0001,
+        flags: 0x10,
+    },
+    VfpAuditCase {
+        label: "flush a subnormal input",
+        insn: 0xee30_0a20,
+        inputs: [1, 0],
+        fpscr: 1 << 24,
+        result: 0,
+        flags: 0x80,
+    },
+];
+
+fn vfp_audit_input(case: &VfpAuditCase, ordinal: usize) -> ArmState32 {
+    let mut input = gen_input(&mut Rng::new(0xa32_f000 + ordinal as u64), None);
+    input.d[0] = (u64::from(case.inputs[1]) << 32) | u64::from(case.inputs[0]);
+    input.fpscr = case.fpscr;
+    input
+}
+
+#[test]
+fn rax_vfp_audit_state_is_observable() {
+    for mode in [0, 2] {
+        for (ordinal, case) in VFP_AUDIT_CASES.iter().enumerate() {
+            let input = vfp_audit_input(case, ordinal);
+            let output = run_rax(case.insn, mode, &input).expect("allocated VFP instruction");
+            let expected_d0 = (input.d[0] & !u64::from(u32::MAX)) | u64::from(case.result);
+            assert_eq!(
+                (output.d[0], output.fpscr),
+                (expected_d0, case.fpscr | case.flags),
+                "{}, mode {mode}",
+                case.label,
+            );
+            assert_eq!(output.d[1..], input.d[1..], "{}, mode {mode}", case.label);
+            assert_eq!(output.pc, 4, "{}, mode {mode}", case.label);
+            assert_eq!(output.cpsr & 0x20 != 0, mode == 2, "{}", case.label);
+        }
+    }
+}
+
+#[test]
+fn comparator_reports_each_fp_and_execution_state_difference() {
+    let case = &VFP_AUDIT_CASES[2];
+    let input = vfp_audit_input(case, 2);
+    let mut oracle = OutCase32 {
+        st: run_rax(case.insn, 2, &input).expect("allocated VFP instruction"),
+        trapped: 0,
+        valid: 1,
+    };
+    oracle.st.d[31] ^= 1;
+    oracle.st.fpscr ^= 2;
+    oracle.st.pc ^= 2;
+    oracle.st.cpsr ^= 1 << 5;
+    let mut mismatches = Vec::new();
+    compare_case(case.label, case.insn, 2, &input, &oracle, &mut mismatches);
+    assert_eq!(mismatches.len(), 1);
+    for field in ["d31:", "fpscr:", "pc offset:", "cpsr(NZCVQ+GE+T):"] {
+        assert!(mismatches[0].detail.contains(field), "missing {field}");
+    }
+}
+
+#[test]
+fn diff_vfp_audit_replay() {
+    let mut batch = Vec::new();
+    for (mode, name) in [(0, "A32"), (2, "T32")] {
+        for (ordinal, case) in VFP_AUDIT_CASES.iter().enumerate() {
+            batch.push((
+                format!("{name} {}", case.label),
+                case.insn,
+                mode,
+                vfp_audit_input(case, ordinal),
+            ));
+        }
+    }
+    run_batch("vfp_audit_replay", batch);
 }

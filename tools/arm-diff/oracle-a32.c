@@ -1,14 +1,14 @@
 /*
  * AArch32 (A32 + T16/T32 Thumb) differential-test oracle.
  *
- * Built as a *static* 32-bit ARM ELF and executed under `qemu-arm` (user mode)
- * on an x86 host. It is the hardware-semantics reference against which the rax
- * AArch32 interpreter (src/isa/arm/aarch32/cpu.rs +
+ * Built as a *static* 32-bit ARM ELF and executed under `qemu-arm` (user mode).
+ * It is the reference against which the RAX AArch32 interpreter
+ * (src/isa/arm/aarch32/cpu.rs +
  * src/isa/arm/decoder/{aarch32,thumb}.rs)
  * is checked. Mirrors tools/arm-diff/oracle.c (the AArch64 oracle).
  *
  * Protocol (little-endian binary, over stdin -> stdout):
- *   stdin:  u32 magic 'A','3','2','1' (0x31323341)
+ *   stdin:  u32 magic 'A','3','2','2' (0x32323341)
  *           u32 count
  *           count * struct InCase32
  *   stdout: u32 magic (echoed)
@@ -45,7 +45,7 @@
 
 typedef struct {
     uint32_t r[15];      /* R0..R14                          */
-    uint32_t pc;         /* set by harness; output = post-pc */
+    uint32_t pc;         /* output PC relative to test slot */
     uint32_t cpsr;       /* NZCVQ (31:27) + GE (19:16) + T   */
     uint32_t fpscr;      /* VFP status/control               */
     uint64_t d[32];      /* D0..D31 (NEON Q0..Q15)           */
@@ -53,7 +53,7 @@ typedef struct {
 } ArmState32;
 
 /* Shared scratch memory for load/store tests. MAP_FIXED so the same numeric
- * address is valid in both qemu-user and the rax FlatMemory. */
+ * address is valid in both QEMU user mode and the RAX user address space. */
 #define SCRATCH_ADDR 0x200000u
 #define SCRATCH_SIZE 4096
 #define SCRATCH_BASE (SCRATCH_ADDR + 128)
@@ -67,8 +67,12 @@ typedef struct {
 typedef struct {
     ArmState32 st;   /* output architectural state                */
     uint32_t trapped;/* signal number if the insn faulted, else 0 */
-    uint32_t valid;  /* 1 = executed and captured                 */
+    uint32_t valid;  /* 1 = complete VFP frame captured           */
 } OutCase32;
+
+_Static_assert(sizeof(ArmState32) == 584, "ArmState32 wire size");
+_Static_assert(sizeof(InCase32) == 592, "InCase32 wire size");
+_Static_assert(sizeof(OutCase32) == 592, "OutCase32 wire size");
 
 /* VFP signal-frame record (asm/ucontext.h: VFP_MAGIC). */
 #define VFP_MAGIC 0x56465001u
@@ -170,24 +174,29 @@ static volatile int      g_phase;     /* 0 = launch, 1 = capture        */
 static ArmState32        g_block;     /* input register block           */
 static ArmState32       *g_out;       /* captured outputs               */
 static volatile uint32_t g_trapped;   /* non-zero = faulted             */
+static volatile sig_atomic_t g_vfp_valid;
 static uint32_t          g_code;      /* address of the test code page  */
+static uint32_t          g_stop_pc;   /* address of the trailing BKPT   */
 static mcontext_t        g_saved_mc;  /* harness mcontext (to resume)   */
-static uint8_t           g_saved_regspace[1024];
+static uint8_t           g_saved_regspace[sizeof(((ucontext_t *)0)->uc_regspace)];
 
-static void capture_vfp(const ucontext_t *uc, ArmState32 *st) {
+static int capture_vfp(const ucontext_t *uc, ArmState32 *st) {
     const uint8_t *p = (const uint8_t *)uc->uc_regspace;
     const uint8_t *end = (const uint8_t *)uc->uc_regspace + sizeof(uc->uc_regspace);
-    while (p + sizeof(struct vfp_sigframe_hdr) <= end) {
+    while ((size_t)(end - p) >= sizeof(struct vfp_sigframe_hdr)) {
         const struct vfp_sigframe_hdr *h = (const struct vfp_sigframe_hdr *)p;
+        if (h->magic == 0 || h->size < sizeof(*h) || h->size > (size_t)(end - p) ||
+            h->size % 8 != 0) return 0;
         if (h->magic == VFP_MAGIC) {
             /* struct user_vfp { u64 fpregs[32]; u32 fpscr; } follows the 8B hdr */
-            memcpy(st->d, p + 8, sizeof st->d);
-            st->fpscr = *(const uint32_t *)(p + 8 + 256);
-            return;
+            if (h->size < sizeof(*h) + sizeof(st->d) + sizeof(st->fpscr)) return 0;
+            memcpy(st->d, p + sizeof(*h), sizeof(st->d));
+            memcpy(&st->fpscr, p + sizeof(*h) + sizeof(st->d), sizeof(st->fpscr));
+            return 1;
         }
-        if (h->magic == 0 || h->size == 0) return;
         p += h->size;
     }
+    return 0;
 }
 
 static void handler(int sig, siginfo_t *si, void *uc_) {
@@ -211,8 +220,8 @@ static void handler(int sig, siginfo_t *si, void *uc_) {
         return;
     }
 
-    /* Capture phase. A non-SIGTRAP signal means the instruction faulted. */
-    if (sig != SIGTRAP) g_trapped = (uint32_t)sig;
+    /* Only the sentinel breakpoint marks a successfully executed case. */
+    if (sig != SIGTRAP || mc->arm_pc != g_stop_pc) g_trapped = (uint32_t)sig;
 
     g_out->r[0]  = mc->arm_r0;
     g_out->r[1]  = mc->arm_r1;
@@ -231,7 +240,7 @@ static void handler(int sig, siginfo_t *si, void *uc_) {
     g_out->r[14] = mc->arm_lr;
     g_out->pc    = mc->arm_pc;
     g_out->cpsr  = mc->arm_cpsr;
-    capture_vfp(uc, g_out);
+    g_vfp_valid = capture_vfp(uc, g_out);
 
     /* Restore the harness context so the next case can run. */
     memcpy(mc, &g_saved_mc, sizeof(*mc));
@@ -295,7 +304,7 @@ int main(void) {
 
     uint32_t magic = 0, count = 0;
     if (read_exact(0, &magic, 4) || read_exact(0, &count, 4)) return 3;
-    if (magic != 0x31323341u) return 4;
+    if (magic != 0x32323341u) return 4;
     if (write_exact(1, &magic, 4) || write_exact(1, &count, 4)) return 5;
 
     for (uint32_t c = 0; c < count; c++) {
@@ -340,15 +349,18 @@ int main(void) {
         g_out = &out;
         g_phase = 0;
         g_trapped = 0;
+        g_vfp_valid = 0;
+        g_stop_pc = slot_addr + (in.mode == 1 ? 2 : 4);
 
         __asm__ __volatile__("bkpt #0" ::: "memory");
 
         memcpy(out.scratch, (void *)SCRATCH_ADDR, sizeof out.scratch);
+        out.pc -= slot_addr;
 
         OutCase32 oc;
         oc.st = out;
         oc.trapped = g_trapped;
-        oc.valid = 1;
+        oc.valid = g_vfp_valid;
         if (write_exact(1, &oc, sizeof oc)) return 7;
     }
     return 0;

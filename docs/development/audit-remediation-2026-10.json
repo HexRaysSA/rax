@@ -200438,6 +200438,16 @@
       "scope": "The software AArch64 CPU delivers HCR_EL2-backed virtual IRQ and FIQ independently of physical routing. A masked virtual request can wake WFI. A detached checkpoint restores separate pending virtual levels and EL1 vectors on two vCPUs, with zero instructions retired at interrupt entry. QEMU passed 13 bare-metal controls. The virtual GIC interface, virtual SError, delegated interrupts, and native backend delivery and migration remain open.",
       "qualification": "docs/development/a64-gic-interface/README.md#hcr_el2-software-virtual-interrupts",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-vfp-live-differential-state-2026-11-24",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The AArch32 differential suite compares live D0-D31, FPSCR, successor PC, NZCVQ/GE/T, integer registers and scratch memory. The ARM differential CI job requires the QEMU oracle. All 46,332 Cortex-A15 cases matched, including the six audit inputs in both ARM and Thumb. Three integer corrections cover signed most-significant multiply-accumulate, SSAT #32 and rotated T32 register extension. Physical AArch32 and remaining optional, security and debug FP controls remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#aarch32-differential-cpu-state",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

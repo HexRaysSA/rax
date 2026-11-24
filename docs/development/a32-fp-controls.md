@@ -679,6 +679,57 @@ and public memory fault fields. Replay stdout SHA-256 is
 Optional profiles, security and debug controls, and physical A32 execution
 remain open.
 
+## AArch32 differential CPU state
+
+The `arm_diff32` target now installs D0–D31 and FPSCR in an AArch32 user CPU
+and executes the instruction through the ordinary fetch, decode, and step
+path. It then reads those registers, FPSCR, the successor PC relative to the
+instruction, NZCVQ/GE/T, the integer registers, and the scratch window. Every
+successful comparison checks those fields. Before this change the audit replay's
+division-by-zero case reported its input value `0x3f800000` and FPSCR `0`.
+
+The reference guest uses the Linux AArch32 signal ABI. It checks that execution
+reaches the trailing breakpoint, bounds the VFP frame walk to `uc_regspace`,
+and reports whether it captured D0–D31 and FPSCR. The driver rejects incomplete
+or invalid records. The ARM differential job installs the cross compiler and
+sysroot and requires a working oracle. The oracle binary is built inside
+Cargo's temporary target directory. [Linux AArch32 signal frame](https://github.com/torvalds/linux/blob/master/arch/arm/include/asm/ucontext.h)
+
+The six audit inputs cover infinity, quiet NaN, division by zero, invalid
+division, upward rounding, and flush-to-zero. Linux QEMU 5.2.0 with `-cpu
+cortex-a15` matched the raw results and flags in both ARM and Thumb. Enabling
+the integer sweeps exposed host arithmetic overflow in `SMMLA`/`SMMLS` and
+`SSAT #32`. Rotated T32 `SXTB`, `SXTH`, `UXTB`, and `UXTH` also lost the
+decoded source register and rotation. The arithmetic corrections keep the
+architecture's result bits at their signed boundaries. The T32 extensions
+now use the encoding's source and rotation fields, with separate A32 and T16
+controls.
+[Arm instruction pseudocode](../architecture/arm/asl/arm_instrs.asl)
+
+All 46,332 Cortex-A15 cases matched across seven oracle batches, including
+the 12 VFP replays. Four complete integration binaries passed 47,394 tests
+with no ignored cases on Linux AArch64. All 57 AArch32 executor unit tests
+also passed. Forcing a nonexistent cross compiler failed the required mode
+and produced an explicit skip in optional mode.
+The qualification receipt and logs are under
+`/Users/int/dev/rax-audit-work/four-findings-a32-differential-state-2026-11-24`.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The driver compares post-instruction FP and execution state. | Replay the six audit inputs in both execution states. Independently corrupt D31, FPSCR, PC and T and require all four differences to appear. |
+| The reference record belongs to the instruction that reached the sentinel. | Compare normalized PC across ARM, T16 and T32. A missing VFP frame, wrong wire version, failed process or incorrect record count must fail the test. |
+| Integer arithmetic stays within architectural result widths. | Exercise signed accumulation and round-only overflow, shifted `SSAT #32` with Q clear and set, and all four legal rotation amounts with byte and halfword extension. |
+
+Run locally on Linux with `qemu-arm`, `arm-linux-gnueabihf-gcc`, and the
+armhf C sysroot installed.
+
+```sh
+A32DIFF_REQUIRE=1 cargo test --locked --no-default-features --test arm_diff32 -- --nocapture
+```
+
+High-impact coverage stays open for the remaining optional FP profiles,
+security/debug controls, and physical AArch32 execution.
+
 ## A32 and T32 CP10 transfer allocation
 
 The decoder returns Undefined for opcodes 1 through 6 in the conditional
