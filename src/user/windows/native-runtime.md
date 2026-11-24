@@ -4108,8 +4108,8 @@ during ordinary process startup.
 The guest BASE connection admits this profile after binding the native
 kernel, architecture and session to the selected CSR server. It checks
 both guest PEB session fields, then publishes the owned connection and
-client views. The preview USER, BASE NLS and child-start profiles each use
-their session 1 admission checks. The bounded regression exercises
+client views. The preview BASE NLS and child-start profiles use their
+session 1 admission checks. The bounded regression exercises
 session 0 publication and rejection of an unmeasured session.
 The installed x86 `findstr.exe` comparison on session 0 advances from the
 BASE connection at turn 511 to the license-value query at turn 1064.
@@ -4123,7 +4123,7 @@ The selected x86 User32 image calls the private WoW64 service `0x2000` as
 carry the CSR directory, a caller buffer, the scalar size of 584 bytes, and
 the address of User32's one-byte server flag. The service requires the measured
 service leaf and caller in the selected image, plus the process's existing
-session-one CSR connection.
+session 0 or session 1 CSR connection.
 
 The native ARM64 and x86 replies have the same 18 view-relative SHAREDINFO
 pointer fields. The x86 reply projects the selected readonly handle table and
@@ -4132,6 +4132,17 @@ copied unchanged from the selected snapshot. The reply rewrites only those
 pointer fields and clears the low byte of the flag. Both views retain their
 selected data-section identities and are checked before any repeated reply.
 No guest request is dispatched to the host USER service.
+
+On build 29708, naturally initialized ARM64 and WoW64 clients in session 0
+both show a 2 MiB handle-table allocation with a 12,288-byte committed
+read-only prefix, and a fully committed 32,768-byte shared allocation. The
+32-byte entries and 4,160-byte server-information offset match the desktop
+session. Its handle-table prefix measured 45,056 bytes. The guest uses the
+captured extent and requires its existing BASE connection and both matching
+PEB session fields before it maps the two views.
+Installed session-0 SysWOW64 findstr advances to the Win32u NtGdiInit2 leaf.
+The ARM64 controls in both sessions and the desktop-session WoW64 control
+match native stdout, stderr and exit status.
 
 ### Released WoW64 USER startup
 

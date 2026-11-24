@@ -46,7 +46,7 @@ pub(super) fn user_connect(c: &mut Ctx) -> ApiResult {
 }
 
 fn write_user_connection(c: &mut Ctx) -> ApiResult {
-    let server = selected(c, false)?;
+    let server = selected(c, true)?;
     let state = c.p.wow64.as_ref().expect("selected WoW64 state");
     if state.csr.is_none() {
         return Err(c.unsupported("WoW64 USER requires the selected process CSR connection"));
@@ -117,7 +117,7 @@ fn write_base_nls(c: &mut Ctx) -> ApiResult {
     Flow::ret(STATUS_SUCCESS.into())
 }
 
-fn selected(c: &Ctx, base_connect: bool) -> Result<Arc<CsrServer>, ApiErr> {
+fn selected(c: &Ctx, allow_29708_session_zero: bool) -> Result<Arc<CsrServer>, ApiErr> {
     let unsupported = || c.unsupported("unmeasured WoW64 CSR kernel, architecture or session");
     let state = c.p.wow64.as_ref().ok_or_else(unsupported)?;
     let server =
@@ -128,7 +128,7 @@ fn selected(c: &Ctx, base_connect: bool) -> Result<Arc<CsrServer>, ApiErr> {
     let measured = match (state.machine, metadata.arch, state.kernel) {
         (0xaa64, WinArch::Arm64, (10, 0, 29695 | 29698 | 29704)) => true,
         (0xaa64, WinArch::Arm64, (10, 0, 29708)) => {
-            metadata.session == 1 || (base_connect && metadata.session == 0)
+            metadata.session == 1 || (allow_29708_session_zero && metadata.session == 0)
         }
         (0xaa64, WinArch::Arm64, ARM64_PLAIN_STARTUP_KERNEL) => {
             supports_arm64_plain_startup(state.kernel, metadata.session)

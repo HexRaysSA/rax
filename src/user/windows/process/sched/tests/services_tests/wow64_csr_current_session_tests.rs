@@ -132,6 +132,98 @@ fn wow64_csr_29708_base_connect_binds_the_observed_session_zero_geometry() {
 }
 
 #[test]
+fn wow64_csr_29708_user_connect_requires_owned_base_and_maps_readonly_views() {
+    use crate::user::windows::dll::WOW64_USER_CONNECT;
+    use crate::user::windows::hle::{Ctx, Flow, Value};
+    use crate::user::windows::object_namespace::csr::client_data::{
+        INFORMATION_BYTES, native_fixture,
+    };
+
+    for session in [0, 1] {
+        let (mut process, mut thread, b) =
+            setup_selected(29708, session, 0x7fff_0000_0000, 0x750, 0x724);
+        let p = process.state_mut();
+        let selected = p.object_namespace.selected_csr_server().unwrap();
+        let section = selected.section();
+        let server = CsrServer::selected_with_client_data(
+            section.clone(),
+            selected.metadata.clone(),
+            Some(native_fixture(0)),
+        )
+        .unwrap();
+        p.object_namespace = namespace(session);
+        p.object_namespace.select_data_section(section).unwrap();
+        p.object_namespace.select_csr_server(server).unwrap();
+
+        let output = b + 4096;
+        let flag = b + 8192;
+        let sentinels = [0xa5; INFORMATION_BYTES + 8];
+        p.space.wr(output, &sentinels).unwrap();
+        p.space.wr(flag, &[0xa5; 4]).unwrap();
+        let sp = thread.cpu.sp();
+        let user = |p: &mut Proc, thread: &mut Thread| {
+            for (index, arg) in [b, output, INFORMATION_BYTES as u64, flag]
+                .into_iter()
+                .enumerate()
+            {
+                p.space.w32(sp + 4 + 4 * index as u64, arg as u32).unwrap();
+            }
+            (WOW64_USER_CONNECT.imp)(&mut Ctx {
+                p,
+                t: thread,
+                api: &WOW64_USER_CONNECT,
+                entry_pc: 0x1234_0004,
+                entry_sp: sp,
+                ret_addr: 0,
+                cursor: sp - 256,
+            })
+        };
+
+        assert!(user(p, &mut thread).is_err());
+        assert!(p.wow64.as_ref().unwrap().user_data.is_none());
+        assert_eq!(p.space.bytes(output, sentinels.len()).unwrap(), sentinels);
+        assert_eq!(p.space.bytes(flag, 4).unwrap(), [0xa5; 4]);
+        assert_eq!(invoke(p, &mut thread, &args(b)), STATUS_SUCCESS);
+        p.space.wr(flag, &[0xa5; 4]).unwrap();
+
+        p.space.w32(p.peb + 0x1d4, session + 2).unwrap();
+        assert!(user(p, &mut thread).is_err());
+        assert!(p.wow64.as_ref().unwrap().user_data.is_none());
+        assert_eq!(p.space.bytes(output, sentinels.len()).unwrap(), sentinels);
+        assert_eq!(p.space.bytes(flag, 4).unwrap(), [0xa5; 4]);
+        p.space.w32(p.peb + 0x1d4, session).unwrap();
+
+        assert!(matches!(
+            user(p, &mut thread),
+            Ok(Flow::Ret(Value::Int(code))) if code == u64::from(STATUS_SUCCESS)
+        ));
+        let data = p.wow64.as_ref().unwrap().user_data.as_ref().unwrap();
+        assert!(data.owns_views(&p.vm));
+        assert_eq!(
+            p.space.bytes(output, INFORMATION_BYTES).unwrap(),
+            data.information
+        );
+        assert_eq!(
+            p.space.bytes(output + INFORMATION_BYTES as u64, 8).unwrap(),
+            [0xa5; 8]
+        );
+        assert_eq!(p.space.bytes(flag, 4).unwrap(), [0, 0xa5, 0xa5, 0xa5]);
+        let table = p.space.u64(output + 16).unwrap();
+        let shared = p.space.u64(output + 40).unwrap();
+        assert!(table < 1 << 32 && shared < 1 << 32);
+        assert!(p.space.w8(table, 0).is_err() && p.space.w8(shared, 0).is_err());
+        let committed = p.vm.committed_bytes();
+        assert!(matches!(
+            user(p, &mut thread),
+            Ok(Flow::Ret(Value::Int(code))) if code == u64::from(STATUS_SUCCESS)
+        ));
+        assert_eq!(p.vm.committed_bytes(), committed);
+        p.vm.release(table).unwrap();
+        assert!(user(p, &mut thread).is_err());
+    }
+}
+
+#[test]
 fn wow64_csr_29704_refuses_unmeasured_identity_without_caller_or_resource_changes() {
     for variant in 0..11 {
         let (mut process, mut thread, b) = setup_29704(1);
