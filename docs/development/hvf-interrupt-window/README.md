@@ -389,6 +389,24 @@ across the build and execution archives.
   `e92db3a075fa33f3346a2a413616ade8a17416275378f4777393c803d4428d6d`.
   [Native execution archive](https://github.com/HexRaysSA/rax/actions/runs/45339652091/artifacts/14894979204)
 
+Run `45350630932` repeated the two IRQ-vectoring cases on `master` at
+`6f5b57634255b323af0527ee1aa80cb031c6a353`. The original and restored
+owners each stopped at GPA `0xc400` and took the handler once after the
+mapping changed. Both observations matched the RIP and RSP values above.
+The runner reported an untranslated GenuineIntel process on a virtualized
+host. Local verification matched 4,924 engine files and 22 probe files to
+that Git revision, verified the executable signature and hypervisor
+entitlement, and bound both archives to executable SHA-256
+`32d159130522da26e1d51ab6e6f687deb3148b3fb078aab69930e0de4c4f1eab`.
+[Hosted Intel run #106](https://github.com/HexRaysSA/rax/actions/runs/45350630932/job/138295876018)
+
+- Build archive `14900064674` matched SHA-256
+  `90a861047add841d72c633826e3852c9b9321d4d3ea55ee33f2c3f4a5cd5b2d2`.
+  [Signed build archive](https://github.com/HexRaysSA/rax/actions/runs/45350630932/artifacts/14900064674)
+- Execution archive `14900244252` matched SHA-256
+  `4b67e827a577145c1dde23f612ba79084f52ab7001b8377dbd19e1a0675ae7de`.
+  [Native execution archive](https://github.com/HexRaysSA/rax/actions/runs/45350630932/artifacts/14900244252)
+
 Other interrupt-delivery exits, including intercepted nested exceptions and
 task gates, require separate handling. A gate or stack that remains assigned
 to a device cannot complete through this RAM mapping path. General event
