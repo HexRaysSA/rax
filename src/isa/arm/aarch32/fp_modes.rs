@@ -72,7 +72,11 @@ fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
         // FPConvert ignores FZ16 and observes AHP. An alternative half has
         // no NaN encoding; conversion to it also cannot propagate a NaN.
         return Some(Requirements {
-            rounding: Rounding::Fpscr,
+            rounding: if from_half {
+                Rounding::None
+            } else {
+                Rounding::Fpscr
+            },
             nan: state.fpscr.bits() & (1 << 26) == 0,
             flush: if from_half { None } else { Some(1 << 24) },
         });
@@ -101,8 +105,10 @@ fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
         | Mnemonic::VSQRT
         | Mnemonic::VCVTB_BF16_F32
         | Mnemonic::VCVTT_BF16_F32
-        | Mnemonic::VCVT_F32_F64
-        | Mnemonic::VCVT_F64_F32 => (Rounding::Fpscr, true),
+        | Mnemonic::VCVT_F32_F64 => (Rounding::Fpscr, true),
+        // A widened finite value is exact. NaN handling and input flushing
+        // still depend on FPSCR.
+        Mnemonic::VCVT_F64_F32 => (Rounding::None, true),
         Mnemonic::VCMP | Mnemonic::VCMPE => (Rounding::None, false),
         Mnemonic::VMAXNM_F16
         | Mnemonic::VMAXNM_F32

@@ -29,6 +29,11 @@ private virtual-PE identifier is not a claim of a physical vendor assignment.
 Checks follow the instruction's actual control dependencies. Explicit rounding
 forms are distinguished from FPSCR.RMode. Scalar half arithmetic uses FZ16;
 half precision conversion follows FPConvert, observes AHP, and ignores FZ16.
+Binary16 to binary32 or binary64 and binary32 to binary64 conversions have no
+rounding dependency. The widest finite source significand fits in the
+destination, and the smallest source magnitudes, 2^-24 and 2^-149, respectively,
+are normal in their wider destination formats. Binary32 input flushing and
+applicable NaN handling still use the guest controls.
 Scalar integer-to-floating conversions have a minimum nonzero magnitude of 1,
 so they need no flush-to-zero support. Fixed-to-floating conversions use
 `FixedToFP` with a minimum nonzero magnitude of 2 raised to the negative
@@ -73,6 +78,10 @@ access-trap priority, failed ARM/Thumb predicates, independent operations, and
 The fixed-to-binary16 boundary test also distinguishes FZ16 from FZ at 14
 and 15 fraction bits and checks the completed result, FPSCR.UFC, and the
 unsupported-mode frontier in both instruction sets.
+Another 640 executions cover the five exact widening encodings, all four
+FPSCR.RMode values, all sixteen MVFR0.FPRound values, and both instruction sets.
+They verify the destination bit pattern for the smallest positive source
+subnormal and preservation of FPSCR.
 Another 3,072 reads check stable FPSID identity across capability/control/base-value
 combinations. A 32-case mixed-width test checks the identity, successful full-profile
 arithmetic, unsupported-mode faults, and competing EL2 access traps together.

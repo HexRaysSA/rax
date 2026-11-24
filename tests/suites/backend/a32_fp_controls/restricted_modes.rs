@@ -209,6 +209,50 @@ fn restricted_vfp_controls_do_not_disable_storage_or_advanced_simd() {
 }
 
 #[test]
+fn scalar_widening_converts_the_smallest_subnormal_with_any_rounding_mode() {
+    for thumb in [false, true] {
+        for round_capability in 0..16 {
+            for round_mode in 0..4 {
+                for (raw, source, wide, expected) in [
+                    (0xeeb2_0a41, 0x0000_0001, false, 103 << 23), // VCVTB.F32.F16
+                    (0xeeb2_0ac1, 0x0001_0000, false, 103 << 23), // VCVTT.F32.F16
+                    (0xeeb2_0b41, 0x0000_0001, true, 999 << 52),  // VCVTB.F64.F16
+                    (0xeeb2_0bc1, 0x0001_0000, true, 999 << 52),  // VCVTT.F64.F16
+                    (0xeeb7_0ac1, 0x0000_0001, true, 874 << 52),  // VCVT.F64.F32
+                ] {
+                    // 2^-24 and 2^-149 are normal in the destination formats.
+                    // Keep FZ off for the binary32 source. FPConvert ignores FZ16.
+                    let mut cpu = configured(thumb, 6, (round_mode << 22) | (1 << 19));
+                    cpu.vfp.mvfr0 |= round_capability << 28;
+                    cpu.vfp.write_s_bits(2, source);
+                    let fpscr = cpu.vfp.fpscr.bits();
+                    let insn = if thumb {
+                        ThumbDecoder::decode_32bit(raw)
+                    } else {
+                        Aarch32Decoder::decode(raw)
+                    }
+                    .unwrap();
+                    let result =
+                        Executor::new(&mut cpu, &mut FlatMemory::new(4096, 0)).execute(&insn);
+                    let context = (thumb, round_capability, round_mode, raw);
+                    assert!(
+                        matches!(result, ExecResult::Continue),
+                        "{context:?}: {result:?}"
+                    );
+                    let actual = if wide {
+                        cpu.vfp.dregs[0]
+                    } else {
+                        u64::from(cpu.vfp.read_s_bits(0))
+                    };
+                    assert_eq!(actual, expected, "{context:?}");
+                    assert_eq!(cpu.vfp.fpscr.bits(), fpscr, "{context:?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn scalar_sign_and_select_do_not_require_a_trapping_capability() {
     const NEGATIVE_SNAN: u32 = 0xff80_0042;
     const POSITIVE_SNAN: u32 = 0x7f80_0021;

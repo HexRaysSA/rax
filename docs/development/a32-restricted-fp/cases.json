@@ -1299,7 +1299,7 @@
     {
       "name": "vcvt_f64_f32",
       "assembly": "vcvt.f64.f32 d0,s2",
-      "rounding": "fpscr",
+      "rounding": "none",
       "nan": true,
       "flush": "base",
       "kind": "scalar",
@@ -1319,7 +1319,7 @@
     {
       "name": "vcvtb_f32_f16",
       "assembly": "vcvtb.f32.f16 s0,s2",
-      "rounding": "fpscr",
+      "rounding": "none",
       "nan": "unless_ahp",
       "flush": "none",
       "kind": "scalar",
@@ -1339,7 +1339,7 @@
     {
       "name": "vcvtb_f64_f16",
       "assembly": "vcvtb.f64.f16 d0,s2",
-      "rounding": "fpscr",
+      "rounding": "none",
       "nan": "unless_ahp",
       "flush": "none",
       "kind": "scalar",
