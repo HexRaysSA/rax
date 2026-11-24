@@ -15,6 +15,8 @@ pub(crate) enum ProcessConfigKey {
     RpcPolicy,
     ActiveComputerName,
     TcpipParameters,
+    DnsClientParameters,
+    DnsClientPolicy,
     WinsockParameters,
     WinsockAppIdCatalog,
     WinsockProtocolCatalog,
@@ -26,11 +28,13 @@ pub(crate) enum ProcessConfigKey {
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 11] = [
+    pub(super) const ALL: [Self; 13] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
         Self::TcpipParameters,
+        Self::DnsClientParameters,
+        Self::DnsClientPolicy,
         // Capture the fixed children before linking the Parameters handle.
         Self::WinsockAppIdCatalog,
         Self::WinsockProtocolCatalog,
@@ -50,6 +54,12 @@ impl ProcessConfigKey {
             }
             Self::TcpipParameters => {
                 r"\Registry\Machine\System\CurrentControlSet\Services\Tcpip\Parameters"
+            }
+            Self::DnsClientParameters => {
+                r"\Registry\Machine\System\CurrentControlSet\Services\Dnscache\Parameters"
+            }
+            Self::DnsClientPolicy => {
+                r"\Registry\Machine\Software\Policies\Microsoft\Windows NT\DNSClient"
             }
             Self::WinsockParameters => {
                 r"\Registry\Machine\System\CurrentControlSet\Services\WinSock2\Parameters"
@@ -97,7 +107,11 @@ impl ProcessConfigKey {
                 "WinSock_Registry_Version",
                 "Ws2_32NumHandleBuckets",
             ],
-            Self::WinsockAppIdCatalog | Self::Ccg | Self::OsDataAppCompatFlags => &[],
+            Self::DnsClientParameters
+            | Self::DnsClientPolicy
+            | Self::WinsockAppIdCatalog
+            | Self::Ccg
+            | Self::OsDataAppCompatFlags => &[],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
@@ -111,6 +125,8 @@ impl ProcessConfigKey {
             Self::RpcPolicy => "RPC policy",
             Self::ActiveComputerName => "active computer name",
             Self::TcpipParameters => "TCP/IP host and domain configuration",
+            Self::DnsClientParameters => "DNS Client parameters",
+            Self::DnsClientPolicy => "DNS Client policy",
             Self::WinsockParameters => "Winsock catalog selection",
             Self::WinsockAppIdCatalog => "Winsock application-ID catalog",
             Self::WinsockProtocolCatalog => Catalog::Protocol.label(),

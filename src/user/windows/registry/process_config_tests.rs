@@ -834,3 +834,33 @@ fn tcpip_parameters_shares_selected_dns_identity_in_both_views() {
         }
     }
 }
+
+#[test]
+fn dns_client_startup_keys_preserve_opens_without_projecting_values() {
+    for subject in [
+        ProcessConfigKey::DnsClientParameters,
+        ProcessConfigKey::DnsClientPolicy,
+    ] {
+        let root = SnapshotRoot::ProcessConfig(subject);
+        let canonical = subject.path().replace("CurrentControlSet", "ControlSet001");
+        let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            registry = registry
+                .with_snapshot_selection(root, &[], view, Ok((header(&canonical, vec![]), None)))
+                .unwrap();
+        }
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            for path in [root.path(&[]).unwrap(), units(&canonical)] {
+                let Lookup::Present(key) = registry.lookup_view(&path, view) else {
+                    panic!("{subject:?} missing in {view:?}");
+                };
+                let grant = key.captured_access().unwrap();
+                assert_eq!(grant.grant(0x20019), Ok(0x20019));
+                assert_eq!(grant.grant(2), Err(STATUS_ACCESS_DENIED));
+                assert!(!key.covers_value(&units("UnselectedValue")));
+                assert!(key.ordered_values().is_none());
+                assert!(key.child_metadata().is_none());
+            }
+        }
+    }
+}
