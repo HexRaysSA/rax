@@ -21,9 +21,11 @@ The authoritative references are the archived
 one-based PDF pages 917–918 (VDIV), 1070–1072 (floating-point VMLA),
 and 1154–1157 (VNEG).
 
-An LLVM disagreement for `ee120954` was excluded from the defect set:
+The historical validation excluded an LLVM disagreement for `ee120954`:
 `aarch32_VMOV_h_A1_A` and its T32 counterpart mark six omitted fields as
-`x`. Those fields are preserved. The corresponding PDF pages are 1097–1098.
+`x`. That version of the decoder accepted nonzero values in those fields.
+RAX now selects Undefined for both single-register transfer widths under
+the Arm SBZ rule. [Single-register VMOV qualification](../a32-fp-controls.md#single-register-vmov-reserved-fields)
 [Provenance](provenance.json) pins both primary sources and oracle tools.
 
 The complete pre-fix `a32_fp_controls` target ran 135 tests: 131 passed and
@@ -58,7 +60,7 @@ missing tools fail the harness. Temporary objects and executable are removed.
 | ID | Assumption and dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|
 | P1 | Ordinary scalar data requires the fixed major/coprocessor/conditional prefix | Primary encodings; all coprocessors, conditions, both ISAs, high register fields and earlier extensions; falsified by a primary-defined legal ordinary encoding failing the predicate | Primary confirmed; complete target results in qualification |
-| P2 | VMOV_h ignored fields retain their current allocation | All 64 values, directions and register fields; falsified by a primary mandatory-bit/decode restriction | Primary confirmed; baseline preservation control passed |
+| P2 | VMOV_h ignored fields retain their historical allocation | All 64 values, directions and register fields | Baseline preservation control passed. The later SBZ qualification supersedes this policy. |
 | P3 | Non-FP coprocessor neighbors acquire no FP side effects or FP-access traps | Enabled/denied FP, Hyp TCP10, FPEXC disabled, SMIR and mixed-width frontiers; falsified by an FP dispatch or changed state | Final regression results in qualification |
 
 High-impact remaining profile controls, complete backend/private/in-flight

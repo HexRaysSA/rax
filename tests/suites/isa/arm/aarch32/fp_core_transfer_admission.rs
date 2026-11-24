@@ -90,6 +90,53 @@ fn core_transfer_operands_begin_with_the_destination() {
 }
 
 #[test]
+fn reserved_single_core_transfer_preserves_registers_and_skips_failed_predicate() {
+    for thumb in [false, true] {
+        for word in [0xee00_0910, 0xee10_0910, 0xee00_0a10, 0xee10_0a10] {
+            for cpacr in [0, 0x00f0_0000] {
+                for condition_passes in [true, false] {
+                    if thumb && !condition_passes {
+                        continue;
+                    }
+                    let raw = ((word | 0x0001_2081) & 0x0fff_ffff)
+                        | if condition_passes { 0xe000_0000 } else { 0 };
+                    let instruction = decode(raw, thumb);
+                    let mut cpu = Armv7Cpu::new();
+                    cpu.cpsr.t = thumb;
+                    cpu.cpsr.z = false;
+                    cpu.cp15.cpacr = Cpacr::from_bits(cpacr);
+                    cpu.vfp.mvfr1 = (cpu.vfp.mvfr1 & !(15 << 20)) | (2 << 20);
+                    cpu.regs[2] = 0x1234_5678;
+                    cpu.vfp.dregs[1] = 0x8877_6655_90f0_b180;
+                    cpu.vfp.fpscr = Fpscr::from_bits(0xa800_009f);
+                    let before = (
+                        cpu.regs,
+                        cpu.vfp.dregs,
+                        cpu.vfp.fpscr.bits(),
+                        cpu.cpsr.to_u32(),
+                    );
+                    let result = execute(&mut cpu, &instruction);
+                    if condition_passes {
+                        assert!(matches!(result, ExecResult::Undefined), "{instruction:?}");
+                    } else {
+                        assert!(matches!(result, ExecResult::Continue), "{instruction:?}");
+                    }
+                    assert_eq!(
+                        (
+                            cpu.regs,
+                            cpu.vfp.dregs,
+                            cpu.vfp.fpscr.bits(),
+                            cpu.cpsr.to_u32()
+                        ),
+                        before
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn r15_core_transfers_select_undefined_before_access_and_preserve_state() {
     for thumb in [false, true] {
         for access in [false, true] {

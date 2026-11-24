@@ -216,30 +216,31 @@ fn unconditional_extensions_keep_their_existing_allocations() {
 }
 
 #[test]
-fn half_core_dont_care_fields_retain_the_primary_allocation() {
-    // Arm ASL VMOV_h marks these six bits x, not fixed zero. LLVM's
-    // narrower disassembler acceptance is not a reason to change this policy.
+fn single_register_core_transfer_reserved_fields_select_undefined() {
+    // DDI 0597 A1/T1 VMOV.F16 and VMOV mark bits 6:5 and 3:0 as (0).
     for thumb in [false, true] {
-        for read in 0..2 {
-            for t in 0..16 {
-                for n in 0..32 {
-                    for ignored in 0..64 {
-                        let raw = 0xee00_0910
-                            | (read << 20)
-                            | (t << 12)
-                            | ((n >> 1) << 16)
-                            | ((n & 1) << 7)
-                            | (ignored & 15)
-                            | ((ignored >> 4) << 5);
-                        assert_eq!(
-                            decode(raw, thumb).mnemonic,
-                            if t == 15 {
+        for (base, valid) in [
+            (0xee00_0910, Mnemonic::VMOV_F16_CORE),
+            (0xee00_0a10, Mnemonic::VMOV),
+        ] {
+            for read in 0..2 {
+                for t in 0..16 {
+                    for n in 0..32 {
+                        for reserved in 0..64 {
+                            let raw = base
+                                | (read << 20)
+                                | (t << 12)
+                                | ((n >> 1) << 16)
+                                | ((n & 1) << 7)
+                                | (reserved & 15)
+                                | ((reserved >> 4) << 5);
+                            let expected = if t == 15 || reserved != 0 {
                                 Mnemonic::UNDEFINED
                             } else {
-                                Mnemonic::VMOV_F16_CORE
-                            },
-                            "raw={raw:08x}, thumb={thumb}"
-                        );
+                                valid
+                            };
+                            assert_eq!(decode(raw, thumb).mnemonic, expected, "{raw:08x}, {thumb}");
+                        }
                     }
                 }
             }

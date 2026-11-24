@@ -98,11 +98,22 @@ fn hyp_hcptr_written_by_the_guest_controls_fp_admission() {
 }
 
 fn mixed(raw: u32, thumb: bool, target: u8, secure: bool, fpexc: bool) -> AArch64Cpu {
+    mixed_with_config(raw, thumb, target, secure, fpexc, AArch64Config::default())
+}
+
+fn mixed_with_config(
+    raw: u32,
+    thumb: bool,
+    target: u8,
+    secure: bool,
+    fpexc: bool,
+    config: AArch64Config,
+) -> AArch64Cpu {
     let mut cpu = AArch64Cpu::new(
         AArch64Config {
             initial_el: 3,
             gic_config: None,
-            ..AArch64Config::default()
+            ..config
         },
         Box::new(Memory64::new(0, 0x4000)),
     );

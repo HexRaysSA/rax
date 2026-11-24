@@ -5,7 +5,8 @@ impl Aarch32Decoder {
         if raw & 0x0fe00f10 == 0x0e000910 {
             let t = ((raw >> 12) & 15) as u8;
             let n = ((((raw >> 16) & 15) << 1) | ((raw >> 7) & 1)) as u8;
-            if raw >> 28 != 14 || t == 15 {
+            // DDI 0597 marks bits 6:5 and 3:0 as (0) for VMOV.F16.
+            if raw >> 28 != 14 || t == 15 || raw & 0x6f != 0 {
                 return Some(DecodedInsn::new(
                     Mnemonic::UNDEFINED,
                     ExecutionState::Aarch32,

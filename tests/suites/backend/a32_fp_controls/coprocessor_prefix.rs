@@ -1,5 +1,6 @@
 //! Unconditional coprocessor routing and ordinary FP transfer prefixes.
 use rax::isa::arm::aarch32::{cp15::Cpacr, cpu::ProcessorMode, vfp::Fpscr};
+use rax::isa::arm::aarch64::AArch64Config;
 use rax::isa::arm::common::cpu::{ArmCpu, ArmError};
 use rax::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
 use rax::isa::arm::execution::FlatMemory;
@@ -92,6 +93,43 @@ fn conditional_cp10_transfer_opcodes_do_not_resolve_to_system_operations() {
                 decode(raw, thumb).mnemonic,
                 mnemonic,
                 "{raw:08x}, thumb={thumb}"
+            );
+        }
+    }
+}
+
+#[test]
+fn invalid_single_vmov_fields_cannot_take_a_higher_level_fp_trap() {
+    for thumb in [false, true] {
+        for word in [0xee01_0990, 0xee11_0990, 0xee01_0a90, 0xee11_0a90] {
+            let raw = word | 0x6f;
+            let mut cpu =
+                super::mixed_with_config(raw, thumb, 2, false, true, AArch64Config::v8_2());
+            let registers = (cpu.get_gpr(0), cpu.get_simd(0), cpu.export_sregs());
+            assert!(
+                matches!(cpu.step(), Err(ArmError::UndefinedInstruction(value)) if value == raw),
+                "raw={raw:08x}, thumb={thumb}"
+            );
+            assert_eq!(cpu.get_pc(), 0x100);
+            assert_eq!(cpu.instruction_count(), 0);
+            assert_eq!(
+                (cpu.get_gpr(0), cpu.get_simd(0), cpu.export_sregs()),
+                registers
+            );
+
+            let mut cpu =
+                super::mixed_with_config(word, thumb, 2, false, true, AArch64Config::v8_2());
+            let result = cpu.step();
+            assert!(
+                matches!(
+                    result,
+                    Err(ArmError::ArchitecturalException {
+                        ec: 7,
+                        target_el: Some(2),
+                        ..
+                    })
+                ),
+                "raw={word:08x}, thumb={thumb}: {result:?}"
             );
         }
     }

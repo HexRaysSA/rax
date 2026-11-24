@@ -254,9 +254,9 @@ impl Aarch32Decoder {
         }
 
         let rt = ((raw >> 12) & 0xF) as u8;
-        // Core/extension transfers select Undefined for an R15 operand before
-        // CheckAdvSIMDOrVFPEnabled, as the pair-register forms already do.
-        if rt == 15 {
+        // Core/extension transfers select Undefined before FP access checks
+        // for R15 and for nonzero (0) fields in the single-register form.
+        if rt == 15 || (coproc == 0b1010 && raw & 0x6f != 0) {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -284,9 +284,6 @@ impl Aarch32Decoder {
             });
         }
 
-        if raw & 0x6f != 0 {
-            return None;
-        }
         let sreg = ((((raw >> 16) & 15) << 1) | ((raw >> 7) & 1)) as u8;
         let fp = Operand::FpReg(FpRegister::s(sreg));
         Some(if raw & (1 << 20) != 0 {

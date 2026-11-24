@@ -872,3 +872,38 @@ The five complete RAX integration targets passed 47,690 tests with zero
 failures or ignored tests. The initial ARM run received SIGKILL. Its complete
 46,850-case rerun used two test threads. Physical AArch32 execution remains
 unverified.
+
+## Single-register VMOV reserved fields
+
+A32 A1 and T32 T1 mark bits 6:5 and 3:0 of the CP9 `VMOV.F16` and
+CP10 `VMOV` single-register core transfers as `(0)`. RAX selects
+Undefined Instruction for nonzero values at decode, before dispatch to
+FP access checks. Undefined is one of the permitted Armv8-A outcomes
+for these fields. The archived ASL represents them as `x` in its opcode
+matcher. That representation identifies the instruction class, while
+the encoding diagrams and SBZ rules govern the permitted outcomes.
+Canonical transfers retain the existing core and single-register
+operands. The check takes constant time and storage.
+[Arm DDI 0597 ID032025, pp. 1094–1096](../specifications/arm/aarch32-isa-2025-03.pdf)
+[Arm DDI 0487B.a, § K1.1.9](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe | Result |
+| --- | --- | --- |
+| Both instructions have the same SBZ positions. | Exercise all 64 combinations, all 16 core and 32 scalar register selectors, both directions, and both instruction sets in RAX. Run all 64 combinations at S3 with FP enabled on QEMU. | The CP10 and CP9 baselines classified `0xee002a11` as MCR and `0xee002911` as VMOV.F16, respectively. The QEMU matrix returned Undefined on 756 nonzero cases and the expected copied value on all 12 canonical cases. |
+| The selected Undefined outcome preserves state and the ARM predicate. | Compare all GPRs, D registers, FPSCR and CPSR on the standalone path. Use an Armv8.2-A mixed-width profile with CPTR_EL2.TFP enabled and canonical transfers as trap controls. | The baseline already rejected the tested CP10 words in standalone execution. The corresponding nonzero CP9 fields selected the FP16 transfer. |
+
+The independent reference was QEMU 11.1.2. Its Cortex-A15 and `max`
+512-case single-precision guest log SHA-256 is
+`82bedb295362ef4e60e01ed6c027dbbc0228864f6e598d98163947ff0d9dca9c`.
+Its FP16-capable `max` 256-case guest log SHA-256 is
+`7266d44a12e635aaad37f28b2cc0db4ac95b0157fa86c532529e61a99ad7aa88`.
+
+The final macOS Arm64 run passed all 47,695 tests across five complete
+targets. The totals were 203 `a32_fp_controls`, five `a32_fp_pairs`,
+46,850 `arm`, 535 `arm_vfp_a32`, and 102 `isa_oracle`. The mixed-width
+control uses Armv8.2-A so canonical `VMOV.F16` reaches the FP access trap.
+The first mixed-width control used the default Armv8.0-A profile, which
+rejected canonical `VMOV.F16` at feature admission.
+
+Physical AArch32 qualification and the remaining optional profile, security
+and debug controls stay open.
