@@ -115,6 +115,22 @@ counts, flags, lengths, and remaining bytes before reserving event storage, and
 rejects truncation or trailing data. Execution state requires the complete CPU
 set; the BSP controller must agree with the base checkpoint.
 
+Fresh resume with two or more vCPUs requires both the ordered CPU set and the
+execution section. In-place restore can still apply a legacy public x86-64 CPU
+projection without the execution section. When the execution section is present,
+restore requires the private state for every software x86-64 vCPU, including in
+a single-CPU VM. This check takes O(C) time for C vCPUs and runs before state
+publication.
+
+The interrupted-input regression starts an AP by INIT/SIPI and captures after
+the AP issues `IN AL,0xe9`. Removing the private CPU section caused the parent
+implementation to restore the AP and emit `0x00` from its next `OUT` after the
+harness supplied `0x5a` to the vCPU. The revised admission rejects the altered
+file on both fresh and in-place restore. The complete-file control supplies the
+same reply to the restored AP and observes `0x5a` at the next `OUT`. This probe
+checks retention of the input destination at a stopped CPU frontier. In normal
+software VMM execution, port I/O is serviced before the next checkpoint.
+
 Timer ages use unsigned 128-bit nanoseconds and a fresh monotonic anchor.
 Restoration rebases the anchor at publication, excluding load time from the
 captured age. The software LAPIC uses its existing modeled 1 GHz source and
