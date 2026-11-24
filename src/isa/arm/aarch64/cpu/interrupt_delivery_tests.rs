@@ -190,6 +190,125 @@ fn hcr_virtual_interrupts_enter_aarch32_el1_in_the_selected_mode() {
 }
 
 #[test]
+fn hcr_virtual_serror_is_consumed_when_the_el1_handler_is_entered() {
+    use crate::isa::arm::aarch64::hcr;
+
+    for (el, sp_sel, vector) in [(0, false, 0x580), (1, false, 0x180), (1, true, 0x380)] {
+        let mut cpu = virtual_interrupt_cpu(el, 0xd503_201f);
+        cpu.sp_sel = sp_sel;
+        cpu.daif = 3; // SError is unmasked while IRQ and FIQ are masked.
+        cpu.sysregs.hcr_el2 |= hcr::AMO | hcr::VSE;
+        cpu.sysregs.scr_el3 |= 1 << 3; // The physical EA routing is independent.
+        let spsr = cpu.pstate_bits();
+        let handler = 0x800 + vector;
+        cpu.write_memory(handler, &0xd69f_03e0u32.to_le_bytes())
+            .unwrap(); // ERET
+        assert_eq!(cpu.step().unwrap(), CpuExit::InterruptPending);
+        assert_ne!(cpu.sysregs.hcr_el2 & hcr::VSE, 0);
+
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+        assert_eq!((cpu.current_el, cpu.pc, cpu.insn_count), (1, handler, 0));
+        assert_eq!((cpu.sysregs.el1.elr, cpu.sysregs.el1.spsr), (0, spsr));
+        assert_eq!(cpu.sysregs.el1.esr, 0xbe00_0000);
+        assert_eq!(cpu.sysregs.hcr_el2, (1 << 31) | hcr::AMO);
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue); // ERET
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue); // Original NOP.
+        assert_eq!((cpu.current_el, cpu.pc, cpu.insn_count), (el, 4, 2));
+    }
+}
+
+#[test]
+fn hcr_virtual_serror_routing_mask_and_priority_preserve_pending_state() {
+    use crate::isa::arm::aarch64::hcr;
+
+    for (el, secure, masked, hcr, pc) in [
+        (1, false, false, hcr::VSE, 4),
+        (1, false, false, hcr::AMO, 4),
+        (1, false, true, hcr::AMO | hcr::VSE, 4),
+        (0, false, false, (1 << 27) | hcr::AMO | hcr::VSE, 4),
+        (1, true, false, hcr::AMO | hcr::VSE, 4),
+        (2, false, false, hcr::AMO | hcr::VSE, 4),
+        (
+            1,
+            false,
+            false,
+            hcr::AMO | hcr::VSE | hcr::VI | hcr::IMO,
+            0xa80,
+        ),
+        (
+            1,
+            false,
+            false,
+            hcr::AMO | hcr::VSE | hcr::VF | hcr::FMO,
+            0xb00,
+        ),
+    ] {
+        let mut cpu = virtual_interrupt_cpu(el, 0xd503_201f);
+        cpu.sysregs.scr_el3 &= !u64::from(secure);
+        cpu.sysregs.hcr_el2 |= hcr;
+        cpu.daif = u8::from(masked) << 2;
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+        assert_eq!((cpu.pc, cpu.insn_count), (pc, u64::from(pc == 4)));
+        assert_eq!(cpu.sysregs.hcr_el2, (1 << 31) | hcr);
+    }
+}
+
+#[test]
+fn hcr_virtual_serror_wakes_wfi_while_masked_and_vectors_after_unmasking() {
+    use crate::isa::arm::aarch64::hcr;
+    use crate::vm::timing::{ClockMode, TimingContext};
+    use crate::vm::vcpu::ClockIdle;
+    use std::sync::Arc;
+
+    for pending_before_wfi in [false, true] {
+        let mut cpu = virtual_interrupt_cpu(1, 0xd503_207f); // WFI
+        cpu.daif = 0xf;
+        cpu.bind_system_counter(Arc::new(TimingContext::with_mode(ClockMode::Retired)));
+        if pending_before_wfi {
+            cpu.sysregs.hcr_el2 |= hcr::AMO | hcr::VSE | hcr::TWI;
+        }
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Wfi);
+        assert_eq!(
+            (cpu.pc, cpu.insn_count, cpu.wfi),
+            (4, 1, !pending_before_wfi)
+        );
+        if !pending_before_wfi {
+            assert!(matches!(
+                cpu.clock_idle().unwrap(),
+                ClockIdle::Waiting { .. }
+            ));
+        }
+        cpu.sysregs.hcr_el2 |= hcr::AMO | hcr::VSE;
+        assert!(matches!(cpu.clock_idle().unwrap(), ClockIdle::Runnable));
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+        assert_eq!((cpu.pc, cpu.insn_count, cpu.wfi), (8, 2, false));
+        assert_ne!(cpu.sysregs.hcr_el2 & hcr::VSE, 0);
+        cpu.daif &= !4;
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+        assert_eq!((cpu.pc, cpu.insn_count, cpu.sysregs.el1.elr), (0xb80, 2, 8));
+        assert_eq!(cpu.sysregs.hcr_el2 & hcr::VSE, 0);
+    }
+}
+
+#[test]
+fn hcr_virtual_serror_reports_an_aarch32_asynchronous_external_abort() {
+    use crate::isa::arm::aarch64::hcr;
+
+    for (ttbcr, pstate, dfsr) in [(0, 0x13, 0x406), (1 << 31, 0x33, 0x211)] {
+        let mut cpu = virtual_interrupt_cpu(1, 0xe320_f000);
+        cpu.sysregs.hcr_el2 = hcr::AMO | hcr::VSE;
+        cpu.sysregs.el1.tcr = ttbcr;
+        cpu.set_pstate_bits(pstate).unwrap();
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+        assert_eq!((cpu.current_el, cpu.pc, cpu.insn_count), (1, 0x810, 0));
+        assert_eq!(cpu.aarch32.unwrap().mode, 0x17);
+        assert_eq!(cpu.get_lr(), 8);
+        assert_eq!(cpu.sysregs.el1.esr, dfsr);
+        assert_eq!(cpu.sysregs.hcr_el2, hcr::AMO);
+    }
+}
+
+#[test]
 fn mrs_iar_and_hppir_respect_group_without_consuming_a_wrong_bank() {
     for (group, wrong_iar, wrong_hppir, right_iar) in [
         (0, 0xd538_cc00, 0xd538_cc40, 0xd538_c800u32),

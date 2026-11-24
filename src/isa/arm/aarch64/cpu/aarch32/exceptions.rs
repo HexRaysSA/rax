@@ -61,6 +61,16 @@ impl AArch64Cpu {
         if target == 2 && !matches!(kind, ExceptionType::Irq | ExceptionType::Fiq) {
             self.sysregs.bank_mut(target).esr = syndrome.value;
         }
+        if target == 1 && kind == ExceptionType::SError {
+            // AArch32_TakeVirtualSErrorException selects the asynchronous
+            // external-abort DFSR encoding using TTBCR.EAE. DFAR is arbitrary;
+            // this PE retains its previous value and reports ExT as zero.
+            self.sysregs.el1.esr = if self.sysregs.el1.tcr & (1 << 31) != 0 {
+                0x211
+            } else {
+                0x406
+            };
+        }
         if target == 1 && ec == 0x38 {
             let status = if self.sysregs.el1.tcr & (1 << 31) != 0 {
                 0x222

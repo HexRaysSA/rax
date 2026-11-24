@@ -79,8 +79,8 @@ impl AArch64Cpu {
             }
         }
 
-        if let Some((target, kind)) = deliverable {
-            self.take_exception(target, kind, SyndromeRegister::new())?;
+        if let Some(delivery) = deliverable {
+            delivery.enter(self)?;
             return Ok(CpuExit::Continue);
         }
 

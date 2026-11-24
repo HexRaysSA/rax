@@ -1,27 +1,61 @@
-//! Resolve a controller request before applying IRQ/FIQ exception masks.
+//! Resolve per-PE physical and virtual interrupts before applying PSTATE masks.
 use super::*;
+use crate::isa::arm::aarch64::hcr;
+
+pub(super) enum InterruptDelivery {
+    IrqOrFiq { target: u8, kind: ExceptionType },
+    VirtualSError,
+}
+
+impl InterruptDelivery {
+    pub(super) fn enter(self, cpu: &mut AArch64Cpu) -> Result<(), ArmError> {
+        match self {
+            Self::IrqOrFiq { target, kind } => {
+                cpu.take_exception(target, kind, SyndromeRegister::new())
+            }
+            Self::VirtualSError => {
+                // The classic software PE reports an all-zero ISS for virtual SError.
+                let syndrome = SyndromeRegister::serror(0, false, 0);
+                cpu.take_exception(1, ExceptionType::SError, syndrome)?;
+                cpu.sysregs.hcr_el2 &= !hcr::VSE;
+                Ok(())
+            }
+        }
+    }
+}
 
 pub(super) struct PendingInterrupts {
     physical: Option<ExceptionType>,
     virtual_irq: bool,
     virtual_fiq: bool,
+    virtual_serror: bool,
 }
 
 impl PendingInterrupts {
     pub(super) fn any(&self) -> bool {
-        self.physical.is_some() || self.virtual_irq || self.virtual_fiq
+        self.physical.is_some() || self.virtual_irq || self.virtual_fiq || self.virtual_serror
     }
 
-    pub(super) fn deliverable(&self, cpu: &AArch64Cpu) -> Option<(u8, ExceptionType)> {
+    pub(super) fn deliverable(&self, cpu: &AArch64Cpu) -> Option<InterruptDelivery> {
         if let Some(kind) = self.physical.filter(|kind| cpu.interrupt_unmasked(*kind)) {
-            return Some((cpu.interrupt_target_el(kind), kind));
+            return Some(InterruptDelivery::IrqOrFiq {
+                target: cpu.interrupt_target_el(kind),
+                kind,
+            });
         }
-        // Software arbitration takes the eligible physical request first.
-        // When both virtual levels are deliverable, prefer IRQ consistently.
+        // Use the same virtual priority as the classic software PE oracle.
         if self.virtual_irq && cpu.daif & 2 == 0 {
-            Some((1, ExceptionType::Irq))
+            Some(InterruptDelivery::IrqOrFiq {
+                target: 1,
+                kind: ExceptionType::Irq,
+            })
         } else if self.virtual_fiq && cpu.daif & 1 == 0 {
-            Some((1, ExceptionType::Fiq))
+            Some(InterruptDelivery::IrqOrFiq {
+                target: 1,
+                kind: ExceptionType::Fiq,
+            })
+        } else if self.virtual_serror && cpu.daif & 4 == 0 {
+            Some(InterruptDelivery::VirtualSError)
         } else {
             None
         }
@@ -34,19 +68,22 @@ impl AArch64Cpu {
         include_virtual: bool,
     ) -> Result<PendingInterrupts, ArmError> {
         let hcr = self.sysregs.hcr_el2;
-        const IRQ: u64 = (1 << 7) | (1 << 4); // VI and IMO
-        const FIQ: u64 = (1 << 6) | (1 << 3); // VF and FMO
+        const IRQ: u64 = hcr::VI | hcr::IMO;
+        const FIQ: u64 = hcr::VF | hcr::FMO;
+        const SERROR: u64 = hcr::VSE | hcr::AMO;
         let irq = hcr & IRQ == IRQ;
         let fiq = hcr & FIQ == FIQ;
+        let serror = hcr & SERROR == SERROR;
         let virtual_enabled = include_virtual
-            && (irq || fiq)
+            && (irq || fiq || serror)
             && self.current_el < 2
-            && hcr & (1 << 27) == 0 // TGE
+            && hcr & hcr::TGE == 0
             && self.pauth_controls().el2_enabled();
         Ok(PendingInterrupts {
             physical: self.pending_physical_interrupt()?,
             virtual_irq: virtual_enabled && irq,
             virtual_fiq: virtual_enabled && fiq,
+            virtual_serror: virtual_enabled && serror,
         })
     }
 

@@ -200448,6 +200448,17 @@
       "scope": "The AArch32 differential suite compares live D0-D31, FPSCR, successor PC, NZCVQ/GE/T, integer registers and scratch memory. The ARM differential CI job requires the QEMU oracle. All 46,332 Cortex-A15 cases matched, including the six audit inputs in both ARM and Thumb. Three integer corrections cover signed most-significant multiply-accumulate, SSAT #32 and rotated T32 register extension. Physical AArch32 and remaining optional, security and debug FP controls remain open.",
       "qualification": "docs/development/a32-fp-controls.md#aarch32-differential-cpu-state",
       "full_goal_complete": false
+    },
+    {
+      "id": "a64-hcr-virtual-serror-2026-11-24",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Classic software Arm delivers HCR_EL2.VSE exactly once when the request is enabled and unmasked. A masked request can wake WFI. Detached two- and four-vCPU files preserve per-PE pending state. Each PE with VSE enters its own handler with zero instructions retired; the control PEs reach WFI without an exception. QEMU confirmed the AArch64 syndrome and the AArch32 descriptor-dependent abort status. RAS, ESB, delegated and physical SError sources, halting-debug masks, and native delivery remain open.",
+      "qualification": "docs/development/a64-gic-interface/README.md#hcr_el2-virtual-serror",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

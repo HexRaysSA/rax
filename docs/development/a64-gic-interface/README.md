@@ -103,9 +103,52 @@ The unfiltered library run reproduced the existing Darwin codesign failure.
 Evidence is retained under
 `/Users/int/dev/rax-audit-work/four-findings-a64-hcr-virtual-interrupts-2026-11-24`.
 
-High-impact open work includes the virtual GIC CPU interface, virtual SError,
-delegated interrupts, and native backend delivery and migration. This group
-qualifies per-vCPU HCR_EL2 injection and continuation in the software CPU.
+High-impact open work includes the virtual GIC CPU interface, delegated
+interrupts, and native backend delivery and migration.
+
+## HCR_EL2 virtual SError
+
+In the classic software Arm profile, an enabled EL2 supplies virtual SError
+to EL0 and EL1 when `HCR_EL2.VSE=1`, `AMO=1`, and `TGE=0`. The pending
+request can end WFI while `PSTATE.A` is set. Once unmasked, entry targets
+EL1 and takes precedence over instruction retirement. An eligible physical
+IRQ/FIQ or virtual IRQ/FIQ retains scheduler precedence. EL1 entry consumes
+only `VSE`. AArch64 receives `ESR_EL1=0xbe000000`, and AArch32 reports an
+asynchronous external abort using the appropriate long or short descriptor
+DFSR encoding. The legacy implementation-defined ISS and ExT fields are zero.
+The entry check takes constant time and space outside the existing GIC query.
+[Arm exception-entry and interrupt-pending pseudocode](../../specifications/arm/pauth/shared_pseudocode-2025-12.xml)
+
+The checkpoint uses the existing per-vCPU `HCR_EL2` and PSTATE fields.
+Detached two- and four-vCPU files preserve `VSE` after the source VM is
+dropped. Each PE with a pending request enters its own vector with its
+saved PC and PSTATE and no retirement. The guest handler returns with ERET;
+the original WFI then retires without a second delivery. Peers whose `VSE`
+was clear reach WFI directly. The tests use prepared software vCPUs and the
+retired-instruction clock.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The classic virtual request is enabled only in the applicable EL2 regime and consumed on entry. | Vary AMO, TGE, EL, security, PSTATE.A, competing virtual IRQ/FIQ, and the EL1 stack selector. Verify ELR, SPSR, and HCR_EL2 before entry and after ERET. |
+| The wake condition is independent of the SError mask. | Test a pending request with TWI armed and a request asserted after WFI. Check that the masked PE can retire and that unmasking consumes the retained request exactly once. |
+| AArch32 entry uses the Abort bank and descriptor-specific DFSR. | Use ARM and Thumb input states and both TTBCR.EAE values. Verify the Abort vector, banked LR plus eight bytes, and DFSR. |
+| The event belongs to one CPU through checkpoint restoration. | Reopen the bundle after dropping the source. Require each PE's own vector, saved PC, and zero entry retirements before allowing the guest to execute ERET and WFI. |
+
+QEMU 11.1.2 with Cortex-A57 passed 14 independent cases, including
+AArch64 entry and return, mask and routing controls, WFI, and both AArch32
+descriptor formats from both ARM and Thumb. Four RAX regressions failed on
+the predecessor and passed after the change. The routing and precedence
+controls passed in both revisions.
+
+Eight complete macOS arm64 integration binaries passed 47,603 tests with
+SMIR JIT enabled. The Docker oracle was the sole ignored test. Clippy passed
+for the JIT-enabled library. Qualification logs and the independent guest
+sources are under
+`/Users/int/dev/rax-audit-work/four-findings-a64-hcr-virtual-serror-2026-11-24`.
+
+High-impact open work includes RAS syndrome registers and ESB deferral,
+HCRX_EL2.TMEA, delegated and physical SError sources, halting-debug masks,
+and native checkpoint delivery.
 
 ## Evidence and limits
 

@@ -335,3 +335,117 @@ fn hcr_virtual_interrupts_resume_on_the_correct_pe_after_detached_file_restore()
     verify(&mut restored.vm);
     assert_eq!(coordinator, restored.vm.coordinator);
 }
+
+#[test]
+fn hcr_virtual_serror_survives_detached_file_restore_and_is_delivered_once_per_pe() {
+    use crate::isa::arm::aarch64::hcr;
+
+    const MEMORY_BYTES: u64 = 8 * 1024 * 1024;
+    const HCR_ROUTING: u64 = hcr::RW | hcr::AMO;
+    const PSTATE: u64 = 0x2c5; // EL1h, SError unmasked.
+    let pending = |id: usize| id % 2 == 0;
+    let initial_hcr = |id| HCR_ROUTING | if pending(id) { hcr::VSE } else { 0 };
+    for count in [2u8, 4] {
+        let mut original = Fixture::with_memory(count, ClockMode::Retired, MEMORY_BYTES);
+        for id in 1..u64::from(count) {
+            assert_eq!(
+                original
+                    .cluster()
+                    .request_on(id, CODE + id * 0x100, 0, PSTATE)
+                    .unwrap(),
+                0
+            );
+        }
+        original.vm.route_interprocessor_requests().unwrap();
+        for id in 0..usize::from(count) {
+            let entry = CODE + id as u64 * 0x100;
+            let vectors = CODE + 0x800 * (id as u64 + 1);
+            let mut state = original.vm.vcpus[id].get_state().unwrap();
+            let CpuState::Aarch64(arm) = &mut state else {
+                panic!("AArch64 fixture");
+            };
+            arm.regs.pstate = PSTATE;
+            arm.sregs.vbar_el1 = vectors;
+            let system = &mut arm.sregs.execution.as_mut().unwrap().sysregs;
+            system.scr_el3 = (1 << 10) | 1;
+            system.hcr_el2 = initial_hcr(id);
+            system.el1.vbar = vectors;
+            original.vm.vcpus[id].set_state(&state).unwrap();
+            let memory = original.vm.guest_mem.memory();
+            memory
+                .write_slice(&WFI.to_le_bytes(), GuestAddress(entry))
+                .unwrap();
+            memory
+                .write_slice(&0xd69f_03e0u32.to_le_bytes(), GuestAddress(vectors + 0x380))
+                .unwrap();
+        }
+
+        let path = original.kernel.with_extension("virtual-serror.rxc");
+        original
+            .vm
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&path)
+            .unwrap();
+        drop(original);
+
+        let bundle = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let mut restored = Fixture::with_memory(count, ClockMode::Retired, MEMORY_BYTES);
+        restored.vm.restore_snapshot_bundle(&bundle).unwrap();
+
+        for id in 0..usize::from(count) {
+            let state = restored.vm.vcpus[id].get_state().unwrap();
+            let system = &state
+                .as_aarch64()
+                .unwrap()
+                .sregs
+                .execution
+                .as_ref()
+                .unwrap()
+                .sysregs;
+            assert_eq!(system.hcr_el2, initial_hcr(id));
+        }
+        for id in 0..usize::from(count) {
+            let turn = restored.vm.execute_turn().unwrap();
+            let state = restored.vm.vcpus[id].get_state().unwrap();
+            let arm = state.as_aarch64().unwrap();
+            let system = &arm.sregs.execution.as_ref().unwrap().sysregs;
+            assert_eq!(system.hcr_el2, HCR_ROUTING);
+            if !pending(id) {
+                let turn = turn.expect("peer without VSE reaches WFI directly");
+                assert_eq!(turn.cpu_index, id);
+                assert!(matches!(turn.exit, VcpuExit::Hlt));
+                assert_eq!(arm.regs.pc, CODE + id as u64 * 0x100 + 4);
+                assert_eq!(restored.vm.vcpus[id].instruction_count(), 1);
+                continue;
+            }
+            assert!(turn.is_none());
+            assert_eq!(arm.regs.pc, CODE + 0x800 * (id as u64 + 1) + 0x380);
+            assert_eq!(system.el1.elr, CODE + id as u64 * 0x100);
+            assert_eq!(system.el1.spsr, PSTATE);
+            assert_eq!(system.el1.esr, 0xbe00_0000);
+            assert_eq!(restored.vm.vcpus[id].instruction_count(), 0);
+        }
+        assert_eq!(restored.vm.coordinator.retired, u64::from(count) / 2);
+        for id in 0..usize::from(count) {
+            let turn = restored
+                .vm
+                .execute_turn()
+                .unwrap()
+                .expect("guests yield at WFI");
+            assert_eq!(turn.cpu_index, id);
+            assert!(matches!(turn.exit, VcpuExit::Hlt));
+            let state = restored.vm.vcpus[id].get_state().unwrap();
+            assert_eq!(
+                state.as_aarch64().unwrap().regs.pc,
+                CODE + id as u64 * 0x100 + 4
+            );
+            assert_eq!(
+                restored.vm.vcpus[id].instruction_count(),
+                1 + u64::from(pending(id))
+            );
+        }
+        assert_eq!(restored.vm.coordinator.retired, 3 * u64::from(count) / 2);
+    }
+}
