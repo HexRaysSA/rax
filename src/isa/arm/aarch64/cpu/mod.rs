@@ -1020,11 +1020,11 @@ impl ArmCpu for AArch64Cpu {
     }
 
     fn get_fpcr(&self) -> Option<u32> {
-        Some(mask_fpcr(self.fpcr))
+        Some(self.fpcr_value())
     }
 
     fn set_fpcr(&mut self, value: u32) -> Result<(), ArmError> {
-        self.fpcr = mask_fpcr(value);
+        self.set_fpcr_value(value);
         Ok(())
     }
 

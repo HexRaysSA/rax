@@ -1271,3 +1271,42 @@ fn local_fp_trap_reports_fpexc_in_the_guest_handler_across_checkpoint() {
         }
     }
 }
+
+#[test]
+fn public_fpcr_and_guest_transfers_share_the_selected_trap_enable_mask() {
+    const FZ: u32 = 1 << 24;
+    const TRAP_ENABLES: u32 = 0x9f00;
+    const WRITTEN: u32 = FZ | TRAP_ENABLES | (1 << 31); // Bit 31 is RES0.
+    let mvfr0 = Aarch64SysRegEncoding::new(3, 0, 0, 3, 0).encode();
+    for optional_traps in [false, true] {
+        let mut cpu = AArch64Cpu::new(
+            AArch64Config {
+                initial_el: 1,
+                gic_config: None,
+                ..AArch64Config::v8_0()
+            },
+            Box::new(Memory64::new(0, 0x1000)),
+        );
+        let mut state = cpu.export_sregs();
+        let sys = &mut state.execution.as_mut().unwrap().sysregs;
+        sys.el1.cpacr = 3 << 20;
+        if optional_traps {
+            sys.impl_defined.insert(mvfr0, 0x1011_1222);
+        }
+        cpu.import_sregs(&state).unwrap();
+        cpu.write_memory(0, &0xd51b_4400u32.to_le_bytes()).unwrap(); // MSR FPCR,X0.
+        cpu.write_memory(4, &0xd53b_4401u32.to_le_bytes()).unwrap(); // MRS X1,FPCR.
+        let expected = FZ | if optional_traps { TRAP_ENABLES } else { 0 };
+
+        cpu.set_pc(0);
+        cpu.set_x(0, u64::from(WRITTEN));
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(ArmCpu::get_fpcr(&cpu), Some(expected));
+
+        ArmCpu::set_fpcr(&mut cpu, 0).unwrap();
+        assert_eq!(cpu.fpcr_value(), 0);
+        ArmCpu::set_fpcr(&mut cpu, WRITTEN).unwrap();
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.get_x(1), u64::from(expected));
+    }
+}
