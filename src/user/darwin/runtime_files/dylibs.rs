@@ -1,4 +1,5 @@
-//! Format checks for files admitted from installed macOS library roots.
+//! Format checks for files admitted from installed macOS runtime roots.
+use crate::user::darwin::exec::image::shell_imgact;
 use crate::user::image::macho::{
     self, CPU_TYPE_ARM64, CPU_TYPE_X86_64, Identity, MH_MAGIC_64, MachHeader,
 };
@@ -20,6 +21,12 @@ pub(super) fn accept(mut file: &File, file_type: u32) -> io::Result<bool> {
     let length = file_size.min(HEADER_PAGE as u64) as usize;
     file.read_exact(&mut header[..length])?;
     let header = &header[..length];
+    if file_type == macho::MH_EXECUTE && header.starts_with(b"#!") {
+        return Ok(matches!(
+            shell_imgact(header),
+            Some(Ok(words)) if words.first().is_some_and(|name| !name.is_empty())
+        ));
+    }
     match macho::identify(header) {
         Ok(Identity::Thin(header)) => {
             Ok(length >= THIN_HEADER && header.filetype == file_type && supported(&header))

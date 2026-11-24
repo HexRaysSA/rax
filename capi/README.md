@@ -783,9 +783,10 @@ framework. The installed Ruby regex, JSON, and SHA-256 checks matched native
 ARM64 and Rosetta x86-64 runs with the default gem startup, using no SDKROOT
 override.
 
-macOS native runtime selection exposes executable Mach-O images from the
-installed `/bin` and `/usr/bin` directories through read-only mounts. Child
-programs execute inside the guest, and explicit guest images retain precedence.
+macOS native runtime selection exposes executable Mach-O images and scripts with
+valid shebangs from the installed `/bin` and `/usr/bin` directories through
+read-only mounts. Child programs and script interpreters execute inside the
+guest, and explicit guest images retain precedence.
 
 On Linux and Darwin, native-runtime sessions start with a private guest
 /tmp. A session can create named directories and create, read, append,

@@ -1,7 +1,7 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type database,
-//! and installed Perl and Ruby modules. Installed executable images are
-//! available for child execution in the same guest namespace.
+//! and installed Perl and Ruby modules. Executables and shebang scripts
+//! are available for child execution in the same guest namespace.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -516,7 +516,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn installed_child_programs_select_executable_mach_os_and_preserve_main_image_precedence() {
+    fn installed_child_programs_select_mach_os_and_scripts_and_preserve_main_image_precedence() {
         use crate::user::image::macho::{CPU_TYPE_X86_64, MH_DYLIB, MH_EXECUTE, MH_MAGIC_64};
         use crate::user::supplied_fs::Error;
         use std::{
@@ -567,17 +567,32 @@ mod tests {
         dylib[12..16].copy_from_slice(&MH_DYLIB.to_le_bytes());
         fs::write(root.join("usr/bin/library"), dylib).unwrap();
         fs::set_permissions(root.join("usr/bin/library"), Permissions::from_mode(0o755)).unwrap();
+        let script = b"#!/bin/sh\nprintf 'installed script\\n'\n";
+        for (name, contents, mode) in [
+            ("script", script.as_slice(), 0o755),
+            ("script-no-execute", script.as_slice(), 0o644),
+            ("script-no-interpreter", b"#!  \n".as_slice(), 0o755),
+            ("script-no-line-end", b"#!/bin/sh".as_slice(), 0o755),
+        ] {
+            let host = root.join("usr/bin").join(name);
+            fs::write(&host, contents).unwrap();
+            fs::set_permissions(host, Permissions::from_mode(mode)).unwrap();
+        }
 
         let original = Files::default();
         let files = select_native_root(&original, root, Some("/usr/bin/child")).unwrap();
         for path in ["/usr/bin/child", "/usr/bin/alias", "/bin/sh"] {
             assert_eq!(&*files.read(path).unwrap(), &executable, "{path}");
         }
+        assert_eq!(&*files.read("/usr/bin/script").unwrap(), script);
         for path in [
             "/usr/bin/CHILD",
             "/usr/bin/escape",
             "/usr/bin/no-execute",
             "/usr/bin/library",
+            "/usr/bin/script-no-execute",
+            "/usr/bin/script-no-interpreter",
+            "/usr/bin/script-no-line-end",
             "/usr/local/bin/child",
         ] {
             assert!(matches!(files.read(path), Err(Error::NotFound)), "{path}");
