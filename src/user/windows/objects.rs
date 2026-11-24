@@ -360,6 +360,8 @@ pub struct Objects {
     wnf_event: Option<ObjId>,
     /// ETW process notification registration is independent of WNF.
     etw_event: Option<ObjId>,
+    /// A selected manual-reset event retained across the last caller close.
+    lsa_authentication_event: Option<ObjId>,
     /// The process owns its primary token independently of caller handles.
     primary_token: Option<ObjId>,
     primary_token_adjusted: Option<std::sync::Arc<super::security::Subject>>,
@@ -640,6 +642,9 @@ impl Objects {
     /// overflow and handle exhaustion leave the table unchanged. O(H) time
     /// and O(1) extra space for H open handles.
     pub fn open_access(&mut self, id: ObjId, inherit: bool, access: u32) -> Option<u32> {
+        if self.is_lsa_authentication_event(id) && access != 0x0010_0000 {
+            return None;
+        }
         let refs = self.objs.get(&id)?.refs.checked_add(1)?;
         let mut h = 4u32;
         for &k in self.handles.keys() {
@@ -659,6 +664,29 @@ impl Objects {
             },
         );
         Some(h)
+    }
+
+    pub(crate) fn open_lsa_authentication_event(&mut self, inherit: bool) -> Option<u32> {
+        const SYNCHRONIZE: u32 = 0x0010_0000;
+        if let Some(id) = self.lsa_authentication_event {
+            return self.open_access(id, inherit, SYNCHRONIZE);
+        }
+        let id = self.try_create(Object::Event {
+            manual: true,
+            signaled: 1,
+        })?;
+        if let Some(handle) = self.open_access(id, inherit, SYNCHRONIZE) {
+            self.retain(id);
+            self.lsa_authentication_event = Some(id);
+            Some(handle)
+        } else {
+            self.release(id);
+            None
+        }
+    }
+
+    pub(crate) fn is_lsa_authentication_event(&self, id: ObjId) -> bool {
+        self.lsa_authentication_event == Some(id)
     }
 
     /// Creates an object and opens a handle to it.
@@ -812,6 +840,7 @@ impl Objects {
         self.packets = Default::default();
         self.wnf_event = None;
         self.etw_event = None;
+        self.lsa_authentication_event = None;
         self.primary_token = None;
         self.primary_token_adjusted = None;
         self.token_modified_id = 0;

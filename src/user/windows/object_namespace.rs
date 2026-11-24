@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::sync::Arc;
 pub(crate) const RPC_CONTROL_PATH: &str = r"\RPC Control";
+pub(crate) const LSA_AUTHENTICATION_EVENT: &str = r"\Security\LSA_AUTHENTICATION_INITIALIZED";
 pub(crate) const PATHS: [&str; 7] = [
     "\\",
     "\\KnownDlls",
@@ -235,6 +236,7 @@ pub(crate) struct Namespace {
     pub(crate) policy_lookup_names: Option<Arc<policy_lookup::Catalog>>,
     pub(crate) privilege_display_names:
         Option<Arc<super::security::privilege_names::DisplayCatalog>>,
+    pub(crate) lsa_authentication_initialized: bool,
     cache_server: Option<Arc<cache::CacheServer>>,
     security_device: Option<security_device::SecurityDevice>,
     cng_device: Option<security_device::SecurityDevice>,
@@ -499,6 +501,7 @@ impl Namespace {
             activation_context: None,
             policy_lookup_names: None,
             privilege_display_names: None,
+            lsa_authentication_initialized: false,
             cache_server: None,
             security_device: None,
             cng_device: None,

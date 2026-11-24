@@ -253,6 +253,12 @@ fn nonclosing(c: &mut Ctx, r: &Request, source: Option<Source>) -> ApiResult {
             Err(status) => return failure(c, r.output, status),
         }
     };
+    if c.p.objects.is_lsa_authentication_event(source.object) && access != 0x0010_0000 {
+        if access & 2 != 0 {
+            return failure(c, r.output, STATUS_ACCESS_DENIED);
+        }
+        return Err(c.unsupported("unselected LSA authentication event duplicate access mask"));
+    }
     let flags = if r.options & SAME_ATTRIBUTES != 0 {
         source.flags
     } else {

@@ -4026,6 +4026,21 @@ reads the captured names and cannot submit SIDs or system names to host APIs.
 [Windows SID_NAME_USE](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ne-winnt-sid_name_use)
 [MS-RPCE NDR64 conformant varying arrays](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rpce/0559c108-7705-448c-82a7-1c1a56e02650)
 
+### LSA authentication readiness event
+
+On Windows 11 ARM64 build 29708, installed whoami /all opens
+\Security\LSA_AUTHENTICATION_INITIALIZED with OBJ_CASE_INSENSITIVE and
+SYNCHRONIZE. Both alertable waits on the event return immediately. Native
+queries on the measured installation report a signaled manual-reset event.
+
+During installed-runtime selection, RAX opens the fixed name with query and
+synchronize access, checks the event type and state, and closes the native
+handle. The selected guest opens a process-owned event with synchronize access.
+Repeated opens and same-access duplicates keep its identity and signal state
+across caller close and reopen. The stock profile denies zero access and
+modification. Other access masks and other names under \Security remain
+outside this profile. The guest controls no host event handle or host query.
+
 ### Process dynamic-code policy query
 
 The default guest process permits dynamic code. In

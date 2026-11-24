@@ -27,6 +27,40 @@ impl Namespace {
         self.root.is_some()
     }
 
+    /// Recognize the one recorded readiness event without selecting its directory.
+    pub(crate) fn lsa_authentication_name(
+        &self,
+        name: &[u16],
+        flags: u32,
+    ) -> Option<Result<(), u32>> {
+        if !self.lsa_authentication_initialized || name.len() != LSA_AUTHENTICATION_EVENT.len() {
+            return None;
+        }
+        let upcase = &self.root.as_ref()?.upcase;
+        if !name
+            .iter()
+            .copied()
+            .zip(LSA_AUTHENTICATION_EVENT.encode_utf16())
+            .all(|(actual, expected)| upcase[usize::from(actual)] == upcase[usize::from(expected)])
+        {
+            return None;
+        }
+        if flags & 0x40 != 0 || is(name, LSA_AUTHENTICATION_EVENT) {
+            return Some(Ok(()));
+        }
+        let directory = r"\Security";
+        Some(Err(if is(&name[..directory.len()], directory) {
+            STATUS_OBJECT_NAME_NOT_FOUND
+        } else {
+            STATUS_OBJECT_PATH_NOT_FOUND
+        }))
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn capture_lsa_authentication_event(&mut self) {
+        self.lsa_authentication_initialized = installed::event::capture_lsa_authentication();
+    }
+
     /// Resolve only the parent using captured directory/link identities. Host
     /// synchronization objects are never acquired, opened, or mutated. The leaf
     /// belongs to the guest's independent object table, including exact UTF-16.

@@ -63,6 +63,30 @@ fn open_object(
         return status(STATUS_INVALID_PARAMETER);
     }
     attributes::supported(c, &attrs, "event")?;
+    if attrs.root == 0
+        && let Some(name) = attrs.name.as_deref()
+        && let Some(result) =
+            c.p.object_namespace
+                .lsa_authentication_name(name, attrs.flags)
+    {
+        result.map_err(Failure::Status)?;
+        if attrs.flags & !0x42 != 0 {
+            return Err(c
+                .unsupported("unselected LSA authentication event open flags")
+                .into());
+        }
+        return match desired {
+            0x0010_0000 => {
+                c.p.objects
+                    .open_lsa_authentication_event(attrs.flags & 2 != 0)
+                    .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES))
+            }
+            0 | 2 => status(STATUS_ACCESS_DENIED),
+            _ => Err(c
+                .unsupported("unselected LSA authentication event access mask")
+                .into()),
+        };
+    }
     let Some(name) = named_object::name(c, &attrs, true, "event")? else {
         return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
     };

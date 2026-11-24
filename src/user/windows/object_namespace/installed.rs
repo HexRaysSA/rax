@@ -6,6 +6,7 @@ pub(super) mod cache;
 mod csr;
 mod data;
 mod directory_alias;
+pub(super) mod event;
 pub(super) mod file_image;
 pub(super) mod gui;
 pub(super) mod image;

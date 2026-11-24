@@ -3,7 +3,7 @@
 mod replay;
 
 use super::*;
-use crate::user::windows::object_namespace::reparse_tests;
+use crate::user::windows::object_namespace::{LSA_AUTHENTICATION_EVENT, reparse_tests};
 use crate::user::windows::sync;
 
 fn named(p: &mut Proc, address: u64, root: u64, name: &str, flags: u32) {
@@ -80,6 +80,91 @@ fn native_open_event_shares_named_identity_and_last_handle_lifetime_all_abis() {
             assert!(p.objects.obj(id).is_none());
         }
     }
+}
+
+#[test]
+fn native_lsa_readiness_event_retains_its_signal_and_wait_only_grant() {
+    let (mut process, mut thread, out) = setup(WinArch::Arm64);
+    let p = process.state_mut();
+    super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
+    p.object_namespace = reparse_tests::sample(1);
+    p.object_namespace.lsa_authentication_initialized = true;
+
+    let attributes = out + 256;
+    let open = |p: &mut Proc, thread: &mut Thread, name, flags, access| {
+        named(p, attributes, 0, name, flags);
+        status(p, thread, "NtOpenEvent", &[out, access, attributes])
+    };
+    let upper = r"\SECURITY\LSA_AUTHENTICATION_INITIALIZED";
+    for (name, expected) in [
+        (upper, STATUS_OBJECT_PATH_NOT_FOUND),
+        (
+            r"\Security\Lsa_Authentication_Initialized",
+            STATUS_OBJECT_NAME_NOT_FOUND,
+        ),
+    ] {
+        assert_eq!(open(p, &mut thread, name, 0, 0x0010_0000), expected);
+    }
+    for access in [0, 2] {
+        assert_eq!(
+            open(p, &mut thread, upper, 0x40, access),
+            STATUS_ACCESS_DENIED
+        );
+    }
+    assert_eq!(
+        open(p, &mut thread, LSA_AUTHENTICATION_EVENT, 0, 0x0010_0000),
+        0
+    );
+    let original = handle(p, out);
+    let id = p.objects.id(original).unwrap();
+    assert_eq!(p.objects.access(original), Some(0x0010_0000));
+    assert_eq!(
+        status(p, &mut thread, "NtSetEvent", &[original, 0]),
+        STATUS_ACCESS_DENIED
+    );
+
+    let current = u64::MAX;
+    assert_eq!(
+        status(
+            p,
+            &mut thread,
+            "NtDuplicateObject",
+            &[current, original, current, out, 2, 0, 0],
+        ),
+        STATUS_ACCESS_DENIED
+    );
+    assert_eq!(
+        status(
+            p,
+            &mut thread,
+            "NtDuplicateObject",
+            &[current, original, current, out, 0, 0, 2],
+        ),
+        0
+    );
+    let duplicate = handle(p, out);
+    assert_eq!(p.objects.id(duplicate), Some(id));
+    assert_eq!(p.objects.access(duplicate), Some(0x0010_0000));
+    for handle in [original, duplicate] {
+        assert_eq!(
+            super::super::native_wait_tests::invoke(p, &mut thread, handle, 1, 0),
+            Outcome::Continue
+        );
+        assert_eq!(thread.cpu.gpr(0), 0);
+        p.objects.close(handle).unwrap();
+    }
+    assert_eq!(open(p, &mut thread, upper, 0x42, 0x0010_0000), 0);
+    let reopened = handle(p, out);
+    assert_eq!(p.objects.id(reopened), Some(id));
+    assert_eq!(p.objects.flags(reopened), Some(1));
+    assert!(matches!(
+        p.objects.obj(id),
+        Some(Object::Event {
+            manual: true,
+            signaled: 1
+        })
+    ));
+    p.objects.close(reopened).unwrap();
 }
 
 #[test]
