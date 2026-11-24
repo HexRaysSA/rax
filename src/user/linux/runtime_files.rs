@@ -14,7 +14,7 @@ mod ld_cache;
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, and installed
-/// timezone, protocol and service data. Include a
+/// timezone, protocol and service data. Include guest loopback names and a
 /// synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
@@ -59,6 +59,18 @@ fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
         .filter(|(_, host)| host.symlink_metadata().is_ok_and(|info| info.is_file()))
         .collect();
     let files = files.with_host_files(databases)?;
+    // Only guest loopback names are available without an explicit hosts file.
+    let hosts = "/etc/hosts";
+    let files = if matches!(files.lookup_with_follow(hosts, false), Err(Error::NotFound)) {
+        files
+            .with_file(
+                hosts.into(),
+                b"127.0.0.1 localhost\n::1 ip6-localhost ip6-loopback\n"[..].into(),
+            )
+            .map_err(io::Error::other)?
+    } else {
+        files
+    };
     crate::user::supplied_fs::timezone::select_default(files, root)
 }
 
@@ -206,6 +218,43 @@ mod tests {
             selected.read("/etc/protocols"),
             Err(Error::NotFound)
         ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_runtime_supplies_guest_loopback_names() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, sync::Arc};
+
+        let fixture = TestFile::new(b"unselected", 10);
+        let root = &fixture.dir;
+        fs::create_dir_all(root.join("usr/lib")).unwrap();
+        fs::create_dir(root.join("etc")).unwrap();
+        fs::write(root.join("etc/hosts"), b"10.0.0.1 host-only\n").unwrap();
+        fs::write(root.join("etc/resolv.conf"), b"search host-only\n").unwrap();
+
+        let files = Files::default();
+        let hosts = "/etc/hosts";
+        let selected = select_installed(&files, root).unwrap();
+        assert_eq!(
+            &*selected.read(hosts).unwrap(),
+            b"127.0.0.1 localhost\n::1 ip6-localhost ip6-loopback\n"
+        );
+        assert!(matches!(
+            selected.lookup("/etc/resolv.conf"),
+            Err(Error::NotFound)
+        ));
+
+        let custom = &b"127.0.0.2 localhost\n"[..];
+        let supplied = files.with_file(hosts.into(), Arc::from(custom)).unwrap();
+        let selected = select_installed(&supplied, root).unwrap();
+        assert_eq!(&*selected.read(hosts).unwrap(), custom);
+
+        let blocked = files
+            .with_file("/etc".into(), Arc::from(&b"file"[..]))
+            .unwrap();
+        let selected = select_installed(&blocked, root).unwrap();
+        assert!(matches!(selected.lookup(hosts), Err(Error::NotDirectory)));
     }
 
     #[cfg(target_os = "linux")]
