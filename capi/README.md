@@ -760,6 +760,11 @@ the denial of general host filesystem, sockets, processes and IPC remain in
 force. Inspection reports `capabilities.native_runtime`; this is a selected
 mode, not a guarantee that every runtime API or application is supported.
 
+On macOS, native runtime selection also exposes installed Perl source modules
+and their Mach-O extension bundles below /System/Library/Perl. The mount is
+read-only and resolves files within that system tree. Explicit supplied files
+can override the installed modules.
+
 On Linux and Darwin, native-runtime sessions start with a private guest
 /tmp. A session can create named directories and create, read, append,
 truncate, and unlink regular files anywhere in that tree. It can create

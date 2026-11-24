@@ -1,5 +1,6 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
-//! system metadata, including timezone and locale data and the file-type database.
+//! system metadata, including timezone and locale data, the file-type database,
+//! and installed Perl modules.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -31,6 +32,9 @@ const ZONEINFO_PATHS: [&str; 2] = ["/var/db/timezone/zoneinfo", "/usr/share/zone
 
 #[cfg(any(target_os = "macos", test))]
 const LOCALE_ROOT: &str = "/usr/share/locale";
+
+#[cfg(any(target_os = "macos", test))]
+const PERL_ROOT: &str = "/System/Library/Perl";
 
 /// Public kernel version strings collected when selecting the installed runtime.
 #[derive(Clone, Debug)]
@@ -148,7 +152,7 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         "/System/Library/Frameworks",
         "/System/Library/PrivateFrameworks",
         // Perl installs its dylib beside its versioned language runtime.
-        "/System/Library/Perl",
+        PERL_ROOT,
         "/System/Cryptexes/OS/usr/lib",
         "/System/Cryptexes/OS/System/Library/Perl",
         "/System/Volumes/Preboot/Cryptexes/OS/usr/lib",
@@ -170,13 +174,29 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
         host.is_dir().then(|| (guest.to_owned(), host))
     })
     .collect();
-    let files =
-        files.with_native_library_roots(roots, Some(accept_runtime_file), &[LOCALE_ROOT])?;
+    let files = files.with_native_library_roots(
+        roots,
+        Some(accept_runtime_file),
+        &[LOCALE_ROOT, PERL_ROOT],
+    )?;
     crate::user::supplied_fs::timezone::select_default(files, root)
 }
 
 #[cfg(any(target_os = "macos", test))]
 fn accept_runtime_file(guest: &str, file: &std::fs::File) -> io::Result<bool> {
+    use crate::user::image::macho::{MH_BUNDLE, MH_DYLIB};
+
+    if let Some(module) = guest
+        .strip_prefix(PERL_ROOT)
+        .and_then(|tail| tail.strip_prefix('/'))
+    {
+        if module.ends_with(".pm") {
+            return Ok(true);
+        }
+        if module.ends_with(".bundle") && module.split('/').any(|part| part == "auto") {
+            return dylibs::accept(file, MH_BUNDLE);
+        }
+    }
     if let Some(locale_path) = guest
         .strip_prefix(LOCALE_ROOT)
         .and_then(|tail| tail.strip_prefix('/'))
@@ -200,7 +220,7 @@ fn accept_runtime_file(guest: &str, file: &std::fs::File) -> io::Result<bool> {
     }) {
         crate::user::supplied_fs::timezone::has_tzif_header(file)
     } else {
-        dylibs::accept(file)
+        dylibs::accept(file, MH_DYLIB)
     }
 }
 
@@ -776,6 +796,67 @@ mod tests {
             .unwrap();
         let files = select_native_root(&supplied, root).unwrap();
         assert_eq!(&*files.read(ctype).unwrap(), b"supplied");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_perl_modules_are_read_only_and_confined_to_the_system_tree() {
+        use crate::user::image::macho::{CPU_TYPE_X86_64, MH_BUNDLE, MH_EXECUTE, MH_MAGIC_64};
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"unused", 8);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let cache = root.join("System/Library/dyld");
+        let perl = root.join("System/Library/Perl/5.34");
+        let xs = perl.join("darwin-thread-multi-2level/auto/Example");
+        for dir in [&lib, &cache, &xs] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        fs::write(lib.join("dyld"), b"dyld").unwrap();
+        fs::write(cache.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        fs::write(perl.join("Example.pm"), b"package Example; 1;").unwrap();
+        fs::write(lib.join("Other.pm"), b"outside installed Perl").unwrap();
+        symlink(lib.join("Other.pm"), perl.join("Escape.pm")).unwrap();
+
+        let mut header = [0u8; 32];
+        header[..4].copy_from_slice(&MH_MAGIC_64.to_le_bytes());
+        header[4..8].copy_from_slice(&CPU_TYPE_X86_64.to_le_bytes());
+        header[12..16].copy_from_slice(&MH_BUNDLE.to_le_bytes());
+        fs::write(xs.join("Example.bundle"), header).unwrap();
+        fs::write(perl.join("Unqualified.bundle"), header).unwrap();
+        fs::write(lib.join("Other.bundle"), header).unwrap();
+        header[12..16].copy_from_slice(&MH_EXECUTE.to_le_bytes());
+        fs::write(xs.join("Executable.bundle"), header).unwrap();
+
+        let selected = select_native_root(&Files::default(), root).unwrap();
+        let module = "/System/Library/Perl/5.34/Example.pm";
+        let bundle =
+            "/System/Library/Perl/5.34/darwin-thread-multi-2level/auto/Example/Example.bundle";
+        let entry = selected.lookup(module).unwrap().1;
+        assert!(entry.host_file().is_some());
+        assert_eq!(&*selected.read(module).unwrap(), b"package Example; 1;");
+        let entry = selected.lookup(bundle).unwrap().1;
+        assert!(entry.host_file().is_some());
+        for path in [
+            "/System/Library/Perl/5.34/Escape.pm",
+            "/System/Library/Perl/5.34/Unqualified.bundle",
+            "/System/Library/Perl/5.34/darwin-thread-multi-2level/auto/Example/Executable.bundle",
+            "/usr/lib/Other.pm",
+            "/usr/lib/Other.bundle",
+        ] {
+            assert!(
+                matches!(selected.lookup(path), Err(Error::NotFound)),
+                "{path}"
+            );
+        }
+
+        let explicit = Files::default()
+            .with_file(module.into(), Arc::from(&b"override"[..]))
+            .unwrap();
+        let selected = select_native_root(&explicit, root).unwrap();
+        assert_eq!(&*selected.read(module).unwrap(), b"override");
     }
 
     #[cfg(unix)]
