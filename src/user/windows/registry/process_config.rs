@@ -10,6 +10,7 @@ pub(crate) enum ProcessConfigKey {
     Rpc,
     RpcPolicy,
     ActiveComputerName,
+    WinsockParameters,
     Ccg,
     DisabledLegacyExtensions,
     MachineAppCompatFlags,
@@ -17,10 +18,11 @@ pub(crate) enum ProcessConfigKey {
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 6] = [
+    pub(super) const ALL: [Self; 7] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
+        Self::WinsockParameters,
         Self::Ccg,
         Self::MachineAppCompatFlags,
         Self::OsDataAppCompatFlags,
@@ -32,6 +34,9 @@ impl ProcessConfigKey {
             Self::RpcPolicy => r"\Registry\Machine\Software\Policies\Microsoft\Windows NT\Rpc",
             Self::ActiveComputerName => {
                 r"\Registry\Machine\System\CurrentControlSet\Control\ComputerName\ActiveComputerName"
+            }
+            Self::WinsockParameters => {
+                r"\Registry\Machine\System\CurrentControlSet\Services\WinSock2\Parameters"
             }
             Self::Ccg => r"\Registry\Machine\System\CurrentControlSet\Services\CCG",
             Self::DisabledLegacyExtensions => {
@@ -59,6 +64,7 @@ impl ProcessConfigKey {
                 "EnableTcpPortScaling",
             ],
             Self::ActiveComputerName => &["ComputerName"],
+            Self::WinsockParameters => &["Current_NameSpace_Catalog", "Current_Protocol_Catalog"],
             Self::Ccg | Self::OsDataAppCompatFlags => &[],
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
             Self::MachineAppCompatFlags => &["LogFlags"],
@@ -70,6 +76,7 @@ impl ProcessConfigKey {
             Self::Rpc => "RPC configuration",
             Self::RpcPolicy => "RPC policy",
             Self::ActiveComputerName => "active computer name",
+            Self::WinsockParameters => "Winsock catalog selection",
             Self::Ccg => "CCG service",
             Self::DisabledLegacyExtensions => "disabled legacy extensions",
             Self::MachineAppCompatFlags => "machine AppCompatFlags",

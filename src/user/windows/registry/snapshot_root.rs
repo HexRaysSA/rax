@@ -129,6 +129,7 @@ impl SnapshotRoot {
                 | Self::ProcessConfig(
                     ProcessConfigKey::RpcPolicy
                         | ProcessConfigKey::ActiveComputerName
+                        | ProcessConfigKey::WinsockParameters
                         | ProcessConfigKey::Ccg
                 )
         )
