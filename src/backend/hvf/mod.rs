@@ -428,7 +428,11 @@ impl HvfCore {
     }
 
     fn inject_fault(&self, fault: xsetbv::XsetbvFault) -> Result<()> {
-        let (info, error) = fault.injection();
+        // VM entry uses the actual guest CR0, independently of the guest's
+        // MOV-from-CR0 read shadow. Real-address mode never pushes an error code.
+        let protected_mode = fault == xsetbv::XsetbvFault::GeneralProtection
+            && vmcs_read(self.vcpu_id, hv_vmx_vmcs_field_t::VMCS_GUEST_CR0)? & 1 != 0;
+        let (info, error) = fault.injection(protected_mode);
         if let Some(error) = error {
             vmcs_write(
                 self.vcpu_id,

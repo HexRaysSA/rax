@@ -250,13 +250,19 @@ fn cpuid_standard_xsave_size_tracks_enabled_avx_and_preserves_capabilities() {
 }
 
 #[test]
-fn faults_use_hardware_exception_injection_and_gp_zero_error_code() {
+fn hardware_fault_injection_uses_the_error_code_for_the_guest_mode() {
+    for protected_mode in [false, true] {
+        assert_eq!(
+            XsetbvFault::UndefinedOpcode.injection(protected_mode),
+            (0x8000_0306, None)
+        );
+    }
     assert_eq!(
-        XsetbvFault::UndefinedOpcode.injection(),
-        (0x8000_0306, None)
+        XsetbvFault::GeneralProtection.injection(true),
+        (0x8000_0b0d, Some(0))
     );
     assert_eq!(
-        XsetbvFault::GeneralProtection.injection(),
-        (0x8000_0b0d, Some(0))
+        XsetbvFault::GeneralProtection.injection(false),
+        (0x8000_030d, None)
     );
 }

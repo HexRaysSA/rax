@@ -578,6 +578,7 @@ fn reserved_msr_accesses_fault_before_retirement_or_register_effects(reason: u32
             let mut sdk = SDK.lock().unwrap();
             let native = sdk.cpus.get_mut(&0).unwrap();
             native.registers.insert(36, 1); // CR0.PE, CPL0.
+            native.vmcs.insert(0x6800, 1); // VM-entry CR0.PE.
             native.vmcs.insert(0x802, 8); // CS selector, RPL0.
             native.vmcs.insert(0x4016, 0);
             native.exits = [reason, 0x8000_0021].into_iter().collect();

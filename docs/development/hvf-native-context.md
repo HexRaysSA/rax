@@ -33,10 +33,10 @@ FXSAVE's abridged tags. XSAVE initial components ignore stale register bytes.
 Standard MXCSR handling is independent of the SSE in-use bit; compacted images
 use their corresponding initialization rule. Public overlays materialize initial
 legacy state before marking it in use and preserve opaque host components.
-PAT is software-owned architectural state: intercepted RDMSR/WRMSR and public
+PAT is software-owned architectural state. Intercepted RDMSR/WRMSR and public
 emulator-state import/export use the same validated value, retained in each
 private CPU record. Reserved PAT byte values and unprivileged MSR accesses inject
-#GP(0) without retiring the instruction. The SDK-private link-pointer and PAT
+#GP without retiring the instruction. The SDK-private link-pointer and PAT
 VMCS slots are excluded from initialization and checkpoint field banks.
 IA32_MISC_ENABLE retains the existing fixed intercepted profile. Architectural
 PAT readback does not qualify physical memory-cache-type behavior. The
@@ -79,6 +79,15 @@ an SDK/VM-entry check. [Intel SDM Vol. 3C §§28.2.1.3, 28.3.1.4–5](../specifi
 | A clear valid bit leaves the event inactive. | Inactive slot and unused payload values remain byte-for-byte compatible. | Decode and re-encode records with stale data in the inactive or unused fields. |
 | Guest activity and interruptibility constrain each queued event. | Capture and decode reject an incompatible record before restore. | Check NMI and IRQ blocking, HLT and shutdown exceptions, wait-for-SIPI, and valid versus reserved fields. |
 | The event belongs to the stopped CPU's VMCS. | A file restores each queued event to its original owner. | Save and restore 1, 2, and 4 CPUs with distinct queued events in the SDK model. |
+
+RAX's synthetic #GP uses the guest CR0.PE field that VM entry will load. In
+real-address mode, the entry information queues vector 13 with no error code
+and leaves the unused payload field untouched. In protected mode, including
+virtual-8086 and IA-32e mode, it queues vector 13 with a zero error code. The
+SDK model checks an invalid PAT write at the original RIP, then captures and
+restores the pending real-mode event. The test retains a distinct value in the
+unused payload field to detect an unintended write.
+[Intel SDM Vol. 3C §§28.2.1.3, 28.6.1.3](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
 
 ## Publication and rollback
 

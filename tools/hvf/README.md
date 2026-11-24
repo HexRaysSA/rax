@@ -227,15 +227,16 @@ python3 tools/hvf/xsetbv_oracle.py --llvm-bin /path/to/llvm/bin --work-dir ./tar
 The Intel exit adapter reads the live CR0/CR4, privilege state, EAX/ECX/EDX and
 configured XSAVE capabilities. It validates before writing XCR0. Success writes
 XCR0 through the SDK register API before advancing RIP. Failure queues a hardware
-exception at the faulting instruction; #GP carries error code0, #UD has no error
-code. A queued synchronous exception takes priority over a pending IRQ. Host API
+exception at the faulting instruction. #GP carries error code zero when CR0.PE
+is set. Real-address-mode #GP and all #UD events have no error-code payload.
+A queued synchronous exception takes priority over a pending IRQ. Host API
 errors propagate without manufacturing successful retirement.
 
 | Condition | Result |
 | --- | --- |
 | XSAVE absent or CR4.OSXSAVE0 | #UD |
 | Protected-mode CPL1-3 or virtual8086 | #GP(0) |
-| Nonzero ECX, x870, unsupported bit, invalid component dependency | #GP(0) |
+| Nonzero ECX, x870, unsupported bit, invalid component dependency | #GP with the guest-mode error-code rule |
 | Valid configured XCR0 value1,3,7 | XCR0 write, then RIP advance |
 
 Upper32 bits of RAX/RCX/RDX do not participate in XSETBV. The configured x87/SSE/

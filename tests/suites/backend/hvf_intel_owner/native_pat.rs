@@ -13,6 +13,7 @@ fn msr(cpu: &mut dyn VCpu, write: Option<u64>, cr0: u64, selector: u64, flags: u
         native.registers.insert(1, flags);
         native.registers.insert(3, 0x277);
         native.registers.insert(36, cr0);
+        native.vmcs.insert(0x6800, cr0);
         native
             .registers
             .insert(2, write.map_or(0x1234_5678, |value| value & 0xffff_ffff));
@@ -34,6 +35,49 @@ fn msr(cpu: &mut dyn VCpu, write: Option<u64>, cr0: u64, selector: u64, flags: u
             reason: 0x8000_0021
         })
     ));
+}
+
+#[test]
+fn real_mode_pat_fault_restores_without_a_protected_mode_error_code() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (vm, memory) = fixture();
+    let mut cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    // The error-code field is ignored and must stay untouched for a real-mode #GP.
+    SDK.lock()
+        .unwrap()
+        .cpus
+        .get_mut(&0)
+        .unwrap()
+        .vmcs
+        .insert(0x4018, 0x1234);
+    msr(cpu.as_mut(), Some(2), 0, 0, 2);
+    {
+        let sdk = SDK.lock().unwrap();
+        let native = &sdk.cpus[&0];
+        assert_eq!(native.vmcs[&0x4016], 0x8000_030d);
+        assert_eq!(native.vmcs[&0x4018], 0x1234);
+        assert_eq!(native.registers[&0], 0x1000);
+    }
+    let boundary = vm.checkpoint_boundary().unwrap();
+    let (public, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+    assert_eq!(public.emulator.pat, RESET);
+    drop(boundary);
+    SDK.lock()
+        .unwrap()
+        .cpus
+        .get_mut(&0)
+        .unwrap()
+        .vmcs
+        .insert(0x4016, 0);
+    cpu.restore_checkpoint_context(&public.state, &public.emulator, context.as_ref())
+        .unwrap();
+    let sdk = SDK.lock().unwrap();
+    assert_eq!(sdk.cpus[&0].vmcs[&0x4016], 0x8000_030d);
+    assert_eq!(sdk.cpus[&0].vmcs[&0x4018], 0x1234);
 }
 
 #[test]

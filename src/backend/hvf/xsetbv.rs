@@ -9,10 +9,11 @@ pub(crate) enum XsetbvFault {
 
 impl XsetbvFault {
     /// VM-entry interruption information (hardware exception) and error code.
-    pub(crate) fn injection(self) -> (u64, Option<u64>) {
+    pub(crate) fn injection(self, protected_mode: bool) -> (u64, Option<u64>) {
         match self {
             Self::UndefinedOpcode => (0x8000_0306, None),
-            Self::GeneralProtection => (0x8000_0b0d, Some(0)),
+            Self::GeneralProtection if protected_mode => (0x8000_0b0d, Some(0)),
+            Self::GeneralProtection => (0x8000_030d, None),
         }
     }
 }
