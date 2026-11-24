@@ -8,7 +8,10 @@ impl AArch64Cpu {
     }
 
     /// Execute one instruction.
-    pub(crate) fn execute_instruction(&mut self) -> Result<CpuExit, ArmError> {
+    pub(super) fn execute_instruction(
+        &mut self,
+        honor_wait_controls: bool,
+    ) -> Result<CpuExit, ArmError> {
         if self.aarch32.is_some() {
             return self.execute_aarch32_instruction();
         }
@@ -38,7 +41,12 @@ impl AArch64Cpu {
         self.btype = 0;
 
         // Execute
-        let result = self.decode_with_fp_traps(insn);
+        // Process embeddings expose these hints as yields without a guest OS.
+        let result = if !honor_wait_controls && matches!(insn, 0xd503_205f | 0xd503_207f) {
+            self.execute_wait_hint(insn == 0xd503_205f, false)
+        } else {
+            self.decode_with_fp_traps(insn)
+        };
 
         match result {
             Ok(exit @ CpuExit::Undefined(_)) => {

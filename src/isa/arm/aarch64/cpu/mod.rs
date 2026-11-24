@@ -688,8 +688,8 @@ unsafe extern "C" fn rax_a64_vec_store(
     1
 }
 
-impl ArmCpu for AArch64Cpu {
-    fn step(&mut self) -> Result<CpuExit, ArmError> {
+impl AArch64Cpu {
+    fn step_direct(&mut self, honor_wait_controls: bool) -> Result<CpuExit, ArmError> {
         if let Some(error) = self.execution.native_fault.take() {
             return Err(error);
         }
@@ -724,7 +724,13 @@ impl ArmCpu for AArch64Cpu {
         }
 
         // Execute one instruction
-        self.execute_instruction()
+        self.execute_instruction(honor_wait_controls)
+    }
+}
+
+impl ArmCpu for AArch64Cpu {
+    fn step(&mut self) -> Result<CpuExit, ArmError> {
+        self.step_direct(true)
     }
 
     fn reset(&mut self) {

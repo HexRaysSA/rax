@@ -200416,6 +200416,17 @@
       "scope": "Reserved VMRS and VMSR fields select Undefined in ARM and Thumb before FP access checks. The regression covers 34,290 nonzero words and preserves predicate behavior and canonical trap selection. Five complete integration targets passed 47,697 tests. Independent QEMU controls took Undefined for 1,016 reserved FPSCR reads and writes and retained eight canonical transfers. Physical AArch32 and the remaining profile, security and debug controls stay open.",
       "qualification": "docs/development/a32-fp-controls.md#vmrs-and-vmsr-reserved-fields",
       "full_goal_complete": false
+    },
+    {
+      "id": "a64-classic-wfx-traps-2026-11-24",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Classic software A64 WFE and WFI check their effective trap controls when no modeled wakeup is ready. The trap preserves the faulting PC and retirement frontier. The VMM runs separate WFE and WFI handlers on two PEs after file restoration into a fresh machine. Six complete integration binaries passed 47,528 tests. QEMU independently matched both EL2 trap syndromes and return addresses. Timed and delayed wait instructions, additional interrupt sources, mixed-state routing and physical hardware validation remain open.",
+      "qualification": "docs/development/a64-events/README.md#classic-a64-wait-traps",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

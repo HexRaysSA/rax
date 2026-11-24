@@ -1,8 +1,8 @@
 //! AArch64 user-mode adapter.
 //!
-//! Drives an [`AArch64Cpu`] at EL0 through [`ArmCpu::step`], which returns
-//! `SVC`, `BRK`, and synchronous faults to the caller instead of taking them
-//! to EL1. Memory accesses go through [`UserArmMemory`], which translates
+//! Drives an [`AArch64Cpu`] at EL0 and returns `SVC`, `BRK`, and
+//! synchronous faults to the host process adapter. Memory accesses go
+//! through [`UserArmMemory`], which translates
 //! every access with the address space's page permissions: instruction
 //! fetches require execute permission, and no alignment is enforced for
 //! ordinary accesses (Linux runs EL0 with `SCTLR_EL1.A` clear).
@@ -392,7 +392,7 @@ impl<M: CpuAddressSpace> CpuWithSpace<M> {
             if let Some(error) = self.space.fatal_error() {
                 return A64Exit::Internal(error);
             }
-            match self.cpu.step() {
+            match self.cpu.step_user_pauth(false) {
                 Ok(CpuExit::Continue) => {}
                 Ok(CpuExit::Svc(imm)) => {
                     return A64Exit::Svc {

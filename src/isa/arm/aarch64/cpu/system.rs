@@ -329,20 +329,7 @@ impl AArch64Cpu {
             match op2 {
                 0b000 => Ok(CpuExit::Continue), // NOP
                 0b001 => Ok(CpuExit::Continue), // YIELD
-                0b010 => {
-                    // WFE
-                    if self.take_event() {
-                        Ok(CpuExit::Continue)
-                    } else {
-                        self.wfe = true;
-                        Ok(CpuExit::Wfe)
-                    }
-                }
-                0b011 => {
-                    // WFI
-                    self.wfi = true;
-                    Ok(CpuExit::Wfi)
-                }
+                0b010 | 0b011 => self.execute_wait_hint(op2 == 0b010, true),
                 0b100 => {
                     // Publish the platform fanout before the local architectural effect.
                     self.memory.send_event()?;
@@ -378,6 +365,73 @@ impl AArch64Cpu {
         } else {
             Err(ArmError::UndefinedInstruction(insn))
         }
+    }
+
+    pub(super) fn execute_wait_hint(
+        &mut self,
+        event: bool,
+        honor_wait_controls: bool,
+    ) -> Result<CpuExit, ArmError> {
+        let ready = if event {
+            self.take_event()
+        } else {
+            // A pending interrupt can complete WFI even when PSTATE masks it.
+            honor_wait_controls && self.pending_interrupt_kind()?.is_some()
+        };
+        if ready {
+            // Retain WFI's scheduler boundary without entering wait state.
+            return Ok(if event {
+                CpuExit::Continue
+            } else {
+                CpuExit::Wfi
+            });
+        }
+        if honor_wait_controls {
+            self.check_wait_trap(event)?;
+        }
+        if event {
+            self.wfe = true;
+            Ok(CpuExit::Wfe)
+        } else {
+            self.wfi = true;
+            Ok(CpuExit::Wfi)
+        }
+    }
+
+    fn check_wait_trap(&self, event: bool) -> Result<(), ArmError> {
+        if self.current_el == 3 {
+            return Ok(());
+        }
+        // Arm AArch64_CheckForWFxTrap. EL0 uses the SCTLR of its effective
+        // translation regime. The ordinary EL3 trap follows EL1 and EL2.
+        let (sctlr_bit, hcr_bit, scr_bit) = if event { (18, 14, 13) } else { (16, 13, 12) };
+        let controls = self.pauth_controls();
+        let regime_el = controls.regime_el();
+        let el2_enabled = controls.el2_enabled();
+        let target_el = if self.current_el == 0 && controls.sctlr[regime_el] & (1 << sctlr_bit) == 0
+        {
+            if el2_enabled && controls.hcr_el2 & (1 << 27) != 0 {
+                2
+            } else {
+                1
+            }
+        } else if self.current_el < 2
+            && el2_enabled
+            && regime_el != 2
+            && controls.hcr_el2 & (1 << hcr_bit) != 0
+        {
+            2
+        } else if controls.implemented_els & (1 << 3) != 0 && controls.scr_el3 & (1 << scr_bit) != 0
+        {
+            3
+        } else {
+            return Ok(());
+        };
+        Err(ArmError::ArchitecturalException {
+            ec: 1,
+            iss: 0x1e0_0000 | u32::from(event), // CV=1, COND=0xe, TI=event.
+            target_el: Some(target_el),
+        })
     }
 
     /// Take a synchronous exception with the given syndrome (and FAR, for

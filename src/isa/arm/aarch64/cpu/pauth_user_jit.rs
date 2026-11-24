@@ -3,7 +3,7 @@
 #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
 use super::A64_JIT_HOT_THRESHOLD;
 use super::AArch64Cpu;
-use crate::isa::arm::common::cpu::{ArmCpu, ArmError, CpuExit};
+use crate::isa::arm::common::cpu::{ArmError, CpuExit};
 
 impl AArch64Cpu {
     /// Preserve the direct EL0 stepping contract, admitting only framed,
@@ -36,14 +36,14 @@ impl AArch64Cpu {
                     }
                 }
                 let pc_before = self.pc;
-                let result = self.step();
+                let result = self.step_direct(false);
                 if matches!(result, Ok(CpuExit::Continue)) {
                     self.sample_user_pauth_backedge(pc_before);
                 }
                 return result;
             }
         }
-        self.step()
+        self.step_direct(false)
     }
 
     #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]

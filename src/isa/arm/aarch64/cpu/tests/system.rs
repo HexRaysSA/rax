@@ -4,6 +4,93 @@ use super::*;
 use crate::isa::arm::aarch64::cpu::*;
 
 #[test]
+fn wfx_traps_use_the_effective_control_bank_and_preserve_the_faulting_pc() {
+    for (word, hint, sctlr_bit, hcr_bit, scr_bit, iss) in [
+        (0xd503_205f, CpuExit::Wfe, 18, 14, 13, 0x1e0_0001),
+        (0xd503_207f, CpuExit::Wfi, 16, 13, 12, 0x1e0_0000),
+    ] {
+        for (el, secure, host, tge, el1_allow, el2_allow, target) in [
+            (1, false, false, false, true, true, Some(2)),
+            (1, true, false, false, true, true, Some(3)),
+            (0, false, false, false, false, true, Some(1)),
+            (0, false, false, true, false, true, Some(2)),
+            (0, false, true, true, true, false, Some(2)),
+            (0, false, true, true, false, true, Some(3)),
+            (2, false, true, true, false, false, Some(3)),
+            (3, true, false, false, false, false, None),
+        ] {
+            let mut cpu = create_cpu_with_insn(word);
+            cpu.current_el = el;
+            cpu.sp_sel = el != 0;
+            cpu.config.features.insert(ArmFeatures::VHE);
+            cpu.sysregs.hcr_el2 =
+                (1 << 31) | (1 << hcr_bit) | (u64::from(host) << 34) | (u64::from(tge) << 27);
+            cpu.sysregs.scr_el3 = (1 << 10) | (1 << scr_bit) | u64::from(!secure);
+            cpu.sysregs.el1.sctlr = u64::from(el1_allow) << sctlr_bit;
+            cpu.sysregs.el2.sctlr = u64::from(el2_allow) << sctlr_bit;
+            match target {
+                Some(target) => {
+                    assert!(
+                        matches!(
+                            cpu.step(),
+                            Err(ArmError::ArchitecturalException { ec: 1, iss: value, target_el: Some(level) })
+                                if value == iss && level == target
+                        ),
+                        "word={word:08x}, el={el}, secure={secure}, host={host}, tge={tge}"
+                    );
+                    assert_eq!(
+                        (cpu.pc, cpu.insn_count, cpu.wfe, cpu.wfi),
+                        (0, 0, false, false)
+                    );
+                    cpu.sysregs.bank_mut(target).vbar = 0x800;
+                    assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+                    let bank = cpu.sysregs.bank(target);
+                    assert_eq!((cpu.current_el, cpu.pc, cpu.insn_count), (target, 0xc00, 0));
+                    assert_eq!(bank.elr, 0);
+                    assert_eq!(bank.esr, 0x0600_0000 | u64::from(iss));
+                }
+                None => {
+                    assert_eq!(cpu.step().unwrap(), hint);
+                    assert_eq!((cpu.pc, cpu.insn_count), (4, 1));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn wfx_traps_are_bypassed_for_ready_wakeups_and_process_hints() {
+    for word in [0xd503_205fu32, 0xd503_207f] {
+        let mut cpu = create_cpu_with_insn(word);
+        cpu.current_el = 1;
+        cpu.gic = None;
+        cpu.daif = 0xf;
+        cpu.sysregs.scr_el3 |= 1;
+        cpu.sysregs.hcr_el2 |= (1 << 14) | (1 << 13);
+        let expected = if word == 0xd503_205f {
+            cpu.set_event();
+            CpuExit::Continue
+        } else {
+            cpu.sysregs.cntp_ctl_el0 = 1;
+            cpu.sysregs.cntp_cval_el0 = 0;
+            CpuExit::Wfi
+        };
+        assert_eq!(cpu.step_system().unwrap(), expected);
+        assert!(!cpu.event_pending());
+        assert_eq!(
+            (cpu.pc, cpu.insn_count, cpu.wfe, cpu.wfi),
+            (4, 1, false, false)
+        );
+
+        let mut process = create_cpu_with_insn(word);
+        process.enter_el0();
+        let result = process.step_user_pauth(false).unwrap();
+        assert!(matches!(result, CpuExit::Wfe | CpuExit::Wfi));
+        assert_eq!((process.pc, process.insn_count), (4, 1));
+    }
+}
+
+#[test]
 fn rng_mrs_sets_z_when_value_unavailable() {
     for (op2, value) in [
         (0, 0),

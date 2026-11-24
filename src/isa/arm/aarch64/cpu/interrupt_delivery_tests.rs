@@ -259,7 +259,6 @@ fn group_masks_and_vectors_match_on_direct_interpreted_and_native_system_entries
 fn masked_irq_and_fiq_wake_wfi_without_taking_an_exception() {
     for group in [0, 1] {
         for system in [false, true] {
-            let mut cpu = cpu(group, 0xd503_207f);
             let step = |cpu: &mut AArch64Cpu| {
                 if system {
                     cpu.step_system()
@@ -267,10 +266,28 @@ fn masked_irq_and_fiq_wake_wfi_without_taking_an_exception() {
                     cpu.step()
                 }
             };
-            assert!(matches!(step(&mut cpu).unwrap(), CpuExit::Wfi));
-            assert!(matches!(step(&mut cpu).unwrap(), CpuExit::Continue));
-            assert_eq!((cpu.pc, cpu.insn_count), (8, 2));
-            assert_eq!(cpu.sysregs.el1.elr, 0);
+            for pending_at_entry in [false, true] {
+                let mut cpu = cpu(group, 0xd503_207f);
+                let handle = cpu.gic_handle().unwrap();
+                if pending_at_entry {
+                    assert_eq!(step(&mut cpu).unwrap(), CpuExit::Wfi);
+                    assert!(!cpu.wfi);
+                } else {
+                    handle.lock().unwrap().write_redist(0, 0x10280, 1 << 7);
+                    assert_eq!(step(&mut cpu).unwrap(), CpuExit::Wfi);
+                    assert!(cpu.wfi);
+                    handle.lock().unwrap().send_sgi(7, 1, false);
+                }
+                assert_eq!(step(&mut cpu).unwrap(), CpuExit::Continue);
+                assert_eq!((cpu.pc, cpu.insn_count), (8, 2));
+                assert_eq!(cpu.sysregs.el1.elr, 0);
+                assert!(!cpu.wfi);
+                assert!(
+                    handle.lock().unwrap().cpu(0).unwrap().private_interrupts[7]
+                        .state
+                        .is_pending()
+                );
+            }
         }
     }
 }

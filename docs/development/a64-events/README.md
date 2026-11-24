@@ -18,9 +18,51 @@ auxiliary storage for N configured PEs; the platform owns O(N) latch storage.
 The direct CPU keeps waiting until an event completes its existing `WFE`.
 System entry consumes a pending event and proceeds to the next instruction.
 Without an event, system entry retains its existing single-yield spurious-wakeup
-policy. This is not a new architectural timer event stream or a complete model
-of WFE/WFI trap controls. Powered-off PEs do not execute; their subsequent CPU
-startup/reset clears their local latch while preserving the platform handle.
+policy. Powered-off PEs do not execute. Their subsequent CPU startup/reset
+clears their local latch while preserving the platform handle.
+
+## Classic A64 wait traps
+
+For A64 `WFE` with an empty event latch and `WFI` without a pending modeled
+physical IRQ or FIQ, the software CPU checks the effective EL0 SCTLR, then
+eligible HCR_EL2 controls, then SCR_EL3. HCR_EL2.TGE redirects an EL0 trap
+from EL1 to EL2 when EL2 is enabled. VHE host EL0 uses SCTLR_EL2. The trap
+records EC 0x01 and the WFx selector in ESR, records the instruction address in
+ELR, and leaves retirement and the wait latch unchanged. A ready wakeup
+allows the hint to retire. A ready WFI still yields to the coordinator and
+keeps the PE runnable. EL0 process adapters continue to expose these
+hints as yields while retaining their instruction budgets and exclusive
+monitors.
+
+The detached two-PE file test sets TWE on CPU 0 and TWI on CPU 1. The real
+VMM coordinator resumes both CPUs, checks their distinct ELR and ESR values
+and verifies that only their EL2 handler instructions retire. The control
+registers already travel in each PE's saved state. Trap selection takes
+O(1) time and O(1) auxiliary space for each hint.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Effective SCTLR and eligible HCR/SCR determine the route. | Exercise EL0 through EL3, Secure EL1 and VHE host EL0. A mismatched target, exception syndrome or saved PC falsifies the route. |
+| A ready event or a pending masked physical interrupt completes the hint before a trap. | Arm the trap controls and supply an event or timer interrupt. A trap, a set wait flag or an unconsumed event falsifies completion. |
+| Each PE retains its selected controls through detached restoration. | Resume two PEs with different controls, opcodes and vectors. An incorrect CPU index, syndrome, address or retirement count falsifies restoration. |
+
+The pinned [Arm pseudocode](../../specifications/arm/pauth/shared_pseudocode-2025-12.xml)
+defines `Hint_WFE`, `Hint_WFI`, `AArch64_CheckForWFxTrap`, and
+`AArch64_WFxTrap`. LLVM MC 23 assembled a bare-metal guest that set TWE
+and TWI. QEMU 11.1.2 consumed the first WFE's event, then reported ESR
+0x07e00001 for the second WFE and 0x07e00000 for WFI, with ELR pointing to
+each trapping instruction. Baseline, test and independent oracle evidence is
+recorded under `/Users/int/dev/rax-audit-work/four-findings-a64-classic-wfx-traps-2026-11-24`.
+The six complete ARM, oracle, retirement and checkpoint integration binaries
+passed 47,528 tests and ignored two tests that require entitled Apple Silicon
+execution. The Linux process binary passed 43 tests with its Docker oracle
+ignored. All 12 interrupt-delivery unit tests passed, including IRQ and FIQ
+arrival before or after WFI. The library compiled with and without SMIR JIT.
+
+High impact coverage still open includes timed WFxT, delayed WFE trapping,
+EL3 halting-debug priority, additional virtual wake sources, and mixed-state
+AArch32 trap routing. This change qualifies the software path for these
+classic A64 instructions.
 
 ## Restoration and native helpers
 
@@ -41,7 +83,7 @@ Typed native PAuth instructions cannot consume an event. Their return path
 therefore merges a set event without clearing a new signal received during a
 memory helper. The native regression injects a signal during an actual LDRAA
 helper after frame export and checks the loaded value, retirement and native
-entry count. SEV, SEVL and WFE continue to reject ordinary native admission and
+entry count. SEV, SEVL, WFE and WFI continue to reject ordinary native admission and
 execute at the CPU boundary. No new standalone SMIR event topology is claimed.
 
 ## Primary provenance

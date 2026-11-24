@@ -103,7 +103,7 @@ impl AArch64Cpu {
         self.pc_ring[self.pc_ring_idx] = self.pc;
         self.pc_ring_idx = (self.pc_ring_idx + 1) % self.pc_ring.len();
 
-        match self.execute_instruction() {
+        match self.execute_instruction(true) {
             Ok(CpuExit::Undefined(instruction)) => {
                 let error = ArmError::UndefinedInstruction(instruction);
                 if fault_exit {
