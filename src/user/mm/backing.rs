@@ -188,7 +188,7 @@ impl Backing {
         match self {
             Backing::Anonymous => None,
             Backing::Source { source, .. } => Some(source.len().div_ceil(PAGE_SIZE) * PAGE_SIZE),
-            Backing::Shared { object, .. } => Some(object.len().div_ceil(PAGE_SIZE) * PAGE_SIZE),
+            Backing::Shared { object, .. } => Some(object.page_end(object.len())),
         }
     }
 
@@ -214,7 +214,7 @@ impl Backing {
             }
             Backing::Shared { object, offset } => {
                 let file_offset = offset + delta;
-                if file_offset >= object.len().div_ceil(PAGE_SIZE) * PAGE_SIZE {
+                if file_offset >= object.page_end(object.len()) {
                     return Ok(false);
                 }
                 let n = object.read_at(file_offset, page)?;

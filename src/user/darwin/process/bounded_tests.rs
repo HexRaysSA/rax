@@ -1026,6 +1026,103 @@ fn supplied_mmap_preserves_copy_on_write_eof_and_guest_page_granularity() {
 }
 
 #[test]
+fn closed_workspace_shared_mappings_follow_darwin_guest_pages() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr},
+        io::{O_CREAT, O_RDONLY, O_RDWR, O_WRONLY},
+        syscall::{Ctx, bsd, bsd::file, mem},
+        vm,
+    };
+    use crate::user::supplied_fs::WorkspaceFlavor;
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process(abi);
+        let files = p
+            .proc
+            .vfs
+            .files()
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        p.proc.vfs = Vfs::supplied(files);
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let name = thread.cpu.sp() - 512;
+        let byte = name + 64;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::MMAP),
+            pc: ENTRY,
+        };
+        ctx.write(name, b"/tmp/mapped\0").unwrap();
+        let mut open = |flags: u32| {
+            bsd::call(
+                &mut ctx,
+                nr::OPEN,
+                &[name, u64::from(flags), 0o600, 0, 0, 0, 0, 0],
+            )
+            .unwrap()
+            .0 as i32
+        };
+        let writer = open(O_RDWR | O_CREAT);
+        let reader = open(O_RDONLY);
+        let write_only = open(O_WRONLY);
+        let page = ctx.proc.vm.page;
+        file::ftruncate(&mut ctx, writer, (2 * page) as i64).unwrap();
+        let rw = vm::VM_PROT_READ | vm::VM_PROT_WRITE;
+        let shared = mem::MAP_SHARED | mem::MAP_UNIX03;
+
+        assert_eq!(
+            mem::mmap(&mut ctx, 0, page, rw, shared, reader, 0),
+            Err(Errno::EACCES)
+        );
+        assert_eq!(
+            mem::mmap(&mut ctx, 0, page, vm::VM_PROT_READ, shared, write_only, 0),
+            Err(Errno::EACCES)
+        );
+        let alias = mem::mmap(&mut ctx, 0, 2 * page, vm::VM_PROT_READ, shared, reader, 0)
+            .unwrap()
+            .0;
+        let mapping = mem::mmap(&mut ctx, 0, 2 * page, vm::VM_PROT_READ, shared, writer, 0)
+            .unwrap()
+            .0;
+        assert_eq!(mem::mprotect(&mut ctx, alias, page, rw), Err(Errno::EACCES));
+        mem::mprotect(&mut ctx, mapping, 2 * page, rw).unwrap();
+
+        let child = ctx.proc.space.process_snapshot().unwrap();
+        ctx.write(mapping, b"a").unwrap();
+        assert_eq!(ctx.read(alias, 1).unwrap(), b"a");
+        assert_eq!(file::read(&mut ctx, reader, byte, 1, Some(0)).unwrap().0, 1);
+        assert_eq!(ctx.read(byte, 1).unwrap(), b"a");
+        ctx.write(byte, b"b").unwrap();
+        assert_eq!(
+            file::write(&mut ctx, writer, byte, 1, Some(1)).unwrap().0,
+            1
+        );
+        assert_eq!(ctx.read(mapping, 2).unwrap(), b"ab");
+
+        ctx.write(mapping + page - 1, b"c").unwrap();
+        child.write(mapping + page, b"d").unwrap();
+        assert_eq!(ctx.read(alias + page, 1).unwrap(), b"d");
+        file::ftruncate(&mut ctx, writer, 2).unwrap();
+        assert_eq!(ctx.read(alias + page - 1, 1).unwrap(), [0]);
+        assert_eq!(ctx.read(mapping + page, 1), Err(Errno::EFAULT));
+        assert!(child.read(mapping + page, &mut [0]).is_err());
+        file::ftruncate(&mut ctx, writer, (2 * page) as i64).unwrap();
+        assert_eq!(ctx.read(mapping + page, 1).unwrap(), [0]);
+
+        bsd::call(&mut ctx, nr::UNLINK, &[name, 0, 0, 0, 0, 0, 0, 0]).unwrap();
+        for fd in [writer, reader, write_only] {
+            file::close(&mut ctx, fd).unwrap();
+        }
+        ctx.write(mapping, b"e").unwrap();
+        assert_eq!(ctx.read(alias, 2).unwrap(), b"eb");
+        let mut retained = [0; 2];
+        child.read(mapping, &mut retained).unwrap();
+        assert_eq!(&retained, b"eb");
+    }
+}
+
+#[test]
 fn selected_runtime_metadata_controls_do_not_admit_copied_files_or_bad_buffers() {
     use crate::user::darwin::{
         abi::Errno,

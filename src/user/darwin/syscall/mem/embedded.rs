@@ -1,8 +1,9 @@
-//! Supplied-file mappings. The source's extent is rounded to the guest page
-//! size so the final partial Darwin page is zero-filled on either guest ABI.
+//! Supplied-file mappings. Guest-private workspace files can share live
+//! backing with their descriptors. Both kinds use Darwin guest page sizes.
 
 use super::*;
 use crate::user::darwin::fd::{EmbeddedFile, OpenFile};
+use crate::user::supplied_fs::Kind;
 
 pub(super) fn mmap(
     ctx: &mut Ctx<'_>,
@@ -31,14 +32,16 @@ pub(super) fn mmap(
         return Err(Errno::EINVAL);
     }
     let shared = flags & MAP_SHARED != 0;
-    if shared && prot & vm::VM_PROT_WRITE != 0 {
+    let workspace = object.workspace();
+    let writable = workspace.is_some_and(|(_, access)| access == O_RDWR);
+    if shared && !writable && prot & vm::VM_PROT_WRITE != 0 {
         return Err(Errno::EACCES);
     }
     if size == 0 {
         return Ok(Rv::one(0));
     }
     let mask = ctx.proc.vm.page - 1;
-    let mut maxprot = if shared {
+    let mut maxprot = if shared && !writable {
         vm::VM_PROT_READ | vm::VM_PROT_EXECUTE
     } else {
         vm::VM_PROT_ALL
@@ -46,17 +49,25 @@ pub(super) fn mmap(
     if flags & MAP_RESILIENT_CODESIGN != 0 {
         maxprot &= prot;
     }
-    let mapping = Mapping {
-        perms: vm::perms(prot),
-        backing: Backing::Source {
+    let offset = pos & !mask;
+    let backing = match &entry.kind {
+        Kind::Workspace(file) if shared && workspace.is_some() => Backing::Shared {
+            object: file.shared_mapping(writable, ctx.proc.vm.page)?,
+            offset,
+        },
+        _ => Backing::Source {
             source: match object.resource() {
                 Some((fork, _)) => {
                     crate::user::darwin::fd::resource_source(fork, ctx.proc.vm.page)?
                 }
                 None => crate::user::darwin::fd::supplied_source(entry, ctx.proc.vm.page)?,
             },
-            offset: pos & !mask,
+            offset,
         },
+    };
+    let mapping = Mapping {
+        perms: vm::perms(prot),
+        backing,
         shared,
         name: file
             .path

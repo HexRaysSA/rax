@@ -15,7 +15,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use super::backing::SourceIdentity;
+use super::{PAGE_SIZE, backing::SourceIdentity};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, Weak};
 
@@ -116,6 +116,7 @@ pub struct SharedObject {
     /// Darwin POSIX shared memory object's).
     limit: Option<u64>,
     extent: Option<Arc<SharedFileExtent>>,
+    eof_page: u64,
 }
 
 impl fmt::Debug for SharedObject {
@@ -178,6 +179,7 @@ impl SharedObject {
             sysv: None,
             limit: None,
             extent: None,
+            eof_page: PAGE_SIZE,
         })
     }
 
@@ -193,6 +195,7 @@ impl SharedObject {
             sysv: Some(id),
             limit: None,
             extent: None,
+            eof_page: PAGE_SIZE,
         })
     }
 
@@ -215,6 +218,7 @@ impl SharedObject {
             sysv: None,
             limit: None,
             extent: None,
+            eof_page: PAGE_SIZE,
         })
     }
 
@@ -232,6 +236,7 @@ impl SharedObject {
             sysv: None,
             limit: Some(len),
             extent: None,
+            eof_page: PAGE_SIZE,
         }
     }
 
@@ -247,6 +252,7 @@ impl SharedObject {
             sysv: None,
             limit: Some(len),
             extent: None,
+            eof_page: PAGE_SIZE,
         }
     }
 
@@ -259,6 +265,7 @@ impl SharedObject {
         identity: SourceIdentity,
         writable: bool,
         keep: super::Keep,
+        eof_page: u64,
     ) -> Self {
         Self {
             store: Store::File(super::MappedFile::keeping(file, Some(keep))),
@@ -268,6 +275,7 @@ impl SharedObject {
             sysv: None,
             limit: capacity,
             extent: Some(extent),
+            eof_page,
         }
     }
 
@@ -289,6 +297,11 @@ impl SharedObject {
                 .saturating_mul(host_page)
                 .min(extent),
         }
+    }
+
+    /// First byte beyond the object's final guest page.
+    pub(super) fn page_end(&self, len: u64) -> u64 {
+        len.div_ceil(self.eof_page).saturating_mul(self.eof_page)
     }
 
     /// Current size in bytes.

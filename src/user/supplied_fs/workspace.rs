@@ -247,6 +247,8 @@ enum Contents {
 struct SharedContents {
     file: MappedFile,
     extent: Arc<SharedFileExtent>,
+    #[cfg(unix)]
+    storage_page: u64,
 }
 
 impl Contents {
@@ -288,7 +290,22 @@ impl SharedContents {
         Ok(Self {
             file,
             extent: Arc::new(SharedFileExtent::new(bytes.len() as u64)),
+            #[cfg(unix)]
+            storage_page: 1,
         })
+    }
+
+    #[cfg(unix)]
+    fn ensure_mapping_page(&mut self, guest_page: u64) -> io::Result<()> {
+        // Hosts with smaller pages need real backing for every page of a
+        // guest's partial final page. Equal or larger native pages already
+        // supply that padding through the file mapping.
+        if guest_page > crate::user::mm::native_page_size() && guest_page > self.storage_page {
+            let len = self.extent.len().div_ceil(guest_page) * guest_page;
+            self.file.set_len(len)?;
+            self.storage_page = guest_page;
+        }
+        Ok(())
     }
 
     fn resize(&self, identity: SourceIdentity, old: usize, new: usize) -> Result<(), Error> {
@@ -306,7 +323,26 @@ impl SharedContents {
         Ok(())
     }
 
-    #[cfg(not(windows))]
+    #[cfg(unix)]
+    fn resize_storage(&self, old: usize, new: usize) -> io::Result<()> {
+        let old = old as u64;
+        let new = new as u64;
+        let rounded = new.div_ceil(self.storage_page) * self.storage_page;
+        // Native ftruncate clears tails when physical size changes. Clear
+        // the surviving tail explicitly when the file has extra padding.
+        if new < old && rounded > new {
+            let zeros = [0; crate::user::mm::PAGE_SIZE as usize];
+            let mut offset = new;
+            while offset < rounded {
+                let count = (rounded - offset).min(zeros.len() as u64);
+                self.file.write_all_at(offset, &zeros[..count as usize])?;
+                offset += count;
+            }
+        }
+        self.file.set_len(rounded)
+    }
+
+    #[cfg(not(any(unix, windows)))]
     fn resize_storage(&self, _old: usize, new: usize) -> io::Result<()> {
         self.file.set_len(new as u64)
     }
@@ -936,14 +972,19 @@ impl WorkspaceFile {
     pub(in crate::user) fn shared_mapping(
         self: &Arc<Self>,
         writable: bool,
+        guest_page: u64,
     ) -> Result<Arc<SharedObject>, Error> {
         let mut contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
         if let Contents::Bytes(bytes) = &*contents {
             *contents = Contents::Shared(SharedContents::new(bytes)?);
         }
-        let Contents::Shared(shared) = &*contents else {
+        let Contents::Shared(shared) = &mut *contents else {
             unreachable!("workspace mapping storage initialized");
         };
+        #[cfg(unix)]
+        shared
+            .ensure_mapping_page(guest_page)
+            .map_err(|_| Error::Io)?;
         let file = shared.file.try_clone().map_err(|_| Error::Io)?;
         Ok(Arc::new(SharedObject::bounded_file(
             file,
@@ -952,6 +993,7 @@ impl WorkspaceFile {
             self.identity(),
             writable,
             self.clone(),
+            guest_page,
         )))
     }
 

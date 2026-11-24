@@ -707,11 +707,11 @@ impl AddressSpace {
     /// (and never a touch of a host page the object no longer has).
     pub fn truncated(&self, id: SourceIdentity, size: u64) {
         let vmas = self.vmas();
-        let keep = size.div_ceil(PAGE_SIZE) * PAGE_SIZE;
         let gone: Vec<(u64, u64)> = vmas
             .iter()
             .filter_map(|v| match &v.backing {
                 Backing::Shared { object, offset } if object.identity() == id => {
+                    let keep = object.page_end(size);
                     let first = if *offset >= keep {
                         v.start
                     } else {
@@ -1214,6 +1214,13 @@ impl AddressSpace {
     }
 }
 
+#[cfg(unix)]
+pub(crate) fn native_page_size() -> u64 {
+    // SAFETY: sysconf takes an integer argument.
+    let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+    if page > 0 { page as u64 } else { PAGE_SIZE }
+}
+
 /// Attaches the extent of `object` at `start` over arena extent `base`.
 fn attach(
     arena: &FrameArena,
@@ -1224,8 +1231,7 @@ fn attach(
     #[cfg(unix)]
     {
         use std::os::fd::AsRawFd;
-        // SAFETY: sysconf takes an integer argument.
-        let host_page = u64::try_from(unsafe { libc::sysconf(libc::_SC_PAGESIZE) }).unwrap_or(4096);
+        let host_page = native_page_size();
         let len = object.extent_len(start, arena::EXTENT, host_page);
         if len == 0 {
             return Err(MmError::OutOfMemory);
