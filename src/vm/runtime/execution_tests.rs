@@ -934,6 +934,123 @@ fn automatic_checkpoint_schedule_legacy_base_resumes_at_its_recorded_count() {
     assert_eq!(fixture.vm.last_snapshot_insn, 23);
 }
 
+#[cfg(all(
+    feature = "smir-jit",
+    any(target_arch = "aarch64", target_arch = "x86_64")
+))]
+#[test]
+fn projected_checkpoints_resume_each_cpu_with_restored_guest_code() {
+    const AFTER_HLT: u64 = BSP + 19;
+    const WARM_ITERATIONS: u64 = 96;
+    const DATA_VA: u64 = 0xa000;
+    const SAVED_DATA_PA: u64 = 0xd000;
+    const LIVE_DATA_PA: u64 = 0xc000;
+    const DATA_PTE: u64 = 0x4000 + (DATA_VA >> 12) * 8;
+
+    fn run_to_hlt(cpu: &mut dyn crate::vm::vcpu::VCpu) -> u64 {
+        for _ in 0..16 {
+            assert!(matches!(cpu.run().unwrap(), VcpuExit::Hlt));
+            if cpu.current_pc() == AFTER_HLT {
+                let CpuState::X86_64(state) = cpu.get_state().unwrap() else {
+                    unreachable!()
+                };
+                return state.regs.rax;
+            }
+        }
+        panic!("guest loop did not reach HLT");
+    }
+
+    for restore_bundle in [false, true] {
+        let mut fixture = Fixture::new(2);
+        for (address, pointer) in [
+            (0x1000, 0x2003u64),
+            (0x2000, 0x3003),
+            (0x3000, 0x4003),
+            (0x4000 + (BSP >> 12) * 8, BSP | 3),
+            (DATA_PTE, SAVED_DATA_PA | 3),
+        ] {
+            fixture.write(address, &pointer.to_le_bytes());
+        }
+        for cpu in &mut fixture.vm.vcpus {
+            let mut config = cpu.x86_configuration().unwrap();
+            config.apx = true;
+            cpu.set_x86_configuration(config).unwrap();
+            let CpuState::X86_64(mut state) = cpu.get_state().unwrap() else {
+                unreachable!()
+            };
+            state.regs.rip = BSP;
+            state.regs.rcx = 3;
+            state.sregs.cr0 = 0x8000_0011;
+            state.sregs.cr3 = 0x1000;
+            state.sregs.cr4 = 1 << 5;
+            state.sregs.efer = (1 << 8) | (1 << 10);
+            state.sregs.cs.l = true;
+            state.sregs.cs.db = false;
+            state.sregs.cs.base = 0;
+            cpu.set_state(&CpuState::X86_64(state)).unwrap();
+        }
+        // MOV EAX,2; APX NF DEC RCX; BLSI RDX,RCX; JNZ to MOV; HLT.
+        // The AP's next instruction resets RCX and branches to the loop.
+        fixture.write(
+            BSP,
+            &[
+                0xb8, 2, 0, 0, 0, 0x62, 0xf4, 0xfc, 0x0c, 0xff, 0xc9, 0xc4, 0xe2, 0xe8, 0xf3, 0xd9,
+                0x75, 0xee, 0xf4, 0xb9, 3, 0, 0, 0, 0xeb, 0xe6,
+            ],
+        );
+        let base = fixture.vm.take_snapshot(0).unwrap();
+        let cpus = fixture.vm.capture_cpu_states().unwrap();
+        fixture.write(BSP + 1, &[1]);
+        fixture.write(DATA_PTE, &(LIVE_DATA_PA | 3).to_le_bytes());
+        for cpu in &mut fixture.vm.vcpus {
+            let CpuState::X86_64(mut state) = cpu.get_state().unwrap() else {
+                unreachable!()
+            };
+            state.regs.rcx = WARM_ITERATIONS;
+            cpu.set_state(&CpuState::X86_64(state)).unwrap();
+            assert_eq!(run_to_hlt(&mut **cpu), 1);
+            assert_eq!(
+                cpu.translate_addr(DATA_VA, crate::vm::vcpu::MemAccess::Read)
+                    .unwrap(),
+                LIVE_DATA_PA,
+            );
+        }
+
+        if restore_bundle {
+            let pci = fixture
+                .vm
+                .pci_devices
+                .as_ref()
+                .unwrap()
+                .checkpoint()
+                .unwrap();
+            let bundle = crate::vm::snapshot::SnapshotBundle::new(base)
+                .with_cpus(cpus)
+                .unwrap()
+                .with_pci(pci)
+                .unwrap();
+            fixture.vm.restore_snapshot_bundle(&bundle).unwrap();
+        } else {
+            fixture.vm.restore_snapshot(&base).unwrap();
+            assert_eq!(fixture.vm.vcpus[1].current_pc(), AFTER_HLT);
+        }
+        for (index, cpu) in fixture.vm.vcpus.iter_mut().enumerate() {
+            cpu.wake();
+            assert_eq!(
+                run_to_hlt(&mut **cpu),
+                2,
+                "restore_bundle={restore_bundle} CPU {index} executed stale code"
+            );
+            assert_eq!(
+                cpu.translate_addr(DATA_VA, crate::vm::vcpu::MemAccess::Read)
+                    .unwrap(),
+                SAVED_DATA_PA,
+                "restore_bundle={restore_bundle} CPU {index} reused a stale translation"
+            );
+        }
+    }
+}
+
 #[cfg(feature = "debug")]
 #[test]
 fn gdb_boundary_halted_cpu_does_not_hit_the_following_breakpoint_until_woken() {

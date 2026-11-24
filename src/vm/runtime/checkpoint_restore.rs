@@ -538,6 +538,8 @@ impl Vmm {
             for (vcpu, replacement) in vcpus.iter_mut().zip(replacements) {
                 if let Some(replacement) = replacement {
                     *vcpu = replacement;
+                } else {
+                    vcpu.checkpoint_memory_replaced();
                 }
             }
             **pic = devices.pic;
@@ -615,7 +617,7 @@ impl Vmm {
         self.validate_snapshot_target(snapshot)?;
         let vcpu = self
             .vcpus
-            .get_mut(0)
+            .first()
             .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
         vcpu.validate_checkpoint_state(&snapshot.cpu_state, &snapshot.emulator_state)?;
         let memory = snapshot.decompress_memory()?;
@@ -637,9 +639,13 @@ impl Vmm {
             let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
             let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
             let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
+            let vcpu = &mut self.vcpus[0];
             vcpu.set_state(&snapshot.cpu_state)?;
             vcpu.set_emulator_state(&snapshot.emulator_state)?;
             self.guest_mem.write_all(&memory)?;
+            for cpu in &mut self.vcpus {
+                cpu.checkpoint_memory_replaced();
+            }
             *pic = devices.pic;
             *pit = devices.pit;
             *serial = devices.serial;

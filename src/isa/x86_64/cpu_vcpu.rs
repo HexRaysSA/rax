@@ -123,6 +123,11 @@ impl VCpu for X86_64Vcpu {
         }
     }
 
+    fn checkpoint_memory_replaced(&mut self) {
+        self.mmu.flush_tlb();
+        self.invalidate_translation_dependent_caches();
+    }
+
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
         let state = match state {
             CpuState::X86_64(state) => state,
@@ -426,19 +431,12 @@ impl VCpu for X86_64Vcpu {
     fn debug_memory_changed(&mut self, _pages: &[u64]) -> Result<()> {
         // A physical write can alias any CPU's virtual code address. Invalidate
         // all derived code caches instead of guessing the other aliases.
-        for entry in self.decode_cache.iter_mut() {
-            entry.bytes_len = 0;
-        }
-        self.mmu.flush_tlb();
+        self.checkpoint_memory_replaced();
         #[cfg(all(
             feature = "smir-jit",
             any(target_arch = "x86_64", target_arch = "aarch64")
         ))]
         {
-            self.jit_cache.clear();
-            self.jit_hot.clear();
-            self.jit_ineligible.clear();
-            self.jit_ineligible_dirty.clear();
             self.jit_active_region_stale = true;
         }
         Ok(())

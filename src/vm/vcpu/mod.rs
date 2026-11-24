@@ -810,6 +810,10 @@ pub trait VCpu: Send {
         Ok(None)
     }
 
+    /// Discard derived caches on a retained CPU after checkpoint RAM is
+    /// published. The VM must hold this CPU at a stopped execution boundary.
+    fn checkpoint_memory_replaced(&mut self) {}
+
     /// Interpreter profile retained by a RISC-V backend context. Embedders use
     /// it when reconstructing the same engine after a memory-map change/reset.
     fn riscv_configuration(&self) -> Option<crate::isa::riscv::RiscVConfig> {
