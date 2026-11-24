@@ -1221,6 +1221,125 @@ fn closed_workspace_preallocation_reserves_blocks_without_changing_eof() {
 }
 
 #[test]
+fn closed_workspace_resource_preallocation_survives_descriptor_reopen() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr},
+        fd::FileKind,
+        io::{O_CREAT, O_RDONLY, O_RDWR},
+        syscall::{Ctx, bsd, bsd::file},
+    };
+    use crate::user::supplied_fs::WorkspaceFlavor;
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process(abi);
+        let files = p
+            .proc
+            .vfs
+            .files()
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        p.proc.vfs = Vfs::supplied(files);
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let path = thread.cpu.sp() - 512;
+        let fork_path = path + 64;
+        let buffer = path + 128;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::FCNTL),
+            pc: ENTRY,
+        };
+        ctx.write(path, b"/tmp/reserved-fork\0").unwrap();
+        ctx.write(fork_path, b"/tmp/reserved-fork/..namedfork/rsrc\0")
+            .unwrap();
+        let open = |ctx: &mut Ctx<'_>, path, flags| {
+            bsd::call(
+                ctx,
+                nr::OPEN,
+                &[path, u64::from(flags), 0o600, 0, 0, 0, 0, 0],
+            )
+            .unwrap()
+            .0 as i32
+        };
+        let data = open(&mut ctx, path, O_CREAT | O_RDWR);
+        let fork = open(&mut ctx, fork_path, O_CREAT | O_RDWR);
+        let readonly = open(&mut ctx, fork_path, O_RDONLY);
+        let call = |ctx: &mut Ctx<'_>, fd: i32, pointer| {
+            bsd::call(
+                ctx,
+                nr::FCNTL,
+                &[
+                    fd as u64,
+                    file::cmd::F_PREALLOCATE as u64,
+                    pointer,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ],
+            )
+        };
+        assert_eq!(call(&mut ctx, readonly, u64::MAX), Err(Errno::EBADF));
+        assert_eq!(call(&mut ctx, fork, u64::MAX), Err(Errno::EFAULT));
+        let mut request = [0; 32];
+        request[..4].copy_from_slice(&4u32.to_le_bytes());
+        request[4..8].copy_from_slice(&3i32.to_le_bytes());
+        request[16..24].copy_from_slice(&4097i64.to_le_bytes());
+        request[24..].copy_from_slice(&0x123456_i64.to_le_bytes());
+        ctx.write(buffer, &request).unwrap();
+        if !cfg!(target_os = "macos") {
+            assert_eq!(call(&mut ctx, fork, buffer), Err(Errno::ENOTSUP));
+            assert_eq!(ctx.read(buffer + 24, 8).unwrap(), [0; 8]);
+            continue;
+        }
+        let capacity = |ctx: &Ctx<'_>| {
+            ctx.proc
+                .vfs
+                .files()
+                .unwrap()
+                .workspace_capacity()
+                .unwrap()
+                .bytes_available
+        };
+        let stats = |ctx: &Ctx<'_>, fd| {
+            let file = ctx.proc.fds.file(fd).unwrap();
+            let FileKind::Embedded(object) = &file.kind else {
+                panic!("private workspace descriptor expected");
+            };
+            let stat = object.stat().unwrap();
+            (stat.size, stat.blocks)
+        };
+        let before = capacity(&ctx);
+        file::lseek(&mut ctx, fork, 7, 0).unwrap();
+        assert_eq!(call(&mut ctx, fork, buffer).unwrap().0, 0);
+        assert_eq!(ctx.read(buffer + 24, 8).unwrap(), 4097i64.to_le_bytes());
+        assert_eq!(file::lseek(&mut ctx, fork, 0, 1).unwrap().0, 7);
+        assert_eq!(stats(&ctx, fork), (0, 16));
+        assert_eq!(stats(&ctx, data), (0, 0));
+        assert_eq!(capacity(&ctx), before - 8192);
+
+        file::close(&mut ctx, readonly).unwrap();
+        file::close(&mut ctx, fork).unwrap();
+        let fork = open(&mut ctx, fork_path, O_RDWR);
+        assert_eq!(stats(&ctx, fork), (0, 16));
+        ctx.write(buffer, b"fork").unwrap();
+        assert_eq!(file::write(&mut ctx, fork, buffer, 4, None).unwrap().0, 4);
+        assert_eq!(
+            file::read(&mut ctx, fork, buffer + 16, 4, Some(0))
+                .unwrap()
+                .0,
+            4
+        );
+        assert_eq!(ctx.read(buffer + 16, 4).unwrap(), b"fork");
+        assert_eq!(capacity(&ctx), before - 8192);
+        file::ftruncate(&mut ctx, fork, 1).unwrap();
+        assert_eq!(stats(&ctx, fork), (1, 8));
+        assert_eq!(capacity(&ctx), before - 1);
+    }
+}
+
+#[test]
 fn closed_workspace_shared_mappings_follow_darwin_guest_pages() {
     use crate::user::darwin::{
         abi::{Errno, tables::nr},

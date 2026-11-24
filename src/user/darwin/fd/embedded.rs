@@ -25,14 +25,15 @@ pub struct ResourceFork {
 }
 
 impl ResourceFork {
-    fn value(&self) -> Result<Arc<[u8]>, Errno> {
-        self.attributes.resource_value().map_err(Errno::from)
-    }
-
     pub(crate) fn resize(&self, size: u64) -> Result<(), Errno> {
         self.attributes.resize_resource(size)?;
         self.entry.workspace_xattrs_changed();
         Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn preallocate(&self, flags: u32, length: u64) -> (std::io::Result<()>, i64) {
+        self.attributes.preallocate_resource(flags, length)
     }
 }
 
@@ -44,12 +45,13 @@ impl Drop for ResourceFork {
 
 impl PageSource for ResourceFork {
     fn len(&self) -> u64 {
-        self.value().map_or(0, |bytes| bytes.len() as u64)
+        self.attributes.resource_size().unwrap_or(0)
     }
 
     fn read_at(&self, offset: u64, out: &mut [u8]) -> std::io::Result<usize> {
-        let bytes = self.value().map_err(std::io::Error::other)?;
-        Ok(read_bytes(&bytes, offset, out))
+        self.attributes
+            .read_resource(offset, out)
+            .map_err(std::io::Error::other)
     }
 
     fn identity(&self) -> SourceIdentity {
@@ -59,13 +61,6 @@ impl PageSource for ResourceFork {
             ino: self.entry.ino,
         }
     }
-}
-
-fn read_bytes(bytes: &[u8], offset: u64, out: &mut [u8]) -> usize {
-    let start = offset.min(bytes.len() as u64) as usize;
-    let count = (bytes.len() - start).min(out.len());
-    out[..count].copy_from_slice(&bytes[start..start + count]);
-    count
 }
 
 #[derive(Debug)]
@@ -169,7 +164,9 @@ impl EmbeddedFile {
             .and_then(Entry::workspace_owner)
             .unwrap_or((0, 0));
         let (ino, mode, size) = match self {
-            Self::Resource { fork, .. } => return Self::resource_stat(&fork.entry, fork.len()),
+            Self::Resource { fork, .. } => {
+                return Self::resource_stat(&fork.entry, fork.attributes.resource_stat()?);
+            }
             Self::Supplied { entry, .. } | Self::Workspace { entry, .. } => {
                 let permissions = entry.workspace_mode().unwrap_or(0o555) as u16;
                 if entry.is_dir() {
@@ -241,7 +238,10 @@ impl EmbeddedFile {
         })
     }
 
-    pub(crate) fn resource_stat(entry: &Entry, length: u64) -> Result<Stat, Errno> {
+    pub(crate) fn resource_stat(
+        entry: &Entry,
+        (length, blocks): (u64, i64),
+    ) -> Result<Stat, Errno> {
         let mut stat = Self::Supplied {
             entry: entry.clone(),
             cursor: Mutex::new(0),
@@ -249,7 +249,7 @@ impl EmbeddedFile {
         }
         .stat()?;
         stat.size = i64::try_from(length).map_err(|_| Errno::EOVERFLOW)?;
-        stat.blocks = length.div_ceil(512) as i64;
+        stat.blocks = blocks;
         Ok(stat)
     }
 
@@ -294,7 +294,9 @@ impl EmbeddedFile {
             }
             Self::Resource { fork, cursor, .. } => {
                 Self::read_with_cursor(cursor, offset, |start| {
-                    Ok(read_bytes(&fork.value()?, start, out))
+                    fork.attributes
+                        .read_resource(start, out)
+                        .map_err(Errno::from)
                 })
             }
             Self::Input(console) => {

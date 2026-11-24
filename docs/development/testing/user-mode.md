@@ -514,9 +514,16 @@ The ARM64 and Rosetta x86-64 controls on macOS 27 APFS compare the returned
 allocation size, physical blocks in 512-byte units, sparse file growth,
 repeat and reopened calls, and late guest copyout faults. Synthetic tests
 exercise descriptor and positional checks in both guest ABIs, including the
-explicit unavailable result on hosts without Darwin backing. Resource-fork
-preallocation remains outside this data-fork implementation.
+explicit unavailable result on hosts without Darwin backing.
 [XNU descriptor command](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_descrip.c).
+
+Writable workspace resource forks also accept `F_PREALLOCATE` on macOS.
+The reserve uses a native resource fork on an unlinked temporary inode.
+The named fork and `com.apple.ResourceFork` access the same bytes, and
+an empty reserved fork remains absent from the extended attribute list.
+The workspace accounts for the reservation until file growth consumes it, a
+shrinking truncate releases it, or the guest removes the inode or fork.
+Descriptor reopen preserves the reservation and starts a new cursor.
 
 ### Asynchronous I/O
 

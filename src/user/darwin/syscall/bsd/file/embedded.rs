@@ -14,17 +14,16 @@ pub(super) fn preallocate(ctx: &Ctx<'_>, file: &EmbeddedFile, arg: u64) -> SysRe
     const VOLUME_POSITION: i32 = 4;
     const ALLOCATION_FLAGS: u32 = 0x0e;
 
-    let (workspace, access) = match file {
-        EmbeddedFile::Workspace { .. } => {
-            let (workspace, access) = file.workspace().ok_or(Errno::EBADF)?;
-            (Some(workspace), access)
-        }
-        EmbeddedFile::Null { access, .. }
+    let access = match file {
+        EmbeddedFile::Workspace { access, .. }
+        | EmbeddedFile::Null { access, .. }
         | EmbeddedFile::Zero { access, .. }
-        | EmbeddedFile::Resource { access, .. } => (None, *access),
+        | EmbeddedFile::Resource { access, .. } => *access,
         _ => return Err(Errno::EBADF),
     };
-    if access & O_ACCMODE == O_RDONLY {
+    if access & O_ACCMODE == O_RDONLY
+        || matches!(file, EmbeddedFile::Workspace { .. }) && file.workspace().is_none()
+    {
         return Err(Errno::EBADF);
     }
     let mut request = ctx.read(arg, 32)?;
@@ -38,19 +37,27 @@ pub(super) fn preallocate(ctx: &Ctx<'_>, file: &EmbeddedFile, arg: u64) -> SysRe
         _ => return Err(Errno::EINVAL),
     }
 
-    let (result, allocated): (Result<(), Errno>, i64) = match workspace {
-        Some(_) if length < 0 || mode == VOLUME_POSITION => (Err(Errno::EINVAL), 0),
+    let (result, allocated): (Result<(), Errno>, i64) = match file {
+        EmbeddedFile::Workspace { .. } | EmbeddedFile::Resource { .. }
+            if length < 0 || mode == VOLUME_POSITION =>
+        {
+            (Err(Errno::EINVAL), 0)
+        }
         #[cfg(target_os = "macos")]
-        Some(file) => {
+        EmbeddedFile::Workspace { .. } => {
+            let (file, _) = file.workspace().ok_or(Errno::EBADF)?;
             let (result, allocated) = file.darwin_preallocate(flags, length as u64);
             (result.map_err(Errno::from), allocated)
         }
-        #[cfg(not(target_os = "macos"))]
-        Some(_) => {
+        #[cfg(target_os = "macos")]
+        EmbeddedFile::Resource { fork, .. } => {
+            let (result, allocated) = fork.preallocate(flags, length as u64);
+            (result.map_err(Errno::from), allocated)
+        }
+        _ => {
             let _ = flags;
             (Err(Errno::ENOTSUP), 0)
         }
-        None => (Err(Errno::ENOTSUP), 0),
     };
     request[24..32].copy_from_slice(&allocated.to_le_bytes());
     let copyout = ctx.write(arg, &request);

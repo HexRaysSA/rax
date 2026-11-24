@@ -815,11 +815,8 @@ pub(in crate::user::darwin::syscall::bsd) fn path_stat(
         if entry.workspace_file().is_none() {
             return Err(Errno::ENOENT);
         }
-        let length = entry
-            .workspace_xattrs(0, owner, &[])?
-            .resource_value()?
-            .len() as u64;
-        return EmbeddedFile::resource_stat(&entry, length);
+        let info = entry.workspace_xattrs(0, owner, &[])?.resource_stat()?;
+        return EmbeddedFile::resource_stat(&entry, info);
     }
     if workspace_only && entry.workspace_mode().is_none() {
         return Err(Errno::EPERM);

@@ -10,6 +10,8 @@ use std::io;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
+#[cfg(target_os = "macos")]
+mod darwin_allocation;
 #[cfg(windows)]
 mod mapped_windows;
 mod metadata;
@@ -1118,8 +1120,7 @@ impl WorkspaceFile {
         #[cfg(target_os = "macos")]
         if self.uses_darwin_backing() {
             use std::os::unix::fs::MetadataExt;
-            let contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
-            let blocks = match &*contents {
+            let blocks = match &*self.inode.contents.lock().map_err(|_| Error::Io)? {
                 Contents::Bytes(bytes) => bytes
                     .darwin_blocks
                     .as_ref()
@@ -1128,7 +1129,11 @@ impl WorkspaceFile {
                     shared.file.metadata().map_err(|_| Error::Io)?.blocks() as usize
                 }
             };
-            return Ok(Some(blocks as i64));
+            let fork_blocks = self
+                .attributes()
+                .xattrs(0, (0, 0), &[])?
+                .resource_parent_blocks()?;
+            return Ok(Some(blocks as i64 + fork_blocks));
         }
         Ok(None)
     }
@@ -1142,8 +1147,6 @@ impl WorkspaceFile {
         flags: u32,
         length: u64,
     ) -> (io::Result<()>, i64) {
-        use std::os::fd::AsRawFd;
-
         let allocate = || {
             if !self.uses_darwin_backing() {
                 return Err(io::Error::from_raw_os_error(libc::ENOTSUP));
@@ -1159,31 +1162,9 @@ impl WorkspaceFile {
                 .budget
                 .lock()
                 .map_err(|_| io::Error::other(Error::Io))?;
-            let available = (MAX_BYTES - budget.bytes) / DARWIN_BLOCK_BYTES * DARWIN_BLOCK_BYTES;
-            if length > available as u64 && (flags & libc::F_ALLOCATEALL != 0 || available == 0) {
-                return Err(io::Error::from_raw_os_error(libc::ENOSPC));
-            }
-            let desired = length.min(available as u64);
+            let request = darwin_allocation::Request::new(flags, length, budget.bytes)?;
             let shared = contents.shared().map_err(io::Error::other)?;
-            let mut request = libc::fstore_t {
-                fst_flags: flags,
-                fst_posmode: libc::F_PEOFPOSMODE,
-                fst_offset: 0,
-                fst_length: desired as i64,
-                fst_bytesalloc: 0,
-            };
-            // SAFETY: the descriptor belongs to this workspace inode and the
-            // native request is a live, exclusive fstore_t.
-            let result =
-                unsafe { libc::fcntl(shared.file.as_raw_fd(), libc::F_PREALLOCATE, &mut request) };
-            let result = if result < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(())
-            };
-            let allocated = request.fst_bytesalloc.max(0);
-            let credit = (allocated.min(available as i64) as usize).div_ceil(DARWIN_BLOCK_BYTES)
-                * DARWIN_BLOCK_BYTES;
+            let (result, allocated, credit) = request.reserve(&shared.file);
             shared.reservation += credit;
             budget.bytes += credit;
             Ok((result, allocated))
