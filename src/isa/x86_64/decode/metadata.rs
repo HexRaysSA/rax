@@ -771,6 +771,15 @@ fn packed_binary_mnemonics(
         (2, 1, 0x3e) => ("pmaxuw", "vpmaxuw"),
         (2, 1, 0x3d) => ("pmaxsd", "vpmaxsd"),
         (2, 1, 0x3f) => ("pmaxud", "vpmaxud"),
+        (1, 1, 0xd5) => ("pmullw", "vpmullw"),
+        (1, 1, 0xe5) => ("pmulhw", "vpmulhw"),
+        (1, 1, 0xe4) => ("pmulhuw", "vpmulhuw"),
+        (1, 1, 0xf4) => ("pmuludq", "vpmuludq"),
+        (1, 1, 0xf5) => ("pmaddwd", "vpmaddwd"),
+        (2, 1, 0x40) => ("pmulld", "vpmulld"),
+        (2, 1, 0x28) => ("pmuldq", "vpmuldq"),
+        (2, 1, 0x0b) => ("pmulhrsw", "vpmulhrsw"),
+        (2, 1, 0x04) => ("pmaddubsw", "vpmaddubsw"),
         _ => return None,
     })
 }

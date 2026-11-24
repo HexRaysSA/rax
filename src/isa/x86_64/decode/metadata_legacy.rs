@@ -293,11 +293,12 @@ pub(super) fn decode_0f(
         | 0x68..=0x6a
         | 0x6c..=0x6d
         | 0x74..=0x76
-        | 0xd1..=0xd4
+        | 0xd1..=0xd5
         | 0xd8..=0xdf
         | 0xe1..=0xe2
+        | 0xe4..=0xe5
         | 0xe8..=0xef
-        | 0xf1..=0xf3
+        | 0xf1..=0xf5
         | 0xf8..=0xfe => {
             let prefix = u8::from(ctx.operand_size_override);
             let names = packed_binary_mnemonics(1, prefix, op)
@@ -418,12 +419,16 @@ pub(super) fn decode_0f(
             "bswap"
         }
         0x38 => match ctx.consume_u8().ok()? {
-            map_opcode @ (0x17 | 0x29 | 0x37..=0x3f)
+            map_opcode @ (0x04 | 0x0b | 0x17 | 0x28..=0x29 | 0x37..=0x40)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {
                 let writes = map_opcode != 0x17;
                 out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, writes)?;
-                packed_binary_mnemonics(2, 1, map_opcode).map_or("ptest", |(name, _)| name)
+                if writes {
+                    packed_binary_mnemonics(2, 1, map_opcode)?.0
+                } else {
+                    "ptest"
+                }
             }
             0xf6 if ctx.rex2.is_none() => {
                 let mnemonic = match ctx.rep_prefix {

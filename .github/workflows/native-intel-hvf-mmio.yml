@@ -37,6 +37,7 @@ on:
           - vector-uniform-shifts
           - vector-variable-shifts
           - vector-unpack
+          - vector-multiply
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

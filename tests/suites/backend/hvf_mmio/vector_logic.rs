@@ -3,6 +3,9 @@ use super::*;
 use mmio::vector_logic::Encoding;
 use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
 
+#[path = "../../../../tools/hvf/intel_mmio_packed_multiply.rs"]
+mod packed_multiply;
+
 const FORMS: [(u8, u8, &str); 12] = [
     (0, 0x54, "andps"),
     (0, 0x55, "andnps"),
@@ -259,6 +262,126 @@ impl mmio::CompletionAccess for Host {
     fn finish_instruction(&mut self, length: u64) -> Result<(), Self::Error> {
         self.0.push(Write::Retire(length));
         Ok(())
+    }
+}
+
+#[test]
+fn packed_integer_products_match_the_ram_oracle_and_complete_once() {
+    use packed_multiply::{CASES, PATTERNS, bytes};
+
+    let mut rejected = Vec::new();
+    for case in CASES {
+        for (code, form, width) in case.forms() {
+            let (context, mut memory, mut exit) = fixture(&code);
+            let vex = form != "legacy";
+            if vex {
+                exit.linear += 3;
+                exit.physical += 3;
+            }
+            let plan = match prepare(&context, &mut memory, exit) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    rejected.push(format!("{} {form}: {error}", case.mnemonic));
+                    continue;
+                }
+            };
+            assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+            assert!(
+                memory
+                    .reads
+                    .iter()
+                    .all(|&(address, _)| address != exit.physical)
+            );
+            let Action::VectorLogic { input, source } = plan.action else {
+                panic!(
+                    "unexpected action for {} {form}: {:?}",
+                    case.mnemonic, plan.action
+                );
+            };
+            assert_eq!(source, if vex { 8 } else { 15 });
+            assert_eq!((input.index, input.length), (15, code.len() as u64));
+            assert_eq!(usize::from(input.memory_size()), width);
+            let expected_encoding = match (vex, width) {
+                (false, _) => Encoding::Legacy,
+                (true, 16) => Encoding::Vex128,
+                (true, _) => Encoding::Vex256,
+            };
+            assert_eq!(input.encoding, expected_encoding);
+
+            for ([left, right], result) in PATTERNS.into_iter().zip(case.results) {
+                let mut pending = mmio::InputState::default();
+                pending
+                    .begin_vector_logic(input.clone(), bytes(left))
+                    .unwrap();
+                let wire = rax::codec::serialize(&pending).unwrap();
+                let restored: mmio::InputState = rax::codec::deserialize_strict(&wire).unwrap();
+                restored.validate_checkpoint().unwrap();
+                assert_eq!(restored.descriptor(), Some((width as u8, None)));
+                let reply = bytes(right);
+                let result = bytes(result);
+                let expected = if width == 32 {
+                    Write::Ymm(15, result)
+                } else {
+                    Write::Xmm(15, result[..16].try_into().unwrap(), vex)
+                };
+                for mut transaction in [pending, restored] {
+                    let mut host = Host::default();
+                    transaction.complete(&mut host, &reply[..width]);
+                    transaction.complete(&mut host, &reply[..width]);
+                    assert_eq!(host.0.len(), 2, "{} {form}", case.mnemonic);
+                    assert_eq!(host.0[0], expected, "{} {form}", case.mnemonic);
+                    assert_eq!(host.0[1], Write::Retire(input.length));
+                }
+            }
+
+            let mut register_code = code;
+            if vex {
+                register_code.pop();
+            }
+            *register_code.last_mut().unwrap() = 0xff;
+            let metadata = instruction_metadata::decode(64, context.rip, &register_code).unwrap();
+            let mnemonic = if vex {
+                format!("v{}", case.mnemonic)
+            } else {
+                case.mnemonic.to_owned()
+            };
+            assert_eq!(metadata.mnemonic, mnemonic);
+            assert_eq!(
+                metadata.operands.last().unwrap().kind,
+                OperandKind::Register
+            );
+            assert_eq!(
+                metadata.operands.last().unwrap().width_bits,
+                width as u32 * 8
+            );
+            let (context, mut memory, exit) = fixture(&register_code);
+            assert!(prepare(&context, &mut memory, exit).is_err());
+        }
+    }
+    assert!(rejected.is_empty(), "{}", rejected.join("\n"));
+}
+
+#[test]
+fn packed_integer_multiply_rejects_wrong_directions_prefixes_and_alignment() {
+    for case in packed_multiply::CASES {
+        let code = case.legacy();
+        let (context, mut memory, mut exit) = fixture(&code);
+        exit.linear += 1;
+        exit.physical += 1;
+        assert_eq!(
+            prepare(&context, &mut memory, exit).unwrap_err(),
+            "misaligned legacy vector logic MMIO input",
+            "{}",
+            case.mnemonic
+        );
+        let (context, mut memory, mut exit) = fixture(&code);
+        exit.qualification = 0x182;
+        assert!(prepare(&context, &mut memory, exit).is_err());
+        let rep = [&[0xf3][..], code.as_slice()].concat();
+        for wrong in [&code[1..], rep.as_slice()] {
+            let (context, mut memory, exit) = fixture(wrong);
+            assert!(prepare(&context, &mut memory, exit).is_err());
+        }
     }
 }
 

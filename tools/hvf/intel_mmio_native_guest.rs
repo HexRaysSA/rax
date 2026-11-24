@@ -1443,10 +1443,17 @@ fn main() {
         xmm::run_integer_min_max(&output);
         return;
     }
-    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-unpack")) {
+    if let Some(profile) = std::env::args_os()
+        .nth(1)
+        .filter(|profile| profile == "--vector-unpack" || profile == "--vector-multiply")
+    {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        xmm::run_integer_unpack(&output);
+        if profile == "--vector-multiply" {
+            xmm::run_integer_multiply(&output);
+        } else {
+            xmm::run_integer_unpack(&output);
+        }
         return;
     }
     if let Some(profile) = std::env::args_os().nth(1).filter(|profile| {

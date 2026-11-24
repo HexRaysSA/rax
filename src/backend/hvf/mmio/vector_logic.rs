@@ -171,6 +171,60 @@ impl Shift {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum Multiply {
+    LowWord,
+    HighSignedWord,
+    HighUnsignedWord,
+    LowDoubleword,
+    EvenSignedDoubleword,
+    EvenUnsignedDoubleword,
+    RoundedSignedWord,
+    PairSignedWords,
+    PairUnsignedSignedBytes,
+}
+
+impl Multiply {
+    fn lane_bytes(self) -> usize {
+        match self {
+            Self::LowWord
+            | Self::HighSignedWord
+            | Self::HighUnsignedWord
+            | Self::RoundedSignedWord
+            | Self::PairUnsignedSignedBytes => 2,
+            Self::LowDoubleword | Self::PairSignedWords => 4,
+            Self::EvenSignedDoubleword | Self::EvenUnsignedDoubleword => 8,
+        }
+    }
+
+    fn lane(self, left: u64, right: u64) -> u64 {
+        let signed_word_product =
+            |left: u64, right: u64| i32::from(left as i16) * i32::from(right as i16);
+        match self {
+            // Low products are independent of operand signedness. The caller
+            // retains only the low word or doubleword.
+            Self::LowWord | Self::LowDoubleword => left * right,
+            Self::HighSignedWord => (signed_word_product(left, right) >> 16) as u64,
+            Self::HighUnsignedWord => (left * right) >> 16,
+            // Each quadword contains one even doubleword and one ignored odd
+            // doubleword. Only the product of the even elements is written.
+            Self::EvenSignedDoubleword => (i64::from(left as i32) * i64::from(right as i32)) as u64,
+            Self::EvenUnsignedDoubleword => u64::from(left as u32) * u64::from(right as u32),
+            // PMULHRSW rounds at bit 14 and takes the low 16 bits. The
+            // -32768 times -32768 case thus yields 0x8000.
+            Self::RoundedSignedWord => ((signed_word_product(left, right) + 0x4000) >> 15) as u64,
+            Self::PairSignedWords => signed_word_product(left, right)
+                .wrapping_add(signed_word_product(left >> 16, right >> 16))
+                as u64,
+            Self::PairUnsignedSignedBytes => {
+                let first = i32::from(left as u8) * i32::from(right as i8);
+                let second = i32::from((left >> 8) as u8) * i32::from((right >> 8) as i8);
+                (first + second).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as u64
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
     And,
     AndNot,
@@ -188,6 +242,7 @@ enum Operation {
     VariableShift(Shift),
     UnpackLow(Element),
     UnpackHigh(Element),
+    Multiply(Multiply),
 }
 
 impl Operation {
@@ -257,6 +312,15 @@ impl Operation {
             "psrlq" => Self::UniformShift(Shift::RightQuadword),
             "psraw" => Self::UniformShift(Shift::ArithmeticWord),
             "psrad" => Self::UniformShift(Shift::ArithmeticDoubleword),
+            "pmullw" => Self::Multiply(Multiply::LowWord),
+            "pmulhw" => Self::Multiply(Multiply::HighSignedWord),
+            "pmulhuw" => Self::Multiply(Multiply::HighUnsignedWord),
+            "pmulld" => Self::Multiply(Multiply::LowDoubleword),
+            "pmuldq" => Self::Multiply(Multiply::EvenSignedDoubleword),
+            "pmuludq" => Self::Multiply(Multiply::EvenUnsignedDoubleword),
+            "pmulhrsw" => Self::Multiply(Multiply::RoundedSignedWord),
+            "pmaddwd" => Self::Multiply(Multiply::PairSignedWords),
+            "pmaddubsw" => Self::Multiply(Multiply::PairUnsignedSignedBytes),
             _ => return None,
         })
     }
@@ -324,6 +388,11 @@ impl Operation {
             Self::VariableShift(shift) => {
                 map_integer_lanes(left, right, shift.bytes(), |value, count| {
                     shift.lane(value, count)
+                })
+            }
+            Self::Multiply(operation) => {
+                map_integer_lanes(left, right, operation.lane_bytes(), |left, right| {
+                    operation.lane(left, right)
                 })
             }
             Self::UnpackLow(element) | Self::UnpackHigh(element) => {

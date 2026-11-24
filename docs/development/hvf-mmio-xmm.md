@@ -1132,3 +1132,44 @@ The `vector-unpack` native profile covers 40 direct reads, 40 fresh-owner
 checkpoint completions, and eight legacy misalignment faults. The
 Intel-target guest cross-built and passed strict signature verification.
 Native Intel execution of this profile remains open.
+
+## Packed integer multiplication with a device operand
+
+Intel HVF handles the memory forms of PMULLW, PMULHW, PMULHUW,
+PMULUDQ, PMADDWD, PMULLD, PMULDQ, PMULHRSW, and PMADDUBSW in legacy
+SSE and VEX encodings. The device read covers the full 16 B or 32 B
+encoded operand even when an operation uses only the even doublewords.
+The low-product and signed pairwise sum operations wrap to their
+destination width. PMULHRSW rounds the signed word products before
+truncation. PMADDUBSW multiplies unsigned register bytes by signed
+device bytes and clamps each adjacent sum to the signed 16-bit range.
+Legacy SSE preserves the upper half of the destination YMM register,
+VEX.128 clears it, and VEX.256 writes both halves. RFLAGS are preserved.
+[Intel SDM Volume 2B, PMADDUBSW through PMULUDQ](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The pending read captures the source vector, destination, and
+instruction length. Completion uses O(w) time and a fixed 32 B result
+buffer, where w is the encoded operand width in bytes. The new
+operation follows the existing checkpoint variants. MMX and EVEX
+encodings are outside this profile.
+
+| Assumption | Dependent behavior | Validation probe |
+| --- | --- | --- |
+| The encoded vector width determines the full read size. | The device supplies 16 B or 32 B, including any lanes ignored by the operation. | Check the planned width for all 55 encodings and reject write exits, wrong prefixes, and unaligned legacy reads. |
+| Signedness, wraparound, and saturation apply independently to each result element. | Each product or pairwise sum matches the architecture, including endpoint cases. | Compare the full XMM or YMM destination and the before/after RFLAGS against two RAM operand patterns per encoding. |
+| The retained source vector is sufficient to retire the instruction. | A completed read updates the destination and advances the instruction pointer once. | Serialize and reload the pending read and submit the reply twice. The native profile also replaces the original instruction with UD2 before restoring a fresh owner. |
+
+At parent `1c46b4fcb`, all 55 legal encodings failed MMIO metadata
+admission. The baseline log SHA-256 is
+`00218da9187e3c2d796eeacac4bf7defadd8c027eb3ef4a28116a2c1ee434b8c`.
+The independent x86-64 RAM probe under Rosetta matched all 110 vector
+results and RFLAGS pairs. Its observation stream SHA-256 is
+`401154183c32f63ec23f431da3ad2a43ccff39b7c65dbdb4be6c24341f16af0d`.
+The Apple Silicon build passed 149 MMIO, 102 ISA-oracle, 16 Actions
+policy, and 28,561 x86-64 tests. Three x86-64 tests were ignored. All
+55 Python HVF tool tests passed. The `vector-multiply` profile expects
+110 direct reads, 110 fresh-owner checkpoint completions, and nine
+legacy misalignment faults. The Intel macOS guest consumer cross-built
+and passed strict signature verification. Its executable SHA-256 is
+`ac228aecd29ed97e922986f3f9aedc40b6edac3d98c46c1f51a5b62bae5a9f0b`.
+Native Intel execution of this profile remains open.

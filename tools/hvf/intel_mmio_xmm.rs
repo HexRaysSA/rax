@@ -1,6 +1,9 @@
 //! Native SSE, SSE2 and AVX vector memory transfers, alignment faults and source-free continuation.
 use super::*;
 
+#[path = "intel_mmio_packed_multiply.rs"]
+mod packed_multiply;
+
 type MoveCase<'a> = ((&'a [u8], usize, usize, bool), bool, &'a str);
 
 fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
@@ -1133,6 +1136,47 @@ pub(super) fn run_integer_unpack(output: &Path) {
         case += 1;
     }
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+pub(super) fn run_integer_multiply(output: &Path) {
+    use packed_multiply::{CASES, PATTERNS, bytes};
+
+    assert!(!output.exists(), "observations must be new");
+    let mut case_index = 0;
+    for case in CASES {
+        for (code, form, width) in case.forms() {
+            let vex = form != "legacy";
+            for (pattern, ([left, right], mut expected)) in
+                PATTERNS.into_iter().zip(case.results).enumerate()
+            {
+                let reply = bytes(right);
+                if vex && width == 16 {
+                    expected[2..].fill(0);
+                }
+                for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                    let value =
+                        packed_binary_case(&code, vex, restore, left, &reply[..width], expected);
+                    record(
+                        output,
+                        case_index,
+                        &format!("{form}-{}-pattern{pattern}-{phase}", case.mnemonic),
+                        width,
+                        value,
+                    );
+                    case_index += 1;
+                }
+            }
+        }
+        record(
+            output,
+            case_index,
+            &format!("legacy-{}-misaligned", case.mnemonic),
+            16,
+            alignment_fault(&case.legacy(), false, 3),
+        );
+        case_index += 1;
+    }
+    println!("{{\"cases\":{case_index},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
 fn restore_vector_read(
