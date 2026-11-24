@@ -17,6 +17,121 @@ const TAIL: &[u8] = &[0xc6, 0x06, 0x00, 0x20, 0xaa, 0xf4];
 
 #[test]
 #[ignore = "requires native Linux KVM; executed by the KVM CI job"]
+fn runtime_native_legacy_capture_rejects_pending_io() {
+    for (count, id) in [(1, 0), (2, 1)] {
+        let mut fixture = Fixture::new(count);
+        let mut code = vec![0x6c]; // INSB, using DX and ES:DI.
+        code.extend_from_slice(TAIL);
+        fixture.prepare(id, &code);
+        fixture.vm.serial.lock().unwrap().queue_input(&[0x5a]);
+        assert!(matches!(
+            fixture.exit(id),
+            VcpuExit::IoInString {
+                port: 0x3f8,
+                size: 1,
+                count: 1
+            } | VcpuExit::IoIn {
+                port: 0x3f8,
+                size: 1
+            }
+        ));
+
+        // A register read succeeds at this inconsistent kernel frontier.
+        assert!(fixture.vm.capture_cpu_states().is_ok());
+        let Err(error) = fixture.vm.take_snapshot(0) else {
+            panic!("legacy capture accepted pending native I/O on vCPU {id}");
+        };
+        assert!(
+            error
+                .to_string()
+                .contains(&format!("vCPU {id} requires native I/O completion")),
+            "{error}"
+        );
+        assert!(fixture.vm.serial.lock().unwrap().has_input());
+        fixture.tail_is_stopped();
+
+        let complete = fixture.vm.take_snapshot_bundle(0).unwrap();
+        assert!(complete.has_kvm_context());
+        assert!(!fixture.vm.serial.lock().unwrap().has_input());
+        let captured = fixture.vm.take_snapshot(0).unwrap();
+        assert_eq!(
+            captured.decompress_memory().unwrap()[0x3000 + id * 0x100],
+            0x5a
+        );
+        fixture.tail_is_stopped();
+    }
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; executed by the KVM CI job"]
+fn runtime_native_legacy_restore_rejects_pending_peer_io() {
+    let mut fixture = Fixture::new(2);
+    let mut snapshot = fixture.vm.take_snapshot(31).unwrap();
+    let CpuState::X86_64(cpu) = &mut snapshot.cpu_state else {
+        unreachable!()
+    };
+    cpu.regs.rax = 0x1234;
+    let mut code = vec![0x6c]; // INSB, using DX and ES:DI.
+    code.extend_from_slice(TAIL);
+    fixture.prepare(1, &code);
+    fixture.vm.serial.lock().unwrap().queue_input(&[0x5a]);
+    assert!(matches!(
+        fixture.exit(1),
+        VcpuExit::IoInString { port: 0x3f8, .. } | VcpuExit::IoIn { port: 0x3f8, .. }
+    ));
+    let cpu_image =
+        |vm: &Vmm, id: usize| crate::codec::serialize(&vm.vcpus[id].get_state().unwrap()).unwrap();
+    let live = [cpu_image(&fixture.vm, 0), cpu_image(&fixture.vm, 1)];
+    let ram = fixture.vm.guest_mem.try_read_all().unwrap();
+
+    let error = fixture.vm.restore_snapshot(&snapshot).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("vCPU 1 requires native I/O completion"),
+        "{error}"
+    );
+    assert_eq!([cpu_image(&fixture.vm, 0), cpu_image(&fixture.vm, 1)], live);
+    assert_eq!(fixture.vm.guest_mem.try_read_all().unwrap(), ram);
+    assert_eq!(fixture.vm.coordinator.retired, 0);
+    assert!(fixture.vm.serial.lock().unwrap().has_input());
+
+    assert_eq!(fixture.settle(1), CheckpointIoState::Complete);
+    let peer = cpu_image(&fixture.vm, 1);
+    fixture.vm.restore_snapshot(&snapshot).unwrap();
+    assert_eq!(cpu_image(&fixture.vm, 1), peer);
+    assert_eq!(
+        cpu_image(&fixture.vm, 0),
+        crate::codec::serialize(&snapshot.cpu_state).unwrap()
+    );
+    assert_eq!(
+        fixture.vm.guest_mem.try_read_all().unwrap(),
+        snapshot.decompress_memory().unwrap()
+    );
+    assert_eq!(fixture.vm.coordinator.retired, 31);
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; executed by the KVM CI job"]
+fn runtime_native_legacy_checkpoint_rejects_userspace_halt() {
+    let mut fixture = Fixture::new(1);
+    assert!(!fixture.vm.vm.uses_native_x86_irqchip());
+    fixture.prepare(0, &[0xf4]);
+    let running = fixture.vm.take_snapshot(0).unwrap();
+    assert!(matches!(fixture.exit(0), VcpuExit::Hlt));
+
+    let Err(error) = fixture.vm.take_snapshot(0) else {
+        panic!("legacy capture omitted the bootstrap CPU's userspace wait");
+    };
+    assert!(error.to_string().contains("halted vCPU"), "{error}");
+    let error = fixture.vm.restore_snapshot(&running).unwrap_err();
+    assert!(error.to_string().contains("halted vCPU"), "{error}");
+    let complete = fixture.vm.take_snapshot_bundle(0).unwrap();
+    assert!(complete.has_kvm_context());
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; executed by the KVM CI job"]
 fn runtime_native_pae_requires_the_complete_checkpoint() {
     let mut fixture = Fixture::new(1);
     let vm = &mut fixture.vm;
@@ -57,7 +172,7 @@ fn runtime_native_pae_requires_the_complete_checkpoint() {
 
 #[test]
 #[ignore = "requires native Linux KVM; executed by the KVM CI job"]
-fn late_projected_cpu_rejection_rolls_back_the_entire_stopped_cpu_set() {
+fn runtime_native_projected_cpu_rejection_rolls_back_the_entire_stopped_cpu_set() {
     use crate::vm::snapshot::SnapshotBundle;
 
     let encode = |entries: &[crate::vm::snapshot::CpuSnapshot]| {

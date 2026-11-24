@@ -91,6 +91,34 @@ fn lock_cpus<'a>(
 }
 
 impl KvmVm {
+    /// Capture the legacy register projection of CPU 0. Pending work on
+    /// another CPU can still make the shared device and RAM image inconsistent.
+    pub(crate) fn capture_public_bootstrap_state(
+        &self,
+        boundary: &CheckpointBoundary<'_>,
+    ) -> Result<crate::vm::vcpu::CpuState> {
+        let handles = self.checkpoint_cpu_handles(boundary)?;
+        let cores = self.lock_projected_cpus(&handles)?;
+        let bootstrap = cores
+            .first()
+            .ok_or_else(|| invalid("projected capture has no bootstrap CPU"))?;
+        if bootstrap.userspace_halted {
+            return Err(invalid("halted vCPU requires a complete KVM checkpoint"));
+        }
+        bootstrap.get_state()
+    }
+
+    /// Restore only the represented bootstrap CPU, with every native CPU
+    /// stopped through publication of the historical RAM prefix.
+    pub(crate) fn restore_public_bootstrap_state(
+        &self,
+        boundary: &CheckpointBoundary<'_>,
+        state: &crate::vm::vcpu::CpuState,
+        publish_ram: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        self.restore_public_cpu_registers(boundary, std::iter::once(state), true, publish_ram)
+    }
+
     /// Publish a historical register projection and RAM under the complete
     /// stopped owner set. Roll back native banks for each attempted CPU.
     pub(crate) fn restore_public_cpu_set<'a>(
@@ -99,23 +127,26 @@ impl KvmVm {
         states: impl ExactSizeIterator<Item = &'a crate::vm::vcpu::CpuState>,
         publish_ram: impl FnOnce() -> Result<()>,
     ) -> Result<()> {
+        self.restore_public_cpu_registers(boundary, states, false, publish_ram)
+    }
+
+    fn restore_public_cpu_registers<'a>(
+        &self,
+        boundary: &CheckpointBoundary<'_>,
+        states: impl ExactSizeIterator<Item = &'a crate::vm::vcpu::CpuState>,
+        bootstrap_only: bool,
+        publish_ram: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
         let handles = self.checkpoint_cpu_handles(boundary)?;
-        if states.len() != handles.len() {
+        let count = if bootstrap_only { 1 } else { handles.len() };
+        if states.len() != count || count > handles.len() {
             return Err(invalid(
                 "projected CPU set differs from the managed topology",
             ));
         }
-        if self.memory.resume_clock_pending()? {
-            return Err(invalid(
-                "projected restore requires the complete pending resume clock",
-            ));
-        }
-        let mut cores = lock_cpus(self, &handles)?;
-        for core in &cores {
-            core.state_ready()?;
-            if core.native_io_unsettled || core.io.has_native_completion() {
-                return Err(invalid("projected restore requires native I/O completion"));
-            }
+        let mut cores = self.lock_projected_cpus(&handles)?;
+        if cores.iter().take(count).any(|core| core.userspace_halted) {
+            return Err(invalid("halted vCPU requires a complete KVM checkpoint"));
         }
         let updates = cores
             .iter_mut()
@@ -146,6 +177,34 @@ impl KvmVm {
             return Err(error);
         }
         Ok(())
+    }
+
+    fn lock_projected_cpus<'a>(
+        &self,
+        handles: &'a [Arc<Mutex<NativeCore>>],
+    ) -> Result<Vec<MutexGuard<'a, NativeCore>>> {
+        if self.memory.powered_off.load(Ordering::Acquire) || self.memory.resume_clock_pending()? {
+            return Err(invalid(
+                "power-off or pending resume clock requires a complete KVM checkpoint",
+            ));
+        }
+        let cores = lock_cpus(self, handles)?;
+        for core in &cores {
+            core.state_ready()?;
+            if core.servicing_io || core.native_io_unsettled || core.io.has_native_completion() {
+                return Err(invalid(format!(
+                    "vCPU {} requires native I/O completion for a legacy checkpoint",
+                    core.id
+                )));
+            }
+            if core.deferred_exit.is_some() {
+                return Err(invalid(format!(
+                    "vCPU {} deferred exit requires a complete KVM checkpoint",
+                    core.id
+                )));
+            }
+        }
+        Ok(cores)
     }
 
     fn checkpoint_cpu_handles(

@@ -627,6 +627,8 @@ impl Vmm {
     }
 
     /// Restore represented base state after validating input and target admission.
+    /// On KVM, stop the managed CPU set while publishing CPU 0, RAM and
+    /// legacy devices. Pending native work requires a complete snapshot bundle.
     /// Full SMP/private/platform/PCI closure remains separate.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
         self.validate_base_snapshot_clock()?;
@@ -665,10 +667,37 @@ impl Vmm {
             let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
             let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
             let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
-            let vcpu = &mut self.vcpus[0];
-            vcpu.set_state(&snapshot.cpu_state)?;
-            vcpu.set_emulator_state(&snapshot.emulator_state)?;
-            self.guest_mem.write_all(&memory)?;
+            let mut restore = || -> Result<()> {
+                let vcpu = &mut self.vcpus[0];
+                vcpu.set_state(&snapshot.cpu_state)?;
+                vcpu.set_emulator_state(&snapshot.emulator_state)?;
+                self.guest_mem.write_all(&memory)
+            };
+            #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+            let bindings;
+            #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+            let _publication = if let Some(kvm) = self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::kvm::KvmVm>()
+            {
+                let boundary = kvm.checkpoint_boundary()?;
+                bindings = crate::vm::memory::checkpoint::CheckpointBindings::new(
+                    self.guest_mem.memory(),
+                    Vec::new(),
+                );
+                let scope = bindings.enter()?;
+                kvm.restore_public_bootstrap_state(&boundary, &snapshot.cpu_state, || {
+                    scope.write(0, &memory)?;
+                    Ok(())
+                })?;
+                Some((scope, boundary))
+            } else {
+                restore()?;
+                None
+            };
+            #[cfg(not(all(feature = "kvm", target_os = "linux", target_arch = "x86_64")))]
+            restore()?;
             for cpu in &mut self.vcpus {
                 cpu.checkpoint_memory_replaced();
             }

@@ -134,6 +134,16 @@ attempted CPU prefix, including the failing CPU. If rollback fails, the VM
 rejects future guest entry. RAM publication begins after all CPU setters pass.
 Current private KVM bundles continue through the native producer transaction.
 
+The base-only API stops and validates every managed KVM vCPU while it
+captures or publishes CPU 0, the legacy devices, and the contiguous RAM
+prefix. Base restore uses the same register rollback as the public CPU
+table path. KVM completes PIO and MMIO on re-entry, so a pending transfer
+on any vCPU requires completion before either operation. Complete bundle
+capture can service that transfer through the VMM device bus. A deferred
+exit, staged resume clock, native power-off, or userspace halt on a
+represented CPU requires the private checkpoint format.
+[Linux v6.8 KVM API](references/kvm-api-v6.8.rst)
+
 The source baseline used the actual KVM library on physical Intel Linux.
 A reserved CR4 bit in the final processor record caused KVM_SET_SREGS2 to
 return EINVAL after the BSP's public projection had already changed. The

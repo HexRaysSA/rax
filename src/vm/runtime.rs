@@ -901,25 +901,31 @@ impl Vmm {
         self.machine()
     }
 
-    /// Capture the four represented legacy device models into [`DeviceState`].
     fn capture_devices(&self) -> Result<DeviceState> {
+        self.with_legacy_device_state(Ok)
+    }
+
+    /// Capture the represented legacy device models while retaining their locks.
+    fn with_legacy_device_state<T>(
+        &self,
+        capture: impl FnOnce(DeviceState) -> Result<T>,
+    ) -> Result<T> {
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during snapshot"));
-        let pic = self.pic.lock().map_err(|_| lock_err("pic"))?.clone();
-        let pit = self.pit.lock().map_err(|_| lock_err("pit"))?.clone();
-        let serial = self.serial.lock().map_err(|_| lock_err("serial"))?.clone();
+        let pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
+        let pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
+        let serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
         let lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
         if lapic.has_pending_eoi() {
             return Err(Error::InvalidConfig(
                 "pending LAPIC EOI capture requires a complete snapshot bundle".into(),
             ));
         }
-        let lapic = lapic.checkpoint_registers();
-        Ok(DeviceState {
-            pic,
-            pit,
-            serial,
-            lapic,
+        capture(DeviceState {
+            pic: pic.clone(),
+            pit: pit.clone(),
+            serial: serial.clone(),
+            lapic: lapic.checkpoint_registers(),
         })
     }
 
@@ -928,6 +934,8 @@ impl Vmm {
     }
 
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
+    /// KVM requires a stopped native frontier across all managed CPUs. Use
+    /// a complete snapshot bundle to settle native I/O and retain private state.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
         if self.pc_powered_off() {
             return Err(Error::InvalidConfig(
@@ -964,16 +972,47 @@ impl Vmm {
             .get(0)
             .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
 
-        let cpu_state = vcpu.get_state()?;
-        self.validate_legacy_checkpoint_cpu(self.backend_kind, &cpu_state)?;
-        let emulator_state = vcpu.get_emulator_state().unwrap_or_default();
-        let devices = self.capture_devices()?;
-        let memory = self.guest_mem.try_read_all()?;
+        let capture_ram = |cpu_state, emulator_state, devices| {
+            self.validate_legacy_checkpoint_cpu(self.backend_kind, &cpu_state)?;
+            let memory = self.guest_mem.try_read_all()?;
+            Ok::<_, Error>((
+                cpu_state,
+                emulator_state,
+                devices,
+                memory,
+                crate::vm::timing::elapsed_nanos(),
+            ))
+        };
+        let capture = || {
+            #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+            if let Some(kvm) = self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::kvm::KvmVm>()
+            {
+                return self.with_legacy_device_state(|devices| {
+                    // Match complete checkpoints: devices, native VM, RAM, CPUs.
+                    let boundary = kvm.checkpoint_boundary()?;
+                    let bindings = crate::vm::memory::checkpoint::CheckpointBindings::new(
+                        self.guest_mem.memory(),
+                        Vec::new(),
+                    );
+                    let _scope = bindings.enter()?;
+                    let state = kvm.capture_public_bootstrap_state(&boundary)?;
+                    capture_ram(state, Default::default(), devices)
+                });
+            }
+            let state = vcpu.get_state()?;
+            let emulator = vcpu.get_emulator_state().unwrap_or_default();
+            let devices = self.capture_devices()?;
+            capture_ram(state, emulator, devices)
+        };
+        let (cpu_state, emulator_state, devices, memory, elapsed_nanos) = capture()?;
 
         Snapshot::new(
             self.checkpoint_config.clone(),
             insn_count,
-            crate::vm::timing::elapsed_nanos(),
+            elapsed_nanos,
             cpu_state,
             emulator_state,
             devices,

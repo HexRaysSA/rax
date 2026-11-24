@@ -111,7 +111,11 @@ jobs:
           cargo test --locked --features x86_64-suite --lib "$tests" -- \
             --include-ignored --test-threads=1 --nocapture --color never | tee "$witness"
           grep -F -x "test ${tests}acpi_poweroff_survives_a_detached_checkpoint ... ok" "$witness"
+          grep -F -x "test ${tests}legacy_capture_rejects_pending_io ... ok" "$witness"
+          grep -F -x "test ${tests}legacy_checkpoint_rejects_userspace_halt ... ok" "$witness"
+          grep -F -x "test ${tests}legacy_restore_rejects_pending_peer_io ... ok" "$witness"
           grep -F -x "test ${tests}pae_requires_the_complete_checkpoint ... ok" "$witness"
+          grep -F -x "test ${tests}projected_cpu_rejection_rolls_back_the_entire_stopped_cpu_set ... ok" "$witness"
           grep -F -x "test ${tests}shutdown_exit_survives_a_detached_checkpoint ... ok" "$witness"
 
       - name: Native RAX public-state, rollback, and RAM lifetime regressions
