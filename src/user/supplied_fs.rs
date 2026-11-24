@@ -696,8 +696,12 @@ impl Files {
         &self,
         roots: BTreeMap<String, std::path::PathBuf>,
         accept: Option<roots::AcceptFile>,
+        confined_mounts: &'static [&'static str],
     ) -> std::io::Result<Self> {
-        self.with_library_roots(roots, roots::Origin::installed(accept, false))
+        self.with_library_roots(
+            roots,
+            roots::Origin::darwin_installed(accept, confined_mounts),
+        )
     }
 
     #[cfg(any(target_os = "linux", test))]
@@ -705,7 +709,7 @@ impl Files {
         &self,
         roots: BTreeMap<String, std::path::PathBuf>,
     ) -> std::io::Result<Self> {
-        self.with_library_roots(roots, roots::Origin::installed(None, true))
+        self.with_library_roots(roots, roots::Origin::LINUX_INSTALLED)
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos", test))]

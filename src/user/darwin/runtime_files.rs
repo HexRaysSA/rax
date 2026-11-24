@@ -1,5 +1,5 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
-//! system metadata, including timezone data.
+//! system metadata, including timezone and locale data.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -19,6 +19,9 @@ const SHELL_SELECTOR: &str = "/private/var/select/sh";
 
 #[cfg(any(target_os = "macos", test))]
 const ZONEINFO_PATHS: [&str; 2] = ["/var/db/timezone/zoneinfo", "/usr/share/zoneinfo"];
+
+#[cfg(any(target_os = "macos", test))]
+const LOCALE_ROOT: &str = "/usr/share/locale";
 
 /// Public kernel version strings collected when selecting the installed runtime.
 #[derive(Clone, Debug)]
@@ -141,17 +144,35 @@ fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files
     ]
     .into_iter()
     .chain(ZONEINFO_PATHS)
+    .chain([LOCALE_ROOT])
     .filter_map(|guest| {
         let host = root.join(guest.trim_start_matches('/'));
         host.is_dir().then(|| (guest.to_owned(), host))
     })
     .collect();
-    let files = files.with_native_library_roots(roots, Some(accept_runtime_file))?;
+    let files =
+        files.with_native_library_roots(roots, Some(accept_runtime_file), &[LOCALE_ROOT])?;
     crate::user::supplied_fs::timezone::select_default(files, root)
 }
 
 #[cfg(any(target_os = "macos", test))]
 fn accept_runtime_file(guest: &str, file: &std::fs::File) -> io::Result<bool> {
+    if let Some(locale_path) = guest
+        .strip_prefix(LOCALE_ROOT)
+        .and_then(|tail| tail.strip_prefix('/'))
+    {
+        let mut parts = locale_path.split('/');
+        let _locale = parts.next();
+        let category = parts.next();
+        let member = parts.next();
+        return Ok(match (category, member) {
+            (Some("LC_CTYPE" | "LC_COLLATE" | "LC_MONETARY" | "LC_NUMERIC" | "LC_TIME"), None) => {
+                true
+            }
+            (Some("LC_MESSAGES"), Some("LC_MESSAGES")) => parts.next().is_none(),
+            _ => false,
+        });
+    }
     if ZONEINFO_PATHS.into_iter().any(|root| {
         guest
             .strip_prefix(root)
@@ -612,6 +633,70 @@ mod tests {
             .unwrap();
         let selected = select_native_root(&explicit, root).unwrap();
         assert_eq!(&*selected.read(override_path).unwrap(), b"supplied");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_locale_mount_confines_selected_resources() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"unused", 8);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let cache = root.join("System/Library/dyld");
+        let locales = root.join("usr/share/locale");
+        let source = locales.join("base");
+        let selected = locales.join("example.UTF-8");
+        for dir in [&lib, &cache, &source, &selected.join("LC_MESSAGES")] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        fs::write(lib.join("dyld"), b"dyld").unwrap();
+        fs::write(cache.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        fs::write(lib.join("unselected"), b"outside locale").unwrap();
+        fs::write(source.join("LC_CTYPE"), b"character types").unwrap();
+        fs::write(selected.join("LC_MESSAGES/LC_MESSAGES"), b"messages").unwrap();
+        fs::write(selected.join("unselected"), b"not a locale resource").unwrap();
+        symlink("../base/LC_CTYPE", selected.join("LC_CTYPE")).unwrap();
+        symlink(&lib.join("unselected"), selected.join("LC_NUMERIC")).unwrap();
+        symlink(&lib, locales.join("outside")).unwrap();
+
+        let ctype = "/usr/share/locale/example.UTF-8/LC_CTYPE";
+        let files = select_native_root(&Files::default(), root).unwrap();
+        assert_eq!(&*files.read(ctype).unwrap(), b"character types");
+        assert_eq!(
+            &*files
+                .read("/usr/share/locale/example.UTF-8/LC_MESSAGES/LC_MESSAGES")
+                .unwrap(),
+            b"messages"
+        );
+        let children = |directory| {
+            files
+                .children(directory)
+                .unwrap()
+                .into_iter()
+                .map(|(name, _)| name)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(children("/usr/share/locale"), ["base", "example.UTF-8"]);
+        assert_eq!(
+            children("/usr/share/locale/example.UTF-8"),
+            ["LC_CTYPE", "LC_MESSAGES"]
+        );
+        for path in [
+            "/usr/share/locale/example.UTF-8/LC_NUMERIC",
+            "/usr/share/locale/example.UTF-8/unselected",
+            "/usr/share/locale/outside/LC_TIME",
+            "/usr/lib/unselected",
+        ] {
+            assert!(matches!(files.read(path), Err(Error::NotFound)), "{path}");
+        }
+
+        let supplied = Files::default()
+            .with_file(ctype.into(), Arc::from(&b"supplied"[..]))
+            .unwrap();
+        let files = select_native_root(&supplied, root).unwrap();
+        assert_eq!(&*files.read(ctype).unwrap(), b"supplied");
     }
 
     #[cfg(unix)]

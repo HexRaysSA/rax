@@ -200,6 +200,58 @@ fn installed_darwin_date_uses_named_timezones_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_locales_match_native_through_closed_c_abi() {
+    let path = "/usr/bin/locale";
+    let native = std::process::Command::new(path)
+        .arg("-a")
+        .env_clear()
+        .env("LC_ALL", "C")
+        .output()
+        .unwrap();
+    assert!(native.status.success());
+    assert!(!native.stdout.is_empty());
+    let options = serde_json::json!({
+        "personality": "darwin",
+        "guest_path": path,
+        "arguments": ["-a"],
+        "environment": {"LC_ALL": "C"},
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    let process = open(&std::fs::read(path).unwrap(), &options.to_string());
+    let state = info(&process);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    let result = run_installed_posix(&process, path);
+    assert_eq!(result.exit_code, 0);
+    let sorted_lines = |bytes: &[u8]| {
+        let mut lines: Vec<_> = bytes
+            .split_inclusive(|&byte| byte == b'\n')
+            .map(<[u8]>::to_vec)
+            .collect();
+        lines.sort_unstable();
+        lines
+    };
+    // The installed utility preserves the filesystem's directory order.
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    assert_eq!(sorted_lines(&stdout), sorted_lines(&native.stdout));
+    assert_eq!(
+        capture_installed_posix_stream(&process, RAX_PROCESS_STDERR),
+        native.stderr
+    );
+
+    compare_installed_posix_output(
+        "darwin",
+        path,
+        &["-k", "decimal_point"],
+        &[("LC_ALL", "fr_FR.UTF-8")],
+        b"decimal_point=\",\"\n",
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_perl_loads_its_on_disk_dylib_through_closed_c_abi() {
     compare_installed_posix_output(
         "darwin",

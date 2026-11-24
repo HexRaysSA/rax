@@ -17,6 +17,8 @@ pub(super) struct Origin {
     inode_base: u64,
     accept: Option<AcceptFile>,
     observe_symlinks: bool,
+    confined_mounts: &'static [&'static str],
+    max_entries: usize,
 }
 
 impl Origin {
@@ -24,14 +26,31 @@ impl Origin {
         inode_base: 0x8000_0000_0000_0000,
         accept: None,
         observe_symlinks: false,
+        confined_mounts: &[],
+        max_entries: MAX_ENTRIES,
     };
 
-    #[cfg(any(target_os = "linux", target_os = "macos", test))]
-    pub(super) fn installed(accept: Option<AcceptFile>, observe_symlinks: bool) -> Self {
+    #[cfg(any(target_os = "linux", test))]
+    pub(super) const LINUX_INSTALLED: Self = Self {
+        inode_base: 0xc000_0000_0000_0000,
+        accept: None,
+        observe_symlinks: true,
+        confined_mounts: &[],
+        max_entries: MAX_ENTRIES,
+    };
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(super) fn darwin_installed(
+        accept: Option<AcceptFile>,
+        confined_mounts: &'static [&'static str],
+    ) -> Self {
         Self {
             inode_base: 0xc000_0000_0000_0000,
             accept,
-            observe_symlinks,
+            observe_symlinks: false,
+            confined_mounts,
+            // The system locale tree alone can contain over 2048 entries.
+            max_entries: 4096,
         }
     }
 }
@@ -107,7 +126,13 @@ impl Roots {
         }
         let path = host.join(relative);
         let canonical = std::fs::canonicalize(path).map_err(path_error)?;
-        if !self.roots.values().any(|root| canonical.starts_with(root)) {
+        let confined = self.origin.confined_mounts.contains(&root);
+        let allowed = if confined {
+            canonical.starts_with(host)
+        } else {
+            self.roots.values().any(|root| canonical.starts_with(root))
+        };
+        if !allowed {
             return Err(Error::NotFound);
         }
         // Compare the guest spelling with the directory entries even when
@@ -175,7 +200,7 @@ impl Roots {
     }
     pub(super) fn owns(&self, entry: &Entry) -> bool {
         let base = self.origin.inode_base;
-        (base..base + MAX_ENTRIES as u64).contains(&entry.ino)
+        (base..base + self.origin.max_entries as u64).contains(&entry.ino)
     }
 
     fn insert(&self, path: &str, kind: Kind) -> Result<Entry, Error> {
@@ -189,7 +214,7 @@ impl Roots {
         if let Some(entry) = table.get(path) {
             return Ok(entry.clone());
         }
-        if index >= MAX_ENTRIES {
+        if index >= self.origin.max_entries {
             return Err(Error::TooLarge);
         }
         let entry = Entry {
