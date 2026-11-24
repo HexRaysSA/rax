@@ -21,6 +21,9 @@ const INVALID: &[u32] = &[
     0xeeb9_0b40, // VJCVT space with unallocated bit 7 clear.
     0xee00_0810, // Unallocated size in the scalar core-transfer group.
     0xee20_0910, // FP16 VMOV core-transfer group with an unallocated opcode.
+    0xeeb5_0a41, // VCMP.F32 against zero with reserved bit 0 set.
+    0xeeb5_0be0, // VCMPE.F64 against zero with reserved bit 5 set.
+    0xeeb7_0a20, // VMOV.F32 immediate with reserved bit 5 set.
 ];
 
 fn decode(raw: u32, thumb: bool) -> DecodedInsn {
@@ -62,6 +65,57 @@ fn reserved_scalar_fp_operations_keep_their_allocation_across_predicates() {
         assert_eq!(decode(0xeeb9_0bc0, thumb).mnemonic, Mnemonic::VJCVT_S32_F64);
         assert_eq!(decode(0xfe00_0810, thumb).mnemonic, Mnemonic::VFMAL);
     }
+}
+
+#[test]
+fn scalar_compare_zero_and_move_immediate_reserved_fields_select_undefined() {
+    // DDI 0597 marks the unused zero-compare source and literal bits as (0).
+    let mut wrong_allocations = Vec::new();
+    for thumb in [false, true] {
+        for condition in 0..15 {
+            if thumb && condition != 14 {
+                continue;
+            }
+            for size in 1..=3 {
+                for (base, mnemonic, mask) in [
+                    (0x0eb5_0840, Mnemonic::VCMP, 0x2f),
+                    (0x0eb5_08c0, Mnemonic::VCMPE, 0x2f),
+                    (0x0eb7_080b, Mnemonic::VMOV, 0xa0),
+                ] {
+                    // Exercise all destination selectors, including D16–D31.
+                    for d in 0..32 {
+                        let raw =
+                            base | condition << 28 | size << 8 | (d & 15) << 12 | (d >> 4) << 22;
+                        for reserved in (0..=mask).filter(|bits| bits & !mask == 0) {
+                            let expected = if reserved == 0 {
+                                mnemonic
+                            } else {
+                                Mnemonic::UNDEFINED
+                            };
+                            let actual = decode(raw | reserved, thumb).mnemonic;
+                            if actual != expected {
+                                wrong_allocations.push((raw | reserved, thumb, expected, actual));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (raw, mnemonic) in [
+            (0xeeb4_0a6f, Mnemonic::VCMP),
+            (0xeeb4_0bef, Mnemonic::VCMPE),
+            (0xeeb0_0b6f, Mnemonic::VMOV),
+            (0xeeb1_0ae3, Mnemonic::VSQRT),
+        ] {
+            assert_eq!(decode(raw, thumb).mnemonic, mnemonic, "{raw:08x}, {thumb}");
+        }
+    }
+    assert!(
+        wrong_allocations.is_empty(),
+        "{} wrong allocations, first cases (raw, thumb, expected, actual): {:x?}",
+        wrong_allocations.len(),
+        &wrong_allocations[..wrong_allocations.len().min(8)]
+    );
 }
 
 #[test]

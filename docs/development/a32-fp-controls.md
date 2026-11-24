@@ -995,3 +995,34 @@ The Linux-only `arm_diff32` harness requires `qemu-arm` and was omitted on
 macOS. The independent controls ran system-mode guests with `qemu-system-arm`.
 Physical AArch32 execution and the remaining profile, security and debug
 controls stay open.
+
+## Scalar compare with zero and move-immediate reserved fields
+
+`VCMP` and `VCMPE` against zero mark bits 5 and 3:0 as `(0)` in the A2 and
+T2 encodings. Scalar immediate `VMOV` marks bits 7 and 5 as `(0)` in A2
+and T2. The shared decoder selects Undefined for nonzero reserved fields
+before FP access checks. Register-source variants still use their encoded
+source registers, and scalar immediate `VMOV` still uses all eight literal
+bits. The decode checks take constant time and space.
+[Arm DDI 0597 ID032025, pp. 845–853 and 1105–1108](../specifications/arm/aarch32-isa-2025-03.pdf)
+[Arm DDI 0487B.a, § K1.1.9](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe | Result |
+| --- | --- | --- |
+| The field masks are shared by A32 and T32 at all three precisions. | Vary every reserved field combination, all 32 destination selectors and all A32 condition codes in the conditional space. Include canonical encodings and adjacent register-source forms. | The parent decoded 96,768 reserved words as FP operations. |
+| Reserved encodings reach Undefined before FP access checks. | Exercise A32 and T32 with FP enabled, with local denial or with a higher FP trap armed. Check unchanged FP and general registers, status and mixed-width retirement. | The parent executed `0xeeb50a41` on the standalone path and failed the mixed-width Undefined assertion. |
+| The Undefined vector distinguishes rejection from execution in the independent guest. | Seed D0, D1 and FPSCR before each guest word. Check both destination effects and compare flags for canonical words. Check the vector marker and original state for reserved words. | QEMU 11.1.2 `max` rejected all 390 reserved encodings and executed all 18 canonical controls. |
+
+QEMU observation SHA-256 is
+`4133bda5c99fca4d44062a56080a5c7af1c97e05addc86779003316e02d780ab`.
+The decoder matrix covers 104,448 words from 16 instruction-set and
+condition combinations, three precisions, 32 destinations, and 68 field
+patterns. Before the fix, 63 of the 68 patterns per combination were
+misclassified. The QEMU matrix uses both instruction sets, all three
+precisions and all 68 field patterns with one destination.
+
+All five complete targets passed 47,700 tests with zero failures or ignored
+cases. The targets were `a32_fp_controls` (208), `a32_fp_pairs` (5), `arm`
+(46,850), `arm_vfp_a32` (535) and `isa_oracle` (102). The combined log SHA-256
+is `7bcacbb8c8de8bccf826e2803740389832567fb540a93be3c6ba33c1db34f2d4`.
+Physical AArch32 behavior for these fields remains unverified.

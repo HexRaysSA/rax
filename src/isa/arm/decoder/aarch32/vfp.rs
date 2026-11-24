@@ -490,7 +490,8 @@ impl Aarch32Decoder {
             // Register VMOV uses coprocessor fields 1010/1011; 1001 is reserved.
             (1, 1, 1, 0, 1, 0) if size == 1 => Mnemonic::UNDEFINED,
             (1, 1, 1, 0, 1, 0) => Mnemonic::VMOV,
-            (1, 1, 1, 0, 0, _) => Mnemonic::VMOV,
+            // Scalar VMOV (immediate) A2/T2 has SBZ bits 7 and 5.
+            (1, 1, 1, 0, 0, _) if raw & (1 << 5) == 0 => Mnemonic::VMOV,
             (1, 1, 1, 1, 1, 0) => Mnemonic::VABS,
             (1, 1, 1, 0, 1, 1) => Mnemonic::VNEG,
             (1, 1, 1, 1, 1, 1) => Mnemonic::VSQRT,
@@ -502,6 +503,8 @@ impl Aarch32Decoder {
             (1, 1, 1, 0, 1, 3) if size == 3 => Mnemonic::VCVTB_F16_F64,
             (1, 1, 1, 1, 1, 3) if size == 2 => Mnemonic::VCVTT_F16_F32,
             (1, 1, 1, 1, 1, 3) if size == 3 => Mnemonic::VCVTT_F16_F64,
+            // VCMP/VCMPE against zero A2/T2 require bits 5 and 3:0 to be zero.
+            (1, 1, 1, _, 1, 5) if raw & 0x2f != 0 => Mnemonic::UNDEFINED,
             (1, 1, 1, 0, 1, 4 | 5) => Mnemonic::VCMP,
             (1, 1, 1, 0, 1, 6) if size == 1 => Mnemonic::VRINTR_F16,
             (1, 1, 1, 0, 1, 6) if size == 2 => Mnemonic::VRINTR_F32,
