@@ -192,30 +192,23 @@ impl NativeRuntime {
             .ok_or_else(|| invalid("native primary-token session is not captured"))?;
         runtime.object_namespace =
             super::object_namespace::snapshot(runtime.registry.upcase_table(), token_session)?;
-        if arch == WinArch::Arm64
-            && (
-                runtime.version.major,
-                runtime.version.minor,
-                runtime.version.build,
-            ) == (10, 0, 29708)
-            && runtime.object_namespace.native_machine == Some(0xAA64)
-        {
+        let arm64_29708 = (
+            runtime.version.major,
+            runtime.version.minor,
+            runtime.version.build,
+        ) == (10, 0, 29708)
+            && runtime.object_namespace.native_machine == Some(0xAA64);
+        if arm64_29708 && matches!(arch, WinArch::Arm64 | WinArch::X86) {
             runtime.object_namespace.policy_lookup_names =
                 super::object_namespace::policy_lookup::capture(&subject).map(std::sync::Arc::new);
+        }
+        if arm64_29708 && arch == WinArch::Arm64 {
             runtime.object_namespace.privilege_display_names =
                 super::security::privilege_names::capture().map(std::sync::Arc::new);
             #[cfg(windows)]
             runtime.object_namespace.capture_lsa_authentication_event();
         }
-        if token_session == 1
-            && arch == WinArch::Arm64
-            && (
-                runtime.version.major,
-                runtime.version.minor,
-                runtime.version.build,
-            ) == (10, 0, 29708)
-            && runtime.object_namespace.native_machine == Some(0xAA64)
-        {
+        if arm64_29708 && arch == WinArch::Arm64 && token_session == 1 {
             runtime.object_namespace.activation_context =
                 super::object_namespace::csr::activation::capture(&runtime)
                     .ok()

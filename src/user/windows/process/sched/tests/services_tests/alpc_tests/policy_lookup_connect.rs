@@ -283,6 +283,77 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
             entries,
         }));
 
+        if arch == WinArch::X86 {
+            let arena = base + 0x400;
+            let mut classic_bind = bind;
+            words(&mut classic_bind, &[(32, 1)]);
+            assert_eq!(
+                exchange(p, &mut thread, arena, handle, 0x4000, &classic_bind),
+                classic_bind
+            );
+
+            let mut open = [0; 104];
+            words(
+                &mut open,
+                &[
+                    (12, 17),
+                    (68, 24),
+                    (88, 0x20000),
+                    (92, 12),
+                    (96, 0x10002),
+                    (100, 0x800),
+                ],
+            );
+            let opened = exchange(p, &mut thread, arena, handle, 0, &open);
+            assert_eq!(read_word(&opened, 44), 0);
+            let mut classic = [0; 152];
+            words(
+                &mut classic,
+                &[
+                    (12, 18),
+                    (20, 2),
+                    (84, 1),
+                    (88, 0x20000),
+                    (92, 1),
+                    (96, 0x20004),
+                    (100, 5),
+                    (148, 2),
+                ],
+            );
+            classic[64..84].copy_from_slice(&opened[24..44]);
+            classic[104..132].copy_from_slice(&user_sid);
+            assert_translation_rejected(p, &mut thread, arena, handle, &classic[..151]);
+            words(&mut classic, &[(92, 2)]);
+            assert_translation_rejected(p, &mut thread, arena, handle, &classic);
+            words(&mut classic, &[(92, 1)]);
+            classic[68] ^= 1;
+            assert_translation_rejected(p, &mut thread, arena, handle, &classic);
+            classic[68] ^= 1;
+            classic[128] ^= 1;
+            assert_translation_rejected(p, &mut thread, arena, handle, &classic);
+            classic[128] ^= 1;
+            let translated = exchange(p, &mut thread, arena, handle, 0, &classic);
+            assert_eq!(translated.len(), 172);
+            assert_eq!(read_word(&translated, 12), 18);
+            assert_eq!(read_word(&translated, 28), 1);
+            assert_eq!(read_word(&translated, 36), 32);
+            assert_eq!(read_word(&translated, 56), 8);
+            assert_eq!(read_word(&translated, 64), 7);
+            assert_eq!(&translated[68..82], b"T\0E\0S\0T\0P\0C\x001\0");
+            assert_eq!(read_word(&translated, 84), 4);
+            assert_eq!(&translated[88..112], &domain_sid);
+            assert_eq!(read_word(&translated, 124), 1);
+            assert_eq!(read_word(&translated, 144), 4);
+            assert_eq!(read_word(&translated, 152), 3);
+            assert_eq!(&translated[156..162], b"a\0b\0c\0");
+            assert_eq!(read_word(&translated, 164), 1);
+            assert_eq!(read_word(&translated, 168), 0);
+            words(&mut bind, &[(32, 3)]);
+            let rebound = exchange(p, &mut thread, arena, handle, 0x4000, &bind);
+            words(&mut bind, &[(32, 2)]);
+            assert_eq!(rebound, bind);
+        }
+
         let mut lookup = [0; 188];
         words(
             &mut lookup,

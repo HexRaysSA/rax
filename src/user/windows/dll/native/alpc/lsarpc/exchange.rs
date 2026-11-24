@@ -72,6 +72,7 @@ pub(in crate::user::windows::dll::native) fn exchange(
                 }
                 (LsarpcInterface::PolicyLookup, Some(bind::NDR32)) => {
                     policy_lookup::response_ndr32(
+                        c,
                         payload,
                         request_type,
                         association,

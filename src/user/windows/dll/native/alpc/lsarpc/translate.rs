@@ -1,10 +1,12 @@
-//! The observed NDR64 request and successful reply for one selected token SID.
+//! The local Policy Lookup request and successful reply for one selected token SID.
 
+use super::exchange::word;
 use crate::user::windows::object_namespace::policy_lookup::{Name, Translation};
 use crate::user::windows::objects::LsarpcPolicyContext;
 use crate::user::windows::security;
 
 const SID_AT: usize = 128;
+const NDR32_SID_AT: usize = 104;
 const DOMAIN_LIMIT: u32 = 32;
 const REVISION: u32 = 2;
 const UNIQUE_REFERENT: u64 = 0x20000;
@@ -31,6 +33,30 @@ pub(super) fn request(payload: &[u8]) -> Option<(LsarpcPolicyContext, &[u8])> {
         || payload.len() != revision + 4
         || payload[end..revision].iter().any(|&byte| byte != 0)
         || payload[revision..] != REVISION.to_le_bytes()
+    {
+        return None;
+    }
+    let context = payload[64..84].try_into().expect("checked context extent");
+    Some((context, sid))
+}
+
+pub(super) fn request_ndr32(payload: &[u8]) -> Option<(LsarpcPolicyContext, &[u8])> {
+    if payload.len() < NDR32_SID_AT
+        || payload[24..64].iter().any(|&byte| byte != 0)
+        || word(payload, 84) != 1
+        || word(payload, 88) == 0
+        || word(payload, 92) != 1
+        || word(payload, 96) == 0
+    {
+        return None;
+    }
+    let sid = security::sid(&payload[NDR32_SID_AT..])?;
+    let end = NDR32_SID_AT + sid.len();
+    let revision = end + 16;
+    if word(payload, 100) != u32::from(sid[1])
+        || payload.len() != revision + 4
+        || payload[end..revision].iter().any(|&byte| byte != 0)
+        || word(payload, revision) != REVISION
     {
         return None;
     }
@@ -90,4 +116,44 @@ pub(super) fn append_success(body: &mut Vec<u8>, translation: &Translation) {
     u32_field(body, 1); // MappedCount
     u32_field(body, 0); // STATUS_SUCCESS
     body.resize(body.len() + 32, 0);
+}
+
+fn name_header_ndr32(body: &mut Vec<u8>, name: &Name) {
+    body.extend_from_slice(&(name.units.len() as u16 * 2).to_le_bytes());
+    body.extend_from_slice(&(name.maximum_units * 2).to_le_bytes());
+    u32_field(body, UNIQUE_REFERENT as u32);
+}
+
+fn name_buffer_ndr32(body: &mut Vec<u8>, name: &Name) {
+    u32_field(body, u32::from(name.maximum_units));
+    u32_field(body, 0);
+    u32_field(body, name.units.len() as u32);
+    for unit in &name.units {
+        body.extend_from_slice(&unit.to_le_bytes());
+    }
+    body.resize(body.len().next_multiple_of(4), 0);
+}
+
+pub(super) fn append_success_ndr32(body: &mut Vec<u8>, translation: &Translation) {
+    let referent = UNIQUE_REFERENT as u32;
+    // One referenced domain and its deferred UTF-16 name and SID.
+    for field in [referent, 1, referent, DOMAIN_LIMIT, 1] {
+        u32_field(body, field);
+    }
+    name_header_ndr32(body, &translation.domain);
+    u32_field(body, referent);
+    name_buffer_ndr32(body, &translation.domain);
+    u32_field(body, u32::from(translation.domain_sid[1]));
+    body.extend_from_slice(&translation.domain_sid);
+
+    // One translated name with its SID_NAME_USE enum and domain index.
+    for field in [1, referent, 1, translation.kind] {
+        u32_field(body, field);
+    }
+    name_header_ndr32(body, &translation.account);
+    u32_field(body, 0); // DomainIndex
+    u32_field(body, 0); // Flags
+    name_buffer_ndr32(body, &translation.account);
+    u32_field(body, 1); // MappedCount
+    u32_field(body, 0); // STATUS_SUCCESS
 }

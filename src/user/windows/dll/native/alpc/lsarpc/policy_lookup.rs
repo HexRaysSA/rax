@@ -5,7 +5,8 @@ use super::policy::{self, Change, POLICY_LOOKUP_NAMES};
 use super::translate;
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::{LsarpcPolicies, ObjId};
+use crate::user::windows::object_namespace::policy_lookup::Translation;
+use crate::user::windows::objects::{LsarpcPolicies, LsarpcPolicyContext, ObjId};
 
 const OPEN: u32 = 0;
 const CLOSE: u32 = 1;
@@ -35,24 +36,42 @@ pub(super) fn response(
 }
 
 pub(super) fn response_ndr32(
+    c: &Ctx,
     payload: &[u8],
     request_type: u16,
     association: ObjId,
     contexts: &LsarpcPolicies,
 ) -> Option<Response> {
-    if payload.len() != OPEN_NDR32_REQUEST_BYTES
-        || policy::operation(payload, request_type, policy::NDR32_CALL_CONTEXT)? != OPEN
-    {
-        return None;
-    }
-    let desired = policy::open_access_ndr32(payload)?;
-    let mut response = open_reply(OPEN_NDR32_REPLY_BYTES, desired, association, contexts);
+    let mut response = match policy::operation(payload, request_type, policy::NDR32_CALL_CONTEXT)? {
+        OPEN if payload.len() == OPEN_NDR32_REQUEST_BYTES => {
+            let desired = policy::open_access_ndr32(payload)?;
+            open_reply(OPEN_NDR32_REPLY_BYTES, desired, association, contexts)
+        }
+        TRANSLATE_SIDS => {
+            let (context, sid) = translate::request_ndr32(payload)?;
+            let mut response = policy::reply(24);
+            translate::append_success_ndr32(&mut response.body, lookup(c, contexts, context, sid)?);
+            response
+        }
+        _ => return None,
+    };
     policy::echo_call_id(&mut response, payload);
     Some(response)
 }
 
 fn translate_sid(c: &Ctx, payload: &[u8], contexts: &LsarpcPolicies) -> Option<Response> {
     let (context, sid) = translate::request(payload)?;
+    let mut response = policy::reply(24);
+    translate::append_success(&mut response.body, lookup(c, contexts, context, sid)?);
+    Some(response)
+}
+
+fn lookup<'a>(
+    c: &'a Ctx,
+    contexts: &LsarpcPolicies,
+    context: LsarpcPolicyContext,
+    sid: &[u8],
+) -> Option<&'a Translation> {
     if !contexts.contains(&context) {
         return None;
     }
@@ -63,11 +82,7 @@ fn translate_sid(c: &Ctx, payload: &[u8], contexts: &LsarpcPolicies) -> Option<R
             .policy_lookup_names
             .as_ref()?;
     let subject = c.p.objects.primary_token_subject()?;
-    let translation = catalog.translate(&subject, sid)?;
-
-    let mut response = policy::reply(24);
-    translate::append_success(&mut response.body, translation);
-    Some(response)
+    catalog.translate(&subject, sid)
 }
 
 fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option<Response> {
