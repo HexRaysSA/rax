@@ -157,6 +157,27 @@ fn native_policy_lookup_connect_authenticates_the_virtual_server() {
             assert_eq!(p.space.u32(length).unwrap(), 112);
             assert_eq!(p.space.u32(length + 4).unwrap(), length_canary);
             assert_eq!(p.space.bytes(reply + header, 72).unwrap(), bind);
+            let mut open = [0; 104];
+            words(
+                &mut open,
+                &[(12, 9), (68, 24), (88, 0x20000), (92, 12), (96, 0x10002)],
+            );
+            let handle_count = p.objects.handle_count();
+            for (access, status) in [(0, 0xc000_000d), (1, 0xc000_0022), (0x800, 0)] {
+                words(&mut open, &[(100, access)]);
+                let (result, header, reply, length) =
+                    submit(p, &mut thread, arena, handle, 0x4002_0000, 0, &open);
+                assert_eq!(result, Outcome::Continue);
+                assert_eq!(thread.cpu.gpr(0), 0);
+                assert_eq!(p.space.u32(length).unwrap(), 88);
+                assert_eq!(p.space.u32(length + 4).unwrap(), length_canary);
+                let reply = p.space.bytes(reply + header, 48).unwrap();
+                assert_eq!(read_word(&reply, 0), 3);
+                assert_eq!(read_word(&reply, 12), 9);
+                assert_eq!(read_word(&reply, 44), status);
+                assert_eq!(reply[24..44] != [0; 20], status == 0);
+                assert_eq!(p.objects.handle_count(), handle_count);
+            }
             words(&mut bind, &[(32, 3)]);
         }
         let reply = exchange(p, &mut thread, base + 0x400, handle, 0x4000, &bind);

@@ -12,6 +12,8 @@ const CLOSE: u32 = 1;
 const TRANSLATE_SIDS: u32 = 2;
 const OPEN_REQUEST_BYTES: usize = 136;
 const OPEN_REPLY_BYTES: usize = 92;
+const OPEN_NDR32_REQUEST_BYTES: usize = 104;
+const OPEN_NDR32_REPLY_BYTES: usize = 48;
 const CONTEXT_OFFSET: usize = 24;
 const STATUS_OFFSET: usize = 44;
 
@@ -28,6 +30,23 @@ pub(super) fn response(
         TRANSLATE_SIDS => translate_sid(c, payload, contexts)?,
         _ => return None,
     };
+    policy::echo_call_id(&mut response, payload);
+    Some(response)
+}
+
+pub(super) fn response_ndr32(
+    payload: &[u8],
+    request_type: u16,
+    association: ObjId,
+    contexts: &LsarpcPolicies,
+) -> Option<Response> {
+    if payload.len() != OPEN_NDR32_REQUEST_BYTES
+        || policy::operation(payload, request_type, policy::NDR32_CALL_CONTEXT)? != OPEN
+    {
+        return None;
+    }
+    let desired = policy::open_access_ndr32(payload)?;
+    let mut response = open_reply(OPEN_NDR32_REPLY_BYTES, desired, association, contexts);
     policy::echo_call_id(&mut response, payload);
     Some(response)
 }
@@ -55,14 +74,24 @@ fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option
     if payload.len() != OPEN_REQUEST_BYTES {
         return None;
     }
-    let result = match policy::open_access(payload)? {
+    let desired = policy::open_access(payload)?;
+    Some(open_reply(OPEN_REPLY_BYTES, desired, association, contexts))
+}
+
+fn open_reply(
+    size: usize,
+    desired: u32,
+    association: ObjId,
+    contexts: &LsarpcPolicies,
+) -> Response {
+    let result = match desired {
         0 => Err(STATUS_INVALID_PARAMETER),
         POLICY_LOOKUP_NAMES => contexts
             .reserve(association)
             .ok_or(STATUS_INSUFFICIENT_RESOURCES),
         _ => Err(STATUS_ACCESS_DENIED),
     };
-    let mut response = policy::reply(OPEN_REPLY_BYTES);
+    let mut response = policy::reply(size);
     match result {
         Ok(context) => {
             response.body[CONTEXT_OFFSET..STATUS_OFFSET].copy_from_slice(&context);
@@ -70,5 +99,5 @@ fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option
         }
         Err(status) => put_word(&mut response.body, STATUS_OFFSET, status),
     }
-    Some(response)
+    response
 }

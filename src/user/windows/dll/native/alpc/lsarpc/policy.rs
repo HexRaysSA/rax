@@ -6,7 +6,7 @@ use crate::user::windows::objects::{LsarpcPolicies, LsarpcPolicyContext, ObjId};
 use crate::user::windows::security::privilege_names::{self, DisplayCatalog};
 
 pub(super) const CALL: u32 = 0;
-const NDR32_CALL_CONTEXT: u32 = 0;
+pub(super) const NDR32_CALL_CONTEXT: u32 = 0;
 pub(super) const NDR64_CALL_CONTEXT: u32 = 1;
 
 const CLOSE: u32 = 0;
@@ -85,7 +85,24 @@ pub(super) fn response_ndr32(
 }
 
 fn open_ndr32(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option<Response> {
-    if payload.len() != OPEN_NDR32_BYTES
+    if payload.len() != OPEN_NDR32_BYTES || word(payload, 104) != word(payload, 108) {
+        return None;
+    }
+    let desired = open_access_ndr32(payload)?;
+    // The reply's scalar outputs and 20-byte context have the same offsets
+    // as in the NDR64 stub, without its trailing transport padding.
+    Some(open_reply(
+        OPEN_NDR32_REPLY_BYTES,
+        association,
+        contexts,
+        word(payload, 104),
+        desired,
+    ))
+}
+
+pub(super) fn open_access_ndr32(payload: &[u8]) -> Option<u32> {
+    // The classic stub uses a 32-bit QoS referent and a 16-bit enum.
+    if payload.len() < 104
         || payload[24..68].iter().any(|&byte| byte != 0)
         || word(payload, 68) != 24
         || payload[72..88].iter().any(|&byte| byte != 0)
@@ -94,21 +111,10 @@ fn open_ndr32(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> 
         || u16::from_le_bytes([payload[96], payload[97]]) > 3
         || payload[98] > 1
         || payload[99] > 1
-        || word(payload, 104) != word(payload, 108)
     {
         return None;
     }
-
-    // The classic stub uses a 32-bit QoS referent and a 16-bit enum.
-    // The reply's scalar outputs and 20-byte context have the same offsets
-    // as in the NDR64 stub, without its trailing transport padding.
-    Some(open_reply(
-        OPEN_NDR32_REPLY_BYTES,
-        association,
-        contexts,
-        word(payload, 104),
-        word(payload, 100),
-    ))
+    Some(word(payload, 100))
 }
 
 pub(super) fn operation(payload: &[u8], request_type: u16, context: u32) -> Option<u32> {

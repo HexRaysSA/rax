@@ -70,6 +70,14 @@ pub(in crate::user::windows::dll::native) fn exchange(
                     });
                     policy::response(payload, request_type, association, &peer.policies, names)
                 }
+                (LsarpcInterface::PolicyLookup, Some(bind::NDR32)) => {
+                    policy_lookup::response_ndr32(
+                        payload,
+                        request_type,
+                        association,
+                        &peer.policies,
+                    )
+                }
                 (LsarpcInterface::PolicyLookup, Some(bind::NDR64)) => {
                     policy_lookup::response(c, payload, request_type, association, &peer.policies)
                 }
