@@ -97,11 +97,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             if t == 15 && reg != 1 {
                 return ExecResult::Undefined;
             }
-            // Only FPSCR is accessible at PL0 (VMRS: "Non-FPSCR registers
-            // accessible only at PL1 or above").
-            if reg != 1 && !self.cpu.is_privileged() {
-                return ExecResult::Undefined;
-            }
             let value = match reg {
                 0 => self.cpu.vfp.read_fpsid(),
                 1 => {

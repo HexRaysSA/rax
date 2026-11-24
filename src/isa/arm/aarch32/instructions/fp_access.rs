@@ -30,6 +30,17 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if in_it {
             kind.condition = self.cpu.cpsr.it_condition();
         }
+        // Arm DDI0406C.d B1.11.2 permits User-mode FPSID reads on VFPv2.
+        // The mixed-width Armv8-A PE retains the privileged-only rule.
+        if kind.system_read == Some(0)
+            && self.cpu.fp_access_context.is_none()
+            && matches!((self.cpu.vfp.mvfr0 >> 4) & 0xff, 0x01 | 0x11)
+        {
+            if insn.state.is_thumb() && (kind.raw >> 12) & 15 == 13 {
+                return Some(ExecResult::Undefined);
+            }
+            kind.privileged_only = false;
+        }
         let access = self
             .cpu
             .fp_control_context()

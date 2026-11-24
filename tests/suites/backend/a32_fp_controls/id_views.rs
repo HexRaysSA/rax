@@ -428,6 +428,30 @@ fn mixed_width_instruction_admission_uses_the_reported_profile_before_access_tra
 }
 
 #[test]
+fn mixed_width_user_fpsid_remains_privileged_with_imported_legacy_precision_ids() {
+    for thumb in [false, true] {
+        for v2_precision in [false, true] {
+            let mut cpu = cpu(true);
+            if v2_precision {
+                let mut ids = expected(true);
+                ids[0] = (ids[0] & !0xff0) | 0x110;
+                profile(&mut cpu, ids);
+            }
+            cpu.set_pstate_bits(0x1d0 | (u64::from(thumb) << 5))
+                .unwrap();
+            words(&mut cpu, &[0xeef0_2a10], thumb);
+            cpu.set_x(2, 0xdead_beef);
+            let before = cpu.export_sregs();
+            assert!(matches!(cpu.step(), Err(ArmError::UndefinedInstruction(_))));
+            assert_eq!(cpu.get_pc(), 0x100);
+            assert_eq!(cpu.instruction_count(), 0);
+            assert_eq!(cpu.get_x(2), 0xdead_beef);
+            assert_eq!(cpu.export_sregs(), before);
+        }
+    }
+}
+
+#[test]
 fn a64_mvfr_id_reads_do_not_require_fp_data_access_permission() {
     for el in [1_u8, 2, 3] {
         let mut cpu = cpu(true);

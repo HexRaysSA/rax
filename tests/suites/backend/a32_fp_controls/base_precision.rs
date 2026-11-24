@@ -2,7 +2,7 @@
 use rax::isa::arm::aarch32::cp15::Cpacr;
 use rax::isa::arm::decoder::{Aarch32Decoder, ThumbDecoder};
 use rax::isa::arm::execution::{ArmMemory, FlatMemory};
-use rax::isa::arm::{Armv7Cpu, ExecResult, Executor};
+use rax::isa::arm::{Armv7Cpu, ExecResult, Executor, ProcessorMode};
 
 const CASES: &[(&str, u32, u32)] = &[
     ("single", 0xee300a00, 0xee300a00),
@@ -182,5 +182,80 @@ fn single_double_conversion_needs_both_precision_fields() {
             check(name, mvfr0, false);
         }
         check(name, 0x1011_0222, true);
+    }
+}
+
+#[test]
+fn standalone_vfpv2_user_fpsid_read_obeys_coprocessor_permissions() {
+    const FPSID: u32 = 0x4101_20b5;
+    const READ_FPSID: u32 = 0xeef0_2a10;
+    for thumb in [false, true] {
+        for (mvfr0, word, cp_access, enabled, allowed) in [
+            (0x1011_0111, READ_FPSID, 3, false, true),
+            (0x1011_0111, READ_FPSID, 3, true, true),
+            (0x1011_0011, READ_FPSID, 3, true, true),
+            (0x1011_0111, READ_FPSID, 0, true, false),
+            (0x1011_0111, READ_FPSID, 1, true, false),
+            (0x1011_0211, READ_FPSID, 3, true, false),
+            (0x1011_0222, READ_FPSID, 3, true, false),
+            (0x1011_0111, 0xeef7_2a10, 3, true, false), // VMRS R2,MVFR0
+            (0x1011_0111, 0xeee0_2a10, 3, true, false), // VMSR FPSID,R2
+            (0x1011_0111, 0xeef0_fa10, 3, true, false), // VMRS PC,FPSID
+        ] {
+            let mut cpu = Armv7Cpu::new();
+            cpu.vfp.mvfr0 = mvfr0;
+            cpu.vfp.fpsid = FPSID;
+            cpu.vfp.fpexc = u32::from(enabled) << 30;
+            cpu.cp15.cpacr = Cpacr::from_bits((cp_access << 20) | (cp_access << 22));
+            cpu.cpsr.mode = ProcessorMode::User as u8;
+            cpu.cpsr.t = thumb;
+            cpu.regs[2] = 0xdead_beef;
+            let pstate = cpu.cpsr.to_u32();
+            let insn = if thumb {
+                ThumbDecoder::decode_32bit(word)
+            } else {
+                Aarch32Decoder::decode(word)
+            }
+            .unwrap();
+            let mut memory = FlatMemory::new(4096, 0);
+            let result = Executor::new(&mut cpu, &mut memory).execute(&insn);
+            assert_eq!(
+                matches!(result, ExecResult::Continue),
+                allowed,
+                "{word:#x}, MVFR0={mvfr0:#x}, CPACR={cp_access}, Thumb={thumb}: {result:?}"
+            );
+            assert_eq!(cpu.regs[2], if allowed { FPSID } else { 0xdead_beef });
+            assert_eq!(cpu.cpsr.to_u32(), pstate);
+            assert_eq!(cpu.vfp.fpsid, FPSID);
+            assert_eq!(cpu.vfp.fpexc, u32::from(enabled) << 30);
+        }
+    }
+}
+
+#[test]
+fn standalone_vfpv2_fpsid_read_to_sp_obeys_the_instruction_set_constraint() {
+    const READ_FPSID_TO_SP: u32 = 0xeef0_da10;
+    for thumb in [false, true] {
+        let mut cpu = Armv7Cpu::new();
+        cpu.vfp.mvfr0 = 0x1011_0111;
+        cpu.vfp.fpsid = 0x4101_20b5;
+        cpu.cpsr.mode = ProcessorMode::User as u8;
+        cpu.cpsr.t = thumb;
+        cpu.regs[13] = 0x4321_0000;
+        let insn = if thumb {
+            ThumbDecoder::decode_32bit(READ_FPSID_TO_SP)
+        } else {
+            Aarch32Decoder::decode(READ_FPSID_TO_SP)
+        }
+        .unwrap();
+        let mut memory = FlatMemory::new(4096, 0);
+        let result = Executor::new(&mut cpu, &mut memory).execute(&insn);
+        if thumb {
+            assert!(matches!(result, ExecResult::Undefined));
+            assert_eq!(cpu.regs[13], 0x4321_0000);
+        } else {
+            assert!(matches!(result, ExecResult::Continue));
+            assert_eq!(cpu.regs[13], 0x4101_20b5);
+        }
     }
 }

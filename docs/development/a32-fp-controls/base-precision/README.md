@@ -13,6 +13,32 @@ double-precision arithmetic requirement. Existing FP16 feature/conversion
 admission remains distinct; FP16 data operations are not inferred from FPSP.
 Scalar precision fields do not govern Advanced SIMD operations.
 
+## VFPv2 User-mode FPSID reads
+
+The standalone VFPv2 profile permits `VMRS Rt,FPSID` in User mode after
+the ordinary coprocessor access checks. The read is independent of
+`FPEXC.EN`. Profile selection uses `FPSP=1` and `FPDP` equal to zero or one.
+In this legacy profile, a T32 FPSID read targeting SP selects Undefined for
+the unpredictable encoding. A32 permits SP as the destination.
+The standalone VFPv3 and mixed-width Armv8-A profiles require privileged
+access to FPSID. The access check takes constant time and space.
+[Arm DDI0406C.d, §§ B1.11.2 and B9.3.21](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+
+| Assumption and basis | Dependent behavior and falsification probe |
+| --- | --- |
+| The standalone precision pair identifies VFPv2. Arm § B1.11.2 permits reads at PL0. | Attempt the read in A32 and T32 with CPACR full, privileged-only and denied. Check the returned ID, untouched state on denial, and both values of FPEXC.EN. |
+| The legacy permission is specific to the FPSID read. | At PL0, check rejection of an FPSID write, an FPSID read targeting R15, and an MVFR0 read. |
+| The legacy T32 encoding constrains SP. | Read FPSID into SP in each instruction set. Check that only the A32 transfer updates SP. |
+| Imported capabilities leave the enclosing PE's regime Armv8-A. | Inject VFPv2 precision IDs into the mixed-width PE and require Undefined with zero retirements and the original operand in ARM and Thumb. |
+
+On `445ca8894`, the first standalone control returned Undefined and the
+mixed-width control passed. In QEMU 11.1.2, ARM1176 returned `0x410120b5`
+to R2 and SP with FPEXC.EN clear and CPACR enabled. After disabling
+CPACR, the same guest reached the Undefined vector with its original
+destination. Cortex-A15 reached the Undefined vector with CPACR enabled.
+The QEMU cases execute A32 and exercise emulated CPU models. Physical Arm
+execution remains open.
+
 ## Evidence
 
 [Provenance](provenance.json) identifies the retained Arm MVFR0 definition and
