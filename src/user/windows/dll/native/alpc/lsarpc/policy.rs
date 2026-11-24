@@ -6,6 +6,8 @@ use crate::user::windows::objects::{LsarpcPolicies, LsarpcPolicyContext, ObjId};
 use crate::user::windows::security::privilege_names::{self, DisplayCatalog};
 
 pub(super) const CALL: u32 = 0;
+const NDR32_CALL_CONTEXT: u32 = 0;
+pub(super) const NDR64_CALL_CONTEXT: u32 = 1;
 
 const CLOSE: u32 = 0;
 const LOOKUP_PRIVILEGE_VALUE: u32 = 31;
@@ -18,6 +20,8 @@ const INPUT_NAME_AT: usize = 128;
 const RESULT_NAME_AT: usize = 72;
 const CLOSE_REPLY_BYTES: usize = 92;
 const LOOKUP_REPLY_BYTES: usize = 80;
+const OPEN_NDR32_BYTES: usize = 120;
+const OPEN_NDR32_REPLY_BYTES: usize = 64;
 const OPEN_BYTES: usize = 152;
 const OPEN_REPLY_BYTES: usize = 136;
 pub(super) const POLICY_LOOKUP_NAMES: u32 = 0x800;
@@ -49,7 +53,7 @@ pub(super) fn response(
     contexts: &LsarpcPolicies,
     display_names: Option<&DisplayCatalog>,
 ) -> Option<Response> {
-    let mut response = match operation(payload, request_type)? {
+    let mut response = match operation(payload, request_type, NDR64_CALL_CONTEXT)? {
         OPEN => open(payload, association, contexts)?,
         LOOKUP_PRIVILEGE_VALUE => lookup_value(payload, contexts)?,
         LOOKUP_PRIVILEGE_NAME => lookup_name(payload, contexts)?,
@@ -61,11 +65,46 @@ pub(super) fn response(
     Some(response)
 }
 
-pub(super) fn operation(payload: &[u8], request_type: u16) -> Option<u32> {
+pub(super) fn response_ndr32(
+    payload: &[u8],
+    request_type: u16,
+    association: ObjId,
+    contexts: &LsarpcPolicies,
+) -> Option<Response> {
+    if operation(payload, request_type, NDR32_CALL_CONTEXT)? != OPEN
+        || payload.len() != OPEN_NDR32_BYTES
+        || payload[24..68].iter().any(|&byte| byte != 0)
+        || word(payload, 68) != 24
+        || payload[72..88].iter().any(|&byte| byte != 0)
+        || word(payload, 88) == 0
+        || word(payload, 92) != 12
+        || u16::from_le_bytes([payload[96], payload[97]]) > 3
+        || payload[98] > 1
+        || payload[99] > 1
+        || word(payload, 104) != word(payload, 108)
+    {
+        return None;
+    }
+
+    // The classic stub uses a 32-bit QoS referent and a 16-bit enum.
+    // The reply's scalar outputs and 20-byte context have the same offsets
+    // as in the NDR64 stub, without its trailing transport padding.
+    let mut response = open_reply(
+        OPEN_NDR32_REPLY_BYTES,
+        association,
+        contexts,
+        word(payload, 104),
+        word(payload, 100),
+    );
+    echo_call_id(&mut response, payload);
+    Some(response)
+}
+
+pub(super) fn operation(payload: &[u8], request_type: u16, context: u32) -> Option<u32> {
     if request_type != 0
         || payload.len() < RPC_HEADER_BYTES
         || qword(payload, 4) != 0
-        || word(payload, 16) != 1
+        || word(payload, 16) != context
     {
         return None;
     }
@@ -81,7 +120,23 @@ fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option
         return None;
     }
     let desired = open_access(payload)?;
-    let context = match (word(payload, 136), desired) {
+    Some(open_reply(
+        OPEN_REPLY_BYTES,
+        association,
+        contexts,
+        word(payload, 136),
+        desired,
+    ))
+}
+
+fn open_reply(
+    size: usize,
+    association: ObjId,
+    contexts: &LsarpcPolicies,
+    version: u32,
+    desired: u32,
+) -> Response {
+    let context = match (version, desired) {
         (version, _) if version != REVISION_V1 => Err(STATUS_NOT_SUPPORTED),
         (_, 0) => Err(STATUS_INVALID_PARAMETER),
         (_, POLICY_LOOKUP_NAMES) => contexts
@@ -90,7 +145,7 @@ fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option
         _ => Err(STATUS_ACCESS_DENIED),
     };
 
-    let mut response = reply(OPEN_REPLY_BYTES);
+    let mut response = reply(size);
     for offset in [24, 28, 32] {
         put_word(&mut response.body, offset, REVISION_V1);
     }
@@ -102,7 +157,7 @@ fn open(payload: &[u8], association: ObjId, contexts: &LsarpcPolicies) -> Option
         }
         Err(status) => put_word(&mut response.body, 60, status),
     }
-    Some(response)
+    response
 }
 
 pub(super) fn open_access(payload: &[u8]) -> Option<u32> {

@@ -5,7 +5,7 @@ use crate::user::windows::objects::LsarpcInterface;
 
 pub(super) const BIND: u32 = 1;
 const BIND_BYTES: usize = 72;
-const NDR: u32 = 1;
+pub(super) const NDR32: u32 = 1;
 pub(super) const NDR64: u32 = 2;
 const SYNTAX_MASK: u32 = 7;
 const RPC_S_UNKNOWN_IF: u32 = 1717;
@@ -37,7 +37,7 @@ pub(super) fn response(
     };
     let negotiated = if payload[12..32] == expected {
         match word(payload, 32) & SYNTAX_MASK {
-            1 | 5 => Ok(NDR),
+            1 | 5 => Ok(NDR32),
             2 | 3 | 6 => Ok(NDR64),
             4 => Err(RPC_S_UNSUPPORTED_TRANS_SYN),
             _ => Err(RPC_S_PROTOCOL_ERROR),

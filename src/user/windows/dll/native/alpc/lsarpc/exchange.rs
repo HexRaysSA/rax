@@ -55,21 +55,25 @@ pub(in crate::user::windows::dll::native) fn exchange(
         }
         Some(policy::CALL) if valid_length && payload.len() >= 24 => {
             let operation = word(payload, 20);
-            if peer.transfer_syntax != Some(bind::NDR64) || request[6..8] != [0; 2] {
+            if request[6..8] != [0; 2] {
                 return Err(c.unsupported(format!(
-                    "LSARPC local RPC operation {operation} requires the selected NDR64 profile"
+                    "LSARPC local RPC operation {operation} has a nonzero ALPC data info offset"
                 )));
             }
-            let response = match peer.interface {
-                LsarpcInterface::Policy => {
+            let response = match (peer.interface, peer.transfer_syntax) {
+                (LsarpcInterface::Policy, Some(bind::NDR32)) => {
+                    policy::response_ndr32(payload, request_type, association, &peer.policies)
+                }
+                (LsarpcInterface::Policy, Some(bind::NDR64)) => {
                     let names = c.p.native.as_ref().and_then(|runtime| {
                         runtime.object_namespace.privilege_display_names.as_deref()
                     });
                     policy::response(payload, request_type, association, &peer.policies, names)
                 }
-                LsarpcInterface::PolicyLookup => {
+                (LsarpcInterface::PolicyLookup, Some(bind::NDR64)) => {
                     policy_lookup::response(c, payload, request_type, association, &peer.policies)
                 }
+                _ => None,
             };
             response.ok_or_else(|| {
                 let endpoint = match peer.interface {

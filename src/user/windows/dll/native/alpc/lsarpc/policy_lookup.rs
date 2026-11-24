@@ -22,7 +22,7 @@ pub(super) fn response(
     association: ObjId,
     contexts: &LsarpcPolicies,
 ) -> Option<Response> {
-    let mut response = match policy::operation(payload, request_type)? {
+    let mut response = match policy::operation(payload, request_type, policy::NDR64_CALL_CONTEXT)? {
         OPEN => open(payload, association, contexts)?,
         CLOSE => policy::close(payload, contexts)?,
         TRANSLATE_SIDS => translate_sid(c, payload, contexts)?,

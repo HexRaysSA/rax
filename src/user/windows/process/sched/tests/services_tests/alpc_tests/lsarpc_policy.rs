@@ -56,6 +56,24 @@ fn open(call: u32, access: u32, version: u32) -> Vec<u8> {
     payload
 }
 
+fn open_ndr32(call: u32, access: u32, version: u32) -> Vec<u8> {
+    let mut payload = into_call(120, call, 130);
+    for (offset, value) in [
+        (16, 0),
+        (68, 24),
+        (88, 0x20000),
+        (92, 12),
+        (96, 0x0001_0002),
+        (100, access),
+        (104, version),
+        (108, version),
+        (112, 1),
+    ] {
+        write_word(&mut payload, offset, value);
+    }
+    payload
+}
+
 fn lookup(call: u32, context: &[u8], name: &str) -> Vec<u8> {
     let units = name.encode_utf16().collect::<Vec<_>>();
     let length = (units.len() * 2) as u16;
@@ -217,6 +235,65 @@ fn exchange(
         status,
         p.space.bytes(reply + header as u64, payload_bytes).unwrap(),
     )
+}
+
+#[test]
+fn native_lsarpc_policy_open_accepts_the_classic_transfer_syntax() {
+    let (mut process, mut thread) = fixture(WinArch::X86, "NtAlpcSendWaitReceivePort", SERVICE);
+    let p = process.state_mut();
+    super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
+    let base =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let port = new_port(p);
+    let mut bind = bind();
+    write_word(&mut bind, 32, 1);
+    let (outcome, status, reply) = exchange(p, &mut thread, [base, port, 0, 4096], &bind);
+    assert_eq!(outcome, Outcome::Continue);
+    assert_eq!(status, STATUS_SUCCESS);
+    assert_eq!(word(&reply, 32), 1);
+
+    for (call, access, version, expected) in [
+        (1, POLICY_LOOKUP_NAMES, 1, STATUS_SUCCESS),
+        (2, 0, 1, STATUS_INVALID_PARAMETER),
+        (3, POLICY_LOOKUP_NAMES | 1, 1, STATUS_ACCESS_DENIED),
+        (4, POLICY_LOOKUP_NAMES, 2, STATUS_NOT_SUPPORTED),
+    ] {
+        let payload = open_ndr32(call, access, version);
+        let (outcome, status, reply) = exchange(p, &mut thread, [base, port, 0, 4096], &payload);
+        assert_eq!(outcome, Outcome::Continue);
+        assert_eq!(status, STATUS_SUCCESS);
+        assert_eq!(reply.len(), 64);
+        assert_eq!(word(&reply, 0), 3);
+        assert_eq!(word(&reply, 12), call);
+        assert_eq!(
+            [24, 28, 32, 36].map(|offset| word(&reply, offset)),
+            [1, 1, 1, 0]
+        );
+        assert_eq!(word(&reply, 60), expected);
+        let Some(Object::LpcPort(endpoint)) = p.objects.get(port) else {
+            panic!("fixture port");
+        };
+        let context = reply[40..60].try_into().unwrap();
+        let policies = &endpoint.lsarpc_peer().unwrap().policies;
+        assert_eq!(policies.contains(&context), expected == STATUS_SUCCESS);
+        assert_eq!(context == [0; 20], expected != STATUS_SUCCESS);
+    }
+
+    let mut mismatched_selector = open_ndr32(5, POLICY_LOOKUP_NAMES, 1);
+    write_word(&mut mismatched_selector, 108, 2);
+    let mut mismatched_context = open_ndr32(8, POLICY_LOOKUP_NAMES, 1);
+    write_word(&mut mismatched_context, 16, 1);
+    for invalid in [
+        mismatched_selector,
+        mismatched_context,
+        open(6, POLICY_LOOKUP_NAMES, 1),
+        open_ndr32(7, POLICY_LOOKUP_NAMES, 1)[..119].to_vec(),
+    ] {
+        let (outcome, _, _) = exchange(p, &mut thread, [base, port, 0, 4096], &invalid);
+        assert!(matches!(outcome, Outcome::Fail(message) if message.contains("operation 130")));
+    }
 }
 
 #[test]
