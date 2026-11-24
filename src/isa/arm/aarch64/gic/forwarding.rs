@@ -44,6 +44,7 @@ impl CpuInterface {
     ) {
         let mut best_priority = 0xFF;
         let mut best_intid = INTID_SPURIOUS;
+        let mut best_group = None;
 
         // Check private interrupts (SGI/PPI)
         for (i, config) in self.private_interrupts.iter().enumerate() {
@@ -57,6 +58,7 @@ impl CpuInterface {
                 if config.priority < self.priority_mask {
                     best_priority = config.priority;
                     best_intid = i as u32;
+                    best_group = Some(config.group);
                 }
             }
         }
@@ -84,11 +86,13 @@ impl CpuInterface {
                 if routed && config.priority < self.priority_mask {
                     best_priority = config.priority;
                     best_intid = intid;
+                    best_group = Some(config.group);
                 }
             }
         }
 
         self.highest_pending_priority = best_priority;
         self.highest_pending_intid = best_intid;
+        self.highest_pending_group = best_group;
     }
 }

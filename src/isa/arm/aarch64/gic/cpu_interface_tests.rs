@@ -238,3 +238,96 @@ fn redistributor_set_active_preserves_private_pending_without_priority_drop() {
         }
     }
 }
+
+#[test]
+fn binary_point_blocks_equal_group_preemption_and_retains_nested_priority() {
+    for group in [0, 1] {
+        for count in [2, 4] {
+            let mut gic = controller(count);
+            let target = usize::from(count - 1);
+            for (intid, priority) in [(7, 0x70), (8, 0x68), (9, 0x40)] {
+                gic.cpu_mut(target).unwrap().private_interrupts[intid].priority = priority;
+            }
+            let cpu = gic.cpu_mut(target).unwrap();
+            cpu.bpr0 = 4;
+            cpu.bpr1 = 5;
+            request(&mut gic, target, 7, group);
+            assert_eq!(gic.acknowledge_group(target, group), 7);
+            request(&mut gic, target, 8, group);
+            assert_eq!(gic.highest_pending_in_group(target, group), 8);
+            assert!(
+                !gic.pending_interrupt(target),
+                "group {group}: subpriority alone asserted PE {target}'s line"
+            );
+            assert_eq!(gic.acknowledge_group(target, group), INTID_SPURIOUS);
+            assert_eq!(gic.cpu(target).unwrap().running_priority, 0x60);
+
+            request(&mut gic, target, 9, group);
+            assert!(gic.pending_interrupt(target));
+            assert_eq!(gic.acknowledge_group(target, group), 9);
+            assert_eq!(gic.cpu(target).unwrap().running_priority, 0x40);
+            gic.end_of_interrupt_group(target, 9, group);
+            assert_eq!(gic.cpu(target).unwrap().running_priority, 0x60);
+            let state = gic.checkpoint();
+            let bytes = crate::codec::serialize(&state).unwrap();
+            let restored_state = crate::codec::deserialize_strict(&bytes).unwrap();
+            let mut restored = controller(count);
+            restored.validate_checkpoint(&restored_state).unwrap();
+            restored.restore_checkpoint(restored_state);
+            for id in 0..usize::from(count) {
+                assert!(!restored.irq_line(id).unwrap().load(Ordering::Acquire));
+            }
+            assert_eq!(restored.highest_pending_in_group(target, group), 8);
+            assert_eq!(restored.acknowledge_group(target, group), INTID_SPURIOUS);
+            restored.end_of_interrupt_group(target, 7, group);
+            assert!(restored.irq_line(target).unwrap().load(Ordering::Acquire));
+            assert_eq!(restored.acknowledge_group(target, group), 8);
+            restored.end_of_interrupt_group(target, 8, group);
+            assert_eq!(restored.acknowledge_group(target, group), INTID_SPURIOUS);
+        }
+    }
+}
+
+#[test]
+fn binary_point_writes_change_spi_preemption_without_reclassifying_the_active_irq() {
+    let mut gic = controller(4);
+    let target = 3;
+    let line = gic.irq_line(target).unwrap();
+    gic.cpu_mut(target).unwrap().private_interrupts[7].priority = 0x70;
+    gic.set_binary_point(target, 0, 4);
+    gic.set_binary_point(target, 1, 0);
+    assert_eq!(gic.cpu(target).unwrap().binary_point(1), 1);
+    request(&mut gic, target, 7, 0);
+    assert_eq!(gic.acknowledge_group(target, 0), 7);
+    assert_eq!(gic.cpu(target).unwrap().running_priority, 0x60);
+
+    gic.set_priority(40, 0x58);
+    request(&mut gic, target, 40, 1);
+    assert!(line.load(Ordering::Acquire));
+    assert_eq!(gic.highest_pending_in_group(target, 1), 40);
+    gic.set_binary_point(target, 1, 6);
+    assert!(!line.load(Ordering::Acquire));
+    assert_eq!(gic.acknowledge_group(target, 1), INTID_SPURIOUS);
+
+    gic.set_cpu_control(target, 1);
+    assert_eq!(gic.cpu(target).unwrap().binary_point(1), 5);
+    assert!(line.load(Ordering::Acquire));
+    gic.set_binary_point(target, 1, 1);
+    assert_eq!(gic.cpu(target).unwrap().binary_point(1), 5);
+    gic.set_binary_point(target, 0, 7);
+    assert_eq!(gic.cpu(target).unwrap().binary_point(1), 7);
+    assert!(!line.load(Ordering::Acquire));
+    assert_eq!(gic.cpu(target).unwrap().running_priority, 0x60);
+
+    gic.set_cpu_control(target, 0);
+    assert_eq!(gic.cpu(target).unwrap().binary_point(1), 6);
+    assert_eq!(gic.cpu(0).unwrap().binary_point(1), 1);
+    assert_eq!(gic.highest_pending_in_group(target, 1), 40);
+    for id in 0..target {
+        assert!(!gic.irq_line(id).unwrap().load(Ordering::Acquire));
+    }
+    gic.end_of_interrupt_group(target, 7, 0);
+    assert!(line.load(Ordering::Acquire));
+    assert_eq!(gic.acknowledge_group(target, 1), 40);
+    assert_eq!(gic.cpu(target).unwrap().running_priority, 0x40);
+}

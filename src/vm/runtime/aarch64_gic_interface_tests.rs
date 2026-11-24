@@ -191,3 +191,130 @@ fn irq_and_fiq_handlers_preserve_bank_semantics_across_source_free_vm_files() {
         }
     }
 }
+
+#[test]
+fn detached_gic_binary_points_preserve_preemption_on_each_guest_pe() {
+    let program: [u32; 25] = [
+        0xd518_cc8d, // MSR ICC_CTLR_EL1,X13: select common or separate BPRs.
+        0xd518_4609, // MSR ICC_PMR_EL1,X9.
+        0xd518_ccea, // MSR ICC_IGRPEN1_EL1,X10.
+        0xd518_c86b, // MSR ICC_BPR0_EL1,X11.
+        0xd518_cc6c, // MSR ICC_BPR1_EL1,X12: ignored in common mode.
+        0xd538_cc60, // MRS X0,ICC_BPR1_EL1.
+        0xd538_cc81, // MRS X1,ICC_CTLR_EL1.
+        0x9240_0021, // AND X1,X1,#1: read CBPR.
+        0xb900_0293, // STR W19,[X20]: enable distributor Group 1.
+        0xb900_02bf, // STR WZR,[X21]: wake the local redistributor.
+        0xb901_02ce, // STR W14,[X22,#0x100]: enable SGI7 and SGI8.
+        0x3910_1ecf, // STRB W15,[X22,#0x407]: SGI7 priority.
+        0x3910_22d0, // STRB W16,[X22,#0x408]: SGI8 priority.
+        0xb902_02d1, // STR W17,[X22,#0x200]: pend SGI7.
+        0xd538_cc02, // MRS X2,ICC_IAR1_EL1: acknowledge SGI7.
+        0xb902_02d2, // STR W18,[X22,#0x200]: pend SGI8.
+        0xd538_cb63, // MRS X3,ICC_RPR_EL1: running group priority.
+        0xd503_207f, // WFI: checkpoint boundary with SGI7 still active.
+        0xd538_cc44, // MRS X4,ICC_HPPIR1_EL1: SGI8 remains visible.
+        0xd538_cc05, // MRS X5,ICC_IAR1_EL1: blocked by the active group priority.
+        0xd518_cc22, // MSR ICC_EOIR1_EL1,X2: drop SGI7's priority.
+        0xd538_cc06, // MRS X6,ICC_IAR1_EL1: SGI8 can now run.
+        0xd518_cc26, // MSR ICC_EOIR1_EL1,X6.
+        0xd538_cb67, // MRS X7,ICC_RPR_EL1: idle.
+        0xd503_207f, // WFI: end of continuation.
+    ];
+    let bytes = program
+        .iter()
+        .flat_map(|word| word.to_le_bytes())
+        .collect::<Vec<_>>();
+    for count in [2, 4] {
+        let mut source = Fixture::with_clock(count, ClockMode::Retired);
+        for id in 1..count {
+            assert_eq!(
+                source
+                    .cluster()
+                    .request_on(u64::from(id), CODE, 0, 0x3c5)
+                    .unwrap(),
+                0
+            );
+        }
+        source.vm.route_interprocessor_requests().unwrap();
+        source
+            .vm
+            .guest_mem
+            .memory()
+            .write_slice(&bytes, GuestAddress(CODE))
+            .unwrap();
+        let cluster = source.cluster();
+        for id in 0..usize::from(count) {
+            let mut cpu = state(&source.vm, id);
+            let redist = 0x080a_0000 + id as u64 * 0x20000;
+            let common = id % 2 != 0;
+            cpu.regs.x[9..23].copy_from_slice(&[
+                0xff,
+                1,
+                4,
+                if common { 2 } else { 5 },
+                u64::from(common),
+                (1 << 7) | (1 << 8),
+                0x70,
+                0x68,
+                1 << 7,
+                1 << 8,
+                2,
+                0x0800_0000,
+                redist + 0x14,
+                redist + 0x10000,
+            ]);
+            source.vm.vcpus[id]
+                .set_state(&CpuState::Aarch64(cpu))
+                .unwrap();
+        }
+        for id in 0..usize::from(count) {
+            let turn = source.vm.execute_turn().unwrap().unwrap();
+            assert_eq!(turn.cpu_index, id);
+            assert!(matches!(turn.exit, VcpuExit::Hlt));
+            assert_eq!(
+                &state(&source.vm, id).regs.x[..4],
+                &[5, (id % 2) as u64, 7, 0x60]
+            );
+            assert_eq!(source.vm.vcpus[id].instruction_count(), 18);
+            assert!(!cluster.irq_line_for_test(id).load(Ordering::Acquire));
+        }
+
+        let path = source.kernel.with_extension("gic-binary-point.rxc");
+        source
+            .vm
+            .take_snapshot_bundle(18 * u64::from(count))
+            .unwrap()
+            .save(&path)
+            .unwrap();
+        drop(cluster);
+        drop(source);
+        let bundle = SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        assert!(!config.kernel.exists());
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        let cluster = target
+            .vm
+            .as_any()
+            .downcast_ref::<EmulatorVm>()
+            .unwrap()
+            .arm_cluster()
+            .unwrap();
+        for id in 0..usize::from(count) {
+            assert!(!cluster.irq_line_for_test(id).load(Ordering::Acquire));
+            target.vcpus[id].wake();
+        }
+        for id in 0..usize::from(count) {
+            let turn = target.execute_turn().unwrap().unwrap();
+            assert_eq!(turn.cpu_index, id);
+            assert!(matches!(turn.exit, VcpuExit::Hlt));
+            assert_eq!(
+                &state(&target, id).regs.x[..8],
+                &[5, (id % 2) as u64, 7, 0x60, 8, 1023, 8, 0xff]
+            );
+            assert_eq!(target.vcpus[id].instruction_count(), 25);
+            assert!(!cluster.irq_line_for_test(id).load(Ordering::Acquire));
+        }
+    }
+}

@@ -150,6 +150,57 @@ High-impact open work includes RAS syndrome registers and ESB deferral,
 HCRX_EL2.TMEA, delegated and physical SError sources, halting-debug masks,
 and native checkpoint delivery.
 
+## Physical interrupt preemption and binary points
+
+The physical software GICv3 CPU interface now applies each PE's
+`ICC_BPR0_EL1`, `ICC_BPR1_EL1`, and `ICC_CTLR_EL1.CBPR` when deciding whether
+a candidate can preempt an active interrupt. Candidate selection and PMR
+filtering still use the full priority. `ICC_HPPIRn_EL1` can show the selected
+candidate while `ICC_IARn_EL1` returns 1023 because the candidate cannot
+preempt. Acknowledgement records the interrupt's group priority at that
+point. Priority drop restores the previous active priority, and subsequent
+binary-point writes affect the preemption comparison without changing the
+stored active priority. These rules follow [Arm IHI0069H](../../specifications/arm/gic-ihi0069.pdf),
+§4.8.3 and §§12.2.5–6, 12.2.20. The independent implementation reference is
+the [QEMU GICv3 CPU interface](https://qemu.googlesource.com/qemu/%2B/108d99742af1fa6e977dcfac9d4151b7915e33a3/hw/intc/arm_gicv3_cpuif.c).
+
+The checkpoint layout is unchanged. Restore derives the candidate's group
+from the saved interrupt state and rebuilds the IRQ level. Legacy records
+with BPR1 set to zero read back at the Non-secure minimum of one when CBPR
+is clear. Legacy raw active priorities resume at their stored value, with
+the current binary point applied for preemption and RPR bit 0 cleared for
+active interrupts. The older format provides no independent record of the
+binary point at the time of acknowledgement.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Subpriority orders pending interrupts within the same group priority. | Acknowledge a lower-priority SGI, then raise an SGI with a better subpriority. Require HPPIR to report the new INTID while IRQ remains clear and IAR returns 1023. |
+| The binary point belongs to each PE and CBPR selects its common register. | Boot two and four PEs with PSCI, alternate CBPR by PE, and read back both BPRs, RPR, HPPIR and IAR. |
+| An active priority is fixed at acknowledgement. | Change the binary point with an active SGI and a pending SPI. Check the active rank, the IRQ level, and the rank restored after nested priority drop. |
+| A detached checkpoint retains active and pending state on each PE. | Hold an active SGI and a blocked pending SGI on every PE at WFI, discard the source VM, restore from file, and observe priority drop and one delivery on each restored PE. |
+
+QEMU 11.1.2 matched 31 boot-PE observations in each one- and four-PE
+configuration and eight per-PE observations for all PEs in two- and four-PE
+boots. Both sets ran on Cortex-A57 and `max`, for 220 observations in
+total. The pre-fix RAX test reproduced an incorrect IRQ assertion when
+only the subpriority improved. Source, expected observations and RAX logs
+are in `/Users/int/dev/rax-audit-work/four-findings-a64-gic-binary-point-2026-11-24`.
+
+Both controller regressions and the detached two- and four-vCPU checkpoint
+test passed. All six owning integration executables passed 47,530 tests
+with SMIR JIT enabled in the build. The initial parallel ARM suite ended
+with SIGKILL. The completed serial rerun included all 46,850 ARM suite
+cases. Clippy passed for the JIT-enabled library. The unfiltered library
+run reproduced the earlier Darwin codesign failure in
+`closed_dispatcher_copies_self_status_without_host_observation`.
+
+The preemption comparison is O(1) after candidate selection. A BPR or
+CPU-control write still uses the existing O(P(32+S)) routing update for
+P participating PEs and S SPI storage entries. This group covers the
+software physical CPU interface with a single security state. High-impact
+open scope includes hardware GIC save/restore, complete security and
+virtualization profiles, and other backend checkpoint and SMP paths.
+
 ## Evidence and limits
 
 qualification.json records the exact tested source and executable hashes,

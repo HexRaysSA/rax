@@ -254,14 +254,18 @@ pub struct CpuInterface {
     pub bpr1: u8,
     /// End of Interrupt mode (0 = ICC_EOIR writes deactivate).
     pub eoi_mode: bool,
-    /// Currently running priority.
+    /// Currently running group priority, or the idle priority.
     pub running_priority: u8,
-    /// Active priorities (stack).
+    /// Group priorities recorded at acknowledgement (stack).
     pub active_priorities: Vec<(u32, u8)>, // (INTID, priority)
     /// Highest pending priority.
     pub highest_pending_priority: u8,
     /// Highest pending interrupt ID.
     pub highest_pending_intid: u32,
+    /// Group of the highest pending interrupt, derived alongside its INTID.
+    /// The controller recomputes it after restoring the interrupt state.
+    #[serde(skip)]
+    pub highest_pending_group: Option<u8>,
     /// SGI/PPI state (per-CPU).
     pub private_interrupts: [InterruptConfig; NUM_SGI + NUM_PPI],
     /// Pending LPIs.
@@ -305,12 +309,13 @@ impl CpuInterface {
             enable_grp1_ns: false,
             priority_mask: 0xFF,
             bpr0: 0,
-            bpr1: 0,
+            bpr1: 1,
             eoi_mode: false,
             running_priority: 0xFF,
             active_priorities: Vec::new(),
             highest_pending_priority: 0xFF,
             highest_pending_intid: INTID_SPURIOUS,
+            highest_pending_group: None,
             private_interrupts,
             pending_lpis: VecDeque::new(),
             sre_el1: 0x7, // System registers enabled
@@ -327,16 +332,7 @@ impl CpuInterface {
 
     /// Check if there's a pending interrupt to signal.
     pub fn pending_interrupt(&self) -> bool {
-        // Check if any group is enabled
-        let grp0_enabled = self.enable_grp0;
-        let grp1_enabled = self.enable_grp1 || self.enable_grp1_ns;
-
-        if !grp0_enabled && !grp1_enabled {
-            return false;
-        }
-
-        self.highest_pending_intid != INTID_SPURIOUS
-            && self.highest_pending_priority < self.running_priority
+        self.preempting_group().is_some()
     }
 
     fn interrupt_exists(&self, intid: u32, spis: &[InterruptConfig]) -> bool {
@@ -363,13 +359,15 @@ impl CpuInterface {
     pub fn acknowledge(&mut self, spis: &mut [InterruptConfig]) -> u32 {
         let intid = self.highest_pending_intid;
 
-        if !self.pending_interrupt() {
+        let Some(group) = self.preempting_group() else {
             return INTID_SPURIOUS;
-        }
+        };
+        let priority = self.highest_pending_priority & self.group_priority_mask(group);
 
         let Some(config) = self.interrupt_config_mut(intid, spis) else {
             self.highest_pending_priority = 0xFF;
             self.highest_pending_intid = INTID_SPURIOUS;
+            self.highest_pending_group = None;
             return INTID_SPURIOUS;
         };
 
@@ -393,8 +391,6 @@ impl CpuInterface {
             config.state.set_active();
             config.state.clear_pending();
         }
-
-        let priority = config.priority;
 
         // Push to active stack
         self.active_priorities.push((intid, priority));
