@@ -20,7 +20,8 @@ PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "vmm-startup": 9
                  "movnti": 8, "nmi-baseline": 1, "legacy-xmm": 50, "nmi-hot-entry": 1, "vex-xmm": 80,
                  "legacy-ntstore": 9, "vex-ntstore": 36, "xmm-lanes": 48, "vector-logic": 132,
                  "vector-compare": 104, "vector-add-sub": 328, "vector-saturating": 328,
-                 "vector-bit-test": 73, "compat-mmio": 20, "compat16-mmio": 16, "string-mmio": 60}
+                 "vector-min-max": 364, "vector-bit-test": 73, "compat-mmio": 20,
+                 "compat16-mmio": 16, "string-mmio": 60}
 
 
 def sha(path):

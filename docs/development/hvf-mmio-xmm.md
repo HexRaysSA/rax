@@ -959,3 +959,40 @@ The executable SHA-256 is
 The job ran untranslated on Intel inside a hosted macOS 15.7.9 VM.
 Bare-metal Intel macOS remains unverified.
 [Hosted packed saturation execution](https://github.com/HexRaysSA/rax/actions/runs/45313352560/job/138174178991)
+
+## Packed integer minimum and maximum
+
+The Intel HVF MMIO planner admits the twelve signed and unsigned byte,
+word and doubleword minimum and maximum mnemonics in legacy SSE and VEX
+forms. Each selects one input element per lane and requests one 16 B or
+32 B device read. Legacy SSE requires 16 B alignment and preserves the
+upper YMM half. VEX.128 clears it and VEX.256 replaces the full
+register. The operations preserve RFLAGS. The pending record appends
+two operation values to retain the lane width and signedness. Completion
+uses O(width) time and bounded storage for at most 32 B of input.
+MMX and EVEX are separate profiles.
+[Intel SDM Volume 2B, sections PMAXSB through PMINUD, and Volume 2D, Table B-35](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The memory source has the encoded width, and each lane compares independently. | High | Check 12 legacy, 24 VEX3 and 8 VEX2 encodings. Rotate signed extrema, unsigned extrema and equal operands, with distinct legacy and VEX register roles. |
+| A stopped owner can reproduce the pending result with no instruction reread. | High | Round-trip every descriptor through the typed codec and submit the reply twice. The native profile also replaces the instruction with UD2 before reconstructing the owner. |
+| Legacy and VEX have different alignment and upper register rules. | High | Check upper-half preserve, clear and replacement. Send VEX reads at offset 3 B, reject legacy misalignment during planning, and check the guest fault on Intel HVF. |
+
+At parent `3a246941a`, all 44 memory encodings failed MMIO admission.
+The unfiltered baseline passed 141 tests and failed the new regression.
+Its log SHA-256 is
+`b9291462b3cfdbb233871817b30b36d34659a195acd5e46420577617feeb8bea`.
+The repaired Apple Silicon build passed 142 MMIO, 102 ISA-oracle,
+16 Actions policy and 28,561 x86-64 tests. Three x86-64 tests were
+ignored. All 55 Python HVF tool tests passed. The cross-built Intel guest
+consumer linked and passed strict signature verification. The
+`vector-min-max` profile expects 176 direct reads, 176 fresh-owner
+completions and 12 guest alignment faults.
+
+An independent RAM executable under Rosetta matched all 176 result and
+flag checks. Rosetta allowed all 12 misaligned legacy cases, so that
+run qualifies result bytes and flags only. The physical Intel Linux
+host was unreachable from this session. The observation stream
+SHA-256 is
+`aa082edda24bed64dc24b8231e35223bfd3920477c2771173bd8cbc59370b44c`.

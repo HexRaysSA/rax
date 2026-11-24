@@ -732,6 +732,18 @@ fn packed_binary_mnemonics(
         (1, 1, 0xe9) => ("psubsw", "vpsubsw"),
         (1, 1, 0xd8) => ("psubusb", "vpsubusb"),
         (1, 1, 0xd9) => ("psubusw", "vpsubusw"),
+        (2, 1, 0x38) => ("pminsb", "vpminsb"),
+        (1, 1, 0xda) => ("pminub", "vpminub"),
+        (1, 1, 0xea) => ("pminsw", "vpminsw"),
+        (2, 1, 0x3a) => ("pminuw", "vpminuw"),
+        (2, 1, 0x39) => ("pminsd", "vpminsd"),
+        (2, 1, 0x3b) => ("pminud", "vpminud"),
+        (2, 1, 0x3c) => ("pmaxsb", "vpmaxsb"),
+        (1, 1, 0xde) => ("pmaxub", "vpmaxub"),
+        (1, 1, 0xee) => ("pmaxsw", "vpmaxsw"),
+        (2, 1, 0x3e) => ("pmaxuw", "vpmaxuw"),
+        (2, 1, 0x3d) => ("pmaxsd", "vpmaxsd"),
+        (2, 1, 0x3f) => ("pmaxud", "vpmaxud"),
         _ => return None,
     })
 }

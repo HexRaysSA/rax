@@ -491,6 +491,128 @@ fn packed_integer_saturation_completes_each_device_source_lane() {
 }
 
 #[test]
+fn packed_integer_min_max_resumes_the_decoded_device_read_once() {
+    let mut failures = Vec::new();
+    for (map, opcode, name, element, signed, maximum) in [
+        (2, 0x38, "pminsb", 1, true, false),
+        (1, 0xda, "pminub", 1, false, false),
+        (1, 0xea, "pminsw", 2, true, false),
+        (2, 0x3a, "pminuw", 2, false, false),
+        (2, 0x39, "pminsd", 4, true, false),
+        (2, 0x3b, "pminud", 4, false, false),
+        (2, 0x3c, "pmaxsb", 1, true, true),
+        (1, 0xde, "pmaxub", 1, false, true),
+        (1, 0xee, "pmaxsw", 2, true, true),
+        (2, 0x3e, "pmaxuw", 2, false, true),
+        (2, 0x3d, "pmaxsd", 4, true, true),
+        (2, 0x3f, "pmaxud", 4, false, true),
+    ] {
+        let mut legacy = vec![0x66, 0x44, 0x0f];
+        if map == 2 {
+            legacy.push(0x38);
+        }
+        legacy.extend([opcode, 0x3f]);
+        let form = [
+            (legacy.as_slice(), Encoding::Legacy),
+            (&[0xc4, 0x60 | map, 0x39, opcode, 0x7f, 3], Encoding::Vex128),
+            (&[0xc4, 0x60 | map, 0x3d, opcode, 0x7f, 3], Encoding::Vex256),
+            (&[0xc5, 0x39, opcode, 0x7f, 3], Encoding::Vex128),
+            (&[0xc5, 0x3d, opcode, 0x7f, 3], Encoding::Vex256),
+        ];
+        let (min, max) = if signed {
+            let magnitude = 1_i64 << (8 * element - 1);
+            (-magnitude, magnitude - 1)
+        } else {
+            (0, (1_i64 << (8 * element)) - 1)
+        };
+        let pairs = [
+            (min, max),
+            (max, min),
+            (max, max),
+            (min + 1, min),
+            (7, 12),
+            (9, 7),
+        ];
+        for &(code, encoding) in &form[..if map == 1 { 5 } else { 3 }] {
+            let (context, mut memory, mut exit) = fixture(code);
+            exit.qualification = 0x181;
+            let vex = encoding != Encoding::Legacy;
+            if vex {
+                exit.linear += 3;
+                exit.physical += 3;
+            }
+            let plan = match prepare(&context, &mut memory, exit) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    failures.push(format!("{name} {code:02x?}: {error}"));
+                    continue;
+                }
+            };
+            let Action::VectorLogic { input, source } = plan.action else {
+                panic!("wrong action for {code:02x?}: {:?}", plan.action);
+            };
+            assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+            assert_eq!(source, if vex { 8 } else { 15 });
+            assert_eq!(
+                (input.encoding, input.index, input.length),
+                (encoding, 15, code.len() as u64)
+            );
+            assert!(
+                memory
+                    .reads
+                    .iter()
+                    .all(|&(address, _)| address != exit.physical)
+            );
+            let width = usize::from(encoding.size());
+            for rotation in [0, 3] {
+                let mut left = [0; 32];
+                let mut reply = [0; 32];
+                let mut expected = [0; 32];
+                for start in (0..width).step_by(element) {
+                    let (x, y) = pairs[(start / element + rotation) % pairs.len()];
+                    let lane = start..start + element;
+                    left[lane.clone()].copy_from_slice(&x.to_le_bytes()[..element]);
+                    reply[lane.clone()].copy_from_slice(&y.to_le_bytes()[..element]);
+                    let result = if maximum { x.max(y) } else { x.min(y) };
+                    expected[lane].copy_from_slice(&result.to_le_bytes()[..element]);
+                }
+                let mut pending = mmio::InputState::default();
+                pending.begin_vector_logic(input.clone(), left).unwrap();
+                let record = rax::codec::serialize(&pending).unwrap();
+                let mut restored: mmio::InputState =
+                    rax::codec::deserialize_strict(&record).unwrap();
+                restored.validate_checkpoint().unwrap();
+                assert_eq!(restored.descriptor(), Some((width as u8, None)));
+                let mut host = Host::default();
+                restored.complete(&mut host, &reply[..width]);
+                restored.complete(&mut host, &reply[..width]);
+                let expected = if width == 32 {
+                    Write::Ymm(15, expected)
+                } else {
+                    Write::Xmm(15, expected[..16].try_into().unwrap(), vex)
+                };
+                assert_eq!(
+                    host.0,
+                    [expected, Write::Retire(input.length)],
+                    "{name} {code:02x?}"
+                );
+            }
+            exit.qualification = 0x182;
+            assert!(prepare(&context, &mut memory, exit).is_err());
+        }
+        let (context, mut memory, mut exit) = fixture(&legacy);
+        exit.qualification = 0x181;
+        exit.linear += 1;
+        exit.physical += 1;
+        match prepare(&context, &mut memory, exit) {
+            Err(error) if error == "misaligned legacy vector logic MMIO input" => {}
+            outcome => failures.push(format!("{name} misaligned legacy read: {outcome:?}")),
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn vector_logic_retires_a_serialized_input_once_with_the_encoded_upper_lane_rule() {
     let left: [u8; 8] = [0x5a, 0xa5, 0xf0, 0x0f, 0x73, 0x48, 0xbe, 0x19];
     let right: [u8; 8] = [0x33, 0x77, 0xaa, 0x55, 0x86, 0xb1, 0xc3, 0xed];

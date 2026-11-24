@@ -630,6 +630,102 @@ fn comparison_vectors(
     (qwords(left), reply, qwords(expected))
 }
 
+pub(super) fn run_integer_min_max(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut case = 0;
+    for (map, opcode, mnemonic, element, signed, maximum) in [
+        (2, 0x38, "pminsb", 1, true, false),
+        (1, 0xda, "pminub", 1, false, false),
+        (1, 0xea, "pminsw", 2, true, false),
+        (2, 0x3a, "pminuw", 2, false, false),
+        (2, 0x39, "pminsd", 4, true, false),
+        (2, 0x3b, "pminud", 4, false, false),
+        (2, 0x3c, "pmaxsb", 1, true, true),
+        (1, 0xde, "pmaxub", 1, false, true),
+        (1, 0xee, "pmaxsw", 2, true, true),
+        (2, 0x3e, "pmaxuw", 2, false, true),
+        (2, 0x3d, "pmaxsd", 4, true, true),
+        (2, 0x3f, "pmaxud", 4, false, true),
+    ] {
+        let mut legacy = vec![0x66, 0x44, 0x0f];
+        if map == 2 {
+            legacy.push(0x38);
+        }
+        legacy.extend([opcode, 0x3f]);
+        let forms = [
+            (legacy.as_slice(), "legacy", 16),
+            (&[0xc4, 0x60 | map, 0x39, opcode, 0x7f, 3], "vex3-128", 16),
+            (&[0xc4, 0x60 | map, 0x3d, opcode, 0x7f, 3], "vex3-256", 32),
+            (&[0xc5, 0x39, opcode, 0x7f, 3], "vex2-128", 16),
+            (&[0xc5, 0x3d, opcode, 0x7f, 3], "vex2-256", 32),
+        ];
+        let bits = element * 8;
+        let (min, max) = if signed {
+            (-(1_i64 << (bits - 1)), (1_i64 << (bits - 1)) - 1)
+        } else {
+            (0, (1_i64 << bits) - 1)
+        };
+        let pairs = [
+            (min, max),
+            (max, min),
+            (max, max),
+            (min + 1, min),
+            (7, 12),
+            (9, 7),
+        ];
+        for &(code, encoding, width) in &forms[..if map == 1 { 5 } else { 3 }] {
+            for rotation in 0..4 {
+                let mut left = [0; 32];
+                let mut reply = [0; 32];
+                let mut expected = [0; 32];
+                for start in (0..32).step_by(element) {
+                    let (x, y) = pairs[(start / element + rotation) % pairs.len()];
+                    let lane = start..start + element;
+                    left[lane.clone()].copy_from_slice(&x.to_le_bytes()[..element]);
+                    reply[lane.clone()].copy_from_slice(&y.to_le_bytes()[..element]);
+                    if start < width {
+                        let value = if maximum { x.max(y) } else { x.min(y) };
+                        expected[lane].copy_from_slice(&value.to_le_bytes()[..element]);
+                    }
+                }
+                let qwords = |bytes: [u8; 32]| {
+                    std::array::from_fn(|i| {
+                        u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap())
+                    })
+                };
+                for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                    let value = packed_binary_case(
+                        code,
+                        width,
+                        encoding != "legacy",
+                        restore,
+                        qwords(left),
+                        reply,
+                        qwords(expected),
+                    );
+                    record(
+                        output,
+                        case,
+                        &format!("vector-min-max-{encoding}-{mnemonic}-{rotation}-{phase}"),
+                        width,
+                        value,
+                    );
+                    case += 1;
+                }
+            }
+        }
+        record(
+            output,
+            case,
+            &format!("vector-min-max-legacy-{mnemonic}-misaligned"),
+            16,
+            alignment_fault(&legacy, false, 3),
+        );
+        case += 1;
+    }
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 pub(super) fn run_integer_add_subtract(output: &Path, saturating: bool) {
     assert!(!output.exists(), "observations must be new");
     let mut case = 0;

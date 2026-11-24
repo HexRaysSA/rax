@@ -291,12 +291,8 @@ pub(super) fn decode_0f(
         | 0x64..=0x66
         | 0x74..=0x76
         | 0xd4
-        | 0xd8..=0xd9
-        | 0xdb..=0xdd
-        | 0xdf
-        | 0xe8..=0xe9
-        | 0xeb..=0xed
-        | 0xef
+        | 0xd8..=0xdf
+        | 0xe8..=0xef
         | 0xf8..=0xfe => {
             let names = packed_binary_mnemonics(1, u8::from(ctx.operand_size_override), op);
             let Some((name, _)) = names.filter(|_| ctx.rep_prefix.is_none() && !ctx.has_rex2())
@@ -415,7 +411,7 @@ pub(super) fn decode_0f(
             "bswap"
         }
         0x38 => match ctx.consume_u8().ok()? {
-            map_opcode @ (0x17 | 0x29 | 0x37)
+            map_opcode @ (0x17 | 0x29 | 0x37..=0x3f)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {
                 let writes = map_opcode != 0x17;

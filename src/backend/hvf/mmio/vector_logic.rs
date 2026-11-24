@@ -1,5 +1,6 @@
 //! Legacy SSE and VEX packed binary operations with a device source.
 use super::*;
+use std::cmp::Ordering;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Element {
@@ -95,6 +96,35 @@ impl Comparison {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum MinMaxLane {
+    SignedByte,
+    UnsignedByte,
+    SignedWord,
+    UnsignedWord,
+    SignedDoubleword,
+    UnsignedDoubleword,
+}
+
+impl MinMaxLane {
+    fn bytes(self) -> usize {
+        match self {
+            Self::SignedByte | Self::UnsignedByte => 1,
+            Self::SignedWord | Self::UnsignedWord => 2,
+            Self::SignedDoubleword | Self::UnsignedDoubleword => 4,
+        }
+    }
+
+    fn compare(self, left: u64, right: u64) -> Ordering {
+        match self {
+            Self::SignedByte => (left as i8).cmp(&(right as i8)),
+            Self::SignedWord => (left as i16).cmp(&(right as i16)),
+            Self::SignedDoubleword => (left as i32).cmp(&(right as i32)),
+            Self::UnsignedByte | Self::UnsignedWord | Self::UnsignedDoubleword => left.cmp(&right),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
     And,
     AndNot,
@@ -106,6 +136,8 @@ enum Operation {
     Subtract(Element),
     SaturatingAdd(Saturation),
     SaturatingSubtract(Saturation),
+    Minimum(MinMaxLane),
+    Maximum(MinMaxLane),
 }
 
 impl Operation {
@@ -139,6 +171,18 @@ impl Operation {
             "psubsw" => Self::SaturatingSubtract(Saturation::SignedWord),
             "psubusb" => Self::SaturatingSubtract(Saturation::UnsignedByte),
             "psubusw" => Self::SaturatingSubtract(Saturation::UnsignedWord),
+            "pminsb" => Self::Minimum(MinMaxLane::SignedByte),
+            "pminub" => Self::Minimum(MinMaxLane::UnsignedByte),
+            "pminsw" => Self::Minimum(MinMaxLane::SignedWord),
+            "pminuw" => Self::Minimum(MinMaxLane::UnsignedWord),
+            "pminsd" => Self::Minimum(MinMaxLane::SignedDoubleword),
+            "pminud" => Self::Minimum(MinMaxLane::UnsignedDoubleword),
+            "pmaxsb" => Self::Maximum(MinMaxLane::SignedByte),
+            "pmaxub" => Self::Maximum(MinMaxLane::UnsignedByte),
+            "pmaxsw" => Self::Maximum(MinMaxLane::SignedWord),
+            "pmaxuw" => Self::Maximum(MinMaxLane::UnsignedWord),
+            "pmaxsd" => Self::Maximum(MinMaxLane::SignedDoubleword),
+            "pmaxud" => Self::Maximum(MinMaxLane::UnsignedDoubleword),
             _ => return None,
         })
     }
@@ -179,6 +223,20 @@ impl Operation {
                 let subtract = matches!(self, Self::SaturatingSubtract(_));
                 map_integer_lanes(left, right, saturation.bytes(), |left, right| {
                     saturation.lane(left, right, subtract)
+                })
+            }
+            Self::Minimum(lane) | Self::Maximum(lane) => {
+                let select_right = if matches!(self, Self::Minimum(_)) {
+                    Ordering::Greater
+                } else {
+                    Ordering::Less
+                };
+                map_integer_lanes(left, right, lane.bytes(), |left, right| {
+                    if lane.compare(left, right) == select_right {
+                        right
+                    } else {
+                        left
+                    }
                 })
             }
         }
