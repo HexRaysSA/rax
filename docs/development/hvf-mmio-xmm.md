@@ -935,3 +935,27 @@ and passed strict signature and Hypervisor entitlement checks. The
 `vector-saturating` workflow profile exercises 160 direct device reads,
 160 reads completed on fresh vCPU owners and eight legacy alignment
 faults.
+
+Physical Intel Linux passed the unfiltered `hvf_mmio`, `isa_oracle`
+and `x86_64` targets with 141, 102 and 28,562 cases, respectively.
+Three `x86_64` cases were ignored. The Linux qualification log
+SHA-256 is
+`5ad29bbc95a3fa06a7b09748da890078bac68184ce2e2286f26adacc014e202d`.
+The full Intel macOS cross-target run also passed 104 SDK-owner tests,
+102 ISA-oracle tests and 16 Actions policy tests under Rosetta. The
+combined cross-target log SHA-256 is
+`dcf1f20ca4ddc36c523dc5b59a0de7626a52e0e4de91e76889ac77a137a0d8f9`.
+
+Hosted Intel HVF run `45313352560` at
+`1584b55ef3cad979fbdc556c2cb9944aa9806b70` passed all 160 direct
+reads, 160 fresh-owner restores and eight legacy alignment faults.
+All 328 observations matched the independent physical Intel RAM oracle.
+Verification matched both uploaded archives, the signed executable and
+Hypervisor entitlement, and all 4,920 engine inputs and 20 consumer
+inputs to the dispatched revision. The observation stream SHA-256 is
+`17c728b61b4f45028fecead4d642e48b4fe1f0e276681cf2b1521c9e120b3565`.
+The executable SHA-256 is
+`229f67a93cad45920e1a5b040d9cb5a3e8c9b938b993421bf14263e9ee837cb2`.
+The job ran untranslated on Intel inside a hosted macOS 15.7.9 VM.
+Bare-metal Intel macOS remains unverified.
+[Hosted packed saturation execution](https://github.com/HexRaysSA/rax/actions/runs/45313352560/job/138174178991)
