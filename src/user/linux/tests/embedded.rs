@@ -275,6 +275,110 @@ fn closed_linux_tmpfiles_are_private_and_can_be_published_once_on_all_abis() {
 }
 
 #[test]
+fn closed_linux_copy_ranges_preserve_inode_and_offset_semantics_on_all_abis() {
+    use crate::user::linux::abi::open::{O_APPEND, O_CREAT, O_PATH, O_RDWR};
+    use crate::user::supplied_fs::{Files, WorkspaceFlavor};
+
+    const AT_FDCWD: u64 = -100i64 as u64;
+    const COPY: Sysno = Sysno::CopyFileRange;
+    const MFD_HUGETLB: u64 = 4;
+    for abi in ABIS {
+        let files = Files::default()
+            .with_file("/read-only".into(), std::sync::Arc::from(&b"data"[..]))
+            .unwrap();
+        let mut no_workspace = Harness::embedded_with_supplied(abi, files.clone());
+        assert_eq!(no_workspace.err(COPY, &[91, 0, 92, 0, 1, 0]), EPERM);
+
+        let mut h =
+            Harness::embedded_with_supplied(abi, files.with_temp_workspace(WorkspaceFlavor::Linux));
+        let path = h.scratch;
+        let other_path = path + 64;
+        let data = path + 128;
+        let in_offset = path + 160;
+        let out_offset = in_offset + 8;
+        let write = |h: &Harness, at, bytes: &[u8]| h.proc.space().write_raw(at, bytes).unwrap();
+        let set_positions = |h: &Harness, from: i64, to: i64| {
+            write(h, in_offset, &from.to_le_bytes());
+            write(h, out_offset, &to.to_le_bytes());
+        };
+        let position = |h: &Harness, at| {
+            let mut bytes = [0; 8];
+            h.proc.space().read(at, &mut bytes).unwrap();
+            i64::from_le_bytes(bytes)
+        };
+
+        write(&h, path, b"/tmp/copy-input\0");
+        let flags = u64::from(O_CREAT | O_RDWR);
+        let input = h.ok(Sysno::Openat, &[AT_FDCWD, path, flags, 0o600]);
+        write(&h, data, b"abcdefgh");
+        assert_eq!(h.ok(Sysno::Write, &[input, data, 8]), 8);
+        write(&h, other_path, b"/tmp/copy-alias\0");
+        h.ok(Sysno::Linkat, &[AT_FDCWD, path, AT_FDCWD, other_path, 0]);
+        let alias = h.ok(Sysno::Openat, &[AT_FDCWD, other_path, u64::from(O_RDWR), 0]);
+
+        write(&h, path, b"/tmp/copy-output\0");
+        let output = h.ok(Sysno::Openat, &[AT_FDCWD, path, flags, 0o600]);
+        let append = h.ok(
+            Sysno::Openat,
+            &[AT_FDCWD, path, u64::from(O_RDWR | O_APPEND), 0],
+        );
+        let path_only = h.ok(Sysno::Openat, &[AT_FDCWD, path, u64::from(O_PATH), 0]);
+        assert_eq!(h.err(COPY, &[path_only, 1, output, 0, 1, 1]), EBADF);
+        assert_eq!(h.err(COPY, &[input, 1, output, 0, 1, 1]), EFAULT);
+        assert_eq!(h.err(COPY, &[input, 0, output, 0, 1, 1]), EINVAL);
+        assert_eq!(h.err(COPY, &[input, 0, append, 0, 1, 0]), EBADF);
+
+        write(&h, path, b"/tmp\0");
+        let directory = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        assert_eq!(h.err(COPY, &[input, 0, directory, 0, 1, 0]), EISDIR);
+        write(&h, path, b"/read-only\0");
+        let read_only = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        assert_eq!(h.err(COPY, &[read_only, 0, output, 0, 1, 0]), EXDEV);
+        write(&h, path, b"copy-memfd\0");
+        let ordinary = h.ok(Sysno::MemfdCreate, &[path, 0]);
+        let huge = h.ok(Sysno::MemfdCreate, &[path, MFD_HUGETLB]);
+        assert_eq!(h.err(COPY, &[ordinary, 0, output, 0, 1, 0]), EXDEV);
+        assert_eq!(h.err(COPY, &[ordinary, 0, huge, 0, 1, 0]), EXDEV);
+
+        set_positions(&h, 0, 1);
+        assert_eq!(
+            h.err(COPY, &[input, in_offset, alias, out_offset, 2, 0]),
+            EINVAL
+        );
+        assert_eq!(position(&h, in_offset), 0);
+        assert_eq!(position(&h, out_offset), 1);
+        set_positions(&h, 6, 2);
+        assert_eq!(h.ok(COPY, &[input, in_offset, alias, out_offset, 8, 0]), 2);
+        assert_eq!(position(&h, in_offset), 8);
+        assert_eq!(position(&h, out_offset), 4);
+        assert_eq!(h.ok(Sysno::Lseek, &[input, 0, 1]), 8);
+        assert_eq!(h.ok(Sysno::Lseek, &[alias, 0, 1]), 0);
+        set_positions(&h, -1, 0);
+        assert_eq!(
+            h.err(COPY, &[input, in_offset, output, out_offset, 1, 0]),
+            EOVERFLOW
+        );
+        set_positions(&h, 8, 1);
+        assert_eq!(h.ok(COPY, &[input, in_offset, output, out_offset, 1, 0]), 0);
+        assert_eq!(position(&h, in_offset), 8);
+        assert_eq!(position(&h, out_offset), 1);
+
+        h.ok(Sysno::Lseek, &[input, 4, 0]);
+        assert_eq!(h.ok(COPY, &[input, 0, output, 0, 2, 0]), 2);
+        assert_eq!(h.ok(Sysno::Lseek, &[input, 0, 1]), 6);
+        assert_eq!(h.ok(Sysno::Lseek, &[output, 0, 1]), 2);
+        h.ok(Sysno::Lseek, &[output, 0, 0]);
+        assert_eq!(h.ok(Sysno::Read, &[output, data, 2]), 2);
+        let mut bytes = [0; 8];
+        h.proc.space().read(data, &mut bytes[..2]).unwrap();
+        assert_eq!(&bytes[..2], b"ef");
+        assert_eq!(h.ok(Sysno::Read, &[alias, data, 8]), 8);
+        h.proc.space().read(data, &mut bytes).unwrap();
+        assert_eq!(&bytes, b"abghefgh");
+    }
+}
+
+#[test]
 fn closed_linux_memfds_reopen_and_share_seals_across_address_spaces() {
     use crate::user::linux::abi::open::{O_PATH, O_RDWR, O_TRUNC};
     use crate::user::linux::fs::memfd::seal;

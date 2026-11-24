@@ -273,8 +273,12 @@ impl Ctx<'_> {
         if self.nosignal {
             return;
         }
+        self.send_signal_to_caller(super::signal::SIGPIPE);
+    }
+
+    fn send_signal_to_caller(&mut self, signal: i32) {
         let info = super::signal::SigInfo::kill(
-            super::signal::SIGPIPE,
+            signal,
             super::signal::code::SI_USER,
             self.p.pid,
             self.p.creds.0,
@@ -465,6 +469,7 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
             fd(a[2]),
             a[3],
             a[4],
+            a[5] as u32,
         )),
         S::Fsync | S::Fdatasync => r(io::fsync(c, fd(a[0]))),
         S::Sync => r(Ok(0)),

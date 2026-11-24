@@ -308,6 +308,7 @@ pub(super) fn permits_workspace(s: Sysno) -> bool {
             | Sysno::Ftruncate
             | Sysno::Ftruncate64
             | Sysno::Fallocate
+            | Sysno::CopyFileRange
             | Sysno::MemfdCreate
             | Sysno::Fsync
             | Sysno::Fdatasync

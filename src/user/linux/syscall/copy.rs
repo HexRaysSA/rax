@@ -4,8 +4,10 @@
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
-use super::super::abi::open::O_APPEND;
-use super::super::fs::fd::FileType;
+use super::super::abi::open::{O_APPEND, O_PATH};
+use super::super::abi::types::MAX_NON_LFS;
+use super::super::fs::fd::{FileObject, FileType, OpenFile};
+use super::super::signal::SIGXFSZ;
 use super::super::signal::deliver::restart::ERESTARTSYS;
 use super::super::wait::Resume;
 use super::io::{CHUNK, MAX_RW_COUNT, may_block, ready_now, wait_ready};
@@ -144,53 +146,118 @@ pub fn copy_file_range(
     out_fd: i32,
     out_off: u64,
     len: u64,
+    flags: u32,
 ) -> SysResult {
     let input = c.p.fds.file(in_fd)?;
     let output = c.p.fds.file(out_fd)?;
-    if !input.readable() || !output.writable() || output.flags() & O_APPEND != 0 {
+    if (input.flags() | output.flags()) & O_PATH != 0 {
         return Err(Errno(EBADF));
+    }
+    let in_position = (in_off != 0).then(|| c.read_u64(in_off)).transpose()?;
+    let out_position = (out_off != 0).then(|| c.read_u64(out_off)).transpose()?;
+    if flags != 0 {
+        return Err(Errno(EINVAL));
+    }
+    if input.ftype == FileType::Directory || output.ftype == FileType::Directory {
+        return Err(Errno(EISDIR));
     }
     if input.ftype != FileType::Regular || output.ftype != FileType::Regular {
         return Err(Errno(EINVAL));
     }
-    let mut ipos = if in_off != 0 {
-        c.read_u64(in_off)?
-    } else {
-        input.seek(0, 1)?
+    if !input.readable() || !output.writable() || output.flags() & O_APPEND != 0 {
+        return Err(Errno(EBADF));
+    }
+    let workspace_file = |file: &OpenFile| matches!(&file.object, FileObject::Supplied(entry) if entry.workspace_file().is_some());
+    let memfd_mount = |file: &OpenFile| file.memfd.as_ref().map(|memfd| memfd.hugetlb);
+    // Installed inputs and the workspace are distinct filesystems. The
+    // ordinary and huge-page memfd mounts are separate from the workspace
+    // and each other, even though they share its backing implementation.
+    if !c.p.config.host_services
+        && (!workspace_file(&input)
+            || !workspace_file(&output)
+            || memfd_mount(&input) != memfd_mount(&output))
+    {
+        return Err(Errno(EXDEV));
+    }
+    let ipos = match in_position {
+        Some(pos) => pos,
+        None => input.seek(0, 1)?,
     };
-    let mut opos = if out_off != 0 {
-        c.read_u64(out_off)?
-    } else {
-        output.seek(0, 1)?
+    let opos = match out_position {
+        Some(pos) => pos,
+        None => output.seek(0, 1)?,
     };
+    if ipos.checked_add(len).is_none() || opos.checked_add(len).is_none() {
+        return Err(Errno(EOVERFLOW));
+    }
+    if (ipos as i64) < 0 || (opos as i64) < 0 {
+        return Err(Errno(EINVAL));
+    }
+
+    let source = super::path::stat_file(c, &input)?;
+    let target = super::path::stat_file(c, &output)?;
+    let limit = c.p.rlimits[1].0; // RLIMIT_FSIZE
+    if opos >= limit {
+        c.send_signal_to_caller(SIGXFSZ);
+        return Err(Errno(EFBIG));
+    }
+    let max_offset = if output.flags() & c.p.abi.open_flags().largefile != 0 {
+        i64::MAX as u64
+    } else {
+        MAX_NON_LFS as u64
+    };
+    if opos >= max_offset {
+        return Err(Errno(EFBIG));
+    }
+    let len = len
+        .min((source.size.max(0) as u64).saturating_sub(ipos))
+        .min(limit - opos)
+        .min(max_offset - opos);
+    let same_inode = (source.dev_major, source.dev_minor, source.ino)
+        == (target.dev_major, target.dev_minor, target.ino);
+    if same_inode && opos + len > ipos && opos < ipos + len {
+        return Err(Errno(EINVAL));
+    }
+
     let len = len.min(MAX_RW_COUNT);
     let mut done = 0;
     let mut buf = vec![0u8; (len as usize).min(CHUNK)];
     while done < len {
         let want = ((len - done) as usize).min(buf.len());
-        let n = input.read_at(&mut buf[..want], ipos)?;
+        let n = match input.read_at(&mut buf[..want], ipos + done) {
+            Err(_) if done > 0 => break,
+            result => result?,
+        };
         if n == 0 {
             break;
         }
-        let w = output.write_at(&buf[..n], opos)?;
+        let w = match output.write_at(&buf[..n], opos + done) {
+            Err(_) if done > 0 => break,
+            result => result?,
+        };
         done += w as u64;
-        ipos += w as u64;
-        opos += w as u64;
         if w < n {
             break;
         }
     }
-    if in_off != 0 {
-        c.write_u64(in_off, ipos)?;
-    } else {
-        input.seek(ipos as i64, 0)?;
-    }
-    if out_off != 0 {
-        c.write_u64(out_off, opos)?;
-    } else {
-        output.seek(opos as i64, 0)?;
+    if done == 0 {
+        return Ok(0);
     }
     super::notify::access(&input, done, false);
     super::notify::modify(&output, done);
+    // Both positions are published after a transfer, even when one user
+    // pointer is read-only and the copy ultimately reports EFAULT.
+    let input_update = if in_off != 0 {
+        c.write_u64(in_off, ipos + done)
+    } else {
+        input.seek((ipos + done) as i64, 0).map(|_| ())
+    };
+    let output_update = if out_off != 0 {
+        c.write_u64(out_off, opos + done)
+    } else {
+        output.seek((opos + done) as i64, 0).map(|_| ())
+    };
+    input_update?;
+    output_update?;
     Ok(done)
 }

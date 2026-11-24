@@ -485,6 +485,23 @@ pipe to pipe, sockets and the memory devices, the end of a pipe's data,
 `tee` copying without consuming (Linux hosts) or refused (others); end to end, the
 `splice` fixture
 
+### File range copies in the closed Linux workspace
+
+The Linux dispatcher admits `copy_file_range` when installed-runtime mode
+owns a writable workspace. It copies between regular files on the same
+guest filesystem. Ordinary and huge-page memfds occupy separate mounts
+from the workspace and from each other. Copying from the read-only runtime
+into the workspace returns `EXDEV`. The guest kernel checks both descriptor grants,
+flags and offset ranges. It detects overlap by inode after limiting the
+range to the source EOF and publishes offsets for transferred bytes.
+
+The closed dispatcher checks flags, hard links, explicit and descriptor
+positions and mount boundaries across all five guest ABIs. On Ubuntu ARM64,
+installed glibc controls matched native tmpfs stdout, stderr and exit status
+for these cases and for short copies at the file-size limit, `SIGXFSZ`,
+late position copyback errors, copies between ordinary memfds and rejection of
+a copy from an ordinary memfd to a huge-page memfd.
+
 ### Asynchronous I/O
 
 `src/user/linux/tests/aio.rs` (13 tests, 12 on every 64-bit ABI): `io_setup`'s
