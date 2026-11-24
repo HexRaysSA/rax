@@ -1,5 +1,5 @@
 //! Native Linux runtime selection for a closed process. Installed libraries
-//! and timezone data are read-only; there is no general host path
+//! and runtime data are read-only; there is no general host path
 //! fallback, host descriptor exposure, or separate sysroot requirement.
 #[cfg(target_os = "linux")]
 use crate::user::supplied_fs::WorkspaceFlavor;
@@ -14,7 +14,7 @@ mod ld_cache;
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, and installed
-/// timezone data. Include a
+/// timezone, protocol and service data. Include a
 /// synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
@@ -36,6 +36,8 @@ pub fn native(files: &Files) -> io::Result<Files> {
 
 #[cfg(target_os = "linux")]
 fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
+    use crate::user::supplied_fs::Error;
+
     let mut roots = installed_roots(root);
     if roots.is_empty() {
         return Err(io::Error::new(
@@ -49,6 +51,14 @@ fn select_installed(files: &Files, root: &Path) -> io::Result<Files> {
     }
     let cache = root.join("etc/ld.so.cache");
     let files = select(files, roots, cache.is_file().then_some(cache))?;
+    // The libc files backend reads these tables for local name lookups.
+    let databases = ["/etc/protocols", "/etc/services"]
+        .into_iter()
+        .filter(|path| matches!(files.lookup(path), Err(Error::NotFound)))
+        .map(|path| (path.to_owned(), root.join(path.trim_start_matches('/'))))
+        .filter(|(_, host)| host.symlink_metadata().is_ok_and(|info| info.is_file()))
+        .collect();
+    let files = files.with_host_files(databases)?;
     crate::user::supplied_fs::timezone::select_default(files, root)
 }
 
@@ -154,6 +164,49 @@ fn open_cached_library(path: &std::path::Path) -> io::Result<crate::user::mm::Ho
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_network_databases_are_selected_as_fixed_regular_files() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, os::unix::fs::symlink, sync::Arc};
+
+        let fixture = TestFile::new(b"unselected", 10);
+        let root = &fixture.dir;
+        fs::create_dir_all(root.join("usr/lib")).unwrap();
+        let etc = root.join("etc");
+        fs::create_dir(&etc).unwrap();
+        fs::write(etc.join("protocols"), b"tcp 6 TCP\n").unwrap();
+        fs::write(etc.join("services"), b"https 443/tcp\n").unwrap();
+        fs::write(etc.join("nsswitch.conf"), b"services: other\n").unwrap();
+
+        let files = Files::default();
+        let selected = select_installed(&files, root).unwrap();
+        assert_eq!(&*selected.read("/etc/protocols").unwrap(), b"tcp 6 TCP\n");
+        assert_eq!(
+            &*selected.read("/etc/services").unwrap(),
+            b"https 443/tcp\n"
+        );
+        assert!(matches!(
+            selected.read("/etc/nsswitch.conf"),
+            Err(Error::NotFound)
+        ));
+
+        let supplied = files
+            .with_file("/etc/services".into(), Arc::from(&b"local 1234/tcp\n"[..]))
+            .unwrap();
+        fs::remove_file(etc.join("protocols")).unwrap();
+        symlink(&fixture.path, etc.join("protocols")).unwrap();
+        let selected = select_installed(&supplied, root).unwrap();
+        assert_eq!(
+            &*selected.read("/etc/services").unwrap(),
+            b"local 1234/tcp\n"
+        );
+        assert!(matches!(
+            selected.read("/etc/protocols"),
+            Err(Error::NotFound)
+        ));
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
