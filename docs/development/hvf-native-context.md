@@ -89,6 +89,27 @@ restores the pending real-mode event. The test retains a distinct value in the
 unused payload field to detect an unintended write.
 [Intel SDM Vol. 3C §§28.2.1.3, 28.6.1.3](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
 
+### Legacy PAE paging
+
+Active legacy PAE can retain four cached PDPTEs whose values differ from the
+table in guest RAM. The native Intel record carries the four VMCS fields.
+Capture and restore through the legacy public CPU projection reject this
+paging mode because the projection has no cached bank.
+[Intel SDM Vol. 3A §5.4.1, PDPTE Registers](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+GitHub-hosted Intel macOS passed the whole-file continuation at
+`a7aa74916648ca91a03512783084bc69fd4d7889`. The guest enabled PAE paging and
+emitted `0x5a` before capture. The test then zeroed the PDPT in RAM and
+confirmed all four cached entries in the private record. After destroying the
+source VM and deleting its kernel, the test restored a fresh VM, verified the
+zeroed RAM table and the saved VMCS bank, and required the guest to emit `0xa5`.
+The same run passed both pending XMM checkpoint continuations.
+[Hosted Intel checkpoint job](https://github.com/HexRaysSA/rax/actions/runs/45484576112/job/138766416831)
+
+The job log and GitHub artifact metadata report ZIP SHA-256
+`98a46e4d84d1bef12dec92b537458167b15c8b845b334c0515cab069c436b116` for
+artifact `14967066760`.
+
 ## Publication and rollback
 
 The VM boundary excludes owner requests, IRQ-queue writes, CPU lifetime changes,
@@ -128,8 +149,10 @@ injected partial SDK failures. It creates no physical Hypervisor VM and executes
 no native guest instruction. Portable library tests cover XSAVE projection and
 record admission without the native SDK.
 
-The native 149-case control now qualifies its represented RAM/MMIO/MSR,
-deadline, startup and interrupt paths. Whole-file private checkpoint transactions
-remain SDK-model evidence. Remaining native intercept/MSR and MMIO profiles,
-complete IRQ/device conservation and replay remain separate open gates. See the
-[audit ledger](audit-remediation-2026-10.json).
+The native 149-case control covers its represented RAM/MMIO/MSR, deadline,
+startup and interrupt paths. Hosted Intel whole-file execution covers legacy
+PAE continuation and the pending XMM read and write.
+[Pending XMM evidence](hvf-mmio-xmm.md#pending-xmm-transfer-in-a-native-vmm-file)
+Injected rollback failures are covered by the SDK model. Other native
+intercept/MSR and MMIO profiles, IRQ/device conservation, and replay remain
+open. [Audit ledger](audit-remediation-2026-10.json)
