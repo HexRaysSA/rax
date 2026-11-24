@@ -27,7 +27,7 @@ const CONFINED_ROOTS: &[&str] = &[
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, plus installed
-/// ELF programs, Perl modules, timezone, protocol and service data. Include
+/// executable programs, Perl modules, timezone, protocol and service data. Include
 /// guest loopback names and a synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
@@ -182,18 +182,25 @@ fn accept_installed_file(path: &str, host: &Path, _file: &std::fs::File) -> io::
 #[cfg(target_os = "linux")]
 fn accept_installed_program(file: &std::fs::File) -> io::Result<bool> {
     use crate::user::image::elf::{ET_DYN, ET_EXEC, identify};
+    use crate::user::linux::exec::{BINPRM_BUF_SIZE, parse_script};
     use std::os::unix::fs::{FileExt, PermissionsExt};
 
-    if file.metadata()?.permissions().mode() & 0o111 == 0 {
+    let metadata = file.metadata()?;
+    if metadata.permissions().mode() & 0o111 == 0 {
         return Ok(false);
     }
-    let mut header = [0; 20];
-    match file.read_exact_at(&mut header, 0) {
-        Ok(()) => Ok(identify(&header).is_ok_and(|elf| {
-            elf.elf_class().is_some()
-                && elf.elf_data().is_some()
-                && matches!(elf.e_type, ET_EXEC | ET_DYN)
-        })),
+    let mut header = [0; BINPRM_BUF_SIZE];
+    let length = metadata.len().min(BINPRM_BUF_SIZE as u64) as usize;
+    let header = &mut header[..length];
+    match file.read_exact_at(header, 0) {
+        Ok(()) => {
+            let executable = identify(header).is_ok_and(|elf| {
+                elf.elf_class().is_some()
+                    && elf.elf_data().is_some()
+                    && matches!(elf.e_type, ET_EXEC | ET_DYN)
+            });
+            Ok(executable || parse_script(header).is_ok())
+        }
         Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(false),
         Err(error) => Err(error),
     }
@@ -269,7 +276,7 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn installed_programs_select_executable_elfs_within_the_distribution_bins() {
+    fn installed_programs_select_elf_and_shebang_files_within_the_distribution_bins() {
         use crate::user::supplied_fs::{Error, test_backing::TestFile};
         use std::{
             fs::{self, Permissions},
@@ -303,14 +310,21 @@ mod tests {
         fs::set_permissions(bin.join("non-executable"), Permissions::from_mode(0o644)).unwrap();
         fs::write(bin.join("text"), b"unselected").unwrap();
         fs::set_permissions(bin.join("text"), Permissions::from_mode(0o755)).unwrap();
+        let script = b"#!/bin/sh\n:\n";
+        fs::write(bin.join("script"), script).unwrap();
+        fs::set_permissions(bin.join("script"), Permissions::from_mode(0o755)).unwrap();
+        fs::write(bin.join("invalid-script"), b"#! \n").unwrap();
+        fs::set_permissions(bin.join("invalid-script"), Permissions::from_mode(0o755)).unwrap();
 
         let selected = select_installed(&Files::default(), root).unwrap();
         for path in ["/bin/program", "/usr/bin/program", "/bin/alias"] {
             assert_eq!(&*selected.read(path).unwrap(), &elf);
         }
+        assert_eq!(&*selected.read("/bin/script").unwrap(), script);
         for path in [
             "/bin/non-executable",
             "/bin/text",
+            "/bin/invalid-script",
             "/bin/external",
             "/usr/local/bin/unselected",
         ] {
