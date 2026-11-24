@@ -247,3 +247,91 @@ fn wfx_traps_resume_on_the_correct_pe_after_detached_file_restore() {
     verify(&mut restored.vm);
     assert_eq!(coordinator, restored.vm.coordinator);
 }
+
+#[test]
+fn hcr_virtual_interrupts_resume_on_the_correct_pe_after_detached_file_restore() {
+    const MEMORY_BYTES: u64 = 8 * 1024 * 1024;
+    const CASES: [(u64, u64, u64); 2] = [
+        ((1 << 4) | (1 << 7), 0x345, 0x280), // Virtual IRQ, FIQ masked.
+        ((1 << 3) | (1 << 6), 0x385, 0x300), // Virtual FIQ, IRQ masked.
+    ];
+    let mut original = Fixture::with_memory(2, ClockMode::Retired, MEMORY_BYTES);
+    assert_eq!(
+        original
+            .cluster()
+            .request_on(1, CODE + 0x100, 0, 0x385)
+            .unwrap(),
+        0
+    );
+    original.vm.route_interprocessor_requests().unwrap();
+
+    for (id, (hcr, pstate, offset)) in CASES.into_iter().enumerate() {
+        let entry = CODE + id as u64 * 0x100;
+        let vectors = CODE + 0x800 * (id as u64 + 1);
+        let mut state = original.vm.vcpus[id].get_state().unwrap();
+        let CpuState::Aarch64(arm) = &mut state else {
+            panic!("AArch64 fixture");
+        };
+        arm.regs.pstate = pstate;
+        arm.sregs.vbar_el1 = vectors;
+        let system = &mut arm.sregs.execution.as_mut().unwrap().sysregs;
+        system.scr_el3 = (1 << 10) | 1;
+        system.hcr_el2 = (1 << 31) | hcr;
+        system.el1.vbar = vectors;
+        original.vm.vcpus[id].set_state(&state).unwrap();
+
+        let memory = original.vm.guest_mem.memory();
+        memory
+            .write_slice(&NOP.to_le_bytes(), GuestAddress(entry))
+            .unwrap();
+        memory
+            .write_slice(&WFI.to_le_bytes(), GuestAddress(vectors + offset))
+            .unwrap();
+    }
+
+    let path = original.kernel.with_extension("virtual-interrupts.rxc");
+    original
+        .vm
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    let verify = |vm: &mut Vmm| {
+        for (id, (hcr, pstate, offset)) in CASES.into_iter().enumerate() {
+            assert!(vm.execute_turn().unwrap().is_none());
+            let state = vm.vcpus[id].get_state().unwrap();
+            let arm = state.as_aarch64().unwrap();
+            let system = &arm.sregs.execution.as_ref().unwrap().sysregs;
+            assert_eq!(system.hcr_el2, (1 << 31) | hcr);
+            assert_eq!(system.el1.elr, CODE + id as u64 * 0x100);
+            assert_eq!(system.el1.spsr, pstate);
+            assert_eq!(arm.regs.pc, CODE + 0x800 * (id as u64 + 1) + offset);
+            assert_eq!(vm.vcpus[id].instruction_count(), 0);
+        }
+        assert_eq!(vm.coordinator.retired, 0);
+        for (id, (_, _, offset)) in CASES.into_iter().enumerate() {
+            let turn = vm.execute_turn().unwrap().expect("EL1 handler yields");
+            assert_eq!(turn.cpu_index, id);
+            assert!(matches!(turn.exit, VcpuExit::Hlt));
+            let state = vm.vcpus[id].get_state().unwrap();
+            assert_eq!(
+                state.as_aarch64().unwrap().regs.pc,
+                CODE + 0x800 * (id as u64 + 1) + offset + 4
+            );
+            assert_eq!(vm.vcpus[id].instruction_count(), 1);
+        }
+        assert_eq!(vm.coordinator.retired, 2);
+    };
+    verify(&mut original.vm);
+    let coordinator = original.vm.coordinator.clone();
+    let kernel = original.kernel.clone();
+    drop(original);
+    assert!(!kernel.exists());
+
+    let loaded = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    let mut restored = Fixture::with_memory(2, ClockMode::Retired, MEMORY_BYTES);
+    restored.vm.restore_snapshot_bundle(&loaded).unwrap();
+    verify(&mut restored.vm);
+    assert_eq!(coordinator, restored.vm.coordinator);
+}

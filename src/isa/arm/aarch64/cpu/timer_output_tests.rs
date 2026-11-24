@@ -203,21 +203,21 @@ fn direct_timer_poll_respects_each_controller_gate_and_preserves_controllerless_
             arm(&mut cpu, false, true);
             cpu.daif = 0;
             let handle = cpu.gic_handle().unwrap();
-            assert!(cpu.check_pending_interrupts().unwrap().is_some());
+            assert!(cpu.check_pending_interrupts(true).unwrap().is_some());
             handle.lock().unwrap().write_dist(0, 0);
-            assert!(cpu.check_pending_interrupts().unwrap().is_none());
+            assert!(cpu.check_pending_interrupts(true).unwrap().is_none());
             handle.lock().unwrap().write_dist(0, 2);
-            assert!(cpu.check_pending_interrupts().unwrap().is_some());
+            assert!(cpu.check_pending_interrupts(true).unwrap().is_some());
             handle.lock().unwrap().set_group_enable(0, true, false);
-            assert!(cpu.check_pending_interrupts().unwrap().is_none());
+            assert!(cpu.check_pending_interrupts(true).unwrap().is_none());
             handle.lock().unwrap().set_group_enable(0, true, true);
             handle.lock().unwrap().write_redist(0, 0x10180, PHYSICAL);
-            assert!(cpu.check_pending_interrupts().unwrap().is_none());
+            assert!(cpu.check_pending_interrupts(true).unwrap().is_none());
             handle.lock().unwrap().write_redist(0, 0x10100, PHYSICAL);
-            assert!(cpu.check_pending_interrupts().unwrap().is_some());
+            assert!(cpu.check_pending_interrupts(true).unwrap().is_some());
             cpu.gic = None;
             cpu.gic_irq_line = None;
-            assert!(cpu.check_pending_interrupts().unwrap().is_some());
+            assert!(cpu.check_pending_interrupts(true).unwrap().is_some());
         }
     }
 }

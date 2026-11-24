@@ -55,20 +55,21 @@ impl AArch64Cpu {
             return Ok(CpuExit::Halt);
         }
 
-        let interrupt = self.pending_interrupt_kind()?;
+        let interrupt = self.pending_interrupts(true)?;
+        let deliverable = interrupt.deliverable(self);
 
         // A pending event completes the previous WFE. Without one, retain the
         // existing single-yield spurious-wakeup policy. Atomic consumption must
         // not erase a signal arriving after the test.
         if self.wfe {
             self.wfe = false;
-            if !self.take_event() && !interrupt.is_some_and(|kind| self.interrupt_unmasked(kind)) {
+            if !self.take_event() && deliverable.is_none() {
                 return Ok(CpuExit::Wfe);
             }
         }
 
         if self.wfi {
-            if interrupt.is_some() {
+            if interrupt.any() {
                 self.wfi = false;
             } else {
                 // Idle: skip the counter ahead to the next timer deadline so
@@ -78,9 +79,7 @@ impl AArch64Cpu {
             }
         }
 
-        // Single-Security-state Group0 is FIQ, Group1 is IRQ (IHI0069H4.6.2).
-        if let Some(kind) = interrupt.filter(|kind| self.interrupt_unmasked(*kind)) {
-            let target = self.interrupt_target_el(kind);
+        if let Some((target, kind)) = deliverable {
             self.take_exception(target, kind, SyndromeRegister::new())?;
             return Ok(CpuExit::Continue);
         }

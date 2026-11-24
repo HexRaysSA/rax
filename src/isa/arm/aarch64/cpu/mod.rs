@@ -689,7 +689,7 @@ unsafe extern "C" fn rax_a64_vec_store(
 }
 
 impl AArch64Cpu {
-    fn step_direct(&mut self, honor_wait_controls: bool) -> Result<CpuExit, ArmError> {
+    fn step_direct(&mut self, system_mode: bool) -> Result<CpuExit, ArmError> {
         if let Some(error) = self.execution.native_fault.take() {
             return Err(error);
         }
@@ -701,7 +701,7 @@ impl AArch64Cpu {
         if self.wfi {
             self.tick_system(0)?;
             // WFI wakeup is independent of PSTATE.I/F (DDI0487B.a D1.17.2).
-            if self.pending_interrupt_kind()?.is_some() {
+            if self.pending_interrupts(system_mode)?.any() {
                 self.wfi = false;
             } else {
                 return Ok(CpuExit::Wfi);
@@ -710,8 +710,8 @@ impl AArch64Cpu {
 
         if self.wfe {
             self.tick_system(0)?;
-            let interrupt = self.pending_interrupt_kind()?;
-            if self.take_event() || interrupt.is_some_and(|kind| self.interrupt_unmasked(kind)) {
+            let interrupt = self.pending_interrupts(system_mode)?;
+            if self.take_event() || interrupt.deliverable(self).is_some() {
                 self.wfe = false;
             } else {
                 return Ok(CpuExit::Wfe);
@@ -719,12 +719,12 @@ impl AArch64Cpu {
         }
 
         // Check for pending interrupts
-        if let Some(exit) = self.check_pending_interrupts()? {
+        if let Some(exit) = self.check_pending_interrupts(system_mode)? {
             return Ok(exit);
         }
 
         // Execute one instruction
-        self.execute_instruction(honor_wait_controls)
+        self.execute_instruction(system_mode)
     }
 }
 

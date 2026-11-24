@@ -376,7 +376,7 @@ impl AArch64Cpu {
             self.take_event()
         } else {
             // A pending interrupt can complete WFI even when PSTATE masks it.
-            honor_wait_controls && self.pending_interrupt_kind()?.is_some()
+            honor_wait_controls && self.pending_interrupts(true)?.any()
         };
         if ready {
             // Retain WFI's scheduler boundary without entering wait state.

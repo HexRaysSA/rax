@@ -24,8 +24,8 @@ clears their local latch while preserving the platform handle.
 ## Classic A64 wait traps
 
 For A64 `WFE` with an empty event latch and `WFI` without a pending modeled
-physical IRQ or FIQ, the software CPU checks the effective EL0 SCTLR, then
-eligible HCR_EL2 controls, then SCR_EL3. HCR_EL2.TGE redirects an EL0 trap
+physical or HCR_EL2 virtual IRQ or FIQ, the software CPU checks the effective
+EL0 SCTLR, then eligible HCR_EL2 controls, then SCR_EL3. HCR_EL2.TGE redirects an EL0 trap
 from EL1 to EL2 when EL2 is enabled. VHE host EL0 uses SCTLR_EL2. The trap
 records EC 0x01 and the WFx selector in ESR, records the instruction address in
 ELR, and leaves retirement and the wait latch unchanged. A ready wakeup
@@ -60,9 +60,10 @@ ignored. All 12 interrupt-delivery unit tests passed, including IRQ and FIQ
 arrival before or after WFI. The library compiled with and without SMIR JIT.
 
 High impact coverage still open includes timed WFxT, delayed WFE trapping,
-EL3 halting-debug priority, additional virtual wake sources, and mixed-state
+EL3 halting-debug priority, virtual GIC wake sources, and mixed-state
 AArch32 trap routing. This change qualifies the software path for these
-classic A64 instructions.
+classic A64 instructions. The HCR_EL2 cases have a separate
+[qualification](../a64-gic-interface/README.md#hcr_el2-software-virtual-interrupts).
 
 ## Restoration and native helpers
 

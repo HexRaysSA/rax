@@ -65,6 +65,48 @@ Counts are nine retired instructions before entry and twenty after continuation
 per PE. These are 28 post-snapshot handler executions across source and target.
 They are prepared cohorts, not guest cold-start coverage.
 
+## HCR_EL2 software virtual interrupts
+
+The software AArch64 CPU considers HCR_EL2.VI and VF at EL0 and EL1 when EL2
+is enabled and TGE is clear. IMO gates VI and FMO gates VF. Each level can end
+WFI even with its PSTATE mask set. An unmasked level can also end a prior WFE
+and causes an EL1 exception before the next guest instruction retires. Entry
+keeps the HCR_EL2 level asserted for the hypervisor to clear. Process adapters
+continue to execute without the system's virtual inputs.
+
+The existing physical request has precedence when it can be delivered. The
+software CPU selects IRQ when both virtual levels can be delivered. Selection
+uses constant time and auxiliary space beyond the existing physical GIC query.
+The existing checkpoint captures HCR_EL2 and PSTATE for each vCPU. A detached
+file test restores an IRQ on CPU 0 and an FIQ on CPU 1 with distinct EL1
+vector bases, and checks the saved ELR, SPSR and unchanged retirement count
+before both handlers run through the VMM coordinator.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Each HCR_EL2 level requires its own gate and targets EL1. | Vary EL, security state, TGE, and the PSTATE masks. Check the vector, saved PC, and that an eligible physical interrupt preserves its precedence. |
+| WFI completion and exception masking are independent. | Enable TWI and mask a pending virtual level, then execute WFI. Also assert the level after WFI and verify that the retired clock admits the waiting PE without taking an exception. |
+| The persisted HCR_EL2 level belongs to one PE. | Remove the source VM and reopen the checkpoint file. Each receiving PE must enter its own vector with the saved ELR and zero guest retirements. |
+
+The pinned [Arm pseudocode](../../specifications/arm/pauth/shared_pseudocode-2025-12.xml)
+defines `AArch64_InterruptPending` and the AArch64 and AArch32
+`TakeVirtualIRQException` and `TakeVirtualFIQException` entry rules. A bare-metal
+guest assembled with LLVM MC 23 passed 13 cases in QEMU 11.1.2. The cases check
+EL0 and EL1 vector entry, independent masks and gates, simultaneous virtual
+levels, the saved ELR and masked WFI with TWI set. RAX also tests its AArch32
+EL1 vector entry, banked LR and mode transition through the mixed-width CPU.
+The three original regressions failed on the baseline. All eight focused tests
+passed with and without SMIR JIT. The eight complete integration binaries
+passed 47,603 tests and ignored three. The runtime checkpoint binary passed
+serially after the host killed the concurrent run. Clippy passed with SMIR JIT.
+The unfiltered library run reproduced the existing Darwin codesign failure.
+Evidence is retained under
+`/Users/int/dev/rax-audit-work/four-findings-a64-hcr-virtual-interrupts-2026-11-24`.
+
+High-impact open work includes the virtual GIC CPU interface, virtual SError,
+delegated interrupts, and native backend delivery and migration. This group
+qualifies per-vCPU HCR_EL2 injection and continuation in the software CPU.
+
 ## Evidence and limits
 
 qualification.json records the exact tested source and executable hashes,

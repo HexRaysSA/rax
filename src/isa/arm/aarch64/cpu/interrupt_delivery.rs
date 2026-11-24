@@ -1,11 +1,59 @@
 //! Resolve a controller request before applying IRQ/FIQ exception masks.
 use super::*;
 
+pub(super) struct PendingInterrupts {
+    physical: Option<ExceptionType>,
+    virtual_irq: bool,
+    virtual_fiq: bool,
+}
+
+impl PendingInterrupts {
+    pub(super) fn any(&self) -> bool {
+        self.physical.is_some() || self.virtual_irq || self.virtual_fiq
+    }
+
+    pub(super) fn deliverable(&self, cpu: &AArch64Cpu) -> Option<(u8, ExceptionType)> {
+        if let Some(kind) = self.physical.filter(|kind| cpu.interrupt_unmasked(*kind)) {
+            return Some((cpu.interrupt_target_el(kind), kind));
+        }
+        // Software arbitration takes the eligible physical request first.
+        // When both virtual levels are deliverable, prefer IRQ consistently.
+        if self.virtual_irq && cpu.daif & 2 == 0 {
+            Some((1, ExceptionType::Irq))
+        } else if self.virtual_fiq && cpu.daif & 1 == 0 {
+            Some((1, ExceptionType::Fiq))
+        } else {
+            None
+        }
+    }
+}
+
 impl AArch64Cpu {
+    pub(super) fn pending_interrupts(
+        &self,
+        include_virtual: bool,
+    ) -> Result<PendingInterrupts, ArmError> {
+        let hcr = self.sysregs.hcr_el2;
+        const IRQ: u64 = (1 << 7) | (1 << 4); // VI and IMO
+        const FIQ: u64 = (1 << 6) | (1 << 3); // VF and FMO
+        let irq = hcr & IRQ == IRQ;
+        let fiq = hcr & FIQ == FIQ;
+        let virtual_enabled = include_virtual
+            && (irq || fiq)
+            && self.current_el < 2
+            && hcr & (1 << 27) == 0 // TGE
+            && self.pauth_controls().el2_enabled();
+        Ok(PendingInterrupts {
+            physical: self.pending_physical_interrupt()?,
+            virtual_irq: virtual_enabled && irq,
+            virtual_fiq: virtual_enabled && fiq,
+        })
+    }
+
     /// Preserve the target-owned aggregate wakeup handle. Only the uncommon
     /// pending path locks the controller to resolve its current selected group;
     /// no stale derived IRQ/FIQ classification survives checkpoint restoration.
-    pub(super) fn pending_interrupt_kind(&self) -> Result<Option<ExceptionType>, ArmError> {
+    fn pending_physical_interrupt(&self) -> Result<Option<ExceptionType>, ArmError> {
         if let Some(gic) = &self.gic {
             if self
                 .gic_irq_line
@@ -64,11 +112,14 @@ impl AArch64Cpu {
     }
 
     /// Direct stepping reports an interrupt without entering the guest vector.
-    pub(crate) fn check_pending_interrupts(&mut self) -> Result<Option<CpuExit>, ArmError> {
+    pub(super) fn check_pending_interrupts(
+        &mut self,
+        include_virtual: bool,
+    ) -> Result<Option<CpuExit>, ArmError> {
         self.tick_system(0)?;
         Ok(self
-            .pending_interrupt_kind()?
-            .filter(|kind| self.interrupt_unmasked(*kind))
+            .pending_interrupts(include_virtual)?
+            .deliverable(self)
             .map(|_| CpuExit::InterruptPending))
     }
 }

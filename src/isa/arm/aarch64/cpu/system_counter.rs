@@ -41,7 +41,7 @@ impl AArch64Cpu {
             || !self.wfi
             || self.wfe
             || self.execution.native_fault.is_some()
-            || self.pending_interrupt_kind()?.is_some()
+            || self.pending_interrupts(true)?.any()
         {
             return Ok(ClockIdle::Runnable);
         }

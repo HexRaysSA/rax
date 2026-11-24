@@ -17,6 +17,178 @@ fn cpu(group: u8, word: u32) -> AArch64Cpu {
     cpu
 }
 
+fn virtual_interrupt_cpu(el: u8, word: u32) -> AArch64Cpu {
+    let config = AArch64Config {
+        initial_el: el,
+        gic_config: None,
+        ..AArch64Config::default()
+    };
+    let mut cpu = AArch64Cpu::new(config, Box::new(FlatMemory::new(0, 4096)));
+    cpu.sysregs.scr_el3 = 0x501;
+    cpu.sysregs.hcr_el2 = 1 << 31;
+    cpu.sysregs.el1.vbar = 0x800;
+    cpu.write_memory(0, &word.to_le_bytes()).unwrap();
+    cpu.write_memory(4, &0xd503_201fu32.to_le_bytes()).unwrap();
+    cpu
+}
+
+#[test]
+fn hcr_virtual_interrupts_vector_to_el1_without_consuming_the_level() {
+    for (enable, level, mask, offset) in [(4, 7, 2, 0x80), (3, 6, 1, 0x100)] {
+        for el in [0, 1] {
+            let mut cpu = virtual_interrupt_cpu(el, 0xd503_201f);
+            cpu.daif = 3 ^ mask;
+            cpu.sysregs.hcr_el2 |= (1 << enable) | (1 << level);
+            // Physical routing must not redirect a virtual interrupt to EL3.
+            cpu.sysregs.scr_el3 |= 0b110;
+            assert_eq!(cpu.step().unwrap(), CpuExit::InterruptPending);
+            assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+            let vector = if el == 0 { 0x400 } else { 0x200 };
+            assert_eq!(
+                (cpu.current_el, cpu.pc, cpu.insn_count),
+                (1, 0x800 + vector + offset, 0)
+            );
+            assert_eq!(cpu.sysregs.el1.elr, 0);
+            assert_eq!(cpu.sysregs.hcr_el2 & (1 << level), 1 << level);
+        }
+    }
+}
+
+#[test]
+fn hcr_virtual_interrupts_respect_route_level_security_and_independent_masks() {
+    for (enable, level, mask, offset) in [(4, 7, 2, 0x80), (3, 6, 1, 0x100)] {
+        for (el, secure, hcr_enable, tge, masked) in [
+            (1, false, false, false, false),
+            (1, false, true, true, false),
+            (1, true, true, false, false),
+            (2, false, true, false, false),
+            (1, false, true, false, true),
+        ] {
+            let mut cpu = virtual_interrupt_cpu(el, 0xd503_201f);
+            cpu.sysregs.scr_el3 &= !u64::from(secure);
+            cpu.sysregs.hcr_el2 |=
+                (u64::from(hcr_enable) << enable) | (u64::from(tge) << 27) | (1 << level);
+            cpu.daif = u8::from(masked) * mask;
+            assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+            assert_eq!((cpu.current_el, cpu.pc, cpu.insn_count), (el, 4, 1));
+        }
+        let mut cpu = virtual_interrupt_cpu(1, 0xd503_201f);
+        cpu.sysregs.hcr_el2 |= (1 << 3) | (1 << 4) | (1 << 6) | (1 << 7);
+        cpu.daif = 3 ^ mask;
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+        assert_eq!((cpu.pc, cpu.insn_count), (0xa00 + offset, 0));
+    }
+    let mut cpu = virtual_interrupt_cpu(1, 0xd503_201f);
+    cpu.sysregs.hcr_el2 |= (1 << 3) | (1 << 4) | (1 << 6) | (1 << 7);
+    cpu.daif = 0;
+    assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+    assert_eq!((cpu.pc, cpu.insn_count), (0xa80, 0));
+}
+
+#[test]
+fn hcr_virtual_interrupts_wake_wfi_even_when_masked() {
+    use crate::vm::timing::{ClockMode, TimingContext};
+    use crate::vm::vcpu::ClockIdle;
+    use std::sync::Arc;
+
+    for (enable, level) in [(4, 7), (3, 6)] {
+        let mut cpu = virtual_interrupt_cpu(1, 0xd503_207f);
+        cpu.daif = 0xf;
+        cpu.sysregs.hcr_el2 |= (1 << enable) | (1 << level) | (1 << 13);
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Wfi);
+        assert_eq!((cpu.pc, cpu.insn_count, cpu.wfi), (4, 1, false));
+
+        let mut cpu = virtual_interrupt_cpu(1, 0xd503_207f);
+        cpu.daif = 0xf;
+        cpu.bind_system_counter(Arc::new(TimingContext::with_mode(ClockMode::Retired)));
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Wfi);
+        assert!(cpu.wfi);
+        assert!(matches!(
+            cpu.clock_idle().unwrap(),
+            ClockIdle::Waiting { .. }
+        ));
+        cpu.sysregs.hcr_el2 |= (1 << enable) | (1 << level);
+        assert!(matches!(cpu.clock_idle().unwrap(), ClockIdle::Runnable));
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+        assert_eq!((cpu.pc, cpu.insn_count, cpu.wfi), (8, 2, false));
+    }
+}
+
+#[test]
+fn hcr_virtual_interrupts_complete_an_existing_wfe_when_unmasked() {
+    for direct in [false, true] {
+        let mut cpu = virtual_interrupt_cpu(1, 0xd503_205f);
+        cpu.daif = 0xd; // IRQ unmasked.
+        let step = |cpu: &mut AArch64Cpu| {
+            if direct {
+                cpu.step()
+            } else {
+                cpu.step_system()
+            }
+            .unwrap()
+        };
+        assert_eq!(step(&mut cpu), CpuExit::Wfe);
+        assert!(cpu.wfe);
+        cpu.sysregs.hcr_el2 |= (1 << 4) | (1 << 7);
+        let result = step(&mut cpu);
+        assert!(!cpu.wfe);
+        assert_eq!(cpu.insn_count, 1);
+        if direct {
+            assert_eq!((result, cpu.pc), (CpuExit::InterruptPending, 4));
+        } else {
+            assert_eq!((result, cpu.pc), (CpuExit::Continue, 0xa80));
+            assert_eq!(cpu.sysregs.el1.elr, 4);
+        }
+    }
+}
+
+#[test]
+fn hcr_virtual_interrupts_share_the_boundary_with_physical_interrupts() {
+    for (group, gate, level, virtual_vector, physical_vector, physical_mask) in
+        [(0, 4, 7, 0x280, 0x300, 1), (1, 3, 6, 0x300, 0x280, 2)]
+    {
+        for masked in [false, true] {
+            let mut cpu = cpu(group, 0xd503_201f);
+            cpu.sysregs.scr_el3 = 0x501;
+            cpu.sysregs.hcr_el2 = (1 << 31) | (1 << gate) | (1 << level);
+            cpu.daif = if masked { physical_mask } else { 0 };
+            assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+            let vector = if masked {
+                virtual_vector
+            } else {
+                physical_vector
+            };
+            assert_eq!((cpu.current_el, cpu.pc, cpu.insn_count), (1, vector, 0));
+        }
+    }
+}
+
+#[test]
+fn hcr_virtual_interrupts_stay_out_of_the_process_entry() {
+    let mut cpu = virtual_interrupt_cpu(0, 0xd503_201f);
+    cpu.daif = 0;
+    cpu.sysregs.hcr_el2 |= (1 << 4) | (1 << 7);
+    assert_eq!(cpu.step_user_pauth(false).unwrap(), CpuExit::Continue);
+    assert_eq!((cpu.current_el, cpu.pc, cpu.insn_count), (0, 4, 1));
+    assert_eq!(cpu.step().unwrap(), CpuExit::InterruptPending);
+}
+
+#[test]
+fn hcr_virtual_interrupts_enter_aarch32_el1_in_the_selected_mode() {
+    for (gate, level, mode, vector) in [(4, 7, 0x12, 0x18), (3, 6, 0x11, 0x1c)] {
+        let mut cpu = virtual_interrupt_cpu(1, 0xe320_f000);
+        cpu.sysregs.hcr_el2 = (1 << gate) | (1 << level); // AArch32 EL1.
+        cpu.set_pstate_bits(0x13).unwrap(); // Unmasked AArch32 SVC.
+        assert_eq!(cpu.step_system().unwrap(), CpuExit::Continue);
+        assert_eq!(
+            (cpu.current_el, cpu.pc, cpu.insn_count),
+            (1, 0x800 + vector, 0)
+        );
+        assert_eq!(cpu.aarch32.unwrap().mode, mode);
+        assert_eq!(cpu.get_lr(), 4);
+    }
+}
+
 #[test]
 fn mrs_iar_and_hppir_respect_group_without_consuming_a_wrong_bank() {
     for (group, wrong_iar, wrong_hppir, right_iar) in [
