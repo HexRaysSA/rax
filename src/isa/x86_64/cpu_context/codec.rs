@@ -2,13 +2,46 @@
 use super::*;
 
 impl Context {
+    fn bind_pending_input_port(&mut self, saved_port: Option<u16>) -> Result<()> {
+        let queued = match self.pending_exit.as_ref() {
+            Some(ExitContext::IoIn { port, size }) => Some((*port, *size, 1)),
+            Some(ExitContext::IoInString { port, size, count }) => Some((*port, *size, *count)),
+            _ => None,
+        };
+        let Some(input) = &mut self.io_pending else {
+            if saved_port.is_some() || queued.is_some() {
+                return Err(invalid("pending port input has no destination"));
+            }
+            return Ok(());
+        };
+        if let Some((port, size, count)) = queued {
+            if input.size != size
+                || input.count != count
+                || saved_port.is_some_and(|saved| saved != port)
+            {
+                return Err(invalid("pending port input disagrees with queued exit"));
+            }
+            // Older records can recover the port if a JIT exit was still queued.
+            input.port = Some(port);
+        } else {
+            input.port = saved_port;
+        }
+        Ok(())
+    }
+
     pub(super) fn decode(raw: &[u8], target: &X86_64Vcpu) -> Result<Self> {
         if raw.len() > TAG.len() + MAX_PAYLOAD {
             return Err(invalid("invalid tag or length"));
         }
-        let nmi_blocked =
-            raw.starts_with(NMI_BLOCKED_TAG) || raw.starts_with(IOAPIC_NMI_BLOCKED_TAG);
-        let (mut context, status, apic_base, shadow) = if let Some(payload) = raw
+        let (version5, nmi_blocked, port) = if let Some(payload) = raw
+            .strip_prefix(PORT_INPUT_TAG)
+            .or_else(|| raw.strip_prefix(IOAPIC_PORT_INPUT_TAG))
+        {
+            let version =
+                crate::codec::deserialize_limited::<PortInputVersion<Self>, MAX_PAYLOAD>(payload)
+                    .map_err(invalid)?;
+            (Some(version.base), version.nmi_blocked, Some(version.port))
+        } else if let Some(payload) = raw
             .strip_prefix(IOAPIC_SHADOW_TAG)
             .or_else(|| raw.strip_prefix(SHADOW_TAG))
             .or_else(|| raw.strip_prefix(NMI_BLOCKED_TAG))
@@ -16,6 +49,13 @@ impl Context {
         {
             let version = crate::codec::deserialize_limited::<Version5<Self>, MAX_PAYLOAD>(payload)
                 .map_err(invalid)?;
+            let nmi_blocked =
+                raw.starts_with(NMI_BLOCKED_TAG) || raw.starts_with(IOAPIC_NMI_BLOCKED_TAG);
+            (Some(version), nmi_blocked, None)
+        } else {
+            (None, false, None)
+        };
+        let (mut context, status, apic_base, shadow) = if let Some(version) = version5 {
             (
                 version.base.base.base,
                 Some(version.base.base.user_debug_status),
@@ -66,6 +106,7 @@ impl Context {
             .unwrap_or_else(|| crate::isa::x86_64::identity::initial_apic_base(context.id));
         context.nmi_blocked = nmi_blocked;
         context.mmu.ioapic_mmio = X86_64Vcpu::context_requires_ioapic(raw);
+        context.bind_pending_input_port(port)?;
         context.validate(target)?;
         Ok(context)
     }
@@ -82,27 +123,44 @@ impl Context {
             .user
             .as_ref()
             .is_some_and(|user| user.instruction_debug_inhibit);
-        let payload = if shadow || self.nmi_blocked {
+        let version = Version5 {
+            base: version,
+            instruction_debug_inhibit: shadow,
+        };
+        let port = self.io_pending.as_ref().and_then(|input| input.port);
+        let payload = if let Some(port) = port {
             crate::codec::serialize_limited(
-                &Version5 {
+                &PortInputVersion {
                     base: version,
-                    instruction_debug_inhibit: shadow,
+                    nmi_blocked: self.nmi_blocked,
+                    port,
                 },
                 MAX_PAYLOAD,
             )
-        } else {
+        } else if shadow || self.nmi_blocked {
             crate::codec::serialize_limited(&version, MAX_PAYLOAD)
+        } else {
+            crate::codec::serialize_limited(&version.base, MAX_PAYLOAD)
         }
         .map_err(invalid)?;
         let mut raw = Vec::with_capacity(TAG.len() + payload.len());
-        raw.extend_from_slice(match (self.nmi_blocked, shadow, self.mmu.ioapic_mmio) {
-            (true, _, true) => IOAPIC_NMI_BLOCKED_TAG,
-            (true, _, false) => NMI_BLOCKED_TAG,
-            (false, true, true) => IOAPIC_SHADOW_TAG,
-            (false, true, false) => SHADOW_TAG,
-            (false, false, true) => IOAPIC_TAG,
-            (false, false, false) => TAG,
-        });
+        raw.extend_from_slice(
+            match (
+                port.is_some(),
+                self.nmi_blocked,
+                shadow,
+                self.mmu.ioapic_mmio,
+            ) {
+                (true, _, _, true) => IOAPIC_PORT_INPUT_TAG,
+                (true, _, _, false) => PORT_INPUT_TAG,
+                (false, true, _, true) => IOAPIC_NMI_BLOCKED_TAG,
+                (false, true, _, false) => NMI_BLOCKED_TAG,
+                (false, false, true, true) => IOAPIC_SHADOW_TAG,
+                (false, false, true, false) => SHADOW_TAG,
+                (false, false, false, true) => IOAPIC_TAG,
+                (false, false, false, false) => TAG,
+            },
+        );
         raw.extend_from_slice(&payload);
         Ok(raw)
     }

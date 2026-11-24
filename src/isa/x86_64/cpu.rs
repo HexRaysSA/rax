@@ -505,6 +505,8 @@ enum IoInTarget {
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct IoPending {
+    #[serde(skip)] // Port lives in the new context envelope, keeping the old body readable.
+    port: Option<u16>,
     size: u8,
     target: IoInTarget,
     /// Element count: 1 for a normal IN, N for a batched `rep ins` block (the
@@ -2443,16 +2445,18 @@ impl X86_64Vcpu {
     }
 
     // I/O pending helpers
-    pub(super) fn set_io_pending_reg(&mut self, size: u8) {
+    pub(super) fn set_io_pending_reg(&mut self, port: u16, size: u8) {
         self.io_pending = Some(IoPending {
+            port: Some(port),
             size,
             target: IoInTarget::Reg,
             count: 1,
         });
     }
 
-    pub(super) fn set_io_pending_mem(&mut self, size: u8, addr: u64) {
+    pub(super) fn set_io_pending_mem(&mut self, port: u16, size: u8, addr: u64) {
         self.io_pending = Some(IoPending {
+            port: Some(port),
             size,
             target: IoInTarget::Mem { addr },
             count: 1,
@@ -2462,8 +2466,9 @@ impl X86_64Vcpu {
     /// Stage a batched `rep ins` block: `count` consecutive `size`-byte elements
     /// written to memory starting at `addr` (forward). Completed in one shot by
     /// [`Self::complete_io_in`] from the data the backend reads off the port.
-    pub(super) fn set_io_pending_block(&mut self, size: u8, addr: u64, count: u32) {
+    pub(super) fn set_io_pending_block(&mut self, port: u16, size: u8, addr: u64, count: u32) {
         self.io_pending = Some(IoPending {
+            port: Some(port),
             size,
             target: IoInTarget::Mem { addr },
             count,

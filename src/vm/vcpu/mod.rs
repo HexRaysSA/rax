@@ -379,6 +379,13 @@ pub trait VCpu: Send {
     /// Complete an I/O in operation by providing the data read from the device.
     fn complete_io_in(&mut self, data: &[u8]);
 
+    /// A software port input already issued at the saved execution boundary.
+    /// The VMM services this request before it enters any vCPU on resume.
+    #[doc(hidden)]
+    fn pending_software_port_input(&self) -> Result<Option<VcpuExit>> {
+        Ok(None)
+    }
+
     /// Acknowledge a successfully dispatched output exit. Backends that stage
     /// an output retain its operand and re-emit it until this call succeeds.
     /// Callers must dispatch and acknowledge before publishing a complete

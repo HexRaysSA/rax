@@ -187,6 +187,22 @@ impl Vmm {
         let _timing = self.timing_context.enter();
         info!(cpus = self.vcpus.len(), "starting execution coordinator");
 
+        // The saved CPU already issued the read and the scheduler advanced.
+        // Finish the previous turn before admitting new input or CPU entry.
+        for cpu_index in 0..self.vcpus.len() {
+            if let Some(exit) = self.vcpus[cpu_index].pending_software_port_input()? {
+                self.apply_execution_turn(
+                    ExecutionTurn {
+                        cpu_index,
+                        exit,
+                        #[cfg(feature = "debug")]
+                        debug_step_completed: false,
+                    },
+                    true,
+                )?;
+            }
+        }
+
         // Wait for GDB connection if --wait-gdb was specified
         #[cfg(feature = "debug")]
         if self.wait_gdb {

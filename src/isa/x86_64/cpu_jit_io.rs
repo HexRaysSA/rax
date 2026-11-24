@@ -68,7 +68,7 @@ impl X86_64Vcpu {
                 data: bytes[..usize::from(size)].to_vec(),
             }
         } else {
-            self.set_io_pending_reg(size);
+            self.set_io_pending_reg(port, size);
             VcpuExit::IoIn { port, size }
         });
     }

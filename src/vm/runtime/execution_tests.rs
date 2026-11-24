@@ -411,6 +411,107 @@ fn coordinated_checkpoint_cannot_omit_an_aps_pending_input() {
 }
 
 #[test]
+fn detached_x86_resume_services_pending_ap_input_before_entering_any_cpu() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    for repeat in [false, true] {
+        let mut source = Fixture::with_memory(2, 128 << 20);
+        source.write(BSP, &[0xf4]);
+        let mut ap_code = vec![0xba, 0xf8, 0x03]; // MOV DX,0x3f8
+        if repeat {
+            ap_code.extend_from_slice(&[0xbf, 0x04, 0x70, 0xb9, 2, 0, 0xf3, 0x6c]);
+        } else {
+            ap_code.extend_from_slice(&[0xec, 0xa2, 0x04, 0x70]); // IN AL,DX; MOV [0x7004],AL
+        }
+        ap_code.extend_from_slice(&[0xba, 0x04, 0x06, 0xb8, 0x00, 0x20, 0xef]); // ACPI S5
+        source.write(AP, &ap_code);
+        {
+            let mut bsp = source.vm.local_apics[0].lock().unwrap();
+            bsp.write_register(0x310, 1 << 24);
+            bsp.write_register(0x300, 0x4500);
+            bsp.write_register(0x300, 0x0609);
+        }
+        let bsp = source.vm.execute_turn().unwrap().unwrap();
+        assert_eq!(bsp.cpu_index, 0);
+        assert!(matches!(bsp.exit, VcpuExit::Hlt));
+        let ap = source.vm.execute_turn().unwrap().unwrap();
+        assert_eq!(ap.cpu_index, 1);
+        assert!(matches!(
+            ap.exit,
+            VcpuExit::IoIn {
+                port: 0x3f8,
+                size: 1
+            }
+        ));
+
+        // The BSP is next in the saved schedule and reads the same UART.
+        // INSB stores the byte as part of I/O completion, before the AP can
+        // shut down the machine on the next turn.
+        source.write(
+            BSP,
+            &[0x66, 0xba, 0xf8, 0x03, 0xbf, 0, 0x70, 0, 0, 0x6c, 0xf4],
+        );
+        let CpuState::X86_64(mut bsp) = source.vm.vcpus[0].get_state().unwrap() else {
+            unreachable!();
+        };
+        bsp.regs.rip = BSP;
+        source.vm.vcpus[0]
+            .set_state(&CpuState::X86_64(bsp))
+            .unwrap();
+        source.vm.vcpus[0].wake();
+        {
+            let mut uart = source.vm.serial.lock().unwrap();
+            IoDevice::write(&mut *uart, 0x3fa, 1); // Enable the RX FIFO.
+            uart.queue_input(&[0x5a, 0xc3, 0x71, 0x99]);
+        }
+
+        let path = source.kernel.with_extension("rxc");
+        let retired = source.vm.coordinator.retired;
+        let bundle = source.vm.take_snapshot_bundle(retired).unwrap();
+        assert_eq!(bundle.execution().unwrap().cursor(), 0);
+        assert!(bundle.base().devices.serial.has_input());
+        assert!(
+            source
+                .vm
+                .take_snapshot(retired)
+                .err()
+                .expect("base-only capture lost the issued input")
+                .to_string()
+                .contains("pending software x86 port input")
+        );
+        assert!(
+            source
+                .vm
+                .restore_snapshot(bundle.base())
+                .unwrap_err()
+                .to_string()
+                .contains("pending software x86 port input")
+        );
+        bundle.save(&path).unwrap();
+        drop(source);
+        let bundle = SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut resumed = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        resumed.run().unwrap();
+        assert!(resumed.pc_powered_off());
+
+        let mut results = [0; 8];
+        resumed
+            .guest_mem
+            .memory()
+            .read_slice(&mut results, GuestAddress(FLAGS))
+            .unwrap();
+        assert_eq!(
+            results,
+            [0xc3, 0, 0, 0, 0x5a, if repeat { 0x71 } else { 0 }, 0, 0]
+        );
+        let remaining = IoDevice::read(&mut *resumed.serial.lock().unwrap(), 0x3f8);
+        assert_eq!(remaining, if repeat { 0x99 } else { 0x71 });
+    }
+}
+
+#[test]
 fn checkpoint_keeps_an_unprocessed_init_sipi_and_fixed_ipi_fifo() {
     let mut fixture = Fixture::with_memory(2, 128 * 1024 * 1024);
     {

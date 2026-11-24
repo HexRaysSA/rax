@@ -933,6 +933,17 @@ impl Vmm {
         self.pc_devices.as_ref().is_some_and(|pc| pc.powered_off())
     }
 
+    fn validate_base_snapshot_port_input(&self) -> Result<()> {
+        for cpu in &self.vcpus {
+            if cpu.pending_software_port_input()?.is_some() {
+                return Err(Error::InvalidConfig(
+                    "pending software x86 port input requires a complete checkpoint".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
     /// KVM requires a stopped native frontier across all managed CPUs. Use
     /// a complete snapshot bundle to settle native I/O and retain private state.
@@ -959,6 +970,7 @@ impl Vmm {
             ));
         }
         self.validate_base_snapshot_clock()?;
+        self.validate_base_snapshot_port_input()?;
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();

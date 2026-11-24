@@ -161,7 +161,11 @@ fn malformed_final_cpu_and_missing_or_unreferenced_media_preserve_all_live_state
     let fixture = Fixture::new();
     let source = fixture.source(4);
     let original = contexts(&source);
-    let cpus = source.capture_cpu_states().unwrap();
+    let pc_resources = source
+        .pc_devices
+        .as_ref()
+        .map(|pc| pc.checkpoint_with(|_, resources| Ok(resources)).unwrap())
+        .unwrap_or_default();
     let mut target = Vmm::new_resume(fixture.config(4)).unwrap();
     target
         .guest_mem
@@ -185,16 +189,20 @@ fn malformed_final_cpu_and_missing_or_unreferenced_media_preserve_all_live_state
             3 | 4 => (),
             _ => unreachable!(),
         }
-        let mut bundle = SnapshotBundle::new(source.take_snapshot(8).unwrap())
-            .with_cpus(cpus.clone())
+        let mut bundle = source
+            .take_snapshot_bundle(8)
             .unwrap()
             .with_backend_contexts(entries)
             .unwrap();
+        bundle.take_resources();
+        let mut resources = pc_resources.clone();
         if mutation != 3 {
-            let mut resources = source.vcpus[0].capture_checkpoint_resources().unwrap();
+            resources.extend(source.vcpus[0].capture_checkpoint_resources().unwrap());
             if mutation == 4 {
                 resources.push(CheckpointResource::boot_cdrom(Arc::new(vec![0x33; 2048])).unwrap());
             }
+        }
+        if !resources.is_empty() {
             bundle = bundle.with_resources(resources).unwrap();
         }
         assert!(

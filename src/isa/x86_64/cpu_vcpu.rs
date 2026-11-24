@@ -2,6 +2,31 @@
 
 use super::*;
 
+impl X86_64Vcpu {
+    fn admit_checkpoint_context(
+        &self,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+        machine: bool,
+    ) -> Result<()> {
+        self.validate_checkpoint_state(state, emulator)?;
+        if let Some(context) = context {
+            if context.kind != crate::vm::snapshot::X86_64_CONTEXT {
+                return Err(Error::InvalidConfig(
+                    "checkpoint context producer differs from software x86".into(),
+                ));
+            }
+            self.validate_context_projection(state, emulator, &context.data, machine)?;
+        } else if machine && self.io_pending.is_some() {
+            return Err(Error::InvalidConfig(
+                "cannot apply a public CPU projection to a vCPU with pending port input".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl VCpu for X86_64Vcpu {
     fn required_private_checkpoint_kind(&self) -> Option<u32> {
         Some(crate::vm::snapshot::X86_64_CONTEXT)
@@ -80,16 +105,17 @@ impl VCpu for X86_64Vcpu {
         emulator: &crate::vm::snapshot::EmulatorState,
         context: Option<&crate::vm::snapshot::BackendContext>,
     ) -> Result<()> {
-        self.validate_checkpoint_state(state, emulator)?;
-        if let Some(context) = context {
-            if context.kind != crate::vm::snapshot::X86_64_CONTEXT {
-                return Err(Error::InvalidConfig(
-                    "checkpoint context producer differs from software x86".into(),
-                ));
-            }
-            self.validate_context_projection(state, emulator, &context.data)?;
-        }
-        Ok(())
+        self.admit_checkpoint_context(state, emulator, context, false)
+    }
+
+    fn validate_checkpoint_for_machine(
+        &self,
+        _config: &crate::config::CheckpointConfig,
+        state: &CpuState,
+        emulator: &crate::vm::snapshot::EmulatorState,
+        context: Option<&crate::vm::snapshot::BackendContext>,
+    ) -> Result<()> {
+        self.admit_checkpoint_context(state, emulator, context, true)
     }
 
     fn prepare_checkpoint_replacement(
@@ -255,8 +281,36 @@ impl VCpu for X86_64Vcpu {
         Some((self.bios_cdrom.clone(), self.bios_mem_bytes))
     }
 
+    fn pending_software_port_input(&self) -> Result<Option<VcpuExit>> {
+        let Some(input) = &self.io_pending else {
+            return Ok(None);
+        };
+        let port = input
+            .port
+            .ok_or_else(|| Error::InvalidConfig("pending software x86 input has no port".into()))?;
+        Ok(Some(if input.count == 1 {
+            VcpuExit::IoIn {
+                port,
+                size: input.size,
+            }
+        } else {
+            VcpuExit::IoInString {
+                port,
+                size: input.size,
+                count: input.count,
+            }
+        }))
+    }
+
     fn complete_io_in(&mut self, data: &[u8]) {
         if let Some(pending) = self.io_pending.take() {
+            if matches!(
+                self.jit_callout_exit,
+                Some(VcpuExit::IoIn { .. } | VcpuExit::IoInString { .. })
+            ) {
+                // A restored request may be serviced before the queued JIT exit is taken.
+                self.jit_callout_exit = None;
+            }
             let sz = pending.size as usize;
             // Batched `rep ins` block: write `count` consecutive elements from
             // `data` to memory starting at the staged address (forward).

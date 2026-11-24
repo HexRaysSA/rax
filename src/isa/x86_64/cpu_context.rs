@@ -18,6 +18,8 @@ const SHADOW_TAG: &[u8; 8] = b"RAXX8605";
 const IOAPIC_SHADOW_TAG: &[u8; 8] = b"RAXX8606";
 const NMI_BLOCKED_TAG: &[u8; 8] = b"RAXX8607";
 const IOAPIC_NMI_BLOCKED_TAG: &[u8; 8] = b"RAXX8608";
+const PORT_INPUT_TAG: &[u8; 8] = b"RAXX8609";
+const IOAPIC_PORT_INPUT_TAG: &[u8; 8] = b"RAXX8610";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
 
 #[derive(Serialize, Deserialize)]
@@ -36,6 +38,13 @@ struct Version3<T> {
 struct Version5<T> {
     base: Version3<T>,
     instruction_debug_inhibit: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PortInputVersion<T> {
+    base: Version5<T>,
+    nmi_blocked: bool,
+    port: u16,
 }
 
 #[path = "cpu_context/codec.rs"]
@@ -193,9 +202,14 @@ mod ioapic_tests;
 
 impl X86_64Vcpu {
     pub(crate) fn context_requires_ioapic(raw: &[u8]) -> bool {
-        [IOAPIC_TAG, IOAPIC_SHADOW_TAG, IOAPIC_NMI_BLOCKED_TAG]
-            .iter()
-            .any(|tag| raw.starts_with(*tag))
+        [
+            IOAPIC_TAG,
+            IOAPIC_SHADOW_TAG,
+            IOAPIC_NMI_BLOCKED_TAG,
+            IOAPIC_PORT_INPUT_TAG,
+        ]
+        .iter()
+        .any(|tag| raw.starts_with(*tag))
     }
 
     /// Selected optional instruction capabilities, independent of register state.
@@ -450,8 +464,19 @@ impl X86_64Vcpu {
         state: &CpuState,
         emulator: &crate::vm::snapshot::EmulatorState,
         raw: &[u8],
+        require_input_port: bool,
     ) -> Result<()> {
         let context = Context::decode(raw, self)?;
+        if require_input_port
+            && context
+                .io_pending
+                .as_ref()
+                .is_some_and(|input| input.port.is_none())
+        {
+            return Err(Error::InvalidConfig(
+                "checkpoint pending software x86 input has no port".into(),
+            ));
+        }
         let mut candidate = X86_64Vcpu::new(context.id, self.mmu.checkpoint_memory());
         candidate.regs = context.regs;
         candidate.sregs = context.sregs;

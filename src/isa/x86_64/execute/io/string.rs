@@ -41,7 +41,7 @@ fn ins_common(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, size: u8) -> Result<
     // FIFO-style devices and to consumers that count discrete port reads).
     // ES:[RDI]: ES's base outside 64-bit mode (get_segment_base), wrapped.
     let addr = vcpu.segment_linear(vcpu.get_segment_base(Some(0x26)), di_addr(vcpu, addr_size));
-    vcpu.set_io_pending_mem(size, addr);
+    vcpu.set_io_pending_mem(port, size, addr);
     update_di(vcpu, addr_size, size, df);
 
     if rep {

@@ -14,7 +14,7 @@ pub fn in_al_imm8(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option
     let port = ctx.consume_u8()? as u16;
     vcpu.check_io_permission(port, 1)?;
     vcpu.regs.rip += ctx.cursor as u64;
-    vcpu.set_io_pending_reg(1);
+    vcpu.set_io_pending_reg(port, 1);
     Ok(Some(VcpuExit::IoIn { port, size: 1 }))
 }
 
@@ -24,7 +24,7 @@ pub fn in_ax_imm8(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option
     let size = ax_eax_size(ctx);
     vcpu.check_io_permission(port, size)?;
     vcpu.regs.rip += ctx.cursor as u64;
-    vcpu.set_io_pending_reg(size);
+    vcpu.set_io_pending_reg(port, size);
     Ok(Some(VcpuExit::IoIn { port, size }))
 }
 
@@ -33,7 +33,7 @@ pub fn in_al_dx(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
     let port = vcpu.regs.rdx as u16;
     vcpu.check_io_permission(port, 1)?;
     vcpu.regs.rip += ctx.cursor as u64;
-    vcpu.set_io_pending_reg(1);
+    vcpu.set_io_pending_reg(port, 1);
     Ok(Some(VcpuExit::IoIn { port, size: 1 }))
 }
 
@@ -43,7 +43,7 @@ pub fn in_ax_dx(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
     let size = ax_eax_size(ctx);
     vcpu.check_io_permission(port, size)?;
     vcpu.regs.rip += ctx.cursor as u64;
-    vcpu.set_io_pending_reg(size);
+    vcpu.set_io_pending_reg(port, size);
     Ok(Some(VcpuExit::IoIn { port, size }))
 }
 

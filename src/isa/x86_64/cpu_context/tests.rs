@@ -97,17 +97,86 @@ fn pending_register_input_completes_once_with_the_original_retirement_count() {
             size: 1
         })
     ));
+    source.nmi_blocked = true;
     let raw = source.save_context().unwrap();
+    assert!(raw.starts_with(PORT_INPUT_TAG));
     let (mut target, _) = cpu(&[0xe4, 0x80, 0xf4]);
     target.restore_context(&raw).unwrap();
+    assert!(target.nmi_blocked);
+    assert!(matches!(
+        target.pending_software_port_input().unwrap(),
+        Some(VcpuExit::IoIn {
+            port: 0x80,
+            size: 1
+        })
+    ));
     source.complete_io_in(&[0xa5]);
     target.complete_io_in(&[0xa5]);
+    assert!(target.pending_software_port_input().unwrap().is_none());
     assert_eq!(rax(&source), 0x112233a5);
     assert_eq!(rax(&target), rax(&source));
     assert_eq!(target.instruction_count(), source.instruction_count());
     target.complete_io_in(&[0x77]);
     assert_eq!(rax(&target), 0x112233a5);
     assert!(matches!(target.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+}
+
+#[test]
+fn legacy_input_requires_a_queued_request_for_machine_resume() {
+    let (mut source, _) = cpu(&[0xe4, 0x80, 0xf4]);
+    assert!(matches!(
+        source.step_insn().unwrap(),
+        Some(VcpuExit::IoIn { .. })
+    ));
+    let mut legacy = Context::decode(&source.save_context().unwrap(), &source).unwrap();
+    legacy.io_pending.as_mut().unwrap().port = None;
+    let public = source.get_state().unwrap();
+    let emulator = source.get_emulator_state().unwrap();
+    let missing = legacy.encode().unwrap();
+    assert!(missing.starts_with(TAG));
+    let error = source
+        .validate_context_projection(&public, &emulator, &missing, true)
+        .unwrap_err();
+    assert!(error.to_string().contains("has no port"), "{error}");
+    let (mut target, _) = cpu(&[0xe4, 0x80, 0xf4]);
+    target.restore_context(&missing).unwrap();
+    target.complete_io_in(&[0x11]);
+    assert_eq!(rax(&target), 0x11223311);
+
+    legacy.pending_exit = Some(ExitContext::IoIn {
+        port: 0x80,
+        size: 1,
+    });
+    let queued = legacy.encode().unwrap();
+    source
+        .validate_context_projection(&public, &emulator, &queued, true)
+        .unwrap();
+    target.restore_context(&queued).unwrap();
+    assert!(matches!(
+        target.pending_software_port_input().unwrap(),
+        Some(VcpuExit::IoIn {
+            port: 0x80,
+            size: 1
+        })
+    ));
+    target.complete_io_in(&[0x22]);
+    assert_eq!(rax(&target), 0x11223322);
+    assert!(matches!(target.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+
+    legacy.io_pending.as_mut().unwrap().port = Some(0x81);
+    let inconsistent = legacy.encode().unwrap();
+    let error = target.restore_context(&inconsistent).unwrap_err();
+    assert!(
+        error.to_string().contains("disagrees with queued exit"),
+        "{error}"
+    );
+    assert_eq!(rax(&target), 0x11223322);
+
+    legacy.io_pending = None;
+    let no_destination = legacy.encode().unwrap();
+    let error = target.restore_context(&no_destination).unwrap_err();
+    assert!(error.to_string().contains("has no destination"), "{error}");
+    assert_eq!(rax(&target), 0x11223322);
 }
 
 #[test]
@@ -632,6 +701,9 @@ fn current_host_binding_discards_only_saved_gdb_notifications() {
             source.set_debugger_active(true);
             source.set_single_step(matches!(&exit, VcpuExit::GdbStep));
             source.set_debug_breakpoint(0x100).unwrap();
+            if let VcpuExit::IoIn { port, size } = &exit {
+                source.set_io_pending_reg(*port, *size);
+            }
             let mut context = Context::decode(&source.save_context().unwrap(), &source).unwrap();
             context.pending_exit = Some(ExitContext::capture(&exit));
             let raw = context.encode().unwrap();
@@ -678,6 +750,11 @@ fn current_host_binding_discards_only_saved_gdb_notifications() {
                     expected,
                     "guest exits survive host-session binding"
                 );
+                if matches!(&exit, VcpuExit::IoIn { .. }) {
+                    target.complete_io_in(&[0xa5]);
+                    assert_eq!(rax(&target), 0x112233a5);
+                    assert!(target.jit_callout_exit.is_none());
+                }
             }
         }
     }

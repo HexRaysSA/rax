@@ -20,7 +20,7 @@ remains 4.
 | x87, lazy flags, MSRs, PKRU, MXCSR, halt and interrupt shadow | Preserve the legacy emulator image and validate its architectural invariants |
 | XCR0 and XGETBV1 | Preserve both controls; validate XCR0 against the selected ISA configuration before publication |
 | Optional ISA capabilities | Preserve all nine software capability switches; reset retains the selected configuration |
-| Input completion | Preserve width, register or memory destination, and batch count, separately from any undelivered native exit |
+| Input completion | Preserve port, width, register or memory destination, and batch count, separately from any undelivered JIT exit |
 | Deferred native exits and VSIB restart | Use a stable exit representation independent of debug build features; deliver a pending exit once before further execution, without retirement |
 | User mode | Preserve pending syscall/exception traps, compatibility mode, consumed debug status, and all 128 private GDT bytes |
 | Memory observations | Preserve recording/fetch configuration and ordered buffered access records; draining consumes each record once |
@@ -59,6 +59,19 @@ A pending native I/O exit is captured after its instruction has retired.
 Delivery and input completion consume that existing state without another
 retirement. This accounting does not establish a per-invocation native execution
 budget or complete SMP scheduling.
+
+Software-x86 records `RAXX8609` and `RAXX8610` append the issued input port and
+preserve the NMI block flag. `RAXX8610` also requires the PC I/O APIC binding.
+On resume the VMM completes the saved read through the device dispatcher before
+polling host input or entering any CPU. The completion leaves the scheduling cursor and
+retirement count in place. Each additional `REP INS` element issues its own
+request during ordinary execution.
+
+Older records can recover the port from a queued JIT input exit whose width and
+count match the pending destination. Machine restore rejects a pending input
+with no recoverable port. Standalone context import still permits explicit
+completion by the caller. A base-only snapshot cannot capture or replace a live
+VM with an issued software-x86 input.
 
 ## Immutable resource section
 
