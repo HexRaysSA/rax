@@ -11,6 +11,7 @@ pub(crate) enum ProcessConfigKey {
     RpcPolicy,
     ActiveComputerName,
     WinsockParameters,
+    WinsockAppIdCatalog,
     Ccg,
     DisabledLegacyExtensions,
     MachineAppCompatFlags,
@@ -18,10 +19,12 @@ pub(crate) enum ProcessConfigKey {
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 7] = [
+    pub(super) const ALL: [Self; 8] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
+        // Capture the fixed child before linking the Parameters handle.
+        Self::WinsockAppIdCatalog,
         Self::WinsockParameters,
         Self::Ccg,
         Self::MachineAppCompatFlags,
@@ -37,6 +40,9 @@ impl ProcessConfigKey {
             }
             Self::WinsockParameters => {
                 r"\Registry\Machine\System\CurrentControlSet\Services\WinSock2\Parameters"
+            }
+            Self::WinsockAppIdCatalog => {
+                r"\Registry\Machine\System\CurrentControlSet\Services\WinSock2\Parameters\AppId_Catalog"
             }
             Self::Ccg => r"\Registry\Machine\System\CurrentControlSet\Services\CCG",
             Self::DisabledLegacyExtensions => {
@@ -69,7 +75,7 @@ impl ProcessConfigKey {
                 "Current_Protocol_Catalog",
                 "WinSock_Registry_Version",
             ],
-            Self::Ccg | Self::OsDataAppCompatFlags => &[],
+            Self::WinsockAppIdCatalog | Self::Ccg | Self::OsDataAppCompatFlags => &[],
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
             Self::MachineAppCompatFlags => &["LogFlags"],
         }
@@ -81,6 +87,7 @@ impl ProcessConfigKey {
             Self::RpcPolicy => "RPC policy",
             Self::ActiveComputerName => "active computer name",
             Self::WinsockParameters => "Winsock catalog selection",
+            Self::WinsockAppIdCatalog => "Winsock application-ID catalog",
             Self::Ccg => "CCG service",
             Self::DisabledLegacyExtensions => "disabled legacy extensions",
             Self::MachineAppCompatFlags => "machine AppCompatFlags",
@@ -99,6 +106,46 @@ impl ProcessConfigKey {
             }
             _ => true,
         }
+    }
+
+    pub(super) fn link_children(
+        self,
+        registry: &Registry,
+        view: RegistryView,
+        parent: &mut Key,
+    ) -> io::Result<()> {
+        if self != Self::WinsockParameters {
+            return Ok(());
+        }
+        let child = Self::WinsockAppIdCatalog;
+        let selection = (ViewRoot::ProcessConfig(child), view);
+        let Some(selected) = registry.views.roots.get(&selection) else {
+            return Ok(());
+        };
+        let name = child
+            .path()
+            .rsplit('\\')
+            .next()
+            .expect("fixed Winsock child name")
+            .encode_utf16()
+            .collect::<Vec<_>>();
+        let route = match selected {
+            Some(key) => {
+                if key.open_denial.is_none() {
+                    let physical = tree::child_path(&parent.path, &name)?;
+                    if parent.children == 0 || parent.fold(&physical) != parent.fold(&key.path) {
+                        return Err(invalid(
+                            "Winsock application-ID catalog differs from its parent",
+                        ));
+                    }
+                }
+                Lookup::Present(key.clone())
+            }
+            None if registry.views.missing_paths.contains(&selection) => Lookup::MissingPath,
+            None => Lookup::Missing,
+        };
+        parent.selected_paths.insert(parent.fold(&name), route);
+        Ok(())
     }
 
     pub(super) fn check_name(

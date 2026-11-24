@@ -130,6 +130,7 @@ impl SnapshotRoot {
                     ProcessConfigKey::RpcPolicy
                         | ProcessConfigKey::ActiveComputerName
                         | ProcessConfigKey::WinsockParameters
+                        | ProcessConfigKey::WinsockAppIdCatalog
                         | ProcessConfigKey::Ccg
                 )
         )
@@ -363,6 +364,13 @@ impl Registry {
                 root.check_name(&self, sid, view, &header.canonical)?;
                 let mut builder = subtree::Builder::new(&self, view, root)?;
                 let mut key = builder.build(logical.clone(), header, children, 0)?;
+                if let SnapshotRoot::ProcessConfig(subject) = root {
+                    subject.link_children(
+                        &self,
+                        view,
+                        Arc::get_mut(&mut key).expect("new snapshot key"),
+                    )?;
+                }
                 if let Some(layers) = layers {
                     let key = Arc::get_mut(&mut key).expect("new snapshot key");
                     let route = build_creator_layers(&mut builder, key, &logical, layers)?;

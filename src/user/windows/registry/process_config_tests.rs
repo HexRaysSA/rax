@@ -206,6 +206,116 @@ fn winsock_parameters_exposes_only_selected_values_in_both_views() {
 }
 
 #[test]
+fn winsock_app_id_catalog_uses_the_selected_child_in_both_views() {
+    let parent = ProcessConfigKey::WinsockParameters;
+    let child = ProcessConfigKey::WinsockAppIdCatalog;
+    let physical_parent = parent.path().replace("CurrentControlSet", "ControlSet001");
+    let physical_child = child.path().replace("CurrentControlSet", "ControlSet001");
+    let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        registry = registry
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(child),
+                &[],
+                view,
+                Ok((header(&physical_child, vec![]), None)),
+            )
+            .unwrap()
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(parent),
+                &[],
+                view,
+                Ok((header(&physical_parent, vec![]), None)),
+            )
+            .unwrap();
+        for absolute in [child.path(), &physical_child] {
+            let Lookup::Present(key) = registry.lookup_view(&units(absolute), view) else {
+                panic!("Winsock application-ID catalog did not resolve");
+            };
+            let Lookup::Present(parent_key) = registry.lookup_view(&units(parent.path()), view)
+            else {
+                panic!("Winsock Parameters did not resolve");
+            };
+            let Lookup::Present(relative) = parent_key.relative(&units(r"appID_catalog\")) else {
+                panic!("Winsock Parameters could not open its selected child");
+            };
+            assert!(Arc::ptr_eq(&relative, &key));
+            assert_eq!(key.redirected_view, Some(view));
+            assert_eq!(
+                key.captured_access().unwrap().grant(2),
+                Err(STATUS_ACCESS_DENIED)
+            );
+            assert!(!key.covers_value(&units("Unselected")));
+            for unselected in [
+                format!(r"{absolute}\Unselected"),
+                format!(r"{absolute}-Unselected"),
+            ] {
+                assert!(matches!(
+                    registry.lookup_view(&units(&unselected), view),
+                    Lookup::Unselected
+                ));
+            }
+        }
+    }
+}
+
+#[test]
+fn winsock_app_id_catalog_preserves_absence_and_rejects_a_different_physical_parent() {
+    let parent = ProcessConfigKey::WinsockParameters;
+    let child = ProcessConfigKey::WinsockAppIdCatalog;
+    let view = RegistryView::Native64;
+    let base = Registry::selected(upcase(), vec![]).unwrap();
+    let registry = base
+        .clone()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(child),
+            &[],
+            view,
+            Err(STATUS_OBJECT_NAME_NOT_FOUND),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(parent),
+            &[],
+            view,
+            Ok((header(parent.path(), vec![]), None)),
+        )
+        .unwrap();
+    let Lookup::Present(key) = registry.lookup_view(&units(parent.path()), view) else {
+        panic!("Winsock Parameters did not resolve");
+    };
+    assert!(matches!(
+        registry.lookup_view(&units(child.path()), view),
+        Lookup::Missing
+    ));
+    assert!(matches!(
+        key.relative(&units("AppId_Catalog")),
+        Lookup::Missing
+    ));
+    assert!(matches!(
+        key.relative(&units("Protocol_Catalog9")),
+        Lookup::Unselected
+    ));
+
+    let second_control_set = child.path().replace("CurrentControlSet", "ControlSet002");
+    let contradictory = base
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(child),
+            &[],
+            view,
+            Ok((header(&second_control_set, vec![]), None)),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(parent),
+            &[],
+            view,
+            Ok((header(parent.path(), vec![]), None)),
+        );
+    assert!(contradictory.is_err());
+}
+
+#[test]
 fn process_config_machine_appcompat_flags_projects_only_native_log_flags() {
     let subject = ProcessConfigKey::MachineAppCompatFlags;
     let root = SnapshotRoot::ProcessConfig(subject);

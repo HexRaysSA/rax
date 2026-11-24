@@ -65,7 +65,13 @@ impl RegistryViews {
             if folded.starts_with(&prefix)
                 && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
             {
-                return self.lookup_selected(selected, view, &normalized[prefix.len()..]);
+                let suffix = &normalized[prefix.len()..];
+                // Fixed process configuration headers own exact absolute
+                // names. A child can be an independently captured subject.
+                if matches!(selected, ViewRoot::ProcessConfig(_)) && !suffix.is_empty() {
+                    continue;
+                }
+                return self.lookup_selected(selected, view, suffix);
             }
         }
         // These explicit physical spellings always select the x86 key.
@@ -121,7 +127,7 @@ impl RegistryViews {
                 {
                     let suffix = &normalized[prefix.len()..];
                     if matches!(kind, ViewRoot::ProcessConfig(_)) && !suffix.is_empty() {
-                        return Lookup::Unselected;
+                        continue;
                     }
                     return root.relative(suffix);
                 }
@@ -134,10 +140,7 @@ impl RegistryViews {
         if !suffix.is_empty()
             && matches!(
                 root,
-                ViewRoot::UserRegistryPolicy
-                    | ViewRoot::ThemeManager
-                    | ViewRoot::ThemePersonalize
-                    | ViewRoot::ProcessConfig(_)
+                ViewRoot::UserRegistryPolicy | ViewRoot::ThemeManager | ViewRoot::ThemePersonalize
             )
         {
             return Lookup::Unselected;
