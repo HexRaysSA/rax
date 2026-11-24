@@ -44,6 +44,7 @@ mod backing;
 mod copy_tracking;
 mod file_cow;
 mod mapped_file;
+pub(crate) use mapped_file::MappedFile;
 pub mod pagetable;
 mod private_copy;
 #[cfg(any(unix, windows))]
@@ -69,6 +70,7 @@ mod tests;
 pub use arena::{EXTENT, FrameArena};
 pub use backing::{Backing, BytesSource, HostFileSource, PageSource, SourceIdentity};
 pub use mapped_file::{Keep, set_retire};
+pub(crate) use shared::SharedFileExtent;
 pub use shared::{HostMemory, SharedObject, anonymous_file};
 pub use shared_words::SharedWords;
 pub use vma::{Vma, VmaMap};
@@ -435,6 +437,9 @@ impl AddressSpace {
         copy: bool,
     ) -> Result<(), MmError> {
         let end = check_range(start, len, self.inner.va_limit)?;
+        if let Backing::Shared { object, .. } = &mapping.backing {
+            object.track(self);
+        }
         let mut vmas = self.vmas();
         let replaced = vmas.insert(Vma {
             start,

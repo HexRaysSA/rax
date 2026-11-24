@@ -277,9 +277,18 @@ pub fn mmap(
                     }
                     vm_flags |= vma_flags::DENY_WRITE;
                 }
-                backing = Backing::Source {
-                    source: entry.source()?,
-                    offset: off,
+                backing = match &entry.kind {
+                    crate::user::supplied_fs::Kind::Workspace(workspace) if shared => {
+                        let writable = file.writable() && vm_flags & vma_flags::DENY_WRITE == 0;
+                        Backing::Shared {
+                            object: workspace.shared_mapping(writable)?,
+                            offset: off,
+                        }
+                    }
+                    _ => Backing::Source {
+                        source: entry.source()?,
+                        offset: off,
+                    },
                 };
                 name = Some(file.path.as_str().into());
             }

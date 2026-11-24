@@ -11,7 +11,7 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 use super::pagetable::{PTE_FRAME, PTE_VALID, PageTable};
-use super::{AddressSpace, Inner, MmError, PAGE_SIZE, attach};
+use super::{AddressSpace, Backing, Inner, MmError, PAGE_SIZE, attach};
 
 impl AddressSpace {
     /// Snapshot a quiescent address space into distinct owner-managed storage.
@@ -55,7 +55,7 @@ impl AddressSpace {
                 table.slot(vpn).store(pte, Ordering::Release);
             });
         copied?;
-        Ok(Self {
+        let snapshot = Self {
             inner: Arc::new(Inner {
                 va_limit: self.inner.va_limit,
                 arena,
@@ -66,7 +66,13 @@ impl AddressSpace {
                 extents: Mutex::new(extents),
                 residency: std::sync::OnceLock::new(),
             }),
-        })
+        };
+        for vma in vmas.iter() {
+            if let Backing::Shared { object, .. } = &vma.backing {
+                object.track(&snapshot);
+            }
+        }
+        Ok(snapshot)
     }
 }
 

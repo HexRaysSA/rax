@@ -16,6 +16,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use super::backing::SourceIdentity;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, Weak};
 
 /// Host memory that is not a file: an object the host maps directly (a
 /// Mach memory entry on macOS), which a personality provides. The frame
@@ -55,6 +57,53 @@ enum Store {
     Memory(Arc<dyn HostMemory>),
 }
 
+/// The visible extent of a workspace inode and the address spaces that can
+/// have resident pages for it. Weak references avoid a mapping/space cycle.
+#[derive(Debug)]
+pub(crate) struct SharedFileExtent {
+    length: AtomicU64,
+    spaces: Mutex<Vec<Weak<super::Inner>>>,
+}
+
+impl SharedFileExtent {
+    pub(crate) fn new(length: u64) -> Self {
+        Self {
+            length: AtomicU64::new(length),
+            spaces: Mutex::default(),
+        }
+    }
+
+    pub(crate) fn len(&self) -> u64 {
+        self.length.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn set_len(&self, length: u64) {
+        self.length.store(length, Ordering::Release);
+    }
+
+    fn track(&self, space: &super::AddressSpace) {
+        let mut spaces = self.spaces.lock().unwrap();
+        spaces.retain(|entry| entry.strong_count() != 0);
+        let entry = Arc::downgrade(&space.inner);
+        if !spaces.iter().any(|other| other.ptr_eq(&entry)) {
+            spaces.push(entry);
+        }
+    }
+
+    pub(crate) fn invalidate(&self, identity: SourceIdentity, length: u64) {
+        let spaces: Vec<_> = self
+            .spaces
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(Weak::upgrade)
+            .collect();
+        for inner in spaces {
+            super::AddressSpace { inner }.truncated(identity, length);
+        }
+    }
+}
+
 /// A host object backing shared mappings.
 pub struct SharedObject {
     store: Store,
@@ -66,6 +115,7 @@ pub struct SharedObject {
     /// A size fixed at creation that the host maps no further than (a
     /// Darwin POSIX shared memory object's).
     limit: Option<u64>,
+    extent: Option<Arc<SharedFileExtent>>,
 }
 
 impl fmt::Debug for SharedObject {
@@ -127,6 +177,7 @@ impl SharedObject {
             anonymous: false,
             sysv: None,
             limit: None,
+            extent: None,
         })
     }
 
@@ -141,6 +192,7 @@ impl SharedObject {
             anonymous: true,
             sysv: Some(id),
             limit: None,
+            extent: None,
         })
     }
 
@@ -162,6 +214,7 @@ impl SharedObject {
             anonymous: true,
             sysv: None,
             limit: None,
+            extent: None,
         })
     }
 
@@ -178,6 +231,7 @@ impl SharedObject {
             anonymous: false,
             sysv: None,
             limit: Some(len),
+            extent: None,
         }
     }
 
@@ -192,6 +246,34 @@ impl SharedObject {
             anonymous: false,
             sysv: None,
             limit: Some(len),
+            extent: None,
+        }
+    }
+
+    /// Guest-owned storage with a separate logical length. When a host
+    /// requires a fixed extent, the arena view survives guest truncation.
+    pub(crate) fn bounded_file(
+        file: std::fs::File,
+        capacity: Option<u64>,
+        extent: Arc<SharedFileExtent>,
+        identity: SourceIdentity,
+        writable: bool,
+        keep: super::Keep,
+    ) -> Self {
+        Self {
+            store: Store::File(super::MappedFile::keeping(file, Some(keep))),
+            identity,
+            writable,
+            anonymous: false,
+            sysv: None,
+            limit: capacity,
+            extent: Some(extent),
+        }
+    }
+
+    pub(super) fn track(&self, space: &super::AddressSpace) {
+        if let Some(extent) = &self.extent {
+            extent.track(space);
         }
     }
 
@@ -211,6 +293,9 @@ impl SharedObject {
 
     /// Current size in bytes.
     pub fn len(&self) -> u64 {
+        if let Some(extent) = &self.extent {
+            return extent.len();
+        }
         match &self.store {
             Store::File(f) => f.metadata().map(|m| m.len()).unwrap_or(0),
             Store::Memory(m) => m.size(),
@@ -297,6 +382,12 @@ impl SharedObject {
     /// Reads up to `buf.len()` bytes at `offset` (short only at the end),
     /// without moving a backing file's shared cursor.
     pub fn read_at(&self, offset: u64, buf: &mut [u8]) -> std::io::Result<usize> {
+        let buf = if let Some(extent) = &self.extent {
+            let count = extent.len().saturating_sub(offset).min(buf.len() as u64) as usize;
+            &mut buf[..count]
+        } else {
+            buf
+        };
         match &self.store {
             Store::File(file) => file.read_at(offset, buf),
             Store::Memory(memory) => memory.read_at(offset, buf),
@@ -306,7 +397,6 @@ impl SharedObject {
 
 /// A new identity no host object has (device `u64::MAX`).
 fn own_identity() -> SourceIdentity {
-    use std::sync::atomic::{AtomicU64, Ordering};
     static NEXT: AtomicU64 = AtomicU64::new(1);
     SourceIdentity {
         dev: u64::MAX,

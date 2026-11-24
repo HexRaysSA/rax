@@ -51,6 +51,76 @@ fn closed_linux_flock_locks_private_workspace_on_all_abis() {
 }
 
 #[test]
+fn closed_linux_workspace_shared_mappings_are_coherent_on_all_abis() {
+    use crate::user::linux::abi::open::{O_CREAT, O_RDWR};
+    use crate::user::mm::PAGE_SIZE;
+    use crate::user::supplied_fs::{Files, WorkspaceFlavor};
+
+    const AT_FDCWD: u64 = -100i64 as u64;
+    const MAP_SHARED: u64 = 1;
+    const READ: u64 = 1;
+    const WRITE: u64 = 2;
+
+    for abi in ABIS {
+        let files = Files::default().with_temp_workspace(WorkspaceFlavor::Linux);
+        let mut h = Harness::embedded_with_supplied(abi, files);
+        let path = h.scratch;
+        let byte = path + 64;
+        h.proc.space().write_raw(path, b"/tmp/mapped\0").unwrap();
+        let fd = h.ok(
+            Sysno::Openat,
+            &[AT_FDCWD, path, u64::from(O_CREAT | O_RDWR), 0o600],
+        );
+        let reader = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        h.ok(Sysno::Ftruncate, &[fd, 2 * PAGE_SIZE]);
+        let mmap = if abi.is_compat() {
+            Sysno::Mmap2
+        } else {
+            Sysno::Mmap
+        };
+        let write_alias = h.ok(mmap, &[0, 2 * PAGE_SIZE, READ | WRITE, MAP_SHARED, fd, 0]);
+        let read_alias = h.ok(mmap, &[0, 2 * PAGE_SIZE, READ, MAP_SHARED, reader, 0]);
+        assert_eq!(
+            h.err(Sysno::Mprotect, &[read_alias, PAGE_SIZE, READ | WRITE]),
+            EACCES
+        );
+        let child = h.proc.space().process_snapshot().unwrap();
+
+        h.proc.space().write(write_alias, b"R").unwrap();
+        assert_eq!(h.ok(Sysno::Read, &[reader, byte, 1]), 1);
+        let mut got = [0];
+        h.proc.space().read(byte, &mut got).unwrap();
+        assert_eq!(&got, b"R", "{abi:?} descriptor");
+        child.read(read_alias, &mut got).unwrap();
+        assert_eq!(&got, b"R", "{abi:?} child mapping");
+        h.proc.space().write_raw(byte, b"A").unwrap();
+        assert_eq!(h.ok(Sysno::Write, &[fd, byte, 1]), 1);
+        h.proc.space().read(read_alias, &mut got).unwrap();
+        assert_eq!(&got, b"A", "{abi:?} read-only alias");
+
+        child.read(read_alias + PAGE_SIZE, &mut got).unwrap();
+        h.proc.space().write(write_alias + PAGE_SIZE, b"X").unwrap();
+        h.ok(Sysno::Ftruncate, &[fd, 1]);
+        assert!(child.read(read_alias + PAGE_SIZE, &mut got).is_err());
+        assert!(
+            h.proc
+                .space()
+                .read(write_alias + PAGE_SIZE, &mut got)
+                .is_err()
+        );
+        h.ok(Sysno::Ftruncate, &[fd, 2 * PAGE_SIZE]);
+        child.read(read_alias + PAGE_SIZE, &mut got).unwrap();
+        assert_eq!(got, [0], "{abi:?} extended page");
+        h.ok(Sysno::Unlinkat, &[AT_FDCWD, path, 0]);
+        h.ok(Sysno::Close, &[fd]);
+        h.ok(Sysno::Close, &[reader]);
+        h.proc.space().write(write_alias, b"Z").unwrap();
+        child.read(read_alias, &mut got).unwrap();
+        assert_eq!(&got, b"Z", "{abi:?} unlinked inode");
+    }
+}
+
+#[test]
 fn closed_linux_identity_console_and_external_service_denial_all_abis() {
     for abi in ABIS {
         let mut h = Harness::embedded(abi);

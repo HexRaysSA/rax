@@ -2,12 +2,16 @@
 //! the last descriptor or mapping closes, so a later create gets a new inode.
 
 use super::Error;
-use crate::user::mm::{PageSource, SourceIdentity};
+use crate::user::mm::{
+    MappedFile, PageSource, SharedFileExtent, SharedObject, SourceIdentity, anonymous_file,
+};
 use std::collections::BTreeMap;
 use std::io;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 
+#[cfg(windows)]
+mod mapped_windows;
 mod metadata;
 mod xattr;
 pub(super) use metadata::Attributes;
@@ -18,6 +22,11 @@ pub(in crate::user) use xattr::{
 
 const MAX_BYTES: usize = 16 << 20;
 const MAX_NODES: usize = 1024;
+const SHARED_CAPACITY: Option<u64> = if cfg!(windows) {
+    Some(MAX_BYTES as u64)
+} else {
+    None
+};
 const FIRST_INODE: u32 = 0x5258_0001;
 pub(super) const ROOT_INODE: u64 = (FIRST_INODE - 1) as u64;
 
@@ -225,7 +234,90 @@ struct Inode {
 #[derive(Debug)]
 struct RegularFile {
     metadata: Inode,
-    contents: Mutex<Arc<Vec<u8>>>,
+    contents: Mutex<Contents>,
+}
+
+#[derive(Debug)]
+enum Contents {
+    Bytes(Arc<Vec<u8>>),
+    Shared(SharedContents),
+}
+
+#[derive(Debug)]
+struct SharedContents {
+    file: MappedFile,
+    extent: Arc<SharedFileExtent>,
+}
+
+impl Contents {
+    fn len(&self) -> usize {
+        match self {
+            Self::Bytes(bytes) => bytes.len(),
+            Self::Shared(shared) => shared.extent.len() as usize,
+        }
+    }
+
+    fn snapshot(&self) -> Result<Arc<Vec<u8>>, Error> {
+        match self {
+            Self::Bytes(bytes) => Ok(bytes.clone()),
+            Self::Shared(shared) => {
+                let mut bytes = Vec::new();
+                bytes
+                    .try_reserve_exact(self.len())
+                    .map_err(|_| Error::NoSpace)?;
+                bytes.resize(self.len(), 0);
+                let count = shared.file.read_at(0, &mut bytes).map_err(|_| Error::Io)?;
+                if count != bytes.len() {
+                    return Err(Error::Io);
+                }
+                Ok(Arc::new(bytes))
+            }
+        }
+    }
+}
+
+impl SharedContents {
+    fn new(bytes: &[u8]) -> Result<Self, Error> {
+        let file = anonymous_file().map_err(|_| Error::Io)?;
+        #[cfg(windows)]
+        mapped_windows::mark_sparse(&file).map_err(|_| Error::Io)?;
+        file.set_len(SHARED_CAPACITY.unwrap_or(bytes.len() as u64))
+            .map_err(|_| Error::Io)?;
+        let file = MappedFile::new(file);
+        file.write_all_at(0, bytes).map_err(|_| Error::Io)?;
+        Ok(Self {
+            file,
+            extent: Arc::new(SharedFileExtent::new(bytes.len() as u64)),
+        })
+    }
+
+    fn resize(&self, identity: SourceIdentity, old: usize, new: usize) -> Result<(), Error> {
+        if new < old {
+            // Drop resident pages in every alias before the native storage
+            // can cease to back them. Closed guest processes run serially.
+            self.extent.set_len(new as u64);
+            self.extent.invalidate(identity, new as u64);
+        }
+        if self.resize_storage(old, new).is_err() {
+            self.extent.set_len(old as u64);
+            return Err(Error::Io);
+        }
+        self.extent.set_len(new as u64);
+        Ok(())
+    }
+
+    #[cfg(not(windows))]
+    fn resize_storage(&self, _old: usize, new: usize) -> io::Result<()> {
+        self.file.set_len(new as u64)
+    }
+
+    #[cfg(windows)]
+    fn resize_storage(&self, old: usize, new: usize) -> io::Result<()> {
+        // A Windows file with a section cannot change its native length.
+        // Clear both a truncated tail and the part of a partial guest page
+        // that becomes visible on extension.
+        mapped_windows::zero_range(&self.file, old.min(new) as u64, old.max(new) as u64)
+    }
 }
 
 /// A symbolic link created in the guest's private temporary workspace.
@@ -348,7 +440,7 @@ impl Workspace {
         let file = Arc::new(WorkspaceFile {
             inode: Arc::new(RegularFile {
                 metadata: self.inode(ino, mode & 0o7777, owner),
-                contents: Mutex::new(Arc::new(Vec::new())),
+                contents: Mutex::new(Contents::Bytes(Arc::new(Vec::new()))),
             }),
             placement: Placement::new(self, parent, &name),
         });
@@ -420,7 +512,7 @@ impl Workspace {
                 }
                 let contents = file.inode.contents.lock().map_err(|_| Error::Io)?;
                 (
-                    Data::File(contents.clone()),
+                    Data::File(contents.snapshot()?),
                     file.attributes(),
                     contents.len(),
                 )
@@ -465,7 +557,7 @@ impl Workspace {
             Data::File(contents) => Node::File(Arc::new(WorkspaceFile {
                 inode: Arc::new(RegularFile {
                     metadata,
-                    contents: Mutex::new(contents),
+                    contents: Mutex::new(Contents::Bytes(contents)),
                 }),
                 placement,
             })),
@@ -836,7 +928,31 @@ impl WorkspaceFile {
 
     pub(super) fn snapshot(&self) -> Result<Arc<[u8]>, Error> {
         let contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
-        Ok(Arc::from(contents.as_slice()))
+        Ok(Arc::from(contents.snapshot()?.as_slice()))
+    }
+
+    /// The mapping retains this leaf and its quota after the last descriptor
+    /// closes. The inode has a single backing even when accessed via aliases.
+    pub(in crate::user) fn shared_mapping(
+        self: &Arc<Self>,
+        writable: bool,
+    ) -> Result<Arc<SharedObject>, Error> {
+        let mut contents = self.inode.contents.lock().map_err(|_| Error::Io)?;
+        if let Contents::Bytes(bytes) = &*contents {
+            *contents = Contents::Shared(SharedContents::new(bytes)?);
+        }
+        let Contents::Shared(shared) = &*contents else {
+            unreachable!("workspace mapping storage initialized");
+        };
+        let file = shared.file.try_clone().map_err(|_| Error::Io)?;
+        Ok(Arc::new(SharedObject::bounded_file(
+            file,
+            SHARED_CAPACITY,
+            shared.extent.clone(),
+            self.identity(),
+            writable,
+            self.clone(),
+        )))
     }
 
     pub(crate) fn resize(&self, len: u64) -> Result<(), Error> {
@@ -847,37 +963,35 @@ impl WorkspaceFile {
         Ok(())
     }
 
-    fn resize_locked(&self, shared: &mut Arc<Vec<u8>>, len: usize) -> Result<(), Error> {
+    fn resize_locked(&self, contents: &mut Contents, len: usize) -> Result<(), Error> {
         if len > MAX_BYTES {
             return Err(Error::TooLarge);
         }
-        let old = shared.len();
+        let old = contents.len();
         if len == old {
             return Ok(());
         }
         let mut budget = self.inode.metadata.budget.lock().map_err(|_| Error::Io)?;
-        if len > old {
-            let additional = len - old;
-            if additional > MAX_BYTES - budget.bytes {
-                return Err(Error::NoSpace);
+        if len.saturating_sub(old) > MAX_BYTES - budget.bytes {
+            return Err(Error::NoSpace);
+        }
+        match contents {
+            Contents::Bytes(bytes) if len > old => {
+                let bytes = Arc::make_mut(bytes);
+                bytes
+                    .try_reserve_exact(len - old)
+                    .map_err(|_| Error::NoSpace)?;
+                bytes.resize(len, 0);
             }
-            let bytes = Arc::make_mut(shared);
-            bytes
-                .try_reserve_exact(additional)
-                .map_err(|_| Error::NoSpace)?;
-            bytes.resize(len, 0);
-            budget.bytes += additional;
-        } else {
-            if len == 0 {
-                *shared = Arc::default();
-            } else {
-                let bytes = Arc::make_mut(shared);
+            Contents::Bytes(bytes) if len == 0 => *bytes = Arc::default(),
+            Contents::Bytes(bytes) => {
+                let bytes = Arc::make_mut(bytes);
                 bytes.truncate(len);
-                // Give the allocator an opportunity to release spare capacity.
                 bytes.shrink_to_fit();
             }
-            budget.bytes -= old - len;
+            Contents::Shared(shared) => shared.resize(self.identity(), old, len)?,
         }
+        budget.bytes = budget.bytes - old + len;
         Ok(())
     }
 
@@ -894,7 +1008,13 @@ impl WorkspaceFile {
         if end > bytes.len() {
             self.resize_locked(&mut bytes, end)?;
         }
-        Arc::make_mut(&mut bytes)[start..end].copy_from_slice(input);
+        match &mut *bytes {
+            Contents::Bytes(bytes) => Arc::make_mut(bytes)[start..end].copy_from_slice(input),
+            Contents::Shared(shared) => shared
+                .file
+                .write_all_at(offset, input)
+                .map_err(|_| Error::Io)?,
+        }
         self.attributes().modified();
         Ok(end as u64)
     }
@@ -991,8 +1111,13 @@ impl PageSource for WorkspaceFile {
         }
         let start = offset as usize;
         let count = out.len().min(bytes.len() - start);
-        out[..count].copy_from_slice(&bytes[start..start + count]);
-        Ok(count)
+        match &*bytes {
+            Contents::Bytes(bytes) => {
+                out[..count].copy_from_slice(&bytes[start..start + count]);
+                Ok(count)
+            }
+            Contents::Shared(shared) => shared.file.read_at(offset, &mut out[..count]),
+        }
     }
 
     fn identity(&self) -> SourceIdentity {
@@ -1101,8 +1226,8 @@ mod tests {
         };
         assert_ne!(source.ino(), copy.ino());
         assert!(Arc::ptr_eq(
-            &source.inode.contents.lock().unwrap(),
-            &copy.inode.contents.lock().unwrap()
+            &source.inode.contents.lock().unwrap().snapshot().unwrap(),
+            &copy.inode.contents.lock().unwrap().snapshot().unwrap()
         ));
         source.write(Some(0), b"next").unwrap();
         assert_eq!(copy.snapshot().unwrap().as_ref(), b"data");
