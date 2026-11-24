@@ -73,6 +73,7 @@ impl ProcessConfigKey {
             Self::WinsockParameters => &[
                 "Current_NameSpace_Catalog",
                 "Current_Protocol_Catalog",
+                "NameSpace_Callout",
                 "WinSock_Registry_Version",
             ],
             Self::WinsockAppIdCatalog | Self::Ccg | Self::OsDataAppCompatFlags => &[],

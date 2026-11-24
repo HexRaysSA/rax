@@ -148,9 +148,9 @@ fn winsock_parameters_exposes_only_selected_values_in_both_views() {
     let root = SnapshotRoot::ProcessConfig(subject);
     let native_path = subject.path().replace("CurrentControlSet", "ControlSet001");
     let registry = Registry::selected(upcase(), vec![]).unwrap();
-    let string_value = |name: &str, data: &str| Value {
+    let string_value = |name: &str, kind: u32, data: &str| Value {
         name: units(name),
-        kind: 1,
+        kind,
         data: data
             .encode_utf16()
             .chain(Some(0))
@@ -158,9 +158,10 @@ fn winsock_parameters_exposes_only_selected_values_in_both_views() {
             .collect(),
     };
     let values = vec![
-        string_value("Current_NameSpace_Catalog", "NameSpace_Catalog5"),
-        string_value("Current_Protocol_Catalog", "Protocol_Catalog9"),
-        string_value("WinSock_Registry_Version", "2.0"),
+        string_value("Current_NameSpace_Catalog", 1, "NameSpace_Catalog5"),
+        string_value("Current_Protocol_Catalog", 1, "Protocol_Catalog9"),
+        string_value("NameSpace_Callout", 2, r"%SystemRoot%\System32\example.dll"),
+        string_value("WinSock_Registry_Version", 1, "2.0"),
     ];
     let mut captured = registry.clone();
     for view in [RegistryView::Native64, RegistryView::Wow32] {
@@ -192,7 +193,7 @@ fn winsock_parameters_exposes_only_selected_values_in_both_views() {
         }
     }
 
-    let unrelated = string_value("AutodialDLL", "unselected.dll");
+    let unrelated = string_value("AutodialDLL", 1, "unselected.dll");
     assert!(
         registry
             .with_snapshot_selection(
