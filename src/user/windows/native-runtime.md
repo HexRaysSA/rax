@@ -4222,3 +4222,11 @@ session 0 and matches native stdout, stderr and exit status. Desktop session 1
 yielded a different native control result for the unmanifested process.
 Coverage of the raw service is limited to the observed session-0 call.
 [Public USER32 DPI setter contract](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setprocessdpiawarenesscontext).
+
+Native SysWOW64 controls on the same build returned FALSE from both fixed
+raw calls in session 0, preserving last error and the thread's DPI context.
+The desktop controls returned TRUE on their first call. The guest uses the
+session-0 result only with the qualified WoW64 companion and exact
+arguments, preserving the companion GDI views and process value.
+Stock session-0 SysWOW64 findstr now completes for matching and nonmatching
+input. Captured stdout, stderr and exit status match the native controls.

@@ -213,6 +213,53 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, arch: WinArch, build: u32, 
     assert_eq!(p.rng, rng);
     assert_eq!(p.vm.committed_bytes(), committed);
     assert_eq!(client(p, 12), record);
+    if matches!(profile, Wow64Gdi::Insider) {
+        use crate::user::windows::wnf::{Catalog, Queries};
+        const SETTER: &str = "NtUserSetProcessDpiAwarenessContext";
+        let runtime = p.native.as_mut().unwrap();
+        runtime.version.build = 29708;
+        runtime.object_namespace.native_machine = Some(WinArch::Arm64.machine());
+        let select_session = |p: &mut Proc, session| {
+            let queries = Queries::selected(Vec::new(), session).unwrap();
+            p.objects
+                .select_wnf_catalog(Catalog::default().with_queries(queries));
+        };
+        let offsets = crate::user::windows::layout::offsets(WinArch::X86);
+        let error = thread.teb + offsets.teb_last_error;
+        let status = thread.teb + offsets.teb_last_status;
+        p.space.w32(error, 0x1234_5678).unwrap();
+        p.space.w32(status, 0x8765_4321).unwrap();
+        // The transition return precedes the caller return and arguments.
+        p.space.w32(original_sp + 4, 0x1234_0080).unwrap();
+        p.space.w32(original_sp + 8, 0x12).unwrap();
+        p.space.w32(original_sp + 12, 0).unwrap();
+
+        select_session(p, 1);
+        assert!(matches!(
+            call(p, &mut thread, SETTER, 0x1589),
+            Outcome::Fail(reason) if reason.contains("observed ARM64 session 0")
+        ));
+        select_session(p, 0);
+        p.space.w32(original_sp + 12, 1).unwrap();
+        assert!(matches!(
+            call(p, &mut thread, SETTER, 0x1589),
+            Outcome::Fail(reason) if reason.contains("arguments are outside")
+        ));
+        p.space.w32(original_sp + 12, 0).unwrap();
+        for _ in 0..2 {
+            assert_eq!(call(p, &mut thread, SETTER, 0x1589), Outcome::Continue);
+            assert_eq!(thread.cpu.gpr(0), 0);
+            assert_eq!(thread.cpu.sp(), original_sp + 4);
+            assert_eq!(thread.cpu.pc(), 0x1234_000c);
+        }
+
+        assert_eq!(p.space.u32(error).unwrap(), 0x1234_5678);
+        assert_eq!(p.space.u32(status).unwrap(), 0x8765_4321);
+        assert_eq!(p.gui.value, Some(value));
+        assert_eq!(p.rng, rng);
+        assert_eq!(p.vm.committed_bytes(), committed);
+        assert_eq!(client(p, 12), record);
+    }
     p.vm.release(gdi).unwrap();
     assert!(
         matches!(call(p, &mut thread, leaf, number), Outcome::Fail(reason)

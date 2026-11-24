@@ -252,7 +252,10 @@ pub(super) fn set_process_dpi_awareness(
         .objects
         .wnf_queries()
         .is_some_and(|queries| queries.session == 0);
-    if !selected || !session_zero || p.arch != WinArch::Arm64 || wow64 {
+    let native_arm64 = p.arch == WinArch::Arm64 && !wow64;
+    let companion =
+        wow64_inputs(p, wow64).filter(|(_, profile)| matches!(profile, Wow64Gdi::Insider));
+    if !selected || !session_zero || !(native_arm64 || companion.is_some()) {
         return failure("process DPI awareness setter requires the observed ARM64 session 0");
     }
     let Some([context, fallback]) = arguments(p, t, sp) else {
@@ -264,6 +267,9 @@ pub(super) fn set_process_dpi_awareness(
 
     // This raw session-0 call returns FALSE with the existing context and
     // last error intact. The public USER32 setter can set last error itself.
+    if let Some((inputs, profile)) = companion {
+        return initialize_wow64(p, t, sp, resume, inputs, profile, Some(0));
+    }
     convert(p, t, sp, resume, wow64, Some(Completion::Value(0)))
 }
 
