@@ -1026,6 +1026,79 @@ fn supplied_mmap_preserves_copy_on_write_eof_and_guest_page_granularity() {
 }
 
 #[test]
+fn closed_workspace_sync_commands_accept_vnodes_and_reject_pipes() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr},
+        io::{O_CREAT, O_RDONLY, O_RDWR, O_SEARCH},
+        syscall::{
+            Ctx, bsd,
+            bsd::file::{self, cmd},
+        },
+    };
+    use crate::user::supplied_fs::WorkspaceFlavor;
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut p = process(abi);
+        let files = p
+            .proc
+            .vfs
+            .files()
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        p.proc.vfs = Vfs::supplied(files);
+        let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+        let path = thread.cpu.sp() - 512;
+        let data = path + 128;
+        let mut ctx = Ctx {
+            proc: &mut p.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::FCNTL),
+            pc: ENTRY,
+        };
+        let mut open = |name: &[u8], flags| {
+            ctx.write(path, name).unwrap();
+            bsd::call(
+                &mut ctx,
+                nr::OPEN,
+                &[path, u64::from(flags), 0o600, 0, 0, 0, 0, 0],
+            )
+            .unwrap()
+            .0 as i32
+        };
+        let writable = open(b"/tmp/journal\0", O_CREAT | O_RDWR);
+        let readonly = open(b"/tmp/journal\0", O_RDONLY);
+        let directory = open(b"/tmp\0", O_RDONLY);
+        let search = open(b"/tmp\0", O_SEARCH);
+        let resource = open(b"/tmp/journal/..namedfork/rsrc\0", O_CREAT | O_RDWR);
+        let pipe_read = file::pipe(&mut ctx).unwrap().0 as i32;
+        ctx.write(data, b"data").unwrap();
+        assert_eq!(file::write(&mut ctx, writable, data, 4, None).unwrap().0, 4);
+
+        for command in [cmd::F_FULLFSYNC, cmd::F_BARRIERFSYNC] {
+            for fd in [writable, readonly, directory, search, resource] {
+                assert_eq!(file::fcntl(&mut ctx, fd, command, u64::MAX).unwrap().0, 0);
+            }
+            for fd in [-1, pipe_read] {
+                assert_eq!(file::fcntl(&mut ctx, fd, command, 0), Err(Errno::EBADF));
+            }
+        }
+
+        assert_eq!(file::lseek(&mut ctx, writable, 0, 1).unwrap().0, 4);
+        assert_eq!(
+            file::read(&mut ctx, readonly, data + 8, 4, None).unwrap().0,
+            4
+        );
+        assert_eq!(ctx.read(data + 8, 4).unwrap(), b"data");
+
+        file::close(&mut ctx, writable).unwrap();
+        assert_eq!(
+            file::fcntl(&mut ctx, writable, cmd::F_FULLFSYNC, 0),
+            Err(Errno::EBADF)
+        );
+    }
+}
+
+#[test]
 fn closed_workspace_shared_mappings_follow_darwin_guest_pages() {
     use crate::user::darwin::{
         abi::{Errno, tables::nr},

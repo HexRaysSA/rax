@@ -23,6 +23,7 @@ use crate::user::darwin::io::{self, O_NONBLOCK, O_STATUS_FLAGS};
 use crate::user::darwin::signal;
 use crate::user::darwin::syscall::{self, Ctx};
 use crate::user::darwin::wait::{self, Wait};
+use crate::user::supplied_fs::Kind;
 
 mod closed_pipe;
 mod embedded;
@@ -996,6 +997,14 @@ pub fn fcntl(ctx: &mut Ctx<'_>, fd: i32, c: i32, arg: u64) -> SysResult {
                 return Ok(Rv::one(0));
             }
             return Ok(Rv::one(u64::from(end.no_sigpipe())));
+        }
+        F_FULLFSYNC | F_BARRIERFSYNC
+            if matches!(&file.kind, FileKind::Embedded(object) if object.entry().is_some_and(|entry|
+                matches!(&entry.kind, Kind::Workspace(_) | Kind::WorkspaceDirectory(_) | Kind::WorkspaceSymlink(_)))) =>
+        {
+            // Workspace changes publish directly to the in-memory backing.
+            // There is no queued writeback or separate storage device to flush.
+            return Ok(Rv::one(0));
         }
         F_GETPATH | F_GETPATH_NOFIRMLINK if matches!(file.kind, FileKind::Embedded(_)) => {
             let current = match &file.kind {
