@@ -821,6 +821,22 @@ impl Files {
         })
     }
 
+    pub(in crate::user) fn create_workspace_tmpfile(
+        &self,
+        directory: &Arc<WorkspaceDirectory>,
+        mode: u32,
+        ids: (u32, u32),
+        groups: &[u32],
+        exclusive: bool,
+    ) -> Result<Entry, Error> {
+        let workspace = self.workspace.as_ref().ok_or(Error::ReadOnly)?;
+        let file = workspace.create_tmpfile(directory, mode, ids, groups, exclusive)?;
+        Ok(Entry {
+            ino: file.ino(),
+            kind: Kind::Workspace(file),
+        })
+    }
+
     pub(super) fn workspace_capacity(&self) -> Result<WorkspaceCapacity, Error> {
         self.workspace.as_ref().ok_or(Error::ReadOnly)?.capacity()
     }

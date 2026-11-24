@@ -190,7 +190,9 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
         ProcEntry::File(d) => (mode::S_IFREG | 0o444, d.len() as i64),
         ProcEntry::Comm { .. } => (mode::S_IFREG | 0o644, 0),
         ProcEntry::Link(t) => (mode::S_IFLNK | 0o777, t.len() as i64),
-        ProcEntry::WorkspaceMemfd { target, .. } => (mode::S_IFLNK | 0o777, target.len() as i64),
+        ProcEntry::WorkspaceDescriptor { target, .. } => {
+            (mode::S_IFLNK | 0o777, target.len() as i64)
+        }
         ProcEntry::Dir(_) => (mode::S_IFDIR | 0o555, 0),
         ProcEntry::TraceeFile { .. } => (mode::S_IFREG | 0o444, 0),
     };
@@ -386,7 +388,7 @@ pub(super) fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat,
     match t {
         Target::Fd(f) => stat_file(c, f),
         Target::Supplied(entry, _) => Ok(supplied_stat(entry)),
-        Target::Proc(ProcEntry::WorkspaceMemfd { fd, .. }, _) if follow => {
+        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
             stat_file(c, &*c.p.fds.file(*fd)?)
         }
         Target::Proc(ProcEntry::Link(link), _) if follow => {
@@ -467,6 +469,30 @@ pub(super) fn open_target(
         }
         Target::Fd(file) => Ok(file),
         Target::Supplied(entry, guest) => {
+            if flags & (O_TMPFILE_BIT | O_PATH) == O_TMPFILE_BIT {
+                if !entry.is_dir() {
+                    return Err(Errno(ENOTDIR));
+                }
+                let directory = entry.workspace_directory().ok_or(Errno(EROFS))?;
+                // The temporary inode has tmpfs semantics, including buffered I/O
+                // for descriptors opened with O_DIRECT.
+                let files = c.p.vfs.supplied().expect("supplied target has a namespace");
+                let entry = files.create_workspace_tmpfile(
+                    directory,
+                    create_mode & !c.p.file_creation_mask(),
+                    (c.p.creds.1, c.p.creds.3),
+                    &c.p.groups,
+                    flags & O_EXCL != 0,
+                )?;
+                let path = entry.workspace_path()?.expect("unnamed workspace path");
+                return Ok(OpenFile::new(
+                    FileObject::Supplied(entry),
+                    FileType::Regular,
+                    path,
+                    None,
+                    status,
+                ));
+            }
             let device = entry.device().is_some();
             let workspace = entry.workspace_file();
             if flags & (O_CREAT | O_EXCL) == (O_CREAT | O_EXCL) {
@@ -577,7 +603,7 @@ pub(super) fn open_target(
             f.state.lock().unwrap().dir = Some((entries, 0));
             Ok(f)
         }
-        Target::Proc(ProcEntry::WorkspaceMemfd { fd, target }, guest) => {
+        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, target }, guest) => {
             if flags & (O_CREAT | O_EXCL) == (O_CREAT | O_EXCL) {
                 return Err(Errno(EEXIST));
             }
@@ -600,7 +626,7 @@ pub(super) fn open_target(
                     status,
                 ));
             }
-            if flags & (layout.direct | O_TMPFILE_BIT) != 0 && flags & O_PATH == 0 {
+            if flags & O_TMPFILE_BIT != 0 && flags & O_PATH == 0 {
                 return Err(Errno(EINVAL));
             }
             let file = c.p.fds.file(fd)?;
@@ -608,11 +634,16 @@ pub(super) fn open_target(
                 return Err(Errno(ENOENT));
             };
             if flags & O_PATH == 0 {
-                let workspace = entry.workspace_file().expect("workspace memfd");
+                let workspace = entry.workspace_file().expect("workspace descriptor");
+                let is_tmpfile = workspace.is_tmpfile();
+                if flags & layout.direct != 0 && !is_tmpfile {
+                    return Err(Errno(EINVAL));
+                }
                 let mut need = match accmode {
                     O_RDONLY => 4,
                     O_WRONLY => 2,
                     O_RDWR => 6,
+                    O_ACCMODE if is_tmpfile => 6,
                     _ => return Err(Errno(EINVAL)),
                 };
                 if flags & O_TRUNC != 0 {
@@ -623,9 +654,12 @@ pub(super) fn open_target(
                 }
                 if flags & O_TRUNC != 0 {
                     let _operation = file.lock_workspace_memfd()?;
-                    let memfd = file.memfd.as_ref().expect("workspace memfd");
-                    memfd.check_resize(entry.len(), 0)?;
+                    if let Some(memfd) = &file.memfd {
+                        memfd.check_resize(entry.len(), 0)?;
+                    }
                     workspace.resize(0)?;
+                    c.p.space
+                        .truncated(crate::user::mm::PageSource::identity(workspace), 0);
                 }
             }
             Ok(OpenFile::with_memfd(
@@ -785,7 +819,9 @@ pub fn compat_openat(
 }
 
 fn open_at(c: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, create_mode: u32) -> SysResult {
-    if flags & (O_CREAT | O_TRUNC) != 0 && c.p.vfs.supplied().is_some_and(|f| f.has_workspace()) {
+    if flags & (O_CREAT | O_TRUNC | O_TMPFILE_BIT) != 0
+        && c.p.vfs.supplied().is_some_and(|f| f.has_workspace())
+    {
         c.p.fds.free_fds(1, super::io::nofile(c))?;
     }
     let file = open_file(c, dirfd, path, flags, create_mode)?;
@@ -812,9 +848,15 @@ pub(super) fn open_file(
         );
         return open_target(c, target, request.flags, request.create_mode);
     }
+    let layout = c.p.abi.open_flags();
+    if flags & (O_TMPFILE_BIT | O_PATH) == O_TMPFILE_BIT
+        && (flags & layout.directory == 0 || flags & O_CREAT != 0 || flags & O_ACCMODE == O_RDONLY)
+    {
+        return Err(Errno(EINVAL));
+    }
     let create = flags & (O_CREAT | O_PATH) == O_CREAT;
     let exclusive = create && flags & O_EXCL != 0;
-    let nofollow = flags & c.p.abi.open_flags().nofollow != 0;
+    let nofollow = flags & layout.nofollow != 0;
     let target = match resolve(c, dirfd, path, 0, !(nofollow || exclusive)) {
         Err(Errno(ENOENT))
             if create
@@ -1017,7 +1059,7 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             Ok(0)
         }
         Target::Supplied(entry, _) => supplied_entry_access(c, &entry, amode, ids),
-        Target::Proc(ProcEntry::WorkspaceMemfd { fd, .. }, _) if follow => {
+        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
             let file = c.p.fds.file(fd)?;
             let FileObject::Supplied(entry) = &file.object else {
                 return Err(Errno(ENOENT));
@@ -1079,7 +1121,7 @@ pub fn readlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -
     }
     let bytes = match resolve(c, dirfd, path, AT_EMPTY_PATH, false)? {
         Target::Proc(ProcEntry::Link(t), _) => t.into_bytes(),
-        Target::Proc(ProcEntry::WorkspaceMemfd { target, .. }, _) => target.to_vec(),
+        Target::Proc(ProcEntry::WorkspaceDescriptor { target, .. }, _) => target.to_vec(),
         Target::Proc(..) => return Err(Errno(EINVAL)),
         Target::Supplied(entry, _) => entry.link_target().ok_or(Errno(EINVAL))?.to_vec(),
         Target::Fd(file) => match &file.object {
@@ -1397,11 +1439,19 @@ pub fn linkat(
         let allow_empty = if ids.0 == 0 { flags & AT_EMPTY_PATH } else { 0 };
         let source = match resolve(c, olddir, old, allow_empty, follow)? {
             Target::Supplied(entry, _) => entry,
-            Target::Fd(file) => match &file.object {
-                FileObject::Supplied(entry) => entry.clone(),
-                _ => return Err(Errno(EXDEV)),
-            },
-            _ => return Err(Errno(EXDEV)),
+            target => {
+                let file = match target {
+                    Target::Fd(file) => file,
+                    Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
+                        c.p.fds.file(fd)?
+                    }
+                    _ => return Err(Errno(EXDEV)),
+                };
+                match &file.object {
+                    FileObject::Supplied(entry) => entry.clone(),
+                    _ => return Err(Errno(EXDEV)),
+                }
+            }
         };
         let to = supplied_path(c, newdir, new)?;
         files.link_workspace_entry(source, &to, ids, &c.p.groups)?;
@@ -1459,7 +1509,7 @@ pub fn fchmodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, flags: u32) -
     let follow = flags & AT_SYMLINK_NOFOLLOW == 0;
     match resolve(c, dirfd, path, flags, follow)? {
         Target::Supplied(entry, _) => chmod_supplied(c, &entry, perm),
-        Target::Proc(ProcEntry::WorkspaceMemfd { fd, .. }, _) if follow => {
+        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
             let file = c.p.fds.file(fd)?;
             let FileObject::Supplied(entry) = &file.object else {
                 return Err(Errno(ENOENT));

@@ -121,6 +121,160 @@ fn closed_linux_workspace_shared_mappings_are_coherent_on_all_abis() {
 }
 
 #[test]
+fn closed_linux_tmpfiles_are_private_and_can_be_published_once_on_all_abis() {
+    use crate::user::linux::abi::open::{O_ACCMODE, O_CLOEXEC, O_EXCL, O_RDWR, O_TMPFILE_BIT};
+    use crate::user::supplied_fs::{Files, WorkspaceFlavor};
+
+    const AT_FDCWD: u64 = -100i64 as u64;
+    const AT_SYMLINK_FOLLOW: u64 = 0x400;
+    const AT_EMPTY_PATH: u64 = 0x1000;
+    const F_GETFD: u64 = 1;
+
+    for abi in ABIS {
+        let files = Files::default()
+            .with_file(
+                "/read-only/file".into(),
+                std::sync::Arc::from(&b"input"[..]),
+            )
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Linux);
+        let mut h = Harness::embedded_with_supplied(abi, files);
+        let path = h.scratch;
+        let link = path + 64;
+        let buffer = path + 128;
+        let write = |h: &Harness, at, bytes: &[u8]| h.proc.space().write_raw(at, bytes).unwrap();
+
+        write(&h, path, b"/read-only\0");
+        let tmpfile = u64::from(abi.open_flags().directory | O_TMPFILE_BIT);
+        assert_eq!(
+            h.err(
+                Sysno::Openat,
+                &[AT_FDCWD, path, tmpfile | u64::from(O_RDWR), 0o600]
+            ),
+            EROFS
+        );
+        write(&h, path, b"/read-only/file\0");
+        assert_eq!(
+            h.err(
+                Sysno::Openat,
+                &[AT_FDCWD, path, tmpfile | u64::from(O_RDWR), 0o600]
+            ),
+            ENOTDIR
+        );
+
+        write(&h, path, b"/tmp\0");
+        assert_eq!(
+            h.err(Sysno::Openat, &[AT_FDCWD, path, tmpfile, 0o666]),
+            EINVAL
+        );
+        let fd = h.ok(
+            Sysno::Openat,
+            &[
+                AT_FDCWD,
+                path,
+                tmpfile | u64::from(O_RDWR | O_CLOEXEC),
+                0o666,
+            ],
+        );
+        assert_eq!(h.ok(Sysno::Fcntl, &[fd, F_GETFD, 0]), 1);
+        write(&h, buffer, b"FD");
+        assert_eq!(h.ok(Sysno::Write, &[fd, buffer, 2]), 2);
+
+        write(&h, path, format!("/proc/self/fd/{fd}\0").as_bytes());
+        let length = h.ok(Sysno::Readlinkat, &[AT_FDCWD, path, buffer, 64]);
+        let mut bytes = [0; 64];
+        h.proc
+            .space()
+            .read(buffer, &mut bytes[..length as usize])
+            .unwrap();
+        assert!(bytes[..length as usize].starts_with(b"/tmp/#"));
+        assert!(bytes[..length as usize].ends_with(b" (deleted)"));
+        let reader = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        assert_eq!(h.ok(Sysno::Read, &[reader, buffer, 2]), 2);
+        h.proc.space().read(buffer, &mut bytes[..2]).unwrap();
+        assert_eq!(&bytes[..2], b"FD");
+
+        write(&h, link, b"/tmp/published\0");
+        assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, link, 0, 0]), ENOENT);
+        assert_eq!(
+            h.err(Sysno::Linkat, &[AT_FDCWD, path, AT_FDCWD, link, 0]),
+            EXDEV
+        );
+        assert_eq!(
+            h.ok(
+                Sysno::Linkat,
+                &[AT_FDCWD, path, AT_FDCWD, link, AT_SYMLINK_FOLLOW]
+            ),
+            0
+        );
+        let named = h.ok(Sysno::Openat, &[AT_FDCWD, link, 0, 0]);
+        write(&h, buffer, b"A");
+        assert_eq!(h.ok(Sysno::Write, &[fd, buffer, 1]), 1);
+        assert_eq!(h.ok(Sysno::Read, &[named, buffer, 3]), 3);
+        h.proc.space().read(buffer, &mut bytes[..3]).unwrap();
+        assert_eq!(&bytes[..3], b"FDA");
+        assert_eq!(h.ok(Sysno::Unlinkat, &[AT_FDCWD, link, 0]), 0);
+        assert_eq!(
+            h.err(
+                Sysno::Linkat,
+                &[AT_FDCWD, path, AT_FDCWD, link, AT_SYMLINK_FOLLOW]
+            ),
+            ENOENT
+        );
+        for opened in [fd, reader, named] {
+            h.ok(Sysno::Close, &[opened]);
+        }
+
+        write(&h, path, b"/tmp\0");
+        let exclusive = h.ok(
+            Sysno::Openat,
+            &[AT_FDCWD, path, tmpfile | u64::from(O_RDWR | O_EXCL), 0o600],
+        );
+        write(&h, path, format!("/proc/self/fd/{exclusive}\0").as_bytes());
+        assert_eq!(
+            h.err(
+                Sysno::Linkat,
+                &[AT_FDCWD, path, AT_FDCWD, link, AT_SYMLINK_FOLLOW]
+            ),
+            ENOENT
+        );
+        write(&h, path, b"\0");
+        assert_eq!(
+            h.err(
+                Sysno::Linkat,
+                &[exclusive, path, AT_FDCWD, link, AT_EMPTY_PATH]
+            ),
+            ENOENT
+        );
+        h.ok(Sysno::Close, &[exclusive]);
+
+        write(&h, path, b"/tmp\0");
+        let direct_flag = u64::from(abi.open_flags().direct);
+        let direct = h.ok(
+            Sysno::Openat,
+            &[
+                AT_FDCWD,
+                path,
+                tmpfile | direct_flag | u64::from(O_RDWR),
+                0o600,
+            ],
+        );
+        assert_ne!(h.ok(Sysno::Fcntl, &[direct, 3, 0]) & direct_flag, 0);
+        assert_eq!(h.ok(Sysno::Write, &[direct, buffer, 1]), 1);
+        h.ok(Sysno::Close, &[direct]);
+
+        let ioctl_only = h.ok(
+            Sysno::Openat,
+            &[AT_FDCWD, path, tmpfile | u64::from(O_ACCMODE), 0o600],
+        );
+        assert_eq!(h.err(Sysno::Read, &[ioctl_only, buffer, 1]), EBADF);
+        assert_eq!(h.err(Sysno::Write, &[ioctl_only, buffer, 1]), EBADF);
+        assert_eq!(h.err(Sysno::Ftruncate, &[ioctl_only, 4]), EINVAL);
+        h.ok(Sysno::Close, &[ioctl_only]);
+    }
+}
+
+#[test]
 fn closed_linux_memfds_reopen_and_share_seals_across_address_spaces() {
     use crate::user::linux::abi::open::{O_PATH, O_RDWR, O_TRUNC};
     use crate::user::linux::fs::memfd::seal;

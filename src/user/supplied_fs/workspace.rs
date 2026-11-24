@@ -83,6 +83,7 @@ struct Location {
 enum LeafLocation {
     Linked(Location),
     Detached(String),
+    Temporary(Location),
 }
 
 #[derive(Debug)]
@@ -94,13 +95,19 @@ struct Placement {
 
 impl Placement {
     fn new(workspace: &Workspace, parent: &Arc<Directory>, name: &str) -> Self {
-        let location = Location {
-            parent: parent.clone(),
-            name: name.to_owned(),
-        };
+        Self::with_location(
+            workspace,
+            LeafLocation::Linked(Location {
+                parent: parent.clone(),
+                name: name.to_owned(),
+            }),
+        )
+    }
+
+    fn with_location(workspace: &Workspace, location: LeafLocation) -> Self {
         Self {
             namespace: Arc::downgrade(&workspace.namespace),
-            location: Mutex::new(LeafLocation::Linked(location)),
+            location: Mutex::new(location),
             budget: workspace.budget.clone(),
         }
     }
@@ -112,6 +119,7 @@ impl Placement {
         Ok(match &*location {
             LeafLocation::Linked(location) => location.clone().path(),
             LeafLocation::Detached(path) => path.clone(),
+            LeafLocation::Temporary(location) => format!("{} (deleted)", location.clone().path()),
         })
     }
 
@@ -232,6 +240,7 @@ struct Inode {
     dev: u64,
     attributes: Attributes,
     links: AtomicU32,
+    linkable_without_name: AtomicBool,
     budget: Arc<Mutex<Budget>>,
 }
 
@@ -519,11 +528,44 @@ impl Workspace {
                 metadata,
                 contents: Mutex::new(Contents::Bytes(Arc::new(Vec::new()))),
             }),
-            placement: Placement {
-                namespace: Arc::downgrade(&self.namespace),
-                location: Mutex::new(LeafLocation::Detached(display_path)),
-                budget: self.budget.clone(),
-            },
+            placement: Placement::with_location(self, LeafLocation::Detached(display_path)),
+        }))
+    }
+
+    pub(super) fn create_tmpfile(
+        &self,
+        parent: &Arc<Directory>,
+        mode: u32,
+        ids: (u32, u32),
+        groups: &[u32],
+        exclusive: bool,
+    ) -> Result<Arc<WorkspaceFile>, Error> {
+        let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
+        if !parent.namespace.ptr_eq(&Arc::downgrade(&self.namespace)) {
+            return Err(Error::CrossDevice);
+        }
+        namespace.directory(parent)?;
+        if !parent.permits(3, ids, groups) {
+            return Err(Error::AccessDenied);
+        }
+        let owner = parent.child_owner(self.flavor, ids);
+        let mut budget = self.budget.lock().map_err(|_| Error::Io)?;
+        let ino = allocate_inode(&mut namespace, &mut budget)?;
+        let mut metadata = self.inode(ino, mode & 0o7777, owner);
+        metadata.links = AtomicU32::new(0);
+        metadata.linkable_without_name = AtomicBool::new(!exclusive);
+        Ok(Arc::new(WorkspaceFile {
+            inode: Arc::new(RegularFile {
+                metadata,
+                contents: Mutex::new(Contents::Bytes(Arc::new(Vec::new()))),
+            }),
+            placement: Placement::with_location(
+                self,
+                LeafLocation::Temporary(Location {
+                    parent: parent.clone(),
+                    name: format!("#{ino}"),
+                }),
+            ),
         }))
     }
 
@@ -625,6 +667,7 @@ impl Workspace {
                 Xattrs::from_charged_values(values, self.budget.clone()),
             ),
             links: AtomicU32::new(1),
+            linkable_without_name: AtomicBool::new(false),
             budget: self.budget.clone(),
         };
         let placement = Placement::new(self, parent, &name);
@@ -652,6 +695,7 @@ impl Workspace {
             dev: WORKSPACE_DEVICE,
             attributes: Attributes::new(mode, owner, self.budget.clone()),
             links: AtomicU32::new(1),
+            linkable_without_name: AtomicBool::new(false),
             budget: self.budget.clone(),
         }
     }
@@ -672,7 +716,9 @@ impl Workspace {
         if !placement.namespace.ptr_eq(&Arc::downgrade(&self.namespace)) {
             return Err(Error::CrossDevice);
         }
-        if metadata.links.load(Ordering::Relaxed) == 0 {
+        if metadata.links.load(Ordering::Relaxed) == 0
+            && !metadata.linkable_without_name.load(Ordering::Relaxed)
+        {
             return Err(Error::NotFound);
         }
         if self.flavor == WorkspaceFlavor::Linux
@@ -700,6 +746,9 @@ impl Workspace {
             Node::Directory(_) => unreachable!("hard-link source is a leaf"),
         };
         metadata.links.fetch_add(1, Ordering::Relaxed);
+        metadata
+            .linkable_without_name
+            .store(false, Ordering::Relaxed);
         namespace.directory_mut(parent).insert(name, node);
         if self.flavor == WorkspaceFlavor::Darwin {
             parent.links.fetch_add(1, Ordering::Relaxed);
@@ -971,6 +1020,13 @@ fn allocate_inode(namespace: &mut Namespace, budget: &mut Budget) -> Result<u64,
 }
 
 impl WorkspaceFile {
+    pub(crate) fn is_tmpfile(&self) -> bool {
+        self.placement
+            .location
+            .lock()
+            .is_ok_and(|location| matches!(*location, LeafLocation::Temporary(_)))
+    }
+
     pub(crate) fn path(&self) -> Result<String, Error> {
         self.placement.path()
     }

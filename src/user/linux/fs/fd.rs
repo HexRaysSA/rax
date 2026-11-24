@@ -311,22 +311,23 @@ impl OpenFile {
         }
     }
 
+    fn ioctl_only(&self) -> bool {
+        matches!(&self.object, FileObject::Supplied(entry)
+            if entry.device().is_some() || entry.workspace_file().is_some_and(|file| file.is_tmpfile()))
+    }
+
     /// Whether the description permits reading.
     pub fn readable(&self) -> bool {
         let flags = self.flags();
         let access = flags & O_ACCMODE;
-        flags & O_PATH == 0
-            && access != O_WRONLY
-            && (access != O_ACCMODE || self.device().is_none())
+        flags & O_PATH == 0 && access != O_WRONLY && (access != O_ACCMODE || !self.ioctl_only())
     }
 
     /// Whether the description permits writing.
     pub fn writable(&self) -> bool {
         let flags = self.flags();
         let access = flags & O_ACCMODE;
-        flags & O_PATH == 0
-            && access != O_RDONLY
-            && (access != O_ACCMODE || self.device().is_none())
+        flags & O_PATH == 0 && access != O_RDONLY && (access != O_ACCMODE || !self.ioctl_only())
     }
 
     /// `read(2)` at the current position.
