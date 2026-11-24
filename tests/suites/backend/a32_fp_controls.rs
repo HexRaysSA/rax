@@ -1178,3 +1178,96 @@ fn nonsecure_aarch64_only_el2_makes_scr_rw_effectively_one() {
         }
     }
 }
+
+#[test]
+fn local_fp_trap_reports_fpexc_in_the_guest_handler_across_checkpoint() {
+    use rax::backend::emulator::aarch64::Aarch64Vcpu;
+    use rax::vm::vcpu::{CpuState, RetirementStop, VCpu};
+    use std::sync::Arc;
+    use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
+
+    const ENTRY: u64 = 0x100;
+    const VBAR: u64 = 0x1000;
+    const VECTOR: u64 = VBAR + 4;
+    const VDIV: u32 = 0xee81_0a02; // VDIV.F32 S0,S2,S4.
+    const FPSCR_CONTROLS: u32 = (1 << 24) | (1 << 9); // FZ and DZE.
+    const FPEXC_EN: u64 = 1 << 30;
+    const FPEXC_TRAPPED: u64 = FPEXC_EN | (1 << 29) | (1 << 26) | 0x702;
+    const DESTINATION: u64 = 0x1234_5678;
+
+    let mvfr0 = Aarch64SysRegEncoding::new(3, 0, 0, 3, 0).encode();
+    let fpexc = Aarch64SysRegEncoding::new(3, 4, 5, 3, 0).encode();
+    for mode in [ProcessorMode::User, ProcessorMode::Supervisor] {
+        for thumb in [false, true] {
+            for delivered in [false, true] {
+                let memory =
+                    Arc::new(GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 0x4000)]).unwrap());
+                for (address, word) in [
+                    (0, 0xd69f_03e0u32), // ERET from AArch64 EL2.
+                    (ENTRY, if thumb { VDIV.rotate_left(16) } else { VDIV }),
+                    (VECTOR, 0xeef8_0a10),     // VMRS R0,FPEXC.
+                    (VECTOR + 4, 0xeef1_1a10), // VMRS R1,FPSCR.
+                ] {
+                    memory
+                        .write_slice(&word.to_le_bytes(), GuestAddress(address))
+                        .unwrap();
+                }
+                let mut source = Aarch64Vcpu::new(0, memory.clone());
+                let CpuState::Aarch64(mut state) = source.get_state().unwrap() else {
+                    panic!()
+                };
+                state.regs.pc = 0;
+                state.regs.pstate = 0x3c9;
+                state.regs.fpcr = FPSCR_CONTROLS;
+                state.regs.fpsr = 1; // Existing IOC.
+                state.regs.v[0] = [DESTINATION, 0x3f80_0000]; // S0 and S2.
+                state.regs.v[1][0] = 1; // S4 is a subnormal and raises an unenabled IDC.
+                state.sregs.vbar_el1 = VBAR;
+                let sys = &mut state.sregs.execution.as_mut().unwrap().sysregs;
+                sys.scr_el3 = 0x501;
+                sys.hcr_el2 = 0; // EL1 is AArch32.
+                sys.el1.cpacr = 3 << 20;
+                sys.el1.vbar = VBAR;
+                sys.el2.elr = ENTRY;
+                sys.el2.spsr = 0x1c0 | u64::from(mode as u8) | (u64::from(thumb) << 5);
+                sys.impl_defined.insert(mvfr0, 0x1011_1222); // FPTrap=1.
+                sys.impl_defined.insert(fpexc, FPEXC_EN);
+                source.set_state(&CpuState::Aarch64(state)).unwrap();
+                assert_eq!(source.run_retirement_budget(1).unwrap().retired, 1);
+                assert_eq!(source.current_pc(), ENTRY);
+                if delivered {
+                    let result = source.run_retirement_budget(1).unwrap();
+                    assert!(matches!(result.stop, RetirementStop::StateChange));
+                    assert_eq!((result.retired, source.current_pc()), (0, VECTOR));
+                }
+
+                let public = source.get_state().unwrap();
+                let private = source.capture_backend_context().unwrap().unwrap();
+                drop(source);
+                let mut target = Aarch64Vcpu::new(0, memory);
+                target
+                    .restore_checkpoint_context(&public, &Default::default(), Some(&private))
+                    .unwrap();
+                if !delivered {
+                    let result = target.run_retirement_budget(1).unwrap();
+                    assert!(matches!(result.stop, RetirementStop::StateChange));
+                    assert_eq!(result.retired, 0);
+                }
+                assert_eq!(
+                    (target.current_pc(), target.instruction_count()),
+                    (VECTOR, 1)
+                );
+                assert_eq!(target.run_retirement_budget(2).unwrap().retired, 2);
+                let CpuState::Aarch64(state) = target.get_state().unwrap() else {
+                    panic!()
+                };
+                assert_eq!(state.regs.v[0], [DESTINATION, 0x3f80_0000]);
+                assert_eq!(
+                    state.regs.x[0], FPEXC_TRAPPED,
+                    "{mode:?}, thumb={thumb}, delivered={delivered}"
+                );
+                assert_eq!(state.regs.x[1], u64::from(FPSCR_CONTROLS | 0x81));
+            }
+        }
+    }
+}

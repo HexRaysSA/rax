@@ -162,7 +162,7 @@ impl AArch64Cpu {
                 if syndrome >> 26 == 0x28 {
                     // FP computation can accrue unenabled status before the
                     // synchronous exception; an access trap has no such effect.
-                    self.commit_aarch32_register_state(&mut state)?;
+                    self.commit_aarch32_fpscr(&state);
                 }
                 return Err(ArmError::ArchitecturalException {
                     ec: (syndrome >> 26) as u8,
@@ -193,7 +193,10 @@ impl AArch64Cpu {
                 }));
             }
             ExecResult::Exception(ExceptionType::FloatingPoint(_)) => {
-                self.commit_aarch32_register_state(&mut state)?;
+                // Local FP traps update FPEXC even when the fault came from
+                // User mode. Preserve the faulting PC, IT state and operands.
+                self.commit_aarch32_fpscr(&state);
+                self.commit_aarch32_fpexc(&state);
                 return Err(ArmError::UndefinedInstruction(raw));
             }
             ExecResult::Undefined | ExecResult::Exception(ExceptionType::UndefinedInstruction) => {

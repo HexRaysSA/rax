@@ -13,6 +13,27 @@ fn spsr_encoding(index: u8) -> u16 {
 }
 
 impl AArch64Cpu {
+    pub(super) fn commit_aarch32_fpscr(&mut self, cpu: &Armv7Cpu) {
+        let fpscr = cpu.vfp.fpscr.bits();
+        let controls = 0x07c8_0000
+            | if cpu.vfp.trapping_profile() {
+                0x9f00
+            } else {
+                0
+            };
+        self.fpcr = (self.fpcr & !controls) | (fpscr & controls);
+        self.fpsr = fpscr & 0xf800_009f;
+    }
+
+    pub(super) fn commit_aarch32_fpexc(&mut self, cpu: &Armv7Cpu) {
+        let register = Aarch64SysRegEncoding::new(3, 4, 5, 3, 0).encode();
+        if cpu.vfp.fpexc != 0 || self.sysregs.impl_defined.contains_key(&register) {
+            self.sysregs
+                .impl_defined
+                .insert(register, u64::from(cpu.vfp.fpexc));
+        }
+    }
+
     pub(super) fn aarch32_register_state(&self) -> Armv7Cpu {
         let psr = self.aarch32.expect("AArch32 execution mode");
         let mut cpu = Armv7Cpu::new();
@@ -140,15 +161,7 @@ impl AArch64Cpu {
             self.v[index] = u128::from(cpu.vfp.dregs[index * 2])
                 | (u128::from(cpu.vfp.dregs[index * 2 + 1]) << 64);
         }
-        let fpscr = cpu.vfp.fpscr.bits();
-        let controls = 0x07c8_0000
-            | if cpu.vfp.trapping_profile() {
-                0x9f00
-            } else {
-                0
-            };
-        self.fpcr = (self.fpcr & !controls) | (fpscr & controls);
-        self.fpsr = fpscr & 0xf800_009f;
+        self.commit_aarch32_fpscr(cpu);
         self.nzcv = ((cpu.cpsr.to_u32() >> 28) & 15) as u8;
         self.daif = (self.daif & 8)
             | (u8::from(cpu.cpsr.a) << 2)
@@ -196,13 +209,8 @@ impl AArch64Cpu {
         {
             self.sysregs.el2.spsr = u64::from(cpu.spsr_hyp.to_u32());
         }
-        let fpexc = Aarch64SysRegEncoding::new(3, 4, 5, 3, 0).encode();
-        if self.current_el >= 1
-            && (cpu.vfp.fpexc != 0 || self.sysregs.impl_defined.contains_key(&fpexc))
-        {
-            self.sysregs
-                .impl_defined
-                .insert(fpexc, u64::from(cpu.vfp.fpexc));
+        if self.current_el >= 1 {
+            self.commit_aarch32_fpexc(cpu);
         }
         self.commit_aarch32_fp_controls(cpu);
         self.update_mmu_config();
