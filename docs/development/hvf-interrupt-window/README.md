@@ -355,6 +355,23 @@ The executable SHA-256 was
   `1eb58dbc48be8123164c9b93d3f9489a26ec9feef4bec6519b7a7a94367a3777`.
   [Native execution archive](https://github.com/HexRaysSA/rax/actions/runs/45278608531/artifacts/14868979998)
 
+The `master` repeat at `997f31499cced003ed9da8f6dbcc2b2a037d02bf`
+passed both cases on hosted macOS 15.7.9 (24G830). Both observation
+rows matched the GPA, RIP, RSP, and handler visit count above. The
+host reported an untranslated GenuineIntel process and a virtualized
+host. Independent verification matched all 4,921 engine inputs and
+22 probe inputs to Git, checked the x86-64 executable signature and
+hypervisor entitlement, and bound the execution to executable SHA-256
+`2139bf100053ad58d6196b90d3d4971eaba2c3b5a80afd8732ac730a93797930`.
+[Hosted repeat](https://github.com/HexRaysSA/rax/actions/runs/45322378300/job/138203743652)
+
+- Build archive `14888940843` matched SHA-256
+  `6003cba5f646d5ba8434d8f99ee7068688e096b2f12b48cd71ecbdc6a9e29158`.
+  [Signed build archive](https://github.com/HexRaysSA/rax/actions/runs/45322378300/artifacts/14888940843)
+- Execution archive `14888861572` matched SHA-256
+  `b6cbdcd730b82a507ff73e0fdcb54e70d69d3fb3850c856c29785513b1ffc795`.
+  [Native execution archive](https://github.com/HexRaysSA/rax/actions/runs/45322378300/artifacts/14888861572)
+
 Other interrupt-delivery exits, including intercepted nested exceptions and
 task gates, require separate handling. A gate or stack that remains assigned
 to a device cannot complete through this RAM mapping path. General event
