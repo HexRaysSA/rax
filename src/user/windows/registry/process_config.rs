@@ -64,7 +64,11 @@ impl ProcessConfigKey {
                 "EnableTcpPortScaling",
             ],
             Self::ActiveComputerName => &["ComputerName"],
-            Self::WinsockParameters => &["Current_NameSpace_Catalog", "Current_Protocol_Catalog"],
+            Self::WinsockParameters => &[
+                "Current_NameSpace_Catalog",
+                "Current_Protocol_Catalog",
+                "WinSock_Registry_Version",
+            ],
             Self::Ccg | Self::OsDataAppCompatFlags => &[],
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
             Self::MachineAppCompatFlags => &["LogFlags"],

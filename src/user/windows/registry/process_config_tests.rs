@@ -143,23 +143,24 @@ fn process_config_preserves_absent_keys_and_control_set_aliases() {
 }
 
 #[test]
-fn winsock_parameters_exposes_only_the_two_catalog_selectors_in_both_views() {
+fn winsock_parameters_exposes_only_selected_values_in_both_views() {
     let subject = ProcessConfigKey::WinsockParameters;
     let root = SnapshotRoot::ProcessConfig(subject);
     let native_path = subject.path().replace("CurrentControlSet", "ControlSet001");
     let registry = Registry::selected(upcase(), vec![]).unwrap();
-    let catalog_value = |name: &str, catalog: &str| Value {
+    let string_value = |name: &str, data: &str| Value {
         name: units(name),
         kind: 1,
-        data: catalog
+        data: data
             .encode_utf16()
             .chain(Some(0))
             .flat_map(u16::to_le_bytes)
             .collect(),
     };
-    let selectors = vec![
-        catalog_value("Current_NameSpace_Catalog", "NameSpace_Catalog5"),
-        catalog_value("Current_Protocol_Catalog", "Protocol_Catalog9"),
+    let values = vec![
+        string_value("Current_NameSpace_Catalog", "NameSpace_Catalog5"),
+        string_value("Current_Protocol_Catalog", "Protocol_Catalog9"),
+        string_value("WinSock_Registry_Version", "2.0"),
     ];
     let mut captured = registry.clone();
     for view in [RegistryView::Native64, RegistryView::Wow32] {
@@ -168,18 +169,18 @@ fn winsock_parameters_exposes_only_the_two_catalog_selectors_in_both_views() {
                 root,
                 &[],
                 view,
-                Ok((header(&native_path, selectors.clone()), None)),
+                Ok((header(&native_path, values.clone()), None)),
             )
             .unwrap();
         for path in [subject.path(), &native_path] {
             let Lookup::Present(key) = captured.lookup_view(&units(path), view) else {
                 panic!("Winsock catalog selection did not resolve");
             };
-            for expected in &selectors {
+            for expected in &values {
                 assert!(key.covers_value(&expected.name));
                 assert_eq!(key.value(&expected.name), Some(expected));
             }
-            assert!(!key.covers_value(&units("AutodialDllName")));
+            assert!(!key.covers_value(&units("AutodialDLL")));
             assert!(matches!(
                 key.relative(&units("Protocol_Catalog9")),
                 Lookup::Unselected
@@ -191,7 +192,7 @@ fn winsock_parameters_exposes_only_the_two_catalog_selectors_in_both_views() {
         }
     }
 
-    let unrelated = catalog_value("AutodialDllName", "unselected.dll");
+    let unrelated = string_value("AutodialDLL", "unselected.dll");
     assert!(
         registry
             .with_snapshot_selection(
