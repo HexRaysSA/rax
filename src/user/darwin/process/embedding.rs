@@ -179,6 +179,8 @@ pub(crate) fn bsd_allowed(number: u32) -> bool {
             | nr::BSDTHREAD_REGISTER
             | nr::BSDTHREAD_CREATE
             | nr::BSDTHREAD_TERMINATE
+            | nr::WORKQ_OPEN
+            | nr::WORKQ_KERNRETURN
             | nr::PTHREAD_MARKCANCEL
             | nr::PTHREAD_CANCELED
             | nr::ULOCK_WAIT

@@ -1,8 +1,10 @@
 //! Context commits use the personality's completed-return ownership.
 use super::*;
 use crate::tests::macho_fixture::{ENTRY, image};
+use rax_engine::user::darwin::abi::{Errno, tables::nr};
 use rax_engine::user::darwin::arch::Rv;
-use rax_engine::user::darwin::syscall::{Ctx, bsd::file};
+use rax_engine::user::darwin::syscall::{Ctx, bsd, bsd::file};
+use rax_engine::user::darwin::workq::wqops;
 use rax_engine::user::image::macho::MH_EXECUTE;
 
 fn process(arm: bool) -> Process {
@@ -17,6 +19,58 @@ fn process(arm: bool) -> Process {
     config.arena_bytes = 64 << 20;
     config.slice_insns = 1;
     Process::new(config, image(arm, &[], false, MH_EXECUTE)).unwrap()
+}
+
+#[test]
+fn closed_workqueue_dispatch_setup_updates_only_guest_state() {
+    for arm in [false, true] {
+        let mut p = process(arm);
+        let (_, mut thread) = p.0.proc.threads.pop_first().unwrap();
+        assert!(!p.0.proc.config.host_services);
+        let config_address = thread.cpu.sp() - 1024;
+        let config = [2u64, 24, 40].map(u64::to_le_bytes).concat();
+        p.0.proc.space.write(config_address, &config).unwrap();
+        let mut ctx = Ctx {
+            proc: &mut p.0.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::WORKQ_OPEN),
+            pc: ENTRY,
+        };
+        assert_eq!(
+            bsd::call(&mut ctx, nr::WORKQ_OPEN, &[0; 8]),
+            Err(Errno::EINVAL)
+        );
+
+        ctx.nr = i64::from(nr::BSDTHREAD_REGISTER);
+        bsd::call(
+            &mut ctx,
+            nr::BSDTHREAD_REGISTER,
+            &[ENTRY, ENTRY, 0x400, 0, 0, 0, 0, 0],
+        )
+        .unwrap();
+        ctx.nr = i64::from(nr::WORKQ_KERNRETURN);
+        let args = [
+            wqops::SETUP_DISPATCH as u64,
+            config_address,
+            config.len() as u64,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ];
+        assert_eq!(
+            bsd::call(&mut ctx, nr::WORKQ_KERNRETURN, &args),
+            Ok(Rv::one(0))
+        );
+        assert_eq!(ctx.proc.wq.serialno_offset, 24);
+        assert_eq!(ctx.proc.wq.label_offset, 40);
+        assert!(!ctx.proc.wq.opened);
+
+        ctx.nr = i64::from(nr::WORKQ_OPEN);
+        assert_eq!(bsd::call(&mut ctx, nr::WORKQ_OPEN, &[0; 8]), Ok(Rv::one(0)));
+        assert!(ctx.proc.wq.opened);
+    }
 }
 
 #[test]
