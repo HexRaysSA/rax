@@ -1411,7 +1411,12 @@ section 2.5 describes VEX alignment behavior.
 
 The RAM observation SHA-256 is
 `c7969f36c61a08a05bee264febe125f0b3865e3d4a68a5abe5c3dcb2d3346c96`.
-The signed Intel macOS consumer compiled on Apple Silicon. The hosted
-`vector-horizontal` profile expects 120 direct and fresh-owner completions
-and six legacy alignment faults. MMX device reads and bare-metal Intel
-macOS qualification remain open.
+The `vector-horizontal` profile passed all 126 cases on a virtualized
+Intel macOS runner at `3fd3aea4da86`. All 120 direct and fresh-owner
+completions matched the independent RAM fingerprints, and all six legacy
+misalignment controls took #GP. The execution archive, prepared source
+and signed executable digests were verified. The execution archive
+SHA-256 is `2e132851abf9d6dde4a25959b52301a55ba4bc4763641227c42f5bf6f3149f03`.
+[Hosted horizontal arithmetic execution](https://github.com/HexRaysSA/rax/actions/runs/45556419300/job/139009447317)
+
+MMX device reads and bare-metal Intel macOS qualification remain open.

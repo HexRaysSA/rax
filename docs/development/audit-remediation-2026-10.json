@@ -200597,7 +200597,7 @@
         "C-STATE"
       ],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Intel HVF completes six packed horizontal add and subtract instructions with a 16 B or 32 B MMIO reply across legacy XMM, VEX.128 and VEX.256 forms. The parent rejected all 30 covered encodings. Sixty independent Rosetta RAM cases matched complete YMM data and RFLAGS. Portable tests cover source ordering, wrapping and saturation, encoding-specific alignment and one completion after private-record reload. The signed native consumer builds and the hosted vector-horizontal profile expects 126 observations. Hosted and bare-metal execution for this group remain unverified.",
+      "scope": "Intel HVF completes six packed horizontal add and subtract instructions with a 16 B or 32 B MMIO reply across legacy XMM, VEX.128 and VEX.256 forms. The parent rejected all 30 covered encodings. Sixty independent Rosetta RAM cases matched complete YMM data and RFLAGS. Portable tests cover source ordering, wrapping and saturation, encoding-specific alignment and one completion after private-record reload. Hosted Intel macOS run 45556419300 passed all 126 cases at 3fd3aea4da86. The 120 direct and restored results matched the independent RAM fingerprints, and six legacy misalignment controls took #GP. The execution archive, prepared source and executable digests were verified. Bare-metal Intel validation remains open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-horizontal-integer-arithmetic",
       "full_goal_complete": false
     }
