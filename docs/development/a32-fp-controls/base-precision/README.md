@@ -18,18 +18,23 @@ Scalar precision fields do not govern Advanced SIMD operations.
 The standalone VFPv2 profile permits `VMRS Rt,FPSID` in User mode after
 the ordinary coprocessor access checks. The read is independent of
 `FPEXC.EN`. Profile selection uses `FPSP=1` and `FPDP` equal to zero or one.
-In this legacy profile, a T32 FPSID read targeting SP selects Undefined for
-the unpredictable encoding. A32 permits SP as the destination.
+In this legacy profile, a T32 `VMRS` or `VMSR` with SP as the core operand
+selects RAX's Undefined diagnostic for the unpredictable encoding. A32 permits
+SP in either direction. The restriction applies after the instruction predicate
+passes and before FP permission checks. The mixed-width Armv8-A profile permits
+the SP operand even with imported VFPv2 precision IDs.
 The standalone VFPv3 and mixed-width Armv8-A profiles require privileged
 access to FPSID. The access check takes constant time and space.
-[Arm DDI0406C.d, §§ B1.11.2 and B9.3.21](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+[Arm DDI0406C.d, §§ B1.11.2, B9.3.21 and B9.3.22](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+[Arm DDI0597 ID032025, pp. 1124–1125 and 1127–1128](../../../specifications/arm/aarch32-isa-2025-03.pdf)
 
 | Assumption and basis | Dependent behavior and falsification probe |
 | --- | --- |
 | The standalone precision pair identifies VFPv2. Arm § B1.11.2 permits reads at PL0. | Attempt the read in A32 and T32 with CPACR full, privileged-only and denied. Check the returned ID, untouched state on denial, and both values of FPEXC.EN. |
 | The legacy permission is specific to the FPSID read. | At PL0, check rejection of an FPSID write, an FPSID read targeting R15, and an MVFR0 read. |
-| The legacy T32 encoding constrains SP. | Read FPSID into SP in each instruction set. Check that only the A32 transfer updates SP. |
+| The legacy T32 encoding constrains SP. | Read FPSID into SP and move FPSCR and FPEXC to and from SP. Use both instruction sets, both legacy FPDP selections, and a failed condition. Compare SP, FPSCR and FPEXC before and after each instruction. |
 | Imported capabilities leave the enclosing PE's regime Armv8-A. | Inject VFPv2 precision IDs into the mixed-width PE and require Undefined with zero retirements and the original operand in ARM and Thumb. |
+| The Armv8-A SP allocation is independent of the imported precision IDs. | Import VFPv2 precision IDs and execute all four T32 FPSCR and FPEXC transfers using SP at EL1. Each must retire once. |
 
 On `445ca8894`, the first standalone control returned Undefined and the
 mixed-width control passed. In QEMU 11.1.2, ARM1176 returned `0x410120b5`
@@ -38,6 +43,24 @@ CPACR, the same guest reached the Undefined vector with its original
 destination. Cortex-A15 reached the Undefined vector with CPACR enabled.
 The QEMU cases execute A32 and exercise emulated CPU models. Physical Arm
 execution remains open.
+
+On `28f612e00`, both new standalone regressions failed because RAX accepted
+the first legacy T32 `VMRS` and `VMSR` using SP. QEMU 11.1.2 `max` executed
+all four FP system-register transfers in both instruction sets and returned
+the expected ARMv8-A register effects. The QEMU Cortex-A15 model also
+executed the four raw T32 encodings. RAX selects Undefined for its legacy
+VFPv2 profile under the Armv7-A `UNPREDICTABLE` rule. LLVM MC 23.0.0git
+assembled all four T32 forms for Armv8-A, rejected both Thumb FPSCR forms
+for Armv7-A, and assembled the Thumb FPEXC forms on both targets.
+The QEMU receipt SHA-256 is
+`dce847566d7c3b1a37e5a2f86e0b4b1d2e73e21a864b3c9f76d7ce266817fb1e`.
+
+All 47,769 tests passed across seven complete macOS Arm64 targets with zero
+failures or ignored cases. The targets were `a32_fp_controls` (223),
+`a32_fp_pairs` (5), `arm` (46,850), `arm_vfp_a32` (538), `isa_oracle` (102),
+`smir_jit_aarch32_aarch64` (26) and `smir_jit_thumb_aarch64` (25).
+The combined test log SHA-256 is
+`1df81fdcdbbeb906e64bb3d0bb88acaeef95fe075b0f6af8f8fd92930a75b199`.
 
 ## Evidence
 

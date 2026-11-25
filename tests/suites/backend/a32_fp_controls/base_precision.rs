@@ -259,3 +259,76 @@ fn standalone_vfpv2_fpsid_read_to_sp_obeys_the_instruction_set_constraint() {
         }
     }
 }
+
+fn check_fp_system_sp_transfer(words: &[u32]) {
+    const SP: u32 = 0x8100_0000;
+    const FPSCR: u32 = 0x2000_0000;
+    const FPEXC: u32 = 0x4000_0700;
+    for &word in words {
+        for mvfr0 in [0x1011_0011, 0x1011_0111, 0x1011_0222] {
+            for thumb in [false, true] {
+                for skip in [false, true] {
+                    let mut cpu = Armv7Cpu::new();
+                    cpu.vfp.mvfr0 = mvfr0;
+                    cpu.vfp.fpscr = rax::isa::arm::aarch32::vfp::Fpscr::from_bits(FPSCR);
+                    cpu.vfp.fpexc = FPEXC;
+                    cpu.regs[13] = SP;
+                    cpu.cpsr.t = thumb;
+                    cpu.cpsr.z = false;
+                    if thumb && skip {
+                        cpu.cpsr.it_state = 0x08; // IT EQ with Z clear.
+                    }
+                    let insn = if thumb {
+                        ThumbDecoder::decode_32bit(word)
+                    } else if skip {
+                        Aarch32Decoder::decode(word & 0x0fff_ffff) // EQ
+                    } else {
+                        Aarch32Decoder::decode(word)
+                    }
+                    .unwrap();
+                    let mut memory = FlatMemory::new(4096, 0);
+                    let result = Executor::new(&mut cpu, &mut memory).execute(&insn);
+                    let denied = thumb && mvfr0 != 0x1011_0222 && !skip;
+                    let case = (word, mvfr0, thumb, skip);
+                    if denied {
+                        assert!(
+                            matches!(result, ExecResult::Undefined),
+                            "{case:x?}: {result:?}"
+                        );
+                    } else {
+                        assert!(
+                            matches!(result, ExecResult::Continue),
+                            "{case:x?}: {result:?}"
+                        );
+                    }
+                    let (sp, fpscr, fpexc) = if denied || skip {
+                        (SP, FPSCR, FPEXC)
+                    } else {
+                        match word {
+                            0xeef1_da10 => (FPSCR, FPSCR, FPEXC),
+                            0xeef8_da10 => (FPEXC, FPSCR, FPEXC),
+                            0xeee1_da10 => (SP, SP, FPEXC),
+                            0xeee8_da10 => (SP, FPSCR, 0x700),
+                            _ => unreachable!(),
+                        }
+                    };
+                    assert_eq!(
+                        (cpu.regs[13], cpu.vfp.fpscr.bits(), cpu.vfp.fpexc),
+                        (sp, fpscr, fpexc),
+                        "{case:x?}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn standalone_vfpv2_vmrs_to_sp_rejects_thumb_only() {
+    check_fp_system_sp_transfer(&[0xeef1_da10, 0xeef8_da10]);
+}
+
+#[test]
+fn standalone_vfpv2_vmsr_from_sp_rejects_thumb_only() {
+    check_fp_system_sp_transfer(&[0xeee1_da10, 0xeee8_da10]);
+}

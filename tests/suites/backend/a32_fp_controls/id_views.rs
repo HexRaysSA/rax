@@ -484,6 +484,21 @@ fn mixed_width_user_fpsid_remains_privileged_with_imported_legacy_precision_ids(
 }
 
 #[test]
+fn mixed_width_fp_system_transfers_allow_thumb_sp_with_legacy_precision_ids() {
+    for word in [0xeef1_da10, 0xeef8_da10, 0xeee1_da10, 0xeee8_da10] {
+        let mut cpu = cpu(true);
+        let mut ids = expected(true);
+        ids[0] = (ids[0] & !0xff0) | 0x110;
+        profile(&mut cpu, ids);
+        cpu.set_pstate_bits(0x1f3).unwrap(); // Thumb SVC.
+        words(&mut cpu, &[word], true);
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue, "{word:#x}");
+        assert_eq!(cpu.get_pc(), 0x104);
+        assert_eq!(cpu.instruction_count(), 1);
+    }
+}
+
+#[test]
 fn a64_mvfr_id_reads_do_not_require_fp_data_access_permission() {
     for el in [1_u8, 2, 3] {
         let mut cpu = cpu(true);
