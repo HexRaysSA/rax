@@ -468,3 +468,54 @@ enters.
 
 Commands, the input ELF, hashes and logs are under
 `/Users/int/dev/rax-audit-work/four-findings-exact-checkpoint-2026-11-25/`.
+
+## RV64 virt firmware power-off
+
+The software RV64 virt firmware profile reserves the SiFive test device at
+physical address `0x0010_0000` for 4096 B. Naturally aligned 16-bit and
+32-bit accesses read as zero. A zero-code `0x5555` write to the base
+register powers off the VM. Reset and nonzero termination status commands
+raise a store access fault. Writes to other offsets have no device effect.
+The device classifies access and publishes terminal state in O(1) time and
+space.
+
+The platform's version-5 checkpoint stores the terminal state for the
+entire VM. Version-4 and earlier records retain their recorded capabilities,
+including the original mapping at the finisher address. A version-5 terminal
+restore stops before the coordinator enters any CPU. Generic RV64 machines
+continue to use the original memory map.
+
+| Claim | Probe | Observed result |
+|---|---|---|
+| Firmware sees a device at the virt test address. | Write a sentinel to a non-command offset, then read it back. | The old RAX read its RAM sentinel and timed out. QEMU 11.1.2 read zero and powered off. |
+| OpenSBI system reset can request power-off. | Run the same two-hart device tree, OpenSBI v1.8.1 firmware, and supervisor payload in both engines. The payload makes an SBI SRST shutdown call. | The baseline RAX printed the pre-call marker, then timed out. Revised RAX and QEMU each printed it once, never returned to the caller, and exited with status 0. |
+| A terminal file can restore without replaying the power-off instruction. | Request a checkpoint at the instruction that powers off, then delete the input ELF and restore with no machine override. | The producer emitted one UART byte before powering off at retirement 7. The restored process exited 0 without UART output. |
+| A file from the prior Sv39 profile retains its state. | Restore the version-4 split instruction fetch file in a fresh version-5 process with no machine override. | The guest completed its fault-handler retry and emitted its pass marker once. |
+
+QEMU's device and OpenSBI's system reset driver define the reference
+register and firmware path. [QEMU 11.1.2 SiFive test device](https://raw.githubusercontent.com/qemu/qemu/v11.1.2/hw/misc/sifive_test.c)
+[OpenSBI v1.8.1 system reset driver](https://raw.githubusercontent.com/riscv-software-src/opensbi/v1.8.1/lib/utils/reset/fdt_reset_syscon.c)
+
+Commands, inputs, hashes, and logs are under
+`/Users/int/dev/rax-audit-work/four-findings-riscv-linux-2026-11-25/`.
+
+### Debian SMP boot and power-off
+
+Debian Linux 6.12.117-1 ran under OpenSBI v1.8.1 with the same device
+tree and initramfs in both engines at each hart count. PID 1 applied
+`sched_setaffinity` for each CPU, checked it with `getcpu`, and requested
+power-off. RAX used the public `Vmm::new_with_clock` entry point with
+`RetiredWithIdle` and the guest options `quiet nowatchdog`.
+
+| System | 2 harts | 4 harts |
+|---|---|---|
+| QEMU 11.1.2, virt | Observed CPUs 0 and 1, power-off, exit 0 | Observed CPUs 0 through 3, power-off, exit 0 |
+| RAX RV64 virt, before the finisher | Observed CPUs 0 and 1, guest power-down log, host timeout | Observed CPUs 0 through 3, guest power-down log, host timeout |
+| RAX RV64 virt, with the finisher | Observed CPUs 0 and 1, power-off, exit 0 | Observed CPUs 0 through 3, power-off, exit 0 |
+
+The earlier RAX wall-clock control with the same guest options timed out
+at two harts before any PID 1 affinity marker. This result qualifies the
+retired-clock software profile. Default wall-clock and other backend
+qualification remain open. The successful four-run comparison is in
+`final-linux-comparison.json` beside the raw logs and runner source.
+[Linux RISC-V boot requirements](https://docs.kernel.org/arch/riscv/boot.html)

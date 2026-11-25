@@ -10,7 +10,9 @@ use std::io::Read;
 
 use vm_memory::{Address, GuestMemory, GuestMemoryMmap};
 
-use crate::backend::emulator::riscv::platform::UART_BASE;
+use crate::backend::emulator::riscv::platform::{
+    UART_BASE, overlapping_controller, overlaps_finisher,
+};
 use crate::config::VmConfig;
 use crate::devices::bus::{IoBus, MmioBus};
 use crate::error::{Error, Result};
@@ -27,10 +29,8 @@ impl RiscvVirtMachine {
         RiscvVirtMachine
     }
 
-    fn load_raw(mem: &GuestMemoryMmap, buf: &[u8]) -> Result<RiscVBootInfo> {
-        if let Some(controller) =
-            crate::backend::emulator::riscv::platform::overlapping_controller(0, buf.len())
-        {
+    fn load_raw(mem: &GuestMemoryMmap, buf: &[u8], firmware: bool) -> Result<RiscVBootInfo> {
+        if let Some(controller) = image_overlapping_device(0, buf.len(), firmware) {
             return Err(Error::KernelLoad(format!(
                 "RISC-V raw image overlaps {controller} MMIO"
             )));
@@ -42,6 +42,14 @@ impl RiscvVirtMachine {
             image_size: buf.len() as u64,
             tohost_addr: None,
         })
+    }
+}
+
+fn image_overlapping_device(address: u64, size: usize, firmware: bool) -> Option<&'static str> {
+    if firmware && overlaps_finisher(address, size) {
+        Some("test finisher")
+    } else {
+        overlapping_controller(address, size)
     }
 }
 
@@ -65,15 +73,17 @@ impl Machine for RiscvVirtMachine {
         if buf.len() < 4 {
             return Err(Error::KernelLoad("image is too small".to_string()));
         }
-        if std::env::var("RAX_MACHINE").as_deref() == Ok("gsc") {
+        let machine = std::env::var("RAX_MACHINE");
+        if machine.as_deref() == Ok("gsc") {
             return Ok(BootInfo::RiscV(crate::machine::gsc::image::load(
                 mem, &buf,
             )?));
         }
+        let firmware = machine.as_deref() == Ok("riscv-virt");
         let info = if buf.starts_with(b"\x7fELF") {
-            Self::load_elf(mem, &buf)?
+            Self::load_elf(mem, &buf, firmware)?
         } else {
-            Self::load_raw(mem, &buf)?
+            Self::load_raw(mem, &buf, firmware)?
         };
         Ok(BootInfo::RiscV(info))
     }

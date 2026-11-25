@@ -557,7 +557,7 @@ impl Memory for GuestBridge {
     }
 
     fn fetch_u16(&self, addr: u64) -> MemResult<u16> {
-        if self.has_platform_uart() && overlaps_uart(addr, 2) {
+        if self.in_platform(addr, 2) || self.has_platform_uart() && overlaps_uart(addr, 2) {
             return Err(MemError::OutOfBounds { addr, size: 2 });
         }
         let mut bytes = [0; 2];
@@ -835,7 +835,16 @@ impl RiscVVcpu {
         }))
     }
 
+    fn platform_shutdown(&self) -> bool {
+        self.platform
+            .as_ref()
+            .is_some_and(|platform| platform.shutdown())
+    }
+
     fn step_system(&mut self) -> Result<Option<VcpuExit>> {
+        if self.platform_shutdown() {
+            return Ok(Some(VcpuExit::Shutdown));
+        }
         if self.halted {
             return Ok(Some(VcpuExit::Hlt));
         }
@@ -851,6 +860,9 @@ impl RiscVVcpu {
         }
         let exit = self.cpu.step();
         self.poll_vm_clock()?;
+        if self.platform_shutdown() {
+            return Ok(Some(VcpuExit::Shutdown));
+        }
         let architectural_traps = || {
             self.platform
                 .as_ref()

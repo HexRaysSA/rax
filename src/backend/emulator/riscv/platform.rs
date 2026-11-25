@@ -23,6 +23,9 @@ pub(crate) const PLIC_BASE: u64 = plic::BASE;
 pub(crate) const PLIC_LEN: u64 = plic::LEN;
 pub(crate) const UART_BASE: u64 = 0x1000_0000;
 pub(crate) const UART_LEN: u64 = 8;
+pub(crate) const FINISHER_BASE: u64 = 0x0010_0000;
+const FINISHER_LEN: u64 = 0x1000;
+const FINISHER_PASS: u32 = 0x5555;
 pub(crate) const FREQUENCY_HZ: u64 = 10_000_000;
 const COMPARE: u64 = 0x4000;
 const TIME: u64 = 0xbff8;
@@ -30,10 +33,13 @@ const CLINT_PROFILE: u8 = 1;
 const PLIC_PROFILE: u8 = 2;
 const ARCHITECTURAL_TRAPS_PROFILE: u8 = 4;
 const SV39_PROFILE: u8 = 8;
+const FINISHER_PROFILE: u8 = 16;
+const SHUTDOWN: u8 = 32;
 const CLINT_VERSION: u8 = 1;
 const PLIC_VERSION: u8 = 2;
 const ARCHITECTURAL_TRAPS_VERSION: u8 = 3;
 const SV39_VERSION: u8 = 4;
+const FINISHER_VERSION: u8 = 5;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PlatformCheckpoint {
@@ -46,6 +52,8 @@ pub(crate) struct PlatformCheckpoint {
     offset: u64,
     #[serde(skip)]
     plic: Option<plic::Plic>,
+    #[serde(skip)]
+    shutdown: bool,
 }
 
 fn saved_software<'de, D: serde::Deserializer<'de>>(
@@ -65,7 +73,7 @@ impl PlatformCheckpoint {
             (self.version, self.plic.is_some()),
             (CLINT_VERSION, false)
                 | (
-                    PLIC_VERSION | ARCHITECTURAL_TRAPS_VERSION | SV39_VERSION,
+                    PLIC_VERSION | ARCHITECTURAL_TRAPS_VERSION | SV39_VERSION | FINISHER_VERSION,
                     true
                 )
         ) || count == 0
@@ -73,6 +81,7 @@ impl PlatformCheckpoint {
             || self.ram_end != ram_end
             || self.msip.len() != count
             || self.compare.len() != count
+            || self.shutdown && self.version != FINISHER_VERSION
         {
             return Err(invalid("checkpoint topology or version differs"));
         }
@@ -87,7 +96,7 @@ impl PlatformCheckpoint {
     }
 
     pub(crate) fn sv39_enabled(&self) -> bool {
-        self.version == SV39_VERSION
+        matches!(self.version, SV39_VERSION | FINISHER_VERSION)
     }
 
     fn profile(&self) -> u8 {
@@ -95,11 +104,17 @@ impl PlatformCheckpoint {
         if self.plic_enabled() {
             profile |= PLIC_PROFILE;
         }
-        if matches!(self.version, ARCHITECTURAL_TRAPS_VERSION | SV39_VERSION) {
+        if self.version == ARCHITECTURAL_TRAPS_VERSION || self.sv39_enabled() {
             profile |= ARCHITECTURAL_TRAPS_PROFILE;
         }
         if self.sv39_enabled() {
             profile |= SV39_PROFILE;
+        }
+        if self.version == FINISHER_VERSION {
+            profile |= FINISHER_PROFILE;
+            if self.shutdown {
+                profile |= SHUTDOWN;
+            }
         }
         profile
     }
@@ -117,6 +132,9 @@ impl PlatformCheckpoint {
 
     pub(crate) fn encode(&self, limit: usize) -> Result<Vec<u8>> {
         match &self.plic {
+            Some(plic) if self.version == FINISHER_VERSION => {
+                crate::codec::serialize_limited(&(self, plic, self.shutdown), limit)
+            }
             Some(plic) => crate::codec::serialize_limited(&(self, plic), limit),
             None => crate::codec::serialize_limited(self, limit),
         }
@@ -134,6 +152,14 @@ impl PlatformCheckpoint {
                     crate::codec::deserialize_limited::<_, LIMIT>(bytes)
                         .map_err(invalid_payload)?;
                 state.plic = Some(plic);
+                Ok(state)
+            }
+            Some(FINISHER_VERSION) => {
+                let (mut state, plic, shutdown): (Self, plic::Plic, bool) =
+                    crate::codec::deserialize_limited::<_, LIMIT>(bytes)
+                        .map_err(invalid_payload)?;
+                state.plic = Some(plic);
+                state.shutdown = shutdown;
                 Ok(state)
             }
             _ => Err(invalid("unknown checkpoint version")),
@@ -174,6 +200,12 @@ pub(crate) fn overlapping_controller(address: u64, size: usize) -> Option<&'stat
     } else {
         None
     }
+}
+
+pub(crate) fn overlaps_finisher(address: u64, size: usize) -> bool {
+    size != 0
+        && address < FINISHER_BASE + FINISHER_LEN
+        && u128::from(address) + size as u128 > u128::from(FINISHER_BASE)
 }
 
 fn overlaps_clint(address: u64, size: usize) -> bool {
@@ -255,7 +287,7 @@ impl Platform {
         let offset = clock.counter_ticks(FREQUENCY_HZ).wrapping_neg();
         let registers = PlatformCheckpoint {
             version: if architectural_traps {
-                SV39_VERSION
+                FINISHER_VERSION
             } else {
                 PLIC_VERSION
             },
@@ -264,6 +296,7 @@ impl Platform {
             compare: vec![u64::MAX; usize::from(count)],
             offset,
             plic: Some(plic::Plic::new(count)),
+            shutdown: false,
         };
         let profile = AtomicU8::new(registers.profile());
         Ok(Self {
@@ -292,6 +325,9 @@ impl Platform {
     }
     pub(super) fn sv39_enabled(&self) -> bool {
         self.profile.load(Ordering::Acquire) & SV39_PROFILE != 0
+    }
+    pub(crate) fn shutdown(&self) -> bool {
+        self.profile.load(Ordering::Acquire) & SHUTDOWN != 0
     }
     pub(crate) fn bind_serial(&self, serial: Arc<Mutex<Serial16550>>) -> Result<()> {
         self.serial
@@ -352,8 +388,32 @@ impl Platform {
         let profile = self.profile.load(Ordering::Acquire);
         profile & CLINT_PROFILE != 0 && overlaps_clint(address, size)
             || profile & PLIC_PROFILE != 0 && plic::overlaps(address, size)
+            || profile & FINISHER_PROFILE != 0 && overlaps_finisher(address, size)
+    }
+    fn finisher_access(&self, address: u64, size: usize) -> MemResult<bool> {
+        if self.profile.load(Ordering::Acquire) & FINISHER_PROFILE == 0
+            || !overlaps_finisher(address, size)
+        {
+            return Ok(false);
+        }
+        if !matches!(size, 2 | 4)
+            || address < FINISHER_BASE
+            || u128::from(address) + size as u128 > u128::from(FINISHER_BASE + FINISHER_LEN)
+        {
+            return Err(fault(address, size));
+        }
+        if address & (size as u64 - 1) != 0 {
+            return Err(MemError::Misaligned {
+                addr: address,
+                size,
+            });
+        }
+        Ok(true)
     }
     pub(crate) fn probe(&self, address: u64, size: usize) -> MemResult<()> {
+        if self.finisher_access(address, size)? {
+            return Ok(());
+        }
         if plic::overlaps(address, size) {
             let state = self.state.lock().map_err(|_| fault(address, size))?;
             if !state.enabled {
@@ -371,6 +431,10 @@ impl Platform {
         register(address, size, self.count).map(|_| ())
     }
     pub(crate) fn read(&self, address: u64, bytes: &mut [u8]) -> MemResult<()> {
+        if self.finisher_access(address, bytes.len())? {
+            bytes.fill(0);
+            return Ok(());
+        }
         if plic::overlaps(address, bytes.len()) {
             let size = bytes.len();
             let mut state = self.state.lock().map_err(|_| fault(address, size))?;
@@ -407,6 +471,30 @@ impl Platform {
         Ok(())
     }
     pub(crate) fn write(&self, address: u64, bytes: &[u8]) -> MemResult<()> {
+        if self.finisher_access(address, bytes.len())? {
+            if address == FINISHER_BASE {
+                let mut raw = [0; 4];
+                raw[..bytes.len()].copy_from_slice(bytes);
+                match u32::from_le_bytes(raw) {
+                    FINISHER_PASS => {
+                        let mut state =
+                            self.state.lock().map_err(|_| fault(address, bytes.len()))?;
+                        if !state.enabled || state.registers.version != FINISHER_VERSION {
+                            return Err(fault(address, bytes.len()));
+                        }
+                        state.registers.shutdown = true;
+                        self.profile.fetch_or(SHUTDOWN, Ordering::Release);
+                    }
+                    // The firmware profile implements the zero-code power-off
+                    // command. Reject reset and coded termination explicitly.
+                    other if matches!(other & 0xffff, 0x3333 | 0x5555 | 0x7777) => {
+                        return Err(fault(address, bytes.len()));
+                    }
+                    _ => (),
+                }
+            }
+            return Ok(());
+        }
         if plic::overlaps(address, bytes.len()) {
             let size = bytes.len();
             let mut state = self.state.lock().map_err(|_| fault(address, size))?;

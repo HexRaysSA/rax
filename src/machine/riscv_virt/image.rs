@@ -14,7 +14,11 @@ struct Segment {
 }
 
 impl RiscvVirtMachine {
-    pub(super) fn load_elf(mem: &GuestMemoryMmap, bytes: &[u8]) -> Result<RiscVBootInfo> {
+    pub(super) fn load_elf(
+        mem: &GuestMemoryMmap,
+        bytes: &[u8],
+        firmware: bool,
+    ) -> Result<RiscVBootInfo> {
         let elf = Elf::parse(bytes)
             .map_err(|error| Error::KernelLoad(format!("ELF parse error: {error}")))?;
         if !elf.is_64 {
@@ -92,10 +96,7 @@ impl RiscvVirtMachine {
             let memory_size = usize::try_from(ph.p_memsz)
                 .map_err(|_| Error::KernelLoad("ELF memory segment exceeds host range".into()))?;
             if let Some(controller) =
-                crate::backend::emulator::riscv::platform::overlapping_controller(
-                    address,
-                    memory_size,
-                )
+                super::image_overlapping_device(address, memory_size, firmware)
             {
                 return Err(Error::KernelLoad(format!(
                     "RISC-V ELF overlaps {controller} MMIO"

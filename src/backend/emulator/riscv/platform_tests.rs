@@ -54,7 +54,7 @@ fn restored_platform_selects_the_saved_trap_policy() {
         .unwrap()
         .encode(LIMIT)
         .unwrap();
-    assert_eq!(record[0], SV39_VERSION);
+    assert_eq!(record[0], FINISHER_VERSION);
     let saved = PlatformCheckpoint::decode::<LIMIT>(&record).unwrap();
     saved.validate(2, extent).unwrap();
 
@@ -75,6 +75,13 @@ fn restored_platform_selects_the_saved_trap_policy() {
     assert!(legacy.sv39_enabled());
 
     let mut old_firmware = saved;
+    old_firmware.version = SV39_VERSION;
+    let old_record = old_firmware.encode(LIMIT).unwrap();
+    let old_sv39 = PlatformCheckpoint::decode::<LIMIT>(&old_record).unwrap();
+    legacy.restore_with(Some(old_sv39), || Ok(())).unwrap();
+    assert!(legacy.sv39_enabled());
+    assert!(!legacy.claims(FINISHER_BASE, 4));
+
     old_firmware.version = ARCHITECTURAL_TRAPS_VERSION;
     let old_record = old_firmware.encode(LIMIT).unwrap();
     let old_firmware = PlatformCheckpoint::decode::<LIMIT>(&old_record).unwrap();
@@ -89,6 +96,68 @@ fn restored_platform_selects_the_saved_trap_policy() {
     legacy.restore_with(None, || Ok(())).unwrap();
     assert!(!legacy.architectural_traps());
     assert!(!legacy.plic_enabled());
+}
+
+#[test]
+fn finisher_validates_the_access_and_restores_the_sticky_power_off() {
+    const LIMIT: usize = 16_384;
+    for size in [2, 4] {
+        let (clock, legacy) = fixture(2);
+        let platform = Platform::new(2, 0x8000000, clock, true).unwrap();
+        let live = platform.checkpoint().unwrap();
+        assert!(platform.claims(FINISHER_BASE - 1, 2));
+        assert!(!platform.claims(FINISHER_BASE + FINISHER_LEN, 4));
+        for (address, bad_size) in [
+            (FINISHER_BASE, 1),
+            (FINISHER_BASE, 8),
+            (FINISHER_BASE + 1, size),
+            (FINISHER_BASE + FINISHER_LEN - 1, size),
+        ] {
+            assert!(platform.probe(address, bad_size).is_err());
+            assert!(platform.write(address, &[0; 8][..bad_size]).is_err());
+        }
+        for unsupported in [0x3333u32, 0x7777, 0x0001_5555] {
+            assert!(
+                platform
+                    .write(FINISHER_BASE, &unsupported.to_le_bytes())
+                    .is_err()
+            );
+        }
+        assert_eq!(platform.checkpoint().unwrap(), live);
+        let mut value = [0xff; 4];
+        platform.read(FINISHER_BASE, &mut value).unwrap();
+        assert_eq!(value, [0; 4]);
+
+        platform
+            .write(FINISHER_BASE + 4, &FINISHER_PASS.to_le_bytes()[..size])
+            .unwrap();
+        assert!(!platform.shutdown());
+        platform
+            .write(FINISHER_BASE, &FINISHER_PASS.to_le_bytes()[..size])
+            .unwrap();
+        assert!(platform.shutdown());
+        assert!(!legacy.shutdown());
+        let record = platform
+            .checkpoint()
+            .unwrap()
+            .unwrap()
+            .encode(LIMIT)
+            .unwrap();
+        let saved = PlatformCheckpoint::decode::<LIMIT>(&record).unwrap();
+        let mut invalid_wire = record.clone();
+        *invalid_wire.last_mut().unwrap() = 2;
+        assert!(PlatformCheckpoint::decode::<LIMIT>(&invalid_wire).is_err());
+        assert!(
+            legacy
+                .restore_with(Some(saved.clone()), || Err::<(), _>(invalid("fixture")))
+                .is_err()
+        );
+        assert!(!legacy.shutdown());
+        legacy.restore_with(Some(saved), || Ok(())).unwrap();
+        assert!(legacy.shutdown());
+        legacy.restore_with(live, || Ok(())).unwrap();
+        assert!(!legacy.shutdown());
+    }
 }
 #[test]
 fn owned_clock_ticks_and_timer_threshold_are_independent_of_ambient_clock() {

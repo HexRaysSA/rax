@@ -215,7 +215,11 @@ impl Vm for EmulatorVm {
         Ok(self
             .arm_cluster
             .get()
-            .is_some_and(|cluster| cluster.shutdown()))
+            .is_some_and(|cluster| cluster.shutdown())
+            || self
+                .riscv_platform
+                .get()
+                .is_some_and(|platform| platform.shutdown()))
     }
 
     fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {

@@ -200644,6 +200644,17 @@
       "scope": "Automatic software capture can end a scheduling turn at the requested count and records the next CPU. The Sv39 split-fetch handler captured at 79 instead of the baseline 106 and resumed without the guest ELF. Actual x86 VMM tests cover periodic and explicit counts, completed I/O, failed nonterminal write retry, and the restored SMP interleaving.",
       "qualification": "docs/development/riscv-clint/README.md#exact-retirement-checkpoints",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-virt-firmware-poweroff-2026-11-25",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "RV64 virt interprets the zero-code SiFive power-off command and preserves VM-wide terminal state in version-5 platform records. A detached terminal checkpoint exits at the captured retirement without reissuing the command. Debian Linux 6.12.117-1 under OpenSBI v1.8.1 ran PID 1 on each configured hart and powered off at both two and four harts in QEMU 11.1.2 and RAX with RetiredWithIdle. The former RAX guest reached all CPUs but timed out after power-down. The RAX default wall-clock control timed out before PID 1.",
+      "qualification": "docs/development/riscv-clint/README.md#rv64-virt-firmware-power-off",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

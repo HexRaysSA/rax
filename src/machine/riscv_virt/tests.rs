@@ -16,7 +16,7 @@ fn elf_entry_is_not_inferred_from_mret_bytes() {
         .flat_map(u32::to_le_bytes)
         .collect::<Vec<_>>();
     let image = program::elf(&code, 0x1000, 0x1000);
-    let info = RiscvVirtMachine::load_elf(&mem, &image).unwrap();
+    let info = RiscvVirtMachine::load_elf(&mem, &image, false).unwrap();
     assert_eq!(
         info.entry_point, 0x1000,
         "e_entry must remain the execution entry"
@@ -29,7 +29,7 @@ fn elf_zero_fills_the_memory_tail() {
     mem.write_slice(&[0xa5; 64], GuestAddress(0x1000)).unwrap();
     let mut image = program::elf(&0x00000013u32.to_le_bytes(), 0x1000, 0x1000);
     program::put64(&mut image, 104, 64);
-    RiscvVirtMachine::load_elf(&mem, &image).unwrap();
+    RiscvVirtMachine::load_elf(&mem, &image, false).unwrap();
     let mut actual = [0; 64];
     mem.read_slice(&mut actual, GuestAddress(0x1000)).unwrap();
     assert_eq!(&actual[..4], &0x00000013u32.to_le_bytes());
@@ -52,7 +52,7 @@ fn invalid_later_segment_rejects_before_publishing_the_first_segment() {
     program::put64(&mut image, 144, 0x2000);
     program::put64(&mut image, 152, 1);
     program::put64(&mut image, 160, 1);
-    assert!(RiscvVirtMachine::load_elf(&mem, &image).is_err());
+    assert!(RiscvVirtMachine::load_elf(&mem, &image, false).is_err());
     let mut actual = [0; 64];
     mem.read_slice(&mut actual, GuestAddress(0x1000)).unwrap();
     assert_eq!(
@@ -77,7 +77,7 @@ fn malformed_elf_memory_size_entry_and_alignment_do_not_mutate_ram() {
             _ => unreachable!(),
         }
         assert!(
-            RiscvVirtMachine::load_elf(&mem, &image).is_err(),
+            RiscvVirtMachine::load_elf(&mem, &image, false).is_err(),
             "mutation {mutation}"
         );
         let mut actual = [0; 64];
@@ -90,10 +90,34 @@ fn malformed_elf_memory_size_entry_and_alignment_do_not_mutate_ram() {
 fn raw_image_bounds_are_admitted_before_any_write() {
     let mem = GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 4096)]).unwrap();
     mem.write_slice(&[0xa5; 64], GuestAddress(0)).unwrap();
-    assert!(RiscvVirtMachine::load_raw(&mem, &[0x13; 4097]).is_err());
+    assert!(RiscvVirtMachine::load_raw(&mem, &[0x13; 4097], false).is_err());
     let mut actual = [0; 64];
     mem.read_slice(&mut actual, GuestAddress(0)).unwrap();
     assert_eq!(actual, [0xa5; 64]);
+}
+
+#[test]
+fn firmware_reserves_finisher_without_removing_legacy_image_memory() {
+    use crate::backend::emulator::riscv::platform::FINISHER_BASE;
+
+    let mem =
+        GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), (FINISHER_BASE + 4096) as usize)])
+            .unwrap();
+    let address = GuestAddress(FINISHER_BASE);
+    mem.write_slice(&[0xa5; 4], address).unwrap();
+    let nop = 0x0000_0013u32;
+    let elf = program::elf(&nop.to_le_bytes(), FINISHER_BASE, FINISHER_BASE);
+    let error = RiscvVirtMachine::load_elf(&mem, &elf, true).err().unwrap();
+    assert!(error.to_string().contains("test finisher"));
+    assert_eq!(mem.read_obj::<u32>(address).unwrap(), 0xa5a5_a5a5);
+    let error = RiscvVirtMachine::load_raw(&mem, &vec![0x13; FINISHER_BASE as usize + 4], true)
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("test finisher"));
+    assert_eq!(mem.read_obj::<u32>(address).unwrap(), 0xa5a5_a5a5);
+
+    RiscvVirtMachine::load_elf(&mem, &elf, false).unwrap();
+    assert_eq!(u32::from_le(mem.read_obj::<u32>(address).unwrap()), nop);
 }
 
 #[test]
@@ -175,12 +199,12 @@ fn elf_symbols_do_not_replace_entry_and_defined_zero_tohost_is_retained() {
         ("test_1", 0x100c, 1),
         ("tohost", 0, 1),
     ]);
-    let info = RiscvVirtMachine::load_elf(&memory(), &image).unwrap();
+    let info = RiscvVirtMachine::load_elf(&memory(), &image, false).unwrap();
     assert_eq!(info.entry_point, 0x1000);
     assert_eq!(info.tohost_addr, Some(0));
     let image = with_symbols(&[("tohost", 0x2000, 0)]);
     assert_eq!(
-        RiscvVirtMachine::load_elf(&memory(), &image)
+        RiscvVirtMachine::load_elf(&memory(), &image, false)
             .unwrap()
             .tohost_addr,
         None
@@ -192,7 +216,7 @@ fn conflicting_tohost_symbols_reject_before_image_publication() {
     let mem = memory();
     mem.write_slice(&[0xa5; 4], GuestAddress(0x1000)).unwrap();
     let image = with_symbols(&[("tohost", 0x2000, 1), ("tohost", 0x2008, 1)]);
-    assert!(RiscvVirtMachine::load_elf(&mem, &image).is_err());
+    assert!(RiscvVirtMachine::load_elf(&mem, &image, false).is_err());
     assert_eq!(
         mem.read_obj::<u32>(GuestAddress(0x1000)).unwrap(),
         0xa5a5a5a5
@@ -218,7 +242,7 @@ fn unsupported_elf_profiles_and_segment_holes_reject_without_publication() {
             _ => unreachable!(),
         }
         assert!(
-            RiscvVirtMachine::load_elf(&mem, &image).is_err(),
+            RiscvVirtMachine::load_elf(&mem, &image, false).is_err(),
             "profile {mutation}"
         );
         assert_eq!(
@@ -232,7 +256,7 @@ fn unsupported_elf_profiles_and_segment_holes_reject_without_publication() {
     holes.write_slice(&[0xa5; 4], GuestAddress(0x1000)).unwrap();
     let mut image = program::elf(&[0x13, 0, 0, 0], 0x1000, 0x1000);
     program::put64(&mut image, 104, 16384);
-    assert!(RiscvVirtMachine::load_elf(&holes, &image).is_err());
+    assert!(RiscvVirtMachine::load_elf(&holes, &image, false).is_err());
     assert_eq!(
         holes.read_obj::<u32>(GuestAddress(0x1000)).unwrap(),
         0xa5a5a5a5
@@ -252,7 +276,7 @@ fn malformed_elf_header_fields_reject_without_publication() {
             _ => unreachable!(),
         }
         assert!(
-            RiscvVirtMachine::load_elf(&mem, &image).is_err(),
+            RiscvVirtMachine::load_elf(&mem, &image, false).is_err(),
             "field {mutation}"
         );
         assert_eq!(
@@ -270,7 +294,7 @@ fn elf_bss_zero_fill_covers_a_full_chunk_and_a_partial_tail() {
     mem.write_slice(&vec![0xa5; memory_size], GuestAddress(0x1000))
         .unwrap();
     program::put64(&mut image, 104, memory_size as u64);
-    let info = RiscvVirtMachine::load_elf(&mem, &image).unwrap();
+    let info = RiscvVirtMachine::load_elf(&mem, &image, false).unwrap();
     assert_eq!(info.image_size, memory_size as u64);
     let mut tail = vec![0xa5; memory_size - 4];
     mem.read_slice(&mut tail, GuestAddress(0x1004)).unwrap();
@@ -314,7 +338,7 @@ fn readonly_late_segment_and_bootstrap_stacks_reject_without_writes() {
     ] {
         program::put64(&mut image, at, value);
     }
-    assert!(RiscvVirtMachine::load_elf(&mem, &image).is_err());
+    assert!(RiscvVirtMachine::load_elf(&mem, &image, false).is_err());
     assert_eq!(
         mem.read_obj::<u32>(GuestAddress(0x1000)).unwrap(),
         0xa5a5a5a5
@@ -349,13 +373,15 @@ fn image_overlap_is_rejected_before_any_segment_is_written() {
         for address in [base, base - 2] {
             program::put64(&mut image, 136, address);
             program::put64(&mut image, 144, address);
-            let error = RiscvVirtMachine::load_elf(&mem, &image).err().unwrap();
+            let error = RiscvVirtMachine::load_elf(&mem, &image, false)
+                .err()
+                .unwrap();
             assert!(error.to_string().contains(controller));
             mem.read_slice(&mut before, GuestAddress(0x1000)).unwrap();
             assert_eq!(before, sentinel);
         }
     }
-    let error = RiscvVirtMachine::load_raw(&mem, &vec![0x13; BASE as usize + 4])
+    let error = RiscvVirtMachine::load_raw(&mem, &vec![0x13; BASE as usize + 4], false)
         .err()
         .unwrap();
     assert!(error.to_string().contains("CLINT"));
