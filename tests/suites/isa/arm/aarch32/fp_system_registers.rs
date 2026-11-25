@@ -92,6 +92,150 @@ fn fpscr_reads_mask_raw_state_without_mutating_it_and_apsr_receives_only_nzcv() 
 }
 
 #[test]
+fn fpscr_exposes_only_fields_present_in_each_fp_and_simd_profile() {
+    // DDI0406C.d B4.1.58 defines QC for Advanced SIMD and AHP for
+    // half-precision conversion. Select zero for unimplemented fields.
+    let profiles = [
+        (0x1011_0222, 0x1321_1111, 0xffc8_009f), // Full profile.
+        (0x1011_0221, 0x0000_0011, 0xf3c0_009f), // Scalar only.
+        (0x1011_0221, 0x0100_0011, 0xf7c0_009f), // Scalar half conversion.
+        (0x1011_0222, 0x0000_1111, 0xfbc0_009f), // Scalar with integer SIMD.
+        (0x1011_0222, 0x0011_1111, 0xffc0_009f), // SIMD half conversion.
+        (0x0000_0002, 0x0000_1100, 0x0800_0000), // Integer SIMD only.
+        (0x0000_0002, 0x0001_1100, 0x0800_009f), // SIMD FP32 only.
+    ];
+    let mut memory = FlatMemory::new(4096, 0);
+    for thumb in [false, true] {
+        for (mvfr0, mvfr1, mask) in profiles {
+            let mut cpu = Armv7Cpu::new();
+            cpu.cpsr.t = thumb;
+            cpu.vfp.mvfr0 = mvfr0;
+            cpu.vfp.mvfr1 = mvfr1;
+            cpu.vfp.fpscr = Fpscr::from_bits(u32::MAX);
+            cpu.regs[0] = u32::MAX;
+            let flags = cpu.cpsr.to_u32();
+            let label = (thumb, mvfr0, mvfr1);
+            assert!(
+                matches!(
+                    execute(&mut cpu, &mut memory, 0xeef1_1a10),
+                    ExecResult::Continue
+                ),
+                "{label:?}: VMRS FPSCR"
+            );
+            assert_eq!(cpu.regs[1], mask, "{label:?}: VMRS value");
+            assert_eq!(cpu.vfp.fpscr.bits(), u32::MAX);
+            assert!(
+                matches!(
+                    execute(&mut cpu, &mut memory, 0xeee1_0a10),
+                    ExecResult::Continue
+                ),
+                "{label:?}: VMSR FPSCR"
+            );
+            assert_eq!(cpu.vfp.fpscr.bits(), mask, "{label:?}: VMSR value");
+            assert_eq!(cpu.cpsr.to_u32(), flags);
+        }
+    }
+}
+
+#[test]
+fn integer_simd_without_scalar_fp_observes_and_clears_saturation() {
+    let mut memory = FlatMemory::new(4096, 0);
+    for thumb in [false, true] {
+        let mut cpu = Armv7Cpu::new();
+        cpu.cpsr.t = thumb;
+        cpu.vfp.mvfr0 = 2;
+        cpu.vfp.mvfr1 = 0x0000_1100;
+        cpu.vfp.mvfr2 = 0;
+        cpu.vfp.write_d_bits(2, 0x7f7f_7f7f_7f7f_7f7f);
+        cpu.vfp.write_d_bits(3, 0x0101_0101_0101_0101);
+        let vqadd = if thumb { 0xef02_0013 } else { 0xf202_0013 };
+        assert!(matches!(
+            execute(&mut cpu, &mut memory, vqadd),
+            ExecResult::Continue
+        ));
+        assert_eq!(cpu.vfp.read_d_bits(0), 0x7f7f_7f7f_7f7f_7f7f);
+        assert!(
+            matches!(
+                execute(&mut cpu, &mut memory, 0xeef1_1a10),
+                ExecResult::Continue
+            ),
+            "Thumb={thumb}: VMRS FPSCR"
+        );
+        assert_eq!(cpu.regs[1], 1 << 27);
+
+        cpu.regs[0] = 0;
+        assert!(matches!(
+            execute(&mut cpu, &mut memory, 0xeee1_0a10),
+            ExecResult::Continue
+        ));
+        assert!(matches!(
+            execute(&mut cpu, &mut memory, 0xeef1_1a10),
+            ExecResult::Continue
+        ));
+        assert_eq!(cpu.regs[1], 0);
+        assert!(matches!(
+            execute(&mut cpu, &mut memory, 0xee31_0a02),
+            ExecResult::Undefined
+        ));
+    }
+}
+
+#[test]
+fn integer_simd_shared_system_registers_keep_access_checks() {
+    let mut memory = FlatMemory::new(4096, 0);
+    for thumb in [false, true] {
+        let mut cpu = Armv7Cpu::new();
+        cpu.cpsr.t = thumb;
+        cpu.vfp.mvfr0 = 2;
+        cpu.vfp.mvfr1 = 0x0000_1100;
+        cpu.regs[0] = 0;
+        // FPEXC remains available with EN cleared, as do the ID registers.
+        assert!(
+            matches!(
+                execute(&mut cpu, &mut memory, 0xeee8_0a10),
+                ExecResult::Continue
+            ),
+            "Thumb={thumb}: VMSR FPEXC"
+        );
+        for (raw, expected) in [
+            (0xeef7_1a10, 2),
+            (0xeef6_1a10, 0x0000_1100),
+            (0xeef8_1a10, 0x0000_0700),
+        ] {
+            assert!(matches!(
+                execute(&mut cpu, &mut memory, raw),
+                ExecResult::Continue
+            ));
+            assert_eq!(cpu.regs[1], expected, "Thumb={thumb}: {raw:08x}");
+        }
+        assert!(matches!(
+            execute(&mut cpu, &mut memory, 0xeef1_1a10),
+            ExecResult::Exception(rax::isa::arm::ExceptionType::UndefinedInstruction)
+        ));
+        assert_eq!(cpu.regs[1], 0x0000_0700);
+
+        cpu.change_mode(rax::isa::arm::ProcessorMode::User);
+        cpu.regs[0] = 1 << 30;
+        for raw in [0xeef7_1a10, 0xeee8_0a10] {
+            assert!(matches!(
+                execute(&mut cpu, &mut memory, raw),
+                ExecResult::Undefined
+            ));
+        }
+        assert_eq!(cpu.regs[1], 0x0000_0700);
+        assert_eq!(cpu.vfp.fpexc, 0x0000_0700);
+
+        cpu.change_mode(rax::isa::arm::ProcessorMode::Supervisor);
+        cpu.vfp.mvfr1 = 0; // A register file alone does not implement either extension.
+        assert!(matches!(
+            execute(&mut cpu, &mut memory, 0xeef7_1a10),
+            ExecResult::Undefined
+        ));
+        assert_eq!(cpu.regs[1], 0x0000_0700);
+    }
+}
+
+#[test]
 fn fpexc_writes_only_change_enable_and_preserve_fixed_profile_bits() {
     let mut memory = FlatMemory::new(4096, 0);
     assert_eq!(Armv7Cpu::new().vfp.fpexc, 0x4000_0700);

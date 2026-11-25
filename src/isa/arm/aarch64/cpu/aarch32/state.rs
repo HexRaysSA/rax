@@ -7,6 +7,9 @@ use crate::isa::arm::aarch64::cpu::AArch64Cpu;
 use crate::isa::arm::common::cpu::ArmError;
 use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
 
+const FPSCR_CONTROL_FIELDS: u32 = 0x07c8_9f00;
+const FPSCR_STATUS_FIELDS: u32 = 0xf800_009f;
+
 fn spsr_encoding(index: u8) -> u16 {
     // Clang's SPSR_irq/abt/und/fiq encodings, S3_4_C4_C3_<0..3>.
     Aarch64SysRegEncoding::new(3, 4, 4, 3, index).encode()
@@ -15,14 +18,12 @@ fn spsr_encoding(index: u8) -> u16 {
 impl AArch64Cpu {
     pub(super) fn commit_aarch32_fpscr(&mut self, cpu: &Armv7Cpu) {
         let fpscr = cpu.vfp.fpscr.bits();
-        let controls = 0x07c8_0000
-            | if cpu.vfp.trapping_profile() {
-                0x9f00
-            } else {
-                0
-            };
+        let visible = cpu.vfp.fpscr_mask();
+        // Only the fields exposed through this AArch32 view are committed.
+        let controls = visible & FPSCR_CONTROL_FIELDS;
+        let status = visible & FPSCR_STATUS_FIELDS;
         self.fpcr = (self.fpcr & !controls) | (fpscr & controls);
-        self.fpsr = fpscr & 0xf800_009f;
+        self.fpsr = (self.fpsr & !status) | (fpscr & status);
     }
 
     pub(super) fn commit_aarch32_fpexc(&mut self, cpu: &Armv7Cpu) {
@@ -78,16 +79,8 @@ impl AArch64Cpu {
         for index in 0..32 {
             cpu.vfp.dregs[index] = (self.v[index / 2] >> ((index & 1) * 64)) as u64;
         }
-        cpu.vfp.write_fpscr(
-            (self.fpcr
-                & (0x07c8_0000
-                    | if cpu.vfp.trapping_profile() {
-                        0x9f00
-                    } else {
-                        0
-                    }))
-                | self.fpsr,
-        );
+        cpu.vfp
+            .write_fpscr((self.fpcr & FPSCR_CONTROL_FIELDS) | (self.fpsr & FPSCR_STATUS_FIELDS));
         let el1_aarch32 = crate::isa::arm::aarch64::exception_return::uses_aarch32(
             self.pauth_controls(),
             self.sysregs.id_aa64pfr0_el1,

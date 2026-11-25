@@ -1076,3 +1076,56 @@ failures or ignored tests. The targets were `a32_fp_controls` (216),
 The combined log SHA-256 is
 `a72f67d5233e1e81d22ff1afa60f2fa9d6284f536478923c472ea534e030aceb`.
 Physical AArch32 execution remains unverified.
+
+## FPSCR on scalar-only and integer Advanced SIMD profiles
+
+The shared FP system-register transfers are available when the PE implements
+scalar FP or Advanced SIMD. An integer-only Advanced SIMD PE can read and
+clear cumulative saturation with VMRS and VMSR, and can read its feature
+registers and control FPEXC.EN. The same CPACR, FPEXC, privilege and trap
+checks apply. The register file by itself admits no system-register access.
+
+FPSCR.QC is available with Advanced SIMD. AHP requires half-precision
+conversion and FZ16 requires half-precision data processing. The integer-only
+profile selects zero for the unavailable FPSCR fields. A mixed-width PE
+updates the AArch64 FPCR and FPSR fields exposed by the AArch32 profile.
+The FPSCR projection and commit use constant time and auxiliary space.
+
+| Profile | FPSCR access and applicable field behavior |
+| --- | --- |
+| Scalar FP without Advanced SIMD or half-precision | Scalar flags and controls, with QC, AHP and FZ16 read as zero |
+| Scalar FP with half conversions | AHP is writable |
+| Integer-only Advanced SIMD | VMRS and VMSR expose QC |
+| Advanced SIMD with floating-point operations | SIMD exceptions can accumulate in FPSCR and defined half capabilities expose AHP and FZ16 |
+| Register file without either extension | FP system-register transfers are Undefined |
+
+Arm DDI0406C.d specifies FPEXC and FPSCR in B4.1.57-58 and the shared
+VMRS/VMSR encodings in A8.8.349-350 and B9.3.21-22. Arm DDI0487B.a
+G6.2.50 defines the AArch64 mapping and distinguishes half conversion from
+half data processing. [Armv7-A/R reference](../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+[Armv8-A reference](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Integer SIMD does not require scalar FP for the shared registers. | Saturate eight signed byte lanes in A32 and T32, observe and clear QC through FPSCR, and require scalar VADD to remain Undefined. Toggle FPEXC.EN and require the ID and FPEXC reads to succeed while FPSCR access is denied. |
+| Half conversion and arithmetic expose different fields. | Compare all-ones VMRS/VMSR across scalar-only, conversion-only and full-half profiles. Seed unavailable bits in raw state before checking the architectural read. |
+| A32 FPSCR writes update only the visible view of shared state. | On a mixed-width PE, seed additional A64 QC, AHP and FZ16 state, then check preservation through guest VMRS and VMSR in both A32 and T32. Verify that visible A64 status and control fields update. |
+
+The parent `7c9b695c6` failed all four new regressions. QEMU 11.1.2
+Cortex-A15 and Cortex-A8 returned QC with Advanced SIMD and zero with
+`neon=off,vfp-d32=off`. A32 and T32 agreed. The Cortex-A15 model reported
+scalar half conversion and returned the written AHP value. The Cortex-A8
+model also returned the written AHP value with both half-conversion fields
+clear. DDI0406C.d defines the absent field as UNK/SBZP, and RAX selects
+zero for that profile. Integer-only profile qualification uses the Arm
+specification and the RAX execution regressions. Physical AArch32
+qualification remains open.
+
+The complete `a32_fp_controls`, `a32_fp_pairs`, `arm`, `arm_vfp_a32`
+and `isa_oracle` suites passed 47,715 tests with zero failures or ignored tests.
+The Linux-only `arm_diff32` target executed zero tests on macOS. LLVM MC
+23.0.0git independently assembled the tested A32 and T32 transfers and
+the signed 8-bit saturating add.
+
+On macOS Arm64, the native JIT suites passed all 26 A32 cases and all
+25 T32 cases. The shared FP system-register transfers use the interpreter.

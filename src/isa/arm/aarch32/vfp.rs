@@ -89,11 +89,7 @@ impl VfpState {
         }
     }
 
-    /// Architectural FPSCR view for the selected profile.
-    /// Retains NZCV/QC/AHP/DN/FZ/RMode and cumulative exception status.
-    /// FZ16 is retained only when half data processing is implemented.
-    /// Len/Stride are writable only for MVFR0.ShortVectors=1; exception
-    /// enables are writable only for FPTrap=1; remaining reserved fields are RES0.
+    /// Architectural FPSCR view for the selected scalar and Advanced SIMD profile.
     pub(crate) fn read_fpscr(&self) -> u32 {
         self.fpscr.bits() & self.fpscr_mask()
     }
@@ -106,16 +102,47 @@ impl VfpState {
     pub(crate) fn trapping_profile(&self) -> bool {
         (self.mvfr0 >> 12) & 15 == 1
     }
-    fn fpscr_mask(&self) -> u32 {
-        let half_data = (self.mvfr1 >> 24) & 15 == 3 || (self.mvfr1 >> 20) & 15 == 2;
-        // FZ16 is RES0 in the conversion-only profile.
-        let vectors = if (self.mvfr0 >> 24) & 15 == 1 {
-            super::short_vectors::CONTROL_MASK
-        } else {
-            0
-        };
-        (0xffc8_009f | vectors | if self.trapping_profile() { 0x9f00 } else { 0 })
-            & if half_data { u32::MAX } else { !(1 << 19) }
+
+    pub(super) fn has_scalar_fp(&self) -> bool {
+        matches!((self.mvfr0 >> 4) & 15, 1 | 2) || matches!((self.mvfr0 >> 8) & 15, 1 | 2)
+    }
+
+    pub(super) fn has_advsimd(&self) -> bool {
+        self.mvfr0 & 15 == 2 && ((self.mvfr1 >> 8) & 15 == 1 || (self.mvfr1 >> 12) & 15 == 1)
+    }
+
+    pub(in crate::isa::arm) fn fpscr_mask(&self) -> u32 {
+        let scalar = self.has_scalar_fp();
+        let advsimd = self.has_advsimd();
+        let simd_fp = advsimd && (self.mvfr1 >> 12) & 15 == 1 && (self.mvfr1 >> 16) & 15 == 1;
+        let scalar_half = if scalar { (self.mvfr1 >> 24) & 15 } else { 0 };
+        let simd_half = if simd_fp { (self.mvfr1 >> 20) & 15 } else { 0 };
+
+        // Arm DDI0406C.d B4.1.58 and DDI0487B.a G6.2.50. Select zero
+        // for the unavailable fields in the standalone integer-only view.
+        let mut mask = 0;
+        if scalar {
+            mask |= 0xf3c0_009f; // NZCV, DN, FZ, RMode and cumulative exceptions.
+            if (self.mvfr0 >> 24) & 15 == 1 {
+                mask |= super::short_vectors::CONTROL_MASK;
+            }
+            if self.trapping_profile() {
+                mask |= 0x9f00;
+            }
+        }
+        if advsimd {
+            mask |= 1 << 27; // QC
+        }
+        if simd_fp {
+            mask |= 0x9f; // Cumulative exceptions.
+        }
+        if matches!(scalar_half, 1..=3) || matches!(simd_half, 1 | 2) {
+            mask |= 1 << 26; // AHP
+        }
+        if scalar_half == 3 || simd_half == 2 {
+            mask |= 1 << 19; // FZ16
+        }
+        mask
     }
 
     /// FPEXC.EN/DEX/exception flags are writable in the selected profile.

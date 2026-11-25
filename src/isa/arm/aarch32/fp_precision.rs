@@ -24,6 +24,11 @@ pub(super) fn instruction_supported(insn: &DecodedInsn, advsimd: bool, state: &V
     } else {
         insn.raw
     };
+    if raw & 0x0fe0_0f10 == 0x0ee0_0a10 {
+        // VMRS and VMSR address system registers shared with integer-only
+        // Advanced SIMD. Their allocation and privilege are checked separately.
+        return state.has_scalar_fp() || state.has_advsimd();
+    }
     if let Some(fields) = Aarch32Decoder::scalar_fixed_fields(raw) {
         // VFPv3 adds fixed-point conversion. Its integer operand is stored in
         // the same extension register and does not imply another precision.
@@ -35,9 +40,8 @@ pub(super) fn instruction_supported(insn: &DecodedInsn, advsimd: bool, state: &V
         };
     }
     if raw & 0x0f00_0010 != 0x0e00_0000 {
-        // Core transfers, scalar memory transfers and FP system-register
-        // access require scalar FP, including raw 64-bit loads/stores/moves.
-        // They do not require double-precision arithmetic.
+        // Core and scalar memory transfers need scalar FP, including raw
+        // 64-bit loads/stores/moves, without requiring FP64 arithmetic.
         return matches!(single, 1 | 2);
     }
     if matches!(

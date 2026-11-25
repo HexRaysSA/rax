@@ -247,6 +247,38 @@ fn profile(cpu: &mut AArch64Cpu, ids: [u64; 3]) {
 }
 
 #[test]
+fn a32_fpscr_preserves_shared_a64_fields_hidden_by_the_a32_profile() {
+    const AHP_AND_FZ16: u32 = (1 << 26) | (1 << 19);
+    const QC: u32 = 1 << 27;
+    const DN: u32 = 1 << 25;
+    const FZ: u32 = 1 << 24;
+    const NEGATIVE: u32 = 1 << 31;
+    const INVALID: u32 = 1;
+    for thumb in [false, true] {
+        let mut cpu = cpu(true);
+        profile(&mut cpu, [0x1011_0221, 0x0000_0011, 0]);
+        cpu.set_pstate_bits(0x1d3 | (u64::from(thumb) << 5))
+            .unwrap();
+        cpu.set_fpcr_value(AHP_AND_FZ16 | DN);
+        cpu.set_fpsr_value(QC | INVALID);
+        cpu.set_x(0, u64::from(NEGATIVE | FZ));
+        words(&mut cpu, &[0xeef1_1a10, 0xeee1_0a10, 0xeef1_2a10], thumb);
+
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.get_x(1) as u32, DN | INVALID, "Thumb={thumb}");
+        assert_eq!(cpu.fpcr_value(), AHP_AND_FZ16 | DN);
+        assert_eq!(cpu.fpsr_value(), QC | INVALID);
+
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.fpcr_value(), AHP_AND_FZ16 | FZ);
+        assert_eq!(cpu.fpsr_value(), QC | NEGATIVE);
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.get_x(2) as u32, NEGATIVE | FZ);
+        assert_eq!(cpu.instruction_count(), 3);
+    }
+}
+
+#[test]
 fn mixed_jscvt_views_and_guest_execution_use_the_imported_register_and_precision_profile() {
     const MRS_ISAR6: u32 = 0xd538_02e3;
     const MRC_ISAR6: u32 = 0xee10_3ff2;

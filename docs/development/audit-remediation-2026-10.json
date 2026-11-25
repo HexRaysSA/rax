@@ -200557,6 +200557,17 @@
       "scope": "The Intel HVF planner completes legacy XMM and VEX.128 and VEX.256 PSHUFD, PSHUFHW and PSHUFLW memory reads directly from the device reply. Local tests exercise 3,840 serialized pending reads. Independent Rosetta RAM runs cover the same opcodes and immediates. Hosted Intel macOS run 45541362144 passed all 54 cases at 95717254c036, including 33 new unary-shuffle cases, with the observation archive and source digests verified. Bare-metal Intel validation and additional MMIO profiles remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#unary-packed-shuffles-with-an-immediate-control",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-fpscr-profile-views-2026-11-25",
+      "findings": [
+        "A32-FP",
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Integer-only Advanced SIMD profiles admit shared FP system-register transfers, including guest observation and clearing of cumulative saturation. FPSCR exposes QC, AHP and FZ16 according to the selected capabilities. The mixed-width projection preserves backing AArch64 FPCR and FPSR fields hidden from the AArch32 profile. Physical AArch32 validation and the full profile and coordinated state audit remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#fpscr-on-scalar-only-and-integer-advanced-simd-profiles",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
