@@ -29,6 +29,85 @@ mod clk {
 /// Coarse clocks tick at the scheduler rate: 4 ms at `CONFIG_HZ=250`.
 const COARSE_RESOLUTION_NS: i64 = 4_000_000;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CpuClockKind {
+    Prof,
+    Virt,
+    Sched,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CpuClockScope {
+    Process,
+    Thread(i32),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct DynamicCpuClock {
+    kind: CpuClockKind,
+    scope: CpuClockScope,
+}
+
+/// Decodes a dynamic CPU clock without discarding `CPUCLOCK_WHICH`.
+fn dynamic_cpu_clock(c: &Ctx<'_>, id: i32) -> Result<Option<DynamicCpuClock>, Errno> {
+    if id >= 0 {
+        return Ok(None);
+    }
+    let kind = match id & 3 {
+        0 => CpuClockKind::Prof,
+        1 => CpuClockKind::Virt,
+        2 => CpuClockKind::Sched,
+        _ => return Err(Errno(EINVAL)),
+    };
+    let pid = !(id >> 3);
+    let thread = id & 4 != 0;
+    if pid != 0 && pid != c.p.pid && pid != c.t.tid && !(thread && c.is_own_tid(pid)) {
+        return Err(Errno(EINVAL));
+    }
+    let scope = if thread {
+        let tid = if pid == 0 { c.t.tid } else { pid };
+        if !c.is_own_tid(tid) {
+            return Err(Errno(EINVAL));
+        }
+        CpuClockScope::Thread(tid)
+    } else {
+        CpuClockScope::Process
+    };
+    Ok(Some(DynamicCpuClock { kind, scope }))
+}
+
+/// Returns the guest task's user and system CPU samples.
+fn dynamic_cpu_samples(c: &Ctx<'_>, scope: CpuClockScope) -> Result<(u64, u64), Errno> {
+    match scope {
+        CpuClockScope::Process => Ok((c.p.cpu_user_ns, c.p.cpu_system_ns)),
+        CpuClockScope::Thread(tid) => c
+            .thread_refs()
+            .into_iter()
+            .find(|thread| thread.tid == tid)
+            .map(|thread| (thread.cpu_user_ns, thread.cpu_system_ns))
+            .ok_or(Errno(EINVAL)),
+    }
+}
+
+fn cpu_clock_time(c: &Ctx<'_>, clock: DynamicCpuClock) -> Result<Timespec, Errno> {
+    let (user_ns, system_ns) = dynamic_cpu_samples(c, clock.scope)?;
+    let ns = match clock.kind {
+        CpuClockKind::Prof => user_ns.saturating_add(system_ns),
+        CpuClockKind::Virt => user_ns,
+        CpuClockKind::Sched => user_ns.saturating_add(system_ns),
+    };
+    let quantum = if clock.kind == CpuClockKind::Sched {
+        1
+    } else {
+        host::cpu_clock_resolution_ns()
+    };
+    let ns = ns - ns % quantum;
+    Ok(Timespec {
+        sec: (ns / 1_000_000_000) as i64,
+        nsec: (ns % 1_000_000_000) as i64,
+    })
+}
+
 /// The host clock backing a Linux clock ID, and whether it is coarse.
 fn host_clock(c: &Ctx<'_>, id: i32) -> Result<(HostClock, bool), Errno> {
     use clk::*;
@@ -67,6 +146,10 @@ fn now(clock: HostClock) -> Timespec {
 
 /// `clock_gettime`.
 pub fn clock_gettime(c: &mut Ctx<'_>, id: i32, tp: u64) -> SysResult {
+    if let Some(clock) = dynamic_cpu_clock(c, id)? {
+        c.put_timespec(tp, cpu_clock_time(c, clock)?)?;
+        return Ok(0);
+    }
     let (clock, coarse) = host_clock(c, id)?;
     let mut t = now(clock);
     if coarse {
@@ -78,6 +161,17 @@ pub fn clock_gettime(c: &mut Ctx<'_>, id: i32, tp: u64) -> SysResult {
 
 /// `clock_getres`.
 pub fn clock_getres(c: &mut Ctx<'_>, id: i32, res: u64) -> SysResult {
+    if let Some(clock) = dynamic_cpu_clock(c, id)? {
+        if res != 0 {
+            let ns = if clock.kind == CpuClockKind::Sched {
+                1
+            } else {
+                host::cpu_clock_resolution_ns() as i64
+            };
+            c.put_timespec(res, Timespec { sec: 0, nsec: ns })?;
+        }
+        return Ok(0);
+    }
     let (clock, coarse) = host_clock(c, id)?;
     if res != 0 {
         let ns = if coarse {

@@ -427,6 +427,10 @@ pub struct ProcState {
     pub unkillable: bool,
     /// Interval timers.
     pub itimers: super::timers::Itimers,
+    /// Guest user CPU time accumulated by the scheduler, in ns.
+    pub cpu_user_ns: u64,
+    /// Guest system CPU time accumulated by the scheduler, in ns.
+    pub cpu_system_ns: u64,
     /// POSIX timers (`timer_create`).
     pub timers: super::posix_timers::PosixTimers,
     /// Futex wait queues for the current address space.
@@ -546,6 +550,10 @@ pub struct Thread {
     pub seccomp: super::seccomp::Seccomp,
     /// Its scheduling attributes and I/O priority.
     pub sched: super::priority::Sched,
+    /// CPU time spent executing guest user instructions, in ns.
+    pub cpu_user_ns: u64,
+    /// CPU time spent handling this task's system calls, in ns.
+    pub cpu_system_ns: u64,
     /// Its semaphore undo list (`sysvsem.undo_list`), if it has one.
     pub sysvsem: Option<super::ipc::UndoList>,
     /// Its restartable-sequences registration and pending events.
@@ -589,6 +597,8 @@ impl Thread {
             notsc: false,
             seccomp: Default::default(),
             sched: Default::default(),
+            cpu_user_ns: 0,
+            cpu_system_ns: 0,
             sysvsem: None,
             rseq: None,
             ptrace: None,
@@ -1076,6 +1086,8 @@ impl LinuxProcess {
             sigtramp: img.sigtramp,
             unkillable: pid == 1,
             itimers: Default::default(),
+            cpu_user_ns: 0,
+            cpu_system_ns: 0,
             timers: Default::default(),
             futex: Default::default(),
             curr_target: pid,

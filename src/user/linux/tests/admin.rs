@@ -356,6 +356,94 @@ fn cpu_clock(pid: i32, which: i32) -> u64 {
     (((!(pid as u32)) << 3) as i32 | which) as i64 as u64
 }
 
+fn timespec_sec(h: &Harness, at: u64) -> i64 {
+    if h.proc.state.abi.is_compat() {
+        i32_at(h, at) as i64
+    } else {
+        i64_at(h, at)
+    }
+}
+
+fn timespec_nsec(h: &Harness, at: u64) -> i64 {
+    if h.proc.state.abi.is_compat() {
+        i32_at(h, at + 4) as i64
+    } else {
+        i64_at(h, at + 8)
+    }
+}
+
+#[test]
+fn dynamic_cpu_clock_subtypes_select_guest_samples_and_resolution() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = h.anon(P, 3, false);
+        let pid = h.proc.state.pid;
+        let tid = h.proc.threads[0].tid;
+        h.proc.state.cpu_user_ns = 8_900_000;
+        h.proc.state.cpu_system_ns = 6_100_000;
+        h.proc.threads[0].cpu_user_ns = 4_500_000;
+        h.proc.threads[0].cpu_system_ns = 3_900_000;
+
+        #[cfg(target_os = "linux")]
+        let tick_ns = {
+            let mut ts = libc::timespec {
+                tv_sec: 0,
+                tv_nsec: 0,
+            };
+            // SAFETY: `ts` is writable and Linux supports this clock ID.
+            assert_eq!(
+                unsafe { libc::clock_getres(libc::CLOCK_REALTIME_COARSE, &mut ts) },
+                0
+            );
+            (ts.tv_sec as u64)
+                .saturating_mul(1_000_000_000)
+                .saturating_add(ts.tv_nsec as u64)
+        };
+        #[cfg(not(target_os = "linux"))]
+        let tick_ns = 4_000_000;
+        for (thread, target, user_ns, system_ns) in [
+            (false, pid, 8_900_000, 6_100_000),
+            (true, tid, 4_500_000, 3_900_000),
+        ] {
+            for kind in 0..=2 {
+                let expected_res_ns = if kind == 2 { 1 } else { tick_ns as i64 };
+                let raw_time_ns = match kind {
+                    0 | 2 => user_ns + system_ns,
+                    1 => user_ns,
+                    _ => unreachable!(),
+                };
+                let quantum = if kind == 2 { 1 } else { tick_ns };
+                let expected_time_ns = raw_time_ns - raw_time_ns % quantum;
+                let clock = cpu_clock(target, kind as i32 | if thread { 4 } else { 0 });
+                assert_eq!(h.call(Sysno::ClockGetres, &[clock, m]), 0);
+                assert_eq!(timespec_sec(&h, m), 0);
+                assert_eq!(timespec_nsec(&h, m), expected_res_ns);
+                assert_eq!(h.call(Sysno::ClockGettime, &[clock, m]), 0);
+                assert_eq!(
+                    timespec_sec(&h, m),
+                    (expected_time_ns / 1_000_000_000) as i64
+                );
+                assert_eq!(
+                    timespec_nsec(&h, m),
+                    (expected_time_ns % 1_000_000_000) as i64
+                );
+            }
+        }
+
+        assert_eq!(h.call(Sysno::ClockGetres, &[cpu_clock(pid, 0), 0]), 0);
+        assert_eq!(h.err(Sysno::ClockGetres, &[cpu_clock(pid, 3), BAD]), EINVAL);
+        assert_eq!(
+            h.err(Sysno::ClockGetres, &[cpu_clock(NO_PID, 0), BAD]),
+            EINVAL
+        );
+        assert_eq!(h.err(Sysno::ClockGetres, &[cpu_clock(pid, 0), BAD]), EFAULT);
+        assert_eq!(
+            h.err(Sysno::ClockGettime, &[cpu_clock(pid, 2), BAD]),
+            EFAULT
+        );
+    });
+}
+
 #[test]
 fn clock_settime_sets_only_the_realtime_clock() {
     each_abi(|abi| {
