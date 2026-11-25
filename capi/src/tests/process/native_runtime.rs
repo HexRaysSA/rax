@@ -175,6 +175,29 @@ fn installed_uname_matches_native_kernel_version_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_sysctl_reads_closed_kernel_nodes() {
+    let environment = [("LC_ALL", "C")];
+    let release = std::process::Command::new("/usr/bin/uname")
+        .arg("-r")
+        .env_clear()
+        .output()
+        .unwrap();
+    assert!(release.status.success());
+    assert!(release.stderr.is_empty());
+    let mut expected = b"Darwin\n".to_vec();
+    expected.extend_from_slice(&release.stdout);
+    expected.extend_from_slice(b"16\n");
+    compare_installed_posix_output(
+        "darwin",
+        "/usr/sbin/sysctl",
+        &["-n", "kern.ostype", "kern.osrelease", "kern.ngroups"],
+        &environment,
+        &expected,
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_find_enumerates_programs_and_executes_children() {
     let find = "/usr/bin/find";
     let environment = [("LC_ALL", "C"), ("PATH", "/usr/bin:/bin")];

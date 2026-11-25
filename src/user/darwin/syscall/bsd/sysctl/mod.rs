@@ -246,7 +246,26 @@ fn root(ctx: &mut Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
             1 if owned => return meta_name(ctx, args, req),
             2 => return meta_next(ctx, args, req),
             3 => return meta_name2oid(ctx, req),
-            4 | 5 if owned => return meta_format(ctx, oid[1], args, req),
+            4 | 5 if owned => {
+                if req.newptr != 0 {
+                    return Err(Errno::EPERM);
+                }
+                let row = tree::node(tree::rows(ctx.proc.abi), args)?;
+                return meta_row(ctx, oid[1], row, req);
+            }
+            1 | 4 | 5 if !ctx.proc.config.host_services => {
+                if let Some(node) = system_overrides(ctx).find(|node| {
+                    args.starts_with(node.row.oid) && (oid[1] != 1 || args == node.row.oid)
+                }) {
+                    if req.newptr != 0 {
+                        return Err(Errno::EPERM);
+                    }
+                    if node.row.oid != args {
+                        return Err(Errno::EISDIR);
+                    }
+                    return meta_row(ctx, oid[1], &node.row, req);
+                }
+            }
             _ => {}
         }
     }
@@ -302,15 +321,15 @@ fn system(ctx: &mut Ctx<'_>, oid: &[i32], req: &mut Req) -> Result<(), Errno> {
     }
     .or_else(|| {
         system_overrides(ctx)
-            .find(|o| o.oid == oid)
-            .map(|o| o.name.to_string())
+            .find(|o| o.row.oid == oid)
+            .map(|o| o.row.name.to_string())
     });
-    if let Some(o) = name.and_then(|n| system_overrides(ctx).find(|o| o.name == n)) {
+    if let Some(o) = name.and_then(|n| system_overrides(ctx).find(|o| o.row.name == n)) {
         if req.newptr != 0 {
             return Err(Errno::EPERM);
         }
         let v = (o.value)(ctx);
-        return emit(ctx, req, v, o.name);
+        return emit(ctx, req, v, o.row.name);
     }
     if !ctx.proc.config.host_services {
         return Err(Errno::ENOENT);
@@ -413,8 +432,8 @@ fn oid_of_name(ctx: &Ctx<'_>, name: &str) -> Result<Vec<i32>, Errno> {
     host_oid.or_else(|e| {
         let n = name.strip_suffix('.').unwrap_or(name);
         system_overrides(ctx)
-            .find(|o| o.name == n)
-            .map(|o| o.oid.to_vec())
+            .find(|o| o.row.name == n)
+            .map(|o| o.row.oid.to_vec())
             .ok_or(e)
     })
 }
@@ -451,7 +470,7 @@ fn meta_next(ctx: &Ctx<'_>, args: &[i32], req: &mut Req) -> Result<(), Errno> {
 fn system_next(ctx: &Ctx<'_>, oid: &[i32]) -> Option<Vec<i32>> {
     if !ctx.proc.config.host_services || !host::AVAILABLE {
         return system_overrides(ctx)
-            .map(|o| o.oid)
+            .map(|o| o.row.oid)
             .filter(|o| *o > oid)
             .min()
             .map(<[i32]>::to_vec);
@@ -476,18 +495,16 @@ fn meta_name2oid(ctx: &Ctx<'_>, req: &mut Req) -> Result<(), Errno> {
     req.out(ctx, &bytes(&oid))
 }
 
-/// `sysctl.oidfmt` (the kind, then the format) and `sysctl.oiddescr` of
-/// an OID of the emulated machine.
-fn meta_format(ctx: &Ctx<'_>, which: i32, args: &[i32], req: &mut Req) -> Result<(), Errno> {
-    if req.newptr != 0 {
-        return Err(Errno::EPERM);
-    }
-    let row = tree::node(tree::rows(ctx.proc.abi), args)?;
-    if which == 4 {
-        req.out(ctx, &row.kind.to_le_bytes())?;
-        req.out(ctx, &c_bytes(row.fmt))
-    } else {
-        req.out(ctx, &c_bytes(row.descr))
+/// Metadata of an emulated node. The format and description are NUL-terminated.
+fn meta_row(ctx: &Ctx<'_>, which: i32, row: &tree::Row, req: &mut Req) -> Result<(), Errno> {
+    match which {
+        1 => req.out(ctx, &c_bytes(row.name)),
+        4 => {
+            req.out(ctx, &row.kind.to_le_bytes())?;
+            req.out(ctx, &c_bytes(row.fmt))
+        }
+        5 => req.out(ctx, &c_bytes(row.descr)),
+        _ => unreachable!("unexpected sysctl metadata operation"),
     }
 }
 
@@ -502,12 +519,34 @@ fn c_bytes_of(s: &[u8]) -> Vec<u8> {
     b
 }
 
-/// An operating-system node whose value the emulation decides, with its
-/// OID for a host that cannot name it.
+/// An operating-system node whose value the emulation decides.
 struct Override {
-    name: &'static str,
-    oid: &'static [i32],
+    row: tree::Row,
     value: fn(&Ctx<'_>) -> Value,
+}
+
+impl Override {
+    /// The metadata uses the guest OID. Automatically assigned native OIDs can
+    /// differ across kernels.
+    const fn new(
+        name: &'static str,
+        oid: &'static [i32],
+        kind: u32,
+        fmt: &'static str,
+        descr: &'static str,
+        value: fn(&Ctx<'_>) -> Value,
+    ) -> Self {
+        Self {
+            row: tree::Row {
+                oid,
+                name,
+                kind,
+                fmt,
+                descr,
+            },
+            value,
+        }
+    }
 }
 
 fn system_overrides(ctx: &Ctx<'_>) -> impl Iterator<Item = &'static Override> + use<> {
@@ -518,10 +557,8 @@ fn system_overrides(ctx: &Ctx<'_>) -> impl Iterator<Item = &'static Override> + 
         .chain(installed.then_some(&NATIVE_OS_RELEASE))
 }
 
-static NATIVE_OS_RELEASE: Override = Override {
-    name: "kern.osrelease",
-    oid: &[1, 2],
-    value: |ctx| {
+static NATIVE_OS_RELEASE: Override =
+    Override::new("kern.osrelease", &[1, 2], 0x81e0_0003, "A", "", |ctx| {
         ctx.proc
             .config
             .native_kernel_info
@@ -529,58 +566,51 @@ static NATIVE_OS_RELEASE: Override = Override {
             .map_or(Value::Err(Errno::ENOENT), |info| {
                 Value::string(&info.release)
             })
-    },
-};
+    });
 
 static OVERRIDES: &[Override] = &[
-    Override {
-        name: "sysctl.proc_translated",
-        oid: &[0, 100],
-        value: |_| Value::int(0),
-    },
-    Override {
-        name: "kern.ostype",
-        oid: &[1, 1],
-        value: |_| Value::string(b"Darwin"),
-    },
-    Override {
-        name: "kern.version",
-        oid: &[1, 4],
-        value: |ctx| {
-            if ctx.proc.config.host_services {
-                Value::Host
-            } else {
-                let version = ctx
-                    .proc
-                    .config
-                    .native_kernel_info
-                    .as_ref()
-                    .map_or(crate::user::darwin::abi::CLOSED_KERNEL_VERSION, |info| {
-                        info.version.as_slice()
-                    });
-                Value::string(version)
-            }
-        },
-    },
-    Override {
-        name: "kern.osrevision",
-        oid: &[1, 3],
-        value: |_| Value::io_int(199_506),
-    },
-    Override {
-        name: "kern.argmax",
-        oid: &[1, 8],
-        value: |_| Value::io_int(crate::user::darwin::stack::NCARGS as i32),
-    },
-    Override {
-        name: "kern.ngroups",
-        oid: &[1, 18],
-        value: |_| Value::io_int(16),
-    },
-    Override {
-        name: "kern.boottime",
-        oid: &[1, 21],
-        value: |c| {
+    Override::new(
+        "sysctl.proc_translated",
+        &[0, 100],
+        0x80e0_0002,
+        "I",
+        "proc_translated",
+        |_| Value::int(0),
+    ),
+    Override::new("kern.ostype", &[1, 1], 0x81e0_0003, "A", "", |_| {
+        Value::string(b"Darwin")
+    }),
+    Override::new("kern.version", &[1, 4], 0x81e0_0003, "A", "", |ctx| {
+        if ctx.proc.config.host_services {
+            Value::Host
+        } else {
+            let version = ctx
+                .proc
+                .config
+                .native_kernel_info
+                .as_ref()
+                .map_or(crate::user::darwin::abi::CLOSED_KERNEL_VERSION, |info| {
+                    info.version.as_slice()
+                });
+            Value::string(version)
+        }
+    }),
+    Override::new("kern.osrevision", &[1, 3], 0x81e0_0002, "I", "", |_| {
+        Value::io_int(199_506)
+    }),
+    Override::new("kern.argmax", &[1, 8], 0x81e0_0002, "I", "", |_| {
+        Value::io_int(crate::user::darwin::stack::NCARGS as i32)
+    }),
+    Override::new("kern.ngroups", &[1, 18], 0x81e0_0002, "I", "", |_| {
+        Value::io_int(16)
+    }),
+    Override::new(
+        "kern.boottime",
+        &[1, 21],
+        0x81e0_0005,
+        "S,timeval",
+        "",
+        |c| {
             let us = c.proc.machine.boottime_usec;
             let tv = crate::user::darwin::abi::types::Timeval {
                 sec: (us / 1_000_000) as i64,
@@ -588,42 +618,43 @@ static OVERRIDES: &[Override] = &[
             };
             Value::Out(tv.bytes().to_vec())
         },
-    },
+    ),
     // p_name: the image's name, at most 2 * MAXCOMLEN bytes.
-    Override {
-        name: "kern.procname",
-        oid: &[1, 62],
-        value: |c| {
-            let mut n = crate::user::darwin::syscall::bsd::proc::image_name(c);
-            n.truncate(32);
-            Value::Truncated(n)
-        },
-    },
-    Override {
-        name: "kern.usrstack64",
-        oid: &[1, 59],
-        value: |c| Value::io_quad(c.proc.program.stack.top),
-    },
-    Override {
-        name: "kern.hv_support",
-        oid: &[1, 106],
-        value: |_| Value::io_int(0),
-    },
-    Override {
-        name: "kern.hv_vmm_present",
-        oid: &[1, 107],
-        value: |_| Value::io_int(0),
-    },
-    Override {
-        name: "kern.pthread_mutex_default_policy",
-        oid: &[1, 108],
-        value: |_| Value::io_int(0),
-    },
-    Override {
-        name: "kern.bootargs",
-        oid: &[1, 110],
-        value: |_| Value::string(b""),
-    },
+    Override::new("kern.procname", &[1, 62], 0xd0e0_0003, "A", "", |c| {
+        let mut n = crate::user::darwin::syscall::bsd::proc::image_name(c);
+        n.truncate(32);
+        Value::Truncated(n)
+    }),
+    Override::new("kern.usrstack64", &[1, 59], 0x80e0_0004, "Q", "", |c| {
+        Value::io_quad(c.proc.program.stack.top)
+    }),
+    Override::new("kern.hv_support", &[1, 106], 0x81e0_0002, "I", "", |_| {
+        Value::io_int(0)
+    }),
+    Override::new(
+        "kern.hv_vmm_present",
+        &[1, 107],
+        0x11e0_0002,
+        "I",
+        "running on a vmm",
+        |_| Value::io_int(0),
+    ),
+    Override::new(
+        "kern.pthread_mutex_default_policy",
+        &[1, 108],
+        0xc0c0_0002,
+        "I",
+        "",
+        |_| Value::io_int(0),
+    ),
+    Override::new(
+        "kern.bootargs",
+        &[1, 110],
+        0x81e0_0003,
+        "A",
+        "bootargs",
+        |_| Value::string(b""),
+    ),
 ];
 
 #[cfg(test)]
@@ -696,10 +727,14 @@ mod tests {
     fn override_names_and_oids_are_unique() {
         let mut names = std::collections::HashSet::new();
         let mut oids = std::collections::HashSet::new();
-        for o in OVERRIDES {
-            assert!(names.insert(o.name), "{}", o.name);
-            assert!(oids.insert(o.oid), "{:?}", o.oid);
-            assert!(!tree::owns(o.oid[0]));
+        for row in OVERRIDES
+            .iter()
+            .map(|entry| &entry.row)
+            .chain([&NATIVE_OS_RELEASE.row])
+        {
+            assert!(names.insert(row.name), "{}", row.name);
+            assert!(oids.insert(row.oid), "{:?}", row.oid);
+            assert!(!tree::owns(row.oid[0]));
         }
     }
 
