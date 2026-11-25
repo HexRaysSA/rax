@@ -79,6 +79,11 @@ coordinator completes any device exit from the triggering instruction before
 capture. A trigger can shorten a CPU's turn in a multi-CPU guest. Live
 execution and restore both use the recorded next-CPU cursor.
 
+If a due automatic checkpoint write fails after the guest powers off, a
+subsequent call to `Vmm::run` retries capture at the stopped
+retirement count. A successful write consumes the trigger in the live VM and
+in the checkpoint file.
+
 The count includes retirements across all software vCPUs. KVM and HVF use
 host-time slices for native scheduling.
 

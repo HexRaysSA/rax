@@ -200665,6 +200665,16 @@
       "scope": "Intel HVF planning supports all 15 legacy XMM and VEX memory encodings of PSIGNB, PSIGNW and PSIGND with one device read and checkpoint-safe completion. The baseline rejected all 15. All 30 independent Rosetta RAM observations matched the architectural YMM and RFLAGS results. Local tests qualified aligned legacy and unaligned VEX reads and one retirement after a serialized pending reply. The 63-case hosted profile covers direct, fresh-owner and misalignment cases. Bare-metal Intel macOS and remaining MMIO and interrupt profiles remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-sign-with-a-device-operand",
       "full_goal_complete": false
+    },
+    {
+      "id": "terminal-checkpoint-retry-2026-11-25",
+      "findings": [
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "A due automatic capture is retried at the terminal frontier before guest entry. In the software x86 ACPI case, the parent powered off and silently skipped the retry after the first write failed at retirement 3. The revised VMM saved retirement 3 on retry and preserved the stopped PC. Live and detached follow-up runs skipped the already-consumed trigger. Full backend and private-state qualification remains open.",
+      "qualification": "docs/development/riscv-clint/README.md#exact-retirement-checkpoints",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -1433,6 +1433,61 @@ fn exact_checkpoint_records_the_next_hart_and_resumes_its_interleaving() {
 }
 
 #[test]
+fn failed_terminal_checkpoint_retries_without_entering_the_guest() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut fixture = Fixture::with_retired_clock();
+    let directory = fixture.kernel.with_extension("terminal-capture");
+    std::fs::create_dir(&directory).unwrap();
+    let schedule = SnapshotConfig {
+        at_instructions: vec![3],
+        output_dir: directory.to_string_lossy().into_owned(),
+        prefix: "terminal".into(),
+        ..SnapshotConfig::default()
+    };
+    let path = schedule.filename(3);
+    std::fs::create_dir(&path).unwrap();
+    fixture.vm.snapshot_config = Some(schedule);
+    // MOV DX,604h; MOV AX,2000h; OUT DX,AX; UD2.
+    fixture.write(
+        BSP,
+        &[
+            0x66, 0xba, 0x04, 0x06, 0x66, 0xb8, 0x00, 0x20, 0x66, 0xef, 0x0f, 0x0b,
+        ],
+    );
+    assert!(fixture.vm.run().is_err());
+    assert!(fixture.vm.pc_powered_off());
+    assert_eq!(fixture.vm.coordinator.retired, 3);
+    assert_eq!(fixture.vm.last_snapshot_insn, 0);
+    assert_eq!(fixture.vm.vcpus[0].current_pc(), BSP + 10);
+
+    std::fs::remove_dir(&path).unwrap();
+    fixture.vm.run().unwrap();
+    assert_eq!(fixture.vm.last_snapshot_insn, 3);
+    assert_eq!(fixture.vm.vcpus[0].current_pc(), BSP + 10);
+    let saved = SnapshotBundle::load(&path).unwrap();
+    assert_eq!(saved.base().instruction_count, 3);
+    let config = VmConfig::from_checkpoint_bundle(
+        &saved,
+        CliConfig {
+            snapshot_at: vec![3],
+            snapshot_dir: Some(directory.clone()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let mut resumed = Vmm::new_resume_bundle(config, &saved).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    fixture.vm.run().unwrap();
+    resumed.run().unwrap();
+    assert!(resumed.pc_powered_off());
+    assert_eq!(resumed.coordinator.retired, 3);
+    assert_eq!(resumed.vcpus[0].current_pc(), BSP + 10);
+    assert!(std::fs::read_dir(&directory).unwrap().next().is_none());
+    std::fs::remove_dir(directory).unwrap();
+}
+
+#[test]
 fn automatic_checkpoint_schedule_rewinds_and_resumes_from_real_files() {
     use crate::vm::snapshot::SnapshotBundle;
 

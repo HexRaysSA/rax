@@ -455,19 +455,22 @@ active Sv39 are under
 The software coordinator can end a turn at an automatic checkpoint count.
 When the triggering instruction exits for I/O, the coordinator services the
 exit before capture. An automatic file records the completed retirement count
-and the cursor for the next CPU. A failed write during a nonterminal turn
-leaves the trigger due and can be retried at that boundary before another CPU
-enters.
+and the cursor for the next CPU. A failed write leaves the trigger due. The
+VMM retries a due write before another software CPU enters, including when
+the triggering instruction powered off the VM.
 
 | Claim | Probe | Observed result |
 |---|---|---|
 | A trigger can capture inside a turn. | Request retirement 79 in the Sv39 split-fetch handler without a UART yield. Remove the ELF before restoring in a new process. | The baseline captured at 106. The revised CLI saved `instret=79`, `sepc=0x40000ffe`, and `stval=0x40001000`. Both revised processes emitted one pass marker and exited with status 0. |
 | Explicit and periodic triggers share a schedule. | Interleave unsorted explicit counts with a periodic trigger and a final x86 ACPI power-off. Read the files and inspect the program counters and retirement counts. | The files record retirements 2, 5, 7 and 10. |
 | A failed write preserves the next-CPU cursor. | Fail a two-CPU guest's capture at 2, remove the obstruction and retry. Restore from the file and compare the peer's RAM writes and final retirement count. | The retry captured at 2. The peer wrote first in both runs, and the live and restored VMs finished with identical memory and retirement counts. |
+| A stopped VM can retry its due capture. | Block the automatic write after the x86 guest powers off at retirement 3. Remove the obstruction, retry and restore from the resulting file with the same trigger. | The baseline returned without writing. The retry now captures the stopped state at 3. Later live and restored runs skip the already-consumed trigger. |
 | MMIO completion remains the capture boundary for a non-stepping CPU. | Set an already-due capture count and issue an MMIO read-modify-write from either CPU. Also fail the completion callback. | The initial guard failed all three cases. With the software-only guard, successful completions saved the issuing CPU's registers and a failed completion produced no checkpoint. |
 
 Commands, the input ELF, hashes and logs are under
 `/Users/int/dev/rax-audit-work/four-findings-exact-checkpoint-2026-11-25/`.
+The terminal retry logs are under
+`/Users/int/dev/rax-audit-work/four-findings-terminal-retry-2026-11-25/`.
 
 ## RV64 virt firmware power-off
 

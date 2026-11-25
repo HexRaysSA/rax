@@ -209,7 +209,9 @@ impl Vmm {
         // A terminal checkpoint already has a stopped execution frontier.
         // Detect it before console input, timer polling or CPU selection.
         if self.vm.firmware_shutdown()? || self.pc_powered_off() {
-            return Ok(());
+            // The shutdown may have completed before a due capture could
+            // be written. Retry it without reentering the guest.
+            return self.maybe_snapshot(self.coordinator.retired);
         }
         let _timing = self.timing_context.enter();
         info!(cpus = self.vcpus.len(), "starting execution coordinator");
