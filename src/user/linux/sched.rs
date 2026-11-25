@@ -69,6 +69,8 @@ pub(super) struct Scheduler {
     // A blocked syscall or ptrace continuation also selects a guest thread.
     // This differs from ProcState::last_user, which governs rseq transitions.
     last_selected: Option<i32>,
+    // A runnable task switch counts when the scheduler selects another task.
+    runnable_switch: Option<i32>,
     terminal: Option<ExitStatus>,
 }
 
@@ -294,6 +296,13 @@ impl LinuxProcess {
                 continue;
             };
             let tid = self.threads[idx].tid;
+            if let Some(switched_out) = self.scheduler.runnable_switch.take()
+                && switched_out != tid
+                && let Some(thread) = self.threads.iter_mut().find(|t| t.tid == switched_out)
+            {
+                thread.nivcsw = thread.nivcsw.wrapping_add(1);
+                self.state.nivcsw = self.state.nivcsw.wrapping_add(1);
+            }
             if !self.state.config.host_services
                 && self.state.children.select_guest_process(self.state.pid)
             {
@@ -363,7 +372,10 @@ impl LinuxProcess {
                 }
                 CpuEvent::Signal(info, update) => self.trap_signal(idx, info, update),
                 CpuEvent::Yield if trap => self.step_trap(idx),
-                CpuEvent::Yield => self.scheduler.current = idx + 1,
+                CpuEvent::Yield => {
+                    self.scheduler.runnable_switch = Some(tid);
+                    self.scheduler.current = idx + 1;
+                }
                 CpuEvent::Internal(why) => {
                     let pc = self.threads[idx].cpu.pc();
                     self.state.exit = Some(ExitStatus::Internal(format!("{why} (pc {pc:#x})")));
@@ -509,6 +521,7 @@ impl LinuxProcess {
             Outcome::Yield(value) => {
                 self.threads[idx].cpu.set_syscall_result(value);
                 self.syscall_exit_work(idx);
+                self.scheduler.runnable_switch = Some(self.threads[idx].tid);
                 return After::Next;
             }
             Outcome::Unchanged => {
@@ -520,6 +533,8 @@ impl LinuxProcess {
                 }
             }
             Outcome::Block(wait, resume) => {
+                self.state.nvcsw = self.state.nvcsw.wrapping_add(1);
+                self.threads[idx].nvcsw = self.threads[idx].nvcsw.wrapping_add(1);
                 self.threads[idx].blocked = Some(Blocked {
                     nr,
                     args,
@@ -565,8 +580,14 @@ impl LinuxProcess {
                 return After::Gone;
             }
             Outcome::Forked(me) => {
-                // The new process has only the thread that forked.
-                let t = self.threads.swap_remove(idx);
+                // The new process has only the thread that forked, with
+                // counters starting at zero as they do after fork(2).
+                self.state.nvcsw = 0;
+                self.state.nivcsw = 0;
+                self.scheduler.runnable_switch = None;
+                let mut t = self.threads.swap_remove(idx);
+                t.nvcsw = 0;
+                t.nivcsw = 0;
                 self.threads.clear();
                 self.threads.push(t);
                 self.threads[0].cpu.set_syscall_result(0);

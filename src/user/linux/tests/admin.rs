@@ -495,6 +495,57 @@ fn adjtimex_reads_an_unsynchronized_clock() {
 }
 
 #[test]
+fn getrusage_reports_context_switch_counters_for_the_selected_scope() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        h.proc.state.nvcsw = 0x1234;
+        h.proc.state.nivcsw = 0x5678;
+        h.proc.threads[0].nvcsw = 0x9abc;
+        h.proc.threads[0].nivcsw = 0xdef0;
+
+        for (who, expected) in [
+            (0, (0x1234u64, 0x5678u64)),
+            (1, (0x9abcu64, 0xdef0u64)),
+            (-1, (0, 0)),
+        ] {
+            assert_eq!(h.call(Sysno::Getrusage, &[who as u64, h.scratch]), 0);
+            let counters = if abi.is_compat() {
+                (
+                    u64::from(u32::from_le_bytes(
+                        bytes(&h, h.scratch + 64, 4).try_into().unwrap(),
+                    )),
+                    u64::from(u32::from_le_bytes(
+                        bytes(&h, h.scratch + 68, 4).try_into().unwrap(),
+                    )),
+                )
+            } else {
+                (
+                    i64_at(&h, h.scratch + 128) as u64,
+                    i64_at(&h, h.scratch + 136) as u64,
+                )
+            };
+            assert_eq!(counters, expected, "{abi:?} RUSAGE who={who}");
+        }
+    });
+}
+
+#[test]
+fn getrusage_counts_a_blocking_syscall_as_a_voluntary_switch() {
+    let mut h = Harness::new(LinuxAbi::Riscv64);
+    let req = h.scratch + 0x100;
+    let mut request = Vec::with_capacity(16);
+    request.extend_from_slice(&0u64.to_le_bytes());
+    request.extend_from_slice(&1u64.to_le_bytes());
+    h.proc.state.space.write_raw(req, &request).unwrap();
+
+    assert_eq!(h.start(0, Sysno::Nanosleep, &[req, 0]), None);
+    assert_eq!(h.proc.state.nvcsw, 1);
+    assert_eq!(h.proc.threads[0].nvcsw, 1);
+    h.ok(Sysno::Getrusage, &[0, h.scratch]);
+    assert_eq!(i64_at(&h, h.scratch + 128), 1);
+}
+
+#[test]
 fn adjtimex_checks_modes_in_the_kernels_order() {
     each_abi(|abi| {
         let mut h = Harness::new(abi);

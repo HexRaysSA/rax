@@ -97,6 +97,8 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         groups: p.groups.clone(),
         mm,
         rlimits: p.rlimits,
+        nvcsw: 0,
+        nivcsw: 0,
         umask,
         sigactions,
         shared_sigactions,
