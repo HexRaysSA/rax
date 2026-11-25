@@ -161,7 +161,7 @@ The current headline boundaries are:
 
 - serial console is the primary display and input surface;
 - VGA is not wired into the maintained machine path;
-- only one vCPU executes;
+- [VM SMP](../../reference/status-and-limitations.md#vm-smp) includes guest-driven INIT/SIPI and interrupt delivery on the tested PC and hardware-backed paths;
 - optional PCI interrupts are not documented as a complete production-quality interrupt-delivery model;
 - a device enumerating is weaker evidence than sustained guest I/O correctness.
 

@@ -117,7 +117,7 @@ Configured virtual-CPU count:
 vcpus = 1
 ```
 
-The minimum is one. The current runtime executes only vCPU 0; a larger value is configuration state, not SMP support.
+The minimum is one. The runtime schedules online vCPUs. The machine and backend determine how secondary CPUs start and receive interrupts. See [VM SMP](status-and-limitations.md#vm-smp).
 
 ### `kernel`
 
@@ -319,7 +319,7 @@ This is the TOML equivalent of the CLI `--dtb` input. The AArch64 virtual machin
 | `arch` | architecture enum | detected from known image metadata, otherwise x86-64 | `--arch` |
 | `backend` | backend enum | host-aware, then constrained by guest architecture | `--backend` |
 | `memory` | size | 512 MiB; minimum 128 MiB | `--memory` |
-| `vcpus` | integer | 1; only vCPU 0 currently executes | `--vcpus` |
+| `vcpus` | integer | 1 | `--vcpus` |
 | `kernel` | path | required for ordinary launch | `--kernel` |
 | `initrd` | path | optional | `--initrd` |
 | `cmdline` | string | architecture-specific default | `--cmdline` |

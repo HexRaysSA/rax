@@ -22,7 +22,7 @@ This page consolidates the current project boundary. It is intentionally conserv
 
 | Guest | Software execution | Hardware backend | Machine-level result | Principal evidence | Current boundary |
 |---|---|---|---|---|---|
-| x86-64 | interpreter plus admitted SMIR native regions | KVM on Linux x86-64; HVF on appropriate Intel macOS path | direct Linux boot, legacy real-mode/ISO path, PC platform | direct ISA tests, KVM/QEMU differential targets, generated inventories, JIT equivalence tests, machine tests | one executing vCPU; software Linux and JIT coverage are narrower than the architecture as a whole |
+| x86-64 | interpreter plus admitted SMIR native regions | KVM on Linux x86-64; HVF on appropriate Intel macOS path | direct Linux boot, legacy real-mode/ISO path, PC platform | direct ISA tests, KVM/QEMU differential targets, generated inventories, JIT equivalence tests, machine tests | software Linux and JIT coverage are narrower than the architecture as a whole |
 | AArch64 | interpreter plus native-lowering paths | HVF on Apple Silicon | AArch64 Linux virtual machine | native EL0 or QEMU differential tests, generated Arm data, machine boot, SMIR tests | advanced extension breadth is not equivalent to full system/profile conformance |
 | AArch32/Thumb | software cores and profile-specific machines | none documented as a general backend | machine-specific paths including Cortex-M and SoC work | direct ISA tests, QEMU/ASL-derived cases, microkernel | no general 32-bit Linux-to-shell result |
 | Hexagon | packet-aware software emulator | none | bare-metal ELF machine | scalar/control/float/memory/HVX differential targets plus bare-metal test | public ISA selector ends at `v69`; no general OS machine |
@@ -32,6 +32,23 @@ This page consolidates the current project boundary. It is intentionally conserv
 This matrix describes machines. [Linux process execution](#user-mode-linux-program-status)
 is a separate path for x86-64, AArch64, RV64, and partial i386 and ARM EABI compatibility;
 it does not require a Linux-capable machine or provide an SMP runtime.
+
+## VM SMP
+
+The VM runtime schedules online vCPUs. The software scheduler uses bounded
+turns and sends I/O completions to the originating CPU. Startup and interrupt
+delivery depend on the machine and backend.
+
+| Path | Observed secondary execution |
+| --- | --- |
+| Software x86-64 PC | Guests with two and four vCPUs used INIT/SIPI to start the APs and recorded per-CPU RAM progress. [Runtime tests](../development/execution-coordinator.md#software-vmm-secondary-execution-replay) |
+| Software AArch64 cluster | Guest PSCI `CPU_ON` starts secondaries with per-PE timer and interrupt state. Runtime tests exercised one, two and four PEs. [Cluster validation](../development/aarch64-cluster.md#validation-and-assumptions) |
+| Generic software RV64 machine | Guests with two and four harts recorded independent retirement and contributed to a shared RAM counter. [Runtime tests](../development/execution-coordinator.md#software-vmm-secondary-execution-replay) |
+| Native x86-64 KVM | With the in-kernel IRQchip, guests with two and four vCPUs started APs and delivered fixed IPIs around HLT. [Native KVM validation](../development/kvm-native-smp/README.md) |
+| Native Intel HVF | On a hosted Intel macOS runner, guests with two and four vCPUs started APs and handled new IPIs after restoration into a fresh VM. [Hosted validation](../development/execution-coordinator.md#native-intel-hvf-startup-and-file-continuation) |
+
+Validation applies to the guest images, topologies, and checkpoint profiles
+in the linked results. Bare-metal Intel macOS qualification remains open.
 
 ## x86-64 status
 
@@ -51,7 +68,7 @@ it does not require a Linux-capable machine or provide an SMP runtime.
 - KVM differential results apply only to cases that actually execute on the host CPU and to the compared state projection.
 - APX cannot be described as hardware-verified in this repository setup; encoding and semantic checks use LLVM/documentation-oriented evidence.
 - The software Linux path is known against constrained kernels and command lines; it is not equivalent to arbitrary KVM boot compatibility.
-- One vCPU executes.
+- The software PC, native KVM and hosted Intel HVF have [guest-driven AP startup tests](#vm-smp).
 - VGA is not a generally usable wired console; serial is the maintained interface.
 - Optional PCI interrupts and guest-driver behavior remain narrower than a production PC hypervisor.
 

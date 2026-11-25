@@ -56,7 +56,7 @@ Continue with [Getting started](docs/getting-started/overview.md) for host prere
 
 | Guest family / interface | Runnable paths | Machine or process use | Principal evidence | Important boundary |
 |---|---|---|---|---|
-| **x86-64** | software emulator; KVM on Linux x86-64; HVF on an appropriate macOS host; admitted SMIR native regions | direct Linux loading, serial PC platform, legacy real-mode/El Torito ISO route | direct ISA tests, KVM/QEMU differential suites, generated inventories, SMIR/JIT comparisons, machine tests | one executing vCPU; software Linux and JIT coverage are narrower than the architecture as a whole |
+| **x86-64** | software emulator; KVM on Linux x86-64; HVF on an appropriate macOS host; admitted SMIR native regions | direct Linux loading, serial PC platform, legacy real-mode/El Torito ISO route | direct ISA tests, KVM/QEMU differential suites, generated inventories, SMIR/JIT comparisons, machine tests | software Linux and JIT coverage are narrower than the architecture as a whole |
 | **AArch64 / AArch32 / Thumb / Cortex-M/R** | software Arm cores; AArch64 HVF on Apple Silicon; selected AArch64-host native lowerers | AArch64 Linux virtual machine, DT-based and profile-specific 32-bit paths, SoC and microcontroller work | native AArch64 EL0 or QEMU comparisons, generated Arm cases, machine tests, microkernel, SMIR tests | AArch64 Linux is established; no general AArch32 Linux-to-shell result is claimed |
 | **Qualcomm Hexagon** | packet-aware software emulator | bare-metal ELF machine with UART/halt integration | scalar, control-flow, floating-point, memory, HVX, HVX-memory, bare-metal, and lift targets | public ISA selector currently ends at `v69`; no general-purpose OS machine |
 | **RISC-V RV64** | software emulator; selected state-backed SMIR/native paths | bare-metal ELF machine with UART/halt integration | scalar and vector QEMU comparisons, boot test, lift tests, x86-64/AArch64-host native tests | no complete privileged architecture or Sv39 Linux-capable machine |
@@ -160,7 +160,7 @@ External-reference and host-specific tests can self-skip when `/dev/kvm`, a requ
 
 ## Boundaries to understand before adoption
 
-- Only vCPU 0 executes; `--vcpus` is not SMP support.
+- [VM SMP](docs/reference/status-and-limitations.md#vm-smp) depends on the selected machine and backend. The VM runtime schedules online vCPUs.
 - The software x86 Linux path is deliberately constrained and is not interchangeable with arbitrary KVM boot.
 - AArch64 Linux is the established Arm Linux machine; the 32-bit Arm work does not currently justify a general Linux-to-shell claim.
 - RISC-V and Hexagon are bare-metal machine paths, not general OS platforms.

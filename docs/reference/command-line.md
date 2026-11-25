@@ -97,7 +97,7 @@ Set the configured vCPU count.
 --vcpus 1
 ```
 
-At least one vCPU is required. The current runtime executes only vCPU 0; values above one do not provide SMP guest execution and must not be documented as such.
+At least one vCPU is required. The runtime schedules online vCPUs. The machine and backend determine how secondary CPUs start and receive interrupts. See [VM SMP](status-and-limitations.md#vm-smp).
 
 ## Guest image and boot input
 

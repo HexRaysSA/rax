@@ -113,7 +113,7 @@ For hardware paths, report:
 - guest workload wall time;
 - VM exit counts if available;
 - I/O/device configuration;
-- vCPU count (currently one executing vCPU);
+- configured vCPU count and the number that executed the workload;
 - host virtualization version/settings;
 - guest kernel/configuration;
 - whether the workload is CPU-bound or exit-heavy.

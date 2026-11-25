@@ -130,9 +130,12 @@ Guest threads run cooperatively on one emulated CPU in each process. A guest
 Linux process execution coexists with an RV64 machine path that remains
 bare-metal. See [User-mode emulation](user-mode.md) for ABI and host boundaries.
 
-## One executing vCPU
+## VM execution coordinator
 
-The machine configuration accepts `vcpus`, but the current VM runtime executes vCPU 0 only. A value greater than one is not evidence of SMP. The process scheduler described above implements guest threads; it does not add SMP to the VM runtime.
+The VM execution coordinator selects online vCPUs and handles I/O on behalf of
+the vCPU that issued it. Software CPUs execute bounded turns. The selected
+machine defines secondary startup and interrupt routing. See [VM SMP](../reference/status-and-limitations.md#vm-smp)
+for tested machine and backend combinations.
 
 ## Documentation vocabulary
 

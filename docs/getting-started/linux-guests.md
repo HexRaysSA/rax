@@ -153,7 +153,7 @@ The normal memory default is 512 MiB; configuration rejects values below 128 MiB
 --memory 2G
 ```
 
-`--vcpus` configures a count, but the current runtime executes only vCPU 0. Values above one do not establish SMP execution. Guest kernels intended for the software path should therefore be built and booted with the single-executing-vCPU constraint in mind.
+`--vcpus` configures the machine CPU count. The examples here use one vCPU. For evidence on secondary startup and execution by machine and backend, see [VM SMP](../reference/status-and-limitations.md#vm-smp).
 
 ## Serial console and host controls
 
@@ -225,7 +225,7 @@ A screenshot or log ending at early decompression is not evidence of reaching us
 ## Known boundaries
 
 - The software x86 Linux path is intentionally narrower than KVM boot.
-- Only one vCPU executes.
+- The boot examples qualify the listed guest images and configurations. [VM SMP](../reference/status-and-limitations.md#vm-smp) records the multivCPU test scope.
 - AArch64 Linux is the established Arm Linux path; AArch32 Linux has not been demonstrated to an interactive shell.
 - Hardware backends do not expose the interpreter’s per-instruction observability.
 - Optional PCI devices are off by default and do not imply complete guest-driver validation.
