@@ -191,17 +191,9 @@ impl RiscVCpu {
         }
 
         let pc = self.pc;
-        if let Some(trap) = self.instruction_fetch_alignment_trap(pc) {
-            self.deliver_trap(trap, pc);
-            return (RiscVExit::Trap(trap), 1);
-        }
-        let insn = match decode_at(self.mem.as_ref(), pc, self.cfg.xlen, &self.cfg.isa) {
+        let insn = match self.fetch_instruction(pc) {
             Ok(insn) => insn,
-            Err(DecodeError::Fetch(_)) => {
-                let trap = Trap {
-                    cause: cause::INSTR_ACCESS_FAULT,
-                    tval: pc,
-                };
+            Err(trap) => {
                 self.deliver_trap(trap, pc);
                 return (RiscVExit::Trap(trap), 1);
             }

@@ -200612,6 +200612,16 @@
       "scope": "Intel HVF completes PAVGB, PAVGW and PSADBW with aligned legacy XMM or VEX.128 and VEX.256 device operands. The parent rejected all 21 encodings. Forty-two independent Rosetta RAM comparisons matched YMM and RFLAGS. The portable tests verify full-width read admission, a single completion after reloading the pending descriptor, and rejection of misaligned legacy and non-device forms. Hosted Intel macOS run 45557848605 passed all 87 cases at eb357bf6dad8. All 84 direct and restored results matched the independent RAM fingerprints, and three legacy misalignment controls took #GP. The execution archive, prepared source and executable digests were verified. Bare-metal Intel qualification remains open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-unsigned-averages-and-absolute-differences",
       "full_goal_complete": false
+    },
+    {
+      "id": "riscv-instruction-fetch-parcels-2026-11-25",
+      "findings": [
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The RV32 and RV64 decoder wraps a split instruction fetch at XLEN. RISC-V interpreter and native-JIT entry report the inaccessible parcel address while retaining the instruction start in the exception PC. The baseline RV64 test reported the first parcel in stval. A byte-identical RV64 ELF that fetches across the end of RAM passed with both the RAX virt VMM and QEMU 11.1.2. This prepares the instruction fetch path for Sv39. Paged supervisor execution and a software RV64 SMP Linux boot remain open.",
+      "qualification": "docs/development/riscv-clint/README.md#instruction-fetch-across-a-memory-boundary",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

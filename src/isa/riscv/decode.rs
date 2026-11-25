@@ -2750,12 +2750,24 @@ fn decode_op_fp(w: u32, rv64: bool, isa: &Isa) -> Insn {
 
 /// Fetch and decode the instruction at `pc`, selecting 16- or 32-bit width.
 pub fn decode_at(mem: &dyn Memory, pc: u64, xlen: Xlen, isa: &Isa) -> Result<Insn, DecodeError> {
-    let lo = mem.fetch_u16(pc).map_err(DecodeError::Fetch)?;
+    decode_with_parcel_fetch(pc, xlen, isa, |addr| {
+        mem.fetch_u16(addr).map_err(DecodeError::Fetch)
+    })
+}
+
+/// Decode using a caller-supplied fetch so each parcel can fault at its own address.
+pub(super) fn decode_with_parcel_fetch<E>(
+    pc: u64,
+    xlen: Xlen,
+    isa: &Isa,
+    mut fetch: impl FnMut(u64) -> Result<u16, E>,
+) -> Result<Insn, E> {
+    let lo = fetch(pc)?;
     if lo & 0b11 != 0b11 {
         // 16-bit compressed parcel.
         return Ok(decode_compressed(lo, xlen, isa));
     }
-    let hi = mem.fetch_u16(pc + 2).map_err(DecodeError::Fetch)?;
+    let hi = fetch(pc.wrapping_add(2) & xlen.mask())?;
     let w = (lo as u32) | ((hi as u32) << 16);
     Ok(decode(w, xlen, isa))
 }
@@ -2781,6 +2793,23 @@ mod tests {
 
     fn dec(w: u32) -> Insn {
         decode(w, Xlen::Rv64, &Isa::rv64gc())
+    }
+
+    #[test]
+    fn second_instruction_parcel_wraps_at_xlen() {
+        for xlen in [Xlen::Rv32, Xlen::Rv64] {
+            let pc = xlen.mask() - 1;
+            let mut parcels = [(pc, 0x0093), (0, 0x0010)].into_iter();
+            let insn = decode_with_parcel_fetch(pc, xlen, &Isa::rv64gc(), |addr| {
+                let (expected_addr, parcel) = parcels.next().unwrap();
+                assert_eq!(addr, expected_addr);
+                Ok::<_, ()>(parcel)
+            })
+            .unwrap();
+            assert_eq!(insn.raw, 0x0010_0093);
+            assert_eq!(insn.op, Op::Addi);
+            assert_eq!(parcels.next(), None);
+        }
     }
 
     #[test]

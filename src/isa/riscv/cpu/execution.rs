@@ -1,13 +1,22 @@
 //! Instruction fetch, execution, and retirement accounting.
 
 use super::*;
+use crate::isa::riscv::decode::decode_with_parcel_fetch;
 
 impl RiscVCpu {
-    pub(super) fn instruction_fetch_alignment_trap(&self, pc: u64) -> Option<Trap> {
+    pub(super) fn fetch_instruction(&self, pc: u64) -> Result<Insn, Trap> {
         let alignment_mask = if self.cfg.isa.c { 0b1 } else { 0b11 };
-        (pc & alignment_mask != 0).then_some(Trap {
-            cause: cause::INSTR_MISALIGNED,
-            tval: pc,
+        if pc & alignment_mask != 0 {
+            return Err(Trap {
+                cause: cause::INSTR_MISALIGNED,
+                tval: pc,
+            });
+        }
+        decode_with_parcel_fetch(pc, self.cfg.xlen, &self.cfg.isa, |addr| {
+            self.mem.fetch_u16(addr).map_err(|_| Trap {
+                cause: cause::INSTR_ACCESS_FAULT,
+                tval: addr,
+            })
         })
     }
 
@@ -28,17 +37,9 @@ impl RiscVCpu {
         }
 
         let pc = self.pc;
-        if let Some(trap) = self.instruction_fetch_alignment_trap(pc) {
-            deliver(self, trap, pc);
-            return RiscVExit::Trap(trap);
-        }
-        let insn = match decode_at(self.mem.as_ref(), pc, self.cfg.xlen, &self.cfg.isa) {
+        let insn = match self.fetch_instruction(pc) {
             Ok(i) => i,
-            Err(DecodeError::Fetch(_)) => {
-                let trap = Trap {
-                    cause: cause::INSTR_ACCESS_FAULT,
-                    tval: pc,
-                };
+            Err(trap) => {
                 deliver(self, trap, pc);
                 return RiscVExit::Trap(trap);
             }
@@ -140,6 +141,53 @@ mod tests {
                 tval: CODE + 1,
             })
         );
+    }
+
+    #[test]
+    fn split_instruction_fetch_reports_the_faulting_parcel_and_instruction_epc() {
+        const START: u64 = 0xffe;
+        const NEXT_PARCEL: u64 = START + 2;
+        const TRAP_VECTOR: u64 = 0x100;
+        fn fixture() -> RiscVCpu {
+            let mut cpu = cpu(Isa::rv64gc());
+            // First parcel of `addi x1, x0, 1`; its second parcel is unmapped.
+            cpu.write_memory(START, &0x0093u16.to_le_bytes()).unwrap();
+            cpu.csr_write(Csr::Medeleg as u16, 1 << cause::INSTR_ACCESS_FAULT)
+                .unwrap();
+            cpu.csr_write(Csr::Stvec as u16, TRAP_VECTOR).unwrap();
+            cpu.set_privilege(Priv::Supervisor);
+            cpu.set_pc(START);
+            cpu
+        }
+
+        fn check(cpu: &RiscVCpu, result: RiscVExit) {
+            assert_eq!(
+                result,
+                RiscVExit::Trap(Trap {
+                    cause: cause::INSTR_ACCESS_FAULT,
+                    tval: NEXT_PARCEL,
+                })
+            );
+            assert_eq!(cpu.pc(), TRAP_VECTOR);
+            assert_eq!(cpu.csr_read(Csr::Sepc as u16), Ok(START));
+            assert_eq!(cpu.csr_read(Csr::Stval as u16), Ok(NEXT_PARCEL));
+            assert_eq!(cpu.instret(), 0);
+            assert_eq!(cpu.x(1), 0);
+        }
+
+        let mut interpreted = fixture();
+        let result = interpreted.step();
+        check(&interpreted, result);
+
+        #[cfg(all(
+            feature = "smir-jit",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ))]
+        {
+            let mut jitted = fixture();
+            let result = jitted.step_jit(crate::smir::optimize::OptLevel::O0);
+            check(&jitted, result);
+        }
     }
 
     fn csrr(rd: u32, csr: u32) -> u32 {

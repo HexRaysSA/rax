@@ -362,3 +362,37 @@ The unfiltered run over `48c397467` passed 13,125 library tests with two
 ignored, 180 owning integration tests and 245 C API tests on Apple
 Silicon. The Linux-only RISC-V differential targets and the x86-64 host
 JIT target registered zero tests on this host.
+
+## Instruction fetch across a memory boundary
+
+The RV32 and RV64 interpreter and native-JIT entry point fetch instructions
+in 16-bit parcels. If a parcel is inaccessible, the core reports its
+address in `mtval` or `stval` and records the instruction start in `mepc`
+or `sepc`. The second parcel address wraps at XLEN. Fetch takes constant
+time with at most two backing reads and adds no checkpoint fields.
+[RISC-V Privileged Architecture 20250508, §§3.1.16 and 12.1.9](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+| Assumption | Falsification probe | Result |
+|---|---|---|
+| A second-parcel fault leaves the faulting instruction unretired. | Start an RV64 `ADDI` at `0xffe` with memory ending at `0x1000`. Delegate the access fault to S mode and check the cause, `sepc`, `stval`, destination and retirement count. Run the interpreter and the JIT entry point. | The baseline reported `stval=0xffe`. Both entry points now report `stval=0x1000`, retain `sepc=0xffe` and leave the destination and retirement count at zero. |
+| The configured address width governs the second fetch. | Fetch a 32-bit encoding at the last halfword on RV32 and RV64. Supply its high halfword at address zero and require exactly two parcel reads. | Both decode the complete `ADDI` encoding. |
+| The full virt machine delivers the same trap as an independent system emulator. | Boot the same LLVM-linked RV64 ELF on RAX and QEMU 11.1.2. The guest checks `scause=1`, `sepc=0x107fffffe`, `stval=0x108000000` and an untouched `ra` before UART output and shutdown. | Both exited zero and each emitted one `RAX-FETCH-PARCEL-PASS` marker. |
+
+The ELF was assembled with LLVM 23.0.0git using
+`llvm-mc -triple=riscv64 -filetype=obj fetch-parcel.S -o fetch-parcel.o`
+and linked with `ld.lld -m elf64lriscv --no-relax -Ttext=0x80000000
+fetch-parcel.o -o fetch-parcel.elf`. The ELF SHA-256 is
+`a487d7b53166f779fa45de23a3db0e22c49df88c0ceaf0af6d60d2ca88743c8b`.
+RAX used `RAX_MACHINE=riscv-virt`, one vCPU and 128 MiB of configured
+RAM plus the current 4 GiB padding. QEMU used `virt`,
+`rv64,h=false,pmp=false` and 2,176 MiB from `0x80000000`. Both backings
+end at `0x108000000` exclusive. The source, bytes and run logs are in
+`/Users/int/dev/rax-audit-work/four-findings-riscv-fetch-parcel-2026-11-25/`.
+
+The RISC-V library filter passed 374 tests. The boot, SMIR lift and
+AArch64 JIT integration targets passed 12, 26 and 16 tests. Library Clippy
+with warnings denied passed on Apple Silicon. The unfiltered library
+run over `7b02b98d6` passed 13,414 tests with two ignored.
+
+Sv39 translation remains necessary to qualify page faults across this
+boundary and boot guests that switch to paged supervisor execution.
