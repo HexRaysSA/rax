@@ -29,7 +29,7 @@ const OPENSSL_TEMPLATE: &str = "System/Library/Templates/Data/private/etc/ssl/op
 const SHELL_SELECTOR: &str = "/private/var/select/sh";
 
 #[cfg(any(target_os = "macos", test))]
-const PROGRAM_ROOTS: [&str; 2] = ["/bin", "/usr/bin"];
+const PROGRAM_ROOTS: [&str; 4] = ["/bin", "/usr/bin", "/sbin", "/usr/sbin"];
 
 #[cfg(any(target_os = "macos", test))]
 const ZONEINFO_PATHS: [&str; 2] = ["/var/db/timezone/zoneinfo", "/usr/share/zoneinfo"];
@@ -210,6 +210,8 @@ fn select_native_root(
             RUBY_VERSIONS,
             PROGRAM_ROOTS[0],
             PROGRAM_ROOTS[1],
+            PROGRAM_ROOTS[2],
+            PROGRAM_ROOTS[3],
         ],
         &PROGRAM_ROOTS,
     )?;
@@ -533,6 +535,8 @@ mod tests {
             "usr/bin",
             "bin",
             "usr/local/bin",
+            "sbin",
+            "usr/sbin",
         ] {
             fs::create_dir_all(root.join(directory)).unwrap();
         }
@@ -551,6 +555,8 @@ mod tests {
             "usr/bin/child",
             "usr/lib/outside",
             "usr/local/bin/child",
+            "sbin/legacy-tool",
+            "usr/sbin/system-tool",
         ] {
             let host = root.join(path);
             fs::write(&host, executable).unwrap();
@@ -558,6 +564,7 @@ mod tests {
         }
         symlink("child", root.join("usr/bin/alias")).unwrap();
         symlink("../lib/outside", root.join("usr/bin/escape")).unwrap();
+        symlink("../lib/outside", root.join("usr/sbin/escape")).unwrap();
         fs::write(root.join("usr/bin/no-execute"), executable).unwrap();
         fs::set_permissions(
             root.join("usr/bin/no-execute"),
@@ -582,7 +589,13 @@ mod tests {
 
         let original = Files::default();
         let files = select_native_root(&original, root, Some("/usr/bin/child")).unwrap();
-        for path in ["/usr/bin/child", "/usr/bin/alias", "/bin/sh"] {
+        for path in [
+            "/usr/bin/child",
+            "/usr/bin/alias",
+            "/bin/sh",
+            "/sbin/legacy-tool",
+            "/usr/sbin/system-tool",
+        ] {
             assert_eq!(&*files.read(path).unwrap(), &executable, "{path}");
         }
         assert_eq!(&*files.read("/usr/bin/script").unwrap(), script);
@@ -595,6 +608,8 @@ mod tests {
             "/usr/bin/script-no-interpreter",
             "/usr/bin/script-no-line-end",
             "/usr/local/bin/child",
+            "/sbin/system-tool",
+            "/usr/sbin/escape",
         ] {
             assert!(matches!(files.read(path), Err(Error::NotFound)), "{path}");
         }
@@ -609,12 +624,14 @@ mod tests {
         let files = select_native_root(&supplied, root, Some("/usr/bin/child")).unwrap();
         assert_eq!(&*files.read("/bin/sh").unwrap(), b"caller shell");
 
-        let files = select_native_root(&original, root, Some("/bin")).unwrap();
-        assert!(matches!(files.lookup("/bin"), Err(Error::NotFound)));
-        let files = files
-            .with_file("/bin".into(), Arc::from(&b"guest main"[..]))
-            .unwrap();
-        assert_eq!(&*files.read("/bin").unwrap(), b"guest main");
+        for path in ["/bin", "/sbin", "/usr/sbin"] {
+            let files = select_native_root(&original, root, Some(path)).unwrap();
+            assert!(matches!(files.lookup(path), Err(Error::NotFound)));
+            let files = files
+                .with_file(path.into(), Arc::from(&b"guest main"[..]))
+                .unwrap();
+            assert_eq!(&*files.read(path).unwrap(), b"guest main");
+        }
     }
 
     #[test]

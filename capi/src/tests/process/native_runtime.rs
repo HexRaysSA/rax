@@ -198,6 +198,59 @@ fn installed_darwin_find_enumerates_programs_and_executes_children() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_shell_executes_system_directory_programs() {
+    for (command, expected) in [
+        (
+            "exec /sbin/md5 -q -s rax",
+            b"0b1c108d8b9c46d402a502c5b6b9261c\n".as_slice(),
+        ),
+        (
+            "exec /usr/sbin/sysctl -n hw.machine",
+            if cfg!(target_arch = "aarch64") {
+                b"arm64\n".as_slice()
+            } else {
+                b"x86_64\n".as_slice()
+            },
+        ),
+    ] {
+        compare_installed_posix_output(
+            "darwin",
+            "/bin/sh",
+            &["-c", command],
+            &[("LC_ALL", "C")],
+            expected,
+        );
+    }
+}
+
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+#[test]
+#[ignore = "run explicitly on a glibc distribution with installed ldconfig and cache"]
+fn installed_linux_shell_executes_ldconfig_through_closed_c_abi() {
+    let ldconfig = ["/usr/sbin/ldconfig", "/sbin/ldconfig"]
+        .into_iter()
+        .find(|path| std::path::Path::new(path).is_file())
+        .expect("installed glibc ldconfig");
+    let native = std::process::Command::new(ldconfig)
+        .arg("-p")
+        .env_clear()
+        .env("LC_ALL", "C")
+        .output()
+        .unwrap();
+    assert!(native.status.success());
+    assert!(native.stderr.is_empty());
+    assert!(String::from_utf8_lossy(&native.stdout).contains("/etc/ld.so.cache"));
+    compare_installed_posix_output(
+        "linux",
+        "/bin/sh",
+        &["-c", &format!("exec {ldconfig} -p")],
+        &[("LC_ALL", "C")],
+        &native.stdout,
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_date_uses_named_timezones_through_closed_c_abi() {
     for (instant, zone, expected) in [
         (

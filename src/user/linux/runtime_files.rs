@@ -16,7 +16,7 @@ mod ld_cache;
 #[cfg(any(target_os = "linux", test))]
 const PERL_MODULE_ROOTS: &[&str] = &["/usr/share/perl", "/usr/share/perl5"];
 #[cfg(any(target_os = "linux", test))]
-const PROGRAM_ROOTS: &[&str] = &["/bin", "/usr/bin"];
+const PROGRAM_ROOTS: [&str; 4] = ["/bin", "/usr/bin", "/sbin", "/usr/sbin"];
 #[cfg(target_os = "linux")]
 const STDBUF_LIBRARY: &str = "/usr/libexec/coreutils/libstdbuf.so";
 #[cfg(any(target_os = "linux", test))]
@@ -25,6 +25,8 @@ const CONFINED_ROOTS: &[&str] = &[
     PERL_MODULE_ROOTS[1],
     PROGRAM_ROOTS[0],
     PROGRAM_ROOTS[1],
+    PROGRAM_ROOTS[2],
+    PROGRAM_ROOTS[3],
 ];
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
@@ -90,8 +92,6 @@ fn select_installed_for_executable(
             roots.insert(path.into(), host);
         }
     }
-    let bin = root.join("bin");
-    let usr_bin = root.join("usr/bin");
     let unshadowed = |mount: &str| {
         !executable.is_some_and(|image| {
             image == mount
@@ -100,25 +100,31 @@ fn select_installed_for_executable(
                     .is_some_and(|tail| tail.starts_with('/'))
         })
     };
-    let usr_bin_selected =
-        unshadowed(PROGRAM_ROOTS[1]) && usr_bin.symlink_metadata().is_ok_and(|info| info.is_dir());
-    // /bin may be a distinct directory or the distribution alias for /usr/bin.
-    if unshadowed(PROGRAM_ROOTS[0])
-        && bin.symlink_metadata().is_ok_and(|info| {
-            info.is_dir()
-                || (info.is_symlink()
-                    && usr_bin_selected
-                    && bin
-                        .canonicalize()
-                        .ok()
-                        .zip(usr_bin.canonicalize().ok())
-                        .is_some_and(|(bin, usr_bin)| bin == usr_bin))
-        })
-    {
-        roots.insert(PROGRAM_ROOTS[0].into(), bin);
-    }
-    if usr_bin_selected {
-        roots.insert(PROGRAM_ROOTS[1].into(), usr_bin);
+    for &[legacy, standard] in PROGRAM_ROOTS.as_chunks::<2>().0 {
+        let host_legacy = root.join(legacy.trim_start_matches('/'));
+        let host_standard = root.join(standard.trim_start_matches('/'));
+        let standard_selected = unshadowed(standard)
+            && host_standard
+                .symlink_metadata()
+                .is_ok_and(|info| info.is_dir());
+        // Merged /usr installations alias the root-level directory.
+        if unshadowed(legacy)
+            && host_legacy.symlink_metadata().is_ok_and(|info| {
+                info.is_dir()
+                    || (info.is_symlink()
+                        && standard_selected
+                        && host_legacy
+                            .canonicalize()
+                            .ok()
+                            .zip(host_standard.canonicalize().ok())
+                            .is_some_and(|(legacy, standard)| legacy == standard))
+            })
+        {
+            roots.insert(legacy.into(), host_legacy);
+        }
+        if standard_selected {
+            roots.insert(standard.into(), host_standard);
+        }
     }
     let cache = root.join("etc/ld.so.cache");
     let files = select(files, roots, cache.is_file().then_some(cache))?;
@@ -214,7 +220,7 @@ fn under_root(path: &str, roots: &[&str]) -> bool {
 #[cfg(any(target_os = "linux", test))]
 fn accept_installed_file(path: &str, host: &Path, _file: &std::fs::File) -> io::Result<bool> {
     #[cfg(target_os = "linux")]
-    if under_root(path, PROGRAM_ROOTS) {
+    if under_root(path, &PROGRAM_ROOTS) {
         return accept_installed_program(_file);
     }
     Ok(!under_root(path, PERL_MODULE_ROOTS)
@@ -423,7 +429,9 @@ mod tests {
         let lib = root.join("usr/lib");
         let bin = root.join("usr/bin");
         let local_bin = root.join("usr/local/bin");
-        for path in [&lib, &bin, &local_bin] {
+        let sbin = root.join("sbin");
+        let usr_sbin = root.join("usr/sbin");
+        for path in [&lib, &bin, &local_bin, &sbin, &usr_sbin] {
             fs::create_dir_all(path).unwrap();
         }
         symlink("usr/bin", root.join("bin")).unwrap();
@@ -436,6 +444,8 @@ mod tests {
             bin.join("program"),
             lib.join("external"),
             local_bin.join("unselected"),
+            sbin.join("legacy-tool"),
+            usr_sbin.join("system-tool"),
         ] {
             fs::write(&path, elf).unwrap();
             fs::set_permissions(&path, Permissions::from_mode(0o755)).unwrap();
@@ -450,8 +460,15 @@ mod tests {
         fs::write(bin.join("invalid-script"), b"#! \n").unwrap();
         fs::set_permissions(bin.join("invalid-script"), Permissions::from_mode(0o755)).unwrap();
 
+        symlink("../lib/external", usr_sbin.join("escape")).unwrap();
         let selected = select_installed(&Files::default(), root).unwrap();
-        for path in ["/bin/program", "/usr/bin/program", "/bin/alias"] {
+        for path in [
+            "/bin/program",
+            "/usr/bin/program",
+            "/bin/alias",
+            "/sbin/legacy-tool",
+            "/usr/sbin/system-tool",
+        ] {
             assert_eq!(&*selected.read(path).unwrap(), &elf);
         }
         assert_eq!(&*selected.read("/bin/script").unwrap(), script);
@@ -461,6 +478,8 @@ mod tests {
             "/bin/invalid-script",
             "/bin/external",
             "/usr/local/bin/unselected",
+            "/usr/sbin/escape",
+            "/sbin/system-tool",
         ] {
             assert!(
                 matches!(selected.read(path), Err(Error::NotFound)),
@@ -474,7 +493,7 @@ mod tests {
         assert_eq!(&*selected.read("/bin/program").unwrap(), b"guest main");
         assert_eq!(&*selected.read("/usr/bin/program").unwrap(), &elf);
 
-        for path in ["/bin", "/usr/bin"] {
+        for path in PROGRAM_ROOTS {
             let selected =
                 select_installed_for_executable(&Files::default(), root, Some(path)).unwrap();
             let selected = selected
@@ -482,6 +501,15 @@ mod tests {
                 .unwrap();
             assert_eq!(&*selected.read(path).unwrap(), b"guest main");
         }
+
+        fs::rename(&sbin, root.join("legacy-sbin")).unwrap();
+        symlink("usr/sbin", &sbin).unwrap();
+        let selected = select_installed(&Files::default(), root).unwrap();
+        assert_eq!(&*selected.read("/sbin/system-tool").unwrap(), &elf);
+        assert!(matches!(
+            selected.read("/sbin/escape"),
+            Err(Error::NotFound)
+        ));
     }
 
     #[cfg(target_os = "linux")]
