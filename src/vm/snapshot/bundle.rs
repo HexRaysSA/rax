@@ -392,6 +392,17 @@ impl SnapshotBundle {
                 }
             }
         }
+        // The full VMM capture pairs its physical RAM and VM clock with the
+        // coordinator. The base image alone has only CPU 0's local controller.
+        if self.base.config.vcpus > 1
+            && self.physical_memory.is_some()
+            && self.clock.is_some()
+            && self.execution.is_none()
+        {
+            return Err(Error::InvalidConfig(
+                "SMP checkpoint is missing execution coordinator state".into(),
+            ));
+        }
         Ok(())
     }
     /// Metadata-only closure after a builder has admitted the physical image.

@@ -193,6 +193,85 @@ fn cpu_register_set_alone_cannot_resume_a_fresh_smp_vm() {
     }
 }
 #[test]
+fn wall_smp_bundle_without_coordinator_cannot_change_a_live_vm_or_replace_a_file() {
+    let f = Fixture::new();
+    let path = f.dir.join("machine.rxc");
+    let address = GuestAddress(0x7000);
+    let cpu_states = |vm: &Vmm| {
+        vm.capture_cpu_states()
+            .unwrap()
+            .iter()
+            .map(|cpu| rax::codec::serialize(&cpu.state).unwrap())
+            .collect::<Vec<_>>()
+    };
+    for count in [2, 4] {
+        let mut config = f.config(ArchKind::CortexM, RAM);
+        config.vcpus = count;
+        let source = Vmm::new_resume(config.clone()).unwrap();
+        source
+            .guest_mem()
+            .memory()
+            .write_slice(&[0x41], address)
+            .unwrap();
+        let captured = source.take_snapshot_bundle(0).unwrap();
+        assert!(captured.physical_memory().is_some());
+        assert_eq!(
+            captured.clock().unwrap().mode,
+            rax::vm::timing::ClockMode::Wall
+        );
+        assert!(captured.execution().is_some());
+        captured.save(&path).unwrap();
+        drop(captured);
+        drop(source);
+
+        let mut incoming = SnapshotBundle::load(&path).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &incoming).unwrap();
+        let mut byte = [0];
+        target
+            .guest_mem()
+            .memory()
+            .read_slice(&mut byte, address)
+            .unwrap();
+        assert_eq!(byte, [0x41]);
+        target
+            .guest_mem()
+            .memory()
+            .write_slice(&[0x82], address)
+            .unwrap();
+        let before_cpus = cpu_states(&target);
+        let valid_file = std::fs::read(&path).unwrap();
+        incoming.take_execution().unwrap();
+
+        let restore = target.restore_snapshot_bundle(&incoming);
+        target
+            .guest_mem()
+            .memory()
+            .read_slice(&mut byte, address)
+            .unwrap();
+        assert_eq!(
+            byte,
+            [0x82],
+            "CPU count {count}, restore result {restore:?}"
+        );
+        assert!(
+            restore
+                .unwrap_err()
+                .to_string()
+                .contains("execution coordinator")
+        );
+        assert_eq!(cpu_states(&target), before_cpus);
+        assert!(
+            incoming
+                .save(&path)
+                .unwrap_err()
+                .to_string()
+                .contains("execution coordinator")
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), valid_file);
+    }
+}
+
+#[test]
 fn incompatible_architecture_rejects_before_runtime_creation() {
     let f = Fixture::new();
     let b = SnapshotBundle::new(f.base());
