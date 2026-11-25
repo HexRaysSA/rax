@@ -546,3 +546,76 @@ fn reserved_cp10_cp11_pair_and_memory_encodings_are_undefined() {
         }
     }
 }
+
+#[test]
+fn reserved_cp8_cp9_pair_and_memory_encodings_are_undefined() {
+    for thumb in [false, true] {
+        for prefix in if thumb { 14..=14 } else { 0..=14 } {
+            for coproc in [8, 9] {
+                for puw in 0..8 {
+                    // Size 01 is allocated only for conditional immediate VLDR/VSTR.
+                    if coproc == 9 && matches!(puw, 0b100 | 0b110) {
+                        continue;
+                    }
+                    for d in 0..2 {
+                        for load in 0..2 {
+                            for imm in [0x00, 0x01, 0x10, 0x53, 0xff] {
+                                let raw = (prefix << 28)
+                                    | 0x0c01_0000
+                                    | ((puw & 0b110) << 22)
+                                    | (d << 22)
+                                    | ((puw & 1) << 21)
+                                    | (load << 20)
+                                    | (coproc << 8)
+                                    | imm;
+                                assert_eq!(
+                                    decode(raw, thumb).mnemonic,
+                                    Mnemonic::UNDEFINED,
+                                    "raw={raw:08x}, thumb={thumb}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (raw, mnemonic) in [
+            (0xed01_0903, Mnemonic::VSTR),
+            (0xed81_0903, Mnemonic::VSTR),
+            (0xed11_0903, Mnemonic::VLDR),
+            (0xed91_0903, Mnemonic::VLDR),
+            (0xec41_0a10, Mnemonic::VMOV),
+            (0xec51_0f10, Mnemonic::MRRC),
+            (0xed91_0703, Mnemonic::LDC),
+            (0xfc21_0800, Mnemonic::VCMLA),
+            (0xfd91_0800, Mnemonic::VCADD),
+        ] {
+            assert_eq!(
+                decode(raw, thumb).mnemonic,
+                mnemonic,
+                "raw={raw:08x}, thumb={thumb}"
+            );
+        }
+    }
+}
+
+#[test]
+fn reserved_cp8_cp9_memory_prefixes_do_not_retire_or_trap_to_el2() {
+    for thumb in [false, true] {
+        for raw in [0xec41_0810, 0xec51_0910, 0xed81_0804, 0xec91_0901] {
+            let mut cpu = super::mixed(raw, thumb, 2, false, true);
+            let before = (cpu.get_gpr(1), cpu.get_simd(0), cpu.export_sregs());
+            assert!(
+                matches!(cpu.step(), Err(ArmError::UndefinedInstruction(value)) if value == raw),
+                "raw={raw:08x}, thumb={thumb}"
+            );
+            assert_eq!(cpu.get_pc(), 0x100);
+            assert_eq!(cpu.instruction_count(), 0);
+            assert_eq!(
+                (cpu.get_gpr(1), cpu.get_simd(0), cpu.export_sregs()),
+                before
+            );
+        }
+    }
+}

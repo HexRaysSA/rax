@@ -1080,8 +1080,9 @@ impl Aarch32Decoder {
         if let Some(insn) = Self::decode_vfp_load_store(raw) {
             return Ok(insn);
         }
-        if matches!((raw >> 8) & 15, 10 | 11) {
-            // CP10/CP11 allocate only FP operations in this encoding space.
+        if raw >> 28 != 15 && matches!((raw >> 8) & 15, 8..=11) {
+            // In the conditional FP space, CP8 is unallocated and CP9
+            // allocates only the FP16 immediate loads and stores above.
             // Reserved transfer prefixes cannot fall through to a coprocessor.
             return Ok(DecodedInsn::new(
                 Mnemonic::UNDEFINED,

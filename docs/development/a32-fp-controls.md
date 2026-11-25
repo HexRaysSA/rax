@@ -784,6 +784,32 @@ Linux with `smir-jit`. The runs reported zero failures, ignored cases,
 and filters. The complete Cargo test log SHA-256 is
 `760df3090fd5fb1689726e04baae1fd0132c474e60e531bf06d43d66b70e28eb`.
 
+## CP8 and CP9 pair and memory allocation
+
+The conditional A32 and corresponding T32 decoder selects Undefined for the
+unallocated size-00 and size-01 pairs and for unallocated scalar memory forms.
+Size 01 (`CP9`) retains the immediate FP16 `VLDR` and `VSTR` forms. The check
+takes constant time and storage.
+[Arm DDI 0597 ID032025, pages 1490–1491 and 1523–1524](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Conditional allocation depends on size and the P/U/W partition. | Vary the A32 condition, direction, D bit and low-field samples. Check every P/U/W partition in A32 and T32, and keep both address signs as positive FP16 controls. |
+| A reserved prefix selects Undefined before higher-EL FP access. | Arm CPTR_EL2.TFP and check the diagnostic, retirement, PC, and register state for CP8 and CP9 pair and memory words. |
+| Unconditional complex SIMD is a separate allocation. | Decode `VCMLA.F16` and `VCADD.F32` in both instruction sets and compare with LLVM's disassembly. |
+
+The parent decoded `0x0c010800` as `STC` and failed the mixed-width Undefined
+check for `0xec410810`. QEMU 11.1.2 `max` took the Undefined vector in all 56
+reserved cases and completed all ten allocated controls. The witness compares
+D0, D1, FPSCR and an aligned 32-bit RAM location after each instruction. The
+FP16 store controls also check preservation of the adjacent halfword. The
+observation SHA-256 is
+`56eedc100e578aa819c6ac46a5a7a32dc4630d11290f3e0447885d7487b876d7`.
+
+The seven unfiltered integration targets passed 47,762 tests on macOS arm64,
+including ARM and Thumb SMIR JIT, with zero ignored cases. The mixed-width
+regression passed eight reserved transfer probes with CPTR_EL2.TFP enabled.
+
 ## AArch32 crypto capability readback
 
 The AArch32 ID_ISAR5 projection clears the AES, SHA1 and SHA2 fields.
