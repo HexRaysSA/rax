@@ -11,7 +11,7 @@
 use std::fmt::Write as _;
 
 use super::abi::LinuxAbi;
-use super::fs::fd::DirEntry;
+use super::fs::fd::{DirEntry, dt};
 use super::process::{ProcState, Thread};
 use crate::user::mm::{Backing, Perms};
 
@@ -38,10 +38,50 @@ pub enum ProcEntry {
         fd: i32,
         target: std::sync::Arc<[u8]>,
     },
-    /// A directory with these entries.
-    Dir(Vec<DirEntry>),
+    /// A synthesized directory.
+    Dir(Directory),
     /// Read-only file served by another emulated process to its tracer.
     TraceeFile { tid: i32, name: String },
+}
+
+/// Contents of a synthesized directory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Directory {
+    /// Entries resolved during lookup.
+    Snapshot(Vec<DirEntry>),
+    /// Entries derived from the owning task's descriptor table on each read.
+    Descriptors(DescriptorDirectory),
+}
+
+/// Identifies the task and entry type of a descriptor directory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DescriptorDirectory {
+    pub(super) tid: i32,
+    kind: DescriptorKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DescriptorKind {
+    Link,
+    Info,
+}
+
+impl DescriptorDirectory {
+    pub(super) fn entry(self, offset: u64) -> DirEntry {
+        let (ino, dtype, name) = match offset {
+            0 => (PROC_INO, dt::DT_DIR, b".".to_vec()),
+            1 => (PROC_INO, dt::DT_DIR, b"..".to_vec()),
+            _ => {
+                let (base, dtype) = match self.kind {
+                    DescriptorKind::Link => (PROC_INO + 0x1000, dt::DT_LNK),
+                    DescriptorKind::Info => (PROC_INO + 0x2000, dt::DT_REG),
+                };
+                let fd = offset - 2;
+                (base + fd, dtype, fd.to_string().into_bytes())
+            }
+        };
+        DirEntry { ino, dtype, name }
+    }
 }
 
 /// Well-known inode numbers for synthesized entries (stable, nonzero).
@@ -73,7 +113,7 @@ fn dir(names: &[&str]) -> ProcEntry {
             name: n.as_bytes().to_vec(),
         });
     }
-    ProcEntry::Dir(v)
+    ProcEntry::Dir(Directory::Snapshot(v))
 }
 
 /// `/proc/self/maps`.
@@ -547,7 +587,7 @@ fn process_entry(p: &ProcState, t: &Thread, threads: &[&Thread], rest: &str) -> 
                 name: th.tid.to_string().into_bytes(),
             });
         }
-        return Some(ProcEntry::Dir(v));
+        return Some(ProcEntry::Dir(Directory::Snapshot(v)));
     }
     if let Some(task) = rest.strip_prefix("task/") {
         let (id, rest) = task.split_once('/').unwrap_or((task, ""));
@@ -616,28 +656,16 @@ fn thread_entry(
         }
         "stat" => file(stat(p, t, threads)),
         "status" => file(status(p, t, threads)),
-        "fd" => {
-            let mut v = dot_entries();
-            for fd in p.fds.open_fds() {
-                v.push(DirEntry {
-                    ino: PROC_INO + 0x1000 + fd as u64,
-                    dtype: super::fs::fd::dt::DT_LNK,
-                    name: fd.to_string().into_bytes(),
-                });
-            }
-            Some(ProcEntry::Dir(v))
-        }
-        "fdinfo" => {
-            let mut v = dot_entries();
-            for fd in p.fds.open_fds() {
-                v.push(DirEntry {
-                    ino: PROC_INO + 0x2000 + fd as u64,
-                    dtype: super::fs::fd::dt::DT_REG,
-                    name: fd.to_string().into_bytes(),
-                });
-            }
-            Some(ProcEntry::Dir(v))
-        }
+        "fd" | "fdinfo" => Some(ProcEntry::Dir(Directory::Descriptors(
+            DescriptorDirectory {
+                tid: t.tid,
+                kind: if rest == "fd" {
+                    DescriptorKind::Link
+                } else {
+                    DescriptorKind::Info
+                },
+            },
+        ))),
         _ if rest.starts_with("fdinfo/") => {
             let n = rest.strip_prefix("fdinfo/")?.parse::<i32>().ok()?;
             let own = |tid: i32| all.iter().any(|t| t.tid == tid);

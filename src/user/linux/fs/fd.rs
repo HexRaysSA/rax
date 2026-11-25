@@ -8,7 +8,7 @@
 
 use crate::user::supplied_fs::Device;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
@@ -113,7 +113,9 @@ pub struct FileState {
     pub flags: u32,
     /// Directory listing snapshot and cursor for `getdents64`.
     pub dir: Option<(Vec<DirEntry>, usize)>,
-    /// Position within synthetic content, or before a guest directory snapshot.
+    /// Owner and entry format for a live procfs descriptor directory.
+    pub(in crate::user::linux) proc_dir: Option<ProcFdDirectory>,
+    /// Position within synthetic content or a directory without a snapshot.
     pub synth_pos: u64,
     /// The thread whose `/proc` `comm` file this description writes.
     pub comm_of: Option<i32>,
@@ -621,6 +623,7 @@ impl OpenFile {
                 let base = match whence {
                     SEEK_SET => 0i64,
                     SEEK_CUR => st.dir.as_ref().map_or(st.synth_pos as i64, |d| d.1 as i64),
+                    SEEK_END if st.proc_dir.is_some() => 0,
                     _ => return Err(Errno(EINVAL)),
                 };
                 let target = base
@@ -632,7 +635,7 @@ impl OpenFile {
                     st.synth_pos = 0;
                 } else if let Some(d) = st.dir.as_mut() {
                     d.1 = (target as usize).min(d.0.len());
-                } else if workspace {
+                } else if workspace || st.proc_dir.is_some() {
                     st.synth_pos = target as u64;
                 }
                 Ok(target as u64)
@@ -740,10 +743,52 @@ pub const NOFILE_SOFT: u64 = 1024;
 /// usual distribution hard limit is 4096 or higher).
 pub const NOFILE_HARD: u64 = 1 << 20;
 
+type Slots = Mutex<Vec<Option<Fd>>>;
+type ProcFdOwner = Mutex<Weak<Slots>>;
+
+/// An open directory refers to its owner's descriptor slots without keeping
+/// the table alive. The owner can move to a new table after CLONE_FILES.
+#[derive(Debug)]
+pub(in crate::user::linux) struct ProcFdDirectory {
+    pub(in crate::user::linux) entry: super::super::procfs::DescriptorDirectory,
+    pub(in crate::user::linux) pid: i32,
+    owner: Weak<ProcFdOwner>,
+}
+
+impl ProcFdDirectory {
+    pub(in crate::user::linux) fn slots(&self) -> Result<ProcFdSlots, Errno> {
+        let owner = self.owner.upgrade().ok_or(Errno(ENOENT))?;
+        let slots = owner.lock().unwrap().upgrade().ok_or(Errno(ENOENT))?;
+        Ok(ProcFdSlots(slots))
+    }
+}
+
+/// A live view of a procfs directory's slots for one read.
+pub(in crate::user::linux) struct ProcFdSlots(Arc<Slots>);
+
+impl ProcFdSlots {
+    /// The next populated descriptor or the slot reached at the end.
+    pub(in crate::user::linux) fn next(&self, start: usize) -> (usize, bool) {
+        let slots = self.0.lock().unwrap();
+        let next = slots
+            .get(start..)
+            .and_then(|tail| tail.iter().position(Option::is_some));
+        match next {
+            Some(index) => (start + index, true),
+            None => (start.max(table_capacity(slots.len())), false),
+        }
+    }
+}
+
+fn table_capacity(used: usize) -> usize {
+    used.max(64).next_power_of_two()
+}
+
 /// A Linux descriptor table. Fork copies the slots. CLONE_FILES shares them.
 #[derive(Debug, Default)]
 pub struct FdTable {
-    slots: Arc<Mutex<Vec<Option<Fd>>>>,
+    slots: Arc<Slots>,
+    proc_owner: OnceLock<Arc<ProcFdOwner>>,
     pipes: Arc<pipe::PipePool>,
     pub(crate) workspace_lock_owner: Arc<super::locks::workspace::LockOwner>,
 }
@@ -752,6 +797,7 @@ impl Clone for FdTable {
     fn clone(&self) -> Self {
         Self {
             slots: Arc::new(Mutex::new(self.slots().clone())),
+            proc_owner: OnceLock::new(),
             pipes: Arc::clone(&self.pipes),
             workspace_lock_owner: Arc::new(self.workspace_lock_owner.independent()),
         }
@@ -766,6 +812,7 @@ impl FdTable {
     pub(in crate::user::linux) fn share(&self) -> Self {
         Self {
             slots: Arc::clone(&self.slots),
+            proc_owner: OnceLock::new(),
             pipes: Arc::clone(&self.pipes),
             workspace_lock_owner: self.workspace_lock_owner.clone(),
         }
@@ -777,7 +824,27 @@ impl FdTable {
 
     pub(in crate::user::linux) fn unshare(&mut self) {
         if self.is_shared() {
-            *self = self.clone();
+            let mut private = self.clone();
+            private.proc_owner = std::mem::take(&mut self.proc_owner);
+            if let Some(owner) = private.proc_owner.get() {
+                *owner.lock().unwrap() = Arc::downgrade(&private.slots);
+            }
+            *self = private;
+        }
+    }
+
+    pub(in crate::user::linux) fn proc_directory(
+        &self,
+        pid: i32,
+        entry: super::super::procfs::DescriptorDirectory,
+    ) -> ProcFdDirectory {
+        let owner = self
+            .proc_owner
+            .get_or_init(|| Arc::new(Mutex::new(Arc::downgrade(&self.slots))));
+        ProcFdDirectory {
+            entry,
+            pid,
+            owner: Arc::downgrade(owner),
         }
     }
 
@@ -920,7 +987,7 @@ impl FdTable {
     /// until one above that is allocated, then the smallest power of two
     /// covering the highest descriptor ever allocated (`alloc_fdtable`).
     pub fn max_fds(&self) -> usize {
-        self.slots().len().max(64).next_power_of_two()
+        table_capacity(self.slots().len())
     }
 
     /// Descriptors currently open, ascending.

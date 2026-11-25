@@ -607,6 +607,18 @@ fn installed_cat_reads_guest_null_through_closed_c_abi() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn installed_ls_lists_its_own_descriptor_through_closed_c_abi() {
+    compare_installed_posix_output(
+        "linux",
+        "/bin/ls",
+        &["-a", "-1", "/proc/self/fd"],
+        &[("LC_ALL", "C")],
+        b".\n..\n0\n1\n2\n3\n",
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 #[ignore = "run explicitly with GNU date and installed timezone data"]
 fn installed_date_uses_named_timezones_through_closed_c_abi() {
     for (instant, expected) in [

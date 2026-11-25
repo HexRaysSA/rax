@@ -12,7 +12,7 @@ use super::super::abi::types::{Kstatfs, MAX_NON_LFS, Stat, Timespec, mode};
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::fs::{self, join_guest};
 use super::super::fsnotify::bits::{IN_ATTRIB, IN_MODIFY};
-use super::super::procfs::{self, ProcEntry};
+use super::super::procfs::{self, Directory, ProcEntry};
 use super::{Ctx, SysResult};
 use crate::user::supplied_fs::{Entry, LinkPolicy, WorkspaceRename, WorkspaceTimestamp};
 
@@ -381,7 +381,7 @@ pub fn stat_open(file: &OpenFile, ids: (u32, u32)) -> Result<Stat, Errno> {
         FileObject::Synthetic(d) => Ok(proc_stat(
             ids,
             &if file.ftype == FileType::Directory {
-                ProcEntry::Dir(Vec::new())
+                ProcEntry::Dir(Directory::Snapshot(Vec::new()))
             } else {
                 ProcEntry::File(d.to_vec())
             },
@@ -595,7 +595,7 @@ pub(super) fn open_target(
             }
             Ok(f)
         }
-        Target::Proc(ProcEntry::Dir(entries), guest) => {
+        Target::Proc(ProcEntry::Dir(directory), guest) => {
             if accmode != O_RDONLY {
                 return Err(Errno(EISDIR));
             }
@@ -606,7 +606,14 @@ pub(super) fn open_target(
                 None,
                 status,
             );
-            f.state.lock().unwrap().dir = Some((entries, 0));
+            let mut state = f.state.lock().unwrap();
+            match directory {
+                Directory::Snapshot(entries) => state.dir = Some((entries, 0)),
+                Directory::Descriptors(entry) => {
+                    state.proc_dir = Some(c.p.fds.proc_directory(c.p.pid, entry));
+                }
+            }
+            drop(state);
             Ok(f)
         }
         Target::Proc(ProcEntry::WorkspaceDescriptor { fd, target }, guest) => {

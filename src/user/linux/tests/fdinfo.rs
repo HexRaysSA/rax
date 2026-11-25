@@ -27,19 +27,18 @@ fn read(h: &mut Harness, path: &str) -> Result<String, i32> {
     Ok(String::from_utf8(out).unwrap())
 }
 
-/// The entries of `/proc/self/fdinfo` other than `.` and `..`: descriptor
-/// numbers and `d_type`s.
-fn listing(h: &mut Harness) -> Vec<(i32, u8)> {
+fn open_dir(h: &mut Harness, path: &str) -> u64 {
     let at = h.scratch + 0x400;
-    h.proc
-        .state
-        .space
-        .write_raw(at, b"/proc/self/fdinfo\0")
-        .unwrap();
-    let dir = h.ok(Sysno::Openat, &[AT_FDCWD, at, 0o200000, 0]);
+    let mut name = path.as_bytes().to_vec();
+    name.push(0);
+    h.proc.state.space.write_raw(at, &name).unwrap();
+    h.ok(Sysno::Openat, &[AT_FDCWD, at, 0, 0])
+}
+
+/// The name, type, and offset of each `linux_dirent64` in one read.
+fn listing(h: &mut Harness, dir: u64, count: u64) -> Vec<(String, u8, u64)> {
     let buf = h.scratch + 0x800;
-    let n = h.ok(Sysno::Getdents64, &[dir, buf, 0x400]) as usize;
-    h.ok(Sysno::Close, &[dir]);
+    let n = h.ok(Sysno::Getdents64, &[dir, buf, count]) as usize;
     let mut b = vec![0u8; n];
     h.proc.state.space.read(buf, &mut b).unwrap();
     let mut out = Vec::new();
@@ -48,9 +47,12 @@ fn listing(h: &mut Harness) -> Vec<(i32, u8)> {
         let reclen = u16::from_le_bytes([b[at + 16], b[at + 17]]) as usize;
         let name = &b[at + 19..at + reclen];
         let name = &name[..name.iter().position(|&c| c == 0).unwrap()];
-        if let Ok(fd) = std::str::from_utf8(name).unwrap().parse() {
-            out.push((fd, b[at + 18]));
-        }
+        let position = u64::from_le_bytes(b[at + 8..at + 16].try_into().unwrap());
+        out.push((
+            String::from_utf8(name.to_vec()).unwrap(),
+            b[at + 18],
+            position,
+        ));
         at += reclen;
     }
     out
@@ -93,13 +95,100 @@ fn every_descriptor_shows_its_position_flags_mount_and_inode() {
             text.starts_with("pos:\t0\nflags:\t04000\nmnt_id:\t5\n"),
             "{text}"
         );
-        // The directory lists the descriptors as regular files; a closed
-        // one has no entry.
-        assert!(listing(&mut h).contains(&(r as i32, 8)), "{abi:?}");
+        // Keep the directory open so its own descriptor cannot reuse the
+        // pipe descriptor under test after close.
+        let dir = open_dir(&mut h, "/proc/self/fdinfo");
+        let pipe = r.to_string();
+        assert!(
+            listing(&mut h, dir, 0x400)
+                .iter()
+                .any(|(name, kind, _)| { name == &pipe && *kind == 8 }),
+            "{abi:?}"
+        );
         h.ok(Sysno::Close, &[r]);
-        assert!(!listing(&mut h).iter().any(|&(n, _)| n == r as i32));
+        h.ok(Sysno::Lseek, &[dir, 0, 0]);
+        assert!(
+            !listing(&mut h, dir, 0x400)
+                .iter()
+                .any(|(name, _, _)| name == &pipe)
+        );
         assert_eq!(read(&mut h, &format!("/proc/self/fdinfo/{r}")), Err(ENOENT));
+        h.ok(Sysno::Close, &[dir]);
     });
+}
+
+#[test]
+fn descriptor_directories_follow_live_slots_and_share_slot_cookies() {
+    use crate::user::linux::fs::fd::dt::{DT_DIR, DT_LNK, DT_REG};
+
+    each_abi(|abi| {
+        for (path, kind) in [
+            ("/proc/self/fd", DT_LNK),
+            ("/proc/thread-self/fdinfo", DT_REG),
+        ] {
+            let mut h = Harness::embedded(abi);
+            let dir = open_dir(&mut h, path);
+            let duplicate = h.ok(Sysno::Fcntl, &[dir, 0, 0]); // F_DUPFD
+            let name = dir.to_string();
+            let duplicate_name = duplicate.to_string();
+            assert_eq!(dir, 3);
+            assert_eq!(duplicate, 4);
+            assert_eq!(h.err(Sysno::Getdents64, &[dir, h.scratch, 23]), EINVAL);
+            assert_eq!(
+                listing(&mut h, dir, 48),
+                [(".".into(), DT_DIR, 1), ("..".into(), DT_DIR, 2)]
+            );
+            assert_eq!(h.ok(Sysno::Lseek, &[duplicate, 0, 1]), 2);
+            assert_eq!(h.ok(Sysno::Fcntl, &[0, 0, 20]), 20);
+            assert_eq!(
+                listing(&mut h, duplicate, 120),
+                [
+                    ("0".into(), kind, 3),
+                    ("1".into(), kind, 4),
+                    ("2".into(), kind, 5),
+                    (name, kind, 6),
+                    (duplicate_name, kind, 22),
+                ],
+            );
+            assert!(fdinfo(&mut h, dir).starts_with("pos:\t22\n"));
+            h.ok(Sysno::Close, &[20]);
+            assert_eq!(h.ok(Sysno::Fcntl, &[0, 0, 40]), 40);
+            assert_eq!(listing(&mut h, dir, 0x400), [("40".into(), kind, 66)]);
+            assert_eq!(h.ok(Sysno::Fcntl, &[0, 0, 50]), 50);
+            assert!(listing(&mut h, duplicate, 0x400).is_empty());
+            assert_eq!(h.ok(Sysno::Fcntl, &[0, 0, 100]), 100);
+            assert_eq!(
+                listing(&mut h, duplicate, 0x400),
+                [("100".into(), kind, 130)]
+            );
+            assert_eq!(h.ok(Sysno::Lseek, &[dir, 0, 2]), 0);
+            assert_eq!(h.ok(Sysno::Lseek, &[duplicate, 51, 0]), 51);
+            assert_eq!(listing(&mut h, dir, 24), [("50".into(), kind, 102)]);
+            assert_eq!(h.ok(Sysno::Lseek, &[dir, 0, 1]), 102);
+        }
+    });
+}
+
+#[test]
+fn descriptor_directory_retains_its_original_owner_when_the_table_splits() {
+    let mut h = Harness::embedded(LinuxAbi::Aarch64);
+    let dir = open_dir(&mut h, "/proc/self/fd");
+    let mut shared = h.proc.state.fds.share();
+    let description = shared.file(dir as i32).unwrap();
+    h.proc.state.fds.unshare();
+    assert_eq!(h.ok(Sysno::Fcntl, &[0, 0, 40]), 40);
+    let input = shared.file(0).unwrap();
+    shared.install_at(50, input, false, 64).unwrap();
+
+    {
+        let state = description.state.lock().unwrap();
+        let owner = state.proc_dir.as_ref().unwrap();
+        assert_eq!(owner.slots().unwrap().next(5), (40, true));
+        assert_eq!(owner.slots().unwrap().next(41), (64, false));
+    }
+    drop(h);
+    let state = description.state.lock().unwrap();
+    assert!(state.proc_dir.as_ref().unwrap().slots().is_err());
 }
 
 #[test]

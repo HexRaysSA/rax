@@ -62,9 +62,11 @@ fn mount_id(file: &OpenFile) -> i32 {
 /// `file->f_pos`, read without moving it: what `lseek(fd, 0, SEEK_CUR)`
 /// returns, or 0 for a file without a position.
 fn position(file: &OpenFile) -> i64 {
-    let dir = file.state.lock().unwrap().dir.as_ref().map(|d| d.1);
     match &file.object {
-        _ if file.ftype == FileType::Directory => dir.unwrap_or(0) as i64,
+        _ if file.ftype == FileType::Directory => {
+            let state = file.state.lock().unwrap();
+            state.dir.as_ref().map_or(state.synth_pos, |d| d.1 as u64) as i64
+        }
         FileObject::Synthetic(_) | FileObject::Supplied(_) | FileObject::Mqueue(_) => {
             file.state.lock().unwrap().synth_pos as i64
         }

@@ -2,11 +2,16 @@
 //! compatibility task's `getdents` and `readdir`.
 //!
 //! Host and private guest directories take a snapshot when a listing starts.
-//! The open description's cursor is the index of the next entry.
+//! Their cursor is the index of the next entry. Procfs descriptor directories
+//! enumerate live slots and use the descriptor number plus two as the cookie.
+
+use std::borrow::Cow;
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
-use super::super::fs::fd::{DirEntry, FileObject, FileType, OpenFile, dt};
+use super::super::abi::open::O_PATH;
+use super::super::fs::fd::{DirEntry, FileObject, FileState, FileType, OpenFile, ProcFdSlots, dt};
+use super::super::procfs::DescriptorDirectory;
 use super::{Ctx, SysResult};
 use crate::user::supplied_fs::{Entry, Files, Kind};
 
@@ -40,18 +45,18 @@ impl Dirent {
     /// The record of entry `e`, whose offset is `off`; `EOVERFLOW` for an
     /// inode number the layout cannot hold. The compatibility layout
     /// stores the offset truncated.
-    fn record(self, e: &DirEntry, off: u64) -> Result<Vec<u8>, Errno> {
+    fn record(self, e: &DirEntry) -> Result<Vec<u8>, Errno> {
         let reclen = self.reclen(e);
         let mut r = Vec::with_capacity(reclen);
         match self {
             Dirent::Dirent64 | Dirent::Long => {
                 r.extend_from_slice(&e.ino.to_le_bytes());
-                r.extend_from_slice(&off.to_le_bytes());
+                r.extend_from_slice(&[0; 8]);
             }
             Dirent::Compat => {
                 let ino = u32::try_from(e.ino).map_err(|_| Errno(EOVERFLOW))?;
                 r.extend_from_slice(&ino.to_le_bytes());
-                r.extend_from_slice(&(off as u32).to_le_bytes());
+                r.extend_from_slice(&[0; 4]);
             }
         }
         r.extend_from_slice(&(reclen as u16).to_le_bytes());
@@ -65,6 +70,13 @@ impl Dirent {
             r.push(e.dtype);
         }
         Ok(r)
+    }
+
+    fn set_offset(self, record: &mut [u8], offset: u64) {
+        match self {
+            Dirent::Dirent64 | Dirent::Long => record[8..16].copy_from_slice(&offset.to_le_bytes()),
+            Dirent::Compat => record[4..8].copy_from_slice(&(offset as u32).to_le_bytes()),
+        }
     }
 }
 
@@ -100,19 +112,16 @@ fn directory(c: &Ctx<'_>, fd: i32) -> Result<std::sync::Arc<OpenFile>, Errno> {
         return Err(Errno(ENOTDIR));
     }
     let mut st = file.state.lock().unwrap();
+    if st.flags & O_PATH != 0 {
+        return Err(Errno(EBADF));
+    }
     let detached = matches!(&file.object, FileObject::Supplied(entry)
         if entry.workspace_directory().is_some_and(|directory| !directory.linked()));
     if detached {
-        if st.flags & super::super::abi::open::O_PATH != 0 {
-            return Err(Errno(EBADF));
-        }
         st.dir = Some((Vec::new(), 0));
-    } else if st.dir.is_none() {
+    } else if st.dir.is_none() && st.proc_dir.is_none() {
         let entries = match (&file.object, &file.host_path) {
             (FileObject::Supplied(entry), _) if entry.workspace_directory().is_some() => {
-                if st.flags & super::super::abi::open::O_PATH != 0 {
-                    return Err(Errno(EBADF));
-                }
                 let files = c.p.vfs.supplied().ok_or(Errno(EIO))?;
                 supplied_entries(files, &file.path, entry)?
             }
@@ -129,80 +138,125 @@ fn directory(c: &Ctx<'_>, fd: i32) -> Result<std::sync::Arc<OpenFile>, Errno> {
     Ok(file)
 }
 
-/// `getdents64` and `getdents`: as many entries as fit in `count` bytes.
-/// The first entry that does not fit (`EINVAL`), or whose inode number the
-/// layout cannot hold (`EOVERFLOW`), ends the listing; that error is the
-/// result only when no entry was copied.
-pub fn getdents(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, layout: Dirent) -> SysResult {
-    let file = directory(c, fd)?;
-    let mut st = file.state.lock().unwrap();
-    let (entries, cursor) = st.dir.as_mut().unwrap();
-    let mut out = Vec::new();
-    let mut i = *cursor;
-    let mut stop = None;
-    while i < entries.len() {
-        let e = &entries[i];
-        if out.len() + layout.reclen(e) > count as usize {
-            stop = Some(Errno(EINVAL));
-            break;
+/// The next entry at or after a directory position, and its cookie. At EOF
+/// the cookie is the position reached while walking to the end.
+enum Directory<'a> {
+    Snapshot(&'a [DirEntry]),
+    Proc(DescriptorDirectory, ProcFdSlots),
+}
+
+impl<'a> Directory<'a> {
+    fn open(c: &Ctx<'_>, state: &'a FileState) -> Result<(Self, u64), Errno> {
+        if let Some(directory) = &state.proc_dir {
+            let tid = directory.entry.tid;
+            if directory.pid == c.p.pid {
+                if !c.is_own_tid(tid) {
+                    return Err(Errno(ENOENT));
+                }
+            } else if c.p.config.host_services {
+                // A host-backed fork has a separate address space. Its copied
+                // table must never stand in for the original owner's table.
+                return Err(Errno(ENOENT));
+            }
+            Ok((
+                Self::Proc(directory.entry, directory.slots()?),
+                state.synth_pos,
+            ))
+        } else {
+            let (entries, cursor) = state.dir.as_ref().expect("directory initialized");
+            Ok((Self::Snapshot(entries), *cursor as u64))
         }
-        match layout.record(e, (i + 1) as u64) {
-            Ok(rec) => out.extend_from_slice(&rec),
-            Err(err) => {
-                stop = Some(err);
-                break;
+    }
+
+    fn next(&self, pos: u64) -> (u64, Option<Cow<'a, DirEntry>>) {
+        match self {
+            Self::Snapshot(entries) => (pos, entries.get(pos as usize).map(Cow::Borrowed)),
+            Self::Proc(directory, _) if pos < 2 => (pos, Some(Cow::Owned(directory.entry(pos)))),
+            Self::Proc(directory, slots) => {
+                // proc_readfd_common converts the requested slot to unsigned int.
+                let (fd, open) = slots.next((pos - 2) as u32 as usize);
+                let pos = fd as u64 + 2;
+                (pos, open.then(|| Cow::Owned(directory.entry(pos))))
             }
         }
-        i += 1;
     }
-    drop(st);
-    // iterate_dir reports the access whatever the entries' copies do.
+}
+
+fn set_cookie(st: &mut FileState, pos: u64) {
+    match &mut st.dir {
+        Some((_, cursor)) => *cursor = pos as usize,
+        None => st.synth_pos = pos,
+    }
+}
+
+/// `getdents64` and `getdents`: as many entries as fit in `count` bytes.
+/// Each `d_off` is the cookie of the next entry or the end of the scan.
+pub fn getdents(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, layout: Dirent) -> SysResult {
+    let file = directory(c, fd)?;
+    let result = (|| {
+        let mut st = file.state.lock().unwrap();
+        let (dir, mut pos) = Directory::open(c, &st)?;
+        let mut out = Vec::new();
+        let mut previous = None;
+        let stop = loop {
+            let (cookie, entry) = dir.next(pos);
+            pos = cookie;
+            if let Some(start) = previous {
+                layout.set_offset(&mut out[start..], cookie);
+            }
+            let Some(entry) = entry else { break None };
+            if (out.len() + layout.reclen(&entry)) as u64 > count {
+                break Some(Errno(EINVAL));
+            }
+            match layout.record(&entry) {
+                Ok(record) => {
+                    previous = Some(out.len());
+                    out.extend_from_slice(&record);
+                    pos += 1;
+                }
+                Err(error) => break Some(error),
+            }
+        };
+        if out.is_empty()
+            && let Some(error) = stop
+        {
+            set_cookie(&mut st, pos);
+            return Err(error);
+        }
+        c.write_mem(buf, &out)?;
+        set_cookie(&mut st, pos);
+        Ok(out.len() as u64)
+    })();
     super::notify::listed(&file);
-    if out.is_empty()
-        && let Some(e) = stop
-    {
-        return Err(e);
-    }
-    c.write_mem(buf, &out)?;
-    if let Some((_, cur)) = file.state.lock().unwrap().dir.as_mut() {
-        *cur = i;
-    }
-    Ok(out.len() as u64)
+    result
 }
 
 /// `compat_sys_old_readdir`: the next entry as a `struct
 /// compat_old_linux_dirent` (`d_ino`, `d_offset`, `d_namlen`, then the
 /// name and a NUL), 1 for an entry or 0 at the end. `d_offset` is the
-/// entry's own offset (`compat_fillonedir`), not the next one's; `count`
-/// is ignored.
+/// entry's own offset (`compat_fillonedir`). The count is ignored.
 pub fn old_readdir(c: &mut Ctx<'_>, fd: i32, dirent: u64) -> SysResult {
-    // fd_pos: EBADF before the directory check of iterate_dir.
     let file = directory(c, fd)?;
-    let mut st = file.state.lock().unwrap();
-    let (entries, cursor) = st.dir.as_mut().unwrap();
-    let Some(e) = entries.get(*cursor) else {
-        drop(st);
-        super::notify::listed(&file);
-        return Ok(0);
-    };
-    let ino = u32::try_from(e.ino).map_err(|_| Errno(EOVERFLOW));
-    let mut rec = Vec::new();
-    if let Ok(ino) = ino {
+    let result = (|| {
+        let mut st = file.state.lock().unwrap();
+        let (dir, pos) = Directory::open(c, &st)?;
+        let (pos, entry) = dir.next(pos);
+        let Some(entry) = entry else {
+            set_cookie(&mut st, pos);
+            return Ok(0);
+        };
+        let ino = u32::try_from(entry.ino).map_err(|_| Errno(EOVERFLOW))?;
+        let mut rec = Vec::new();
         rec.extend_from_slice(&ino.to_le_bytes());
-        rec.extend_from_slice(&(*cursor as u32).to_le_bytes());
-        rec.extend_from_slice(&(e.name.len() as u16).to_le_bytes());
-        rec.extend_from_slice(&e.name);
+        rec.extend_from_slice(&(pos as u32).to_le_bytes());
+        rec.extend_from_slice(&(entry.name.len() as u16).to_le_bytes());
+        rec.extend_from_slice(&entry.name);
         rec.push(0);
-    }
-    let at = *cursor;
-    drop(st);
+        let (next, _) = dir.next(pos + 1);
+        c.write_mem(dirent, &rec)?;
+        set_cookie(&mut st, next);
+        Ok(1)
+    })();
     super::notify::listed(&file);
-    ino?;
-    c.write_mem(dirent, &rec)?;
-    if let Some((_, cur)) = file.state.lock().unwrap().dir.as_mut()
-        && *cur == at
-    {
-        *cur = at + 1;
-    }
-    Ok(1)
+    result
 }
