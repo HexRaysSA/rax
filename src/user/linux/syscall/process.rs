@@ -780,6 +780,7 @@ pub fn capget(c: &mut Ctx<'_>, hdr: u64, data: u64) -> SysResult {
             Ok(Task::Other { .. }) => host_capabilities()?,
             // `find` deliberately limits foreign tasks to thread-group
             // leaders; Linux `capget` can name any visible host TID.
+            #[cfg(target_os = "linux")]
             Err(e) if e == Errno(ESRCH) && c.p.config.processes => host_capabilities()?,
             Err(e) => return Err(e),
         }
