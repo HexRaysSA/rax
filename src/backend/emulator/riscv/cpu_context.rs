@@ -19,6 +19,9 @@ pub(super) struct PendingActivation {
 
 const TAG: &[u8; 8] = b"RAXRV005";
 const WAITING_TAG: &[u8; 8] = b"RAXRV006";
+const SV39_TAG: &[u8; 8] = b"RAXRV007";
+const SV39_HART_PROFILE: u8 = 0b0111;
+const SV39_WAITING_FLAG: u8 = 0b1000;
 const SPLIT_SEIP_TAG: &[u8; 8] = b"RAXRV004";
 const PLATFORM_TAG: &[u8; 8] = b"RAXRV003";
 const PREVIOUS_TAG: &[u8; 8] = b"RAXRV002";
@@ -48,6 +51,8 @@ struct Context {
     #[serde(skip)]
     plic: bool,
     #[serde(skip)]
+    sv39: bool,
+    #[serde(skip)]
     waiting_for_interrupt: bool,
 }
 
@@ -58,6 +63,7 @@ fn invalid(message: impl std::fmt::Display) -> Error {
 struct Header {
     platform: bool,
     plic: bool,
+    sv39: bool,
     external_seip: bool,
     payload_offset: usize,
     has_reservation_record: bool,
@@ -79,8 +85,21 @@ impl Header {
             Some(3) => Ok((true, true)),
             _ => Err(invalid("invalid platform profile")),
         };
+        let sv39 = raw.starts_with(SV39_TAG);
         let ((platform, plic), external_seip, payload_offset, has_reservation_record) =
             match raw.get(..8) {
+                Some(tag) if tag == SV39_TAG => {
+                    let profile = *raw.get(8).ok_or_else(|| invalid("missing Sv39 profile"))?;
+                    if profile & !SV39_WAITING_FLAG != SV39_HART_PROFILE {
+                        return Err(invalid("invalid Sv39 profile"));
+                    }
+                    (
+                        (true, true),
+                        flag(9, "invalid external SEIP level")?,
+                        Self::MAX_LEN,
+                        true,
+                    )
+                }
                 Some(tag) if tag == TAG || tag == WAITING_TAG => (
                     profiles()?,
                     flag(9, "invalid external SEIP level")?,
@@ -106,30 +125,38 @@ impl Header {
         Ok(Self {
             platform,
             plic,
+            sv39,
             external_seip,
             payload_offset,
             has_reservation_record,
-            waiting_for_interrupt: raw.starts_with(WAITING_TAG),
+            waiting_for_interrupt: raw.starts_with(WAITING_TAG)
+                || (sv39 && raw[8] & SV39_WAITING_FLAG != 0),
         })
     }
 }
 
-pub(super) fn platform_profiles(raw: &[u8]) -> Result<(bool, bool)> {
+pub(super) fn platform_profiles(raw: &[u8]) -> Result<(bool, bool, bool)> {
     let header = Header::decode(raw)?;
-    Ok((header.platform, header.plic))
+    Ok((header.platform, header.plic, header.sv39))
 }
 
 impl Context {
     fn encode(&self) -> Result<Vec<u8>> {
         let payload = crate::codec::serialize_limited(&(self.reservation, self), MAX_PAYLOAD)
             .map_err(invalid)?;
-        let mut raw = if self.waiting_for_interrupt {
+        let mut raw = if self.sv39 {
+            SV39_TAG
+        } else if self.waiting_for_interrupt {
             WAITING_TAG
         } else {
             TAG
         }
         .to_vec();
-        raw.push(u8::from(self.platform) | (u8::from(self.plic) << 1));
+        if self.sv39 {
+            raw.push(SV39_HART_PROFILE | (u8::from(self.waiting_for_interrupt) << 3));
+        } else {
+            raw.push(u8::from(self.platform) | (u8::from(self.plic) << 1));
+        }
         raw.push(u8::from(self.cpu.external_seip()));
         raw.extend_from_slice(&payload);
         Ok(raw)
@@ -137,6 +164,12 @@ impl Context {
 
     fn validate(&self, target: &RiscVVcpu) -> Result<()> {
         self.cpu.validate().map_err(invalid)?;
+        self.cpu
+            .validate_supervisor_translation(self.sv39)
+            .map_err(invalid)?;
+        if self.sv39 && (!self.platform || !self.plic || self.user.is_some()) {
+            return Err(invalid("Sv39 requires the coordinated system platform"));
+        }
         if self.platform && target.platform.is_none() {
             return Err(invalid(
                 "CLINT context requires a configured shared platform",
@@ -217,6 +250,7 @@ impl Context {
         };
         context.platform = header.platform;
         context.plic = header.plic;
+        context.sv39 = header.sv39;
         context.waiting_for_interrupt = header.waiting_for_interrupt;
         context.cpu.set_external_seip(header.external_seip);
         context.validate(target)?;
@@ -350,6 +384,7 @@ impl RiscVVcpu {
             devices_enabled: *devices_enabled,
             platform: platform.as_ref().is_some_and(|p| p.enabled()),
             plic: platform.as_ref().is_some_and(|p| p.plic_enabled()),
+            sv39: platform.as_ref().is_some_and(|p| p.sv39_enabled()),
             user,
         };
         context.validate(self)?;
@@ -360,10 +395,9 @@ impl RiscVVcpu {
     /// any live hart or adapter field. Existing memory/translation bindings stay
     /// attached; importing another binding mode is rejected before mutation.
     pub fn restore_context(&mut self, raw: &[u8]) -> Result<()> {
-        let live = self
-            .platform
-            .as_ref()
-            .map_or((false, false), |p| (p.enabled(), p.plic_enabled()));
+        let live = self.platform.as_ref().map_or((false, false, false), |p| {
+            (p.enabled(), p.plic_enabled(), p.sv39_enabled())
+        });
         if platform_profiles(raw)? != live {
             return Err(invalid(
                 "single-hart restore requires matching shared platform profile",

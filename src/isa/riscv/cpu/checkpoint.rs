@@ -1,6 +1,9 @@
 //! Complete represented hart state, independent of RAM and host code caches.
+use super::sv39::{SATP_MODE_SHIFT, SATP_MODE_SV39};
 use super::{Priv, RiscVConfig, RiscVCpu, VLENB};
 use crate::isa::riscv::FlatMemory;
+use crate::isa::riscv::Xlen;
+use crate::isa::riscv::csr::SATP;
 use crate::vm::vcpu::{CpuState, RiscVRegisters};
 use serde::{Deserialize, Serialize};
 
@@ -62,6 +65,19 @@ impl CoreContext {
     }
     pub(crate) fn configuration(&self) -> RiscVConfig {
         self.cfg
+    }
+
+    pub(crate) fn validate_supervisor_translation(&self, sv39: bool) -> Result<(), String> {
+        if sv39 && (self.cfg.xlen != Xlen::Rv64 || self.cfg.isa.xsoteria) {
+            return Err("Sv39 requires a standard RV64 hart".into());
+        }
+        if !self.cfg.isa.xsoteria
+            && let Ok(index) = self.ext_csr.binary_search_by_key(&SATP, |row| row.0)
+            && (!sv39 || self.ext_csr[index].1 >> SATP_MODE_SHIFT != SATP_MODE_SV39)
+        {
+            return Err("saved SATP mode differs from the hart profile".into());
+        }
+        Ok(())
     }
 
     pub(crate) fn external_seip(&self) -> bool {

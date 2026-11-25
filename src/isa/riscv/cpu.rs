@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use super::crypto;
 use super::csr::Csr;
-use super::decode::{DecodeError, Insn, Op, decode_at};
+use super::decode::{Insn, Op, decode_with_parcel_fetch};
 use super::float::RoundingMode;
 use super::memory::{MemError, Memory};
 use super::{Isa, Xlen};
@@ -30,6 +30,10 @@ mod jit;
 #[cfg(test)]
 mod privileged_admission_tests;
 mod state_transfer;
+mod sv39;
+#[cfg(test)]
+mod sv39_tests;
+mod translated_access;
 mod user_mode;
 mod vector_config;
 mod vector_conversion;
@@ -85,6 +89,12 @@ pub mod cause {
     pub const ECALL_S: u64 = 9;
     /// Environment call from M-mode.
     pub const ECALL_M: u64 = 11;
+    /// Instruction page fault.
+    pub const INSTR_PAGE_FAULT: u64 = 12;
+    /// Load page fault.
+    pub const LOAD_PAGE_FAULT: u64 = 13;
+    /// Store or AMO page fault.
+    pub const STORE_PAGE_FAULT: u64 = 15;
     /// Machine software interrupt.
     pub const INT_M_SOFTWARE: u64 = 3;
     /// Machine timer interrupt.
@@ -288,9 +298,9 @@ const DELEGATABLE_EXCEPTION_MASK: u64 = (1 << cause::INSTR_MISALIGNED)
     | (1 << cause::STORE_ACCESS_FAULT)
     | (1 << cause::ECALL_U)
     | (1 << cause::ECALL_S)
-    | (1 << 12) // instruction page fault
-    | (1 << 13) // load page fault
-    | (1 << 15); // store/AMO page fault
+    | (1 << cause::INSTR_PAGE_FAULT)
+    | (1 << cause::LOAD_PAGE_FAULT)
+    | (1 << cause::STORE_PAGE_FAULT);
 
 impl RiscVCpu {
     /// Create a hart with the given configuration and memory.
@@ -463,7 +473,7 @@ impl RiscVCpu {
     /// Render the instruction at the current PC as assembly, for tracing.
     /// Returns a marker string if the fetch faults.
     pub fn disasm_pc(&self) -> String {
-        match decode_at(self.mem.as_ref(), self.pc, self.cfg.xlen, &self.cfg.isa) {
+        match self.inspect_instruction(self.pc) {
             Ok(insn) => format!("{insn}"),
             Err(_) => "<fetch fault>".to_string(),
         }
@@ -571,7 +581,7 @@ impl RiscVCpu {
     /// Decode and disassemble the instruction at `addr` (for tracing /
     /// diagnostics). Returns `<unreadable>` if the fetch faults.
     pub fn disassemble_at(&self, addr: u64) -> String {
-        match decode_at(self.mem.as_ref(), addr, self.cfg.xlen, &self.cfg.isa) {
+        match self.inspect_instruction(addr) {
             Ok(insn) => insn.to_string(),
             Err(_) => "<unreadable>".to_string(),
         }
@@ -775,13 +785,10 @@ impl RiscVCpu {
             | Op::NtlPall
             | Op::NtlS1
             | Op::NtlAll
-            | Op::CboInval
-            | Op::CboClean
-            | Op::CboFlush
             | Op::PrefetchI
             | Op::PrefetchR
             | Op::PrefetchW => {}
-            // The flat memory model has no translation cache to invalidate.
+            // The emulator does not cache page-table translations.
             Op::SfenceVma | Op::SinvalVma | Op::HfenceGvma | Op::HinvalGvma => {
                 if self.priv_ == Priv::User || self.supervisor_translation_trapped() {
                     return Err(Trap::illegal(insn.raw));
@@ -792,13 +799,8 @@ impl RiscVCpu {
                     return Err(Trap::illegal(insn.raw));
                 }
             }
-            Op::CboZero => {
-                let base = a & !0x3f;
-                self.mem.write(base, &[0; 64]).map_err(|_| Trap {
-                    cause: cause::STORE_ACCESS_FAULT,
-                    tval: base,
-                })?;
-            }
+            Op::CboInval | Op::CboClean | Op::CboFlush => self.manage_cache_block(a)?,
+            Op::CboZero => self.zero_cache_block(a)?,
             Op::Ecall => {
                 self.pc = pc; // leave PC at the ECALL for the handler/embedder
                 let trap = Trap {
@@ -1395,10 +1397,7 @@ impl RiscVCpu {
     fn load(&mut self, rd: u8, base: u64, imm: u64, size: usize, signed: bool) -> Result<(), Trap> {
         let addr = base.wrapping_add(imm) & self.xmask();
         let mut buf = [0u8; 8];
-        self.mem.read(addr, &mut buf[..size]).map_err(|_| Trap {
-            cause: cause::LOAD_ACCESS_FAULT,
-            tval: addr,
-        })?;
+        self.load_bytes(addr, &mut buf[..size])?;
         let raw = u64::from_le_bytes(buf);
         let val = if signed {
             sign_extend(raw, size)
@@ -1411,20 +1410,12 @@ impl RiscVCpu {
 
     fn store(&mut self, base: u64, imm: u64, val: u64, size: usize) -> Result<(), Trap> {
         let addr = base.wrapping_add(imm) & self.xmask();
-        self.mem
-            .write(addr, &val.to_le_bytes()[..size])
-            .map_err(|_| Trap {
-                cause: cause::STORE_ACCESS_FAULT,
-                tval: addr,
-            })
+        self.store_bytes(addr, &val.to_le_bytes()[..size])
     }
 
     fn load_pair(&mut self, rd: u8, base: u64, imm: u64) -> Result<(), Trap> {
         let addr = base.wrapping_add(imm) & self.xmask();
-        let val = self.mem.read_u64(addr).map_err(|_| Trap {
-            cause: cause::LOAD_ACCESS_FAULT,
-            tval: addr,
-        })?;
+        let val = self.load_value(addr, 8)?;
         // Zilsd defines rd=x0 as discarding the complete 64-bit result; x1 is
         // not the high destination in this special case.
         if rd != 0 {
@@ -1442,10 +1433,7 @@ impl RiscVCpu {
         } else {
             (self.x(rs2) as u32 as u64) | ((self.x(rs2.wrapping_add(1)) as u32 as u64) << 32)
         };
-        self.mem.write_u64(addr, val).map_err(|_| Trap {
-            cause: cause::STORE_ACCESS_FAULT,
-            tval: addr,
-        })
+        self.store_bytes(addr, &val.to_le_bytes())
     }
 
     fn exec_thead_auto_mem(&mut self, insn: &Insn) -> Result<(), Trap> {
@@ -1509,29 +1497,17 @@ impl RiscVCpu {
         let addr = self.x(insn.rs1).wrapping_add(offset) & self.xmask();
         match (kind.load, kind.size) {
             (true, 4) => {
-                let bits = self
-                    .mem
-                    .read_u32(addr)
-                    .map_err(|_| acc_fault(false, addr))?;
-                self.set_f(insn.rd, 0xffff_ffff_0000_0000 | bits as u64);
+                let bits = self.load_value(addr, 4)?;
+                self.set_f(insn.rd, 0xffff_ffff_0000_0000 | bits);
                 Ok(())
             }
             (true, 8) => {
-                let bits = self
-                    .mem
-                    .read_u64(addr)
-                    .map_err(|_| acc_fault(false, addr))?;
+                let bits = self.load_value(addr, 8)?;
                 self.set_f(insn.rd, bits);
                 Ok(())
             }
-            (false, 4) => self
-                .mem
-                .write_u32(addr, self.f(insn.rd) as u32)
-                .map_err(|_| acc_fault(true, addr)),
-            (false, 8) => self
-                .mem
-                .write_u64(addr, self.f(insn.rd))
-                .map_err(|_| acc_fault(true, addr)),
+            (false, 4) => self.store_bytes(addr, &(self.f(insn.rd) as u32).to_le_bytes()),
+            (false, 8) => self.store_bytes(addr, &self.f(insn.rd).to_le_bytes()),
             _ => unreachable!(),
         }
     }
@@ -1720,17 +1696,7 @@ impl RiscVCpu {
                         zcmp_reg_at(count - 1 - slot).expect("slot checked by zcmp_reg_count");
                     let off = stack_adj.wrapping_sub(((slot + 1) * slotsize) as u64);
                     let addr = sp.wrapping_add(off) & self.xmask();
-                    let val = if slotsize == 8 {
-                        self.mem.read_u64(addr).map_err(|_| Trap {
-                            cause: cause::LOAD_ACCESS_FAULT,
-                            tval: addr,
-                        })?
-                    } else {
-                        self.mem.read_u32(addr).map_err(|_| Trap {
-                            cause: cause::LOAD_ACCESS_FAULT,
-                            tval: addr,
-                        })? as u64
-                    };
+                    let val = self.load_value(addr, slotsize)?;
                     if reg == 1 {
                         restored_ra = val;
                     }
@@ -1757,17 +1723,7 @@ impl RiscVCpu {
         let addr = (self.jvt & !0x3f)
             .wrapping_add((insn.imm as u64).wrapping_mul(entry_size as u64))
             & self.xmask();
-        let target = if entry_size == 8 {
-            self.mem.read_u64(addr).map_err(|_| Trap {
-                cause: cause::INSTR_ACCESS_FAULT,
-                tval: addr,
-            })?
-        } else {
-            self.mem.read_u32(addr).map_err(|_| Trap {
-                cause: cause::INSTR_ACCESS_FAULT,
-                tval: addr,
-            })? as u64
-        };
+        let target = self.fetch_table_entry(addr, entry_size)?;
         if matches!(insn.op, Op::CmJalt) {
             self.set_x(1, pc.wrapping_add(insn.len as u64));
         }
@@ -3539,31 +3495,21 @@ impl RiscVCpu {
             // ---- loads / stores ----
             Op::Flw => {
                 let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
-                let v = self
-                    .mem
-                    .read_u32(addr)
-                    .map_err(|_| acc_fault(false, addr))?;
+                let v = self.load_value(addr, 4)? as u32;
                 self.wf32(rd, v);
             }
             Op::Fld => {
                 let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
-                let v = self
-                    .mem
-                    .read_u64(addr)
-                    .map_err(|_| acc_fault(false, addr))?;
+                let v = self.load_value(addr, 8)?;
                 self.wf64(rd, v);
             }
             Op::Fsw => {
                 let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
-                self.mem
-                    .write_u32(addr, self.f(rs2) as u32)
-                    .map_err(|_| acc_fault(true, addr))?;
+                self.store_bytes(addr, &(self.f(rs2) as u32).to_le_bytes())?;
             }
             Op::Fsd => {
                 let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
-                self.mem
-                    .write_u64(addr, self.f(rs2))
-                    .map_err(|_| acc_fault(true, addr))?;
+                self.store_bytes(addr, &self.f(rs2).to_le_bytes())?;
             }
 
             // ---- single-precision arithmetic ----
@@ -3896,17 +3842,12 @@ impl RiscVCpu {
             // ---- Zfh half-precision ----
             Op::Flh => {
                 let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
-                let v = self
-                    .mem
-                    .read_u16(addr)
-                    .map_err(|_| acc_fault(false, addr))?;
+                let v = self.load_value(addr, 2)? as u16;
                 self.wf16(rd, v);
             }
             Op::Fsh => {
                 let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
-                self.mem
-                    .write_u16(addr, self.f(rs2) as u16)
-                    .map_err(|_| acc_fault(true, addr))?;
+                self.store_bytes(addr, &(self.f(rs2) as u16).to_le_bytes())?;
             }
             Op::FaddH => {
                 let r = ff::sf_add(ff::F16, self.h(rs1), self.h(rs2), rm, &mut flags);

@@ -1,6 +1,6 @@
 //! RVV memory operations and precise `vstart` publication.
 
-use super::{Insn, Op, RiscVCpu, Trap, VLENB, acc_fault};
+use super::{Insn, Op, RiscVCpu, Trap, VLENB};
 
 #[inline]
 fn encoded_width(insn: &Insn) -> Result<usize, Trap> {
@@ -15,17 +15,17 @@ fn encoded_width(insn: &Insn) -> Result<usize, Trap> {
 
 impl RiscVCpu {
     fn vector_read(&mut self, element: usize, addr: u64, buf: &mut [u8]) -> Result<(), Trap> {
-        if self.mem.read(addr, buf).is_err() {
+        if let Err(trap) = self.load_bytes(addr, buf) {
             self.vstart = element as u64;
-            return Err(acc_fault(false, addr));
+            return Err(trap);
         }
         Ok(())
     }
 
     fn vector_write(&mut self, element: usize, addr: u64, data: &[u8]) -> Result<(), Trap> {
-        if self.mem.write(addr, data).is_err() {
+        if let Err(trap) = self.store_bytes(addr, data) {
             self.vstart = element as u64;
-            return Err(acc_fault(true, addr));
+            return Err(trap);
         }
         Ok(())
     }
@@ -114,11 +114,11 @@ impl RiscVCpu {
                     }
                     let addr = base.wrapping_add((e * eb) as u64) & self.xmask();
                     let mut buf = [0u8; 8];
-                    match self.mem.read(addr, &mut buf[..eb]) {
+                    match self.load_bytes(addr, &mut buf[..eb]) {
                         Ok(()) => self.set_velem(vd, e, eb, u64::from_le_bytes(buf)),
-                        Err(_) if e == 0 => {
+                        Err(trap) if e == 0 => {
                             self.vstart = 0;
-                            return Err(acc_fault(false, addr));
+                            return Err(trap);
                         }
                         Err(_) => {
                             new_vl = e;
@@ -177,10 +177,10 @@ impl RiscVCpu {
                         if is_load {
                             let mut buf = [0u8; 8];
                             if fault_only_first {
-                                if self.mem.read(addr, &mut buf[..eb]).is_err() {
+                                if let Err(trap) = self.load_bytes(addr, &mut buf[..eb]) {
                                     if e == 0 {
                                         self.vstart = 0;
-                                        return Err(acc_fault(false, addr));
+                                        return Err(trap);
                                     }
                                     new_vl = e;
                                     break 'elements;
@@ -254,6 +254,7 @@ impl RiscVCpu {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::isa::riscv::cpu::acc_fault;
     use crate::isa::riscv::{FlatMemory, Isa, RiscVConfig, RiscVExit, Xlen, decode};
 
     fn cpu(memory: FlatMemory, vl: u64, vtype: u64) -> RiscVCpu {

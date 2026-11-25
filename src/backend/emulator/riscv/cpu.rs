@@ -329,6 +329,13 @@ impl GuestBridge {
                 .is_some_and(|platform| platform.plic_enabled())
     }
 
+    fn check_implicit_ram(&self, addr: u64, size: usize) -> MemResult<()> {
+        if (self.devices_enabled && overlaps_uart(addr, size)) || self.in_platform(addr, size) {
+            return Err(MemError::OutOfBounds { addr, size });
+        }
+        Ok(())
+    }
+
     fn check_uart_window(&self, addr: u64, size: usize) -> MemResult<()> {
         if self.has_platform_uart()
             && overlaps_uart(addr, size)
@@ -341,6 +348,65 @@ impl GuestBridge {
     }
 }
 impl Memory for GuestBridge {
+    fn probe_cache_block(&self, address: u64, size: usize, zero: bool) -> MemResult<()> {
+        use crate::vm::memory::reservations::{preflight_read, preflight_write};
+        self.check_implicit_ram(address, size)?;
+        let admission = if zero {
+            preflight_write(&self.mem, address, size)
+        } else {
+            preflight_read(&self.mem, address, size)
+                .or_else(|_| preflight_write(&self.mem, address, size))
+        };
+        admission.map_err(|_| MemError::OutOfBounds {
+            addr: address,
+            size,
+        })
+    }
+
+    fn supports_sv39(&self) -> bool {
+        self.platform
+            .as_ref()
+            .is_some_and(|platform| platform.sv39_enabled())
+    }
+
+    fn read_page_table_entry(&self, address: u64) -> MemResult<u64> {
+        let mut bytes = [0; 8];
+        self.read_translated_fetch(address, &mut bytes)?;
+        Ok(u64::from_le_bytes(bytes))
+    }
+
+    fn compare_exchange_page_table_entry(
+        &mut self,
+        address: u64,
+        expected: u64,
+        replacement: u64,
+    ) -> MemResult<bool> {
+        self.check_implicit_ram(address, 8)?;
+        let old = self.exclusive.atomic(
+            &self.mem,
+            address,
+            8,
+            crate::isa::riscv::memory::AtomicOp::CompareExchange {
+                expected: expected.into(),
+                replacement: replacement.into(),
+            },
+        )?;
+        Ok(old == u128::from(expected))
+    }
+
+    fn read_translated_fetch(&self, address: u64, bytes: &mut [u8]) -> MemResult<()> {
+        let size = bytes.len();
+        let fault = |_| MemError::OutOfBounds {
+            addr: address,
+            size,
+        };
+        self.check_implicit_ram(address, size)?;
+        crate::vm::memory::reservations::preflight_read(&self.mem, address, size).map_err(fault)?;
+        self.exclusive
+            .read(&self.mem, address, bytes)
+            .map_err(fault)
+    }
+
     fn atomic(
         &mut self,
         address: u64,
@@ -839,7 +905,7 @@ impl RiscVVcpu {
     }
 }
 
-pub(crate) fn context_platform_profiles(raw: &[u8]) -> Result<(bool, bool)> {
+pub(crate) fn context_platform_profiles(raw: &[u8]) -> Result<(bool, bool, bool)> {
     context::platform_profiles(raw)
 }
 

@@ -29,9 +29,11 @@ const TIME: u64 = 0xbff8;
 const CLINT_PROFILE: u8 = 1;
 const PLIC_PROFILE: u8 = 2;
 const ARCHITECTURAL_TRAPS_PROFILE: u8 = 4;
+const SV39_PROFILE: u8 = 8;
 const CLINT_VERSION: u8 = 1;
 const PLIC_VERSION: u8 = 2;
 const ARCHITECTURAL_TRAPS_VERSION: u8 = 3;
+const SV39_VERSION: u8 = 4;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PlatformCheckpoint {
@@ -61,7 +63,11 @@ impl PlatformCheckpoint {
     pub(crate) fn validate(&self, count: usize, ram_end: u64) -> Result<()> {
         if !matches!(
             (self.version, self.plic.is_some()),
-            (CLINT_VERSION, false) | (PLIC_VERSION | ARCHITECTURAL_TRAPS_VERSION, true)
+            (CLINT_VERSION, false)
+                | (
+                    PLIC_VERSION | ARCHITECTURAL_TRAPS_VERSION | SV39_VERSION,
+                    true
+                )
         ) || count == 0
             || count > 255
             || self.ram_end != ram_end
@@ -80,13 +86,20 @@ impl PlatformCheckpoint {
         self.plic.is_some()
     }
 
+    pub(crate) fn sv39_enabled(&self) -> bool {
+        self.version == SV39_VERSION
+    }
+
     fn profile(&self) -> u8 {
         let mut profile = CLINT_PROFILE;
         if self.plic_enabled() {
             profile |= PLIC_PROFILE;
         }
-        if self.version == ARCHITECTURAL_TRAPS_VERSION {
+        if matches!(self.version, ARCHITECTURAL_TRAPS_VERSION | SV39_VERSION) {
             profile |= ARCHITECTURAL_TRAPS_PROFILE;
+        }
+        if self.sv39_enabled() {
+            profile |= SV39_PROFILE;
         }
         profile
     }
@@ -116,7 +129,7 @@ impl PlatformCheckpoint {
             Some(CLINT_VERSION) => {
                 crate::codec::deserialize_limited::<_, LIMIT>(bytes).map_err(invalid_payload)
             }
-            Some(PLIC_VERSION | ARCHITECTURAL_TRAPS_VERSION) => {
+            Some(PLIC_VERSION | ARCHITECTURAL_TRAPS_VERSION | SV39_VERSION) => {
                 let (mut state, plic): (Self, plic::Plic) =
                     crate::codec::deserialize_limited::<_, LIMIT>(bytes)
                         .map_err(invalid_payload)?;
@@ -242,7 +255,7 @@ impl Platform {
         let offset = clock.counter_ticks(FREQUENCY_HZ).wrapping_neg();
         let registers = PlatformCheckpoint {
             version: if architectural_traps {
-                ARCHITECTURAL_TRAPS_VERSION
+                SV39_VERSION
             } else {
                 PLIC_VERSION
             },
@@ -276,6 +289,9 @@ impl Platform {
     }
     pub(crate) fn architectural_traps(&self) -> bool {
         self.profile.load(Ordering::Acquire) & ARCHITECTURAL_TRAPS_PROFILE != 0
+    }
+    pub(super) fn sv39_enabled(&self) -> bool {
+        self.profile.load(Ordering::Acquire) & SV39_PROFILE != 0
     }
     pub(crate) fn bind_serial(&self, serial: Arc<Mutex<Serial16550>>) -> Result<()> {
         self.serial

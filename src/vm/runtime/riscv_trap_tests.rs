@@ -160,7 +160,24 @@ fn capture(root: &Path, count: u8) {
         );
     }
     assert_eq!(vm.coordinator.retired, 0);
-    vm.take_snapshot_bundle(0)
+    let mut bundle = vm.take_snapshot_bundle(0).unwrap();
+    let original = bundle.take_backend_contexts().unwrap();
+    let mut harts = original.entries().to_vec();
+    for hart in harts.iter().flatten() {
+        assert_eq!(&hart.data[..9], b"RAXRV007\x07");
+    }
+    let last_hart = harts.last_mut().unwrap().as_mut().unwrap();
+    last_hart.data[..9].copy_from_slice(b"RAXRV005\x03");
+    let mismatch = bundle.with_backend_contexts(harts).unwrap();
+    assert!(
+        mismatch
+            .validate_riscv_platform_graph()
+            .unwrap_err()
+            .to_string()
+            .contains("Sv39 checkpoint requires matching private hart profiles")
+    );
+    mismatch
+        .with_backend_contexts(original.entries().to_vec())
         .unwrap()
         .save(&kernel.with_extension("rxc"))
         .unwrap();

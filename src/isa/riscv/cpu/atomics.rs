@@ -1,5 +1,6 @@
 //! A-extension and Zacas execution, including architectural fault classification.
 
+use super::sv39::Access;
 use super::*;
 use crate::isa::riscv::memory::AtomicOp as MemoryAtomicOp;
 
@@ -24,31 +25,43 @@ impl RiscVCpu {
             });
         }
         atomic_fence(insn, true);
+        let access = if matches!(insn.op, Op::LrW | Op::LrD) {
+            Access::Load
+        } else {
+            Access::Store
+        };
+        let physical = match self.data_address(addr, access) {
+            Ok(address) => address,
+            Err(trap) => {
+                self.clear_reservation();
+                return Err(trap);
+            }
+        };
         match insn.op {
             Op::LrW => {
                 let mut bytes = [0; 4];
                 self.mem
-                    .load_reserved(addr, &mut bytes)
+                    .load_reserved(physical, &mut bytes)
                     .map_err(|_| acc_fault(false, addr))?;
                 let v = u32::from_le_bytes(bytes);
-                self.reservation = Some(addr);
+                self.reservation = Some(physical);
                 self.set_x(insn.rd, v as i32 as i64 as u64);
             }
             Op::LrD => {
                 let mut bytes = [0; 8];
                 self.mem
-                    .load_reserved(addr, &mut bytes)
+                    .load_reserved(physical, &mut bytes)
                     .map_err(|_| acc_fault(false, addr))?;
                 let v = u64::from_le_bytes(bytes);
-                self.reservation = Some(addr);
+                self.reservation = Some(physical);
                 self.set_x(insn.rd, v);
             }
             Op::ScW | Op::ScD => {
-                let eligible = self.reservation.take() == Some(addr);
+                let eligible = self.reservation.take() == Some(physical);
                 let data = self.x(insn.rs2).to_le_bytes();
                 let ok = self
                     .mem
-                    .store_conditional(addr, &data[..size], eligible)
+                    .store_conditional(physical, &data[..size], eligible)
                     .map_err(|_| acc_fault(true, addr))?;
                 self.set_x(insn.rd, if ok { 0 } else { 1 });
             }
@@ -81,9 +94,10 @@ impl RiscVCpu {
         }
         let operation = amo_operation(insn.op, self.x(insn.rs2));
         atomic_fence(insn, true);
+        let physical = self.data_address(address, Access::Store)?;
         let old = self
             .mem
-            .atomic(address, size, operation)
+            .atomic(physical, size, operation)
             .map_err(|_| acc_fault(true, address))?;
         atomic_fence(insn, false);
         self.set_x(
@@ -115,10 +129,11 @@ impl RiscVCpu {
         let expected = self.cas_operand(insn.rd, pair);
         let replacement = self.cas_operand(insn.rs2, pair);
         atomic_fence(insn, true);
+        let physical = self.data_address(address, Access::Store)?;
         let old = self
             .mem
             .atomic(
-                address,
+                physical,
                 size,
                 MemoryAtomicOp::CompareExchange {
                     expected,

@@ -200622,6 +200622,17 @@
       "scope": "The RV32 and RV64 decoder wraps a split instruction fetch at XLEN. RISC-V interpreter and native-JIT entry report the inaccessible parcel address while retaining the instruction start in the exception PC. The baseline RV64 test reported the first parcel in stval. A byte-identical RV64 ELF that fetches across the end of RAM passed with both the RAX virt VMM and QEMU 11.1.2. This prepares the instruction fetch path for Sv39. Paged supervisor execution and a software RV64 SMP Linux boot remain open.",
       "qualification": "docs/development/riscv-clint/README.md#instruction-fetch-across-a-memory-boundary",
       "full_goal_complete": false
+    },
+    {
+      "id": "riscv-sv39-firmware-2026-11-25",
+      "findings": [
+        "C-SMP",
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The software RV64 virt firmware profile supports uncached Sv39 with per-hart SATP, shared atomic PTE updates, parcel-accurate faults, and versioned CPU/platform checkpoint state. Four byte-identical guest cases passed in QEMU 11.1.2 and the revised RAX. They cover two and four harts sharing and updating page tables, split fetch and precise retry, and effective privilege. The same faulting guest resumed in a fresh RAX process from a file at 84 retirements, after removal of the source ELF. Restore rejects mismatched CPU and platform capabilities. Arbitrary exact retirement checkpoints and RV64 SMP Linux boot remain open.",
+      "qualification": "docs/development/riscv-clint/README.md#sv39-in-the-rv64-virt-firmware-profile",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -495,13 +495,15 @@ impl SnapshotBundle {
             .and_then(|e| e.riscv_platform.as_ref());
         let mut platform_harts = 0;
         let mut plic_harts = 0;
+        let mut sv39_harts = 0;
         if let Some(contexts) = &self.backend_contexts {
             for record in contexts.entries().iter().flatten() {
                 if record.kind == super::RISCV_CONTEXT {
-                    let (uses_clint, uses_plic) =
+                    let (uses_clint, uses_plic, uses_sv39) =
                         crate::backend::emulator::riscv::context_platform_profiles(&record.data)?;
                     platform_harts += usize::from(uses_clint);
                     plic_harts += usize::from(uses_plic);
+                    sv39_harts += usize::from(uses_sv39);
                 }
             }
         }
@@ -539,6 +541,16 @@ impl SnapshotBundle {
             if plic_harts != expected_plic_harts {
                 return Err(Error::InvalidConfig(
                     "PLIC checkpoint requires matching private hart profiles".into(),
+                ));
+            }
+            let expected_sv39_harts = if platform.sv39_enabled() {
+                usize::from(self.base.config.vcpus)
+            } else {
+                0
+            };
+            if sv39_harts != expected_sv39_harts {
+                return Err(Error::InvalidConfig(
+                    "Sv39 checkpoint requires matching private hart profiles".into(),
                 ));
             }
         } else if platform_harts != 0 {

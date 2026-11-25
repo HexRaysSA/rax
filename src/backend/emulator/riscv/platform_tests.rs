@@ -54,12 +54,13 @@ fn restored_platform_selects_the_saved_trap_policy() {
         .unwrap()
         .encode(LIMIT)
         .unwrap();
-    assert_eq!(record[0], ARCHITECTURAL_TRAPS_VERSION);
+    assert_eq!(record[0], SV39_VERSION);
     let saved = PlatformCheckpoint::decode::<LIMIT>(&record).unwrap();
     saved.validate(2, extent).unwrap();
 
     let old = legacy.checkpoint().unwrap();
     assert!(firmware.architectural_traps());
+    assert!(firmware.sv39_enabled());
     assert!(!legacy.architectural_traps());
     assert!(
         legacy
@@ -67,12 +68,23 @@ fn restored_platform_selects_the_saved_trap_policy() {
             .is_err()
     );
     assert!(!legacy.architectural_traps());
-    legacy.restore_with(Some(saved), || Ok(())).unwrap();
+    assert!(!legacy.sv39_enabled());
+    legacy.restore_with(Some(saved.clone()), || Ok(())).unwrap();
     assert!(legacy.architectural_traps());
     assert!(legacy.plic_enabled());
+    assert!(legacy.sv39_enabled());
+
+    let mut old_firmware = saved;
+    old_firmware.version = ARCHITECTURAL_TRAPS_VERSION;
+    let old_record = old_firmware.encode(LIMIT).unwrap();
+    let old_firmware = PlatformCheckpoint::decode::<LIMIT>(&old_record).unwrap();
+    legacy.restore_with(Some(old_firmware), || Ok(())).unwrap();
+    assert!(legacy.architectural_traps());
+    assert!(!legacy.sv39_enabled());
 
     firmware.restore_with(old, || Ok(())).unwrap();
     assert!(!firmware.architectural_traps());
+    assert!(!firmware.sv39_enabled());
     assert!(firmware.plic_enabled());
     legacy.restore_with(None, || Ok(())).unwrap();
     assert!(!legacy.architectural_traps());

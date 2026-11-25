@@ -68,9 +68,7 @@ impl RiscVCpu {
                     return Ok(self.ext_csr.get(&addr).copied().unwrap_or(0) & self.xmask());
                 }
                 if addr == SATP {
-                    // The standard profile supports only Bare mode. ASID and
-                    // PPN are hardwired to zero.
-                    return Ok(0);
+                    return Ok(self.satp());
                 }
                 // The standard profile supplies zero for both optional H trap
                 // details. Their WARL domain can consist solely of zero.
@@ -140,7 +138,11 @@ impl RiscVCpu {
                     self.ext_csr.insert(addr, value & self.xmask());
                     return Ok(());
                 }
-                if addr == SATP || (self.cfg.isa.h && matches!(addr, MTINST | MTVAL2)) {
+                if addr == SATP {
+                    self.write_satp(value);
+                    return Ok(());
+                }
+                if self.cfg.isa.h && matches!(addr, MTINST | MTVAL2) {
                     return Ok(());
                 }
                 return Err(Trap::illegal(0));

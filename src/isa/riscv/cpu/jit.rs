@@ -17,7 +17,9 @@ use atomic::{
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use super::sv39::Access;
 use super::*;
+use crate::isa::riscv::decode::decode_at;
 use crate::smir::RiscVLifter;
 use crate::smir::ir::ops::OpKind;
 use crate::smir::ir::types::{BlockId, FunctionId, OpId, SourceArch};
@@ -198,6 +200,11 @@ impl RiscVCpu {
                 return (RiscVExit::Trap(trap), 1);
             }
         };
+        if self.active_translation(Access::Fetch).is_some()
+            || self.active_translation(Access::Load).is_some()
+        {
+            return (self.execute_jit_fallback(&insn, pc), 1);
+        }
         let region = prepare_native_region(
             self.cfg,
             self.mem.as_ref(),

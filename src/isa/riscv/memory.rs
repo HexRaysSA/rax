@@ -98,6 +98,43 @@ pub trait Memory: Debug + Send {
     /// Withdraw a backing reservation on reset or an embedder context switch.
     fn clear_reservation(&mut self) {}
 
+    /// Whether this system memory binding supplies Sv39 for its harts.
+    fn supports_sv39(&self) -> bool {
+        false
+    }
+
+    /// Read one aligned PTE. Shared memory providers must serialize this with
+    /// their writers and check physical permissions before reading.
+    fn read_page_table_entry(&self, address: u64) -> MemResult<u64> {
+        self.read_u64(address)
+    }
+
+    /// Compare and update one PTE without an explicit guest store event.
+    /// The default is for private RAM. Shared RAM must override it.
+    fn compare_exchange_page_table_entry(
+        &mut self,
+        address: u64,
+        expected: u64,
+        replacement: u64,
+    ) -> MemResult<bool> {
+        if self.read_page_table_entry(address)? != expected {
+            return Ok(false);
+        }
+        self.write_u64(address, replacement)?;
+        Ok(true)
+    }
+
+    /// Read a translated instruction parcel or jump-table entry. A system
+    /// memory provider must reject nonexecutable physical destinations.
+    fn read_translated_fetch(&self, address: u64, bytes: &mut [u8]) -> MemResult<()> {
+        self.read(address, bytes)
+    }
+
+    /// Check a translated cache operation without touching the cache block.
+    fn probe_cache_block(&self, address: u64, size: usize, zero: bool) -> MemResult<()> {
+        self.probe(address, size, zero)
+    }
+
     /// Fetch a little-endian instruction parcel.
     ///
     /// Instruction fetch reads memory like a load by default. Memories that

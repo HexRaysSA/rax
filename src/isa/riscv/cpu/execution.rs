@@ -1,10 +1,9 @@
 //! Instruction fetch, execution, and retirement accounting.
 
 use super::*;
-use crate::isa::riscv::decode::decode_with_parcel_fetch;
 
 impl RiscVCpu {
-    pub(super) fn fetch_instruction(&self, pc: u64) -> Result<Insn, Trap> {
+    pub(super) fn fetch_instruction(&mut self, pc: u64) -> Result<Insn, Trap> {
         let alignment_mask = if self.cfg.isa.c { 0b1 } else { 0b11 };
         if pc & alignment_mask != 0 {
             return Err(Trap {
@@ -12,12 +11,8 @@ impl RiscVCpu {
                 tval: pc,
             });
         }
-        decode_with_parcel_fetch(pc, self.cfg.xlen, &self.cfg.isa, |addr| {
-            self.mem.fetch_u16(addr).map_err(|_| Trap {
-                cause: cause::INSTR_ACCESS_FAULT,
-                tval: addr,
-            })
-        })
+        let cfg = self.cfg;
+        decode_with_parcel_fetch(pc, cfg.xlen, &cfg.isa, |addr| self.fetch_parcel(addr))
     }
 
     /// Fetch, decode and execute one instruction.

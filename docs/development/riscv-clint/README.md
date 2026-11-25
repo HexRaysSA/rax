@@ -269,10 +269,11 @@ has already delivered resumes at the selected guest vector. Trap entry
 retires zero instructions and returns control to the coordinator so a
 peer hart can run. The ELF `tohost` symbol remains available for shutdown.
 
-Fresh default firmware harts clear `misa.H`. The board has an M/S/U hart
-profile with Bare translation. Software that reads `misa.H` uses it to
-discover the hypervisor register file and two-stage translation. Complete
-checkpoint restore uses the hart configuration from the saved CPU record.
+Fresh default firmware harts clear `misa.H`. Version 3 of the firmware
+profile provided M/S/U harts with Bare translation. Software uses `misa.H`
+to discover the hypervisor register file and two-stage translation.
+Complete checkpoint restore uses the hart configuration from the saved
+CPU record.
 
 An RV64 Bare-mode supervisor payload passed on two and four harts with the
 unmodified OpenSBI v1.8.1 `FW_DYNAMIC` image. A guest reset stub supplied the
@@ -394,5 +395,57 @@ AArch64 JIT integration targets passed 12, 26 and 16 tests. Library Clippy
 with warnings denied passed on Apple Silicon. The unfiltered library
 run over `7b02b98d6` passed 13,414 tests with two ignored.
 
-Sv39 translation remains necessary to qualify page faults across this
-boundary and boot guests that switch to paged supervisor execution.
+The Sv39 profile below applies the same parcel rule across virtual page
+boundaries.
+
+## Sv39 in the RV64 virt firmware profile
+
+The RV64 `riscv-virt` firmware profile accepts Bare and Sv39 in `satp`.
+It walks up to three 8-byte page-table entries per attempt and accepts
+aligned 4 KiB, 2 MiB and 1 GiB mappings. The walk uses constant storage
+and checks canonical virtual addresses, PTE encoding, effective privilege,
+and access permissions. A/D updates use a RAM compare-and-exchange and
+restart the walk if the PTE changes. Translated instruction parcels,
+including diagnostic disassembly reads, use RAM. Disassembly leaves A/D
+unchanged. Translated data accesses still route through the physical
+memory map. LR/SC reservations use the translated physical address.
+[RISC-V Privileged Architecture 20250508, §§3.1.6.4, 12.1.11, 12.3.2 and 12.4](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+The native JIT entry uses the interpreter for instructions with active
+fetch or data translation. There is no translation cache to flush at
+`SFENCE.VMA`. Hart record `RAXRV007` and shared virt platform record v4
+identify Sv39 support. Restore validates the capability across the
+platform and every hart before publishing replacement CPUs. Older virt
+records retain Bare behavior. RV32, GSC and process memory bindings keep
+their existing semantics.
+
+| Assumption | Falsification probe | Result |
+|---|---|---|
+| Each hart uses its own `satp` and observes shared PTE updates. | Boot byte-identical two- and four-hart ELFs. Have every hart translate shared pages, participate in atomics, and fence after a remap. | QEMU 11.1.2 passed both. Baseline RAX stopped at `satp`. The revised RAX passed both. |
+| A translated fetch can fault on the second parcel and retry at the first. | Use two distinct frames and install the second PTE from the fault handler. Check `scause=12`, `sepc=0x40000ffe`, `stval=0x40001000`, and the destination before and after retry. | QEMU and revised RAX passed. Baseline RAX stopped at `satp`. |
+| The active translation mode follows effective access privilege. | Contrast M-mode fetch and MPRV data access, vary SUM and MXR, and check that failed accesses preserve the target. | QEMU and revised RAX passed. Baseline RAX stopped at `satp`. |
+| Management and zero operations differ in permissions and dirty-bit behavior. | Run cache-block operations over read-only and unmapped pages. Check A/D bits, store-class faults and the original effective address. | The revised RAX passed. QEMU confirmed permission and A/D behavior but rounded the unaligned trap values to 64-byte block boundaries. RAX retained the original operands, `0x40001034` and `0x40000034`. [RISC-V Unprivileged Architecture, §19.4.2.2](../../specifications/riscv/riscv/riscv-unprivileged.txt) |
+| The in-flight fetch fault survives a source-free checkpoint. | Stop at a UART scratch-register write inside the handler, then delete the ELF and restore with `RAX_MACHINE` unset. Also present a legacy hart record on an Sv39 platform. | The guest resumed from a file captured at 84 retirements and passed. The mismatched hart record was rejected. |
+
+The guest sources, image hashes, commands and logs are under
+`/Users/int/dev/rax-audit-work/four-findings-riscv-sv39-2026-11-25/`.
+On Apple Silicon, the RISC-V library filter passed 378 tests. The boot,
+SMIR lift and AArch64 JIT integration targets passed 12, 26 and 16
+tests, respectively. Library Clippy passed with warnings denied. The
+unfiltered library suite passed 13,418 tests with two ignored. The C API
+library passed 266 tests with 21 ignored.
+
+The checkpoint witness uses an explicit execution yield. A separate
+probe requested a checkpoint at 79 retirements and observed it at 106,
+the next execution boundary. Exact arbitrary retirement-count capture,
+Sv48 and VS/VU translation remain open.
+
+The two-hart Debian Linux 6.12.117 boot with OpenSBI v1.8.1 reached
+paged supervisor execution and reported `smp: Brought up 1 node, 2 CPUs`
+on the optimized RAX CLI. The boot did not reach the PID 1 affinity test
+within the 900 s host limit. The four-hart RAX run reached paged kernel
+initialization and also timed out before PID 1 affinity. The same kernel,
+firmware and initramfs passed the affinity test on all CPUs in the two- and four-hart QEMU
+reference runs. Images, commands, logs and the RAX checkpoint with
+active Sv39 are under
+`/Users/int/dev/rax-audit-work/four-findings-riscv-linux-2026-11-25/`.
