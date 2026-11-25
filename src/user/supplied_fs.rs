@@ -317,6 +317,14 @@ impl Entry {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn darwin_installed_file(&self) -> Option<&std::fs::File> {
+        match &self.kind {
+            Kind::Backed(source) => source.darwin_installed_file(),
+            _ => None,
+        }
+    }
+
     /// Read-only backing with namespace identity, sharing any selected file handle.
     pub fn source(&self) -> Result<Arc<dyn PageSource>, Error> {
         let source: Arc<dyn PageSource> = match &self.kind {
@@ -584,12 +592,10 @@ impl Files {
         &self,
         selected: BTreeMap<String, std::path::PathBuf>,
     ) -> std::io::Result<Self> {
-        self.with_host_files_using(selected, Self::open_host_backing)
+        self.with_host_files_using(selected, |host| Self::open_host_backing(host).map(Arc::new))
     }
 
-    pub(super) fn open_host_backing(
-        host: &std::path::Path,
-    ) -> std::io::Result<Arc<HostFileSource>> {
+    pub(super) fn open_host_backing(host: &std::path::Path) -> std::io::Result<HostFileSource> {
         let mut options = std::fs::OpenOptions::new();
         options.read(true);
         // A caller-selected FIFO must be rejected rather than blocking open.
@@ -605,7 +611,7 @@ impl Files {
                 "guest backing must be a regular file",
             ));
         }
-        HostFileSource::new(file).map(Arc::new)
+        HostFileSource::new(file)
     }
 
     pub(super) fn with_host_files_using(

@@ -765,6 +765,11 @@ the denial of general host filesystem, sockets, processes and IPC remain in
 force. Inspection reports `capabilities.native_runtime`; this is a selected
 mode, not a guarantee that every runtime API or application is supported.
 
+On macOS, regular files in the installed runtime report their metadata from
+the retained read-only backing. Size and allocated 512-byte blocks remain
+distinct. Device, inode, generation, and link count use the guest namespace.
+Explicit supplied files use their virtual metadata.
+
 On Linux, native runtime selection includes installed Perl modules, generated
 Perl sources, and Unicode version data under `/usr/share/perl` and
 `/usr/share/perl5` when present. These read-only mounts follow version

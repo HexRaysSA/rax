@@ -198,6 +198,40 @@ fn installed_darwin_sysctl_reads_closed_kernel_nodes() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_stat_and_du_report_file_metadata_through_closed_c_abi() {
+    use std::os::unix::fs::MetadataExt;
+
+    let path = "/usr/bin/true";
+    let metadata = std::fs::metadata(path).unwrap();
+    let environment = [("LC_ALL", "C")];
+    let stat = format!(
+        "{:o} {} {} {} {} {}\n",
+        metadata.mode(),
+        metadata.size(),
+        metadata.uid(),
+        metadata.gid(),
+        metadata.blocks(),
+        metadata.mtime(),
+    );
+    compare_installed_posix_output(
+        "darwin",
+        "/usr/bin/stat",
+        &["-f", "%p %z %u %g %b %m", path],
+        &environment,
+        stat.as_bytes(),
+    );
+    let du = format!("{}\t{path}\n", metadata.blocks().div_ceil(2));
+    compare_installed_posix_output(
+        "darwin",
+        "/usr/bin/du",
+        &["-k", path],
+        &environment,
+        du.as_bytes(),
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_find_enumerates_programs_and_executes_children() {
     let find = "/usr/bin/find";
     let environment = [("LC_ALL", "C"), ("PATH", "/usr/bin:/bin")];

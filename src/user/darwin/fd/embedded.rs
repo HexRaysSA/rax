@@ -157,9 +157,24 @@ impl EmbeddedFile {
         }
     }
 
-    /// Virtual metadata for immutable supplied files and private guest inodes.
+    /// Metadata for selected files and private guest inodes.
     pub fn stat(&self) -> Result<Stat, Errno> {
         let entry = self.entry();
+        #[cfg(target_os = "macos")]
+        if let Some(entry) = entry
+            && let Some(file) = entry.darwin_installed_file()
+        {
+            use std::os::fd::AsRawFd;
+            let native = crate::user::darwin::host::fstat(file.as_raw_fd())?;
+            // File attributes come from the retained backing. Identity and
+            // link count belong to the guest namespace.
+            let mut stat = Stat::from_host(&native);
+            stat.dev = 0x524158;
+            stat.ino = entry.ino;
+            stat.nlink = 1;
+            stat.generation = 0;
+            return Ok(stat);
+        }
         let (uid, gid) = entry.and_then(Entry::workspace_owner).unwrap_or((0, 0));
         let directory_links = entry
             .and_then(Entry::workspace_directory)

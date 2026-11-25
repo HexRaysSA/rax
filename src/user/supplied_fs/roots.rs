@@ -16,6 +16,8 @@ pub(super) type AcceptFile = fn(&str, &Path, &std::fs::File) -> std::io::Result<
 pub(super) struct Origin {
     inode_base: u64,
     accept: Option<AcceptFile>,
+    #[cfg(target_os = "macos")]
+    darwin_installed: bool,
     observe_symlinks: bool,
     confined_mounts: &'static [&'static str],
     mounts_omitting_unreadable_files: &'static [&'static str],
@@ -26,6 +28,8 @@ impl Origin {
     pub(super) const CALLER: Self = Self {
         inode_base: 0x8000_0000_0000_0000,
         accept: None,
+        #[cfg(target_os = "macos")]
+        darwin_installed: false,
         observe_symlinks: false,
         confined_mounts: &[],
         mounts_omitting_unreadable_files: &[],
@@ -40,6 +44,8 @@ impl Origin {
         Self {
             inode_base: 0xc000_0000_0000_0000,
             accept,
+            #[cfg(target_os = "macos")]
+            darwin_installed: false,
             observe_symlinks: true,
             confined_mounts,
             mounts_omitting_unreadable_files: &[],
@@ -56,6 +62,8 @@ impl Origin {
         Self {
             inode_base: 0xc000_0000_0000_0000,
             accept,
+            #[cfg(target_os = "macos")]
+            darwin_installed: true,
             observe_symlinks: false,
             confined_mounts,
             mounts_omitting_unreadable_files,
@@ -350,10 +358,14 @@ impl Roots {
         {
             return Err(Error::NotFound);
         }
-        self.insert(
-            path,
-            Kind::Backed(Arc::new(HostFileSource::new(file).map_err(|_| Error::Io)?)),
-        )
+        let source = HostFileSource::new(file).map_err(|_| Error::Io)?;
+        #[cfg(target_os = "macos")]
+        let source = if self.origin.darwin_installed {
+            source.for_darwin_installed()
+        } else {
+            source
+        };
+        self.insert(path, Kind::Backed(Arc::new(source)))
     }
     pub(super) fn children(&self, path: &str) -> Result<Vec<String>, Error> {
         let host = match self.host(path) {

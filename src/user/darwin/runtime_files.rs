@@ -10,6 +10,11 @@ use crate::user::supplied_fs::{Device, Files};
 use std::io;
 
 #[cfg(any(target_os = "macos", test))]
+use crate::user::mm::HostFileSource;
+#[cfg(any(target_os = "macos", test))]
+use std::sync::Arc;
+
+#[cfg(any(target_os = "macos", test))]
 #[path = "runtime_files/dylibs.rs"]
 mod dylibs;
 
@@ -297,11 +302,21 @@ fn select_system_file(files: Files, path: &str, host: &std::path::Path) -> io::R
     }
     // Keep adjacent files and symlink targets outside the supplied namespace.
     match std::fs::symlink_metadata(host) {
-        Ok(metadata) if metadata.is_file() => files.with_host_file(path.into(), host),
+        Ok(metadata) if metadata.is_file() => files.with_host_files_using(
+            std::collections::BTreeMap::from([(path.into(), host.to_path_buf())]),
+            open_installed_backing,
+        ),
         Ok(_) => Ok(files),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(files),
         Err(error) => Err(error),
     }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn open_installed_backing(host: &std::path::Path) -> io::Result<Arc<HostFileSource>> {
+    Files::open_host_backing(host)
+        .map(HostFileSource::for_darwin_installed)
+        .map(Arc::new)
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -344,9 +359,9 @@ fn select(
     dyld: &std::path::Path,
     directories: &[std::path::PathBuf],
 ) -> io::Result<Files> {
-    use crate::user::mm::{HostFileSource, PageSource};
+    use crate::user::mm::PageSource;
     use std::collections::BTreeMap;
-    use std::sync::{Arc, Mutex, Weak};
+    use std::sync::{Mutex, Weak};
 
     type Backings = BTreeMap<(u64, u64), Weak<HostFileSource>>;
     static INSTALLED_BACKINGS: Mutex<Backings> = Mutex::new(BTreeMap::new());
@@ -411,7 +426,7 @@ fn select(
     files.with_host_files_using(selected, |host| {
         // Open through this selection's path before sharing. A replaced file
         // gets its own backing, and a weak entry never keeps a descriptor open.
-        let source = Files::open_host_backing(host)?;
+        let source = open_installed_backing(host)?;
         let identity = source.identity();
         let entry = backings.entry((identity.dev, identity.ino)).or_default();
         if let Some(existing) = entry.upgrade() {

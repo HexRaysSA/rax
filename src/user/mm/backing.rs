@@ -83,6 +83,8 @@ impl PageSource for BytesSource {
 pub struct HostFileSource {
     file: super::mapped_file::MappedFile,
     identity: SourceIdentity,
+    #[cfg(target_os = "macos")]
+    darwin_installed: bool,
 }
 
 impl HostFileSource {
@@ -96,11 +98,36 @@ impl HostFileSource {
         &self.file
     }
 
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn for_darwin_installed(self) -> Self {
+        #[cfg(target_os = "macos")]
+        {
+            Self {
+                darwin_installed: true,
+                ..self
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn darwin_installed_file(&self) -> Option<&std::fs::File> {
+        self.darwin_installed.then(|| self.file())
+    }
+
     /// [`HostFileSource::new`], keeping `keep` while it lives.
     pub fn keeping(file: std::fs::File, keep: Option<super::Keep>) -> std::io::Result<Self> {
         let file = super::mapped_file::MappedFile::keeping(file, keep);
         let identity = file.identity()?;
-        Ok(HostFileSource { file, identity })
+        Ok(HostFileSource {
+            file,
+            identity,
+            #[cfg(target_os = "macos")]
+            darwin_installed: false,
+        })
     }
 }
 
