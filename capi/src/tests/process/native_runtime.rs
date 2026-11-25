@@ -441,6 +441,29 @@ fn installed_darwin_tput_matches_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_iconv_matches_native_through_closed_c_abi() {
+    let path = "/usr/bin/iconv";
+    let environment = &[("LC_ALL", "C")];
+    compare_installed_posix_with_input(
+        "darwin",
+        path,
+        &["-f", "UTF-8", "-t", "ISO-8859-1"],
+        environment,
+        b"caf\xc3\xa9\n",
+        b"caf\xe9\n",
+    );
+    compare_installed_posix_with_input(
+        "darwin",
+        path,
+        &["-f", "WINDOWS-1252", "-t", "UTF-8"],
+        environment,
+        b"\x80\n",
+        b"\xe2\x82\xac\n",
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_perl_loads_its_on_disk_dylib_through_closed_c_abi() {
     compare_installed_posix_output(
         "darwin",
@@ -1511,12 +1534,45 @@ fn compare_installed_posix_output(
     environment: &[(&str, &str)],
     expected_stdout: &[u8],
 ) {
-    let native = std::process::Command::new(path)
+    compare_installed_posix_with_input(
+        personality,
+        path,
+        arguments,
+        environment,
+        b"",
+        expected_stdout,
+    );
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn compare_installed_posix_with_input(
+    personality: &str,
+    path: &str,
+    arguments: &[&str],
+    environment: &[(&str, &str)],
+    input: &[u8],
+    expected_stdout: &[u8],
+) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let mut command = Command::new(path);
+    command
         .args(arguments)
         .env_clear()
-        .envs(environment.iter().copied())
-        .output()
-        .unwrap();
+        .envs(environment.iter().copied());
+    let native = if input.is_empty() {
+        command.output().unwrap()
+    } else {
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(input).unwrap();
+        child.wait_with_output().unwrap()
+    };
     assert!(native.status.success());
     assert_eq!(native.stdout, expected_stdout);
     assert!(native.stderr.is_empty());
@@ -1530,6 +1586,12 @@ fn compare_installed_posix_output(
         "memory_bytes": 268435456,
     });
     let process = open(&std::fs::read(path).unwrap(), &options.to_string());
+    if !input.is_empty() {
+        assert_eq!(
+            rax_process_stdin_feed(process.0, input.as_ptr(), input.len()),
+            RaxStatus::Ok
+        );
+    }
     let state = info(&process);
     assert_eq!(state["capabilities"]["native_runtime"], true);
     assert_eq!(state["capabilities"]["host_filesystem"], false);

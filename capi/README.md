@@ -781,6 +781,10 @@ On macOS, installed compiled terminal descriptions are available under
 uses the host entries for the single-character and hexadecimal directory
 layouts. Explicit supplied paths retain precedence.
 
+The closed macOS runtime also selects the installed encoding and character
+mapping databases under /usr/share/i18n. Both mounts are read-only.
+Guest libiconv uses the selected tables for character conversion.
+
 On Linux, native runtime selection includes installed Perl modules, generated
 Perl sources, and Unicode version data under `/usr/share/perl` and
 `/usr/share/perl5` when present. These read-only mounts follow version

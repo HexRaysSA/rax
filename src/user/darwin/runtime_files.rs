@@ -1,6 +1,7 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type and
-//! terminal databases, and installed Perl and Ruby modules. Executables and
+//! terminal databases, character-conversion tables, and installed Perl and Ruby
+//! modules. Executables and
 //! shebang scripts are available for child execution in the same guest namespace.
 //!
 //! Selection happens before guest execution. Only these selected files enter
@@ -44,6 +45,15 @@ const LOCALE_ROOT: &str = "/usr/share/locale";
 
 #[cfg(any(target_os = "macos", test))]
 const TERMINFO_ROOT: &str = "/usr/share/terminfo";
+
+#[cfg(any(target_os = "macos", test))]
+const CHARSET_ESDB_ROOT: &str = "/usr/share/i18n/esdb";
+
+#[cfg(any(target_os = "macos", test))]
+const CHARSET_MAPPER_ROOT: &str = "/usr/share/i18n/csmapper";
+
+#[cfg(any(target_os = "macos", test))]
+const DATA_ROOTS: [&str; 3] = [TERMINFO_ROOT, CHARSET_ESDB_ROOT, CHARSET_MAPPER_ROOT];
 
 #[cfg(any(target_os = "macos", test))]
 const PERL_ROOT: &str = "/System/Library/Perl";
@@ -189,24 +199,19 @@ fn select_native_root(
     .into_iter()
     .chain(ZONEINFO_PATHS)
     .chain([LOCALE_ROOT])
-    .chain(
-        PROGRAM_ROOTS
-            .into_iter()
-            .chain([TERMINFO_ROOT])
-            .filter(|mount| {
-                // The main image is inserted after native selection. It can replace
-                // a data or program directory or one of its ancestors in the guest namespace.
-                !executable.is_some_and(|image| {
-                    image == *mount
-                        || mount
-                            .strip_prefix(image)
-                            .is_some_and(|tail| tail.starts_with('/'))
-                })
-            }),
-    )
+    .chain(PROGRAM_ROOTS.into_iter().chain(DATA_ROOTS).filter(|mount| {
+        // The main image is inserted after native selection. It can replace
+        // a data or program directory or one of its ancestors in the guest namespace.
+        !executable.is_some_and(|image| {
+            image == *mount
+                || mount
+                    .strip_prefix(image)
+                    .is_some_and(|tail| tail.starts_with('/'))
+        })
+    }))
     .filter_map(|guest| {
         let host = root.join(guest.trim_start_matches('/'));
-        let directory = if PROGRAM_ROOTS.contains(&guest) || guest == TERMINFO_ROOT {
+        let directory = if PROGRAM_ROOTS.contains(&guest) || DATA_ROOTS.contains(&guest) {
             host.symlink_metadata().is_ok_and(|info| info.is_dir())
         } else {
             host.is_dir()
@@ -220,6 +225,8 @@ fn select_native_root(
         &[
             LOCALE_ROOT,
             TERMINFO_ROOT,
+            CHARSET_ESDB_ROOT,
+            CHARSET_MAPPER_ROOT,
             PERL_ROOT,
             RUBY_VERSIONS,
             PROGRAM_ROOTS[0],
@@ -297,6 +304,14 @@ fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -
     {
         return accept_terminfo(entry, file);
     }
+    for root in [CHARSET_ESDB_ROOT, CHARSET_MAPPER_ROOT] {
+        if let Some(entry) = guest
+            .strip_prefix(root)
+            .and_then(|tail| tail.strip_prefix('/'))
+        {
+            return accept_charset_resource(root, entry, file);
+        }
+    }
     if ZONEINFO_PATHS.into_iter().any(|root| {
         guest
             .strip_prefix(root)
@@ -329,6 +344,40 @@ fn accept_terminfo(path: &str, mut file: &std::fs::File) -> io::Result<bool> {
             u16::from_le_bytes([header[0], header[1]]),
             0o432 | 0o1036
         )),
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn accept_charset_resource(root: &str, entry: &str, mut file: &std::fs::File) -> io::Result<bool> {
+    use std::io::Read;
+
+    let table = entry
+        .split_once('/')
+        .and_then(|(_, name)| (!name.contains('/')).then_some(name));
+    let signature = match (root, entry) {
+        (CHARSET_ESDB_ROOT, "esdb.alias" | "esdb.dir")
+        | (CHARSET_MAPPER_ROOT, "mapper.dir" | "charset.pivot") => return Ok(true),
+        (CHARSET_ESDB_ROOT, "esdb.alias.db" | "esdb.dir.db")
+        | (CHARSET_MAPPER_ROOT, "mapper.dir.db") => b"LOOKUP\0\0",
+        (CHARSET_MAPPER_ROOT, "charset.pivot.pvdb") => b"CSPIVOT\0",
+        (CHARSET_ESDB_ROOT, _) if table.is_some_and(|name| name.ends_with(".esdb")) => {
+            b"ESDB\0\0\0\0"
+        }
+        (CHARSET_MAPPER_ROOT, _) if table.is_some_and(|name| name.ends_with(".mps")) => {
+            b"MAPPER\0\0"
+        }
+        (CHARSET_MAPPER_ROOT, _)
+            if entry.starts_with("ISO646/") && table.is_some_and(|name| name.ends_with(".646")) =>
+        {
+            return Ok(true);
+        }
+        _ => return Ok(false),
+    };
+    let mut header = [0; 8];
+    match file.read_exact(&mut header) {
+        Ok(()) => Ok(&header == signature),
         Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(false),
         Err(error) => Err(error),
     }
@@ -1105,6 +1154,62 @@ mod tests {
             .with_file(TERMINFO_ROOT.into(), Arc::from(b"guest image".as_slice()))
             .unwrap();
         assert_eq!(&*selected.read(TERMINFO_ROOT).unwrap(), b"guest image");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_charset_mounts_admit_databases_and_confine_aliases() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"unused", 8);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let cache = root.join("System/Library/dyld");
+        let esdb = root.join(CHARSET_ESDB_ROOT.trim_start_matches('/'));
+        let mapper = root.join(CHARSET_MAPPER_ROOT.trim_start_matches('/'));
+        for directory in [&lib, &cache, &esdb.join("UTF/sub"), &mapper.join("ISO646")] {
+            fs::create_dir_all(directory).unwrap();
+        }
+        fs::write(lib.join("dyld"), b"dyld").unwrap();
+        fs::write(cache.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        fs::write(esdb.join("esdb.dir"), b"UTF-8 UTF/UTF-8.esdb\n").unwrap();
+        fs::write(esdb.join("esdb.dir.db"), b"LOOKUP\0\0").unwrap();
+        fs::write(esdb.join("UTF/UTF-8.esdb"), b"ESDB\0\0\0\0").unwrap();
+        fs::write(esdb.join("UTF/wrong.esdb"), b"MAPPER\0\0").unwrap();
+        fs::write(esdb.join("UTF/sub/deep.esdb"), b"ESDB\0\0\0\0").unwrap();
+        fs::write(mapper.join("charset.pivot.pvdb"), b"CSPIVOT\0").unwrap();
+        fs::write(mapper.join("ISO646/UCS.mps"), b"MAPPER\0\0").unwrap();
+        fs::write(mapper.join("ISO646/DE.646"), b"# translation\n").unwrap();
+        fs::write(mapper.join("ISO646/unrelated.txt"), b"host data").unwrap();
+        fs::write(lib.join("outside"), b"MAPPER\0\0").unwrap();
+        symlink(lib.join("outside"), mapper.join("ISO646/escaped.mps")).unwrap();
+
+        let files = select_native_root(&Files::default(), root, None).unwrap();
+        for path in [
+            "/usr/share/i18n/esdb/esdb.dir",
+            "/usr/share/i18n/esdb/esdb.dir.db",
+            "/usr/share/i18n/esdb/UTF/UTF-8.esdb",
+            "/usr/share/i18n/csmapper/charset.pivot.pvdb",
+            "/usr/share/i18n/csmapper/ISO646/UCS.mps",
+            "/usr/share/i18n/csmapper/ISO646/DE.646",
+        ] {
+            assert!(!files.read(path).unwrap().is_empty(), "{path}");
+        }
+        for path in [
+            "/usr/share/i18n/esdb/UTF/wrong.esdb",
+            "/usr/share/i18n/esdb/UTF/sub/deep.esdb",
+            "/usr/share/i18n/csmapper/ISO646/unrelated.txt",
+            "/usr/share/i18n/csmapper/ISO646/escaped.mps",
+        ] {
+            assert!(matches!(files.read(path), Err(Error::NotFound)), "{path}");
+        }
+        let path = "/usr/share/i18n/esdb/UTF/UTF-8.esdb";
+        let explicit = Files::default()
+            .with_file(path.into(), Arc::from(b"override".as_slice()))
+            .unwrap();
+        let selected = select_native_root(&explicit, root, None).unwrap();
+        assert_eq!(&*selected.read(path).unwrap(), b"override");
     }
 
     #[cfg(unix)]
