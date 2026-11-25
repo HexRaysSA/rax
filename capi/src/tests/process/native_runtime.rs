@@ -610,7 +610,7 @@ fn installed_cat_reads_guest_null_through_closed_c_abi() {
 fn installed_ls_lists_its_own_descriptor_through_closed_c_abi() {
     compare_installed_posix_output(
         "linux",
-        "/bin/ls",
+        installed_posix_utility("/bin/ls", "/usr/bin/ls"),
         &["-a", "-1", "/proc/self/fd"],
         &[("LC_ALL", "C")],
         b".\n..\n0\n1\n2\n3\n",
@@ -1087,7 +1087,7 @@ fn installed_gzip_matches_native_binary_output_through_closed_c_abi() {
     use std::io::Write;
     use std::process::{Command, Stdio};
 
-    let path = "/usr/bin/gzip";
+    let path = installed_posix_utility("/usr/bin/gzip", "/bin/gzip");
     let arguments = ["-n", "-c"];
     let input =
         b"closed installed runtime\ngzip stock gzip stock gzip stock\n\x00\x01\x02\x03 end\n";
@@ -1142,7 +1142,7 @@ fn installed_gzip_matches_native_binary_output_through_closed_c_abi() {
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn installed_mktemp_creates_a_guest_owned_regular_file() {
-    let path = "/usr/bin/mktemp";
+    let path = installed_posix_utility("/usr/bin/mktemp", "/bin/mktemp");
     let prefix = format!("/tmp/.rax-closed-mktemp-{}-", std::process::id());
     let template = format!("{prefix}XXXXXX");
     let installed_image = std::fs::read(path).unwrap();
@@ -1185,7 +1185,10 @@ fn installed_mktemp_creates_a_guest_owned_regular_file() {
 #[test]
 fn installed_mktemp_and_mkdir_create_guest_owned_directories() {
     let (personality, mkdir) = if cfg!(target_os = "linux") {
-        ("linux", "/usr/bin/mkdir")
+        (
+            "linux",
+            installed_posix_utility("/usr/bin/mkdir", "/bin/mkdir"),
+        )
     } else {
         ("darwin", "/bin/mkdir")
     };
@@ -1194,7 +1197,10 @@ fn installed_mktemp_and_mkdir_create_guest_owned_directories() {
     let template = format!("{prefix}XXXXXX");
     let nested = format!("{root}/first/second");
     for (program, arguments) in [
-        ("/usr/bin/mktemp", ["-d", &template]),
+        (
+            installed_posix_utility("/usr/bin/mktemp", "/bin/mktemp"),
+            ["-d", &template],
+        ),
         (mkdir, ["-p", &nested]),
     ] {
         let options = serde_json::json!({
@@ -1567,6 +1573,15 @@ fn compare_installed_workspace_fixture_with_turn_limit(
     assert_eq!(status.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
     assert_eq!(stdout, native.stdout);
     assert_eq!(stderr, native.stderr);
+}
+
+/// Stock POSIX utilities may live in either directory on Linux hosts.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn installed_posix_utility(preferred: &'static str, alternate: &'static str) -> &'static str {
+    [preferred, alternate]
+        .into_iter()
+        .find(|path| std::path::Path::new(path).is_file())
+        .unwrap_or_else(|| panic!("installed utility missing at {preferred} and {alternate}"))
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
