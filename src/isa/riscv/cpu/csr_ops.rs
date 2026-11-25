@@ -1,7 +1,7 @@
 //! Control and status register behavior.
 
 use super::*;
-use crate::isa::riscv::csr::SATP;
+use crate::isa::riscv::csr::{MTINST, MTVAL2, SATP};
 
 const MSTATUS_MPRV: u64 = 1 << 17;
 
@@ -72,6 +72,11 @@ impl RiscVCpu {
                     // PPN are hardwired to zero.
                     return Ok(0);
                 }
+                // The standard profile supplies zero for both optional H trap
+                // details. Their WARL domain can consist solely of zero.
+                if self.cfg.isa.h && matches!(addr, MTINST | MTVAL2) {
+                    return Ok(0);
+                }
                 return Err(Trap::illegal(0));
             }
         };
@@ -135,7 +140,7 @@ impl RiscVCpu {
                     self.ext_csr.insert(addr, value & self.xmask());
                     return Ok(());
                 }
-                if addr == SATP {
+                if addr == SATP || (self.cfg.isa.h && matches!(addr, MTINST | MTVAL2)) {
                     return Ok(());
                 }
                 return Err(Trap::illegal(0));
@@ -549,6 +554,43 @@ mod tests {
             let before = (cpu.pc, cpu.priv_, cpu.mstatus, cpu.sepc);
             assert_eq!(cpu.sret(&sret), Err(Trap::illegal(sret.raw)));
             assert_eq!((cpu.pc, cpu.priv_, cpu.mstatus, cpu.sepc), before);
+        }
+    }
+
+    #[test]
+    fn machine_trap_detail_csrs_require_h_and_canonicalize_writes_to_zero() {
+        for xlen in [Xlen::Rv32, Xlen::Rv64] {
+            let isa = Isa::rv64gc();
+            let mut hart = cpu_with_xlen(xlen, isa);
+            hart.set_x(2, u64::MAX);
+            for address in [0x34a, 0x34b] {
+                let write = csr_insn(address, 0b001, 2, 1); // csrrw x1, csr, x2
+                let read = csr_insn(address, 0b010, 0, 1); // csrr x1, csr
+                for word in [write, read] {
+                    hart.set_x(1, 1);
+                    let insn = decode(word, xlen, &isa);
+                    assert_eq!(hart.execute_insn(&insn, 0x1000), Ok(RiscVExit::Continue));
+                    assert_eq!(hart.x(1), 0);
+                }
+
+                for privilege in [Priv::Supervisor, Priv::User] {
+                    hart.priv_ = privilege;
+                    let insn = decode(read, xlen, &isa);
+                    assert_eq!(hart.execute_insn(&insn, 0x1000), Err(Trap::illegal(read)));
+                }
+                hart.priv_ = Priv::Machine;
+                let no_h = Isa { h: false, ..isa };
+                let mut no_h_hart = cpu_with_xlen(xlen, no_h);
+                let insn = decode(read, xlen, &no_h);
+                assert!(matches!(no_h_hart.execute_insn(&insn, 0x1000), Err(trap)
+                    if trap.cause == cause::ILLEGAL_INSTR));
+            }
+        }
+
+        let mut ti50 = cpu_with_xlen(Xlen::Rv32, Isa::ti50());
+        for address in [0x34a, 0x34b] {
+            ti50.csr_write(address, 0x1234).unwrap();
+            assert_eq!(ti50.csr_read(address), Ok(0x1234));
         }
     }
 

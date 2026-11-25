@@ -5,6 +5,8 @@
 //! (`fcsr`/`frm`/`fflags`) stay coherent with the FP execution path.
 
 pub(super) const SATP: u16 = 0x180;
+pub(super) const MTINST: u16 = 0x34a;
+pub(super) const MTVAL2: u16 = 0x34b;
 
 /// Well-known CSR addresses (12-bit).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -157,8 +159,11 @@ impl Csr {
 
 /// Human-readable name for a CSR address (falls back to `csr@0xNNN`).
 pub fn csr_name(addr: u16) -> String {
-    if addr & 0xfff == SATP {
-        return "satp".into();
+    match addr & 0xfff {
+        SATP => return "satp".into(),
+        MTINST => return "mtinst".into(),
+        MTVAL2 => return "mtval2".into(),
+        _ => {}
     }
     match Csr::from_addr(addr) {
         Some(c) => format!("{c:?}").to_lowercase(),
