@@ -183,7 +183,7 @@ fn pending(action: Action) -> mmio::InputState {
         Action::Divide(input) => state.begin_divide(input, 0).unwrap(),
         Action::XmmRead { input, zero_upper } => state.begin_xmm(input, zero_upper).unwrap(),
         Action::YmmRead(input) => state.begin_ymm(input).unwrap(),
-        Action::UnaryShuffle(input) => state.begin_unary_shuffle(input).unwrap(),
+        Action::UnaryVector(input) => state.begin_unary_vector(input).unwrap(),
         Action::StringLoad(input) => state.begin_string_load(input).unwrap(),
         Action::Write(_)
         | Action::XmmWrite(_)

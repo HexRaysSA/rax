@@ -1,12 +1,46 @@
-//! Packed immediate shuffles whose only data operand is the MMIO reply.
-use super::vector_logic::{Encoding, register, shuffle_control};
+//! Packed vector instructions whose only data operand is the MMIO reply.
+use super::vector_logic::{Encoding, read_element, register, shuffle_control};
 use super::*;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-enum Shuffle {
+enum Operation {
     Doublewords,
     HighWords,
     LowWords,
+    // Append to retain the discriminants in saved immediate shuffle reads.
+    Absolute(AbsoluteWidth),
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum AbsoluteWidth {
+    Byte,
+    Word,
+    Doubleword,
+}
+
+impl AbsoluteWidth {
+    fn bytes(self) -> usize {
+        match self {
+            Self::Byte => 1,
+            Self::Word => 2,
+            Self::Doubleword => 4,
+        }
+    }
+
+    fn result<const N: usize>(self, data: &[u8]) -> [u8; N] {
+        let width = self.bytes();
+        let mut result = [0; N];
+        for (source, target) in data.chunks_exact(width).zip(result.chunks_exact_mut(width)) {
+            let value = read_element(source);
+            let magnitude = if source[width - 1] & 0x80 != 0 {
+                value.wrapping_neg()
+            } else {
+                value
+            };
+            target.copy_from_slice(&magnitude.to_le_bytes()[..width]);
+        }
+        result
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -14,23 +48,28 @@ pub(crate) struct Input {
     pub(super) index: u8,
     pub(crate) encoding: Encoding,
     length: u64,
-    shuffle: Shuffle,
+    #[serde(rename = "shuffle")]
+    operation: Operation,
     control: u8,
 }
 
 impl Input {
     pub(super) fn validate(&self) -> Result<(), String> {
-        if self.index >= 16 || !(1..=15).contains(&self.length) {
-            return Err("invalid HVF MMIO packed shuffle descriptor".into());
+        if self.index >= 16
+            || !(1..=15).contains(&self.length)
+            || matches!(self.operation, Operation::Absolute(_)) && self.control != 0
+        {
+            return Err("invalid HVF MMIO unary vector descriptor".into());
         }
         Ok(())
     }
 
     fn result<const N: usize>(&self, data: &[u8]) -> [u8; N] {
-        let (first, width) = match self.shuffle {
-            Shuffle::Doublewords => (0, 4),
-            Shuffle::HighWords => (8, 2),
-            Shuffle::LowWords => (0, 2),
+        let (first, width) = match self.operation {
+            Operation::Doublewords => (0, 4),
+            Operation::HighWords => (8, 2),
+            Operation::LowWords => (0, 2),
+            Operation::Absolute(width) => return width.result(data),
         };
         let mut result = [0; N];
         result.copy_from_slice(data);
@@ -49,7 +88,7 @@ impl Input {
         let size = self.encoding.size();
         if data.len() != usize::from(size) {
             return Err(format!(
-                "HVF MMIO packed shuffle expected {size} bytes, received {}",
+                "HVF MMIO unary vector expected {size} bytes, received {}",
                 data.len()
             ));
         }
@@ -78,14 +117,22 @@ pub(super) fn prepare<M: PhysicalMemory>(
     read: bool,
 ) -> Result<Option<Plan>, String> {
     let mnemonic = instruction.mnemonic.as_str();
-    let shuffle = match mnemonic.strip_prefix('v').unwrap_or(mnemonic) {
-        "pshufd" => Shuffle::Doublewords,
-        "pshufhw" => Shuffle::HighWords,
-        "pshuflw" => Shuffle::LowWords,
+    let operation = match mnemonic.strip_prefix('v').unwrap_or(mnemonic) {
+        "pshufd" => Operation::Doublewords,
+        "pshufhw" => Operation::HighWords,
+        "pshuflw" => Operation::LowWords,
+        "pabsb" => Operation::Absolute(AbsoluteWidth::Byte),
+        "pabsw" => Operation::Absolute(AbsoluteWidth::Word),
+        "pabsd" => Operation::Absolute(AbsoluteWidth::Doubleword),
         _ => return Ok(None),
     };
-    let [target, device, control] = instruction.operands.as_slice() else {
-        return Err("wrong operands for packed shuffle MMIO".into());
+    let (target, device, control) = match (operation, instruction.operands.as_slice()) {
+        (Operation::Absolute(_), [target, device]) => (target, device, 0),
+        (
+            Operation::Doublewords | Operation::HighWords | Operation::LowWords,
+            [target, device, immediate],
+        ) => (target, device, shuffle_control(immediate)?),
+        _ => return Err("wrong operands for unary vector MMIO".into()),
     };
     let encoding = if !mnemonic.starts_with('v') {
         Encoding::Legacy
@@ -105,12 +152,11 @@ pub(super) fn prepare<M: PhysicalMemory>(
         || device.write
         || device.conditional
     {
-        return Err("packed shuffle MMIO requires a complete device read operand".into());
+        return Err("unary vector MMIO requires a complete device read operand".into());
     }
-    let index = register(target, width, false, true).ok_or("invalid packed shuffle destination")?;
-    let control = shuffle_control(control)?;
+    let index = register(target, width, false, true).ok_or("invalid unary vector destination")?;
     if encoding == Encoding::Legacy && record.linear & 15 != 0 {
-        return Err("misaligned legacy packed shuffle MMIO input".into());
+        return Err("misaligned legacy unary vector MMIO input".into());
     }
     validate_memory(context, memory, record, device, size)?;
     let length = u64::from(instruction.size);
@@ -118,7 +164,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
         index,
         encoding,
         length,
-        shuffle,
+        operation,
         control,
     };
     input.validate()?;
@@ -126,6 +172,6 @@ pub(super) fn prepare<M: PhysicalMemory>(
         physical: record.physical,
         linear: record.linear,
         length,
-        action: Action::UnaryShuffle(input),
+        action: Action::UnaryVector(input),
     }))
 }

@@ -42,6 +42,7 @@ on:
           - vector-horizontal
           - vector-unsigned
           - vector-sign
+          - vector-absolute
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-bit-test

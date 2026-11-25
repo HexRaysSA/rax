@@ -1494,3 +1494,40 @@ Intel macOS qualification remain open.
 
 Commands, inputs, disassembly and logs are under
 `/Users/int/dev/rax-audit-work/four-findings-hvf-packed-sign-2026-11-25/`.
+
+## Packed absolute value with a device operand
+
+The Intel HVF planner handles `PABSB`, `PABSW` and `PABSD` with a
+memory source and a legacy XMM, VEX.128 or VEX.256 destination. Each form
+requests one 16 B or 32 B read and computes unsigned magnitudes from the
+signed elements. The minimum signed value keeps its bit pattern within
+the element width. Completion takes O(B) time for B reply bytes and uses
+O(1) auxiliary space.
+
+Legacy operands require 16 B alignment and preserve the upper half of
+the destination YMM register. VEX.128 clears that half and VEX.256 writes
+all 32 B. Both VEX.W values use the same operation and allow unaligned
+reads. RFLAGS are preserved. The new operation uses the existing
+unary-vector checkpoint record, with an appended operation discriminant.
+[Intel SDM, PABSB/PABSW/PABSD/PABSQ](https://cdrdv2-public.intel.com/774492/325383-sdm-vol-2abcd.pdf)
+
+| Assumption | Falsification probe | Observed result |
+| --- | --- | --- |
+| Each device element determines its own magnitude at the encoded width. | Execute all 15 exact encodings against RAM under Rosetta with two input patterns. Include the signed minimum, signed maximum, zero and mixed signs. Check all 32 destination bytes and RFLAGS. | All 30 RAM observations matched. LLVM disassembly verified the memory operands. |
+| Restoring a read preserves the operation and retires it once. | Serialize the pending read for each form and replay the same reply twice. Deserialize a legacy pending `VPSHUFD` byte record and compare the exact reserialized bytes and completion. | The baseline rejected all 15 absolute-value forms before planning a read. The corrected planner admitted all 15, completed each direct and restored read once, and preserved the legacy record byte for byte. |
+
+The complete `hvf_mmio`, `hvf_guest_translation`, `x86_64`, `isa_oracle`
+and `ci_actions_pinned` targets passed 28,855 tests, with 3 opt-in x86
+tests ignored. The admission tests also cover register sources, write
+exits, invalid VEX operands, LOCK, legacy misalignment, MMX and EVEX.
+
+The `vector-absolute` profile is configured for 30 direct reads, 30
+fresh-owner completions and 3 legacy alignment faults. The Intel macOS
+consumer cross-built and passed strict code-signature verification on
+Arm64. Native execution is pending. MMX and EVEX device operands are
+outside this profile.
+
+The RAM observation SHA-256 is
+`3aa78dcb1a58c034d1781a8ecc9e0387013379823c2ec2e8d2187433c08e151d`.
+The exact inputs, disassembly and logs are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-packed-absolute-2026-11-26/`.

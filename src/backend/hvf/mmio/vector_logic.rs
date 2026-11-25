@@ -21,7 +21,7 @@ impl Element {
     }
 }
 
-fn read_element(lane: &[u8]) -> u64 {
+pub(super) fn read_element(lane: &[u8]) -> u64 {
     let mut bytes = [0; 8];
     bytes[..lane.len()].copy_from_slice(lane);
     u64::from_le_bytes(bytes)

@@ -885,7 +885,7 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             | Action::XmmLaneWrite(_)
             | Action::VectorLogic { .. }
             | Action::VectorBitTest { .. }
-            | Action::UnaryShuffle(_)
+            | Action::UnaryVector(_)
             | Action::YmmRead(_)
             | Action::YmmWrite(_) => panic!("unexpected vector plan for GPR MOV"),
             Action::StringLoad(_) | Action::StringStore { .. } => {

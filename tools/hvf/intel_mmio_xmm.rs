@@ -1282,13 +1282,19 @@ pub(super) fn run_packed_integer(output: &Path, profile: &str) {
         "--vector-horizontal" => &packed_vectors::HORIZONTAL_CASES,
         "--vector-unsigned" => &packed_vectors::UNSIGNED_CASES,
         "--vector-sign" => &packed_vectors::SIGN_CASES,
+        "--vector-absolute" => &packed_vectors::ABSOLUTE_CASES,
         "--vector-narrow" => &packed_narrow::CASES,
         _ => unreachable!("unknown packed integer profile"),
     };
     assert!(!output.exists(), "observations must be new");
     let mut index = 0;
     for case in cases {
-        for (code, form, width) in case.forms() {
+        let forms = if profile == "--vector-absolute" {
+            case.unary_forms()
+        } else {
+            case.forms()
+        };
+        for (code, form, width) in forms {
             let vex = form != "legacy";
             for (pattern, ([left, right], mut expected)) in
                 case.sources.into_iter().zip(case.results).enumerate()

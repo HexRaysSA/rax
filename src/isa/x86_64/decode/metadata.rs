@@ -731,6 +731,15 @@ fn packed_unary_shuffle_mnemonics(prefix: u8) -> Option<(&'static str, &'static 
     })
 }
 
+fn packed_absolute_mnemonics(opcode: u8) -> Option<(&'static str, &'static str)> {
+    Some(match opcode {
+        0x1c => ("pabsb", "vpabsb"),
+        0x1d => ("pabsw", "vpabsw"),
+        0x1e => ("pabsd", "vpabsd"),
+        _ => return None,
+    })
+}
+
 fn packed_binary_mnemonics(
     map: u8,
     prefix: u8,

@@ -1256,8 +1256,8 @@ impl run_loop::ExitHandler for HvfCore {
             mmio::Action::VectorBitTest { input, .. } if input.encoding.needs_avx() => {
                 Some("HVF packed bit-test MMIO requires enabled guest AVX state")
             }
-            mmio::Action::UnaryShuffle(input) if input.encoding.needs_avx() => {
-                Some("HVF packed shuffle MMIO requires enabled guest AVX state")
+            mmio::Action::UnaryVector(input) if input.encoding.needs_avx() => {
+                Some("HVF unary vector MMIO requires enabled guest AVX state")
             }
             _ => None,
         };
@@ -1393,10 +1393,10 @@ impl run_loop::ExitHandler for HvfCore {
                     size,
                 })
             }
-            mmio::Action::UnaryShuffle(input) => {
+            mmio::Action::UnaryVector(input) => {
                 let size = input.encoding.size();
                 self.mmio_input
-                    .begin_unary_shuffle(input)
+                    .begin_unary_vector(input)
                     .map_err(Error::Emulator)?;
                 Ok(VcpuExit::MmioRead {
                     addr: plan.physical,

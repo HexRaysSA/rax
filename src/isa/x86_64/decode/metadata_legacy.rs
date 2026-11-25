@@ -445,6 +445,13 @@ pub(super) fn decode_0f(
             name
         }
         0x38 => match ctx.consume_u8().ok()? {
+            map_opcode @ 0x1c..=0x1e
+                if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
+            {
+                out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
+                out.operands[0].read = false;
+                packed_absolute_mnemonics(map_opcode)?.0
+            }
             map_opcode @ (0x00..=0x0b | 0x17 | 0x28..=0x29 | 0x2b | 0x37..=0x40)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {

@@ -1461,7 +1461,8 @@ fn main() {
         profile @ ("--vector-narrow"
         | "--vector-horizontal"
         | "--vector-unsigned"
-        | "--vector-sign"),
+        | "--vector-sign"
+        | "--vector-absolute"),
     ) = std::env::args_os()
         .nth(1)
         .as_deref()

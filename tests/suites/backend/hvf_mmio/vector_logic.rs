@@ -260,11 +260,11 @@ fn unary_packed_shuffle_retains_every_immediate_through_pending_io() {
                 exit.physical += 3;
             }
             let plan = prepare(&context, &mut memory, exit).unwrap();
-            let Action::UnaryShuffle(input) = plan.action else {
+            let Action::UnaryVector(input) = plan.action else {
                 panic!("{:?}", plan.action);
             };
             let mut pending = mmio::InputState::default();
-            pending.begin_unary_shuffle(input).unwrap();
+            pending.begin_unary_vector(input).unwrap();
             let saved = rax::codec::serialize(&pending).unwrap();
             let mut restored: mmio::InputState = rax::codec::deserialize_strict(&saved).unwrap();
             restored.validate_checkpoint().unwrap();

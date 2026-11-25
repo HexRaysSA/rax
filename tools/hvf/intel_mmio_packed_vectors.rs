@@ -21,21 +21,29 @@ impl Case {
     }
 
     pub(super) fn forms(&self) -> Vec<(Vec<u8>, &'static str, usize)> {
+        self.forms_with_vvvv(0x38)
+    }
+
+    pub(super) fn unary_forms(&self) -> Vec<(Vec<u8>, &'static str, usize)> {
+        self.forms_with_vvvv(0x78)
+    }
+
+    fn forms_with_vvvv(&self, vvvv: u8) -> Vec<(Vec<u8>, &'static str, usize)> {
         let mut forms = vec![(self.legacy(), "legacy", 16)];
         if self.map == 1 {
             forms.extend([
-                (vec![0xc5, 0x39, self.opcode, 0x7f, 3], "vex2-128", 16),
-                (vec![0xc5, 0x3d, self.opcode, 0x7f, 3], "vex2-256", 32),
+                (vec![0xc5, vvvv | 1, self.opcode, 0x7f, 3], "vex2-128", 16),
+                (vec![0xc5, vvvv | 5, self.opcode, 0x7f, 3], "vex2-256", 32),
             ]);
         }
         for (control, label, size) in [
-            (0x39, "vex3-w0-128", 16),
-            (0x3d, "vex3-w0-256", 32),
-            (0xb9, "vex3-w1-128", 16),
-            (0xbd, "vex3-w1-256", 32),
+            (1, "vex3-w0-128", 16),
+            (5, "vex3-w0-256", 32),
+            (0x81, "vex3-w1-128", 16),
+            (0x85, "vex3-w1-256", 32),
         ] {
             forms.push((
-                vec![0xc4, 0x60 | self.map, control, self.opcode, 0x7f, 3],
+                vec![0xc4, 0x60 | self.map, vvvv | control, self.opcode, 0x7f, 3],
                 label,
                 size,
             ));
@@ -524,6 +532,157 @@ pub(super) const SIGN_CASES: [Case; 3] = [
                 0xfffffffffffffff7,
                 0x0000000080000000,
                 0x8000000100000000,
+            ],
+        ],
+    },
+];
+
+// Full vector fingerprints from the PABS RAM oracle.
+pub(super) const ABSOLUTE_CASES: [Case; 3] = [
+    Case {
+        map: 2,
+        opcode: 0x1c,
+        mnemonic: "pabsb",
+        sources: [
+            [
+                [
+                    0xa7a6a5a4a3a2a1a0,
+                    0xafaeadacabaaa9a8,
+                    0xb7b6b5b4b3b2b1b0,
+                    0xbfbebdbcbbbab9b8,
+                ],
+                [
+                    0x017ff7128100ff80,
+                    0x017ff7128100ff80,
+                    0x80017ff7128100ff,
+                    0x80017ff7128100ff,
+                ],
+            ],
+            [
+                [
+                    0xa7a6a5a4a3a2a1a0,
+                    0xafaeadacabaaa9a8,
+                    0xb7b6b5b4b3b2b1b0,
+                    0xbfbebdbcbbbab9b8,
+                ],
+                [
+                    0x00ff80017ff71281,
+                    0x00ff80017ff71281,
+                    0x8100ff80017ff712,
+                    0x8100ff80017ff712,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0x017f09127f000180,
+                0x017f09127f000180,
+                0x80017f09127f0001,
+                0x80017f09127f0001,
+            ],
+            [
+                0x000180017f09127f,
+                0x000180017f09127f,
+                0x7f000180017f0912,
+                0x7f000180017f0912,
+            ],
+        ],
+    },
+    Case {
+        map: 2,
+        opcode: 0x1d,
+        mnemonic: "pabsw",
+        sources: [
+            [
+                [
+                    0xa7a6a5a4a3a2a1a0,
+                    0xafaeadacabaaa9a8,
+                    0xb7b6b5b4b3b2b1b0,
+                    0xbfbebdbcbbbab9b8,
+                ],
+                [
+                    0x80010000ffff8000,
+                    0x00017ffffff70012,
+                    0x001280010000ffff,
+                    0x800000017ffffff7,
+                ],
+            ],
+            [
+                [
+                    0xa7a6a5a4a3a2a1a0,
+                    0xafaeadacabaaa9a8,
+                    0xb7b6b5b4b3b2b1b0,
+                    0xbfbebdbcbbbab9b8,
+                ],
+                [
+                    0x7ffffff700128001,
+                    0x0000ffff80000001,
+                    0x00017ffffff70012,
+                    0x80010000ffff8000,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0x7fff000000018000,
+                0x00017fff00090012,
+                0x00127fff00000001,
+                0x800000017fff0009,
+            ],
+            [
+                0x7fff000900127fff,
+                0x0000000180000001,
+                0x00017fff00090012,
+                0x7fff000000018000,
+            ],
+        ],
+    },
+    Case {
+        map: 2,
+        opcode: 0x1e,
+        mnemonic: "pabsd",
+        sources: [
+            [
+                [
+                    0xa7a6a5a4a3a2a1a0,
+                    0xafaeadacabaaa9a8,
+                    0xb7b6b5b4b3b2b1b0,
+                    0xbfbebdbcbbbab9b8,
+                ],
+                [
+                    0xffffffff80000000,
+                    0x8000000100000000,
+                    0x7ffffffffffffff7,
+                    0x8000000000000001,
+                ],
+            ],
+            [
+                [
+                    0xa7a6a5a4a3a2a1a0,
+                    0xafaeadacabaaa9a8,
+                    0xb7b6b5b4b3b2b1b0,
+                    0xbfbebdbcbbbab9b8,
+                ],
+                [
+                    0x0000001280000001,
+                    0x7ffffffffffffff7,
+                    0xffffffff80000000,
+                    0x8000000100000000,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0x0000000180000000,
+                0x7fffffff00000000,
+                0x7fffffff00000009,
+                0x8000000000000001,
+            ],
+            [
+                0x000000127fffffff,
+                0x7fffffff00000009,
+                0x0000000180000000,
+                0x7fffffff00000000,
             ],
         ],
     },

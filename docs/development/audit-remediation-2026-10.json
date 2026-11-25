@@ -200675,6 +200675,16 @@
       "scope": "A due automatic capture is retried at the terminal frontier before guest entry. In the software x86 ACPI case, the parent powered off and silently skipped the retry after the first write failed at retirement 3. The revised VMM saved retirement 3 on retry and preserved the stopped PC. Live and detached follow-up runs skipped the already-consumed trigger. Full backend and private-state qualification remains open.",
       "qualification": "docs/development/riscv-clint/README.md#exact-retirement-checkpoints",
       "full_goal_complete": false
+    },
+    {
+      "id": "intel-hvf-packed-absolute-mmio-2026-11-26",
+      "findings": [
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF plans one read for all 15 legacy XMM and VEX memory encodings of PABSB, PABSW and PABSD. Baseline metadata rejected all 15. The corrected planner completed each form directly and after restoring pending I/O, and retained the legacy unary shuffle record byte for byte. Thirty independent Rosetta RAM observations matched full YMM state and RFLAGS. All 28,855 owning tests passed, with 3 opt-in tests ignored. The Intel cross-build and code-signature checks passed. Native runtime qualification remains pending.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#packed-absolute-value-with-a-device-operand",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
