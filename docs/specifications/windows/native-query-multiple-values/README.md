@@ -31,13 +31,26 @@ failure; this can replace its status with a later caller-memory fault. A thunk
 allocation failure sets `LastError` to 8 while retaining `LastStatusValue`.
 
 Data starts are aligned to 4 bytes. Required length is the end of the final
-logical value, without final rounding. Complete fitting values are copied;
-inter-value padding is zeroed, including padding beyond the input capacity.
+logical value, without final rounding. The retained ARM64-kernel profile
+copies complete fitting values and zeroes inter-value padding, including
+padding beyond the input capacity.
 For lengths `[1, 3, 5]` bytes, offsets are `[0, 4, 8]` bytes and required length
 is 13 bytes. Capacity 1 byte publishes 4 copied bytes. Missing values leave
 data and entry metadata unchanged and publish required length zero. A late
 `BufferLength` write fault preserves copied data and required length while
 entry metadata remains unchanged. Replay checks these aliases and fault orders.
+
+Windows Server 2022 build 20348 on AMD64 pads between complete values that fit.
+When the next value does not fit, it reports the end of the last complete
+value and leaves the caller's remaining data bytes untouched. Native x64
+and WoW64 x86 controls with lengths of 1, 3, and 5 bytes report copied
+lengths of 1 and 7 bytes at capacities of 4 and 9 bytes. The required
+length stays at 13 bytes. Metadata for uncopied values in the Server 2022
+captures includes bytes outside the defined structure contract. The guest
+keeps those fields deterministic, and replay diagnostics identify mismatches
+by position without printing those bytes. The documented buffer contract
+specifies the written byte count and required capacity.
+[Microsoft's API reference](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntquerymultiplevaluekey).
 
 Required length is reported modulo `2^32` bytes. Logical offsets and the overflow
 decision retain the aggregate size: 4,096 values of 1,048,576 bytes require

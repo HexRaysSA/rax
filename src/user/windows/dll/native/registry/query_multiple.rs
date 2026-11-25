@@ -223,6 +223,12 @@ fn native(
         }
         return Ok(STATUS_OBJECT_NAME_NOT_FOUND);
     }
+    // Server 2022 pads only between values that fit in the caller's buffer.
+    let pads_only_between_copied_values = c.p.native.as_ref().is_some_and(|runtime| {
+        let version = &runtime.version;
+        runtime.object_namespace.native_machine == Some(WinArch::X64.machine())
+            && (version.major, version.minor, version.build) == (10, 0, 20348)
+    });
     let mut offset = 0u64;
     let mut copied = 0u64;
     let mut fields = Vec::new();
@@ -238,10 +244,14 @@ fn native(
         let end = offset + value.data.len() as u64;
         let mut record = [0; 3];
         if end <= u64::from(capacity) {
+            if pads_only_between_copied_values && offset != copied {
+                // All earlier values fit, so the gap is only the alignment padding.
+                write_pages(c, output + copied, &[0; 3][..(offset - copied) as usize])?;
+            }
             write_pages(c, output + offset, &value.data)?;
             record = [value.data.len() as u32, offset as u32, value.kind];
             copied = end;
-            if index + 1 < count as usize {
+            if !pads_only_between_copied_values && index + 1 < count as usize {
                 let next = end
                     .checked_add(3)
                     .map(|v| v & !3)

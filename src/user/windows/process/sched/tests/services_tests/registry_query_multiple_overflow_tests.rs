@@ -115,10 +115,11 @@ fn replay(corpus: &Json) -> usize {
                 for _ in 0..run[1].as_u64().unwrap() {
                     let address = base + index * stride;
                     for field in 0..3 {
-                        assert_eq!(
-                            u64::from(p.space.u32(address + width + field * 4).unwrap()),
-                            run[0][field as usize].as_u64().unwrap(),
-                            "{arch}/{count}/{index}/{field}"
+                        let actual = u64::from(p.space.u32(address + width + field * 4).unwrap());
+                        let expected = run[0][field as usize].as_u64().unwrap();
+                        assert!(
+                            actual == expected,
+                            "{arch}/{count}/{index}/{field}: entry metadata differs"
                         );
                     }
                     assert_eq!(p.space.ptr(address, width).unwrap(), descriptor);

@@ -173,10 +173,7 @@ fn replay(corpus: &Json) -> usize {
                     .zip(&expected)
                     .position(|(a, b)| a != b)
                     .unwrap();
-                panic!(
-                    "{arch}/{index}/arena offset {at:#x}: actual={:#x} expected={:#x}",
-                    observed[at], expected[at]
-                );
+                panic!("{arch}/{index}/arena differs at byte offset {at:#x}");
             }
             for page in 0..17 {
                 assert_eq!(
@@ -207,6 +204,51 @@ fn native_query_multiple_value_key_replays_all_retained_and_fresh_calls() {
     if let Some(path) = std::env::var_os("RAX_NATIVE_QUERY_MULTIPLE_VALUE_KEY_CORPUS") {
         let fresh: Json = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         assert!(replay(&fresh) > 0);
+    }
+}
+
+#[test]
+fn server_2022_registry_query_stops_at_last_complete_value() {
+    for arch in [WinArch::X64, WinArch::X86] {
+        let (mut process, mut t, entries) = setup(arch);
+        let p = process.state_mut();
+        super::super::native_profile::kernel_profile(p, 20348, WinArch::X64.machine());
+        let handle = input::handles(p)[0];
+        let data = entries + PAGE_SIZE;
+        let length = data + 32;
+        let required = length + 4;
+        let stride = if arch.is64() { 24 } else { 16 };
+        for (index, name) in ["One", "Three", "Five"].into_iter().enumerate() {
+            let descriptor = entries + 256 + index as u64 * 64;
+            unicode(p, descriptor, descriptor + 16, name);
+            p.space
+                .wptr(entries + index as u64 * stride, arch.ptr_size(), descriptor)
+                .unwrap();
+        }
+        let packed = [
+            0x11, 0, 0, 0, 0x21, 0x22, 0x23, 0, 0x31, 0x32, 0x33, 0x34, 0x35,
+        ];
+        for (capacity, copied) in [(1, 1), (4, 1), (7, 7), (9, 7), (13, 13)] {
+            p.space.wr(data, &[0xA5; 13]).unwrap();
+            p.space.w32(length, capacity).unwrap();
+            let status = call(
+                p,
+                &mut t,
+                "NtQueryMultipleValueKey",
+                &[handle, entries, 3, data, length, required],
+            );
+            let expected_status = if capacity < 13 {
+                STATUS_BUFFER_OVERFLOW
+            } else {
+                STATUS_SUCCESS
+            };
+            assert_eq!(status, expected_status, "{arch:?}, capacity {capacity}");
+            assert_eq!(p.space.u32(length).unwrap(), copied);
+            assert_eq!(p.space.u32(required).unwrap(), 13);
+            let mut expected = [0xA5; 13];
+            expected[..copied as usize].copy_from_slice(&packed[..copied as usize]);
+            assert_eq!(p.space.bytes(data, expected.len()).unwrap(), expected);
+        }
     }
 }
 
