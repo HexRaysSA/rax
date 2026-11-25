@@ -1608,9 +1608,12 @@ fn installed_musl_matches_native_through_closed_c_abi() {
     assert_eq!(stderr, native.stderr);
 }
 
-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 #[test]
-#[ignore = "run explicitly with the distribution's installed Python on Linux x64"]
+#[ignore = "run explicitly with the distribution's installed Python"]
 fn installed_system_python_matches_native_through_closed_c_abi() {
     let path = std::env::var("RAX_LINUX_SYSTEM_PYTHON")
         .expect("path to the distribution's installed Python");
@@ -1655,7 +1658,7 @@ print(json.dumps({"root": math.isqrt(1764), "round_trip": restored.decode("ascii
     assert_eq!(state["capabilities"]["native_runtime"], true);
     assert_eq!(state["capabilities"]["host_filesystem"], false);
     assert_eq!(state["capabilities"]["host_services"], false);
-    // Allow enough timed x86-64 slices for Python startup and extension loading.
+    // Allow enough slices for Python startup and extension loading.
     let result = run_installed_posix_with_turn_limit(&process, &path, 131_072);
     let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
     let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
