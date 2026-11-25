@@ -420,6 +420,27 @@ fn installed_darwin_locales_match_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_tput_matches_native_through_closed_c_abi() {
+    let path = "/usr/bin/tput";
+    let environment = &[("LC_ALL", "C")];
+    compare_installed_posix_output(
+        "darwin",
+        path,
+        &["-T", "xterm-256color", "colors"],
+        environment,
+        b"256\n",
+    );
+    compare_installed_posix_output(
+        "darwin",
+        path,
+        &["-T", "vt100", "clear"],
+        environment,
+        b"\x1b[H\x1b[J",
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_perl_loads_its_on_disk_dylib_through_closed_c_abi() {
     compare_installed_posix_output(
         "darwin",

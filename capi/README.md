@@ -776,6 +776,11 @@ execution stay inside the emulated process. The workqueue `kevent_qos` path
 accepts guest event filters and rejects filters that require host observation.
 The `kevent_id` workloop path applies the same filter policy.
 
+On macOS, installed compiled terminal descriptions are available under
+`/usr/share/terminfo` through a confined read-only mount. Terminal lookup
+uses the host entries for the single-character and hexadecimal directory
+layouts. Explicit supplied paths retain precedence.
+
 On Linux, native runtime selection includes installed Perl modules, generated
 Perl sources, and Unicode version data under `/usr/share/perl` and
 `/usr/share/perl5` when present. These read-only mounts follow version

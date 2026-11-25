@@ -1,7 +1,7 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
-//! system metadata, including timezone and locale data, the file-type database,
-//! and installed Perl and Ruby modules. Executables and shebang scripts
-//! are available for child execution in the same guest namespace.
+//! system metadata, including timezone and locale data, the file-type and
+//! terminal databases, and installed Perl and Ruby modules. Executables and
+//! shebang scripts are available for child execution in the same guest namespace.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -41,6 +41,9 @@ const ZONEINFO_PATHS: [&str; 2] = ["/var/db/timezone/zoneinfo", "/usr/share/zone
 
 #[cfg(any(target_os = "macos", test))]
 const LOCALE_ROOT: &str = "/usr/share/locale";
+
+#[cfg(any(target_os = "macos", test))]
+const TERMINFO_ROOT: &str = "/usr/share/terminfo";
 
 #[cfg(any(target_os = "macos", test))]
 const PERL_ROOT: &str = "/System/Library/Perl";
@@ -186,19 +189,24 @@ fn select_native_root(
     .into_iter()
     .chain(ZONEINFO_PATHS)
     .chain([LOCALE_ROOT])
-    .chain(PROGRAM_ROOTS.into_iter().filter(|mount| {
-        // The main image is inserted after native selection. It can replace
-        // a program directory or one of its ancestors in the guest namespace.
-        !executable.is_some_and(|image| {
-            image == *mount
-                || mount
-                    .strip_prefix(image)
-                    .is_some_and(|tail| tail.starts_with('/'))
-        })
-    }))
+    .chain(
+        PROGRAM_ROOTS
+            .into_iter()
+            .chain([TERMINFO_ROOT])
+            .filter(|mount| {
+                // The main image is inserted after native selection. It can replace
+                // a data or program directory or one of its ancestors in the guest namespace.
+                !executable.is_some_and(|image| {
+                    image == *mount
+                        || mount
+                            .strip_prefix(image)
+                            .is_some_and(|tail| tail.starts_with('/'))
+                })
+            }),
+    )
     .filter_map(|guest| {
         let host = root.join(guest.trim_start_matches('/'));
-        let directory = if PROGRAM_ROOTS.contains(&guest) {
+        let directory = if PROGRAM_ROOTS.contains(&guest) || guest == TERMINFO_ROOT {
             host.symlink_metadata().is_ok_and(|info| info.is_dir())
         } else {
             host.is_dir()
@@ -211,6 +219,7 @@ fn select_native_root(
         Some(accept_runtime_file),
         &[
             LOCALE_ROOT,
+            TERMINFO_ROOT,
             PERL_ROOT,
             RUBY_VERSIONS,
             PROGRAM_ROOTS[0],
@@ -282,6 +291,12 @@ fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -
             _ => false,
         });
     }
+    if let Some(entry) = guest
+        .strip_prefix(TERMINFO_ROOT)
+        .and_then(|tail| tail.strip_prefix('/'))
+    {
+        return accept_terminfo(entry, file);
+    }
     if ZONEINFO_PATHS.into_iter().any(|root| {
         guest
             .strip_prefix(root)
@@ -290,6 +305,32 @@ fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -
         crate::user::supplied_fs::timezone::has_tzif_header(file)
     } else {
         dylibs::accept(file, MH_DYLIB)
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn accept_terminfo(path: &str, mut file: &std::fs::File) -> io::Result<bool> {
+    use std::io::Read;
+
+    let Some((bucket, name)) = path.split_once('/') else {
+        return Ok(false);
+    };
+    let Some(&initial) = name.as_bytes().first() else {
+        return Ok(false);
+    };
+    // ncurses supports the literal initial and its two-digit hexadecimal spelling.
+    let hex_bucket = bucket.len() == 2 && u8::from_str_radix(bucket, 16) == Ok(initial);
+    if name.contains('/') || (bucket.as_bytes() != [initial] && !hex_bucket) {
+        return Ok(false);
+    }
+    let mut header = [0; 12];
+    match file.read_exact(&mut header) {
+        Ok(()) => Ok(matches!(
+            u16::from_le_bytes([header[0], header[1]]),
+            0o432 | 0o1036
+        )),
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(error) => Err(error),
     }
 }
 
@@ -996,6 +1037,74 @@ mod tests {
             .unwrap();
         let selected = select_native_root(&explicit, root, None).unwrap();
         assert_eq!(&*selected.read(override_path).unwrap(), b"supplied");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_terminfo_mount_accepts_compiled_entries_and_confines_aliases() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"unused", 8);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let cache = root.join("System/Library/dyld");
+        let terminfo = root.join(TERMINFO_ROOT.trim_start_matches('/'));
+        for dir in [
+            &lib,
+            &cache,
+            &terminfo.join("78"),
+            &terminfo.join("v"),
+            &terminfo.join("xx"),
+        ] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        fs::write(lib.join("dyld"), b"dyld").unwrap();
+        fs::write(cache.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        let terminfo_entry = |magic: u16| {
+            let mut entry = [0; 12];
+            entry[..2].copy_from_slice(&magic.to_le_bytes());
+            entry
+        };
+        let legacy = terminfo_entry(0o432);
+        let extended = terminfo_entry(0o1036);
+        fs::write(terminfo.join("78/xterm"), legacy).unwrap();
+        fs::write(terminfo.join("v/vt100"), extended).unwrap();
+        fs::write(terminfo.join("78/xtruncated"), &legacy[..2]).unwrap();
+        fs::write(terminfo.join("78/xtext"), b"not terminfo").unwrap();
+        fs::write(terminfo.join("xx/xmisplaced"), legacy).unwrap();
+        fs::write(lib.join("outside"), legacy).unwrap();
+        symlink("xterm", terminfo.join("78/xalias")).unwrap();
+        symlink(lib.join("outside"), terminfo.join("78/xescape")).unwrap();
+
+        let files = select_native_root(&Files::default(), root, None).unwrap();
+        for (path, data) in [
+            ("/usr/share/terminfo/78/xterm", legacy),
+            ("/usr/share/terminfo/78/xalias", legacy),
+            ("/usr/share/terminfo/v/vt100", extended),
+        ] {
+            assert_eq!(&*files.read(path).unwrap(), &data);
+        }
+        for path in [
+            "/usr/share/terminfo/78/xtruncated",
+            "/usr/share/terminfo/78/xtext",
+            "/usr/share/terminfo/xx/xmisplaced",
+            "/usr/share/terminfo/78/xescape",
+        ] {
+            assert!(matches!(files.read(path), Err(Error::NotFound)), "{path}");
+        }
+        let path = "/usr/share/terminfo/78/xterm";
+        let explicit = Files::default()
+            .with_file(path.into(), Arc::from(b"override".as_slice()))
+            .unwrap();
+        let selected = select_native_root(&explicit, root, None).unwrap();
+        assert_eq!(&*selected.read(path).unwrap(), b"override");
+
+        let selected = select_native_root(&Files::default(), root, Some(TERMINFO_ROOT))
+            .unwrap()
+            .with_file(TERMINFO_ROOT.into(), Arc::from(b"guest image".as_slice()))
+            .unwrap();
+        assert_eq!(&*selected.read(TERMINFO_ROOT).unwrap(), b"guest image");
     }
 
     #[cfg(unix)]
