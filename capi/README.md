@@ -869,6 +869,10 @@ resident bytes, and signal number/name/PC/core flag. Darwin context writes are
 transactional and retain Mach flag-validation semantics. Guest thread IDs must
 fit the process API's 32-bit ID field; inspection returns `BOUNDS` on overflow.
 Normal Darwin exits also retain the low 8 bits; signals report `FAILED`.
+Darwin thread inspection includes saved `exception_state` registers. AArch64
+reports `far` and `esr`. x86-64 reports `fault_address`, `trap_number`, and
+`error_code`. Addresses use hexadecimal strings. The registers retain the
+thread's saved state across subsequent execution.
 These contexts omit FP/vector state. No whole-process checkpoint or fork is
 advertised.
 

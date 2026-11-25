@@ -1251,9 +1251,13 @@ RAX_API rax_status rax_process_set_cancelled(const rax_process *process, int can
  * Darwin reports context_format="darwin_thread_state64": little-endian Mach
  * integer thread states, x86-64 flavor 4 (168 bytes), AArch64 flavor 6 (272 bytes).
  * It reports loaded_program (path, entry, mach_header, has_dyld), resident_bytes,
- * and signal (null or number, name, PC, core-default-action flag). Context writes
- * require the exact size and preserve thread state on validation failure; flags
- * follow Mach thread_set_state semantics. No FP/vector or checkpoint is included.
+ * and signal (null or number, name, PC, core-default-action flag). Each thread's
+ * exception_state holds the saved Mach exception registers: AArch64 far and
+ * esr, or x86-64 fault_address, trap_number and error_code. Addresses are hex
+ * strings. The values begin at zero and can outlive the exception that set them.
+ * Context writes require the exact size and preserve thread state on validation
+ * failure. Flags follow Mach thread_set_state semantics. No FP/vector or
+ * checkpoint is included.
  * Thread IDs are exact guest IDs; inspection returns BOUNDS if an ID exceeds
  * this API's uint32_t range rather than truncating it.
  * Base Windows CONTEXT bytes: x86 0x2cc, x64 0x4d0, ARM64 0x390; flags select

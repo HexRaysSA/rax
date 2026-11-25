@@ -128,11 +128,17 @@ impl Process {
                     "Darwin thread ID exceeds the process context API's 32-bit range".into(),
                 )
             })?;
+            let entry = &t.sig.entry;
+            let exception_state = match p.abi {
+                DarwinAbi::Arm64 => json!({"far":hx(entry.far),"esr":entry.esr}),
+                DarwinAbi::X86_64 => json!({"fault_address":hx(entry.far),
+                    "trap_number":entry.trapno,"error_code":entry.err}),
+            };
             threads.push(json!({"id":id,"pc":hx(t.cpu.pc()),"sp":hx(t.cpu.sp()),
                 "state":if t.exited {"exited"} else if t.mach.suspend_count != 0 {"suspended"} else if !t.runnable() {"waiting"} else {"ready"},
                 "suspend_count":t.mach.suspend_count,"thread_port":t.port,
                 "context_format":"darwin_thread_state64","context_flavor":flavor,
-                "context_bytes":count * 4}));
+                "context_bytes":count * 4,"exception_state":exception_state}));
         }
         let mappings: Vec<_> = p.space.vma_snapshot().into_iter().map(|v| json!({
             "start":hx(v.start),"end":hx(v.end),"permissions":v.perms.bits(),"name":v.name.as_deref()})).collect();

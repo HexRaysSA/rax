@@ -2,6 +2,7 @@
 use super::*;
 use crate::tests::macho_fixture::{DATA, ENTRY, image};
 use rax_engine::user::image::macho::*;
+use serde_json::json;
 
 fn exit(arm: bool, code: u8) -> Vec<u8> {
     if arm {
@@ -226,6 +227,45 @@ fn macho_signal_failure_is_inspectable() {
     assert_eq!(state["signal"]["name"], "SIGILL");
     assert_eq!(address(&state["signal"]["pc"]), ENTRY);
     assert!(state["diagnostic"].as_str().unwrap().contains("SIGILL"));
+}
+
+#[test]
+fn macho_both_abis_report_saved_access_fault_registers() {
+    let arm_load: Vec<_> = [0xd282_4600, 0xf940_0001]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    let x86_load = [0xb8, 0x30, 0x12, 0, 0, 0x48, 0x8b, 0x18];
+    for (arm, load, offset, initial, fault) in [
+        (
+            true,
+            arm_load.as_slice(),
+            4,
+            json!({"far":"0x0","esr":0}),
+            json!({"far":"0x1230","esr":0x9200_0007u32}),
+        ),
+        (
+            false,
+            x86_load.as_slice(),
+            5,
+            json!({"fault_address":"0x0","trap_number":0,"error_code":0}),
+            json!({"fault_address":"0x1230","trap_number":14,"error_code":4}),
+        ),
+    ] {
+        let p = open(
+            &image(arm, load, false, MH_EXECUTE),
+            r#"{"personality":"darwin"}"#,
+        );
+        assert_eq!(info(&p)["threads"][0]["exception_state"], initial);
+        let result = run(&p);
+        assert_eq!(result.reason, RAX_PROCESS_FAILED);
+        let state = info(&p);
+        assert_eq!(state["signal"]["name"], "SIGSEGV");
+        assert_eq!(address(&state["signal"]["pc"]), ENTRY + offset);
+        assert_eq!(state["threads"][0]["exception_state"], fault);
+        assert_eq!(run(&p).reason, RAX_PROCESS_FAILED);
+        assert_eq!(info(&p)["threads"][0]["exception_state"], fault);
+    }
 }
 
 #[test]
