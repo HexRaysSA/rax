@@ -39,6 +39,7 @@ on:
           - vector-unpack
           - vector-multiply
           - vector-shuffle
+          - vector-immediate-shuffle
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

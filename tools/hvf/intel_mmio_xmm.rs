@@ -1115,6 +1115,53 @@ pub(super) fn run_byte_shuffle(output: &Path) {
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
+pub(super) fn run_immediate_shuffle(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    let left = qwords(packed_shuffle::source());
+    let reply = packed_shuffle::immediate_reply();
+    let mut index = 0;
+    for case in packed_shuffle::immediate_cases() {
+        let vex = case.encoding != "legacy";
+        let label = format!(
+            "vector-immediate-shuffle-{}-{}",
+            case.mnemonic, case.encoding
+        );
+        for (restore, phase) in [(false, "direct"), (true, "restored")] {
+            let value = packed_binary_case(
+                &case.code,
+                vex,
+                restore,
+                left,
+                &reply[..case.width],
+                qwords(case.expected),
+            );
+            record(
+                output,
+                index,
+                &format!("{label}-{phase}"),
+                case.width,
+                value,
+            );
+            index += 1;
+        }
+        if !vex {
+            let value = alignment_fault(&case.code, false, 3);
+            record(
+                output,
+                index,
+                &format!("{label}-misaligned"),
+                case.width,
+                value,
+            );
+            index += 1;
+        }
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 pub(super) fn run_integer_unpack(output: &Path) {
     assert!(!output.exists(), "observations must be new");
     let left: [u8; 32] = std::array::from_fn(|index| index as u8);

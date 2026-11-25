@@ -225,6 +225,51 @@ impl Multiply {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum ImmediateShuffle {
+    PackedSingle,
+    PackedDouble,
+    AlignBytes,
+}
+
+impl ImmediateShuffle {
+    fn mnemonic(name: &str) -> Option<Self> {
+        Some(match name.strip_prefix('v').unwrap_or(name) {
+            "shufps" => Self::PackedSingle,
+            "shufpd" => Self::PackedDouble,
+            "palignr" => Self::AlignBytes,
+            _ => return None,
+        })
+    }
+
+    fn result<const N: usize>(self, left: &[u8; 32], right: &[u8], control: u8) -> [u8; N] {
+        std::array::from_fn(|i| {
+            let lane = i / 16;
+            let start = lane * 16;
+            let byte = i % 16;
+            match self {
+                Self::PackedSingle => {
+                    let element = byte / 4;
+                    let source = if element < 2 { &left[..] } else { right };
+                    let selected = usize::from((control >> (2 * element)) & 3);
+                    source[start + 4 * selected + byte % 4]
+                }
+                Self::PackedDouble => {
+                    let element = byte / 8;
+                    let source = if element == 0 { &left[..] } else { right };
+                    let selected = usize::from((control >> (2 * lane + element)) & 1);
+                    source[start + 8 * selected + byte % 8]
+                }
+                Self::AlignBytes => match usize::from(control) + byte {
+                    shift @ 0..=15 => right[start + shift],
+                    shift @ 16..=31 => left[start + shift - 16],
+                    _ => 0,
+                },
+            }
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
     And,
     AndNot,
@@ -244,6 +289,7 @@ enum Operation {
     UnpackHigh(Element),
     Multiply(Multiply),
     ShuffleBytes,
+    ShuffleImmediate(ImmediateShuffle, u8),
 }
 
 impl Operation {
@@ -349,6 +395,7 @@ impl Operation {
                     left[lane_start + usize::from(control & 0xf)]
                 }
             }),
+            Self::ShuffleImmediate(shuffle, control) => shuffle.result(left, right, control),
             Self::Compare(comparison, element) => {
                 let width = element.bytes();
                 let mut result = [0; N];
@@ -523,11 +570,29 @@ pub(super) fn prepare<M: PhysicalMemory>(
     instruction: &Instruction,
     read: bool,
 ) -> Result<Option<Plan>, String> {
-    let Some(operation) = Operation::mnemonic(&instruction.mnemonic) else {
+    let mnemonic = instruction.mnemonic.as_str();
+    let operands = instruction.operands.as_slice();
+    let (operation, operands) = if let Some(shuffle) = ImmediateShuffle::mnemonic(mnemonic) {
+        let (control, operands) = operands
+            .split_last()
+            .ok_or("missing vector shuffle control")?;
+        if control.kind != OperandKind::Immediate
+            || control.width_bits != 8
+            || !control.read
+            || control.write
+            || control.conditional
+        {
+            return Err("invalid vector shuffle control".into());
+        }
+        let control = u8::try_from(control.value).map_err(|_| "invalid vector shuffle control")?;
+        (Operation::ShuffleImmediate(shuffle, control), operands)
+    } else if let Some(operation) = Operation::mnemonic(mnemonic) {
+        (operation, operands)
+    } else {
         return Ok(None);
     };
-    let vex = instruction.mnemonic.starts_with('v');
-    let (encoding, target, left, right) = match (vex, instruction.operands.as_slice()) {
+    let vex = mnemonic.starts_with('v');
+    let (encoding, target, left, right) = match (vex, operands) {
         (false, [target, right]) => (Encoding::Legacy, target, target, right),
         (true, [target, left, right]) => {
             let encoding = if target.width_bits == 256 {

@@ -709,6 +709,19 @@ fn packed_uniform_shift_mnemonics(
     })
 }
 
+fn packed_immediate_shuffle_mnemonics(
+    map: u8,
+    prefix: u8,
+    opcode: u8,
+) -> Option<(&'static str, &'static str)> {
+    Some(match (map, prefix, opcode) {
+        (1, 0, 0xc6) => ("shufps", "vshufps"),
+        (1, 1, 0xc6) => ("shufpd", "vshufpd"),
+        (3, 1, 0x0f) => ("palignr", "vpalignr"),
+        _ => return None,
+    })
+}
+
 fn packed_binary_mnemonics(
     map: u8,
     prefix: u8,

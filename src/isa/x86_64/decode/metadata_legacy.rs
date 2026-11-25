@@ -418,6 +418,21 @@ pub(super) fn decode_0f(
             ));
             "bswap"
         }
+        0xc6 | 0x3a if ctx.rep_prefix.is_none() && !ctx.has_rex2() => {
+            let (map, opcode) = if op == 0x3a {
+                (3, ctx.consume_u8().ok()?)
+            } else {
+                (1, op)
+            };
+            let prefix = u8::from(ctx.operand_size_override);
+            let Some((name, _)) = packed_immediate_shuffle_mnemonics(map, prefix, opcode) else {
+                *unsupported = true;
+                return None;
+            };
+            out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
+            out.operands.push(immediate(ctx, 1, false)?);
+            name
+        }
         0x38 => match ctx.consume_u8().ok()? {
             map_opcode @ (0x00 | 0x04 | 0x0b | 0x17 | 0x28..=0x29 | 0x37..=0x40)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>

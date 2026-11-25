@@ -1218,3 +1218,37 @@ execution record identifies a native Intel process in a virtualized host
 and matches the local source and consumer digests. The execution artifact
 SHA-256 is `cd8c1f35991bf17a1948ba27e414c28a3d139728ef2d27381dacdd119dadeba9`.
 [Hosted shuffle execution](https://github.com/HexRaysSA/rax/actions/runs/45524791799/job/138905342889)
+
+## Two-source packed shuffles with immediate control
+
+The Intel MMIO planner handles the legacy XMM and VEX.128/.256 memory
+forms of `SHUFPS`, `SHUFPD`, and `PALIGNR`. Each instruction projects one
+read-only device operand of 16 or 32 bytes. The pending record carries the
+immediate and first source until the device reply arrives. The existing
+completion path writes the result and advances RIP once. Legacy XMM writes
+preserve the upper lane. VEX.128 zeroes it and VEX.256 writes both lanes.
+
+| Instruction | Control and lane rule | Validation probe |
+| --- | --- | --- |
+| `SHUFPS` | Four two-bit selectors are reused in each 128-bit lane. The first two results select from the register and the last two from the device reply. | Use distinct inputs and compare all 256 controls at every width. |
+| `SHUFPD` | Each 128-bit lane takes two one-bit selectors, one per source. VEX.256 uses bits 3:2 for the upper lane. | Vary both lanes' selections independently and set the unused high control bits. |
+| `PALIGNR` | Each 128-bit lane shifts the concatenated register and device bytes by an unsigned count, with device bytes in the low half. | Check counts 0, 16, 31, 32 and 255 on both lanes. |
+
+The register and memory roles and alignment rules follow Intel SDM revision
+086, Volume 2B, pages 4-223 through 4-225 and 4-642 through 4-650.
+[Intel instruction reference](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The parent rejected legacy `SHUFPS` metadata as unsupported. The translated
+x86-64 RAM probe under Rosetta matched full YMM and RFLAGS for all 2,304
+cases, covering every immediate in each of nine encoding forms. The
+observation stream SHA-256 is
+`3b9210eedb3f59058b3d924c8f386850ebaa9124ecfaca8422a3dc674b2fed34`.
+
+The `vector-immediate-shuffle` Intel HVF profile exercises all nine forms
+directly and after restoring the pending read into a fresh CPU owner. Three
+legacy misalignment controls check that the guest takes #GP.
+
+The Apple Silicon build passed 154 MMIO, 102 ISA-oracle, 16 CI-policy,
+and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
+HVF tool tests passed. The Intel macOS guest consumer cross-built and
+passed strict signature verification.

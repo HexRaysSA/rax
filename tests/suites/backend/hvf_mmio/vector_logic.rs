@@ -101,6 +101,133 @@ fn packed_byte_shuffle_rejects_non_device_forms_and_misaligned_legacy() {
 }
 
 #[test]
+fn packed_immediate_shuffle_keeps_control_and_both_sources_across_checkpoint() {
+    use packed_shuffle::{immediate_cases, immediate_reply, source};
+
+    let reply = immediate_reply();
+    for case in immediate_cases() {
+        let vex = case.encoding != "legacy";
+        let label = (case.mnemonic, case.encoding);
+        let (context, mut memory, mut exit) = fixture(&case.code);
+        if vex {
+            exit.linear += 3;
+            exit.physical += 3;
+        }
+        let meta = instruction_metadata::decode(64, context.rip, &case.code)
+            .unwrap_or_else(|failure| panic!("{label:?}: {failure:?}"));
+        assert!(meta.operands_complete, "{label:?}: {meta:?}");
+        assert_eq!(
+            meta.mnemonic,
+            format!("{}{}", if vex { "v" } else { "" }, case.mnemonic)
+        );
+        let control = meta.operands.last().unwrap();
+        assert_eq!(control.kind, OperandKind::Immediate);
+        assert_eq!(
+            (control.width_bits, control.value),
+            (8, u64::from(*case.code.last().unwrap()))
+        );
+        assert!(
+            instruction_metadata::decode(64, context.rip, &case.code[..case.code.len() - 1])
+                .is_err()
+        );
+
+        let plan = prepare(&context, &mut memory, exit).unwrap();
+        assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+        assert_eq!(plan.length, case.code.len() as u64);
+        assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
+        let Action::VectorLogic {
+            input,
+            source: source_index,
+        } = plan.action
+        else {
+            panic!("{label:?}: unexpected action {:?}", plan.action);
+        };
+        assert_eq!((input.index, source_index), (15, if vex { 8 } else { 15 }));
+        let mut pending = mmio::InputState::default();
+        pending.begin_vector_logic(input, source()).unwrap();
+        let saved = rax::codec::serialize(&pending).unwrap();
+        let mut restored: mmio::InputState = rax::codec::deserialize_strict(&saved).unwrap();
+        restored.validate_checkpoint().unwrap();
+        assert_eq!(restored.descriptor(), Some((case.width as u8, None)));
+        let expected = if case.width == 32 {
+            Write::Ymm(15, case.expected)
+        } else {
+            Write::Xmm(15, case.expected[..16].try_into().unwrap(), vex)
+        };
+        let mut host = Host::default();
+        restored.complete(&mut host, &reply[..case.width]);
+        restored.complete(&mut host, &reply[..case.width]);
+        assert_eq!(host.0, [expected, Write::Retire(plan.length)], "{label:?}");
+    }
+}
+
+#[test]
+fn packed_immediate_shuffle_preserves_legacy_alignment_and_rejects_non_device_forms() {
+    for case in packed_shuffle::immediate_cases()
+        .into_iter()
+        .filter(|case| case.encoding == "legacy")
+    {
+        let (mut context, mut memory, mut exit) = fixture(&case.code);
+        context.registers[7] += 1;
+        exit.linear += 1;
+        exit.physical += 1;
+        let error = prepare(&context, &mut memory, exit).unwrap_err();
+        assert!(error.contains("misaligned"), "{}: {error}", case.mnemonic);
+        assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
+    }
+    for code in [
+        &[0x44, 0x0f, 0xc6, 0xff, 0x1b][..],   // register source
+        &[0x0f, 0x3a, 0x0f, 0x3f, 13],         // MMX bank
+        &[0xc5, 0x3a, 0xc6, 0x7f, 3, 0x1b],    // wrong VEX prefix
+        &[0xf0, 0x44, 0x0f, 0xc6, 0x3f, 0x1b], // LOCK
+    ] {
+        let (context, mut memory, exit) = fixture(code);
+        assert!(prepare(&context, &mut memory, exit).is_err(), "{code:02x?}");
+        assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
+    }
+}
+
+#[test]
+fn packed_align_right_uses_unsigned_immediates_in_both_lanes() {
+    use packed_shuffle::{immediate_cases, immediate_reply, source};
+
+    let mut case = immediate_cases()
+        .into_iter()
+        .find(|case| case.mnemonic == "palignr" && case.encoding == "vex256")
+        .unwrap();
+    let left = source();
+    let reply = immediate_reply();
+    let mut last = [0; 32];
+    last[0] = left[15];
+    last[16] = left[31];
+    for (count, expected) in [
+        (0, reply),
+        (16, left),
+        (31, last),
+        (32, [0; 32]),
+        (255, [0; 32]),
+    ] {
+        *case.code.last_mut().unwrap() = count;
+        let (context, mut memory, mut exit) = fixture(&case.code);
+        exit.linear += 3;
+        exit.physical += 3;
+        let plan = prepare(&context, &mut memory, exit).unwrap();
+        let Action::VectorLogic { input, .. } = plan.action else {
+            panic!("{count}")
+        };
+        let mut pending = mmio::InputState::default();
+        pending.begin_vector_logic(input, left).unwrap();
+        let mut host = Host::default();
+        pending.complete(&mut host, &reply);
+        assert_eq!(
+            host.0,
+            [Write::Ymm(15, expected), Write::Retire(plan.length)],
+            "{count}"
+        );
+    }
+}
+
+#[test]
 fn packed_unpack_interleaves_each_lane_and_restores_once() {
     let mut failures = Vec::new();
     for (opcode, element, upper) in [
