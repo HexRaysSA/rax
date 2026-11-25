@@ -105,6 +105,8 @@ mod sysvsem;
 mod sysvshm;
 #[cfg(unix)]
 mod threads;
+#[cfg(target_os = "linux")]
+mod tty;
 #[cfg(unix)]
 mod uring;
 #[cfg(unix)]

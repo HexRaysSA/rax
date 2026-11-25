@@ -195,6 +195,23 @@ pub fn window_size(file: &std::fs::File) -> Result<[u16; 4], Errno> {
     Ok([ws.ws_row, ws.ws_col, ws.ws_xpixel, ws.ws_ypixel])
 }
 
+/// Sets the host terminal window size for a guest `TIOCSWINSZ` request.
+pub fn set_window_size(file: &std::fs::File, ws: [u16; 4]) -> Result<(), Errno> {
+    let mut raw = libc::winsize {
+        ws_row: ws[0],
+        ws_col: ws[1],
+        ws_xpixel: ws[2],
+        ws_ypixel: ws[3],
+    };
+    // SAFETY: the descriptor is owned by `file` and `raw` is initialized for
+    // the duration of the ioctl; Linux consumes one `winsize` value.
+    let rc = unsafe { libc::ioctl(file.as_raw_fd(), libc::TIOCSWINSZ, &mut raw) };
+    if rc != 0 {
+        return Err(last_errno());
+    }
+    Ok(())
+}
+
 /// Sets or clears the host `O_NONBLOCK` status flag of an open descriptor.
 pub fn set_nonblocking(fd: &impl AsRawFd, on: bool) -> Result<(), Errno> {
     let raw = fd.as_raw_fd();

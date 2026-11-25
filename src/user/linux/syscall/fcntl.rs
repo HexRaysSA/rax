@@ -312,7 +312,22 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
                     let b: Vec<u8> = ws.iter().flat_map(|v| v.to_le_bytes()).collect();
                     c.write_mem(arg, &b).map(|_| 0)
                 }
+                #[cfg(not(unix))]
                 TIOCSWINSZ => c.read_mem(arg, 8).map(|_| 0),
+                #[cfg(unix)]
+                TIOCSWINSZ => {
+                    let b = c.read_mem(arg, 8)?;
+                    let ws = [
+                        u16::from_le_bytes([b[0], b[1]]),
+                        u16::from_le_bytes([b[2], b[3]]),
+                        u16::from_le_bytes([b[4], b[5]]),
+                        u16::from_le_bytes([b[6], b[7]]),
+                    ];
+                    let FileObject::Host(f) = &file.object else {
+                        return Err(Errno(ENOTTY));
+                    };
+                    host::set_window_size(f, ws).map(|_| 0)
+                }
                 TIOCGPGRP => c.write_u32(arg, c.p.pid as u32).map(|_| 0),
                 TIOCGPTN => Err(Errno(ENOTTY)),
                 _ => Ok(0),
