@@ -1319,3 +1319,53 @@ and source digests. The execution artifact SHA-256 is
 
 This group covers SSE2 and VEX. MMX, EVEX, and bare-metal Intel macOS
 qualification remain open.
+
+## Packed integer narrowing with saturation
+
+Intel HVF completes legacy, VEX.128 and VEX.256 PACKSSWB, PACKSSDW,
+PACKUSWB and PACKUSDW when the second data operand is a device read.
+Admission uses the instruction's opcode map and operand form. This keeps
+map 0F38 VPACKUSDW distinct from the map 0F streaming stores with the
+same opcode byte. Legacy memory forms require 16 B alignment. VEX
+memory forms admit unaligned input.
+
+| Instruction | Signed source element | Destination range |
+| --- | --- | --- |
+| PACKSSWB | 16 bits | -128 to 127 |
+| PACKSSDW | 32 bits | -32,768 to 32,767 |
+| PACKUSWB | 16 bits | 0 to 255 |
+| PACKUSDW | 32 bits | 0 to 65,535 |
+
+The planner requests one 16 B or 32 B device read. Within each 128-bit
+lane, the low 8 B of the result come from the saved register source
+and the high 8 B come from the device reply. Completion preserves RFLAGS
+and all other vector registers. Legacy XMM writes preserve the destination's
+upper YMM half, VEX.128 writes clear it, and VEX.256 writes both halves.
+The private record appends one operation to the existing binary vector
+read discriminants. The register source, encoding and retirement length
+use the existing record fields. For an admitted operand of B bytes,
+completion takes O(B) time and uses O(1) auxiliary space.
+
+Intel SDM revision 086, Volume 2B, pages 4-190 through 4-207 specify the
+opcodes, signed input, independent 128-bit lanes and Type 4 exception
+class. Volume 2A section 2.5 describes the memory alignment rules.
+[Intel instruction reference](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Both inputs are signed, including unsigned-output forms. | Test negative inputs, both saturation bounds, and values just inside and outside each range. Compare exact opcodes against ordinary x86-64 RAM execution. |
+| The opcode map, full width and two sources survive decode and restore. | Run 26 SSE and VEX encodings, including both VEX.W values. Verify the metadata, saved source, device width, single retirement and restored result. Reject the register form as a device access. |
+| Legacy and VEX keep the existing alignment and upper-register behavior. | Test four misaligned legacy forms with zero device effects. Present every VEX form at a 3 B offset and verify upper YMM behavior per encoding. |
+
+The parent `7722e07c4` rejected all 26 covered encodings before device
+dispatch. The seven complete local Rust suites passed 28,876 tests, with
+three opt-in x86 cases ignored. All 55 probe-tool tests passed. The Intel
+macOS consumer compiled and passed strict signature verification on
+Apple Silicon.
+
+The independent Rosetta run matched the full YMM result and RFLAGS for
+52 ordinary-RAM cases. Its observation SHA-256 is
+`2a7a317820f09778c78000d8ca19348dd0d91594da3d1caba8319457db9475eb`.
+The `vector-narrow` native profile expects 104 direct and fresh-owner
+completions and four legacy alignment cases. MMX and EVEX device reads
+and bare-metal Intel macOS remain open.

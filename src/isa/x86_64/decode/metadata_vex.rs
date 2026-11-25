@@ -110,7 +110,7 @@ pub(super) fn decode_xmm_transfer(
     // Uniform shifts always encode an XMM or m128 count, including VEX.256.
     let rm_size = if uniform_shift.is_some() { 16 } else { size };
     let (group, _, mut rm) = modrm(ctx, address_bits, rm_size, bits == 64)?;
-    if matches!(opcode, 0x2b | 0xe7) && rm.kind != OperandKind::Memory {
+    if map == 1 && matches!(opcode, 0x2b | 0xe7) && rm.kind != OperandKind::Memory {
         return None;
     }
     let (bank, register_width) = if size == 32 {

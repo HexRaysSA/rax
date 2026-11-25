@@ -3,6 +3,8 @@ use super::*;
 
 #[path = "intel_mmio_packed_multiply.rs"]
 mod packed_multiply;
+#[path = "intel_mmio_packed_narrow.rs"]
+mod packed_narrow;
 #[path = "intel_mmio_packed_shuffle.rs"]
 mod packed_shuffle;
 
@@ -1271,6 +1273,41 @@ pub(super) fn run_integer_multiply(output: &Path) {
         case_index += 1;
     }
     println!("{{\"cases\":{case_index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+pub(super) fn run_packed_narrowing(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut index = 0;
+    for case in packed_narrow::CASES {
+        for (code, form, width) in case.forms() {
+            let vex = form != "legacy";
+            for (pattern, ([left, right], mut expected)) in
+                case.sources.into_iter().zip(case.results).enumerate()
+            {
+                let reply = packed_multiply::bytes(right);
+                if vex && width == 16 {
+                    expected[2..].fill(0);
+                }
+                for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                    let value =
+                        packed_binary_case(&code, vex, restore, left, &reply[..width], expected);
+                    let label = format!("{form}-{}-pattern{pattern}-{phase}", case.mnemonic);
+                    record(output, index, &label, width, value);
+                    index += 1;
+                }
+            }
+        }
+        let value = alignment_fault(&case.legacy(), false, 3);
+        record(
+            output,
+            index,
+            &format!("legacy-{}-misaligned", case.mnemonic),
+            16,
+            value,
+        );
+        index += 1;
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
 fn restore_vector_read(

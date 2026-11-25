@@ -62,14 +62,51 @@ impl Saturation {
     }
 
     fn lane(self, left: u64, right: u64, subtract: bool) -> u64 {
-        let (left, right, min, max) = match self {
-            Self::SignedByte => (left as i8 as i32, right as i8 as i32, -128, 127),
-            Self::SignedWord => (left as i16 as i32, right as i16 as i32, -32768, 32767),
-            Self::UnsignedByte => (left as i32, right as i32, 0, 255),
-            Self::UnsignedWord => (left as i32, right as i32, 0, 65535),
+        let (left, right) = match self {
+            Self::SignedByte => (left as i8 as i32, right as i8 as i32),
+            Self::SignedWord => (left as i16 as i32, right as i16 as i32),
+            Self::UnsignedByte | Self::UnsignedWord => (left as i32, right as i32),
         };
         let result = if subtract { left - right } else { left + right };
+        let (min, max) = self.bounds();
         result.clamp(min, max) as u64
+    }
+
+    fn bounds(self) -> (i32, i32) {
+        match self {
+            Self::SignedByte => (i8::MIN.into(), i8::MAX.into()),
+            Self::SignedWord => (i16::MIN.into(), i16::MAX.into()),
+            Self::UnsignedByte => (0, u8::MAX.into()),
+            Self::UnsignedWord => (0, u16::MAX.into()),
+        }
+    }
+
+    fn pack<const N: usize>(self, left: &[u8; 32], right: &[u8]) -> [u8; N] {
+        let width = self.bytes();
+        let source_width = width * 2;
+        let (min, max) = self.bounds();
+        let mut result = [0; N];
+        // Each 128-bit lane packs the signed register elements first, then the
+        // signed device elements, even when the destination elements are unsigned.
+        for ((left, right), lane) in left
+            .chunks_exact(16)
+            .zip(right.chunks_exact(16))
+            .zip(result.chunks_exact_mut(16))
+        {
+            let sources = left
+                .chunks_exact(source_width)
+                .chain(right.chunks_exact(source_width));
+            for (source, target) in sources.zip(lane.chunks_exact_mut(width)) {
+                let raw = read_element(source);
+                let signed = if source_width == 2 {
+                    i32::from(raw as i16)
+                } else {
+                    raw as i32
+                };
+                target.copy_from_slice(&signed.clamp(min, max).to_le_bytes()[..width]);
+            }
+        }
+        result
     }
 }
 
@@ -290,6 +327,7 @@ enum Operation {
     Multiply(Multiply),
     ShuffleBytes,
     ShuffleImmediate(ImmediateShuffle, u8),
+    Pack(Saturation),
 }
 
 impl Operation {
@@ -316,6 +354,10 @@ impl Operation {
             "punpckhwd" => Self::UnpackHigh(Element::Word),
             "punpckhdq" => Self::UnpackHigh(Element::Doubleword),
             "punpckhqdq" => Self::UnpackHigh(Element::Quadword),
+            "packsswb" => Self::Pack(Saturation::SignedByte),
+            "packssdw" => Self::Pack(Saturation::SignedWord),
+            "packuswb" => Self::Pack(Saturation::UnsignedByte),
+            "packusdw" => Self::Pack(Saturation::UnsignedWord),
             "pcmpeqb" => Self::Compare(Comparison::Equal, Element::Byte),
             "pcmpeqw" => Self::Compare(Comparison::Equal, Element::Word),
             "pcmpeqd" => Self::Compare(Comparison::Equal, Element::Doubleword),
@@ -396,6 +438,7 @@ impl Operation {
                 }
             }),
             Self::ShuffleImmediate(shuffle, control) => shuffle.result(left, right, control),
+            Self::Pack(saturation) => saturation.pack(left, right),
             Self::Compare(comparison, element) => {
                 let width = element.bytes();
                 let mut result = [0; N];

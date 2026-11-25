@@ -288,10 +288,7 @@ pub(super) fn decode_0f(
             CMOV[(op & 15) as usize]
         }
         0x54..=0x57
-        | 0x60..=0x62
-        | 0x64..=0x66
-        | 0x68..=0x6a
-        | 0x6c..=0x6d
+        | 0x60..=0x6d
         | 0x74..=0x76
         | 0xd1..=0xd5
         | 0xd8..=0xdf
@@ -450,7 +447,7 @@ pub(super) fn decode_0f(
             name
         }
         0x38 => match ctx.consume_u8().ok()? {
-            map_opcode @ (0x00 | 0x04 | 0x0b | 0x17 | 0x28..=0x29 | 0x37..=0x40)
+            map_opcode @ (0x00 | 0x04 | 0x0b | 0x17 | 0x28..=0x29 | 0x2b | 0x37..=0x40)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {
                 let writes = map_opcode != 0x17;

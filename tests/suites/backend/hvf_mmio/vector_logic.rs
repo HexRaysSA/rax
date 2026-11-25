@@ -7,6 +7,8 @@ use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
 mod packed_multiply;
 #[path = "../../../../tools/hvf/intel_mmio_packed_shuffle.rs"]
 mod packed_shuffle;
+#[path = "vector_narrow.rs"]
+mod vector_narrow;
 
 const FORMS: [(u8, u8, &str); 12] = [
     (0, 0x54, "andps"),

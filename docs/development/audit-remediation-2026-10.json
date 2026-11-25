@@ -200568,6 +200568,17 @@
       "scope": "Integer-only Advanced SIMD profiles admit shared FP system-register transfers, including guest observation and clearing of cumulative saturation. FPSCR exposes QC, AHP and FZ16 according to the selected capabilities. The mixed-width projection preserves backing AArch64 FPCR and FPSR fields hidden from the AArch32 profile. Physical AArch32 validation and the full profile and coordinated state audit remain open.",
       "qualification": "docs/development/a32-fp-controls.md#fpscr-on-scalar-only-and-integer-advanced-simd-profiles",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-packed-saturating-narrowing-2026-11-25",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF completes aligned legacy XMM and VEX.128 and VEX.256 PACKSSWB, PACKSSDW, PACKUSWB and PACKUSDW from one device reply. All 26 covered encodings failed on the parent. Portable tests verify the 52 source-pattern cases, including pending-read restoration. Independent Rosetta RAM execution agrees. The signed native consumer builds and the 108-case hosted profile is registered. Hosted and bare-metal Intel guest execution for this group remain unverified.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#packed-integer-narrowing-with-saturation",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

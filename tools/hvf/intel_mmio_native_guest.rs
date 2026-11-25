@@ -1457,6 +1457,12 @@ fn main() {
         xmm::run_immediate_shuffle(&output);
         return;
     }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-narrow")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        xmm::run_packed_narrowing(&output);
+        return;
+    }
     if let Some(profile) = std::env::args_os()
         .nth(1)
         .filter(|profile| profile == "--vector-unpack" || profile == "--vector-multiply")

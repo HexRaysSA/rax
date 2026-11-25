@@ -38,6 +38,7 @@ on:
           - vector-variable-shifts
           - vector-unpack
           - vector-multiply
+          - vector-narrow
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-bit-test
