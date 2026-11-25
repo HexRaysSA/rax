@@ -8,8 +8,19 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+#[cfg(any(test, all(windows, target_arch = "aarch64")))]
+mod executable;
+#[cfg(all(windows, target_arch = "aarch64"))]
+pub(crate) use executable::ExecutableReply;
 #[cfg(windows)]
 mod native;
+
+#[cfg(all(windows, target_arch = "aarch64"))]
+pub(crate) use native::query_executable;
+
+pub(crate) const EXECUTABLE_REPLY_CAPACITY: usize = 4096;
+// Each item is a u32 type and byte length followed by a payload.
+pub(crate) const EXECUTABLE_REPLY_GROUP: [u32; 14] = [2, 0, 8, 8, 0, 0, 4, 8, 0, 0, 16, 8, 0, 0];
 
 const MAX_FILE_BYTES: usize = 64 << 20;
 const MAX_TAGS: usize = 1_000_000;

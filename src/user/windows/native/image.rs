@@ -15,17 +15,28 @@ pub(crate) struct SelectedImage {
     pub(crate) template: Arc<ImageTemplate>,
 }
 
-/// Installed executables admitted by the closed child process profile.
-pub(crate) const SELECTED_CHILD_EXECUTABLES: &[&str] = &["cmd.exe", "findstr.exe", "sort.exe"];
-
-/// Whether the basename belongs to the closed child process profile.
-pub(crate) fn selected_child_executable(basename: &str) -> bool {
-    SELECTED_CHILD_EXECUTABLES
-        .iter()
-        .any(|name| basename.eq_ignore_ascii_case(name))
-}
-
 impl NativeRuntime {
+    pub(crate) fn supports_installed_apphelp(&self, arch: WinArch) -> bool {
+        cfg!(all(windows, target_arch = "aarch64"))
+            && arch == WinArch::Arm64
+            && self.object_namespace.native_machine == Some(arch.machine())
+            && (self.version.major, self.version.minor, self.version.build) == (10, 0, 29708)
+    }
+
+    /// Select executable basenames in the installed system directory. The
+    /// existing file-open path enforces containment and read-only access.
+    pub(crate) fn admits_child_executable(&self, arch: WinArch, basename: &str) -> bool {
+        if self.supports_installed_apphelp(arch) {
+            return !basename.contains(['\\', '/', ':', '\0'])
+                && basename.rsplit_once('.').is_some_and(|(stem, suffix)| {
+                    !stem.is_empty() && suffix.eq_ignore_ascii_case("exe")
+                });
+        }
+        ["cmd.exe", "findstr.exe", "sort.exe"]
+            .iter()
+            .any(|name| basename.eq_ignore_ascii_case(name))
+    }
+
     /// Find an installed backing file for a main image supplied as bytes.
     /// The exact bytes must match a file in the selected system directory.
     pub(crate) fn matching_executable(&self, guest_path: &str, image: &[u8]) -> Option<File> {
@@ -35,11 +46,12 @@ impl NativeRuntime {
 
     pub(crate) fn open_child_executable(
         &self,
+        arch: WinArch,
         guest_path: &str,
     ) -> io::Result<Option<(PathBuf, File)>> {
         if !guest_path
             .rsplit_once('\\')
-            .is_some_and(|(_, name)| selected_child_executable(name))
+            .is_some_and(|(_, name)| self.admits_child_executable(arch, name))
         {
             return Err(io::Error::from(io::ErrorKind::PermissionDenied));
         }

@@ -19,7 +19,7 @@ pub(crate) mod processor_power;
 mod secure_boot_policy;
 mod system;
 mod wow64_gui;
-pub(crate) use image::{SELECTED_CHILD_EXECUTABLES, SelectedImage, selected_child_executable};
+pub(crate) use image::SelectedImage;
 pub(crate) use system::{
     CURRENT_TIME_ZONE_INFORMATION_BYTES, SYSTEM_CURRENT_TIME_ZONE_INFORMATION,
     SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2, SupportedArchitectures, capture_current_time_zone,

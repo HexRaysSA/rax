@@ -1,6 +1,7 @@
 //! Stock executable cache replies captured through `BasepQueryAppCompat`.
 
 use super::{number, pointer};
+use crate::user::windows::appcompat::{EXECUTABLE_REPLY_CAPACITY, EXECUTABLE_REPLY_GROUP};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
@@ -11,14 +12,10 @@ use crate::user::windows::registry::RegistryView;
 const NATIVE_PACKET_BYTES: usize = 392;
 const NATIVE_IMAGE_HANDLE: usize = 0x18;
 const WOW64_IMAGE_HANDLE: usize = 0x10;
-const INITIAL_CAPACITY: u32 = 4096;
 const MAX_NAME_BYTES: usize = 512;
 
-// Each item has a u32 type and byte length, followed by its payload.
-// The three eight-byte payloads are zero in the observed stock replies.
-const STOCK_GROUP: [u32; 14] = [2, 0, 8, 8, 0, 0, 4, 8, 0, 0, 16, 8, 0, 0];
 const STOCK_TERMINATOR: [u32; 2] = [1, 0];
-const GROUP_BYTES: usize = STOCK_GROUP.len() * 4;
+const GROUP_BYTES: usize = EXECUTABLE_REPLY_GROUP.len() * 4;
 
 pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let wow = c.arch() == WinArch::X86;
@@ -84,7 +81,7 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     };
     let mask = number(&packet, 0);
     let output_capacity = number(&packet, output_size_at);
-    if mask != 0x1f || !supported_flags || output_capacity != INITIAL_CAPACITY {
+    if mask != 0x1f || !supported_flags || output_capacity as usize != EXECUTABLE_REPLY_CAPACITY {
         tracing::trace!(
             target: "rax::windows::ntstatus",
             pid = c.p.pid,
@@ -120,6 +117,22 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let path = String::from_utf16(&name)
         .map_err(|_| c.unsupported("AppHelp executable-cache name is not a Windows path"))?;
     let directory = native.guest_directory.trim_end_matches('\\');
+    #[cfg(all(windows, target_arch = "aarch64"))]
+    {
+        let handle = pointer(&packet, NATIVE_IMAGE_HANDLE, false);
+        if native.supports_installed_apphelp(arch) && c.p.objects.runtime_library(handle) {
+            let reply = query_installed(c, native, handle, &path, &name, flags)?;
+            let output = pointer(&packet, output_buffer_at, false);
+            return publish(
+                c,
+                input,
+                packet_bytes,
+                output_size_at,
+                output,
+                reply.as_bytes(),
+            );
+        }
+    }
     let captured = if wow {
         let windows = native.guest_root.trim_end_matches('\\');
         let names = [
@@ -193,15 +206,75 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let groups = if windows_11_arm { 3 } else { 1 };
     let mut record = [0; 3 * GROUP_BYTES + STOCK_TERMINATOR.len() * 4];
     let record = &mut record[..groups * GROUP_BYTES + STOCK_TERMINATOR.len() * 4];
-    let words = STOCK_GROUP
+    let words = EXECUTABLE_REPLY_GROUP
         .into_iter()
         .cycle()
-        .take(groups * STOCK_GROUP.len())
+        .take(groups * EXECUTABLE_REPLY_GROUP.len())
         .chain(STOCK_TERMINATOR);
     for (slot, value) in record.chunks_exact_mut(4).zip(words) {
         slot.copy_from_slice(&value.to_le_bytes());
     }
     let destination = pointer(&packet, output_buffer_at, wow);
+    publish(c, input, packet_bytes, output_size_at, destination, record)
+}
+
+#[cfg(all(windows, target_arch = "aarch64"))]
+fn query_installed(
+    c: &Ctx<'_>,
+    native: &crate::user::windows::native::NativeRuntime,
+    handle: u64,
+    path: &str,
+    name: &[u16],
+    flags: u32,
+) -> Result<crate::user::windows::appcompat::ExecutableReply, crate::user::windows::hle::ApiErr> {
+    use crate::user::windows::appcompat::query_executable;
+    use crate::user::windows::fs::FileNameOrigin;
+
+    let invalid_file =
+        || c.unsupported("AppHelp handle does not name the selected installed executable");
+    let Some(Object::File(file)) = c.p.objects.get(handle) else {
+        return Err(invalid_file());
+    };
+    let host = file
+        .host
+        .as_ref()
+        .filter(|_| !file.directory && !file.null)
+        .ok_or_else(invalid_file)?;
+    let (directory, basename) = path.rsplit_once('\\').ok_or_else(invalid_file)?;
+    if !directory.eq_ignore_ascii_case(native.guest_directory.trim_end_matches('\\'))
+        || !native.admits_child_executable(c.arch(), basename)
+        || !c
+            .p
+            .registry
+            .creator_compat_layer_absent(name, RegistryView::Native64)
+    {
+        return Err(invalid_file());
+    }
+
+    let scope = FileNameOrigin::capture(&native.directory, Vec::new()).map_err(|error| {
+        c.unsupported(format!("AppHelp installed executable naming root: {error}"))
+    })?;
+    let retained = scope.name(host, &file.host_path).map_err(|error| {
+        c.unsupported(format!("AppHelp installed executable identity: {error}"))
+    })?;
+    let requested: Vec<_> = std::iter::once(u16::from(b'\\'))
+        .chain(basename.encode_utf16())
+        .collect();
+    if !super::super::file_attributes::path::equal(c, &retained, &requested) {
+        return Err(invalid_file());
+    }
+    query_executable(host, path, flags)
+        .map_err(|error| c.unsupported(format!("AppHelp installed executable policy: {error}")))
+}
+
+fn publish(
+    c: &mut Ctx<'_>,
+    input: u64,
+    packet_bytes: usize,
+    output_size_at: usize,
+    destination: u64,
+    record: &[u8],
+) -> ApiResult {
     let size = input + output_size_at as u64;
     if destination < input + packet_bytes as u64
         && input < destination.saturating_add(record.len() as u64)

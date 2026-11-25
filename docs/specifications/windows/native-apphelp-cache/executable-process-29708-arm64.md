@@ -28,8 +28,8 @@ A separate [native ARM64 probe](executable-process-29708-arm64.c) opened the
 installed System32 CMD image and passed its handle at offset `0x18`. Flags
 `0x14` and `0x34` returned the same 64 bytes as `0x10` and `0x30`. A null
 handle returns `STATUS_INVALID_HANDLE` (`0xc0000008`) and preserves the size
-and output buffer. RAX qualifies the additional flags for installed CMD with
-a handle to that image and applies the same creator-registry check.
+and output buffer. The captured CMD and Findstr profiles support these flags
+with a matching file handle and the same creator-registry check.
 
 Build and run this probe on Windows ARM64 with the native ARM64 MSVC tools.
 
@@ -46,13 +46,46 @@ executable-process-29708-arm64.exe
 | 16 | 8 | Zero |
 | 1 | 0 | Empty |
 
-The emulator supplies this reply for these five paths under its selected
-native system directory when the native ARM64 build and request fields match
-and its immutable creator registry snapshot establishes absence of an
-executable-specific Layers value. It checks both guest output destinations
-before publishing the reply. Other executable policies, request shapes,
-builds and architectures require independent capture. The guest request
-queries the selected model and writes guest memory.
+The emulator supplies the stock reply for the five captured paths when the
+build, request fields and creator-registry snapshot match. For a retained
+read-only executable from the selected System32 directory on native ARM64
+build 29708, it queries the installed compatibility database for flags
+`0x10`, `0x14`, `0x30` and `0x34`. It checks the retained file's resolved name
+against the requested path, checks the creator's executable-specific Layers
+value, and builds the native request from host-owned buffers and the file's
+host handle. Both guest output destinations are checked before publishing
+the reply.
+
+A native probe on build 29708.1003 opened 690 executables in System32 and two
+subdirectory levels. The 2,760 requests returned 2,734 stock 64-byte replies
+and 26 replies of 520 bytes. Six executables returned different 520-byte
+records consistently across two processes, two flag orders and repeated
+requests. The final record (type 1, 456 payload bytes) matches the field
+layout of Microsoft's [SDBQUERYRESULT](https://learn.microsoft.com/en-us/windows/win32/devnotes/sdbqueryresult).
+The captured built-in database ID is `11111111-1111-1111-1111-111111111111`.
+The emulator checks the record types and lengths, contiguous bounded
+executable references and their flags, and the database map and GUIDs. This
+profile supports the built-in database without explicit layers or an AppHelp
+message. A different record shape leaves the guest output and capacity
+untouched.
+
+The [native test records](installed-executable-policy-29708-arm64.json) list
+the little-endian u32 words of the reply to flag `0x14`. They give two
+independent stock examples and six built-in database examples. The repeat
+probe's raw ledger SHA-256 was
+`8858b11470f58d0c70eccfba2c38cf9ff484e313362b31f2484ad0e0d928088c`.
+
+Run the native guest-memory comparison on the captured Windows ARM64 profile.
+
+```bat
+cargo test --locked --no-default-features --lib apphelp_executable_process_matches_installed_policy -- --ignored
+```
+
+Closed child selection can open executable basenames directly under the
+selected System32 directory on this profile. Executable launches still
+follow the guest PE loader and the existing guest process and file checks.
+Subdirectory executables and additional AppHelp profiles require their own
+runtime coverage.
 
 The installed ARM64 NTDLL SHA-256 was
 `ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44`.

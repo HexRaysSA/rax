@@ -333,3 +333,112 @@ fn apphelp_executable_process_replays_wow64_cmd_lookup_and_invalid_handle() {
         }
     }
 }
+
+#[cfg(all(windows, target_arch = "aarch64"))]
+#[test]
+#[ignore = "requires the captured installed Windows ARM64 29708 profile"]
+fn apphelp_executable_process_matches_installed_policy() {
+    use crate::user::windows::fs::{FileIdentity, FileLifetime};
+    use crate::user::windows::native::NativeRuntime;
+    use crate::user::windows::objects::{FileObj, Object};
+    use std::collections::BTreeMap;
+    use std::sync::Arc;
+
+    let captured: BTreeMap<String, Vec<u32>> = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-apphelp-cache/installed-executable-policy-29708-arm64.json"
+    )))
+    .unwrap();
+    let (mut process, mut thread) = fixture(WinArch::Arm64, "NtApphelpCacheControl", SERVICE);
+    let p = process.state_mut();
+    let native = NativeRuntime::select(WinArch::Arm64).unwrap();
+    assert!(native.supports_installed_apphelp(WinArch::Arm64));
+    let directory = native.guest_directory.clone();
+    p.registry = creator_compat_layer_fixture(None);
+    p.native = Some(native);
+    let input = scratch(p);
+
+    for image in ["find.exe", "msiexec.exe"] {
+        let requested = format!(r"{directory}\{image}");
+        let (path, file) = p
+            .native
+            .as_ref()
+            .unwrap()
+            .open_child_executable(WinArch::Arm64, &requested)
+            .unwrap()
+            .unwrap();
+        let identity = FileIdentity::retained(&file).unwrap();
+        let object = p
+            .objects
+            .try_create(Object::File(FileObj {
+                host: Some(file),
+                host_path: path,
+                path: format!(r"\??\{requested}"),
+                access: 0x120089,
+                share: 7,
+                lifetime: Arc::new(FileLifetime::new(identity)),
+                null: false,
+                append: false,
+                delete_on_close: false,
+                directory: false,
+                overlapped: false,
+            }))
+            .unwrap();
+        p.objects.mark_runtime_library(object);
+        let handle = p.objects.open(object, false);
+        assert!(p.objects.runtime_library(u64::from(handle)));
+
+        let expected: Vec<_> = captured[image]
+            .iter()
+            .copied()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        for flags in [0x10, 0x14, 0x30, 0x34] {
+            let row = Observation {
+                image: image.to_owned(),
+                request: 0x1f,
+                flags,
+                capacity: 4096,
+                returned: 0,
+                driver_status: 0,
+                status: 0,
+                written: 0,
+                records: Vec::new(),
+            };
+            let (name, output) = prepare(p, input, &row);
+            let path: Vec<_> = requested
+                .encode_utf16()
+                .flat_map(u16::to_le_bytes)
+                .collect();
+            p.space.wr(name, &path).unwrap();
+            p.space.w16(input + 0x30, path.len() as u16).unwrap();
+            p.space.w64(input + 0x18, u64::from(handle)).unwrap();
+            p.space.wr(output, &[0xa5; 521]).unwrap();
+            assert_eq!(
+                call(p, &mut thread, 11, input),
+                STATUS_SUCCESS,
+                "{image} {flags:#x}"
+            );
+            assert_eq!(p.space.u32(input + 0x180).unwrap() as usize, expected.len());
+            assert_eq!(p.space.bytes(output, expected.len()).unwrap(), expected);
+            assert_eq!(p.space.u8(output + expected.len() as u64).unwrap(), 0xa5);
+        }
+
+        let wrong = format!(r"{directory}\cmd.exe");
+        let wrong: Vec<_> = wrong.encode_utf16().flat_map(u16::to_le_bytes).collect();
+        let name = input + PAGE_SIZE;
+        let output = name + PAGE_SIZE;
+        p.space.wr(name, &wrong).unwrap();
+        p.space.w16(input + 0x30, wrong.len() as u16).unwrap();
+        p.space.w32(input + 0x180, 4096).unwrap();
+        p.space.wr(output, &[0xa5; 521]).unwrap();
+        thread.cpu.set_pc(0x1234_0004);
+        thread.cpu.set_gpr(0, 11);
+        thread.cpu.set_gpr(1, input);
+        let outcome = handle_stop(p, &mut thread, stop(WinArch::Arm64, SERVICE));
+        assert!(matches!(outcome, Outcome::Fail(message) if message.contains("does not name")));
+        assert_eq!(p.space.u32(input + 0x180).unwrap(), 4096);
+        assert_eq!(p.space.bytes(output, 521).unwrap(), [0xa5; 521]);
+        p.objects.close(u64::from(handle));
+    }
+}

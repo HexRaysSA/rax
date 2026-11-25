@@ -47,3 +47,46 @@ impl Catalog {
         self.with_installed_lookup(root, lookup)
     }
 }
+
+/// Query a retained installed file using a host-owned operation 11 packet.
+#[cfg(target_arch = "aarch64")]
+pub(crate) fn query_executable(
+    file: &std::fs::File,
+    path: &str,
+    flags: u32,
+) -> io::Result<super::executable::ExecutableReply> {
+    use super::{EXECUTABLE_REPLY_CAPACITY, executable::ExecutableReply};
+    use std::os::windows::io::AsRawHandle;
+
+    if !matches!(flags, 0x10 | 0x14 | 0x30 | 0x34) || path.contains('\0') {
+        return Err(invalid(
+            "installed executable AppHelp query is outside the native profile",
+        ));
+    }
+    let text: Vec<_> = path.encode_utf16().chain([0]).collect();
+    let maximum = u16::try_from(text.len() * 2)
+        .map_err(|_| invalid("installed executable AppHelp path exceeds u16"))?;
+    let length = maximum - 2;
+    let mut packet = Packet([0; 512]);
+    let mut output = [0xa5; EXECUTABLE_REPLY_CAPACITY];
+    packet.0[0..4].copy_from_slice(&0x1fu32.to_le_bytes());
+    packet.0[4..8].copy_from_slice(&flags.to_le_bytes());
+    packet.0[0x18..0x20].copy_from_slice(&(file.as_raw_handle() as usize).to_le_bytes());
+    packet.0[0x30..0x32].copy_from_slice(&length.to_le_bytes());
+    packet.0[0x32..0x34].copy_from_slice(&maximum.to_le_bytes());
+    packet.0[0x38..0x40].copy_from_slice(&(text.as_ptr() as usize).to_le_bytes());
+    packet.0[0x178..0x180].copy_from_slice(&(output.as_mut_ptr() as usize).to_le_bytes());
+    packet.0[0x180..0x184].copy_from_slice(&(EXECUTABLE_REPLY_CAPACITY as u32).to_le_bytes());
+
+    // SAFETY: the packet is aligned and describes only live host-owned
+    // buffers and a borrowed read-only installed file. The caller checks the
+    // host build, machine, matching file identity and known operation shape.
+    let status = unsafe { NtApphelpCacheControl(11, packet.0.as_mut_ptr().cast()) };
+    if status != 0 {
+        return Err(invalid(&format!(
+            "installed executable AppHelp query failed ({status:#010x})"
+        )));
+    }
+    let written = u32::from_le_bytes(packet.0[0x180..0x184].try_into().unwrap());
+    ExecutableReply::capture(&output, written as usize)
+}

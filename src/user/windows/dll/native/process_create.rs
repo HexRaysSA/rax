@@ -191,7 +191,7 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             c.p.native
                 .as_ref()
                 .expect("installed runtime checked above")
-                .open_child_executable(&inputs.image)
+                .open_child_executable(c.arch(), &inputs.image)
                 .map_err(|error| Failure::Status(file_status(&error)))?
                 .ok_or(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND))?
         }

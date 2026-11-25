@@ -1778,12 +1778,15 @@ copyback follow the [guest operation contract](../../../docs/specifications/wind
 Custom catalogs and native AppCompat operations beyond operation 6 remain
 outside this name snapshot.
 
-Operation 11 accepts the measured file-handle form for installed
-`System32\cmd.exe` and `System32\findstr.exe` on ARM64 Windows build 29708.
-Native requests with mask `0x1f`, flags `0x14` or `0x34`, and 4096 bytes
-of output capacity returned the same 64-byte record for both images.
-A null handle returned `STATUS_INVALID_HANDLE` and preserved the output
-buffer and its capacity.
+Operation 11 resolves the installed executable's actual AppHelp policy on
+native ARM64 Windows build 29708. The live retained file and requested basename
+must identify the same read-only System32 executable. The host query uses
+mask `0x1f`, flags `0x10`, `0x14`, `0x30` or `0x34` and 4096 bytes of output
+capacity. The [measured replies](../../../docs/specifications/windows/native-apphelp-cache/executable-process-29708-arm64.md)
+include a 64-byte stock response and a 520-byte response tied to the built-in
+compatibility database. Other supported architectures retain their captured
+profiles. A null handle in the measured live-file form returns
+`STATUS_INVALID_HANDLE` while preserving the guest buffer and capacity.
 
 ## Selected installed CSR data section
 
