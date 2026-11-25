@@ -1778,6 +1778,13 @@ copyback follow the [guest operation contract](../../../docs/specifications/wind
 Custom catalogs and native AppCompat operations beyond operation 6 remain
 outside this name snapshot.
 
+Operation 11 accepts the measured file-handle form for installed
+`System32\cmd.exe` and `System32\findstr.exe` on ARM64 Windows build 29708.
+Native requests with mask `0x1f`, flags `0x14` or `0x34`, and 4096 bytes
+of output capacity returned the same 64-byte record for both images.
+A null handle returned `STATUS_INVALID_HANDLE` and preserved the output
+buffer and its capacity.
+
 ## Selected installed CSR data section
 
 `NtOpenSection` and `NtMapViewOfSection` retain captured data-section grants,

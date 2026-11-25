@@ -67,11 +67,10 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let input = c.ptr(1)?;
     c.mem().rd(input, &mut packet[..packet_bytes])?;
     let flags = number(&packet, 4);
-    let arm_29708_cmd_flags =
+    let arm_29708_file_flags =
         arch == WinArch::Arm64 && native.version.build == 29708 && matches!(flags, 0x14 | 0x34);
-    // Closed CMD reaches the same installed lookup with bit 2 set on these
-    // profiles. Both spellings of the stock WoW64 CMD reply match the replies
-    // for 0x10 and 0x30 byte for byte on the captured ARM64 build.
+    // Closed process creation can set bit 2. The stock WoW64 CMD replies
+    // match the replies for 0x10 and 0x30 on the captured ARM64 build.
     let wow_29708 = wow && native.version.build == 29708;
     let request_flags = if arch == WinArch::X64 || windows_11_arm || wow_29708 {
         flags & !0x04
@@ -81,7 +80,7 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let supported_flags = if arch == WinArch::X64 {
         request_flags == 0x30
     } else {
-        matches!(request_flags, 0x10 | 0x30) || arm_29708_cmd_flags
+        matches!(request_flags, 0x10 | 0x30) || arm_29708_file_flags
     };
     let mask = number(&packet, 0);
     let output_capacity = number(&packet, output_size_at);
@@ -153,7 +152,9 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
                     .all(|view| c.p.registry.creator_compat_layer_absent(&units, view))
             })
     } else {
-        let images: &[_] = if arch == WinArch::X64 || windows_11_arm || arm_29708_cmd_flags {
+        let images: &[_] = if arm_29708_file_flags {
+            &["cmd.exe", "findstr.exe"]
+        } else if arch == WinArch::X64 || windows_11_arm {
             &["cmd.exe"]
         } else {
             &[
@@ -174,7 +175,7 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     if !captured {
         return Err(c.unsupported("AppHelp executable-cache result is not captured for this image"));
     }
-    if arm_29708_cmd_flags {
+    if arm_29708_file_flags {
         let handle = pointer(&packet, NATIVE_IMAGE_HANDLE, false);
         let file = match c.p.objects.get(handle) {
             Some(Object::File(file)) => file,
