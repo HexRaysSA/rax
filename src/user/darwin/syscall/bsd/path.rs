@@ -833,7 +833,7 @@ fn host_fsgetpath(_: [u8; 8], _: u64, _: usize, _: u32) -> Result<Vec<u8>, Errno
     Err(Errno::ENOTSUP)
 }
 
-const WORKSPACE_BLOCK_SIZE: u32 = 4096;
+const CLOSED_FS_BLOCK_SIZE: u32 = 4096;
 
 pub(super) fn workspace_pathconf(name: i32) -> SysResult {
     // Darwin selector values from <sys/unistd.h>.
@@ -847,7 +847,7 @@ pub(super) fn workspace_pathconf(name: i32) -> SysResult {
         PC_NAME_MAX => crate::user::supplied_fs::NAME_MAX as u64,
         PC_PATH_MAX => crate::user::darwin::syscall::util::MAXPATHLEN as u64,
         PC_REC_INCR_XFER_SIZE | PC_REC_MIN_XFER_SIZE | PC_REC_XFER_ALIGN => {
-            u64::from(WORKSPACE_BLOCK_SIZE)
+            u64::from(CLOSED_FS_BLOCK_SIZE)
         }
         PC_REC_MAX_XFER_SIZE => 65536,
         _ => return Err(Errno::EINVAL),
@@ -855,28 +855,36 @@ pub(super) fn workspace_pathconf(name: i32) -> SysResult {
     Ok(Rv::one(value))
 }
 
-pub(super) fn write_workspace_statfs(ctx: &mut Ctx<'_>, buf: u64) -> SysResult {
+/// Report the guest volume backing an already-resolved file or directory.
+pub(super) fn write_closed_statfs(ctx: &Ctx<'_>, buf: u64, workspace: bool) -> SysResult {
     use crate::user::darwin::abi::types::Statfs;
 
-    let files = ctx.proc.vfs.files().ok_or(Errno::ENOTSUP)?;
-    let capacity = files.workspace_capacity()?;
+    const MNT_RDONLY: u32 = 0x0001;
     const MNT_LOCAL: u32 = 0x1000;
-    let free_blocks = capacity.bytes_available / u64::from(WORKSPACE_BLOCK_SIZE);
-    let stat = Statfs {
-        bsize: WORKSPACE_BLOCK_SIZE,
-        iosize: WORKSPACE_BLOCK_SIZE as i32,
-        blocks: capacity.bytes_total / u64::from(WORKSPACE_BLOCK_SIZE),
-        bfree: free_blocks,
-        bavail: free_blocks,
-        files: capacity.nodes_total,
-        ffree: capacity.nodes_available,
-        fsid: [0x524158, 0],
-        flags: MNT_LOCAL,
+    let mut stat = Statfs {
+        bsize: CLOSED_FS_BLOCK_SIZE,
+        iosize: CLOSED_FS_BLOCK_SIZE as i32,
         fstypename: b"raxfs".to_vec(),
-        mntonname: b"/tmp".to_vec(),
         mntfromname: b"raxfs".to_vec(),
         ..Default::default()
     };
+    if workspace {
+        let files = ctx.proc.vfs.files().ok_or(Errno::ENOTSUP)?;
+        let capacity = files.workspace_capacity()?;
+        let block_size = u64::from(stat.bsize);
+        stat.blocks = capacity.bytes_total / block_size;
+        stat.bfree = capacity.bytes_available / block_size;
+        stat.bavail = stat.bfree;
+        stat.files = capacity.nodes_total;
+        stat.ffree = capacity.nodes_available;
+        stat.fsid = [0x524158, 0];
+        stat.flags = MNT_LOCAL;
+        stat.mntonname = b"/tmp".to_vec();
+    } else {
+        stat.fsid = [0x524158, 1];
+        stat.flags = MNT_LOCAL | MNT_RDONLY;
+        stat.mntonname = b"/".to_vec();
+    }
     ctx.write(buf, &stat.bytes())?;
     Ok(Rv::one(0))
 }

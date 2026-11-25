@@ -97,10 +97,7 @@ pub(in crate::user::darwin::syscall::bsd) fn lookup(
 
 pub(super) fn statfs64(ctx: &mut Ctx<'_>, path: u64, buf: u64) -> SysResult {
     let (_, entry) = lookup(ctx, AT_FDCWD, path, LinkPolicy::Follow)?;
-    if entry.workspace_mode().is_none() {
-        return Err(Errno::ENOTSUP);
-    }
-    super::write_workspace_statfs(ctx, buf)
+    super::write_closed_statfs(ctx, buf, entry.workspace_mode().is_some())
 }
 
 pub(super) fn pathconf(ctx: &Ctx<'_>, path: u64, name: i32) -> SysResult {

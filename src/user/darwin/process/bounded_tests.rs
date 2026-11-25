@@ -1100,6 +1100,63 @@ fn closed_bulk_directory_attributes_page_and_preserve_failed_cursor() {
 }
 
 #[test]
+fn closed_supplied_statfs_reports_read_only_volume_by_path_and_descriptor() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr, types::STATFS64_SIZE},
+        arch::Rv,
+        io::{O_CLOEXEC, O_DIRECTORY, O_NONBLOCK, O_RDONLY},
+        syscall::{Ctx, bsd},
+    };
+    use crate::user::supplied_fs::WorkspaceFlavor;
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut process = process(abi);
+        let files = process
+            .proc
+            .vfs
+            .files()
+            .unwrap()
+            .with_file("/library/file".into(), Arc::from(&b"x"[..]))
+            .unwrap();
+        let workspace = files.with_temp_workspace(WorkspaceFlavor::Darwin);
+        let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+        let path = thread.cpu.sp() - 4096;
+        let out = path + 64;
+        let mut ctx = Ctx {
+            proc: &mut process.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::FSTATFS64),
+            pc: ENTRY,
+        };
+        let stat =
+            |ctx: &mut Ctx<'_>, call, input| bsd::call(ctx, call, &[input, out, 0, 0, 0, 0, 0, 0]);
+        let flags = u64::from(O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC);
+        let mut ids = Vec::new();
+        for (files, name, mount, expected_flags) in [
+            (files, &b"/library\0"[..], &b"/\0"[..], 0x1001),
+            (workspace, &b"/tmp\0"[..], &b"/tmp\0"[..], 0x1000),
+        ] {
+            ctx.proc.vfs = Vfs::supplied(files);
+            ctx.write(path, name).unwrap();
+            let fd = bsd::call(&mut ctx, nr::OPEN, &[path, flags, 0, 0, 0, 0, 0, 0])
+                .unwrap()
+                .0;
+            assert_eq!(stat(&mut ctx, nr::FSTATFS64, fd), Ok(Rv::one(0)));
+            let descriptor_stat = ctx.read(out, STATFS64_SIZE).unwrap();
+            assert_eq!(ctx.read_u32(out + 64).unwrap(), expected_flags);
+            assert_eq!(ctx.read(out + 88, mount.len()).unwrap(), mount);
+            ids.push(descriptor_stat[48..56].to_vec());
+            assert_eq!(stat(&mut ctx, nr::STATFS64, path), Ok(Rv::one(0)));
+            assert_eq!(ctx.read(out, STATFS64_SIZE).unwrap(), descriptor_stat);
+        }
+        assert_ne!(ids[0], ids[1], "{abi:?}");
+        assert_eq!(stat(&mut ctx, nr::FSTATFS64, u64::MAX), Err(Errno::EBADF));
+        ctx.write(path, b"/missing\0").unwrap();
+        assert_eq!(stat(&mut ctx, nr::STATFS64, path), Err(Errno::ENOENT));
+    }
+}
+
+#[test]
 fn closed_workspace_directory_stat_reports_apfs_size_and_blocks() {
     use crate::user::darwin::{
         abi::{tables::nr, types::STAT64_SIZE},

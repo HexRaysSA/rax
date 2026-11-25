@@ -1594,13 +1594,12 @@ pub fn fstatfs64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
         let FileKind::Embedded(data) = &file.kind else {
             return Err(Errno::EPERM);
         };
-        if !data
-            .entry()
-            .is_some_and(|entry| entry.workspace_mode().is_some())
-        {
+        let entry = data.entry();
+        if entry.is_none() && data.device_access().is_none() {
             return Err(Errno::EPERM);
         }
-        return super::path::write_workspace_statfs(ctx, buf);
+        let workspace = entry.is_some_and(|entry| entry.workspace_mode().is_some());
+        return super::path::write_closed_statfs(ctx, buf, workspace);
     }
     let (_, h) = host_fd(ctx, fd)?;
     #[cfg(target_os = "macos")]
