@@ -65,7 +65,8 @@ Sending `SIGUSR1` requests a checkpoint on supported Unix paths. Signal handling
 --snapshot-interval 10000000
 ```
 
-requests a checkpoint every N software-retired instructions. `0` disables interval snapshots.
+requests a checkpoint N software retirements after the last automatic capture.
+An exact-count capture restarts the interval. `0` disables interval snapshots.
 
 ### Exact instruction counts
 
@@ -73,9 +74,13 @@ requests a checkpoint every N software-retired instructions. `0` disables interv
 --snapshot-at 1000000,5000000,10000000
 ```
 
-requests snapshots at the listed software instruction counts.
+requests snapshots at the listed positive software retirement counts. The
+coordinator completes any device exit from the triggering instruction before
+capture. A trigger can shorten a CPU's turn in a multi-CPU guest. Live
+execution and restore both use the recorded next-CPU cursor.
 
-These triggers are tied to the software execution count. They are not a portable hardware-retirement counter for KVM/HVF.
+The count includes retirements across all software vCPUs. KVM and HVF use
+host-time slices for native scheduling.
 
 ## Output controls
 

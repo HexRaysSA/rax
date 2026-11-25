@@ -249,7 +249,9 @@ RUST_LOG=rax::debug::gdb=trace ./target/release/rax ... --gdb 1234
 
 ### `--snapshot-interval <N>`
 
-Request a checkpoint every `N` retired software instructions. `0` disables interval checkpoints.
+Request a checkpoint `N` software retirements after the last automatic
+capture. An exact-count capture restarts the interval. `0` disables interval
+checkpoints.
 
 ```sh
 --snapshot-interval 10000000
@@ -265,7 +267,9 @@ Request checkpoints at exact instruction counts:
 --snapshot-at 1000000,5000000,10000000
 ```
 
-The values are a comma-separated list.
+The values are a comma-separated list of positive software retirement counts
+across all guest CPUs. A trigger can end the current CPU's scheduling turn
+early. The checkpoint records the next CPU in that schedule.
 
 ### `--snapshot-dir <DIR>`
 

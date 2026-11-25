@@ -200633,6 +200633,17 @@
       "scope": "The software RV64 virt firmware profile supports uncached Sv39 with per-hart SATP, shared atomic PTE updates, parcel-accurate faults, and versioned CPU/platform checkpoint state. Four byte-identical guest cases passed in QEMU 11.1.2 and the revised RAX. They cover two and four harts sharing and updating page tables, split fetch and precise retry, and effective privilege. The same faulting guest resumed in a fresh RAX process from a file at 84 retirements, after removal of the source ELF. Restore rejects mismatched CPU and platform capabilities. Arbitrary exact retirement checkpoints and RV64 SMP Linux boot remain open.",
       "qualification": "docs/development/riscv-clint/README.md#sv39-in-the-rv64-virt-firmware-profile",
       "full_goal_complete": false
+    },
+    {
+      "id": "exact-retirement-checkpoints-2026-11-25",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Automatic software capture can end a scheduling turn at the requested count and records the next CPU. The Sv39 split-fetch handler captured at 79 instead of the baseline 106 and resumed without the guest ELF. Actual x86 VMM tests cover periodic and explicit counts, completed I/O, failed nonterminal write retry, and the restored SMP interleaving.",
+      "qualification": "docs/development/riscv-clint/README.md#exact-retirement-checkpoints",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

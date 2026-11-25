@@ -163,6 +163,14 @@ impl Vmm {
     pub(super) fn execute_turn(&mut self) -> Result<Option<ExecutionTurn>> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
+        let mut snapshot_at = self.next_snapshot_insn();
+        if snapshot_at.is_some_and(|next| next <= self.coordinator.retired)
+            && self.vcpus.iter().all(|cpu| cpu.supports_stepping())
+        {
+            // Retry an already-due software capture before advancing its
+            // cursor. Native snapshots still follow exit completion.
+            return Ok(None);
+        }
         let _timing = self.timing_context.enter();
         self.route_interprocessor_requests()?;
         self.poll_vm_clocks()?;
@@ -233,6 +241,7 @@ impl Vmm {
             self.coordinator.retired = retired;
             if wrapped {
                 self.last_snapshot_insn = 0;
+                snapshot_at = self.next_snapshot_insn();
             }
             let staged_port_io = match &result.stop {
                 RetirementStop::Exit(VcpuExit::IoOut { port, data }) => {
@@ -251,6 +260,13 @@ impl Vmm {
                 }
             }
             match result.stop {
+                RetirementStop::BudgetExhausted
+                    if snapshot_at.is_some_and(|next| retired >= next) =>
+                {
+                    // Save at a scheduling boundary. The recorded cursor is
+                    // the next hart for both the live VM and the restored VM.
+                    return Ok(None);
+                }
                 RetirementStop::BudgetExhausted => (),
                 RetirementStop::Exit(exit) => {
                     return Ok(Some(ExecutionTurn {

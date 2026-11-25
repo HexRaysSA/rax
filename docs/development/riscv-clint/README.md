@@ -435,10 +435,10 @@ tests, respectively. Library Clippy passed with warnings denied. The
 unfiltered library suite passed 13,418 tests with two ignored. The C API
 library passed 266 tests with 21 ignored.
 
-The checkpoint witness uses an explicit execution yield. A separate
-probe requested a checkpoint at 79 retirements and observed it at 106,
-the next execution boundary. Exact arbitrary retirement-count capture,
-Sv48 and VS/VU translation remain open.
+The checkpoint witness at 84 retirements uses an explicit execution yield.
+The [exact-count checkpoint](#exact-retirement-checkpoints) below captures
+inside the same handler without a forced yield. Sv48 and VS/VU translation
+remain open.
 
 The two-hart Debian Linux 6.12.117 boot with OpenSBI v1.8.1 reached
 paged supervisor execution and reported `smp: Brought up 1 node, 2 CPUs`
@@ -449,3 +449,22 @@ firmware and initramfs passed the affinity test on all CPUs in the two- and four
 reference runs. Images, commands, logs and the RAX checkpoint with
 active Sv39 are under
 `/Users/int/dev/rax-audit-work/four-findings-riscv-linux-2026-11-25/`.
+
+## Exact retirement checkpoints
+
+The software coordinator can end a turn at an automatic checkpoint count.
+When the triggering instruction exits for I/O, the coordinator services the
+exit before capture. An automatic file records the completed retirement count
+and the cursor for the next CPU. A failed write during a nonterminal turn
+leaves the trigger due and can be retried at that boundary before another CPU
+enters.
+
+| Claim | Probe | Observed result |
+|---|---|---|
+| A trigger can capture inside a turn. | Request retirement 79 in the Sv39 split-fetch handler without a UART yield. Remove the ELF before restoring in a new process. | The baseline captured at 106. The revised CLI saved `instret=79`, `sepc=0x40000ffe`, and `stval=0x40001000`. Both revised processes emitted one pass marker and exited with status 0. |
+| Explicit and periodic triggers share a schedule. | Interleave unsorted explicit counts with a periodic trigger and a final x86 ACPI power-off. Read the files and inspect the program counters and retirement counts. | The files record retirements 2, 5, 7 and 10. |
+| A failed write preserves the next-CPU cursor. | Fail a two-CPU guest's capture at 2, remove the obstruction and retry. Restore from the file and compare the peer's RAM writes and final retirement count. | The retry captured at 2. The peer wrote first in both runs, and the live and restored VMs finished with identical memory and retirement counts. |
+| MMIO completion remains the capture boundary for a non-stepping CPU. | Set an already-due capture count and issue an MMIO read-modify-write from either CPU. Also fail the completion callback. | The initial guard failed all three cases. With the software-only guard, successful completions saved the issuing CPU's registers and a failed completion produced no checkpoint. |
+
+Commands, the input ELF, hashes and logs are under
+`/Users/int/dev/rax-audit-work/four-findings-exact-checkpoint-2026-11-25/`.

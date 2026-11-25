@@ -1074,6 +1074,23 @@ impl Vmm {
         }
     }
 
+    /// Earliest unconsumed automatic checkpoint in the current count epoch.
+    fn next_snapshot_insn(&self) -> Option<u64> {
+        let config = self.snapshot_config.as_ref()?;
+        let explicit = config
+            .at_instructions
+            .iter()
+            .copied()
+            .filter(|&at| at > self.last_snapshot_insn)
+            .min();
+        let periodic = if config.interval == 0 {
+            None
+        } else {
+            self.last_snapshot_insn.checked_add(config.interval)
+        };
+        explicit.into_iter().chain(periodic).min()
+    }
+
     /// Check if we should take a snapshot and do so if needed
     fn maybe_snapshot(&mut self, insn_count: u64) -> Result<()> {
         let Some(config) = &self.snapshot_config else {
@@ -1085,15 +1102,9 @@ impl Vmm {
                 insn_count, config.interval, config.at_instructions
             );
         }
-        let interval_due = config.interval > 0
-            && insn_count
-                .checked_sub(self.last_snapshot_insn)
-                .is_some_and(|delta| delta >= config.interval);
-        if !interval_due
-            && !config
-                .at_instructions
-                .iter()
-                .any(|&at| at > self.last_snapshot_insn && at <= insn_count)
+        if self
+            .next_snapshot_insn()
+            .is_none_or(|next| next > insn_count)
         {
             return Ok(());
         }

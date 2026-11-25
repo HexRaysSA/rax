@@ -1337,6 +1337,102 @@ fn automatic_checkpoint_after_input_contains_the_completed_value_and_resumes_it(
 }
 
 #[test]
+fn automatic_checkpoints_publish_exact_and_periodic_counts_inside_a_turn() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut fixture = Fixture::with_memory(1, 128 << 20);
+    let directory = fixture.kernel.with_extension("exact-count");
+    std::fs::create_dir(&directory).unwrap();
+    let schedule = SnapshotConfig {
+        interval: 3,
+        at_instructions: vec![7, 2, 5, 2],
+        output_dir: directory.to_string_lossy().into_owned(),
+        prefix: "exact".into(),
+    };
+    fixture.vm.snapshot_config = Some(schedule.clone());
+    let mut guest = vec![0x90; 7];
+    guest.extend_from_slice(&[0x66, 0xba, 0x04, 0x06, 0x66, 0xb8, 0x00, 0x20, 0x66, 0xef]);
+    fixture.write(BSP, &guest);
+    fixture.vm.run().unwrap();
+
+    let expected = [(2, 2), (5, 5), (7, 7), (10, guest.len() as u64)];
+    assert_eq!(
+        std::fs::read_dir(&directory).unwrap().count(),
+        expected.len()
+    );
+    for (retired, offset) in expected {
+        let saved = SnapshotBundle::load(schedule.filename(retired)).unwrap();
+        let CpuState::X86_64(state) = &saved.base().cpu_state else {
+            unreachable!()
+        };
+        assert_eq!(state.regs.rip, BSP + offset);
+        assert_eq!(saved.base().instruction_count, retired);
+        assert_eq!(saved.execution().unwrap().retired(), retired);
+    }
+    assert!(fixture.vm.pc_powered_off());
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn exact_checkpoint_records_the_next_hart_and_resumes_its_interleaving() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut fixture = Fixture::with_retired_cpus(2);
+    let directory = fixture.kernel.with_extension("exact-smp");
+    std::fs::create_dir(&directory).unwrap();
+    let schedule = SnapshotConfig {
+        at_instructions: vec![2],
+        output_dir: directory.to_string_lossy().into_owned(),
+        prefix: "exact-smp".into(),
+        ..SnapshotConfig::default()
+    };
+    fixture.vm.snapshot_config = Some(schedule.clone());
+    let mut bsp = vec![0x90, 0x90, 0xa1]; // NOP; NOP; MOV EAX,[FLAGS]
+    bsp.extend_from_slice(&(FLAGS as u32).to_le_bytes());
+    bsp.push(0xa3); // MOV [FLAGS+4],EAX
+    bsp.extend_from_slice(&(FLAGS as u32 + 4).to_le_bytes());
+    bsp.extend_from_slice(&[0x66, 0xba, 0x04, 0x06, 0x66, 0xb8, 0x00, 0x20, 0x66, 0xef]);
+    fixture.write(BSP, &bsp);
+    let mut ap = Vec::new();
+    store32(&mut ap, FLAGS as u32, 0xc0de);
+    ap.push(0xf4);
+    fixture.write(AP, &ap);
+    let CpuState::X86_64(mut secondary) = fixture.vm.vcpus[0].get_state().unwrap() else {
+        unreachable!()
+    };
+    secondary.regs.rip = AP;
+    fixture.vm.vcpus[1]
+        .set_state(&CpuState::X86_64(secondary))
+        .unwrap();
+    fixture.vm.coordinator.online[1] = true;
+
+    let blocked = schedule.filename(2);
+    std::fs::create_dir(&blocked).unwrap();
+    assert!(fixture.vm.run().is_err());
+    assert_eq!(fixture.vm.coordinator.retired, 2);
+    assert_eq!(fixture.vm.vcpus[0].current_pc(), BSP + 2);
+    assert_eq!(fixture.vm.vcpus[1].current_pc(), AP);
+    assert_eq!(fixture.vm.last_snapshot_insn, 0);
+    assert_eq!(fixture.flag(0), 0);
+    std::fs::remove_dir(&blocked).unwrap();
+
+    fixture.vm.run().unwrap();
+    assert_eq!(fixture.flag(1), 0xc0de);
+    let saved = SnapshotBundle::load(schedule.filename(2)).unwrap();
+    assert_eq!(saved.execution().unwrap().cursor(), 1);
+    let config = VmConfig::from_checkpoint_bundle(&saved, CliConfig::default()).unwrap();
+    let mut resumed = Vmm::new_resume_bundle(config, &saved).unwrap();
+    resumed.run().unwrap();
+    assert!(resumed.pc_powered_off());
+    assert_eq!(resumed.coordinator.retired, fixture.vm.coordinator.retired);
+    assert_eq!(
+        resumed.guest_mem.try_read_all().unwrap(),
+        fixture.vm.guest_mem.try_read_all().unwrap()
+    );
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn automatic_checkpoint_schedule_rewinds_and_resumes_from_real_files() {
     use crate::vm::snapshot::SnapshotBundle;
 
