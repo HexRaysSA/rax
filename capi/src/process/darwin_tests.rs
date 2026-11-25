@@ -120,6 +120,49 @@ fn closed_workqueue_kevent_registers_user_events_and_rejects_host_knote() {
 }
 
 #[test]
+fn closed_workloop_kevent_registers_guest_events_and_rejects_host_knote() {
+    for arm in [false, true] {
+        let mut p = process(arm);
+        let (_, mut thread) = p.0.proc.threads.pop_first().unwrap();
+        let change_address = thread.cpu.sp() - 1024;
+        let mut ctx = Ctx {
+            proc: &mut p.0.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::KEVENT_ID),
+            pc: ENTRY,
+        };
+        let workloop = 1;
+        let mut args = [workloop, change_address, 1, 0, 0, 0, 0, 0];
+        assert_eq!(
+            bsd::call(&mut ctx, nr::KEVENT_ID, &args),
+            Err(Errno::EINVAL)
+        );
+        let mut change = Kev {
+            ident: 1,
+            filter: evfilt::USER,
+            flags: ev::ADD | ev::CLEAR,
+            qos: priority::make_from_thread_qos(priority::thread_qos::LEGACY, 0, 0) as i32,
+            ..Default::default()
+        };
+        ctx.write(change_address, &change.encode(Layout::Qos))
+            .unwrap();
+        args[7] = u64::from(kflag::WORKLOOP);
+        assert_eq!(bsd::call(&mut ctx, nr::KEVENT_ID, &args), Ok(Rv::one(0)));
+        let queue = ctx.proc.kq.workloops[&workloop];
+
+        change.filter = evfilt::PROC;
+        change.ident = i32::MAX as u64;
+        ctx.write(change_address, &change.encode(Layout::Qos))
+            .unwrap();
+        assert_eq!(bsd::call(&mut ctx, nr::KEVENT_ID, &args), Err(Errno::EPERM));
+        let queue = &ctx.proc.kq.kqueues[&queue];
+        assert!(queue.host.is_none());
+        assert_eq!(queue.knotes.len(), 1);
+        assert_eq!(queue.knotes.values().next().unwrap().filter, evfilt::USER);
+    }
+}
+
+#[test]
 fn completed_pipe_context_writes_preserve_edits_and_identical_snapshots() {
     for arm in [false, true] {
         for mode in 0..4 {
