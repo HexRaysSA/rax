@@ -563,6 +563,18 @@ pub(super) fn register(operand: &Operand, width: u32, read: bool, write: bool) -
     (index < 16).then_some(index)
 }
 
+pub(super) fn shuffle_control(control: &Operand) -> Result<u8, String> {
+    if control.kind != OperandKind::Immediate
+        || control.width_bits != 8
+        || !control.read
+        || control.write
+        || control.conditional
+    {
+        return Err("invalid vector shuffle control".into());
+    }
+    u8::try_from(control.value).map_err(|_| "invalid vector shuffle control".into())
+}
+
 pub(super) fn prepare<M: PhysicalMemory>(
     context: &Context,
     memory: &mut M,
@@ -576,16 +588,10 @@ pub(super) fn prepare<M: PhysicalMemory>(
         let (control, operands) = operands
             .split_last()
             .ok_or("missing vector shuffle control")?;
-        if control.kind != OperandKind::Immediate
-            || control.width_bits != 8
-            || !control.read
-            || control.write
-            || control.conditional
-        {
-            return Err("invalid vector shuffle control".into());
-        }
-        let control = u8::try_from(control.value).map_err(|_| "invalid vector shuffle control")?;
-        (Operation::ShuffleImmediate(shuffle, control), operands)
+        (
+            Operation::ShuffleImmediate(shuffle, shuffle_control(control)?),
+            operands,
+        )
     } else if let Some(operation) = Operation::mnemonic(mnemonic) {
         (operation, operands)
     } else {

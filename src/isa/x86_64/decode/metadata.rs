@@ -722,6 +722,15 @@ fn packed_immediate_shuffle_mnemonics(
     })
 }
 
+fn packed_unary_shuffle_mnemonics(prefix: u8) -> Option<(&'static str, &'static str)> {
+    Some(match prefix {
+        1 => ("pshufd", "vpshufd"),
+        2 => ("pshufhw", "vpshufhw"),
+        3 => ("pshuflw", "vpshuflw"),
+        _ => return None,
+    })
+}
+
 fn packed_binary_mnemonics(
     map: u8,
     prefix: u8,

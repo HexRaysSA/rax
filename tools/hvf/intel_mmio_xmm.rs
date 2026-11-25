@@ -1123,7 +1123,10 @@ pub(super) fn run_immediate_shuffle(output: &Path) {
     let left = qwords(packed_shuffle::source());
     let reply = packed_shuffle::immediate_reply();
     let mut index = 0;
-    for case in packed_shuffle::immediate_cases() {
+    for case in packed_shuffle::immediate_cases()
+        .into_iter()
+        .chain(packed_shuffle::unary_cases())
+    {
         let vex = case.encoding != "legacy";
         let label = format!(
             "vector-immediate-shuffle-{}-{}",

@@ -188,6 +188,172 @@ fn packed_immediate_shuffle_preserves_legacy_alignment_and_rejects_non_device_fo
 }
 
 #[test]
+fn unary_packed_shuffle_plans_read_only_device_operands() {
+    for case in packed_shuffle::unary_cases() {
+        let vex = case.encoding != "legacy";
+        let label = (case.mnemonic, case.encoding);
+        let (context, mut memory, mut exit) = fixture(&case.code);
+        if vex {
+            exit.linear += 3;
+            exit.physical += 3;
+        }
+        let meta = instruction_metadata::decode(64, context.rip, &case.code)
+            .unwrap_or_else(|error| panic!("{label:?}: {error:?}"));
+        assert_eq!(
+            meta.mnemonic,
+            format!("{}{}", if vex { "v" } else { "" }, case.mnemonic)
+        );
+        assert!(meta.operands_complete);
+        let [target, device, control] = meta.operands.as_slice() else {
+            panic!("{label:?}: {:?}", meta.operands);
+        };
+        let width = (case.width * 8) as u32;
+        assert_eq!(target.kind, OperandKind::Register);
+        assert_eq!(target.reg, if width == 256 { "ymm15" } else { "xmm15" });
+        assert_eq!(
+            (target.width_bits, target.read, target.write),
+            (width, false, true)
+        );
+        assert_eq!(device.kind, OperandKind::Memory);
+        assert_eq!(
+            (device.width_bits, device.read, device.write),
+            (width, true, false)
+        );
+        assert_eq!(control.kind, OperandKind::Immediate);
+        assert_eq!((control.width_bits, control.value), (8, 0x1b));
+        assert!(
+            instruction_metadata::decode(64, context.rip, &case.code[..case.code.len() - 1])
+                .is_err()
+        );
+        let plan = prepare(&context, &mut memory, exit).unwrap();
+        assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+        assert_eq!(plan.length, case.code.len() as u64);
+        assert!(
+            memory
+                .reads
+                .iter()
+                .all(|&(address, _)| address != exit.physical)
+        );
+    }
+}
+
+#[test]
+fn unary_packed_shuffle_retains_every_immediate_through_pending_io() {
+    let reply = packed_shuffle::immediate_reply();
+    for mut case in packed_shuffle::unary_cases() {
+        let vex = case.encoding != "legacy";
+        let (element_bits, first_bit) = match case.mnemonic {
+            "pshufd" => (32, 0),
+            "pshufhw" => (16, 64),
+            "pshuflw" => (16, 0),
+            _ => unreachable!(),
+        };
+        let element_mask = (1u128 << element_bits) - 1;
+        let selection_mask = (u128::MAX >> (128 - 4 * element_bits)) << first_bit;
+        for immediate in 0..=255 {
+            *case.code.last_mut().unwrap() = immediate;
+            let (context, mut memory, mut exit) = fixture(&case.code);
+            if vex {
+                exit.linear += 3;
+                exit.physical += 3;
+            }
+            let plan = prepare(&context, &mut memory, exit).unwrap();
+            let Action::UnaryShuffle(input) = plan.action else {
+                panic!("{:?}", plan.action);
+            };
+            let mut pending = mmio::InputState::default();
+            pending.begin_unary_shuffle(input).unwrap();
+            let saved = rax::codec::serialize(&pending).unwrap();
+            let mut restored: mmio::InputState = rax::codec::deserialize_strict(&saved).unwrap();
+            restored.validate_checkpoint().unwrap();
+            assert_eq!(restored.descriptor(), Some((case.width as u8, None)));
+
+            let mut expected = [0; 32];
+            for offset in (0..case.width).step_by(16) {
+                let lane = u128::from_le_bytes(reply[offset..offset + 16].try_into().unwrap());
+                let mut result = lane & !selection_mask;
+                for destination in 0..4 {
+                    let source = u32::from((immediate >> (2 * destination)) & 3);
+                    let element = (lane >> (first_bit + element_bits * source)) & element_mask;
+                    result |= element << (first_bit + element_bits * destination);
+                }
+                expected[offset..offset + 16].copy_from_slice(&result.to_le_bytes());
+            }
+            if immediate == 0x1b {
+                assert_eq!(expected, case.expected);
+                let mut short = restored.clone();
+                let mut host = Host::default();
+                short.complete(&mut host, &reply[..case.width - 1]);
+                assert!(short.failure().is_some());
+                assert!(short.pending());
+                assert!(host.0.is_empty());
+            }
+            let expected = if case.width == 32 {
+                Write::Ymm(15, expected)
+            } else {
+                Write::Xmm(15, expected[..16].try_into().unwrap(), vex)
+            };
+            let mut host = Host::default();
+            restored.complete(&mut host, &reply[..case.width]);
+            restored.complete(&mut host, &reply[..case.width]);
+            assert_eq!(
+                host.0,
+                [expected, Write::Retire(plan.length)],
+                "{} {} immediate {immediate:#04x}",
+                case.mnemonic,
+                case.encoding
+            );
+        }
+    }
+}
+
+#[test]
+fn unary_packed_shuffle_rejects_non_device_and_reserved_forms() {
+    for case in packed_shuffle::unary_cases() {
+        let (mut context, mut memory, mut exit) = fixture(&case.code);
+        if case.encoding == "legacy" {
+            context.registers[7] += 1;
+            exit.linear += 1;
+            exit.physical += 1;
+            let error = prepare(&context, &mut memory, exit).unwrap_err();
+            assert!(error.contains("misaligned"), "{}: {error}", case.mnemonic);
+            context.registers[7] -= 1;
+            exit.linear -= 1;
+            exit.physical -= 1;
+        } else {
+            exit.linear += 3;
+            exit.physical += 3;
+        }
+        exit.qualification = 0x182;
+        assert!(prepare(&context, &mut memory, exit).is_err());
+        assert!(
+            memory
+                .reads
+                .iter()
+                .all(|&(address, _)| address != exit.physical)
+        );
+    }
+    for code in [
+        &[0x0f, 0x70, 0x3f, 0x1b][..],               // MMX.
+        &[0x66, 0x44, 0x0f, 0x70, 0xff, 0x1b],       // Register source.
+        &[0xc5, 0x79, 0x70, 0xff, 0x1b],             // VEX register source.
+        &[0xc5, 0x78, 0x70, 0x7f, 3, 0x1b],          // Wrong mandatory selector.
+        &[0xc5, 0x71, 0x70, 0x7f, 3, 0x1b],          // Reserved vvvv.
+        &[0x62, 0x71, 0x7d, 0x08, 0x70, 0x3f, 0x1b], // EVEX.
+        &[0xf0, 0x66, 0x44, 0x0f, 0x70, 0x3f, 0x1b], // LOCK.
+    ] {
+        let (context, mut memory, exit) = fixture(code);
+        assert!(prepare(&context, &mut memory, exit).is_err(), "{code:02x?}");
+        assert!(
+            memory
+                .reads
+                .iter()
+                .all(|&(address, _)| address != exit.physical)
+        );
+    }
+}
+
+#[test]
 fn packed_align_right_uses_unsigned_immediates_in_both_lanes() {
     use packed_shuffle::{immediate_cases, immediate_reply, source};
 

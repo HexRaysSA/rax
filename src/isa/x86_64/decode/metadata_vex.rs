@@ -33,6 +33,11 @@ pub(super) fn decode_xmm_transfer(
     let uniform_shift = packed_uniform_shift_mnemonics(map, flags & 3, opcode);
     let immediate_shuffle =
         packed_immediate_shuffle_mnemonics(map, flags & 3, opcode).map(|(_, vex)| vex);
+    let unary_shuffle = if (map, opcode) == (1, 0x70) {
+        packed_unary_shuffle_mnemonics(flags & 3).map(|(_, vex)| vex)
+    } else {
+        None
+    };
     // Intel SDM Vol. 2C, VPSLLVD/Q, VPSRAVD, VPSRLVD/Q.
     let variable_shift = match (map, flags & 3, flags & 0x80 != 0, opcode) {
         (2, 1, false, 0x45) => Some("vpsrlvd"),
@@ -55,7 +60,7 @@ pub(super) fn decode_xmm_transfer(
     };
     let wide = bits == 64 && flags & 0x80 != 0;
     let (load, mut size, vector_rm) = match (flags & 3, opcode) {
-        _ if binary.is_some() || bit_test.is_some() => (true, 16, true),
+        _ if binary.is_some() || bit_test.is_some() || unary_shuffle.is_some() => (true, 16, true),
         _ if map != 1 => {
             *unsupported = true;
             return None;
@@ -143,12 +148,13 @@ pub(super) fn decode_xmm_transfer(
     } else {
         vec![read_write(rm, false, true), vector]
     };
-    if immediate_shuffle.is_some() {
+    if immediate_shuffle.is_some() || unary_shuffle.is_some() {
         out.operands.push(immediate(ctx, 1, false)?);
     }
     out.mnemonic = match (opcode, size, flags & 3) {
         _ if let Some(name) = bit_test => name,
         _ if let Some(name) = binary => name,
+        _ if let Some(name) = unary_shuffle => name,
         (0x10 | 0x11, 4, 2) => "vmovss",
         (0x10 | 0x11, 8, 3) => "vmovsd",
         (0x10 | 0x11, 16 | 32, 0) => "vmovups",

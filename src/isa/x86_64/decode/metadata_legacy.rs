@@ -418,6 +418,22 @@ pub(super) fn decode_0f(
             ));
             "bswap"
         }
+        0x70 if !ctx.has_rex2() => {
+            let prefix = match (ctx.operand_size_override, ctx.rep_prefix) {
+                (true, None) => 1,
+                (false, Some(0xf3)) => 2,
+                (false, Some(0xf2)) => 3,
+                _ => {
+                    *unsupported = true;
+                    return None;
+                }
+            };
+            let (name, _) = packed_unary_shuffle_mnemonics(prefix)?;
+            out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
+            out.operands[0].read = false;
+            out.operands.push(immediate(ctx, 1, false)?);
+            name
+        }
         0xc6 | 0x3a if ctx.rep_prefix.is_none() && !ctx.has_rex2() => {
             let (map, opcode) = if op == 0x3a {
                 (3, ctx.consume_u8().ok()?)

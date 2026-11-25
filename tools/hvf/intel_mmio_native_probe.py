@@ -23,7 +23,7 @@ PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "vmm-startup": 9
                  "vector-min-max": 364, "vector-uniform-shifts": 792, "vector-variable-shifts": 140,
                  "vector-bit-test": 73, "vector-unpack": 88, "vector-multiply": 229, "compat-mmio": 20,
                  "compat16-mmio": 16, "string-mmio": 60, "vector-shuffle": 11,
-                 "vector-immediate-shuffle": 21}
+                 "vector-immediate-shuffle": 54}
 
 
 def sha(path):

@@ -93,3 +93,57 @@ pub(super) fn immediate_cases() -> Vec<ImmediateCase> {
     }
     cases
 }
+
+pub(super) fn unary_cases() -> Vec<ImmediateCase> {
+    let mut cases = Vec::new();
+    for (mnemonic, prefix, pp, order) in [
+        (
+            "pshufd",
+            0x66,
+            1,
+            [12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3],
+        ),
+        (
+            "pshufhw",
+            0xf3,
+            2,
+            [0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 12, 13, 10, 11, 8, 9],
+        ),
+        (
+            "pshuflw",
+            0xf2,
+            3,
+            [6, 7, 4, 5, 2, 3, 0, 1, 8, 9, 10, 11, 12, 13, 14, 15],
+        ),
+    ] {
+        for (encoding, code, width) in [
+            ("legacy", vec![prefix, 0x44, 0x0f, 0x70, 0x3f, 0x1b], 16),
+            ("vex128", vec![0xc5, 0x78 | pp, 0x70, 0x7f, 3, 0x1b], 16),
+            ("vex256", vec![0xc5, 0x7c | pp, 0x70, 0x7f, 3, 0x1b], 32),
+            (
+                "vex128-w1",
+                vec![0xc4, 0x61, 0xf8 | pp, 0x70, 0x7f, 3, 0x1b],
+                16,
+            ),
+            (
+                "vex256-w1",
+                vec![0xc4, 0x61, 0xfc | pp, 0x70, 0x7f, 3, 0x1b],
+                32,
+            ),
+        ] {
+            let mut expected = [0; 32];
+            let reply = immediate_reply();
+            for i in 0..width {
+                expected[i] = reply[(i & !15) + order[i & 15]];
+            }
+            cases.push(ImmediateCase {
+                mnemonic,
+                encoding,
+                code,
+                width,
+                expected,
+            });
+        }
+    }
+    cases
+}

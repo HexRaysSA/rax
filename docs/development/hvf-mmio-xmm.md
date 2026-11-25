@@ -1261,3 +1261,52 @@ observations. All three legacy misalignment cases took #GP. The execution
 artifact SHA-256 is
 `3a81b4fd3300d22a7819c82256baa3898fbed40a21f06bdb6517d2756d67b514`.
 [Hosted immediate-shuffle execution](https://github.com/HexRaysSA/rax/actions/runs/45534894120/job/138938975892)
+
+## Unary packed shuffles with an immediate control
+
+Intel HVF supports the legacy XMM and VEX.128/.256 memory forms of
+`PSHUFD`, `PSHUFHW` and `PSHUFLW`. The pending read stores the
+destination, instruction length, encoding and immediate. The result depends
+on the device reply alone. The reply is 16 or 32 bytes and each 128-bit lane
+uses the same four two-bit selectors.
+
+| Instruction | Selected elements | Elements copied directly from the reply |
+| --- | --- | --- |
+| `PSHUFD` | Four doublewords per lane | None |
+| `PSHUFHW` | Four words in the high quadword of each lane | The low quadword |
+| `PSHUFLW` | Four words in the low quadword of each lane | The high quadword |
+
+Legacy completion preserves the upper half of the YMM destination. VEX.128
+clears it and VEX.256 writes the entire YMM register. Completion advances
+RIP once and preserves RFLAGS. The planner and completion use constant
+auxiliary space and process at most 32 bytes excluding address translation.
+The new pending-read record has an appended discriminator in the existing
+format. Existing discriminators keep their previous values.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The memory reply supplies both the selected and copied words. | Seed the destination with different bytes and compare both halves for all 256 controls and fifteen opcode forms. |
+| The VEX encoding reserves `vvvv` and ignores W. | Reject a noncanonical `vvvv`, exercise VEX.128 and VEX.256 with W=1, and compare equivalent W=0 and W=1 outputs. |
+| The legacy form requires aligned memory and the VEX forms permit unaligned memory. | Shift the device address by three bytes and compare the legacy exception against VEX completion. |
+| A pending read contains enough state to resume. | Deserialize before supplying the reply, check that a short reply produces no register or RIP writes, and check that a second full reply produces no extra effects. |
+
+Intel SDM revision 086, Volume 2B, pages 4-424 through 4-433, defines the
+opcodes and per-lane results. Volume 2A, table 2-21 on page 2-29, defines the
+legacy alignment exception and VEX rules.
+[Intel instruction reference](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+At parent `3f5af0970`, metadata rejected legacy `PSHUFD` as unsupported.
+All 3,840 exact instruction cases matched the YMM and RFLAGS reference on
+x86-64 RAM under Rosetta. These runs provide the register-result oracle for
+the MMIO cases. The observation stream SHA-256 is
+`3dcd919a3acef9421c1a1e5251b28c70a760606894141bce4851331b1cd3e5fc`.
+
+All 181 tests across four MMIO and related targets passed, including the
+3,840 serialized pending-read continuations. The x86-64, ISA-oracle and CI
+policy suites passed 28,679 tests with three x86-64 cases ignored. All 55
+Python HVF tool tests passed. The Intel macOS consumer cross-built and
+passed strict signature verification.
+
+The expanded `vector-immediate-shuffle` profile adds 15 direct reads, 15
+fresh-owner reads and three legacy alignment checks. This group covers
+SSE2 and VEX. MMX, EVEX, and bare-metal Intel macOS qualification remain open.
