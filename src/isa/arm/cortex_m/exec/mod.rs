@@ -13,6 +13,7 @@
 mod alu;
 mod control;
 mod dp;
+pub(super) mod fp;
 mod ldst;
 mod mul;
 mod thumb16;
@@ -209,7 +210,7 @@ impl CortexMCpu {
                 } else if op2 & 0b1100000 == 0b0100000 {
                     self.dp_shifted_register(insn)
                 } else {
-                    Err(Fault::NoCoprocessor(insn))
+                    self.coprocessor(insn)
                 }
             }
             0b10 if op == 1 => self.branches_misc(insn),
@@ -231,7 +232,7 @@ impl CortexMCpu {
                 } else if op2 & 0b1111000 == 0b0111000 {
                     self.long_multiply_divide(insn)
                 } else if op2 & 0b1000000 != 0 {
-                    Err(Fault::NoCoprocessor(insn))
+                    self.coprocessor(insn)
                 } else {
                     Err(Fault::Undefined(insn))
                 }
@@ -403,7 +404,10 @@ impl CortexMCpu {
         Ok(u16::from_le_bytes(b))
     }
 
-    fn load(&self, address: u32, size: u32) -> Result<u32, Fault> {
+    fn load(&mut self, address: u32, size: u32) -> Result<u32, Fault> {
+        if self.is_ppb(address) {
+            return Ok(self.ppb_load(address, size));
+        }
         let mut b = [0u8; 4];
         self.memory
             .read(u64::from(address), &mut b[..size as usize])
@@ -415,6 +419,10 @@ impl CortexMCpu {
     }
 
     fn store(&mut self, address: u32, size: u32, value: u32) -> Result<(), Fault> {
+        if self.is_ppb(address) {
+            self.ppb_store(address, size, value);
+            return Ok(());
+        }
         self.memory
             .write(u64::from(address), &value.to_le_bytes()[..size as usize])
             .map_err(|_| Fault::Bus {
@@ -432,7 +440,7 @@ impl CortexMCpu {
     }
 
     /// `MemA[address, size]`.
-    pub(super) fn mem_a(&self, address: u32, size: u32) -> Result<u32, Fault> {
+    pub(super) fn mem_a(&mut self, address: u32, size: u32) -> Result<u32, Fault> {
         Self::check_aligned(address, size)?;
         self.load(address, size)
     }
@@ -444,7 +452,7 @@ impl CortexMCpu {
     }
 
     /// `MemU[address, size]`: unaligned unless CCR.UNALIGN_TRP.
-    pub(super) fn mem_u(&self, address: u32, size: u32) -> Result<u32, Fault> {
+    pub(super) fn mem_u(&mut self, address: u32, size: u32) -> Result<u32, Fault> {
         if self.scb().unaligned_trap() {
             Self::check_aligned(address, size)?;
         }

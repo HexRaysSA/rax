@@ -31,6 +31,21 @@ fn test_cpu_reset() {
 }
 
 #[test]
+fn reset_boots_from_the_initial_vtor() {
+    let mut memory = FlatMemory::new(0, 0x10000);
+    memory.write_u32(0x800, 0x2000).unwrap();
+    memory.write_u32(0x804, 0x901).unwrap();
+    let mut cpu = CortexMCpu::new(CortexMVariant::CortexM7, Box::new(memory));
+    cpu.set_initial_vtor(0x800);
+    cpu.reset();
+    assert_eq!(
+        (cpu.sp_main, cpu.pc, cpu.scb().vtor()),
+        (0x2000, 0x900, 0x800)
+    );
+    assert!(cpu.thumb_state());
+}
+
+#[test]
 fn test_mov_imm() {
     let mut cpu = create_test_cpu();
     cpu.reset();
