@@ -584,6 +584,35 @@ impl Files {
         &self,
         selected: BTreeMap<String, std::path::PathBuf>,
     ) -> std::io::Result<Self> {
+        self.with_host_files_using(selected, Self::open_host_backing)
+    }
+
+    pub(super) fn open_host_backing(
+        host: &std::path::Path,
+    ) -> std::io::Result<Arc<HostFileSource>> {
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true);
+        // A caller-selected FIFO must be rejected rather than blocking open.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NONBLOCK);
+        }
+        let file = options.open(host)?;
+        if !file.metadata()?.is_file() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "guest backing must be a regular file",
+            ));
+        }
+        HostFileSource::new(file).map(Arc::new)
+    }
+
+    pub(super) fn with_host_files_using(
+        &self,
+        selected: BTreeMap<String, std::path::PathBuf>,
+        mut open: impl FnMut(&std::path::Path) -> std::io::Result<Arc<HostFileSource>>,
+    ) -> std::io::Result<Self> {
         let mut files: BTreeMap<_, _> = self
             .entries
             .iter()
@@ -599,22 +628,7 @@ impl Files {
             let source = if let Some(source) = sources.get(&host) {
                 source.clone()
             } else {
-                let mut options = std::fs::OpenOptions::new();
-                options.read(true);
-                // A caller-selected FIFO must be rejected rather than blocking open.
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::OpenOptionsExt;
-                    options.custom_flags(libc::O_NONBLOCK);
-                }
-                let file = options.open(&host)?;
-                if !file.metadata()?.is_file() {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        "guest backing must be a regular file",
-                    ));
-                }
-                let source = Arc::new(HostFileSource::new(file)?);
+                let source = open(&host)?;
                 sources.insert(host, source.clone());
                 source
             };

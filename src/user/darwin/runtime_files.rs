@@ -344,7 +344,13 @@ fn select(
     dyld: &std::path::Path,
     directories: &[std::path::PathBuf],
 ) -> io::Result<Files> {
+    use crate::user::mm::{HostFileSource, PageSource};
     use std::collections::BTreeMap;
+    use std::sync::{Arc, Mutex, Weak};
+
+    type Backings = BTreeMap<(u64, u64), Weak<HostFileSource>>;
+    static INSTALLED_BACKINGS: Mutex<Backings> = Mutex::new(BTreeMap::new());
+
     let mut selected = BTreeMap::new();
     if files.lookup("/usr/lib/dyld").is_err() {
         selected.insert("/usr/lib/dyld".to_string(), dyld.to_path_buf());
@@ -398,7 +404,22 @@ fn select(
             "no native Darwin shared cache files found",
         ));
     }
-    files.with_host_files(selected)
+    let mut backings = INSTALLED_BACKINGS
+        .lock()
+        .map_err(|_| io::Error::other("Darwin runtime backing table is poisoned"))?;
+    backings.retain(|_, source| source.strong_count() != 0);
+    files.with_host_files_using(selected, |host| {
+        // Open through this selection's path before sharing. A replaced file
+        // gets its own backing, and a weak entry never keeps a descriptor open.
+        let source = Files::open_host_backing(host)?;
+        let identity = source.identity();
+        let entry = backings.entry((identity.dev, identity.ino)).or_default();
+        if let Some(existing) = entry.upgrade() {
+            return Ok(existing);
+        }
+        *entry = Arc::downgrade(&source);
+        Ok(source)
+    })
 }
 
 #[cfg(test)]
@@ -437,6 +458,49 @@ mod tests {
                 .lookup("/System/Library/dyld/dyld_shared_cache_arm64e.map")
                 .is_err()
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn selected_runtime_shares_live_backings_and_observes_replacement() {
+        let fixture = TestFile::new(b"dyld", 4);
+        let name = "dyld_shared_cache_arm64e";
+        let cache = fixture.dir.join(name);
+        let replacement = fixture.dir.join("replacement");
+        std::fs::write(&cache, b"old cache").unwrap();
+        let files = Files::default();
+        let directories = std::slice::from_ref(&fixture.dir);
+        let select_backing = || {
+            let runtime = select(&files, &fixture.path, directories).unwrap();
+            let entry = runtime
+                .lookup(&format!("/System/Library/dyld/{name}"))
+                .unwrap()
+                .1;
+            let Kind::Backed(source) = entry.kind else {
+                panic!("installed cache must have retained backing");
+            };
+            source
+        };
+
+        let first = select_backing();
+        let second = select_backing();
+        assert!(Arc::ptr_eq(&first, &second));
+
+        std::fs::write(&replacement, b"new cache").unwrap();
+        std::fs::rename(&replacement, &cache).unwrap();
+        let third = select_backing();
+        assert!(!Arc::ptr_eq(&first, &third));
+        use crate::user::mm::PageSource as _;
+        for (source, expected) in [(&first, b"old cache"), (&third, b"new cache")] {
+            let mut bytes = [0; 9];
+            assert_eq!(source.read_at(0, &mut bytes).unwrap(), expected.len());
+            assert_eq!(&bytes, expected);
+        }
+
+        let retired = Arc::downgrade(&first);
+        drop(first);
+        drop(second);
+        assert!(retired.upgrade().is_none());
     }
 
     #[cfg(unix)]
