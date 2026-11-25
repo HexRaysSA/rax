@@ -4,6 +4,7 @@
 use super::harness::{Harness, each_abi};
 use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, Sysno};
+use crate::user::linux::syscall::thread::cf::*;
 
 const AT_FDCWD: u64 = -100i64 as u64;
 const AT_SYMLINK_NOFOLLOW: u64 = 0x100;
@@ -151,6 +152,82 @@ fn utimensat_looks_up_the_path_before_checking_the_times() {
         );
         assert_eq!(times(&l), ((50, 0), (60, 0)));
         assert_eq!(times(&f), ((7, 0), (200, 6)));
+    });
+}
+
+#[test]
+fn utimensat_checks_proc_directory_setattr_rules() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        h.proc.state.creds = (1000, 1000, 1000, 1000);
+        let pid = h.proc.state.pid;
+        let root = put(&h, 0x100, "/proc");
+        let self_dir = put(&h, 0x180, "/proc/self");
+        let pid_dir = put(&h, 0x200, &format!("/proc/{pid}"));
+        let thread_self = put(&h, 0x280, "/proc/thread-self");
+        let explicit = put_words(&h, 0x300, &[1, 2, 1, 2]);
+        let tid = h.ok(
+            Sysno::Clone,
+            &[
+                CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD,
+                0,
+                0,
+                0,
+                0,
+            ],
+        ) as i32;
+        let thread_dir = put(&h, 0x580, &format!("/proc/{tid}"));
+        assert_eq!(
+            h.call(Sysno::Utimensat, &[AT_FDCWD, thread_dir, explicit, 0]),
+            -i64::from(EPERM),
+            "{abi:?} numeric non-leader thread directory"
+        );
+        for (path, name) in [
+            (root, "/proc"),
+            (self_dir, "/proc/self"),
+            (pid_dir, "numeric process directory"),
+            (thread_self, "/proc/thread-self"),
+        ] {
+            assert_eq!(
+                h.err(Sysno::Utimensat, &[AT_FDCWD, path, explicit, 0]),
+                EPERM,
+                "{abi:?} {name}"
+            );
+        }
+        let one_omit = put_words(&h, 0x380, &[0, UTIME_OMIT, 1, 2]);
+        assert_eq!(
+            h.err(Sysno::Utimensat, &[AT_FDCWD, self_dir, one_omit, 0]),
+            EPERM,
+            "{abi:?} one UTIME_OMIT"
+        );
+        for (off, path, name) in [
+            (0x400, "/proc/self/fd", "fd directory"),
+            (0x480, "/proc/self/task", "task directory"),
+            (0x500, "/proc/self/status", "proc file"),
+        ] {
+            let p = put(&h, off, path);
+            assert_eq!(
+                h.call(Sysno::Utimensat, &[AT_FDCWD, p, explicit, 0]),
+                0,
+                "{abi:?} {name}"
+            );
+        }
+
+        let mut root_h = Harness::new(abi);
+        root_h.proc.state.creds = (0, 0, 0, 0);
+        let proc_root = put(&root_h, 0x100, "/proc");
+        let proc_self = put(&root_h, 0x180, "/proc/self");
+        let root_explicit = put_words(&root_h, 0x300, &[1, 2, 1, 2]);
+        assert_eq!(
+            root_h.call(Sysno::Utimensat, &[AT_FDCWD, proc_root, root_explicit, 0]),
+            0,
+            "{abi:?} root /proc"
+        );
+        assert_eq!(
+            root_h.err(Sysno::Utimensat, &[AT_FDCWD, proc_self, root_explicit, 0]),
+            EPERM,
+            "{abi:?} root /proc/self"
+        );
     });
 }
 

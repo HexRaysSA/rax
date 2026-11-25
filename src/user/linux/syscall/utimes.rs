@@ -171,6 +171,21 @@ fn do_utimes(
         Target::Host { .. } => Err(Errno(ENOSYS)),
         Target::Fd(file) => file_times(c, &file, t),
         Target::Supplied(entry, _) => supplied_times(c, &entry, t),
+        Target::Proc(ProcEntry::Dir(_), guest) => {
+            let path = guest.trim_end_matches('/');
+            let process_dir = path
+                .strip_prefix("/proc/")
+                .and_then(|pid| pid.parse::<i32>().ok())
+                .is_some_and(|pid| pid == c.p.pid || c.is_own_tid(pid));
+            if (path == "/proc" && c.p.creds.1 != 0)
+                || matches!(path, "/proc/self" | "/proc/thread-self")
+                || process_dir
+            {
+                Err(Errno(EPERM))
+            } else {
+                Ok(0)
+            }
+        }
         Target::Proc(..) => Ok(0),
     }
 }
