@@ -18,11 +18,15 @@ fn bytes(vm: &Vmm, count: u8, phase: u32) {
     }
 }
 fn turn(vm: &mut Vmm, count: u8) {
+    let _timing = vm.timing_context.enter();
     let mut halted = vec![false; usize::from(count)];
     for _ in 0..128 * usize::from(count) {
         let t = vm.execute_turn().unwrap().unwrap();
         match t.exit {
-            VcpuExit::IoOut { port, data } => vm.io_bus.write(port, &data).unwrap(),
+            VcpuExit::IoOut { port, data } => {
+                vm.io_bus.write(port, &data).unwrap();
+                vm.vcpus[t.cpu_index].complete_io_out().unwrap();
+            }
             VcpuExit::IoIn { port, size } => {
                 let mut data = vec![0; usize::from(size)];
                 vm.io_bus.read(port, &mut data).unwrap();
