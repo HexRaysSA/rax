@@ -1,14 +1,25 @@
-//! Saturating packed reads across decode, deferred I/O, and restoration.
+//! Packed integer reads across decode, deferred I/O, and restoration.
 use super::*;
 use packed_multiply::bytes;
 
 #[path = "../../../../tools/hvf/intel_mmio_packed_narrow.rs"]
 mod packed_narrow;
+#[path = "../../../../tools/hvf/intel_mmio_packed_vectors.rs"]
+mod packed_vectors;
 
 #[test]
 fn packed_narrowing_matches_x86_ram_and_completes_once() {
+    check_packed_device_reads(&packed_narrow::CASES);
+}
+
+#[test]
+fn packed_horizontal_matches_x86_ram_and_completes_once() {
+    check_packed_device_reads(&packed_vectors::HORIZONTAL_CASES);
+}
+
+fn check_packed_device_reads(cases: &[packed_vectors::Case]) {
     let mut rejected = Vec::new();
-    for case in packed_narrow::CASES {
+    for case in cases {
         for (code, form, width) in case.forms() {
             let label = (case.mnemonic, form);
             let vex = form != "legacy";
@@ -94,7 +105,37 @@ fn packed_narrowing_matches_x86_ram_and_completes_once() {
 
 #[test]
 fn packed_narrowing_requires_legacy_alignment_and_allocated_prefixes() {
-    for case in packed_narrow::CASES {
+    check_packed_legacy_admission(&packed_narrow::CASES);
+    for code in [
+        &[0xc5, 0x38, 0x63, 0x3f][..],         // VEX PACKSSWB without 66.
+        &[0xc4, 0x62, 0x38, 0x2b, 0x3f],       // VEX PACKUSDW without 66.
+        &[0x62, 0x71, 0x3d, 0x08, 0x63, 0x3f], // EVEX operand shape.
+    ] {
+        let (context, mut memory, exit) = fixture(code);
+        assert!(prepare(&context, &mut memory, exit).is_err(), "{code:02x?}");
+        assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
+    }
+}
+
+#[test]
+fn packed_horizontal_requires_legacy_alignment_and_allocated_prefixes() {
+    check_packed_legacy_admission(&packed_vectors::HORIZONTAL_CASES);
+    for case in &packed_vectors::HORIZONTAL_CASES {
+        for (mut code, form, _) in case.forms() {
+            if form != "legacy" {
+                code[2] &= !3;
+                let (context, mut memory, mut exit) = fixture(&code);
+                exit.linear += 3;
+                exit.physical += 3;
+                assert!(prepare(&context, &mut memory, exit).is_err(), "{code:02x?}");
+                assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
+            }
+        }
+    }
+}
+
+fn check_packed_legacy_admission(cases: &[packed_vectors::Case]) {
+    for case in cases {
         let code = case.legacy();
         let (mut context, mut memory, mut exit) = fixture(&code);
         context.registers[7] += 1;
@@ -112,14 +153,5 @@ fn packed_narrowing_requires_legacy_alignment_and_allocated_prefixes() {
             let (context, mut memory, exit) = fixture(invalid);
             assert!(prepare(&context, &mut memory, exit).is_err());
         }
-    }
-    for code in [
-        &[0xc5, 0x38, 0x63, 0x3f][..],         // VEX PACKSSWB without 66.
-        &[0xc4, 0x62, 0x38, 0x2b, 0x3f],       // VEX PACKUSDW without 66.
-        &[0x62, 0x71, 0x3d, 0x08, 0x63, 0x3f], // EVEX operand shape.
-    ] {
-        let (context, mut memory, exit) = fixture(code);
-        assert!(prepare(&context, &mut memory, exit).is_err(), "{code:02x?}");
-        assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
     }
 }

@@ -1,14 +1,7 @@
 //! Packed integer saturation vectors observed in x86-64 RAM execution.
 
-type Vector = [u64; 4];
-
-pub(super) struct Case {
-    map: u8,
-    opcode: u8,
-    pub mnemonic: &'static str,
-    pub sources: [[Vector; 2]; 2],
-    pub results: [Vector; 2],
-}
+use super::packed_vectors::Case;
+use super::packed_vectors::Vector;
 
 const WORDS: [[Vector; 2]; 2] = [
     [
@@ -154,37 +147,3 @@ pub(super) const CASES: [Case; 4] = [
         ],
     },
 ];
-
-impl Case {
-    pub(super) fn legacy(&self) -> Vec<u8> {
-        let mut code = vec![0x66, 0x44, 0x0f];
-        if self.map == 2 {
-            code.push(0x38);
-        }
-        code.extend([self.opcode, 0x3f]);
-        code
-    }
-
-    pub(super) fn forms(&self) -> Vec<(Vec<u8>, &'static str, usize)> {
-        let mut forms = vec![(self.legacy(), "legacy", 16)];
-        if self.map == 1 {
-            forms.extend([
-                (vec![0xc5, 0x39, self.opcode, 0x7f, 3], "vex2-128", 16),
-                (vec![0xc5, 0x3d, self.opcode, 0x7f, 3], "vex2-256", 32),
-            ]);
-        }
-        for (control, label, size) in [
-            (0x39, "vex3-w0-128", 16),
-            (0x3d, "vex3-w0-256", 32),
-            (0xb9, "vex3-w1-128", 16),
-            (0xbd, "vex3-w1-256", 32),
-        ] {
-            forms.push((
-                vec![0xc4, 0x60 | self.map, control, self.opcode, 0x7f, 3],
-                label,
-                size,
-            ));
-        }
-        forms
-    }
-}

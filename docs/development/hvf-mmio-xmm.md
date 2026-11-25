@@ -1375,3 +1375,43 @@ and executable digests were verified. The execution artifact SHA-256 is
 [Hosted saturation execution](https://github.com/HexRaysSA/rax/actions/runs/45552421539/job/138996447435)
 
 MMX and EVEX device reads and bare-metal Intel macOS remain open.
+
+## Packed horizontal integer arithmetic
+
+Intel HVF completes `PHADDW`, `PHADDD`, `PHADDSW`, `PHSUBW`, `PHSUBD`
+and `PHSUBSW` with a device memory operand. Dispatch produces
+one 16 B or 32 B read. Legacy SSSE3 memory operands require 16 B alignment.
+VEX.128 and VEX.256 accept unaligned sources and both VEX.W values.
+
+| Instructions | Element width | Adjacent-pair operation |
+| --- | --- | --- |
+| PHADDW / PHSUBW | 16 bits | Add or subtract modulo 2^16 |
+| PHADDD / PHSUBD | 32 bits | Add or subtract modulo 2^32 |
+| PHADDSW / PHSUBSW | 16 bits | Signed add or subtract clamped to [-32,768, 32,767] |
+
+Each 128-bit lane reduces adjacent elements within each operand. The saved
+register supplies the low 8 B of the result and the device reply supplies
+the high 8 B. Completion preserves RFLAGS. Legacy writes preserve the
+upper YMM half, VEX.128 writes clear it, and VEX.256 writes both lanes.
+The pending read preserves its encoding, source and retirement length
+through the private checkpoint codec. The operation appends one
+discriminant to the existing vector-read format. For a reply of B bytes,
+completion takes O(B) time and O(1) auxiliary space.
+
+Intel SDM revision 086, Volume 2B, pages 4-290 through 4-302 defines the
+encodings, reduction order, saturation and exception class. Volume 2A
+section 2.5 describes VEX alignment behavior.
+[Intel instruction reference](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Falsification probe | Result |
+| --- | --- | --- |
+| Both source halves are reduced in order, independently in each 128-bit lane. | Execute 30 encodings with two dissimilar source patterns. Include both signed overflow directions, odd/even order, distinct high lanes and both VEX.W values. | All 60 Rosetta RAM cases matched the arithmetic reference and preserved RFLAGS. |
+| The pending descriptor retains enough state for one device completion. | Serialize and reload the descriptor, consume one reply, then try the reply again. Compare the destination, width, address and retirement effect against the RAM reference. | The parent `1ad4231e3` rejected all 30 encodings. The revised portable MMIO tests admit and complete them. |
+| Alignment and prefix admission are encoding specific. | Use an unaligned VEX operand and test misaligned legacy operands, absent mandatory prefixes and register-only forms. | The portable planner admits the VEX memory reads and excludes those legacy faults and non-device forms. |
+
+The RAM observation SHA-256 is
+`c7969f36c61a08a05bee264febe125f0b3865e3d4a68a5abe5c3dcb2d3346c96`.
+The signed Intel macOS consumer compiled on Apple Silicon. The hosted
+`vector-horizontal` profile expects 120 direct and fresh-owner completions
+and six legacy alignment faults. MMX device reads and bare-metal Intel
+macOS qualification remain open.

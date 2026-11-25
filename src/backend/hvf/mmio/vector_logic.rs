@@ -307,6 +307,54 @@ impl ImmediateShuffle {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum Horizontal {
+    AddWord,
+    AddDoubleword,
+    AddSaturatingWord,
+    SubtractWord,
+    SubtractDoubleword,
+    SubtractSaturatingWord,
+}
+
+impl Horizontal {
+    fn result<const N: usize>(self, left: &[u8; 32], right: &[u8]) -> [u8; N] {
+        let (width, subtract, saturate) = match self {
+            Self::AddWord => (2, false, false),
+            Self::AddDoubleword => (4, false, false),
+            Self::AddSaturatingWord => (2, false, true),
+            Self::SubtractWord => (2, true, false),
+            Self::SubtractDoubleword => (4, true, false),
+            Self::SubtractSaturatingWord => (2, true, true),
+        };
+        let mut result = [0; N];
+        for ((left, right), lane) in left
+            .chunks_exact(16)
+            .zip(right.chunks_exact(16))
+            .zip(result.chunks_exact_mut(16))
+        {
+            // The register produces the low half of each lane and the reply
+            // the high half. Both reduce adjacent elements within that source.
+            let pairs = left
+                .chunks_exact(2 * width)
+                .chain(right.chunks_exact(2 * width));
+            for (pair, target) in pairs.zip(lane.chunks_exact_mut(width)) {
+                let (first, second) = pair.split_at(width);
+                let (first, second) = (read_element(first), read_element(second));
+                let value = if saturate {
+                    Saturation::SignedWord.lane(first, second, subtract)
+                } else if subtract {
+                    first.wrapping_sub(second)
+                } else {
+                    first.wrapping_add(second)
+                };
+                target.copy_from_slice(&value.to_le_bytes()[..width]);
+            }
+        }
+        result
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
     And,
     AndNot,
@@ -328,6 +376,7 @@ enum Operation {
     ShuffleBytes,
     ShuffleImmediate(ImmediateShuffle, u8),
     Pack(Saturation),
+    Horizontal(Horizontal),
 }
 
 impl Operation {
@@ -346,6 +395,12 @@ impl Operation {
             "orps" | "orpd" | "por" => Self::Or,
             "xorps" | "xorpd" | "pxor" => Self::Xor,
             "pshufb" => Self::ShuffleBytes,
+            "phaddw" => Self::Horizontal(Horizontal::AddWord),
+            "phaddd" => Self::Horizontal(Horizontal::AddDoubleword),
+            "phaddsw" => Self::Horizontal(Horizontal::AddSaturatingWord),
+            "phsubw" => Self::Horizontal(Horizontal::SubtractWord),
+            "phsubd" => Self::Horizontal(Horizontal::SubtractDoubleword),
+            "phsubsw" => Self::Horizontal(Horizontal::SubtractSaturatingWord),
             "punpcklbw" => Self::UnpackLow(Element::Byte),
             "punpcklwd" => Self::UnpackLow(Element::Word),
             "punpckldq" => Self::UnpackLow(Element::Doubleword),
@@ -439,6 +494,7 @@ impl Operation {
             }),
             Self::ShuffleImmediate(shuffle, control) => shuffle.result(left, right, control),
             Self::Pack(saturation) => saturation.pack(left, right),
+            Self::Horizontal(operation) => operation.result(left, right),
             Self::Compare(comparison, element) => {
                 let width = element.bytes();
                 let mut result = [0; N];

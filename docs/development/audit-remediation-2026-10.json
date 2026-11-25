@@ -200589,6 +200589,17 @@
       "scope": "New VMM captures declare their required sections in tagged-v8 metadata schema 2. The parent accepted a Cortex-M file without the captured private CPU section and overwrote the target's RAM and clock. The new load, save, live restore and fresh resume paths reject omitted declared sections. Schema 1 projection compatibility remains. The independent RISC-V oracle verified the declared sections and every physical byte, then observed UART output and guest shutdown after the original kernel was removed.",
       "qualification": "docs/development/checkpoint-format.md#required-sections-in-vmm-captures",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-packed-horizontal-integer-2026-11-25",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF completes six packed horizontal add and subtract instructions with a 16 B or 32 B MMIO reply across legacy XMM, VEX.128 and VEX.256 forms. The parent rejected all 30 covered encodings. Sixty independent Rosetta RAM cases matched complete YMM data and RFLAGS. Portable tests cover source ordering, wrapping and saturation, encoding-specific alignment and one completion after private-record reload. The signed native consumer builds and the hosted vector-horizontal profile expects 126 observations. Hosted and bare-metal execution for this group remain unverified.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#packed-horizontal-integer-arithmetic",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

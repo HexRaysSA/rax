@@ -447,7 +447,7 @@ pub(super) fn decode_0f(
             name
         }
         0x38 => match ctx.consume_u8().ok()? {
-            map_opcode @ (0x00 | 0x04 | 0x0b | 0x17 | 0x28..=0x29 | 0x2b | 0x37..=0x40)
+            map_opcode @ (0x00..=0x07 | 0x0b | 0x17 | 0x28..=0x29 | 0x2b | 0x37..=0x40)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {
                 let writes = map_opcode != 0x17;

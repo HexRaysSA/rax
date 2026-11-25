@@ -7,6 +7,8 @@ mod packed_multiply;
 mod packed_narrow;
 #[path = "intel_mmio_packed_shuffle.rs"]
 mod packed_shuffle;
+#[path = "intel_mmio_packed_vectors.rs"]
+mod packed_vectors;
 
 type MoveCase<'a> = ((&'a [u8], usize, usize, bool), bool, &'a str);
 
@@ -1275,10 +1277,15 @@ pub(super) fn run_integer_multiply(output: &Path) {
     println!("{{\"cases\":{case_index},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
-pub(super) fn run_packed_narrowing(output: &Path) {
+pub(super) fn run_packed_integer(output: &Path, horizontal: bool) {
+    let cases: &[packed_vectors::Case] = if horizontal {
+        &packed_vectors::HORIZONTAL_CASES
+    } else {
+        &packed_narrow::CASES
+    };
     assert!(!output.exists(), "observations must be new");
     let mut index = 0;
-    for case in packed_narrow::CASES {
+    for case in cases {
         for (code, form, width) in case.forms() {
             let vex = form != "legacy";
             for (pattern, ([left, right], mut expected)) in
