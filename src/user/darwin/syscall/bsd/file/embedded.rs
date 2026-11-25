@@ -1,10 +1,12 @@
 //! Bounded guest-memory transfers for descriptors without a host handle.
 
+use std::collections::VecDeque;
+
 use super::{CHUNK, Ctx, Errno, FileKind, Rv, SysResult};
 use crate::error::MemoryAccessKind;
-use crate::user::darwin::fd::EmbeddedFile;
+use crate::user::darwin::fd::{EmbeddedFile, FdTable};
 use crate::user::darwin::io::{O_ACCMODE, O_RDONLY};
-use crate::user::supplied_fs::Entry;
+use crate::user::supplied_fs::Kind;
 
 mod bulk;
 pub(in crate::user::darwin::syscall::bsd) use bulk::getattrlistbulk;
@@ -80,9 +82,6 @@ pub(super) fn getdirentries64(
     let FileKind::Embedded(data) = &file.kind else {
         return Err(Errno::EBADF);
     };
-    if data.search_only() {
-        return Err(Errno::EINVAL);
-    }
     let EmbeddedFile::Supplied { entry, cursor, .. } = data else {
         return Err(if data.entry().is_some() {
             Errno::EINVAL
@@ -93,39 +92,66 @@ pub(super) fn getdirentries64(
     if !entry.is_dir() {
         return Err(Errno::EINVAL);
     }
-    let path = file.path.as_deref().ok_or(Errno::EIO)?;
-    let path = std::str::from_utf8(path).map_err(|_| Errno::EIO)?;
-    let files = ctx.proc.vfs.files().ok_or(Errno::EIO)?;
+    let descriptor_directory = matches!(entry.kind, Kind::DarwinDescriptorDirectory);
+    if data.search_only() {
+        return Err(if descriptor_directory {
+            Errno::EBADF
+        } else {
+            Errno::EINVAL
+        });
+    }
     let extended = size >= EXTENDED_DIRECTORY_BUFFER;
     let payload = size - if extended { 4 } else { 0 };
     let capacity = payload.min(128 << 20) as usize;
     let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
     let initial = *cursor;
-    let mut output = Vec::new();
-    let mut next = usize::try_from(initial).unwrap_or(usize::MAX);
-    let mut eof = initial == END_OF_DIRECTORY;
-    if !eof {
-        let directory = files.directory_entries(path, entry)?;
-        if !directory.is_empty() && next == 0 && capacity < 64 {
-            return Err(Errno::EINVAL);
-        }
-        for (name, child) in directory.iter().skip(next) {
-            let length = dirent_length(name.len());
-            if output.len() + length > capacity {
-                break;
+    let (output, next, eof) = if descriptor_directory {
+        let (output, next) = descriptor_entries(&ctx.proc.fds, initial, capacity)?;
+        (output, next, false)
+    } else {
+        let path = file.path.as_deref().ok_or(Errno::EIO)?;
+        let path = std::str::from_utf8(path).map_err(|_| Errno::EIO)?;
+        let files = ctx.proc.vfs.files().ok_or(Errno::EIO)?;
+        let mut output = Vec::new();
+        let mut next = usize::try_from(initial).unwrap_or(usize::MAX);
+        let mut eof = initial == END_OF_DIRECTORY;
+        if !eof {
+            let directory = files.directory_entries(path, entry)?;
+            if !directory.is_empty() && next == 0 && capacity < 64 {
+                return Err(Errno::EINVAL);
             }
-            encode_dirent(&mut output, name.as_bytes(), child, length);
-            next += 1;
+            for (name, child) in directory.iter().skip(next) {
+                let length = dirent_length(name.len());
+                if output.len() + length > capacity {
+                    break;
+                }
+                let dtype = if child.is_dir() {
+                    4
+                } else if child.link_target().is_some() {
+                    10
+                } else if child.device().is_some() {
+                    2
+                } else {
+                    8
+                };
+                encode_dirent(&mut output, name.as_bytes(), child.ino, dtype, length);
+                next += 1;
+            }
+            eof = next >= directory.len();
+            if output.is_empty() && !eof {
+                return Err(Errno::EINVAL);
+            }
         }
-        eof = next >= directory.len();
-        if output.is_empty() && !eof {
-            return Err(Errno::EINVAL);
-        }
-    }
+        (
+            output,
+            if eof { END_OF_DIRECTORY } else { next as u64 },
+            eof,
+        )
+    };
     if !output.is_empty() {
         ctx.write(buffer, &output)?;
     }
-    *cursor = if eof { END_OF_DIRECTORY } else { next as u64 };
+    *cursor = next;
     ctx.write(position, &initial.to_le_bytes())?;
     if extended {
         let flags = buffer.checked_add(payload).ok_or(Errno::EFAULT)?;
@@ -134,30 +160,107 @@ pub(super) fn getdirentries64(
     Ok(Rv::one(output.len() as u64))
 }
 
+fn descriptor_entries(
+    fds: &FdTable,
+    position: u64,
+    capacity: usize,
+) -> Result<(Vec<u8>, u64), Errno> {
+    const FIRST_DESCRIPTOR_INODE: u64 = 4;
+    let (descriptors, next) = read_descriptor_slots(fds, position, capacity)?;
+    let mut output = Vec::new();
+    for fd in descriptors {
+        let name = fd.to_string();
+        encode_dirent(
+            &mut output,
+            name.as_bytes(),
+            fd as u64 + FIRST_DESCRIPTOR_INODE,
+            0,
+            dirent_length(name.len()),
+        );
+    }
+    Ok((output, next))
+}
+
+fn read_descriptor_slots(
+    fds: &FdTable,
+    position: u64,
+    capacity: usize,
+) -> Result<(VecDeque<i32>, u64), Errno> {
+    const SLOT_BYTES: usize = 16;
+    // vnode_readdir64 stages legacy records in at most 32 KiB before
+    // conversion. devfs assigns 16 bytes of directory offset per slot.
+    let records = (3 * capacity.min(87_371) / 8) / SLOT_BYTES;
+    if records == 0 {
+        return Err(Errno::EINVAL);
+    }
+    let first = position / SLOT_BYTES as u64;
+    let index = usize::try_from(first).unwrap_or(usize::MAX);
+    let descriptors: VecDeque<_> = fds
+        .iter_from(index)
+        .take(records)
+        .map(|(fd, _)| fd)
+        .collect();
+    let next = if descriptors.len() == records {
+        u64::try_from(*descriptors.back().expect("full batch")).unwrap() + 1
+    } else {
+        first.max(fds.directory_slots() as u64)
+    };
+    Ok((descriptors, next * SLOT_BYTES as u64))
+}
+
 fn dirent_length(name_bytes: usize) -> usize {
     // The native APFS records include padding through byte 24 before rounding
     // for the null-terminated name. The name itself starts at offset 21.
     (24 + name_bytes + 1).next_multiple_of(8)
 }
 
-fn encode_dirent(output: &mut Vec<u8>, name: &[u8], entry: &Entry, length: usize) {
+fn encode_dirent(output: &mut Vec<u8>, name: &[u8], inode: u64, dtype: u8, length: usize) {
     let start = output.len();
-    let dtype = if entry.is_dir() {
-        4
-    } else if entry.link_target().is_some() {
-        10
-    } else if entry.device().is_some() {
-        2
-    } else {
-        8
-    };
-    output.extend_from_slice(&entry.ino.to_le_bytes());
-    output.extend_from_slice(&0u64.to_le_bytes()); // APFS leaves d_seekoff zero.
+    output.extend_from_slice(&inode.to_le_bytes());
+    output.extend_from_slice(&0u64.to_le_bytes()); // APFS and devfs leave d_seekoff zero.
     output.extend_from_slice(&(length as u16).to_le_bytes());
     output.extend_from_slice(&(name.len() as u16).to_le_bytes());
     output.push(dtype);
     output.extend_from_slice(name);
     output.resize(start + length, 0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::user::console::CapturedConsole;
+
+    #[test]
+    fn descriptor_entries_report_live_slots_with_devfs_cursors() {
+        let mut fds = FdTable::with_captured(CapturedConsole::new(Vec::new(), 32).unwrap());
+        let file = fds.file(0).unwrap();
+        fds.install_at_bounded(27, file, false, 63);
+        assert_eq!(descriptor_entries(&fds, 0, 42), Err(Errno::EINVAL));
+
+        let (record, cursor) = descriptor_entries(&fds, 0, 43).unwrap();
+        assert_eq!(cursor, 16);
+        assert_eq!(record.len(), 32);
+        assert_eq!(u64::from_le_bytes(record[..8].try_into().unwrap()), 4);
+        assert_eq!(&record[8..16], &[0; 8]);
+        assert_eq!(&record[16..23], &[32, 0, 1, 0, 0, b'0', 0]);
+
+        let (records, cursor) = descriptor_entries(&fds, cursor, 1020).unwrap();
+        assert_eq!(records.len(), 96);
+        assert_eq!(&records[21..23], b"1\0");
+        assert_eq!(&records[53..55], b"2\0");
+        assert_eq!(&records[85..88], b"27\0");
+        assert_eq!(cursor, 63 * 16);
+
+        let mut child = crate::user::darwin::exec::fdt_fork(&fds, false);
+        assert_eq!(child.directory_slots(), 50);
+        child.install_at_bounded(50, child.file(0).unwrap(), false, 256);
+        assert_eq!(child.directory_slots(), 64);
+
+        fds.remove(27).unwrap();
+        assert_eq!(descriptor_entries(&fds, cursor, 1020), Ok((vec![], cursor)));
+        fds.prepare_inherited_slots();
+        assert_eq!(descriptor_entries(&fds, 48, 1020), Ok((vec![], 25 * 16)));
+    }
 }
 
 fn position(offset: Option<i64>, done: u64) -> Result<Option<i64>, Errno> {

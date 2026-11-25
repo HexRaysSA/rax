@@ -232,7 +232,12 @@ fn reserve(proc: &mut Proc, fd: i32) -> Result<Fd, Errno> {
 fn install(proc: &mut Proc, fd: i32, replacement: &Replacement) {
     assert!(
         proc.fds
-            .install_at(fd as usize, replacement.file.clone(), replacement.cloexec)
+            .install_at_bounded(
+                fd as usize,
+                replacement.file.clone(),
+                replacement.cloexec,
+                proc.rlimits[8].0,
+            )
             .is_none()
     );
     proc.fds.get_mut(fd).expect("installed descriptor").clofork = replacement.clofork;

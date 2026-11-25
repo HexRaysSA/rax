@@ -789,8 +789,9 @@ Darwin programs can reopen live guest descriptors through `/dev/fd/N` and
 the `/dev/stdin`, `/dev/stdout`, and `/dev/stderr` aliases. The reopened
 descriptor shares the existing open file description and retains its access
 constraints. Spawn file actions look up names against the caller's table and
-reopen the corresponding slot in the child's table. Explicit supplied paths
-retain precedence.
+reopen the corresponding slot in the child's table. Reading `/dev/fd` lists
+the guest's currently open descriptors with devfs directory offsets. Explicit
+supplied paths retain precedence.
 
 On Linux, native runtime selection includes installed Perl modules, generated
 Perl sources, and Unicode version data under `/usr/share/perl` and

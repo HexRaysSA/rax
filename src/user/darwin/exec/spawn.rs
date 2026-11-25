@@ -619,7 +619,7 @@ fn dup2(s: &mut Scratch, from: i32, to: i32, nofile: u64) -> Result<(), Errno> {
         return Err(Errno::EBADF);
     }
     if from != to {
-        s.fds.install_at(to as usize, file, false);
+        s.fds.install_at_bounded(to as usize, file, false, nofile);
     }
     Ok(())
 }

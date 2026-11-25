@@ -188,7 +188,7 @@ fn build_errno(e: &SpawnError) -> Errno {
 /// The exec copy excludes close-on-exec descriptors before spawn file actions.
 pub fn fdt_fork(fds: &FdTable, in_exec: bool) -> FdTable {
     let mut t = fds.clone();
-    t.clear_reservations();
+    t.prepare_inherited_slots();
     let dropped: Vec<i32> = t
         .iter()
         .filter(|(_, f)| {

@@ -159,10 +159,18 @@ fn descriptor_number_as(
 }
 
 fn descriptor_stat(ctx: &Ctx<'_>, fd: i32, path: &[u8]) -> Result<Stat, Errno> {
-    let file = ctx.proc.fds.file(fd)?;
     if path.ends_with(b"/") {
+        ctx.proc.fds.get(fd)?;
         return Err(Errno::ENOTDIR);
     }
+    describe_descriptor(ctx, fd)
+}
+
+pub(in crate::user::darwin::syscall::bsd) fn describe_descriptor(
+    ctx: &Ctx<'_>,
+    fd: i32,
+) -> Result<Stat, Errno> {
+    let file = ctx.proc.fds.file(fd)?;
     let FileKind::Embedded(data) = &file.kind else {
         return Err(Errno::EBADF);
     };
@@ -967,6 +975,7 @@ pub(in crate::user::darwin::syscall::bsd) fn entry_stat(entry: Entry) -> Result<
             entry,
             cursor: Mutex::new(0),
             access: O_RDONLY,
+            descriptor_bulk: None,
         }
         .stat()
     }

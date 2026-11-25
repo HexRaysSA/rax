@@ -439,6 +439,18 @@ fn installed_darwin_reopens_guest_descriptors_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_lists_live_guest_descriptors_through_closed_c_abi() {
+    compare_installed_posix_output(
+        "darwin",
+        "/bin/ls",
+        &["-a", "-1", "/dev/fd"],
+        &[],
+        b".\n..\n0\n1\n2\n3\n4\n",
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_tput_matches_native_through_closed_c_abi() {
     let path = "/usr/bin/tput";
     let environment = &[("LC_ALL", "C")];

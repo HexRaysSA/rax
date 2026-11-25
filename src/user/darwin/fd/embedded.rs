@@ -1,6 +1,7 @@
 //! Descriptor storage for embedding. Duplicates share the open description's
 //! cursor; positional reads do not change it. No operation opens a host file.
 
+use std::collections::VecDeque;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -14,7 +15,7 @@ use crate::user::darwin::io::{
     O_ACCMODE, O_APPEND, O_CREAT, O_EXCL, O_EXEC, O_RDONLY, O_TRUNC, O_WRONLY,
 };
 use crate::user::mm::{PageSource, SourceIdentity};
-use crate::user::supplied_fs::{Device, Entry, WorkspaceFlavor, WorkspaceTimestamp, Xattrs};
+use crate::user::supplied_fs::{Device, Entry, Kind, WorkspaceFlavor, WorkspaceTimestamp, Xattrs};
 
 pub(crate) const RESOURCE_FORK_SUFFIX: &str = "/..namedfork/rsrc";
 
@@ -22,6 +23,13 @@ pub(crate) const RESOURCE_FORK_SUFFIX: &str = "/..namedfork/rsrc";
 pub struct ResourceFork {
     entry: Entry,
     attributes: Arc<Xattrs>,
+}
+
+#[derive(Debug, Default)]
+pub struct DescriptorDirectoryBulk {
+    pub(crate) descriptors: VecDeque<i32>,
+    pub(crate) read_offset: u64,
+    pub(crate) eof: bool,
 }
 
 impl ResourceFork {
@@ -69,6 +77,7 @@ pub enum EmbeddedFile {
         entry: Entry,
         cursor: Mutex<u64>,
         access: u32,
+        descriptor_bulk: Option<Box<Mutex<DescriptorDirectoryBulk>>>,
     },
     Workspace {
         entry: Entry,
@@ -253,6 +262,7 @@ impl EmbeddedFile {
             entry: entry.clone(),
             cursor: Mutex::new(0),
             access: O_RDONLY,
+            descriptor_bulk: None,
         }
         .stat()?;
         stat.size = i64::try_from(length).map_err(|_| Errno::EOVERFLOW)?;
@@ -477,6 +487,7 @@ impl EmbeddedFile {
         let base = match whence {
             0 => 0,
             1 => i64::try_from(*cursor).map_err(|_| Errno::EOVERFLOW)?,
+            2 if entry.is_some_and(|e| matches!(e.kind, Kind::DarwinDescriptorDirectory)) => 0,
             2 if entry.is_none_or(|entry| !entry.is_dir()) => {
                 let size = match self {
                     Self::Resource { fork, .. } => fork.len(),
@@ -580,11 +591,14 @@ impl OpenFile {
     }
 
     pub(crate) fn supplied_with_flags(path: String, entry: Entry, flags: u32) -> Self {
+        let descriptor_bulk = matches!(entry.kind, Kind::DarwinDescriptorDirectory)
+            .then(|| Box::new(Mutex::new(DescriptorDirectoryBulk::default())));
         Self {
             kind: FileKind::Embedded(EmbeddedFile::Supplied {
                 entry,
                 cursor: Mutex::new(0),
                 access: flags & (O_EXEC | O_ACCMODE),
+                descriptor_bulk,
             }),
             path: Some(path.into_bytes()),
             flags: Mutex::new(flags),

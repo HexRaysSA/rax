@@ -16,12 +16,17 @@ use super::abi::Errno;
 mod embedded;
 pub(crate) mod pipe;
 pub use embedded::EmbeddedFile;
-pub(crate) use embedded::{RESOURCE_FORK_SUFFIX, resource_source, supplied_source};
+pub(crate) use embedded::{
+    DescriptorDirectoryBulk, RESOURCE_FORK_SUFFIX, resource_source, supplied_source,
+};
 
 /// `OPEN_MAX`-like soft limit of the table (`RLIMIT_NOFILE` soft default).
 pub const NOFILE_SOFT: u64 = 256;
 /// `RLIMIT_NOFILE` hard limit (`maxfilesperproc` on a typical Mac).
 pub const NOFILE_HARD: u64 = 10_240;
+const INLINE_SLOTS: usize = 25;
+const INHERITED_SLOT_GRANULARITY: usize = 50;
+const MIN_GROWN_SLOTS: usize = 64;
 
 /// What an open file is.
 #[derive(Debug)]
@@ -130,6 +135,8 @@ pub struct FdTable {
     slots: Vec<Option<Fd>>,
     /// Slots held by an entered open or by a close draining its fileproc.
     reserved: std::collections::BTreeSet<usize>,
+    /// The allocated slot range observed by Darwin's descriptor directory.
+    allocated_slots: usize,
 }
 
 impl FdTable {
@@ -230,7 +237,7 @@ impl FdTable {
         limit: u64,
     ) -> Result<i32, Errno> {
         let i = self.lowest_free(min, limit)?;
-        self.install_at(i, file, cloexec);
+        self.install_at_bounded(i, file, cloexec, limit);
         self.slots[i].as_mut().expect("just installed").clofork = clofork;
         Ok(i as i32)
     }
@@ -238,10 +245,21 @@ impl FdTable {
     /// Installs `file` at descriptor `i` (not close-on-fork), returning
     /// what was there.
     pub fn install_at(&mut self, i: usize, file: FileRef, cloexec: bool) -> Option<Fd> {
+        self.install_at_bounded(i, file, cloexec, u64::MAX)
+    }
+
+    pub(crate) fn install_at_bounded(
+        &mut self,
+        i: usize,
+        file: FileRef,
+        cloexec: bool,
+        limit: u64,
+    ) -> Option<Fd> {
         assert!(
             !self.reserved.contains(&i),
             "installation into a reserved descriptor"
         );
+        self.account_for_slot(i, limit);
         if self.slots.len() <= i {
             self.slots.resize(i + 1, None);
         }
@@ -267,6 +285,7 @@ impl FdTable {
     /// Reserves the next descriptor without publishing a fileproc yet.
     pub(crate) fn reserve_open(&mut self, limit: u64) -> Result<i32, Errno> {
         let fd = self.lowest_free(0, limit)?;
+        self.account_for_slot(fd, limit);
         assert!(self.reserved.insert(fd));
         Ok(fd as i32)
     }
@@ -287,9 +306,30 @@ impl FdTable {
         assert!(self.reserved.remove(&(fd as usize)));
     }
 
-    /// Fork/exec inherit open slots, never another thread's reservation.
-    pub(crate) fn clear_reservations(&mut self) {
+    /// Fork/exec copy the occupied range into a fresh allocation.
+    pub(crate) fn prepare_inherited_slots(&mut self) {
+        let reserved = self.reserved.last().map_or(0, |slot| slot + 1);
+        let occupied = self.len().max(reserved);
+        self.allocated_slots = if occupied <= INLINE_SLOTS {
+            INLINE_SLOTS
+        } else {
+            occupied.next_multiple_of(INHERITED_SLOT_GRANULARITY)
+        };
         self.reserved.clear();
+    }
+
+    pub(crate) fn directory_slots(&self) -> usize {
+        self.allocated_slots.max(INLINE_SLOTS)
+    }
+
+    fn account_for_slot(&mut self, i: usize, limit: u64) {
+        let allocated = self.directory_slots();
+        if i >= allocated {
+            // The installed kernel grows into power-of-two allocation sizes,
+            // subject to RLIMIT_NOFILE. Closing a slot retains that allocation.
+            let growth = (i + 1).next_power_of_two().max(MIN_GROWN_SLOTS);
+            self.allocated_slots = growth.min(usize::try_from(limit).unwrap_or(usize::MAX));
+        }
     }
 
     /// Closes every close-on-exec descriptor (`fdt_exec`).
@@ -306,9 +346,14 @@ impl FdTable {
 
     /// The open descriptors, in order.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = (i32, &Fd)> {
+        self.iter_from(0)
+    }
+
+    pub(crate) fn iter_from(&self, first: usize) -> impl DoubleEndedIterator<Item = (i32, &Fd)> {
         self.slots
             .iter()
             .enumerate()
+            .skip(first)
             .filter_map(|(i, s)| s.as_ref().map(|f| (i as i32, f)))
     }
 
