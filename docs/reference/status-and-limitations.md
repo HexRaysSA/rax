@@ -45,6 +45,7 @@ delivery depend on the machine and backend.
 | Software AArch64 cluster | Guest PSCI `CPU_ON` starts secondaries with per-PE timer and interrupt state. Runtime tests exercised one, two and four PEs. [Cluster validation](../development/aarch64-cluster.md#validation-and-assumptions) |
 | Generic software RV64 machine | Guests with two and four harts recorded independent retirement and contributed to a shared RAM counter. [Runtime tests](../development/execution-coordinator.md#software-vmm-secondary-execution-replay) |
 | Native x86-64 KVM | With the in-kernel IRQchip, guests with two and four vCPUs started APs and delivered fixed IPIs around HLT. [Native KVM validation](../development/kvm-native-smp/README.md) |
+| Native AArch64 HVF | On a physical Apple M4 Max, two- and four-vCPU guests started their secondaries through PSCI and reached a shared-memory rendezvous. All online vCPUs resumed from a detached checkpoint. [Native Arm validation](../development/native-arm64-checkpoints/README.md#parallel-vmm-scheduling) |
 | Native Intel HVF | On a hosted Intel macOS runner, guests with two and four vCPUs started APs and handled new IPIs after restoration into a fresh VM. [Hosted validation](../development/execution-coordinator.md#native-intel-hvf-startup-and-file-continuation) |
 
 Validation applies to the guest images, topologies, and checkpoint profiles

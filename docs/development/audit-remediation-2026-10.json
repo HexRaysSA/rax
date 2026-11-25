@@ -200493,6 +200493,48 @@
       "scope": "A32 and T32 CP15 transfers reach the shared physical GICv3 CPU interface on a mixed-width PE. The bridge preserves predicate and HSTR ordering, checks transfer direction and privilege, and joins both operands for SGI targeting. It reuses checkpoint-owned GIC state. Virtual, separate secure and higher-exception-level routing remain open.",
       "qualification": "docs/development/a64-gic-interface/README.md#aarch32-physical-cpu-interface-aliases",
       "full_goal_complete": false
+    },
+    {
+      "id": "wall-smp-coordinator-admission-2026-11-25",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Two- and four-vCPU wall-clock bundles carrying physical RAM and a VM clock require execution coordinator state. The complete file resumes into a fresh VM. After removing the coordinator, a rejected live restore preserves CPU and RAM state, and a rejected save preserves the existing file byte for byte.",
+      "qualification": "docs/development/backend-contexts.md",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-half-memory-prefix-2026-11-25",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The conditional A32 and corresponding T32 decoders select Undefined for reserved CP8 and CP9 pair and memory encodings. The allocated immediate FP16 memory and unconditional complex SIMD forms remain available. Seven complete owning binaries passed 47,762 tests. QEMU confirmed 56 reserved and ten allocated cases.",
+      "qualification": "docs/development/a32-fp-controls.md#cp8-and-cp9-pair-and-memory-allocation",
+      "full_goal_complete": false
+    },
+    {
+      "id": "vm-smp-secondary-execution-reference-2026-11-25",
+      "findings": [
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The public VM SMP reference links actual secondary execution on software x86-64 PC, AArch64 and RV64 guests, physical Intel Linux KVM and Apple Silicon HVF, and hosted Intel macOS HVF. Each link states the validated topology and guest configuration.",
+      "qualification": "docs/reference/status-and-limitations.md#vm-smp",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-immediate-shuffle-2026-11-25",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF handles the legacy XMM and VEX.128 and VEX.256 memory forms of SHUFPS, SHUFPD and PALIGNR. Hosted run 45534894120 passed nine direct reads, nine fresh-owner continuations and three legacy alignment faults. Destination fingerprints matched the Rosetta RAM oracle. Bare-metal Intel macOS and wider MMIO and interrupt coverage remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#two-source-packed-shuffles-with-immediate-control",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -1252,3 +1252,12 @@ The Apple Silicon build passed 154 MMIO, 102 ISA-oracle, 16 CI-policy,
 and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
 HVF tool tests passed. The Intel macOS guest consumer cross-built and
 passed strict signature verification.
+
+At `70cb0ff9e`, the hosted Intel macOS run passed all 21 cases. The
+execution record identifies a native Intel process on a virtualized host
+and matches the local engine source, consumer and support digests. The
+direct and restored destination fingerprints match the independent RAM
+observations. All three legacy misalignment cases took #GP. The execution
+artifact SHA-256 is
+`3a81b4fd3300d22a7819c82256baa3898fbed40a21f06bdb6517d2756d67b514`.
+[Hosted immediate-shuffle execution](https://github.com/HexRaysSA/rax/actions/runs/45534894120/job/138938975892)
