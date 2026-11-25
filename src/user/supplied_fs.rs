@@ -1979,6 +1979,30 @@ mod tests {
         assert!(files.with_file("/usr".into(), Arc::from([])).is_err());
     }
 
+    #[test]
+    fn selected_root_aliases_share_backing_but_keep_guest_inodes() {
+        let fixture = super::test_backing::TestFile::new(b"same bytes", 10);
+        let alias = fixture.dir.join("alias");
+        std::fs::hard_link(&fixture.path, &alias).unwrap();
+        std::fs::write(fixture.dir.join("separate"), b"same bytes").unwrap();
+        let files = Files::default()
+            .with_host_roots(BTreeMap::from([("/lib".into(), fixture.dir.clone())]))
+            .unwrap();
+
+        let original = files.lookup("/lib/backing").unwrap().1;
+        let alias = files.lookup("/lib/alias").unwrap().1;
+        let separate = files.lookup("/lib/separate").unwrap().1;
+        assert_ne!(original.ino, alias.ino);
+        assert_ne!(original.ino, separate.ino);
+        let (Kind::Backed(original), Kind::Backed(alias), Kind::Backed(separate)) =
+            (original.kind, alias.kind, separate.kind)
+        else {
+            panic!("mounted files should have read-only backing");
+        };
+        assert!(Arc::ptr_eq(&original, &alias));
+        assert!(!Arc::ptr_eq(&original, &separate));
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn selected_roots_keep_linux_search_only_directories_readable() {

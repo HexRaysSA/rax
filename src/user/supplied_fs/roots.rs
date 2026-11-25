@@ -1,7 +1,7 @@
 //! Demand-read mounts of caller-selected library directories. The guest can
 //! only read regular files in these roots; it never receives host descriptors.
 use super::{Entry, Error, Kind, validate};
-use crate::user::mm::HostFileSource;
+use crate::user::mm::{HostFileSource, PageSource};
 use std::{
     collections::BTreeMap,
     ffi::OsStr,
@@ -69,6 +69,7 @@ impl Origin {
 struct Entries {
     files: BTreeMap<String, Entry>,
     links: BTreeMap<String, Entry>,
+    backings: BTreeMap<(u64, u64), Arc<HostFileSource>>,
 }
 
 #[derive(Debug)]
@@ -215,11 +216,16 @@ impl Roots {
 
     fn insert(&self, path: &str, kind: Kind) -> Result<Entry, Error> {
         let mut entries = self.entries.lock().map_err(|_| Error::Io)?;
-        let index = entries.files.len() + entries.links.len();
+        let Entries {
+            files,
+            links,
+            backings,
+        } = &mut *entries;
+        let index = files.len() + links.len();
         let table = if matches!(kind, Kind::Symlink(_)) {
-            &mut entries.links
+            links
         } else {
-            &mut entries.files
+            files
         };
         if let Some(entry) = table.get(path) {
             return Ok(entry.clone());
@@ -227,6 +233,18 @@ impl Roots {
         if index >= self.origin.max_entries {
             return Err(Error::TooLarge);
         }
+        let kind = match kind {
+            Kind::Backed(source) => {
+                // Lookup has already admitted this path and opened its target.
+                // Share the read-only handle while keeping each guest inode.
+                let identity = source.identity();
+                let backing = backings
+                    .entry((identity.dev, identity.ino))
+                    .or_insert(source);
+                Kind::Backed(backing.clone())
+            }
+            other => other,
+        };
         let entry = Entry {
             ino: self.origin.inode_base | index as u64,
             kind,
