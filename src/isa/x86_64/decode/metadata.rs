@@ -727,6 +727,7 @@ fn packed_binary_mnemonics(
         (1, 1, 0xdf) => ("pandn", "vpandn"),
         (1, 1, 0xeb) => ("por", "vpor"),
         (1, 1, 0xef) => ("pxor", "vpxor"),
+        (2, 1, 0x00) => ("pshufb", "vpshufb"),
         (1, 1, 0x60) => ("punpcklbw", "vpunpcklbw"),
         (1, 1, 0x61) => ("punpcklwd", "vpunpcklwd"),
         (1, 1, 0x62) => ("punpckldq", "vpunpckldq"),

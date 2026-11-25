@@ -38,6 +38,7 @@ on:
           - vector-variable-shifts
           - vector-unpack
           - vector-multiply
+          - vector-shuffle
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

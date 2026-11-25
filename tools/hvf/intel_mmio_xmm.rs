@@ -3,6 +3,8 @@ use super::*;
 
 #[path = "intel_mmio_packed_multiply.rs"]
 mod packed_multiply;
+#[path = "intel_mmio_packed_shuffle.rs"]
+mod packed_shuffle;
 
 type MoveCase<'a> = ((&'a [u8], usize, usize, bool), bool, &'a str);
 
@@ -1069,6 +1071,48 @@ fn packed_binary_case(
     let [low0, low1] = xmm[15];
     let [high0, high1] = upper[15];
     low0 ^ low1.rotate_left(7) ^ high0.rotate_left(23) ^ high1.rotate_left(41)
+}
+
+pub(super) fn run_byte_shuffle(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    let left = qwords(packed_shuffle::source());
+    let mut case = 0;
+    for (name, code, width) in packed_shuffle::FORMS {
+        let vex = name != "legacy";
+        let mut expected = packed_shuffle::EXPECTED;
+        expected[width..].fill(0);
+        for (restore, phase) in [(false, "direct"), (true, "restored")] {
+            let value = packed_binary_case(
+                code,
+                vex,
+                restore,
+                left,
+                &packed_shuffle::CONTROL[..width],
+                qwords(expected),
+            );
+            record(
+                output,
+                case,
+                &format!("vector-shuffle-{name}-{phase}"),
+                width,
+                value,
+            );
+            case += 1;
+        }
+    }
+    let (_, code, width) = packed_shuffle::FORMS[0];
+    record(
+        output,
+        case,
+        "vector-shuffle-legacy-misaligned",
+        width,
+        alignment_fault(code, false, 3),
+    );
+    case += 1;
+    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
 pub(super) fn run_integer_unpack(output: &Path) {

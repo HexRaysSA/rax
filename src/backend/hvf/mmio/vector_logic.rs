@@ -243,6 +243,7 @@ enum Operation {
     UnpackLow(Element),
     UnpackHigh(Element),
     Multiply(Multiply),
+    ShuffleBytes,
 }
 
 impl Operation {
@@ -260,6 +261,7 @@ impl Operation {
             "andnps" | "andnpd" | "pandn" => Self::AndNot,
             "orps" | "orpd" | "por" => Self::Or,
             "xorps" | "xorpd" | "pxor" => Self::Xor,
+            "pshufb" => Self::ShuffleBytes,
             "punpcklbw" => Self::UnpackLow(Element::Byte),
             "punpcklwd" => Self::UnpackLow(Element::Word),
             "punpckldq" => Self::UnpackLow(Element::Doubleword),
@@ -338,6 +340,15 @@ impl Operation {
             Self::AndNot => std::array::from_fn(|i| !left[i] & right[i]),
             Self::Or => std::array::from_fn(|i| left[i] | right[i]),
             Self::Xor => std::array::from_fn(|i| left[i] ^ right[i]),
+            Self::ShuffleBytes => std::array::from_fn(|i| {
+                let control = right[i];
+                if control & 0x80 != 0 {
+                    0
+                } else {
+                    let lane_start = i / 16 * 16;
+                    left[lane_start + usize::from(control & 0xf)]
+                }
+            }),
             Self::Compare(comparison, element) => {
                 let width = element.bytes();
                 let mut result = [0; N];

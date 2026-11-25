@@ -5,6 +5,8 @@ use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
 
 #[path = "../../../../tools/hvf/intel_mmio_packed_multiply.rs"]
 mod packed_multiply;
+#[path = "../../../../tools/hvf/intel_mmio_packed_shuffle.rs"]
+mod packed_shuffle;
 
 const FORMS: [(u8, u8, &str); 12] = [
     (0, 0x54, "andps"),
@@ -20,6 +22,83 @@ const FORMS: [(u8, u8, &str); 12] = [
     (1, 0xeb, "por"),
     (1, 0xef, "pxor"),
 ];
+
+#[test]
+fn packed_byte_shuffle_preserves_lanes_and_restores_once() {
+    use packed_shuffle::{CONTROL, EXPECTED, FORMS, source};
+
+    for (name, code, width) in FORMS {
+        let vex = name != "legacy";
+        let (context, mut memory, mut exit) = fixture(code);
+        if vex {
+            exit.linear += 3;
+            exit.physical += 3;
+        }
+        let meta = instruction_metadata::decode(64, context.rip, code).unwrap();
+        assert!(meta.operands_complete, "{name}: {meta:?}");
+        assert_eq!(meta.mnemonic, if vex { "vpshufb" } else { "pshufb" });
+
+        let plan = prepare(&context, &mut memory, exit).unwrap();
+        assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+        assert_eq!(plan.length, code.len() as u64);
+        assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
+        let Action::VectorLogic {
+            input,
+            source: source_index,
+        } = plan.action
+        else {
+            panic!("{name}: unexpected action {:?}", plan.action);
+        };
+        let encoding = match (vex, width) {
+            (false, _) => Encoding::Legacy,
+            (true, 16) => Encoding::Vex128,
+            (true, _) => Encoding::Vex256,
+        };
+        assert_eq!((input.index, input.encoding), (15, encoding));
+        assert_eq!(source_index, if vex { 8 } else { 15 });
+
+        let mut pending = mmio::InputState::default();
+        pending.begin_vector_logic(input, source()).unwrap();
+        let saved = rax::codec::serialize(&pending).unwrap();
+        let mut restored: mmio::InputState = rax::codec::deserialize_strict(&saved).unwrap();
+        restored.validate_checkpoint().unwrap();
+        assert_eq!(restored.descriptor(), Some((width as u8, None)));
+        let expected = if width == 32 {
+            Write::Ymm(15, EXPECTED)
+        } else {
+            Write::Xmm(15, EXPECTED[..16].try_into().unwrap(), vex)
+        };
+        let mut host = Host::default();
+        restored.complete(&mut host, &CONTROL[..width]);
+        restored.complete(&mut host, &CONTROL[..width]);
+        assert_eq!(host.0, [expected, Write::Retire(plan.length)], "{name}");
+
+        exit.qualification = 0x182;
+        assert!(prepare(&context, &mut memory, exit).is_err(), "{name}");
+    }
+}
+
+#[test]
+fn packed_byte_shuffle_rejects_non_device_forms_and_misaligned_legacy() {
+    for code in [
+        &[0x0f, 0x38, 0x00, 0x3f][..],               // MMX bank.
+        &[0x66, 0x44, 0x0f, 0x38, 0x00, 0xff],       // Register operand.
+        &[0xc4, 0x62, 0x39, 0x00, 0xff],             // VEX register operand.
+        &[0xc4, 0x62, 0x38, 0x00, 0x3f],             // Wrong VEX mandatory prefix.
+        &[0xf0, 0x66, 0x44, 0x0f, 0x38, 0x00, 0x3f], // LOCK.
+    ] {
+        let (context, mut memory, exit) = fixture(code);
+        assert!(prepare(&context, &mut memory, exit).is_err(), "{code:02x?}");
+        assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
+    }
+    let (_, code, _) = packed_shuffle::FORMS[0];
+    let (mut context, mut memory, mut exit) = fixture(code);
+    context.registers[7] += 1;
+    exit.linear += 1;
+    exit.physical += 1;
+    let error = prepare(&context, &mut memory, exit).unwrap_err();
+    assert!(error.contains("misaligned"), "{error}");
+}
 
 #[test]
 fn packed_unpack_interleaves_each_lane_and_restores_once() {

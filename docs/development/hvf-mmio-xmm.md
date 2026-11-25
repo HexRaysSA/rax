@@ -1176,3 +1176,39 @@ At `870127acc`, the `vector-multiply` profile passed 110 direct reads, 110
 fresh-owner checkpoint completions, and nine legacy alignment fault cases
 on GitHub-hosted Intel macOS.
 [Hosted multiply execution](https://github.com/HexRaysSA/rax/actions/runs/45478777263/job/138745997273)
+
+## Packed byte shuffle with a device control operand
+
+Intel HVF handles XMM `PSHUFB` and VEX.128 and VEX.256 `VPSHUFB`
+memory forms. Each control byte selects a byte in its own 16 B lane
+using bits 3:0, or produces zero when bit 7 is set. The full encoded
+control operand is read once. The SSE form requires 16 B alignment
+and preserves the upper half of the destination YMM register. VEX.128
+clears that half, and VEX.256 replaces both halves. RFLAGS are preserved.
+[Intel SDM Volume 2B, PSHUFB](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The pending read retains the shuffle source before the device access.
+The operation follows the previous packed operations in the checkpoint
+encoding. Completion takes O(w) time and uses a w-byte result buffer for
+w equal to 16 or 32 B.
+
+| Assumption | Dependent behavior | Validation probe |
+| --- | --- | --- |
+| VEX.W is ignored for both lengths. | W=0 and W=1 request the same width and select the same operands. | Decode and prepare both encodings at each length. |
+| The control is lane-local. | VEX.256 never selects data from the other 16 B lane. | Use distinct source bytes in each lane and compare the full destination against x86-64 RAM execution. |
+| The retained source is sufficient at completion. | A pending read completes once after a checkpoint round-trip. | Decode the saved pending descriptor, submit the reply twice, and verify one register write and retirement. |
+
+The `vector-shuffle` native profile runs five direct reads, five
+fresh-owner checkpoint continuations, and a misaligned SSE guest #GP
+control. It uses the same operands as the portable planner tests.
+
+At parent `c616f1fb0`, the two regression tests failed because the MMIO
+metadata decoder did not recognize the shuffle. The baseline log SHA-256
+is `47955693667cab7b3020e2184d3dcbc646a757efd139e5cd983216838e7f9157`.
+The Rosetta RAM probe covered every control byte value at each width
+and matched all 85 complete YMM and RFLAGS observations. The stream
+SHA-256 is `e27b0fec1a5854e185158c5d899b59ac7367c1e15f4f4ef1ed99e220ce322770`.
+The Apple Silicon build passed 151 MMIO, 102 ISA-oracle, 16 CI-policy,
+and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
+HVF tool tests passed. The Intel macOS guest consumer cross-built and
+passed strict signature verification.
