@@ -3,8 +3,9 @@ use super::*;
 use crate::tests::macho_fixture::{ENTRY, image};
 use rax_engine::user::darwin::abi::{Errno, tables::nr};
 use rax_engine::user::darwin::arch::Rv;
+use rax_engine::user::darwin::kevent::{Kev, Layout, ev, evfilt, kflag};
 use rax_engine::user::darwin::syscall::{Ctx, bsd, bsd::file};
-use rax_engine::user::darwin::workq::wqops;
+use rax_engine::user::darwin::workq::{priority, wqops};
 use rax_engine::user::image::macho::MH_EXECUTE;
 
 fn process(arm: bool) -> Process {
@@ -70,6 +71,51 @@ fn closed_workqueue_dispatch_setup_updates_only_guest_state() {
         ctx.nr = i64::from(nr::WORKQ_OPEN);
         assert_eq!(bsd::call(&mut ctx, nr::WORKQ_OPEN, &[0; 8]), Ok(Rv::one(0)));
         assert!(ctx.proc.wq.opened);
+    }
+}
+
+#[test]
+fn closed_workqueue_kevent_registers_user_events_and_rejects_host_knote() {
+    for arm in [false, true] {
+        let mut p = process(arm);
+        let (_, mut thread) = p.0.proc.threads.pop_first().unwrap();
+        let change_address = thread.cpu.sp() - 1024;
+        let mut ctx = Ctx {
+            proc: &mut p.0.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::KEVENT_QOS),
+            pc: ENTRY,
+        };
+        let mut args = [u64::MAX, change_address, 1, 0, 0, 0, 0, 0];
+        assert_eq!(
+            bsd::call(&mut ctx, nr::KEVENT_QOS, &args),
+            Err(Errno::EPERM)
+        );
+        let mut change = Kev {
+            ident: 1,
+            filter: evfilt::USER,
+            flags: ev::ADD | ev::CLEAR,
+            qos: priority::EVENT_MANAGER_FLAG as i32,
+            ..Default::default()
+        };
+        ctx.write(change_address, &change.encode(Layout::Qos))
+            .unwrap();
+        args[7] = u64::from(kflag::WORKQ | kflag::IMMEDIATE);
+        assert_eq!(bsd::call(&mut ctx, nr::KEVENT_QOS, &args), Ok(Rv::one(0)));
+        let queue = ctx.proc.kq.workq.unwrap();
+
+        change.filter = evfilt::PROC;
+        change.ident = i32::MAX as u64;
+        ctx.write(change_address, &change.encode(Layout::Qos))
+            .unwrap();
+        assert_eq!(
+            bsd::call(&mut ctx, nr::KEVENT_QOS, &args),
+            Err(Errno::EPERM)
+        );
+        let queue = &ctx.proc.kq.kqueues[&queue];
+        assert!(queue.host.is_none());
+        assert_eq!(queue.knotes.len(), 1);
+        assert_eq!(queue.knotes.values().next().unwrap().filter, evfilt::USER);
     }
 }
 

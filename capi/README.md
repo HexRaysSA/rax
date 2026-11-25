@@ -772,7 +772,8 @@ Explicit supplied files use their virtual metadata.
 
 Closed Darwin processes can initialize libdispatch's workqueue and schedule
 worker threads through the guest scheduler. Workqueue state and thread
-execution stay inside the emulated process.
+execution stay inside the emulated process. The workqueue `kevent_qos` path
+accepts guest event filters and rejects filters that require host observation.
 
 On Linux, native runtime selection includes installed Perl modules, generated
 Perl sources, and Unicode version data under `/usr/share/perl` and

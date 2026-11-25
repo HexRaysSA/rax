@@ -327,6 +327,12 @@ mod imp {
 /// Attaches a host-carried knote (`host_fd`: the descriptor's host
 /// descriptor; `None` for `EVFILT_PROC`).
 pub fn attach(proc: &mut Proc, kq: u64, id: u64, host_fd: Option<i32>) -> i32 {
+    if !proc.config.host_services {
+        if let Some(k) = knote(proc, kq, id) {
+            k.set_error(Errno::EPERM);
+        }
+        return 0;
+    }
     let is_proc = knote(proc, kq, id).is_some_and(|k| k.filter == evfilt::PROC);
     // proc_find excludes a zombie whose engine can still pin its PID.
     // filt_procattach checks unsupported tracking flags before lookup.

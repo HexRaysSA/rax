@@ -192,6 +192,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
             nr::GETATTRLISTBULK if ctx.proc.vfs.is_closed() => {
                 return file::getattrlistbulk(ctx, i(0), a[1], a[2], a[3], a[4]);
             }
+            nr::KEVENT_QOS if u(7) & kevent::kflag::WORKQ != 0 => {}
             nr::FTRUNCATE | nr::FSYNC | nr::FSYNC_NOCANCEL | nr::FDATASYNC
                 if ctx.proc.fds.file(a[0] as i32).is_ok_and(|file| {
                     matches!(&file.kind, FileKind::Embedded(object) if object.device_access().is_some() || object.workspace().is_some() || object.resource().is_some())
