@@ -2,6 +2,7 @@
 use super::super::super::named_object::{Checked, status};
 use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::Ctx;
+use crate::user::windows::nt::status::STATUS_BUFFER_OVERFLOW;
 use crate::user::windows::objects::FileObj;
 use std::cell::UnsafeCell;
 use std::ffi::c_void;
@@ -20,7 +21,13 @@ struct Overlapped {
     event: *mut c_void,
 }
 #[repr(C, align(8))]
-struct Buffer([u8; 64]);
+struct Buffer<const N: usize>([u8; N]);
+
+struct Completion<const N: usize> {
+    status: u32,
+    information: usize,
+    data: [u8; N],
+}
 const _: () = assert!(std::mem::offset_of!(Overlapped, offset) == 2 * std::mem::size_of::<usize>());
 
 #[link(name = "ntdll")]
@@ -66,6 +73,29 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
                 .into());
         }
     };
+    with_file(c, file, |handle| request(c, handle, class, length, None))
+}
+
+pub(super) fn all(c: &Ctx, file: &FileObj) -> Checked<[u8; 96]> {
+    // A minimum-size FileAllInformation buffer yields the numeric prefix
+    // even when the name overflows. Rebuild the name in the guest namespace.
+    let result = with_file(c, file, |handle| request_raw::<104>(handle, 18, 104, None))?;
+    if !matches!(result.status, 0 | STATUS_BUFFER_OVERFLOW) {
+        return status(result.status);
+    }
+    if !(100..=104).contains(&result.information) {
+        return Err(c
+            .unsupported("host FileAllInformation returned an invalid length")
+            .into());
+    }
+    Ok(result.data[..96].try_into().unwrap())
+}
+
+fn with_file<T>(
+    c: &Ctx,
+    file: &FileObj,
+    query: impl FnOnce(&std::fs::File) -> Checked<T>,
+) -> Checked<T> {
     let reopened;
     let handle = if let Some(handle) = &file.host {
         handle
@@ -86,7 +116,7 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
         }
         &reopened
     };
-    request(c, handle, class, length, None)
+    query(handle)
 }
 
 pub(super) fn set(c: &Ctx, handle: &std::fs::File, class: u32, value: u64) -> Checked<()> {
@@ -106,6 +136,29 @@ fn request(
     length: u32,
     input: Option<[u8; 8]>,
 ) -> Checked<Vec<u8>> {
+    let result = request_raw::<64>(handle, class, length, input)?;
+    if result.status != 0 {
+        return status(result.status);
+    }
+    let expected = if input.is_some() { 0 } else { length as usize };
+    if result.information != expected {
+        return Err(c
+            .unsupported(format!(
+                "owned file class {class} returned {} bytes, expected {expected}",
+                result.information
+            ))
+            .into());
+    }
+    Ok(result.data[..length as usize].to_vec())
+}
+
+fn request_raw<const N: usize>(
+    handle: &std::fs::File,
+    class: u32,
+    length: u32,
+    input: Option<[u8; 8]>,
+) -> Checked<Completion<N>> {
+    assert!(N >= 8 && length as usize <= N);
     let io = Box::new(UnsafeCell::new(Overlapped {
         io: Io {
             status: 0x103,
@@ -114,14 +167,14 @@ fn request(
         offset: [0; 2],
         event: std::ptr::null_mut(),
     }));
-    let mut buffer = [0; 64];
+    let mut buffer = [0; N];
     if let Some(input) = input {
         buffer[..8].copy_from_slice(&input);
     }
     let output = Box::new(UnsafeCell::new(Buffer(buffer)));
     // SAFETY: the system ABI receives only the borrowed owned handle and
     // repr(C), initialized, suitably aligned host allocations. The whitelisted
-    // length is at most56 B inside the64 B buffer. UnsafeCell admits kernel
+    // length is bounded by N bytes. UnsafeCell admits kernel
     // mutation without shared Rust references. No callback can unwind here;
     // both boxes and the handle remain live until terminal completion below.
     let result = unsafe {
@@ -163,14 +216,14 @@ fn request(
                 // synchronization makes the completed IOSB observable here.
                 let completed = unsafe { (*io.get()).io.status as u32 };
                 if completed != 0x103 {
-                    return status(completed);
+                    break;
                 }
             }
             // A surprising observation error is not proof that the kernel
             // released these buffers. Keep their owner alive and keep observing.
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
-    } else if result != 0 {
+    } else if !matches!(result, 0 | STATUS_BUFFER_OVERFLOW) {
         return status(result);
     }
     // SAFETY: synchronous success or observed terminal completion establishes
@@ -182,16 +235,9 @@ fn request(
             (*output.get()).0,
         )
     };
-    if status_code != 0 {
-        return status(status_code);
-    }
-    let expected = if input.is_some() { 0 } else { length as usize };
-    if information != expected {
-        return Err(c
-            .unsupported(format!(
-                "owned file class {class} returned {information} bytes, expected {expected}"
-            ))
-            .into());
-    }
-    Ok(data[..length as usize].to_vec())
+    Ok(Completion {
+        status: status_code,
+        information,
+        data,
+    })
 }

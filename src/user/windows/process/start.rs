@@ -463,6 +463,11 @@ fn spawn_image_file(
         || Err("SystemFlushInformation requires selected native inputs".into()),
         crate::user::windows::native::flush_information,
     );
+    let current_time_zone = if native.is_some() {
+        super::super::native::capture_current_time_zone()
+    } else {
+        Err("current time-zone information requires selected native inputs".into())
+    };
     let supported_architectures = native.as_ref().map_or_else(
         || Err("supported processor architectures requires selected native inputs".into()),
         |runtime| crate::user::windows::native::supported_architectures(runtime, arch),
@@ -625,6 +630,7 @@ fn spawn_image_file(
         native,
         quota_limits,
         flush_information,
+        current_time_zone,
         supported_architectures,
         thread_access,
         image_information: Err("executable has not been mapped"),

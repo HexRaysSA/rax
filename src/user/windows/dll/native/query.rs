@@ -4,7 +4,8 @@
 //! <https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation>.
 //! Classes 0, 50, 55, 62, 197 and 250's private layouts, lengths, alignment and WoW64 ordering
 //! are native observations on Windows 10.0.29683.1000, recorded in
-//! `src/user/windows/native-runtime.md`. No guest request calls the host kernel.
+//! `src/user/windows/native-runtime.md`. Native responses use process-owned
+//! metadata captured independently of guest requests.
 
 use crate::error::MemoryAccessKind;
 use crate::user::mm::PAGE_SIZE;
@@ -27,7 +28,10 @@ mod policy;
 mod processor;
 mod secure_boot_policy;
 
-use crate::user::windows::native::SYSTEM_SECURE_BOOT_POLICY_INFORMATION;
+use crate::user::windows::native::{
+    CURRENT_TIME_ZONE_INFORMATION_BYTES, SYSTEM_CURRENT_TIME_ZONE_INFORMATION,
+    SYSTEM_SECURE_BOOT_POLICY_INFORMATION,
+};
 #[cfg(test)]
 pub(crate) use memory_usage::information_with as memory_usage_replay;
 
@@ -186,6 +190,7 @@ fn query(c: &mut Ctx) -> ApiResult {
         || matches!(
             class,
             SYSTEM_NUMA_PROCESSOR_MAP
+                | SYSTEM_CURRENT_TIME_ZONE_INFORMATION
                 | SYSTEM_CODE_INTEGRITY_INFORMATION
                 | SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION
                 | SYSTEM_PROCESSOR_INFORMATION
@@ -215,7 +220,8 @@ fn query(c: &mut Ctx) -> ApiResult {
         if (c.arch() != WinArch::X86
             || matches!(
                 class,
-                SYSTEM_CODE_INTEGRITY_INFORMATION
+                SYSTEM_CURRENT_TIME_ZONE_INFORMATION
+                    | SYSTEM_CODE_INTEGRITY_INFORMATION
                     | SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION
                     | SYSTEM_PROCESSOR_INFORMATION
                     | SYSTEM_EMULATION_PROCESSOR_INFORMATION
@@ -234,6 +240,7 @@ fn query(c: &mut Ctx) -> ApiResult {
             processor::query(c, class, output, length, returned, false)
         }
         SYSTEM_RANGE_START_INFORMATION => range_start(c, output, length, returned),
+        SYSTEM_CURRENT_TIME_ZONE_INFORMATION => current_time_zone(c, output, length, returned),
         SYSTEM_NUMA_PROCESSOR_MAP => numa_processor_map(c, output, length, returned),
         SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION => {
             hypervisor_shared_page(c, output, length, returned)
@@ -255,6 +262,21 @@ fn query(c: &mut Ctx) -> ApiResult {
         SYSTEM_POLICY_INFORMATION => policy::native(c, output, length, returned),
         _ => Err(c.unsupported(format!("NtQuerySystemInformation class {class}"))),
     }
+}
+
+fn current_time_zone(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {
+    let bytes = CURRENT_TIME_ZONE_INFORMATION_BYTES as u32;
+    if length < bytes {
+        return_length(c, returned, bytes)?;
+        return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
+    }
+    let record =
+        c.p.current_time_zone.as_ref().map_err(|reason| {
+            c.unsupported(format!("SystemCurrentTimeZoneInformation: {reason}"))
+        })?;
+    c.mem().wr(output, record)?;
+    return_length(c, returned, bytes)?;
+    Flow::ret(0)
 }
 
 fn numa_processor_map(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {

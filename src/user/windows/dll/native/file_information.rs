@@ -32,6 +32,7 @@ impl Layout {
             5 => (24, 8),
             6 | 14 => (8, 8),
             7 | 8 | 16 | 17 | 41 => (4, 4),
+            18 => (104, 8),
             34 => (56, 8),
             35 => (8, 4),
             43 => (4, 8),
@@ -145,6 +146,8 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
         security_device::query(c, handle, class)?
     } else if class == 9 {
         name::query(c, handle, object, length)?
+    } else if class == 18 {
+        records::all(c, handle, object, length)?
     } else {
         records::query(c, handle, object, class)?
     };

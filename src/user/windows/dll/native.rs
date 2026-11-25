@@ -137,6 +137,12 @@ pub(super) static EXPORTS: &[Export] = &[
         file_attributes::basic,
     ),
     Export::func(
+        "NtQueryInformationByName",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, I32, I32],
+        file_attributes::by_name::query,
+    ),
+    Export::func(
         "NtQueryFullAttributesFile",
         Stdcall,
         &[Ptr, Ptr],

@@ -3151,6 +3151,62 @@ validation ledger; implementing these queries does not establish full Windows
 process support or completion of the wider Linux/macOS/Windows objective.
 
 
+#### Fixed records queried by name
+
+On Windows, `NtQueryInformationByName` returns these native file records
+from selected installed paths or explicitly mapped files.
+
+| Class | Record | Bytes |
+| --- | --- | ---: |
+| 68 | FileStatInformation | 72 |
+| 70 | FileStatLxInformation | 96 |
+| 71 | FileCaseSensitiveInformation | 4 |
+| 77 | FileStatBasicInformation | 104 |
+
+Closed guests can query regular files directly under the selected system
+directory. Absolute names and names rooted at a guest directory handle
+resolve to a counted child name on a retained host directory handle.
+WoW64 System32 uses the selected SysWOW64 view. Closed queries reject
+reparsing and keep file-open and child-process grants under their existing
+policies.
+
+The dispatcher validates the caller's full output span and publishes only
+the fixed record after a successful query. The status block carries the
+completed status and byte count in the guest pointer width. A short buffer
+returns `STATUS_INFO_LENGTH_MISMATCH` before either caller buffer is written.
+A missing file publishes the lookup status and a zero count without changing
+the data buffer. The record bytes come from the installed NTDLL on Windows.
+
+[Microsoft file-information classes](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntqueryinformationbyname)
+
+#### Installed file timestamps and time-zone information
+
+`SystemCurrentTimeZoneInformation` (class 44) returns the process's captured
+172-byte Windows time-zone record. The dispatcher checks the caller's
+four-byte output alignment and both buffer spans. A short buffer writes only
+the required length. On success, the time-zone record is written before the
+optional length. Native ARM64 and WoW64 observations on build 29708
+established this layout and publication order.
+
+Installed Windows programs also read the current signed time-zone bias from
+`KUSER_SHARED_DATA.TimeZoneBias` for UTC-to-local conversion. The installed
+clock samples this fixed host field and publishes its complete
+`KSYSTEM_TIME` record in the guest's read-only shared data on each clock
+refresh. File metadata retains its UTC timestamps.
+
+[Windows shared data layout](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-kuser_shared_data)
+
+`FileAllInformation` (class 18) uses a retained file handle for the numeric
+metadata. The guest handle supplies the access mask and mode, and the guest
+path resolver supplies the name. The caller must provide at least 104 bytes.
+A short name buffer returns `STATUS_BUFFER_OVERFLOW`, reports the full UTF-16
+name length, and copies as many complete code units as fit. Native ARM64 and
+WoW64 controls on build 29708 confirmed that otherwise valid handles can
+return this record without a particular file access grant.
+
+[Microsoft FileAllInformation layout](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_all_information)
+
+
 ## CSR qualification on the updated ARM64 kernel
 
 The selected ARM64/session 0 CSR metadata, secure connection and USER exchange

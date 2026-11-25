@@ -911,6 +911,7 @@ mod tests {
             cfg: Arc::new(WindowsConfig::new("unused-test.exe", vec![])),
             native: None,
             flush_information: Err("controlled scheduler fixture".into()),
+            current_time_zone: Err("controlled scheduler fixture".into()),
             supported_architectures: Err("controlled scheduler fixture".into()),
             thread_access: Ok(crate::user::windows::security::thread::Access::modeled()),
             image_information: Err("test process has no admitted executable"),

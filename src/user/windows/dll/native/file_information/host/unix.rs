@@ -5,9 +5,25 @@ use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::objects::FileObj;
 use std::io::Seek;
+#[cfg(target_os = "linux")]
+use std::os::fd::AsRawFd;
 use std::os::unix::fs::MetadataExt;
 
 pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
+    query_file(c, file, &file_metadata(c, file)?, class)
+}
+
+pub(super) fn all(c: &Ctx, file: &FileObj) -> Checked<[u8; 96]> {
+    let metadata = file_metadata(c, file)?;
+    let mut prefix = [0; 96];
+    for (class, offset) in [(4, 0), (5, 40), (6, 64), (7, 72), (14, 80), (17, 92)] {
+        let part = query_file(c, file, &metadata, class)?;
+        prefix[offset..offset + part.len()].copy_from_slice(&part);
+    }
+    Ok(prefix)
+}
+
+fn file_metadata(c: &Ctx, file: &FileObj) -> Checked<std::fs::Metadata> {
     let metadata = file
         .host
         .as_ref()
@@ -23,6 +39,15 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
             .unsupported("metadata-only file pathname was replaced")
             .into());
     }
+    Ok(metadata)
+}
+
+fn query_file(
+    c: &Ctx,
+    file: &FileObj,
+    metadata: &std::fs::Metadata,
+    class: u32,
+) -> Checked<Vec<u8>> {
     match class {
         4 | 34 | 35 => {
             let info = metadata::retained(c, file)?;
@@ -79,9 +104,20 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
         7 => Ok(0u32.to_le_bytes().to_vec()),
         14 => {
             let position = match file.host.as_ref() {
-                Some(mut file) if !metadata.is_dir() => file
-                    .stream_position()
-                    .map_err(|error| c.unsupported(format!("owned file position: {error}")))?,
+                Some(mut file) if !metadata.is_dir() => {
+                    #[cfg(target_os = "linux")]
+                    {
+                        // SAFETY: F_GETFL reads the flags of the borrowed live fd.
+                        let flags = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_GETFL) };
+                        if flags >= 0 && flags & libc::O_PATH != 0 {
+                            // Path-only opens have no cursor. They cannot
+                            // advance it or set a nonzero position.
+                            return Ok(0u64.to_le_bytes().to_vec());
+                        }
+                    }
+                    file.stream_position()
+                        .map_err(|error| c.unsupported(format!("owned file position: {error}")))?
+                }
                 _ => 0,
             };
             Ok(position.to_le_bytes().to_vec())

@@ -2,6 +2,7 @@
 //! Guest memory is captured locally; host adapters receive only resolved paths.
 
 pub(super) mod attributes;
+pub(super) mod by_name;
 pub(super) mod metadata;
 pub(super) mod path;
 #[cfg(unix)]

@@ -1,6 +1,60 @@
 //! Fixed pointer-free system metadata; guest arguments never enter host queries.
 
 pub(crate) const SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2: u32 = 230;
+pub(crate) const SYSTEM_CURRENT_TIME_ZONE_INFORMATION: u32 = 44;
+pub(crate) const CURRENT_TIME_ZONE_INFORMATION_BYTES: usize = 172;
+
+#[cfg(windows)]
+#[link(name = "ntdll")]
+unsafe extern "system" {
+    fn NtQuerySystemInformation(
+        class: u32,
+        output: *mut std::ffi::c_void,
+        bytes: u32,
+        returned: *mut u32,
+    ) -> i32;
+}
+
+#[cfg(windows)]
+pub(crate) fn capture_current_time_zone()
+-> Result<[u8; CURRENT_TIME_ZONE_INFORMATION_BYTES], String> {
+    #[repr(align(4))]
+    struct Buffer([u8; CURRENT_TIME_ZONE_INFORMATION_BYTES]);
+
+    let query = |sentinel| {
+        let mut record = Buffer([sentinel; CURRENT_TIME_ZONE_INFORMATION_BYTES]);
+        let mut returned = 0;
+        // SAFETY: fixed pointer-free host class and exclusively owned aligned
+        // output buffers. No guest parameter is passed to the host service.
+        let status = unsafe {
+            NtQuerySystemInformation(
+                SYSTEM_CURRENT_TIME_ZONE_INFORMATION,
+                record.0.as_mut_ptr().cast(),
+                CURRENT_TIME_ZONE_INFORMATION_BYTES as u32,
+                &mut returned,
+            )
+        };
+        if status != 0 || returned as usize != CURRENT_TIME_ZONE_INFORMATION_BYTES {
+            return Err(format!(
+                "native time-zone query status={status:#010x}, returned={returned}"
+            ));
+        }
+        Ok(record.0)
+    };
+    for _ in 0..3 {
+        let record = query(0xA5)?;
+        if query(0x5A)? == record {
+            return Ok(record);
+        }
+    }
+    Err("native time-zone information changed or left undefined bytes".into())
+}
+
+#[cfg(not(windows))]
+pub(crate) fn capture_current_time_zone()
+-> Result<[u8; CURRENT_TIME_ZONE_INFORMATION_BYTES], String> {
+    Err("native time-zone information requires a Windows host".into())
+}
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SupportedArchitectures {
@@ -138,15 +192,6 @@ pub(super) fn capture_flush(
     if !flush_profile(version, machine) {
         return Err("native SystemFlushInformation kernel profile is unmeasured".into());
     }
-    #[link(name = "ntdll")]
-    unsafe extern "system" {
-        fn NtQuerySystemInformation(
-            class: u32,
-            output: *mut std::ffi::c_void,
-            bytes: u32,
-            returned: *mut u32,
-        ) -> i32;
-    }
     #[repr(align(8))]
     struct Buffer([u8; 32]);
     let query = |poison| {
@@ -218,15 +263,6 @@ mod flush_tests {
 
 #[cfg(windows)]
 pub(super) fn capture() -> Result<u32, String> {
-    #[link(name = "ntdll")]
-    unsafe extern "system" {
-        fn NtQuerySystemInformation(
-            class: u32,
-            output: *mut std::ffi::c_void,
-            bytes: u32,
-            returned: *mut u32,
-        ) -> i32;
-    }
     let query = || {
         let mut words = [8u32, 0];
         let mut returned = 0;

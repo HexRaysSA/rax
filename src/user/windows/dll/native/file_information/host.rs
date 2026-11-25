@@ -18,6 +18,17 @@ pub(super) fn query(c: &Ctx, file: &FileObj, class: u32) -> Checked<Vec<u8>> {
         .into())
 }
 
+pub(super) fn all(c: &Ctx, file: &FileObj) -> Checked<[u8; 96]> {
+    #[cfg(windows)]
+    return windows::all(c, file);
+    #[cfg(unix)]
+    return unix::all(c, file);
+    #[cfg(not(any(windows, unix)))]
+    Err(c
+        .unsupported("owned file-information adapter unavailable")
+        .into())
+}
+
 #[cfg(windows)]
 pub(in super::super) fn set(
     c: &Ctx,

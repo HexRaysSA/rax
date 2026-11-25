@@ -61,6 +61,41 @@ fn value(data: Vec<u8>, publication: Publication, ignore_late_fault: bool) -> Re
     }
 }
 
+pub(super) fn all(c: &Ctx, handle: u64, object: &Object, length: u32) -> Checked<Record> {
+    let file = match object {
+        Object::File(file) if !file.null => file,
+        Object::File(_) | Object::Null => return status(STATUS_INVALID_INFO_CLASS),
+        Object::Console(_) => return status(0xc000_0010),
+        Object::Pipe { .. } => {
+            return Err(c
+                .unsupported("FileAllInformation requires guest pipe-resource accounting")
+                .into());
+        }
+        _ => unreachable!("caller admitted only file resources"),
+    };
+    let mut prefix = super::host::all(c, file)?;
+    let state =
+        c.p.objects
+            .file_state(handle)
+            .expect("resolved file object");
+    prefix[76..80].copy_from_slice(&access(c, handle, object).to_le_bytes());
+    if file.host.is_none() || cfg!(unix) && file.directory {
+        prefix[80..88].copy_from_slice(&state.position.to_le_bytes());
+    }
+    let mode = c.p.objects.file_mode(handle).expect("resolved file mode");
+    prefix[88..92].copy_from_slice(&mode.to_le_bytes());
+
+    // FileAllInformation embeds FileNameInformation at byte 96. Reuse its
+    // namespace, UTF-16 truncation, and synchronous IOSB publication.
+    let mut record = super::name::query(c, handle, object, length - prefix.len() as u32)?;
+    record.information += prefix.len() as u32;
+    let mut data = Vec::with_capacity(record.information as usize);
+    data.extend_from_slice(&prefix);
+    data.extend_from_slice(&record.data);
+    record.data = data;
+    Ok(record)
+}
+
 pub(super) fn query(c: &Ctx, handle: u64, object: &Object, class: u32) -> Checked<Record> {
     let grant = access(c, handle, object);
     let file = match object {

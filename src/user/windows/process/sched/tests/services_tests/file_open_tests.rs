@@ -6,6 +6,9 @@ mod paired;
 #[path = "file_open_tests/boundaries.rs"]
 mod boundaries;
 
+#[path = "file_open_tests/by_name.rs"]
+mod by_name;
+
 use super::{Outcome, fixture, handle_stop, stop};
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::arch::WinArch;

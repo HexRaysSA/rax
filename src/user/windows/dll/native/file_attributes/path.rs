@@ -391,6 +391,62 @@ pub(in super::super) fn guest_directory(c: &Ctx, root: u64, name: &[u16]) -> Opt
     })
 }
 
+/// Admit one counted child name in the selected installed system directory.
+#[cfg(windows)]
+pub(super) fn installed_entry<'a>(
+    c: &'a Ctx,
+    root: u64,
+    name: &[u16],
+) -> Checked<Option<(&'a Path, PathBuf)>> {
+    let Some(runtime) = &c.p.native else {
+        return Ok(None);
+    };
+    let (parent, leaf) = name
+        .iter()
+        .rposition(|&unit| unit == u16::from(b'\\'))
+        .map_or((&[][..], name), |at| (&name[..at], &name[at + 1..]));
+    let separator = u16::from(b'\\');
+    if leaf.is_empty()
+        || parent.last() == Some(&separator)
+        || root != 0 && name.first() == Some(&separator)
+    {
+        return Ok(None);
+    }
+    let Some(directory) = guest_directory(c, root, parent) else {
+        return Ok(None);
+    };
+    if directory.ends_with(":\\") || directory == runtime.guest_root.trim_end_matches('\\') {
+        return Ok(None);
+    }
+    let (components, _) = parts(c, leaf)?;
+    let [component] = components.as_slice() else {
+        return Ok(None);
+    };
+    Ok(Some((
+        &runtime.directory,
+        PathBuf::from(host_component(c, component)?),
+    )))
+}
+
+#[cfg(windows)]
+pub(super) fn installed_directory<'a>(c: &'a Ctx, guest: &str) -> Checked<&'a Path> {
+    let runtime = c.p.native.as_ref().expect("admitted installed directory");
+    let host = if guest.ends_with(":\\") {
+        runtime
+            .directory
+            .ancestors()
+            .find(|path| path.has_root() && path.parent().is_none())
+    } else if guest == runtime.guest_root.trim_end_matches('\\') {
+        runtime.directory.parent()
+    } else {
+        Some(runtime.directory.as_path())
+    };
+    host.ok_or_else(|| {
+        c.unsupported("installed DOS directory has no host counterpart")
+            .into()
+    })
+}
+
 fn resolve_kind(
     c: &Ctx,
     attrs: &Attributes,

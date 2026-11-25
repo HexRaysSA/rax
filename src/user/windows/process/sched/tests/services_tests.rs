@@ -303,6 +303,9 @@ mod system_policy_tests;
 #[path = "services_tests/system_flush_tests.rs"]
 mod system_flush_tests;
 
+#[path = "services_tests/system_time_zone_tests.rs"]
+mod system_time_zone_tests;
+
 #[path = "services_tests/mui_tests.rs"]
 mod mui_tests;
 

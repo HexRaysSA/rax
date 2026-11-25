@@ -117,6 +117,8 @@ pub(crate) fn publish(space: &AddressSpace) -> io::Result<()> {
                 io::Error::other(format!("cannot publish KUSER tick scale: {error:?}"))
             })?;
         publish_ksystem_time(space, kuser::TICK_COUNT, counter)?;
+        #[cfg(windows)]
+        publish_ksystem_time(space, kuser::TIME_ZONE_BIAS, native::time_zone_bias())?;
     }
     Ok(())
 }
@@ -150,22 +152,32 @@ mod native {
 
     pub(super) fn tick_sample() -> (u32, u64) {
         let scale = (KUSER_SHARED_DATA + kuser::TICK_COUNT_MULTIPLIER) as usize;
-        let counter = (KUSER_SHARED_DATA + kuser::TICK_COUNT) as usize;
-        // SAFETY: Windows maps these fixed, readonly fields into each
-        // native and WoW64 process. Their addresses depend only on the ABI.
+        // SAFETY: Windows maps the fixed, readonly scale into each process.
         let multiplier = unsafe { std::ptr::read_volatile(scale as *const u32) };
+        (multiplier, read_ksystem_time(kuser::TICK_COUNT))
+    }
+
+    pub(super) fn time_zone_bias() -> u64 {
+        // The bias is signed. Preserve its two's-complement bits in the
+        // shared record for installed code doing UTC-to-local conversion.
+        read_ksystem_time(kuser::TIME_ZONE_BIAS)
+    }
+
+    fn read_ksystem_time(offset: u64) -> u64 {
+        let address = (KUSER_SHARED_DATA + offset) as usize;
         loop {
-            // SAFETY: all three addresses lie within the documented readonly
-            // KSYSTEM_TIME. The high copies detect an update across low wrap.
+            // SAFETY: both callers supply fixed readonly KSYSTEM_TIME
+            // offsets mapped by Windows, including in WoW64 processes.
+            // The high copies detect an update across low wrap.
             let (high1, low, high2) = unsafe {
                 (
-                    std::ptr::read_volatile((counter + 4) as *const u32),
-                    std::ptr::read_volatile(counter as *const u32),
-                    std::ptr::read_volatile((counter + 8) as *const u32),
+                    std::ptr::read_volatile((address + 4) as *const u32),
+                    std::ptr::read_volatile(address as *const u32),
+                    std::ptr::read_volatile((address + 8) as *const u32),
                 )
             };
             if high1 == high2 {
-                return (multiplier, (u64::from(high1) << 32) | u64::from(low));
+                return (u64::from(high1) << 32) | u64::from(low);
             }
         }
     }
@@ -322,6 +334,40 @@ mod tests {
         assert!((before..=process_clock).contains(&guest_clock));
         assert!((guest_clock..=after).contains(&process_clock));
         assert!(space.write(address, &[0; 12]).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn installed_shared_time_zone_bias_matches_win32_file_time_conversion() {
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn FileTimeToLocalFileTime(utc: *const u64, local: *mut u64) -> i32;
+        }
+
+        let space = AddressSpace::new(SpaceConfig {
+            va_limit: 1 << 47,
+            arena_bytes: 64 * PAGE_SIZE,
+            reserved_phys: RESERVED_PHYS.to_vec(),
+        })
+        .unwrap();
+        map_shared_data(&space, true).unwrap();
+        let address = KUSER_SHARED_DATA + kuser::TIME_ZONE_BIAS;
+        let utc = now().unwrap();
+        for _ in 0..3 {
+            publish(&space).unwrap();
+            let bias = space.u64(address).unwrap();
+            let mut local = 0;
+            // SAFETY: distinct, initialized eight-byte FILETIME storage.
+            assert_ne!(unsafe { FileTimeToLocalFileTime(&utc, &mut local) }, 0);
+            if bias != native::time_zone_bias() {
+                continue;
+            }
+            assert_eq!(space.u32(address + 8).unwrap(), (bias >> 32) as u32);
+            assert_eq!(local, utc.wrapping_sub(bias));
+            assert!(space.write(address, &[0; 12]).is_err());
+            return;
+        }
+        panic!("Windows time-zone bias changed during each observation");
     }
 
     #[cfg(windows)]

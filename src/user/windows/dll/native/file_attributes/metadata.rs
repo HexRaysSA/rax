@@ -181,3 +181,82 @@ pub(super) fn query(c: &Ctx, resolved: &Resolved, no_reparse: bool) -> Checked<I
         Ok(info)
     }
 }
+
+#[cfg(windows)]
+pub(super) fn by_name(
+    c: &Ctx,
+    attrs: &super::attributes::Attributes,
+    name: Option<&[u16]>,
+    layout: super::by_name::Layout,
+) -> Checked<super::by_name::Completion> {
+    use super::super::file_open;
+    use super::by_name::Completion;
+    use super::path;
+    use crate::user::windows::nt::status::{STATUS_OBJECT_NAME_NOT_FOUND, STATUS_SUCCESS};
+
+    // Closed installed paths always reject reparsing. Only the case flag and
+    // the caller's explicit no-reparse flag reach an authorized host query.
+    let flags = attrs.flags & 0x1040 | if c.p.cfg.host_filesystem { 0 } else { 0x1000 };
+    if let Some(name) = name {
+        if let Some(guest) = path::guest_directory(c, attrs.root, name) {
+            let host = path::installed_directory(c, &guest)?;
+            return windows::by_name(c, host, None, None, flags, layout);
+        }
+        if let Some((root, leaf)) = path::installed_entry(c, attrs.root, name)? {
+            let directory = Resolved {
+                host: root.to_owned(),
+                base: root.to_owned(),
+                root: None,
+                relative: None,
+                directory: true,
+                runtime_library: true,
+            };
+            // SYNCHRONIZE | FILE_LIST_DIRECTORY, shared synchronous directory
+            // open with reparsing forbidden throughout the retained query.
+            let handle = file_open::host::open(c, &directory, 0x100001, 7, 0x21, 0x1040)?;
+            let outcome =
+                windows::by_name(c, root, Some(&handle.file), Some(&leaf), flags, layout)?;
+            if outcome.code != STATUS_SUCCESS {
+                return Ok(outcome);
+            }
+            let attributes = if layout.class != 71 {
+                // All three FILE_STAT variants place FileAttributes at byte 56.
+                u32::from_le_bytes(outcome.data[56..60].try_into().unwrap())
+            } else {
+                // FileCaseSensitiveInformation has no file type field.
+                windows::query(c, root, Some(&handle.file), Some(&leaf), true)?.attributes
+            };
+            if attributes & (0x10 | 0x400) != 0 {
+                return Ok(Completion {
+                    code: STATUS_OBJECT_NAME_NOT_FOUND,
+                    information: Some(0),
+                    data: [0; 104],
+                });
+            }
+            return Ok(outcome);
+        }
+    }
+    let resolved = path::resolve(c, attrs, name)?;
+    let file = if let Some(root) = resolved.root {
+        let Some(Object::File(file)) = c.p.objects.get(root) else {
+            return Err(c
+                .unsupported("file metadata root changed during the query")
+                .into());
+        };
+        Some(
+            file.host
+                .as_ref()
+                .ok_or_else(|| c.unsupported("by-name metadata requires a retained host file"))?,
+        )
+    } else {
+        None
+    };
+    windows::by_name(
+        c,
+        &resolved.host,
+        file,
+        resolved.relative.as_deref(),
+        flags,
+        layout,
+    )
+}
