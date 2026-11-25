@@ -66,6 +66,13 @@ that execution mask. A connection barrier separates old asynchronous events from
 new-client responses. A completed I/O instruction is serviced before its debug
 stop is published.
 
+After software x86 checkpoint restore, a saved port transaction waits for the
+current debugger's resume plan to allow the issuing CPU. Single-step can finish
+that transaction and report its stop without executing the following instruction
+or charging retirement twice. A detached checkpoint regression verifies that a
+stop followed by `Kill` leaves the UART data and pending read intact, and that
+single-step on a resumed copy returns the byte at the saved PC boundary.
+
 The amd64 description defines its flags type and required x87 core registers.
 The bank contains exactly:
 

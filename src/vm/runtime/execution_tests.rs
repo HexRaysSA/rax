@@ -1125,6 +1125,92 @@ fn gdb_io_single_step_completes_input_and_stops_before_the_next_instruction() {
 
 #[cfg(feature = "debug")]
 #[test]
+fn gdb_preserves_and_steps_a_detached_pending_port_read() {
+    use crate::debug::gdb::{GdbCommand, GdbResponse};
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut source = Fixture::with_memory(1, 128 << 20);
+    let mut code = vec![0x66, 0xba, 0xf8, 0x03, 0xec]; // MOV DX,COM1; IN AL,DX
+    store32(&mut code, FLAGS as u32, 0xdead_beef);
+    delay_and_shutdown(&mut code);
+    source.write(BSP, &code);
+    source.vm.serial.lock().unwrap().queue_input(&[0x5a]);
+    let turn = source.vm.execute_turn().unwrap().unwrap();
+    assert!(matches!(
+        turn.exit,
+        VcpuExit::IoIn {
+            port: 0x3f8,
+            size: 1
+        }
+    ));
+    let retired = source.vm.coordinator.retired;
+    let path = source.kernel.with_extension("rxc");
+    source
+        .vm
+        .take_snapshot_bundle(retired)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    drop(source);
+    let saved = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+
+    for wait_gdb in [false, true] {
+        let config = VmConfig::from_checkpoint_bundle(&saved, CliConfig::default()).unwrap();
+        let mut vm = Vmm::new_resume_bundle(config, &saved).unwrap();
+        let (client, channels) = crate::debug::gdb::create_channels();
+        vm.gdb_channels = Some(channels);
+        vm.gdb_stopped = true;
+        vm.wait_gdb = wait_gdb;
+        client.cmd_tx.send(GdbCommand::Kill).unwrap();
+        vm.run().unwrap();
+        assert!(
+            vm.serial.lock().unwrap().has_input(),
+            "stopped replay consumed the UART byte (wait_gdb={wait_gdb})"
+        );
+        assert!(vm.vcpus[0].pending_software_port_io().unwrap().is_some());
+        assert_eq!(vm.coordinator.retired, retired);
+    }
+
+    let (client, channels) = crate::debug::gdb::create_channels();
+    let worker = std::thread::spawn(move || {
+        let config = VmConfig::from_checkpoint_bundle(&saved, CliConfig::default()).unwrap();
+        let mut vm = Vmm::new_resume_bundle(config, &saved).unwrap();
+        vm.gdb_channels = Some(channels);
+        vm.gdb_stopped = true;
+        vm.run().unwrap();
+        let CpuState::X86_64(state) = vm.vcpus[0].get_state().unwrap() else {
+            unreachable!();
+        };
+        let marker: u32 = vm.guest_mem.memory().read_obj(GuestAddress(FLAGS)).unwrap();
+        (
+            state.regs.rax & 0xff,
+            state.regs.rip,
+            vm.coordinator.retired,
+            marker,
+        )
+    });
+    client.cmd_tx.send(GdbCommand::Step).unwrap();
+    let reply = client
+        .resp_rx
+        .recv_timeout(std::time::Duration::from_secs(30));
+    let _ = client.cmd_tx.send(GdbCommand::Kill);
+    let result = worker.join().unwrap();
+    assert!(
+        matches!(
+            reply,
+            Ok(GdbResponse::ThreadStop {
+                signal: 5,
+                index: 0
+            })
+        ),
+        "{reply:?}"
+    );
+    assert_eq!(result, (0x5a, BSP + 5, retired, 0));
+}
+
+#[cfg(feature = "debug")]
+#[test]
 fn gdb_single_step_stops_after_output_or_halt_before_the_following_store() {
     use crate::debug::gdb::{GdbCommand, GdbResponse};
     for instruction in [vec![0xe6, 0x80], vec![0xf4]] {

@@ -176,6 +176,33 @@ impl Vmm {
         TurnFailure::check_io_reply(completion, irq)
     }
 
+    fn pending_software_port_turn(&mut self) -> Result<Option<ExecutionTurn>> {
+        if self.backend_kind != BackendKind::Emulator
+            || self.checkpoint_config.arch != ArchKind::X86_64
+        {
+            return Ok(None);
+        }
+        for (cpu_index, vcpu) in self.vcpus.iter().enumerate() {
+            #[cfg(feature = "debug")]
+            if !self.debugger_allows_cpu(cpu_index) {
+                continue;
+            }
+            if let Some(exit) = vcpu.pending_software_port_io()? {
+                #[cfg(feature = "debug")]
+                {
+                    self.debugger.last_cpu = cpu_index;
+                }
+                return Ok(Some(ExecutionTurn {
+                    cpu_index,
+                    exit,
+                    #[cfg(feature = "debug")]
+                    debug_step_completed: vcpu.is_single_step(),
+                }));
+            }
+        }
+        Ok(None)
+    }
+
     pub fn run(&mut self) -> Result<()> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
@@ -187,21 +214,17 @@ impl Vmm {
         let _timing = self.timing_context.enter();
         info!(cpus = self.vcpus.len(), "starting execution coordinator");
 
-        // The saved CPU already issued the transaction and the scheduler advanced.
-        // Finish the previous turn before admitting new input or CPU entry.
-        for cpu_index in 0..self.vcpus.len() {
-            if let Some(exit) = self.vcpus[cpu_index].pending_software_port_io()?
-                && self.apply_execution_turn(
-                    ExecutionTurn {
-                        cpu_index,
-                        exit,
-                        #[cfg(feature = "debug")]
-                        debug_step_completed: false,
-                    },
-                    true,
-                )?
-            {
-                return Ok(());
+        // An issued transaction belongs to the previous turn. With no GDB
+        // transport, finish it before admitting console input or another CPU.
+        #[cfg(feature = "debug")]
+        let defer_port_replay = self.gdb_channels.is_some();
+        #[cfg(not(feature = "debug"))]
+        let defer_port_replay = false;
+        if !defer_port_replay {
+            while let Some(turn) = self.pending_software_port_turn()? {
+                if self.apply_execution_turn(turn, true)? {
+                    return Ok(());
+                }
             }
         }
 
@@ -307,6 +330,15 @@ impl Vmm {
                 } else {
                     continue;
                 }
+            }
+
+            // These turns already carry their retirement charge. Honor the
+            // current resume mask, then complete I/O without entering the CPU.
+            if defer_port_replay && let Some(turn) = self.pending_software_port_turn()? {
+                if self.apply_execution_turn(turn, true)? {
+                    break;
+                }
+                continue;
             }
 
             let parallel = native_smp;
