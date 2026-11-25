@@ -51,7 +51,7 @@ fn access(c: &Ctx, handle: u64, object: &Object) -> u32 {
     }
 }
 
-fn value(data: Vec<u8>, publication: Publication, ignore_late_fault: bool) -> Record {
+pub(super) fn value(data: Vec<u8>, publication: Publication, ignore_late_fault: bool) -> Record {
     Record {
         status: STATUS_SUCCESS,
         information: data.len() as u32,
@@ -66,6 +66,13 @@ pub(super) fn all(c: &Ctx, handle: u64, object: &Object, length: u32) -> Checked
         Object::File(file) if !file.null => file,
         Object::File(_) | Object::Null => return status(STATUS_INVALID_INFO_CLASS),
         Object::Console(_) => return status(0xc000_0010),
+        Object::Pipe { end: Some(end), .. } => {
+            let grant = access(c, handle, object);
+            if grant & 0x80 == 0 {
+                return status(STATUS_ACCESS_DENIED);
+            }
+            return Ok(super::pipe::all(end, grant));
+        }
         Object::Pipe { .. } => {
             return Err(c
                 .unsupported("FileAllInformation requires guest pipe-resource accounting")
@@ -107,8 +114,16 @@ pub(super) fn query(c: &Ctx, handle: u64, object: &Object, class: u32) -> Checke
             .file_state(handle)
             .expect("resolved file object");
     let synchronous = state.mode & 0x30 != 0;
-    if matches!(class, 4 | 34 | 35) && grant & 0x80 == 0 || class == 43 && grant & 1 == 0 {
+    if matches!(class, 4 | 23..=25 | 34 | 35) && grant & 0x80 == 0 || class == 43 && grant & 1 == 0
+    {
         return status(STATUS_ACCESS_DENIED);
+    }
+    if let Object::Pipe { end: Some(end), .. } = object {
+        match class {
+            4..=6 | 23 | 24 => return Ok(super::pipe::record(end, class)),
+            25 => return status(STATUS_INVALID_PARAMETER),
+            _ => {}
+        }
     }
     let inline = |data: Vec<u8>, publication| Ok(value(data, publication, true));
     match class {
@@ -147,6 +162,17 @@ pub(super) fn query(c: &Ctx, handle: u64, object: &Object, class: u32) -> Checke
         {
             inline(state.position.to_le_bytes().to_vec(), Publication::Full)
         }
+        23..=25 if file.is_some() => Ok(Record {
+            status: STATUS_INVALID_PARAMETER,
+            data: Vec::new(),
+            information: 0,
+            publication: if synchronous {
+                Publication::InformationFirst
+            } else {
+                Publication::Full
+            },
+            ignore_late_fault: synchronous,
+        }),
         _ => {
             if let Some(file) = file {
                 let data = super::host::query(c, file, class)?;

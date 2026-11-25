@@ -32,6 +32,7 @@ pub use lpc::LpcPort;
 pub(crate) use lpc::{LsarpcInterface, LsarpcPolicies, LsarpcPolicyContext};
 mod pipe;
 pub use pipe::PipeEnd;
+pub(crate) use pipe::PipeInformation;
 mod primary_token;
 mod registry_notify;
 pub(crate) use registry_notify::RegistryCompletion;
@@ -389,6 +390,16 @@ impl Objects {
     pub fn create(&mut self, obj: Object) -> ObjId {
         self.try_create(obj)
             .expect("internal object capacity exhausted")
+    }
+
+    pub(crate) fn try_create_pipe_reader(&mut self, pid: u32, quota: u32) -> Option<ObjId> {
+        // Object identifiers are local to the creating process. The channel
+        // retains the combined identity across duplicated and inherited ends.
+        let index = (u64::from(pid) << 32) | u64::from(self.next.checked_add(1)?);
+        self.try_create(Object::Pipe {
+            end: Some(PipeEnd::reader(quota, index)),
+            write: false,
+        })
     }
 
     /// Creates an unreferenced object, rejecting identifier exhaustion.

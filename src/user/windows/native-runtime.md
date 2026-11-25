@@ -3150,6 +3150,27 @@ platform, linked-owner and ordinary-program results belong to this group's
 validation ledger; implementing these queries does not establish full Windows
 process support or completion of the wider Linux/macOS/Windows objective.
 
+### Anonymous-pipe information
+
+`NtQueryInformationFile` derives classes 4, 5, 6, 18, 23 and 24 from the guest-owned
+anonymous pipe. Both endpoints share an opaque file index, including after
+handle duplication or inheritance. The fixed pipe information describes a
+byte-stream with queued completion. Local information reports the endpoint
+role, quota in bytes, pending readable bytes and remaining write quota.
+The connection state follows writer attachment and the final close of an
+endpoint. The reader can drain queued bytes after the last writer closes.
+
+The all-information query requires `FILE_READ_ATTRIBUTES` and a buffer of at
+least 104 bytes. It publishes 100 bytes with an empty counted name and puts
+the number of queued readable bytes in the embedded position field.
+
+Classes 23 through 25 require `FILE_READ_ATTRIBUTES`. Their output address must
+be four-byte aligned for native ARM64. WoW64 copies to unaligned addresses.
+Class 25 returns `STATUS_INVALID_PARAMETER` for these pipes and leaves the I/O
+status block untouched. A regular file returns the same status and publishes
+zero bytes in the I/O status block. Native Windows build 29708 provides the
+ARM64 and WoW64 controls for both permission and publication behavior.
+
 
 #### Fixed records queried by name
 

@@ -328,7 +328,7 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
             create,
             attributes,
         ];
-        let read_end = PipeEnd::reader(4096);
+        let read_end = PipeEnd::reader(4096, 1);
         let write_end = read_end.prepare_writer().unwrap();
         write_end.finish_writer_open();
         let read_id = p.objects.create(Object::Pipe {

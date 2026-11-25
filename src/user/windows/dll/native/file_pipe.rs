@@ -10,7 +10,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::{Object, PipeEnd};
+use crate::user::windows::objects::{ObjId, Object, PipeEnd};
 use crate::user::windows::sync::Wait;
 
 const ROOT: &str = "\\Device\\NamedPipe\\";
@@ -152,17 +152,11 @@ fn create_checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     if timeout == 0 || c.mem().u64(timeout)? as i64 > 0 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let reader = PipeEnd::reader(inbound as usize);
-    let (handle, information) = open_object(
-        c,
-        request,
-        &attrs,
-        Object::Pipe {
-            end: Some(reader),
-            write: false,
-        },
-        FILE_CREATED,
-    )?;
+    let id =
+        c.p.objects
+            .try_create_pipe_reader(c.p.pid, inbound)
+            .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES))?;
+    let (handle, information) = open_id(c, request, &attrs, id, FILE_CREATED)?;
     *caller_store = true;
     let result = publish(c, request, STATUS_SUCCESS, handle, information);
     if result.is_err() {
@@ -178,10 +172,21 @@ fn open_object(
     object: Object,
     information: u64,
 ) -> Checked<(u64, u64)> {
+    let id =
+        c.p.objects
+            .try_create(object)
+            .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES))?;
+    open_id(c, request, attrs, id, information)
+}
+
+fn open_id(
+    c: &mut Ctx,
+    request: Request,
+    attrs: &attributes::Attributes,
+    id: ObjId,
+    information: u64,
+) -> Checked<(u64, u64)> {
     let objects = &mut c.p.objects;
-    let id = objects
-        .try_create(object)
-        .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES))?;
     if let Some(handle) =
         objects.open_access(id, attrs.flags & 2 != 0, mapped_access(request.access))
     {

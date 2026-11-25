@@ -21,6 +21,7 @@ enum Writer {
 struct Channel {
     bytes: VecDeque<u8>,
     capacity: usize,
+    file_index: u64,
     reader_open: bool,
     writer: Writer,
 }
@@ -42,6 +43,7 @@ impl Drop for End {
             };
         } else {
             channel.reader_open = false;
+            channel.bytes.clear();
         }
     }
 }
@@ -49,6 +51,16 @@ impl Drop for End {
 /// A reference to an open read or write endpoint.
 #[derive(Clone, Debug)]
 pub struct PipeEnd(Rc<End>);
+
+pub(crate) struct PipeInformation {
+    pub file_index: u64,
+    pub quota: u32,
+    pub readable: u32,
+    pub write_quota: u32,
+    pub instances: u32,
+    pub state: u32,
+    pub server_end: bool,
+}
 
 impl PartialEq for PipeEnd {
     fn eq(&self, other: &Self) -> bool {
@@ -58,11 +70,12 @@ impl PartialEq for PipeEnd {
 impl Eq for PipeEnd {}
 
 impl PipeEnd {
-    pub(crate) fn reader(capacity: usize) -> Self {
+    pub(crate) fn reader(quota: u32, file_index: u64) -> Self {
         Self(Rc::new(End {
             channel: Rc::new(RefCell::new(Channel {
                 bytes: VecDeque::new(),
-                capacity,
+                capacity: quota as usize,
+                file_index,
                 reader_open: true,
                 writer: Writer::Waiting,
             })),
@@ -94,6 +107,35 @@ impl PipeEnd {
             !channel.reader_open || channel.bytes.len() < channel.capacity
         } else {
             !channel.bytes.is_empty() || channel.writer == Writer::Closed
+        }
+    }
+
+    pub(crate) fn information(&self) -> PipeInformation {
+        let channel = self.0.channel.borrow();
+        let server_end = !self.0.write;
+        let state = match (channel.reader_open, channel.writer) {
+            (false, _) | (_, Writer::Closed) => 4, // FILE_PIPE_CLOSING_STATE
+            (_, Writer::Open) => 3,                // FILE_PIPE_CONNECTED_STATE
+            _ => 2,                                // FILE_PIPE_LISTENING_STATE
+        };
+        // The reader receives inbound bytes but has a separate, unused
+        // outbound quota. The writer consumes only the inbound quota.
+        PipeInformation {
+            file_index: channel.file_index,
+            quota: channel.capacity as u32,
+            readable: if server_end {
+                channel.bytes.len() as u32
+            } else {
+                0
+            },
+            write_quota: if server_end {
+                channel.capacity as u32
+            } else {
+                (channel.capacity - channel.bytes.len()) as u32
+            },
+            instances: u32::from(channel.reader_open),
+            state,
+            server_end,
         }
     }
 
@@ -145,7 +187,7 @@ mod tests {
 
     #[test]
     fn bounded_fifo_backpressure_and_endpoint_lifetime() {
-        let reader = PipeEnd::reader(3);
+        let reader = PipeEnd::reader(3, 1);
         assert!(!reader.ready());
         assert_eq!(reader.read(1), Ok(None));
         let writer = reader.prepare_writer().unwrap();
@@ -167,7 +209,7 @@ mod tests {
 
     #[test]
     fn unpublished_writer_allows_a_retry() {
-        let reader = PipeEnd::reader(4);
+        let reader = PipeEnd::reader(4, 1);
         let writer = reader.prepare_writer().unwrap();
         assert!(reader.prepare_writer().is_none());
         drop(writer);
@@ -180,7 +222,7 @@ mod tests {
 
     #[test]
     fn peer_close_wakes_the_writer_with_broken_pipe() {
-        let reader = PipeEnd::reader(1);
+        let reader = PipeEnd::reader(1, 1);
         let writer = reader.prepare_writer().unwrap();
         writer.finish_writer_open();
         assert_eq!(writer.write(b"a"), Ok(1));

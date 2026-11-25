@@ -4,6 +4,7 @@
 
 pub(super) mod host;
 mod name;
+mod pipe;
 mod publish;
 mod records;
 mod security_device;
@@ -33,6 +34,9 @@ impl Layout {
             6 | 14 => (8, 8),
             7 | 8 | 16 | 17 | 41 => (4, 4),
             18 => (104, 8),
+            23 => (8, 4),
+            24 => (40, 4),
+            25 => (16, 4),
             34 => (56, 8),
             35 => (8, 4),
             43 => (4, 8),
