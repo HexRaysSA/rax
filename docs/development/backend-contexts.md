@@ -205,7 +205,10 @@ See [AArch64 cluster ownership](aarch64-cluster.md).
 
 
 Cortex-M producer kind 8 (`RAXCM001`) carries represented core, internal
-NVIC/SCB/SysTick, sleep/event/counter and local adapter state. Its VMM candidates
+NVIC/SCB/SysTick, sleep/event/counter and local adapter state. A core with the
+Floating-point Extension, a mapped Private Peripheral Bus, a reset VTOR or other
+non-reset PPB registers writes `RAXCM002` instead: the same payload followed by
+the PPB registers, their mapping and the reset VTOR. Its VMM candidates
 use a matching-memory publication permit; exported C contexts use format 9.
 Absent-section and C versions 1/2 retain projection-only compatibility.
 See [Cortex-M checkpoints](cortex-m-checkpoints/README.md) for exact scope,

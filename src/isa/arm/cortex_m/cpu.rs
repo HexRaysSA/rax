@@ -24,7 +24,7 @@ use super::systick::SysTick;
 
 #[path = "checkpoint.rs"]
 mod checkpoint;
-pub(crate) use checkpoint::CoreCheckpoint;
+pub(crate) use checkpoint::{CoreCheckpoint, PpbCheckpoint};
 
 /// EXC_RETURN values.
 pub mod exc_return {

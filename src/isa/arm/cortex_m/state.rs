@@ -3,7 +3,9 @@
 //! Control Block registers of [`CortexMSystemRegisters`].
 
 use super::cpu::CortexMCpu;
+use super::exec::fp::{CONTROL_FPCA, FPSCR_MASK};
 use super::scb::shcsr;
+use crate::isa::arm::aarch32::vfp::Fpscr;
 use crate::vm::vcpu::{CortexMRegisters, CortexMSystemRegisters};
 
 /// SHCSR active bits and the system handler each reports.
@@ -17,10 +19,18 @@ const SHCSR_ACTIVE: [(u32, u16); 6] = [
 ];
 
 impl CortexMCpu {
-    /// The core registers: R0-R12, both stack pointers, LR, PC, xPSR, and
-    /// the special registers. The FP registers read as zero (the
-    /// Floating-point Extension is not implemented).
+    /// The core registers: R0-R12, both stack pointers, LR, PC, xPSR, the
+    /// special registers, and with the Floating-point Extension S0-S31 and
+    /// FPSCR (zero without it).
     pub fn export_regs(&self) -> CortexMRegisters {
+        let mut s = [0; 32];
+        let mut fpscr = 0;
+        if let Some(vfp) = &self.vfp {
+            for (i, s) in s.iter_mut().enumerate() {
+                *s = vfp.read_s_bits(i as u8);
+            }
+            fpscr = vfp.fpscr.bits();
+        }
         CortexMRegisters {
             r: self.regs,
             msp: self.sp_main,
@@ -32,13 +42,16 @@ impl CortexMCpu {
             primask: u32::from(self.primask),
             faultmask: u32::from(self.faultmask),
             basepri: u32::from(self.basepri),
-            ..CortexMRegisters::default()
+            s,
+            fpscr,
         }
     }
 
     /// Installs `regs`. The mode follows xPSR's exception number (Thread
     /// mode when it is zero), and that exception becomes active; PC bit 0 is
-    /// ignored. Bits [1:0] of the stack pointers read as zero.
+    /// ignored. Bits [1:0] of the stack pointers read as zero. Without the
+    /// Floating-point Extension, CONTROL.FPCA, S0-S31 and FPSCR are ignored;
+    /// with it, FPSCR keeps its M-profile bits.
     pub fn import_regs(&mut self, regs: &CortexMRegisters) {
         self.regs = regs.r;
         self.sp_main = regs.msp & !3;
@@ -47,7 +60,18 @@ impl CortexMCpu {
         self.pc = regs.pc & !1;
         self.xpsr = regs.xpsr;
         // Without the Floating-point Extension CONTROL.FPCA is RAZ/WI.
-        self.control = (regs.control & 3) as u8;
+        let control = if self.vfp.is_some() {
+            3 | u32::from(CONTROL_FPCA)
+        } else {
+            3
+        };
+        self.control = (regs.control & control) as u8;
+        if let Some(vfp) = &mut self.vfp {
+            for (i, s) in regs.s.iter().enumerate() {
+                vfp.write_s_bits(i as u8, *s);
+            }
+            vfp.fpscr = Fpscr::from_bits(regs.fpscr & FPSCR_MASK);
+        }
         self.primask = regs.primask & 1 != 0;
         self.faultmask = regs.faultmask & 1 != 0;
         self.basepri = regs.basepri as u8;
@@ -61,7 +85,8 @@ impl CortexMCpu {
 
     /// The modeled System Control Block registers: VTOR, AIRCR, CCR, SHPR,
     /// SHCSR (enables, and the active bits of the system handlers), CFSR,
-    /// HFSR, MMFAR, and BFAR.
+    /// HFSR, MMFAR, BFAR, and CPACR (zero without the Floating-point
+    /// Extension).
     pub fn export_sregs(&self) -> CortexMSystemRegisters {
         let scb = self.scb();
         let mut shcsr = scb.read(0x24, 0, None);
@@ -81,13 +106,15 @@ impl CortexMCpu {
             hfsr: scb.read(0x2C, 0, None),
             mmfar: scb.read(0x34, 0, None),
             bfar: scb.read(0x38, 0, None),
+            cpacr: self.ppb.cpacr,
             ..CortexMSystemRegisters::default()
         }
     }
 
     /// Installs the modeled System Control Block registers. The SHCSR
     /// active bits set the system handlers' active state; other active
-    /// exceptions are unchanged.
+    /// exceptions are unchanged. CPACR keeps CP10 and CP11, which exist only
+    /// with the Floating-point Extension.
     pub fn import_sregs(&mut self, sregs: &CortexMSystemRegisters) {
         {
             let scb = self.scb_mut();
@@ -99,6 +126,12 @@ impl CortexMCpu {
             scb.write(0x34, sregs.mmfar);
             scb.write(0x38, sregs.bfar);
         }
+        // As a store to CPACR.
+        self.ppb.cpacr = if self.vfp.is_some() {
+            sregs.cpacr & 0x00F0_0000
+        } else {
+            0
+        };
         let nvic = self.nvic_mut();
         for (i, shpr) in sregs.shpr.iter().enumerate() {
             nvic.write_shpr(i, *shpr);

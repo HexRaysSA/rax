@@ -76,11 +76,14 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    pub(crate) fn validate_checkpoint(&self) -> crate::error::Result<()> {
+    /// `fp`: the core has the Floating-point Extension, so CONTROL.FPCA
+    /// exists.
+    pub(crate) fn validate_checkpoint(&self, fp: bool) -> crate::error::Result<()> {
+        let control = if fp { 3 | fp::CONTROL_FPCA } else { 3 };
         // ArmCpu::set_sp accepts raw stack values; retain those values so the
         // subsequent modeled access, rather than checkpoint admission, faults.
         if self.pc & 1 != 0
-            || self.control & !3 != 0
+            || self.control & !control != 0
             || self.current_exception >= 512
             || self.current_exception != (self.xpsr & 0x1ff) as u16
             || self.thread_mode != (self.current_exception == 0)

@@ -28,6 +28,8 @@
 //! elsewhere, which leaves the write-one-to-set and write-one-to-clear
 //! registers' other bits unchanged.
 
+use serde::{Deserialize, Serialize};
+
 use super::cpu::CortexMCpu;
 
 /// The Private Peripheral Bus routed here.
@@ -56,7 +58,7 @@ const DWT_NUMCOMP: u32 = 4 << 28;
 
 /// The cache identification registers of a Cortex-M7, whose instruction
 /// and data caches (0 to 64 KB each) the chip chooses. All zero: no cache.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CacheIdentification {
     pub clidr: u32,
     pub ctr: u32,
@@ -70,7 +72,7 @@ pub(super) const M7_MVFR: [u32; 3] = [0x1011_0221, 0x1200_0011, 0x0000_0040];
 
 /// The registers of the Private Peripheral Bus outside the NVIC, SCB and
 /// SysTick models.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ppb {
     caches: CacheIdentification,
     actlr: u32,
@@ -120,6 +122,32 @@ impl Ppb {
             caches: self.caches,
             ..Self::default()
         };
+    }
+
+    /// The cache identification of the chip.
+    pub(super) fn caches(&self) -> CacheIdentification {
+        self.caches
+    }
+
+    /// Accepts registers holding only values their writes can give, `fp`
+    /// with the Floating-point Extension (without it, CPACR reads as zero).
+    pub(super) fn validate_checkpoint(&self, fp: bool) -> crate::error::Result<()> {
+        if self.cpacr & !0x00F0_0000 != 0
+            || (!fp && self.cpacr != 0)
+            || self.csselr & !1 != 0
+            || self.mpu_ctrl & !7 != 0
+            || self.mpu_rnr & !0xFF != 0
+            || self.mpu_rbar.iter().any(|rbar| rbar & 0x1F != 0)
+            || self.dwt_ctrl & !DWT_CYCCNTENA != DWT_NUMCOMP
+            || self.fpccr & !FPCCR_WRITABLE != 0
+            || self.fpcar & 7 != 0
+            || self.fpdscr & !FPDSCR_MASK != 0
+        {
+            return Err(crate::error::Error::InvalidConfig(
+                "Cortex-M checkpoint PPB register values differ from writable values".into(),
+            ));
+        }
+        Ok(())
     }
 }
 
