@@ -1366,6 +1366,12 @@ Apple Silicon.
 The independent Rosetta run matched the full YMM result and RFLAGS for
 52 ordinary-RAM cases. Its observation SHA-256 is
 `2a7a317820f09778c78000d8ca19348dd0d91594da3d1caba8319457db9475eb`.
-The `vector-narrow` native profile expects 104 direct and fresh-owner
-completions and four legacy alignment cases. MMX and EVEX device reads
-and bare-metal Intel macOS remain open.
+The virtualized Intel macOS runner passed all 108 `vector-narrow` cases
+at `f76c57f362b5`. All 104 direct and fresh-owner observations matched
+the independent ordinary-RAM register fingerprints, and all four legacy
+misalignment cases took #GP. The execution artifact and prepared source
+and executable digests were verified. The execution artifact SHA-256 is
+`89facd80633db6a765b46c8c71e61718158b6d66c787dc115d946fea22ba7393`.
+[Hosted saturation execution](https://github.com/HexRaysSA/rax/actions/runs/45552421539/job/138996447435)
+
+MMX and EVEX device reads and bare-metal Intel macOS remain open.

@@ -200576,7 +200576,7 @@
         "C-STATE"
       ],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Intel HVF completes aligned legacy XMM and VEX.128 and VEX.256 PACKSSWB, PACKSSDW, PACKUSWB and PACKUSDW from one device reply. All 26 covered encodings failed on the parent. Portable tests verify the 52 source-pattern cases, including pending-read restoration. Independent Rosetta RAM execution agrees. The signed native consumer builds and the 108-case hosted profile is registered. Hosted and bare-metal Intel guest execution for this group remain unverified.",
+      "scope": "Intel HVF completes aligned legacy XMM and VEX.128 and VEX.256 PACKSSWB, PACKSSDW, PACKUSWB and PACKUSDW from one device reply. All 26 covered encodings failed on the parent. Portable tests verify the 52 source-pattern cases, including pending-read restoration. Hosted Intel macOS run 45552421539 passed all 108 cases at f76c57f362b5. The 104 direct and restored results matched the independent Rosetta RAM fingerprints, and four legacy misalignment cases took #GP. The execution archive and source and executable digests were verified. Bare-metal Intel and additional MMIO profiles remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-integer-narrowing-with-saturation",
       "full_goal_complete": false
     }
