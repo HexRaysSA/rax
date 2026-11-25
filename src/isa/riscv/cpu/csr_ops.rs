@@ -272,7 +272,8 @@ impl RiscVCpu {
     fn misa(&self) -> u64 {
         let mxl: u64 = if self.rv32() { 1 } else { 2 };
         let shift = self.xbits() as u64 - 2;
-        let mut bits: u64 = 1 << 8; // I
+        // Every hart configuration implements I and the S and U privilege modes.
+        let mut bits: u64 = (1 << 8) | (1 << 18) | (1 << 20);
         let isa = &self.cfg.isa;
         for (enabled, bit) in [
             (isa.a, 0),
@@ -548,6 +549,19 @@ mod tests {
             let before = (cpu.pc, cpu.priv_, cpu.mstatus, cpu.sepc);
             assert_eq!(cpu.sret(&sret), Err(Trap::illegal(sret.raw)));
             assert_eq!((cpu.pc, cpu.priv_, cpu.mstatus, cpu.sepc), before);
+        }
+    }
+
+    #[test]
+    fn misa_reports_supervisor_and_user_modes_to_guest_firmware() {
+        let isa = Isa::rv64gc();
+        let privilege_modes = (1 << 18) | (1 << 20);
+        for xlen in [Xlen::Rv32, Xlen::Rv64] {
+            let mut hart = cpu_with_xlen(xlen, isa);
+            let raw = csr_insn(0x301, 0b010, 0, 1); // csrr x1, misa
+            let insn = decode(raw, xlen, &isa);
+            assert_eq!(hart.execute_insn(&insn, 0x1000), Ok(RiscVExit::Continue));
+            assert_eq!(hart.x(1) & privilege_modes, privilege_modes, "{xlen:?}");
         }
     }
 
