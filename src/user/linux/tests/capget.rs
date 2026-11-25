@@ -1,0 +1,158 @@
+//! `capget` target-PID validation and capability projection.
+
+use super::harness::{Harness, each_abi};
+use crate::user::linux::abi::Sysno;
+use crate::user::linux::abi::errno_table::*;
+
+const V1: u32 = 0x1998_0330;
+const V2: u32 = 0x2007_1026;
+const V3: u32 = 0x2008_0522;
+const DATA_LEN: usize = 24;
+
+fn header(h: &Harness, at: u64, version: u32, pid: i32) {
+    let mut bytes = version.to_le_bytes().to_vec();
+    bytes.extend_from_slice(&pid.to_le_bytes());
+    h.proc.state.space.write_raw(at, &bytes).unwrap();
+}
+
+fn get(h: &Harness, at: u64, len: usize) -> Vec<u8> {
+    let mut bytes = vec![0; len];
+    h.proc.state.space.read_raw(at, &mut bytes).unwrap();
+    bytes
+}
+
+fn capget(h: &mut Harness, hdr: u64, data: u64) -> i64 {
+    h.call(Sysno::Capget, &[hdr, data])
+}
+
+#[cfg(target_os = "linux")]
+fn native_capget(pid: i32) -> Result<Vec<u8>, i32> {
+    #[repr(C)]
+    struct Header {
+        version: u32,
+        pid: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy, Default)]
+    struct Data {
+        effective: u32,
+        permitted: u32,
+        inheritable: u32,
+    }
+
+    let mut header = Header { version: V3, pid };
+    let mut data = [Data::default(); 2];
+    // SAFETY: the syscall writes only to the live structs above.
+    let rc = unsafe {
+        libc::syscall(
+            libc::SYS_capget,
+            &mut header as *mut Header,
+            data.as_mut_ptr(),
+        )
+    };
+    if rc != 0 {
+        return Err(std::io::Error::last_os_error()
+            .raw_os_error()
+            .expect("failed syscall has an errno"));
+    }
+    let mut bytes = Vec::with_capacity(DATA_LEN);
+    for d in data {
+        bytes.extend_from_slice(&d.effective.to_le_bytes());
+        bytes.extend_from_slice(&d.permitted.to_le_bytes());
+        bytes.extend_from_slice(&d.inheritable.to_le_bytes());
+    }
+    Ok(bytes)
+}
+
+#[cfg(target_os = "linux")]
+fn assert_matches_native(pid: i32, native: &Result<Vec<u8>, i32>) {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        h.proc.state.config.processes = true;
+        let (hdr, data) = (h.scratch, h.scratch + 0x100);
+        header(&h, hdr, V3, pid);
+        match native {
+            Ok(expected) => {
+                assert_eq!(capget(&mut h, hdr, data), 0);
+                assert_eq!(get(&h, data, DATA_LEN).as_slice(), expected.as_slice());
+            }
+            Err(errno) => assert_eq!(capget(&mut h, hdr, data), -(*errno as i64)),
+        }
+    });
+}
+
+#[cfg(target_os = "linux")]
+struct BarrierRelease(std::sync::Arc<std::sync::Barrier>);
+
+#[cfg(target_os = "linux")]
+impl Drop for BarrierRelease {
+    fn drop(&mut self) {
+        self.0.wait();
+    }
+}
+
+#[test]
+fn target_pid_errors_precede_capability_copyout() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        h.proc.state.config.processes = true;
+        let (hdr, data) = (h.scratch, h.scratch + 0x100);
+        let sentinel = [0xa5; DATA_LEN];
+        h.proc.state.space.write_raw(data, &sentinel).unwrap();
+
+        header(&h, hdr, V3, -1);
+        assert_eq!(capget(&mut h, hdr, data), -(EINVAL as i64));
+        assert_eq!(get(&h, data, DATA_LEN), sentinel.to_vec());
+
+        header(&h, hdr, V3, i32::MAX);
+        assert_eq!(capget(&mut h, hdr, data), -(ESRCH as i64));
+        assert_eq!(get(&h, data, DATA_LEN), sentinel.to_vec());
+
+        // Linux skips target lookup when no output buffer was supplied.
+        header(&h, hdr, V3, -1);
+        assert_eq!(capget(&mut h, hdr, 0), 0);
+
+        header(&h, hdr, V3, 0);
+        assert_eq!(capget(&mut h, hdr, 1), -(EFAULT as i64));
+
+        h.proc.state.creds.1 = 0;
+        header(&h, hdr, V1, 0);
+        assert_eq!(capget(&mut h, hdr, data), 0);
+        let mut v1 = Vec::new();
+        for word in [u32::MAX, u32::MAX, 0] {
+            v1.extend_from_slice(&word.to_le_bytes());
+        }
+        assert_eq!(get(&h, data, 12), v1);
+
+        header(&h, hdr, V2, 0);
+        assert_eq!(capget(&mut h, hdr, data), 0);
+        let mut v2 = Vec::new();
+        for word in [u32::MAX, u32::MAX, 0, 0x1ff, 0x1ff, 0] {
+            v2.extend_from_slice(&word.to_le_bytes());
+        }
+        assert_eq!(get(&h, data, DATA_LEN), v2);
+    });
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn another_host_task_returns_its_capability_sets() {
+    assert_matches_native(1, &native_capget(1));
+
+    // The Linux lookup accepts a visible TID as well as a process leader;
+    // the general task helper intentionally recognizes fewer foreign TIDs.
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+    let worker_barrier = barrier.clone();
+    let (send, receive) = std::sync::mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        // SAFETY: gettid takes no pointers and returns the caller's TID.
+        let tid = unsafe { libc::syscall(libc::SYS_gettid) as i32 };
+        send.send(tid).unwrap();
+        worker_barrier.wait();
+    });
+    let tid = receive.recv().unwrap();
+    let release = BarrierRelease(barrier.clone());
+    assert_matches_native(tid, &native_capget(tid));
+    drop(release);
+    worker.join().unwrap();
+}

@@ -12,6 +12,8 @@ mod aio;
 mod arm;
 mod bounded;
 #[cfg(unix)]
+mod capget;
+#[cfg(unix)]
 mod console;
 mod debug_step;
 mod embedded_pipes;
