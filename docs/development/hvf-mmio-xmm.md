@@ -1308,5 +1308,14 @@ Python HVF tool tests passed. The Intel macOS consumer cross-built and
 passed strict signature verification.
 
 The expanded `vector-immediate-shuffle` profile adds 15 direct reads, 15
-fresh-owner reads and three legacy alignment checks. This group covers
-SSE2 and VEX. MMX, EVEX, and bare-metal Intel macOS qualification remain open.
+fresh-owner reads and three legacy alignment checks. GitHub's virtualized
+Intel macOS runner passed all 54 cases at `95717254c036`. The 48 direct and
+fresh-owner read observations matched the RAM reference, and all six legacy
+misalignment cases took #GP. The verifier matched each case identifier,
+reply width and register fingerprint, and checked the prepared executable
+and source digests. The execution artifact SHA-256 is
+`a25035997d160cee8d37f3c1ef689dbfe4347143487fb6e6baf9937bf4d9e4fc`.
+[Hosted unary-shuffle execution](https://github.com/HexRaysSA/rax/actions/runs/45541362144/job/138960415743)
+
+This group covers SSE2 and VEX. MMX, EVEX, and bare-metal Intel macOS
+qualification remain open.

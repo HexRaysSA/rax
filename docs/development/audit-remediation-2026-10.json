@@ -200554,7 +200554,7 @@
         "C-STATE"
       ],
       "status": "locally_qualified_full_findings_open",
-      "scope": "The Intel HVF planner completes legacy XMM and VEX.128 and VEX.256 PSHUFD, PSHUFHW and PSHUFLW memory reads directly from the device reply. Local tests exercise 3,840 serialized pending reads. Independent Rosetta RAM runs cover the same opcodes and immediates. Physical Intel validation and additional MMIO profiles remain open.",
+      "scope": "The Intel HVF planner completes legacy XMM and VEX.128 and VEX.256 PSHUFD, PSHUFHW and PSHUFLW memory reads directly from the device reply. Local tests exercise 3,840 serialized pending reads. Independent Rosetta RAM runs cover the same opcodes and immediates. Hosted Intel macOS run 45541362144 passed all 54 cases at 95717254c036, including 33 new unary-shuffle cases, with the observation archive and source digests verified. Bare-metal Intel validation and additional MMIO profiles remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#unary-packed-shuffles-with-an-immediate-control",
       "full_goal_complete": false
     }
