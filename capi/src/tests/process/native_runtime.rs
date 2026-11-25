@@ -1490,12 +1490,14 @@ fn run_installed_posix_with_turn_limit(
         "{path}: completed within {} scheduler turns",
         max_turns - remaining
     );
-    assert_eq!(
-        result.reason,
-        RAX_PROCESS_EXITED,
-        "{path}: {}",
-        info(process)
-    );
+    if result.reason != RAX_PROCESS_EXITED {
+        let state = info(process);
+        let fault = super::darwin::fault_snapshot(process, &state);
+        panic!(
+            "{path}: terminal reason {}, state {state}; fault {fault:?}",
+            result.reason
+        );
+    }
     result
 }
 

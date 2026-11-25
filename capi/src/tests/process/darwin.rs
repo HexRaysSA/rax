@@ -27,6 +27,51 @@ fn run(p: &Owned) -> RaxProcessResult {
     result
 }
 
+pub(super) fn fault_snapshot(
+    process: &Owned,
+    state: &serde_json::Value,
+) -> Option<serde_json::Value> {
+    if state["personality"] != "darwin" {
+        return None;
+    }
+    let pc_text = state["signal"]["pc"].as_str()?;
+    let pc = u64::from_str_radix(pc_text.strip_prefix("0x")?, 16).ok()?;
+    let mut snapshot = json!({ "pc": pc_text });
+    let mut bytes = [0; 4];
+    if rax_process_mem_read(process.0, pc, bytes.as_mut_ptr(), bytes.len()) == RaxStatus::Ok {
+        snapshot["bytes_at_pc"] = json!(format!("{bytes:02x?}"));
+    }
+
+    let thread = state["threads"]
+        .as_array()
+        .and_then(|threads| threads.iter().find(|thread| thread["pc"] == pc_text));
+    if let Some(thread) = thread
+        && let Some(tid) = thread["id"].as_u64().and_then(|id| u32::try_from(id).ok())
+    {
+        // Both supported THREAD_STATE64 layouts fit in the larger Arm64 record.
+        let mut context = [0; 272];
+        let mut size = 0;
+        if rax_process_context_read(
+            process.0,
+            tid,
+            context.as_mut_ptr(),
+            context.len(),
+            &mut size,
+        ) == RaxStatus::Ok
+            && size <= context.len()
+        {
+            let words: Vec<_> = context[..size]
+                .chunks_exact(8)
+                .map(|bytes| format!("{:#018x}", u64::from_le_bytes(bytes.try_into().unwrap())))
+                .collect();
+            snapshot["thread_id"] = json!(tid);
+            snapshot["context_flavor"] = thread["context_flavor"].clone();
+            snapshot["context_words_le64"] = json!(words);
+        }
+    }
+    Some(snapshot)
+}
+
 #[test]
 fn macho_both_abis_context_memory_cancellation_and_terminal_cache() {
     for arm in [false, true] {
@@ -263,6 +308,14 @@ fn macho_both_abis_report_saved_access_fault_registers() {
         assert_eq!(state["signal"]["name"], "SIGSEGV");
         assert_eq!(address(&state["signal"]["pc"]), ENTRY + offset);
         assert_eq!(state["threads"][0]["exception_state"], fault);
+        let start = usize::try_from(offset).unwrap();
+        let mut expected = [0; 4];
+        expected[..load.len() - start].copy_from_slice(&load[start..]);
+        let snapshot = fault_snapshot(&p, &state).unwrap();
+        assert_eq!(snapshot["bytes_at_pc"], format!("{expected:02x?}"));
+        assert_eq!(snapshot["thread_id"], state["threads"][0]["id"]);
+        assert_eq!(snapshot["context_flavor"], if arm { 6 } else { 4 });
+        assert_eq!(snapshot["context_words_le64"][0], "0x0000000000001230");
         assert_eq!(run(&p).reason, RAX_PROCESS_FAILED);
         assert_eq!(info(&p)["threads"][0]["exception_state"], fault);
     }
