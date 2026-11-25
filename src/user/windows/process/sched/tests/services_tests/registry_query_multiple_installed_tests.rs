@@ -45,6 +45,14 @@ fn native_query_multiple_value_key_installed_leaf_packing_faults_and_ret24() {
         config.arena_bytes = 256 << 20;
         let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
         let p = process.state_mut();
+        let version = &p.native.as_ref().unwrap().version;
+        let copied_lengths = if host == WinArch::X64
+            && (version.major, version.minor, version.build) == (10, 0, 20348)
+        {
+            [0, 1, 7, 13, 13]
+        } else {
+            [0, 4, 8, 13, 13]
+        };
         let tid = *p.threads.keys().next().unwrap();
         let mut t = p.threads.remove(&tid).unwrap();
         let module = loader::load_dll(p, "ntdll.dll").unwrap();
@@ -59,7 +67,7 @@ fn native_query_multiple_value_key_installed_leaf_packing_faults_and_ret24() {
         let payload = [
             0x11, 0, 0, 0, 0x21, 0x22, 0x23, 0, 0x31, 0x32, 0x33, 0x34, 0x35,
         ];
-        for (capacity, copied) in [(0, 0), (1, 4), (7, 8), (13, 13), (64, 13)] {
+        for (capacity, copied) in [0, 1, 7, 13, 64].into_iter().zip(copied_lengths) {
             initialize(p, base, capacity);
             assert_eq!(
                 invoke(

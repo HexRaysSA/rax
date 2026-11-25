@@ -208,7 +208,7 @@ fn native_query_multiple_value_key_replays_all_retained_and_fresh_calls() {
 }
 
 #[test]
-fn server_2022_registry_query_stops_at_last_complete_value() {
+fn native_query_multiple_value_key_server_2022_stops_at_last_complete_value() {
     for arch in [WinArch::X64, WinArch::X86] {
         let (mut process, mut t, entries) = setup(arch);
         let p = process.state_mut();

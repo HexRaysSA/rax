@@ -44,6 +44,37 @@ def native_machine():
     return native.value
 
 
+def kernel_version():
+    class Version(ctypes.Structure):
+        _fields_ = [
+            ("size", wintypes.DWORD), ("major", wintypes.DWORD),
+            ("minor", wintypes.DWORD), ("build", wintypes.DWORD),
+            ("platform", wintypes.DWORD), ("service_pack", wintypes.WCHAR * 128),
+        ]
+
+    version = Version()
+    version.size = ctypes.sizeof(Version)
+    query = ctypes.WinDLL("ntdll").RtlGetVersion
+    query.argtypes = [ctypes.POINTER(Version)]
+    query.restype = wintypes.LONG
+    codec.require(query(ctypes.byref(version)) == 0, "RtlGetVersion failed")
+    return version.major, version.minor, version.build
+
+
+def replay(output, env):
+    log = output / "replay.log"
+    try:
+        run(["cargo", "test", "--locked", "--no-default-features", "--lib",
+             "native_query_multiple_value_key", "--", "--test-threads=1", "--nocapture"], env, log)
+        summaries = re.findall(r"test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;",
+                               log.read_text(encoding="utf-8", errors="replace"))
+        codec.require(summaries and tuple(map(int, summaries[-1])) == (5, 0, 0),
+                      "incomplete native query replay selection")
+    finally:
+        if log.exists():
+            print(log.read_text(encoding="utf-8", errors="replace"), flush=True)
+
+
 def mapped_file(header):
     native = bytes.fromhex(header["mapped_provider_utf16"]).decode("utf-16-le")
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -195,6 +226,15 @@ def main():
     env.pop("RAX_NATIVE_QUERY_MULTIPLE_VALUE_KEY_CORPUS", None)
     env.pop("RAX_NATIVE_QUERY_MULTIPLE_VALUE_KEY_OVERFLOW_CORPUS", None)
     native = native_machine()
+    kernel = kernel_version()
+    if native == 0x8664 and kernel == (10, 0, 20348):
+        # Uncopied entry fields on this profile are unsuitable for raw replay.
+        # Exercise the retained corpus and installed guest leaf on this runner.
+        replay(output, env)
+        shutil.rmtree(temporary)
+        print(json.dumps(dict(native_machine=native, kernel=kernel,
+                              validation="retained-replay-and-installed-guest")))
+        return 0
     architectures = [("x64", "x64"), ("x86", "Win32")]
     if native == 0xAA64:
         architectures.insert(0, ("arm64", "ARM64"))
@@ -215,17 +255,7 @@ def main():
     write_json(destination, corpus)
     env["RAX_NATIVE_QUERY_MULTIPLE_VALUE_KEY_CORPUS"] = str(destination)
     env["RAX_NATIVE_QUERY_MULTIPLE_VALUE_KEY_OVERFLOW_CORPUS"] = str(overflow_destination)
-    log = output / "replay.log"
-    try:
-        run(["cargo", "test", "--locked", "--no-default-features", "--lib",
-             "native_query_multiple_value_key", "--", "--test-threads=1", "--nocapture"], env, log)
-        summaries = re.findall(r"test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;",
-                               log.read_text(encoding="utf-8", errors="replace"))
-        codec.require(summaries and tuple(map(int, summaries[-1])) == (4, 0, 0),
-                      "incomplete native query replay selection")
-    finally:
-        if log.exists():
-            print(log.read_text(encoding="utf-8", errors="replace"), flush=True)
+    replay(output, env)
     for metadata, raw in records:
         codec.require(codec.sha((output / (metadata["architecture"] + ".jsonl")).read_bytes()) == codec.sha(raw),
                       "native corpus changed during replay")

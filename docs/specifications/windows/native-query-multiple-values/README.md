@@ -52,6 +52,10 @@ by position without printing those bytes. The documented buffer contract
 specifies the written byte count and required capacity.
 [Microsoft's API reference](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntquerymultiplevaluekey).
 
+On this runner, CI checks the installed NTDLL guest leaf and replays the
+retained corpus. It records the selected kernel, native machine, and test
+results without collecting a fresh raw native corpus.
+
 Required length is reported modulo `2^32` bytes. Logical offsets and the overflow
 decision retain the aggregate size: 4,096 values of 1,048,576 bytes require
 4,294,967,296 bytes, report zero, and return `STATUS_BUFFER_OVERFLOW`. Later
