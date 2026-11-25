@@ -912,7 +912,7 @@ mod tests {
                 (
                     nr::CSOPS_AUDITTOKEN,
                     args(0, ops::STATUS, out, 4),
-                    Err(Errno::EPERM),
+                    Err(Errno::EINVAL),
                 ),
             ] {
                 assert_eq!(bsd::call(&mut ctx, number, &request), expected, "{abi:?}");
