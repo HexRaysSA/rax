@@ -269,6 +269,11 @@ has already delivered resumes at the selected guest vector. Trap entry
 retires zero instructions and returns control to the coordinator so a
 peer hart can run. The ELF `tohost` symbol remains available for shutdown.
 
+Fresh default firmware harts clear `misa.H`. The board has an M/S/U hart
+profile with Bare translation. Software that reads `misa.H` uses it to
+discover the hypervisor register file and two-stage translation. Complete
+checkpoint restore uses the hart configuration from the saved CPU record.
+
 The default bare-metal profile keeps the existing host exits for `ECALL`,
 `EBREAK` and other synchronous faults. Version 3 of the shared platform
 record saves the firmware selection together with the CLINT and PLIC.

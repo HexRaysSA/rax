@@ -130,6 +130,7 @@ fn capture(root: &Path, count: u8) {
     let mut vm = Vmm::new_with_clock(config, ClockMode::Retired).unwrap();
     for (index, cpu) in vm.vcpus.iter_mut().enumerate() {
         let mut regs = registers(cpu.as_ref());
+        assert_eq!(csr(&regs, 0x301) & (1 << 7), 0, "hart {index} misa.H");
         let fault = &FAULTS[index];
         regs.pc = entry(index);
         regs.privilege = Some(fault.mode);
@@ -173,9 +174,15 @@ fn restore(root: &Path, count: u8) {
     let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
     let mut vm = Vmm::new_resume_bundle(config, &bundle).unwrap();
     for (index, fault) in FAULTS.iter().take(usize::from(count)).enumerate() {
+        let cpu = vm.vcpus[index].as_ref();
+        assert_eq!(
+            csr(&registers(cpu), 0x301) & (1 << 7),
+            0,
+            "hart {index} restored misa.H"
+        );
         let pc = entry(index);
         assert_frame(
-            vm.vcpus[index].as_ref(),
+            cpu,
             fault.delegates,
             pc,
             fault.cause,

@@ -271,10 +271,19 @@ impl Vm for EmulatorVm {
                         Ok(Box::new(GscVcpu::new(id, mem)))
                     }
                 } else if let Some(platform) = self.riscv_platform.get() {
+                    let config = self.riscv_config.unwrap_or_else(|| {
+                        let mut config = RiscVConfig::rv64gc();
+                        if platform.architectural_traps() {
+                            // Firmware uses misa.H to discover the hypervisor
+                            // register file and two-stage address translation.
+                            config.isa.h = false;
+                        }
+                        config
+                    });
                     Ok(Box::new(riscv::RiscVVcpu::new_in_platform(
                         id,
                         mem,
-                        self.riscv_config.unwrap_or_else(RiscVConfig::rv64gc),
+                        config,
                         platform.clone(),
                     )?))
                 } else {
