@@ -392,6 +392,24 @@ impl SnapshotBundle {
                 }
             }
         }
+        // The software CPU's I/O APIC policy depends on a PC controller
+        // image carried by the coordinator. Diagnose that owner first.
+        if self
+            .execution
+            .as_ref()
+            .is_none_or(|state| state.pc.is_none())
+            && self.backend_contexts.as_ref().is_some_and(|contexts| {
+                contexts.entries().iter().flatten().any(|context| {
+                    context.kind == super::X86_64_CONTEXT
+                        && crate::isa::x86_64::X86_64Vcpu::context_requires_ioapic(&context.data)
+                })
+            })
+        {
+            return Err(Error::InvalidConfig(
+                "checkpoint PC component is missing. I/O APIC MMIO policy requires the PC controller image"
+                    .into(),
+            ));
+        }
         // The coordinated capture has a clock and a physical RAM image.
         // Legacy projections can carry an execution or private CPU section
         // on its own, or physical RAM and a clock before the coordinator.

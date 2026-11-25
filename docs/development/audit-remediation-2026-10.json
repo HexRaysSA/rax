@@ -200543,7 +200543,7 @@
         "C-SMP"
       ],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Recognizable coordinated checkpoint bundles require the execution coordinator, VM clock and physical RAM through load, save, fresh resume and live restore. Wall-clock tests cover all four entry points at one, two and four vCPUs and verify compatibility with a legacy single-CPU clock and physical RAM file.",
+      "scope": "Recognizable coordinated checkpoint bundles require the execution coordinator, VM clock and physical RAM through load, save, fresh resume and live restore. Wall-clock tests cover all four entry points at one, two and four vCPUs and verify compatibility with a legacy single-CPU clock and physical RAM file. A retained software x86 I/O APIC MMIO policy requires the PC controller image during shared admission.",
       "qualification": "docs/development/backend-contexts.md#coordinated-ram-and-clock-admission",
       "full_goal_complete": false
     },

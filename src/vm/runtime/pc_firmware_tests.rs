@@ -204,7 +204,7 @@ fn source_free_resume_preserves_guest_modified_firmware_ram_instead_of_republish
 
 #[test]
 fn ioapic_private_policy_cannot_restore_without_its_controller_image() {
-    let (mut vm, _kernel) = cold(1);
+    let (mut vm, kernel) = cold(1);
     let mut saved = vm.take_snapshot_bundle(0).unwrap();
     assert!(
         saved.backend_contexts().unwrap().entries()[0]
@@ -213,17 +213,27 @@ fn ioapic_private_policy_cannot_restore_without_its_controller_image() {
             .data
             .starts_with(b"RAXX8604")
     );
+    let checkpoint = Kernel(kernel.0.with_extension("rxc"));
+    saved.save(&checkpoint.0).unwrap();
+    let valid_file = std::fs::read(&checkpoint.0).unwrap();
     saved.take_execution();
     let before = crate::codec::serialize(&vm.vcpus[0].get_state().unwrap()).unwrap();
     vm.guest_mem()
         .memory()
         .write_obj(0xa55au32, GuestAddress(0x210004))
         .unwrap();
-    let error = vm.restore_snapshot_bundle(&saved).unwrap_err().to_string();
-    assert!(
-        error.contains("requires the PC controller image"),
-        "{error}"
-    );
+    for error in [
+        saved.save(&checkpoint.0).unwrap_err(),
+        vm.restore_snapshot_bundle(&saved).unwrap_err(),
+    ] {
+        assert!(
+            error
+                .to_string()
+                .contains("requires the PC controller image"),
+            "{error}"
+        );
+    }
+    assert_eq!(std::fs::read(&checkpoint.0).unwrap(), valid_file);
     assert_eq!(read(&vm, 0x210004), 0xa55a);
     assert_eq!(
         crate::codec::serialize(&vm.vcpus[0].get_state().unwrap()).unwrap(),

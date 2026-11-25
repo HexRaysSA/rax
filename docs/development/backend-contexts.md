@@ -45,6 +45,15 @@ and four-vCPU file continuation, active UART interrupt, pending MMIO read-reply
 retry and late GIC restore rollback tests.
 [Checkpoint resume regression](../../tests/suites/vm/checkpoint_resume.rs)
 
+For software x86, a private CPU record with an I/O APIC MMIO policy also
+requires the PC controller image carried by the coordinator. File admission
+and live restore report the missing controller before a general coordinator
+error. The regression removes the execution section, checks the diagnostic,
+and compares the existing file, live CPU state and RAM after rejection.
+All 119 selected library tests passed across the complete snapshot,
+PC firmware and PC owned-capture test modules.
+[PC controller regression](../../src/vm/runtime/pc_firmware_tests.rs)
+
 ## Private CPU and machine records
 
 The standalone AArch32 producer retains its versioned `RAXA3202` context (`RAXA3201` remains readable). The
