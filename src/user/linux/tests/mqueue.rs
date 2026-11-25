@@ -618,3 +618,44 @@ fn a_queue_polls_readable_with_messages_and_writable_with_room() {
     assert_eq!(send(&mut h, fd, m.buf(), b"x", 0), 0);
     assert_eq!(poll(&mut h), 1, "POLLIN");
 }
+
+#[test]
+fn fallocate_on_mqueue_matches_linux_validation_order() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = Mem::new(&mut h);
+        let a = attr(&h, m.base + 0x800, 4, 16);
+        let writable = open(&mut h, &m, b"falloc", O_RDWR | O_CREAT, 0o600, a) as u64;
+        let readonly = open(&mut h, &m, b"falloc-ro", O_RDONLY | O_CREAT, 0o600, a) as u64;
+
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0, 0, 1]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 1, 0, 1]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 3, 0, 1]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0x80, 0, 1]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0x04, 0, 1]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 2, 0, 1]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0x13, 0, 1]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0x09, 0, 1]), EINVAL);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0x21, 0, 1]), EINVAL);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0x43, 0, 1]), EINVAL);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0, u64::MAX, 1]), EINVAL);
+        assert_eq!(h.err(Sysno::Fallocate, &[writable, 0, 0, 0]), EINVAL);
+        assert_eq!(h.err(Sysno::Fallocate, &[readonly, 0, 0, 1]), EBADF);
+        assert_eq!(h.err(Sysno::Fallocate, &[readonly, 1, 0, 1]), EBADF);
+        assert_eq!(h.err(Sysno::Fallocate, &[readonly, 3, 0, 1]), EBADF);
+        assert_eq!(h.err(Sysno::Fallocate, &[readonly, 0x80, 0, 1]), EOPNOTSUPP);
+        assert_eq!(h.err(Sysno::Fallocate, &[readonly, 0x09, 0, 1]), EINVAL);
+        assert_eq!(
+            h.err(Sysno::Fallocate, &[writable, 0, i64::MAX as u64 - 1, 2]),
+            EFBIG
+        );
+        assert_eq!(
+            h.err(Sysno::Fallocate, &[writable, 0, i32::MAX as u64, 1]),
+            EFBIG
+        );
+        assert_eq!(
+            h.err(Sysno::Fallocate, &[writable, 0, i32::MAX as u64 - 1, 1]),
+            EOPNOTSUPP
+        );
+    });
+}
