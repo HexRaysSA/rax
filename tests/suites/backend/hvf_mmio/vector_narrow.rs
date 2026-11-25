@@ -22,6 +22,11 @@ fn packed_unsigned_matches_x86_ram_and_completes_once() {
     check_packed_device_reads(&packed_vectors::UNSIGNED_CASES);
 }
 
+#[test]
+fn packed_sign_matches_x86_ram_and_completes_once() {
+    check_packed_device_reads(&packed_vectors::SIGN_CASES);
+}
+
 fn check_packed_device_reads(cases: &[packed_vectors::Case]) {
     let mut rejected = Vec::new();
     for case in cases {
@@ -130,6 +135,11 @@ fn packed_horizontal_requires_legacy_alignment_and_allocated_prefixes() {
 #[test]
 fn packed_unsigned_requires_legacy_alignment_and_allocated_prefixes() {
     check_packed_prefix_admission(&packed_vectors::UNSIGNED_CASES);
+}
+
+#[test]
+fn packed_sign_requires_legacy_alignment_and_allocated_prefixes() {
+    check_packed_prefix_admission(&packed_vectors::SIGN_CASES);
 }
 
 fn check_packed_prefix_admission(cases: &[packed_vectors::Case]) {

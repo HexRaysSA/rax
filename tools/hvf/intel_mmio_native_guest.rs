@@ -1457,11 +1457,15 @@ fn main() {
         xmm::run_immediate_shuffle(&output);
         return;
     }
-    if let Some(profile @ ("--vector-narrow" | "--vector-horizontal" | "--vector-unsigned")) =
-        std::env::args_os()
-            .nth(1)
-            .as_deref()
-            .and_then(std::ffi::OsStr::to_str)
+    if let Some(
+        profile @ ("--vector-narrow"
+        | "--vector-horizontal"
+        | "--vector-unsigned"
+        | "--vector-sign"),
+    ) = std::env::args_os()
+        .nth(1)
+        .as_deref()
+        .and_then(std::ffi::OsStr::to_str)
     {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

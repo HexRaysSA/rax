@@ -378,3 +378,153 @@ pub(super) const UNSIGNED_CASES: [Case; 3] = [
         ],
     },
 ];
+
+pub(super) const SIGN_CASES: [Case; 3] = [
+    Case {
+        map: 2,
+        opcode: 0x08,
+        mnemonic: "psignb",
+        sources: [
+            [
+                [
+                    0x81090012ffff7f80,
+                    0x81090012ffff7f80,
+                    0x81090012ffff7f80,
+                    0x81090012ffff7f80,
+                ],
+                [
+                    0x7f807f00010080ff,
+                    0x7f807f00010080ff,
+                    0x7f807f00010080ff,
+                    0x7f807f00010080ff,
+                ],
+            ],
+            [
+                [
+                    0x81ff0080ff097f12,
+                    0x81ff0080ff097f12,
+                    0x81ff0080ff097f12,
+                    0x81ff0080ff097f12,
+                ],
+                [
+                    0x7f007fff01808000,
+                    0x7f007fff01808000,
+                    0x7f007fff01808000,
+                    0x7f007fff01808000,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0x81f70000ff008180,
+                0x81f70000ff008180,
+                0x81f70000ff008180,
+                0x81f70000ff008180,
+            ],
+            [
+                0x81000080fff78100,
+                0x81000080fff78100,
+                0x81000080fff78100,
+                0x81000080fff78100,
+            ],
+        ],
+    },
+    Case {
+        map: 2,
+        opcode: 0x09,
+        mnemonic: "psignw",
+        sources: [
+            [
+                [
+                    0xffffffff7fff8000,
+                    0x8001000900000012,
+                    0xffffffff7fff8000,
+                    0x8001000900000012,
+                ],
+                [
+                    0x000100008000ffff,
+                    0x7fff80007fff0000,
+                    0x000100008000ffff,
+                    0x7fff80007fff0000,
+                ],
+            ],
+            [
+                [
+                    0xffff00097fff0012,
+                    0x8001ffff00008000,
+                    0xffff00097fff0012,
+                    0x8001ffff00008000,
+                ],
+                [
+                    0x0001800080000000,
+                    0x7fff00007fffffff,
+                    0x0001800080000000,
+                    0x7fff00007fffffff,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0xffff000080018000,
+                0x8001fff700000000,
+                0xffff000080018000,
+                0x8001fff700000000,
+            ],
+            [
+                0xfffffff780010000,
+                0x8001000000008000,
+                0xfffffff780010000,
+                0x8001000000008000,
+            ],
+        ],
+    },
+    Case {
+        map: 2,
+        opcode: 0x0a,
+        mnemonic: "psignd",
+        sources: [
+            [
+                [
+                    0x7fffffff80000000,
+                    0xffffffffffffffff,
+                    0x0000000000000012,
+                    0x8000000100000009,
+                ],
+                [
+                    0x80000000ffffffff,
+                    0x0000000100000000,
+                    0x7fffffff00000000,
+                    0x7fffffff80000000,
+                ],
+            ],
+            [
+                [
+                    0x7fffffff00000012,
+                    0xffffffff00000009,
+                    0x0000000080000000,
+                    0x80000001ffffffff,
+                ],
+                [
+                    0x8000000000000000,
+                    0x0000000180000000,
+                    0x7fffffffffffffff,
+                    0x7fffffff00000000,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0x8000000180000000,
+                0xffffffff00000000,
+                0x0000000000000000,
+                0x80000001fffffff7,
+            ],
+            [
+                0x8000000100000000,
+                0xfffffffffffffff7,
+                0x0000000080000000,
+                0x8000000100000000,
+            ],
+        ],
+    },
+];

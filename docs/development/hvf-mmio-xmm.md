@@ -1458,3 +1458,39 @@ executable digests were verified. The execution archive SHA-256 is
 [Hosted unsigned arithmetic execution](https://github.com/HexRaysSA/rax/actions/runs/45557848605/job/139014141189)
 
 MMX, EVEX and bare-metal Intel observations remain outside this qualification.
+
+## Packed sign with a device operand
+
+The Intel HVF MMIO planner decodes the legacy XMM, VEX.128 and VEX.256
+memory forms of `PSIGNB`, `PSIGNW` and `PSIGND`. It requests one 16 B or
+32 B read. A legacy operand requires 16 B alignment. Both VEX.W values
+use the same operation and allow unaligned reads.
+
+Each signed device element selects a result for the corresponding
+register element. Negative selects modular negation, zero selects zero,
+and positive preserves the register element. Negation of the minimum
+signed value preserves its bit pattern at that element width. For B bytes,
+completion uses O(B) time and O(1) auxiliary space. It preserves RFLAGS,
+preserves the upper half of legacy YMM destinations, clears it for
+VEX.128 and writes all 32 B for VEX.256. The pending I/O format appends
+one operation discriminant and retains the existing source bytes,
+destination encoding and instruction length.
+[Intel Software Developer's Manual, PSIGNB/PSIGNW/PSIGND](https://cdrdv2-public.intel.com/782156/325383-sdm-vol-2abcd.pdf)
+
+| Assumption | Falsification probe | Observed result |
+| --- | --- | --- |
+| Each control lane selects its own result at the encoded width. | Run 15 exact instruction encodings on ordinary x86 RAM under Rosetta with two input patterns, including minimum signed values, zero and both nonzero control signs. Check the complete YMM destination and RFLAGS. | All 30 cases matched. LLVM disassembly confirmed each encoded instruction and its memory operand. |
+| A pending reply completes once after decode and restore. | Plan all 15 forms, serialize and restore each pending read, and present a duplicate reply. Try legacy misalignment, register-only sources, invalid mandatory prefixes and LOCK. | The baseline rejected all 15 supported forms. The corrected planner admitted each supported form and rejected the controls. Each accepted reply produced one register write and one retirement. |
+
+The complete `hvf_mmio`, `hvf_guest_translation` and `x86_64` targets passed
+28,734 tests with 3 opt-in x86 tests ignored. The independent RAM
+observation SHA-256 is
+`1f6111b21f5970273702f51f42c13858635c3ad2a998cd4e816fbdaaa22d95ea`.
+The Intel macOS consumer cross-built and passed strict code-signature
+verification. The local build ran on Arm64.
+The hosted `vector-sign` profile covers 30 direct reads, 30 fresh-owner
+reads and 3 legacy alignment faults. MMX device reads and bare-metal
+Intel macOS qualification remain open.
+
+Commands, inputs, disassembly and logs are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-packed-sign-2026-11-25/`.

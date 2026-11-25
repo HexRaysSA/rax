@@ -41,6 +41,7 @@ on:
           - vector-narrow
           - vector-horizontal
           - vector-unsigned
+          - vector-sign
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-bit-test

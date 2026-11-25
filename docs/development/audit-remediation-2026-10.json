@@ -200655,6 +200655,16 @@
       "scope": "RV64 virt interprets the zero-code SiFive power-off command and preserves VM-wide terminal state in version-5 platform records. A detached terminal checkpoint exits at the captured retirement without reissuing the command. Debian Linux 6.12.117-1 under OpenSBI v1.8.1 ran PID 1 on each configured hart and powered off at both two and four harts in QEMU 11.1.2 and RAX with RetiredWithIdle. The former RAX guest reached all CPUs but timed out after power-down. The RAX default wall-clock control timed out before PID 1.",
       "qualification": "docs/development/riscv-clint/README.md#rv64-virt-firmware-power-off",
       "full_goal_complete": false
+    },
+    {
+      "id": "intel-hvf-packed-sign-mmio-2026-11-25",
+      "findings": [
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF planning supports all 15 legacy XMM and VEX memory encodings of PSIGNB, PSIGNW and PSIGND with one device read and checkpoint-safe completion. The baseline rejected all 15. All 30 independent Rosetta RAM observations matched the architectural YMM and RFLAGS results. Local tests qualified aligned legacy and unaligned VEX reads and one retirement after a serialized pending reply. The 63-case hosted profile covers direct, fresh-owner and misalignment cases. Bare-metal Intel macOS and remaining MMIO and interrupt profiles remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#packed-sign-with-a-device-operand",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

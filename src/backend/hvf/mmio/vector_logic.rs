@@ -380,6 +380,7 @@ enum Operation {
     AverageByte,
     AverageWord,
     SumAbsoluteByteDifferences,
+    Sign(Element),
 }
 
 impl Operation {
@@ -404,6 +405,9 @@ impl Operation {
             "phsubw" => Self::Horizontal(Horizontal::SubtractWord),
             "phsubd" => Self::Horizontal(Horizontal::SubtractDoubleword),
             "phsubsw" => Self::Horizontal(Horizontal::SubtractSaturatingWord),
+            "psignb" => Self::Sign(Element::Byte),
+            "psignw" => Self::Sign(Element::Word),
+            "psignd" => Self::Sign(Element::Doubleword),
             "punpcklbw" => Self::UnpackLow(Element::Byte),
             "punpcklwd" => Self::UnpackLow(Element::Word),
             "punpckldq" => Self::UnpackLow(Element::Doubleword),
@@ -516,6 +520,19 @@ impl Operation {
                     .map(|(left, right)| u64::from(left.abs_diff(right)))
                     .sum()
             }),
+            Self::Sign(element) => {
+                let width = element.bytes();
+                let sign_bit = 1 << (8 * width - 1);
+                map_integer_lanes(left, right, width, |value, control| {
+                    if control == 0 {
+                        0
+                    } else if control & sign_bit != 0 {
+                        value.wrapping_neg()
+                    } else {
+                        value
+                    }
+                })
+            }
             Self::Compare(comparison, element) => {
                 let width = element.bytes();
                 let mut result = [0; N];
@@ -640,6 +657,9 @@ impl Input {
             && (self.encoding == Encoding::Legacy || shift.bytes() == 2)
         {
             return Err("invalid AVX2 variable shift descriptor".into());
+        }
+        if matches!(self.operation, Operation::Sign(Element::Quadword)) {
+            return Err("invalid packed sign descriptor".into());
         }
         Ok(())
     }

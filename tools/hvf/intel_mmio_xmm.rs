@@ -1281,6 +1281,7 @@ pub(super) fn run_packed_integer(output: &Path, profile: &str) {
     let cases: &[packed_vectors::Case] = match profile {
         "--vector-horizontal" => &packed_vectors::HORIZONTAL_CASES,
         "--vector-unsigned" => &packed_vectors::UNSIGNED_CASES,
+        "--vector-sign" => &packed_vectors::SIGN_CASES,
         "--vector-narrow" => &packed_narrow::CASES,
         _ => unreachable!("unknown packed integer profile"),
     };
