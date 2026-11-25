@@ -420,6 +420,25 @@ fn installed_darwin_locales_match_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_reopens_guest_descriptors_through_closed_c_abi() {
+    let input = b"guest descriptor input\n";
+    for name in ["/dev/stdin", "/dev/fd/0"] {
+        compare_installed_posix_with_input("darwin", "/bin/cat", &[name], &[], input, input);
+    }
+    compare_installed_posix_output(
+        "darwin",
+        "/bin/sh",
+        &[
+            "-c",
+            "printf '%s\\n' 'guest descriptor output' >/dev/stdout",
+        ],
+        &[],
+        b"guest descriptor output\n",
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_tput_matches_native_through_closed_c_abi() {
     let path = "/usr/bin/tput";
     let environment = &[("LC_ALL", "C")];

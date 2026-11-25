@@ -342,8 +342,42 @@ fn file_action(
             path,
         } => {
             let path = path.as_deref().map_err(|error| *error)?;
-            let file = open_action(ctx, s, path, *oflag, *mode, nofile)?;
-            install_open_action(s, *fd, file, *oflag, nofile)?;
+            let flags = if ctx
+                .proc
+                .vfs
+                .files()
+                .is_some_and(|files| files.has_workspace())
+            {
+                *oflag & !(O_SHLOCK | O_EXLOCK)
+            } else {
+                *oflag
+            };
+            match open_action(ctx, s, path, flags, *mode, nofile) {
+                Ok(file) => install_open_action(s, *fd, file, flags, nofile)?,
+                Err(error) => {
+                    let source = embedded::open_descriptor_number(
+                        ctx,
+                        path,
+                        &s.cwd,
+                        s.cwd_directory.as_ref(),
+                        false,
+                        flags,
+                        error,
+                    )
+                    .ok_or(error)?;
+                    s.fds.lowest_free(0, nofile)?;
+                    // XNU looks up fdesc vnode names against the caller's table,
+                    // then duplicates the referenced slot in the spawn table.
+                    ctx.proc.fds.get(source)?;
+                    if path.ends_with(b"/") {
+                        return Err(Errno::ENOTDIR);
+                    }
+                    let orig = crate::user::darwin::syscall::bsd::path::open_descriptor_in_table(
+                        &mut s.fds, source, flags, nofile,
+                    )?;
+                    finish_open_action(s, *fd, orig, nofile)?;
+                }
+            }
         }
         FileAction::Close(fd) => {
             s.fds.remove(*fd)?;
@@ -416,15 +450,35 @@ fn prepare_locked_open(
     }
     spawn.scratch.fds.lowest_free(0, spawn.nofile)?;
     let path = path.as_deref().map_err(|error| *error)?;
+    let flags = *oflag & !lock_flags;
     let file = embedded::resolve_open_file(
         ctx,
         path,
         &spawn.scratch.cwd,
         spawn.scratch.cwd_directory.as_ref(),
         false,
-        *oflag & !lock_flags,
+        flags,
         *mode,
-    )?;
+    );
+    let file = match file {
+        Ok(file) => file,
+        Err(error) => {
+            if embedded::open_descriptor_number(
+                ctx,
+                path,
+                &spawn.scratch.cwd,
+                spawn.scratch.cwd_directory.as_ref(),
+                false,
+                flags,
+                error,
+            )
+            .is_some()
+            {
+                return Ok(None);
+            }
+            return Err(error);
+        }
+    };
     Ok(Some(LockedOpen {
         destination: *fd,
         flags: *oflag,
@@ -523,6 +577,10 @@ fn install_open_action(
         0,
         nofile,
     )?;
+    finish_open_action(s, fd, orig, nofile)
+}
+
+fn finish_open_action(s: &mut Scratch, fd: i32, orig: i32, nofile: u64) -> Result<(), Errno> {
     if orig != fd {
         dup2(s, orig, fd, nofile)?;
         s.fds.remove(orig)?;
@@ -1095,6 +1153,65 @@ fn reap(pid: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spawn_descriptor_open_looks_up_the_caller_and_duplicates_the_child_slot() {
+        use crate::user::darwin::abi::DarwinAbi;
+        use crate::user::darwin::io::{O_RDONLY, O_WRONLY};
+        use crate::user::darwin::vfs::Vfs;
+        use crate::user::supplied_fs::Files;
+
+        for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+            let mut process = process::bounded_tests::process(abi);
+            process.proc.vfs =
+                Vfs::supplied(Files::default().with_darwin_descriptor_names().unwrap());
+            let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+            let ctx = Ctx {
+                proc: &mut process.proc,
+                thread: &mut thread,
+                nr: 0,
+                pc: 0,
+            };
+            let mut scratch = Scratch {
+                fds: fdt_fork(&ctx.proc.fds, false),
+                cwd: b"/".to_vec(),
+                cwd_directory: None,
+                #[cfg(unix)]
+                dir: None,
+                inherit: None,
+            };
+            let nofile = ctx.proc.rlimits[8].0;
+            let read = ctx.proc.fds.file(0).unwrap();
+            let write = ctx.proc.fds.file(1).unwrap();
+            let source = 19;
+            let destination = 23;
+            let open = |oflag| FileAction::Open {
+                fd: destination,
+                oflag,
+                mode: 0,
+                path: Ok(b"/dev/fd/19".to_vec()),
+            };
+            dup2(&mut scratch, 0, source, nofile).unwrap();
+            assert_eq!(
+                file_action(&ctx, &mut scratch, &open(O_RDONLY), nofile),
+                Err(Errno::EBADF)
+            );
+            ctx.proc
+                .fds
+                .install_with(read.clone(), false, false, source as usize, nofile)
+                .unwrap();
+            file_action(&ctx, &mut scratch, &open(O_RDONLY), nofile).unwrap();
+            assert!(Arc::ptr_eq(&scratch.fds.file(destination).unwrap(), &read));
+            dup2(&mut scratch, 1, source, nofile).unwrap();
+            assert_eq!(
+                file_action(&ctx, &mut scratch, &open(O_RDONLY), nofile),
+                Err(Errno::EACCES)
+            );
+            file_action(&ctx, &mut scratch, &open(O_WRONLY), nofile).unwrap();
+            assert!(Arc::ptr_eq(&scratch.fds.file(destination).unwrap(), &write));
+            assert!(Arc::ptr_eq(&ctx.proc.fds.file(source).unwrap(), &read));
+        }
+    }
 
     #[test]
     fn guarded_fd_replays_64_native_spawn_action_cases_on_both_guest_abis() {

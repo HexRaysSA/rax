@@ -175,6 +175,7 @@ fn select_native_root(
     let files = files
         .with_device(Device::Null)
         .and_then(|files| files.with_device(Device::Zero))
+        .and_then(|files| files.with_darwin_descriptor_names())
         .map_err(io::Error::other)?;
     let roots = [
         "/usr/lib",

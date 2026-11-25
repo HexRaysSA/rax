@@ -133,6 +133,78 @@ fn lookup_as(
         .map_err(Errno::from)
 }
 
+fn descriptor_number_as(
+    ctx: &Ctx<'_>,
+    path: &[u8],
+    base: &[u8],
+    directory: Option<&Arc<WorkspaceDirectory>>,
+    allow_search: bool,
+    policy: LinkPolicy,
+    ids: (u32, u32),
+) -> Option<i32> {
+    let files = ctx.proc.vfs.files()?;
+    let (absolute, retained) = path_with_workspace_base(path, base, directory, ids).ok()?;
+    if retained.is_some() {
+        return None;
+    }
+    let search_from = if allow_search {
+        directory
+            .filter(|directory| directory.linked())
+            .zip(std::str::from_utf8(path).ok())
+            .map(|(directory, relative)| (relative, directory))
+    } else {
+        None
+    };
+    files.darwin_descriptor_number(&absolute, policy, ids, search_from)
+}
+
+fn descriptor_stat(ctx: &Ctx<'_>, fd: i32, path: &[u8]) -> Result<Stat, Errno> {
+    let file = ctx.proc.fds.file(fd)?;
+    if path.ends_with(b"/") {
+        return Err(Errno::ENOTDIR);
+    }
+    let FileKind::Embedded(data) = &file.kind else {
+        return Err(Errno::EBADF);
+    };
+    let mut stat = data.stat()?;
+    let flags = *file.flags.lock().map_err(|_| Errno::EIO)?;
+    let access = flags & O_ACCMODE;
+    if access == O_WRONLY || data.search_only() {
+        stat.mode &= !0o444;
+    }
+    if access == O_RDONLY {
+        stat.mode &= !0o222;
+    }
+    if flags & O_EXEC == 0 || stat.mode & 0o170000 == 0o040000 {
+        stat.mode &= !0o111;
+    }
+    Ok(stat)
+}
+
+pub(in crate::user::darwin) fn open_descriptor_number(
+    ctx: &Ctx<'_>,
+    path: &[u8],
+    base: &[u8],
+    directory: Option<&Arc<WorkspaceDirectory>>,
+    allow_search: bool,
+    flags: u32,
+    error: Errno,
+) -> Option<i32> {
+    if !matches!(error, Errno::ENOENT | Errno::EROFS) {
+        return None;
+    }
+    let (policy, _, _) = open_policy(flags).ok()?;
+    descriptor_number_as(
+        ctx,
+        path,
+        base,
+        directory,
+        allow_search,
+        policy,
+        (ctx.proc.creds.1, ctx.proc.creds.3),
+    )
+}
+
 pub(crate) fn lookup_followed(
     ctx: &Ctx<'_>,
     path: &[u8],
@@ -174,15 +246,44 @@ pub(super) fn accessat(ctx: &Ctx<'_>, dirfd: i32, path: u64, mode: i32, flags: u
     };
     let (path, (base, directory)) = path_and_base(ctx, dirfd, path)?;
     let resource = resource_base(&path);
-    let (_, entry) = lookup_as(
+    let allow_search = allows_initial_search(ctx, dirfd, &path);
+    let policy = link_policy(flags);
+    let result = lookup_as(
         ctx,
         resource.unwrap_or(&path),
         &base,
         directory.as_ref(),
-        allows_initial_search(ctx, dirfd, &path),
-        link_policy(flags),
+        allow_search,
+        policy,
         ids,
-    )?;
+    );
+    if matches!(result, Err(Errno::ENOENT))
+        && resource.is_none()
+        && let Some(fd) = descriptor_number_as(
+            ctx,
+            &path,
+            &base,
+            directory.as_ref(),
+            allow_search,
+            policy,
+            ids,
+        )
+    {
+        let stat = descriptor_stat(ctx, fd, &path)?;
+        let shift = if ids.0 == stat.uid {
+            6
+        } else if ids.1 == stat.gid {
+            3
+        } else {
+            0
+        };
+        return if (stat.mode >> shift) & mode as u16 == mode as u16 {
+            Ok(Rv::one(0))
+        } else {
+            Err(Errno::EACCES)
+        };
+    }
+    let (_, entry) = result?;
     if resource.is_some() {
         return Err(Errno::EPERM);
     }
@@ -301,6 +402,21 @@ pub(super) fn openat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32, mode:
         Err(error) => {
             if let Some(fd) = descriptor {
                 ctx.proc.fds.release(fd);
+            }
+            if let Some(fd) = open_descriptor_number(
+                ctx,
+                &path,
+                &base,
+                directory.as_ref(),
+                allow_search,
+                flags & !lock_flags,
+                error,
+            ) {
+                ctx.proc.fds.get(fd)?;
+                if path.ends_with(b"/") {
+                    return Err(Errno::ENOTDIR);
+                }
+                return super::open_descriptor(ctx, fd, flags);
             }
             return Err(error);
         }
@@ -799,15 +915,37 @@ pub(in crate::user::darwin::syscall::bsd) fn path_stat(
     let (path, (base, directory)) = path_and_base(ctx, dirfd, address)?;
     let resource = resource_base(&path);
     let owner = (ctx.proc.creds.1, ctx.proc.creds.3);
-    let (_, entry) = lookup_as(
+    let allow_search = allows_initial_search(ctx, dirfd, &path);
+    let result = lookup_as(
         ctx,
         resource.unwrap_or(&path),
         &base,
         directory.as_ref(),
-        allows_initial_search(ctx, dirfd, &path),
+        allow_search,
         policy,
         owner,
-    )?;
+    );
+    if matches!(result, Err(Errno::ENOENT))
+        && resource.is_none()
+        && let Some(fd) = descriptor_number_as(
+            ctx,
+            &path,
+            &base,
+            directory.as_ref(),
+            allow_search,
+            policy,
+            owner,
+        )
+    {
+        if workspace_only {
+            let file = ctx.proc.fds.file(fd)?;
+            if !matches!(&file.kind, FileKind::Embedded(data) if data.workspace().is_some()) {
+                return Err(Errno::EPERM);
+            }
+        }
+        return descriptor_stat(ctx, fd, &path);
+    }
+    let (_, entry) = result?;
     if resource.is_some() {
         if entry.workspace_file().is_none() {
             return Err(Errno::ENOENT);

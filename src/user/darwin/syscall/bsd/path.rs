@@ -23,7 +23,7 @@ use crate::user::darwin::syscall::Ctx;
 
 mod dev_fd;
 pub(crate) mod embedded;
-pub(crate) use dev_fd::open_descriptor;
+pub(crate) use dev_fd::{open_descriptor, open_in_table as open_descriptor_in_table};
 
 #[cfg(unix)]
 fn guest_path(ctx: &Ctx<'_>, addr: u64) -> Result<(Vec<u8>, CString), Errno> {

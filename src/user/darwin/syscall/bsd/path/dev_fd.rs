@@ -1,11 +1,22 @@
 //! fdescfs opens name guest descriptor slots, including through host aliases.
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::arch::{Rv, SysResult};
+use crate::user::darwin::fd::FdTable;
 use crate::user::darwin::io;
 use crate::user::darwin::syscall::Ctx;
 
 /// `dupfdopen`: preserve descriptor flags and the shared open description.
 pub(crate) fn open_descriptor(ctx: &mut Ctx<'_>, fd: i32, flags: u32) -> SysResult {
+    open_in_table(&mut ctx.proc.fds, fd, flags, ctx.proc.rlimits[8].0)
+        .map(|descriptor| Rv::one(descriptor as u64))
+}
+
+pub(crate) fn open_in_table(
+    table: &mut FdTable,
+    fd: i32,
+    flags: u32,
+    limit: u64,
+) -> Result<i32, Errno> {
     let access = flags & io::O_ACCMODE;
     if access == 3 {
         return Err(Errno::EINVAL);
@@ -17,9 +28,8 @@ pub(crate) fn open_descriptor(ctx: &mut Ctx<'_>, fd: i32, flags: u32) -> SysResu
     if flags & io::O_DIRECTORY != 0 {
         return Err(Errno::ENOTDIR);
     }
-    let limit = ctx.proc.rlimits[8].0;
-    ctx.proc.fds.lowest_free(0, limit)?;
-    let source = ctx.proc.fds.get(fd)?.clone();
+    table.lowest_free(0, limit)?;
+    let source = table.get(fd)?.clone();
     if source
         .guard
         .is_some_and(|guard| guard.attributes & super::super::guarded::DUP != 0)
@@ -39,14 +49,13 @@ pub(crate) fn open_descriptor(ctx: &mut Ctx<'_>, fd: i32, flags: u32) -> SysResu
     if permissions(access) & !permissions(original & io::O_ACCMODE) != 0 {
         return Err(Errno::EACCES);
     }
-    let descriptor = ctx.proc.fds.install_with(
+    table.install_with(
         source.file,
         source.cloexec || flags & io::O_CLOEXEC != 0,
         source.clofork || flags & io::O_CLOFORK != 0,
         0,
         limit,
-    )?;
-    Ok(Rv::one(descriptor as u64))
+    )
 }
 
 /// Resolve host fdescfs aliases without opening a descriptor in the host table.

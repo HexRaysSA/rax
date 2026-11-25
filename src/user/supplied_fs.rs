@@ -107,6 +107,8 @@ pub enum Kind {
     WorkspaceSymlink(Arc<workspace::WorkspaceSymlink>),
     WorkspaceDirectory(Arc<WorkspaceDirectory>),
     Directory,
+    /// The Darwin runtime's directory of process-local descriptor names.
+    DarwinDescriptorDirectory,
     /// The closed runtime's synthetic null character device.
     NullDevice,
     /// The closed runtime's synthetic zero-filled character device.
@@ -145,7 +147,10 @@ pub struct Entry {
 }
 impl Entry {
     pub fn is_dir(&self) -> bool {
-        matches!(self.kind, Kind::Directory | Kind::WorkspaceDirectory(_))
+        matches!(
+            self.kind,
+            Kind::Directory | Kind::DarwinDescriptorDirectory | Kind::WorkspaceDirectory(_)
+        )
     }
     pub(crate) fn device(&self) -> Option<Device> {
         match self.kind {
@@ -282,7 +287,9 @@ impl Entry {
                 }
                 Ok(bytes.into())
             }
-            Kind::Directory | Kind::WorkspaceDirectory(_) => Err(Error::IsDirectory),
+            Kind::Directory | Kind::DarwinDescriptorDirectory | Kind::WorkspaceDirectory(_) => {
+                Err(Error::IsDirectory)
+            }
             Kind::NullDevice | Kind::ZeroDevice | Kind::UrandomDevice => Err(Error::NotRegular),
             Kind::Symlink(_) | Kind::WorkspaceSymlink(_) => Err(Error::LinkLoop),
         }
@@ -295,6 +302,7 @@ impl Entry {
             Kind::Backed(source) => source.len(),
             Kind::Workspace(file) => file.len(),
             Kind::Directory
+            | Kind::DarwinDescriptorDirectory
             | Kind::WorkspaceDirectory(_)
             | Kind::NullDevice
             | Kind::ZeroDevice
@@ -331,7 +339,9 @@ impl Entry {
             Kind::File(bytes) => Arc::new(BytesSource::new(bytes.clone())),
             Kind::Backed(source) => source.clone(),
             Kind::Workspace(file) => return Ok(file.clone()),
-            Kind::Directory | Kind::WorkspaceDirectory(_) => return Err(Error::IsDirectory),
+            Kind::Directory | Kind::DarwinDescriptorDirectory | Kind::WorkspaceDirectory(_) => {
+                return Err(Error::IsDirectory);
+            }
             Kind::NullDevice | Kind::ZeroDevice | Kind::UrandomDevice => {
                 return Err(Error::NotRegular);
             }
@@ -557,6 +567,14 @@ impl Files {
     #[cfg(any(target_os = "macos", test))]
     pub(super) fn with_native_symlink(&self, path: &str, target: &str) -> Result<Self, Error> {
         validate(target)?;
+        if self.default_runtime_entry_available(path)? {
+            return self.with_kind(path.into(), Kind::Symlink(Arc::from(target.as_bytes())));
+        }
+        Ok(self.clone())
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    fn default_runtime_entry_available(&self, path: &str) -> Result<bool, Error> {
         if self.caller_roots.as_ref().is_some_and(|roots| {
             roots.paths().any(|root| {
                 root == "/"
@@ -566,15 +584,74 @@ impl Files {
                         .is_some_and(|tail| tail.starts_with('/'))
             })
         }) {
-            return Ok(self.clone());
+            return Ok(false);
         }
         match self.lookup_with_follow(path, false) {
-            Err(Error::NotFound) => {
-                self.with_kind(path.into(), Kind::Symlink(Arc::from(target.as_bytes())))
-            }
-            Ok(_) | Err(Error::NotDirectory) => Ok(self.clone()),
+            Err(Error::NotFound) => Ok(true),
+            Ok(_) | Err(Error::NotDirectory) => Ok(false),
             Err(error) => Err(error),
         }
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(super) fn with_darwin_descriptor_names(&self) -> Result<Self, Error> {
+        let mut names = Vec::new();
+        if self.default_runtime_entry_available("/dev/fd")? {
+            names.push(("/dev/fd".into(), Kind::DarwinDescriptorDirectory));
+        }
+        for (path, target) in [
+            ("/dev/stdin", b"fd/0".as_slice()),
+            ("/dev/stdout", b"fd/1".as_slice()),
+            ("/dev/stderr", b"fd/2".as_slice()),
+        ] {
+            if self.default_runtime_entry_available(path)? {
+                names.push((path.into(), Kind::Symlink(Arc::from(target))));
+            }
+        }
+        if names.is_empty() {
+            return Ok(self.clone());
+        }
+        self.with_kinds(names)
+    }
+
+    /// Resolve a failed ordinary lookup through the guest's own /dev/fd
+    /// directory. Only the owning Darwin process can resolve the number.
+    pub(super) fn darwin_descriptor_number(
+        &self,
+        path: &str,
+        policy: LinkPolicy,
+        ids: (u32, u32),
+        search_from: Option<(&str, &Arc<WorkspaceDirectory>)>,
+    ) -> Option<i32> {
+        if !self
+            .entries
+            .get("/dev/fd")
+            .is_some_and(|entry| matches!(entry.kind, Kind::DarwinDescriptorDirectory))
+        {
+            return None;
+        }
+        let mut links_left = self.symlink_limit();
+        let (path, end) = self
+            .walk(
+                path,
+                policy,
+                &mut links_left,
+                Some((ids, &[])),
+                MissingLast::Directory,
+                search_from,
+            )
+            .ok()?;
+        let WalkEnd::Missing { parent } = end else {
+            return None;
+        };
+        if !matches!(parent.kind, Kind::DarwinDescriptorDirectory) {
+            return None;
+        }
+        let number = path.rsplit_once('/')?.1;
+        if !number.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        number.parse().ok()
     }
 
     /// Select exactly one host file as read-only guest backing. No host path is
@@ -623,7 +700,8 @@ impl Files {
             .entries
             .iter()
             .filter_map(|(path, entry)| {
-                (!entry.is_dir()).then(|| (path.clone(), entry.kind.clone()))
+                (!entry.is_dir() || matches!(entry.kind, Kind::DarwinDescriptorDirectory))
+                    .then(|| (path.clone(), entry.kind.clone()))
             })
             .collect();
         let mut sources: BTreeMap<std::path::PathBuf, Arc<HostFileSource>> = BTreeMap::new();
@@ -675,7 +753,8 @@ impl Files {
             .entries
             .iter()
             .filter_map(|(path, entry)| {
-                (!entry.is_dir()).then(|| (path.clone(), entry.kind.clone()))
+                (!entry.is_dir() || matches!(entry.kind, Kind::DarwinDescriptorDirectory))
+                    .then(|| (path.clone(), entry.kind.clone()))
             })
             .collect();
         for (path, kind) in additions {
@@ -1696,6 +1775,53 @@ impl Files {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn darwin_descriptor_names_use_only_the_default_guest_directory() {
+        let files = Files::default().with_darwin_descriptor_names().unwrap();
+        let files = files
+            .with_file("/dev/extra".into(), Arc::from(b"extra".as_slice()))
+            .unwrap();
+        let find = |files: &Files, path, policy| {
+            files.darwin_descriptor_number(path, policy, (0, 0), None)
+        };
+        assert_eq!(
+            files
+                .lookup_with_follow("/dev/stdin", false)
+                .unwrap()
+                .1
+                .link_target(),
+            Some(b"fd/0".as_slice())
+        );
+        assert_eq!(find(&files, "/dev/stdin", LinkPolicy::Follow), Some(0));
+        assert_eq!(find(&files, "/dev/stdout", LinkPolicy::Follow), Some(1));
+        assert_eq!(find(&files, "/dev/stderr", LinkPolicy::Follow), Some(2));
+        assert_eq!(find(&files, "/dev/fd/02", LinkPolicy::Follow), Some(2));
+        assert_eq!(find(&files, "/dev/stdin", LinkPolicy::NoFollowLast), None);
+        assert_eq!(find(&files, "/dev/stdin", LinkPolicy::NoFollowAny), None);
+        for path in [
+            "/dev/fd/../0",
+            "/dev/fd/-1",
+            "/dev/fd/2147483648",
+            "/dev/fd/0/0",
+        ] {
+            assert_eq!(find(&files, path, LinkPolicy::Follow), None, "{path}");
+        }
+        let supplied = Files::new(BTreeMap::from([
+            ("/dev/stdin".into(), Arc::from(b"stdin fixture".as_slice())),
+            ("/dev/fd/7".into(), Arc::from(b"fd fixture".as_slice())),
+        ]))
+        .unwrap()
+        .with_darwin_descriptor_names()
+        .unwrap();
+        assert_eq!(
+            supplied.read("/dev/stdin").unwrap().as_ref(),
+            b"stdin fixture"
+        );
+        assert_eq!(supplied.read("/dev/fd/7").unwrap().as_ref(), b"fd fixture");
+        assert_eq!(find(&supplied, "/dev/fd/7", LinkPolicy::Follow), None);
+        assert_eq!(find(&supplied, "/dev/fd/0", LinkPolicy::Follow), None);
+    }
 
     #[test]
     fn workspace_symlinks_preserve_the_supplied_namespace_permissions() {
