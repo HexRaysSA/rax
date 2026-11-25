@@ -318,7 +318,14 @@ fn recorded(s: &Socket, level: i32, opt: i32) -> i32 {
         .ints
         .iter()
         .find(|&&(l, o, _)| l == level && o == opt)
-        .map_or(0, |&(_, _, v)| v)
+        .map_or(
+            if level == lx::SOL_SOCKET && opt == so::INCOMING_CPU {
+                -1
+            } else {
+                0
+            },
+            |&(_, _, v)| v,
+        )
 }
 
 /// `sk_setsockopt` and the protocol levels. `admin` is whether the caller

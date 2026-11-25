@@ -38,6 +38,7 @@ const SO_RCVTIMEO: u64 = 20;
 const SO_ACCEPTCONN: u64 = 30;
 const SO_RCVBUFFORCE: u64 = 33;
 const SO_PROTOCOL: u64 = 38;
+const SO_INCOMING_CPU: u64 = 49;
 const SO_COOKIE: u64 = 57;
 const SO_DEBUG: u64 = 1;
 const MSG_PEEK: u64 = 0x2;
@@ -1041,6 +1042,24 @@ fn credentials_are_checked_and_delivered_with_so_passcred() {
             getopt(&mut h, u, SOL_SOCKET, SO_PASSCRED, 4, m),
             Err(EOPNOTSUPP)
         );
+    });
+}
+
+#[test]
+fn incoming_cpu_fresh_socket_and_explicit_value() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = area(&mut h);
+        let u = sock(&mut h, AF_INET, DGRAM);
+        assert_eq!(
+            opt_int(&mut h, u, SOL_SOCKET, SO_INCOMING_CPU, m),
+            -1,
+            "{abi:?}"
+        );
+        assert_eq!(setopt_int(&mut h, u, SOL_SOCKET, SO_INCOMING_CPU, 3, m), 0);
+        assert_eq!(opt_int(&mut h, u, SOL_SOCKET, SO_INCOMING_CPU, m), 3);
+        assert_eq!(setopt_int(&mut h, u, SOL_SOCKET, SO_INCOMING_CPU, -7, m), 0);
+        assert_eq!(opt_int(&mut h, u, SOL_SOCKET, SO_INCOMING_CPU, m), -7);
     });
 }
 
