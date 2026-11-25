@@ -274,6 +274,15 @@ profile with Bare translation. Software that reads `misa.H` uses it to
 discover the hypervisor register file and two-stage translation. Complete
 checkpoint restore uses the hart configuration from the saved CPU record.
 
+An RV64 Bare-mode supervisor payload passed on two and four harts with the
+unmodified OpenSBI v1.8.1 `FW_DYNAMIC` image. A guest reset stub supplied the
+dynamic firmware information and device tree. The payload called SBI Hart State
+Management to start each secondary twice, checked the hart ID and the distinct
+opaque value delivered on each entry, and waited for `STOPPED` after each run.
+QEMU 11.1.2 passed the same firmware, payload and supplied device tree with H
+and PMP disabled. The RAX runs exercised the software coordinator and the
+CLINT software-interrupt wakeup path. [SBI HSM v2.0](https://github.com/riscv-non-isa/riscv-sbi-doc/blob/v2.0/src/ext-hsm.adoc)
+
 The default bare-metal profile keeps the existing host exits for `ECALL`,
 `EBREAK` and other synchronous faults. Version 3 of the shared platform
 record saves the firmware selection together with the CLINT and PLIC.
