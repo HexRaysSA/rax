@@ -201,7 +201,7 @@ impl Vmm {
                     let bundle = bundle.with_physical_memory(physical)?;
                     crate::config::runtime::validate_checkpoint_clock(self.backend_kind, &bundle)?;
                     bundle.validate_riscv_platform_graph()?;
-                    Ok(bundle)
+                    Ok(bundle.record_capture_sections())
                 };
                 let capture = |riscv_platform| match &cluster {
                     Some(cluster) => {

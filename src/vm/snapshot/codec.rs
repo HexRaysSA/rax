@@ -18,6 +18,7 @@ const SCHEMA: u32 = 1;
 const CURRENT_CONFIG_SCHEMA: u32 = 2;
 // Same configuration payload, with the mandatory KVM CPU/VM graph.
 const KVM_CONFIG_SCHEMA: u32 = 3;
+const CAPTURE_METADATA_SCHEMA: u32 = 2;
 const DEVICE_STATUS_SCHEMA: u32 = 2;
 const DEVICE_LIVE_READ_SCHEMA: u32 = 3;
 const DEVICE_GATE_TRIGGER_SCHEMA: u32 = 4;
@@ -35,6 +36,13 @@ struct Metadata {
     elapsed_nanos: u64,
     memory_size: u64,
 }
+
+#[derive(Serialize, Deserialize)]
+struct CaptureMetadata {
+    base: Metadata,
+    required_sections: u8,
+}
+
 fn invalid(message: impl Into<String>) -> Error {
     Error::Emulator(message.into())
 }
@@ -144,22 +152,21 @@ fn compressed_limit(size: u64) -> u64 {
 }
 
 pub(super) fn write_to<W: Write>(snapshot: &Snapshot, writer: &mut W) -> Result<()> {
-    write_to_parts(
-        snapshot, None, None, None, None, None, None, None, None, writer,
-    )
+    write_to_parts(snapshot, None, writer)
 }
 fn write_to_parts<W: Write>(
     snapshot: &Snapshot,
-    execution: Option<&super::ExecutionSnapshot>,
-    clock: Option<&crate::vm::timing::ClockState>,
-    cpus: Option<&CpuSnapshots>,
-    backend_contexts: Option<&super::BackendContexts>,
-    vm_context: Option<&super::BackendContext>,
-    resources: Option<&super::ResourcesSnapshot>,
-    pci: Option<&PciSnapshot>,
-    physical: Option<&PhysicalMemorySnapshot>,
+    bundle: Option<&SnapshotBundle>,
     writer: &mut W,
 ) -> Result<()> {
+    let execution = bundle.and_then(SnapshotBundle::execution);
+    let clock = bundle.and_then(SnapshotBundle::clock);
+    let cpus = bundle.and_then(SnapshotBundle::cpus);
+    let backend_contexts = bundle.and_then(SnapshotBundle::backend_contexts);
+    let vm_context = bundle.and_then(SnapshotBundle::vm_context);
+    let resources = bundle.and_then(SnapshotBundle::resources);
+    let pci = bundle.and_then(SnapshotBundle::pci);
+    let physical = bundle.and_then(SnapshotBundle::physical_memory);
     if snapshot.devices.lapic.has_pending_eoi() {
         return Err(invalid(
             "base checkpoint cannot discard pending LAPIC EOI broadcasts",
@@ -212,14 +219,26 @@ fn write_to_parts<W: Write>(
     let schema = device_schema(&snapshot.devices);
     validate_device_schema(&snapshot.devices, schema)?;
     let config = encode(&snapshot.config, MAX_CONFIG)?;
-    let metadata = encode(
-        &Metadata {
-            instruction_count: snapshot.instruction_count,
-            elapsed_nanos: snapshot.elapsed_nanos,
-            memory_size: snapshot.memory_size,
-        },
-        MAX_METADATA,
-    )?;
+    let metadata = Metadata {
+        instruction_count: snapshot.instruction_count,
+        elapsed_nanos: snapshot.elapsed_nanos,
+        memory_size: snapshot.memory_size,
+    };
+    let (metadata_schema, metadata) =
+        if let Some(required_sections) = bundle.and_then(|bundle| bundle.captured_sections) {
+            (
+                CAPTURE_METADATA_SCHEMA,
+                encode(
+                    &CaptureMetadata {
+                        base: metadata,
+                        required_sections,
+                    },
+                    MAX_METADATA,
+                )?,
+            )
+        } else {
+            (SCHEMA, encode(&metadata, MAX_METADATA)?)
+        };
     let cpu = encode(&snapshot.cpu_state, MAX_METADATA)?;
     let emulator = encode(&snapshot.emulator_state, MAX_METADATA)?;
     let devices = encode(&snapshot.devices, MAX_METADATA)?;
@@ -248,9 +267,9 @@ fn write_to_parts<W: Write>(
         CURRENT_CONFIG_SCHEMA
     };
     section_with_schema(writer, 1, config_schema, &config)?;
-    for (kind, bytes) in [(2, &metadata), (3, &cpu), (4, &emulator)] {
-        section(writer, kind, bytes)?;
-    }
+    section_with_schema(writer, 2, metadata_schema, &metadata)?;
+    section(writer, 3, &cpu)?;
+    section(writer, 4, &emulator)?;
     section_with_schema(writer, 5, schema, &devices)?;
     if let Some(raw) = clock_record {
         section(writer, 12, &raw)?;
@@ -306,18 +325,7 @@ pub(super) fn save_atomic(snapshot: &Snapshot, path: &Path) -> Result<()> {
 }
 pub(super) fn save_bundle_atomic(bundle: &SnapshotBundle, path: &Path) -> Result<()> {
     save_atomic_with(path, |writer| {
-        write_to_parts(
-            &bundle.base,
-            bundle.execution.as_ref(),
-            bundle.clock.as_ref(),
-            bundle.cpus.as_ref(),
-            bundle.backend_contexts.as_ref(),
-            bundle.vm_context.as_ref(),
-            bundle.resources.as_ref(),
-            bundle.pci.as_ref(),
-            bundle.physical_memory.as_ref(),
-            writer,
-        )
+        write_to_parts(&bundle.base, Some(bundle), writer)
     })
 }
 fn save_atomic_with(
@@ -455,6 +463,7 @@ fn read_sections<R: Read + Seek>(
     let mut config: Option<CheckpointConfig> = None;
     let mut requires_kvm_graph = false;
     let mut metadata: Option<Metadata> = None;
+    let mut captured_sections = None;
     let mut cpu: Option<CpuState> = None;
     let mut emulator: Option<EmulatorState> = None;
     let mut devices: Option<DeviceState> = None;
@@ -494,6 +503,7 @@ fn read_sections<R: Read + Seek>(
             && !matches!(
                 (kind, schema),
                 (1, CURRENT_CONFIG_SCHEMA | KVM_CONFIG_SCHEMA)
+                    | (2, CAPTURE_METADATA_SCHEMA)
                     | (
                         5,
                         DEVICE_STATUS_SCHEMA
@@ -812,6 +822,14 @@ fn read_sections<R: Read + Seek>(
                     decode::<CheckpointConfig>(&raw, limit)?
                 })
             }
+            2 if schema == CAPTURE_METADATA_SCHEMA => {
+                if !allow_extensions {
+                    return Err(invalid("VMM checkpoint requires SnapshotBundle::load"));
+                }
+                let capture = decode::<CaptureMetadata>(&raw, limit)?;
+                metadata = Some(capture.base);
+                captured_sections = Some(capture.required_sections);
+            }
             2 => metadata = Some(decode::<Metadata>(&raw, limit)?),
             3 => cpu = Some(decode::<CpuState>(&raw, limit)?),
             4 => emulator = Some(decode::<EmulatorState>(&raw, limit)?),
@@ -849,6 +867,7 @@ fn read_sections<R: Read + Seek>(
         cpus,
         pci,
         physical_memory,
+        captured_sections,
     };
     if requires_kvm_graph != bundle.has_kvm_context() {
         return Err(invalid(

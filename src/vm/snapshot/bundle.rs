@@ -3,6 +3,11 @@ use super::{CpuSnapshot, CpuSnapshots, PciSnapshot, PhysicalMemorySnapshot, Snap
 use crate::error::{Error, Result};
 use crate::vm::runtime::pci_state::PciDeviceCheckpoint;
 use std::path::Path;
+
+// Metadata schema 2 requires the first four owners on every VMM capture.
+// The remaining bits identify optional owners that actually supplied state.
+const CORE_CAPTURE_SECTIONS: u8 = 0b0000_1111;
+
 pub struct SnapshotBundle {
     pub(super) resources: Option<super::ResourcesSnapshot>,
     pub(super) backend_contexts: Option<super::BackendContexts>,
@@ -13,6 +18,7 @@ pub struct SnapshotBundle {
     pub(super) cpus: Option<CpuSnapshots>,
     pub(super) pci: Option<PciSnapshot>,
     pub(super) physical_memory: Option<PhysicalMemorySnapshot>,
+    pub(super) captured_sections: Option<u8>,
 }
 impl std::fmt::Debug for SnapshotBundle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -41,7 +47,49 @@ impl SnapshotBundle {
             cpus: None,
             pci: None,
             physical_memory: None,
+            captured_sections: None,
         }
+    }
+
+    fn capture_sections(&self) -> [(bool, &'static str); 8] {
+        [
+            (self.physical_memory.is_some(), "physical RAM"),
+            (self.cpus.is_some(), "CPU set"),
+            (self.clock.is_some(), "clock state"),
+            (self.execution.is_some(), "execution coordinator"),
+            (self.backend_contexts.is_some(), "private backend contexts"),
+            (self.resources.is_some(), "checkpoint resources"),
+            (self.vm_context.is_some(), "shared backend state"),
+            (self.pci.is_some(), "PCI state"),
+        ]
+    }
+
+    pub(crate) fn record_capture_sections(mut self) -> Self {
+        let mut sections = 0;
+        for (bit, (present, _)) in self.capture_sections().into_iter().enumerate() {
+            sections |= u8::from(present) << bit;
+        }
+        self.captured_sections = Some(sections);
+        self
+    }
+
+    fn validate_capture_sections(&self) -> Result<()> {
+        let Some(required) = self.captured_sections else {
+            return Ok(());
+        };
+        if required & CORE_CAPTURE_SECTIONS != CORE_CAPTURE_SECTIONS {
+            return Err(Error::InvalidConfig(
+                "checkpoint capture metadata omits a mandatory section".into(),
+            ));
+        }
+        for (bit, (present, owner)) in self.capture_sections().into_iter().enumerate() {
+            if required & (1 << bit) != 0 && !present {
+                return Err(Error::InvalidConfig(format!(
+                    "checkpoint is missing captured {owner}"
+                )));
+            }
+        }
+        Ok(())
     }
     pub fn base(&self) -> &Snapshot {
         &self.base
@@ -338,7 +386,7 @@ impl SnapshotBundle {
                         "native KVM checkpoint requires its entire physical backing".into(),
                     ));
                 }
-                return Ok(());
+                return self.validate_capture_sections();
             } else if self.base.config.arch == crate::config::ArchKind::Aarch64 {
                 if self
                     .execution
@@ -436,7 +484,7 @@ impl SnapshotBundle {
                 ));
             }
         }
-        Ok(())
+        self.validate_capture_sections()
     }
     /// Metadata-only closure after a builder has admitted the physical image.
     /// Do not decompress/hash that image a second time during capture.

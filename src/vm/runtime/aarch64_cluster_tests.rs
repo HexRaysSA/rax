@@ -320,11 +320,15 @@ fn aarch64_private_checkpoint_requires_the_pl011_endpoint() {
 
     // A coordinator-only projection has no private CPU or endpoint records.
     // Restoring it retains the target UART under the legacy contract.
-    assert!(incoming.take_backend_contexts().is_some());
     let mut execution = incoming.take_execution().unwrap();
     execution.arm_cluster = None;
-    incoming = incoming.with_execution(execution).unwrap();
-    incoming.save(&path).unwrap();
+    SnapshotBundle::new(source.vm.take_snapshot(17).unwrap())
+        .with_cpus(source.vm.capture_cpu_states().unwrap())
+        .unwrap()
+        .with_execution(execution)
+        .unwrap()
+        .save(&path)
+        .unwrap();
     let legacy = SnapshotBundle::load(&path).unwrap();
     std::fs::remove_file(&path).unwrap();
     target.vm.restore_snapshot_bundle(&legacy).unwrap();

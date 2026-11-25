@@ -295,9 +295,22 @@ fn without_checkpoint_sections(raw: &[u8], omitted: &[u32]) -> Vec<u8> {
 }
 
 const PHYSICAL_SECTION: u32 = 10;
+const CPU_SECTION: u32 = 11;
 const CLOCK_SECTION: u32 = 12;
 const EXECUTION_SECTION: u32 = 13;
 const PRIVATE_CPU_SECTION: u32 = 14;
+
+fn legacy_wall_projection(raw: &[u8]) -> Vec<u8> {
+    let mut legacy = without_checkpoint_sections(raw, &[EXECUTION_SECTION, PRIVATE_CPU_SECTION]);
+    let config_size = u64::from_le_bytes(legacy[28..36].try_into().unwrap());
+    let metadata = 36 + usize::try_from(config_size).unwrap();
+    assert_eq!(legacy[metadata..metadata + 8], [2, 0, 0, 0, 2, 0, 0, 0]);
+    assert_eq!(legacy[metadata + 8..metadata + 16], 25u64.to_le_bytes());
+    legacy[metadata + 4..metadata + 8].copy_from_slice(&1u32.to_le_bytes());
+    legacy[metadata + 8..metadata + 16].copy_from_slice(&24u64.to_le_bytes());
+    legacy.remove(metadata + 40);
+    legacy
+}
 
 fn require_wall_bundle_owners(cases: &[(&[u32], &str)]) {
     const LOW: GuestAddress = GuestAddress(0x7000);
@@ -341,6 +354,7 @@ fn require_wall_bundle_owners(cases: &[(&[u32], &str)]) {
                     PHYSICAL_SECTION => assert!(incoming.take_physical_memory().is_some()),
                     CLOCK_SECTION => assert!(incoming.take_clock().is_some()),
                     EXECUTION_SECTION => assert!(incoming.take_execution().is_some()),
+                    PRIVATE_CPU_SECTION => assert!(incoming.take_backend_contexts().is_some()),
                     _ => unreachable!(),
                 }
             }
@@ -377,9 +391,31 @@ fn require_wall_bundle_owners(cases: &[(&[u32], &str)]) {
             assert_eq!(std::fs::read(&path).unwrap(), valid_file);
         }
         if count == 1 {
-            let legacy =
-                without_checkpoint_sections(&valid_file, &[EXECUTION_SECTION, PRIVATE_CPU_SECTION]);
-            std::fs::write(&incomplete_path, legacy).unwrap();
+            let base_only = without_checkpoint_sections(
+                &valid_file,
+                &[
+                    PHYSICAL_SECTION,
+                    CPU_SECTION,
+                    CLOCK_SECTION,
+                    EXECUTION_SECTION,
+                    PRIVATE_CPU_SECTION,
+                ],
+            );
+            std::fs::write(&incomplete_path, base_only).unwrap();
+            assert!(
+                Snapshot::load(&incomplete_path)
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("requires SnapshotBundle::load")
+            );
+            assert!(
+                SnapshotBundle::load(&incomplete_path)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("missing captured physical RAM")
+            );
+            std::fs::write(&incomplete_path, legacy_wall_projection(&valid_file)).unwrap();
             let projected = SnapshotBundle::load(&incomplete_path).unwrap();
             let target = Vmm::new_resume_bundle(config, &projected).unwrap();
             assert_eq!((read(&target, LOW), read(&target, PADDING)), (0x41, 0x42));
@@ -400,6 +436,17 @@ fn wall_bundle_requires_admitted_clock_with_its_coordinator_and_physical_ram() {
 #[test]
 fn wall_bundle_requires_complete_physical_ram_with_its_clock_and_coordinator() {
     require_wall_bundle_owners(&[(&[PHYSICAL_SECTION], "physical RAM")]);
+}
+
+#[test]
+fn wall_bundle_requires_captured_private_cpu_contexts() {
+    require_wall_bundle_owners(&[
+        (&[PRIVATE_CPU_SECTION], "backend contexts"),
+        (
+            &[PRIVATE_CPU_SECTION, EXECUTION_SECTION],
+            "execution coordinator",
+        ),
+    ]);
 }
 
 #[test]

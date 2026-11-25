@@ -415,9 +415,11 @@ fn absent_gsc_private_sections_retain_legacy_projection_semantics() {
             edit(cpu.as_mut(), |r| r.x[10] = 42);
         }
         steps(&mut vm, 1);
-        let mut b = vm.take_snapshot_bundle(u64::from(count)).unwrap();
-        b.take_backend_contexts();
-        b.take_resources();
+        let b = SnapshotBundle::new(vm.take_snapshot(u64::from(count)).unwrap())
+            .with_cpus(vm.capture_cpu_states().unwrap())
+            .unwrap()
+            .with_execution(vm.capture_execution_state().unwrap())
+            .unwrap();
         b.save(dir.join("state.rxc")).unwrap();
         let mut target = restore(&dir, count);
         for cpu in &target.vcpus {

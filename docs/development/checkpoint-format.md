@@ -24,7 +24,7 @@ Each section has a 16-byte header: kind (`u32`), schema (`u32`) and payload leng
 | Kind | Schema | Payload | Limit |
 |---|---|---|---|
 | 1 | 2 (also reads 1) | `CheckpointConfig`, including PCI and image attachment identity | 1,048,576 bytes |
-| 2 | 1 | Instruction count, elapsed ns, uncompressed RAM bytes: three `u64` values | 16,777,216 bytes |
+| 2 | 1–2 | Three `u64` values for instruction count, elapsed ns and uncompressed RAM bytes, followed by a `u8` section mask in schema 2 | 16,777,216 bytes |
 | 3 | 1 | Current version-8 `CpuState` representation | 16,777,216 bytes |
 | 4 | 1 | `EmulatorState` | 16,777,216 bytes |
 | 5 | 1–6 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
@@ -48,6 +48,35 @@ compressed RAM bytes). Optional payloads are skipped with bounded seeks. Declare
 RAM is subject to the existing 64 GiB guest-memory maximum. Memory decompression
 grows only for produced bytes and stops after r + 1 bytes; it reports either
 short or excess output. A tiny input does not reserve all declared RAM up front.
+
+## Required sections in VMM captures
+
+Complete VMM captures write metadata schema 2. The final byte declares which
+sections the capture requires. Each set bit requires its section during file
+load, save, live restore and detached restore. The first four bits must be set.
+
+| Bit | Section kind | Record |
+|---|---|---|
+| 0 | 10 | Physical RAM |
+| 1 | 11 | CPU set |
+| 2 | 12 | VM clock |
+| 3 | 13 | Execution coordinator |
+| 4 | 14 | Private CPU contexts |
+| 5 | 15 | Checkpoint resources |
+| 6 | 16 | Shared backend state |
+| 7 | 7 | PCI state |
+
+Schema 1 retains its historical admission rules. A projection constructed
+with `SnapshotBundle::new` uses schema 1 and can represent a legacy subset.
+`Snapshot::load` refuses schema 2 even if the file omits every extension.
+Readers without metadata schema 2 support reject a complete capture written
+with it. The mask records component presence in constant space and work. The
+existing component validators check each section's contents and dependencies.
+
+| ID | Assumption and dependent result | Basis and falsification probe |
+|---|---|---|
+| A1 | Capturing a VM represents the four mandatory owners and each owner that supplies optional state. The recorded mask depends on that ownership. | Independently parse a real RISC-V capture and compare each bit with the emitted sections. A missing mandatory bit or any declared/present mismatch falsifies this assumption. |
+| A2 | Historical schema 1 projections can omit private state. Legacy admission depends on preserving that format distinction. | Reframe a Cortex-M projection with schema 1 and load it with the clock and physical RAM. Then omit the same state from schema 2 and check that all four admission paths reject it before changing the target or its saved file. |
 
 ## Original version-8 compatibility
 

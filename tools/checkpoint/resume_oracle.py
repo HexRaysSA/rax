@@ -89,24 +89,29 @@ def verify(directory, root, zstd):
     raw = (directory / 'console.rxc').read_bytes()
     assert raw[:16] == b'RAXCKPT\0' + struct.pack('<I', 8) + b'RXS8'
     count = struct.unpack_from('<I', raw, 16)[0]
-    assert count == 9
+    expected_order = [1, 2, 3, 4, 5, 12, 11, 13, 14, 10, 6]
+    assert count == len(expected_order)
     at, parts, order = 20, {}, []
     for _ in range(count):
         kind, schema, length = struct.unpack_from('<IIQ', raw, at)
-        assert kind not in parts and schema == (2 if kind == 1 else 1)
+        assert kind not in parts and schema == (2 if kind in (1, 2) else 1)
         at += 16
         assert length <= len(raw) - at
         parts[kind] = raw[at : at + length]
         order.append(kind)
         at += length
-    assert at == len(raw) and order == [1, 2, 3, 4, 5, 12, 11, 10, 6]
+    assert at == len(raw) and order == expected_order
     cpus = parts[11]
     assert cpus[:12] == b'RAXCPU01' + struct.pack('<I', 1)
     cpu_bytes, emulator_bytes = struct.unpack_from('<QQ', cpus, 12)
     assert len(cpus) == 28 + cpu_bytes + emulator_bytes
     assert cpus[28 : 28 + cpu_bytes] == parts[3]
     assert cpus[28 + cpu_bytes :] == parts[4]
-    instruction_count, elapsed, memory = struct.unpack('<QQQ', parts[2])
+    instruction_count, elapsed, memory, required_sections = struct.unpack('<QQQB', parts[2])
+    captured_kinds = (10, 11, 12, 13, 14, 15, 16, 7)
+    assert required_sections == sum(
+        1 << bit for bit, kind in enumerate(captured_kinds) if kind in parts
+    )
     clock = parts[12]
     assert len(clock) == 44 and clock[:8] == b'RAXCLK01'
     assert struct.unpack_from('<Q', clock, 8)[0] == 3_000_000_000
@@ -130,7 +135,8 @@ def verify(directory, root, zstd):
     ]
     return dict(
         files=1,
-        sections=9,
+        sections=count,
+        required_sections=required_sections,
         regions=1,
         physical_bytes=PHYSICAL,
         projection_bytes=ALLOCATED,
@@ -173,6 +179,7 @@ def main():
         'src/vm/snapshot/bundle.rs',
         'src/vm/snapshot/codec.rs',
         'src/vm/runtime.rs',
+        'src/vm/runtime/checkpoint_capture.rs',
         'src/vm/runtime/pci_state.rs',
         'src/cli/mod.rs',
         'tests/suites/vm/checkpoint_resume.rs',

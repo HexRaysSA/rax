@@ -409,11 +409,16 @@ fn coordinated_checkpoint_cannot_omit_an_aps_pending_input() {
     full.save(&path).unwrap();
     let mut missing = SnapshotBundle::load(&path).unwrap();
     assert!(missing.take_backend_contexts().is_some());
-    missing.save(&path).unwrap();
-    let missing = SnapshotBundle::load(&path).unwrap();
+    let valid_file = std::fs::read(&path).unwrap();
+    let error = missing.save(&path).unwrap_err();
+    assert!(
+        error.to_string().contains("private backend contexts"),
+        "{error}"
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), valid_file);
     std::fs::remove_file(path).unwrap();
 
-    let config = VmConfig::from_checkpoint_bundle(&missing, CliConfig::default()).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&full, CliConfig::default()).unwrap();
     let error = match Vmm::new_resume_bundle(config, &missing) {
         Ok(mut resumed) => {
             let ap = &mut resumed.vcpus[1];
@@ -426,7 +431,7 @@ fn coordinated_checkpoint_cannot_omit_an_aps_pending_input() {
         Err(error) => error,
     };
     assert!(
-        error.to_string().contains("missing private context"),
+        error.to_string().contains("private backend contexts"),
         "{error}"
     );
 
@@ -435,7 +440,7 @@ fn coordinated_checkpoint_cannot_omit_an_aps_pending_input() {
     let online = target.vm.coordinator.online.clone();
     let error = target.vm.restore_snapshot_bundle(&missing).unwrap_err();
     assert!(
-        error.to_string().contains("missing private context"),
+        error.to_string().contains("private backend contexts"),
         "{error}"
     );
     assert_eq!(target.flag(1), 0x5678);
