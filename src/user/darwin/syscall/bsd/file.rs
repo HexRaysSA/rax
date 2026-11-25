@@ -1627,9 +1627,29 @@ pub fn fstatfs64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
 /// volume that fits in `buf` (none with a NULL buffer), and how many there
 /// are (as many as were copied when they did not all fit).
 pub fn getfsstat64(ctx: &mut Ctx<'_>, buf: u64, bufsize: i32, flags: i32) -> SysResult {
-    use crate::user::darwin::abi::types::{STATFS64_SIZE, Statfs};
+    use crate::user::darwin::abi::types::STATFS64_SIZE;
+
+    if let Some(files) = ctx.proc.vfs.files() {
+        let mounted = 1 + usize::from(files.workspace_mount().is_some());
+        if buf == 0 {
+            return Ok(Rv::one(mounted as u64));
+        }
+        // XNU divides the signed size by sizeof(statfs64) after converting it
+        // to size_t. Bound the resulting capacity to the actual guest mounts.
+        let count = mounted.min(bufsize as usize / STATFS64_SIZE);
+        // The guest has no cached host statistics to refresh.
+        for index in 0..count {
+            let address = buf
+                .checked_add((index * STATFS64_SIZE) as u64)
+                .ok_or(Errno::EFAULT)?;
+            super::path::write_closed_statfs(ctx, address, index == 1)?;
+        }
+        return Ok(Rv::one(count as u64));
+    }
     #[cfg(target_os = "macos")]
     {
+        use crate::user::darwin::abi::types::Statfs;
+
         let max = if buf == 0 {
             0
         } else {
@@ -1658,7 +1678,7 @@ pub fn getfsstat64(ctx: &mut Ctx<'_>, buf: u64, bufsize: i32, flags: i32) -> Sys
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (buf, bufsize, flags, STATFS64_SIZE, Statfs::default());
+        let _ = flags;
         Err(Errno::ENOSYS)
     }
 }

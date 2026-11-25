@@ -125,6 +125,7 @@ pub(crate) fn bsd_allowed(number: u32) -> bool {
             | nr::FSTATAT64
             | nr::STATFS64
             | nr::FSTATFS64
+            | nr::GETFSSTAT64
             | nr::ACCESS
             | nr::FACCESSAT
             | nr::READLINK

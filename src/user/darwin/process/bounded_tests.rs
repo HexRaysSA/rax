@@ -1157,6 +1157,63 @@ fn closed_supplied_statfs_reports_read_only_volume_by_path_and_descriptor() {
 }
 
 #[test]
+fn closed_getfsstat_enumerates_only_visible_guest_volumes() {
+    use crate::user::darwin::{
+        abi::{Errno, tables::nr, types::STATFS64_SIZE},
+        arch::Rv,
+        syscall::{Ctx, bsd},
+    };
+    use crate::user::supplied_fs::WorkspaceFlavor;
+
+    for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+        let mut process = process(abi);
+        let files = process.proc.vfs.files().unwrap().clone();
+        let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+        let buffer = thread.cpu.sp() - 16384;
+        let record = STATFS64_SIZE as u64;
+        let mut ctx = Ctx {
+            proc: &mut process.proc,
+            thread: &mut thread,
+            nr: i64::from(nr::GETFSSTAT64),
+            pc: ENTRY,
+        };
+        let getfsstat = |ctx: &mut Ctx<'_>, address, size, flags| {
+            bsd::call(ctx, nr::GETFSSTAT64, &[address, size, flags, 0, 0, 0, 0, 0])
+        };
+        let workspace = files.with_temp_workspace(WorkspaceFlavor::Darwin);
+        for (namespace, count) in [
+            (files, 1),
+            (
+                workspace
+                    .with_file("/tmp".into(), Arc::from(&b"file"[..]))
+                    .unwrap(),
+                1,
+            ),
+            (workspace, 2),
+        ] {
+            ctx.proc.vfs = Vfs::supplied(namespace);
+            assert_eq!(getfsstat(&mut ctx, 0, 0, 2), Ok(Rv::one(count)));
+            assert_eq!(getfsstat(&mut ctx, 1, record - 1, 2), Ok(Rv::one(0)));
+            assert_eq!(getfsstat(&mut ctx, 1, record, 2), Err(Errno::EFAULT));
+            ctx.write(buffer + record, &[0xa5]).unwrap();
+            assert_eq!(getfsstat(&mut ctx, buffer, record + 1, 2), Ok(Rv::one(1)));
+            assert_eq!(ctx.read(buffer + record, 1).unwrap(), [0xa5]);
+            assert_eq!(getfsstat(&mut ctx, buffer, u64::MAX, 1), Ok(Rv::one(count)));
+            for (index, mount) in [&b"/\0"[..], &b"/tmp\0"[..]]
+                .into_iter()
+                .take(count as usize)
+                .enumerate()
+            {
+                let entry = buffer + index as u64 * record;
+                assert_eq!(ctx.read(entry + 88, mount.len()).unwrap(), mount);
+                assert_eq!(ctx.read(entry + 72, 6).unwrap(), b"raxfs\0");
+                assert_eq!(ctx.read_u32(entry + 64).unwrap(), [0x1001, 0x1000][index]);
+            }
+        }
+    }
+}
+
+#[test]
 fn closed_workspace_directory_stat_reports_apfs_size_and_blocks() {
     use crate::user::darwin::{
         abi::{tables::nr, types::STAT64_SIZE},

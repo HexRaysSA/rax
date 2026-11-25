@@ -831,6 +831,12 @@ impl Files {
         self.workspace.is_some()
     }
 
+    pub(super) fn workspace_mount(&self) -> Option<&Arc<WorkspaceDirectory>> {
+        self.workspace_at(TEMP_DIRECTORY)
+            .filter(|_| self.entries.get(TEMP_DIRECTORY).is_none_or(Entry::is_dir))
+            .map(|workspace| &workspace.root)
+    }
+
     pub(in crate::user) fn create_workspace_detached(
         &self,
         display_path: String,
@@ -1288,12 +1294,11 @@ impl Files {
 
     fn entry(&self, path: &str, follow: bool) -> Result<Entry, Error> {
         if path == TEMP_DIRECTORY
-            && let Some(scratch) = self.workspace_at(path)
-            && self.entries.get(path).is_none_or(Entry::is_dir)
+            && let Some(root) = self.workspace_mount()
         {
             return Ok(Entry {
                 ino: workspace::ROOT_INODE,
-                kind: Kind::WorkspaceDirectory(scratch.root.clone()),
+                kind: Kind::WorkspaceDirectory(root.clone()),
             });
         }
         if let Some(entry) = self.entries.get(path) {

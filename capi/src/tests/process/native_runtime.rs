@@ -299,6 +299,41 @@ fn installed_darwin_date_uses_named_timezones_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_df_lists_only_guest_mounts_through_closed_c_abi() {
+    let path = "/bin/df";
+    let options = serde_json::json!({
+        "personality": "darwin",
+        "guest_path": path,
+        "arguments": ["-n", "-P"],
+        "environment": {"LC_ALL": "C"},
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    let process = open(&std::fs::read(path).unwrap(), &options.to_string());
+    let state = info(&process);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    let result = run_installed_posix(&process, path);
+    assert_eq!(result.exit_code, 0);
+    let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+    let text = std::str::from_utf8(&stdout).unwrap();
+    let mut lines = text.lines();
+    let header = lines.next().expect("missing df header");
+    assert!(header.starts_with("Filesystem"), "{header}");
+    let mounts: Vec<_> = lines
+        .map(|line| {
+            let mut fields = line.split_ascii_whitespace();
+            assert_eq!(fields.next(), Some("raxfs"), "{text}");
+            fields.last().unwrap()
+        })
+        .collect();
+    assert_eq!(mounts, ["/", "/tmp"], "{text}");
+    assert!(capture_installed_posix_stream(&process, RAX_PROCESS_STDERR).is_empty());
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_locales_match_native_through_closed_c_abi() {
     let path = "/usr/bin/locale";
     let native = std::process::Command::new(path)
