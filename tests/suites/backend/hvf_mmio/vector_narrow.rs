@@ -17,6 +17,11 @@ fn packed_horizontal_matches_x86_ram_and_completes_once() {
     check_packed_device_reads(&packed_vectors::HORIZONTAL_CASES);
 }
 
+#[test]
+fn packed_unsigned_matches_x86_ram_and_completes_once() {
+    check_packed_device_reads(&packed_vectors::UNSIGNED_CASES);
+}
+
 fn check_packed_device_reads(cases: &[packed_vectors::Case]) {
     let mut rejected = Vec::new();
     for case in cases {
@@ -119,11 +124,21 @@ fn packed_narrowing_requires_legacy_alignment_and_allocated_prefixes() {
 
 #[test]
 fn packed_horizontal_requires_legacy_alignment_and_allocated_prefixes() {
-    check_packed_legacy_admission(&packed_vectors::HORIZONTAL_CASES);
-    for case in &packed_vectors::HORIZONTAL_CASES {
+    check_packed_prefix_admission(&packed_vectors::HORIZONTAL_CASES);
+}
+
+#[test]
+fn packed_unsigned_requires_legacy_alignment_and_allocated_prefixes() {
+    check_packed_prefix_admission(&packed_vectors::UNSIGNED_CASES);
+}
+
+fn check_packed_prefix_admission(cases: &[packed_vectors::Case]) {
+    check_packed_legacy_admission(cases);
+    for case in cases {
         for (mut code, form, _) in case.forms() {
             if form != "legacy" {
-                code[2] &= !3;
+                let control = if code[0] == 0xc5 { 1 } else { 2 };
+                code[control] &= !3;
                 let (context, mut memory, mut exit) = fixture(&code);
                 exit.linear += 3;
                 exit.physical += 3;

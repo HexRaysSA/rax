@@ -200600,6 +200600,17 @@
       "scope": "Intel HVF completes six packed horizontal add and subtract instructions with a 16 B or 32 B MMIO reply across legacy XMM, VEX.128 and VEX.256 forms. The parent rejected all 30 covered encodings. Sixty independent Rosetta RAM cases matched complete YMM data and RFLAGS. Portable tests cover source ordering, wrapping and saturation, encoding-specific alignment and one completion after private-record reload. Hosted Intel macOS run 45556419300 passed all 126 cases at 3fd3aea4da86. The 120 direct and restored results matched the independent RAM fingerprints, and six legacy misalignment controls took #GP. The execution archive, prepared source and executable digests were verified. Bare-metal Intel validation remains open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-horizontal-integer-arithmetic",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-packed-unsigned-integer-2026-11-25",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF completes PAVGB, PAVGW and PSADBW with aligned legacy XMM or VEX.128 and VEX.256 device operands. The parent rejected all 21 encodings. Forty-two independent Rosetta RAM comparisons matched YMM and RFLAGS. The portable tests verify full-width read admission, a single completion after reloading the pending descriptor, and rejection of misaligned legacy and non-device forms. The hosted vector-unsigned profile expects 87 observations. Bare-metal Intel qualification remains open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#packed-unsigned-averages-and-absolute-differences",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

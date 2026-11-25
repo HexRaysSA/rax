@@ -40,6 +40,7 @@ on:
           - vector-multiply
           - vector-narrow
           - vector-horizontal
+          - vector-unsigned
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-bit-test

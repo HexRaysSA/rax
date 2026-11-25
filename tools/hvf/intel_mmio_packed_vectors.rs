@@ -1,4 +1,4 @@
-//! Packed integer MMIO operand forms and horizontal RAM reference results.
+//! Packed integer MMIO operand forms and RAM reference results.
 
 pub(super) type Vector = [u64; 4];
 
@@ -224,6 +224,156 @@ pub(super) const HORIZONTAL_CASES: [Case; 6] = [
                 0x80007fff95a16a60,
                 0x8000002bffea0000,
                 0x80007ffffffc000c,
+            ],
+        ],
+    },
+];
+
+pub(super) const UNSIGNED_CASES: [Case; 3] = [
+    Case {
+        map: 1,
+        opcode: 0xe0,
+        mnemonic: "pavgb",
+        sources: [
+            [
+                [
+                    0x0e037f80ff0000ff,
+                    0xfe01020f807fff00,
+                    0x5107ac01de03ffff,
+                    0x380d651300ff2040,
+                ],
+                [
+                    0x0d04807f000001ff,
+                    0x01fe0b037f800001,
+                    0x5b09002a03d4ff00,
+                    0x1462a91de7070d43,
+                ],
+            ],
+            [
+                [
+                    0x0000000000000000,
+                    0xffffffffffffffff,
+                    0x00ff00ff00ff00ff,
+                    0x152249354e500947,
+                ],
+                [
+                    0xffffffffffffffff,
+                    0x0000000000000000,
+                    0xff00ff00ff00ff00,
+                    0x152249354e500947,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0x0e048080800001ff,
+                0x8080070980808001,
+                0x56085616716cff80,
+                0x2638871874831742,
+            ],
+            [
+                0x8080808080808080,
+                0x8080808080808080,
+                0x8080808080808080,
+                0x152249354e500947,
+            ],
+        ],
+    },
+    Case {
+        map: 1,
+        opcode: 0xe3,
+        mnemonic: "pavgw",
+        sources: [
+            [
+                [
+                    0x00010000ffffffff,
+                    0x0000ffff7fff8000,
+                    0x8000010eb0f00000,
+                    0x01f000cd032501f4,
+                ],
+                [
+                    0x00000001fffeffff,
+                    0xfffe000080007fff,
+                    0x0001004104000007,
+                    0x0087004e00ca0001,
+                ],
+            ],
+            [
+                [
+                    0x0001002d0020000c,
+                    0xfffeffff006f0010,
+                    0x0026000a000c8001,
+                    0x001900200017000d,
+                ],
+                [
+                    0x000300170020000b,
+                    0xfffefffe00760009,
+                    0x0026000bffffffff,
+                    0x00421eae02550036,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0x00010001ffffffff,
+                0x7fff800080008000,
+                0x400100a85a780004,
+                0x013c008e01f800fb,
+            ],
+            [
+                0x000200220020000c,
+                0xfffeffff0073000d,
+                0x0026000b8006c000,
+                0x002e0f6701360022,
+            ],
+        ],
+    },
+    Case {
+        map: 1,
+        opcode: 0xf6,
+        mnemonic: "psadbw",
+        sources: [
+            [
+                [
+                    0x0e037f80ff0000ff,
+                    0xfe01020f807fff00,
+                    0x5107ac01de03ffff,
+                    0x380d651300ff2040,
+                ],
+                [
+                    0x0d04807f000001ff,
+                    0x01fe0b037f800001,
+                    0x5b09002a03d4ff00,
+                    0x1462a91de7070d43,
+                ],
+            ],
+            [
+                [
+                    0x0000000000000000,
+                    0xffffffffffffffff,
+                    0x00ff00ff00ff00ff,
+                    0x152249354e500947,
+                ],
+                [
+                    0xffffffffffffffff,
+                    0x0000000000000000,
+                    0xff00ff00ff00ff00,
+                    0x152249354e500947,
+                ],
+            ],
+        ],
+        results: [
+            [
+                0x0000000000000104,
+                0x0000000000000311,
+                0x000000000000038c,
+                0x00000000000002bc,
+            ],
+            [
+                0x00000000000007f8,
+                0x00000000000007f8,
+                0x00000000000007f8,
+                0x0000000000000000,
             ],
         ],
     },

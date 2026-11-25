@@ -1277,11 +1277,12 @@ pub(super) fn run_integer_multiply(output: &Path) {
     println!("{{\"cases\":{case_index},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
-pub(super) fn run_packed_integer(output: &Path, horizontal: bool) {
-    let cases: &[packed_vectors::Case] = if horizontal {
-        &packed_vectors::HORIZONTAL_CASES
-    } else {
-        &packed_narrow::CASES
+pub(super) fn run_packed_integer(output: &Path, profile: &str) {
+    let cases: &[packed_vectors::Case] = match profile {
+        "--vector-horizontal" => &packed_vectors::HORIZONTAL_CASES,
+        "--vector-unsigned" => &packed_vectors::UNSIGNED_CASES,
+        "--vector-narrow" => &packed_narrow::CASES,
+        _ => unreachable!("unknown packed integer profile"),
     };
     assert!(!output.exists(), "observations must be new");
     let mut index = 0;

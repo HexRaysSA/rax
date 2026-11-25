@@ -377,6 +377,9 @@ enum Operation {
     ShuffleImmediate(ImmediateShuffle, u8),
     Pack(Saturation),
     Horizontal(Horizontal),
+    AverageByte,
+    AverageWord,
+    SumAbsoluteByteDifferences,
 }
 
 impl Operation {
@@ -437,6 +440,9 @@ impl Operation {
             "psubsw" => Self::SaturatingSubtract(Saturation::SignedWord),
             "psubusb" => Self::SaturatingSubtract(Saturation::UnsignedByte),
             "psubusw" => Self::SaturatingSubtract(Saturation::UnsignedWord),
+            "pavgb" => Self::AverageByte,
+            "pavgw" => Self::AverageWord,
+            "psadbw" => Self::SumAbsoluteByteDifferences,
             "pminsb" => Self::Minimum(MinMaxLane::SignedByte),
             "pminub" => Self::Minimum(MinMaxLane::UnsignedByte),
             "pminsw" => Self::Minimum(MinMaxLane::SignedWord),
@@ -495,6 +501,21 @@ impl Operation {
             Self::ShuffleImmediate(shuffle, control) => shuffle.result(left, right, control),
             Self::Pack(saturation) => saturation.pack(left, right),
             Self::Horizontal(operation) => operation.result(left, right),
+            Self::AverageByte | Self::AverageWord => {
+                let width = if matches!(self, Self::AverageByte) {
+                    1
+                } else {
+                    2
+                };
+                map_integer_lanes(left, right, width, |left, right| (left + right).div_ceil(2))
+            }
+            Self::SumAbsoluteByteDifferences => map_integer_lanes(left, right, 8, |left, right| {
+                left.to_le_bytes()
+                    .into_iter()
+                    .zip(right.to_le_bytes())
+                    .map(|(left, right)| u64::from(left.abs_diff(right)))
+                    .sum()
+            }),
             Self::Compare(comparison, element) => {
                 let width = element.bytes();
                 let mut result = [0; N];

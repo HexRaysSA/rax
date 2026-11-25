@@ -1420,3 +1420,35 @@ SHA-256 is `2e132851abf9d6dde4a25959b52301a55ba4bc4763641227c42f5bf6f3149f03`.
 [Hosted horizontal arithmetic execution](https://github.com/HexRaysSA/rax/actions/runs/45556419300/job/139009447317)
 
 MMX device reads and bare-metal Intel macOS qualification remain open.
+
+## Packed unsigned averages and absolute differences
+
+Intel HVF completes `PAVGB`, `PAVGW` and `PSADBW` with a single 16 B
+or 32 B device reply. The legacy SSE2 forms require 16 B alignment.
+VEX.128 and VEX.256 accept unaligned device operands, including both
+VEX.W values in the three-byte prefix. The existing vector-read record
+retains the source register, encoding and retirement length, with three
+appended operation discriminants.
+
+| Instructions | Operation | Bounds |
+| --- | --- | --- |
+| PAVGB / PAVGW | Compute the unsigned average of each element pair, rounding upward. | The pre-shift sum including the rounding increment is at most 511 for bytes and 131,071 for words. |
+| PSADBW | Sum unsigned byte-pair distances in each consecutive 8 B group. | Each 64-bit output group contains a 16-bit sum in [0, 2040] and 48 zero bits. |
+
+Completion preserves RFLAGS. Legacy XMM writes preserve the upper YMM
+half, VEX.128 clears it and VEX.256 writes all 32 bytes. For B bytes,
+completion takes O(B) time and O(1) auxiliary space.
+[Intel SDM 253667-093US, Volume 2B, PAVGB/PAVGW and PSADBW](https://cdrdv2-public.intel.com/929354/253667-093-sdm-vol-2b.pdf)
+
+| Assumption | Falsification probe | Result |
+| --- | --- | --- |
+| Averages use unsigned elements and retain the carry before rounding. | Include 255 + 255, 65,535 + 65,535, odd and even sums, and elements across the sign boundary. | All 42 Rosetta RAM cases matched the independent YMM and RFLAGS expectations. |
+| PSADBW sums independent groups and clears their high bits. | Exercise zero, maximum 2040, both subtraction orders and different groups within one YMM register. | Full 32 B register comparisons matched the RAM oracle. |
+| A device request survives restore and retires once. | Exercise all 21 encodings with two input patterns, complete a fresh pending descriptor and a decoded copy, and reject a duplicate reply. Check misaligned legacy, missing mandatory prefix, LOCK, and register-only forms. | Parent `3fd3aea4d` rejected all 21 encodings. Both new regressions pass with the existing vector read and writeback path. |
+
+The complete local Rust targets passed 28,880 tests with three opt-in
+x86 tests ignored. The independent RAM observation SHA-256 is
+`0245865eba948a59602dc7f8b2db868f2c001c5c605e49583f8bdc5010137c36`.
+The hosted `vector-unsigned` profile covers 84 direct and fresh-owner
+completions and three legacy alignment faults. MMX, EVEX and bare-metal
+Intel observations remain outside this qualification.
