@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 16u
+#define RAX_API_MINOR 17u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -1183,6 +1183,10 @@ typedef struct rax_process_result {
  *   first when present, then AArch64, independent of the host architecture
  * guest_path: "C:\\program.exe" (default)
  * arguments: arguments after argv[0] (default [], at most 256)
+ * command_line: Windows only (ABI 1.17), the entire command line including
+ *   argv[0] if used by the guest. Mutually exclusive with arguments. Maximum
+ *   32766 UTF-16 code units excluding the terminating NUL. Independent of the
+ *   executable image and guest_path. The guest receives the string verbatim.
  * environment: string-valued object (omitted: default Windows environment)
  * current_directory: "C:\\" (default)
  * memory_bytes: 128 MiB (default), 8 MiB..1 GiB, multiple of 4096
@@ -1204,7 +1208,7 @@ typedef struct rax_process_result {
  * unsupported native encodings and unimplemented guest services fail explicitly.
  * This option does not establish support for arbitrary applications or all NT
  * APIs. No host service fallback occurs.
- * Strings are at most 4096 UTF-8 bytes and cannot contain NUL; environment keys
+ * Other strings are at most 4096 UTF-8 bytes. Strings cannot contain NUL; environment keys
  * additionally cannot be empty or contain '='. memory_bytes bounds guest backing
  * memory, not total host allocations. Image parsing/loading happens during open;
  * guest initialization code starts only when run is called.

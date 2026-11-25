@@ -165,7 +165,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.16.0).
+C ABI version (currently 1.17.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -729,6 +729,11 @@ The query copies a fixed 40-byte record in O(1) time and space. Existing
 `rax_process_open_image` and `rax::Process` execute a Windows process using the
 existing PE loader, thread scheduler, exception handling, and built-in DLL/CRT
 services. PE32 x86 and PE32+ x64/ARM64 run on Windows, macOS, and Linux hosts.
+ABI 1.17 accepts `command_line` for Windows guests. Supply the entire command
+line, including the executable token when the guest parser expects it. This
+preserves shell-specific quoting for programs such as `cmd.exe`. Use either
+`command_line` (at most 32,766 UTF-16 code units, excluding NUL) or
+`arguments`. The image and `guest_path` still select the executable.
 ABI 1.9 also accepts `"personality":"linux"` for ELF x86-64, i386,
 AArch64, AArch32 EABI and RV64. The closed Linux profile runs on Windows,
 macOS and Linux; Windows requires the placeholder mapping APIs. ABI 1.10 adds

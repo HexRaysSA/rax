@@ -1689,6 +1689,17 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
     let native = compare_windows_installed_program("cmd.exe", &["/d", "/c", "ver"], None);
     assert!(native.status.success());
     assert!(!native.stdout.is_empty());
+
+    let native = compare_windows_installed_command(
+        "System32",
+        "cmd.exe",
+        &[],
+        None,
+        Some(r#"/d /c echo "rax-witness""#),
+    );
+    assert!(native.status.success());
+    assert_eq!(native.stdout, b"\"rax-witness\"\r\n");
+    assert!(native.stderr.is_empty());
 }
 
 #[cfg(all(windows, target_pointer_width = "64"))]
@@ -1928,7 +1939,19 @@ fn compare_windows_installed_program_in(
     arguments: &[&str],
     stdin: Option<&[u8]>,
 ) -> std::process::Output {
+    compare_windows_installed_command(directory_name, image, arguments, stdin, None)
+}
+
+#[cfg(windows)]
+fn compare_windows_installed_command(
+    directory_name: &str,
+    image: &str,
+    arguments: &[&str],
+    stdin: Option<&[u8]>,
+    raw_tail: Option<&str>,
+) -> std::process::Output {
     use std::io::Write as _;
+    use std::os::windows::process::CommandExt as _;
     use std::path::PathBuf;
     use std::process::{Command, Stdio};
 
@@ -1953,8 +1976,12 @@ fn compare_windows_installed_program_in(
         ("PATH", current_directory),
     ];
     let mut command = Command::new(&program);
+    if let Some(raw_tail) = raw_tail {
+        command.raw_arg(raw_tail);
+    } else {
+        command.args(arguments);
+    }
     command
-        .args(arguments)
         .current_dir(&system_directory)
         .env_clear()
         .envs(environment);
@@ -1974,18 +2001,21 @@ fn compare_windows_installed_program_in(
     };
 
     let bytes = std::fs::read(&program).expect("installed Windows executable");
-    let options = serde_json::json!({
+    let mut options = serde_json::json!({
         "personality": "windows",
         "native_runtime": true,
         "guest_path": program_path,
         "current_directory": current_directory,
-        "arguments": arguments,
         "environment": environment.into_iter().collect::<std::collections::BTreeMap<_, _>>(),
         "memory_bytes": 268435456,
         "slice_instructions": 4096,
-    })
-    .to_string();
-    let process = open(&bytes, &options);
+    });
+    if let Some(raw_tail) = raw_tail {
+        options["command_line"] = format!("\"{program_path}\" {raw_tail}").into();
+    } else {
+        options["arguments"] = serde_json::json!(arguments);
+    }
+    let process = open(&bytes, &options.to_string());
     if let Some(input) = stdin {
         assert_eq!(
             rax_process_stdin_feed(process.0, input.as_ptr(), input.len()),

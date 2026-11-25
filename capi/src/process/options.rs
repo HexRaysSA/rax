@@ -103,6 +103,7 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
         "architecture",
         "guest_path",
         "arguments",
+        "command_line",
         "environment",
         "current_directory",
         "memory_bytes",
@@ -141,6 +142,25 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
     } else {
         None
     };
+    let command_line = value
+        .get("command_line")
+        .map(|raw| {
+            if personality != "windows" {
+                return Err(bad("command_line is only available for Windows PE images"));
+            }
+            if object.contains_key("arguments") {
+                return Err(bad("command_line and arguments are mutually exclusive"));
+            }
+            let raw = raw
+                .as_str()
+                .ok_or_else(|| bad("command_line must be a string"))?;
+            // CreateProcessW counts the terminating NUL toward its 32767-unit limit.
+            if raw.contains('\0') || raw.encode_utf16().count() > 32_766 {
+                return Err(bad("invalid command_line string"));
+            }
+            Ok(raw.to_owned())
+        })
+        .transpose()?;
     let mut arguments = Vec::new();
     if let Some(array) = value.get("arguments") {
         let array = array
@@ -250,6 +270,7 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
     } else {
         let mut cfg = WindowsConfig::embedded(guest_path, arguments, Vec::new(), capacity)
             .map_err(|e| bad(e.to_string()))?;
+        cfg.command_line = command_line;
         cfg.cwd = Some(cwd);
         cfg.arena_bytes = memory;
         cfg.slice_insns = slice;
@@ -262,5 +283,42 @@ pub(super) fn config(bytes: &[u8]) -> Result<Config> {
             backend: Backend::Windows(cfg),
             native_runtime,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn windows_command_line_is_verbatim_and_bounded() {
+        let read = |value| {
+            let json = serde_json::to_vec(&serde_json::json!({"command_line": value})).unwrap();
+            let Backend::Windows(cfg) = config(&json).unwrap().backend else {
+                panic!("expected Windows process");
+            };
+            assert!(cfg.args.is_empty());
+            cfg.command_line.unwrap()
+        };
+        let literal = r#""C:\program files\cmd.exe" /d /c echo "α"  "#;
+        assert_eq!(read(literal), literal);
+        assert_eq!(read(""), "");
+        let boundary = format!("{}🦀", "a".repeat(32_764));
+        assert_eq!(read(&boundary), boundary);
+    }
+
+    #[test]
+    fn invalid_or_ambiguous_windows_command_line_is_rejected() {
+        for value in [
+            serde_json::json!({"command_line": false}),
+            serde_json::json!({"command_line": "a\0b"}),
+            serde_json::json!({"command_line": "cmd.exe", "arguments": []}),
+            serde_json::json!({"command_line": "cmd.exe", "personality": "linux"}),
+            serde_json::json!({"command_line": "cmd.exe", "personality": "darwin"}),
+            serde_json::json!({"command_line": format!("{}🦀", "a".repeat(32_765))}),
+        ] {
+            let error = config(&serde_json::to_vec(&value).unwrap()).err().unwrap();
+            assert_eq!(error.0, RaxStatus::Arg);
+        }
     }
 }
