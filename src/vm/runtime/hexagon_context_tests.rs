@@ -242,6 +242,15 @@ fn absent_hexagon_private_section_retains_legacy_projection_semantics() {
         let bundle = SnapshotBundle::new(source.take_snapshot(u64::from(count)).unwrap())
             .with_cpus(source.capture_cpu_states().unwrap())
             .unwrap();
+        // Fresh SMP resume still requires the coordinator when private CPU
+        // records are absent. Keep the single-CPU fixture in its older format.
+        let bundle = if count > 1 {
+            bundle
+                .with_execution(source.capture_execution_state().unwrap())
+                .unwrap()
+        } else {
+            bundle
+        };
         assert!(bundle.backend_contexts().is_none());
         bundle.save(&f.checkpoint).unwrap();
         let loaded = SnapshotBundle::load(&f.checkpoint).unwrap();
