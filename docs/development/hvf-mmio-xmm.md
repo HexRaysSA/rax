@@ -1449,6 +1449,12 @@ completion takes O(B) time and O(1) auxiliary space.
 The complete local Rust targets passed 28,880 tests with three opt-in
 x86 tests ignored. The independent RAM observation SHA-256 is
 `0245865eba948a59602dc7f8b2db868f2c001c5c605e49583f8bdc5010137c36`.
-The hosted `vector-unsigned` profile covers 84 direct and fresh-owner
-completions and three legacy alignment faults. MMX, EVEX and bare-metal
-Intel observations remain outside this qualification.
+The `vector-unsigned` profile passed all 87 cases on a virtualized Intel
+macOS runner at `eb357bf6dad8`. All 84 direct and fresh-owner completions
+matched the independent RAM fingerprints, and all three legacy alignment
+controls took #GP. The execution archive, prepared source and signed
+executable digests were verified. The execution archive SHA-256 is
+`7839416f4839029b86a481d665223bf8806ecbf5812f125b2cdd276ae39f7622`.
+[Hosted unsigned arithmetic execution](https://github.com/HexRaysSA/rax/actions/runs/45557848605/job/139014141189)
+
+MMX, EVEX and bare-metal Intel observations remain outside this qualification.

@@ -200608,7 +200608,7 @@
         "C-STATE"
       ],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Intel HVF completes PAVGB, PAVGW and PSADBW with aligned legacy XMM or VEX.128 and VEX.256 device operands. The parent rejected all 21 encodings. Forty-two independent Rosetta RAM comparisons matched YMM and RFLAGS. The portable tests verify full-width read admission, a single completion after reloading the pending descriptor, and rejection of misaligned legacy and non-device forms. The hosted vector-unsigned profile expects 87 observations. Bare-metal Intel qualification remains open.",
+      "scope": "Intel HVF completes PAVGB, PAVGW and PSADBW with aligned legacy XMM or VEX.128 and VEX.256 device operands. The parent rejected all 21 encodings. Forty-two independent Rosetta RAM comparisons matched YMM and RFLAGS. The portable tests verify full-width read admission, a single completion after reloading the pending descriptor, and rejection of misaligned legacy and non-device forms. Hosted Intel macOS run 45557848605 passed all 87 cases at eb357bf6dad8. All 84 direct and restored results matched the independent RAM fingerprints, and three legacy misalignment controls took #GP. The execution archive, prepared source and executable digests were verified. Bare-metal Intel qualification remains open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-unsigned-averages-and-absolute-differences",
       "full_goal_complete": false
     }
