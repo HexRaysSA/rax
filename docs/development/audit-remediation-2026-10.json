@@ -200535,6 +200535,17 @@
       "scope": "Intel HVF handles the legacy XMM and VEX.128 and VEX.256 memory forms of SHUFPS, SHUFPD and PALIGNR. Hosted run 45534894120 passed nine direct reads, nine fresh-owner continuations and three legacy alignment faults. Destination fingerprints matched the Rosetta RAM oracle. Bare-metal Intel macOS and wider MMIO and interrupt coverage remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#two-source-packed-shuffles-with-immediate-control",
       "full_goal_complete": false
+    },
+    {
+      "id": "coordinated-ram-clock-admission-2026-11-25",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Recognizable coordinated checkpoint bundles require the execution coordinator, VM clock and physical RAM through load, save, fresh resume and live restore. Wall-clock tests cover all four entry points at one, two and four vCPUs and verify compatibility with a legacy single-CPU clock and physical RAM file.",
+      "qualification": "docs/development/backend-contexts.md#coordinated-ram-and-clock-admission",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -6,11 +6,46 @@ a backend exports one. Runtime restoration admits all public projections and
 opaque contexts before changing the first CPU, RAM, or legacy device. The
 existing base snapshot and section 11 representations remain unchanged.
 
-Multi-CPU bundles carrying a physical RAM image and VM clock also carry the
-execution coordinator. File admission and live restoration require that record
-before publishing RAM, CPU state, scheduler state, or local controllers. A
-legacy CPU set with the base RAM projection remains available for explicit
-projection imports. Fresh SMP resume requires the coordinator in both cases.
+## Coordinated RAM and clock admission
+
+Coordinated capture records the execution coordinator, VM clock and physical
+RAM together. Load, save, fresh resume and live restore require all three
+when the retained records identify that capture shape. Admission checks section
+presence in O(1) time before publishing any of the represented owners.
+
+| Retained records | Dependent requirement |
+| --- | --- |
+| Execution coordinator with a clock, physical RAM or private CPU records | Keep the clock and physical RAM with the coordinator. |
+| Physical RAM with private CPU records | Keep the clock and execution coordinator with the physical image. |
+| Physical RAM and a clock for multiple vCPUs | Keep the coordinator even when the file uses public CPU projections. |
+
+Legacy CPU sets with the base RAM projection support explicit projection
+imports. Legacy single-CPU bundles can carry a wall clock and physical RAM
+without a coordinator or private CPU records. Fresh SMP resume requires the
+coordinator.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Coordinated capture uses all three sections. | Inspect the original VMM coordinator capture in `1585a288e` and the production capture since private CPU records were introduced in `c2be2aae9`. |
+| Missing sections can change the restore result. | Remove each section from a real wall-clock file and from its in-memory bundle. Compare the low RAM byte, a backing-padding byte, the diagnostic tick count and the coalesced timer notification. |
+| The legacy single-CPU shape has an independent wall clock and physical RAM image. | Load a file with both sections and public CPU records. Resume it into a fresh VM and verify both RAM markers, the diagnostic tick count and the timer flag. |
+
+At parent `e5a2fa5be`, load, replacement save and live restore accepted each
+single-section omission on the test VM. Removing the physical image
+restored the low RAM byte while keeping the target's backing-padding byte.
+Removing the clock restored RAM while keeping the target's diagnostic tick
+count and timer flag. Removing the coordinator accepted the CPU/RAM/clock
+records without the captured execution state.
+
+All 145 tests passed across nine complete integration targets on macOS
+Arm64. The wall-clock regression covers all four entry points at one, two
+and four vCPUs and includes two cases with multiple missing sections.
+On physical Apple Silicon, the signed library passed the existing one-, two-
+and four-vCPU file continuation, active UART interrupt, pending MMIO read-reply
+retry and late GIC restore rollback tests.
+[Checkpoint resume regression](../../tests/suites/vm/checkpoint_resume.rs)
+
+## Private CPU and machine records
 
 The standalone AArch32 producer retains its versioned `RAXA3202` context (`RAXA3201` remains readable). The
 actual ARM1176/S3C64xx VMM adapter uses `RAXS3C02` (`RAXS3C01` remains readable): its complete represented

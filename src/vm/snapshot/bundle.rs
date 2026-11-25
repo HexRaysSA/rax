@@ -392,16 +392,31 @@ impl SnapshotBundle {
                 }
             }
         }
-        // The full VMM capture pairs its physical RAM and VM clock with the
-        // coordinator. The base image alone has only CPU 0's local controller.
-        if self.base.config.vcpus > 1
-            && self.physical_memory.is_some()
-            && self.clock.is_some()
-            && self.execution.is_none()
-        {
-            return Err(Error::InvalidConfig(
-                "SMP checkpoint is missing execution coordinator state".into(),
-            ));
+        // The coordinated capture has a clock and a physical RAM image.
+        // Legacy projections can carry an execution or private CPU section
+        // on its own, or physical RAM and a clock before the coordinator.
+        let physical = self.physical_memory.is_some();
+        let clock = self.clock.is_some();
+        let execution = self.execution.is_some();
+        let private = self.backend_contexts.is_some();
+        let coordinated = (execution && (physical || clock || private))
+            || (physical && (private || (self.base.config.vcpus > 1 && clock)));
+        if coordinated {
+            if !execution {
+                return Err(Error::InvalidConfig(
+                    "checkpoint is missing execution coordinator state".into(),
+                ));
+            }
+            if !clock {
+                return Err(Error::InvalidConfig(
+                    "coordinated checkpoint is missing clock state".into(),
+                ));
+            }
+            if !physical {
+                return Err(Error::InvalidConfig(
+                    "coordinated checkpoint is missing physical RAM".into(),
+                ));
+            }
         }
         Ok(())
     }

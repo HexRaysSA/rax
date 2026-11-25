@@ -271,6 +271,145 @@ fn wall_smp_bundle_without_coordinator_cannot_change_a_live_vm_or_replace_a_file
     }
 }
 
+fn without_checkpoint_sections(raw: &[u8], omitted: &[u32]) -> Vec<u8> {
+    assert_eq!(&raw[12..16], b"RXS8");
+    let count = u32::from_le_bytes(raw[16..20].try_into().unwrap());
+    let mut rebuilt = raw[..20].to_vec();
+    let mut offset = 20;
+    let mut removed = 0;
+    for _ in 0..count {
+        let kind = u32::from_le_bytes(raw[offset..offset + 4].try_into().unwrap());
+        let size = u64::from_le_bytes(raw[offset + 8..offset + 16].try_into().unwrap());
+        let end = offset + 16 + usize::try_from(size).unwrap();
+        if omitted.contains(&kind) {
+            removed += 1;
+        } else {
+            rebuilt.extend_from_slice(&raw[offset..end]);
+        }
+        offset = end;
+    }
+    assert_eq!(offset, raw.len());
+    assert_eq!(removed as usize, omitted.len());
+    rebuilt[16..20].copy_from_slice(&(count - removed).to_le_bytes());
+    rebuilt
+}
+
+const PHYSICAL_SECTION: u32 = 10;
+const CLOCK_SECTION: u32 = 12;
+const EXECUTION_SECTION: u32 = 13;
+const PRIVATE_CPU_SECTION: u32 = 14;
+
+fn require_wall_bundle_owners(cases: &[(&[u32], &str)]) {
+    const LOW: GuestAddress = GuestAddress(0x7000);
+    const PADDING: GuestAddress = GuestAddress(RAM + 3);
+    let f = Fixture::new();
+    let path = f.dir.join("complete.rxc");
+    let incomplete_path = f.dir.join("incomplete.rxc");
+    let read = |vm: &Vmm, address| vm.guest_mem().memory().read_obj::<u8>(address).unwrap();
+    for count in [1, 2, 4] {
+        let mut config = f.config(ArchKind::CortexM, RAM);
+        config.vcpus = count;
+        let source = Vmm::new_resume(config.clone()).unwrap();
+        let ram = source.guest_mem().memory();
+        ram.write_obj(0x41u8, LOW).unwrap();
+        ram.write_obj(0x42u8, PADDING).unwrap();
+        source.timing_context().tick();
+        source.timing_context().tick();
+        source.timing_context().set_timer_pending();
+        source.take_snapshot_bundle(0).unwrap().save(&path).unwrap();
+        drop(source);
+
+        let valid_file = std::fs::read(&path).unwrap();
+        let complete = SnapshotBundle::load(&path).unwrap();
+        assert_eq!(complete.clock().unwrap().diagnostic_ticks, 2);
+        assert!(complete.clock().unwrap().timer_pending);
+        assert!(complete.backend_contexts().is_some());
+        let mut target = Vmm::new_resume_bundle(config.clone(), &complete).unwrap();
+        assert_eq!((read(&target, LOW), read(&target, PADDING)), (0x41, 0x42));
+        target.guest_mem().memory().write_obj(0x81u8, LOW).unwrap();
+        target
+            .guest_mem()
+            .memory()
+            .write_obj(0x82u8, PADDING)
+            .unwrap();
+        target.timing_context().reset();
+        target.timing_context().tick();
+        for &(omitted, expected) in cases {
+            let mut incoming = SnapshotBundle::load(&path).unwrap();
+            for section in omitted {
+                match *section {
+                    PHYSICAL_SECTION => assert!(incoming.take_physical_memory().is_some()),
+                    CLOCK_SECTION => assert!(incoming.take_clock().is_some()),
+                    EXECUTION_SECTION => assert!(incoming.take_execution().is_some()),
+                    _ => unreachable!(),
+                }
+            }
+
+            std::fs::write(
+                &incomplete_path,
+                without_checkpoint_sections(&valid_file, omitted),
+            )
+            .unwrap();
+            let load = SnapshotBundle::load(&incomplete_path);
+            let save = incoming.save(&path);
+            let detached = Vmm::new_resume_bundle(config.clone(), &incoming);
+            let live = target.restore_snapshot_bundle(&incoming);
+            let retained = (
+                read(&target, LOW),
+                read(&target, PADDING),
+                target.timing_context().instruction_count(),
+                target.timing_context().is_timer_pending(),
+            );
+            for (route, error) in [
+                ("load", load.err()),
+                ("save", save.err()),
+                ("detached restore", detached.err()),
+                ("live restore", live.err()),
+            ] {
+                assert!(
+                    error
+                        .as_ref()
+                        .is_some_and(|error| error.to_string().contains(expected)),
+                    "{count} vCPUs, {route}, omitted {omitted:?}: {error:?}, live state {retained:?}"
+                );
+            }
+            assert_eq!(retained, (0x81, 0x82, 1, false));
+            assert_eq!(std::fs::read(&path).unwrap(), valid_file);
+        }
+        if count == 1 {
+            let legacy =
+                without_checkpoint_sections(&valid_file, &[EXECUTION_SECTION, PRIVATE_CPU_SECTION]);
+            std::fs::write(&incomplete_path, legacy).unwrap();
+            let projected = SnapshotBundle::load(&incomplete_path).unwrap();
+            let target = Vmm::new_resume_bundle(config, &projected).unwrap();
+            assert_eq!((read(&target, LOW), read(&target, PADDING)), (0x41, 0x42));
+            assert_eq!(target.timing_context().instruction_count(), 2);
+            assert!(target.timing_context().is_timer_pending());
+        }
+    }
+}
+
+#[test]
+fn wall_bundle_requires_admitted_clock_with_its_coordinator_and_physical_ram() {
+    require_wall_bundle_owners(&[
+        (&[CLOCK_SECTION], "clock state"),
+        (&[PHYSICAL_SECTION, CLOCK_SECTION], "clock state"),
+    ]);
+}
+
+#[test]
+fn wall_bundle_requires_complete_physical_ram_with_its_clock_and_coordinator() {
+    require_wall_bundle_owners(&[(&[PHYSICAL_SECTION], "physical RAM")]);
+}
+
+#[test]
+fn wall_bundle_requires_coordinator_even_with_one_cpu_or_without_a_clock() {
+    require_wall_bundle_owners(&[
+        (&[EXECUTION_SECTION], "execution coordinator"),
+        (&[CLOCK_SECTION, EXECUTION_SECTION], "execution coordinator"),
+    ]);
+}
+
 #[test]
 fn incompatible_architecture_rejects_before_runtime_creation() {
     let f = Fixture::new();
