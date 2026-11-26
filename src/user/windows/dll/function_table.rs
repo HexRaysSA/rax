@@ -1,5 +1,7 @@
 //! Active function-table registration and lookup for 64-bit structured exception handling.
 
+use crate::user::image::pe::{E_LFANEW_OFFSET, IMAGE_DOS_SIGNATURE, IMAGE_NT_SIGNATURE};
+
 use super::super::hle::{ApiResult, Archs, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use super::super::memory::Mem;
 use super::super::seh::dynamic;
@@ -28,6 +30,42 @@ pub(super) static EXPORTS: &[Export] = &[
     )
     .only(Archs::WIN64),
 ];
+
+pub(super) static IMAGE_LOOKUP_EXPORTS: &[Export] = &[
+    Export::func("RtlPcToFileHeader", Stdcall, &[Ptr, Ptr], pc_to_file_header),
+    Export::func("RtlImageNtHeader", Stdcall, &[Ptr], image_nt_header),
+];
+
+fn image_nt_header(c: &mut Ctx) -> ApiResult {
+    let base = c.ptr(0)?;
+    let mem = c.mem();
+    let header = (|| {
+        if base == 0 || mem.u16(base).ok()? != IMAGE_DOS_SIGNATURE {
+            return None;
+        }
+        let offset = mem.u32(base.checked_add(E_LFANEW_OFFSET as u64)?).ok()?;
+        if offset >= 0x1000_0000 {
+            return None;
+        }
+        let address = base.checked_add(u64::from(offset))?;
+        let end = address.checked_add(3)?;
+        if c.arch().ptr(end) != end {
+            return None;
+        }
+        (mem.u32(address).ok()? == IMAGE_NT_SIGNATURE).then_some(address)
+    })();
+    Flow::ret(header.unwrap_or(0))
+}
+
+fn pc_to_file_header(c: &mut Ctx) -> ApiResult {
+    let (pc, out) = (c.ptr(0)?, c.ptr(1)?);
+    let base =
+        c.p.modules
+            .by_address(pc)
+            .map_or(0, |(_, module)| module.base);
+    c.write_ptr(out, base)?;
+    Flow::ret(base)
+}
 
 fn add_function_table(c: &mut Ctx) -> ApiResult {
     let (pointer, count, base) = (c.ptr(0)?, c.u32(1)?, c.ptr(2)?);
@@ -85,12 +123,39 @@ mod tests {
     fn api(name: &str, arch: WinArch) -> &'static Api {
         EXPORTS
             .iter()
+            .chain(IMAGE_LOOKUP_EXPORTS)
             .find(|export| export.name == name && export.archs.has(arch))
             .and_then(|export| match &export.item {
                 Item::Func(api) => Some(api),
                 _ => None,
             })
             .unwrap_or_else(|| panic!("missing {arch:?} export {name}"))
+    }
+
+    #[test]
+    fn pc_to_file_header_returns_live_image_base_and_zeroes_misses() {
+        for arch in [WinArch::X64, WinArch::Arm64] {
+            with_process(arch, |p, t| {
+                let base = p.modules.list[0].base;
+                let end = base + p.modules.list[0].size;
+                let output = t.cpu.sp() - 48;
+                let expected = base + u64::from(p.space.u32(base + 0x3c).unwrap());
+                assert_eq!(
+                    pointer(invoke(p, t, "RtlImageNtHeader", [base, 0, 0]).unwrap()),
+                    expected
+                );
+                assert_eq!(
+                    pointer(invoke(p, t, "RtlImageNtHeader", [0, 0, 0]).unwrap()),
+                    0
+                );
+                for (pc, expected) in [(base + 1, base), (0, 0), (end, 0)] {
+                    p.space.w64(output, u64::MAX).unwrap();
+                    let result = invoke(p, t, "RtlPcToFileHeader", [pc, output, 0]).unwrap();
+                    assert_eq!(pointer(result), expected);
+                    assert_eq!(p.space.u64(output).unwrap(), expected);
+                }
+            });
+        }
     }
 
     fn invoke(p: &mut Proc, t: &mut Thread, name: &str, args: [u64; 3]) -> ApiResult {

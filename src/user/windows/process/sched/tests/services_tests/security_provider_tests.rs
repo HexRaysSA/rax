@@ -21,6 +21,59 @@ fn bytes(value: &Value) -> Vec<u8> {
 }
 
 #[test]
+fn portable_gameos_registers_a_guest_owned_ksecdd_provider_watch() {
+    let observation: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-ksecdd/bcrypt-sha256-arm64.json"
+    )))
+    .unwrap();
+    let mut h = Harness::new(WinArch::X64);
+    std::sync::Arc::make_mut(&mut h.process.state_mut().cfg).gameos = true;
+    h.name(r"\Device\KsecDD");
+    let handle_out = h.base;
+    let io = h.base + 64;
+    let input = h.base + 256;
+    let output = h.base + 512;
+    let attributes = h.attrs();
+    h.process.state().space.w32(attributes + 24, 0).unwrap();
+    assert_eq!(
+        h.invoke_api(
+            "NtOpenFile",
+            &[handle_out, 0x100003, attributes, io, 7, 0x20]
+        ),
+        STATUS_SUCCESS
+    );
+    let file = h.process.state().space.u64(handle_out).unwrap();
+    assert_eq!(
+        h.invoke_api("NtCreateEvent", &[handle_out, 2, 0, 1, 0]),
+        STATUS_SUCCESS
+    );
+    let state = h.process.state();
+    let event = state.space.u64(handle_out).unwrap();
+    let event_id = state.objects.id(event).unwrap();
+    let prefix = bytes(&observation["watch"]["input_prefix"]);
+    state.space.wr(input, &prefix).unwrap();
+    state.space.w64(input + prefix.len() as u64, event).unwrap();
+    assert_eq!(
+        h.invoke_api(
+            "NtDeviceIoControlFile",
+            &[file, 0, 0, 0, io, 0x39_0400, input, 104, output, 8]
+        ),
+        STATUS_SUCCESS
+    );
+    let state = h.process.state();
+    assert_eq!(state.space.u64(io + 8).unwrap(), 0);
+    assert_eq!(
+        state
+            .objects
+            .file_state(file)
+            .unwrap()
+            .security_provider_event,
+        Some(event_id)
+    );
+}
+
+#[test]
 fn native_security_provider_replays_arm64_bcrypt_configuration() {
     let observation: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

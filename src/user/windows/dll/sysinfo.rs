@@ -11,7 +11,10 @@
 
 use super::super::arch::{WinArch, WinCpu};
 use super::super::hle::{ApiErr, ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
-use super::super::memory::Mem;
+use super::super::memory::{ALLOCATION_GRANULARITY, Mem};
+use super::super::nt::status::{STATUS_INVALID_PARAMETER, STATUS_SUCCESS};
+use super::super::process::processor::{native_arch, x86_signature};
+use crate::user::mm::PAGE_SIZE;
 
 /// Appended to KERNEL32 and KERNELBASE after the existing tables, so their
 /// synthetic ordinals and trap slots keep their indices.
@@ -36,6 +39,110 @@ pub(super) static KERNEL32_FORWARDS: &[Export] = &[Export::forward(
     "RtlCaptureContext",
     "NTDLL.RtlCaptureContext",
 )];
+
+pub(super) static SYSTEM_PATH_EXPORTS: &[Export] = &[Export::func(
+    "GetSystemDirectoryW",
+    Stdcall,
+    &[Ptr, I32],
+    system_directory_w,
+)];
+
+pub(super) static SYSTEM_INFO_EXPORTS: &[Export] = &[
+    Export::func("GetSystemInfo", Stdcall, &[Ptr], get_system_info),
+    Export::func(
+        "GetNativeSystemInfo",
+        Stdcall,
+        &[Ptr],
+        get_native_system_info,
+    ),
+];
+
+pub(super) static NTDLL_VERSION_EXPORTS: &[Export] = &[Export::func(
+    "RtlGetVersion",
+    Stdcall,
+    &[Ptr],
+    rtl_get_version,
+)];
+
+fn rtl_get_version(c: &mut Ctx) -> ApiResult {
+    const BASE_SIZE: usize = 276;
+    const EXTENDED_SIZE: usize = 284;
+    let out = c.ptr(0)?;
+    let size = c.mem().u32(out)? as usize;
+    if !matches!(size, BASE_SIZE | EXTENDED_SIZE) {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+
+    let version = &c.p.cfg.version;
+    let mut bytes = [0u8; EXTENDED_SIZE];
+    for (index, value) in [size as u32, version.major, version.minor, version.build, 2]
+        .into_iter()
+        .enumerate()
+    {
+        bytes[4 * index..4 * index + 4].copy_from_slice(&value.to_le_bytes());
+    }
+    if size == EXTENDED_SIZE {
+        bytes[282] = version.product_type;
+    }
+    // The configured profile has no service pack or product-suite flags.
+    c.mem().wr(out, &bytes[..size])?;
+    Flow::ret(STATUS_SUCCESS.into())
+}
+
+fn get_system_info(c: &mut Ctx) -> ApiResult {
+    system_info(c, c.arch())
+}
+
+fn get_native_system_info(c: &mut Ctx) -> ApiResult {
+    let mut arch = c.arch();
+    if arch == WinArch::X86 && native_arch(c.p) == Ok(WinArch::X64) {
+        arch = WinArch::X64;
+    }
+    system_info(c, arch)
+}
+
+fn system_info(c: &mut Ctx, arch: WinArch) -> ApiResult {
+    let out = c.ptr(0)?;
+    let (level, revision) = match &c.t.cpu {
+        WinCpu::X86(cpu, _) => x86_signature(cpu.vcpu().cpuid(1, 0).0),
+        WinCpu::Arm64Ec(ec) => x86_signature(ec.x64().vcpu().cpuid(1, 0).0),
+        WinCpu::Arm64(_) => (0, 0),
+    };
+    let processor_type: u32 = match arch {
+        WinArch::X86 if level <= 4 => u32::from(level) * 100 + 86,
+        WinArch::X86 => 586,
+        WinArch::X64 => 8664,
+        WinArch::Arm64 => 0,
+    };
+    let width = c.psize() as usize;
+    let mut bytes = [0u8; 48];
+    bytes[..2].copy_from_slice(&arch.processor_architecture().to_le_bytes());
+    bytes[4..8].copy_from_slice(&(PAGE_SIZE as u32).to_le_bytes());
+    for (index, value) in [c.p.vm.low(), c.p.vm.high() - 1, 1].into_iter().enumerate() {
+        let offset = 8 + index * width;
+        bytes[offset..offset + width].copy_from_slice(&value.to_le_bytes()[..width]);
+    }
+    let tail = 8 + 3 * width;
+    bytes[tail..tail + 4].copy_from_slice(&1u32.to_le_bytes());
+    bytes[tail + 4..tail + 8].copy_from_slice(&processor_type.to_le_bytes());
+    bytes[tail + 8..tail + 12].copy_from_slice(&(ALLOCATION_GRANULARITY as u32).to_le_bytes());
+    bytes[tail + 12..tail + 14].copy_from_slice(&level.to_le_bytes());
+    bytes[tail + 14..tail + 16].copy_from_slice(&revision.to_le_bytes());
+    c.mem().wr(out, &bytes[..tail + 16])?;
+    Flow::void()
+}
+
+fn system_directory_w(c: &mut Ctx) -> ApiResult {
+    let (out, capacity) = (c.ptr(0)?, c.u32(1)? as usize);
+    let directory: Vec<u16> = super::super::loader::system_dir(c.arch())
+        .encode_utf16()
+        .collect();
+    if capacity <= directory.len() {
+        return Flow::ret(directory.len() as u64 + 1);
+    }
+    c.mem().put_wstr(out, &directory)?;
+    Flow::ret(directory.len() as u64)
+}
 
 // The PF_* indices from winnt.h that this implementation answers.
 const PF_COMPARE_EXCHANGE_DOUBLE: u32 = 2;

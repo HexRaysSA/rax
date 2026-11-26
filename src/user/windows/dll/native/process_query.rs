@@ -5,7 +5,7 @@
 
 use super::query::{guard_result, probe_write, return_length, write_guard_result};
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
+use crate::user::windows::hle::{ApiErr, ApiResult, Arg::Ptr, Conv::Stdcall, Ctx, Export, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT,
@@ -22,6 +22,31 @@ const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
 const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
 const PROCESS_QUERY_RIGHTS: u32 = PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION;
 const PROCESS_VM_WRITE: u32 = 0x20;
+
+pub(in crate::user::windows::dll) static WIN32_PROCESS_QUERY_EXPORTS: &[Export] = &[Export::func(
+    "IsWow64Process",
+    Stdcall,
+    &[Ptr, Ptr],
+    is_wow64_process,
+)];
+
+fn is_wow64_process(c: &mut Ctx) -> ApiResult {
+    let (handle, out) = (c.ptr(0)?, c.ptr(1)?);
+    let status = current_process_status(c, handle, PROCESS_QUERY_RIGHTS, "IsWow64Process")?;
+    if status != STATUS_SUCCESS {
+        return c.fail(crate::user::windows::nt::status_to_error(status), 0);
+    }
+    let wow = if c.arch() == WinArch::X86 {
+        match crate::user::windows::process::processor::native_arch(c.p) {
+            Ok(arch) => arch.is64(),
+            Err(status) => return c.fail(crate::user::windows::nt::status_to_error(status), 0),
+        }
+    } else {
+        false
+    };
+    c.mem().w32(out, u32::from(wow))?;
+    Flow::bool(true)
+}
 
 mod command_line;
 mod debug_port;

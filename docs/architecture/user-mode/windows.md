@@ -34,7 +34,45 @@ Static import failures identify the importing modules and the leaf failure.
 The built-in API-set profile routes ETW provider and classic-provider contracts
 to KernelBase, whose public names forward to the dormant NTDLL `Etw*` services.
 Controller and legacy eventing contracts continue to select Advapi32.
+The credentials, SDDL, and private and management service contracts select
+Sechost. The group policy contract selects KernelBase.
 Installed-library mode uses the selected Windows API-set schema.
+
+For x64 GameOS binaries, `--windows-gameos` selects the built-in loader and
+provides guest-local system and title memory partitions. Their configuration
+queries report the emulator's shared memory budget. The profile models a
+scoped guest lock-memory privilege for startup. The tools partition, memory
+ownership changes, and host privilege operations are outside this model.
+The GameOS product policy reports the guest OS SKU. The virtual-console
+management device reports object absence, which XMem's initializer handles.
+Current-process token queries report the portable profile's unprivileged
+guest state, including absence of elevation, UIAccess and AppContainer.
+The guest KsecDD provider watch retains a guest event on the device file.
+The portable device has no external provider changes to deliver.
+Built-in thread-pool timer APIs support default-environment registration,
+arming, cancellation and closure. An expiration that requires callback
+delivery stops at the scheduler with the guest callback address.
+The CRT startup paths include the UCRT's C locale and private startup aliases,
+plus MSVCRT numbered locks and the DLL-owned `__dllonexit` registration table.
+The core CRT level-one API set uses the same built-in UCRT, including its raw
+memory exports. The level-two API set uses KernelBase, which forwards its
+initializer table walkers to UCRT and registers x64 DLL exit callbacks in the
+caller’s encoded `__dllonexit3` table.
+`InitOnceExecuteOnce` runs the guest initializer synchronously. A callback
+that returns failure leaves the one-time record available for retry.
+`LocalAlloc` and `LocalFree` support fixed allocations on the guest process heap.
+The native RTL heap entry points use the same guest heap model. RTL resource
+acquisition supports shared and recursive exclusive locking with scheduler
+waits. Native SRW lock calls use the Win32 scheduler implementation. The
+GameOS profile accepts image-initialized x64 critical sections when their
+static initialization flags and same-image debug record identify the lock.
+Win32 system information describes the guest address bounds and its virtual
+processor, with the structure laid out for the calling ABI.
+Module path queries use the guest loader's recorded names. DLLs supplied
+through a mapped system directory retain that guest directory in path
+comparisons during process attach.
+Environment variable queries read the active guest process parameters and use
+the portable Windows-1252 code page for ANSI strings.
 
 Installed registry selection includes the fixed machine
 `System\Software\Microsoft\Command Processor` path. Its immutable record

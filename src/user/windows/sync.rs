@@ -20,7 +20,9 @@
 //! byte write; mappings must remain stable under the serialized-process contract.
 
 use crate::host::time::Instant;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::rc::Rc;
 
 use super::layout::offsets;
 use super::memory::{Mem, MemFault};
@@ -124,6 +126,11 @@ pub enum Wait {
         /// Timeout.
         deadline: Option<Instant>,
     },
+    /// Completion or abandonment of a synchronous one-time callback.
+    InitOnce {
+        /// The caller's INIT_ONCE word.
+        addr: u64,
+    },
     /// A synchronous byte-pipe read or write blocked on its peer.
     Pipe(super::objects::PipeEnd),
     /// A native USER thread blocked in GetMessage with a captured filter.
@@ -162,6 +169,7 @@ impl Wait {
             | Wait::Sleep { deadline, .. }
             | Wait::Address { deadline, .. } => *deadline,
             Wait::CritSec { .. }
+            | Wait::InitOnce { .. }
             | Wait::Srw { .. }
             | Wait::Pipe(_)
             | Wait::PostedMessage { .. } => None,
@@ -229,9 +237,35 @@ pub struct SyncState {
     parked: HashMap<u32, Wait>,
     /// Successful poll already consumed/dequeued its lock registration.
     completed: HashSet<u32>,
+    once_callbacks: Rc<RefCell<HashMap<u64, u32>>>,
+}
+
+pub(crate) struct OnceCallback {
+    owners: Rc<RefCell<HashMap<u64, u32>>>,
+    address: u64,
+}
+
+impl Drop for OnceCallback {
+    fn drop(&mut self) {
+        self.owners.borrow_mut().remove(&self.address);
+    }
 }
 
 impl SyncState {
+    pub(crate) fn once_owner(&self, address: u64) -> Option<u32> {
+        self.once_callbacks.borrow().get(&address).copied()
+    }
+
+    pub(crate) fn begin_once(&mut self, address: u64, tid: u32) -> Option<OnceCallback> {
+        let mut owners = self.once_callbacks.borrow_mut();
+        owners.try_reserve(1).ok()?;
+        owners.insert(address, tid);
+        Some(OnceCallback {
+            owners: self.once_callbacks.clone(),
+            address,
+        })
+    }
+
     /// Queue one alert; repeated alerts coalesce before the next successful wait.
     pub(crate) fn alert_thread(&mut self, object: ObjId) {
         self.thread_alerts.insert(object);
@@ -539,6 +573,9 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
             | Object::FileSection(_)
             | Object::WorkerFactory { .. }
             | Object::EtwRegistration { .. }
+            | Object::MemoryPartition { .. }
+            | Object::GameOsLockMemoryScope
+            | Object::ThreadpoolTimer { .. }
             | Object::SchedulerSharedData { .. }
             | Object::LpcPort(_)
             | Object::Key(_)
@@ -774,6 +811,7 @@ fn poll_inner(
             }
             None
         }
+        Wait::InitOnce { addr } => p.sync.once_owner(*addr).is_none().then_some(0),
         Wait::CritSec { addr } => {
             let n = p
                 .sync
@@ -865,10 +903,29 @@ fn putptr(bytes: &mut [u8], at: u64, size: u64, value: u64) {
 
 fn cs_image(p: &Proc, addr: u64) -> Result<Vec<u8>, SyncError> {
     storage(p, addr, cs_size(p) as u64)?;
-    if !p.sync.initialized_cs.contains(&addr) {
+    let explicitly_initialized = p.sync.initialized_cs.contains(&addr);
+    let static_module = (!explicitly_initialized && p.cfg.gameos && p.arch.is64())
+        .then(|| p.modules.by_address(addr))
+        .flatten();
+    if !explicitly_initialized && static_module.is_none() {
         return Err(SyncError::Invalid("uninitialized/deleted critical section"));
     }
     let bytes = p.space.bytes(addr, cs_size(p))?;
+    if let Some((_, module)) = static_module {
+        const STATIC_INIT: u64 = 0x0400_0000;
+        const DEBUG_STATIC_INIT: u32 = 1;
+        let debug = getptr(&bytes, 0, 8);
+        if !module.contains(addr + cs_size(p) as u64 - 1)
+            || getptr(&bytes, 0x20, 8) & STATIC_INIT == 0
+            || debug % 8 != 0
+            || !module.contains(debug)
+            || !module.contains(debug + 0x2f)
+            || p.space.u64(debug + 8)? != addr
+            || p.space.u32(debug + 0x28)? & DEBUG_STATIC_INIT == 0
+        {
+            return Err(SyncError::Invalid("uninitialized/deleted critical section"));
+        }
+    }
     let (_, rec, owner) = cs_fields(p);
     let recursion = get32(&bytes, rec);
     let owner = getptr(&bytes, owner, p.arch.ptr_size());
@@ -1014,7 +1071,8 @@ pub fn cs_spin(p: &mut Proc, addr: u64, spin: u64) -> Result<u64, SyncError> {
     let at = if p.arch.is64() { 0x20 } else { 0x14 };
     let old = getptr(&bytes, at, p.arch.ptr_size());
     let _ = spin;
-    putptr(&mut bytes, at, p.arch.ptr_size(), 0);
+    const FLAGS: u64 = 0xff00_0000;
+    putptr(&mut bytes, at, p.arch.ptr_size(), old & FLAGS);
     // Normal process exit can retire peer waiters without touching obsolete
     // guest storage; this live mutation publishes the current count.
     cs_word(
@@ -1023,7 +1081,7 @@ pub fn cs_spin(p: &mut Proc, addr: u64, spin: u64) -> Result<u64, SyncError> {
         p.sync.cs_waiters.get(&addr).copied().unwrap_or(0),
     )?;
     p.space.wr(addr, &bytes)?;
-    Ok(old)
+    Ok(old & !FLAGS)
 }
 
 fn srw_word(p: &Proc, s: &SrwState) -> Result<u64, SyncError> {
@@ -1170,6 +1228,48 @@ mod tests {
     use crate::user::windows::arch::WinArch;
     use crate::user::windows::memory::{mem, prot};
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+
+    #[test]
+    fn gameos_accepts_an_image_static_critical_section_with_matching_debug_record() {
+        let mut cfg = WindowsConfig::new("static-lock.exe", vec![]);
+        cfg.seed = Some(1);
+        cfg.arena_bytes = 64 << 20;
+        cfg.gameos = true;
+        let mut process = WindowsProcess::spawn_image(
+            cfg,
+            include_bytes!("../../../tests/fixtures/user/windows/bin/x64/smoke.exe").to_vec(),
+        )
+        .unwrap();
+        let p = process.state_mut();
+        let page = p.modules.exe().base + 0x2000;
+        p.vm.protect(page, 0x1000, prot::READWRITE).unwrap();
+        let debug = page + 0x800;
+        let addr = debug + 0x30;
+        p.space.w64(addr, debug).unwrap();
+        p.space.w32(addr + 8, u32::MAX).unwrap();
+        p.space.w64(addr + 0x20, 0x0400_0000).unwrap();
+        p.space.w32(debug + 0x28, 1).unwrap();
+        assert!(matches!(
+            cs_try_enter(p, addr, 1),
+            Err(SyncError::Invalid(_))
+        ));
+        p.space.w64(debug + 8, addr).unwrap();
+
+        assert!(cs_try_enter(p, addr, 1).unwrap());
+        assert!(cs_try_enter(p, addr, 1).unwrap());
+        assert_eq!(cs_recursion(p, addr, 1).unwrap(), 2);
+        assert!(!cs_try_enter(p, addr, 2).unwrap());
+        assert_eq!(cs_spin(p, addr, 10).unwrap(), 0);
+        assert!(cs_leave(p, addr, 1).unwrap());
+        assert!(cs_leave(p, addr, 1).unwrap());
+        assert_eq!(p.space.u32(addr + 8).unwrap(), u32::MAX);
+        assert_eq!(p.space.u64(addr + 0x20).unwrap(), 0x0400_0000);
+        cs_delete(p, addr).unwrap();
+        assert!(matches!(
+            cs_try_enter(p, addr, 1),
+            Err(SyncError::Invalid(_))
+        ));
+    }
 
     #[test]
     fn waiter_counter_overflow_rejects_without_publishing_or_writing() {

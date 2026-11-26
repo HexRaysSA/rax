@@ -1,6 +1,89 @@
 use super::*;
 
 #[test]
+fn rtl_version_reports_the_configured_version_for_both_records() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let out = p.peb + 0x800;
+        for size in [276, 284] {
+            p.space.w32(out, size).unwrap();
+            p.space.w8(out + u64::from(size), 0xA5).unwrap();
+            assert_eq!(returned(call(p, &mut t, "RtlGetVersion", &[out])), 0);
+            for (offset, value) in [
+                (0, size),
+                (4, p.cfg.version.major),
+                (8, p.cfg.version.minor),
+                (12, p.cfg.version.build),
+                (16, 2),
+            ] {
+                assert_eq!(p.space.u32(out + offset).unwrap(), value);
+            }
+            assert_eq!(p.space.u16(out + 20).unwrap(), 0);
+            if size == 284 {
+                assert_eq!(p.space.u8(out + 282).unwrap(), p.cfg.version.product_type);
+            }
+            assert_eq!(p.space.u8(out + u64::from(size)).unwrap(), 0xA5);
+        }
+        p.space.w32(out, 20).unwrap();
+        assert_eq!(
+            returned(call(p, &mut t, "RtlGetVersion", &[out])),
+            u64::from(STATUS_INVALID_PARAMETER)
+        );
+    }
+}
+
+#[test]
+fn system_info_uses_guest_abi_and_virtual_address_bounds() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let out = p.peb + 0x800;
+        let width = arch.ptr_size();
+        let tail = out + 8 + 3 * width;
+        let read_ptr = |p: &Proc, offset| {
+            if width == 4 {
+                u64::from(p.space.u32(out + offset).unwrap())
+            } else {
+                p.space.u64(out + offset).unwrap()
+            }
+        };
+        for (name, expected_arch) in [
+            ("GetSystemInfo", arch),
+            (
+                "GetNativeSystemInfo",
+                if arch == WinArch::X86 {
+                    WinArch::X64
+                } else {
+                    arch
+                },
+            ),
+        ] {
+            p.space.w8(tail + 16, 0xA5).unwrap();
+            call(p, &mut t, name, &[out]).unwrap();
+            assert_eq!(
+                p.space.u32(out).unwrap(),
+                u32::from(expected_arch.processor_architecture())
+            );
+            assert_eq!(p.space.u32(out + 4).unwrap(), PAGE_SIZE as u32);
+            assert_eq!(read_ptr(p, 8), p.vm.low());
+            assert_eq!(read_ptr(p, 8 + width), p.vm.high() - 1);
+            assert_eq!(read_ptr(p, 8 + 2 * width), 1);
+            assert_eq!(p.space.u32(tail).unwrap(), 1);
+            assert_eq!(
+                p.space.u32(tail + 8).unwrap(),
+                ALLOCATION_GRANULARITY as u32
+            );
+            assert_eq!(p.space.u8(tail + 16).unwrap(), 0xA5);
+        }
+    }
+}
+
+#[test]
 fn shared_processor_features_match_hle_api_for_each_guest_cpu() {
     use crate::user::windows::layout::{KUSER_SHARED_DATA, kuser};
     for arch in WinArch::ALL {
@@ -57,6 +140,8 @@ fn spawn(arch: WinArch) -> WindowsProcess {
 fn call(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> ApiResult {
     let api = EXPORTS
         .iter()
+        .chain(SYSTEM_INFO_EXPORTS)
+        .chain(NTDLL_VERSION_EXPORTS)
         .find_map(|e| match &e.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,

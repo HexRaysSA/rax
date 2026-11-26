@@ -2,16 +2,21 @@
 //! fabricated successful operations.
 
 pub mod crt;
+mod environment;
 mod etw;
 pub(crate) mod fibers;
 mod files;
 pub(crate) mod fls;
 mod function_table;
+mod gameos;
 mod handles;
 mod kernel;
 pub(crate) mod libraries;
 mod locks;
 mod native;
+mod path_strings;
+mod pointer_encoding;
+mod rtl_string;
 #[cfg(test)]
 pub(crate) use native::memory_usage_replay;
 #[cfg(test)]
@@ -21,6 +26,7 @@ pub(crate) use native::power::information_with as processor_power_information_wi
 mod slist;
 mod sysinfo;
 mod threading;
+mod threadpool;
 
 use super::hle::Export;
 
@@ -178,6 +184,19 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::APC_QUEUE_EXPORTS,
         native::KEY_CREATE_EXPORTS,
         etw::NTDLL_EXPORTS,
+        pointer_encoding::NTDLL_EXPORTS,
+        function_table::IMAGE_LOOKUP_EXPORTS,
+        locks::NTDLL_CRITICAL_EXPORTS,
+        crt::MEMORY_EXPORTS,
+        crt::STRING_EXPORTS,
+        gameos::EXPORTS,
+        rtl_string::EXPORTS,
+        libraries::NTDLL_EXPORTS,
+        locks::RESOURCE_EXPORTS,
+        kernel::NTDLL_HEAP_EXPORTS,
+        sysinfo::NTDLL_VERSION_EXPORTS,
+        crt::NTDLL_STRING_EXPORTS,
+        locks::NTDLL_SRW_FORWARDS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
@@ -201,6 +220,16 @@ static KERNEL32: BuiltinDll = BuiltinDll {
         sysinfo::KERNEL32_FORWARDS,
         kernel::ERROR_MODE_EXPORTS,
         kernel::PROCESS_WRITE_BARRIER_EXPORTS,
+        pointer_encoding::KERNEL_FORWARDS,
+        threadpool::KERNEL32_FORWARDS,
+        locks::ONCE_EXPORTS,
+        kernel::LOCAL_MEMORY_EXPORTS,
+        sysinfo::SYSTEM_PATH_EXPORTS,
+        environment::EXPORTS,
+        native::WIN32_PROCESS_QUERY_EXPORTS,
+        libraries::FILE_NAME_EXPORTS,
+        sysinfo::SYSTEM_INFO_EXPORTS,
+        files::ATTRIBUTES_EXPORTS,
     ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
@@ -224,6 +253,20 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         kernel::PROCESS_WRITE_BARRIER_EXPORTS,
         etw::KERNEL_FORWARDS,
         native::WIN32_REGISTRY_EXPORTS,
+        pointer_encoding::KERNEL_FORWARDS,
+        threadpool::TIMER_EXPORTS,
+        crt::KERNELBASE_INIT_FORWARDS,
+        crt::KERNELBASE_ONEXIT_EXPORTS,
+        locks::ONCE_EXPORTS,
+        native::WIN32_TOKEN_EXPORTS,
+        kernel::LOCAL_MEMORY_EXPORTS,
+        sysinfo::SYSTEM_PATH_EXPORTS,
+        path_strings::EXPORTS,
+        environment::EXPORTS,
+        native::WIN32_PROCESS_QUERY_EXPORTS,
+        libraries::FILE_NAME_EXPORTS,
+        sysinfo::SYSTEM_INFO_EXPORTS,
+        files::ATTRIBUTES_EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {
@@ -241,6 +284,7 @@ static MSVCRT: BuiltinDll = BuiltinDll {
         crt::STDIO_EXPORTS,
         crt::MSVCRT_STDIO_EXPORTS,
         crt::NEW_HANDLER_EXPORTS,
+        crt::MSVCRT_ONEXIT_EXPORTS,
     ],
 };
 static UCRTBASE: BuiltinDll = BuiltinDll {
@@ -267,6 +311,11 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::UCRT_STDIO_EXPORTS,
         crt::UCRT_EXCEPTION_FILTER_EXPORTS,
         crt::NEW_HANDLER_EXPORTS,
+        crt::UCRT_LOCALE_EXPORTS,
+        crt::UCRT_STREAM_BUFFER_EXPORTS,
+        crt::UCRT_MATH_EXPORTS,
+        crt::UCRT_PRIVATE_FORWARDS,
+        crt::UCRT_SECURE_STRING_EXPORTS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {
@@ -370,18 +419,24 @@ mod tests {
     use crate::user::windows::arch::WinArch;
 
     #[test]
-    fn native_startup_license_uses_only_installed_service_tables() {
+    fn portable_gameos_product_query_is_separate_from_installed_startup_policy() {
         let name = "NtQueryLicenseValue";
         assert!(nt_service(name, WinArch::Arm64).is_some());
         assert!(nt_service(name, WinArch::X64).is_some());
         assert!(nt_service(name, WinArch::X86).is_some());
-        assert!(
-            NTDLL
-                .exports
-                .iter()
-                .flat_map(|table| table.iter())
-                .all(|export| export.name != name)
-        );
+        let portable = NTDLL
+            .exports
+            .iter()
+            .flat_map(|table| table.iter())
+            .find_map(|export| match &export.item {
+                crate::user::windows::hle::Item::Func(api) if export.name == name => Some(api),
+                _ => None,
+            })
+            .unwrap();
+        assert!(!std::ptr::eq(
+            portable,
+            nt_service(name, WinArch::X64).unwrap()
+        ));
     }
 
     #[test]
@@ -477,12 +532,36 @@ mod tests {
             ("RtlCaptureContext", "RtlCaptureContext"),
             ("InitializeSListHead", "RtlInitializeSListHead"),
             ("InterlockedPopEntrySList", "RtlInterlockedPopEntrySList"),
+            ("EncodePointer", "RtlEncodePointer"),
+            ("DecodePointer", "RtlDecodePointer"),
         ] {
             assert_eq!(
                 address(kernel32, kernel_name),
                 address(ntdll, ntdll_name),
                 "{kernel_name}"
             );
+        }
+    }
+
+    #[test]
+    fn core_crt_contract_binds_to_the_ucrt_initializers() {
+        use crate::user::windows::loader::{self, SymRef};
+        use crate::user::windows::process::{WindowsConfig, WindowsProcess};
+        let mut config = WindowsConfig::new("core-crt.exe", vec![]);
+        config.seed = Some(1);
+        config.arena_bytes = 64 << 20;
+        let mut process = WindowsProcess::spawn_image(
+            config,
+            include_bytes!("../../../../tests/fixtures/user/windows/bin/x64/smoke.exe").to_vec(),
+        )
+        .unwrap();
+        let p = process.state_mut();
+        let core = loader::load_dll(p, "api-ms-win-core-crt-l2-1-0.dll").unwrap();
+        let ucrt = loader::load_dll(p, "ucrtbase.dll").unwrap();
+        for name in [b"_initterm".as_slice(), b"_initterm_e"] {
+            let name = SymRef::Name(name.to_vec(), None);
+            let target = loader::lookup(p, ucrt, &name).unwrap().unwrap();
+            assert_eq!(loader::lookup(p, core, &name).unwrap(), Some(target));
         }
     }
 

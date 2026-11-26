@@ -102,6 +102,31 @@ pub(super) fn retry(
 }
 
 #[test]
+fn ucrt_stream_buffer_accessor_exposes_distinct_empty_inline_fields() {
+    run(|c| {
+        let u = RuntimeKind::Ucrt;
+        let file = int(invoke(c, u, "__acrt_iob_func", &[1]));
+        let output = area(c);
+        let width = c.psize();
+        assert_eq!(
+            int(invoke(
+                c,
+                u,
+                "_get_stream_buffer_pointers",
+                &[file, output, output + width, output + 2 * width,]
+            )),
+            0
+        );
+        assert_eq!(c.read_ptr(output).unwrap(), file + width);
+        assert_eq!(c.read_ptr(output + width).unwrap(), file);
+        assert_eq!(c.read_ptr(output + 2 * width).unwrap(), file + 2 * width);
+        assert_eq!(c.read_ptr(file).unwrap(), 0);
+        assert_eq!(c.read_ptr(file + width).unwrap(), 0);
+        assert_eq!(c.mem().u32(file + 2 * width).unwrap(), 0);
+    });
+}
+
+#[test]
 fn real_user_buffer_rounding_full_flush_and_close_preserve_caller_storage() {
     run(|c| {
         for kind in [RuntimeKind::Msvcrt, RuntimeKind::Ucrt] {

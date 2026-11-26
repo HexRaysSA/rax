@@ -3,6 +3,28 @@ use crate::user::windows::fs::FileIdentity;
 use crate::user::windows::hle::Flow;
 use crate::user::windows::objects::Object;
 
+pub(super) fn attributes_a(c: &mut Ctx) -> ApiResult {
+    attributes(c, false)
+}
+
+pub(super) fn attributes_w(c: &mut Ctx) -> ApiResult {
+    attributes(c, true)
+}
+
+fn attributes(c: &mut Ctx, wide: bool) -> ApiResult {
+    const INVALID_ATTRIBUTES: u64 = u32::MAX as u64;
+    let address = c.ptr(0)?;
+    let text = match name(c, address, wide)? {
+        Ok(name) => name,
+        Err(error) => return bad_name(c, error, INVALID_ATTRIBUTES),
+    };
+    let (_, host) = match open::resolve(c, &text) {
+        Ok(path) => path,
+        Err(error) => return bad_name(c, error, INVALID_ATTRIBUTES),
+    };
+    super::super::native::win32_attributes(c, &host)
+}
+
 pub(super) fn delete_w(c: &mut Ctx) -> ApiResult {
     delete(c, true)
 }

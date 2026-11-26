@@ -5,7 +5,7 @@
 
 use super::*;
 use crate::user::windows::arch::WinCpu;
-use crate::user::windows::process::processor::native_arch;
+use crate::user::windows::process::processor::{native_arch, x86_signature};
 
 pub(super) fn query(
     c: &mut Ctx,
@@ -36,8 +36,8 @@ pub(super) fn query(
     };
     let (level, revision) = if matches!(architecture, 0 | 9) {
         match &c.t.cpu {
-            WinCpu::X86(cpu, _) => signature(cpu.vcpu().cpuid(1, 0).0),
-            WinCpu::Arm64Ec(ec) => signature(ec.x64().vcpu().cpuid(1, 0).0),
+            WinCpu::X86(cpu, _) => x86_signature(cpu.vcpu().cpuid(1, 0).0),
+            WinCpu::Arm64Ec(ec) => x86_signature(ec.x64().vcpu().cpuid(1, 0).0),
             _ => return Err(c.unsupported("x86 processor identity without an x86 CPU")),
         }
     } else {
@@ -78,18 +78,6 @@ pub(super) fn query(
         }
     }
     Flow::ret(0)
-}
-
-fn signature(value: u32) -> (u16, u16) {
-    let family = (value >> 8) & 15;
-    let level = family + if family == 15 { (value >> 20) & 255 } else { 0 };
-    let model = ((value >> 4) & 15)
-        | if matches!(family, 6 | 15) {
-            ((value >> 16) & 15) << 4
-        } else {
-            0
-        };
-    (level as u16, ((model << 8) | (value & 15)) as u16)
 }
 
 /// Low 32 KF bits for this virtual AMD64 kernel, not the host's KeFeatureBits.
@@ -159,7 +147,7 @@ mod tests {
             (0x123, (1, 0x0203)),
             (0x0003_06a9, (6, 0x3a09)),
         ] {
-            assert_eq!(signature(input), expected);
+            assert_eq!(x86_signature(input), expected);
         }
     }
 

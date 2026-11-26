@@ -30,6 +30,16 @@ pub struct SecurityDevice {
 }
 
 impl SecurityDevice {
+    pub(crate) fn gameos_provider(kernel: (u32, u32, u32)) -> Self {
+        Self {
+            kernel,
+            revision: 0,
+            native_machine: WinArch::X64.machine(),
+            device_type: KSEC_DEVICE_TYPE,
+            characteristics: 0x100,
+        }
+    }
+
     pub(super) fn expected_revision(
         kernel: (u32, u32, u32),
         native_machine: Option<u16>,

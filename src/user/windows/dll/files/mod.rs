@@ -51,6 +51,11 @@ pub(super) static EXPORTS: &[Export] = &[
     Export::func("DeleteFileA", Stdcall, &[Ptr], paths::delete_a),
 ];
 
+pub(super) static ATTRIBUTES_EXPORTS: &[Export] = &[
+    Export::func("GetFileAttributesA", Stdcall, &[Ptr], paths::attributes_a),
+    Export::func("GetFileAttributesW", Stdcall, &[Ptr], paths::attributes_w),
+];
+
 const MAX_IO: usize = 16 << 20;
 const MAX_PATH_UNITS: usize = 32767;
 const GENERIC_READ: u32 = 0x8000_0000;

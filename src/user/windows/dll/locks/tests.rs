@@ -50,7 +50,13 @@ fn with_context(arch: WinArch, test: impl FnOnce(&mut Ctx, u64)) {
 }
 
 fn invoke(c: &mut Ctx, name: &str, args: &[u64]) -> ApiResult {
-    let export = EXPORTS.iter().find(|e| e.name == name).unwrap();
+    let export = EXPORTS
+        .iter()
+        .chain(NTDLL_CRITICAL_EXPORTS)
+        .chain(ONCE_EXPORTS)
+        .chain(RESOURCE_EXPORTS)
+        .find(|e| e.name == name)
+        .unwrap();
     let Item::Func(api) = &export.item else {
         panic!()
     };
@@ -74,6 +80,72 @@ fn parked(result: ApiResult) -> (Wait, crate::user::windows::hle::Cont) {
     match result.unwrap() {
         Flow::Block { wait, then } => (wait, then),
         _ => panic!("blocked result required"),
+    }
+}
+
+#[test]
+fn resources_preserve_exclusive_recursion_and_resume_waiters() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, address| {
+            invoke(c, "RtlInitializeResource", &[address]).unwrap();
+            let first = c.t.tid;
+            assert_eq!(
+                int(invoke(c, "RtlAcquireResourceExclusive", &[address, 1])),
+                1
+            );
+            assert_eq!(int(invoke(c, "RtlAcquireResourceShared", &[address, 1])), 1);
+            c.t.tid += 4;
+            let second = c.t.tid;
+            assert_eq!(int(invoke(c, "RtlAcquireResourceShared", &[address, 0])), 0);
+            let (_, resume) = parked(invoke(c, "RtlAcquireResourceShared", &[address, 1]));
+            c.t.tid = first;
+            invoke(c, "RtlReleaseResource", &[address]).unwrap();
+            invoke(c, "RtlReleaseResource", &[address]).unwrap();
+            c.t.tid = second;
+            assert_eq!(int(resume(c, 0)), 1);
+            invoke(c, "RtlReleaseResource", &[address]).unwrap();
+            invoke(c, "RtlDeleteResource", &[address]).unwrap();
+        });
+    }
+}
+
+#[test]
+fn one_time_initialization_retries_failure_and_publishes_callback_context() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, address| {
+            let output = address + 16;
+            let input = [address, 0x8760, 0x42, output];
+            let invoke_once = |c: &mut Ctx| invoke(c, "InitOnceExecuteOnce", &input).unwrap();
+            let Flow::CallChecked { target, args, then } = invoke_once(c) else {
+                panic!("new initialization must call the guest");
+            };
+            assert_eq!(target, 0x8760);
+            assert_eq!(args, [address, 0x42, c.cursor]);
+            assert_eq!(c.p.sync.once_owner(address), Some(c.t.tid));
+            let owner = c.t.tid;
+            c.t.tid += 1;
+            let (wait, waiter) = parked(Ok(invoke_once(c)));
+            assert_eq!(wait, Wait::InitOnce { addr: address });
+            c.t.tid = owner;
+            assert_eq!(int(then(c, 0)), 0);
+            assert_eq!(c.p.sync.once_owner(address), None);
+            assert_eq!(c.read_ptr(address).unwrap(), 0);
+            let Flow::CallChecked { args, then, .. } = waiter(c, 0).unwrap() else {
+                panic!("waiter must retry the failed callback");
+            };
+            c.write_ptr(args[2], 0x8000).unwrap();
+            assert_eq!(int(then(c, 1)), 1);
+            assert_eq!(c.read_ptr(output).unwrap(), 0x8000);
+            c.write_ptr(output, 0).unwrap();
+            assert_eq!(int(Ok(invoke_once(c))), 1);
+            assert_eq!(c.read_ptr(output).unwrap(), 0x8000);
+
+            c.write_ptr(address, 0).unwrap();
+            let abandoned = invoke_once(c);
+            assert_eq!(c.p.sync.once_owner(address), Some(c.t.tid));
+            drop(abandoned);
+            assert_eq!(c.p.sync.once_owner(address), None);
+        });
     }
 }
 
@@ -107,6 +179,28 @@ fn critical_section_exports_follow_all_scalar_abis_and_recursive_ownership() {
                 sync::cs_try_enter(c.p, addr, c.t.tid),
                 Err(SyncError::Invalid(_))
             ));
+        });
+    }
+}
+
+#[test]
+fn native_critical_sections_return_status_and_share_win32_ownership() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, addr| {
+            assert_eq!(
+                int(invoke(
+                    c,
+                    "RtlInitializeCriticalSectionAndSpinCount",
+                    &[addr, 0]
+                )),
+                0
+            );
+            assert_eq!(int(invoke(c, "RtlEnterCriticalSection", &[addr])), 0);
+            assert_eq!(int(invoke(c, "TryEnterCriticalSection", &[addr])), 1);
+            assert_eq!(sync::cs_recursion(c.p, addr, c.t.tid).unwrap(), 2);
+            assert_eq!(int(invoke(c, "RtlLeaveCriticalSection", &[addr])), 0);
+            invoke(c, "LeaveCriticalSection", &[addr]).unwrap();
+            assert_eq!(int(invoke(c, "RtlDeleteCriticalSection", &[addr])), 0);
         });
     }
 }

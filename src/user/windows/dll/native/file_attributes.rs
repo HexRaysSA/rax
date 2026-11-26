@@ -16,6 +16,7 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{
     STATUS_DATATYPE_MISALIGNMENT, STATUS_INVALID_PARAMETER, STATUS_SUCCESS,
 };
+use std::path::Path;
 
 pub(super) fn basic(c: &mut Ctx) -> ApiResult {
     query(c, false)
@@ -23,6 +24,16 @@ pub(super) fn basic(c: &mut Ctx) -> ApiResult {
 
 pub(super) fn full(c: &mut Ctx) -> ApiResult {
     query(c, true)
+}
+
+pub(in crate::user::windows::dll) fn win32_attributes(c: &mut Ctx, path: &Path) -> ApiResult {
+    use super::named_object::Failure;
+    use crate::user::windows::{hle::Flow, nt::status_to_error};
+    match metadata::resolved_attributes(c, path) {
+        Ok(attributes) => Flow::ret(attributes.into()),
+        Err(Failure::Status(status)) => c.fail(status_to_error(status), u32::MAX.into()),
+        Err(Failure::Api(error)) => Err(error),
+    }
 }
 
 fn query(c: &mut Ctx, full: bool) -> ApiResult {

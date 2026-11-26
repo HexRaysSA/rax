@@ -3,11 +3,89 @@
 
 mod condition;
 mod critical;
+mod once;
+mod resource;
 mod srw;
 #[cfg(test)]
 mod tests;
 
 use crate::user::windows::hle::{Arg::*, Conv::Stdcall, Export};
+
+pub(super) use once::ONCE_EXPORTS;
+pub(super) use resource::EXPORTS as RESOURCE_EXPORTS;
+
+pub(super) static NTDLL_CRITICAL_EXPORTS: &[Export] = &[
+    Export::func(
+        "RtlInitializeCriticalSection",
+        Stdcall,
+        &[Ptr],
+        critical::rtl_initialize,
+    ),
+    Export::func(
+        "RtlInitializeCriticalSectionAndSpinCount",
+        Stdcall,
+        &[Ptr, I32],
+        critical::rtl_initialize_spin,
+    ),
+    Export::func(
+        "RtlInitializeCriticalSectionEx",
+        Stdcall,
+        &[Ptr, I32, I32],
+        critical::rtl_initialize_ex,
+    ),
+    Export::func(
+        "RtlDeleteCriticalSection",
+        Stdcall,
+        &[Ptr],
+        critical::rtl_delete,
+    ),
+    Export::func(
+        "RtlEnterCriticalSection",
+        Stdcall,
+        &[Ptr],
+        critical::rtl_enter,
+    ),
+    Export::func(
+        "RtlTryEnterCriticalSection",
+        Stdcall,
+        &[Ptr],
+        critical::try_enter,
+    ),
+    Export::func(
+        "RtlLeaveCriticalSection",
+        Stdcall,
+        &[Ptr],
+        critical::rtl_leave,
+    ),
+    Export::func(
+        "RtlSetCriticalSectionSpinCount",
+        Stdcall,
+        &[Ptr, I32],
+        critical::spin,
+    ),
+];
+
+pub(super) static NTDLL_SRW_FORWARDS: &[Export] = &[
+    Export::forward("RtlInitializeSRWLock", "KERNELBASE.InitializeSRWLock"),
+    Export::forward(
+        "RtlAcquireSRWLockExclusive",
+        "KERNELBASE.AcquireSRWLockExclusive",
+    ),
+    Export::forward("RtlAcquireSRWLockShared", "KERNELBASE.AcquireSRWLockShared"),
+    Export::forward(
+        "RtlTryAcquireSRWLockExclusive",
+        "KERNELBASE.TryAcquireSRWLockExclusive",
+    ),
+    Export::forward(
+        "RtlTryAcquireSRWLockShared",
+        "KERNELBASE.TryAcquireSRWLockShared",
+    ),
+    Export::forward(
+        "RtlReleaseSRWLockExclusive",
+        "KERNELBASE.ReleaseSRWLockExclusive",
+    ),
+    Export::forward("RtlReleaseSRWLockShared", "KERNELBASE.ReleaseSRWLockShared"),
+];
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func(

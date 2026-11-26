@@ -225,17 +225,26 @@ See [provider traits evidence](../../specifications/windows/native-etw-provider-
 
 ## Built-in registry services
 
-KernelBase exports `RegCloseKey`, `RegOpenKeyW` and `RegQueryValueExW` for
-the core registry API sets. GameOS Advapi32 forwards to these public names.
+KernelBase exports `RegCloseKey`, `RegOpenKeyW`, `RegOpenKeyExW`,
+`RegOpenCurrentUser`, `RegQueryValueExW`, `RegGetValueW` and
+`RegNotifyChangeKeyValue` for the core registry API sets.
+GameOS Advapi32 forwards to these public names.
 Opened handles share the native guest registry's key objects, access grants
-and x86 view selection. Queries return the stored type and exact data bytes,
-including for the unnamed value. A size-only query reports the required byte
-count, and a short buffer returns Win32 error 234 (`ERROR_MORE_DATA`).
+and x86 view selection. `RegQueryValueExW` returns the stored type and exact
+data bytes, including for the unnamed value. `RegGetValueW` supports subkey
+selection, type filters, string terminators and zeroing on failure. Expandable
+strings require the `RRF_NOEXPAND` flag. A size-only query reports the required
+byte count, and a short buffer returns Win32 error 234 (`ERROR_MORE_DATA`).
+Registry watches retain guest events and share native notification cleanup.
+Predefined root registrations use process lifetime. Immutable guest snapshots
+have no content mutations to deliver.
 
 The portable profile starts with an empty guest registry. Opening an absent
 ordinary subkey returns Win32 error 2. Where a partial snapshot is supplied,
 its coverage determines which keys and values can be resolved. Merged Classes
 views and live performance-provider queries are outside that profile.
+`RegOpenCurrentUser` opens a closeable handle to the captured primary-user hive
+when it is present.
 A drive mapping supplies guest files and does not populate the registry.
 [Registry value query contract](../../specifications/windows/native-nls-registry/regqueryvalueexw.md)
 

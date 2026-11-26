@@ -19,8 +19,10 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(INIT_EXPORTS)
         .chain(UCRT_INIT_EXPORTS)
         .chain(MSVCRT_STARTUP_EXPORTS)
+        .chain(MSVCRT_ONEXIT_EXPORTS)
         .chain(UCRT_STARTUP_EXPORTS)
         .chain(UCRT_BOOTSTRAP_EXPORTS)
+        .chain(UCRT_LOCALE_EXPORTS)
         .chain(UCRT_ONEXIT_EXPORTS)
         .chain(UCRT_REGISTRATION_EXPORTS)
         .chain(UCRT_EXIT_EXPORTS)
@@ -29,6 +31,7 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(STDIO_EXPORTS)
         .chain(MSVCRT_STDIO_EXPORTS)
         .chain(UCRT_STDIO_EXPORTS)
+        .chain(UCRT_STREAM_BUFFER_EXPORTS)
         .chain(UCRT_EXCEPTION_FILTER_EXPORTS)
         .chain(NEW_HANDLER_EXPORTS)
         .find_map(|export| match &export.item {

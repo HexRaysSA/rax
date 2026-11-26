@@ -161,6 +161,22 @@ pub enum Object {
         /// Pending expiration, removed by cancellation or one-shot expiry.
         schedule: Option<Timer2Schedule>,
     },
+    /// A memory partition in the portable GameOS namespace.
+    MemoryPartition {
+        /// Guest-only partition identifier.
+        partition_id: u32,
+    },
+    /// An active scope for the portable GameOS lock-memory privilege.
+    GameOsLockMemoryScope,
+    /// A user-mode thread-pool timer.
+    ThreadpoolTimer {
+        /// Guest callback address.
+        callback: u64,
+        /// Guest-supplied callback context.
+        context: u64,
+        /// Pending expiration, with relative and absolute clock semantics.
+        schedule: Option<Timer2Schedule>,
+    },
     /// A file mapping (section).
     Mapping {
         /// Backing file, if any.
@@ -313,6 +329,9 @@ impl Object {
             | Object::GuestImpersonationToken { .. } => "Token",
             Object::Desktop(_) => "Desktop",
             Object::WindowStation(_) => "WindowStation",
+            Object::MemoryPartition { .. } => "Partition",
+            Object::GameOsLockMemoryScope => "GameOsLockMemoryScope",
+            Object::ThreadpoolTimer { .. } => "ThreadpoolTimer",
             Object::Opaque(t) => t,
         }
     }

@@ -19,10 +19,15 @@ use crate::user::windows::process::Proc;
 use super::{RuntimeKind, invalid, runtime, state};
 pub(crate) use exports::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(super) use storage::StartupState;
+pub(in crate::user::windows::dll) use storage::environment;
 
 /// The process ACP profile shared by CRT narrow startup and GetCommandLineA.
 pub(crate) fn encode_process_ansi(units: &[u16]) -> Vec<u8> {
     codepage::encode(units)
+}
+
+pub(in crate::user::windows::dll) fn decode_process_ansi(bytes: &[u8]) -> Vec<u16> {
+    codepage::decode(bytes)
 }
 
 const ARGC: usize = 0;

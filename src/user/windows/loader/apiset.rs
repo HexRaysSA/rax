@@ -20,13 +20,19 @@ const CRT_FOUNDATION: &[&str] = &[
 /// Family prefixes and their host DLL; the first match wins.
 const FAMILIES: &[(&str, &str)] = &[
     ("api-ms-win-crt-", "ucrtbase.dll"),
+    ("api-ms-win-core-crt-l1-", "ucrtbase.dll"),
     ("api-ms-win-core-rtlsupport-", "ntdll.dll"),
     ("api-ms-win-core-kernel32-legacy-", "kernel32.dll"),
     ("api-ms-win-core-com-", "combase.dll"),
     ("api-ms-win-core-winrt-", "combase.dll"),
     ("api-ms-win-core-", "kernelbase.dll"),
     ("api-ms-win-security-base-", "kernelbase.dll"),
+    ("api-ms-win-security-credentials-", "sechost.dll"),
+    ("api-ms-win-security-sddl-", "sechost.dll"),
+    ("api-ms-win-security-grouppolicy-", "kernelbase.dll"),
     ("api-ms-win-security-", "advapi32.dll"),
+    ("api-ms-win-service-private-", "sechost.dll"),
+    ("api-ms-win-service-management-", "sechost.dll"),
     ("api-ms-win-eventing-provider-", "kernelbase.dll"),
     ("api-ms-win-eventing-classicprovider-", "kernelbase.dll"),
     ("api-ms-win-eventing-", "advapi32.dll"),
@@ -65,6 +71,23 @@ mod tests {
 
     #[test]
     fn families_resolve_to_their_hosts() {
+        assert_eq!(host("api-ms-win-core-crt-l1-1-0.dll"), Some("ucrtbase.dll"));
+        assert_eq!(
+            host("api-ms-win-core-crt-l2-1-0.dll"),
+            Some("kernelbase.dll")
+        );
+        for contract in [
+            "api-ms-win-security-credentials-l1-1-0.dll",
+            "api-ms-win-security-sddl-l1-1-0.dll",
+            "api-ms-win-service-private-l1-1-0.dll",
+            "api-ms-win-service-management-l1-1-0.dll",
+        ] {
+            assert_eq!(host(contract), Some("sechost.dll"));
+        }
+        assert_eq!(
+            host("api-ms-win-security-grouppolicy-l1-1-0.dll"),
+            Some("kernelbase.dll")
+        );
         assert_eq!(
             host("api-ms-win-crt-runtime-l1-1-0.dll"),
             Some("ucrtbase.dll")

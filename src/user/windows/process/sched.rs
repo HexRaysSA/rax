@@ -497,6 +497,17 @@ fn clear_on_thread_switch(p: &mut Proc, previous: u32, next: u32) {
 
 fn tick_timers(p: &mut Proc, now: Instant) -> std::io::Result<()> {
     for (_, object) in p.objects.iter_mut() {
+        if let Object::ThreadpoolTimer {
+            callback,
+            context,
+            schedule: Some(pending),
+        } = object
+            && pending.tick()?
+        {
+            return Err(std::io::Error::other(format!(
+                "thread-pool timer callback delivery at {callback:#x} (context {context:#x})"
+            )));
+        }
         if let Object::IrTimer {
             signaled, schedule, ..
         } = object
@@ -551,6 +562,10 @@ fn next_deadline(p: &mut Proc) -> Option<Instant> {
         .filter_map(|(_, object)| match object {
             Object::Timer { due, .. } => *due,
             Object::IrTimer {
+                schedule: Some(pending),
+                ..
+            }
+            | Object::ThreadpoolTimer {
                 schedule: Some(pending),
                 ..
             } => Some(pending.hint()),
@@ -1300,6 +1315,26 @@ mod tests {
             p.objects.obj(obj).is_none(),
             "process shutdown drains local objects"
         );
+    }
+
+    #[test]
+    fn threadpool_timer_stops_at_callback_delivery_and_can_be_disarmed() {
+        let mut p = process(WinArch::X64);
+        let obj = p.objects.create(Object::ThreadpoolTimer {
+            callback: 0x1234,
+            context: 0x5678,
+            schedule: Some(crate::user::windows::objects::Timer2Schedule::new(0, 0).unwrap()),
+        });
+        p.objects.retain(obj);
+        assert!(next_deadline(&mut p).is_some());
+        let failure = tick_timers(&mut p, Instant::now()).unwrap_err();
+        assert!(failure.to_string().contains("callback delivery at 0x1234"));
+        let Some(Object::ThreadpoolTimer { schedule, .. }) = p.objects.obj_mut(obj) else {
+            panic!("thread-pool timer lost");
+        };
+        *schedule = None;
+        assert!(next_deadline(&mut p).is_none());
+        tick_timers(&mut p, Instant::now()).unwrap();
     }
 
     #[test]

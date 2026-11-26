@@ -77,7 +77,7 @@ pub(in super::super) fn retained(
     unix::query(c, &file.host_path, Some(retained))
 }
 
-pub(super) fn io_error(c: &Ctx, error: std::io::Error, path: &Path) -> Checked<Information> {
+pub(super) fn io_error<T>(c: &Ctx, error: std::io::Error, path: &Path) -> Checked<T> {
     use std::io::ErrorKind;
     match error.kind() {
         ErrorKind::NotFound | ErrorKind::NotADirectory => {
@@ -91,6 +91,15 @@ pub(super) fn io_error(c: &Ctx, error: std::io::Error, path: &Path) -> Checked<I
         ErrorKind::OutOfMemory => status(STATUS_INSUFFICIENT_RESOURCES),
         _ => Err(c.unsupported(format!("host file metadata: {error}")).into()),
     }
+}
+
+pub(super) fn resolved_attributes(c: &Ctx, path: &Path) -> Checked<u32> {
+    #[cfg(unix)]
+    return unix::query_attributes(c, path);
+    #[cfg(windows)]
+    return windows::query(c, path, None, None, false).map(|info| info.attributes);
+    #[cfg(not(any(unix, windows)))]
+    return Err(c.unsupported("file metadata adapter unavailable").into());
 }
 
 pub(super) fn query(c: &Ctx, resolved: &Resolved, no_reparse: bool) -> Checked<Information> {

@@ -75,7 +75,8 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
 fn provider(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Checked<u32> {
     let sha256_profile =
         c.arch() == WinArch::Arm64 && device.kernel == (10, 0, 29708) && device.revision == 1003;
-    let amd64_registration = c.arch() == WinArch::X64 && device.server_2022_profile();
+    let amd64_registration = c.arch() == WinArch::X64
+        && (device.server_2022_profile() || super::super::gameos::enabled(c));
     if !(sha256_profile || amd64_registration)
         || code != PROVIDER_CONTROL
         || c.p.objects.file_mode(handle) != Some(0x20)

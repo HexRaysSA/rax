@@ -14,6 +14,7 @@ use super::super::RuntimeKind;
 #[derive(Default)]
 struct State {
     owner: Option<(u32, u32)>,
+    manual: u32,
     /// Capacity is reserved before issuing each guard. Drop never allocates.
     abandoned: Vec<u32>,
 }
@@ -34,6 +35,44 @@ fn key(runtime: RuntimeKind) -> u128 {
 
 fn invalid(message: &str) -> ApiErr {
     ApiErr::Internal(format!("CRT exit lock: {message}"))
+}
+
+pub(in crate::user::windows::dll::crt) fn acquire_legacy(c: &mut Ctx) -> ApiResult {
+    let runtime = RuntimeKind::Msvcrt;
+    let state = &c.p.crt.runtimes[runtime.index()].exit_lock;
+    let mut state = state.0.borrow_mut();
+    let count = match state.owner {
+        Some((tid, _)) if tid != c.t.tid => {
+            return Flow::block(
+                Wait::Address {
+                    key: key(runtime),
+                    deadline: None,
+                },
+                |c, _| acquire_legacy(c),
+            );
+        }
+        Some((_, count)) => count
+            .checked_add(1)
+            .ok_or_else(|| invalid("recursion exhausted"))?,
+        None => 1,
+    };
+    state.owner = Some((c.t.tid, count));
+    state.manual += 1;
+    Flow::void()
+}
+
+pub(in crate::user::windows::dll::crt) fn release_legacy(c: &mut Ctx) -> ApiResult {
+    let runtime = RuntimeKind::Msvcrt;
+    let state = c.p.crt.runtimes[runtime.index()].exit_lock.clone();
+    {
+        let mut inner = state.0.borrow_mut();
+        if !matches!(inner.owner, Some((tid, _)) if tid == c.t.tid) || inner.manual == 0 {
+            return Err(invalid("legacy unlock without a matching lock"));
+        }
+        inner.manual -= 1;
+    }
+    release(c.p, &state, runtime, c.t.tid).map_err(ApiErr::Internal)?;
+    Flow::void()
 }
 
 impl ExitLockState {
@@ -196,6 +235,7 @@ pub(super) fn discard_process(p: &mut Proc, runtime: RuntimeKind) {
     let state = p.crt.runtimes[runtime.index()].exit_lock.clone();
     let mut state = state.0.borrow_mut();
     state.owner = None;
+    state.manual = 0;
     state.abandoned.clear();
 }
 

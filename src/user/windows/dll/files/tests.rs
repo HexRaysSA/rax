@@ -80,6 +80,7 @@ impl Harness {
     fn call(&mut self, name: &str, args: &[u64]) -> ApiResult {
         let api = EXPORTS
             .iter()
+            .chain(ATTRIBUTES_EXPORTS)
             .chain(super::super::threading::EXPORTS.iter())
             .chain(super::super::native::EXPORTS.iter())
             .chain(super::super::native::FILE_INFORMATION_EXPORTS.iter())
@@ -238,6 +239,30 @@ impl Harness {
     }
     fn cursor(&mut self, handle: u64) -> u64 {
         self.seek(handle, 0, 1)
+    }
+}
+
+#[test]
+fn attributes_query_uses_mapped_guest_paths_and_win32_errors() {
+    const INVALID_ATTRIBUTES: u64 = u32::MAX as u64;
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        std::fs::create_dir(h.directory.0.join("subdir")).unwrap();
+        std::fs::write(h.directory.0.join("readme"), b"test").unwrap();
+        for (api, wide) in [("GetFileAttributesA", false), ("GetFileAttributesW", true)] {
+            for (name, directory) in [("C:\\SubDir", true), ("C:\\README", false)] {
+                h.filename(name, wide);
+                let attrs = h.value(api, &[h.memory]);
+                assert_ne!(attrs, INVALID_ATTRIBUTES);
+                assert_eq!(attrs & 0x10 != 0, directory);
+            }
+            h.filename("C:\\missing", wide);
+            assert_eq!(h.value(api, &[h.memory]), INVALID_ATTRIBUTES);
+            assert_eq!(h.error(), ERROR_FILE_NOT_FOUND);
+            h.filename("D:\\missing", wide);
+            assert_eq!(h.value(api, &[h.memory]), INVALID_ATTRIBUTES);
+            assert_eq!(h.error(), ERROR_INVALID_DRIVE);
+        }
     }
 }
 

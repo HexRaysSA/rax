@@ -117,6 +117,16 @@ fn resize(c: &mut Ctx, in_place: bool) -> ApiResult {
     let kind = runtime(c)?;
     let block = c.arg(0)?;
     let size = c.arg(1)?;
+    resize_block(c, kind, block, size, in_place)
+}
+
+pub(super) fn resize_block(
+    c: &mut Ctx,
+    kind: RuntimeKind,
+    block: u64,
+    size: u64,
+    in_place: bool,
+) -> ApiResult {
     if block == 0 {
         if !in_place {
             return allocate(c, kind, size, false);

@@ -54,6 +54,28 @@ pub(super) static EXPORTS: &[Export] = &[
     ),
 ];
 
+pub(super) static FILE_NAME_EXPORTS: &[Export] = &[
+    Export::func(
+        "GetModuleFileNameW",
+        Stdcall,
+        &[Ptr, Ptr, I32],
+        module_file_name_w,
+    ),
+    Export::func(
+        "GetModuleFileNameA",
+        Stdcall,
+        &[Ptr, Ptr, I32],
+        module_file_name_a,
+    ),
+];
+
+pub(super) static NTDLL_EXPORTS: &[Export] = &[Export::func(
+    "LdrDisableThreadCalloutsForDll",
+    Stdcall,
+    &[Ptr],
+    ldr_disable_thread_calls,
+)];
+
 #[derive(Clone, Copy, Debug)]
 enum Journal {
     Load(u64),
@@ -204,6 +226,47 @@ fn module_handle_a(c: &mut Ctx) -> ApiResult {
     module_handle(c, false)
 }
 
+fn module_file_name_w(c: &mut Ctx) -> ApiResult {
+    module_file_name(c, true)
+}
+
+fn module_file_name_a(c: &mut Ctx) -> ApiResult {
+    module_file_name(c, false)
+}
+
+fn module_file_name(c: &mut Ctx, wide: bool) -> ApiResult {
+    let (module, out, capacity) = (c.ptr(0)?, c.ptr(1)?, c.u32(2)? as usize);
+    let index = if module == 0 {
+        Some(0)
+    } else {
+        c.p.modules.by_base(module)
+    };
+    let Some(index) = index else {
+        return c.fail(ERROR_MOD_NOT_FOUND, 0);
+    };
+    if capacity == 0 {
+        return c.fail(ERROR_INSUFFICIENT_BUFFER, 0);
+    }
+    let path = c.p.modules.list[index].path.encode_utf16();
+    let (written, truncated) = if wide {
+        let mut path = path;
+        let units: Vec<u16> = path.by_ref().take(capacity - 1).collect();
+        c.mem().put_wstr(out, &units)?;
+        (units.len(), path.next().is_some())
+    } else {
+        let units: Vec<u16> = path.collect();
+        let bytes = super::crt::startup::encode_process_ansi(&units);
+        let written = bytes.len().min(capacity - 1);
+        c.mem().put_cstr(out, &bytes[..written])?;
+        (written, written < bytes.len())
+    };
+    if truncated {
+        c.fail(ERROR_INSUFFICIENT_BUFFER, capacity as u64)
+    } else {
+        Flow::ret(written as u64)
+    }
+}
+
 fn module_handle_ex(c: &mut Ctx, wide: bool) -> ApiResult {
     let (flags, pointer, out) = (c.u32(0)?, c.ptr(1)?, c.ptr(2)?);
     error_output(c)?;
@@ -242,12 +305,11 @@ fn module_handle_ex(c: &mut Ctx, wide: bool) -> ApiResult {
                 return c.fail(ERROR_MOD_NOT_FOUND, 0);
             };
             if flags & 2 == 0 {
-                // A later failed attach must be able to remove an unready
-                // image. Do not promise counted/PIN lifetime from a reentrant
-                // query before that attach has committed. Native behavior for
-                // this entrypoint branch is unknown; rejection is a profile.
+                // Startup attach may pin a module in the process image graph.
+                // A dynamic transaction may still roll back an unready image.
                 if matches!(c.p.modules.list[index].kind, loader::ModuleKind::Native)
                     && !c.p.modules.list[index].initialized
+                    && !loader::startup_attach_can_reference(c.p, index)
                 {
                     guard.finish(c)?;
                     return c.fail(ERROR_NOT_SUPPORTED, 0);
@@ -541,26 +603,45 @@ fn free_and_exit(c: &mut Ctx) -> ApiResult {
 }
 
 fn disable_thread_calls(c: &mut Ctx) -> ApiResult {
-    let base = c.ptr(0)?;
     error_output(c)?;
+    disable_callouts(c, false)
+}
+
+fn ldr_disable_thread_calls(c: &mut Ctx) -> ApiResult {
+    disable_callouts(c, true)
+}
+
+fn disable_callouts(c: &mut Ctx, native: bool) -> ApiResult {
+    let base = c.ptr(0)?;
     with_lock(
         c,
         Box::new(move |c, mut guard| {
-            let Some(index) = c.p.modules.by_base(base) else {
-                guard.finish(c)?;
-                return c.fail(ERROR_INVALID_PARAMETER, 0);
+            let module = c.p.modules.by_base(base).and_then(|index| {
+                let module = &mut c.p.modules.list[index];
+                matches!(
+                    module.kind,
+                    loader::ModuleKind::Native | loader::ModuleKind::Builtin(_)
+                )
+                .then_some(module)
+            });
+            let status = match module {
+                None => STATUS_DLL_NOT_FOUND,
+                Some(module) if module.tls.is_some() && !native => STATUS_INVALID_PARAMETER,
+                Some(module) => {
+                    if module.tls.is_none() {
+                        module.thread_calls = false;
+                    }
+                    STATUS_SUCCESS
+                }
             };
-            if !matches!(
-                c.p.modules.list[index].kind,
-                loader::ModuleKind::Native | loader::ModuleKind::Builtin(_)
-            ) || c.p.modules.list[index].tls.is_some()
-            {
-                guard.finish(c)?;
-                return c.fail(ERROR_INVALID_PARAMETER, 0);
-            }
-            c.p.modules.list[index].thread_calls = false;
             guard.finish(c)?;
-            Flow::bool(true)
+            if native {
+                Flow::ret(u64::from(status))
+            } else if status == STATUS_SUCCESS {
+                Flow::bool(true)
+            } else {
+                c.fail(ERROR_INVALID_PARAMETER, 0)
+            }
         }),
     )
 }

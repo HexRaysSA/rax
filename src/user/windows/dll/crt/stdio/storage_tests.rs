@@ -69,7 +69,7 @@ fn initial_profiles_have_stable_standard_files_real_cells_and_distinct_descripto
             let stride = if kind == RuntimeKind::Msvcrt {
                 if width == 4 { 32 } else { 48 }
             } else {
-                width
+                3 * width
             };
             assert_eq!(s.0.borrow().file_stride, stride);
             assert_eq!(

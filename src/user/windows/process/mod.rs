@@ -102,6 +102,8 @@ pub struct WindowsConfig {
     /// token subject on Windows.
     /// This does not permit general guest host-file access. Defaults to false.
     pub native_libraries: bool,
+    /// Provide the portable GameOS guest memory partition namespace.
+    pub gameos: bool,
     /// Explicit console routing (host streams for the CLI by default).
     pub console: crate::user::console::Console,
     /// Supplied DLL bytes indexed by normalized absolute Windows path.
@@ -180,6 +182,7 @@ impl WindowsConfig {
             guest_image_path: None,
             host_filesystem: true,
             native_libraries: false,
+            gameos: false,
             console: Default::default(),
             supplied_dlls: BTreeMap::new(),
             args,

@@ -93,6 +93,9 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         /// and built-in services on Unix; native requires a Windows host.
         #[arg(long, value_enum, default_value_t = WindowsLibraries::Auto)]
         windows_libraries: WindowsLibraries,
+        /// Enable the portable GameOS guest memory partition profile.
+        #[arg(long)]
+        windows_gameos: bool,
         /// Map a Windows drive letter to a host directory (repeatable C=/dir).
         #[arg(long, value_name = "LETTER=DIR")]
         drive: Vec<String>,
@@ -273,7 +276,7 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
             || matches!(cli.os, Personality::Auto) && bytes.starts_with(b"MZ")
         {
             let native_libraries = match cli.windows_libraries {
-                WindowsLibraries::Auto => cfg!(windows),
+                WindowsLibraries::Auto => cfg!(windows) && !cli.windows_gameos,
                 WindowsLibraries::Builtin => false,
                 WindowsLibraries::Native if cfg!(windows) => true,
                 WindowsLibraries::Native => {
@@ -283,6 +286,11 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
             };
             let mut config = WindowsConfig::new(cli.program(), cli.args().to_vec());
             config.native_libraries = native_libraries;
+            if cli.windows_gameos && native_libraries {
+                eprintln!("rax-user: --windows-gameos requires built-in Windows libraries");
+                return 126;
+            }
+            config.gameos = cli.windows_gameos;
             #[cfg(windows)]
             {
                 // Preserve native drive identities even when the executable

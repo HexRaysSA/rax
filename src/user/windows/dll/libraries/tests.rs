@@ -59,6 +59,9 @@ fn dynamic_process(arch: WinArch) -> WindowsProcess {
 fn invoke(p: &mut Proc, t: &mut Thread, name: &str, arguments: &[u64]) -> ApiResult {
     let api = EXPORTS
         .iter()
+        .chain(NTDLL_EXPORTS)
+        .chain(FILE_NAME_EXPORTS)
+        .chain(super::super::environment::EXPORTS)
         .find_map(|export| match &export.item {
             Item::Func(api) if export.name == name => Some(api),
             _ => None,
@@ -77,6 +80,86 @@ fn invoke(p: &mut Proc, t: &mut Thread, name: &str, arguments: &[u64]) -> ApiRes
         }
     }
     (api.imp)(&mut context(p, t, api))
+}
+
+#[test]
+fn guest_environment_queries_share_case_insensitive_wide_and_ansi_values() {
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let name = t.cpu.sp() - 0x300;
+        let out = name + 128;
+        p.space.put_cstr(name, b"sYsTeMrOoT").unwrap();
+        let small = invoke(p, &mut t, "GetEnvironmentVariableA", &[name, out, 2]).unwrap();
+        assert!(matches!(small, Flow::Ret(Value::Int(11))));
+        let result = invoke(p, &mut t, "GetEnvironmentVariableA", &[name, out, 11]).unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(10))));
+        assert_eq!(p.space.cstr(out, 11).unwrap(), br"C:\Windows");
+        p.space
+            .put_wstr(name, &"SystemRoot".encode_utf16().collect::<Vec<_>>())
+            .unwrap();
+        let result = invoke(p, &mut t, "GetEnvironmentVariableW", &[name, out, 11]).unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(10))));
+        assert_eq!(
+            String::from_utf16(&p.space.wstr(out, 11).unwrap()).unwrap(),
+            r"C:\Windows"
+        );
+        p.space.put_cstr(name, b"RAX_MISSING_ENV").unwrap();
+        let result = invoke(p, &mut t, "GetEnvironmentVariableA", &[name, out, 11]).unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(0))));
+        assert_eq!(
+            context(p, &mut t, &TEST_API).last_error().unwrap(),
+            ERROR_ENVVAR_NOT_FOUND
+        );
+    }
+}
+
+#[test]
+fn module_file_name_reports_guest_path_and_terminates_truncation() {
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let out = t.cpu.sp() - 0x600;
+        let path: Vec<_> = p.modules.list[0].path.encode_utf16().collect();
+        let size = path.len() as u64 + 1;
+        let main = p.modules.list[0].base;
+        for module in [0, main] {
+            let result = invoke(p, &mut t, "GetModuleFileNameW", &[module, out, size]).unwrap();
+            assert!(matches!(result, Flow::Ret(Value::Int(n)) if n == size - 1));
+            assert_eq!(p.space.wstr(out, size as usize).unwrap(), path);
+        }
+        let result = invoke(p, &mut t, "GetModuleFileNameW", &[main, out, 3]).unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(3))));
+        assert_eq!(p.space.wstr(out, 3).unwrap(), path[..2]);
+        assert_eq!(p.space.u16(out + 4).unwrap(), 0);
+        assert_eq!(
+            context(p, &mut t, &TEST_API).last_error().unwrap(),
+            ERROR_INSUFFICIENT_BUFFER
+        );
+        let result = invoke(p, &mut t, "GetModuleFileNameW", &[main + 1, out, size]).unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(0))));
+        assert_eq!(
+            context(p, &mut t, &TEST_API).last_error().unwrap(),
+            ERROR_MOD_NOT_FOUND
+        );
+        let ansi = crate::user::windows::dll::crt::startup::encode_process_ansi(&path);
+        let capacity = ansi.len() as u64 + 1;
+        let result = invoke(p, &mut t, "GetModuleFileNameA", &[0, out, capacity]).unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(n)) if n == capacity - 1));
+        assert_eq!(p.space.cstr(out, capacity as usize).unwrap(), ansi);
+        let result = invoke(p, &mut t, "GetModuleFileNameA", &[main, out, 3]).unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(3))));
+        assert_eq!(p.space.cstr(out, 3).unwrap(), ansi[..2]);
+        assert_eq!(p.space.u8(out + 2).unwrap(), 0);
+        assert_eq!(
+            context(p, &mut t, &TEST_API).last_error().unwrap(),
+            ERROR_INSUFFICIENT_BUFFER
+        );
+    }
 }
 
 #[test]
@@ -155,6 +238,12 @@ fn unready_native_handles_cannot_acquire_counted_or_pinned_ownership_all_abis() 
         assert_eq!(p.space.ptr(out, arch.ptr_size()).unwrap(), base);
         assert_eq!(p.modules.list[index].load_count, 0);
         assert!(p.loader.is_idle());
+        loader::attach_started(p, index, true).unwrap();
+        let pin = invoke(p, &mut t, "GetModuleHandleExW", &[5, base, out]).unwrap();
+        assert!(matches!(pin, Flow::Ret(Value::Int(1))));
+        assert_eq!(p.space.ptr(out, arch.ptr_size()).unwrap(), base);
+        loader::attach_succeeded(p, index).unwrap();
+        assert_eq!(p.modules.list[index].load_count, u32::MAX);
     }
 }
 
@@ -183,6 +272,10 @@ fn disable_thread_calls_rejects_executable_data_and_static_tls_all_abis() {
         }
         let observer = p.modules.by_name("observer.dll").unwrap();
         let base = p.modules.list[observer].base;
+        let static_tls = p.modules.list[leaf.root].base;
+        let native = invoke(p, &mut t, "LdrDisableThreadCalloutsForDll", &[static_tls]).unwrap();
+        assert!(matches!(native, Flow::Ret(Value::Int(0))));
+        assert!(p.modules.list[leaf.root].thread_calls);
         let success = invoke(p, &mut t, "DisableThreadLibraryCalls", &[base]).unwrap();
         assert!(matches!(success, Flow::Ret(Value::Int(1))));
         assert!(!p.modules.list[observer].thread_calls);

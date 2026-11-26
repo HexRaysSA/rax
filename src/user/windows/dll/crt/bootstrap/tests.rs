@@ -2,6 +2,7 @@
 
 use super::super::tests::{api, int, invoke, run, void};
 use super::*;
+
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::heap::HeapError;
@@ -436,5 +437,67 @@ fn x86_policy_stack_faults_resume_with_repaired_formals_and_no_early_effect() {
             c.entry_sp = old_sp;
             c.p.vm.release(page).unwrap();
         }
+    });
+}
+
+#[test]
+fn locale_lock_blocks_other_threads_until_final_recursive_release() {
+    run(|c| {
+        let first = c.t.tid;
+        void(invoke(c, U, "_lock_locales", &[]));
+        void(invoke(c, U, "_lock_locales", &[]));
+        c.t.tid = first + 1;
+        let Flow::Block { then, .. } = invoke(c, U, "_lock_locales", &[]).unwrap() else {
+            panic!("another thread must wait for the locale lock");
+        };
+        assert!(invoke(c, U, "_unlock_locales", &[]).is_err());
+        c.t.tid = first;
+        void(invoke(c, U, "_unlock_locales", &[]));
+        c.t.tid = first + 1;
+        assert!(matches!(
+            invoke(c, U, "_lock_locales", &[]),
+            Ok(Flow::Block { .. })
+        ));
+        c.t.tid = first;
+        void(invoke(c, U, "_unlock_locales", &[]));
+        c.t.tid = first + 1;
+        void(then(c, 0));
+        void(invoke(c, U, "_unlock_locales", &[]));
+        c.t.tid = first;
+    });
+}
+
+#[test]
+fn classic_locale_query_and_selection_preserve_the_guest_string() {
+    run(|c| {
+        let name = int(invoke(c, U, "setlocale", &[0, 0]));
+        assert_ne!(name, 0);
+        assert_eq!(c.mem().cstr(name, 2).unwrap(), b"C");
+        assert_eq!(int(invoke(c, U, "setlocale", &[2, name])), name);
+        assert_eq!(int(invoke(c, U, "setlocale", &[6, name])), 0);
+        let unknown = super::super::tests::area(c);
+        c.mem().put_cstr(unknown, b"unsupported").unwrap();
+        assert_eq!(int(invoke(c, U, "setlocale", &[0, unknown])), 0);
+        assert_eq!(int(invoke(c, U, "setlocale", &[0, 0])), name);
+        let table = int(invoke(c, U, "__pctype_func", &[]));
+        for (character, flags) in [
+            (b'A', 0x81),
+            (b'9', 0x84),
+            (b' ', 0x48),
+            (0x0b, 0x28),
+            (0xff, 0),
+        ] {
+            assert_eq!(
+                c.mem().u16(table + u64::from(character) * 2).unwrap(),
+                flags
+            );
+        }
+        assert_eq!(c.mem().u16(table - 2).unwrap(), 0);
+        let names = int(invoke(c, U, "___lc_locale_name_func", &[]));
+        for i in 0..6 {
+            assert_eq!(c.read_ptr(names + i * c.psize()).unwrap(), 0);
+        }
+        assert_eq!(int(invoke(c, U, "___lc_codepage_func", &[])), 0);
+        assert_eq!(int(invoke(c, U, "___mb_cur_max_func", &[])), 1);
     });
 }

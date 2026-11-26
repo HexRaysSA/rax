@@ -25,6 +25,7 @@ pub(crate) use exit::UCRT_EXIT_EXPORTS;
 pub(crate) use fatal::UCRT_FATAL_EXPORTS;
 pub(super) use lock::ExitLockState;
 pub(super) use lock::with_lock;
+pub(super) use lock::{acquire_legacy, release_legacy};
 pub(crate) use signal::UCRT_SIGNAL_EXPORTS;
 pub(super) use storage::TerminationState;
 use storage::{Kind, TerminationError};

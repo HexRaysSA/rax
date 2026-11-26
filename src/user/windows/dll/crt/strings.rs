@@ -33,11 +33,56 @@ pub(crate) static STRING_EXPORTS: &[Export] = &[
     Export::func("wcsstr", Cdecl, &[Ptr, Ptr], substring_api),
 ];
 
+pub(crate) static NTDLL_STRING_EXPORTS: &[Export] =
+    &[Export::func("_wcsicmp", Cdecl, &[Ptr, Ptr], compare_api)];
+
 /// Bounded-length imports are admitted by UCRT, not augmented into MSVCRT.
 pub(crate) static UCRT_STRING_EXPORTS: &[Export] = &[
     Export::func("strnlen", Cdecl, &[Ptr, Ptr], length_api),
     Export::func("wcsnlen", Cdecl, &[Ptr, Ptr], length_api),
 ];
+
+pub(crate) static UCRT_SECURE_STRING_EXPORTS: &[Export] = &[Export::func(
+    "wcscat_s",
+    Cdecl,
+    &[Ptr, Ptr, Ptr],
+    wide_concat_secure,
+)];
+
+fn wide_concat_secure(c: &mut Ctx) -> ApiResult {
+    let (dest, capacity, source) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?);
+    if dest == 0 || capacity == 0 {
+        return concat_error(c, 22);
+    }
+    let end = string_len(c, dest, 2, Some(capacity))?;
+    if source == 0 || end == capacity {
+        write_unit(c, dest, 0, 2, 0)?;
+        return concat_error(c, 22);
+    }
+    let available = capacity - end;
+    let length = string_len(c, source, 2, Some(available))?;
+    if length == available {
+        write_unit(c, dest, 0, 2, 0)?;
+        return concat_error(c, 34);
+    }
+    for index in 0..length {
+        let value = read_unit(c, source, index, 2)?;
+        write_unit(c, dest, end + index, 2, value)?;
+    }
+    write_unit(c, dest, end + length, 2, 0)?;
+    Flow::ret(0)
+}
+
+fn concat_error(c: &mut Ctx, errno: u32) -> ApiResult {
+    let kind = super::runtime(c)?;
+    super::state::set_errno(c, kind, errno)?;
+    super::invalid::invoke(
+        c,
+        kind,
+        [0; 5],
+        Box::new(move |_, _| Flow::ret(errno.into())),
+    )
+}
 
 /// Stateless search names present in the genuine VCRUNTIME import inventory.
 pub(crate) static VCRUNTIME_STRING_EXPORTS: &[Export] = &[
@@ -98,16 +143,26 @@ fn length_api(c: &mut Ctx) -> ApiResult {
 
 fn compare_api(c: &mut Ctx) -> ApiResult {
     let (left, right) = (c.ptr(0)?, c.ptr(1)?);
+    // The native NTDLL comparison folds only ASCII A through Z. It compares
+    // all other UTF-16 units as stored, without visiting a process locale.
+    let ignore_ascii_case = c.api.name == "_wcsicmp";
     let bound = if matches!(c.api.name, "strncmp" | "wcsncmp") {
         Some(c.ptr(2)?)
     } else {
         None
     };
-    let unit = units(c);
+    let unit = if ignore_ascii_case { 2 } else { units(c) };
+    let fold = |value: u16| {
+        if ignore_ascii_case && (0x41..=0x5a).contains(&value) {
+            value + 0x20
+        } else {
+            value
+        }
+    };
     let mut index = 0;
     while bound.is_none_or(|n| index < n) {
-        let a = read_unit(c, left, index, unit)?;
-        let b = read_unit(c, right, index, unit)?;
+        let a = fold(read_unit(c, left, index, unit)?);
+        let b = fold(read_unit(c, right, index, unit)?);
         if a != b {
             return Flow::ret((i32::from(a) - i32::from(b)) as u32 as u64);
         }

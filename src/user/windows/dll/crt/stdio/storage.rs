@@ -353,7 +353,7 @@ fn presentation(p: &Proc, legacy: bool, stream: Stream) -> Result<([u8; 48], usi
     let mut bytes = [0; 48];
     let width = p.arch.ptr_size() as usize;
     let size = if !legacy {
-        width
+        3 * width
     } else if width == 4 {
         32
     } else {
@@ -375,7 +375,10 @@ fn presentation(p: &Proc, legacy: bool, stream: Stream) -> Result<([u8; 48], usi
         return Err(internal("CRT buffer cursors without allocated storage"));
     }
     if !legacy {
-        return Ok((bytes, width));
+        // The UCRT accessor exposes a writable current pointer, base pointer
+        // and count. Keep this inline buffer empty so clients enter CRT I/O,
+        // where descriptor translation and host-authoritative buffering live.
+        return Ok((bytes, size));
     }
     let cursor = if stream.last == Direction::Write {
         stream.write_pending
@@ -1050,7 +1053,7 @@ pub(crate) fn prepare(
     let stride = if legacy {
         if p.arch.ptr_size() == 4 { 32 } else { 48 }
     } else {
-        p.arch.ptr_size()
+        3 * p.arch.ptr_size()
     };
     let slots = if legacy { 20 } else { 3 };
     let cells = [

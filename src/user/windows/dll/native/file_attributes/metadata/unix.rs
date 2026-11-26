@@ -5,7 +5,7 @@ use super::super::super::named_object::Checked;
 use super::super::posix;
 use super::{Information, io_error};
 use crate::user::windows::hle::Ctx;
-use std::fs::File;
+use std::fs::{File, Metadata};
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -45,20 +45,20 @@ fn system_ticks(c: &Ctx, time: SystemTime) -> Checked<u64> {
     }
 }
 
-pub(super) fn query(c: &Ctx, path: &Path, file: Option<&File>) -> Checked<Information> {
-    let metadata = match file.map_or_else(|| std::fs::metadata(path), File::metadata) {
+pub(super) fn query_attributes(c: &Ctx, path: &Path) -> Checked<u32> {
+    let metadata = match std::fs::metadata(path) {
         Ok(metadata) => metadata,
         Err(error) => return io_error(c, error, path),
     };
+    attributes(c, path, None, &metadata)
+}
+
+fn attributes(c: &Ctx, path: &Path, file: Option<&File>, metadata: &Metadata) -> Checked<u32> {
     if !metadata.is_file() && !metadata.is_dir() {
         return Err(c
             .unsupported("NT file metadata for a non-regular POSIX object")
             .into());
     }
-    let birth = metadata
-        .created()
-        .map_err(|error| c.unsupported(format!("host birth timestamp unavailable: {error}")))?;
-    let directory = metadata.is_dir();
     let stored = match file {
         Some(file) => posix::attributes(file),
         None => posix::attributes_path(path),
@@ -66,7 +66,20 @@ pub(super) fn query(c: &Ctx, path: &Path, file: Option<&File>) -> Checked<Inform
     .map_err(|e| c.unsupported(format!("NT file extended attributes: {e}")))?;
     let attributes = (stored.unwrap_or(0) & !0x11)
         | u32::from(metadata.permissions().readonly())
-        | if directory { 0x10 } else { 0 };
+        | if metadata.is_dir() { 0x10 } else { 0 };
+    Ok(if attributes == 0 { 0x80 } else { attributes })
+}
+
+pub(super) fn query(c: &Ctx, path: &Path, file: Option<&File>) -> Checked<Information> {
+    let metadata = match file.map_or_else(|| std::fs::metadata(path), File::metadata) {
+        Ok(metadata) => metadata,
+        Err(error) => return io_error(c, error, path),
+    };
+    let attributes = attributes(c, path, file, &metadata)?;
+    let birth = metadata
+        .created()
+        .map_err(|error| c.unsupported(format!("host birth timestamp unavailable: {error}")))?;
+    let directory = metadata.is_dir();
     let allocation = metadata
         .blocks()
         .checked_mul(512)
@@ -92,6 +105,6 @@ pub(super) fn query(c: &Ctx, path: &Path, file: Option<&File>) -> Checked<Inform
         ],
         allocation: if directory { 0 } else { allocation },
         size: if directory { 0 } else { metadata.len() },
-        attributes: if attributes == 0 { 0x80 } else { attributes },
+        attributes,
     })
 }

@@ -147,6 +147,17 @@ fn initialization(p: &Proc, root: usize) -> Vec<usize> {
         .collect()
 }
 
+/// An attaching startup module already belongs to the process image graph.
+/// A dynamic load can still roll back its created modules.
+pub(crate) fn startup_attach_can_reference(p: &Proc, index: usize) -> bool {
+    let dynamic = &p.modules.dynamic;
+    dynamic.attaching.contains(&index)
+        && !dynamic
+            .journals
+            .values()
+            .any(|journal| journal.created.contains(&index))
+}
+
 /// Increment an explicit reference, or permanently pin a live module.
 pub(crate) fn reference_module(p: &mut Proc, idx: usize, pin: bool) -> Result<(), LoadError> {
     if !p.modules.is_live(idx) || p.modules.dynamic.detaching.contains(&idx) {

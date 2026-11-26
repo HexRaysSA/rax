@@ -3,7 +3,7 @@ use super::*;
 use crate::user::windows::objects::RegistryCompletion;
 use crate::user::windows::sync::Wait;
 
-const THREAD_AGNOSTIC: u32 = 0x1000_0000;
+pub(super) const THREAD_AGNOSTIC: u32 = 0x1000_0000;
 
 pub(in super::super) fn notify_key(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
@@ -51,14 +51,54 @@ fn checked(c: &mut Ctx) -> Checked<Flow> {
         }
         c.mem().wptr(io + c.psize(), c.psize(), 0)?;
     }
+    let completion = RegistryCompletion {
+        owner: (!agnostic).then_some(c.t.tid),
+        event: None,
+        io: (!agnostic).then_some(io),
+        apc: (asynchronous && apc != 0).then_some((apc, context)),
+    };
+    let event = register(c, Some(handle), event, filter, asynchronous, completion)?;
+    if asynchronous {
+        Ok(Flow::Ret(crate::user::windows::hle::Value::Int(
+            STATUS_PENDING.into(),
+        )))
+    } else {
+        Ok(Flow::Block {
+            wait: wait_event(event.expect("private synchronous event")),
+            then: Box::new(|_, _| Flow::ret(0x10b)),
+        })
+    }
+}
+
+pub(super) fn wait_event(event: crate::user::windows::objects::ObjId) -> Wait {
+    Wait::NativeObjects {
+        objs: vec![event],
+        all: false,
+        deadline: None,
+        alertable: false,
+    }
+}
+
+pub(super) fn register(
+    c: &mut Ctx,
+    handle: Option<u64>,
+    event: u64,
+    filter: u32,
+    asynchronous: bool,
+    mut completion: RegistryCompletion,
+) -> Checked<Option<crate::user::windows::objects::ObjId>> {
     if filter & !(THREAD_AGNOSTIC | 15) != 0 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    key(c, handle, false)?;
-    if c.p.objects.access(handle).unwrap_or(0) & 0x10 == 0 {
-        return status(STATUS_ACCESS_DENIED);
-    }
-    let key = c.p.objects.id(handle).expect("validated key handle");
+    let key = if let Some(handle) = handle {
+        key(c, handle, false)?;
+        if c.p.objects.access(handle).unwrap_or(0) & 0x10 == 0 {
+            return status(STATUS_ACCESS_DENIED);
+        }
+        c.p.objects.id(handle)
+    } else {
+        None // A predefined root has process rather than handle lifetime.
+    };
     let event = if asynchronous && event != 0 {
         if event == c.arch().ptr(u64::MAX) || event == c.arch().ptr(u64::MAX - 1) {
             return status(STATUS_OBJECT_TYPE_MISMATCH);
@@ -84,12 +124,7 @@ fn checked(c: &mut Ctx) -> Checked<Flow> {
                 .ok_or(Failure::Status(STATUS_NO_MEMORY))?,
         )
     };
-    let completion = RegistryCompletion {
-        owner: (!agnostic).then_some(c.t.tid),
-        event,
-        io: (!agnostic).then_some(io),
-        apc: (asynchronous && apc != 0).then_some((apc, context)),
-    };
+    completion.event = event;
     if let Err(error) = c.p.objects.register_registry_notification(key, completion) {
         if !asynchronous {
             c.p.objects
@@ -97,19 +132,5 @@ fn checked(c: &mut Ctx) -> Checked<Flow> {
         }
         return Err(c.unsupported(error).into());
     }
-    if asynchronous {
-        Ok(Flow::Ret(crate::user::windows::hle::Value::Int(
-            STATUS_PENDING.into(),
-        )))
-    } else {
-        Ok(Flow::Block {
-            wait: Wait::NativeObjects {
-                objs: vec![event.expect("private synchronous event")],
-                all: false,
-                deadline: None,
-                alertable: false,
-            },
-            then: Box::new(|_, _| Flow::ret(0x10b)),
-        })
-    }
+    Ok(event)
 }

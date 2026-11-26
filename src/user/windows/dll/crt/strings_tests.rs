@@ -31,6 +31,7 @@ fn api(name: &str) -> &'static Api {
     STRING_EXPORTS
         .iter()
         .chain(UCRT_STRING_EXPORTS)
+        .chain(NTDLL_STRING_EXPORTS)
         .find_map(|e| match &e.item {
             Item::Func(a) if a.name == name => Some(a),
             _ => None,
@@ -149,6 +150,19 @@ fn ordinal_unsigned_compare_stops_at_nul_or_difference_all_abis() {
         assert_eq!(int(invoke(c, "wcsncmp", &[end, end, max])), 0);
         c.mem().w8(end + 1, 0).unwrap();
         assert_eq!(int(invoke(c, "strncmp", &[end + 1, end + 1, max])), 0);
+    });
+}
+
+#[test]
+fn ntdll_wcsicmp_folds_only_ascii_and_returns_the_difference() {
+    run(|c| {
+        let a = area(c, PAGE_SIZE) + PAGE_SIZE - 6;
+        let b = area(c, PAGE_SIZE) + PAGE_SIZE - 6;
+        c.mem().put_wunits(a, &[0x41, 0xc4, 0]).unwrap();
+        c.mem().put_wunits(b, &[0x61, 0xc4, 0]).unwrap();
+        assert_eq!(int(invoke(c, "_wcsicmp", &[a, b])), 0);
+        c.mem().w16(b + 2, 0xe4).unwrap();
+        assert_eq!(int(invoke(c, "_wcsicmp", &[a, b])) as i32, -0x20);
     });
 }
 

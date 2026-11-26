@@ -229,6 +229,21 @@ pub(super) fn kernel(
     if let Some(result) = security_device::open(c, r, &attrs, name.as_deref(), creation.as_ref()) {
         return result;
     }
+    if super::super::gameos::enabled(c)
+        && attrs.root == 0
+        && name.as_deref().is_some_and(|name| {
+            let expected: Vec<_> = r"\Device\xvcmgmt".encode_utf16().collect();
+            if attrs.flags & 0x40 != 0 {
+                path::equal(c, name, &expected)
+            } else {
+                name == expected
+            }
+        })
+    {
+        // The portable GameOS guest has no virtual-console management driver.
+        // XMem's initializer recognizes absence and continues without it.
+        return status(STATUS_OBJECT_NAME_NOT_FOUND);
+    }
     // These restrictions belong to filesystems. The native null device
     // accepts directory and non-directory flags together.
     if r.options & 0x41 == 0x41

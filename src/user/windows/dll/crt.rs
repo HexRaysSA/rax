@@ -5,6 +5,9 @@ mod bootstrap;
 mod handlers;
 mod initialize;
 mod invalid;
+mod kernel_onexit;
+mod legacy_onexit;
+mod math;
 mod memory;
 pub(crate) mod onexit;
 pub(crate) mod startup;
@@ -18,22 +21,89 @@ mod tests;
 
 use std::collections::HashMap;
 
-use super::super::hle::{ApiErr, Ctx};
+use super::super::hle::{ApiErr, Ctx, Export};
 use super::super::loader::ModuleKind;
 
 pub(crate) use allocation::ALLOCATION_EXPORTS;
-pub(crate) use bootstrap::UCRT_BOOTSTRAP_EXPORTS;
+pub(crate) use bootstrap::{UCRT_BOOTSTRAP_EXPORTS, UCRT_LOCALE_EXPORTS};
 pub(crate) use handlers::{NEW_HANDLER_EXPORTS, UCRT_EXCEPTION_FILTER_EXPORTS};
 pub(crate) use initialize::{INIT_EXPORTS, MSVCRT_INIT_EXPORTS, UCRT_INIT_EXPORTS};
+pub(crate) use legacy_onexit::MSVCRT_ONEXIT_EXPORTS;
+pub(crate) use math::UCRT_MATH_EXPORTS;
 pub(crate) use memory::{MEMORY_EXPORTS, VCRUNTIME_MEMORY_EXPORTS};
 pub(crate) use onexit::UCRT_ONEXIT_EXPORTS;
 pub(crate) use startup::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
-pub(crate) use stdio::{MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_STDIO_EXPORTS};
-pub(crate) use strings::{STRING_EXPORTS, UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS};
+pub(crate) use stdio::{
+    MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_STDIO_EXPORTS, UCRT_STREAM_BUFFER_EXPORTS,
+};
+pub(crate) use strings::{
+    NTDLL_STRING_EXPORTS, STRING_EXPORTS, UCRT_SECURE_STRING_EXPORTS, UCRT_STRING_EXPORTS,
+    VCRUNTIME_STRING_EXPORTS,
+};
 pub(crate) use termination::{
     UCRT_EXIT_EXPORTS, UCRT_FATAL_EXPORTS, UCRT_REGISTRATION_EXPORTS, UCRT_SIGNAL_EXPORTS,
 };
+
+// The portable UCRT has one guest-owned runtime state. Its private system
+// entry points reach the same state as the corresponding public entries.
+pub(super) static UCRT_PRIVATE_FORWARDS: &[Export] = &[
+    Export::forward(
+        "_o__initialize_onexit_table",
+        "ucrtbase._initialize_onexit_table",
+    ),
+    Export::forward("_o__execute_onexit_table", "ucrtbase._execute_onexit_table"),
+    Export::forward(
+        "_o__configure_narrow_argv",
+        "ucrtbase._configure_narrow_argv",
+    ),
+    Export::forward(
+        "_o__initialize_narrow_environment",
+        "ucrtbase._initialize_narrow_environment",
+    ),
+    Export::forward("_o__cexit", "ucrtbase._cexit"),
+    Export::forward("_o__errno", "ucrtbase._errno"),
+    Export::forward(
+        "_o__invalid_parameter_noinfo",
+        "ucrtbase._invalid_parameter_noinfo",
+    ),
+    Export::forward(
+        "_o__register_onexit_function",
+        "ucrtbase._register_onexit_function",
+    ),
+    Export::forward("_o___acrt_iob_func", "ucrtbase.__acrt_iob_func"),
+    Export::forward("_o_malloc", "ucrtbase.malloc"),
+    Export::forward("_o_free", "ucrtbase.free"),
+    Export::forward("_o__crt_atexit", "ucrtbase._crt_atexit"),
+    Export::forward("_o____mb_cur_max_func", "ucrtbase.___mb_cur_max_func"),
+    Export::forward(
+        "_o____lc_locale_name_func",
+        "ucrtbase.___lc_locale_name_func",
+    ),
+    Export::forward("_o____lc_collate_cp_func", "ucrtbase.___lc_collate_cp_func"),
+    Export::forward("_o____lc_codepage_func", "ucrtbase.___lc_codepage_func"),
+    Export::forward("_o_setlocale", "ucrtbase.setlocale"),
+    Export::forward("_o___pctype_func", "ucrtbase.__pctype_func"),
+    Export::forward(
+        "_o__get_stream_buffer_pointers",
+        "ucrtbase._get_stream_buffer_pointers",
+    ),
+    Export::forward("_o__wcsdup", "ucrtbase._wcsdup"),
+    Export::forward("_o__calloc_base", "ucrtbase.calloc"),
+    Export::forward("_o__free_base", "ucrtbase.free"),
+    Export::forward("_o__malloc_base", "ucrtbase.malloc"),
+    Export::forward("_o__realloc_base", "ucrtbase.realloc"),
+    Export::forward("_o_calloc", "ucrtbase.calloc"),
+    Export::forward("_o_wcscat_s", "ucrtbase.wcscat_s"),
+];
+
+// The system KernelBase also exports these stateless CRT table walkers.
+pub(super) static KERNELBASE_INIT_FORWARDS: &[Export] = &[
+    Export::forward("_initterm", "ucrtbase._initterm"),
+    Export::forward("_initterm_e", "ucrtbase._initterm_e"),
+];
+
+pub(super) use kernel_onexit::KERNELBASE_ONEXIT_EXPORTS;
 
 /// A runtime namespace; a module's trap address, not its caller, selects it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,6 +161,7 @@ struct RuntimeState {
     signals: [u64; 2],
     /// Registration and table execution share a recursive runtime exit lock.
     exit_lock: termination::ExitLockState,
+    legacy_locks: HashMap<usize, (u32, u32)>,
 }
 
 struct ThreadState {

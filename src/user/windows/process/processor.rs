@@ -21,3 +21,15 @@ pub(crate) fn native_arch(p: &Proc) -> Result<WinArch, u32> {
         p.arch
     })
 }
+
+pub(crate) fn x86_signature(value: u32) -> (u16, u16) {
+    let family = (value >> 8) & 15;
+    let level = family + if family == 15 { (value >> 20) & 255 } else { 0 };
+    let model = ((value >> 4) & 15)
+        | if matches!(family, 6 | 15) {
+            ((value >> 16) & 15) << 4
+        } else {
+            0
+        };
+    (level as u16, ((model << 8) | (value & 15)) as u16)
+}

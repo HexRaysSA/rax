@@ -116,6 +116,11 @@ fn snapshot() -> Registry {
                         kind: 4,
                         data: 27u32.to_le_bytes().to_vec(),
                     },
+                    Value {
+                        name: "Label".encode_utf16().collect(),
+                        kind: 1,
+                        data: vec![b'X', 0],
+                    },
                 ],
                 children: vec![],
             },
@@ -125,6 +130,102 @@ fn snapshot() -> Registry {
         .unwrap()
         .with_ifeo(tree)
         .unwrap()
+}
+
+#[test]
+fn gets_typed_snapshot_values_and_zeros_failures() {
+    each_arch(|p, t, base| {
+        let root = p.arch.ptr(0xffff_ffff_8000_0002);
+        let name = base + 512;
+        let output = base + 768;
+        let kind = output + 32;
+        let size = kind + 4;
+        let subkey = format!(
+            "{}\\Example",
+            IFEO_KEY.strip_prefix(r"\Registry\Machine\").unwrap()
+        );
+        p.space
+            .put_wstr(base, &subkey.encode_utf16().collect::<Vec<_>>())
+            .unwrap();
+        p.space
+            .put_wstr(name, &"Options".encode_utf16().collect::<Vec<_>>())
+            .unwrap();
+        let args = [
+            root,
+            base,
+            name,
+            u64::from(RRF_ZEROONFAILURE | 0x18),
+            kind,
+            output,
+            size,
+        ];
+        let handles = p.objects.handle_count();
+        p.space.w32(size, 4).unwrap();
+        p.space.w32(output, u32::MAX).unwrap();
+        check(p, t, "RegGetValueW", &args, ERROR_FILE_NOT_FOUND);
+        assert_eq!(p.space.u32(output).unwrap(), 0);
+
+        p.registry = snapshot();
+        p.space.w32(size, 4).unwrap();
+        check(p, t, "RegGetValueW", &args, 0);
+        assert_eq!(p.space.u32(output).unwrap(), 27);
+        assert_eq!(p.space.u32(kind).unwrap(), 4);
+
+        p.space.w32(size, 2).unwrap();
+        p.space.w32(output, u32::MAX).unwrap();
+        check(p, t, "RegGetValueW", &args, ERROR_MORE_DATA);
+        assert_eq!(p.space.u32(output).unwrap(), 0xffff_0000);
+        assert_eq!(p.space.u32(size).unwrap(), 4);
+
+        p.space
+            .put_wstr(name, &"Label".encode_utf16().collect::<Vec<_>>())
+            .unwrap();
+        check(p, t, "RegGetValueW", &args, ERROR_UNSUPPORTED_TYPE);
+        let mut args = args;
+        args[3] = 2; // RRF_RT_REG_SZ
+        check(p, t, "RegGetValueW", &args, 0);
+        assert_eq!(p.space.u32(output).unwrap(), u32::from(b'X'));
+        assert_eq!(p.space.u32(size).unwrap(), 4);
+        assert_eq!(p.objects.handle_count(), handles);
+    });
+}
+
+#[test]
+fn async_registry_notification_retains_and_signals_the_guest_event_on_key_close() {
+    each_arch(|p, t, buf| {
+        let hklm = p.arch.ptr(0xffff_ffff_8000_0002);
+        p.registry = snapshot();
+        let path = IFEO_KEY.strip_prefix(r"\Registry\Machine\").unwrap();
+        p.space
+            .put_wstr(buf, &path.encode_utf16().collect::<Vec<_>>())
+            .unwrap();
+        let out = buf + 512;
+        check(p, t, "RegOpenKeyExW", &[hklm, buf, 0, 0x10, out], 0);
+        let key = p.space.ptr(out, p.arch.ptr_size()).unwrap();
+        let event = p.objects.create(Object::Event {
+            manual: true,
+            signaled: 1,
+        });
+        let handle = u64::from(p.objects.open_access(event, false, 2).unwrap());
+        let flags = u64::from(key_notify::THREAD_AGNOSTIC | 1);
+        check(
+            p,
+            t,
+            "RegNotifyChangeKeyValue",
+            &[key, 1, flags, handle, 1],
+            0,
+        );
+        assert!(matches!(
+            p.objects.obj(event),
+            Some(Object::Event { signaled: 0, .. })
+        ));
+        check(p, t, "RegCloseKey", &[key], 0);
+        crate::user::windows::process::registry_notify::finish(p, t).unwrap();
+        assert!(matches!(
+            p.objects.obj(event),
+            Some(Object::Event { signaled: 1, .. })
+        ));
+    });
 }
 
 #[test]
@@ -154,6 +255,16 @@ fn wide_registry_contracts_open_query_and_close_guest_snapshot_keys() {
         p.registry = snapshot();
         check(p, t, "RegOpenKeyW", &[hklm, name, out], 0);
         let root = p.space.ptr(out, p.arch.ptr_size()).unwrap();
+        check(p, t, "RegOpenKeyExW", &[root, 0, 0, 1, out], 0);
+        let reopened = p.space.ptr(out, p.arch.ptr_size()).unwrap();
+        assert_ne!(root, reopened);
+        assert_eq!(p.objects.access(reopened), Some(1));
+        check(p, t, "RegCloseKey", &[reopened], 0);
+        p.space.put_cstr(name, b"eXample").unwrap();
+        check(p, t, "RegOpenKeyExA", &[root, name, 0, 1, out], 0);
+        let ansi = p.space.ptr(out, p.arch.ptr_size()).unwrap();
+        assert_eq!(p.objects.access(ansi), Some(1));
+        check(p, t, "RegCloseKey", &[ansi], 0);
         p.space
             .put_wstr(name, &"missing".encode_utf16().collect::<Vec<_>>())
             .unwrap();
@@ -294,6 +405,15 @@ fn querying_predefined_current_user_uses_its_captured_hive_and_releases_the_hand
     use crate::user::windows::registry::HiveHeader;
 
     each_arch(|p, t, buf| {
+        let opened = buf + 32;
+        check(
+            p,
+            t,
+            "RegOpenCurrentUser",
+            &[1, opened],
+            ERROR_FILE_NOT_FOUND,
+        );
+        assert_eq!(p.space.ptr(opened, p.arch.ptr_size()).unwrap(), 0);
         let sid = [1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];
         p.registry = snapshot()
             .with_primary_hive(
@@ -311,6 +431,12 @@ fn querying_predefined_current_user_uses_its_captured_hive_and_releases_the_hand
             .unwrap();
         let hkcu = p.arch.ptr(0xffff_ffff_8000_0001);
         let before = p.objects.handle_count();
+        check(p, t, "RegOpenCurrentUser", &[1, opened], 0);
+        let handle = p.space.ptr(opened, p.arch.ptr_size()).unwrap();
+        assert_ne!(handle, hkcu);
+        assert_eq!(p.objects.handle_count(), before + 1);
+        check(p, t, "RegCloseKey", &[handle], 0);
+        assert_eq!(p.objects.handle_count(), before);
         p.space.w32(buf, 8).unwrap();
         p.space.w32(buf + 4, u32::MAX).unwrap();
         p.space.w32(buf + 8, u32::MAX).unwrap();

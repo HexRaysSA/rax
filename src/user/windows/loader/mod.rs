@@ -49,6 +49,7 @@ pub(crate) use dynamic::{
     LoadPlan, LookupPlan, UnloadPlan, attach_started, attach_succeeded, begin_load, begin_lookup,
     begin_rollback, begin_unload, commit_load, detach_completed, detach_started,
     discard_transactions, finish_rollback, finish_unload, reference_module,
+    startup_attach_can_reference,
 };
 
 use std::collections::HashMap;

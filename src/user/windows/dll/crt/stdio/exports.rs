@@ -43,3 +43,10 @@ pub(crate) static UCRT_STDIO_EXPORTS: &[Export] = &[
     Export::func("_get_fmode", Cdecl, &[Ptr], api::get_fmode),
     Export::func("_set_fmode", Cdecl, &[I32], api::set_fmode),
 ];
+
+pub(crate) static UCRT_STREAM_BUFFER_EXPORTS: &[Export] = &[Export::func(
+    "_get_stream_buffer_pointers",
+    Cdecl,
+    &[Ptr, Ptr, Ptr, Ptr],
+    api::buffer_pointers,
+)];

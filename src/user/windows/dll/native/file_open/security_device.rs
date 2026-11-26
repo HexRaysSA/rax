@@ -58,6 +58,18 @@ pub(super) fn open(
         return Some(open_cng(c, request, attributes, creation, exact));
     }
     let exact = device_name(c, name, NAME)?;
+    if super::super::super::gameos::enabled(c)
+        && exact
+        && matches!(attributes.flags, 0 | 0x40)
+        && !attributes.custom_security
+        && creation.is_none()
+        && (request.access, request.share, request.options) == (0x100003, 7, 0x20)
+    {
+        // The portable GameOS provider watcher is guest-local.
+        let version = &c.p.cfg.version;
+        let device = SecurityDevice::gameos_provider((version.major, version.minor, version.build));
+        return Some(open_device(c, device, request, attributes, request.access));
+    }
     Some(open_ksecdd(c, request, attributes, creation, exact))
 }
 

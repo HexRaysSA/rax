@@ -246,6 +246,18 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
         },
         _ => None,
     };
+    let primary = primary.or_else(|| {
+        if token != process_token || !super::super::gameos::enabled(c) {
+            return None;
+        }
+        // The portable GameOS process has no elevated, UIAccess or AppContainer
+        // token. These queries describe guest state without granting rights.
+        match class {
+            18 => Some(1), // TokenElevationTypeDefault
+            20 | 26 | 29 => Some(0),
+            _ => None,
+        }
+    });
     let Some(value) = captured_value.or(primary) else {
         return Err(c.unsupported(if class == 12 {
             "primary-token SessionId is not captured"

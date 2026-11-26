@@ -136,7 +136,7 @@ fn unicode(p: &Proc, field: u64) -> Result<Vec<u16>, LoadError> {
     Ok(units)
 }
 
-fn environment(p: &Proc) -> Result<Vec<Vec<u16>>, LoadError> {
+pub(in crate::user::windows::dll) fn environment(p: &Proc) -> Result<Vec<Vec<u16>>, LoadError> {
     let o = offsets(p.arch);
     let parameters = p.current_parameters().map_err(access)?;
     let base = p

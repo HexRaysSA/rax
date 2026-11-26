@@ -252,6 +252,54 @@ fn heap_alloc(c: &mut Ctx) -> ApiResult {
     }
 }
 
+pub(super) static NTDLL_HEAP_EXPORTS: &[Export] = &[
+    Export::func("RtlAllocateHeap", Stdcall, &[Ptr, I32, Ptr], heap_alloc),
+    Export::func("RtlFreeHeap", Stdcall, &[Ptr, I32, Ptr], heap_free),
+    Export::func("RtlSizeHeap", Stdcall, &[Ptr, I32, Ptr], heap_size),
+    Export::func(
+        "RtlReAllocateHeap",
+        Stdcall,
+        &[Ptr, I32, Ptr, Ptr],
+        heap_realloc,
+    ),
+];
+
+pub(super) static LOCAL_MEMORY_EXPORTS: &[Export] = &[
+    Export::func("LocalAlloc", Stdcall, &[I32, Ptr], local_alloc),
+    Export::func("LocalFree", Stdcall, &[Ptr], local_free),
+];
+
+fn local_alloc(c: &mut Ctx) -> ApiResult {
+    const LMEM_MOVEABLE: u32 = 0x2;
+    const LMEM_ZEROINIT: u32 = 0x40;
+    const LEGACY_IGNORED: u32 = 0x0f30;
+    let (flags, size) = (c.u32(0)?, c.ptr(1)?);
+    if flags & !(LMEM_MOVEABLE | LMEM_ZEROINIT | LEGACY_IGNORED) != 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    if flags & LMEM_MOVEABLE != 0 {
+        return Err(c.unsupported("LocalAlloc movable handles"));
+    }
+    let heap = c.p.process_heap;
+    match c
+        .p
+        .heaps
+        .alloc_checked(&mut c.p.vm, heap, size, flags & LMEM_ZEROINIT != 0)
+    {
+        Ok(address) => Flow::ret(address),
+        Err(HeapError::MemoryFault(fault)) => Err(fault.into()),
+        Err(_) => c.fail(ERROR_NOT_ENOUGH_MEMORY, 0),
+    }
+}
+
+fn local_free(c: &mut Ctx) -> ApiResult {
+    let address = c.ptr(0)?;
+    if address == 0 || c.p.heaps.free(c.p.process_heap, address).is_ok() {
+        return Flow::ret(0);
+    }
+    c.fail(ERROR_INVALID_HANDLE, address)
+}
+
 fn heap_failure(c: &mut Ctx, heap: u64, flags: u32) -> ApiResult {
     if (flags | c.p.heaps.flags(heap).unwrap_or(0)) & HEAP_GENERATE_EXCEPTIONS != 0 {
         Ok(Flow::Raise(super::super::context::ExceptionRecord::new(
@@ -1087,6 +1135,54 @@ mod tests {
                 matches!(tls_free(&mut c), Err(ApiErr::Fault(MemFault { addr, write: true })) if addr == fault_addr)
             );
         }
+    }
+
+    #[test]
+    fn fixed_local_memory_uses_the_guest_process_heap_and_reports_invalid_free() {
+        let mut config = WindowsConfig::new("local-memory.exe", Vec::new());
+        config.seed = Some(1);
+        config.arena_bytes = 64 << 20;
+        let mut process = WindowsProcess::spawn_image(
+            config,
+            include_bytes!("../../../../tests/fixtures/user/windows/bin/x64/smoke.exe").to_vec(),
+        )
+        .unwrap();
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let Item::Func(allocate) = &LOCAL_MEMORY_EXPORTS[0].item else {
+            panic!()
+        };
+        let Item::Func(free) = &LOCAL_MEMORY_EXPORTS[1].item else {
+            panic!()
+        };
+        let sp = t.cpu.sp();
+        let mut c = Ctx {
+            p,
+            t: &mut t,
+            api: allocate,
+            entry_pc: 0,
+            entry_sp: sp,
+            ret_addr: 0,
+            cursor: sp,
+        };
+        c.t.cpu.set_gpr(1, 0x40);
+        c.t.cpu.set_gpr(2, 32);
+        let Flow::Ret(Value::Int(address)) = local_alloc(&mut c).unwrap() else {
+            panic!()
+        };
+        assert_ne!(address, 0);
+        assert_eq!(c.p.heaps.size(c.p.process_heap, address), Ok(32));
+        assert_eq!(c.mem().bytes(address, 32).unwrap(), [0; 32]);
+        c.api = free;
+        c.t.cpu.set_gpr(1, address);
+        assert!(matches!(
+            local_free(&mut c).unwrap(),
+            Flow::Ret(Value::Int(0))
+        ));
+        assert!(
+            matches!(local_free(&mut c).unwrap(), Flow::Ret(Value::Int(value)) if value == address)
+        );
+        assert_eq!(c.last_error().unwrap(), ERROR_INVALID_HANDLE);
     }
 
     #[test]

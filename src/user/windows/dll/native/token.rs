@@ -1,10 +1,47 @@
 //! Measured no-impersonation thread-token opening, from build29683 captures.
 use super::query::write_guard_result;
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::hle::{ApiResult, Ctx, Flow};
+use crate::user::windows::hle::{
+    ApiErr, ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow, Value,
+};
 use crate::user::windows::memory::Mem;
-use crate::user::windows::nt::status::*;
+use crate::user::windows::nt::{status::*, status_to_error};
 use crate::user::windows::objects::Object;
+
+pub(in crate::user::windows::dll) static WIN32_TOKEN_EXPORTS: &[Export] = &[
+    Export::func(
+        "GetTokenInformation",
+        Stdcall,
+        &[Ptr, I32, Ptr, I32, Ptr],
+        win32_information,
+    ),
+    Export::func(
+        "OpenThreadToken",
+        Stdcall,
+        &[Ptr, I32, I32, Ptr],
+        win32_open_thread,
+    ),
+];
+
+fn win32_information(c: &mut Ctx) -> ApiResult {
+    let result = super::token_query::information(c);
+    win32_result(c, result)
+}
+
+fn win32_open_thread(c: &mut Ctx) -> ApiResult {
+    let result = open_thread(c);
+    win32_result(c, result)
+}
+
+fn win32_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
+    match result? {
+        Flow::Ret(Value::Int(status)) if (status as i32) >= 0 => Flow::bool(true),
+        Flow::Ret(Value::Int(status)) => c.fail(status_to_error(status as u32), 0),
+        _ => Err(ApiErr::Internal(
+            "unexpected token service continuation".into(),
+        )),
+    }
+}
 
 pub(super) fn open_thread(c: &mut Ctx) -> ApiResult {
     let result = checked(c);

@@ -22,6 +22,8 @@ pub(super) struct BootstrapState {
     pub(super) app_type: u32,
     /// SDK __globallocalestatus; -1 disables global-to-PTD synchronization.
     pub(super) global_locale_status: u32,
+    locale_lock: Option<(u32, u32)>,
+    classic_locale_data: u64,
     /// Logical callback identity. Opaque publisher pointer-cookie encoding
     /// is not an exposed guest object in this personality.
     pub(super) math_handler: u64,
@@ -32,6 +34,8 @@ impl Default for BootstrapState {
         Self {
             app_type: 0,
             global_locale_status: !1,
+            locale_lock: None,
+            classic_locale_data: 0,
             math_handler: 0,
         }
     }
@@ -44,6 +48,17 @@ pub(crate) static UCRT_BOOTSTRAP_EXPORTS: &[Export] = &[
     Export::func("_configthreadlocale", Cdecl, &[I32], locale::configure),
     Export::func("_fpreset", Cdecl, &[], fp::reset),
     Export::func("__pxcptinfoptrs", Cdecl, &[], exception_slot),
+];
+
+pub(crate) static UCRT_LOCALE_EXPORTS: &[Export] = &[
+    Export::func("_lock_locales", Cdecl, &[], locale::lock),
+    Export::func("_unlock_locales", Cdecl, &[], locale::unlock),
+    Export::func("setlocale", Cdecl, &[I32, Ptr], locale::set),
+    Export::func("___lc_codepage_func", Cdecl, &[], locale::codepage),
+    Export::func("___lc_collate_cp_func", Cdecl, &[], locale::codepage),
+    Export::func("___lc_locale_name_func", Cdecl, &[], locale::names),
+    Export::func("__pctype_func", Cdecl, &[], locale::ctype),
+    Export::func("___mb_cur_max_func", Cdecl, &[], locale::mb_cur_max),
 ];
 
 /// getptd-backed APIs abort on PTD establishment OOM, unlike callers that

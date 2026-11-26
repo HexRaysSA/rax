@@ -272,6 +272,8 @@ pub mod error {
     pub const ERROR_NO_SYSTEM_RESOURCES: u32 = 1450;
     pub const ERROR_COMMITMENT_LIMIT: u32 = 1455;
     pub const ERROR_TIMEOUT: u32 = 1460;
+    pub const ERROR_DATATYPE_MISMATCH: u32 = 1629;
+    pub const ERROR_UNSUPPORTED_TYPE: u32 = 1630;
     pub const ERROR_INVALID_USER_BUFFER: u32 = 1784;
     pub const ERROR_RESOURCE_DATA_NOT_FOUND: u32 = 1812;
     pub const ERROR_RESOURCE_TYPE_NOT_FOUND: u32 = 1813;

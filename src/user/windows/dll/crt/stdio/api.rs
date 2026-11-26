@@ -12,6 +12,7 @@ use super::{O_BINARY, O_TEXT, O_U8TEXT, O_U16TEXT, O_WTEXT, state};
 enum Request {
     Iob,
     AcrtIob,
+    BufferPointers,
     ModePointer(usize),
     GetMode,
     SetMode,
@@ -39,6 +40,9 @@ pub(super) fn iob(c: &mut Ctx) -> ApiResult {
 }
 pub(super) fn acrt_iob(c: &mut Ctx) -> ApiResult {
     begin(c, Request::AcrtIob)
+}
+pub(super) fn buffer_pointers(c: &mut Ctx) -> ApiResult {
+    begin(c, Request::BufferPointers)
 }
 pub(super) fn fmode_pointer(c: &mut Ctx) -> ApiResult {
     begin(c, Request::ModePointer(0))
@@ -159,7 +163,7 @@ pub(super) fn preflight_error(c: &mut Ctx, kind: RuntimeKind) -> Result<(), ApiE
 fn failure(c: &Ctx, request: Request) -> Value {
     match request {
         Request::Clear => Value::None,
-        Request::GetMode | Request::SetMode => Value::Int(22),
+        Request::GetMode | Request::SetMode | Request::BufferPointers => Value::Int(22),
         Request::Eof | Request::Error | Request::FdOpen(_) => Value::Int(0),
         Request::GetHandle => Value::Int(c.arch().ptr(u64::MAX)),
         _ => Value::Int(negative()),
@@ -194,6 +198,22 @@ fn perform(c: &mut Ctx, kind: RuntimeKind, request: Request, args: [u64; 4]) -> 
         Ok(match request {
             Request::Iob => ret(streams.standard_file(0).ok_or(StdioError::Invalid)?),
             Request::AcrtIob => ret(streams.standard_file(args[0] as u32 as usize).unwrap_or(0)),
+            Request::BufferPointers => {
+                streams.stream(args[0])?;
+                let width = c.psize();
+                let fields = [
+                    (args[1], args[0] + width),
+                    (args[2], args[0]),
+                    (args[3], args[0] + 2 * width),
+                ];
+                for (out, _) in fields.into_iter().filter(|(out, _)| *out != 0) {
+                    super::storage::probe(c.p, out, width, true)?;
+                }
+                for (out, address) in fields.into_iter().filter(|(out, _)| *out != 0) {
+                    c.write_ptr(out, address)?;
+                }
+                ret(0)
+            }
             Request::ModePointer(index) => {
                 ret(streams.mode_cell(index).ok_or(StdioError::Invalid)?)
             }

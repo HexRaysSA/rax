@@ -12,17 +12,17 @@ pub(crate) struct RegistryCompletion {
 
 #[derive(Debug, Default)]
 pub(super) struct Notifications {
-    pending: Vec<(ObjId, RegistryCompletion)>,
+    pending: Vec<(Option<ObjId>, RegistryCompletion)>,
     ready: Vec<RegistryCompletion>,
 }
 
 impl Objects {
     pub(crate) fn register_registry_notification(
         &mut self,
-        key: ObjId,
+        key: Option<ObjId>,
         completion: RegistryCompletion,
     ) -> Result<(), &'static str> {
-        if !matches!(self.obj(key), Some(Object::Key(_)))
+        if key.is_some_and(|key| !matches!(self.obj(key), Some(Object::Key(_))))
             || completion
                 .event
                 .is_some_and(|id| !matches!(self.obj(id), Some(Object::Event { .. })))
@@ -53,7 +53,7 @@ impl Objects {
     pub(super) fn retire_registry_key(&mut self, key: ObjId) {
         let Notifications { pending, ready } = &mut self.registry_notifications;
         pending.retain(|&(watched, completion)| {
-            if watched == key {
+            if watched == Some(key) {
                 ready.push(completion);
                 false
             } else {
