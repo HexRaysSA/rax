@@ -201056,6 +201056,14 @@
       "scope": "The legacy system RV64 projection carries the hart halt bit after a guest EBREAK. The parent failed the halted-exit check after base restore. The regression covers base and projected CPU files, warm and fresh-owner restores, unchanged PC and retirement while halted, and explicit wake. Complete records retain their private halt and wait state. Full quiescence and backend checkpoint coverage remain open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#halted-rv64-harts-in-legacy-projections",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-carryless-product-device-reads-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "native_intel_qualification_pending",
+      "scope": "Intel HVF plans one 16 B legacy or VEX.128 PCLMULQDQ read or one 32 B VEX.256 read. The descriptor carries the source vector and immediate through restore. The QEMU reference executed 6,144 RAM cases plus a legacy alignment fault, with the VEX.256 reference derived by combining two independently executed VEX.128 lanes. Hosted Intel execution, bare-metal Intel, EVEX and complete MMIO and checkpoint scope remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#carry-less-multiplication-with-a-device-operand",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

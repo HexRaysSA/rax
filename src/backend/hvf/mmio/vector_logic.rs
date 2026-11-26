@@ -451,6 +451,7 @@ enum Operation {
     PermuteDoublewords,
     PermuteLanes(Element),
     AesRound(AesRound),
+    CarrylessMultiply(u8),
 }
 
 impl Operation {
@@ -579,6 +580,21 @@ impl Operation {
             }),
             Self::ShuffleImmediate(shuffle, control) => shuffle.result(left, right, control),
             Self::AesRound(round) => round.result(left, right),
+            Self::CarrylessMultiply(control) => {
+                let left_start = usize::from(control & 1) * 8;
+                let right_start = usize::from((control >> 4) & 1) * 8;
+                let mut result = [0; N];
+                for ((left, right), output) in left
+                    .chunks_exact(16)
+                    .zip(right.chunks_exact(16))
+                    .zip(result.chunks_exact_mut(16))
+                {
+                    let first = read_element(&left[left_start..left_start + 8]);
+                    let second = read_element(&right[right_start..right_start + 8]);
+                    output.copy_from_slice(&clmul::qword(first, second));
+                }
+                result
+            }
             Self::PermuteDoublewords => std::array::from_fn(|byte| {
                 let index = usize::from(left[byte / 4 * 4] & 7);
                 right[index * 4 + byte % 4]
@@ -837,16 +853,16 @@ pub(super) fn register(operand: &Operand, width: u32, read: bool, write: bool) -
     (index < 16).then_some(index)
 }
 
-pub(super) fn shuffle_control(control: &Operand) -> Result<u8, String> {
+pub(super) fn byte_control(control: &Operand, error: &str) -> Result<u8, String> {
     if control.kind != OperandKind::Immediate
         || control.width_bits != 8
         || !control.read
         || control.write
         || control.conditional
     {
-        return Err("invalid vector shuffle control".into());
+        return Err(error.into());
     }
-    u8::try_from(control.value).map_err(|_| "invalid vector shuffle control".into())
+    u8::try_from(control.value).map_err(|_| error.into())
 }
 
 pub(super) fn prepare<M: PhysicalMemory>(
@@ -872,7 +888,22 @@ pub(super) fn prepare<M: PhysicalMemory>(
             .split_last()
             .ok_or("missing vector shuffle control")?;
         (
-            Operation::ShuffleImmediate(shuffle, shuffle_control(control)?),
+            Operation::ShuffleImmediate(
+                shuffle,
+                byte_control(control, "invalid vector shuffle control")?,
+            ),
+            operands,
+            None,
+        )
+    } else if matches!(mnemonic, "pclmulqdq" | "vpclmulqdq") {
+        let (control, operands) = operands
+            .split_last()
+            .ok_or("missing carry-less multiply control")?;
+        (
+            Operation::CarrylessMultiply(byte_control(
+                control,
+                "invalid carry-less multiply control",
+            )?),
             operands,
             None,
         )

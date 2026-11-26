@@ -438,6 +438,8 @@ pub(super) fn decode_0f(
             let prefix = u8::from(ctx.operand_size_override);
             let (name, destination_read) = if (map, prefix, opcode) == (3, 1, 0xdf) {
                 ("aeskeygenassist", false)
+            } else if (map, prefix, opcode) == (3, 1, 0x44) {
+                ("pclmulqdq", true)
             } else if let Some((name, _)) = packed_immediate_shuffle_mnemonics(map, prefix, opcode)
             {
                 (name, true)

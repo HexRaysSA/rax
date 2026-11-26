@@ -38,6 +38,7 @@ pub(super) fn decode_xmm_transfer(
         (3, 5, 0x46) => Some("vperm2i128"),
         _ => packed_immediate_shuffle_mnemonics(map, flags & 3, opcode).map(|(_, vex)| vex),
     };
+    let carryless_multiply = ((map, flags & 3, opcode) == (3, 1, 0x44)).then_some("vpclmulqdq");
     let register_blend = match (map, flags & 0x83, opcode) {
         (3, 1, 0x4a) => Some("vblendvps"),
         (3, 1, 0x4b) => Some("vblendvpd"),
@@ -89,6 +90,7 @@ pub(super) fn decode_xmm_transfer(
         .or(variable_shift)
         .or(indexed_permutation)
         .or(immediate_shuffle)
+        .or(carryless_multiply)
         .or(register_blend);
     let bit_test = match (map, flags & 3, opcode) {
         (2, 1, 0x17) => Some("vptest"),
@@ -204,6 +206,7 @@ pub(super) fn decode_xmm_transfer(
         vec![read_write(rm, false, true), vector]
     };
     if immediate_shuffle.is_some()
+        || carryless_multiply.is_some()
         || unary_shuffle.is_some()
         || aes_transform.is_some_and(|(_, immediate)| immediate)
     {

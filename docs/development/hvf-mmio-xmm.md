@@ -2051,3 +2051,43 @@ and the x86 alignment rule for the two fault controls. This profile
 cross-built for Intel macOS and passed strict signature verification.
 
 Native execution of these profiles and EVEX remain open.
+
+## Carry-less multiplication with a device operand
+
+Intel HVF plans one 16 B device read for legacy PCLMULQDQ and VEX.128
+VPCLMULQDQ, and one 32 B read for VEX.256 VPCLMULQDQ. The pending record
+keeps the original source vector, encoding and immediate. Completion
+uses immediate bits 0 and 4 to select the two 64-bit factors within
+each 128-bit lane, writes the destination once, and advances RIP once.
+Legacy preserves the upper half of YMM, and VEX.128 clears it.
+The product requires 64 bit tests per lane and constant auxiliary
+space for the supported widths. [Intel SDM revision 090, Vol. 2B,
+PCLMULQDQ opcode table and operation](https://cdrdv2-public.intel.com/874240/325462-090-sdm-vol-1-2abcd-3abcd-4.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| One device transaction supplies both selectable qwords of each lane. | High | Check the exact width, address and source index for each encoding. Serialize and restore the request, and require one destination write and one retirement after two completion attempts. |
+| The same immediate selects the factors within each lane. | High | Vary all 256 immediate bytes, both VEX.W values and eight distinct pairs of input vectors. Compare the complete 32 B destination including the legacy upper-half canary. |
+| Legacy alignment is checked before device access. | Medium | Place the legacy operand 3 B past alignment and reject the plan. The QEMU RAM guest must deliver one #GP(0) at the faulting RIP and retain all 32 destination bytes. |
+
+QEMU 11.1.2 executed 2,048 aligned legacy controls and 4,096
+unaligned VEX.128 controls, half for each lane's inputs. The VEX.256
+reference combines the two independent 16 B results for each input.
+This QEMU build lacks the VPCLMULQDQ feature required for VEX.256.
+The direct VEX.256 control stopped after the first two 16 B cases.
+[QEMU v11.1.2 TCG CPUID feature masks](https://github.com/qemu/qemu/blob/v11.1.2/target/i386/cpu.c#L929-L938)
+
+The parent decoder rejected the first legacy case as unsupported.
+The corrected portable MMIO test matched all 6,144 pending-read
+restores. The four owning integration targets passed 28,859 tests
+with three ignored. All 21 focused library tests passed. Library
+Clippy with warnings denied and the Intel macOS HVF compile check
+also passed.
+
+The raw QEMU stream has SHA-256
+`806a87b7bb038bfbb589cda937f0b680323b40a2ddfbd2dac6a786a784230b80`.
+The misalignment control has SHA-256
+`93386b51c164c7a6445a6270c063e4ad9b40aefce9f0502bf3d0f946dd190fc6`.
+The inputs and raw observations are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-pclmul-2026-11-26/`.
+Hosted Intel execution, bare-metal Intel and EVEX remain open.

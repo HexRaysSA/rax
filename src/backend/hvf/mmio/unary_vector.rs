@@ -1,6 +1,6 @@
 //! Packed vector instructions whose only data operand is the MMIO reply.
 use super::super::aes;
-use super::vector_logic::{Encoding, read_element, register, shuffle_control};
+use super::vector_logic::{Encoding, byte_control, read_element, register};
 use super::*;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -271,7 +271,11 @@ pub(super) fn prepare<M: PhysicalMemory>(
             | Operation::PermuteLaneQuadwords
             | Operation::AesKeySchedule,
             [target, device, immediate],
-        ) => (target, device, shuffle_control(immediate)?),
+        ) => (
+            target,
+            device,
+            byte_control(immediate, "invalid vector shuffle control")?,
+        ),
         _ => return Err("wrong operands for unary vector MMIO".into()),
     };
     let encoding = if !mnemonic.starts_with('v') {

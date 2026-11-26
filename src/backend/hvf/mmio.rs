@@ -5,6 +5,9 @@ use crate::isa::x86_64::instruction_metadata::{
 };
 use serde::{Deserialize, Serialize};
 
+#[path = "../../isa/x86_64/execute/crypto/clmul.rs"]
+mod clmul;
+
 const EFER_LMA: u64 = 1 << 10;
 
 pub(crate) fn code_width(efer: u64, cs_long: bool, cs_default_big: bool) -> u32 {

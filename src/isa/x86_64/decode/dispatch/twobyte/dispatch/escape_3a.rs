@@ -6,8 +6,7 @@ use crate::vm::vcpu::VcpuExit;
 use super::super::super::{x86_dppd_lane_result_bits, x86_dpps_lane_result_bits};
 use crate::isa::x86_64::cpu::{InsnContext, X86_64Vcpu};
 use crate::isa::x86_64::execute;
-use crate::isa::x86_64::execute::crypto::aes;
-use crate::isa::x86_64::execute::crypto::sha;
+use crate::isa::x86_64::execute::crypto::{aes, clmul, sha};
 use crate::isa::x86_64::execute::simd::pcmpxstrx;
 
 impl X86_64Vcpu {
@@ -791,24 +790,9 @@ impl X86_64Vcpu {
                 let a = if imm8 & 0x01 != 0 { dst_hi } else { dst_lo };
                 let b = if imm8 & 0x10 != 0 { src_hi } else { src_lo };
 
-                // Carry-less multiplication (XOR instead of add in polynomial multiplication)
-                let mut result_lo = 0u64;
-                let mut result_hi = 0u64;
-
-                for i in 0..64 {
-                    if (b >> i) & 1 != 0 {
-                        // XOR a shifted left by i
-                        if i == 0 {
-                            result_lo ^= a;
-                        } else {
-                            result_lo ^= a << i;
-                            result_hi ^= a >> (64 - i);
-                        }
-                    }
-                }
-
-                self.regs.xmm[xmm_dst][0] = result_lo;
-                self.regs.xmm[xmm_dst][1] = result_hi;
+                let product = clmul::qword(a, b);
+                self.regs.xmm[xmm_dst][0] = u64::from_le_bytes(product[..8].try_into().unwrap());
+                self.regs.xmm[xmm_dst][1] = u64::from_le_bytes(product[8..].try_into().unwrap());
                 self.regs.rip += ctx.cursor as u64;
                 Ok(None)
             }

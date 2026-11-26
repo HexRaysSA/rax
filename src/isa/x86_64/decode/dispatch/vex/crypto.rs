@@ -4,7 +4,7 @@ use crate::error::{Error, Result};
 use crate::vm::vcpu::VcpuExit;
 
 use crate::isa::x86_64::cpu::{InsnContext, X86_64Vcpu};
-use crate::isa::x86_64::execute::crypto::aes;
+use crate::isa::x86_64::execute::crypto::{aes, clmul};
 use crate::isa::x86_64::execute::simd::{affine_byte as gf_affine_byte, gf_inv, gf_mul};
 
 fn read_vex_vec(vcpu: &X86_64Vcpu, reg: usize, vl_bytes: usize) -> [u8; 32] {
@@ -35,26 +35,6 @@ fn write_vex_vec(vcpu: &mut X86_64Vcpu, reg: usize, vl_bytes: usize, data: &[u8;
     } else {
         vcpu.regs.ymm_high[reg] = [0; 2];
     }
-}
-
-fn clmul_qword(a: u64, b: u64) -> [u8; 16] {
-    let mut lo = 0u64;
-    let mut hi = 0u64;
-    for i in 0..64 {
-        if (b >> i) & 1 != 0 {
-            if i == 0 {
-                lo ^= a;
-            } else {
-                lo ^= a << i;
-                hi ^= a >> (64 - i);
-            }
-        }
-    }
-
-    let mut out = [0u8; 16];
-    out[..8].copy_from_slice(&lo.to_le_bytes());
-    out[8..].copy_from_slice(&hi.to_le_bytes());
-    out
 }
 
 impl X86_64Vcpu {
@@ -267,7 +247,7 @@ impl X86_64Vcpu {
             let src2_base = base + if imm8 & 0x10 != 0 { 8 } else { 0 };
             let a = u64::from_le_bytes(src1[src1_base..src1_base + 8].try_into().unwrap());
             let b = u64::from_le_bytes(src2[src2_base..src2_base + 8].try_into().unwrap());
-            result[base..base + 16].copy_from_slice(&clmul_qword(a, b));
+            result[base..base + 16].copy_from_slice(&clmul::qword(a, b));
         }
 
         write_vex_vec(self, reg as usize, vl_bytes, &result);

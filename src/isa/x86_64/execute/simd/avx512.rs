@@ -5,7 +5,7 @@ use crate::vm::vcpu::VcpuExit;
 
 use super::gfni::gf_inv;
 use crate::isa::x86_64::cpu::{InsnContext, X86_64Vcpu};
-use crate::isa::x86_64::execute::crypto::aes;
+use crate::isa::x86_64::execute::crypto::{aes, clmul};
 
 #[path = "avx512_fp_special.rs"]
 mod fp_special;
@@ -1146,26 +1146,6 @@ pub fn evex_multishift_qb(
     Ok(None)
 }
 
-fn clmul_qword(a: u64, b: u64) -> [u8; 16] {
-    let mut lo = 0u64;
-    let mut hi = 0u64;
-    for i in 0..64 {
-        if (b >> i) & 1 != 0 {
-            if i == 0 {
-                lo ^= a;
-            } else {
-                lo ^= a << i;
-                hi ^= a >> (64 - i);
-            }
-        }
-    }
-
-    let mut out = [0u8; 16];
-    out[..8].copy_from_slice(&lo.to_le_bytes());
-    out[8..].copy_from_slice(&hi.to_le_bytes());
-    out
-}
-
 /// VPCLMULQDQ: carry-less qword multiply per 128-bit lane.
 pub fn evex_pclmulqdq(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     let evex = ctx
@@ -1204,7 +1184,7 @@ pub fn evex_pclmulqdq(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Op
         let src2_base = base + if imm8 & 0x10 != 0 { 8 } else { 0 };
         let a = u64::from_le_bytes(src1_bytes[src1_base..src1_base + 8].try_into().unwrap());
         let b = u64::from_le_bytes(src2_bytes[src2_base..src2_base + 8].try_into().unwrap());
-        result[base..base + 16].copy_from_slice(&clmul_qword(a, b));
+        result[base..base + 16].copy_from_slice(&clmul::qword(a, b));
     }
 
     write_vec_vl(vcpu, dest, vl_bytes, &result);

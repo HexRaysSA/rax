@@ -12,6 +12,8 @@ mod packed_shuffle;
 mod vector_aes;
 #[path = "vector_aes_unary.rs"]
 mod vector_aes_unary;
+#[path = "vector_clmul.rs"]
+mod vector_clmul;
 #[path = "vector_immediate_blend.rs"]
 mod vector_immediate_blend;
 #[path = "vector_narrow.rs"]
