@@ -756,6 +756,32 @@ progress or whether the full guest would eventually finish. Exact list
 order, register values, disassembly and the reader are in
 `periodic-trace-cursor.json` and its neighboring evidence files.
 
+#### Trace evaluation initcall control
+
+Adding `initcall_blacklist=trace_eval_init` to the four-hart periodic-tick
+guest changed only the DTB boot arguments. The other four ELF load segments
+matched by SHA-256. This option disables the trace evaluation worker and
+leaves tracefs initialization in place.
+[Linux v6.12.117 trace initialization](https://github.com/gregkh/linux/blob/v6.12.117/kernel/trace/trace.c#L9342-L9374)
+
+| RAX checkpoint request | PID 1's saved kernel path | `event_mutex` |
+| ---: | --- | --- |
+| 150 s | CPU 3, allocating a slab while creating tracefs directories | PID 1 held it with no waiters |
+| Approximately 610 s | CPU 2, validating kernel BTF during XFRM initialization | Unowned |
+
+The checkpoint stacks came from the matching Debian kernel symbols and
+saved RAM. All four harts remained online. Each hart's RCU timer tick
+count advanced, and the leaf quiescent-state pending mask was zero at both
+saved points. A later console message reported an RCU stall on CPU 2.
+The run reached the 950 s limit with zero affinity markers. With the same
+firmware, kernel, initrd and DTB, QEMU 11.1.2 reached all four affinity
+markers and powered off in 1.44 s. Disabling trace evaluation changed where
+the guest spent time. The wall-clock boot timeout remains open.
+[Linux v6.12.117 XFRM BTF registration](https://github.com/gregkh/linux/blob/v6.12.117/net/xfrm/xfrm_state_bpf.c#L116-L125)
+
+The guest inputs, console, checkpoint hashes and decoded tasks are in the
+task-state evidence directory under `trace-init-disabled*`.
+
 ## Issued UART writes in checkpoints
 
 The VMM retains an issued UART MMIO write at the head of the originating

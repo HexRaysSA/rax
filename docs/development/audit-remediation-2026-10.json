@@ -200785,6 +200785,14 @@
       "scope": "In the 150 s and 320 s periodic-tick checkpoints, verified interrupt register frames and guest instruction bytes put the event_mutex owner inside the trace-format parser. Its current node moved from index 792 to 796 in the same ordered 1,305-node ftrace_events list while PID 1 was blocked. The cause and full wall-clock qualification remain open.",
       "qualification": "docs/development/riscv-clint/README.md#trace-format-traversal-during-the-periodic-tick-control",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-linux-trace-eval-initcall-control-2026-11-26",
+      "findings": ["C-SMP"],
+      "status": "diagnostic_evidence_wall_clock_open",
+      "scope": "The four-hart periodic-tick control with only trace_eval_init blacklisted passed the affinity witness on QEMU 11.1.2 in 1.44 s. The turn-batched RAX candidate timed out at 950 s with no affinity markers. Saved PID 1 stacks advanced from tracefs directory creation at 150 s to BTF validation during XFRM initialization around 610 s. event_mutex was unowned at the later checkpoint. Both sampled RCU leaf pending masks were zero; the console later reported an RCU stall. The wall-clock timeout remains open.",
+      "qualification": "docs/development/riscv-clint/README.md#trace-evaluation-initcall-control",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
