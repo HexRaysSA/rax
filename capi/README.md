@@ -773,6 +773,11 @@ the denial of general host filesystem, sockets, processes and IPC remain in
 force. Inspection reports `capabilities.native_runtime`; this is a selected
 mode, not a guarantee that every runtime API or application is supported.
 
+On Linux, native runtime selection includes the installed system include
+directory at `/usr/include`. Compilers can read these headers through the
+guest filesystem. The directory is read-only, and its symbolic links must
+resolve within the selected include tree.
+
 The installed macOS runtime accepts libxpc framework image registrations
 from closed guest processes. A lookup in the process's domain can start an
 application-scope service from a registered system framework. Both the service

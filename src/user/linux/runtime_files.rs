@@ -31,6 +31,8 @@ const LOCALE_ALIAS: &str = "/usr/share/locale/locale.alias";
 const LOCALE_ALIAS_TARGET: &str = "/etc/locale.alias";
 #[cfg(any(target_os = "linux", test))]
 const PROGRAM_ROOTS: [&str; 4] = ["/bin", "/usr/bin", "/sbin", "/usr/sbin"];
+#[cfg(any(target_os = "linux", test))]
+const SYSTEM_INCLUDE_ROOT: &str = "/usr/include";
 #[cfg(target_os = "linux")]
 const STDBUF_LIBRARY: &str = "/usr/libexec/coreutils/libstdbuf.so";
 #[cfg(any(target_os = "linux", test))]
@@ -42,6 +44,7 @@ const CONFINED_ROOTS: &[&str] = &[
     MESSAGE_CATALOG_ROOTS[0],
     MESSAGE_CATALOG_ROOTS[1],
     MESSAGE_CATALOG_ROOTS[2],
+    SYSTEM_INCLUDE_ROOT,
     PROGRAM_ROOTS[0],
     PROGRAM_ROOTS[1],
     PROGRAM_ROOTS[2],
@@ -50,10 +53,10 @@ const CONFINED_ROOTS: &[&str] = &[
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, plus installed
-/// executable programs, the packaged stdbuf helper, Perl modules, compiled
-/// terminfo, GNU message catalogs, OpenSSL configuration and public CA trust,
-/// timezone, protocol and service data. Include guest loopback names and a
-/// synthetic `/dev/null` in the guest namespace. Explicit
+/// executable programs, system include files, the packaged stdbuf helper,
+/// Perl modules, compiled terminfo, GNU message catalogs, OpenSSL configuration
+/// and public CA trust, timezone, protocol and service data. Include guest
+/// loopback names and a synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
 pub fn native(files: &Files) -> io::Result<Files> {
@@ -158,7 +161,11 @@ fn select_installed_for_executable(
         }
     }
     let canonical_root = root.canonicalize()?;
-    for &path in openssl::CERTIFICATE_ROOTS {
+    for path in openssl::CERTIFICATE_ROOTS
+        .iter()
+        .copied()
+        .chain([SYSTEM_INCLUDE_ROOT])
+    {
         let host = canonical_root.join(path.trim_start_matches('/'));
         if unshadowed(path)
             && host.is_dir()
@@ -520,6 +527,86 @@ fn open_installed_shared_object(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_system_headers_are_read_only_and_confined() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, os::unix::fs::symlink, sync::Arc};
+
+        let fixture = TestFile::new(b"unselected", 10);
+        let root = &fixture.dir;
+        let libraries = root.join("usr/lib");
+        let headers = root.join("usr/include");
+        let local = root.join("usr/local/include");
+        fs::create_dir_all(&libraries).unwrap();
+        fs::create_dir_all(&local).unwrap();
+        fs::write(local.join("local.h"), b"local header").unwrap();
+        let stdio = "/usr/include/stdio.h";
+        assert!(matches!(
+            select_installed(&Files::default(), root)
+                .unwrap()
+                .read(stdio),
+            Err(Error::NotFound)
+        ));
+
+        fs::create_dir_all(headers.join("c++/test")).unwrap();
+        fs::write(headers.join("stdio.h"), b"int puts(const char *);").unwrap();
+        fs::write(
+            headers.join("c++/test/vector"),
+            b"template<class T> class vector;",
+        )
+        .unwrap();
+        fs::write(libraries.join("outside.h"), b"outside include root").unwrap();
+        symlink("stdio.h", headers.join("alias.h")).unwrap();
+        symlink("../lib/outside.h", headers.join("escape.h")).unwrap();
+        symlink(&fixture.path, headers.join("outside.h")).unwrap();
+
+        let files = select_installed(&Files::default(), root).unwrap();
+        assert_eq!(&*files.read(stdio).unwrap(), b"int puts(const char *);");
+        assert_eq!(
+            &*files.read("/usr/include/alias.h").unwrap(),
+            &*files.read(stdio).unwrap()
+        );
+        assert_eq!(
+            &*files.read("/usr/include/c++/test/vector").unwrap(),
+            b"template<class T> class vector;"
+        );
+        assert!(matches!(
+            files.unlink_workspace_file(stdio, (0, 0), &[]),
+            Err(Error::ReadOnly)
+        ));
+        for path in [
+            "/usr/include/escape.h",
+            "/usr/include/outside.h",
+            "/usr/local/include/local.h",
+        ] {
+            assert!(matches!(files.read(path), Err(Error::NotFound)), "{path}");
+        }
+
+        let supplied = Files::default()
+            .with_file(stdio.into(), Arc::from(b"caller header".as_slice()))
+            .unwrap();
+        let files = select_installed(&supplied, root).unwrap();
+        assert_eq!(&*files.read(stdio).unwrap(), b"caller header");
+
+        let files =
+            select_installed_for_executable(&Files::default(), root, Some(SYSTEM_INCLUDE_ROOT))
+                .unwrap();
+        assert!(
+            files
+                .with_file(
+                    SYSTEM_INCLUDE_ROOT.into(),
+                    Arc::from(b"guest image".as_slice())
+                )
+                .is_ok()
+        );
+
+        fs::rename(&headers, root.join("relocated-include")).unwrap();
+        symlink("../relocated-include", &headers).unwrap();
+        let files = select_installed(&Files::default(), root).unwrap();
+        assert!(matches!(files.read(stdio), Err(Error::NotFound)));
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
