@@ -74,6 +74,13 @@ profile's audited allowlist return `EPERM` before reading arguments. External
 Mach forwarding is disabled. Host process creation, native descriptors,
 filesystem mutation, host signal/job control, and host credentials are excluded.
 
+On macOS, `native_runtime` also admits Apple's installed Command Line
+Tools package at `/Library/Developer/CommandLineTools` when the initial
+guest environment selects it with `DEVELOPER_DIR` or the host's
+`xcode-select` symlink points there and the guest leaves the setting at its
+default. Tools and SDK resources are read-only and aliases stay inside the
+package. Full Xcode application bundles remain outside these roots.
+
 `HOST_SERVICES_AVAILABLE` reports availability of Darwin's legacy Unix profile;
 non-Unix construction rejects it before image loading. The closed profile is
 available on Windows, macOS, and Linux. ABI 1.10 exposes this profile through
