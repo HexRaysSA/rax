@@ -4041,6 +4041,11 @@ the selected data when it covers the complete native value list. Other
 child bodies and values stay outside the selection. No native handles
 survive capture.
 
+The CLR bootstrap opens the `HKLM\Software\Microsoft\.NETFramework`
+installation key after reading policy. Its snapshot uses each view's native
+`InstallRoot` value and links the existing `Policy` record. The selected
+installation path is also available through a machine-relative open.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not

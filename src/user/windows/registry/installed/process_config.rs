@@ -26,7 +26,7 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
                 subject,
                 ProcessConfigKey::DotNetPolicy | ProcessConfigKey::DotNetPolicyV4
             );
-            let opened = if dot_net_policy {
+            let opened = if dot_net_policy || subject == ProcessConfigKey::DotNetFramework {
                 // The Win32 HKLM open applies the WOW64 view to this redirected
                 // key even when the snapshot is collected by an ARM64 process.
                 match super::command_processor::open_snapshot(root, &[], view) {

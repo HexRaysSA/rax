@@ -481,6 +481,96 @@ fn dot_net_v4_policy_child_has_the_same_record_in_relative_and_absolute_opens() 
 }
 
 #[test]
+fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
+    let framework = ProcessConfigKey::DotNetFramework;
+    let policy = ProcessConfigKey::DotNetPolicy;
+    let views = [
+        (
+            RegistryView::Native64,
+            framework.path(),
+            policy.path(),
+            r"C:\Windows\Microsoft.NET\Framework64\",
+        ),
+        (
+            RegistryView::Wow32,
+            DOT_NET_FRAMEWORK_WOW_KEY,
+            DOT_NET_POLICY_WOW_KEY,
+            r"C:\Windows\Microsoft.NET\Framework\",
+        ),
+    ];
+    let value_name = units("InstallRoot");
+    let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+    for (view, framework_name, policy_name, path) in views {
+        let value = Value {
+            name: value_name.clone(),
+            kind: 1,
+            data: path
+                .encode_utf16()
+                .chain(Some(0))
+                .flat_map(u16::to_le_bytes)
+                .collect(),
+        };
+        registry = registry
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(policy),
+                &[],
+                view,
+                Ok((header(policy_name, vec![]), None)),
+            )
+            .unwrap()
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(framework),
+                &[],
+                view,
+                Ok((header(framework_name, vec![value]), None)),
+            )
+            .unwrap();
+    }
+    let registry = registry
+        .with_machine_hive(MachineHeader {
+            canonical: units(MACHINE_HIVE_KEY),
+            enumeration: None,
+            children: 6,
+            values: vec![],
+            access: header(MACHINE_HIVE_KEY, vec![]).access,
+        })
+        .unwrap();
+    let machine = registry.key(&units(MACHINE_HIVE_KEY)).unwrap();
+    for (view, framework_name, policy_name, expected) in views {
+        let relative_path = units(r"Software\Microsoft\.NETFramework");
+        let Lookup::Present(opened) = machine.relative_in_view(&relative_path, view) else {
+            panic!("machine-relative installation key did not resolve");
+        };
+        let Lookup::Present(absolute) = registry.lookup_view(&units(framework.path()), view) else {
+            panic!("absolute installation key did not resolve");
+        };
+        let Lookup::Present(child) = opened.relative(&units("Policy")) else {
+            panic!("fixed policy key did not resolve from the installation handle");
+        };
+        assert!(Arc::ptr_eq(&opened, &absolute));
+        assert_eq!(opened.path, units(framework_name));
+        assert_eq!(child.path, units(policy_name));
+        let captured = opened
+            .value(&value_name)
+            .expect("selected installation value");
+        assert_eq!(captured.kind, 1);
+        assert_eq!(
+            captured.data,
+            expected
+                .encode_utf16()
+                .chain(Some(0))
+                .flat_map(u16::to_le_bytes)
+                .collect::<Vec<_>>(),
+        );
+        assert!(!opened.covers_value(&units("UnselectedValue")));
+        assert!(matches!(
+            opened.relative(&units("UnselectedChild")),
+            Lookup::Unselected
+        ));
+    }
+}
+
+#[test]
 fn powershell_registry_preserves_ordered_metadata_and_independent_views() {
     let root = ProcessConfigKey::PowerShell;
     let engine = ProcessConfigKey::PowerShellEngineV3;

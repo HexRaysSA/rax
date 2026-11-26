@@ -7,8 +7,12 @@ pub(super) const SYSTEM_SETUP_VALUES: &[&str] = &[SYSTEM_SETUP_IN_PROGRESS, "OOB
 
 pub(super) const POWERSHELL_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\PowerShell";
+const DOT_NET_FRAMEWORK_WOW_KEY: &str =
+    r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework";
+#[cfg(test)]
 const DOT_NET_POLICY_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework\Policy";
+#[cfg(test)]
 const DOT_NET_POLICY_V4_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework\Policy\v4.0";
 
@@ -41,10 +45,11 @@ pub(crate) enum ProcessConfigKey {
     MiniNt,
     DotNetPolicy,
     DotNetPolicyV4,
+    DotNetFramework,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 22] = [
+    pub(super) const ALL: [Self; 23] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -68,6 +73,7 @@ impl ProcessConfigKey {
         Self::MiniNt,
         Self::DotNetPolicyV4,
         Self::DotNetPolicy,
+        Self::DotNetFramework,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -125,6 +131,7 @@ impl ProcessConfigKey {
             Self::DotNetPolicyV4 => {
                 r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\v4.0"
             }
+            Self::DotNetFramework => r"\Registry\Machine\Software\Microsoft\.NETFramework",
         }
     }
 
@@ -159,6 +166,7 @@ impl ProcessConfigKey {
             | Self::MiniNt
             | Self::DotNetPolicy => &[],
             Self::DotNetPolicyV4 => &["30319"],
+            Self::DotNetFramework => &["InstallRoot"],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
@@ -207,6 +215,7 @@ impl ProcessConfigKey {
             Self::MiniNt => "Windows PE installation marker",
             Self::DotNetPolicy => ".NET Framework runtime policy",
             Self::DotNetPolicyV4 => ".NET Framework v4.0 runtime policy",
+            Self::DotNetFramework => ".NET Framework installation",
         }
     }
 
@@ -254,6 +263,7 @@ impl ProcessConfigKey {
             Self::PowerShellV1 => &[Self::PowerShellEngineV1],
             Self::PowerShellV3 => &[Self::PowerShellEngineV3],
             Self::DotNetPolicy => &[Self::DotNetPolicyV4],
+            Self::DotNetFramework => &[Self::DotNetPolicy],
             _ => return Ok(()),
         };
         for &child in children {
@@ -314,18 +324,18 @@ impl ProcessConfigKey {
             || self == Self::Rpc
                 && view == RegistryView::Wow32
                 && same(r"\Registry\Machine\Software\WOW6432Node\Microsoft\Rpc")
-            || self == Self::DotNetPolicy
-                && view == RegistryView::Wow32
-                && same(DOT_NET_POLICY_WOW_KEY)
-            || self == Self::DotNetPolicyV4
-                && view == RegistryView::Wow32
-                && same(DOT_NET_POLICY_V4_WOW_KEY)
         {
             return Ok(());
         }
         if view == RegistryView::Wow32
             && let Some(suffix) = self.path().strip_prefix(Self::PowerShell.path())
             && same(&format!("{POWERSHELL_WOW_KEY}{suffix}"))
+        {
+            return Ok(());
+        }
+        if view == RegistryView::Wow32
+            && let Some(suffix) = self.path().strip_prefix(Self::DotNetFramework.path())
+            && same(&format!("{DOT_NET_FRAMEWORK_WOW_KEY}{suffix}"))
         {
             return Ok(());
         }
