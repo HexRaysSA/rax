@@ -151,6 +151,79 @@ fn riscv_file_replays_issued_uart_write_before_the_next_hart() {
 }
 
 #[test]
+fn riscv_clock_only_file_rejects_a_live_pending_uart_write() {
+    const CODE: u64 = 0x1000;
+    const WITNESS: GuestAddress = GuestAddress(0x9000);
+    const UART_IER: u64 = 0x1000_0001;
+    let fixture = Fixture::new();
+    let mut vm = Vmm::new_resume(fixture.config(1)).unwrap();
+    // This source models the older platform without a CLINT image.
+    vm.vm
+        .as_any()
+        .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+        .unwrap()
+        .riscv_platform()
+        .unwrap()
+        .restore_with(None, || Ok(()))
+        .unwrap();
+    vm.vcpus[0].set_current_pc(CODE + 12).unwrap();
+    let base = vm.take_snapshot(31).unwrap();
+    let mut clock = vm.timing_context.checkpoint_state();
+    clock.elapsed_nanos = base.elapsed_nanos;
+    SnapshotBundle::new(base)
+        .with_clock(clock)
+        .unwrap()
+        .save(&fixture.checkpoint)
+        .unwrap();
+    let projected = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+
+    let code: Vec<_> = [
+        0x1000_0537u32, // LUI a0, 0x10000 (UART base).
+        0x0010_0593,    // LI a1, 1 (enable receive-data IRQs).
+        0x00b5_00a3,    // SB a1, 1(a0) (UART IER).
+        0x0000_0073,    // ECALL (shutdown on the raw ELF platform).
+    ]
+    .into_iter()
+    .flat_map(u32::to_le_bytes)
+    .collect();
+    let memory = vm.guest_mem.memory();
+    memory.write_slice(&code, GuestAddress(CODE)).unwrap();
+    memory.write_obj(0xa5u8, WITNESS).unwrap();
+    vm.vcpus[0].set_current_pc(CODE).unwrap();
+    vm.serial.lock().unwrap().queue_input(b"r");
+    let turn = vm.execute_turn().unwrap().unwrap();
+    assert!(matches!(turn.exit, VcpuExit::MmioWrite { addr: UART_IER, ref data } if data == &[1]));
+    assert_eq!(vm.coordinator.retired, 3);
+    let before = contexts(&vm);
+
+    let error = vm.restore_snapshot_bundle(&projected).unwrap_err();
+    assert!(
+        error.to_string().contains("pending software MMIO write"),
+        "{error}"
+    );
+    assert_eq!(contexts(&vm), before);
+    assert_eq!(vm.coordinator.retired, 3);
+    assert_eq!(vm.last_snapshot_insn, 0);
+    assert_eq!(vm.guest_mem.memory().read_obj::<u8>(WITNESS).unwrap(), 0xa5);
+    assert!(matches!(
+        vm.vcpus[0].pending_software_mmio_write().unwrap(),
+        Some(VcpuExit::MmioWrite { addr: UART_IER, data }) if data == [1]
+    ));
+    assert!(!vm.serial.lock().unwrap().interrupt_output());
+
+    vm.run().unwrap();
+    assert!(vm.serial.lock().unwrap().interrupt_output());
+    assert!(vm.vcpus[0].pending_software_mmio_write().unwrap().is_none());
+
+    vm.restore_snapshot_bundle(&projected).unwrap();
+    assert_eq!(vm.coordinator.retired, 31);
+    assert_eq!(vm.last_snapshot_insn, 31);
+    assert_eq!(vm.vcpus[0].current_pc(), CODE + 12);
+    assert_eq!(vm.guest_mem.memory().read_obj::<u8>(WITNESS).unwrap(), 0);
+    assert!(!vm.serial.lock().unwrap().interrupt_output());
+}
+
+#[test]
 fn riscv_reservation_files_continue_one_two_four_actual_backend_contexts() {
     for count in [1, 2, 4] {
         let f = Fixture::new();

@@ -200850,6 +200850,14 @@
       "scope": "FPSCR transfers expose FZ16 and cumulative exceptions for pure FP16 Advanced SIMD with scalar FP and SIMDSP disabled. The parent returned only QC. ARM and Thumb regressions check guest FPSCR writes, subnormal arithmetic, invalid-operation status and absent or reserved capability controls. Four QEMU full-profile results independently match the SIMD half arithmetic and FPSCR observations.",
       "qualification": "docs/development/a32-fp-controls.md#fpscr-for-pure-fp16-advanced-simd",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-clock-only-pending-uart-admission-2026-11-26",
+      "findings": ["C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Legacy RV64 bundles without a private hart record reject a target hart with an issued UART MMIO write. The parent accepted a clock-only file and replaced the hart. The regression compares private state, RAM, retirement and checkpoint counters after rejection, checks that VM execution dispatches the preserved write, then restores the same file after the write completes.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

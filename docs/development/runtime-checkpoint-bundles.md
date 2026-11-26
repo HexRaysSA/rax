@@ -28,6 +28,12 @@ or emulator-private CPU state, legacy devices, or the retirement and
 checkpoint counters. Capture still reads the full reported prefix on that
 target. The same archive restores into a writable target.
 
+An RV64 bundle without a private hart record cannot replace a hart with an
+issued UART MMIO write. A clock-only file exercises this admission path.
+Rejection preserves the pending write, RAM, hart state, UART and checkpoint
+counters. After ordinary VM execution dispatches the write, the same file can
+restore the legacy projection.
+
 Intel HVF legacy capture checks every vCPU for pending I/O and holds the
 stopped backend boundary through capture of CPU 0 and the reported RAM
 prefix. A pending port or MMIO transaction on any vCPU requires a complete
@@ -61,6 +67,7 @@ backing; dirty bytes are restored, including zero source bytes.
 | R4 | Media restore is detached. | Rename both image sources after constructing the target; compare all restored media/control bytes and original file bytes/protection. | Owning regressions and ledger receipts. |
 | R5 | Independent CPU/DMA/mapping writers remain quiescent. | Explicit API contract; actual full-backing VM tests and separate future coordinator requirement. | Full SMP coordinator remains open. |
 | R6 | Native setters/resource failures can fail after admission. | Native KVM/HVF transaction evidence is separate; tests do not claim failure rollback for those operations. | Unknown outside tested emulator domain. |
+| R7 | A legacy RV64 projection carries no issued UART write. | Restore a clock-only file while a guest store to UART IER awaits dispatch. Rejection must preserve the queue and the live owners. Retry after dispatch must succeed. | RV64 runtime regression. |
 
 High impact: additional backend-private/platform/scheduler state, per-VM clocks,
 quiescence, replay and native transactions remain open. Medium impact: all media must fit admitted byte budgets in detached memory.

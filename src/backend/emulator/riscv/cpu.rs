@@ -1001,6 +1001,12 @@ impl VCpu for RiscVVcpu {
                 "Riscv64 checkpoint requires an RV64 backend profile".into(),
             ));
         }
+        if context.is_none() && self.pending_software_mmio_write()?.is_some() {
+            return Err(Error::InvalidConfig(format!(
+                "pending software MMIO write on hart {} requires a complete checkpoint",
+                self.id
+            )));
+        }
         Ok(())
     }
 
