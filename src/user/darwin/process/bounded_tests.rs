@@ -2204,6 +2204,7 @@ fn embedded_sysctl_answers_guest_nodes_without_host_discovery() {
         };
         for (name, expected) in [
             ("kern.ostype", b"Darwin\0".to_vec()),
+            ("kern.hostname", b"rax-embedded\0".to_vec()),
             ("hw.memsize", MEMSIZE.to_le_bytes().to_vec()),
         ] {
             ctx.write(buf, name.as_bytes()).unwrap();
@@ -2219,8 +2220,8 @@ fn embedded_sysctl_answers_guest_nodes_without_host_discovery() {
             assert_eq!(ctx.read_u64(buf + 128).unwrap(), expected.len() as u64);
             assert_eq!(ctx.read(buf + 256, expected.len()).unwrap(), expected);
         }
-        // Host-owned names and their numeric OIDs are unavailable even on macOS.
-        let name = b"kern.hostname";
+        // A host-only sysctl is unavailable by name and numeric OID.
+        let name = b"kern.maxproc";
         ctx.write(buf, name).unwrap();
         ctx.write_u64(buf + 128, 64).unwrap();
         assert_eq!(
@@ -2232,7 +2233,7 @@ fn embedded_sysctl_answers_guest_nodes_without_host_discovery() {
             Err(Errno::ENOENT)
         );
         ctx.write_u32(buf, 1).unwrap();
-        ctx.write_u32(buf + 4, 10).unwrap(); // KERN_HOSTNAME
+        ctx.write_u32(buf + 4, 6).unwrap(); // KERN_MAXPROC
         assert_eq!(
             bsd::call(
                 &mut ctx,
