@@ -81,6 +81,12 @@ guest environment selects it with `DEVELOPER_DIR` or the host's
 default. Tools and SDK resources are read-only and aliases stay inside the
 package. Full Xcode application bundles remain outside these roots.
 
+The native Darwin session's private workspace also supplies the virtual
+user's directories under `/var/folders`. The installed libc resolves its user,
+temporary, and cache directories through `confstr` using the guest identity.
+These directories share the scratch volume's quota and are recreated empty
+for each new session. Explicit caller files and mounts take precedence.
+
 `HOST_SERVICES_AVAILABLE` reports availability of Darwin's legacy Unix profile;
 non-Unix construction rejects it before image loading. The closed profile is
 available on Windows, macOS, and Linux. ABI 1.10 exposes this profile through

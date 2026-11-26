@@ -18,12 +18,12 @@ mod workspace;
 use roots::Roots;
 pub(super) use workspace::Capacity as WorkspaceCapacity;
 use workspace::{Attributes, Node, Workspace};
-pub use workspace::{Directory as WorkspaceDirectory, WorkspaceFile};
 pub(in crate::user) use workspace::{
-    MAX_XATTR_VALUE, RESOURCE_FORK, SetTime as WorkspaceSetTime, SetXattr,
+    DARWIN_GUEST_OWNER, MAX_XATTR_VALUE, RESOURCE_FORK, SetTime as WorkspaceSetTime, SetXattr,
     TimeUpdate as WorkspaceTimeUpdate, Timestamp as WorkspaceTimestamp,
     Timestamps as WorkspaceTimestamps, Xattrs,
 };
+pub use workspace::{Directory as WorkspaceDirectory, WorkspaceFile};
 pub(super) use workspace::{Rename as WorkspaceRename, WorkspaceFlavor};
 
 const TEMP_DIRECTORY: &str = "/tmp";
@@ -918,10 +918,25 @@ impl Files {
         self.workspace.is_some()
     }
 
-    pub(super) fn workspace_mount(&self) -> Option<&Arc<WorkspaceDirectory>> {
-        self.workspace_at(TEMP_DIRECTORY)
-            .filter(|_| self.entries.get(TEMP_DIRECTORY).is_none_or(Entry::is_dir))
-            .map(|workspace| &workspace.root)
+    fn workspace_root(&self, path: &str) -> Option<&Arc<WorkspaceDirectory>> {
+        self.workspace
+            .as_ref()?
+            .roots()
+            .find(|root| root.root_path == path)
+            .filter(|_| self.workspace_at(path).is_some())
+            .filter(|_| self.entries.get(path).is_none_or(Entry::is_dir))
+    }
+
+    /// The guest scratch directories use one private volume and quota.
+    pub(super) fn workspace_mount(&self) -> Option<&str> {
+        self.workspace.as_ref()?.roots().find_map(|root| {
+            let path = root.root_path;
+            self.workspace_root(path)?;
+            let (parent, _) = path.rsplit_once('/')?;
+            let parent = if parent.is_empty() { "/" } else { parent };
+            let (resolved, entry) = self.lookup(parent).ok()?;
+            (resolved == parent && entry.is_dir()).then_some(path)
+        })
     }
 
     pub(in crate::user) fn create_workspace_detached(
@@ -1297,7 +1312,7 @@ impl Files {
         if !entry.is_dir() {
             return Err(Error::NotDirectory);
         }
-        if entry.workspace_directory().is_none() || path == TEMP_DIRECTORY {
+        if entry.workspace_directory().is_none() || self.workspace_root(&path).is_some() {
             return Err(Error::ReadOnly);
         }
         let (workspace, path, directory) = self.workspace_destination(&path, ids, groups)?;
@@ -1380,11 +1395,9 @@ impl Files {
     }
 
     fn entry(&self, path: &str, follow: bool) -> Result<Entry, Error> {
-        if path == TEMP_DIRECTORY
-            && let Some(root) = self.workspace_mount()
-        {
+        if let Some(root) = self.workspace_root(path) {
             return Ok(Entry {
-                ino: workspace::ROOT_INODE,
+                ino: root.ino,
                 kind: Kind::WorkspaceDirectory(root.clone()),
             });
         }
@@ -1398,9 +1411,19 @@ impl Files {
             }
             return Ok(entry.clone());
         }
-        if let Some(name) = path.strip_prefix("/tmp/")
-            && let Some(scratch) = self.workspace_at(path)
-            && let Some(entry) = scratch.get(name)?
+        if path == "/var" && self.workspace_root(workspace::DARWIN_FOLDERS).is_some() {
+            return Ok(Entry {
+                ino: workspace::DARWIN_VAR_INODE,
+                kind: Kind::Directory,
+            });
+        }
+        if let Some(scratch) = &self.workspace
+            && let Some((root, name)) = scratch.roots().find_map(|root| {
+                let name = path.strip_prefix(root.root_path)?.strip_prefix('/')?;
+                Some((root, name))
+            })
+            && self.workspace_at(path).is_some()
+            && let Some(entry) = scratch.get(root, name)?
         {
             return Ok(match entry {
                 Node::File(file) => Entry {
@@ -1747,16 +1770,17 @@ impl Files {
                 (!name.is_empty() && !name.contains('/')).then(|| name.to_string())
             })
             .collect();
-        if let Some(scratch) = self.workspace_at(TEMP_DIRECTORY) {
-            match canonical.as_str() {
-                "/" => {
-                    names.insert("tmp".to_owned());
+        if let Some(scratch) = self.workspace_at(&canonical) {
+            for root in scratch.roots() {
+                if let Some(suffix) = root.root_path.strip_prefix(&prefix)
+                    && self.workspace_root(root.root_path).is_some()
+                {
+                    let component = suffix.split('/').next().expect("absolute workspace path");
+                    names.insert(component.to_owned());
                 }
-                _ => {
-                    if let Some(directory) = entry.workspace_directory() {
-                        names.extend(scratch.children(directory)?);
-                    }
-                }
+            }
+            if let Some(directory) = entry.workspace_directory() {
+                names.extend(scratch.children(directory)?);
             }
         }
         for roots in self.caller_roots.iter().chain(&self.native_libraries) {
@@ -1777,6 +1801,81 @@ impl Files {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn darwin_user_directories_are_private_and_reset_with_the_workspace() {
+        const USER: &str = "/var/folders/zz/zyxvpxvq6csfxvn_n00003x00000z8";
+        let files = Files::default().with_temp_workspace(WorkspaceFlavor::Darwin);
+        let names = |path| {
+            files
+                .children(path)
+                .unwrap()
+                .into_iter()
+                .map(|(name, _)| name)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names("/"), ["tmp", "var"]);
+        assert_eq!(names("/var"), ["folders"]);
+        assert_eq!(names(USER), ["0", "C", "T"]);
+        assert_eq!(files.workspace_mount(), Some("/tmp"));
+
+        for (name, mode) in [("0", 0o755), ("C", 0o700), ("T", 0o700)] {
+            let path = format!("{USER}/{name}");
+            let (_, entry) = files.lookup(&path).unwrap();
+            assert_eq!(entry.workspace_owner(), Some(DARWIN_GUEST_OWNER));
+            assert_eq!(entry.workspace_mode(), Some(mode));
+            let item = format!("{path}/payload");
+            assert!(matches!(
+                files.create_workspace_file(&item, 0o600, (2000, 2000), &[], true),
+                Err(Error::AccessDenied)
+            ));
+            let (path, entry) = files
+                .create_workspace_file(&item, 0o600, DARWIN_GUEST_OWNER, &[], true)
+                .unwrap();
+            assert_eq!(path, item);
+            assert_eq!(entry.workspace_file().unwrap().path().unwrap(), item);
+            assert!(matches!(
+                files.fresh_session().lookup(&item),
+                Err(Error::NotFound)
+            ));
+        }
+        assert_ne!(
+            files.lookup("/tmp").unwrap().1.ino,
+            files.lookup(USER).unwrap().1.ino
+        );
+        assert_eq!(
+            files.lookup(&format!("{USER}/T/../../..")).unwrap().0,
+            "/var/folders"
+        );
+        assert!(matches!(
+            files.remove_workspace_directory("/var/folders", DARWIN_GUEST_OWNER, &[]),
+            Err(Error::ReadOnly)
+        ));
+
+        let files = Files::default()
+            .with_file("/tmp".into(), Arc::from(b"caller override".as_slice()))
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        assert_eq!(files.workspace_mount(), Some("/var/folders"));
+        let files = Files::default()
+            .with_file("/var".into(), Arc::from(b"caller override".as_slice()))
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        assert!(matches!(files.lookup(USER), Err(Error::NotDirectory)));
+
+        let mounted = test_backing::TestFile::new(b"caller fixture", 14);
+        let files = Files::default()
+            .with_host_roots(BTreeMap::from([(
+                "/var/folders".into(),
+                mounted.dir.clone(),
+            )]))
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        assert!(matches!(files.lookup(USER), Err(Error::NotFound)));
+
+        let linux = Files::default().with_temp_workspace(WorkspaceFlavor::Linux);
+        assert!(matches!(linux.lookup("/var"), Err(Error::NotFound)));
+    }
 
     #[test]
     fn darwin_descriptor_names_use_only_the_default_guest_directory() {

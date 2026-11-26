@@ -1435,6 +1435,8 @@ pub(crate) fn start(
             codesign: None,
         },
         None => {
+            let (guest_uid, guest_gid) = crate::user::supplied_fs::DARWIN_GUEST_OWNER;
+            let guest_creds = (guest_uid, guest_uid, guest_gid, guest_gid);
             // SAFETY: the credential getters take no arguments.
             #[cfg(unix)]
             let creds = if config.host_services {
@@ -1447,10 +1449,10 @@ pub(crate) fn start(
                     )
                 }
             } else {
-                (1000, 1000, 1000, 1000)
+                guest_creds
             };
             #[cfg(not(unix))]
-            let creds = (1000, 1000, 1000, 1000);
+            let creds = guest_creds;
             // SAFETY: umask(2) takes no pointers; the mask is put back at
             // once.
             #[cfg(unix)]

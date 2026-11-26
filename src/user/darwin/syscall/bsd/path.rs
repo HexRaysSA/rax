@@ -919,7 +919,14 @@ pub(super) fn write_closed_statfs(ctx: &Ctx<'_>, buf: u64, workspace: bool) -> S
         stat.ffree = capacity.nodes_available;
         stat.fsid = [0x524158, 0];
         stat.flags = MNT_LOCAL;
-        stat.mntonname = b"/tmp".to_vec();
+        stat.mntonname = ctx
+            .proc
+            .vfs
+            .files()
+            .and_then(|files| files.workspace_mount())
+            .unwrap_or("/tmp")
+            .as_bytes()
+            .to_vec();
     } else {
         stat.fsid = [0x524158, 1];
         stat.flags = MNT_LOCAL | MNT_RDONLY;

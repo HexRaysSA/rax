@@ -36,13 +36,22 @@ const FIRST_INODE: u32 = 0x5258_0001;
 const WORKSPACE_DEVICE: u64 = 0x524158;
 const DETACHED_DEVICE: u64 = 1 << 32;
 static NEXT_DETACHED_INODE: AtomicU32 = AtomicU32::new(1);
-pub(super) const ROOT_INODE: u64 = (FIRST_INODE - 1) as u64;
+const ROOT_INODE: u64 = (FIRST_INODE - 1) as u64;
+const DARWIN_FOLDERS_INODE: u64 = ROOT_INODE - 1;
+pub(super) const DARWIN_VAR_INODE: u64 = ROOT_INODE - 2;
+pub(super) const DARWIN_FOLDERS: &str = "/var/folders";
+
+// The installed Darwin dirhelper computes this component for the closed
+// guest's virtual UID when it has no directory-service identity.
+const DARWIN_USER_FOLDER: &str = "zyxvpxvq6csfxvn_n00003x00000z8";
+pub(in crate::user) const DARWIN_GUEST_OWNER: (u32, u32) = (1000, 1000);
 
 #[derive(Debug)]
 pub(super) struct Workspace {
     namespace: Arc<Mutex<Namespace>>,
     budget: Arc<Mutex<Budget>>,
     pub(super) root: Arc<Directory>,
+    darwin_folders: Option<Arc<Directory>>,
     pub(super) flavor: WorkspaceFlavor,
 }
 
@@ -162,6 +171,7 @@ pub(in crate::user) enum Rename {
 pub struct Directory {
     pub(super) ino: u64,
     pub(super) attributes: Attributes,
+    pub(super) root_path: &'static str,
     namespace: Weak<Mutex<Namespace>>,
     location: Option<Mutex<Location>>,
     linked: AtomicBool,
@@ -186,7 +196,7 @@ impl Directory {
         let _namespace = namespace.lock().map_err(|_| Error::Io)?;
         match &self.location {
             Some(location) => Ok(location.lock().map_err(|_| Error::Io)?.clone().path()),
-            None => Ok(super::TEMP_DIRECTORY.into()),
+            None => Ok(self.root_path.into()),
         }
     }
 
@@ -509,25 +519,66 @@ struct SymbolicLink {
 
 impl Workspace {
     pub(super) fn new(flavor: WorkspaceFlavor) -> Self {
+        let mut children = BTreeMap::from([(ROOT_INODE, BTreeMap::new())]);
+        if flavor == WorkspaceFlavor::Darwin {
+            children.insert(DARWIN_FOLDERS_INODE, BTreeMap::new());
+        }
         let namespace = Arc::new(Mutex::new(Namespace {
-            children: BTreeMap::from([(ROOT_INODE, BTreeMap::new())]),
+            children,
             inode: FIRST_INODE,
         }));
         let budget = Arc::new(Mutex::new(Budget::default()));
-        Self {
-            namespace: namespace.clone(),
-            budget: budget.clone(),
-            root: Arc::new(Directory {
-                ino: ROOT_INODE,
-                attributes: Attributes::new(0o1777, (0, 0), budget),
+        let root = |ino, root_path, mode| {
+            Arc::new(Directory {
+                ino,
+                attributes: Attributes::new(mode, (0, 0), budget.clone()),
+                root_path,
                 namespace: Arc::downgrade(&namespace),
                 location: None,
                 linked: AtomicBool::new(true),
                 links: AtomicU32::new(2),
                 budget: None,
-            }),
+            })
+        };
+        let workspace = Self {
+            namespace: namespace.clone(),
+            budget: budget.clone(),
+            root: root(ROOT_INODE, super::TEMP_DIRECTORY, 0o1777),
+            darwin_folders: (flavor == WorkspaceFlavor::Darwin)
+                .then(|| root(DARWIN_FOLDERS_INODE, DARWIN_FOLDERS, 0o755)),
             flavor,
+        };
+        if let Some(folders) = &workspace.darwin_folders {
+            let prefix = workspace.seed_directory(folders, "zz", 0o755, (0, 0));
+            let user =
+                workspace.seed_directory(&prefix, DARWIN_USER_FOLDER, 0o755, DARWIN_GUEST_OWNER);
+            for (name, mode) in [("0", 0o755), ("T", 0o700), ("C", 0o700)] {
+                workspace.seed_directory(&user, name, mode, DARWIN_GUEST_OWNER);
+            }
         }
+        workspace
+    }
+
+    fn seed_directory(
+        &self,
+        parent: &Arc<Directory>,
+        name: &str,
+        mode: u32,
+        owner: (u32, u32),
+    ) -> Arc<Directory> {
+        self.create_directory(name.into(), mode, owner, parent)
+            .expect("preallocated workspace has room for its default directories");
+        let Some(Node::Directory(directory)) = self
+            .get(parent, name)
+            .expect("new workspace directory is readable")
+        else {
+            unreachable!("new workspace directory");
+        };
+        directory
+    }
+
+    pub(super) fn roots(&self) -> impl Iterator<Item = &Arc<Directory>> {
+        std::iter::once(&self.root).chain(self.darwin_folders.iter())
     }
 
     pub(super) fn capacity(&self) -> Result<Capacity, Error> {
@@ -540,9 +591,13 @@ impl Workspace {
         })
     }
 
-    pub(super) fn get(&self, path: &str) -> Result<Option<Node>, Error> {
+    pub(super) fn get(
+        &self,
+        directory: &Arc<Directory>,
+        path: &str,
+    ) -> Result<Option<Node>, Error> {
         let namespace = self.namespace.lock().map_err(|_| Error::Io)?;
-        let mut parent = ROOT_INODE;
+        let mut parent = directory.ino;
         let mut components = path.split('/').peekable();
         while let Some(name) = components.next() {
             let node = namespace.children[&parent].get(name);
@@ -577,6 +632,7 @@ impl Workspace {
         let directory = Arc::new(Directory {
             ino,
             attributes: Attributes::new(mode, owner, self.budget.clone()),
+            root_path: parent.root_path,
             namespace: Arc::downgrade(&self.namespace),
             location: Some(Mutex::new(location)),
             linked: AtomicBool::new(true),
@@ -1051,7 +1107,7 @@ impl Location {
             names.push(location.name);
             parent = location.parent;
         }
-        let mut path = String::from(super::TEMP_DIRECTORY);
+        let mut path = String::from(parent.root_path);
         for name in names.iter().rev() {
             path.push('/');
             path.push_str(name);
@@ -1601,7 +1657,7 @@ mod tests {
         workspace
             .link(&source, root, "alias".into(), owner, &[])
             .unwrap();
-        let Node::File(alias) = workspace.get("alias").unwrap().unwrap() else {
+        let Node::File(alias) = workspace.get(&workspace.root, "alias").unwrap().unwrap() else {
             panic!("expected a file hard link");
         };
         assert_eq!(original.ino(), alias.ino());
@@ -1663,7 +1719,7 @@ mod tests {
             workspace.clone_leaf(&node, root, "copy".into(), owner, false, false),
             Err(Error::NoSpace)
         );
-        assert!(workspace.get("copy").unwrap().is_none());
+        assert!(workspace.get(&workspace.root, "copy").unwrap().is_none());
         let after = workspace.capacity().unwrap();
         assert_eq!(after.bytes_available, before.bytes_available);
         assert_eq!(after.nodes_available, before.nodes_available);
@@ -1673,7 +1729,7 @@ mod tests {
         workspace
             .clone_leaf(&node, root, "copy".into(), owner, false, false)
             .unwrap();
-        let Node::File(copy) = workspace.get("copy").unwrap().unwrap() else {
+        let Node::File(copy) = workspace.get(&workspace.root, "copy").unwrap().unwrap() else {
             panic!("expected a file clone");
         };
         assert_ne!(source.ino(), copy.ino());
@@ -1727,7 +1783,7 @@ mod tests {
         ));
         files.unlink(name, 101, &files.root).unwrap();
         assert_eq!(before.link_count(), 0);
-        assert!(files.get(name).unwrap().is_none());
+        assert!(files.get(&files.root, name).unwrap().is_none());
         let (after, _) = files
             .create(name.into(), 0o640, (103, 104), true, &files.root)
             .unwrap();
