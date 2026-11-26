@@ -325,3 +325,50 @@ fn uart_reads_consume_input_without_fetch_or_invalid_access_side_effects() {
     );
     assert_eq!(memory.read_u32(claim).unwrap(), 0);
 }
+
+#[cfg(unix)]
+#[test]
+fn implicit_reads_check_the_full_physical_range_before_returning_bytes() {
+    use vm_memory::{GuestRegionMmap, mmap::MmapRegionBuilder};
+
+    fn region(address: u64, protection: i32) -> GuestRegionMmap {
+        let mapping = MmapRegionBuilder::new(0x4000)
+            .with_mmap_prot(protection)
+            .with_mmap_flags(libc::MAP_PRIVATE | libc::MAP_ANONYMOUS)
+            .build()
+            .unwrap();
+        GuestRegionMmap::new(mapping, GuestAddress(address)).unwrap()
+    }
+
+    let mem = Arc::new(
+        GuestMemoryMmap::from_regions(vec![
+            region(0x0000, libc::PROT_READ | libc::PROT_WRITE),
+            region(0x4000, libc::PROT_READ),
+            region(0xc000, libc::PROT_NONE),
+        ])
+        .unwrap(),
+    );
+    mem.write_slice(&[1, 2, 3, 4, 5, 6, 7, 8], GuestAddress(0x3ff8))
+        .unwrap();
+    let memory = bridge(mem, None);
+    assert_eq!(
+        memory.read_page_table_entry(0x3ff8).unwrap(),
+        0x0807_0605_0403_0201
+    );
+    assert_eq!(memory.read_page_table_entry(0x4000).unwrap(), 0);
+
+    let mut bytes = [0xa5; 4];
+    memory.read_translated_fetch(0x3ffe, &mut bytes).unwrap();
+    assert_eq!(bytes, [7, 8, 0, 0]);
+    for address in [0x7ffe, 0xc000, UART_BASE] {
+        let mut bytes = [0xa5; 4];
+        assert_eq!(
+            memory.read_translated_fetch(address, &mut bytes),
+            Err(MemError::OutOfBounds {
+                addr: address,
+                size: 4
+            }),
+        );
+        assert_eq!(bytes, [0xa5; 4]);
+    }
+}

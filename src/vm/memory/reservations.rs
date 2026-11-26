@@ -530,6 +530,31 @@ impl Monitor {
         let _domain = self.domain.lock();
         memory.read_slice(buf, GuestAddress(address))
     }
+    /// Read RAM after checking every mapping that contributes bytes.
+    pub(crate) fn read_protected(
+        &self,
+        memory: &GuestMemoryMmap,
+        address: u64,
+        buf: &mut [u8],
+    ) -> Result<(), GuestMemoryError> {
+        let base = GuestAddress(address);
+        if !buf.is_empty()
+            && let Some(region) = memory.find_region(base)
+        {
+            let offset = address - region.start_addr().0;
+            if buf.len() as u64 <= region.len() - offset {
+                #[cfg(unix)]
+                if region.prot() & libc::PROT_READ == 0 {
+                    return Err(GuestMemoryError::InvalidGuestAddress(base));
+                }
+                let _domain = self.domain.lock();
+                return region.read_slice(buf, vm_memory::MemoryRegionAddress(offset));
+            }
+        }
+        // Admit the entire span before copying any part of a multi-region read.
+        preflight_read(memory, address, buf.len())?;
+        self.read(memory, address, buf)
+    }
     pub fn get(&self) -> Option<Reservation> {
         slot_lock(&self.slot).as_ref().map(|value| value.logical)
     }

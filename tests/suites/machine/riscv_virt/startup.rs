@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 #[path = "../../../support/riscv_startup.rs"]
 mod program;
+pub(super) use program::elf;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

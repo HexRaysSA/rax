@@ -200739,6 +200739,17 @@
       "full_goal_complete": false
     },
     {
+      "id": "rv64-protected-read-default-clock-linux-2026-11-26",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "RV64 protected reads find and check a single RAM mapping once while preserving the shared reservation-domain lock. The same standard release profile completed a 90,000,000-instruction four-hart paged benchmark in a median 13.561 s versus 18.092 s on the parent. The unchanged four-hart Debian/OpenSBI guest under the default wall clock ran PID 1 on each hart, reported SMP success, and powered off in 2479.743 host seconds without intermediate snapshots. The run still logged RCU stalls and a certificate timeout. Boot-time speedup and the cause of stalls remain unresolved.",
+      "qualification": "docs/development/riscv-clint/README.md#protected-physical-reads-and-the-four-hart-default-clock-boot",
+      "full_goal_complete": false
+    },
+    {
       "id": "rv64-issued-uart-write-checkpoint-2026-11-26",
       "findings": [
         "C-STATE",

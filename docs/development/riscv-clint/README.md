@@ -856,6 +856,36 @@ the guest spent time. The wall-clock boot timeout remains open.
 The guest inputs, console, checkpoint hashes and decoded tasks are in the
 task-state evidence directory under `trace-init-disabled*`.
 
+#### Protected physical reads and the four-hart default-clock boot
+
+An RV64 page-table read or translated instruction fetch that fits one RAM
+mapping finds and checks that mapping once. The copy runs under the same
+reservation-domain lock as an ordinary guest-memory read. A multi-mapping
+read uses the full preflight before copying. Device and inaccessible RAM
+continue to reject the request without writing any destination bytes.
+
+| Assumption | Falsification probe | Result |
+| --- | --- | --- |
+| One-mapping admission preserves read permissions and range checks. | Use a read-only PTE, a fetch spanning two readable mappings, an unmapped hole, protected memory and a device aperture. Check rejected buffers byte-for-byte. | The focused regression passed. |
+| The benchmark completes identical work on four harts. | Disassemble the 90,000,000-instruction guest loop. Verify the completed hart mask, UART output, exit and input digest for both versions. | Four measured pairs and one warm-up per executable produced one success marker and exit status 0. |
+| The default wall clock can complete the unchanged four-hart Debian guest. | Boot the archived OpenSBI and Debian image without intermediate capture. Require one affinity marker per hart in order, one SMP success marker and exit status 0. | All markers and clean shutdown occurred in 2,479.743 host seconds. |
+
+On macOS Arm64, the same standard no-default-features release profile
+reduced the synthetic loop's median wall time from 18.092 s to 13.561 s
+and median user CPU time from 16.764 s to 12.415 s. These are reductions
+of 25.0% and 25.9% respectively. Median absolute deviations for wall
+time were 0.420 s and 0.275 s over four runs per executable. The raw
+pairs, commands and binaries are recorded in
+`/Users/int/dev/rax-audit-work/four-findings-rv64-standard-release-2026-11-26/`.
+
+The uninterrupted Debian Linux 6.12.117-1 run used OpenSBI v1.8.1 with
+the archived four-hart DTB, the guest boot arguments `quiet nowatchdog`,
+and the default wall clock. Linux reported RCU
+stalls and an X.509 timeout before running PID 1 on each hart and powering
+off. The earlier custom-profile run had a 2,300 s limit. These runs
+establish the successful default-clock boot for this configuration and
+leave its comparative boot time and stall causes unresolved.
+
 ## Issued UART writes in checkpoints
 
 The VMM retains an issued UART MMIO write at the head of the originating

@@ -405,9 +405,8 @@ impl Memory for GuestBridge {
             size,
         };
         self.check_implicit_ram(address, size)?;
-        crate::vm::memory::reservations::preflight_read(&self.mem, address, size).map_err(fault)?;
         self.exclusive
-            .read(&self.mem, address, bytes)
+            .read_protected(&self.mem, address, bytes)
             .map_err(fault)
     }
 

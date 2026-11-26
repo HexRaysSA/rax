@@ -1,10 +1,9 @@
 //! An independently linked consumer executes the CLINT guest through Vmm.run.
+use super::startup::elf;
 use rax::config::{ArchKind, BackendKind, CliConfig, MemorySize, VmConfig};
 use rax::vm::runtime::Vmm;
 use rax::vm::timing::ClockMode;
 use std::sync::atomic::{AtomicU64, Ordering};
-#[path = "../../../support/riscv_startup.rs"]
-mod image;
 #[path = "../../../support/riscv_clint.rs"]
 mod program;
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -28,7 +27,7 @@ fn public_vmm_delivers_both_clint_interrupts_to_one_two_and_four_harts() {
                 program::program(count, false)
             };
             println!("public CLINT mode={mode:?} harts={count} future={future}");
-            std::fs::write(&path, image::elf(&code, 0x1000, 0x1000)).unwrap();
+            std::fs::write(&path, elf(&code, 0x1000, 0x1000)).unwrap();
             let result = (|| -> rax::error::Result<()> {
                 let config = VmConfig::from_sources(
                     CliConfig {
