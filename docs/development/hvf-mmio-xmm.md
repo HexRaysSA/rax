@@ -2142,7 +2142,28 @@ seven encoded bytes. The runner's VPCLMULQDQ capability and the guest
 exception vector are unknown. Native VEX.256, bare-metal Intel and EVEX
 remain open. [Hosted wide profile](https://github.com/HexRaysSA/rax/actions/runs/45862371988)
 
+The wide runner now executes that first opcode in fresh guests with both
+ordinary RAM and an unmapped device operand. It records host and guest
+`CPUID.07H.0:ECX`, where bit 10 enumerates VPCLMULQDQ, and requires the
+guest to read back XCR0=7. A guest IDT captures the exception vector,
+saved RIP and architectural error code when present. Qualification
+requires the feature bit on both sides, normal retirement for both
+operands, and a 32 B device read at `MMIO + 3`. The 16 result and restore
+cases follow on success.
+[Intel CPUID reference, table 1-2](https://www.intel.com/content/dam/develop/external/us/en/documents/architecture-instruction-set-extensions-programming-reference-806695.pdf)
+
+QEMU 11.1.2 TCG independently confirmed the halt marker, the #UD frame
+for `UD2` and the #GP frame with nonzero error code `0xf8` for an invalid
+segment selector. With XCR0=7 and the VPCLMULQDQ CPUID bit clear, the exact
+wide instruction also produced #UD. The QEMU controls check the guest
+diagnostic layout. Hosted Intel execution is pending. Raw register and
+stack observations, the replay script, and the QEMU result file are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-vpclmul-diagnostics-2026-11-26/`.
+The QEMU result file SHA-256 is
+`61d960616e02f1fddd6552697b3002ce246e36d49f53e7d0b0cdcb86ba2bfaf1`.
+
 | Assumption | Impact | Falsification probe |
 | --- | --- | --- |
 | The Intel runner can execute the tested encoding far enough to reach the device read. | High | Require real MMIO exits at the exact operand width. Execute VEX.256 separately so an unsupported opcode cannot satisfy the narrow profile or erase its observations. |
+| The test guest can distinguish instruction admission faults from device-path failures. | High | Run the same opcode with a RAM operand and a device operand. Compare feature bits, exit reason, exception frame, and retirement marker. Check frame offsets against independent known #UD and #GP controls. |
 | Lane results are independent of native owner replacement. | High | Require the same 32 B result and flags with direct completion and after checkpoint restore. Compare the low 16 B to ordinary QEMU RAM execution and the wide upper 16 B to the independent second-lane VEX.128 RAM result. |

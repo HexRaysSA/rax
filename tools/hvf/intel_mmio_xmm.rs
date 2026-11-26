@@ -16,7 +16,7 @@ mod register_blend;
 
 type MoveCase<'a> = ((&'a [u8], usize, usize, bool), bool, &'a str);
 
-fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
+pub(super) fn enable_guest_avx(memory: &GuestMemoryWrapper, cpu: &mut dyn VCpu) {
     const BOOTSTRAP: u64 = CODE + 0x1000;
     memory
         .memory()
