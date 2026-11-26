@@ -1,8 +1,8 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type and
-//! terminal databases, character-conversion tables, and installed Perl and Ruby
-//! modules. Executables and
-//! shebang scripts are available for child execution in the same guest namespace.
+//! terminal databases, character-conversion tables, system TLS defaults, and
+//! installed Perl and Ruby modules. Executables and shebang scripts are
+//! available for child execution in the same guest namespace.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -30,6 +30,12 @@ const OPENSSL_CONFIG: &str = "/private/etc/ssl/openssl.cnf";
 
 #[cfg(any(target_os = "macos", test))]
 const OPENSSL_TEMPLATE: &str = "System/Library/Templates/Data/private/etc/ssl/openssl.cnf";
+
+#[cfg(any(target_os = "macos", test))]
+const OPENSSL_CA_BUNDLE: &str = "/private/etc/ssl/cert.pem";
+
+#[cfg(any(target_os = "macos", test))]
+const OPENSSL_CA_TEMPLATE: &str = "System/Library/Templates/Data/private/etc/ssl/cert.pem";
 
 #[cfg(any(target_os = "macos", test))]
 const SHELL_SELECTOR: &str = "/private/var/select/sh";
@@ -193,8 +199,13 @@ fn select_native_root(
         FILE_MAGIC_DATABASE,
         &root.join(FILE_MAGIC_DATABASE.trim_start_matches('/')),
     )?;
-    // Use the OS template from the system volume rather than local TLS configuration.
+    // The system volume provides the stock LibreSSL configuration and trust roots.
     let files = select_system_file(files, OPENSSL_CONFIG, &root.join(OPENSSL_TEMPLATE))?;
+    let files = if overlaps_executable(OPENSSL_CA_BUNDLE, executable) {
+        files
+    } else {
+        select_system_file(files, OPENSSL_CA_BUNDLE, &root.join(OPENSSL_CA_TEMPLATE))?
+    };
     let files = files
         .with_device(Device::Null)
         .and_then(|files| files.with_device(Device::Zero))
@@ -884,14 +895,16 @@ mod tests {
     }
 
     #[test]
-    fn openssl_config_comes_from_the_system_template() {
+    fn openssl_defaults_come_from_the_system_templates() {
         use crate::user::supplied_fs::Error;
 
         let fixture = TestFile::new(b"dyld", 4);
         let dyld = fixture.dir.join("usr/lib/dyld");
         let cache_dir = fixture.dir.join("System/Library/dyld");
         let template = fixture.dir.join(OPENSSL_TEMPLATE);
+        let ca_template = fixture.dir.join(OPENSSL_CA_TEMPLATE);
         let local = fixture.dir.join(OPENSSL_CONFIG.trim_start_matches('/'));
+        let local_ca = fixture.dir.join(OPENSSL_CA_BUNDLE.trim_start_matches('/'));
         std::fs::create_dir_all(dyld.parent().unwrap()).unwrap();
         std::fs::create_dir_all(&cache_dir).unwrap();
         std::fs::create_dir_all(template.parent().unwrap()).unwrap();
@@ -899,19 +912,29 @@ mod tests {
         std::fs::write(dyld, b"dyld").unwrap();
         std::fs::write(cache_dir.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
         std::fs::write(local, b"local config").unwrap();
-        std::fs::write(template.with_file_name("cert.pem"), b"neighbor").unwrap();
+        std::fs::write(local_ca, b"local bundle").unwrap();
+        std::fs::write(template.with_file_name("local-key.pem"), b"neighbor").unwrap();
 
         let absent = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
         assert!(matches!(
             absent.lookup(OPENSSL_CONFIG),
             Err(Error::NotFound)
         ));
+        assert!(matches!(
+            absent.lookup(OPENSSL_CA_BUNDLE),
+            Err(Error::NotFound)
+        ));
 
         std::fs::write(&template, b"system config").unwrap();
+        std::fs::write(&ca_template, b"system bundle").unwrap();
         let selected = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
         assert_eq!(&*selected.read(OPENSSL_CONFIG).unwrap(), b"system config");
+        assert_eq!(
+            &*selected.read(OPENSSL_CA_BUNDLE).unwrap(),
+            b"system bundle"
+        );
         assert!(matches!(
-            selected.lookup("/private/etc/ssl/cert.pem"),
+            selected.lookup("/private/etc/ssl/local-key.pem"),
             Err(Error::NotFound)
         ));
         assert!(matches!(
@@ -921,9 +944,30 @@ mod tests {
 
         let supplied = Files::default()
             .with_file(OPENSSL_CONFIG.into(), Arc::from(&b"guest config"[..]))
+            .unwrap()
+            .with_file(OPENSSL_CA_BUNDLE.into(), Arc::from(&b"guest bundle"[..]))
             .unwrap();
         let selected = select_native_root(&supplied, &fixture.dir, None).unwrap();
         assert_eq!(&*selected.read(OPENSSL_CONFIG).unwrap(), b"guest config");
+        assert_eq!(&*selected.read(OPENSSL_CA_BUNDLE).unwrap(), b"guest bundle");
+
+        let executable =
+            select_native_root(&Files::default(), &fixture.dir, Some(OPENSSL_CA_BUNDLE)).unwrap();
+        assert!(matches!(
+            executable.lookup(OPENSSL_CA_BUNDLE),
+            Err(Error::NotFound)
+        ));
+
+        #[cfg(unix)]
+        {
+            std::fs::remove_file(&ca_template).unwrap();
+            std::os::unix::fs::symlink(&fixture.path, &ca_template).unwrap();
+            let selected = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
+            assert!(matches!(
+                selected.lookup(OPENSSL_CA_BUNDLE),
+                Err(Error::NotFound)
+            ));
+        }
     }
 
     #[test]
