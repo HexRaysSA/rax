@@ -1,6 +1,7 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type and
-//! terminal databases, character-conversion tables, system TLS defaults, and
+//! terminal databases, character-conversion tables, the system firmlink
+//! manifest, system TLS defaults, and
 //! selected CoreText and AppKit resources, system framework manifests, and
 //! framework-bundled XPC service files and system sandbox profiles.
 //! Installed Perl and Ruby modules,
@@ -32,6 +33,9 @@ const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.p
 
 #[cfg(any(target_os = "macos", test))]
 const FILE_MAGIC_DATABASE: &str = "/usr/share/file/magic.mgc";
+
+#[cfg(any(target_os = "macos", test))]
+const FIRMLINK_MANIFEST: &str = "/usr/share/firmlinks";
 
 #[cfg(any(target_os = "macos", test))]
 const LAST_RESORT_FONT: &str = "/System/Library/Fonts/LastResort.otf";
@@ -296,6 +300,8 @@ fn select_runtime_root(
     let mut files = select_system_file(files, OPENSSL_CONFIG, &root.join(OPENSSL_TEMPLATE))?;
     for (guest, relative) in [
         (OPENSSL_CA_BUNDLE, OPENSSL_CA_TEMPLATE),
+        // libfakelink reads this manifest when normalizing FSEvents paths.
+        (FIRMLINK_MANIFEST, FIRMLINK_MANIFEST.trim_start_matches('/')),
         (LAST_RESORT_FONT, LAST_RESORT_FONT.trim_start_matches('/')),
     ] {
         if !overlaps_executable(guest, executable) {
@@ -1866,6 +1872,69 @@ mod tests {
             .unwrap();
         let selected = select_native_root(&explicit, root, None).unwrap();
         assert_eq!(&*selected.read(path).unwrap(), b"override");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_firmlink_manifest_preserves_namespace_boundaries() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"outside file", 20);
+        let root = &fixture.dir;
+        for path in ["usr/lib", "usr/share", "System/Library/dyld"] {
+            fs::create_dir_all(root.join(path)).unwrap();
+        }
+        fs::write(root.join("usr/lib/dyld"), b"dyld").unwrap();
+        fs::write(
+            root.join("System/Library/dyld/dyld_shared_cache_arm64e"),
+            b"cache",
+        )
+        .unwrap();
+
+        let files = Files::default();
+        let selected = select_native_root(&files, root, None).unwrap();
+        assert!(matches!(
+            selected.lookup(FIRMLINK_MANIFEST),
+            Err(Error::NotFound)
+        ));
+
+        let manifest = root.join(FIRMLINK_MANIFEST.trim_start_matches('/'));
+        let contents = b"/Applications\tApplications\n";
+        fs::write(&manifest, contents).unwrap();
+        fs::write(root.join("usr/share/adjacent"), b"unselected").unwrap();
+        let selected = select_native_root(&files, root, None).unwrap();
+        assert_eq!(&*selected.read(FIRMLINK_MANIFEST).unwrap(), contents);
+        assert!(matches!(
+            selected.lookup("/usr/share/adjacent"),
+            Err(Error::NotFound)
+        ));
+
+        let supplied = files
+            .with_file(
+                FIRMLINK_MANIFEST.into(),
+                Arc::from(b"caller manifest".as_slice()),
+            )
+            .unwrap();
+        let selected = select_native_root(&supplied, root, None).unwrap();
+        assert_eq!(
+            &*selected.read(FIRMLINK_MANIFEST).unwrap(),
+            b"caller manifest"
+        );
+
+        let selected = select_native_root(&files, root, Some(FIRMLINK_MANIFEST)).unwrap();
+        assert!(matches!(
+            selected.lookup(FIRMLINK_MANIFEST),
+            Err(Error::NotFound)
+        ));
+
+        fs::remove_file(&manifest).unwrap();
+        symlink(&fixture.path, &manifest).unwrap();
+        let selected = select_native_root(&files, root, None).unwrap();
+        assert!(matches!(
+            selected.lookup(FIRMLINK_MANIFEST),
+            Err(Error::NotFound)
+        ));
     }
 
     #[cfg(unix)]
