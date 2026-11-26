@@ -1334,6 +1334,98 @@ fn aligned_streaming_vector_stores_plan_exact_mmio_widths() {
 }
 
 #[test]
+fn aligned_streaming_vector_loads_plan_exact_mmio_widths() {
+    use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
+
+    for (code, name, register, width) in [
+        (
+            &[0x66, 0x44, 0x0f, 0x38, 0x2a, 0x3f][..],
+            "movntdqa",
+            "xmm15",
+            16u8,
+        ),
+        (&[0xc4, 0x62, 0x79, 0x2a, 0x3f], "vmovntdqa", "xmm15", 16),
+        (&[0xc4, 0x62, 0xf9, 0x2a, 0x3f], "vmovntdqa", "xmm15", 16),
+        (&[0xc4, 0x62, 0x7d, 0x2a, 0x3f], "vmovntdqa", "ymm15", 32),
+        (&[0xc4, 0x62, 0xfd, 0x2a, 0x3f], "vmovntdqa", "ymm15", 32),
+    ] {
+        let (context, mut ram, mut exit) = fixture(code);
+        let plan = prepare(&context, &mut ram, exit).unwrap_or_else(|err| {
+            panic!("{name} {code:02x?} must plan a {width}-byte read: {err}")
+        });
+        let decoded = instruction_metadata::decode(64, context.rip, code).unwrap();
+        assert_eq!(decoded.mnemonic, name);
+        assert!(decoded.operands_complete);
+        let [dst, src] = decoded.operands.as_slice() else {
+            panic!("expected two operands for {code:02x?}");
+        };
+        assert_eq!(
+            (dst.kind, dst.reg.as_str()),
+            (OperandKind::Register, register)
+        );
+        assert_eq!(src.kind, OperandKind::Memory);
+        assert_eq!(
+            (dst.read, dst.write, src.read, src.write),
+            (false, true, true, false)
+        );
+        assert_eq!(src.width_bits, u32::from(width) * 8);
+        assert_eq!(dst.width_bits, src.width_bits);
+        assert_eq!((plan.physical, plan.linear), (exit.physical, exit.linear));
+        assert_eq!(plan.length, code.len() as u64);
+        match plan.action {
+            Action::XmmRead { input, zero_upper } if width == 16 => {
+                assert_eq!(
+                    (input.index, input.size, input.length),
+                    (15, width, plan.length)
+                );
+                assert_eq!(zero_upper, name == "vmovntdqa");
+            }
+            Action::YmmRead(input) if width == 32 => {
+                assert_eq!((input.index, input.length), (15, plan.length));
+            }
+            _ => panic!("unexpected streaming load action for {code:02x?}"),
+        }
+        let offset = u64::from(width / 2);
+        let mut misaligned = context;
+        misaligned.registers[7] += offset;
+        let bad_address = ExitRecord {
+            linear: exit.linear + offset,
+            physical: exit.physical + offset,
+            ..exit
+        };
+        let register_class = if width == 16 { "XMM" } else { "YMM" };
+        assert_eq!(
+            prepare(&misaligned, &mut ram, bad_address).unwrap_err(),
+            format!("misaligned {register_class} MMIO transfer"),
+        );
+        exit.qualification = 0x182;
+        assert!(prepare(&context, &mut ram, exit).is_err());
+        assert!(
+            ram.reads
+                .iter()
+                .all(|&(address, _)| !(exit.physical..exit.physical + 64).contains(&address))
+        );
+    }
+
+    for code in [
+        &[0x66, 0x0f, 0x38, 0x2a, 0xff][..],
+        &[0x0f, 0x38, 0x2a, 0x3f],
+        &[0xf0, 0x66, 0x0f, 0x38, 0x2a, 0x3f],
+        &[0xc4, 0x62, 0x79, 0x2a, 0xff],
+        &[0xc4, 0x62, 0x71, 0x2a, 0x3f],
+        &[0xc4, 0x62, 0x78, 0x2a, 0x3f],
+        &[0x66, 0xc4, 0x62, 0x79, 0x2a, 0x3f],
+    ] {
+        assert!(
+            instruction_metadata::decode(64, 0x1000, code).is_err(),
+            "{code:02x?}"
+        );
+        let (context, mut ram, exit) = fixture(code);
+        assert!(prepare(&context, &mut ram, exit).is_err(), "{code:02x?}");
+    }
+}
+
+#[test]
 fn aligned_xmm_moves_use_the_full_operand_and_reject_misalignment() {
     use rax::isa::x86_64::instruction_metadata;
     for (bytes, mnemonic, lane, read, vex) in [

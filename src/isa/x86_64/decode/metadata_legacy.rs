@@ -445,6 +445,14 @@ pub(super) fn decode_0f(
             name
         }
         0x38 => match ctx.consume_u8().ok()? {
+            0x2a if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() => {
+                out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
+                if out.operands[1].kind != OperandKind::Memory {
+                    return None;
+                }
+                out.operands[0].read = false;
+                "movntdqa"
+            }
             map_opcode @ (0x10 | 0x14 | 0x15)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {

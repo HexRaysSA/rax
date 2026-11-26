@@ -248,6 +248,49 @@ pub(super) fn run(output: &Path, vex: bool) {
     run_cases(output, vex, profile, transfers.collect());
 }
 
+pub(super) fn run_streaming_loads(output: &Path, vex: bool) {
+    if vex {
+        run_cases(
+            output,
+            true,
+            "vex-ntload",
+            vec![
+                (
+                    (&[0xc4, 0x62, 0x79, 0x2a, 0x3f], 16, 15, true),
+                    true,
+                    "xmm-w0-",
+                ),
+                (
+                    (&[0xc4, 0x62, 0xf9, 0x2a, 0x3f], 16, 15, true),
+                    true,
+                    "xmm-w1-",
+                ),
+                (
+                    (&[0xc4, 0x62, 0x7d, 0x2a, 0x3f], 32, 15, true),
+                    true,
+                    "ymm-w0-",
+                ),
+                (
+                    (&[0xc4, 0x62, 0xfd, 0x2a, 0x3f], 32, 15, true),
+                    true,
+                    "ymm-w1-",
+                ),
+            ],
+        );
+    } else {
+        run_cases(
+            output,
+            false,
+            "legacy-ntload",
+            vec![(
+                (&[0x66, 0x44, 0x0f, 0x38, 0x2a, 0x3f], 16, 15, true),
+                true,
+                "",
+            )],
+        );
+    }
+}
+
 pub(super) fn run_streaming_stores(output: &Path, vex: bool) {
     let profile = if vex { "vex-ntstore" } else { "legacy-ntstore" };
     let forms = [

@@ -30,6 +30,7 @@ pub(super) fn decode_xmm_transfer(
         ((!vex >> 5) & 4, vex & 0x7f, 1)
     };
     let opcode = ctx.consume_u8().ok()?;
+    let streaming_load = (map, flags & 3, opcode) == (2, 1, 0x2a);
     let uniform_shift = packed_uniform_shift_mnemonics(map, flags & 3, opcode);
     let immediate_shuffle = match (map, flags & 0x87, opcode) {
         (3, 1 | 5, 0x02) => Some("vpblendd"),
@@ -85,7 +86,8 @@ pub(super) fn decode_xmm_transfer(
             || bit_test.is_some()
             || unary_shuffle.is_some()
             || absolute.is_some()
-            || widening.is_some() =>
+            || widening.is_some()
+            || streaming_load =>
         {
             (true, 16, true)
         }
@@ -144,7 +146,9 @@ pub(super) fn decode_xmm_transfer(
         size
     };
     let (group, _, mut rm) = modrm(ctx, address_bits, rm_size, bits == 64)?;
-    if map == 1 && matches!(opcode, 0x2b | 0xe7) && rm.kind != OperandKind::Memory {
+    if (streaming_load || map == 1 && matches!(opcode, 0x2b | 0xe7))
+        && rm.kind != OperandKind::Memory
+    {
         return None;
     }
     let (bank, register_width) = if size == 32 {
@@ -200,6 +204,7 @@ pub(super) fn decode_xmm_transfer(
         _ if let Some(name) = binary => name,
         _ if let Some(name) = unary_shuffle.or(absolute) => name,
         _ if let Some((name, _)) = widening => name,
+        _ if streaming_load => "vmovntdqa",
         (0x10 | 0x11, 4, 2) => "vmovss",
         (0x10 | 0x11, 8, 3) => "vmovsd",
         (0x10 | 0x11, 16 | 32, 0) => "vmovups",

@@ -530,7 +530,8 @@ impl VectorMove {
             "movq" | "vmovq" | "movsd" | "vmovsd" => (8, false),
             "movdqu" | "vmovdqu" | "movups" | "vmovups" | "movupd" | "vmovupd" => (16, false),
             "movdqa" | "vmovdqa" | "movaps" | "vmovaps" | "movapd" | "vmovapd" | "movntps"
-            | "vmovntps" | "movntpd" | "vmovntpd" | "movntdq" | "vmovntdq" => (16, true),
+            | "vmovntps" | "movntpd" | "vmovntpd" | "movntdq" | "vmovntdq" | "movntdqa"
+            | "vmovntdqa" => (16, true),
             _ => return None,
         };
         Some(Self {

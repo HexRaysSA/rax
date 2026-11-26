@@ -28,6 +28,8 @@ on:
           - vex-xmm
           - legacy-ntstore
           - vex-ntstore
+          - legacy-ntload
+          - vex-ntload
           - xmm-lanes
           - vector-logic
           - vector-compare

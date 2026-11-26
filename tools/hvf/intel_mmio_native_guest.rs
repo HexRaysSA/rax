@@ -1395,18 +1395,21 @@ fn main() {
         nmi_window::run_hot_entry(&output);
         return;
     }
-    if let Some(profile @ ("--legacy-xmm" | "--vex-xmm" | "--legacy-ntstore" | "--vex-ntstore")) =
-        std::env::args_os()
-            .nth(1)
-            .as_deref()
-            .and_then(std::ffi::OsStr::to_str)
+    if let Some(
+        profile @ ("--legacy-xmm" | "--vex-xmm" | "--legacy-ntstore" | "--vex-ntstore"
+        | "--legacy-ntload" | "--vex-ntload"),
+    ) = std::env::args_os()
+        .nth(1)
+        .as_deref()
+        .and_then(std::ffi::OsStr::to_str)
     {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        if profile.ends_with("-ntstore") {
-            xmm::run_streaming_stores(&output, profile == "--vex-ntstore");
-        } else {
-            xmm::run(&output, profile == "--vex-xmm");
+        let vex = profile.starts_with("--vex-");
+        match profile {
+            "--legacy-ntstore" | "--vex-ntstore" => xmm::run_streaming_stores(&output, vex),
+            "--legacy-ntload" | "--vex-ntload" => xmm::run_streaming_loads(&output, vex),
+            _ => xmm::run(&output, vex),
         }
         return;
     }

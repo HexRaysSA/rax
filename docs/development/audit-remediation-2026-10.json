@@ -200836,6 +200836,14 @@
       "full_goal_complete": false
     },
     {
+      "id": "hvf-mmio-streaming-vector-loads-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF projects one 16 B or 32 B read for memory-source MOVNTDQA and VEX VMOVNTDQA. The pending read reuses the existing vector record. The parent failed to decode the legacy form. All five encodings match the independent x86 RAM oracle under Rosetta, including guard-page controls. Native device, fresh-owner and alignment-fault probes are available; broader MMIO and checkpoint coverage remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#streaming-vector-loads",
+      "full_goal_complete": false
+    },
+    {
       "id": "checkpoint-legacy-ram-destination-2026-11-26",
       "findings": ["C-STATE"],
       "status": "locally_qualified_full_findings_open",

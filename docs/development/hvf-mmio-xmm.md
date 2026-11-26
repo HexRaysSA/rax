@@ -493,6 +493,42 @@ KVM internal emulation error 1 before device dispatch. The same MOVSD
 form completed on both hosted HVF paths. The KVM witness output SHA-256 is
 `28ab44a169011735a21ea4011cb9cd35c1d1782258cdeac4bfe9c0df85ee56e4`.
 
+## Streaming vector loads
+
+Intel HVF handles memory-source MOVNTDQA and VEX VMOVNTDQA. On a
+translated device exit the planner validates the full operand range and
+publishes one read. It treats the non-temporal hint as an ordinary
+transfer, a behavior Intel permits, so the device receives only the bytes
+of the operand. Both VEX.W values are admitted. The existing pending XMM
+and YMM records carry the address, width and retirement state into a
+fresh owner. Validation and completion take O(B) time and use O(1)
+auxiliary space for B bytes of operand data.
+[Intel SDM, Volume 2B, MOVNTDQA](https://cdrdv2-public.intel.com/782156/325383-sdm-vol-2abcd.pdf)
+
+| Encoding | Device read | Linear alignment | Destination after completion |
+| --- | ---: | ---: | --- |
+| Legacy SSE4.1 | 16 B | 16 B | XMM updated, upper YMM preserved |
+| VEX.128 | 16 B | 16 B | XMM updated, upper YMM cleared |
+| VEX.256 | 32 B | 32 B | Whole YMM updated |
+
+| Assumption | Falsification probe | Evidence |
+| --- | --- | --- |
+| The device transfer depends on the operand bytes alone. | Decode both VEX lengths and W values, test a write exit and misalignment, and place the RAM operand immediately before a protected page. | The parent rejected the legacy form as unsupported. The independent x86 RAM oracle under Rosetta matched all 10 aligned cases, including the five guard-page cases. |
+| The ordinary vector-read record is sufficient to complete this load once. | Capture the pending request, destroy the original owner, recreate it and check the re-emitted width, next RIP, unchanged flags and both vector banks. Also require the misaligned instruction to deliver #GP(0) before issuing a device request. | The `legacy-ntload` and `vex-ntload` native profiles exercise direct, fresh-owner and guest #GP cases for all five encodings. |
+
+The MMIO planner, guest translation, ISA oracle, x86-64 and workflow
+pinning suites passed 28,865 tests, with three x86-64 tests ignored.
+All 55 Python tooling tests passed. The Intel macOS consumer cross-built
+and passed strict signature verification on Arm64.
+
+The baseline test log SHA-256 is
+`83421704a758553690b8c8e77b8a8a7898d206199e76b44beda831943c72365a`.
+The corrected Cargo test log SHA-256 is
+`fce666f964fa59b1c4463ecf3b83870d53cfc4549aee8f25b59f546a706334b7`.
+The Rosetta observation SHA-256 is
+`0d570340d48375db0076dd547f533779acb5ca824be11538edb3c2b213045ef7`.
+EVEX device operands and bare-metal Intel macOS qualification remain open.
+
 ## Streaming vector stores
 
 Legacy MOVNTPS, MOVNTPD and MOVNTDQ publish 16-byte device writes.
