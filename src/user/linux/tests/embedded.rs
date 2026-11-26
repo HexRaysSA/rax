@@ -350,6 +350,92 @@ fn closed_linux_tmpfiles_are_private_and_can_be_published_once_on_all_abis() {
 }
 
 #[test]
+fn closed_linux_workspace_descriptor_links_preserve_inode_on_all_abis() {
+    use crate::user::linux::abi::open::{O_CREAT, O_EXCL, O_PATH, O_RDWR, O_TRUNC};
+    use crate::user::supplied_fs::{Files, WorkspaceFlavor};
+
+    const AT_FDCWD: u64 = -100i64 as u64;
+    const AT_SYMLINK_FOLLOW: u64 = 0x400;
+    const AT_EMPTY_PATH: u64 = 0x1000;
+    const CREAT_RDWR: u64 = (O_CREAT | O_RDWR) as u64;
+    for abi in ABIS {
+        let files = Files::default().with_temp_workspace(WorkspaceFlavor::Linux);
+        let mut h = Harness::embedded_with_supplied(abi, files);
+        let path = h.scratch;
+        let proc_link = path + 64;
+        let buffer = path + 128;
+        let write = |h: &Harness, at, bytes: &[u8]| h.proc.space().write_raw(at, bytes).unwrap();
+        let read = |h: &Harness, len: usize| {
+            let mut bytes = vec![0; len];
+            h.proc.space().read(buffer, &mut bytes).unwrap();
+            bytes
+        };
+
+        write(&h, path, b"/tmp/first\0");
+        let original = h.ok(Sysno::Openat, &[AT_FDCWD, path, CREAT_RDWR, 0o600]);
+        write(&h, buffer, b"original");
+        h.ok(Sysno::Write, &[original, buffer, 8]);
+        h.ok(Sysno::Unlinkat, &[AT_FDCWD, path, 0]);
+        let replacement = h.ok(Sysno::Openat, &[AT_FDCWD, path, CREAT_RDWR, 0o600]);
+        write(&h, buffer, b"new");
+        h.ok(Sysno::Write, &[replacement, buffer, 3]);
+
+        write(
+            &h,
+            proc_link,
+            format!("/proc/self/fd/{original}\0").as_bytes(),
+        );
+        let link_len = h.ok(Sysno::Readlinkat, &[AT_FDCWD, proc_link, buffer, 64]);
+        assert_eq!(read(&h, link_len as usize), b"/tmp/first (deleted)");
+        let nofollow = u64::from(abi.open_flags().nofollow);
+        assert_eq!(
+            h.err(Sysno::Openat, &[AT_FDCWD, proc_link, nofollow, 0]),
+            ELOOP
+        );
+        assert_eq!(
+            h.err(
+                Sysno::Openat,
+                &[AT_FDCWD, proc_link, CREAT_RDWR | u64::from(O_EXCL), 0]
+            ),
+            EEXIST
+        );
+
+        let reopened = h.ok(Sysno::Openat, &[AT_FDCWD, proc_link, 0, 0]);
+        assert_eq!(h.ok(Sysno::Read, &[reopened, buffer, 8]), 8);
+        assert_eq!(read(&h, 8), b"original");
+        assert_eq!(h.ok(Sysno::Lseek, &[original, 0, 1]), 8);
+        let path_only = h.ok(Sysno::Openat, &[AT_FDCWD, proc_link, u64::from(O_PATH), 0]);
+        assert_eq!(h.err(Sysno::Read, &[path_only, buffer, 1]), EBADF);
+
+        h.ok(Sysno::Statx, &[AT_FDCWD, proc_link, 0, 0x7ff, buffer]);
+        let metadata = read(&h, 48);
+        assert_eq!(u32::from_le_bytes(metadata[16..20].try_into().unwrap()), 0);
+        assert_eq!(u64::from_le_bytes(metadata[40..48].try_into().unwrap()), 8);
+        write(&h, path, b"\0");
+        h.ok(
+            Sysno::Statx,
+            &[path_only, path, AT_EMPTY_PATH, 0x7ff, buffer],
+        );
+        assert_eq!(read(&h, 40)[32..40], metadata[32..40]);
+
+        write(&h, path, b"/tmp/relink\0");
+        assert_eq!(
+            h.err(
+                Sysno::Linkat,
+                &[AT_FDCWD, proc_link, AT_FDCWD, path, AT_SYMLINK_FOLLOW]
+            ),
+            ENOENT
+        );
+        h.ok(
+            Sysno::Openat,
+            &[AT_FDCWD, proc_link, u64::from(O_RDWR | O_TRUNC), 0],
+        );
+        assert_eq!(h.ok(Sysno::Lseek, &[original, 0, 2]), 0);
+        assert_eq!(h.ok(Sysno::Lseek, &[replacement, 0, 2]), 3);
+    }
+}
+
+#[test]
 fn closed_linux_copy_ranges_preserve_inode_and_offset_semantics_on_all_abis() {
     use crate::user::linux::abi::open::{O_APPEND, O_CREAT, O_PATH, O_RDWR};
     use crate::user::supplied_fs::{Files, WorkspaceFlavor};

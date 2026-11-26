@@ -96,6 +96,7 @@ struct Location {
 #[derive(Debug)]
 enum LeafLocation {
     Linked(Location),
+    Unlinked(String),
     Detached(String),
     Temporary(Location),
 }
@@ -126,13 +127,14 @@ impl Placement {
         }
     }
 
-    fn path(&self) -> Result<String, Error> {
+    fn path(&self, mark_unlinked: bool) -> Result<String, Error> {
         let namespace = self.namespace.upgrade().ok_or(Error::Io)?;
         let _namespace = namespace.lock().map_err(|_| Error::Io)?;
         let location = self.location.lock().map_err(|_| Error::Io)?;
         Ok(match &*location {
             LeafLocation::Linked(location) => location.clone().path(),
-            LeafLocation::Detached(path) => path.clone(),
+            LeafLocation::Unlinked(path) if mark_unlinked => format!("{path} (deleted)"),
+            LeafLocation::Unlinked(path) | LeafLocation::Detached(path) => path.clone(),
             LeafLocation::Temporary(location) => format!("{} (deleted)", location.clone().path()),
         })
     }
@@ -142,7 +144,7 @@ impl Placement {
         let LeafLocation::Linked(location) = &*placement else {
             unreachable!("named workspace leaf");
         };
-        *placement = LeafLocation::Detached(location.clone().path());
+        *placement = LeafLocation::Unlinked(location.clone().path());
     }
 
     fn relocate(&self, location: Location) {
@@ -1337,7 +1339,12 @@ impl WorkspaceFile {
     }
 
     pub(crate) fn path(&self) -> Result<String, Error> {
-        self.placement.path()
+        self.placement.path(false)
+    }
+
+    /// The pathname shown by a Linux procfs descriptor link.
+    pub(crate) fn proc_path(&self) -> Result<String, Error> {
+        self.placement.path(true)
     }
 
     pub(crate) fn mode(&self) -> u32 {
@@ -1530,7 +1537,7 @@ impl WorkspaceFile {
 
 impl WorkspaceSymlink {
     pub(super) fn path(&self) -> Result<String, Error> {
-        self.placement.path()
+        self.placement.path(false)
     }
 
     pub(super) fn attributes(&self) -> &Attributes {

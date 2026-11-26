@@ -838,7 +838,10 @@ inode metadata, and link counts. Directory
 descriptions support listing and rewinding, including entries created since
 the last scan. A session can remove empty guest-created directories. Open
 descriptors keep their original identity through removal and recreation of
-the same name. A process holding a removed working directory can still reach
+the same name. On Linux, reopening through `/proc/self/fd` or `/dev/fd`
+keeps that inode and starts an independent file offset. Procfs reports the
+current pathname after a rename and appends ` (deleted)` after unlink.
+A process holding a removed working directory can still reach
 its parent. Creation inside the removed directory fails. Replace, exclusive
 and exchange renames operate on regular files, links and directories in the
 workspace. Open descriptors keep their inode, and an open directory's current

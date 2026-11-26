@@ -170,6 +170,11 @@ fn do_utimes(
         #[cfg(not(unix))]
         Target::Host { .. } => Err(Errno(ENOSYS)),
         Target::Fd(file) => file_times(c, &file, t),
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _)
+            if follow && matches!(file.object, FileObject::Supplied(_)) =>
+        {
+            file_times(c, &file, t)
+        }
         Target::Supplied(entry, _) => supplied_times(c, &entry, t),
         Target::Proc(..) => Ok(0),
     }

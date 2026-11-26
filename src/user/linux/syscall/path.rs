@@ -742,14 +742,18 @@ pub(super) fn open_target(
                         .truncated(crate::user::mm::PageSource::identity(workspace), 0);
                 }
             }
-            Ok(OpenFile::with_memfd(
+            let mut reopened = OpenFile::with_memfd(
                 FileObject::Supplied(entry.clone()),
                 FileType::Regular,
                 file.path.clone(),
                 None,
                 status,
                 file.memfd.clone(),
-            ))
+            );
+            Arc::get_mut(&mut reopened)
+                .expect("new unpublished file")
+                .supplied_stat = file.supplied_stat;
+            Ok(reopened)
         }
         Target::Proc(ProcEntry::Link(link), guest) => {
             if flags & (O_CREAT | O_EXCL | O_PATH) == (O_CREAT | O_EXCL) {
@@ -1852,11 +1856,13 @@ fn supplied_statfs(
 pub(super) fn statfs_path(c: &mut Ctx<'_>, path: u64) -> Result<Kstatfs, Errno> {
     match resolve(c, AT_FDCWD, path, 0, true)? {
         Target::Supplied(entry, _) => supplied_statfs(c, Some(&entry)),
-        Target::Proc(ProcEntry::Descriptor { file, .. }, _)
-            if matches!(file.object, FileObject::GuestPipe(_)) =>
-        {
-            Ok(synthetic_fs(PIPEFS_MAGIC))
-        }
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _) => match &file.object {
+            FileObject::Supplied(entry) if file.supplied_stat.is_some() => {
+                supplied_statfs(c, Some(entry))
+            }
+            FileObject::GuestPipe(_) => Ok(synthetic_fs(PIPEFS_MAGIC)),
+            _ => Ok(synthetic_fs(PROC_SUPER_MAGIC)),
+        },
         Target::Proc(..) => Ok(synthetic_fs(PROC_SUPER_MAGIC)),
         #[cfg(not(unix))]
         Target::Host { .. } => Err(Errno(EPERM)),

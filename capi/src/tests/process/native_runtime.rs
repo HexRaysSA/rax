@@ -666,6 +666,34 @@ fn installed_shell_reopens_guest_pipes_through_closed_c_abi() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn installed_shell_reopens_workspace_inodes_through_closed_c_abi() {
+    let script = r#"
+set -eu
+dir=$(mktemp -d /tmp/rax-descriptor.XXXXXXXX)
+trap 'rm -rf -- "$dir"' EXIT
+cd "$dir"
+printf 'original\n' > first
+exec 3<first
+mv first second
+test "$(readlink /proc/self/fd/3)" = "$PWD/second"
+cat /proc/self/fd/3
+rm second
+test "$(readlink /proc/self/fd/3)" = "$PWD/second (deleted)"
+cat /proc/self/fd/3
+printf 'replacement\n' > second
+cat /dev/fd/3 second
+"#;
+    compare_installed_posix_output(
+        "linux",
+        "/bin/sh",
+        &["-c", script],
+        &[("LC_ALL", "C"), ("PATH", "/usr/bin:/bin")],
+        b"original\noriginal\noriginal\nreplacement\n",
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn installed_ls_lists_its_own_descriptor_through_closed_c_abi() {
     compare_installed_posix_output(
         "linux",

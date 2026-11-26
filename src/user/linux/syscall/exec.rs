@@ -111,7 +111,7 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
                 return Ok(ExecFile {
                     host: None,
                     bytes: Some(supplied_executable(c, entry)?),
-                    guest: file.path.clone(),
+                    guest: super::super::procfs::file_path(c.p, &file),
                 });
             }
             if file.supplied_stat.is_some() {

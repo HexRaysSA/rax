@@ -34,7 +34,7 @@ pub enum ProcEntry {
     },
     /// A symbolic link with this target.
     Link(String),
-    /// A magic link to an unnamed workspace file, a console, or a guest pipe.
+    /// A magic link to an open workspace file, a console, or a guest pipe.
     Descriptor {
         file: Arc<OpenFile>,
         target: Arc<[u8]>,
@@ -268,11 +268,14 @@ pub fn file_path(p: &ProcState, f: &super::fs::fd::OpenFile) -> String {
     match (&f.host_path, &f.object) {
         (Some(h), _) => p.vfs.guest_path_of(h),
         (None, super::fs::fd::FileObject::Mqueue(q)) => super::syscall::mqueue::link(q),
-        (None, super::fs::fd::FileObject::Supplied(entry)) => entry
-            .workspace_path()
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| f.path.clone()),
+        (None, FileObject::Supplied(entry)) => {
+            let path = if let Some(file) = entry.workspace_file() {
+                file.proc_path().map(Some)
+            } else {
+                entry.workspace_path()
+            };
+            path.ok().flatten().unwrap_or_else(|| f.path.clone())
+        }
         (None, _) => f.path.clone(),
     }
 }
@@ -682,9 +685,7 @@ fn thread_entry(
                 .and_then(|memfd| memfd.workspace_link())
                 .cloned()
                 .or_else(|| match &file.object {
-                    FileObject::Supplied(entry)
-                        if entry.workspace_file().is_some_and(|file| file.is_tmpfile()) =>
-                    {
+                    FileObject::Supplied(entry) if entry.workspace_file().is_some() => {
                         Some(file_path(p, &file).into_bytes().into())
                     }
                     FileObject::Console { .. } | FileObject::GuestPipe(_) => {
