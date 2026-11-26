@@ -130,8 +130,16 @@ The QEMU control again observed all peer markers and shutdown in both CPU
 configurations using an independently generated MP table. A corrupt table
 header reported failure stage 2. Advertising four CPUs on a two-CPU VM
 reported failure stage 4 with the two existing CPU markers intact. Both
-negative controls shut down. Native KVM and Intel HVF ISO execution with
-the revised witness remain unverified. All seven local firmware tests passed
-with the revised image.
+negative controls shut down. All seven local firmware tests passed with the
+revised image.
+
+Hosted Linux x86-64 KVM passed the revised native ISO witness on
+`392341ed5` in run `45870691656`, attempt 2. The test uses the in-kernel
+interrupt controller and requires the guest to discover two and four CPUs,
+start every secondary with INIT/SIPI, and observe all CPU-written markers.
+The Actions receipt SHA-256 is
+`b76a4e09057f11d4a8d15d12043fa2165ca086e6d8f6eb087916706247641fb3`.
+Intel HVF ISO execution and broader SMP coverage remain open.
+[Hosted KVM ISO test](https://github.com/HexRaysSA/rax/actions/runs/45870691656/job/140090652262)
 Inputs, commands and results are under
 `/Users/int/dev/rax-audit-work/four-findings-pc-iso-smp-2026-11-26/`.
