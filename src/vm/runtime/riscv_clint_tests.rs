@@ -86,6 +86,23 @@ fn actual_vmm_clint_software_and_timer_handlers_execute_on_every_hart() {
     assert!(results.iter().all(|result| *result));
 }
 
+#[test]
+fn clint_checkpoint_rejects_a_fully_offline_machine() {
+    let mut rejected = Vec::new();
+    for count in [1, 2, 4] {
+        let mut fixture = Fixture::new(count, false);
+        assert_eq!(
+            fixture.vm.coordinator.online,
+            vec![true; usize::from(count)]
+        );
+        fixture.vm.coordinator.online.fill(false);
+        let error = fixture.vm.take_snapshot_bundle(0).err();
+        println!("CLINT checkpoint with all {count} harts offline: {error:?}");
+        rejected.push(error.is_some_and(|error| error.to_string().contains("an online hart")));
+    }
+    assert_eq!(rejected, [true; 3]);
+}
+
 fn contexts(vm: &Vmm) -> Vec<Option<crate::vm::snapshot::BackendContext>> {
     vm.vcpus
         .iter()
@@ -284,6 +301,14 @@ fn idle_clock_file_preserves_riscv_wait_and_timer_wake_order() {
         assert_eq!(source.vm.coordinator.retired, 11 * harts);
         assert_eq!(results(&source.vm, harts), vec![0; usize::from(count)]);
         let saved = source.vm.take_snapshot_bundle(11 * harts).unwrap();
+        assert!(
+            saved
+                .execution()
+                .unwrap()
+                .online()
+                .iter()
+                .all(|&online| online)
+        );
         for record in saved.backend_contexts().unwrap().entries() {
             assert!(record.as_ref().unwrap().data.starts_with(b"RAXRV006"));
         }

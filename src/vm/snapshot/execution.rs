@@ -420,6 +420,11 @@ impl ExecutionSnapshot {
             {
                 return Err(invalid("RISC-V platform on another machine"));
             }
+            // CLINT can wake an online WFI hart. It cannot change scheduler
+            // eligibility, and this platform has no hart-start transition.
+            if !self.online.contains(&true) {
+                return Err(invalid("CLINT checkpoint requires an online hart"));
+            }
             platform.validate(count, base.memory_size)?;
         }
         if let Some(pc) = &self.pc {

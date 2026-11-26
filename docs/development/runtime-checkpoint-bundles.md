@@ -34,6 +34,36 @@ Rejection preserves the pending write, RAM, hart state, UART and checkpoint
 counters. After ordinary VM execution dispatches the write, the same file can
 restore the legacy projection.
 
+### RV64 hart participation with a shared CLINT
+
+The generic RV64 CLINT checkpoint requires at least one coordinator-online
+hart. The per-hart private record holds a `WFI` wait independently. A CLINT
+interrupt can wake a waiting hart that remains online. An all-offline mask
+has no scheduler turn or hart-start transition. Capture and restore use the
+same execution-section validation. The added check takes O(H) time and O(1)
+additional space for H configured harts.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| An all-offline mask leaves no hart eligible for a CLINT wake. | High | Capture an otherwise complete bundle with every hart offline at each of one, two and four configured harts. Reject the same mask in a saved file. |
+| Waiting harts retain their coordinator eligibility. | High | Capture actual `WFI` on all harts and resume from a file. Compare each timer wake, both coordinator frontiers and the private CPU records. |
+| Kernel-free targets can have only the bootstrap hart online. | High | Save and restore the prepared multi-hart reservation fixtures with their existing sparse mask. Verify that private reservations and subsequent CPU results survive the file round trip. |
+
+The parent captured an all-offline single-hart VM. Prepared multi-hart
+fixtures established that a sparse online mask is valid when at least one
+hart can be scheduled. This check applies to files with a shared CLINT
+image. Other machine families and guest-driven hart power transitions are
+outside this profile.
+
+The Apple Silicon run passed 28 RV64 runtime tests, 107 snapshot unit
+tests, 58 public integration tests and library Clippy with warnings
+denied. A public-API probe saved real files at one, two and four harts,
+removed the kernel source and checked cold and warm restore. Changing
+only the stored online bits produced three all-offline load rejections
+and four successful sparse-mask loads and restores. The probe and output
+are under
+`/Users/int/dev/rax-audit-work/four-findings-riscv-clint-coordinator-admission-2026-11-26/`.
+
 ### AArch64 PSCI power state
 
 The software AArch64 base format carries the bootstrap CPU's public

@@ -200986,6 +200986,14 @@
       "scope": "VEX.256 VPERMPS, VPERMD, VPERMQ and VPERMPD project one 32 B device read. Saved reads keep their selectors and retire once. The parent rejected the first VPERMPS case at metadata decode. The 544 portable pending-read results match the independent Rosetta RAM reference, which used two placements and four inaccessible-last-byte controls. The 96-case Intel macOS consumer cross-built and verified its signature. Hosted Intel execution and full MMIO, interrupt and checkpoint scope remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#full-register-avx2-permutations",
       "full_goal_complete": false
+    },
+    {
+      "id": "riscv-clint-online-harts-2026-11-26",
+      "findings": ["C-STATE", "C-SMP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "A shared CLINT can wake a WFI hart that remains eligible for coordinator turns. The parent captured a one-hart VM with no eligible hart. Execution-section validation now rejects all-offline masks in the tested one-, two- and four-hart topologies at capture, load and restore. Sparse masks from the kernel-free prepared targets remain valid. Other machine families, guest-driven hart power transitions and full checkpoint scope remain open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#rv64-hart-participation-with-a-shared-clint",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
