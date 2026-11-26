@@ -428,6 +428,45 @@ fn installed_darwin_locales_match_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_id_resolves_guest_account_through_closed_c_abi() {
+    for (flag, expected) in [
+        ("-un", b"root\n".as_slice()),
+        ("-gn", b"wheel\n".as_slice()),
+        ("-u", b"0\n".as_slice()),
+    ] {
+        compare_installed_posix_output(
+            "darwin",
+            "/usr/bin/id",
+            &[flag, "root"],
+            &[("LC_ALL", "C")],
+            expected,
+        );
+    }
+
+    // With no operand, the installed program looks up the emulator's own
+    // virtual identity. The native runner account is independent of it.
+    let path = "/usr/bin/id";
+    let image = std::fs::read(path).unwrap();
+    for flag in ["-un", "-gn"] {
+        let options = serde_json::json!({
+            "personality": "darwin",
+            "guest_path": path,
+            "arguments": [flag],
+            "environment": {"LC_ALL": "C"},
+            "native_runtime": true,
+        });
+        let process = open(&image, &options.to_string());
+        assert_eq!(run_installed_posix(&process, path).exit_code, 0);
+        assert_eq!(
+            capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT),
+            b"rax\n"
+        );
+        assert!(capture_installed_posix_stream(&process, RAX_PROCESS_STDERR).is_empty());
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_reopens_guest_descriptors_through_closed_c_abi() {
     let input = b"guest descriptor input\n";
     for name in ["/dev/stdin", "/dev/fd/0"] {

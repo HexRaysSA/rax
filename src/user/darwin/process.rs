@@ -158,8 +158,12 @@ impl DarwinConfig {
         &mut self,
         files: &crate::user::supplied_fs::Files,
     ) -> std::io::Result<()> {
-        let selected =
-            super::runtime_files::native_for_executable(files, Some(&self.exec_path), &self.envp)?;
+        let selected = super::runtime_files::native_for_executable(
+            files,
+            Some(&self.exec_path),
+            &self.envp,
+            !self.host_services,
+        )?;
         let kernel_info = super::runtime_files::NativeKernelInfo::capture()?;
         self.supplied_files =
             Some(selected.with_temp_workspace(crate::user::supplied_fs::WorkspaceFlavor::Darwin));

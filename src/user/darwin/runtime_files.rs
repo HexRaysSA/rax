@@ -5,9 +5,9 @@
 //! available for child execution in the same guest namespace. A selected
 //! Command Line Tools or Xcode installation supplies its own tools and SDK resources.
 //!
-//! Selection happens before guest execution. Only these selected files enter
-//! the supplied namespace alongside a synthetic null character device. Cache
-//! pages are read on demand through retained read-only handles.
+//! Selection happens before guest execution. The supplied namespace also
+//! contains guest devices and account records. Cache pages are read on demand
+//! through retained read-only handles.
 use crate::user::supplied_fs::{Device, Files};
 use std::io;
 
@@ -163,23 +163,29 @@ fn native_kernel_string(node: libc::c_int) -> io::Result<Vec<u8>> {
 /// Add the native macOS runtime, preserving explicit supplied-file overrides.
 /// A different host cannot supply its own runtime for a Darwin guest.
 pub fn native(files: &Files) -> io::Result<Files> {
-    native_for_executable(files, None, &[])
+    native_for_executable(files, None, &[], false)
 }
 
 pub(super) fn native_for_executable(
     files: &Files,
     executable: Option<&str>,
     env: &[Vec<u8>],
+    guest_accounts: bool,
 ) -> io::Result<Files> {
     #[cfg(target_os = "macos")]
     {
         let root = std::path::Path::new("/");
         let selected = select_runtime_root(files, root, executable, env)?;
-        select_shell_variant(selected, root, executable)
+        let selected = select_shell_variant(selected, root, executable)?;
+        if guest_accounts {
+            select_guest_accounts(selected, executable)
+        } else {
+            Ok(selected)
+        }
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (files, executable, env);
+        let _ = (files, executable, env, guest_accounts);
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "native Darwin runtime files require a macOS host",
@@ -319,6 +325,43 @@ fn select_runtime_root(
         files
     };
     crate::user::supplied_fs::timezone::select_default(files, root)
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn select_guest_accounts(mut files: Files, executable: Option<&str>) -> io::Result<Files> {
+    let (uid, gid) = crate::user::supplied_fs::DARWIN_GUEST_OWNER;
+    // Libinfo selects passwd or master.passwd based on effective UID. The
+    // virtual user owns the workspace and uses its private /tmp as home.
+    // The conventional root and wheel entries carry no host data.
+    let accounts = [
+        (
+            "/etc/passwd",
+            format!(
+                "root:*:0:0:System Administrator:/var/root:/bin/sh\n\
+                 rax:*:{uid}:{gid}:RAX Guest:/tmp:/bin/sh\n"
+            ),
+        ),
+        (
+            "/etc/master.passwd",
+            format!(
+                "root:*:0:0::0:0:System Administrator:/var/root:/bin/sh\n\
+                 rax:*:{uid}:{gid}::0:0:RAX Guest:/tmp:/bin/sh\n"
+            ),
+        ),
+        ("/etc/group", format!("wheel:*:0:root\nrax:*:{gid}:rax\n")),
+    ];
+    for (path, record) in accounts {
+        if !overlaps_executable(path, executable)
+            && files
+                .default_runtime_entry_available(path, None)
+                .map_err(io::Error::other)?
+        {
+            files = files
+                .with_file(path.into(), Arc::from(record.into_bytes()))
+                .map_err(io::Error::other)?;
+        }
+    }
+    Ok(files)
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -1186,6 +1229,90 @@ mod tests {
             std::os::unix::fs::symlink(&fixture.path, &version).unwrap();
             let selected = select_native_root(&Files::default(), &fixture.dir, None).unwrap();
             assert!(selected.lookup(SYSTEM_VERSION_PLIST).is_err());
+        }
+    }
+
+    #[test]
+    fn guest_accounts_use_guest_credentials_and_preserve_caller_paths() {
+        use crate::user::supplied_fs::Error;
+        use std::collections::BTreeMap;
+
+        let fixture = TestFile::new(b"dyld", 4);
+        let dyld = fixture.dir.join("usr/lib/dyld");
+        let cache = fixture
+            .dir
+            .join("System/Library/dyld/dyld_shared_cache_arm64e");
+        let host_etc = fixture.dir.join("etc");
+        std::fs::create_dir_all(dyld.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(cache.parent().unwrap()).unwrap();
+        std::fs::write(dyld, b"dyld").unwrap();
+        std::fs::write(cache, b"cache").unwrap();
+        std::fs::create_dir(&host_etc).unwrap();
+        std::fs::write(host_etc.join("master.passwd"), b"host account").unwrap();
+
+        let empty = Files::default();
+        let native = select_native_root(&empty, &fixture.dir, None).unwrap();
+        assert!(matches!(
+            native.lookup("/etc/master.passwd"),
+            Err(Error::NotFound)
+        ));
+        let select = |files: &Files, executable: Option<&str>| {
+            let selected = select_native_root(files, &fixture.dir, executable).unwrap();
+            select_guest_accounts(selected, executable).unwrap()
+        };
+        let selected = select(&empty, None);
+        let (uid, gid) = crate::user::supplied_fs::DARWIN_GUEST_OWNER;
+        let passwd = selected.read("/etc/passwd").unwrap();
+        let master = selected.read("/etc/master.passwd").unwrap();
+        let group = selected.read("/etc/group").unwrap();
+        let records = |bytes: &[u8]| {
+            let content = std::str::from_utf8(bytes).unwrap();
+            content.lines().map(str::to_owned).collect::<Vec<_>>()
+        };
+        assert_eq!(
+            records(&passwd),
+            [
+                "root:*:0:0:System Administrator:/var/root:/bin/sh".to_owned(),
+                format!("rax:*:{uid}:{gid}:RAX Guest:/tmp:/bin/sh"),
+            ]
+        );
+        assert_eq!(
+            records(&master),
+            [
+                "root:*:0:0::0:0:System Administrator:/var/root:/bin/sh".to_owned(),
+                format!("rax:*:{uid}:{gid}::0:0:RAX Guest:/tmp:/bin/sh"),
+            ]
+        );
+        assert_eq!(
+            records(&group),
+            ["wheel:*:0:root".to_owned(), format!("rax:*:{gid}:rax")]
+        );
+
+        let supplied = empty
+            .with_file("/etc/passwd".into(), Arc::from(&b"caller account"[..]))
+            .unwrap();
+        let selected = select(&supplied, None);
+        assert_eq!(&*selected.read("/etc/passwd").unwrap(), b"caller account");
+
+        let mounted = empty
+            .with_host_roots(BTreeMap::from([("/etc".into(), host_etc)]))
+            .unwrap();
+        let selected = select(&mounted, None);
+        assert_eq!(
+            &*selected.read("/etc/master.passwd").unwrap(),
+            b"host account"
+        );
+        assert!(matches!(
+            selected.lookup("/etc/passwd"),
+            Err(Error::NotFound)
+        ));
+
+        for image in ["/etc", "/etc/passwd", "/etc/passwd/program"] {
+            let selected = select(&empty, Some(image));
+            assert!(matches!(
+                selected.lookup("/etc/passwd"),
+                Err(Error::NotFound)
+            ));
         }
     }
 
