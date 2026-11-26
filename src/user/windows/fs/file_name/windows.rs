@@ -28,11 +28,17 @@ pub(super) fn open_root(path: &Path) -> io::Result<File> {
 }
 
 pub(super) fn current(file: &File) -> io::Result<PathBuf> {
-    opened_name(file, FILE_NAME_OPENED)
+    file_path(file, FILE_NAME_OPENED)
+}
+
+/// Resolve the path of the held file, including any reparse point traversed
+/// during open. Use DOS volume names for both the root and the file.
+pub(super) fn resolved(file: &File) -> io::Result<PathBuf> {
+    file_path(file, 0)
 }
 
 pub(super) fn current_nt(file: &File) -> io::Result<PathBuf> {
-    opened_name(file, FILE_NAME_OPENED | VOLUME_NAME_NT)
+    file_path(file, FILE_NAME_OPENED | VOLUME_NAME_NT)
 }
 
 pub(super) fn local_device(path: &Path) -> io::Result<Vec<u16>> {
@@ -63,12 +69,11 @@ pub(super) fn local_device(path: &Path) -> io::Result<Vec<u16>> {
     Ok(name)
 }
 
-fn opened_name(file: &File, flags: u32) -> io::Result<PathBuf> {
+fn file_path(file: &File, flags: u32) -> io::Result<PathBuf> {
     let mut buffer = vec![0u16; 512];
     loop {
         // SAFETY: the borrowed handle and initialized UTF-16 allocation remain
-        // live for this synchronous system call. FILE_NAME_OPENED (8) queries
-        // the retained open without imposing normalized-parent access rights.
+        // live for this synchronous system call.
         let count = unsafe {
             GetFinalPathNameByHandleW(
                 file.as_raw_handle(),

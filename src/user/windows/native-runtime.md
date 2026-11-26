@@ -49,6 +49,14 @@ Application DLLs remain subject to general host-file access or explicit supplied
 bytes. Supplied bytes override installed files in native mode. KnownDLL names
 select installed system files; no missing installed DLL selects an HLE image.
 
+When a caller supplies the main executable as bytes, RAX can retain the
+original backing file for a matching path in the selected system directory or
+one of its subdirectories. The path must resolve under the retained installed
+root before and after the read-only open. Image bytes must match the held file
+exactly. This gives mapped-file-name queries the installed device path for
+main images such as `WindowsPowerShell\v1.0\powershell.exe`. Child-executable
+admission continues to require a permitted system-directory basename.
+
 Closed installed-runtime processes can read a localized `.mui` satellite
 under a direct locale child of the selected system directory. The satellite
 belongs to an installed system DLL or to the main executable after its

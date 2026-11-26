@@ -38,9 +38,10 @@ impl NativeRuntime {
     }
 
     /// Find an installed backing file for a main image supplied as bytes.
-    /// The exact bytes must match a file in the selected system directory.
+    /// The exact bytes must match a file under the selected system directory.
     pub(crate) fn matching_executable(&self, guest_path: &str, image: &[u8]) -> Option<File> {
-        let (_, mut file) = self.open_executable(guest_path).ok()??;
+        let relative = executable_relative_path(&self.guest_directory, guest_path)?;
+        let (_, mut file) = self.open_executable(relative).ok()??;
         same_image_bytes(&mut file, image).ok()?.then_some(file)
     }
 
@@ -49,31 +50,39 @@ impl NativeRuntime {
         arch: WinArch,
         guest_path: &str,
     ) -> io::Result<Option<(PathBuf, File)>> {
-        if !guest_path
-            .rsplit_once('\\')
-            .is_some_and(|(_, name)| self.admits_child_executable(arch, name))
-        {
+        let Some(name) = executable_relative_path(&self.guest_directory, guest_path) else {
+            return Err(io::Error::from(io::ErrorKind::PermissionDenied));
+        };
+        if name.contains('\\') || !self.admits_child_executable(arch, name) {
             return Err(io::Error::from(io::ErrorKind::PermissionDenied));
         }
-        self.open_executable(guest_path)
+        self.open_executable(name)
     }
 
     /// Check the opened file too so a path replacement cannot escape the root.
-    fn open_executable(&self, guest_path: &str) -> io::Result<Option<(PathBuf, File)>> {
-        let Some((directory, basename)) = guest_path.rsplit_once('\\') else {
-            return Ok(None);
+    fn open_executable(&self, relative: &str) -> io::Result<Option<(PathBuf, File)>> {
+        let path = if relative.contains('\\') {
+            let mut path = self.directory.clone();
+            path.extend(relative.split('\\'));
+            path.canonicalize()?
+        } else {
+            let Some(path) = self.dll(relative)? else {
+                return Ok(None);
+            };
+            path
         };
-        if !directory.eq_ignore_ascii_case(self.guest_directory.trim_end_matches('\\')) {
+        if !path.starts_with(&self.directory) || path == self.directory {
             return Err(io::Error::from(io::ErrorKind::PermissionDenied));
         }
-        let Some(path) = self.dll(basename)? else {
-            return Ok(None);
-        };
         let scope = crate::user::windows::fs::FileNameOrigin::capture(&self.directory, Vec::new())?;
         let file = File::open(&path)?;
-        scope
-            .name(&file, &path)
-            .map_err(|error| io::Error::new(io::ErrorKind::PermissionDenied, error))?;
+        if !file.metadata()?.is_file() {
+            return Ok(None);
+        };
+        #[cfg(windows)]
+        scope.verify_resolved_file(&file)?;
+        #[cfg(not(windows))]
+        scope.name(&file, &path)?;
         Ok(Some((path, file)))
     }
 
@@ -131,6 +140,23 @@ impl NativeRuntime {
         let template = section.image_for(arch)?;
         selected_view(pe, arch, section, template)
     }
+}
+
+fn executable_relative_path<'a>(directory: &str, path: &'a str) -> Option<&'a str> {
+    let directory = directory.trim_end_matches('\\');
+    let (prefix, tail) = path.split_at_checked(directory.len())?;
+    let relative = tail.strip_prefix('\\')?;
+    if !prefix.eq_ignore_ascii_case(directory)
+        || relative.split('\\').any(|part| {
+            part.is_empty()
+                || part.ends_with([' ', '.'])
+                || part.contains(['/', ':', '<', '>', '"', '|', '?', '*'])
+                || part.chars().any(|character| character <= '\u{1f}')
+        })
+    {
+        return None;
+    }
+    Some(relative)
 }
 
 fn same_image_bytes(file: &mut File, expected: &[u8]) -> io::Result<bool> {
@@ -210,6 +236,31 @@ mod tests {
     use super::*;
     use crate::user::windows::memory::{mem, prot};
     use crate::user::windows::object_namespace::ImageRegion;
+
+    #[test]
+    fn installed_main_image_paths_are_confined_to_the_selected_system_directory() {
+        let root = r"C:\Windows\System32";
+        for relative in [r"cmd.exe", r"WindowsPowerShell\v1.0\powershell.exe"] {
+            let path = format!("{}\\{relative}", root.to_ascii_lowercase());
+            assert_eq!(executable_relative_path(root, &path), Some(relative));
+        }
+        for path in [
+            r"C:\Windows\System32",
+            r"C:\Windows\System32-old\cmd.exe",
+            r"C:\Windows\SysWOW64\cmd.exe",
+            r"C:\Windows\System32\\cmd.exe",
+            r"C:\Windows\System32\.\cmd.exe",
+            r"C:\Windows\System32\..\cmd.exe",
+            r"C:\Windows\System32\WindowsPowerShell\v1.0.\powershell.exe",
+            r"C:\Windows\System32\WindowsPowerShell\v1.0 \powershell.exe",
+            r"C:\Windows\System32\WindowsPowerShell/../cmd.exe",
+            r"C:\Windows\System32\cmd.exe:stream",
+            "C:\\Windows\\System32\\cmd\0.exe",
+            r"\\?\C:\Windows\System32\cmd.exe",
+        ] {
+            assert!(executable_relative_path(root, path).is_none(), "{path:?}");
+        }
+    }
 
     fn fixture(source: WinArch, target: WinArch) -> (PeImage, Arc<ImageTemplate>) {
         let mut bytes = include_bytes!(concat!(
@@ -305,6 +356,57 @@ mod tests {
         );
         image[0] ^= 1;
         assert!(runtime.matching_executable(&guest, &image).is_none());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn nested_installed_main_image_retains_its_backing_file() {
+        use crate::user::windows::{WindowsConfig, WindowsProcess, mapped_filename::Filename};
+
+        let arch = if cfg!(target_arch = "aarch64") {
+            WinArch::Arm64
+        } else if cfg!(target_arch = "x86_64") {
+            WinArch::X64
+        } else {
+            WinArch::X86
+        };
+        let runtime = NativeRuntime::select(arch).unwrap();
+        let relative = r"WindowsPowerShell\v1.0\powershell.exe";
+        let host = runtime
+            .directory
+            .join("WindowsPowerShell")
+            .join("v1.0")
+            .join("powershell.exe");
+        if runtime.version.build != 29708 && !host.is_file() {
+            return;
+        }
+        let image = read_image(&host).unwrap();
+        let expected = Filename::image(&File::open(host).unwrap())
+            .unwrap()
+            .unwrap()
+            .read()
+            .unwrap();
+        let guest = format!("{}\\{relative}", runtime.guest_directory);
+        let mut config = WindowsConfig::embedded(&guest, vec![], vec![], 4096).unwrap();
+        config.native_libraries = true;
+        let process = WindowsProcess::spawn_image(config, image.clone()).unwrap();
+        let p = process.state();
+        assert_eq!(
+            p.vm.mapped_filename(p.modules.exe().entry).unwrap(),
+            Some(expected)
+        );
+        assert!(
+            runtime
+                .matching_executable(&guest, &image[..image.len() - 1])
+                .is_none()
+        );
+        assert_eq!(
+            runtime
+                .open_child_executable(arch, &guest)
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::PermissionDenied
+        );
     }
 
     #[cfg(windows)]

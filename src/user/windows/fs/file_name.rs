@@ -89,6 +89,16 @@ impl FileNameOrigin {
         self.relative_name(&root, &path)
     }
 
+    #[cfg(windows)]
+    pub(crate) fn verify_resolved_file(&self, file: &File) -> io::Result<()> {
+        let root = windows::resolved(&self.root)?;
+        let path = windows::resolved(file)?;
+        if !path.starts_with(&root) || path == root {
+            return Err(io::Error::from(io::ErrorKind::PermissionDenied));
+        }
+        Ok(())
+    }
+
     pub(crate) fn local_nt_name(&self, file: &File) -> io::Result<(Vec<u16>, usize)> {
         #[cfg(windows)]
         {
