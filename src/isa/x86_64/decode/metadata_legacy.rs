@@ -452,6 +452,17 @@ pub(super) fn decode_0f(
                 out.operands[0].read = false;
                 packed_absolute_mnemonics(map_opcode)?.0
             }
+            map_opcode @ (0x20..=0x25 | 0x30..=0x35)
+                if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
+            {
+                let (name, _, source_size) = packed_widening(map_opcode)?;
+                out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
+                out.operands[0].read = false;
+                if out.operands[1].kind == OperandKind::Memory {
+                    out.operands[1].width_bits = u32::from(source_size) * 8;
+                }
+                name
+            }
             map_opcode @ (0x00..=0x0b | 0x17 | 0x28..=0x29 | 0x2b | 0x37..=0x40)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {

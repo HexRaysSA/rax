@@ -43,6 +43,11 @@ pub(super) fn decode_xmm_transfer(
     } else {
         None
     };
+    let widening = if map == 2 && flags & 3 == 1 {
+        packed_widening(opcode).map(|(_, name, source_size)| (name, source_size))
+    } else {
+        None
+    };
     // Intel SDM Vol. 2C, VPSLLVD/Q, VPSRAVD, VPSRLVD/Q.
     let variable_shift = match (map, flags & 3, flags & 0x80 != 0, opcode) {
         (2, 1, false, 0x45) => Some("vpsrlvd"),
@@ -68,7 +73,8 @@ pub(super) fn decode_xmm_transfer(
         _ if binary.is_some()
             || bit_test.is_some()
             || unary_shuffle.is_some()
-            || absolute.is_some() =>
+            || absolute.is_some()
+            || widening.is_some() =>
         {
             (true, 16, true)
         }
@@ -119,7 +125,13 @@ pub(super) fn decode_xmm_transfer(
     ctx.rex = (bits == 64).then_some(0x40 | extensions);
     let raw_rm = modrm_byte & 7;
     // Uniform shifts always encode an XMM or m128 count, including VEX.256.
-    let rm_size = if uniform_shift.is_some() { 16 } else { size };
+    let rm_size = if let Some((_, source_size)) = widening {
+        source_size * (size / 16)
+    } else if uniform_shift.is_some() {
+        16
+    } else {
+        size
+    };
     let (group, _, mut rm) = modrm(ctx, address_bits, rm_size, bits == 64)?;
     if map == 1 && matches!(opcode, 0x2b | 0xe7) && rm.kind != OperandKind::Memory {
         return None;
@@ -130,7 +142,7 @@ pub(super) fn decode_xmm_transfer(
         ("xmm", 128)
     };
     if vector_rm && rm.kind == OperandKind::Register {
-        let (rm_bank, rm_width) = if uniform_shift.is_some() {
+        let (rm_bank, rm_width) = if uniform_shift.is_some() || widening.is_some() {
             ("xmm", 128)
         } else {
             (bank, register_width)
@@ -166,6 +178,7 @@ pub(super) fn decode_xmm_transfer(
         _ if let Some(name) = bit_test => name,
         _ if let Some(name) = binary => name,
         _ if let Some(name) = unary_shuffle.or(absolute) => name,
+        _ if let Some((name, _)) = widening => name,
         (0x10 | 0x11, 4, 2) => "vmovss",
         (0x10 | 0x11, 8, 3) => "vmovsd",
         (0x10 | 0x11, 16 | 32, 0) => "vmovups",

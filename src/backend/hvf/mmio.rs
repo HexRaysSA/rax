@@ -972,7 +972,7 @@ impl InputState {
             Pending::XmmLane { .. } => (xmm_lane::BYTES, None),
             Pending::VectorLogic { input, .. } => (input.memory_size(), None),
             Pending::VectorBitTest { input, .. } => (input.encoding.size(), None),
-            Pending::UnaryVector(input) => (input.encoding.size(), None),
+            Pending::UnaryVector(input) => (input.memory_size(), None),
         })
     }
     pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {

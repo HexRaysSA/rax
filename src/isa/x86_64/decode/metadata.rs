@@ -740,6 +740,26 @@ fn packed_absolute_mnemonics(opcode: u8) -> Option<(&'static str, &'static str)>
     })
 }
 
+// The last field is the memory operand size in bytes for an XMM destination.
+// VEX.256 doubles that size while retaining an XMM register source.
+fn packed_widening(opcode: u8) -> Option<(&'static str, &'static str, u8)> {
+    Some(match opcode {
+        0x20 => ("pmovsxbw", "vpmovsxbw", 8),
+        0x21 => ("pmovsxbd", "vpmovsxbd", 4),
+        0x22 => ("pmovsxbq", "vpmovsxbq", 2),
+        0x23 => ("pmovsxwd", "vpmovsxwd", 8),
+        0x24 => ("pmovsxwq", "vpmovsxwq", 4),
+        0x25 => ("pmovsxdq", "vpmovsxdq", 8),
+        0x30 => ("pmovzxbw", "vpmovzxbw", 8),
+        0x31 => ("pmovzxbd", "vpmovzxbd", 4),
+        0x32 => ("pmovzxbq", "vpmovzxbq", 2),
+        0x33 => ("pmovzxwd", "vpmovzxwd", 8),
+        0x34 => ("pmovzxwq", "vpmovzxwq", 4),
+        0x35 => ("pmovzxdq", "vpmovzxdq", 8),
+        _ => return None,
+    })
+}
+
 fn packed_binary_mnemonics(
     map: u8,
     prefix: u8,

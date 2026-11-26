@@ -43,6 +43,7 @@ on:
           - vector-unsigned
           - vector-sign
           - vector-absolute
+          - vector-widening
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-bit-test

@@ -1325,6 +1325,38 @@ pub(super) fn run_packed_integer(output: &Path, profile: &str) {
     println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
+pub(super) fn run_packed_widening(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut index = 0;
+    for case in packed_vectors::WIDENING_CASES {
+        for (code, form, width) in case.forms() {
+            let vex = form != "legacy";
+            let size = case.reply_len(width);
+            for (pattern, source) in packed_vectors::WIDENING_INPUTS.into_iter().enumerate() {
+                let expected = case.expected(&source, width);
+                let expected = std::array::from_fn(|lane| {
+                    let start = lane * 8;
+                    u64::from_le_bytes(expected[start..start + 8].try_into().unwrap())
+                });
+                for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                    let value = packed_binary_case(
+                        &code,
+                        vex,
+                        restore,
+                        [SEED, MARKER, !SEED, !MARKER],
+                        &source[..size],
+                        expected,
+                    );
+                    let label = format!("{form}-{}-pattern{pattern}-{phase}", case.name);
+                    record(output, index, &label, size, value);
+                    index += 1;
+                }
+            }
+        }
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 fn restore_vector_read(
     memory: &GuestMemoryWrapper,
     vm: Box<dyn Vm>,

@@ -29,28 +29,166 @@ impl Case {
     }
 
     fn forms_with_vvvv(&self, vvvv: u8) -> Vec<(Vec<u8>, &'static str, usize)> {
-        let mut forms = vec![(self.legacy(), "legacy", 16)];
-        if self.map == 1 {
-            forms.extend([
-                (vec![0xc5, vvvv | 1, self.opcode, 0x7f, 3], "vex2-128", 16),
-                (vec![0xc5, vvvv | 5, self.opcode, 0x7f, 3], "vex2-256", 32),
-            ]);
-        }
-        for (control, label, size) in [
-            (1, "vex3-w0-128", 16),
-            (5, "vex3-w0-256", 32),
-            (0x81, "vex3-w1-128", 16),
-            (0x85, "vex3-w1-256", 32),
-        ] {
-            forms.push((
-                vec![0xc4, 0x60 | self.map, vvvv | control, self.opcode, 0x7f, 3],
-                label,
-                size,
-            ));
-        }
-        forms
+        packed_forms(self.map, self.opcode, vvvv, self.legacy())
     }
 }
+
+fn packed_forms(
+    map: u8,
+    opcode: u8,
+    vvvv: u8,
+    legacy: Vec<u8>,
+) -> Vec<(Vec<u8>, &'static str, usize)> {
+    let mut forms = vec![(legacy, "legacy", 16)];
+    if map == 1 {
+        forms.extend([
+            (vec![0xc5, vvvv | 1, opcode, 0x7f, 3], "vex2-128", 16),
+            (vec![0xc5, vvvv | 5, opcode, 0x7f, 3], "vex2-256", 32),
+        ]);
+    }
+    for (control, label, size) in [
+        (1, "vex3-w0-128", 16),
+        (5, "vex3-w0-256", 32),
+        (0x81, "vex3-w1-128", 16),
+        (0x85, "vex3-w1-256", 32),
+    ] {
+        forms.push((
+            vec![0xc4, 0x60 | map, vvvv | control, opcode, 0x7f, 3],
+            label,
+            size,
+        ));
+    }
+    forms
+}
+
+pub(super) struct WideningCase {
+    pub(super) name: &'static str,
+    opcode: u8,
+    from: usize,
+    to: usize,
+}
+
+impl WideningCase {
+    pub(super) fn forms(&self) -> Vec<(Vec<u8>, &'static str, usize)> {
+        packed_forms(
+            2,
+            self.opcode,
+            0x78,
+            vec![0x66, 0x44, 0x0f, 0x38, self.opcode, 0x3f],
+        )
+    }
+
+    pub(super) fn reply_len(&self, width: usize) -> usize {
+        width / self.to * self.from
+    }
+
+    pub(super) fn expected(&self, source: &[u8], width: usize) -> [u8; 32] {
+        let mut result = [0; 32];
+        let signed = self.opcode < 0x30;
+        for (input, output) in source
+            .chunks_exact(self.from)
+            .zip(result[..width].chunks_exact_mut(self.to))
+        {
+            let value = match (self.from, signed) {
+                (1, true) => i64::from(input[0] as i8),
+                (1, false) => i64::from(input[0]),
+                (2, true) => i64::from(i16::from_le_bytes(input.try_into().unwrap())),
+                (2, false) => i64::from(u16::from_le_bytes(input.try_into().unwrap())),
+                (4, true) => i64::from(i32::from_le_bytes(input.try_into().unwrap())),
+                (4, false) => i64::from(u32::from_le_bytes(input.try_into().unwrap())),
+                _ => unreachable!(),
+            };
+            output.copy_from_slice(&value.to_le_bytes()[..self.to]);
+        }
+        result
+    }
+}
+
+pub(super) const WIDENING_INPUTS: [[u8; 16]; 2] = [
+    [
+        0x80, 0xff, 0x00, 0x80, 0xff, 0x7f, 0x34, 0x12, 0x01, 0x00, 0xfe, 0xff, 0x00, 0x90, 0x67,
+        0x45,
+    ],
+    [
+        0xff, 0x7f, 0xff, 0xff, 0x00, 0x01, 0x01, 0x80, 0x00, 0x00, 0x00, 0x80, 0xff, 0xff, 0xff,
+        0x7f,
+    ],
+];
+
+pub(super) const WIDENING_CASES: [WideningCase; 12] = [
+    WideningCase {
+        name: "pmovsxbw",
+        opcode: 0x20,
+        from: 1,
+        to: 2,
+    },
+    WideningCase {
+        name: "pmovsxbd",
+        opcode: 0x21,
+        from: 1,
+        to: 4,
+    },
+    WideningCase {
+        name: "pmovsxbq",
+        opcode: 0x22,
+        from: 1,
+        to: 8,
+    },
+    WideningCase {
+        name: "pmovsxwd",
+        opcode: 0x23,
+        from: 2,
+        to: 4,
+    },
+    WideningCase {
+        name: "pmovsxwq",
+        opcode: 0x24,
+        from: 2,
+        to: 8,
+    },
+    WideningCase {
+        name: "pmovsxdq",
+        opcode: 0x25,
+        from: 4,
+        to: 8,
+    },
+    WideningCase {
+        name: "pmovzxbw",
+        opcode: 0x30,
+        from: 1,
+        to: 2,
+    },
+    WideningCase {
+        name: "pmovzxbd",
+        opcode: 0x31,
+        from: 1,
+        to: 4,
+    },
+    WideningCase {
+        name: "pmovzxbq",
+        opcode: 0x32,
+        from: 1,
+        to: 8,
+    },
+    WideningCase {
+        name: "pmovzxwd",
+        opcode: 0x33,
+        from: 2,
+        to: 4,
+    },
+    WideningCase {
+        name: "pmovzxwq",
+        opcode: 0x34,
+        from: 2,
+        to: 8,
+    },
+    WideningCase {
+        name: "pmovzxdq",
+        opcode: 0x35,
+        from: 4,
+        to: 8,
+    },
+];
 
 const HORIZONTAL_WORDS: [[Vector; 2]; 2] = [
     [

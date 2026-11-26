@@ -28,6 +28,113 @@ fn packed_sign_matches_x86_ram_and_completes_once() {
 }
 
 #[test]
+fn packed_widening_uses_the_source_width_and_completes_once_after_restore() {
+    let mut rejected = Vec::new();
+    for case in &packed_vectors::WIDENING_CASES {
+        for (code, form, width) in case.forms() {
+            let vex = form != "legacy";
+            let size = case.reply_len(width);
+            let (mut context, mut memory, mut exit) = fixture(&code);
+            if !vex {
+                context.registers[7] += 3;
+            }
+            exit.linear += 3;
+            exit.physical += 3;
+            // A wider device read would include this byte of guest RAM.
+            memory.bytes(exit.physical + size as u64, &[0x5a]);
+            let plan = match prepare(&context, &mut memory, exit) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    rejected.push(format!("{code:02x?}: {error}"));
+                    continue;
+                }
+            };
+            assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
+            assert_eq!(plan.length, code.len() as u64);
+            assert!(memory.reads.iter().all(|&(addr, _)| addr < exit.physical));
+            let Action::UnaryVector(input) = plan.action else {
+                panic!("{code:02x?}: {:?}", plan.action);
+            };
+
+            let decoded = instruction_metadata::decode(64, context.rip, &code).unwrap();
+            assert_eq!(
+                decoded.mnemonic,
+                format!("{}{}", if vex { "v" } else { "" }, case.name)
+            );
+            let [target, device] = decoded.operands.as_slice() else {
+                panic!("{decoded:?}");
+            };
+            assert!(decoded.operands_complete && target.write && !target.read);
+            assert_eq!(target.width_bits, width as u32 * 8);
+            assert_eq!(device.kind, OperandKind::Memory);
+            assert!(device.read && !device.write && !device.conditional);
+            assert_eq!(device.width_bits, size as u32 * 8);
+
+            let mut register_code = code.clone();
+            if vex {
+                register_code.pop();
+            }
+            *register_code.last_mut().unwrap() = 0xff;
+            let metadata = instruction_metadata::decode(64, context.rip, &register_code).unwrap();
+            assert_eq!(metadata.operands[1].kind, OperandKind::Register);
+            assert_eq!(metadata.operands[1].reg, "xmm7");
+            assert_eq!(metadata.operands[1].width_bits, 128);
+            let (reg_context, mut reg_memory, reg_exit) = fixture(&register_code);
+            assert!(prepare(&reg_context, &mut reg_memory, reg_exit).is_err());
+
+            for source in packed_vectors::WIDENING_INPUTS {
+                let expected = case.expected(&source, width);
+                let expected = if width == 32 {
+                    Write::Ymm(15, expected)
+                } else {
+                    Write::Xmm(15, expected[..16].try_into().unwrap(), vex)
+                };
+                let mut pending = mmio::InputState::default();
+                pending.begin_unary_vector(input.clone()).unwrap();
+                let wire = rax::codec::serialize(&pending).unwrap();
+                let restored: mmio::InputState = rax::codec::deserialize_strict(&wire).unwrap();
+                restored.validate_checkpoint().unwrap();
+                for mut state in [pending, restored] {
+                    assert_eq!(state.descriptor(), Some((size as u8, None)), "{code:02x?}");
+                    let mut host = Host::default();
+                    state.complete(&mut host, &source[..size]);
+                    state.complete(&mut host, &source[..size]);
+                    assert_eq!(host.0.len(), 2, "{code:02x?}");
+                    assert_eq!(host.0[0], expected, "{code:02x?}");
+                    assert_eq!(host.0[1], Write::Retire(plan.length), "{code:02x?}");
+                }
+                let mut wrong_size: mmio::InputState =
+                    rax::codec::deserialize_strict(&wire).unwrap();
+                let mut host = Host::default();
+                wrong_size.complete(&mut host, &source[..size - 1]);
+                assert!(host.0.is_empty());
+                assert!(wrong_size.failure().is_some());
+            }
+            exit.qualification = 0x182;
+            assert!(prepare(&context, &mut memory, exit).is_err());
+        }
+    }
+    assert!(rejected.is_empty(), "{}", rejected.join("\n"));
+}
+
+#[test]
+fn packed_widening_only_accepts_allocated_legacy_and_vex_device_reads() {
+    for opcode in (0x20..=0x25).chain(0x30..=0x35) {
+        for code in [
+            vec![0x0f, 0x38, opcode, 0x07], // Missing mandatory prefix.
+            vec![0xf0, 0x66, 0x0f, 0x38, opcode, 0x07], // LOCK.
+            vec![0xc4, 0xe2, 0x78, opcode, 0x07], // Missing mandatory prefix.
+            vec![0xc4, 0xe2, 0x71, opcode, 0x07], // Reserved VEX.vvvv.
+            vec![0x62, 0xf2, 0x7d, 0x08, opcode, 0x07], // EVEX state.
+        ] {
+            let (context, mut memory, exit) = fixture(&code);
+            assert!(prepare(&context, &mut memory, exit).is_err(), "{code:02x?}");
+            assert!(memory.reads.iter().all(|&(addr, _)| addr != exit.physical));
+        }
+    }
+}
+
+#[test]
 fn packed_absolute_memory_forms_complete_once_after_restore() {
     let mut rejected = Vec::new();
     for case in &packed_vectors::ABSOLUTE_CASES {

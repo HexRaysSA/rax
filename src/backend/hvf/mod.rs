@@ -1394,7 +1394,7 @@ impl run_loop::ExitHandler for HvfCore {
                 })
             }
             mmio::Action::UnaryVector(input) => {
-                let size = input.encoding.size();
+                let size = input.memory_size();
                 self.mmio_input
                     .begin_unary_vector(input)
                     .map_err(Error::Emulator)?;

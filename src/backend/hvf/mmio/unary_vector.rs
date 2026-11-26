@@ -7,8 +7,9 @@ enum Operation {
     Doublewords,
     HighWords,
     LowWords,
-    // Append to retain the discriminants in saved immediate shuffle reads.
+    // Append new operations to retain the saved transaction discriminants.
     Absolute(AbsoluteWidth),
+    Widen { shape: Widening, signed: bool },
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -43,6 +44,57 @@ impl AbsoluteWidth {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum Widening {
+    ByteToWord,
+    ByteToDoubleword,
+    ByteToQuadword,
+    WordToDoubleword,
+    WordToQuadword,
+    DoublewordToQuadword,
+}
+
+impl Widening {
+    fn widths(self) -> (u8, u8) {
+        match self {
+            Self::ByteToWord => (1, 2),
+            Self::ByteToDoubleword => (1, 4),
+            Self::ByteToQuadword => (1, 8),
+            Self::WordToDoubleword => (2, 4),
+            Self::WordToQuadword => (2, 8),
+            Self::DoublewordToQuadword => (4, 8),
+        }
+    }
+
+    fn result<const N: usize>(self, data: &[u8], signed: bool) -> [u8; N] {
+        let (from, to) = self.widths();
+        let from = usize::from(from);
+        let mut result = [0; N];
+        for (source, target) in data
+            .chunks_exact(from)
+            .zip(result.chunks_exact_mut(usize::from(to)))
+        {
+            target[..from].copy_from_slice(source);
+            if signed && source[from - 1] & 0x80 != 0 {
+                target[from..].fill(0xff);
+            }
+        }
+        result
+    }
+}
+
+impl Operation {
+    fn memory_size(self, encoding: Encoding) -> u8 {
+        match self {
+            Self::Widen { shape, .. } => {
+                let (from, to) = shape.widths();
+                encoding.size() / to * from
+            }
+            _ => encoding.size(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Input {
     pub(super) index: u8,
@@ -57,11 +109,18 @@ impl Input {
     pub(super) fn validate(&self) -> Result<(), String> {
         if self.index >= 16
             || !(1..=15).contains(&self.length)
-            || matches!(self.operation, Operation::Absolute(_)) && self.control != 0
+            || matches!(
+                self.operation,
+                Operation::Absolute(_) | Operation::Widen { .. }
+            ) && self.control != 0
         {
             return Err("invalid HVF MMIO unary vector descriptor".into());
         }
         Ok(())
+    }
+
+    pub(crate) fn memory_size(&self) -> u8 {
+        self.operation.memory_size(self.encoding)
     }
 
     fn result<const N: usize>(&self, data: &[u8]) -> [u8; N] {
@@ -70,6 +129,7 @@ impl Input {
             Operation::HighWords => (8, 2),
             Operation::LowWords => (0, 2),
             Operation::Absolute(width) => return width.result(data),
+            Operation::Widen { shape, signed } => return shape.result(data, signed),
         };
         let mut result = [0; N];
         result.copy_from_slice(data);
@@ -85,7 +145,7 @@ impl Input {
     }
 
     pub(super) fn effect(&self, data: &[u8]) -> Result<Effect, String> {
-        let size = self.encoding.size();
+        let size = self.memory_size();
         if data.len() != usize::from(size) {
             return Err(format!(
                 "HVF MMIO unary vector expected {size} bytes, received {}",
@@ -117,17 +177,36 @@ pub(super) fn prepare<M: PhysicalMemory>(
     read: bool,
 ) -> Result<Option<Plan>, String> {
     let mnemonic = instruction.mnemonic.as_str();
-    let operation = match mnemonic.strip_prefix('v').unwrap_or(mnemonic) {
+    let name = mnemonic.strip_prefix('v').unwrap_or(mnemonic);
+    let operation = match name {
         "pshufd" => Operation::Doublewords,
         "pshufhw" => Operation::HighWords,
         "pshuflw" => Operation::LowWords,
         "pabsb" => Operation::Absolute(AbsoluteWidth::Byte),
         "pabsw" => Operation::Absolute(AbsoluteWidth::Word),
         "pabsd" => Operation::Absolute(AbsoluteWidth::Doubleword),
-        _ => return Ok(None),
+        _ => {
+            let (shape, signed) = if let Some(shape) = name.strip_prefix("pmovsx") {
+                (shape, true)
+            } else if let Some(shape) = name.strip_prefix("pmovzx") {
+                (shape, false)
+            } else {
+                return Ok(None);
+            };
+            let shape = match shape {
+                "bw" => Widening::ByteToWord,
+                "bd" => Widening::ByteToDoubleword,
+                "bq" => Widening::ByteToQuadword,
+                "wd" => Widening::WordToDoubleword,
+                "wq" => Widening::WordToQuadword,
+                "dq" => Widening::DoublewordToQuadword,
+                _ => return Ok(None),
+            };
+            Operation::Widen { shape, signed }
+        }
     };
     let (target, device, control) = match (operation, instruction.operands.as_slice()) {
-        (Operation::Absolute(_), [target, device]) => (target, device, 0),
+        (Operation::Absolute(_) | Operation::Widen { .. }, [target, device]) => (target, device, 0),
         (
             Operation::Doublewords | Operation::HighWords | Operation::LowWords,
             [target, device, immediate],
@@ -141,21 +220,24 @@ pub(super) fn prepare<M: PhysicalMemory>(
     } else {
         Encoding::Vex128
     };
-    let size = encoding.size();
-    let width = u32::from(size) * 8;
+    let size = operation.memory_size(encoding);
     if !read
         || !instruction.operands_complete
         || instruction.flow != Flow::Next
         || device.kind != OperandKind::Memory
-        || device.width_bits != width
+        || device.width_bits != u32::from(size) * 8
         || !device.read
         || device.write
         || device.conditional
     {
         return Err("unary vector MMIO requires a complete device read operand".into());
     }
-    let index = register(target, width, false, true).ok_or("invalid unary vector destination")?;
-    if encoding == Encoding::Legacy && record.linear & 15 != 0 {
+    let index = register(target, u32::from(encoding.size()) * 8, false, true)
+        .ok_or("invalid unary vector destination")?;
+    if encoding == Encoding::Legacy
+        && !matches!(operation, Operation::Widen { .. })
+        && record.linear & 15 != 0
+    {
         return Err("misaligned legacy unary vector MMIO input".into());
     }
     validate_memory(context, memory, record, device, size)?;

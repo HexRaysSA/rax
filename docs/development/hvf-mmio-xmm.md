@@ -1546,3 +1546,44 @@ The RAM observation SHA-256 is
 `3aa78dcb1a58c034d1781a8ecc9e0387013379823c2ec2e8d2187433c08e151d`.
 The exact inputs, disassembly and logs are under
 `/Users/int/dev/rax-audit-work/four-findings-hvf-packed-absolute-2026-11-26/`.
+
+## Packed sign and zero extension from a device operand
+
+Intel HVF handles legacy `PMOVSX*` and `PMOVZX*` and their VEX.128 and
+VEX.256 forms. Each instruction requests one read of the encoded memory
+operand. The request size is the number of destination elements times the
+source element width. Completion extends those elements in order and uses
+O(B) time for B destination bytes and O(1) auxiliary space.
+[Intel SDM, PMOVSX and PMOVZX](https://cdrdv2-public.intel.com/774492/325383-sdm-vol-2abcd.pdf)
+
+| Element widths | Legacy and VEX.128 read | VEX.256 read |
+| --- | ---: | ---: |
+| 8 bits to 16 bits | 8 B | 16 B |
+| 8 bits to 32 bits | 4 B | 8 B |
+| 8 bits to 64 bits | 2 B | 4 B |
+| 16 bits to 32 bits | 8 B | 16 B |
+| 16 bits to 64 bits | 4 B | 8 B |
+| 32 bits to 64 bits | 8 B | 16 B |
+
+All forms preserve RFLAGS and allow unaligned operands in the tested
+privilege and alignment-check configuration. Legacy preserves the upper
+128 bits of YMM. VEX.128 clears them and VEX.256 writes all 256 bits. The
+pending-read codec appends an operation discriminant and derives the read
+size from that operation and the saved encoding.
+
+| Assumption | Falsification probe | Observed result |
+| --- | --- | --- |
+| Each packed widening instruction consumes exactly its source bytes. | Execute the 60 encodings on x86 RAM via Rosetta with two patterns. Use an unaligned source and place the last source byte immediately before a protected page. Check all 32 destination bytes and RFLAGS. | All 240 observations matched. The RAM observation SHA-256 is `910fde8ec9eb8ee00c24fd45a343098ee6fd7f5bb4e190357d2d93ff2b8e6e08`. |
+| The pending transaction retains its width and retires once. | Put a byte of RAM immediately after the MMIO operand, compare the decoded register and memory widths, restore each read, and submit a duplicate or truncated reply. | The baseline rejected all 60 forms in metadata decoding. The corrected planner emits the shorter transaction and the completion updates the destination and retires once. A truncated reply produces no architectural write. |
+
+The complete `hvf_mmio`, `hvf_guest_translation`, `x86_64`, `isa_oracle`
+and `ci_actions_pinned` targets passed 28,857 tests, with 3 opt-in x86
+tests ignored. The Intel macOS consumer cross-built and passed strict
+signature verification. Those local checks ran on Arm64.
+
+The `vector-widening` hosted profile exercises 120 direct device reads and
+120 fresh-owner completions across the five encodings of each mnemonic.
+EVEX device reads and bare-metal Intel qualification remain open.
+
+The exact RAM inputs, output and local validation logs are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-packed-widen-2026-11-26/`.

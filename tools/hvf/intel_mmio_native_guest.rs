@@ -1473,6 +1473,12 @@ fn main() {
         xmm::run_packed_integer(&output, profile);
         return;
     }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-widening")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        xmm::run_packed_widening(&output);
+        return;
+    }
     if let Some(profile) = std::env::args_os()
         .nth(1)
         .filter(|profile| profile == "--vector-unpack" || profile == "--vector-multiply")

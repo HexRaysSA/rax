@@ -200769,6 +200769,14 @@
       "scope": "Four-hart Debian Linux with highres=off and nohz=off reached all four affinity markers on QEMU 11.1.2. Turn-batched RAX eea2e5e65 reached the 950 s host limit with no markers. At the 150 s and 320 s checkpoint requests, all harts were online and PID 1 and the tracefs worker waited on event_mutex, held by PID 44 on CPU 1 and CPU 2 respectively. Linux jiffies and all four timer IRQ counters advanced. High-resolution timer counters and leaf RCU quiescent-state pending flags were zero in both captures. The wall-clock boot timeout remains open.",
       "qualification": "docs/development/riscv-clint/README.md#periodic-tick-control-at-four-harts",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-packed-widening-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "locally_qualified_hosted_profile_added",
+      "scope": "Legacy and VEX PMOVSX and PMOVZX request the exact 2 B, 4 B, 8 B or 16 B operand and retain that request across checkpoint restoration. The 60 previously unsupported encodings matched 240 independent unaligned and guard-page RAM observations under Rosetta. The five owning targets passed 28,857 tests, with three opt-in x86 tests ignored. The signed Intel macOS consumer cross-built with a 240-case direct and restored MMIO profile. Full findings remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#packed-sign-and-zero-extension-from-a-device-operand",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
