@@ -201104,6 +201104,14 @@
       "scope": "Complete PC software PIC checkpoints preserve both raw input banks, including the master cascade level. Detached restores match the source PIC after acknowledgement of a held IRQ3 or i8042 IRQ12. Legacy PC images use reconstruction from their available device inputs, and an in-kernel controller rejects a software PIC input bank. Native checkpoint and full backend coverage remain open.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#software-pic-input-levels",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-bmi1-device-reads-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "native_intel_qualification_pending",
+      "scope": "Intel HVF plans one scalar read for ANDN, BEXTR, BLSI, BLSMSK and BLSR. The pending record retains the original register source, destination and flags. Portable tests publish exactly one register, RFLAGS and retirement after detached restore. Independent QEMU execution matched 28 RAM cases. The hosted BMI1 profile covers 24 direct and 24 restored reads. Native cases, bare-metal Intel, and complete MMIO and checkpoint requirements remain open.",
+      "qualification": "docs/development/hvf-mmio-alu-read.md#bmi1-device-reads",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

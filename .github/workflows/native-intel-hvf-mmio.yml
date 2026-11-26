@@ -17,6 +17,7 @@ on:
           - combined
           - vmm-startup
           - adx
+          - bmi1
           - crc32
           - cmov
           - popcnt

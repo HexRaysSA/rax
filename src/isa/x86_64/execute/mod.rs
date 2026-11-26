@@ -3,6 +3,7 @@
 pub mod arith;
 pub mod bit;
 pub mod bmi;
+mod bmi1;
 pub mod control;
 mod crc32;
 pub(crate) mod crypto;

@@ -1,4 +1,4 @@
-//! Stateless projection of AVX vector transfer encodings.
+//! Stateless projection of supported VEX-encoded instructions.
 use super::*;
 
 pub(super) fn decode_xmm_transfer(
@@ -30,6 +30,38 @@ pub(super) fn decode_xmm_transfer(
         ((!vex >> 5) & 4, vex & 0x7f, 1)
     };
     let opcode = ctx.consume_u8().ok()?;
+    if map == 2 && flags & 3 == 0 && matches!(opcode, 0xf2 | 0xf3 | 0xf7) {
+        if flags & 4 != 0 {
+            return None;
+        }
+        ctx.rex = (bits == 64).then_some(0x40 | extensions);
+        let size = if bits == 64 && flags & 0x80 != 0 {
+            8
+        } else {
+            4
+        };
+        let vvvv_mask = if bits == 64 { 15 } else { 7 };
+        let vvvv = (!flags >> 3) & vvvv_mask;
+        let (group, reg, rm) = modrm(ctx, address_bits, size, bits == 64)?;
+        let operand = reg_operand(vvvv, size, true, true, false);
+        let (mnemonic, operands) = match opcode {
+            0xf2 => ("andn", vec![read_write(reg, false, true), operand, rm]),
+            0xf7 => ("bextr", vec![read_write(reg, false, true), rm, operand]),
+            _ => {
+                let mnemonic = match group {
+                    1 => "blsr",
+                    2 => "blsmsk",
+                    3 => "blsi",
+                    _ => return None,
+                };
+                (mnemonic, vec![read_write(operand, false, true), rm])
+            }
+        };
+        out.mnemonic = mnemonic.into();
+        out.operands = operands;
+        out.flow = Flow::Next;
+        return Some(());
+    }
     let streaming_load = (map, flags & 3, opcode) == (2, 1, 0x2a);
     let uniform_shift = packed_uniform_shift_mnemonics(map, flags & 3, opcode);
     let immediate_shuffle = match (map, flags & 0x87, opcode) {

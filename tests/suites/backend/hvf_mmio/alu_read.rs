@@ -854,3 +854,105 @@ fn independent_alu_guest_records_match_complete_product_publication() {
     assert_eq!(count, 5768);
     assert_eq!(mismatches, 0);
 }
+
+#[test]
+fn bmi1_memory_sources_publish_only_the_destination_and_defined_flags() {
+    const INITIAL_FLAGS: u64 = 0x0000_0ed7;
+    for width in [32, 64] {
+        let high = 1u64 << (width - 1);
+        let mask = high | (high - 1);
+        let size = width / 8;
+        for (opcode, vex, modrm, memory, other, value, flags) in [
+            (0xf2, 0x70, 0x07, high | 7, 3, high | 4, 0x80), // ANDN
+            (0xf2, 0x70, 0x07, mask, mask, 0, 0x40),
+            (0xf7, 0x70, 0x07, mask, ((width - 1) | 0xff00) as u64, 1, 0),
+            (0xf7, 0x70, 0x07, mask, (width | 0x0100) as u64, 0, 0x40),
+            (0xf7, 0x70, 0x07, mask, 0, 0, 0x40),
+            (0xF7, 0x70, 0x07, mask, 0xff00, mask, 0),
+            (0xf3, 0x78, 0x1f, 0, 0, 0, 0x40), // BLSI
+            (0xf3, 0x78, 0x1f, high, 0, high, 0x81),
+            (0xf3, 0x78, 0x17, 0, 0, mask, 0x81), // BLSMSK
+            (0xf3, 0x78, 0x17, 0x18, 0, 0xf, 0),
+            (0xf3, 0x78, 0x0f, 0, 0, 0, 0x41), // BLSR
+            (0xf3, 0x78, 0x0f, 0x18, 0, 0x10, 0),
+        ] {
+            let code = [
+                0xc4,
+                0xe2,
+                vex | if width == 64 { 0x80 } else { 0 },
+                opcode,
+                modrm,
+            ];
+            let (mut context, mut ram, record) = fixture(&code);
+            context.registers[0] = u64::MAX;
+            context.registers[1] = other;
+            context.rflags = INITIAL_FLAGS;
+            let plan = prepare(&context, &mut ram, record)
+                .unwrap_or_else(|e| panic!("{width}-bit {code:02x?}: {e}"));
+            assert!(ram.reads.iter().all(|&(addr, _)| addr != record.physical));
+            let Action::AluRead(input) = plan.action else {
+                panic!("expected a single device read");
+            };
+            assert_eq!(input.size, size as u8);
+            let mut pending = mmio::InputState::default();
+            pending.begin_alu_read(input).unwrap();
+            let serialized = rax::codec::serialize(&pending).unwrap();
+            let mut pending: mmio::InputState =
+                rax::codec::deserialize_strict(&serialized).unwrap();
+            let mut host = CompletionHost::default();
+            pending.complete(&mut host, &memory.to_le_bytes()[..size]);
+            assert_eq!(host.calls, ["gpr", "writeflags", "finish"]);
+            assert_eq!((host.index, host.value), (0, value));
+            assert_eq!(host.length, code.len() as u64);
+            let modified = if opcode == 0xf7 { 0x841 } else { 0x8c1 };
+            assert_eq!(host.flags, INITIAL_FLAGS & !modified | flags);
+            assert!(pending.ready().is_ok());
+        }
+    }
+}
+
+#[test]
+fn bmi1_legacy_code_modes_ignore_vex_w_and_the_high_vvvv_bit() {
+    for bits in [16, 32] {
+        for vex in [0x30, 0x70, 0xb0, 0xf0] {
+            let (mut context, mut ram, record) = fixture(&[0xc4, 0xe2, vex, 0xf2, 0x07]);
+            context.code_bits = bits;
+            context.registers[1] = 3;
+            if bits == 16 {
+                context.registers[3] = 0;
+                context.segments[3] = record.linear;
+            }
+            let Action::AluRead(input) = prepare(&context, &mut ram, record).unwrap().action else {
+                panic!("expected legacy BMI1 device read");
+            };
+            assert_eq!(input.size, 4);
+            let mut pending = mmio::InputState::default();
+            pending.begin_alu_read(input).unwrap();
+            let mut host = CompletionHost::default();
+            pending.complete(&mut host, &7u32.to_le_bytes());
+            assert_eq!((host.index, host.value), (0, 4));
+        }
+    }
+}
+
+#[test]
+fn bmi1_only_admits_matching_scalar_read_exits() {
+    for (code, qualification, address_offset) in [
+        (&[0x66, 0xc4, 0xe2, 0x70, 0xf2, 0x07][..], 0x181, 0),
+        (&[0xc4, 0xe2, 0x74, 0xf2, 0x07], 0x181, 0), // VEX.L must be clear.
+        (&[0xc4, 0xe2, 0x78, 0xf3, 0x07], 0x181, 0), // Reserved group selector.
+        (&[0xc4, 0xe2, 0x70, 0xf2, 0xc7], 0x181, 0), // Register source.
+        (&[0xc4, 0xe2, 0x70, 0xf2, 0x07], 0x182, 0), // Write qualification.
+        (&[0xc4, 0xe2, 0x70, 0xf2, 0x07], 0x181, 1), // Inconsistent GPA.
+    ] {
+        let (context, mut ram, mut record) = fixture(code);
+        record.qualification = qualification;
+        record.physical += address_offset;
+        assert!(prepare(&context, &mut ram, record).is_err(), "{code:02x?}");
+        assert!(
+            ram.reads
+                .iter()
+                .all(|&(address, _)| address != record.physical)
+        );
+    }
+}

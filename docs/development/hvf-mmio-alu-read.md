@@ -341,3 +341,34 @@ Bare-metal Intel macOS remains a high-impact qualification gate. The portable
 tests cover the 16- and 32-bit address calculations used in compatibility and
 legacy modes. Actual XLAT device exits in those code modes remain a separate
 Intel HVF qualification gate.
+
+## BMI1 device reads
+
+Intel HVF plans a single 4 B or 8 B device read for ANDN, register-controlled
+BEXTR, BLSI, BLSMSK, and BLSR. The pending scalar record stores the destination,
+any register source, and entry RFLAGS. The planner requires a read-qualified
+EPT exit at the resolved linear and physical addresses. Completion publishes
+the destination and RFLAGS and advances RIP once. Direct software execution
+and MMIO completion share the operation. Each uses constant time and space
+for the supported operand widths. The shared operation preserves undefined
+flags deterministically. [Intel SDM, Vol. 2A, VEX encoding and BMI1](https://cdrdv2-public.intel.com/874240/325462-090-sdm-vol-1-2abcd-3abcd-4.pdf)
+
+The parent rejected the first valid ANDN read as unsupported. The full
+portable MMIO, x86-64 ISA, and workflow suites passed 191, 28,561, and 16
+tests, respectively. The ISA suite reported three ignored tests. QEMU 11.1.2
+TCG executed 24 long-mode and four protected-mode RAM cases with zero
+differences in the destination and defined flags. The BLSI reference checks
+carry clear for zero and set for a nonzero source, matching the SDM operation
+and flags table. The QEMU observation stream SHA-256 is
+`c69835bbe83b2752863bdb3eed6d83bfcd00729fc1697f187c95d9bfd1a83c7b`.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| BMI1 updates the destination and the defined flags. | Compare both widths with QEMU RAM execution. Include BEXTR start and length boundaries, zero BLS sources, and signed results. |
+| VEX.W and the high bit of VEX.vvvv are ignored for these three-byte VEX encodings outside 64-bit mode. | Vary both bits in 32-bit protected-mode QEMU and in portable 16- and 32-bit planning. |
+| The pending descriptor carries the same operation and retirement frontier after restore. | Serialize and strictly decode the pending input, then check the read width, exact register and flag writes, and one RIP advance. The `bmi1` hosted profile exercises 24 direct reads and 24 restores into fresh VM and vCPU owners. |
+
+The Intel macOS consumer cross-built and passed strict signature verification.
+Hosted Intel execution of this profile and bare-metal Intel macOS are open
+qualification gates. The hosted profile uses a 64-bit code segment. Intel HVF
+device exits in 16- and 32-bit code segments remain unverified for BMI1.

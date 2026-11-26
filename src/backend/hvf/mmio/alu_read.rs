@@ -6,6 +6,8 @@ use super::{
 use crate::isa::x86_64::flags::{self, bits};
 use serde::{Deserialize, Serialize};
 
+#[path = "../../../isa/x86_64/execute/bmi1.rs"]
+mod bmi1;
 // Share the architectural recurrence with direct execution and its portable
 // MMIO harness, which compiles this planner without the native backend.
 #[path = "../../../isa/x86_64/execute/crc32.rs"]
@@ -38,6 +40,7 @@ enum Operation {
     // Appended for compatibility with existing pending inputs.
     StringScan,
     RepeatStringScan { count: u64, while_equal: bool },
+    Bmi1(bmi1::Operation),
 }
 
 impl Operation {
@@ -172,6 +175,19 @@ impl AluReadInput {
         {
             return Err("invalid MMIO ADX operand width".into());
         }
+        if let Operation::Bmi1(operation) = self.operation {
+            let uses_other = matches!(
+                operation,
+                bmi1::Operation::AndNot | bmi1::Operation::Extract
+            );
+            if !matches!(self.size, 4 | 8)
+                || self.length < 5
+                || self.other & !(u64::MAX >> (64 - u32::from(self.size) * 8)) != 0
+                || (!uses_other && self.other != 0)
+            {
+                return Err("invalid MMIO BMI1 operands".into());
+            }
+        }
         if let Some((part, original)) = self.destination {
             if !part.valid() {
                 return Err("invalid MMIO ALU register part".into());
@@ -250,6 +266,11 @@ impl AluReadInput {
                 return self
                     .complete_implicit_multiply(memory, width_bits, mask, signed, rdx_before);
             }
+            Operation::Bmi1(operation) => {
+                let (value, flags) = operation.apply(width_bits, memory, other, updated);
+                updated = flags;
+                value
+            }
         };
         match self.operation {
             Operation::Add => flags::update_flags_add(&mut updated, left, right, result, self.size),
@@ -291,7 +312,7 @@ impl AluReadInput {
                     updated |= bits::ZF;
                 }
             }
-            Operation::Crc32 | Operation::Imul => {}
+            Operation::Crc32 | Operation::Imul | Operation::Bmi1(_) => {}
             _ => flags::update_flags_logic(&mut updated, result, self.size),
         }
         let register = self.destination.map(|(part, original)| {
@@ -421,6 +442,17 @@ pub(super) fn prepare<M: PhysicalMemory>(
     record: ExitRecord,
     instruction: &Instruction,
 ) -> Result<Option<Plan>, String> {
+    let bmi1 = match instruction.mnemonic.as_str() {
+        "andn" => Some(bmi1::Operation::AndNot),
+        "bextr" => Some(bmi1::Operation::Extract),
+        "blsi" => Some(bmi1::Operation::IsolateLowest),
+        "blsmsk" => Some(bmi1::Operation::MaskThroughLowest),
+        "blsr" => Some(bmi1::Operation::ResetLowest),
+        _ => None,
+    };
+    if let Some(operation) = bmi1 {
+        return prepare_bmi1(context, memory, record, instruction, operation).map(Some);
+    }
     if matches!(instruction.mnemonic.as_str(), "mul" | "imul")
         && let [operand] = instruction.operands.as_slice()
     {
@@ -560,4 +592,78 @@ pub(super) fn prepare<M: PhysicalMemory>(
         length: u64::from(instruction.size),
         action: super::Action::AluRead(input),
     }))
+}
+
+fn prepare_bmi1<M: PhysicalMemory>(
+    context: &Context,
+    memory: &mut M,
+    record: ExitRecord,
+    instruction: &Instruction,
+    operation: bmi1::Operation,
+) -> Result<Plan, String> {
+    let (destination, source, other) = match (operation, instruction.operands.as_slice()) {
+        (bmi1::Operation::AndNot, [dest, other, mem])
+        | (bmi1::Operation::Extract, [dest, mem, other]) => (dest, mem, Some(other)),
+        (
+            bmi1::Operation::IsolateLowest
+            | bmi1::Operation::MaskThroughLowest
+            | bmi1::Operation::ResetLowest,
+            [dest, mem],
+        ) => (dest, mem, None),
+        _ => return Err("unsupported MMIO BMI1 operand shape".into()),
+    };
+    let width = source.width_bits;
+    if !instruction.operands_complete
+        || instruction.flow != Flow::Next
+        || instruction
+            .operands
+            .iter()
+            .any(|operand| operand.conditional)
+        || record.qualification & 3 != 1
+        || source.kind != OperandKind::Memory
+        || !source.read
+        || source.write
+        || !matches!(width, 32 | 64)
+        || destination.read
+        || !destination.write
+    {
+        return Err("MMIO BMI1 effects disagree with the EPT read".into());
+    }
+    let register = |operand: &Operand| {
+        RegisterPart::parse(&operand.reg)
+            .filter(|part| {
+                operand.kind == OperandKind::Register
+                    && operand.width_bits == width
+                    && part.bits == width
+            })
+            .ok_or("invalid MMIO BMI1 register")
+    };
+    let destination = register(destination)?;
+    let other = if let Some(operand) = other {
+        if !operand.read || operand.write {
+            return Err("invalid MMIO BMI1 register source".into());
+        }
+        register(operand)?.value(&context.registers)
+    } else {
+        0
+    };
+    let size = (width / 8) as u8;
+    super::validate_memory(context, memory, record, source, size)?;
+    let length = u64::from(instruction.size);
+    let input = AluReadInput {
+        size,
+        length,
+        operation: Operation::Bmi1(operation),
+        other,
+        memory_left: false,
+        flags_before: context.rflags,
+        destination: Some((destination, context.registers[destination.index])),
+    };
+    input.validate()?;
+    Ok(Plan {
+        physical: record.physical,
+        linear: record.linear,
+        length,
+        action: super::Action::AluRead(input),
+    })
 }

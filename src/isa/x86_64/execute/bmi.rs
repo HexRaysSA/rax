@@ -5,6 +5,7 @@
 //! TBM: BEXTR, BLCFILL, BLCI, BLCIC, BLCMSK, BLCS, BLSFILL, BLSIC,
 //! T1MSKC, TZMSK (AMD)
 
+use super::bmi1::Operation as Bmi1;
 use crate::error::Result;
 use crate::vm::vcpu::VcpuExit;
 
@@ -16,45 +17,11 @@ use crate::isa::x86_64::flags;
 // =============================================================================
 
 /// ANDN - Logical AND NOT (VEX.LZ.0F38 F2 /r)
-/// dest = (NOT src1) AND src2
 pub fn andn(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, vvvv: u8) -> Result<Option<VcpuExit>> {
-    let mask = if ctx.op_size == 8 {
-        !0u64
-    } else {
-        0xFFFF_FFFFu64
-    };
-    let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
-    let src1 = vcpu.get_reg(vvvv, ctx.op_size) & mask;
-    let src2 = if is_memory {
-        vcpu.read_mem(addr, ctx.op_size)? & mask
-    } else {
-        vcpu.get_reg(rm, ctx.op_size) & mask
-    };
-    // ANDN: dest := (NOT SRC1) AND SRC2, where SRC1 = VEX.vvvv, SRC2 = r/m.
-    let result = (!src1) & src2;
-    vcpu.set_reg(reg, result & mask, ctx.op_size);
-    // SF and ZF based on result, OF and CF cleared
-    let sf = if ctx.op_size == 8 {
-        (result >> 63) & 1
-    } else {
-        (result >> 31) & 1
-    };
-    let zf = if result == 0 { 1 } else { 0 };
-    // The emulator deterministically preserves ANDN's undefined PF/AF.
-    // Commit any pending lazy producer before updating the defined bits.
-    vcpu.materialize_flags();
-    vcpu.regs.rflags &= !(flags::bits::SF | flags::bits::ZF | flags::bits::OF | flags::bits::CF);
-    if sf != 0 {
-        vcpu.regs.rflags |= flags::bits::SF;
-    }
-    if zf != 0 {
-        vcpu.regs.rflags |= flags::bits::ZF;
-    }
-    // Flags were written eagerly; drop any stale pending lazy op so the next
-    // flag reader (Jcc/SETcc) doesn't clobber these defined flags.
-    vcpu.clear_lazy_flags();
-    vcpu.regs.rip += ctx.cursor as u64;
-    Ok(None)
+    let (dest, rm, memory, addr, _) = vcpu.decode_modrm(ctx)?;
+    let other = vcpu.get_reg(vvvv, ctx.op_size);
+    let source = bmi1_source(vcpu, ctx, rm, memory, addr)?;
+    finish_bmi1(vcpu, ctx, dest, Bmi1::AndNot, source, other)
 }
 
 /// BLSI, BLSMSK, BLSR group (VEX.LZ.0F38 F3 /1, /2, /3)
@@ -63,128 +30,53 @@ pub fn blsi_blsmsk_blsr(
     ctx: &mut InsnContext,
     vvvv: u8,
 ) -> Result<Option<VcpuExit>> {
-    let mask = if ctx.op_size == 8 {
-        !0u64
-    } else {
-        0xFFFF_FFFFu64
-    };
-    let modrm = ctx.peek_u8()?;
-    let reg_op = (modrm >> 3) & 0x07;
-    let (_, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
-    let src = if is_memory {
-        vcpu.read_mem(addr, ctx.op_size)? & mask
-    } else {
-        vcpu.get_reg(rm, ctx.op_size) & mask
-    };
-    let result = match reg_op {
-        1 => src & src.wrapping_sub(1), // BLSR: src & (src - 1)
-        2 => src ^ src.wrapping_sub(1), // BLSMSK: src ^ (src - 1)
-        3 => src.wrapping_neg() & src,  // BLSI: (-src) & src
+    let group = (ctx.peek_u8()? >> 3) & 7;
+    let (_, rm, memory, addr, _) = vcpu.decode_modrm(ctx)?;
+    let source = bmi1_source(vcpu, ctx, rm, memory, addr)?;
+    let operation = match group {
+        1 => Bmi1::ResetLowest,
+        2 => Bmi1::MaskThroughLowest,
+        3 => Bmi1::IsolateLowest,
         _ => return vcpu.inject_undefined_instruction(),
     };
-    vcpu.set_reg(vvvv, result & mask, ctx.op_size);
-    // Set flags
-    // SF based on result sign
-    let sf = if ctx.op_size == 8 {
-        (result >> 63) & 1
-    } else {
-        (result >> 31) & 1
-    };
-    // ZF based on result for BLSI/BLSR, cleared for BLSMSK
-    let zf = match reg_op {
-        2 => 0, // BLSMSK: ZF = 0
-        _ => {
-            if result == 0 {
-                1
-            } else {
-                0
-            }
-        } // BLSI/BLSR: ZF = (result == 0)
-    };
-    // CF varies by instruction
-    let cf = match reg_op {
-        2 => {
-            if src == 0 {
-                1
-            } else {
-                0
-            }
-        } // BLSMSK: CF = (src == 0)
-        3 => {
-            if src != 0 {
-                1
-            } else {
-                0
-            }
-        } // BLSI: CF = (src != 0)
-        _ => {
-            if src == 0 {
-                1
-            } else {
-                0
-            }
-        } // BLSR: CF = (src == 0)
-    };
-    // The emulator deterministically preserves the architecturally undefined
-    // PF/AF bits. Commit any pending lazy producer before replacing only the
-    // BLS-defined CF/ZF/SF/OF subset.
-    vcpu.materialize_flags();
-    vcpu.regs.rflags &= !(flags::bits::SF | flags::bits::ZF | flags::bits::OF | flags::bits::CF);
-    if sf != 0 {
-        vcpu.regs.rflags |= flags::bits::SF;
-    }
-    if zf != 0 {
-        vcpu.regs.rflags |= flags::bits::ZF;
-    }
-    if cf != 0 {
-        vcpu.regs.rflags |= flags::bits::CF;
-    }
-    // Flags were written eagerly; drop any stale pending lazy op so the next
-    // flag reader (Jcc/SETcc) doesn't clobber these defined flags.
-    vcpu.clear_lazy_flags();
-    vcpu.regs.rip += ctx.cursor as u64;
-    Ok(None)
+    finish_bmi1(vcpu, ctx, vvvv, operation, source, 0)
 }
 
 /// BEXTR - Bit Field Extract (VEX.LZ.0F38 F7 /r)
 pub fn bextr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, vvvv: u8) -> Result<Option<VcpuExit>> {
-    let mask = if ctx.op_size == 8 {
-        !0u64
-    } else {
-        0xFFFF_FFFFu64
-    };
-    let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
-    let src = if is_memory {
-        vcpu.read_mem(addr, ctx.op_size)? & mask
-    } else {
-        vcpu.get_reg(rm, ctx.op_size) & mask
-    };
+    let (dest, rm, memory, addr, _) = vcpu.decode_modrm(ctx)?;
+    let source = bmi1_source(vcpu, ctx, rm, memory, addr)?;
     let control = vcpu.get_reg(vvvv, ctx.op_size);
-    let start = (control & 0xFF) as u32;
-    let len = ((control >> 8) & 0xFF) as u32;
-    let bits = if ctx.op_size == 8 { 64u32 } else { 32u32 };
-    let result = if start >= bits || len == 0 {
-        0
+    finish_bmi1(vcpu, ctx, dest, Bmi1::Extract, source, control)
+}
+
+fn bmi1_source(
+    vcpu: &mut X86_64Vcpu,
+    ctx: &InsnContext,
+    register: u8,
+    memory: bool,
+    address: u64,
+) -> Result<u64> {
+    if memory {
+        vcpu.read_mem(address, ctx.op_size)
     } else {
-        let shifted = src >> start;
-        if len >= bits {
-            shifted
-        } else {
-            shifted & ((1u64 << len) - 1)
-        }
-    };
-    vcpu.set_reg(reg, result, ctx.op_size);
-    let zf = if result == 0 { 1 } else { 0 };
-    // The emulator deterministically preserves BEXTR's undefined SF/PF/AF.
-    // Commit a pending lazy producer before updating the defined bits so the
-    // preserved values belong to the immediately preceding instruction.
-    vcpu.materialize_flags();
-    vcpu.regs.rflags &= !(flags::bits::ZF | flags::bits::OF | flags::bits::CF);
-    if zf != 0 {
-        vcpu.regs.rflags |= flags::bits::ZF;
+        Ok(vcpu.get_reg(register, ctx.op_size))
     }
-    // Flags were written eagerly; drop any stale pending lazy op so the next
-    // flag reader (Jcc/SETcc) doesn't clobber these defined flags.
+}
+
+fn finish_bmi1(
+    vcpu: &mut X86_64Vcpu,
+    ctx: &InsnContext,
+    destination: u8,
+    operation: Bmi1,
+    source: u64,
+    other: u64,
+) -> Result<Option<VcpuExit>> {
+    vcpu.materialize_flags();
+    let (result, flags) =
+        operation.apply(u32::from(ctx.op_size) * 8, source, other, vcpu.regs.rflags);
+    vcpu.set_reg(destination, result, ctx.op_size);
+    vcpu.regs.rflags = flags;
     vcpu.clear_lazy_flags();
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)

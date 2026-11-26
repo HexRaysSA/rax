@@ -20,6 +20,8 @@ mod adx;
 mod aes_rounds;
 #[path = "intel_mmio_bit_scan.rs"]
 mod bit_scan;
+#[path = "intel_mmio_bmi1.rs"]
+mod bmi1;
 #[path = "intel_mmio_clmul.rs"]
 mod clmul;
 #[path = "intel_mmio_cmov.rs"]
@@ -230,11 +232,34 @@ fn scalar_read_with_flags(
     expected_flags: u64,
     restore: bool,
 ) {
+    scalar_read_with_initial_rcx(
+        code,
+        reply,
+        initial_flags,
+        None,
+        expected_rax,
+        expected_flags,
+        restore,
+    );
+}
+
+fn scalar_read_with_initial_rcx(
+    code: &[u8],
+    reply: &[u8],
+    initial_flags: u64,
+    initial_rcx: Option<u64>,
+    expected_rax: u64,
+    expected_flags: u64,
+    restore: bool,
+) {
     let memory = guest_memory(code);
     let (mut vm, mut cpu) = machine(&memory);
-    if initial_flags != 2 {
+    if initial_flags != 2 || initial_rcx.is_some() {
         let mut initial = state(cpu.as_ref());
         initial.regs.rflags = initial_flags;
+        if let Some(rcx) = initial_rcx {
+            initial.regs.rcx = rcx;
+        }
         cpu.set_state(&CpuState::X86_64(initial)).unwrap();
     }
     let check_pending = |cpu: &mut dyn VCpu| {
@@ -1601,6 +1626,12 @@ fn main() {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
         adx::run(&output);
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--bmi1")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        bmi1::run(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--bit-count")) {
