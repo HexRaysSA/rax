@@ -1181,16 +1181,19 @@ fn closed_getfsstat_enumerates_only_visible_guest_volumes() {
             bsd::call(ctx, nr::GETFSSTAT64, &[address, size, flags, 0, 0, 0, 0, 0])
         };
         let workspace = files.with_temp_workspace(WorkspaceFlavor::Darwin);
-        for (namespace, count) in [
-            (files, 1),
-            (
-                workspace
-                    .with_file("/tmp".into(), Arc::from(&b"file"[..]))
-                    .unwrap(),
-                1,
-            ),
-            (workspace, 2),
+        let tmp_hidden = workspace
+            .with_file("/tmp".into(), Arc::from(&b"file"[..]))
+            .unwrap();
+        let workspace_hidden = tmp_hidden
+            .with_file("/var/folders".into(), Arc::from(&b"file"[..]))
+            .unwrap();
+        for (namespace, scratch_mount) in [
+            (files, None),
+            (workspace, Some(&b"/tmp\0"[..])),
+            (tmp_hidden, Some(&b"/var/folders\0"[..])),
+            (workspace_hidden, None),
         ] {
+            let count = 1 + u64::from(scratch_mount.is_some());
             ctx.proc.vfs = Vfs::supplied(namespace);
             assert_eq!(getfsstat(&mut ctx, 0, 0, 2), Ok(Rv::one(count)));
             assert_eq!(getfsstat(&mut ctx, 1, record - 1, 2), Ok(Rv::one(0)));
@@ -1199,11 +1202,8 @@ fn closed_getfsstat_enumerates_only_visible_guest_volumes() {
             assert_eq!(getfsstat(&mut ctx, buffer, record + 1, 2), Ok(Rv::one(1)));
             assert_eq!(ctx.read(buffer + record, 1).unwrap(), [0xa5]);
             assert_eq!(getfsstat(&mut ctx, buffer, u64::MAX, 1), Ok(Rv::one(count)));
-            for (index, mount) in [&b"/\0"[..], &b"/tmp\0"[..]]
-                .into_iter()
-                .take(count as usize)
-                .enumerate()
-            {
+            let mounts = std::iter::once(&b"/\0"[..]).chain(scratch_mount);
+            for (index, mount) in mounts.enumerate() {
                 let entry = buffer + index as u64 * record;
                 assert_eq!(ctx.read(entry + 88, mount.len()).unwrap(), mount);
                 assert_eq!(ctx.read(entry + 72, 6).unwrap(), b"raxfs\0");
