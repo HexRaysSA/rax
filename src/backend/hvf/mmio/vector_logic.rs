@@ -398,6 +398,7 @@ enum Operation {
     AverageWord,
     SumAbsoluteByteDifferences,
     Sign(Element),
+    MaskBlend(Element, u32),
 }
 
 impl Operation {
@@ -520,6 +521,13 @@ impl Operation {
                 }
             }),
             Self::ShuffleImmediate(shuffle, control) => shuffle.result(left, right, control),
+            Self::MaskBlend(element, selection) => std::array::from_fn(|i| {
+                if selection & (1 << (i / element.bytes())) != 0 {
+                    right[i]
+                } else {
+                    left[i]
+                }
+            }),
             Self::Pack(saturation) => saturation.pack(left, right),
             Self::Horizontal(operation) => operation.result(left, right),
             Self::AverageByte | Self::AverageWord => {
@@ -666,6 +674,20 @@ impl Input {
         self.operation.memory_size(self.encoding)
     }
 
+    pub(crate) fn capture_blend_mask(mut self, vector: &[u8; 32]) -> Result<Self, String> {
+        let Operation::MaskBlend(element, _) = self.operation else {
+            return Err("packed blend has no register mask".into());
+        };
+        let selection = vector[..usize::from(self.encoding.size())]
+            .chunks_exact(element.bytes())
+            .enumerate()
+            .fold(0u32, |selection, (lane, bytes)| {
+                selection | (u32::from(bytes[element.bytes() - 1] >> 7) << lane)
+            });
+        self.operation = Operation::MaskBlend(element, selection);
+        Ok(self)
+    }
+
     pub(super) fn validate(&self) -> Result<(), String> {
         if self.index >= 16 || !(1..=15).contains(&self.length) {
             return Err("invalid HVF MMIO vector logic descriptor".into());
@@ -677,6 +699,14 @@ impl Input {
         }
         if matches!(self.operation, Operation::Sign(Element::Quadword)) {
             return Err("invalid packed sign descriptor".into());
+        }
+        if let Operation::MaskBlend(element, selection) = self.operation {
+            let lanes = usize::from(self.encoding.size()) / element.bytes();
+            if matches!(element, Element::Word)
+                || selection.checked_shr(lanes as u32).unwrap_or(0) != 0
+            {
+                return Err("invalid packed blend mask descriptor".into());
+            }
         }
         Ok(())
     }
@@ -741,16 +771,26 @@ pub(super) fn prepare<M: PhysicalMemory>(
 ) -> Result<Option<Plan>, String> {
     let mnemonic = instruction.mnemonic.as_str();
     let operands = instruction.operands.as_slice();
-    let (operation, operands) = if let Some(shuffle) = ImmediateShuffle::mnemonic(mnemonic) {
+    let blend_element = match mnemonic {
+        "pblendvb" | "vpblendvb" => Some(Element::Byte),
+        "blendvps" | "vblendvps" => Some(Element::Doubleword),
+        "blendvpd" | "vblendvpd" => Some(Element::Quadword),
+        _ => None,
+    };
+    let (operation, operands, mask) = if let Some(element) = blend_element {
+        let (mask, operands) = operands.split_last().ok_or("missing packed blend mask")?;
+        (Operation::MaskBlend(element, 0), operands, Some(mask))
+    } else if let Some(shuffle) = ImmediateShuffle::mnemonic(mnemonic) {
         let (control, operands) = operands
             .split_last()
             .ok_or("missing vector shuffle control")?;
         (
             Operation::ShuffleImmediate(shuffle, shuffle_control(control)?),
             operands,
+            None,
         )
     } else if let Some(operation) = Operation::mnemonic(mnemonic) {
-        (operation, operands)
+        (operation, operands, None)
     } else {
         return Ok(None);
     };
@@ -782,6 +822,13 @@ pub(super) fn prepare<M: PhysicalMemory>(
     }
     let index = register(target, width, !vex, true).ok_or("invalid vector logic destination")?;
     let source = register(left, width, true, !vex).ok_or("invalid vector logic source")?;
+    let mask = mask
+        .map(|operand| {
+            register(operand, width, true, false)
+                .filter(|&index| vex || index == 0)
+                .ok_or("invalid vector blend mask")
+        })
+        .transpose()?;
     if !vex && record.linear & 15 != 0 {
         return Err("misaligned legacy vector logic MMIO input".into());
     }
@@ -798,6 +845,13 @@ pub(super) fn prepare<M: PhysicalMemory>(
         physical: record.physical,
         linear: record.linear,
         length,
-        action: Action::VectorLogic { input, source },
+        action: match mask {
+            Some(mask) => Action::VectorMaskBlend {
+                input,
+                source,
+                mask,
+            },
+            None => Action::VectorLogic { input, source },
+        },
     }))
 }

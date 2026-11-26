@@ -445,6 +445,23 @@ pub(super) fn decode_0f(
             name
         }
         0x38 => match ctx.consume_u8().ok()? {
+            map_opcode @ (0x10 | 0x14 | 0x15)
+                if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
+            {
+                out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
+                out.operands.push(Operand {
+                    kind: OperandKind::Register,
+                    reg: "xmm0".into(),
+                    width_bits: 128,
+                    read: true,
+                    ..Operand::default()
+                });
+                match map_opcode {
+                    0x10 => "pblendvb",
+                    0x14 => "blendvps",
+                    _ => "blendvpd",
+                }
+            }
             map_opcode @ 0x1c..=0x1e
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {

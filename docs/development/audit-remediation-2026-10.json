@@ -200817,6 +200817,14 @@
       "scope": "Intel HVF handles legacy and VEX BLENDPS, BLENDPD and PBLENDW and VEX.W0 VPBLENDD. The 17 forms retain a 16 B or 32 B device request and one-shot retirement across pending-read restore. The planner results for all 4,352 forms and masks match the independent Rosetta RAM digest. The hosted Intel profile exercises 105 cases. Full MMIO and checkpoint coverage remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-blends-with-immediate-control",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-packed-register-blend-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF handles legacy and VEX.W0 BLENDVPS, BLENDVPD and PBLENDVB. It captures the mask sign bits with the first source before issuing the device read. The 255 independent RAM input cases include aliased sources and destinations. The hosted profile exercises 513 direct, restored and fault cases. Full MMIO and checkpoint coverage remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#packed-blends-with-a-register-mask",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

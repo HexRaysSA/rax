@@ -190,6 +190,7 @@ fn pending(action: Action) -> mmio::InputState {
         | Action::XmmLaneRead { .. }
         | Action::XmmLaneWrite(_)
         | Action::VectorLogic { .. }
+        | Action::VectorMaskBlend { .. }
         | Action::VectorBitTest { .. }
         | Action::YmmWrite(_)
         | Action::StringStore { .. } => {

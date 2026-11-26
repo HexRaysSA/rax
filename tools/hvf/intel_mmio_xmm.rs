@@ -11,6 +11,8 @@ mod packed_narrow;
 mod packed_shuffle;
 #[path = "intel_mmio_packed_vectors.rs"]
 mod packed_vectors;
+#[path = "intel_mmio_register_blend.rs"]
+mod register_blend;
 
 type MoveCase<'a> = ((&'a [u8], usize, usize, bool), bool, &'a str);
 
@@ -1020,6 +1022,18 @@ fn packed_binary_case(
     reply: &[u8],
     expected: [u64; 4],
 ) -> u64 {
+    packed_binary_mask_case(code, vex, restore, left, reply, expected, None)
+}
+
+fn packed_binary_mask_case(
+    code: &[u8],
+    vex: bool,
+    restore: bool,
+    left: [u64; 4],
+    reply: &[u8],
+    expected: [u64; 4],
+    mask: Option<(u8, [u64; 4])>,
+) -> u64 {
     const FLAGS: u64 = 0x8d7;
     let memory = guest_memory(code);
     word(&memory, 0x4000, 0x4000_009b);
@@ -1037,6 +1051,10 @@ fn packed_binary_case(
     let [a, b, c, d] = left;
     initial.regs.xmm[source] = [a, b];
     initial.regs.ymm_high[source] = [c, d];
+    if let Some((bank, [a, b, c, d])) = mask {
+        initial.regs.xmm[usize::from(bank)] = [a, b];
+        initial.regs.ymm_high[usize::from(bank)] = [c, d];
+    }
     let mut xmm = initial.regs.xmm;
     let mut upper = initial.regs.ymm_high;
     cpu.set_state(&CpuState::X86_64(initial)).unwrap();
@@ -1215,6 +1233,50 @@ pub(super) fn run_immediate_blend(output: &Path) {
             );
             index += 1;
         }
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+pub(super) fn run_register_blend(output: &Path) {
+    use register_blend::{LEFT, REPLY, cases};
+
+    assert!(!output.exists(), "observations must be new");
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    let mut index = 0;
+    for (form, case) in cases().into_iter().enumerate() {
+        let label = format!("vector-register-blend-{}-{form}", case.mnemonic);
+        for (restore, phase) in [(false, "direct"), (true, "restored")] {
+            let value = packed_binary_mask_case(
+                &case.code,
+                case.is_vex(),
+                restore,
+                qwords(LEFT),
+                &REPLY[..case.width],
+                qwords(case.expected),
+                Some((case.bank, qwords(case.mask))),
+            );
+            record(
+                output,
+                index,
+                &format!("{label}-{phase}"),
+                case.width,
+                value,
+            );
+            index += 1;
+        }
+    }
+    for (name, opcode) in [("blendvps", 0x14), ("blendvpd", 0x15), ("pblendvb", 0x10)] {
+        let value = alignment_fault(&[0x66, 0x44, 0x0f, 0x38, opcode, 0x3f], false, 3);
+        record(
+            output,
+            index,
+            &format!("vector-register-blend-{name}-misaligned"),
+            16,
+            value,
+        );
+        index += 1;
     }
     println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
 }

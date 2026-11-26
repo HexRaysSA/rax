@@ -884,6 +884,7 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             | Action::XmmLaneRead { .. }
             | Action::XmmLaneWrite(_)
             | Action::VectorLogic { .. }
+            | Action::VectorMaskBlend { .. }
             | Action::VectorBitTest { .. }
             | Action::UnaryVector(_)
             | Action::YmmRead(_)

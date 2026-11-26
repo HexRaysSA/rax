@@ -284,6 +284,11 @@ pub(crate) enum Action {
         input: vector_logic::Input,
         source: u8,
     },
+    VectorMaskBlend {
+        input: vector_logic::Input,
+        source: u8,
+        mask: u8,
+    },
     UnaryVector(unary_vector::Input),
     VectorBitTest {
         input: vector_bit_test::Input,

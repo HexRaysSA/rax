@@ -11,6 +11,8 @@ mod packed_shuffle;
 mod vector_immediate_blend;
 #[path = "vector_narrow.rs"]
 mod vector_narrow;
+#[path = "vector_register_blend.rs"]
+mod vector_register_blend;
 
 const FORMS: [(u8, u8, &str); 12] = [
     (0, 0x54, "andps"),
@@ -79,6 +81,44 @@ fn packed_byte_shuffle_preserves_lanes_and_restores_once() {
 
         exit.qualification = 0x182;
         assert!(prepare(&context, &mut memory, exit).is_err(), "{name}");
+    }
+}
+
+#[test]
+fn register_mask_blend_projects_the_captured_vector_operands() {
+    for (mnemonic, raw, vex) in [
+        ("blendvps", &[0x66, 0x44, 0x0f, 0x38, 0x14, 0x3f][..], false),
+        ("blendvpd", &[0x66, 0x44, 0x0f, 0x38, 0x15, 0x3f][..], false),
+        ("pblendvb", &[0x66, 0x44, 0x0f, 0x38, 0x10, 0x3f][..], false),
+        (
+            "vblendvps",
+            &[0xc4, 0x63, 0x3d, 0x4a, 0x7f, 3, 0xff][..],
+            true,
+        ),
+        (
+            "vblendvpd",
+            &[0xc4, 0x63, 0x3d, 0x4b, 0x7f, 3, 0xff][..],
+            true,
+        ),
+        (
+            "vpblendvb",
+            &[0xc4, 0x63, 0x3d, 0x4c, 0x7f, 3, 0xff][..],
+            true,
+        ),
+    ] {
+        let (context, mut memory, mut exit) = fixture(raw);
+        if vex {
+            exit.linear += 3;
+            exit.physical += 3;
+        }
+        let metadata = instruction_metadata::decode(64, context.rip, raw).unwrap();
+        assert_eq!(metadata.mnemonic, mnemonic);
+        let mask = metadata.operands.last().unwrap();
+        assert_eq!(mask.kind, OperandKind::Register);
+        assert_eq!(mask.reg, if vex { "ymm15" } else { "xmm0" });
+        assert!(mask.read && !mask.write);
+        let plan = prepare(&context, &mut memory, exit).unwrap();
+        assert_eq!((plan.linear, plan.physical), (exit.linear, exit.physical));
     }
 }
 

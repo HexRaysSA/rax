@@ -1465,6 +1465,14 @@ fn main() {
         xmm::run_immediate_blend(&output);
         return;
     }
+    if std::env::args_os().nth(1).as_deref()
+        == Some(std::ffi::OsStr::new("--vector-register-blend"))
+    {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        xmm::run_register_blend(&output);
+        return;
+    }
     if let Some(
         profile @ ("--vector-narrow"
         | "--vector-horizontal"

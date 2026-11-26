@@ -47,6 +47,7 @@ on:
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-immediate-blend
+          - vector-register-blend
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

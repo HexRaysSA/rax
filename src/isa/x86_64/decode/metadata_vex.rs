@@ -35,6 +35,12 @@ pub(super) fn decode_xmm_transfer(
         (3, 1, 0x02) if flags & 0x80 == 0 => Some("vpblendd"),
         _ => packed_immediate_shuffle_mnemonics(map, flags & 3, opcode).map(|(_, vex)| vex),
     };
+    let register_blend = match (map, flags & 0x83, opcode) {
+        (3, 1, 0x4a) => Some("vblendvps"),
+        (3, 1, 0x4b) => Some("vblendvpd"),
+        (3, 1, 0x4c) => Some("vpblendvb"),
+        _ => None,
+    };
     let unary_shuffle = if (map, opcode) == (1, 0x70) {
         packed_unary_shuffle_mnemonics(flags & 3).map(|(_, vex)| vex)
     } else {
@@ -63,7 +69,8 @@ pub(super) fn decode_xmm_transfer(
         .or_else(|| packed_binary_mnemonics(map, flags & 3, opcode))
         .map(|(_, vex)| vex)
         .or(variable_shift)
-        .or(immediate_shuffle);
+        .or(immediate_shuffle)
+        .or(register_blend);
     let bit_test = match (map, flags & 3, opcode) {
         (2, 1, 0x17) => Some("vptest"),
         (2, 1, 0x0e) if flags & 0x80 == 0 => Some("vtestps"),
@@ -175,6 +182,16 @@ pub(super) fn decode_xmm_transfer(
     };
     if immediate_shuffle.is_some() || unary_shuffle.is_some() {
         out.operands.push(immediate(ctx, 1, false)?);
+    }
+    if register_blend.is_some() {
+        let mask = (ctx.consume_u8().ok()? >> 4) & if bits == 64 { 15 } else { 7 };
+        out.operands.push(Operand {
+            kind: OperandKind::Register,
+            reg: format!("{bank}{mask}"),
+            width_bits: register_width,
+            read: true,
+            ..Operand::default()
+        });
     }
     out.mnemonic = match (opcode, size, flags & 3) {
         _ if let Some(name) = bit_test => name,

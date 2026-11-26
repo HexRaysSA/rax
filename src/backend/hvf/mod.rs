@@ -1250,7 +1250,10 @@ impl run_loop::ExitHandler for HvfCore {
             mmio::Action::YmmRead(_) | mmio::Action::YmmWrite(_) => {
                 Some("HVF YMM MMIO requires enabled guest AVX state")
             }
-            mmio::Action::VectorLogic { input, .. } if input.encoding.needs_avx() => {
+            mmio::Action::VectorLogic { input, .. }
+            | mmio::Action::VectorMaskBlend { input, .. }
+                if input.encoding.needs_avx() =>
+            {
                 Some("HVF vector logic MMIO requires enabled guest AVX state")
             }
             mmio::Action::VectorBitTest { input, .. } if input.encoding.needs_avx() => {
@@ -1373,6 +1376,24 @@ impl run_loop::ExitHandler for HvfCore {
             }
             mmio::Action::VectorLogic { input, source } => {
                 let left = self.read_mmio_vector(source, input.encoding.size())?;
+                let size = input.memory_size();
+                self.mmio_input
+                    .begin_vector_logic(input, left)
+                    .map_err(Error::Emulator)?;
+                Ok(VcpuExit::MmioRead {
+                    addr: plan.physical,
+                    size,
+                })
+            }
+            mmio::Action::VectorMaskBlend {
+                input,
+                source,
+                mask,
+            } => {
+                let width = input.encoding.size();
+                let left = self.read_mmio_vector(source, width)?;
+                let mask = self.read_mmio_vector(mask, width)?;
+                let input = input.capture_blend_mask(&mask).map_err(Error::Emulator)?;
                 let size = input.memory_size();
                 self.mmio_input
                     .begin_vector_logic(input, left)

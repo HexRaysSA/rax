@@ -1306,6 +1306,44 @@ and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
 HVF tool tests passed. The Intel macOS consumer cross-built and passed
 strict signature verification.
 
+## Packed blends with a register mask
+
+Intel HVF projects one 16 B or 32 B device read for legacy and VEX.W0
+`BLENDVPS`, `BLENDVPD` and `PBLENDVB`. The legacy mask is XMM0.
+VEX identifies the mask in the high nibble of the last instruction byte.
+The low nibble has no selection effect. The vCPU reads the first source
+and mask while stopped at the exit, before publishing the device request.
+It retains one sign bit per element in the pending read alongside the
+first source. A device reply uses those captured values and retires the
+instruction once. The pending wire format appends a vector operation
+discriminant and uses the existing read envelope.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The mask uses the top bit of each byte, doubleword or quadword. | Vary the other bits, test zero and full selection, and select individual low and high elements. |
+| All source values belong to the pending read. | Alias the VEX mask with the first source and the destination. Round-trip the pending read and compare the full YMM vector. Send the device reply twice and require one retirement. |
+| VEX.W1 and legacy misalignment do not issue device reads. | Present reserved W, missing prefix, register-only and misaligned forms to the planner and check that device memory is never consulted. |
+
+The instruction definitions are in Intel SDM revision 086, Vol. 2A,
+the `BLENDVPD` and `BLENDVPS` entries, and Vol. 2B, the `PBLENDVB`
+entry. [Intel instruction reference](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The parent returned unsupported metadata for legacy `BLENDVPS`.
+The Rosetta RAM probe ran 255 input cases at two placements, including
+the end of a readable page. All 510 observations matched full YMM
+results and preserved RFLAGS and MXCSR. The concatenated vector results
+for the first placement have SHA-256
+`1c0772b6b25e06c5bcc2b1117519d260025295a34e74fab84885fe9579f27405`.
+The source, encodings and raw results are in
+`/Users/int/dev/rax-audit-work/four-findings-hvf-register-blend-2026-11-26/`.
+The hosted `vector-register-blend` profile exercises those input cases
+directly and after restoring the pending read into a fresh CPU owner.
+It also exercises three legacy misalignment faults.
+The Apple Silicon build passed 175 MMIO, 102 ISA-oracle, 16 CI-policy
+and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
+HVF tool tests passed. The Intel macOS consumer cross-built and passed
+strict signature verification.
+
 ## Unary packed shuffles with an immediate control
 
 Intel HVF supports the legacy XMM and VEX.128/.256 memory forms of
