@@ -143,3 +143,20 @@ Intel HVF ISO execution and broader SMP coverage remain open.
 [Hosted KVM ISO test](https://github.com/HexRaysSA/rax/actions/runs/45870691656/job/140090652262)
 Inputs, commands and results are under
 `/Users/int/dev/rax-audit-work/four-findings-pc-iso-smp-2026-11-26/`.
+
+The signed Intel HVF workflow runs the same ISO with two and four vCPUs
+under both bounded turns and opt-in parallel rounds. Each run begins with
+only CPU 0 online. The guest must find the MP pointer and table, start every
+secondary, and write the expected RAM markers before requesting power-off.
+The workflow checks an explicit pass record for each combination and keeps
+the native log with the signed harness digest. The cross-built x86-64 harness
+registered the native case. Under Rosetta it passed all seven software
+firmware tests and all 39 PC machine tests. The workflow passed `actionlint`,
+and the receipt check rejected each control that omitted a required record.
+The current native ISO result is unknown until the workflow executes the
+four cases.
+
+| Assumption | Dependent result | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| Intel HVF executes the real-mode AP startup and the selected coordinator mode services it. | Cold Intel HVF ISO reaches every configured CPU. | Run the signed, untranslated harness with two and four CPUs in each mode and require guest-discovered counts, all CPU markers and successful exit. | High |
+| The host test measures actual guest entry under the requested backend. | Local harness registration and hosted execution remain distinct evidence. | Require the native availability probe, the signed executable's digest and a pass receipt from each guest run. | High |

@@ -18,10 +18,15 @@ impl Drop for Kernel {
 }
 
 fn cold(count: u8) -> (Vmm, Kernel) {
-    cold_image(BackendKind::Emulator, count, &[0; 64]).unwrap()
+    cold_image(BackendKind::Emulator, count, &[0; 64], false).unwrap()
 }
 
-fn cold_image(backend: BackendKind, count: u8, image: &[u8]) -> Result<(Vmm, Kernel)> {
+fn cold_image(
+    backend: BackendKind,
+    count: u8,
+    image: &[u8],
+    hvf_parallel_vcpus: bool,
+) -> Result<(Vmm, Kernel)> {
     use std::io::Write;
     let path = std::env::temp_dir().join(format!(
         "rax-pc-firmware-{}-{}",
@@ -41,6 +46,7 @@ fn cold_image(backend: BackendKind, count: u8, image: &[u8]) -> Result<(Vmm, Ker
             arch: Some(ArchKind::X86_64),
             backend: Some(backend),
             vcpus: Some(count),
+            hvf_parallel_vcpus: Some(hvf_parallel_vcpus),
             memory: Some(MemorySize(128 * 1024 * 1024)),
             kernel: Some(kernel.0.clone()),
             ..Default::default()
@@ -74,23 +80,32 @@ fn el_torito(load_segment: u16, image: &[u8]) -> Vec<u8> {
 
 #[test]
 fn el_torito_guest_discovers_and_starts_its_secondary_cpus() {
-    check_el_torito_smp(BackendKind::Emulator);
+    check_el_torito_smp(BackendKind::Emulator, false);
 }
 
 #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
 #[test]
 #[ignore = "requires /dev/kvm with in-kernel interrupt controllers"]
 fn native_kvm_el_torito_guest_discovers_and_starts_its_secondary_cpus() {
-    check_el_torito_smp(BackendKind::Kvm);
+    check_el_torito_smp(BackendKind::Kvm, false);
 }
 
-fn check_el_torito_smp(backend: BackendKind) {
+#[cfg(all(feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
+#[test]
+#[ignore = "requires an untranslated Intel HVF host"]
+fn native_intel_el_torito_guest_discovers_and_starts_its_secondary_cpus() {
+    for parallel in [false, true] {
+        check_el_torito_smp(BackendKind::Hvf, parallel);
+    }
+}
+
+fn check_el_torito_smp(backend: BackendKind, parallel: bool) {
     let mut image = guest::ISO_BSP.to_vec();
     image.resize(0x400, 0);
     image.extend_from_slice(guest::ISO_AP);
     let iso = el_torito(0, &image);
     for count in [2, 4] {
-        let (mut vm, _iso) = cold_image(backend, count, &iso).unwrap();
+        let (mut vm, _iso) = cold_image(backend, count, &iso, parallel).unwrap();
         assert_eq!(vm.vm.uses_native_x86_irqchip(), backend == BackendKind::Kvm);
         assert!(vm.coordinator.online[0]);
         assert!(vm.coordinator.online[1..].iter().all(|online| !online));
@@ -104,18 +119,22 @@ fn check_el_torito_smp(backend: BackendKind) {
         assert_eq!(
             read(&vm, 0x554),
             0x600d600d,
-            "{backend:?} with {count} CPUs: failure stage={}, discovered={discovered}, markers={markers:x?}",
+            "{backend:?} with {count} CPUs (parallel HVF={parallel}): failure stage={}, discovered={discovered}, markers={markers:x?}",
             read(&vm, 0x558),
         );
         assert_eq!(discovered, u32::from(count));
         assert_eq!(markers, vec![0x534d5052; usize::from(count)]);
+        if backend == BackendKind::Hvf {
+            println!("native Intel ISO passed count={count} parallel={parallel}");
+        }
     }
 }
 
 #[test]
 fn el_torito_firmware_placement_preserves_the_boot_image_and_fails_on_full_overlap() {
     let image = vec![0xa5; 512];
-    let (vm, _iso) = cold_image(BackendKind::Emulator, 2, &el_torito(0xf000, &image)).unwrap();
+    let (vm, _iso) =
+        cold_image(BackendKind::Emulator, 2, &el_torito(0xf000, &image), false).unwrap();
     let mut readback = vec![0; image.len()];
     vm.guest_mem()
         .memory()
@@ -125,11 +144,11 @@ fn el_torito_firmware_placement_preserves_the_boot_image_and_fails_on_full_overl
     assert_eq!(read(&vm, 0xf0200), u32::from_le_bytes(*b"_MP_"));
     assert_eq!(read(&vm, 0xf0204), 0xf0210);
     let full_window = el_torito(0xf000, &vec![0xa5; 0x10000]);
-    let Err(error) = cold_image(BackendKind::Emulator, 2, &full_window) else {
+    let Err(error) = cold_image(BackendKind::Emulator, 2, &full_window, false) else {
         panic!("SMP cannot publish an MP pointer outside its BIOS discovery window");
     };
     assert!(error.to_string().contains("reserved BIOS memory"));
-    let (single, _iso) = cold_image(BackendKind::Emulator, 1, &full_window).unwrap();
+    let (single, _iso) = cold_image(BackendKind::Emulator, 1, &full_window, false).unwrap();
     assert_eq!(read(&single, 0xf0000), 0xa5a5a5a5);
     assert_eq!(read(&single, 0xffffc), 0xa5a5a5a5);
 }
