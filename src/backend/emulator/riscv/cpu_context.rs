@@ -208,10 +208,13 @@ impl Context {
                 || self.user.is_some()
                 || !self.pending.is_empty()
                 || !self.platform
-                || !target.platform.as_ref().is_some_and(|p| p.has_idle_clock()))
+                || !target
+                    .platform
+                    .as_ref()
+                    .is_some_and(|p| p.supports_interrupt_wait(self.sv39)))
         {
             return Err(invalid(
-                "interrupt wait requires an idle-enabled system hart",
+                "interrupt wait requires a supported system profile and clock",
             ));
         }
         for event in &self.pending {

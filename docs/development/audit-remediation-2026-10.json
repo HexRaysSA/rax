@@ -200685,6 +200685,17 @@
       "scope": "Intel HVF plans one read for all 15 legacy XMM and VEX memory encodings of PABSB, PABSW and PABSD. Baseline metadata rejected all 15. The corrected planner completed each form directly and after restoring pending I/O, and retained the legacy unary shuffle record byte for byte. Thirty independent Rosetta RAM observations matched full YMM state and RFLAGS. All 28,855 owning tests passed, with 3 opt-in tests ignored. The Intel cross-build and code-signature checks passed. Native runtime qualification remains pending.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-absolute-value-with-a-device-operand",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-wall-clock-firmware-wait-2026-11-26",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The RV64 Sv39 firmware platform parks wall-clock harts after WFI and restores the waiting state from the per-hart private records. A two-hart timer probe failed immediately on the baseline and passed on revised RAX and QEMU 11.1.2. Both revised RAX harts restored at retirement 28 in a fresh process after removal of the input ELF and then woke on their timers. The revised four-hart Linux capture shows all three secondaries parked in the OpenSBI wait loop. Revised two- and four-hart wall-clock Linux runs reached the 420 s host limit before PID 1 affinity markers, so complete wall-clock Linux boot qualification remains open.",
+      "qualification": "docs/development/riscv-clint/README.md#wall-clock-firmware-waits",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

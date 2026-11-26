@@ -522,3 +522,46 @@ retired-clock software profile. Default wall-clock and other backend
 qualification remain open. The successful four-run comparison is in
 `final-linux-comparison.json` beside the raw logs and runner source.
 [Linux RISC-V boot requirements](https://docs.kernel.org/arch/riscv/boot.html)
+
+### Wall-clock firmware waits
+
+The RV64 Sv39 firmware profile parks a hart after `WFI` under the wall clock.
+It retires the instruction once and keeps the post-`WFI` PC. A locally
+enabled interrupt resumes the hart even with global interrupt delivery
+masked. The CLINT continues to use elapsed VM time while a hart waits. Plain
+`Retired` mode and the generic wall-clock profile treat `WFI` as a hint.
+`RetiredWithIdle` still advances its clock to the next timer when every
+online hart waits.
+
+The per-hart wait uses the existing `RAXRV007` profile flag. Restore checks
+it against the recorded firmware profile and the saved clock mode before
+publishing the coordinated CPU and platform state. A waiting or waking
+step uses constant space and checks a fixed number of interrupt inputs.
+
+In the baseline four-hart Linux run, the boot hart progressed from
+`jump_label_swap` to `blake2s_compress_generic` between captures requested
+at 30 s and 95 s. The three secondary harts were in the OpenSBI HSM wait
+loop at both captures and accounted for 101,547,000 of 134,695,176 retired
+instructions (75.4%) between them. Both the two-hart run and the sampled
+four-hart run timed out at 240 s before producing any PID 1 affinity
+markers. A revised four-hart run captured at approximately 135 s recorded
+all three secondary harts parked immediately after the OpenSBI `WFI`,
+with about 1.17 million retirements per secondary. The revised wall-clock
+two- and four-hart runs both reached the 420 s host limit before PID 1
+reported affinity. The full wall-clock Linux boot remains unqualified.
+An 8 s host profile of a separate revised four-hart run recorded 1,041 of
+2,892 main-thread samples in the coordinator's vCPU clock polling call.
+[OpenSBI v1.8.1 HSM wait](https://github.com/riscv-software-src/opensbi/blob/v1.8.1/lib/sbi/sbi_hsm.c#L148-L178)
+[RISC-V Machine-Level ISA, Wait for Interrupt](https://docs.riscv.org/reference/isa/priv/machine.html)
+
+A two-hart guest scheduled one CLINT timer per hart, 2,000,000 ticks
+(200 ms) after the current time, and entered `WFI` with global interrupt
+delivery masked. The baseline RAX reached the guest's failure path
+before expiry. The revised RAX and QEMU 11.1.2 reached the pass marker
+and powered off. An automatic RAX capture at retirement 28 recorded
+both harts waiting at `0x80000038`, their post-`WFI` PC. Restoring that
+file in a new process without the input ELF or a machine override
+produced the same pass marker and exit status. The adapter regression
+also exercises wake from a locally enabled machine software interrupt.
+Commands, the guest assembly and raw results are under
+`/Users/int/dev/rax-audit-work/four-findings-rv64-wall-clock-2026-11-26/`.

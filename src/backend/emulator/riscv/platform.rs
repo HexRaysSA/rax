@@ -314,8 +314,14 @@ impl Platform {
     pub(crate) fn enabled(&self) -> bool {
         self.profile.load(Ordering::Acquire) & CLINT_PROFILE != 0
     }
-    pub(super) fn has_idle_clock(&self) -> bool {
-        self.clock.mode() == ClockMode::RetiredWithIdle
+    /// The Sv39 firmware platform can wait on wall time. Restore checks the
+    /// recorded profile before publishing it to the shared controller.
+    pub(super) fn supports_interrupt_wait(&self, firmware_profile: bool) -> bool {
+        match self.clock.mode() {
+            ClockMode::Wall => firmware_profile,
+            ClockMode::Retired => false,
+            ClockMode::RetiredWithIdle => true,
+        }
     }
     pub(crate) fn plic_enabled(&self) -> bool {
         self.profile.load(Ordering::Acquire) & PLIC_PROFILE != 0

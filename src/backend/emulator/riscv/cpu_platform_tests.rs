@@ -4,6 +4,13 @@ use crate::isa::riscv::memory::AtomicOp;
 use crate::vm::timing::{ClockMode, TimingContext};
 
 fn fixture(architectural_traps: bool) -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
+    fixture_with_clock(architectural_traps, ClockMode::Retired)
+}
+
+fn fixture_with_clock(
+    architectural_traps: bool,
+    clock: ClockMode,
+) -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
     let mem = Arc::new(
         GuestMemoryMmap::from_ranges(&[
             (GuestAddress(0), 0x2000),
@@ -17,12 +24,67 @@ fn fixture(architectural_traps: bool) -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
         Platform::new(
             2,
             0x2000,
-            Arc::new(TimingContext::with_mode(ClockMode::Retired)),
+            Arc::new(TimingContext::with_mode(clock)),
             architectural_traps,
         )
         .unwrap(),
     );
     (mem, platform)
+}
+
+#[test]
+fn wall_clock_firmware_wait_survives_restore_and_wakes_on_a_local_interrupt() {
+    const PC: u64 = 0x100;
+    const DEADLINE: u64 = 1 << 62;
+    for (enabled, register, data) in [
+        (
+            1 << cause::INT_M_SOFTWARE,
+            BASE + 4,
+            1u32.to_le_bytes().to_vec(),
+        ),
+        (
+            1 << cause::INT_M_TIMER,
+            BASE + 0xbff8,
+            DEADLINE.to_le_bytes().to_vec(),
+        ),
+    ] {
+        let (mem, platform) = fixture_with_clock(true, ClockMode::Wall);
+        mem.write_obj(0x1050_0073u32.to_le(), GuestAddress(PC))
+            .unwrap(); // wfi
+        mem.write_obj(0x02b0_0393u32.to_le(), GuestAddress(PC + 4))
+            .unwrap(); // addi t2,zero,43
+        platform
+            .write(BASE + 0x4008, &DEADLINE.to_le_bytes())
+            .unwrap();
+        let make_hart = || {
+            RiscVVcpu::new_in_platform(1, mem.clone(), RiscVConfig::rv64gc(), platform.clone())
+                .unwrap()
+        };
+        let mut original = make_hart();
+        original.cpu.set_pc(PC);
+        original.cpu.csr_write(0x304, enabled).unwrap();
+        assert!(matches!(original.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+        assert_eq!(original.instruction_count(), 1);
+        assert_eq!(original.cpu.pc(), PC + 4);
+
+        let mut restored = make_hart();
+        restored
+            .restore_context(&original.save_context().unwrap())
+            .unwrap();
+        for hart in [&mut original, &mut restored] {
+            assert!(matches!(hart.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+            assert_eq!(hart.instruction_count(), 1);
+            assert_eq!(hart.cpu.x(7), 0);
+        }
+
+        platform.write(register, &data).unwrap();
+        for hart in [&mut original, &mut restored] {
+            assert!(hart.step_insn().unwrap().is_none());
+            assert_eq!(hart.instruction_count(), 2);
+            assert_eq!(hart.cpu.x(7), 43);
+            assert_eq!(hart.cpu.csr_read(0x342).unwrap(), 0);
+        }
+    }
 }
 
 #[test]

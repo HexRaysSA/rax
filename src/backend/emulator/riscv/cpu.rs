@@ -869,7 +869,12 @@ impl RiscVVcpu {
                 .is_some_and(|platform| platform.architectural_traps())
         };
         let terminal = match exit {
-            RiscVExit::Wfi if self.platform.as_ref().is_some_and(|p| p.has_idle_clock()) => {
+            RiscVExit::Wfi
+                if self
+                    .platform
+                    .as_ref()
+                    .is_some_and(|p| p.supports_interrupt_wait(p.sv39_enabled())) =>
+            {
                 self.waiting_for_interrupt = true;
                 return Ok(Some(VcpuExit::Hlt));
             }
