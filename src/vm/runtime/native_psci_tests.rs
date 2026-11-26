@@ -268,6 +268,11 @@ fn native_pending_start_failure_retains_remaining_cpus_through_real_file() {
     }
     let pending = vm.vm.take_cpu_power_requests().unwrap();
     assert_eq!(pending.len(), 2);
+    let error = vm
+        .take_snapshot(0)
+        .err()
+        .expect("legacy capture accepted queued native CPU_ON");
+    assert!(error.to_string().contains("pending PSCI"), "{error}");
     assert_eq!(vm.vm.take_cpu_power_requests().unwrap(), pending);
     let mut restored = save_restore(vm, &fixture, "native-psci-pending-start.rxc");
     assert_eq!(restored.vm.take_cpu_power_requests().unwrap(), pending);
@@ -437,6 +442,11 @@ fn native_cpu_off_blocks_entry_and_pending_stop_survives_file_before_restart() {
         vm.vm.take_cpu_power_requests().unwrap(),
         [crate::vm::vcpu::CpuPowerRequest::Off { cpu_id: 1 }]
     );
+    let error = vm
+        .take_snapshot(0)
+        .err()
+        .expect("legacy capture accepted queued native CPU_OFF");
+    assert!(error.to_string().contains("pending PSCI"), "{error}");
     let mut restored = save_restore(vm, &fixture, "native-psci-pending-stop.rxc");
     assert!(matches!(restored.vcpus[1].run().unwrap(), VcpuExit::Hlt));
     restored.route_interprocessor_requests().unwrap();
@@ -475,6 +485,47 @@ fn native_cpu_off_blocks_entry_and_pending_stop_survives_file_before_restart() {
 
 #[test]
 #[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
+fn native_legacy_capture_rejects_an_acknowledged_bootstrap_stop() {
+    let fixture = Fixture::new();
+    let mut vm = Vmm::new_resume(fixture.config(1)).unwrap();
+    let words = [0x52800040u32, 0x72b08000, 0xd4000002, 0x14000000]; // CPU_OFF; B .
+    let code: Vec<_> = words.into_iter().flat_map(u32::to_le_bytes).collect();
+    vm.guest_mem
+        .memory()
+        .write_slice(&code, GuestAddress(CODE))
+        .unwrap();
+    publish_native_code(&vm.guest_mem, CODE, code.len());
+    let CpuState::Aarch64(mut state) = vm.vcpus[0].get_state().unwrap() else {
+        panic!()
+    };
+    state.regs.pc = CODE;
+    state.regs.pstate = 0x3c5;
+    vm.vcpus[0].set_state(&CpuState::Aarch64(state)).unwrap();
+    for _ in 0..100 {
+        assert!(matches!(vm.vcpus[0].run().unwrap(), VcpuExit::Hlt));
+        if !vm.vm.take_cpu_power_requests().unwrap().is_empty() {
+            break;
+        }
+    }
+    assert_eq!(
+        vm.vm.take_cpu_power_requests().unwrap(),
+        [crate::vm::vcpu::CpuPowerRequest::Off { cpu_id: 0 }]
+    );
+    vm.route_interprocessor_requests().unwrap();
+    assert_eq!(vm.coordinator.online, [false]);
+    assert!(vm.vm.take_cpu_power_requests().unwrap().is_empty());
+    let error = vm
+        .take_snapshot(0)
+        .err()
+        .expect("legacy capture accepted a parked native bootstrap CPU");
+    assert!(error.to_string().contains("bootstrap CPU"), "{error}");
+    assert!(matches!(vm.vcpus[0].run().unwrap(), VcpuExit::Hlt));
+    let restored = save_restore(vm, &fixture, "native-psci-bootstrap-stopped.rxc");
+    assert_eq!(restored.coordinator.online, [false]);
+}
+
+#[test]
+#[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
 fn native_secondary_system_off_stops_every_cpu_through_real_file() {
     let fixture = Fixture::new();
     let mut vm = Vmm::new_resume(fixture.config(2)).unwrap();
@@ -503,6 +554,11 @@ fn native_secondary_system_off_stops_every_cpu_through_real_file() {
     }
     assert!(shutdown);
     assert!(matches!(vm.vcpus[0].run().unwrap(), VcpuExit::Shutdown));
+    let error = vm
+        .take_snapshot(0)
+        .err()
+        .expect("legacy capture accepted native SYSTEM_OFF");
+    assert!(error.to_string().contains("SYSTEM_OFF"), "{error}");
     let mut restored = save_restore(vm, &fixture, "native-psci-secondary-shutdown.rxc");
     for cpu in &mut restored.vcpus {
         assert!(matches!(cpu.run().unwrap(), VcpuExit::Shutdown));
@@ -514,6 +570,7 @@ fn native_secondary_system_off_stops_every_cpu_through_real_file() {
             .iter()
             .all(|state| !state.shutdown)
     );
+    restored.take_snapshot(0).unwrap();
     let CpuState::Aarch64(mut restart) = restored.vcpus[1].get_state().unwrap() else {
         panic!()
     };

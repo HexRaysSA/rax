@@ -96,6 +96,9 @@ fn exercise(phase: Phase, parallel_peer_first: Option<bool>) {
     source.vcpus[1]
         .set_state(&CpuState::Aarch64(state))
         .unwrap();
+    if phase == Phase::Read && parallel_peer_first.is_none() {
+        source.take_snapshot(0).unwrap();
+    }
     let turns = if let Some(peer_first) = parallel_peer_first {
         Some(collect_parallel_shutdown(&mut source, write, peer_first))
     } else {
@@ -142,6 +145,15 @@ fn exercise(phase: Phase, parallel_peer_first: Option<bool>) {
         expected.completion_error.is_some(),
         phase == Phase::ReplyError
     );
+    if parallel_peer_first.is_none() {
+        let error = source
+            .take_snapshot(0)
+            .err()
+            .expect("legacy capture accepted a pending native ARM64 device transaction");
+        assert!(error.to_string().contains("vCPU 1"), "{error}");
+        assert!(error.to_string().contains("pending MMIO"), "{error}");
+        assert_eq!(private_states(&source)[1], expected);
+    }
 
     // A different CPU requests VM-wide shutdown while the AP is at its I/O frontier.
     if let Some(mut turns) = turns {

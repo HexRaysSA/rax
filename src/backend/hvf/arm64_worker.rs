@@ -277,6 +277,34 @@ impl VCpu for HvfArm64Vcpu {
         })
     }
 
+    fn capture_legacy_checkpoint_projection(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        bootstrap: bool,
+    ) -> Result<Option<crate::vm::snapshot::CpuSnapshot>> {
+        boundary.require_owner(self.lifetime.identity())?;
+        let id = self.id;
+        self.request_stopped(move |core| {
+            if core.pending_mmio_read.is_some()
+                || core.pending_mmio_write.is_some()
+                || core.pending_io_reply.is_some()
+                || core.io_completion_error.is_some()
+            {
+                return Err(Error::InvalidConfig(format!(
+                    "ARM64 HVF vCPU {id} pending MMIO requires a complete checkpoint"
+                )));
+            }
+            if !bootstrap {
+                return Ok(None);
+            }
+            core._vm.validate_legacy_power_capture()?;
+            Ok(Some(crate::vm::snapshot::CpuSnapshot {
+                state: core.get_state()?,
+                emulator: Default::default(),
+            }))
+        })
+    }
+
     fn capture_checkpoint_record(
         &self,
         boundary: &crate::backend::CheckpointBoundary<'_>,

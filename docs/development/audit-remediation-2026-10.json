@@ -200914,6 +200914,14 @@
       "scope": "Software AArch64 rejects base capture and legacy warm restore when the bootstrap CPU is parked or PSCI power requests are queued. The guest CPU_OFF regression covers pending and acknowledged stops, target preservation and successful complete restoration. An incoming legacy projection with an offline bootstrap CPU cannot restore without the PSCI graph. Guest SYSTEM_OFF is retained by the complete bundle and rejected by base capture. Full private, platform and native restoration remain open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#aarch64-psci-power-state",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-arm64-legacy-capture-admission-2026-11-26",
+      "findings": ["C-STATE", "C-SMP"],
+      "status": "native_arm64_qualified_full_findings_open",
+      "scope": "Apple Silicon HVF legacy capture holds the stopped backend frontier, checks in-flight MMIO and completion ownership on every vCPU, and rejects queued PSCI, a parked bootstrap CPU or VM shutdown. The native parent accepted five captures that omitted these states. Five signed native MMIO tests and seven signed native PSCI tests passed, and an independent reader verified the relevant owner state in eight complete files. Legacy capture succeeds after a terminal VM is explicitly woken. Intel HVF was compile-checked. Additional native and backend checkpoint coverage remains open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#apple-silicon-hvf-legacy-capture",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

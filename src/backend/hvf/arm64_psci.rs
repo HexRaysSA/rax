@@ -16,6 +16,20 @@ impl NativeVmLifetime {
         ))
     }
 
+    pub(super) fn validate_legacy_power_capture(&self) -> Result<()> {
+        let power = self.power()?;
+        let reason = match power.as_ref() {
+            Some(power) if power.shutdown => "SYSTEM_OFF",
+            Some(power) if !power.pending.is_empty() => "pending PSCI request",
+            Some(power) if power.states.first() != Some(&State::On) => "parked bootstrap CPU",
+            None if self.standalone_shutdown.load(Ordering::Acquire) => "SYSTEM_OFF",
+            _ => return Ok(()),
+        };
+        Err(Error::InvalidConfig(format!(
+            "ARM64 HVF {reason} requires a complete checkpoint"
+        )))
+    }
+
     pub(super) fn power_requests(&self) -> Result<Vec<CpuPowerRequest>> {
         Ok(self
             .power()?

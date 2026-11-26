@@ -5,8 +5,6 @@ use std::sync::{Arc, MutexGuard};
 use tracing::{debug, info};
 use vm_memory::Bytes;
 
-#[cfg(all(feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
-use crate::backend::hvf::HvfVm;
 #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
 use crate::backend::kvm::KvmVm;
 use crate::backend::{self, Vm};
@@ -979,7 +977,7 @@ impl Vmm {
     }
 
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
-    /// KVM and Intel HVF require a stopped frontier across all managed CPUs.
+    /// KVM and HVF require a stopped frontier across all managed CPUs.
     /// Use a complete snapshot bundle for in-flight I/O and private state.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
         if self.pc_powered_off() {
@@ -1045,10 +1043,14 @@ impl Vmm {
                     capture_ram(state, Default::default(), devices)
                 });
             }
-            #[cfg(all(feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
-            if let Some(hvf) = self.vm.as_any().downcast_ref::<HvfVm>() {
+            #[cfg(all(
+                feature = "hvf",
+                target_os = "macos",
+                any(target_arch = "x86_64", target_arch = "aarch64")
+            ))]
+            if self.backend_kind == BackendKind::Hvf {
                 return self.with_legacy_device_state(|devices| {
-                    let boundary = hvf.checkpoint_boundary()?;
+                    let boundary = self.vm.checkpoint_boundary()?;
                     let bindings = crate::vm::memory::checkpoint::CheckpointBindings::new(
                         self.guest_mem.memory(),
                         Vec::new(),
@@ -1059,7 +1061,7 @@ impl Vmm {
                     }
                     let state = vcpu
                         .capture_legacy_checkpoint_projection(&boundary, true)?
-                        .ok_or_else(|| Error::Emulator("Intel HVF BSP projection absent".into()))?;
+                        .ok_or_else(|| Error::Emulator("HVF BSP projection absent".into()))?;
                     capture_ram(state.state, state.emulator, devices)
                 });
             }

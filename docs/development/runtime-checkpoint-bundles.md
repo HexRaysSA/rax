@@ -71,6 +71,30 @@ prefix. A pending port or MMIO transaction on any vCPU requires a complete
 bundle. The native pending-XMM regression checks both read and write exits on
 secondary vCPUs and requires each transfer to dispatch once after bundle restore.
 
+### Apple Silicon HVF legacy capture
+
+Legacy capture on Apple Silicon uses the stopped HVF boundary for all
+managed vCPUs and holds it through the bootstrap CPU and RAM projection.
+Each owner checks for pending MMIO, a staged input reply, or a completion
+error. The bootstrap owner also checks the shared PSCI graph. A queued
+power request, a parked bootstrap CPU, or a `SYSTEM_OFF` latch requires
+a complete bundle. For H configured vCPUs, the checks take O(H) time and
+O(1) extra state before reading RAM.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Each vCPU owns its in-flight transfer. | Stage an AP's byte read or write, including a consumed input reply with a failed SDK register write. Attempt legacy capture, compare the AP's private context, then restore the complete file and check continued device behavior. |
+| The PSCI graph can contain work outside the public bootstrap registers. | Leave `CPU_ON` or `CPU_OFF` queued, acknowledge a bootstrap `CPU_OFF`, or signal `SYSTEM_OFF` on an AP. Require each legacy capture to reject and the full file to preserve the corresponding graph. |
+| Resuming the VM releases the legacy terminal gate. | Explicitly wake the VM restored from a `SYSTEM_OFF` file, then capture the running projection. |
+
+On an Apple M4 Max, the parent accepted legacy captures in five states
+that each require the complete graph. The witnesses covered the secondary
+read, queued start, queued stop, parked bootstrap CPU, and VM shutdown.
+The revised signed build passed five native MMIO tests and seven native
+PSCI tests. An independent reader checked eight complete files for the
+saved PSCI or MMIO owners and the matching online CPU or instruction
+state. The Intel HVF build was cross-checked for compilation.
+
 ### Checkpoint scheduling
 
 With automatic checkpoints configured, the execution record ends with an
