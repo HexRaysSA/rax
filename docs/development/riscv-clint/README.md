@@ -617,3 +617,38 @@ remains unqualified.
 
 The fixture, output, hashes and exact commands are in
 `/Users/int/dev/rax-audit-work/four-findings-rv64-turn-batching-2026-11-26/`.
+
+## Issued UART writes in checkpoints
+
+The VMM retains an issued UART MMIO write at the head of the originating
+hart's event queue until device dispatch succeeds. Under the platform and
+serial locks, the write updates the UART and publishes its PLIC input. A
+successful acknowledgement removes that one queue entry. Additional writes
+from the same instruction remain queued in their original order.
+
+`RAXRV008` identifies a hart record whose first queued event is an issued
+UART write. It carries the same reservation and event payload as earlier
+records. A full restore checks that the issuing hart is online and that the
+bundle carries the coordinator, clock and physical RAM. Earlier tags still
+decode with their original queued-event semantics. The VMM dispatches the
+saved write before selecting a new hart, subject to a connected debugger's
+resume mask. The dispatch leaves the retirement count at the saved value.
+Finding the issued write takes O(H) checks for H harts. The queue
+acknowledgement takes O(1) time.
+
+The regression saves a VM after `SB` to UART IER retires, with a byte in the
+receive FIFO and the UART interrupt disabled. It destroys the source VM and
+removes the kernel file. The restored VM applies the write. At two and four
+harts, the next hart reads `IIR=0x04` before the issuing hart executes again.
+[TI TL16C550D data sheet, Table 5](https://www.ti.com/lit/ds/symlink/tl16c550d.pdf)
+
+| Assumption | Probe |
+| --- | --- |
+| Capture occurs after retirement and before device dispatch. | Check retirement 3 and a low UART output at capture and immediately after restore. |
+| The write belongs to the already-issued turn. | Check UART output after resume, and at two and four harts check the issuing hart's PC and retirement count alongside the peer's IIR result. |
+
+The fixture prepares the peers directly and uses the retirement clock.
+
+```sh
+cargo +stable test --locked --no-default-features --lib riscv_file_replays_issued_uart_write_before_the_next_hart
+```

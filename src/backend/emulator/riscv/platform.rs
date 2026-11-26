@@ -340,6 +340,9 @@ impl Platform {
             .set(serial)
             .map_err(|_| invalid("serial already bound"))
     }
+    pub(super) fn has_bound_serial(&self) -> bool {
+        self.serial.get().is_some()
+    }
     pub(crate) fn set_irq_line(&self, source: u32, level: bool) -> Result<()> {
         if source == plic::UART_SOURCE && self.serial.get().is_some() {
             return Err(invalid("the serial device owns its PLIC input"));
@@ -355,7 +358,11 @@ impl Platform {
         }
         Ok(())
     }
-    fn with_serial(&self, operation: impl FnOnce(&mut Serial16550)) -> Result<bool> {
+    fn with_serial(
+        &self,
+        require_plic: bool,
+        operation: impl FnOnce(&mut Serial16550),
+    ) -> Result<bool> {
         let Some(serial) = self.serial.get() else {
             return Ok(false);
         };
@@ -363,28 +370,35 @@ impl Platform {
             .state
             .lock()
             .map_err(|_| invalid("serial line lock poisoned"))?;
-        if !state.enabled {
+        let plic = if state.enabled {
+            state.registers.plic.as_mut()
+        } else {
+            None
+        };
+        if require_plic && plic.is_none() {
             return Ok(false);
         }
-        let Some(plic) = &mut state.registers.plic else {
-            return Ok(false);
-        };
         let mut serial = serial.lock().map_err(|_| invalid("serial lock poisoned"))?;
         operation(&mut serial);
-        plic.set_level(plic::UART_SOURCE, serial.interrupt_output())
-            .map_err(invalid)?;
+        if let Some(plic) = plic {
+            plic.set_level(plic::UART_SOURCE, serial.interrupt_output())
+                .map_err(invalid)?;
+        }
         Ok(true)
     }
     pub(crate) fn read_uart(&self, addr: u64, bytes: &mut [u8]) -> MemResult<bool> {
         let size = bytes.len();
-        self.with_serial(|serial| serial.read(addr, bytes))
+        self.with_serial(true, |serial| serial.read(addr, bytes))
             .map_err(|_| fault(addr, size))
     }
     pub(crate) fn queue_uart_input(&self, bytes: &[u8]) -> Result<bool> {
-        self.with_serial(|serial| serial.queue_input(bytes))
+        self.with_serial(true, |serial| serial.queue_input(bytes))
+    }
+    pub(crate) fn write_uart(&self, addr: u64, bytes: &[u8]) -> Result<bool> {
+        self.with_serial(false, |serial| serial.write(addr, bytes))
     }
     pub(crate) fn publish_uart_write(&self) -> Result<()> {
-        self.with_serial(|_| ())?;
+        self.with_serial(true, |_| ())?;
         Ok(())
     }
     pub(crate) fn contains_hart(&self, id: u32) -> bool {

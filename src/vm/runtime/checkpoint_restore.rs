@@ -632,7 +632,7 @@ impl Vmm {
     /// Full SMP/private/platform/PCI closure remains separate.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
         self.validate_base_snapshot_clock()?;
-        self.validate_base_snapshot_port_io()?;
+        self.validate_base_snapshot_io()?;
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();

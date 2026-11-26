@@ -160,10 +160,25 @@ impl Vmm {
         addr: u64,
         data: &[u8],
     ) -> std::result::Result<(), TurnFailure> {
+        use crate::backend::emulator::riscv::platform::{UART_BASE, UART_LEN};
+        let uart_end = UART_BASE + UART_LEN;
+        let riscv_uart =
+            if (UART_BASE..uart_end).contains(&addr) && data.len() <= (uart_end - addr) as usize {
+                self.riscv_platform()
+            } else {
+                None
+            };
         let vcpu = self
             .vcpus
             .get_mut(cpu_index)
             .ok_or_else(|| Error::InvalidConfig("selected vCPU is missing".into()))?;
+        if let Some(platform) = riscv_uart
+            && platform.write_uart(addr, data)?
+        {
+            // The platform publishes the UART and its PLIC input under one
+            // lock pair. Acknowledge only after both changes are visible.
+            return vcpu.complete_io_out().map_err(TurnFailure::CpuLocal);
+        }
         mmio::write(
             self.mmio_bus.get_mut()?,
             &self.local_apics,
@@ -176,9 +191,12 @@ impl Vmm {
         TurnFailure::check_io_reply(completion, irq)
     }
 
-    fn pending_software_port_turn(&mut self) -> Result<Option<ExecutionTurn>> {
+    fn pending_software_io_turn(&mut self) -> Result<Option<ExecutionTurn>> {
         if self.backend_kind != BackendKind::Emulator
-            || self.checkpoint_config.arch != ArchKind::X86_64
+            || !matches!(
+                self.checkpoint_config.arch,
+                ArchKind::X86_64 | ArchKind::Riscv64
+            )
         {
             return Ok(None);
         }
@@ -187,7 +205,12 @@ impl Vmm {
             if !self.debugger_allows_cpu(cpu_index) {
                 continue;
             }
-            if let Some(exit) = vcpu.pending_software_port_io()? {
+            let pending = if self.checkpoint_config.arch == ArchKind::X86_64 {
+                vcpu.pending_software_port_io()?
+            } else {
+                vcpu.pending_software_mmio_write()?
+            };
+            if let Some(exit) = pending {
                 #[cfg(feature = "debug")]
                 {
                     self.debugger.last_cpu = cpu_index;
@@ -219,11 +242,11 @@ impl Vmm {
         // An issued transaction belongs to the previous turn. With no GDB
         // transport, finish it before admitting console input or another CPU.
         #[cfg(feature = "debug")]
-        let defer_port_replay = self.gdb_channels.is_some();
+        let defer_io_replay = self.gdb_channels.is_some();
         #[cfg(not(feature = "debug"))]
-        let defer_port_replay = false;
-        if !defer_port_replay {
-            while let Some(turn) = self.pending_software_port_turn()? {
+        let defer_io_replay = false;
+        if !defer_io_replay {
+            while let Some(turn) = self.pending_software_io_turn()? {
                 if self.apply_execution_turn(turn, true)? {
                     return Ok(());
                 }
@@ -336,7 +359,7 @@ impl Vmm {
 
             // These turns already carry their retirement charge. Honor the
             // current resume mask, then complete I/O without entering the CPU.
-            if defer_port_replay && let Some(turn) = self.pending_software_port_turn()? {
+            if defer_io_replay && let Some(turn) = self.pending_software_io_turn()? {
                 if self.apply_execution_turn(turn, true)? {
                     break;
                 }

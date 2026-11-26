@@ -386,6 +386,13 @@ pub trait VCpu: Send {
         Ok(None)
     }
 
+    /// A software MMIO write issued by the previous coordinated turn but
+    /// still awaiting device dispatch.
+    #[doc(hidden)]
+    fn pending_software_mmio_write(&self) -> Result<Option<VcpuExit>> {
+        Ok(None)
+    }
+
     /// Retry a received port reply. A returned result means the port has
     /// already been read and the device must not be called again.
     #[doc(hidden)]
@@ -402,8 +409,8 @@ pub trait VCpu: Send {
 
     /// Acknowledge a successfully dispatched output exit. Backends that stage
     /// an output retain its operand and re-emit it until this call succeeds.
-    /// Callers must dispatch and acknowledge before publishing a complete
-    /// device/CPU checkpoint; a failed dispatch must leave it unacknowledged.
+    /// A checkpoint after successful dispatch must include the acknowledgement
+    /// to avoid replay. A failed dispatch leaves the write unacknowledged.
     fn complete_io_out(&mut self) -> Result<()> {
         Ok(())
     }

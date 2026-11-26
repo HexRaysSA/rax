@@ -87,6 +87,70 @@ fn contexts(vm: &Vmm) -> Vec<Option<BackendContext>> {
 }
 
 #[test]
+fn riscv_file_replays_issued_uart_write_before_the_next_hart() {
+    const CODE: u64 = 0x1000;
+    const SHUTDOWN: u32 = 0x0000_0073; // ECALL in the raw ELF platform.
+    let opcodes = [
+        0x1000_0537, // LUI a0, 0x10000 (UART base).
+        0x0010_0593, // LI a1, 1 (enable receive-data IRQs).
+        0x00b5_00a3, // SB a1, 1(a0) (UART IER).
+        SHUTDOWN,
+        0x1000_0537, // Peer: LUI a0, 0x10000.
+        0x0025_4583, // LBU a1, 2(a0) (UART interrupt identification).
+        SHUTDOWN,
+    ];
+    for count in [1, 2, 4] {
+        let fixture = Fixture::new();
+        let config = fixture.config(count);
+        let mut source = Vmm::new_resume_with_clock(
+            fixture.config(count),
+            crate::vm::timing::ClockMode::Retired,
+        )
+        .unwrap();
+        let code: Vec<_> = opcodes.into_iter().flat_map(u32::to_le_bytes).collect();
+        source
+            .guest_mem
+            .memory()
+            .write_slice(&code, GuestAddress(CODE))
+            .unwrap();
+        source.coordinator.online.fill(true);
+        for (id, cpu) in source.vcpus.iter_mut().enumerate() {
+            cpu.set_current_pc(if id == 0 { CODE } else { CODE + 16 })
+                .unwrap();
+        }
+        source.serial.lock().unwrap().queue_input(b"r");
+        let turn = source.execute_turn().unwrap().unwrap();
+        assert_eq!(turn.cpu_index, 0);
+        assert!(
+            matches!(turn.exit, VcpuExit::MmioWrite { addr: 0x1000_0001, ref data } if data == &[1])
+        );
+        assert_eq!(source.coordinator.retired, 3);
+        assert!(!source.serial.lock().unwrap().interrupt_output());
+
+        source
+            .take_snapshot_bundle(source.coordinator.retired)
+            .unwrap()
+            .save(&fixture.checkpoint)
+            .unwrap();
+        drop(source);
+        std::fs::remove_file(&fixture.kernel).unwrap();
+        let loaded = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &loaded).unwrap();
+        assert!(!target.serial.lock().unwrap().interrupt_output());
+        target.run().unwrap();
+        assert!(target.serial.lock().unwrap().interrupt_output());
+        if count > 1 {
+            assert_eq!(target.vcpus[0].current_pc(), CODE + 12);
+            assert_eq!(target.vcpus[0].instruction_count(), 3);
+            let CpuState::RiscV(peer) = target.vcpus[1].get_state().unwrap() else {
+                panic!("expected the peer's RISC-V registers");
+            };
+            assert_eq!(peer.regs.x[11], 4); // Receive-data IRQ, observed by the guest.
+        }
+    }
+}
+
+#[test]
 fn riscv_reservation_files_continue_one_two_four_actual_backend_contexts() {
     for count in [1, 2, 4] {
         let f = Fixture::new();

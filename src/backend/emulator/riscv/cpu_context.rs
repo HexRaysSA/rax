@@ -20,6 +20,7 @@ pub(super) struct PendingActivation {
 const TAG: &[u8; 8] = b"RAXRV005";
 const WAITING_TAG: &[u8; 8] = b"RAXRV006";
 const SV39_TAG: &[u8; 8] = b"RAXRV007";
+const ISSUED_UART_TAG: &[u8; 8] = b"RAXRV008";
 const SV39_HART_PROFILE: u8 = 0b0111;
 const SV39_WAITING_FLAG: u8 = 0b1000;
 const SPLIT_SEIP_TAG: &[u8; 8] = b"RAXRV004";
@@ -54,6 +55,8 @@ struct Context {
     sv39: bool,
     #[serde(skip)]
     waiting_for_interrupt: bool,
+    #[serde(skip)]
+    uart_write_issued: bool,
 }
 
 fn invalid(message: impl std::fmt::Display) -> Error {
@@ -68,6 +71,7 @@ struct Header {
     payload_offset: usize,
     has_reservation_record: bool,
     waiting_for_interrupt: bool,
+    uart_write_issued: bool,
 }
 
 impl Header {
@@ -85,10 +89,12 @@ impl Header {
             Some(3) => Ok((true, true)),
             _ => Err(invalid("invalid platform profile")),
         };
-        let sv39 = raw.starts_with(SV39_TAG);
+        let uart_write_issued = raw.starts_with(ISSUED_UART_TAG);
+        let sv39 = raw.starts_with(SV39_TAG)
+            || (uart_write_issued && raw.get(8) == Some(&SV39_HART_PROFILE));
         let ((platform, plic), external_seip, payload_offset, has_reservation_record) =
             match raw.get(..8) {
-                Some(tag) if tag == SV39_TAG => {
+                Some(_) if sv39 => {
                     let profile = *raw.get(8).ok_or_else(|| invalid("missing Sv39 profile"))?;
                     if profile & !SV39_WAITING_FLAG != SV39_HART_PROFILE {
                         return Err(invalid("invalid Sv39 profile"));
@@ -100,7 +106,7 @@ impl Header {
                         true,
                     )
                 }
-                Some(tag) if tag == TAG || tag == WAITING_TAG => (
+                Some(tag) if tag == TAG || tag == WAITING_TAG || uart_write_issued => (
                     profiles()?,
                     flag(9, "invalid external SEIP level")?,
                     Self::MAX_LEN,
@@ -131,6 +137,7 @@ impl Header {
             has_reservation_record,
             waiting_for_interrupt: raw.starts_with(WAITING_TAG)
                 || (sv39 && raw[8] & SV39_WAITING_FLAG != 0),
+            uart_write_issued,
         })
     }
 }
@@ -140,11 +147,21 @@ pub(super) fn platform_profiles(raw: &[u8]) -> Result<(bool, bool, bool)> {
     Ok((header.platform, header.plic, header.sv39))
 }
 
+pub(super) fn checkpoint_profiles(raw: &[u8]) -> Result<([bool; 3], bool)> {
+    let header = Header::decode(raw)?;
+    Ok((
+        [header.platform, header.plic, header.sv39],
+        header.uart_write_issued,
+    ))
+}
+
 impl Context {
     fn encode(&self) -> Result<Vec<u8>> {
         let payload = crate::codec::serialize_limited(&(self.reservation, self), MAX_PAYLOAD)
             .map_err(invalid)?;
-        let mut raw = if self.sv39 {
+        let mut raw = if self.uart_write_issued {
+            ISSUED_UART_TAG
+        } else if self.sv39 {
             SV39_TAG
         } else if self.waiting_for_interrupt {
             WAITING_TAG
@@ -217,6 +234,15 @@ impl Context {
                 "interrupt wait requires a supported system profile and clock",
             ));
         }
+        if self.uart_write_issued
+            && (!target.uses_coordinated_uart()
+                || self.halted
+                || !matches!(self.pending.front(), Some(PendingEvent::MmioWrite { .. })))
+        {
+            return Err(invalid(
+                "issued UART write requires a bound VMM and queued write",
+            ));
+        }
         for event in &self.pending {
             match event {
                 PendingEvent::MmioWrite { addr, data }
@@ -255,6 +281,7 @@ impl Context {
         context.plic = header.plic;
         context.sv39 = header.sv39;
         context.waiting_for_interrupt = header.waiting_for_interrupt;
+        context.uart_write_issued = header.uart_write_issued;
         context.cpu.set_external_seip(header.external_seip);
         context.validate(target)?;
         Ok(context)
@@ -340,6 +367,7 @@ impl RiscVVcpu {
             id,
             cpu,
             pending,
+            uart_write_issued,
             tohost_addr,
             halted,
             waiting_for_interrupt,
@@ -384,6 +412,7 @@ impl RiscVVcpu {
             tohost: *tohost,
             halted: *halted,
             waiting_for_interrupt: *waiting_for_interrupt,
+            uart_write_issued: *uart_write_issued,
             devices_enabled: *devices_enabled,
             platform: platform.as_ref().is_some_and(|p| p.enabled()),
             plic: platform.as_ref().is_some_and(|p| p.plic_enabled()),
@@ -467,6 +496,7 @@ impl RiscVVcpu {
         };
         context.cpu.install(&mut self.cpu);
         *events = context.pending;
+        self.uart_write_issued = context.uart_write_issued;
         *tohost = context.tohost;
         self.halted = context.halted;
         self.waiting_for_interrupt = context.waiting_for_interrupt;

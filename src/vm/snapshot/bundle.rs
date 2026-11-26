@@ -497,13 +497,28 @@ impl SnapshotBundle {
         let mut plic_harts = 0;
         let mut sv39_harts = 0;
         if let Some(contexts) = &self.backend_contexts {
-            for record in contexts.entries().iter().flatten() {
-                if record.kind == super::RISCV_CONTEXT {
-                    let (uses_clint, uses_plic, uses_sv39) =
-                        crate::backend::emulator::riscv::context_platform_profiles(&record.data)?;
+            for (id, record) in contexts.entries().iter().enumerate() {
+                if let Some(record) = record
+                    && record.kind == super::RISCV_CONTEXT
+                {
+                    let ([uses_clint, uses_plic, uses_sv39], uart_write_issued) =
+                        crate::backend::emulator::riscv::checkpoint_profiles(&record.data)?;
                     platform_harts += usize::from(uses_clint);
                     plic_harts += usize::from(uses_plic);
                     sv39_harts += usize::from(uses_sv39);
+                    if uart_write_issued
+                        && (self.clock.is_none()
+                            || self.physical_memory.is_none()
+                            || !self
+                                .execution
+                                .as_ref()
+                                .is_some_and(|execution| execution.online().get(id) == Some(&true)))
+                    {
+                        return Err(Error::InvalidConfig(
+                            "issued RISC-V UART write requires an online hart and complete VM state"
+                                .into(),
+                        ));
+                    }
                 }
             }
         }

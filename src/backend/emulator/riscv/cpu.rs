@@ -571,6 +571,7 @@ pub struct RiscVVcpu {
     id: u32,
     cpu: RiscVCpu,
     pending: EventSink,
+    uart_write_issued: bool,
     tohost_addr: Arc<Mutex<Option<u64>>>,
     halted: bool,
     waiting_for_interrupt: bool,
@@ -675,6 +676,7 @@ impl RiscVVcpu {
             id,
             cpu,
             pending,
+            uart_write_issued: false,
             tohost_addr,
             halted: false,
             waiting_for_interrupt: false,
@@ -718,6 +720,7 @@ impl RiscVVcpu {
             id,
             cpu,
             pending: Arc::new(Mutex::new(VecDeque::new())),
+            uart_write_issued: false,
             tohost_addr: Arc::new(Mutex::new(None)),
             halted: false,
             waiting_for_interrupt: false,
@@ -812,12 +815,27 @@ impl RiscVVcpu {
             }
         }
     }
+    fn uses_coordinated_uart(&self) -> bool {
+        self.platform
+            .as_ref()
+            .is_some_and(|platform| platform.has_bound_serial())
+    }
+
     fn pop_event(&mut self) -> Result<Option<VcpuExit>> {
-        let event = self
+        let mut pending = self
             .pending
             .lock()
-            .map_err(|_| Error::Emulator("RISC-V event queue poisoned".into()))?
-            .pop_front();
+            .map_err(|_| Error::Emulator("RISC-V event queue poisoned".into()))?;
+        if let Some(PendingEvent::MmioWrite { addr, data }) = pending.front()
+            && self.uses_coordinated_uart()
+        {
+            self.uart_write_issued = true;
+            return Ok(Some(VcpuExit::MmioWrite {
+                addr: *addr,
+                data: data.clone(),
+            }));
+        }
+        let event = pending.pop_front();
         Ok(event.map(|event| match event {
             PendingEvent::MmioWrite { addr, data } => VcpuExit::MmioWrite { addr, data },
             PendingEvent::Shutdown => {
@@ -922,8 +940,8 @@ impl RiscVVcpu {
     }
 }
 
-pub(crate) fn context_platform_profiles(raw: &[u8]) -> Result<(bool, bool, bool)> {
-    context::platform_profiles(raw)
+pub(crate) fn checkpoint_profiles(raw: &[u8]) -> Result<([bool; 3], bool)> {
+    context::checkpoint_profiles(raw)
 }
 
 impl VCpu for RiscVVcpu {
@@ -1174,6 +1192,42 @@ impl VCpu for RiscVVcpu {
     fn complete_io_in(&mut self, _data: &[u8]) {
         // UART reads are serviced synchronously inside the bridge; no resume
         // state is pending.
+    }
+
+    fn pending_software_mmio_write(&self) -> Result<Option<VcpuExit>> {
+        if !self.uart_write_issued {
+            return Ok(None);
+        }
+        let pending = self
+            .pending
+            .lock()
+            .map_err(|_| Error::Emulator("RISC-V event queue poisoned".into()))?;
+        let Some(PendingEvent::MmioWrite { addr, data }) = pending.front() else {
+            return Err(Error::Emulator(
+                "issued RISC-V UART write is missing".into(),
+            ));
+        };
+        Ok(Some(VcpuExit::MmioWrite {
+            addr: *addr,
+            data: data.clone(),
+        }))
+    }
+
+    fn complete_io_out(&mut self) -> Result<()> {
+        if self.uart_write_issued {
+            let mut pending = self
+                .pending
+                .lock()
+                .map_err(|_| Error::Emulator("RISC-V event queue poisoned".into()))?;
+            if !matches!(pending.front(), Some(PendingEvent::MmioWrite { .. })) {
+                return Err(Error::Emulator(
+                    "issued RISC-V UART write is missing".into(),
+                ));
+            }
+            pending.pop_front();
+            self.uart_write_issued = false;
+        }
+        Ok(())
     }
 
     fn id(&self) -> u32 {
