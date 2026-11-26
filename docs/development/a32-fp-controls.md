@@ -1392,3 +1392,45 @@ The QEMU receipt SHA-256 is
 
 Physical VFP11 timing and asynchronous support-code behavior remain
 high-impact validation boundaries.
+
+### ARM1176 default NaN in negated multiply
+
+VFP11 default-NaN mode returns a positive canonical NaN when arithmetic
+consumes or generates a NaN. The result is `0x7fc00000` for binary32 and
+`0x7ff8000000000000` for binary64. Under the selected ARM1176 profile,
+`VNMUL` retains the canonical sign when FPSCR.DN is set. The multiply
+supplies the FPSCR exception flags. `VNEG` edits the operand sign in every
+mode. `VNMUL` negates the result with DN clear or under the later Arm
+profile. The instruction-entry profile hint is derived from the CPU
+identity and FPSCR that checkpoints store. The result selection takes
+constant time and storage per lane.
+[Arm DDI 0301H, section 18.5.3 and Tables 20-1 and 20-2](https://documentation-service.arm.com/static/5e8e294efd977155116a6ca3)
+
+The parent `1e58c0e68` returned `0xffc00000` for a quiet NaN multiplied
+by +1 with DN set. The new regression varies quiet and signaling NaNs,
+an invalid zero-times-infinity product, a finite product, and a separate
+`VNEG` at both widths with DN clear, DN set, and both DN and FZ set. It
+checks the legacy and later profiles. A fresh S3C64xx `v6_k` restore
+executes the signaling-NaN case in RunFast mode and checks the result and
+both IOC and the earlier sticky IDC. The five owning integration binaries
+passed 47,734 tests. All 18 VMM backend-context tests passed, including the
+S3C64xx restore regression. Library Clippy passed with warnings denied.
+
+QEMU 11.1.2 `arm1176` returned negative canonical NaNs for all 12
+DN-enabled `VNMUL` cases. It matched the other 18 results. Its FPSCR
+observations matched all 30 expectations. QEMU `cortex-a15` matched all
+30 later-profile expectations. The ARM1176 sign expectation follows
+the VFP11 manual. The assembled guests and raw observations are under
+`/Users/int/dev/rax-audit-work/four-findings-arm11-default-nan-2026-11-26/`.
+The ARM1176 receipt SHA-256 is
+`1f6316dc30dd8edb2fd291778813694067162cc44f2271e48dad80d1fe1bbcc8`.
+The Cortex-A15 receipt SHA-256 is
+`7a46e890c2a0c6773da18ccb04750ccf2fadcfca331cb10c18a9590ad6832c2d`.
+
+| Assumption | Dependent result | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| The VFP11 arithmetic DN rule applies to `VNMUL`. | A positive canonical result with DN set. | Exercise both widths with a quiet NaN, a signaling NaN and zero times infinity. Read the result bits and FPSCR with DN and RunFast controls. | High |
+| NaN sign selection is separate from `VNEG`, finite results and the later profile. | Scope of the result-sign change. | Clear DN, execute `VNEG` with DN set, negate a finite product, and repeat under the later profile. | High |
+| The selected CPU identity is sufficient to recover the result rule after a file restore. | `v6_k` resumes the configured arithmetic. | Restore a new VMM, set RunFast in the guest, and require a positive canonical result with IOC and retained IDC. | High |
+
+Physical ARM1176 execution and asynchronous exception replay remain open.

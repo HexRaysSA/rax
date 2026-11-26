@@ -10,15 +10,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return fault;
         }
         let pending = crate::isa::arm::aarch32::fp_traps::Transaction::begin(self.cpu, insn);
-        let arm11_flush = self.cpu.vfp.fpscr.fz()
+        let arm11 = (self.cpu.vfp.fpscr.fz() || self.cpu.vfp.fpscr.dn())
             && self.cpu.fp_access_context.is_none()
             && self.cpu.vfp.is_arm11();
-        if arm11_flush {
-            self.cpu.vfp.fpscr.set_arm11_flush(true);
+        if arm11 {
+            self.cpu.vfp.fpscr.set_arm11(true);
         }
         let result = self.execute_admitted(insn);
-        if arm11_flush {
-            self.cpu.vfp.fpscr.set_arm11_flush(false);
+        if arm11 {
+            self.cpu.vfp.fpscr.set_arm11(false);
         }
         match pending {
             Some(pending) => pending.finish(self.cpu, result),

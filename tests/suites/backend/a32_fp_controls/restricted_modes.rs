@@ -378,6 +378,93 @@ fn arm1176_flush_sign_reaches_precision_conversion_and_short_vector_lanes() {
 }
 
 #[test]
+fn arm1176_negated_multiply_keeps_the_default_nan_positive() {
+    const DN: u32 = 1 << 25;
+    const FZ: u32 = 1 << 24;
+    for (vnmul, vneg, sign, quiet, default_nan, one, infinity) in [
+        (
+            0xee21_0a42,
+            0xeeb1_0a41,
+            1u64 << 31,
+            1u64 << 22,
+            0x7fc0_0000,
+            0x3f80_0000,
+            0x7f80_0000,
+        ),
+        (
+            0xee21_0b42,
+            0xeeb1_0b41,
+            1u64 << 63,
+            1u64 << 51,
+            0x7ff8_0000_0000_0000,
+            0x3ff0_0000_0000_0000,
+            0x7ff0_0000_0000_0000,
+        ),
+    ] {
+        for arm11 in [true, false] {
+            for control in [DN, DN | FZ, 0] {
+                // DDI0301H §18.5.3 and Tables 20-1/20-2. VNEG is a sign
+                // edit even in RunFast mode. Newer VNMUL uses FPNeg after FPMul.
+                let arithmetic_nan = |payload| match (control & DN != 0, arm11) {
+                    (true, true) => default_nan,
+                    (true, false) => default_nan | sign,
+                    (false, _) => (default_nan | payload) ^ sign,
+                };
+                for (name, instruction, left, right, expected, status) in [
+                    (
+                        "quiet NaN",
+                        vnmul,
+                        default_nan | 5,
+                        one,
+                        arithmetic_nan(5),
+                        0,
+                    ),
+                    (
+                        "signaling NaN",
+                        vnmul,
+                        (default_nan ^ quiet) | 9,
+                        one,
+                        arithmetic_nan(9),
+                        1,
+                    ),
+                    ("invalid product", vnmul, 0, infinity, arithmetic_nan(0), 1),
+                    ("finite product", vnmul, one, one, one | sign, 0),
+                    (
+                        "sign edit",
+                        vneg,
+                        default_nan | 5,
+                        one,
+                        default_nan | sign | 5,
+                        0,
+                    ),
+                ] {
+                    let mut cpu = if arm11 {
+                        arm1176_cpu()
+                    } else {
+                        Armv7Cpu::new()
+                    };
+                    cpu.regs[0] = control;
+                    cpu.vfp.dregs[1] = left;
+                    cpu.vfp.dregs[2] = right;
+                    let mut memory = FlatMemory::new(4096, 0);
+                    let mut executor = Executor::new(&mut cpu, &mut memory);
+                    let case = (name, arm11, control, instruction);
+                    for raw in [0xeee1_0a10, instruction, 0xeef1_1a10] {
+                        let result = executor.execute(&Aarch32Decoder::decode(raw).unwrap());
+                        assert!(
+                            matches!(result, ExecResult::Continue),
+                            "{case:?}: {result:?}"
+                        );
+                    }
+                    assert_eq!(cpu.vfp.dregs[0], expected, "{case:?}");
+                    assert_eq!(cpu.regs[1], control | status, "{case:?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn fixed_to_half_flush_admission_changes_above_fourteen_fraction_bits() {
     for thumb in [false, true] {
         for (raw, fractional_bits) in [

@@ -341,16 +341,13 @@ pub struct Fpscr {
     bits: u32,
     /// Derived from the active standalone CPU at the instruction boundary.
     #[serde(skip)]
-    arm11_flush: bool,
+    arm11: bool,
 }
 
 impl Fpscr {
     /// Create FPSCR from raw bits.
     pub fn from_bits(bits: u32) -> Self {
-        Self {
-            bits,
-            arm11_flush: false,
-        }
+        Self { bits, arm11: false }
     }
 
     /// Get raw bits.
@@ -358,14 +355,14 @@ impl Fpscr {
         self.bits
     }
 
-    pub(super) fn set_arm11_flush(&mut self, enabled: bool) {
-        self.arm11_flush = enabled;
+    pub(super) fn set_arm11(&mut self, enabled: bool) {
+        self.arm11 = enabled;
     }
 
     // DDI0301H §§20.3 and 22.5 specify positive zero for a flushed input.
     // Either sign of an actual zero must pass through normally.
     fn arithmetic_input_f32(&mut self, value: f32) -> u32 {
-        if self.arm11_flush && value.is_subnormal() {
+        if self.arm11 && self.fz() && value.is_subnormal() {
             self.set_idc(true);
             0
         } else {
@@ -374,7 +371,7 @@ impl Fpscr {
     }
 
     fn arithmetic_input_f64(&mut self, value: f64) -> u64 {
-        if self.arm11_flush && value.is_subnormal() {
+        if self.arm11 && self.fz() && value.is_subnormal() {
             self.set_idc(true);
             0
         } else {
@@ -386,7 +383,7 @@ impl Fpscr {
         self.bits |= status;
         // The evaluator sets UFC without IXC when FZ flushes a tiny result
         // before rounding. Use this operation's flags, since UFC is sticky.
-        if self.arm11_flush && status & (1 << 3) != 0 {
+        if self.arm11 && self.fz() && status & (1 << 3) != 0 {
             0
         } else {
             bits

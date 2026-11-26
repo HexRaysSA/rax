@@ -13,7 +13,9 @@ pub(super) fn arithmetic_f32(
     let second = u64::from(fpscr.arithmetic_input_f32(second));
     let (bits, status) =
         SmirInterpreter::arm_eval_arithmetic(operation, first, second, false, fpscr.bits());
-    let sign = u64::from(negate_result) << 31;
+    // DDI0301H §18.5.3 and Table 20-1 fix the VFP11 default NaN sign.
+    let default_nan = fpscr.arm11 && fpscr.dn() && bits == 0x7fc0_0000;
+    let sign = u64::from(negate_result && !default_nan) << 31;
     f32::from_bits(fpscr.arithmetic_result(bits ^ sign, status) as u32)
 }
 
@@ -28,7 +30,8 @@ pub(super) fn arithmetic_f64(
     let second = fpscr.arithmetic_input_f64(second);
     let (bits, status) =
         SmirInterpreter::arm_eval_arithmetic(operation, first, second, true, fpscr.bits());
-    let sign = u64::from(negate_result) << 63;
+    let default_nan = fpscr.arm11 && fpscr.dn() && bits == 0x7ff8_0000_0000_0000;
+    let sign = u64::from(negate_result && !default_nan) << 63;
     f64::from_bits(fpscr.arithmetic_result(bits ^ sign, status))
 }
 
