@@ -13,8 +13,11 @@ use crate::user::darwin::mach::kr;
 use crate::user::darwin::mach::msg::{Item, Message, NDR_RECORD, Sender, bits, desc};
 use crate::user::darwin::mach::task::{TaskState, special};
 use crate::user::darwin::process::Proc;
+use crate::user::darwin::syscall::Ctx;
 
 use super::kmsg;
+
+mod xpc_service;
 
 const XPC_REQUEST: i32 = 0x4000_0000;
 const XPC_REPLY: i32 = 0x2000_0000;
@@ -25,6 +28,7 @@ const DICTIONARY: u32 = 0xf000;
 const BOOL: u32 = 0x2000;
 const SIGNED: u32 = 0x3000;
 const UNSIGNED: u32 = 0x4000;
+const MACH_RECEIVE: u32 = 0x15000;
 const STRING: u32 = 0x9000;
 const UUID: u32 = 0xa000;
 const MACH_SEND: u32 = 0xd000;
@@ -43,6 +47,7 @@ const BOOTSTRAP_SENDER: Sender = Sender {
 #[derive(Default)]
 pub(crate) struct Namespace {
     services: BTreeMap<String, Registration>,
+    xpc: xpc_service::Services,
 }
 
 struct Registration {
@@ -101,8 +106,22 @@ impl Namespace {
 
 pub(crate) fn remove_owner(proc: &mut Proc) {
     if let Some(family) = proc.family.as_ref() {
-        let rights = family.bootstrap(|namespace| namespace.remove_owner(proc.pid));
+        let (rights, cancelled) = family.bootstrap(|namespace| {
+            (
+                namespace.remove_owner(proc.pid),
+                namespace.xpc.remove(proc.pid),
+            )
+        });
         kmsg::release(proc, rights);
+        xpc_service::remove_owner(proc, cancelled);
+    }
+}
+
+/// An image replacement ends the caller's application bootstrap domain.
+pub(crate) fn end_application(proc: &mut Proc) {
+    if let Some(family) = &proc.family {
+        let cancelled = family.bootstrap(|namespace| namespace.xpc.remove(proc.pid));
+        xpc_service::remove_owner(proc, cancelled);
     }
 }
 
@@ -275,7 +294,173 @@ fn reply_payload(
     (body, items)
 }
 
-pub(super) fn deliver(proc: &mut Proc, port: &Arc<Port>, mut message: Message) {
+fn string<'a>(bytes: &mut &'a [u8]) -> Option<&'a str> {
+    let length = word(bytes)? as usize;
+    c_string(take(bytes, length.next_multiple_of(4))?.get(..length)?)
+}
+
+// A domain request is a simple Mach message with no transferred descriptors.
+// Decode only its bounded CPX dictionary and the fields needed to authorize it.
+fn application_request<'a>(message: &'a Message, proc: &Proc) -> Option<xpc_service::Request<'a>> {
+    use xpc_service::Request;
+
+    if !message.items.is_empty() || message.bits & bits::COMPLEX != 0 || message.body.len() > 8192 {
+        return None;
+    }
+    let mut bytes = message.body.as_slice();
+    if take(&mut bytes, XPC_HEADER.len())? != XPC_HEADER || word(&mut bytes)? != DICTIONARY {
+        return None;
+    }
+    if word(&mut bytes)? as usize != bytes.len() {
+        return None;
+    }
+    let count = word(&mut bytes)?;
+    if count > 8 {
+        return None;
+    }
+    let mut keys = Vec::with_capacity(count as usize);
+    let mut paths = None;
+    let (mut domain, mut handle, mut name, mut origin, mut own) = (None, None, None, None, false);
+    for _ in 0..count {
+        let key_len = bytes.iter().position(|&byte| byte == 0)? + 1;
+        let key = c_string(take(&mut bytes, key_len.next_multiple_of(4))?.get(..key_len)?)?;
+        if keys.contains(&key) {
+            return None;
+        }
+        keys.push(key);
+        match (key, word(&mut bytes)?) {
+            ("type", UNSIGNED) => domain = Some(integer(&mut bytes)?),
+            ("handle", UNSIGNED) => handle = Some(integer(&mut bytes)?),
+            ("lookup-handle" | "flags", UNSIGNED) if integer(&mut bytes)? == 0 => {}
+            ("name", STRING) => name = Some(string(&mut bytes)?),
+            ("origin", STRING) => origin = Some(string(&mut bytes)?),
+            ("self", BOOL) => own = word(&mut bytes)? == 1,
+            ("paths" | "environment", DICTIONARY) => {
+                let length = word(&mut bytes)? as usize;
+                if length < 4 || length % 4 != 0 {
+                    return None;
+                }
+                let dictionary = take(&mut bytes, length)?;
+                if key == "paths" {
+                    paths = Some(dictionary);
+                }
+            }
+            _ => return None,
+        }
+    }
+    let pid = proc.pid as u64;
+    if !bytes.is_empty() {
+        return None;
+    }
+    match (message.id ^ XPC_REQUEST, domain?, handle) {
+        (718, 6, None) if own && count == 2 => Some(Request::Info),
+        (800, 5, Some(caller)) if caller == pid => {
+            let mut paths = paths?;
+            let key = proc.config.exec_path.as_bytes();
+            let length = key.len().checked_add(1)?;
+            let valid = word(&mut paths)? == 1
+                && c_string(take(&mut paths, length.next_multiple_of(4))?.get(..length)?)?
+                    .as_bytes()
+                    == key
+                && word(&mut paths)? == UNSIGNED
+                && integer(&mut paths)? == 2
+                && paths.is_empty();
+            valid.then_some(Request::Scan)
+        }
+        (802, 5, Some(caller)) if caller == pid => Some(Request::Open { origin }),
+        (803, 5, Some(caller)) if caller == pid && count == 2 => Some(Request::Resume),
+        (804, 5, Some(caller)) if caller == pid => Some(Request::LookUp(name?)),
+        (805, 6, Some(0)) => Some(Request::CheckIn(name?)),
+        _ => None,
+    }
+}
+
+fn encode_string(body: &mut Vec<u8>, key: &[u8], value: &str) {
+    field(body, key, STRING, None);
+    body.extend_from_slice(&((value.len() + 1) as u32).to_le_bytes());
+    body.extend_from_slice(value.as_bytes());
+    body.resize((body.len() + 1).next_multiple_of(4), 0);
+}
+
+fn dictionary(body: &mut Vec<u8>, count: u32, fields: impl FnOnce(&mut Vec<u8>)) {
+    let offset = body.len();
+    body.extend_from_slice(&0u32.to_le_bytes());
+    body.extend_from_slice(&count.to_le_bytes());
+    fields(body);
+    let size = (body.len() - offset - 4) as u32;
+    body[offset..offset + 4].copy_from_slice(&size.to_le_bytes());
+}
+
+fn application_reply(
+    sender: Sender,
+    result: Result<xpc_service::Reply, i64>,
+) -> (Vec<u8>, Vec<(usize, Item)>) {
+    use xpc_service::Reply;
+
+    let result = match result {
+        Ok(reply) => reply,
+        Err(code) => return reply_payload(sender, Err(code)),
+    };
+    let mut body = Vec::new();
+    let mut items = Vec::new();
+    if matches!(&result, Reply::Endpoint(..)) {
+        body.resize(4 + desc::size(desc::PORT), 0);
+        body[0] = 1;
+    }
+    body.extend_from_slice(&XPC_HEADER);
+    body.extend_from_slice(&DICTIONARY.to_le_bytes());
+    match result {
+        Reply::Empty => dictionary(&mut body, 0, |_| {}),
+        Reply::Scan => dictionary(&mut body, 2, |body| {
+            field(body, b"bootstrap-error", SIGNED, Some(0));
+            field(body, b"errors", DICTIONARY, None);
+            dictionary(body, 0, |_| {});
+        }),
+        Reply::Info {
+            name,
+            service_type,
+            run_loop,
+        } => dictionary(&mut body, 2, |body| {
+            encode_string(body, b"identifier", &name);
+            field(body, b"xpcservice-dict", DICTIONARY, None);
+            dictionary(body, 1 + u32::from(run_loop.is_some()), |body| {
+                encode_string(body, b"ServiceType", &service_type);
+                if let Some(run_loop) = run_loop {
+                    encode_string(body, b"RunLoopType", &run_loop);
+                }
+            });
+        }),
+        Reply::Endpoint(right, disposition) => {
+            items.push((
+                4,
+                Item::Port {
+                    right: Some(right),
+                    disp: disposition,
+                },
+            ));
+            if disposition == disp::MOVE_RECEIVE {
+                dictionary(&mut body, 1, |body| {
+                    field(body, b"port", MACH_RECEIVE, None)
+                });
+            } else {
+                dictionary(&mut body, 3, |body| {
+                    field(
+                        body,
+                        b"rec_execcnt",
+                        UNSIGNED,
+                        Some(u64::from(sender.audit[7])),
+                    );
+                    field(body, b"req_pid", UNSIGNED, Some(u64::from(sender.audit[5])));
+                    field(body, b"port", MACH_SEND, None);
+                });
+            }
+        }
+    }
+    (body, items)
+}
+
+pub(super) fn deliver(ctx: &mut Ctx<'_>, port: &Arc<Port>, mut message: Message) {
+    let proc = &mut *ctx.proc;
     if !matches!(&message.reply, Some(Right::SendOnce(reply)) if reply.kobject == KObject::None && !reply.is_dead())
     {
         kmsg::destroy(proc, message);
@@ -298,7 +483,11 @@ pub(super) fn deliver(proc: &mut Proc, port: &Arc<Port>, mut message: Message) {
         let (body, items) = reply_payload(message.sender, result);
         (XPC_REPLY, body, items)
     } else if (message.id as u32) >> 24 == (XPC_REQUEST as u32) >> 24 {
-        let (body, items) = reply_payload(message.sender, Err(i64::from(Errno::ENOTSUP.0)));
+        let request = application_request(&message, proc);
+        let result = request
+            .ok_or(i64::from(Errno::ENOTSUP.0))
+            .and_then(|request| xpc_service::service_reply(ctx, request));
+        let (body, items) = application_reply(message.sender, result);
         (XPC_REPLY, body, items)
     } else {
         let mut body = NDR_RECORD.to_vec();
@@ -306,6 +495,7 @@ pub(super) fn deliver(proc: &mut Proc, port: &Arc<Port>, mut message: Message) {
         (message.id.wrapping_add(100), body, Vec::new())
     };
     let flags = if items.is_empty() { 0 } else { bits::COMPLEX };
+    let proc = &mut *ctx.proc;
     kmsg::destroy(proc, message);
     kmsg::enqueue(
         proc,

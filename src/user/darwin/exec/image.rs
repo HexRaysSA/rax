@@ -213,6 +213,16 @@ pub(super) fn activate_supplied(
     prefs: &Binprefs,
 ) -> Result<Activated, Errno> {
     let user_path = ctx.cstr(path_addr, MAXPATHLEN)?;
+    activate_supplied_path(ctx, &user_path, cwd, directory, prefs)
+}
+
+pub(super) fn activate_supplied_path(
+    ctx: &Ctx<'_>,
+    user_path: &[u8],
+    cwd: &[u8],
+    directory: Option<&std::sync::Arc<crate::user::supplied_fs::WorkspaceDirectory>>,
+    prefs: &Binprefs,
+) -> Result<Activated, Errno> {
     let caller = ctx.proc.abi;
     let installed_apple_silicon = ctx
         .proc
@@ -227,7 +237,7 @@ pub(super) fn activate_supplied(
             caller
         },
     };
-    let activated = activate_image(machine, caller, &user_path, prefs, |path| {
+    let activated = activate_image(machine, caller, user_path, prefs, |path| {
         let (path, entry) = crate::user::darwin::syscall::bsd::path::embedded::lookup_followed(
             ctx, path, cwd, directory,
         )?;

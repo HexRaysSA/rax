@@ -560,6 +560,16 @@ jobs:
                 tests::process::native_runtime::installed_darwin_job_control_matches_native_through_closed_c_abi \
                 -- --ignored --exact --nocapture
           done
+      - name: Compare an installed Darwin bundled XPC service through the closed C API
+        shell: bash
+        run: |
+          scratch="$GITHUB_WORKSPACE/target/darwin-installed-xpc"
+          tests/fixtures/user/darwin/build-closed-xpc-service.sh "$scratch"
+          export TMPDIR="$scratch/tmp" TMP="$scratch/tmp" TEMP="$scratch/tmp"
+          RAX_DARWIN_XPC_CONTROL="$scratch/GuestEcho.app" \
+            cargo test --locked --no-default-features --manifest-path capi/Cargo.toml --lib \
+              tests::process::native_runtime::installed_darwin_application_activates_bundled_xpc_service_through_closed_c_abi \
+              -- --ignored --exact --nocapture
       - name: cargo test (user_darwin, native oracle required)
         shell: bash
         env:

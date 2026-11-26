@@ -535,7 +535,7 @@ pub struct Proc {
 impl Proc {
     pub(crate) fn enqueue_child(&mut self, mut child: Proc, suspend: bool) {
         let member = child.family.as_mut().expect("closed child");
-        member.publish(self.pid, child.execed);
+        member.publish(child.ppid, child.execed);
         if suspend {
             member.suspend_startup();
         }

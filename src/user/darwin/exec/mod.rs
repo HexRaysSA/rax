@@ -114,6 +114,7 @@ fn swap_or_kill(
 ) -> SysResult {
     match built {
         Ok(mut swap) => {
+            super::syscall::mach::bootstrap::end_application(ctx.proc);
             let proc = &mut swap.proc;
             if let (Some(member), Some(transferred)) = (&ctx.proc.family, transferred) {
                 member.workspace_locks(|locks| {
@@ -170,6 +171,59 @@ fn build(
     config.inherited = None;
     let supplied_vfs = old.vfs.is_closed().then_some(&old.vfs);
     process::start(config, act.image, Some(carried), supplied_vfs)
+}
+
+/// Starts a service as a child of the guest's bootstrap server (PID 1).
+/// The requesting process supplies the runtime and credentials, with only its
+/// standard streams inherited for the closed session's console.
+pub(crate) fn spawn_bootstrap_service(
+    ctx: &mut Ctx<'_>,
+    path: &str,
+    environment: Vec<Vec<u8>>,
+    join_session: bool,
+) -> Result<i32, Errno> {
+    let proc = &mut *ctx.proc;
+    if proc.config.host_services || !proc.vfs.is_closed() {
+        return Err(Errno::EPERM);
+    }
+    let member = proc.family.as_ref().ok_or(Errno::EPERM)?;
+    let (pid, child) = member.prepare_child(
+        proc.config.arena_bytes,
+        proc.rlimits[7].0,
+        None,
+        !join_session,
+    )?;
+    let keep = BTreeSet::from([0, 1, 2]);
+    let mut carried = carry(proc, ctx.thread, fdt_fork(&proc.fds, true), Some(&keep));
+    carried.pid = pid;
+    carried.ppid = 1;
+    carried.audit[5] = pid as u32;
+    carried.audit[7] = 1;
+    carried.cwd = b"/".to_vec();
+    carried.cwd_directory = None;
+    carried.sigacts = Default::default();
+    carried.mask = 0;
+    carried.pending = 0;
+    carried.children.clear();
+    carried.itimers = Default::default();
+    carried.task = TaskState::default();
+    super::syscall::mach::bootstrap::install(&mut carried.task);
+    carried.started = std::time::Instant::now();
+    carried.entropy = proc.entropy.for_child(pid);
+    carried.tid = ((pid as u64) << 20) | 1;
+    carried.family = Some(child);
+    let act =
+        image::activate_supplied_path(ctx, path.as_bytes(), b"/", None, &Binprefs::default())?;
+    if act.image.path != path || !act.interp.is_empty() {
+        return Err(Errno::ENOEXEC);
+    }
+    let strings = args::Strings {
+        argv: vec![path.as_bytes().to_vec()],
+        envp: environment,
+    };
+    let new = build(ctx.proc, act, strings, carried).map_err(|error| build_errno(&error))?;
+    ctx.proc.enqueue_child(new, false);
+    Ok(pid)
 }
 
 /// The errno a failure to build a spawned image reports.

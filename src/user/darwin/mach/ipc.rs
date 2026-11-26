@@ -157,6 +157,10 @@ pub struct PortState {
     pub srights: u32,
     /// Send-once rights outstanding.
     pub sorights: u32,
+    /// A listener endpoint allocated by the guest bootstrap service.
+    pub(crate) guest_service: bool,
+    /// The guest service port from which this connection was constructed.
+    pub(crate) connection_service: Option<u64>,
     /// The receive right's context (`ip_context`), which is also the guard
     /// of a guarded port.
     pub context: u64,

@@ -768,6 +768,27 @@ mod mpo {
 /// `sizeof(mach_port_options_t)`.
 pub const OPTIONS_SIZE: usize = 24;
 
+/// Verify the calling task's connection was derived from the guest service.
+/// No host filter identifier exists in a closed session.
+pub fn is_connection_for_service(
+    proc: &Proc,
+    connection: PortName,
+    service: PortName,
+) -> Result<u64, KernReturn> {
+    if !valid(connection) || !valid(service) {
+        return Err(kr::KERN_INVALID_NAME);
+    }
+    let service = receive_port(proc, service)?;
+    if !service.state.lock().unwrap().guest_service {
+        return Err(kr::KERN_INVALID_CAPABILITY);
+    }
+    let connection = receive_port(proc, connection)?;
+    if connection.state.lock().unwrap().connection_service != Some(service.id) {
+        return Err(kr::KERN_DENIED);
+    }
+    Ok(0)
+}
+
 /// `mach_port_construct` with the caller's `mach_port_options_t`.
 pub fn construct(proc: &mut Proc, options: &[u8], context: u64) -> Result<PortName, KernReturn> {
     let w = |o: usize| u32::from_le_bytes(options[o..o + 4].try_into().expect("4 bytes"));
@@ -788,8 +809,16 @@ pub fn construct(proc: &mut Proc, options: &[u8], context: u64) -> Result<PortNa
     if flags & mpo::QLIMIT != 0 && qlimit > QLIMIT_MAX {
         return Err(kr::KERN_INVALID_VALUE);
     }
+    let connection_service = (kind == mpo::CONNECTION_PORT)
+        .then(|| proc.ipc.lookup(service_name).ok())
+        .flatten()
+        .filter(|entry| entry.send != 0)
+        .and_then(|entry| entry.port())
+        .filter(|port| port.state.lock().unwrap().guest_service)
+        .map(|port| port.id);
     let (name, port) = proc.ipc.alloc_receive()?;
     let mut st = port.state.lock().unwrap();
+    st.connection_service = connection_service;
     if flags & mpo::QLIMIT != 0 {
         st.qlimit = qlimit;
     }

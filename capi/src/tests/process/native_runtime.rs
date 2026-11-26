@@ -473,6 +473,95 @@ fn installed_darwin_guest_bootstrap_registers_and_resolves_mach_ports_through_cl
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "requires a locally signed universal closed_xpc_service.c application bundle"]
+fn installed_darwin_application_activates_bundled_xpc_service_through_closed_c_abi() {
+    let fixture = std::env::var("RAX_DARWIN_XPC_CONTROL").expect("built GuestEcho.app fixture");
+    let root = std::path::Path::new(&fixture);
+    let executable = "Contents/MacOS/GuestEcho";
+    let path = "/GuestEcho.app/Contents/MacOS/GuestEcho";
+    let program = std::fs::read(root.join(executable)).unwrap();
+    let files = [
+        "Contents/Info.plist",
+        "Contents/XPCServices/Worker.xpc/Contents/Info.plist",
+        "Contents/XPCServices/Worker.xpc/Contents/MacOS/GuestService",
+    ]
+    .map(|relative| {
+        (
+            format!("/GuestEcho.app/{relative}"),
+            std::fs::read(root.join(relative)).unwrap(),
+        )
+    });
+    let supplied = files.each_ref().map(|(path, bytes)| RaxProcessImage {
+        path: path.as_ptr().cast(),
+        path_size: path.len(),
+        data: bytes.as_ptr(),
+        data_size: bytes.len(),
+    });
+    for (native_arch, guest_arch) in [("arm64", "aarch64"), ("x86_64", "x86_64")] {
+        let control = std::process::Command::new("/usr/bin/arch")
+            .arg(format!("-{native_arch}"))
+            .arg(root.join(executable))
+            .env_clear()
+            .env("LC_ALL", "C")
+            .env("PATH", "/usr/bin:/bin")
+            .output()
+            .unwrap();
+        assert!(
+            control.status.success(),
+            "{guest_arch}: {:?}",
+            control.stderr
+        );
+        assert_eq!(
+            control.stdout,
+            b"bundled XPC service echoed both requests\n"
+        );
+        assert!(control.stderr.is_empty());
+        let options = serde_json::json!({
+            "personality": "darwin",
+            "architecture": guest_arch,
+            "guest_path": path,
+            "environment": {"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            "native_runtime": true,
+            "memory_bytes": 268435456,
+        })
+        .to_string();
+        let mut handle = ptr::null_mut();
+        assert_eq!(
+            rax_process_open_image(
+                program.as_ptr(),
+                program.len(),
+                options.as_ptr().cast(),
+                options.len(),
+                supplied.as_ptr(),
+                supplied.len(),
+                &mut handle,
+            ),
+            RaxStatus::Ok,
+            "{}",
+            error()
+        );
+        assert!(!handle.is_null());
+        let process = Owned(handle);
+        let status = info(&process);
+        assert_eq!(status["capabilities"]["native_runtime"], true);
+        assert_eq!(status["capabilities"]["host_services"], false);
+        assert_eq!(status["capabilities"]["host_filesystem"], false);
+        let result = run_installed_posix_with_turn_limit(&process, path, 49_152);
+        let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+        let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+        assert_eq!(
+            result.exit_code,
+            0,
+            "{guest_arch}: {}",
+            String::from_utf8_lossy(&stderr)
+        );
+        assert_eq!(stdout, control.stdout, "{guest_arch}");
+        assert_eq!(stderr, control.stderr, "{guest_arch}");
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_textutil_converts_rtf_through_closed_c_abi() {
     compare_installed_posix_with_input(
         "darwin",

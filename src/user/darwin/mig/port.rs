@@ -293,6 +293,12 @@ pub fn serve(ctx: &mut Ctx<'_>, req: &mut Req) -> MigResult {
             space!();
             ok(port::unguard(ctx.proc, nm(req, 32), req.u64(36)))
         }
+        m::MACH_PORT_IS_CONNECTION_FOR_SERVICE if !ctx.proc.config.host_services => {
+            req.simple(40)?;
+            space!();
+            let policy = port::is_connection_for_service(ctx.proc, nm(req, 32), nm(req, 36))?;
+            Ok(Out::Simple(Buf::new().u64(policy).done()))
+        }
         m::MACH_PORT_SPACE_BASIC_INFO => {
             // ipc_info_space_basic_t: iisb_genno_mask, iisb_table_size,
             // iisb_table_next, iisb_table_inuse, iisb_reserved[2].

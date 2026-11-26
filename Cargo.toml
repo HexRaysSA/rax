@@ -328,6 +328,8 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 vm-memory = { version = "=0.17.1", default-features = false, features = ["backend-mmap"] }
 goblin = "0.10.7"
 roxmltree = { version = "=0.21.2", default-features = false, features = ["std"] }
+# The event reader bounds expanded binary plist references before building a tree.
+plist = { version = "=1.10.0", default-features = false, features = ["enable_unstable_features_that_may_break_with_minor_version_bumps"] }
 
 # Profiling JSON export (optional)
 serde_json = "1.0"

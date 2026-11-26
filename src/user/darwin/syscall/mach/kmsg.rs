@@ -324,7 +324,7 @@ pub fn deliver(ctx: &mut Ctx<'_>, m: Message) {
         return;
     }
     if port.kobject == KObject::Bootstrap {
-        super::bootstrap::deliver(ctx.proc, &port, m);
+        super::bootstrap::deliver(ctx, &port, m);
         return;
     }
     if port.is_kernel() {
