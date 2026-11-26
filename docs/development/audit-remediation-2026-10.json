@@ -201192,6 +201192,14 @@
       "scope": "Managed KVM capture and native restore admission require GSI1 and GSI12 to agree with the gated i8042 latch. Both disagreement directions for both routes were checked on physical Intel KVM. Failed native restores preserve the target CPU PC, RAM sentinel and idle latch. The original native record format is retained. Pre-routing records with inconsistent lines are ambiguous and fail native restore admission.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#native-kvm-i8042-irq1-and-irq12-checkpoint-coherence",
       "full_goal_complete": false
+    },
+    {
+      "id": "arm1176-chained-invalid-product-2026-11-27",
+      "findings": ["A32-FP", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The standalone ARM1176 profile retains the positive Default NaN from an invalid VMLS or VNMLA multiply stage with IOE clear. The binary32 and binary64 execution regressions distinguish generated and propagated NaNs, sticky IOC, and the sign of a rounded and flushed product. A fresh S3C64xx v6_k checkpoint restore exercises VMLS with DN clear. QEMU's ARM1176 model differs on the generated NaN sign with DN clear. Physical VFP11 execution and asynchronous exception replay remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#arm1176-invalid-products-in-vmls-and-vnmla",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -1467,3 +1467,38 @@ The receipt SHA-256 is
 | Per-operation IOC distinguishes the generated canonical NaN from a propagated canonical quiet NaN when DN is clear. | Propagated NaNs retain the existing sign operation. | Seed sticky IOC, then negate a product with a canonical quiet NaN operand. Check the result sign and retained IOC. | High |
 
 Physical ARM1176 execution and asynchronous exception replay remain open.
+
+#### ARM1176 invalid products in VMLS and VNMLA
+
+The VFP11 chained operations round the product and accumulate separately.
+With FPSCR.IOE clear, a product that generates a Default NaN passes its
+positive canonical bits into the accumulator stage. This follows DDI 0301H
+even with DN clear. The multiply stage retains its own exception flags,
+and a finite accumulator then receives the positive NaN. The addend sign
+operation follows the completed product stage, including any flush to zero.
+The sign selection takes constant time and storage per lane.
+[Arm DDI 0301H, §18.4.1, Table 20-1 and §§22.6–22.6.2](https://documentation-service.arm.com/static/5e8e294efd977155116a6ca3)
+
+The parent `584f79ad7` produced `0xffc00000` for `VMLS.F32` with
+DN and IOE clear, a finite accumulator, and a zero-times-infinity product.
+The regression checks both widths, both operand orders, input and product
+flushing, and a propagated quiet NaN. The fresh S3C64xx file restore
+exercises `VMLS.F32` after a guest write clears the cumulative flags.
+All 47,735 tests in the five owning suites and all 18 backend-context
+tests passed.
+
+QEMU 11.1.2 matched all 28 later-profile result and FPSCR pairs, and all
+28 ARM1176 FPSCR readings. On ARM1176 it returned a negative canonical NaN
+in the 12 DN-clear cases where the manual specifies a positive one.
+The guests and observations are in
+`/Users/int/dev/rax-audit-work/four-findings-arm11-subtract-accumulate-2026-11-27/`.
+The receipt SHA-256 is
+`152a56b3ab486af5955e96cd52dc9e55dea198951243a91c8c42580de85a3f9e`.
+
+| Assumption | Dependent result | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| The disabled invalid-operation rule applies to the chained product. | VMLS and VNMLA with a finite accumulator deliver a positive Default NaN and set IOC. | Execute both encodings and precisions with either operand order, then repeat with a subnormal flushed before multiplication. | High |
+| Rounding and flushing precede the product's sign change in a chain. | The accumulator receives the sign of the completed addend and the product's status. | Multiply the smallest normal by 0.5 with FZ set. Add the negated product to negative zero and require negative zero and UFC. | High |
+| The guest's profile remains authoritative after restoring the checkpoint. | The first stage produces the legacy result in the replacement owner. | Restore a fresh S3C64xx VMM, clear FPSCR in the guest, and check the VMLS destination and IOC. | High |
+
+Physical ARM1176 execution and asynchronous support-code behavior remain open.

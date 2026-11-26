@@ -505,6 +505,77 @@ fn arm1176_negated_multiply_keeps_the_default_nan_positive() {
 }
 
 #[test]
+fn arm1176_subtract_accumulates_keep_the_default_nan_from_an_invalid_product() {
+    const DN: u32 = 1 << 25;
+    const FZ: u32 = 1 << 24;
+    for (vmls, vnmla, sign, default_nan, one, half, min_normal, infinity) in [
+        (
+            0xee01_0a42,
+            0xee11_0a42,
+            1u64 << 31,
+            0x7fc0_0000,
+            0x3f80_0000,
+            0x3f00_0000,
+            0x0080_0000,
+            0x7f80_0000,
+        ),
+        (
+            0xee01_0b42,
+            0xee11_0b42,
+            1u64 << 63,
+            0x7ff8_0000_0000_0000,
+            0x3ff0_0000_0000_0000,
+            0x3fe0_0000_0000_0000,
+            0x0010_0000_0000_0000,
+            0x7ff0_0000_0000_0000,
+        ),
+    ] {
+        for arm11 in [true, false] {
+            let invalid = if arm11 {
+                default_nan
+            } else {
+                default_nan | sign
+            };
+            for (instruction, accumulator) in [(vmls, sign), (vnmla, 0)] {
+                for (control, left, right, expected, status) in [
+                    (0, 0, infinity, invalid, 1),
+                    (0, infinity, sign, invalid, 1),
+                    (DN | FZ, 1, infinity, default_nan, 0x81),
+                    (FZ, 1, infinity, invalid, 0x81),
+                    (1, default_nan | 5, one, default_nan | sign | 5, 0),
+                    (0, one, one, one | sign, 0),
+                    // The product flushes before negation. Both addends in
+                    // the second stage are negative zero under either profile.
+                    (FZ, min_normal, half, sign, 8),
+                ] {
+                    let mut cpu = if arm11 {
+                        arm1176_cpu()
+                    } else {
+                        Armv7Cpu::new()
+                    };
+                    cpu.regs[0] = control;
+                    cpu.vfp.dregs[0] = accumulator;
+                    cpu.vfp.dregs[1] = left;
+                    cpu.vfp.dregs[2] = right;
+                    let mut memory = FlatMemory::new(4096, 0);
+                    let mut executor = Executor::new(&mut cpu, &mut memory);
+                    let case = (arm11, instruction, control, left, right);
+                    for raw in [0xeee1_0a10, instruction, 0xeef1_1a10] {
+                        let result = executor.execute(&Aarch32Decoder::decode(raw).unwrap());
+                        assert!(
+                            matches!(result, ExecResult::Continue),
+                            "{case:x?}: {result:?}"
+                        );
+                    }
+                    assert_eq!(cpu.vfp.dregs[0], expected, "{case:x?}");
+                    assert_eq!(cpu.regs[1], control | status, "{case:x?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn fixed_to_half_flush_admission_changes_above_fourteen_fraction_bits() {
     for thumb in [false, true] {
         for (raw, fractional_bits) in [

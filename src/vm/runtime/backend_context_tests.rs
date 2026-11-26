@@ -247,7 +247,7 @@ fn profile_cpu(context: &BackendContext) -> (u32, crate::isa::arm::Armv7Cpu, usi
 fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
     use crate::config::Aarch32Isa;
     const RUNFAST: u32 = (1 << 25) | (1 << 24);
-    const PROGRAM: [u32; 19] = [
+    const PROGRAM: [u32; 22] = [
         0xee11_0f50, // MRC p15, 0, r0, c1, c0, 2 (reset CPACR)
         0xee01_7f50, // MCR p15, 0, r7, c1, c0, 2 (enable CP10/11)
         0xeef7_1a10, // VMRS r1, MVFR0
@@ -266,6 +266,9 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
         0xeef1_9a10, // VMRS r9, FPSCR
         0xeee1_4a10, // VMSR FPSCR, r4 (clear DN, FZ, and status)
         0xee26_0a47, // VNMUL.F32 s0, s12, s14
+        0xeef1_9a10, // VMRS r9, FPSCR
+        0xeee1_4a10, // VMSR FPSCR, r4 (clear accumulated IOC)
+        0xee06_8a47, // VMLS.F32 s16, s12, s14
         0xeef1_9a10, // VMRS r9, FPSCR
     ];
     let fixture = Fixture::new();
@@ -294,6 +297,7 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
         state.regs.s[10] = 0x7f80_0009; // Signaling NaN.
         state.regs.s[12] = 0;
         state.regs.s[14] = f32::INFINITY.to_bits();
+        state.regs.s[16] = 1.0_f32.to_bits();
         vm.vcpus[0].set_state(&CpuState::Aarch32(state)).unwrap();
         for _ in 0..8 {
             assert!(vm.vcpus[0].step_insn().unwrap().is_none());
@@ -368,6 +372,14 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
                 state.regs.s[0], 0x7fc0_0000,
                 "invalid product with DN clear"
             );
+            assert_eq!(state.regs.r[9], 1);
+            for _ in 0..3 {
+                assert!(vm.vcpus[0].step_insn().unwrap().is_none());
+            }
+            let CpuState::Aarch32(state) = vm.vcpus[0].get_state().unwrap() else {
+                panic!("expected restored AArch32 CPU");
+            };
+            assert_eq!(state.regs.s[16], 0x7fc0_0000, "invalid VMLS product");
             assert_eq!(state.regs.r[9], 1);
         }
         for index in [8, 9] {
