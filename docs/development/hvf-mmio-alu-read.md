@@ -369,6 +369,14 @@ and flags table. The QEMU observation stream SHA-256 is
 | The pending descriptor carries the same operation and retirement frontier after restore. | Serialize and strictly decode the pending input, then check the read width, exact register and flag writes, and one RIP advance. The `bmi1` hosted profile exercises 24 direct reads and 24 restores into fresh VM and vCPU owners. |
 
 The Intel macOS consumer cross-built and passed strict signature verification.
-Hosted Intel execution of this profile and bare-metal Intel macOS are open
-qualification gates. The hosted profile uses a 64-bit code segment. Intel HVF
-device exits in 16- and 32-bit code segments remain unverified for BMI1.
+Hosted Intel run `45877345239` at `4c83a81d` passed all 48 cases on
+virtualized macOS 15.7.9. The observations include 24 direct reads and
+24 fresh-owner restores, with 24 reads of each operand width. The two
+archive digests and executable signature matched. All 4,954 engine and 32
+consumer and runner files matched the pinned revision. The observation
+stream SHA-256 is
+`3536feeb8860cdbf8299921c78c155afb3097b3f5255f00bdd33c31c65cd4356`.
+[Hosted BMI1 profile](https://github.com/HexRaysSA/rax/actions/runs/45877345239)
+
+The hosted profile uses a 64-bit code segment. Bare-metal Intel macOS
+and BMI1 device exits in 16- and 32-bit code segments remain unverified.

@@ -201108,8 +201108,8 @@
     {
       "id": "hvf-bmi1-device-reads-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "native_intel_qualification_pending",
-      "scope": "Intel HVF plans one scalar read for ANDN, BEXTR, BLSI, BLSMSK and BLSR. The pending record retains the original register source, destination and flags. Portable tests publish exactly one register, RFLAGS and retirement after detached restore. Independent QEMU execution matched 28 RAM cases. The hosted BMI1 profile covers 24 direct and 24 restored reads. Native cases, bare-metal Intel, and complete MMIO and checkpoint requirements remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Intel HVF plans one scalar read for ANDN, BEXTR, BLSI, BLSMSK and BLSR. The pending record retains the original register source, destination and flags. Portable tests publish exactly one register, RFLAGS and retirement after detached restore. Independent QEMU execution matched 28 RAM cases. Hosted Intel run 45877345239 at 4c83a81d875fc9fd6eae55c434919a3a0a93415e passed all 48 long-mode cases, including 24 restores. Bare-metal Intel, BMI1 device exits in legacy code modes, and complete MMIO and checkpoint requirements remain open.",
       "qualification": "docs/development/hvf-mmio-alu-read.md#bmi1-device-reads",
       "full_goal_complete": false
     },
