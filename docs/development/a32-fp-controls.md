@@ -1353,3 +1353,42 @@ Physical ARM1176 behavior, including the high-impact VFP11 asynchronous
 bounce and replay path, remains open. The evaluated results describe software
 execution of the arithmetic, including inputs for which ARM1176 hardware
 delegates to support code.
+
+### ARM1176 flush sign
+
+With FPSCR.FZ set, the ARM1176 software profile replaces a subnormal
+binary32 or binary64 input with positive zero and raises IDC. A nonzero
+result whose exact magnitude is below the minimum normal is flushed to
+positive zero before rounding and raises UFC. An actual zero operand
+retains its sign. The interpreter derives the flush rule from CPU identity
+and FPSCR at instruction entry and applies it on each short-vector lane. The
+checkpoint representation continues to store the CPU identity and the
+raw FPSCR. Each scalar evaluation uses constant time and storage with
+respect to operand width and vector length.
+[Arm DDI 0301H, sections 18.5.2, 22.5 and 22.9](https://documentation-service.arm.com/static/5e8e294efd977155116a6ca3)
+
+The parent `7abe41862` returned `0x80000000` for multiplying the negative
+binary32 subnormal `0x80000001` by +1 with FZ set. The regression also
+tests division by a negative subnormal, negative tiny results, square
+root, negated multiply, widening and narrowing, and two short-vector
+lanes with different causes. The five owning integration binaries passed
+47,733 tests. All 18 VMM backend-context tests passed, including the
+negative-input control on a restored S3C64xx `v6_k` guest. Library Clippy
+passed with warnings denied.
+
+QEMU 11.1.2 `arm1176` preserved the sign in the six sign-discriminating
+cases and matched the result and FPSCR in four signed-zero and
+gradual-underflow controls. The positive-zero expectations follow the
+VFP11 manual. The QEMU outputs and Rust logs are under
+`/Users/int/dev/rax-audit-work/four-findings-arm11-flush-sign-2026-11-26/`.
+The QEMU receipt SHA-256 is
+`3c85e4ab802884a3d3c8a9e246ec3fda428a1d500b62e809ba185e229671ef6a`.
+
+| Assumption | Falsification probe | Impact |
+| --- | --- | --- |
+| The selected ARM1176 profile uses VFP11's positive-zero rule on a flush. | Divide +1 by a negative subnormal and require +infinity with IDC and DZC. Multiply the negative minimum normal by 0.5 and require +0 with UFC. Repeat at both widths and compare the default modern profile's signed results. | High |
+| A sticky UFC flag and an actual negative zero are independent of a new flush. | Write UFC alongside FZ before multiplying negative zero by +1. Require negative zero with the original UFC. Clear FZ and run a representable subnormal through the same multiply. | High |
+| The flush rule applies after checkpoint restoration and throughout short-vector execution. | Restore a fresh `v6_k` owner and require positive zero and IDC. Use two vector lanes with an input flush and a result flush and require both flags. | High |
+
+Physical VFP11 timing and asynchronous support-code behavior remain
+high-impact validation boundaries.

@@ -339,17 +339,58 @@ impl fmt::Debug for VfpState {
 pub struct Fpscr {
     /// Raw 32-bit value.
     bits: u32,
+    /// Derived from the active standalone CPU at the instruction boundary.
+    #[serde(skip)]
+    arm11_flush: bool,
 }
 
 impl Fpscr {
     /// Create FPSCR from raw bits.
     pub fn from_bits(bits: u32) -> Self {
-        Self { bits }
+        Self {
+            bits,
+            arm11_flush: false,
+        }
     }
 
     /// Get raw bits.
     pub fn bits(&self) -> u32 {
         self.bits
+    }
+
+    pub(super) fn set_arm11_flush(&mut self, enabled: bool) {
+        self.arm11_flush = enabled;
+    }
+
+    // DDI0301H §§20.3 and 22.5 specify positive zero for a flushed input.
+    // Either sign of an actual zero must pass through normally.
+    fn arithmetic_input_f32(&mut self, value: f32) -> u32 {
+        if self.arm11_flush && value.is_subnormal() {
+            self.set_idc(true);
+            0
+        } else {
+            value.to_bits()
+        }
+    }
+
+    fn arithmetic_input_f64(&mut self, value: f64) -> u64 {
+        if self.arm11_flush && value.is_subnormal() {
+            self.set_idc(true);
+            0
+        } else {
+            value.to_bits()
+        }
+    }
+
+    fn arithmetic_result(&mut self, bits: u64, status: u32) -> u64 {
+        self.bits |= status;
+        // The evaluator sets UFC without IXC when FZ flushes a tiny result
+        // before rounding. Use this operation's flags, since UFC is sticky.
+        if self.arm11_flush && status & (1 << 3) != 0 {
+            0
+        } else {
+            bits
+        }
     }
 
     /// Negative flag.

@@ -201120,6 +201120,14 @@
       "scope": "The software ARM1176 profile interprets zero MVFR1 using the ARMv6 media-field layout, so guest scalar arithmetic uses both FPSCR DN and FZ settings. The reset-FPSCR VADD now retires on the configured legacy machine and after a fresh-owner v6_k checkpoint restore. The QEMU ARM1176 reference matched all 22 result and FPSCR records. Physical ARM1176, asynchronous VFP11 bounces, and complete profile and checkpoint coverage remain open.",
       "qualification": "docs/development/a32-fp-controls.md#arm1176-fpscr-modes",
       "full_goal_complete": false
+    },
+    {
+      "id": "arm1176-flush-sign-2026-11-26",
+      "findings": ["A32-FP", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The standalone ARM1176 software VFP profile follows DDI0301H positive-zero input and result flushing for binary32 and binary64, including precision changes and short-vector arithmetic. The previous code retained the sign. Controls cover sticky FPSCR, true negative zero, the modern profile, and guest execution after an actual v6_k checkpoint restore. QEMU arm1176 preserved the sign in the six discriminating cases. Physical VFP11 exception handling and complete A32 and checkpoint coverage remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#arm1176-flush-sign",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

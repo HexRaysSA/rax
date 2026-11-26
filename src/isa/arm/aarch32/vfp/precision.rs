@@ -10,19 +10,14 @@ pub fn vcvt_f64_f32(value: f32) -> f64 {
 
 /// Convert single to double with input flushing, NaN processing and sticky flags.
 pub fn vcvt_f64_f32_with_fpscr(value: f32, fpscr: &mut Fpscr) -> f64 {
-    let (bits, status) = SmirInterpreter::arm_eval_precision_conversion(
-        u64::from(value.to_bits()),
-        true,
-        fpscr.bits(),
-    );
-    *fpscr = Fpscr::from_bits(fpscr.bits() | status);
-    f64::from_bits(bits)
+    let value = u64::from(fpscr.arithmetic_input_f32(value));
+    let (bits, status) = SmirInterpreter::arm_eval_precision_conversion(value, true, fpscr.bits());
+    f64::from_bits(fpscr.arithmetic_result(bits, status))
 }
 
 /// Convert double to single with guest rounding, flushing and sticky flags.
 pub fn vcvt_f32_f64(value: f64, fpscr: &mut Fpscr) -> f32 {
-    let (bits, status) =
-        SmirInterpreter::arm_eval_precision_conversion(value.to_bits(), false, fpscr.bits());
-    *fpscr = Fpscr::from_bits(fpscr.bits() | status);
-    f32::from_bits(bits as u32)
+    let value = fpscr.arithmetic_input_f64(value);
+    let (bits, status) = SmirInterpreter::arm_eval_precision_conversion(value, false, fpscr.bits());
+    f32::from_bits(fpscr.arithmetic_result(bits, status) as u32)
 }

@@ -246,7 +246,7 @@ fn profile_cpu(context: &BackendContext) -> (u32, crate::isa::arm::Armv7Cpu, usi
 #[test]
 fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
     use crate::config::Aarch32Isa;
-    const PROGRAM: [u32; 11] = [
+    const PROGRAM: [u32; 14] = [
         0xee11_0f50, // MRC p15, 0, r0, c1, c0, 2 (reset CPACR)
         0xee01_7f50, // MCR p15, 0, r7, c1, c0, 2 (enable CP10/11)
         0xeef7_1a10, // VMRS r1, MVFR0
@@ -258,6 +258,9 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
         0xeeb7_0a00, // VMOV.F32 s0, #1.0
         0xee71_0b02, // VADD.F64 d16, d1, d2
         0xee11_6f50, // MRC p15, 0, r6, c1, c0, 2 (restore CPACR)
+        0xeee1_8a10, // VMSR FPSCR, r8 (enable FZ)
+        0xee23_0a04, // VMUL.F32 s0, s6, s8
+        0xeef1_9a10, // VMRS r9, FPSCR
     ];
     let fixture = Fixture::new();
     for isa in [Aarch32Isa::V6, Aarch32Isa::V6K, Aarch32Isa::V7A] {
@@ -277,8 +280,11 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
         state.regs.r[3] = 1 << 30; // EN
         state.regs.r[4] = 0; // Reset FPSCR, including DN and FZ clear.
         state.regs.r[7] = 0x00f0_0000;
+        state.regs.r[8] = 1 << 24; // FZ
         state.regs.s[2] = 1.0_f32.to_bits();
         state.regs.s[4] = 2.0_f32.to_bits();
+        state.regs.s[6] = 0x8000_0001;
+        state.regs.s[8] = 1.0_f32.to_bits();
         vm.vcpus[0].set_state(&CpuState::Aarch32(state)).unwrap();
         for _ in 0..8 {
             assert!(vm.vcpus[0].step_insn().unwrap().is_none());
@@ -323,6 +329,15 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
             assert!(vm.vcpus[0].step_insn().unwrap().is_none());
             assert_eq!(vm.vcpus[0].current_pc(), pc + 4);
             assert_eq!(vm.vcpus[0].instruction_count(), retired + 1);
+            vm.vcpus[0].set_current_pc(CODE + 11 * 4).unwrap();
+            for _ in 0..3 {
+                assert!(vm.vcpus[0].step_insn().unwrap().is_none());
+            }
+            let CpuState::Aarch32(state) = vm.vcpus[0].get_state().unwrap() else {
+                panic!("expected restored AArch32 CPU");
+            };
+            assert_eq!(state.regs.s[0], 0, "ARM1176 flush sign after restore");
+            assert_eq!(state.regs.r[9], (1 << 24) | 0x80);
         }
         for index in [8, 9] {
             let pc = CODE + 4 * index;

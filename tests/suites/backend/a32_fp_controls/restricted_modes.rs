@@ -85,6 +85,17 @@ fn supported(case: &Case, support: u32, control: u32) -> bool {
     round && nan && flush
 }
 
+fn arm1176_cpu() -> Armv7Cpu {
+    let mut cpu = Armv7Cpu::new();
+    cpu.cp15.cpacr = rax::isa::arm::aarch32::cp15::Cpacr::from_bits(0x00f0_0000);
+    cpu.vfp.fpsid = 0x4101_20b5;
+    cpu.vfp.mvfr0 = 0x1111_1111;
+    cpu.vfp.mvfr1 = 0;
+    cpu.vfp.mvfr2 = 0;
+    cpu.vfp.fpexc = 1 << 30;
+    cpu
+}
+
 #[test]
 fn arm1176_mvfr1_uses_legacy_meaning_for_scalar_modes() {
     // DDI0301H Tables 20-6/20-10 and independent ARM1176 QEMU execution.
@@ -198,13 +209,7 @@ fn arm1176_mvfr1_uses_legacy_meaning_for_scalar_modes() {
         ),
     ] {
         for (word, [left, right, expected]) in [(super::VADD, single), (0xee31_0b02, double)] {
-            let mut cpu = Armv7Cpu::new();
-            cpu.cp15.cpacr = rax::isa::arm::aarch32::cp15::Cpacr::from_bits(0x00f0_0000);
-            cpu.vfp.fpsid = 0x4101_20b5;
-            cpu.vfp.mvfr0 = 0x1111_1111;
-            cpu.vfp.mvfr1 = 0;
-            cpu.vfp.mvfr2 = 0;
-            cpu.vfp.fpexc = 1 << 30;
+            let mut cpu = arm1176_cpu();
             cpu.regs[0] = control;
             cpu.vfp.dregs[0] = 0x0987_6543_210f_edcb;
             cpu.vfp.dregs[1] = left;
@@ -228,6 +233,148 @@ fn arm1176_mvfr1_uses_legacy_meaning_for_scalar_modes() {
             assert_eq!(cpu.regs[2], 0, "ARM1176 MVFR1 readback");
         }
     }
+}
+
+#[test]
+fn arm1176_flush_uses_positive_zero_for_tiny_inputs_and_results() {
+    const FZ: u32 = 1 << 24;
+    for (multiply, divide, sqrt, sign, one, half, min_normal, infinity) in [
+        (
+            0xee21_0a02,
+            0xee81_0a02,
+            0xeeb1_0ac1,
+            1 << 31,
+            0x3f80_0000,
+            0x3f00_0000,
+            0x0080_0000,
+            0x7f80_0000,
+        ),
+        (
+            0xee21_0b02,
+            0xee81_0b02,
+            0xeeb1_0bc1,
+            1 << 63,
+            0x3ff0_0000_0000_0000,
+            0x3fe0_0000_0000_0000,
+            0x0010_0000_0000_0000,
+            0x7ff0_0000_0000_0000,
+        ),
+    ] {
+        for arm11 in [true, false] {
+            let flush_zero = if arm11 { 0 } else { sign };
+            for (name, raw, control, left, right, expected, status) in [
+                ("input", multiply, FZ, sign | 1, one, flush_zero, 0x80),
+                (
+                    "divisor",
+                    divide,
+                    FZ,
+                    one,
+                    sign | 1,
+                    flush_zero | infinity,
+                    0x82,
+                ),
+                (
+                    "output",
+                    multiply,
+                    FZ,
+                    sign | min_normal,
+                    half,
+                    flush_zero,
+                    8,
+                ),
+                ("explicit zero", multiply, FZ, sign, one, sign, 0),
+                ("sticky UFC", multiply, FZ | 8, sign, one, sign, 0),
+                ("sqrt", sqrt, FZ, sign | 1, 0, flush_zero, 0x80),
+                (
+                    "negated multiply result",
+                    multiply | 0x40,
+                    FZ,
+                    min_normal,
+                    half,
+                    flush_zero,
+                    8,
+                ),
+                ("gradual underflow", multiply, 0, sign | 1, one, sign | 1, 0),
+            ] {
+                let mut cpu = if arm11 {
+                    arm1176_cpu()
+                } else {
+                    Armv7Cpu::new()
+                };
+                cpu.regs[0] = control;
+                cpu.vfp.dregs[1] = left;
+                cpu.vfp.dregs[2] = right;
+                let mut memory = FlatMemory::new(4096, 0);
+                let mut executor = Executor::new(&mut cpu, &mut memory);
+                for raw in [0xeee1_0a10, raw, 0xeef1_1a10] {
+                    let result = executor.execute(&Aarch32Decoder::decode(raw).unwrap());
+                    assert!(
+                        matches!(result, ExecResult::Continue),
+                        "{raw:#x}: {result:?}"
+                    );
+                }
+                assert_eq!(
+                    cpu.vfp.dregs[0], expected,
+                    "{name} {raw:#x} ARM1176={arm11}"
+                );
+                assert_eq!(
+                    cpu.regs[1],
+                    control | status,
+                    "{name} {raw:#x} ARM1176={arm11}"
+                );
+                assert_eq!(cpu.vfp.dregs[1], left);
+                assert_eq!(cpu.vfp.dregs[2], right);
+            }
+        }
+    }
+}
+
+#[test]
+fn arm1176_flush_sign_reaches_precision_conversion_and_short_vector_lanes() {
+    const FZ: u32 = 1 << 24;
+    for arm11 in [true, false] {
+        for (instruction, input, signed_zero, status) in [
+            (0xeeb7_0ac1, 0x8000_0001, 1u64 << 63, 0x80),
+            (0xeeb7_0bc1, 0x8000_0000_0000_0001, 1u64 << 31, 0x80),
+            (0xeeb7_0bc1, 0xb800_0000_0000_0000, 1u64 << 31, 8), // Narrow -2^-127.
+        ] {
+            let mut cpu = if arm11 {
+                arm1176_cpu()
+            } else {
+                Armv7Cpu::new()
+            };
+            let mut memory = FlatMemory::new(4096, 0);
+            cpu.regs[0] = FZ;
+            cpu.vfp.dregs[1] = input;
+            let mut executor = Executor::new(&mut cpu, &mut memory);
+            for raw in [0xeee1_0a10, instruction, 0xeef1_1a10] {
+                let result = executor.execute(&Aarch32Decoder::decode(raw).unwrap());
+                assert!(
+                    matches!(result, ExecResult::Continue),
+                    "{raw:#x}: {result:?}"
+                );
+            }
+            assert_eq!(cpu.vfp.dregs[0], if arm11 { 0 } else { signed_zero });
+            assert_eq!(cpu.regs[1], FZ | status);
+        }
+    }
+
+    let mut cpu = arm1176_cpu();
+    let mut memory = FlatMemory::new(4096, 0);
+    cpu.regs[0] = FZ | (1 << 16); // Two lanes, stride one.
+    cpu.vfp.dregs[4] = u64::MAX;
+    cpu.vfp.dregs[8] = 0x8080_0000_8000_0001;
+    cpu.vfp.dregs[12] = 0x3f00_0000_3f80_0000;
+    let mut executor = Executor::new(&mut cpu, &mut memory);
+    for raw in [0xeee1_0a10, 0xee28_4a0c, 0xeef1_1a10] {
+        let result = executor.execute(&Aarch32Decoder::decode(raw).unwrap());
+        assert!(
+            matches!(result, ExecResult::Continue),
+            "{raw:#x}: {result:?}"
+        );
+    }
+    assert_eq!(cpu.vfp.dregs[4], 0);
+    assert_eq!(cpu.regs[1], FZ | (1 << 16) | 0x88);
 }
 
 #[test]
