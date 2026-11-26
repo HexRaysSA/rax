@@ -15,7 +15,7 @@ use crate::user::darwin::mach::task::{TaskState, special};
 use crate::user::darwin::process::Proc;
 use crate::user::darwin::syscall::Ctx;
 
-use super::kmsg;
+use super::{fsevents, kmsg};
 
 mod xpc_service;
 
@@ -48,6 +48,7 @@ const BOOTSTRAP_SENDER: Sender = Sender {
 pub(crate) struct Namespace {
     services: BTreeMap<String, Registration>,
     xpc: xpc_service::Services,
+    pub(super) fsevents: fsevents::Service,
 }
 
 struct Registration {
@@ -65,7 +66,7 @@ impl Namespace {
             }
             !state.dead
         });
-        if self.services.contains_key(name) {
+        if name == fsevents::NAME || self.services.contains_key(name) {
             return Err(NAME_IN_USE);
         }
         if self.services.len() == MAX_SERVICES {
@@ -107,10 +108,9 @@ impl Namespace {
 pub(crate) fn remove_owner(proc: &mut Proc) {
     if let Some(family) = proc.family.as_ref() {
         let (rights, cancelled) = family.bootstrap(|namespace| {
-            (
-                namespace.remove_owner(proc.pid),
-                namespace.xpc.remove(proc.pid),
-            )
+            let mut rights = namespace.remove_owner(proc.pid);
+            rights.extend(namespace.fsevents.remove_owner(proc.pid));
+            (rights, namespace.xpc.remove(proc.pid))
         });
         kmsg::release(proc, rights);
         xpc_service::remove_owner(proc, cancelled);
@@ -120,7 +120,13 @@ pub(crate) fn remove_owner(proc: &mut Proc) {
 /// An image replacement ends the caller's application bootstrap domain.
 pub(crate) fn end_application(proc: &mut Proc) {
     if let Some(family) = &proc.family {
-        let cancelled = family.bootstrap(|namespace| namespace.xpc.remove(proc.pid));
+        let (rights, cancelled) = family.bootstrap(|namespace| {
+            (
+                namespace.fsevents.remove_owner(proc.pid),
+                namespace.xpc.remove(proc.pid),
+            )
+        });
+        kmsg::release(proc, rights);
         xpc_service::remove_owner(proc, cancelled);
     }
 }
@@ -194,6 +200,7 @@ fn request(message: &Message) -> Option<Request<'_>> {
     let mut name = None;
     let mut domain = None;
     let mut service = None;
+    let mut flags = 0;
     let mut keys = Vec::with_capacity(count as usize);
     let mut ports = ports.into_iter();
     for _ in 0..count {
@@ -216,7 +223,8 @@ fn request(message: &Message) -> Option<Request<'_>> {
             ("domain-port", MACH_SEND) => domain = Some(ports.next()?),
             ("port", MACH_SEND) => service = Some(ports.next()?),
             ("type", UNSIGNED) if integer(&mut bytes)? == BOOTSTRAP_DOMAIN => {}
-            ("handle" | "flags", UNSIGNED) if integer(&mut bytes)? == 0 => {}
+            ("handle", UNSIGNED) if integer(&mut bytes)? == 0 => {}
+            ("flags", UNSIGNED) => flags = integer(&mut bytes)?,
             // The installed libxpc marks requests sent by a forked child
             // before exec. The bootstrap domain still belongs to the family.
             ("pre-exec", BOOL) if word(&mut bytes)? <= 1 => {}
@@ -228,8 +236,12 @@ fn request(message: &Message) -> Option<Request<'_>> {
     if !keys.contains(&"type") || !bytes.is_empty() || ports.next().is_some() {
         return None;
     }
+    let name = name?;
+    if flags != 0 && (message.id != LOOK_UP || name != fsevents::NAME || flags != 8) {
+        return None;
+    }
     Some(Request {
-        name: name?,
+        name,
         domain: domain?,
         service,
     })
@@ -513,6 +525,9 @@ pub(super) fn deliver(ctx: &mut Ctx<'_>, port: &Arc<Port>, mut message: Message)
                     (REGISTER, Some(service)) => namespace
                         .register(proc.pid, request.name, service)
                         .map(|()| None),
+                    (LOOK_UP, None) if request.name == fsevents::NAME => {
+                        Ok(Some(namespace.fsevents.endpoint()))
+                    }
                     (LOOK_UP, None) => namespace.lookup(request.name).map(Some),
                     _ => Err(i64::from(Errno::EINVAL.0)),
                 })

@@ -1786,6 +1786,19 @@ fn installed_libc_workspace_xattr_values_match_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "run with a locally built closed_fsevents.c fixture linked to CoreServices"]
+fn installed_darwin_fsevents_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_FSEVENTS_CONTROL")
+        .expect("absolute path to the dynamically linked closed_fsevents fixture");
+    compare_installed_workspace_fixture(
+        &binary,
+        "closed_fsevents",
+        Some(b"FSEvents file and directory creation delivered\n"),
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 #[ignore = "run with a locally built closed_workspace_filesec.c fixture on APFS"]
 fn installed_darwin_workspace_filesec_matches_native_through_closed_c_abi() {
     let binary = std::env::var("RAX_DARWIN_INSTALLED_FILESEC_CONTROL")

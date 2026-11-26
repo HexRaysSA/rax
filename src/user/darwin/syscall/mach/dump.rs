@@ -126,6 +126,8 @@ fn object(kobject: &KObject) -> Option<String> {
     Some(match kobject {
         KObject::None => return None,
         KObject::Bootstrap => "guest bootstrap".into(),
+        KObject::FsEvents => "guest FSEvents".into(),
+        KObject::FsEventsStream => "guest FSEvents stream".into(),
         KObject::Task => "task".into(),
         KObject::TaskName => "task name".into(),
         KObject::TaskRead => "task read".into(),

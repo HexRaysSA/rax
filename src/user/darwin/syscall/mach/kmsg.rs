@@ -327,6 +327,10 @@ pub fn deliver(ctx: &mut Ctx<'_>, m: Message) {
         super::bootstrap::deliver(ctx, &port, m);
         return;
     }
+    if matches!(port.kobject, KObject::FsEvents | KObject::FsEventsStream) {
+        super::fsevents::deliver(ctx, &port, m);
+        return;
+    }
     if port.is_kernel() {
         if let Some(reply) = crate::user::darwin::mig::serve(ctx, &port, m) {
             deliver(ctx, reply);

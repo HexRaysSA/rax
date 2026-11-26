@@ -329,7 +329,7 @@ impl Scratch {
 }
 
 fn file_action(
-    ctx: &Ctx<'_>,
+    ctx: &mut Ctx<'_>,
     s: &mut Scratch,
     action: &FileAction,
     nofile: u64,
@@ -426,7 +426,7 @@ pub(in crate::user::darwin) struct Pending {
 }
 
 fn prepare_locked_open(
-    ctx: &Ctx<'_>,
+    ctx: &mut Ctx<'_>,
     spawn: &Pending,
     action: &FileAction,
 ) -> Result<Option<LockedOpen>, Errno> {
@@ -527,7 +527,7 @@ fn run_file_actions(ctx: &mut Ctx<'_>, mut spawn: Pending) -> SysResult {
 }
 
 fn open_action(
-    ctx: &Ctx<'_>,
+    ctx: &mut Ctx<'_>,
     s: &mut Scratch,
     path: &[u8],
     oflag: u32,
@@ -1166,7 +1166,7 @@ mod tests {
             process.proc.vfs =
                 Vfs::supplied(Files::default().with_darwin_descriptor_names().unwrap());
             let (_, mut thread) = process.proc.threads.pop_first().unwrap();
-            let ctx = Ctx {
+            let mut ctx = Ctx {
                 proc: &mut process.proc,
                 thread: &mut thread,
                 nr: 0,
@@ -1193,21 +1193,21 @@ mod tests {
             };
             dup2(&mut scratch, 0, source, nofile).unwrap();
             assert_eq!(
-                file_action(&ctx, &mut scratch, &open(O_RDONLY), nofile),
+                file_action(&mut ctx, &mut scratch, &open(O_RDONLY), nofile),
                 Err(Errno::EBADF)
             );
             ctx.proc
                 .fds
                 .install_with(read.clone(), false, false, source as usize, nofile)
                 .unwrap();
-            file_action(&ctx, &mut scratch, &open(O_RDONLY), nofile).unwrap();
+            file_action(&mut ctx, &mut scratch, &open(O_RDONLY), nofile).unwrap();
             assert!(Arc::ptr_eq(&scratch.fds.file(destination).unwrap(), &read));
             dup2(&mut scratch, 1, source, nofile).unwrap();
             assert_eq!(
-                file_action(&ctx, &mut scratch, &open(O_RDONLY), nofile),
+                file_action(&mut ctx, &mut scratch, &open(O_RDONLY), nofile),
                 Err(Errno::EACCES)
             );
-            file_action(&ctx, &mut scratch, &open(O_WRONLY), nofile).unwrap();
+            file_action(&mut ctx, &mut scratch, &open(O_WRONLY), nofile).unwrap();
             assert!(Arc::ptr_eq(&scratch.fds.file(destination).unwrap(), &write));
             assert!(Arc::ptr_eq(&ctx.proc.fds.file(source).unwrap(), &read));
         }
@@ -1281,7 +1281,8 @@ mod tests {
                     .unwrap()["result"]
                     .as_i64()
                     .unwrap();
-                let result = file_action(&ctx, &mut scratch, &action, ctx.proc.rlimits[8].0);
+                let nofile = ctx.proc.rlimits[8].0;
+                let result = file_action(&mut ctx, &mut scratch, &action, nofile);
                 assert_eq!(
                     result,
                     if expected == 0 {

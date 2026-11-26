@@ -3,6 +3,7 @@
 pub(crate) mod bootstrap;
 pub mod dump;
 pub mod entry;
+pub(in crate::user::darwin) mod fsevents;
 pub mod guard;
 pub mod kmsg;
 pub mod msg;

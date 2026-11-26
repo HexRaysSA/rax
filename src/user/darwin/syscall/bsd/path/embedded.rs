@@ -696,7 +696,7 @@ pub(super) fn renameat(
 }
 
 pub(crate) fn open_file(
-    ctx: &Ctx<'_>,
+    ctx: &mut Ctx<'_>,
     path: &[u8],
     base: &[u8],
     directory: Option<&Arc<WorkspaceDirectory>>,
@@ -710,7 +710,7 @@ pub(crate) fn open_file(
 }
 
 pub(in crate::user::darwin) fn resolve_open_file(
-    ctx: &Ctx<'_>,
+    ctx: &mut Ctx<'_>,
     path: &[u8],
     base: &[u8],
     directory: Option<&Arc<WorkspaceDirectory>>,
@@ -727,7 +727,7 @@ pub(in crate::user::darwin) fn resolve_open_file(
         }
         return OpenFile::resource_fork(path, entry, flags, owner).map(Arc::new);
     }
-    open_or_create(
+    let (file, created) = open_or_create(
         flags,
         owner,
         |policy| lookup_as(ctx, path, base, directory, allow_search, policy, owner),
@@ -768,7 +768,16 @@ pub(in crate::user::darwin) fn resolve_open_file(
                 .create_workspace_file_with_status(&absolute, mode, owner, &[], exclusive)
                 .map_err(Errno::from)
         },
-    )
+    )?;
+    if created
+        && let Some(path) = file
+            .path
+            .as_deref()
+            .and_then(|path| std::str::from_utf8(path).ok())
+    {
+        crate::user::darwin::syscall::mach::fsevents::created(ctx.proc, path);
+    }
+    Ok(file)
 }
 
 // The kernel acquires the advisory lock before shortening the vnode.
@@ -832,7 +841,7 @@ fn open_or_create(
     owner: (u32, u32),
     lookup: impl FnOnce(LinkPolicy) -> Result<(String, Entry), Errno>,
     create: impl FnOnce(LinkPolicy, bool) -> Result<(String, Entry, bool), Errno>,
-) -> Result<Arc<OpenFile>, Errno> {
+) -> Result<(Arc<OpenFile>, bool), Errno> {
     let (policy, search, exclusive) = open_policy(flags)?;
     let (path, entry, created) = match lookup(policy) {
         Ok(_) if exclusive => return Err(Errno::EEXIST),
@@ -848,7 +857,10 @@ fn open_or_create(
             return Err(Errno::ENOTDIR);
         }
         let status = flags & (O_STATUS_FLAGS | O_EVTONLY | O_ACCMODE);
-        return Ok(Arc::new(OpenFile::supplied_with_flags(path, entry, status)));
+        return Ok((
+            Arc::new(OpenFile::supplied_with_flags(path, entry, status)),
+            false,
+        ));
     }
     if search {
         if !entry.is_dir() {
@@ -863,7 +875,10 @@ fn open_or_create(
             return Err(Errno::EACCES);
         }
         let status = O_EXEC | (flags & (O_STATUS_FLAGS | O_EVTONLY));
-        return Ok(Arc::new(OpenFile::supplied_with_flags(path, entry, status)));
+        return Ok((
+            Arc::new(OpenFile::supplied_with_flags(path, entry, status)),
+            false,
+        ));
     }
     let device = entry.device();
     let workspace = entry.workspace_file();
@@ -900,7 +915,7 @@ fn open_or_create(
     } else {
         OpenFile::supplied_with_flags(path, entry, status)
     };
-    Ok(Arc::new(file))
+    Ok((Arc::new(file), created))
 }
 
 pub(super) fn statat(ctx: &Ctx<'_>, dirfd: i32, path: u64, buf: u64, flags: u32) -> SysResult {
