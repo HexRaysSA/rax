@@ -5,7 +5,8 @@ use super::*;
 pub(crate) const NLS_CUSTOM_LOCALE_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Nls\\CustomLocale";
 pub(super) const MAX_RECORD_BYTES: usize = 128 << 10;
-const HEADERS: [usize; 9] = [16, 24, 44, 4, 40, 12, 4, 4, 4];
+pub(super) const CACHED_RECORD_BYTES: usize = 40;
+const HEADERS: [usize; 9] = [16, 24, 44, 4, CACHED_RECORD_BYTES, 12, 4, 4, 4];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum NameTail {
@@ -100,6 +101,32 @@ impl KeyInformation {
             return Err(invalid("native canonical key name has invalid grammar"));
         }
         Ok(result)
+    }
+
+    pub(super) fn from_cached(key: &Key, cached: [u8; CACHED_RECORD_BYTES]) -> io::Result<Self> {
+        let name = key
+            .path
+            .rsplit(|unit| *unit == 92)
+            .next()
+            .unwrap_or_default();
+        if word(&cached, 12) != key.children as usize || word(&cached, 32) != name.len() * 2 {
+            return Err(invalid(
+                "native cached key record contradicts the selected key",
+            ));
+        }
+        let mut records = std::array::from_fn(|_| Vec::new());
+        let canonical_bytes = (key.path.len() * 2) as u32;
+        records[3] = canonical_bytes
+            .to_le_bytes()
+            .into_iter()
+            .chain(key.path.iter().flat_map(|unit| unit.to_le_bytes()))
+            .collect();
+        records[4] = cached.into();
+        Ok(Self {
+            records,
+            tails: [NameTail::Raw; 2],
+            enumeration: None,
+        })
     }
 
     pub(crate) fn record(&self, class: u32) -> Option<&[u8]> {

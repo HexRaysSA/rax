@@ -22,14 +22,36 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
             _ => &[RegistryView::Native64, RegistryView::Wow32],
         };
         for &view in views {
-            let selected = match super::native_key::open_view(&path, view) {
+            let opened = if subject == ProcessConfigKey::DotNetPolicy {
+                // The Win32 HKLM open applies the WOW64 view to this redirected
+                // key even when the snapshot is collected by an ARM64 process.
+                match super::command_processor::open_snapshot(root, &[], view) {
+                    Ok(key) => Ok(key),
+                    Err(error) => Err(match error.raw_os_error() {
+                        Some(2) => STATUS_OBJECT_NAME_NOT_FOUND,
+                        Some(3) => STATUS_OBJECT_PATH_NOT_FOUND,
+                        Some(5) => STATUS_ACCESS_DENIED,
+                        _ => return Err(error),
+                    }),
+                }
+            } else {
+                super::native_key::open_view(&path, view)
+            };
+            let selected = match opened {
                 Ok(key) => {
                     let canonical = canonical_hive_name(&key, subject.label())?;
                     subject.check_name(&registry, view, &canonical)?;
-                    capture_header(&registry, subject, &key, canonical, || {
+                    let header = capture_header(&registry, subject, &key, canonical, || {
                         capture_values(&key, subject.values())
-                    })?
-                    .map(|header| (header, None))
+                    })?;
+                    if subject == ProcessConfigKey::DotNetPolicy
+                        && let Ok(header) = header
+                    {
+                        let cached = super::key_information::cached_record(&key)?;
+                        registry = registry.with_dot_net_policy(view, header, cached)?;
+                        continue;
+                    }
+                    header.map(|header| (header, None))
                 }
                 Err(
                     status @ (STATUS_OBJECT_NAME_NOT_FOUND

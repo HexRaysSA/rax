@@ -247,6 +247,81 @@ fn dot_net_policy_lookup_preserves_canonical_identity_in_both_views() {
 }
 
 #[test]
+fn dot_net_policy_admits_only_the_captured_cached_information_and_name() {
+    let subject = ProcessConfigKey::DotNetPolicy;
+    let selection = units(subject.path());
+    let header = header(subject.path(), vec![]);
+    let mut native = [0u8; 40];
+    native[..8].copy_from_slice(&0x01dd71d91fbe51ac_u64.to_le_bytes());
+    native[12..16].copy_from_slice(&header.children.to_le_bytes());
+    native[16..20].copy_from_slice(&18u32.to_le_bytes());
+    native[32..36].copy_from_slice(&12u32.to_le_bytes());
+    let selected = || Registry::selected(upcase(), vec![]).unwrap();
+    let registry = selected()
+        .with_dot_net_policy(RegistryView::Native64, header.clone(), native)
+        .unwrap();
+    let mut different = native;
+    different[0] ^= 1;
+    assert!(
+        registry
+            .clone()
+            .with_dot_net_policy(RegistryView::Wow32, header.clone(), different)
+            .is_err()
+    );
+    let shared = registry
+        .clone()
+        .with_dot_net_policy(RegistryView::Wow32, header.clone(), native)
+        .unwrap();
+    let mut wow_header = header.clone();
+    wow_header.canonical = units(DOT_NET_POLICY_WOW_KEY);
+    wow_header.children += 1;
+    different[12..16].copy_from_slice(&wow_header.children.to_le_bytes());
+    let registry = registry
+        .with_dot_net_policy(RegistryView::Wow32, wow_header, different)
+        .unwrap();
+    for (view, expected, canonical) in [
+        (RegistryView::Native64, native, subject.path()),
+        (RegistryView::Wow32, different, DOT_NET_POLICY_WOW_KEY),
+    ] {
+        let Lookup::Present(shared_key) = shared.lookup_view(&selection, view) else {
+            panic!("shared .NET Framework policy record did not resolve");
+        };
+        assert_eq!(
+            shared_key.information().unwrap().record(4),
+            Some(native.as_slice())
+        );
+        let Lookup::Present(key) = registry.lookup_view(&selection, view) else {
+            panic!("cached .NET Framework policy record did not resolve");
+        };
+        let info = key.information().expect("captured key information");
+        assert_eq!(info.record(4), Some(expected.as_slice()));
+        assert_eq!(info.canonical(), units(canonical));
+        for class in [0, 1, 2, 5, 6, 7, 8] {
+            assert!(info.record(class).is_none());
+        }
+        assert!(matches!(
+            key.relative(&units("UnselectedChild")),
+            Lookup::Unselected
+        ));
+    }
+
+    let mut wrong_count = native;
+    wrong_count[12] ^= 1;
+    assert!(
+        selected()
+            .with_dot_net_policy(RegistryView::Native64, header.clone(), wrong_count)
+            .is_err()
+    );
+    let mut wrong_name = native;
+    wrong_name[32] ^= 2;
+    assert!(
+        selected()
+            .with_dot_net_policy(RegistryView::Native64, header, wrong_name)
+            .is_err()
+    );
+}
+
+#[test]
 fn powershell_registry_preserves_ordered_metadata_and_independent_views() {
     let root = ProcessConfigKey::PowerShell;
     let engine = ProcessConfigKey::PowerShellEngineV3;

@@ -1,6 +1,6 @@
 //! Selection-only capture of complete records for a fixed runtime tree.
 //! All output buffers are private/aligned; no guest argument reaches NTDLL.
-use super::super::key_information::MAX_RECORD_BYTES;
+use super::super::key_information::{CACHED_RECORD_BYTES, MAX_RECORD_BYTES};
 use super::super::tree::{MAX_TREE_KEYS, TreeBudget, child_path};
 use super::super::{InformationTree, KeyInformation, NameTail, TreeRoot};
 use super::*;
@@ -33,6 +33,17 @@ fn native_record(
         .take(length)
         .collect();
     Ok((status as u32, returned, bytes))
+}
+
+pub(super) fn cached_record(key: &OwnedKey) -> io::Result<[u8; CACHED_RECORD_BYTES]> {
+    let first = native_record(key, 4, CACHED_RECORD_BYTES, 0xA5)?;
+    let second = native_record(key, 4, CACHED_RECORD_BYTES, 0x5A)?;
+    if first != second || first.0 != 0 || first.1 as usize != CACHED_RECORD_BYTES {
+        return Err(invalid(
+            "native cached key query returned an unstable or incomplete record",
+        ));
+    }
+    Ok(first.2.try_into().expect("fixed cached record size"))
 }
 
 pub(super) fn records(key: &OwnedKey) -> io::Result<KeyInformation> {

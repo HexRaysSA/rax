@@ -265,7 +265,11 @@ fn open_path(
 ) -> io::Result<OwnedKey> {
     open_snapshot_path(SnapshotRoot::Command(root), sid, view, path)
 }
-fn open_snapshot(root: SnapshotRoot, sid: &[u8], view: RegistryView) -> io::Result<OwnedKey> {
+pub(super) fn open_snapshot(
+    root: SnapshotRoot,
+    sid: &[u8],
+    view: RegistryView,
+) -> io::Result<OwnedKey> {
     let path = root.path(sid)?;
     open_snapshot_path(root, sid, view, &path)
 }

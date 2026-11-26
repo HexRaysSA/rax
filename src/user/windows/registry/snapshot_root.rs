@@ -1,6 +1,7 @@
 //! Fixed startup subjects share immutable subtree construction and view guards.
 //! A subject is selected by Rust policy, never by a guest-supplied host path.
 use super::command_processor::subtree;
+use super::key_information::CACHED_RECORD_BYTES;
 use super::*;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
@@ -303,7 +304,24 @@ impl Registry {
         view: RegistryView,
         selected_tree: Result<(CommandHeader, Option<Vec<(Vec<u16>, CommandTree)>>), u32>,
     ) -> io::Result<Self> {
-        self.with_snapshot_routes(root, sid, view, selected_tree, None)
+        self.with_snapshot_routes(root, sid, view, selected_tree, None, None)
+    }
+
+    #[cfg(any(target_os = "windows", test))]
+    pub(super) fn with_dot_net_policy(
+        self,
+        view: RegistryView,
+        header: CommandHeader,
+        cached: [u8; CACHED_RECORD_BYTES],
+    ) -> io::Result<Self> {
+        self.with_snapshot_routes(
+            SnapshotRoot::ProcessConfig(ProcessConfigKey::DotNetPolicy),
+            &[],
+            view,
+            Ok((header, None)),
+            None,
+            Some(cached),
+        )
     }
 
     pub(super) fn with_creator_current_version(
@@ -319,6 +337,7 @@ impl Registry {
             view,
             header.map(|header| (header, None)),
             layers,
+            None,
         )
     }
 
@@ -329,6 +348,7 @@ impl Registry {
         view: RegistryView,
         selected_tree: Result<(CommandHeader, Option<Vec<(Vec<u16>, CommandTree)>>), u32>,
         layers: Option<Result<CommandHeader, u32>>,
+        cached: Option<[u8; CACHED_RECORD_BYTES]>,
     ) -> io::Result<Self> {
         let label = root.label();
         let selected = root.selection();
@@ -381,6 +401,12 @@ impl Registry {
                         view,
                         Arc::get_mut(&mut key).expect("new snapshot key"),
                     )?;
+                }
+                if let Some(cached) = cached {
+                    let key = Arc::get_mut(&mut key).expect("new snapshot key");
+                    let information = KeyInformation::from_cached(key, cached)?;
+                    self.value_budget()?.charge_information(&information)?;
+                    key.information = Some(Arc::new(information));
                 }
                 if let Some(layers) = layers {
                     let key = Arc::get_mut(&mut key).expect("new snapshot key");
@@ -470,6 +496,7 @@ impl Registry {
                 if let Some(other) = other {
                     if key.fold(&key.path) == other.fold(&other.path)
                         && (!subtree::same_physical_contents(key, other)
+                            || key.information != other.information
                             || root == SnapshotRoot::UserNtCurrentVersion
                                 && !same_creator_layers(key, other))
                     {
