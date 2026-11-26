@@ -554,29 +554,29 @@ fn sched_yield_counts_a_runnable_switch_as_voluntary() {
     let mut h = Harness::new(LinuxAbi::Riscv64);
     let entry = CODE + 0x1000;
     h.proc.state.config.slice_insns = 1;
-    put(&h, entry, &0x0000_0013u32.to_le_bytes());
+    put(&h, entry, &0x0000_0073u32.to_le_bytes());
+    put(&h, entry + 4, &0x0000_0073u32.to_le_bytes());
     let flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM;
     h.ok(Sysno::Clone, &[flags, 0, 0, 0, 0]);
+    let sched_yield_nr = h.abi().number(Sysno::SchedYield).unwrap();
+    let getpid_nr = h.abi().number(Sysno::Getpid).unwrap();
+    h.proc.threads[0].cpu.set_pc(entry);
+    h.proc.threads[0].cpu.set_syscall_number(sched_yield_nr);
+    h.proc.threads[1].cpu.set_pc(entry + 4);
+    h.proc.threads[1].cpu.set_syscall_number(getpid_nr);
     for thread in &mut h.proc.threads {
-        thread.cpu.set_pc(entry);
-    }
-
-    // Leave the scheduler positioned at the second runnable thread.
-    for _ in 0..3 {
-        assert_eq!(
-            h.proc.run_slice(1, &AtomicBool::new(false)),
-            RunStatus::BudgetExhausted
-        );
-    }
-    for thread in &mut h.proc.threads {
-        thread.cpu.set_pc(entry);
         thread.nvcsw = 0;
         thread.nivcsw = 0;
     }
     h.proc.state.nvcsw = 0;
     h.proc.state.nivcsw = 0;
 
-    assert_eq!(h.start(0, Sysno::SchedYield, &[]), Some(0));
+    assert_eq!(
+        h.proc.run_slice(1, &AtomicBool::new(false)),
+        RunStatus::BudgetExhausted
+    );
+    assert_eq!(h.proc.state.nvcsw, 0);
+    assert_eq!(h.proc.state.nivcsw, 0);
     assert_eq!(
         h.proc.run_slice(1, &AtomicBool::new(false)),
         RunStatus::BudgetExhausted
