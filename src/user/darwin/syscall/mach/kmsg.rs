@@ -242,8 +242,8 @@ pub fn destroy_receive(proc: &mut Proc, port: &Arc<Port>) {
         dead_name_notify(proc, n, name);
     }
     flush(proc);
-    proc.post(WaitKey::Port(port.id));
-    proc.post(WaitKey::PortSpace(port.id));
+    post_wake(proc, PortWake::Died(port.id));
+    post_wake(proc, PortWake::Space(port.id));
 }
 
 /// Sends `MACH_NOTIFY_DEAD_NAME` for `name` through `notify`.
@@ -399,11 +399,51 @@ pub fn enqueue(proc: &mut Proc, m: Message) {
         st.queue.push_back(m);
         st.pset
     };
-    proc.post(WaitKey::Port(port.id));
-    crate::user::darwin::kevent::filters::post_machport(proc, port.id);
+    post_wake(proc, PortWake::Message(port.id));
     if let Some(set) = pset {
-        proc.post(WaitKey::Port(set));
-        crate::user::darwin::kevent::filters::post_machport(proc, set);
+        post_wake(proc, PortWake::Message(set));
+    }
+}
+
+/// A change to an IPC object's readiness. A closed process family can share
+/// rights to the object, so its waiters may live in a different task.
+#[derive(Clone, Copy)]
+pub(crate) enum PortWake {
+    Message(u64),
+    Space(u64),
+    Died(u64),
+}
+
+pub(crate) fn post_wake(proc: &mut Proc, event: PortWake) {
+    event.deliver(proc, false);
+    if let Some(family) = &proc.family {
+        family.post_mach_wake(event);
+    }
+}
+
+impl PortWake {
+    pub(crate) fn deliver(self, proc: &mut Proc, remote: bool) -> bool {
+        let key = match self {
+            Self::Message(id) | Self::Died(id) => WaitKey::Port(id),
+            Self::Space(id) => WaitKey::PortSpace(id),
+        };
+        let has_waiter = !remote
+            || proc.threads.values().any(|thread| {
+                thread
+                    .wait
+                    .as_ref()
+                    .is_some_and(|wait| wait.keys.contains(&key))
+            });
+        if has_waiter {
+            proc.post(key);
+        }
+        if let Self::Message(id) = self
+            && proc.kq.port_klists.contains_key(&id)
+        {
+            crate::user::darwin::kevent::filters::post_machport(proc, id);
+            return true;
+        }
+        has_waiter
     }
 }
 

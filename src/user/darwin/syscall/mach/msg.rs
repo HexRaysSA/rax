@@ -622,7 +622,7 @@ fn receive_from(
         st.seqno = st.seqno.wrapping_add(1);
         st.queue.pop_front().expect("the queue has a message")
     };
-    ctx.proc.post(WaitKey::PortSpace(port.id));
+    kmsg::post_wake(ctx.proc, kmsg::PortWake::Space(port.id));
     kmsg::fire_send_possible(ctx.proc, &port);
     ctx.proc.task.messages.1 += 1;
     let sender = m.sender;

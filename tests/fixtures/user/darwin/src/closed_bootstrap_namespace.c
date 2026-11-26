@@ -56,17 +56,25 @@ static int child(void) {
 }
 
 static bool wait_for_service(pid_t pid, mach_port_t port, const char *mode) {
-    int status = -1;
-    if (pid < 0 || waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
-        fprintf(stderr, "%s service client exit: %d\n", mode, status);
+    if (pid < 0) {
         return false;
     }
     struct {
         mach_msg_header_t hdr;
         mach_msg_max_trailer_t trailer;
     } incoming;
-    return mach_msg(&incoming.hdr, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof(incoming),
-                    port, 100, MACH_PORT_NULL) == KERN_SUCCESS && incoming.hdr.msgh_id == message_id;
+    // The child sends after resolving the named endpoint. The parent blocks on
+    // the receive right before it waits for the child process to exit.
+    if (mach_msg(&incoming.hdr, MACH_RCV_MSG, 0, sizeof(incoming),
+                 port, 0, MACH_PORT_NULL) != KERN_SUCCESS || incoming.hdr.msgh_id != message_id) {
+        return false;
+    }
+    int status = -1;
+    if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
+        fprintf(stderr, "%s service client exit: %d\n", mode, status);
+        return false;
+    }
+    return true;
 }
 
 int main(int argc, char **argv) {

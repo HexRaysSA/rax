@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use super::{DarwinProcess, ExitStatus, Proc, RunStatus, wait};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::signal::{self, frame::code};
+use crate::user::darwin::syscall::mach::kmsg::PortWake;
 use crate::user::darwin::workspace_locks::Locks;
 
 pub(super) const ROOT_PID: i32 = 1000;
@@ -37,6 +38,7 @@ struct Registry {
     next_pid: i32,
     children: BTreeMap<i32, Child>,
     pending_signals: Vec<Delivery>,
+    mach_wakes: Vec<(i32, PortWake)>,
     job_changes: Vec<JobChange>,
     workspace_locks: Locks,
     bootstrap: crate::user::darwin::syscall::mach::bootstrap::Namespace,
@@ -188,6 +190,7 @@ impl Member {
                 next_pid: ROOT_PID + 1,
                 children: BTreeMap::new(),
                 pending_signals: Vec::new(),
+                mach_wakes: Vec::new(),
                 job_changes: Vec::new(),
                 workspace_locks: Locks::default(),
                 bootstrap: Default::default(),
@@ -425,6 +428,17 @@ impl Member {
             .lock()
             .unwrap()
             .record_job(self.pid, state, origin);
+    }
+
+    pub(in crate::user::darwin) fn post_mach_wake(&self, event: PortWake) {
+        let mut registry = self.registry.lock().unwrap();
+        if self.pid != ROOT_PID || !registry.children.is_empty() {
+            registry.mach_wakes.push((self.pid, event));
+        }
+    }
+
+    fn take_mach_wakes(&self) -> Vec<(i32, PortWake)> {
+        std::mem::take(&mut self.registry.lock().unwrap().mach_wakes)
     }
 
     fn take_signals(&self) -> Vec<Delivery> {
@@ -674,12 +688,16 @@ impl Scheduler {
                 RunStatus::BudgetExhausted => self.blocked = 0,
                 RunStatus::Blocked => self.blocked += 1,
             }
-            let ready = root
-                .proc
-                .family
-                .as_ref()
-                .expect("closed root")
-                .workspace_locks(Locks::take_wakes);
+            let family = root.proc.family.as_ref().expect("closed root");
+            let mach_wakes = family.take_mach_wakes();
+            let ready = family.workspace_locks(Locks::take_wakes);
+            for (origin, event) in mach_wakes {
+                for target in std::iter::once(&mut *root).chain(self.active.values_mut()) {
+                    if target.proc.pid != origin && event.deliver(&mut target.proc, true) {
+                        self.blocked = 0;
+                    }
+                }
+            }
             for (pid, ino) in ready {
                 let target = if pid == root.proc.pid {
                     Some(&mut *root)
