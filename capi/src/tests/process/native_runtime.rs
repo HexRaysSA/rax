@@ -693,6 +693,15 @@ fn installed_darwin_id_resolves_guest_account_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "run with a locally built closed_getgroups.c fixture"]
+fn installed_darwin_getgroups_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_GETGROUPS")
+        .expect("absolute path to the dynamically linked closed_getgroups fixture");
+    compare_installed_workspace_fixture(&binary, "closed_getgroups", None);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_reopens_guest_descriptors_through_closed_c_abi() {
     let input = b"guest descriptor input\n";
     for name in ["/dev/stdin", "/dev/fd/0"] {

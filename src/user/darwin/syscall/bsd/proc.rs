@@ -63,6 +63,17 @@ pub fn host_id(f: impl FnOnce() -> i32) -> SysResult {
     Ok(crate::user::darwin::arch::Rv::one(r as u64))
 }
 
+/// The closed guest has no supplementary group assignments beyond its effective GID.
+pub(super) fn closed_getgroups(ctx: &mut Ctx<'_>, size: i32, list: u64) -> SysResult {
+    if size < 0 {
+        return Err(Errno::EINVAL);
+    }
+    if size != 0 {
+        ctx.write_u32(list, ctx.proc.creds.3)?;
+    }
+    Ok(Rv::one(1))
+}
+
 /// `getgroups(gidsetsize, gidset)`.
 #[cfg(unix)]
 pub fn getgroups(ctx: &mut Ctx<'_>, size: u32, list: u64) -> SysResult {
@@ -248,4 +259,43 @@ pub(crate) fn image_name(ctx: &Ctx<'_>) -> Vec<u8> {
     let path = ctx.proc.program.image.path.as_bytes();
     let name = path.rsplit(|&c| c == b'/').next().unwrap_or(path);
     name.to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::user::darwin::{
+        abi::{DarwinAbi, tables::nr},
+        process::bounded_tests::process_with_profile,
+        syscall::bsd,
+    };
+
+    #[test]
+    fn closed_getgroups_copies_only_the_effective_group() {
+        for abi in [DarwinAbi::X86_64, DarwinAbi::Arm64] {
+            let mut p = process_with_profile(abi, true);
+            p.proc.creds.3 = 1234;
+            let (_, mut thread) = p.proc.threads.pop_first().unwrap();
+            let list = thread.cpu.sp() - 16;
+            let mut ctx = Ctx {
+                proc: &mut p.proc,
+                thread: &mut thread,
+                nr: i64::from(nr::GETGROUPS),
+                pc: 0,
+            };
+            let call = |ctx: &mut Ctx<'_>, size: i32, dst| {
+                bsd::call(ctx, nr::GETGROUPS, &[size as u64, dst, 0, 0, 0, 0, 0, 0])
+            };
+            assert_eq!(call(&mut ctx, 0, 0), Ok(Rv::one(1)));
+            assert_eq!(call(&mut ctx, -1, 0), Err(Errno::EINVAL));
+            assert_eq!(call(&mut ctx, 1, 0), Err(Errno::EFAULT));
+            for size in [1, 2] {
+                ctx.write_u32(list, u32::MAX).unwrap();
+                ctx.write_u32(list + 4, u32::MAX).unwrap();
+                assert_eq!(call(&mut ctx, size, list), Ok(Rv::one(1)));
+                assert_eq!(ctx.read_u32(list).unwrap(), 1234);
+                assert_eq!(ctx.read_u32(list + 4).unwrap(), u32::MAX);
+            }
+        }
+    }
 }
