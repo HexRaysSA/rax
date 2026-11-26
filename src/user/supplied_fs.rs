@@ -11,6 +11,8 @@ use std::sync::Arc;
 use crate::user::mm::{BytesSource, HostFileSource, PageSource, SourceIdentity};
 mod roots;
 #[cfg(any(target_os = "linux", target_os = "macos", test))]
+pub(super) mod terminfo;
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
 pub(super) mod timezone;
 mod workspace;
 use roots::Roots;

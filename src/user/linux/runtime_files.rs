@@ -16,6 +16,8 @@ mod ld_cache;
 #[cfg(any(target_os = "linux", test))]
 const PERL_MODULE_ROOTS: &[&str] = &["/usr/share/perl", "/usr/share/perl5"];
 #[cfg(any(target_os = "linux", test))]
+const TERMINFO_ROOTS: &[&str] = &["/etc/terminfo", "/usr/share/terminfo"];
+#[cfg(any(target_os = "linux", test))]
 const PROGRAM_ROOTS: [&str; 4] = ["/bin", "/usr/bin", "/sbin", "/usr/sbin"];
 #[cfg(target_os = "linux")]
 const STDBUF_LIBRARY: &str = "/usr/libexec/coreutils/libstdbuf.so";
@@ -23,6 +25,8 @@ const STDBUF_LIBRARY: &str = "/usr/libexec/coreutils/libstdbuf.so";
 const CONFINED_ROOTS: &[&str] = &[
     PERL_MODULE_ROOTS[0],
     PERL_MODULE_ROOTS[1],
+    TERMINFO_ROOTS[0],
+    TERMINFO_ROOTS[1],
     PROGRAM_ROOTS[0],
     PROGRAM_ROOTS[1],
     PROGRAM_ROOTS[2],
@@ -31,8 +35,8 @@ const CONFINED_ROOTS: &[&str] = &[
 
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, plus installed
-/// executable programs, the packaged stdbuf helper, Perl modules, timezone,
-/// protocol and service data. Include
+/// executable programs, the packaged stdbuf helper, Perl modules, compiled
+/// terminfo, timezone, protocol and service data. Include
 /// guest loopback names and a synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
@@ -86,7 +90,7 @@ fn select_installed_for_executable(
     if zoneinfo.is_dir() {
         roots.insert("/usr/share/zoneinfo".into(), zoneinfo);
     }
-    for &path in PERL_MODULE_ROOTS {
+    for &path in PERL_MODULE_ROOTS.iter().chain(TERMINFO_ROOTS) {
         let host = root.join(path.trim_start_matches('/'));
         if host.symlink_metadata().is_ok_and(|info| info.is_dir()) {
             roots.insert(path.into(), host);
@@ -223,6 +227,14 @@ fn accept_installed_file(path: &str, host: &Path, _file: &std::fs::File) -> io::
     if under_root(path, &PROGRAM_ROOTS) {
         return accept_installed_program(_file);
     }
+    for &root in TERMINFO_ROOTS {
+        if let Some(entry) = path
+            .strip_prefix(root)
+            .and_then(|tail| tail.strip_prefix('/'))
+        {
+            return crate::user::supplied_fs::terminfo::accepts(entry, _file);
+        }
+    }
     Ok(!under_root(path, PERL_MODULE_ROOTS)
         || (is_perl_runtime_file(Path::new(path)) && is_perl_runtime_file(host)))
 }
@@ -344,6 +356,64 @@ fn open_installed_shared_object(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_terminfo_is_read_only_and_confined() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, os::unix::fs::symlink, sync::Arc};
+
+        let fixture = TestFile::new(b"unused", 6);
+        let root = &fixture.dir;
+        let shared = root.join("usr/share/terminfo/x");
+        let local = root.join("etc/terminfo/76");
+        let libraries = root.join("usr/lib");
+        for directory in [&shared, &local, &libraries] {
+            fs::create_dir_all(directory).unwrap();
+        }
+        let mut legacy = [0; 12];
+        legacy[..2].copy_from_slice(&0o432_u16.to_le_bytes());
+        let mut extended = legacy;
+        extended[..2].copy_from_slice(&0o1036_u16.to_le_bytes());
+        fs::write(shared.join("xterm"), extended).unwrap();
+        fs::write(local.join("vt100"), legacy).unwrap();
+        fs::write(shared.join("xtext"), b"not terminfo").unwrap();
+        fs::write(shared.join("xshort"), &legacy[..2]).unwrap();
+        fs::write(shared.join("misplaced"), legacy).unwrap();
+        fs::write(libraries.join("outside"), legacy).unwrap();
+        symlink("xterm", shared.join("xalias")).unwrap();
+        symlink("../../../lib/outside", shared.join("xescape")).unwrap();
+
+        let files = Files::default()
+            .with_file(
+                "/usr/share/terminfo/x/xoverride".into(),
+                Arc::from(&b"supplied"[..]),
+            )
+            .unwrap();
+        fs::write(shared.join("xoverride"), extended).unwrap();
+        let files = select_installed(&files, root).unwrap();
+        for (path, bytes) in [
+            ("/usr/share/terminfo/x/xterm", extended),
+            ("/usr/share/terminfo/x/xalias", extended),
+            ("/etc/terminfo/76/vt100", legacy),
+        ] {
+            assert_eq!(&*files.read(path).unwrap(), &bytes);
+            assert!(matches!(
+                files.unlink_workspace_file(path, (0, 0), &[]),
+                Err(Error::ReadOnly)
+            ));
+        }
+        for name in ["xtext", "xshort", "misplaced", "xescape"] {
+            assert!(matches!(
+                files.read(&format!("/usr/share/terminfo/x/{name}")),
+                Err(Error::NotFound)
+            ));
+        }
+        assert_eq!(
+            &*files.read("/usr/share/terminfo/x/xoverride").unwrap(),
+            b"supplied"
+        );
+    }
 
     #[cfg(target_os = "linux")]
     #[test]

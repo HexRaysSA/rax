@@ -326,7 +326,7 @@ fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -
         .strip_prefix(TERMINFO_ROOT)
         .and_then(|tail| tail.strip_prefix('/'))
     {
-        return accept_terminfo(entry, file);
+        return crate::user::supplied_fs::terminfo::accepts(entry, file);
     }
     for root in [CHARSET_ESDB_ROOT, CHARSET_MAPPER_ROOT] {
         if let Some(entry) = guest
@@ -344,32 +344,6 @@ fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -
         crate::user::supplied_fs::timezone::has_tzif_header(file)
     } else {
         dylibs::accept(file, MH_DYLIB)
-    }
-}
-
-#[cfg(any(target_os = "macos", test))]
-fn accept_terminfo(path: &str, mut file: &std::fs::File) -> io::Result<bool> {
-    use std::io::Read;
-
-    let Some((bucket, name)) = path.split_once('/') else {
-        return Ok(false);
-    };
-    let Some(&initial) = name.as_bytes().first() else {
-        return Ok(false);
-    };
-    // ncurses supports the literal initial and its two-digit hexadecimal spelling.
-    let hex_bucket = bucket.len() == 2 && u8::from_str_radix(bucket, 16) == Ok(initial);
-    if name.contains('/') || (bucket.as_bytes() != [initial] && !hex_bucket) {
-        return Ok(false);
-    }
-    let mut header = [0; 12];
-    match file.read_exact(&mut header) {
-        Ok(()) => Ok(matches!(
-            u16::from_le_bytes([header[0], header[1]]),
-            0o432 | 0o1036
-        )),
-        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(false),
-        Err(error) => Err(error),
     }
 }
 
