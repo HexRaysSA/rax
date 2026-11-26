@@ -110,6 +110,13 @@ The job log and GitHub artifact metadata report ZIP SHA-256
 `98a46e4d84d1bef12dec92b537458167b15c8b845b334c0515cab069c436b116` for
 artifact `14967066760`.
 
+Hosted run `45759324408` at `22dfee6aad54` passed the PAE file continuation
+again. The signed harness exercised both legacy rejections, verified the
+cached bank in the source and fresh target, and resumed execution with the
+PDPT in RAM still zero. The retained PAE log SHA-256 is
+`ce51b1c50dda761e6c229b66c218af7313c732041edc035d1aa618dc302ae18b`.
+[Hosted PAE and pending-MMIO checkpoint job](https://github.com/HexRaysSA/rax/actions/runs/45759324408/job/139705341644)
+
 ## Publication and rollback
 
 The VM boundary excludes owner requests, IRQ-queue writes, CPU lifetime changes,

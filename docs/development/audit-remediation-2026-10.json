@@ -200823,7 +200823,7 @@
       "id": "hvf-mmio-packed-register-blend-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Intel HVF handles legacy and VEX.W0 BLENDVPS, BLENDVPD and PBLENDVB. It captures the mask sign bits with the first source before issuing the device read. The 255 independent RAM input cases include aliased sources and destinations. The hosted profile exercises 513 direct, restored and fault cases. Full MMIO and checkpoint coverage remain open.",
+      "scope": "Intel HVF handles legacy and VEX.W0 BLENDVPS, BLENDVPD and PBLENDVB. It captures the mask sign bits with the first source before issuing the device read. The 255 independent RAM input cases include aliased sources and destinations. Hosted Intel run 45756410639 at 4baf5cf6c passed 255 direct reads, 255 fresh-owner continuations and three guest general-protection faults. All transfer results matched the RAM fingerprints. Full MMIO, checkpoint and bare-metal Intel coverage remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-blends-with-a-register-mask",
       "full_goal_complete": false
     },
@@ -200873,6 +200873,14 @@
       "status": "locally_qualified_full_findings_open",
       "scope": "Standalone CPACR reports absent coprocessors even when an imported profile retains the register bank. The ARM and Thumb regression verifies writable permissions for executable scalar and Advanced SIMD classes and preserves backing permissions for absent units. An imported scalar FP16-only profile retains guest FPSCR transfers, FZ16 and cumulative exceptions in the mixed-width interpreter. Physical qualification of these imported combinations is unavailable.",
       "qualification": "docs/development/a32-fp-controls/register-bank/README.md#imported-profiles-with-a-register-bank",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-intel-pending-secondary-legacy-capture-2026-11-26",
+      "findings": ["C-STATE", "C-HVF"],
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Hosted Intel run 45759324408 at 22dfee6aa verified that legacy capture rejects an 8 B pending read on AP1 and an 8 B pending write on AP3 without touching the device. Complete files resumed one transaction each after source removal. Independent inspection verified both files' CPU records, online masks and replacement UD2. Cached-PDPTE file continuation passed again. Additional MMIO, interrupt and bare-metal qualification remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#legacy-capture-with-a-pending-secondary-mmio-exit",
       "full_goal_complete": false
     }
   ],

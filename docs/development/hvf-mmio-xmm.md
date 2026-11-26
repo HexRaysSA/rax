@@ -686,6 +686,29 @@ on the target. Device-private restoration, guest-driven AP startup in
 the same test, and bare-metal Intel macOS execution remain open.
 [Passing native VMM-file execution](https://github.com/HexRaysSA/rax/actions/runs/45148465791)
 
+### Legacy capture with a pending secondary MMIO exit
+
+Hosted Intel run `45759324408` at `22dfee6aad54` passed the extended
+file continuation. Legacy capture succeeds before the AP issues MMIO.
+While the request is pending, it fails with the AP identity and performs no
+device callback. The complete file restores on fresh owners with the source
+VM and kernel removed, then `Vmm::run` dispatches the pending operation once.
+The stopped read and write both transfer 8 B.
+
+| Configured vCPUs | Restored vCPU | Transaction | Checkpoint SHA-256 |
+| --- | --- | --- | --- |
+| 2 | AP1 | `MOVLPD` read | `54e1430fa1c527cb8037ce37f988e27ba350516c513d2c64a4796bcf64b5bacf` |
+| 4 | AP3 | `MOVHPD` write | `92bd0dece8ebb3937ed53fc056cf8fd4e0506a52709e3bda45248a73606abe5c` |
+
+Independent archive inspection checked the public and private CPU counts,
+the coordinator's online mask and the replacement `UD2` in both RAM images.
+The downloaded ZIP matched GitHub's SHA-256
+`dd8b544917b95b0a73028e3f7b3c658fe4f1db422481079743565578b4a8cb12`.
+The runner used untranslated Intel macOS in a virtualized host. Warm legacy
+restore into a target with pending Intel MMIO and bare-metal Intel
+qualification remain open.
+[Hosted Intel checkpoint job](https://github.com/HexRaysSA/rax/actions/runs/45759324408/job/139705341644)
+
 ## Packed logical reads
 
 Intel HVF handles device reads for the packed AND, AND-NOT, OR, and XOR
@@ -1353,6 +1376,15 @@ The Apple Silicon build passed 175 MMIO, 102 ISA-oracle, 16 CI-policy
 and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
 HVF tool tests passed. The Intel macOS consumer cross-built and passed
 strict signature verification.
+
+Hosted Intel run `45756410639` at `4baf5cf6cff6` passed 255 direct reads,
+255 fresh-owner continuations and three guest general-protection faults.
+The 510 transfer results matched the independent Rosetta RAM fingerprints.
+The exact source, executable digest and both downloaded artifacts were
+verified. The execution artifact SHA-256 is
+`f7357c46cdfaac53aa6a7f9bea1150d01424a51c1fde3e890dd44f590d9f3318`.
+The runner reported a virtualized Intel host.
+[Hosted register-mask blend execution](https://github.com/HexRaysSA/rax/actions/runs/45756410639/job/139695959776)
 
 ## Two-source 128-bit lane permutations
 
