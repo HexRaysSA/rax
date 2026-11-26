@@ -498,18 +498,25 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
             r"C:\Windows\Microsoft.NET\Framework\",
         ),
     ];
-    let value_name = units("InstallRoot");
+    let installation_value = |name: &str, path: &str| Value {
+        name: units(name),
+        kind: 1,
+        data: path
+            .encode_utf16()
+            .chain(Some(0))
+            .flat_map(u16::to_le_bytes)
+            .collect(),
+    };
+    let arm64_value = installation_value(
+        "InstallRootARM64",
+        r"C:\Windows\Microsoft.NET\FrameworkArm64\",
+    );
     let mut registry = Registry::selected(upcase(), vec![]).unwrap();
     for (view, framework_name, policy_name, path) in views {
-        let value = Value {
-            name: value_name.clone(),
-            kind: 1,
-            data: path
-                .encode_utf16()
-                .chain(Some(0))
-                .flat_map(u16::to_le_bytes)
-                .collect(),
-        };
+        let mut values = vec![installation_value("InstallRoot", path)];
+        if view == RegistryView::Native64 {
+            values.push(arm64_value.clone());
+        }
         registry = registry
             .with_snapshot_selection(
                 SnapshotRoot::ProcessConfig(policy),
@@ -522,7 +529,7 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
                 SnapshotRoot::ProcessConfig(framework),
                 &[],
                 view,
-                Ok((header(framework_name, vec![value]), None)),
+                Ok((header(framework_name, values), None)),
             )
             .unwrap();
     }
@@ -550,17 +557,14 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         assert!(Arc::ptr_eq(&opened, &absolute));
         assert_eq!(opened.path, units(framework_name));
         assert_eq!(child.path, units(policy_name));
-        let captured = opened
-            .value(&value_name)
-            .expect("selected installation value");
-        assert_eq!(captured.kind, 1);
         assert_eq!(
-            captured.data,
-            expected
-                .encode_utf16()
-                .chain(Some(0))
-                .flat_map(u16::to_le_bytes)
-                .collect::<Vec<_>>(),
+            opened.value(&units("InstallRoot")),
+            Some(&installation_value("InstallRoot", expected)),
+        );
+        assert!(opened.covers_value(&arm64_value.name));
+        assert_eq!(
+            opened.value(&arm64_value.name),
+            (view == RegistryView::Native64).then_some(&arm64_value),
         );
         assert!(!opened.covers_value(&units("UnselectedValue")));
         assert!(matches!(

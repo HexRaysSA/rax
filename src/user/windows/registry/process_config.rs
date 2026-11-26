@@ -166,7 +166,7 @@ impl ProcessConfigKey {
             | Self::MiniNt
             | Self::DotNetPolicy => &[],
             Self::DotNetPolicyV4 => &["30319"],
-            Self::DotNetFramework => &["InstallRoot"],
+            Self::DotNetFramework => &["InstallRoot", "InstallRootARM64"],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
