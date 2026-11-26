@@ -663,6 +663,20 @@ impl Vmm {
         } else {
             machine.load_kernel_with_devices(guest_mem.memory(), &config, pc_devices.as_ref())?
         };
+        let pc_discovery = !resume
+            && boot_info
+                .as_x86_64()
+                .is_some_and(|boot| boot.real_mode.is_none() || config.vcpus > 1);
+        let pc_boot_image = if pc_discovery {
+            boot_info
+                .as_x86_64()
+                .and_then(|boot| boot.real_mode.as_ref())
+                .map(|boot| crate::machine::pc::bios_boot::boot_image_range(&boot.cdrom))
+                .transpose()
+                .map_err(Error::KernelLoad)?
+        } else {
+            None
+        };
 
         // Determine the native IRQ chip and CPU profile before allocating
         // vCPUs. Legacy full files use the boot profile. New full files
@@ -681,12 +695,12 @@ impl Vmm {
                 .downcast_ref::<KvmVm>()
                 .ok_or_else(|| Error::InvalidConfig("expected KVM VM".to_string()))?;
             machine.init_vm(kvm_vm, &boot_info)?;
-            if !resume
-                && boot_info
-                    .as_x86_64()
-                    .is_some_and(|boot| boot.real_mode.is_none())
-            {
-                kvm_vm.publish_pc_multiprocessor_tables(guest_mem.memory(), config.vcpus)?;
+            if pc_discovery {
+                kvm_vm.publish_pc_multiprocessor_tables(
+                    guest_mem.memory(),
+                    config.vcpus,
+                    pc_boot_image.as_ref(),
+                )?;
             }
         }
         // Emulator doesn't need VM-level initialization
@@ -765,18 +779,14 @@ impl Vmm {
             vcpus.push(vcpu);
         }
 
-        if !resume
-            && config.arch == ArchKind::X86_64
-            && boot_info
-                .as_x86_64()
-                .is_some_and(|boot| boot.real_mode.is_none())
-        {
+        if pc_discovery {
             pc_firmware::publish(
                 vm.as_ref(),
                 guest_mem.memory(),
                 config.vcpus,
                 pc_devices.as_ref(),
                 &local_apics,
+                pc_boot_image.as_ref(),
             )?;
         }
 

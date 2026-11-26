@@ -201080,6 +201080,14 @@
       "scope": "The v6 and v6_k software machine configuration selects ARM1176 D16 VFPv2 capability registers with a synchronous support-code interface and Table 20-4 ID access rules. The owning VMM regression exercises guest arithmetic and exact out-of-profile instruction admission after a fresh S3C64xx checkpoint restore. QEMU differs on three User-mode ID accesses. Physical VFP11 asynchronous exception handling and the full four findings remain open.",
       "qualification": "docs/development/a32-fp-controls.md#arm1176-style-vfpv2-selection",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-el-torito-smp-discovery-2026-11-26",
+      "findings": ["C-SMP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Cold SMP El Torito boot publishes the configured PC MP tables without overwriting the loaded image. The RAX guest discovers two or four processors from the table, starts every AP with INIT/SIPI, and observes peer-written RAM markers. A QEMU control verified the startup sequence using independently supplied MP records. The KVM workflow requires that the same witness pass with in-kernel interrupt ownership. Native KVM and Intel HVF ISO execution and broader SMP coverage remain open.",
+      "qualification": "docs/development/pc-firmware-discovery/README.md#multiprocessor-iso-boot",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

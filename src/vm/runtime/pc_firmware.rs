@@ -1,7 +1,7 @@
-//! Cold direct-kernel PC firmware for backends using the software controllers.
+//! Cold PC firmware for backends using the software controllers.
 use super::*;
 use crate::machine::pc::multiprocessor::{self, Profile};
-use std::sync::Mutex;
+use std::{ops::Range, sync::Mutex};
 use vm_memory::GuestMemoryMmap;
 
 pub(super) fn publish(
@@ -10,6 +10,7 @@ pub(super) fn publish(
     count: u8,
     devices: Option<&crate::machine::pc::PcDevices>,
     apics: &[Arc<Mutex<LocalApic>>],
+    boot_image: Option<&Range<u64>>,
 ) -> Result<()> {
     if vm.uses_native_x86_irqchip() {
         return Ok(());
@@ -44,5 +45,5 @@ pub(super) fn publish(
         io_apic_address: crate::devices::ioapic::IOAPIC_BASE as u32,
         isa_irq0_pin: 2,
     };
-    multiprocessor::publish(memory, count, &profile)
+    multiprocessor::publish(memory, count, &profile, boot_image)
 }

@@ -3,14 +3,16 @@ use super::KvmVm;
 use crate::error::{Error, Result};
 use crate::machine::pc::multiprocessor::{self, Profile};
 use kvm_bindings::{KVM_IRQCHIP_IOAPIC, kvm_irqchip};
+use std::ops::Range;
 use vm_memory::GuestMemoryMmap;
 
 impl KvmVm {
-    /// Publish only for a cold direct-kernel PC boot, before native CPUs exist.
+    /// Publish for cold PC boot, before native CPUs exist.
     pub(crate) fn publish_pc_multiprocessor_tables(
         &self,
         memory: &GuestMemoryMmap,
         count: u8,
+        boot_image: Option<&Range<u64>>,
     ) -> Result<()> {
         let configured = self
             .profile
@@ -52,6 +54,6 @@ impl KvmVm {
             io_apic_address,
             isa_irq0_pin: 0,
         };
-        multiprocessor::publish(memory, count, &profile)
+        multiprocessor::publish(memory, count, &profile, boot_image)
     }
 }

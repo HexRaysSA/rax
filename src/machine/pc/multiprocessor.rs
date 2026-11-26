@@ -3,10 +3,10 @@
 //! Keep these tables in the E820-reserved BIOS window. They describe CPU and
 //! interrupt wiring without advertising ACPI power or timer devices.
 use crate::error::{Error, Result};
+use std::ops::Range;
 use vm_memory::{Bytes, GuestAddress, GuestMemory, GuestMemoryMmap};
 
 const FLOATING_POINTER: u64 = 0x000f_0000;
-const CONFIGURATION_TABLE: u64 = FLOATING_POINTER + 16;
 const BIOS_END: u64 = 0x0010_0000;
 
 pub(crate) struct Profile {
@@ -84,24 +84,38 @@ fn configuration(count: u8, profile: &Profile) -> Result<Vec<u8>> {
 }
 
 /// Publish while constructing a cold VM, before any CPU can execute.
-pub(crate) fn publish(memory: &GuestMemoryMmap, count: u8, profile: &Profile) -> Result<()> {
+pub(crate) fn publish(
+    memory: &GuestMemoryMmap,
+    count: u8,
+    profile: &Profile,
+    boot_image: Option<&Range<u64>>,
+) -> Result<()> {
     let table = configuration(count, profile)?;
     let extent = 16 + table.len();
-    if FLOATING_POINTER + extent as u64 > BIOS_END
-        || !memory.check_range(GuestAddress(FLOATING_POINTER), extent)
+    let mut pointer_addr = FLOATING_POINTER;
+    if let Some(image) = boot_image
+        && !image.is_empty()
+        && pointer_addr < image.end
+        && image.start < pointer_addr + extent as u64
+    {
+        pointer_addr = image.end.min(BIOS_END).next_multiple_of(16);
+    }
+    if pointer_addr + extent as u64 > BIOS_END
+        || !memory.check_range(GuestAddress(pointer_addr), extent)
     {
         return Err(Error::InvalidConfig(
-            "MP discovery tables do not fit in reserved BIOS memory".into(),
+            "MP discovery tables do not fit in reserved BIOS memory outside the boot image".into(),
         ));
     }
+    let table_addr = pointer_addr + 16;
     let mut pointer = [0; 16];
     pointer[..4].copy_from_slice(b"_MP_");
-    pointer[4..8].copy_from_slice(&(CONFIGURATION_TABLE as u32).to_le_bytes());
+    pointer[4..8].copy_from_slice(&(table_addr as u32).to_le_bytes());
     pointer[8] = 1; // Length in 16-byte paragraphs.
     pointer[9] = 4; // MP 1.4; explicit table and virtual wire mode.
     checksum(&mut pointer, 10);
-    memory.write_slice(&table, GuestAddress(CONFIGURATION_TABLE))?;
-    memory.write_slice(&pointer, GuestAddress(FLOATING_POINTER))?;
+    memory.write_slice(&table, GuestAddress(table_addr))?;
+    memory.write_slice(&pointer, GuestAddress(pointer_addr))?;
     Ok(())
 }
 

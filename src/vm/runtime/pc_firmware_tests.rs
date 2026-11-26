@@ -18,6 +18,10 @@ impl Drop for Kernel {
 }
 
 fn cold(count: u8) -> (Vmm, Kernel) {
+    cold_image(BackendKind::Emulator, count, &[0; 64]).unwrap()
+}
+
+fn cold_image(backend: BackendKind, count: u8, image: &[u8]) -> Result<(Vmm, Kernel)> {
     use std::io::Write;
     let path = std::env::temp_dir().join(format!(
         "rax-pc-firmware-{}-{}",
@@ -30,12 +34,12 @@ fn cold(count: u8) -> (Vmm, Kernel) {
         .open(&path)
         .unwrap();
     let kernel = Kernel(path);
-    file.write_all(&[0; 64]).unwrap();
+    file.write_all(image).unwrap();
     drop(file);
     let config = VmConfig::from_sources(
         CliConfig {
             arch: Some(ArchKind::X86_64),
-            backend: Some(BackendKind::Emulator),
+            backend: Some(backend),
             vcpus: Some(count),
             memory: Some(MemorySize(128 * 1024 * 1024)),
             kernel: Some(kernel.0.clone()),
@@ -44,7 +48,82 @@ fn cold(count: u8) -> (Vmm, Kernel) {
         None,
     )
     .unwrap();
-    (Vmm::new(config).unwrap(), kernel)
+    Ok((Vmm::new(config)?, kernel))
+}
+
+fn el_torito(load_segment: u16, image: &[u8]) -> Vec<u8> {
+    use crate::machine::pc::bios_boot::CD_SECTOR;
+    let sectors = u16::try_from(image.len().div_ceil(512)).unwrap();
+    let image_start = 21 * CD_SECTOR;
+    let mut iso = vec![0; image_start + usize::from(sectors) * 512];
+    iso[16 * CD_SECTOR + 1..][..5].copy_from_slice(b"CD001");
+    let record = &mut iso[17 * CD_SECTOR..][..CD_SECTOR];
+    record[1..7].copy_from_slice(b"CD001\x01");
+    record[7..30].copy_from_slice(b"EL TORITO SPECIFICATION");
+    record[0x47..0x4b].copy_from_slice(&20u32.to_le_bytes());
+    let catalog = &mut iso[20 * CD_SECTOR..][..64];
+    catalog[0] = 1;
+    catalog[0x1c..0x20].copy_from_slice(&[0xaa, 0x55, 0x55, 0xaa]);
+    catalog[32] = 0x88;
+    catalog[34..36].copy_from_slice(&load_segment.to_le_bytes());
+    catalog[38..40].copy_from_slice(&sectors.to_le_bytes());
+    catalog[40..44].copy_from_slice(&21u32.to_le_bytes());
+    iso[image_start..][..image.len()].copy_from_slice(image);
+    iso
+}
+
+#[test]
+fn el_torito_guest_discovers_and_starts_its_secondary_cpus() {
+    check_el_torito_smp(BackendKind::Emulator);
+}
+
+#[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+#[test]
+#[ignore = "requires /dev/kvm with in-kernel interrupt controllers"]
+fn native_kvm_el_torito_guest_discovers_and_starts_its_secondary_cpus() {
+    check_el_torito_smp(BackendKind::Kvm);
+}
+
+fn check_el_torito_smp(backend: BackendKind) {
+    let mut image = guest::ISO_BSP.to_vec();
+    image.resize(0x400, 0);
+    image.extend_from_slice(guest::ISO_AP);
+    let iso = el_torito(0, &image);
+    for count in [2, 4] {
+        let (mut vm, _iso) = cold_image(backend, count, &iso).unwrap();
+        assert_eq!(vm.vm.uses_native_x86_irqchip(), backend == BackendKind::Kvm);
+        assert!(vm.coordinator.online[0]);
+        assert!(vm.coordinator.online[1..].iter().all(|online| !online));
+        assert_eq!(read(&vm, 0x550), 0);
+        vm.run().unwrap();
+        assert_eq!(read(&vm, 0x554), 0x600d600d);
+        assert_eq!(read(&vm, 0x550), u32::from(count));
+        for id in 0..count {
+            assert_eq!(read(&vm, 0x580 + u64::from(id) * 4), 0x534d5052);
+        }
+    }
+}
+
+#[test]
+fn el_torito_firmware_placement_preserves_the_boot_image_and_fails_on_full_overlap() {
+    let image = vec![0xa5; 512];
+    let (vm, _iso) = cold_image(BackendKind::Emulator, 2, &el_torito(0xf000, &image)).unwrap();
+    let mut readback = vec![0; image.len()];
+    vm.guest_mem()
+        .memory()
+        .read_slice(&mut readback, GuestAddress(0xf0000))
+        .unwrap();
+    assert_eq!(readback, image);
+    assert_eq!(read(&vm, 0xf0200), u32::from_le_bytes(*b"_MP_"));
+    assert_eq!(read(&vm, 0xf0204), 0xf0210);
+    let full_window = el_torito(0xf000, &vec![0xa5; 0x10000]);
+    let Err(error) = cold_image(BackendKind::Emulator, 2, &full_window) else {
+        panic!("SMP cannot publish an MP pointer outside its BIOS discovery window");
+    };
+    assert!(error.to_string().contains("reserved BIOS memory"));
+    let (single, _iso) = cold_image(BackendKind::Emulator, 1, &full_window).unwrap();
+    assert_eq!(read(&single, 0xf0000), 0xa5a5a5a5);
+    assert_eq!(read(&single, 0xffffc), 0xa5a5a5a5);
 }
 
 #[test]

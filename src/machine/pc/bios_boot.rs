@@ -8,6 +8,7 @@
 //! minimal BIOS (INT 10h/13h) servicing the bootloader's requests.
 
 use crate::vm::vcpu::{DescriptorTable, Registers, Segment, SystemRegisters};
+use std::ops::Range;
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 /// Cheap probe: does this look like an ISO-9660 image? (The primary volume
@@ -151,74 +152,102 @@ pub struct ElToritoBoot {
 /// Parse the El-Torito boot catalog of an ISO-9660 image and extract the
 /// initial (default) no-emulation boot image.
 pub fn parse_el_torito(iso: &[u8]) -> Result<ElToritoBoot, String> {
-    // Boot Record Volume Descriptor lives at ISO sector 17 (offset 0x8800):
-    //   [0]      = descriptor type 0 (boot record)
-    //   [1..6]   = "CD001"
-    //   [6]      = version 1
-    //   [7..0x1F]= "EL TORITO SPECIFICATION"
-    //   [0x47..] = absolute pointer (LE u32) to the boot catalog sector.
-    let brvd = 17 * CD_SECTOR;
-    if iso.len() < brvd + 0x4B {
-        return Err("ISO too small for an El-Torito boot record".into());
-    }
-    if &iso[brvd + 1..brvd + 6] != b"CD001" {
-        return Err("no CD001 at sector 17 (not a boot-record volume descriptor)".into());
-    }
-    if &iso[brvd + 7..brvd + 7 + 23] != b"EL TORITO SPECIFICATION" {
-        return Err("sector 17 is not an El-Torito boot record".into());
-    }
-    let cat_sector = u32::from_le_bytes(iso[brvd + 0x47..brvd + 0x4B].try_into().unwrap());
-    let cat = cat_sector as usize * CD_SECTOR;
-    if iso.len() < cat + 64 {
-        return Err("El-Torito boot catalog is out of range".into());
-    }
-
-    // Validation entry (first 32 bytes): [0]=header id 1, [0x1E..0x20]=0x55 0xAA.
-    if iso[cat] != 0x01 {
-        return Err(format!(
-            "bad El-Torito validation header id 0x{:02x}",
-            iso[cat]
-        ));
-    }
-    if iso[cat + 0x1E] != 0x55 || iso[cat + 0x1F] != 0xAA {
-        return Err("bad El-Torito validation entry signature (0x55AA)".into());
-    }
-
-    // Initial/default entry at catalog + 32 (32 bytes):
-    //   [0]      = boot indicator (0x88 = bootable)
-    //   [1]      = media type (0 = no emulation)
-    //   [2..4]   = load segment (LE, 0 => default 0x07C0)
-    //   [6..8]   = sector count (LE, 512-byte virtual sectors)
-    //   [8..12]  = image LBA (LE, 2048-byte CD sectors)
-    let e = cat + 32;
-    if iso[e] != 0x88 {
-        return Err(format!(
-            "initial boot entry not bootable (0x{:02x})",
-            iso[e]
-        ));
-    }
-    let media_type = iso[e + 1];
-    let raw_seg = u16::from_le_bytes([iso[e + 2], iso[e + 3]]);
-    let load_segment = if raw_seg == 0 { 0x07C0 } else { raw_seg };
-    let sector_count = u16::from_le_bytes([iso[e + 6], iso[e + 7]]);
-    let image_lba = u32::from_le_bytes(iso[e + 8..e + 12].try_into().unwrap());
-    let load_addr = (load_segment as u32) << 4;
-
-    let img_off = image_lba as usize * CD_SECTOR;
-    let img_len = sector_count as usize * 512;
-    if iso.len() < img_off + img_len {
-        return Err("El-Torito boot image is out of range".into());
-    }
-    let boot_image = iso[img_off..img_off + img_len].to_vec();
-
+    let entry = ElToritoEntry::parse(iso)?;
     Ok(ElToritoBoot {
-        media_type,
-        load_segment,
-        load_addr,
-        sector_count,
-        image_lba,
-        boot_image,
+        media_type: entry.media_type,
+        load_segment: entry.load_segment,
+        load_addr: entry.load_addr(),
+        sector_count: entry.sector_count,
+        image_lba: entry.image_lba,
+        boot_image: entry.image.to_vec(),
     })
+}
+
+pub(crate) fn boot_image_range(iso: &[u8]) -> Result<Range<u64>, String> {
+    let entry = ElToritoEntry::parse(iso)?;
+    let start = u64::from(entry.load_addr());
+    Ok(start..start + entry.image.len() as u64)
+}
+
+struct ElToritoEntry<'a> {
+    media_type: u8,
+    load_segment: u16,
+    sector_count: u16,
+    image_lba: u32,
+    image: &'a [u8],
+}
+
+impl<'a> ElToritoEntry<'a> {
+    fn load_addr(&self) -> u32 {
+        u32::from(self.load_segment) << 4
+    }
+
+    fn parse(iso: &'a [u8]) -> Result<Self, String> {
+        // Boot Record Volume Descriptor lives at ISO sector 17 (offset 0x8800):
+        //   [0]      = descriptor type 0 (boot record)
+        //   [1..6]   = "CD001"
+        //   [6]      = version 1
+        //   [7..0x1F]= "EL TORITO SPECIFICATION"
+        //   [0x47..] = absolute pointer (LE u32) to the boot catalog sector.
+        let brvd = 17 * CD_SECTOR;
+        if iso.len() < brvd + 0x4B {
+            return Err("ISO too small for an El-Torito boot record".into());
+        }
+        if &iso[brvd + 1..brvd + 6] != b"CD001" {
+            return Err("no CD001 at sector 17 (not a boot-record volume descriptor)".into());
+        }
+        if &iso[brvd + 7..brvd + 7 + 23] != b"EL TORITO SPECIFICATION" {
+            return Err("sector 17 is not an El-Torito boot record".into());
+        }
+        let cat_sector = u32::from_le_bytes(iso[brvd + 0x47..brvd + 0x4B].try_into().unwrap());
+        let catalog = iso
+            .chunks(CD_SECTOR)
+            .nth(cat_sector as usize)
+            .filter(|sector| sector.len() >= 64)
+            .ok_or("El-Torito boot catalog is out of range")?;
+
+        // Validation entry (first 32 bytes): [0]=header id 1, [0x1E..0x20]=0x55 0xAA.
+        if catalog[0] != 0x01 {
+            return Err(format!(
+                "bad El-Torito validation header id 0x{:02x}",
+                catalog[0]
+            ));
+        }
+        if catalog[0x1E] != 0x55 || catalog[0x1F] != 0xAA {
+            return Err("bad El-Torito validation entry signature (0x55AA)".into());
+        }
+
+        // Initial/default entry at catalog + 32 (32 bytes):
+        //   [0]      = boot indicator (0x88 = bootable)
+        //   [1]      = media type (0 = no emulation)
+        //   [2..4]   = load segment (LE, 0 => default 0x07C0)
+        //   [6..8]   = sector count (LE, 512-byte virtual sectors)
+        //   [8..12]  = image LBA (LE, 2048-byte CD sectors)
+        let entry = &catalog[32..64];
+        if entry[0] != 0x88 {
+            return Err(format!(
+                "initial boot entry not bootable (0x{:02x})",
+                entry[0]
+            ));
+        }
+        let raw_seg = u16::from_le_bytes([entry[2], entry[3]]);
+        let load_segment = if raw_seg == 0 { 0x07C0 } else { raw_seg };
+        let sector_count = u16::from_le_bytes([entry[6], entry[7]]);
+        let image_lba = u32::from_le_bytes(entry[8..12].try_into().unwrap());
+        let image = (image_lba as usize)
+            .checked_mul(CD_SECTOR)
+            .and_then(|offset| iso.get(offset..))
+            .and_then(|remaining| remaining.get(..usize::from(sector_count) * 512))
+            .ok_or("El-Torito boot image is out of range")?;
+
+        Ok(Self {
+            media_type: entry[1],
+            load_segment,
+            sector_count,
+            image_lba,
+            image,
+        })
+    }
 }
 
 #[cfg(test)]

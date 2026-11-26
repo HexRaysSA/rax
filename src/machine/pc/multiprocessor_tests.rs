@@ -1,5 +1,7 @@
 use super::*;
 
+const CONFIGURATION_TABLE: u64 = FLOATING_POINTER + 16;
+
 fn profile() -> Profile {
     Profile {
         cpu_signature: 0x0005_0657,
@@ -46,8 +48,8 @@ fn zero_cpus_and_missing_firmware_backing_reject_before_writing() {
     memory
         .write_slice(&[0xa5; 4096], GuestAddress(FLOATING_POINTER))
         .unwrap();
-    assert!(publish(&memory, 0, &profile()).is_err());
-    assert!(publish(&memory, 255, &profile()).is_err());
+    assert!(publish(&memory, 0, &profile(), None).is_err());
+    assert!(publish(&memory, 255, &profile(), None).is_err());
     let mut bytes = [0; 4096];
     memory
         .read_slice(&mut bytes, GuestAddress(FLOATING_POINTER))
@@ -58,7 +60,7 @@ fn zero_cpus_and_missing_firmware_backing_reject_before_writing() {
 #[test]
 fn publication_has_independent_pointer_and_configuration_checksums() {
     let memory = GuestMemoryMmap::from_ranges(&[(GuestAddress(FLOATING_POINTER), 65536)]).unwrap();
-    publish(&memory, 4, &profile()).unwrap();
+    publish(&memory, 4, &profile(), None).unwrap();
     let mut pointer = [0; 16];
     memory
         .read_slice(&mut pointer, GuestAddress(FLOATING_POINTER))
@@ -119,7 +121,7 @@ fn native_and_software_pit_wiring_preserve_every_other_isa_route() {
     for pin in [1, 3, 23, 24, 255] {
         let mut profile = profile();
         profile.isa_irq0_pin = pin;
-        assert!(publish(&memory, 4, &profile).is_err());
+        assert!(publish(&memory, 4, &profile, None).is_err());
         let mut actual = [0; 64];
         memory
             .read_slice(&mut actual, GuestAddress(FLOATING_POINTER))

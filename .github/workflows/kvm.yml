@@ -179,6 +179,15 @@ jobs:
       - name: Native secondary startup, fixed IPIs, halt/wakeup, and CPU identities
         run: cargo test --features x86_64-suite --test kvm_smp -- --include-ignored --test-threads=1 --nocapture
 
+      - name: Native PC ISO discovery and secondary startup
+        run: |
+          set -o pipefail
+          case_name=vm::runtime::pc_firmware_tests::native_kvm_el_torito_guest_discovers_and_starts_its_secondary_cpus
+          witness="$RUNNER_TEMP/rax-kvm-iso-smp.out"
+          cargo test --locked --features x86_64-suite --lib "$case_name" -- \
+            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
+          grep -F -x "test $case_name ... ok" "$witness"
+
       - name: Unfiltered KVM and checkpoint owning binaries
         if: inputs.owning_library
         env:
