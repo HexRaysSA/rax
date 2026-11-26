@@ -1,7 +1,8 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type and
 //! terminal databases, character-conversion tables, system TLS defaults, and
-//! selected CoreText and AppKit resources, and system framework manifests.
+//! selected CoreText and AppKit resources, system framework manifests, and
+//! framework-bundled XPC service files.
 //! Installed Perl and Ruby modules,
 //! executables, and shebang scripts are available in the same guest namespace.
 //! A selected Command Line Tools or Xcode installation supplies its own tools
@@ -482,14 +483,7 @@ fn accept_runtime_file(
             .strip_prefix(root)
             .is_some_and(|tail| tail.starts_with('/'))
     }) {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if file.metadata()?.permissions().mode() & 0o111 == 0 {
-                return Ok(false);
-            }
-        }
-        return dylibs::accept(file, MH_EXECUTE);
+        return Ok(has_execute_permission(file)? && dylibs::accept(file, MH_EXECUTE)?);
     }
 
     if let Some(module) = guest
@@ -555,8 +549,15 @@ fn accept_runtime_file(
             return accept_charset_resource(root, entry, file);
         }
     }
-    if let Some(framework) = framework_manifest_bundle(guest) {
-        return Ok(is_installed_framework_manifest(host, framework));
+    if let Some((bundle, path, kind)) = framework_file(guest) {
+        let same_path = resolved_framework_file(host, bundle) == Some(path);
+        match kind {
+            FrameworkFile::Manifest => return Ok(same_path),
+            FrameworkFile::Executable if same_path && has_execute_permission(file)? => {
+                return dylibs::accept_xpc_program_or_dylib(file);
+            }
+            FrameworkFile::Executable => {}
+        }
     }
     if ZONEINFO_PATHS.into_iter().any(|root| {
         guest
@@ -570,7 +571,29 @@ fn accept_runtime_file(
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn framework_manifest_bundle(guest: &str) -> Option<&str> {
+fn has_execute_permission(file: &std::fs::File) -> io::Result<bool> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        Ok(file.metadata()?.permissions().mode() & 0o111 != 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = file;
+        Ok(true)
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+enum FrameworkFile {
+    Manifest,
+    Executable,
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn framework_file(guest: &str) -> Option<(&str, &std::path::Path, FrameworkFile)> {
+    use std::path::Path;
+
     let relative = FRAMEWORK_ROOTS.iter().find_map(|root| {
         guest
             .strip_prefix(root)
@@ -580,37 +603,56 @@ fn framework_manifest_bundle(guest: &str) -> Option<&str> {
     if !bundle.ends_with(".framework") {
         return None;
     }
-    let resources = entry.strip_suffix("/Resources/Info.plist");
-    let version = resources.and_then(|prefix| prefix.strip_prefix("Versions/"));
-    (entry == "Resources/Info.plist"
-        || version.is_some_and(|part| !part.is_empty() && !part.contains('/')))
-    .then_some(bundle)
+    let path = framework_version_contents(Path::new(entry))?;
+    if path == Path::new("Resources/Info.plist") {
+        return Some((bundle, path, FrameworkFile::Manifest));
+    }
+    let mut service = path.strip_prefix("XPCServices").ok()?.components();
+    if !service.next()?.as_os_str().to_str()?.ends_with(".xpc") {
+        return None;
+    }
+    let entry = service.as_path();
+    if entry == Path::new("Contents/Info.plist") {
+        Some((bundle, path, FrameworkFile::Manifest))
+    } else if entry
+        .strip_prefix("Contents/MacOS")
+        .is_ok_and(|name| name.components().count() == 1)
+    {
+        Some((bundle, path, FrameworkFile::Executable))
+    } else {
+        None
+    }
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn is_installed_framework_manifest(host: &std::path::Path, framework: &str) -> bool {
+fn framework_version_contents(path: &std::path::Path) -> Option<&std::path::Path> {
+    if let Ok(version) = path.strip_prefix("Versions") {
+        let mut parts = version.components();
+        parts.next()?;
+        Some(parts.as_path())
+    } else {
+        Some(path)
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn resolved_framework_file<'a>(
+    host: &'a std::path::Path,
+    framework: &str,
+) -> Option<&'a std::path::Path> {
     use std::ffi::OsStr;
 
-    if !host.ends_with("Resources/Info.plist") {
-        return false;
-    }
-    let Some(mut bundle) = host.parent().and_then(std::path::Path::parent) else {
-        return false;
-    };
-    // The guest may request any standard alias for the manifest. Check the
-    // resolved host layout independently, including the framework directory.
-    if let Some(versions) = bundle.parent().filter(|dir| dir.ends_with("Versions")) {
-        let Some(parent) = versions.parent() else {
-            return false;
-        };
-        bundle = parent;
-    }
-    bundle.file_name() == Some(OsStr::new(framework))
-        && bundle.parent().is_some_and(|dir| {
-            FRAMEWORK_ROOTS
-                .iter()
-                .any(|root| dir.ends_with(root.trim_start_matches('/')))
-        })
+    // The standard aliases may resolve through Versions/Current and the
+    // Cryptex. Retain the framework and within-version path as the identity.
+    let bundle = host.ancestors().find(|dir| {
+        dir.file_name() == Some(OsStr::new(framework))
+            && dir.parent().is_some_and(|root| {
+                FRAMEWORK_ROOTS
+                    .iter()
+                    .any(|known| root.ends_with(known.trim_start_matches('/')))
+            })
+    })?;
+    framework_version_contents(host.strip_prefix(bundle).ok()?)
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -2038,9 +2080,13 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn installed_framework_manifests_follow_bundle_aliases() {
+    fn installed_framework_files_follow_bundle_aliases() {
+        use crate::user::image::macho::{CPU_TYPE_ARM64, MH_DYLIB, MH_EXECUTE, MH_MAGIC_64};
         use crate::user::supplied_fs::Error;
-        use std::{fs, os::unix::fs::symlink};
+        use std::{
+            fs,
+            os::unix::fs::{PermissionsExt, symlink},
+        };
 
         let fixture = TestFile::new(b"root", 4);
         let root = &fixture.dir;
@@ -2085,6 +2131,36 @@ mod tests {
         fs::create_dir_all(&nested).unwrap();
         fs::write(nested.join("Info.plist"), b"helper metadata").unwrap();
 
+        let services = overlay.join("Versions/A/XPCServices");
+        let service = "com.example.Worker.xpc";
+        let contents = services.join(service).join("Contents");
+        let executables = contents.join("MacOS");
+        fs::create_dir_all(&executables).unwrap();
+        symlink("Versions/Current/XPCServices", overlay.join("XPCServices")).unwrap();
+        fs::write(contents.join("Info.plist"), b"worker manifest").unwrap();
+        let mut image = [0u8; 32];
+        image[..4].copy_from_slice(&MH_MAGIC_64.to_le_bytes());
+        image[4..8].copy_from_slice(&CPU_TYPE_ARM64.to_le_bytes());
+        image[12..16].copy_from_slice(&MH_EXECUTE.to_le_bytes());
+        let program = executables.join("Worker");
+        fs::write(&program, image).unwrap();
+        fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+        let nonexecutable = executables.join("Nonexecutable");
+        fs::write(&nonexecutable, image).unwrap();
+        fs::set_permissions(&nonexecutable, fs::Permissions::from_mode(0o644)).unwrap();
+        let script = executables.join("Script");
+        fs::write(&script, b"#!/bin/sh\nexit 0\n").unwrap();
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        image[12..16].copy_from_slice(&MH_DYLIB.to_le_bytes());
+        let library = executables.join("Library");
+        fs::write(&library, image).unwrap();
+        fs::set_permissions(&library, fs::Permissions::from_mode(0o755)).unwrap();
+        symlink(&program, executables.join("Alias")).unwrap();
+        let redirected = services.join("Redirected.xpc/Contents");
+        fs::create_dir_all(&redirected).unwrap();
+        symlink(contents.join("Info.plist"), redirected.join("Info.plist")).unwrap();
+        fs::write(contents.join("Unrelated.plist"), b"unrelated").unwrap();
+
         let selected = select_native_root(&Files::default(), root, None).unwrap();
         let public_guest = "/System/Library/Frameworks/Public.framework";
         for (bundle, manifest) in [
@@ -2112,6 +2188,39 @@ mod tests {
         ] {
             assert!(
                 matches!(selected.lookup(path), Err(Error::NotFound)),
+                "{path}"
+            );
+        }
+        let framework = "/System/Library/Frameworks/Overlay.framework";
+        for view in [
+            "XPCServices",
+            "Versions/Current/XPCServices",
+            "Versions/A/XPCServices",
+        ] {
+            let bundle = format!("{framework}/{view}/{service}/Contents");
+            let manifest = format!("{bundle}/Info.plist");
+            let executable = format!("{bundle}/MacOS/Worker");
+            assert_eq!(&*selected.read(&manifest).unwrap(), b"worker manifest");
+            assert_eq!(
+                &*selected.read(&executable).unwrap(),
+                &fs::read(&program).unwrap()
+            );
+        }
+        let services = format!("{framework}/XPCServices");
+        let bundle = format!("{services}/{service}/Contents");
+        assert_eq!(
+            &*selected.read(&format!("{bundle}/MacOS/Library")).unwrap(),
+            &image
+        );
+        for path in [
+            format!("{bundle}/Unrelated.plist"),
+            format!("{bundle}/MacOS/Nonexecutable"),
+            format!("{bundle}/MacOS/Script"),
+            format!("{bundle}/MacOS/Alias"),
+            format!("{services}/Redirected.xpc/Contents/Info.plist"),
+        ] {
+            assert!(
+                matches!(selected.lookup(&path), Err(Error::NotFound)),
                 "{path}"
             );
         }

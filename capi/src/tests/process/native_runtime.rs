@@ -403,6 +403,43 @@ fn installed_darwin_framework_manifests_match_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_xpc_service_bundle_files_match_native_through_closed_c_abi() {
+    let bundle = concat!(
+        "/System/Library/Frameworks/WebKit.framework/Versions/Current/XPCServices/",
+        "com.apple.WebKit.WebContent.xpc/Contents",
+    );
+    let manifest = format!("{bundle}/Info.plist");
+    let bytes = std::fs::read(&manifest).unwrap_or_else(|error| panic!("{manifest}: {error}"));
+    assert!(!bytes.is_empty());
+    compare_installed_posix_output(
+        "darwin",
+        "/bin/cat",
+        &[&manifest],
+        &[("LC_ALL", "C")],
+        &bytes,
+    );
+
+    let executable = format!("{bundle}/MacOS/com.apple.WebKit.WebContent");
+    let native = std::process::Command::new("/sbin/md5")
+        .args(["-q", &executable])
+        .env_clear()
+        .env("LC_ALL", "C")
+        .output()
+        .unwrap();
+    assert!(native.status.success(), "{:?}", native.stderr);
+    assert!(native.stderr.is_empty());
+    assert_eq!(native.stdout.len(), 33);
+    compare_installed_posix_output(
+        "darwin",
+        "/sbin/md5",
+        &["-q", &executable],
+        &[("LC_ALL", "C")],
+        &native.stdout,
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_textutil_converts_rtf_through_closed_c_abi() {
     compare_installed_posix_with_input(
         "darwin",
