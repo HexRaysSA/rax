@@ -639,6 +639,23 @@ pub trait VCpu: Send {
         None
     }
 
+    /// Admit this CPU for a legacy checkpoint that projects only CPU 0.
+    /// Native implementations can use the caller's stopped boundary to reject
+    /// in-flight work even when no register projection is requested.
+    fn capture_legacy_checkpoint_projection(
+        &self,
+        _boundary: &crate::backend::CheckpointBoundary<'_>,
+        bootstrap: bool,
+    ) -> Result<Option<crate::vm::snapshot::CpuSnapshot>> {
+        if !bootstrap {
+            return Ok(None);
+        }
+        Ok(Some(crate::vm::snapshot::CpuSnapshot {
+            state: self.get_state()?,
+            emulator: self.get_emulator_state().unwrap_or_default(),
+        }))
+    }
+
     /// Capture a public/private pair at the caller's backend boundary. Native
     /// producers override this to derive both projections from one capture.
     /// A RAM scope is supplied during complete capture; rollback preparation

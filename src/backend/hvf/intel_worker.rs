@@ -362,6 +362,28 @@ impl VCpu for HvfVcpu {
     fn capture_backend_context(&self) -> Result<Option<crate::vm::snapshot::BackendContext>> {
         self.request(|core| core.capture_native_record(None).map(|(_, private)| private))
     }
+    fn capture_legacy_checkpoint_projection(
+        &self,
+        boundary: &crate::backend::CheckpointBoundary<'_>,
+        bootstrap: bool,
+    ) -> Result<Option<crate::vm::snapshot::CpuSnapshot>> {
+        boundary.require_owner(self.lifetime.identity())?;
+        let id = self.id;
+        self.request_stopped(move |core| {
+            core.io_ready().map_err(|error| {
+                Error::InvalidConfig(format!(
+                    "Intel HVF vCPU {id} cannot publish a legacy checkpoint: {error}"
+                ))
+            })?;
+            if !bootstrap {
+                return Ok(None);
+            }
+            Ok(Some(crate::vm::snapshot::CpuSnapshot {
+                state: core.get_state()?,
+                emulator: core.native_emulator_state()?,
+            }))
+        })
+    }
     fn capture_checkpoint_record(
         &self,
         boundary: &crate::backend::CheckpointBoundary<'_>,

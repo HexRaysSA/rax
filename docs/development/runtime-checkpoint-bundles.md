@@ -20,6 +20,12 @@ restore. `Vmm::new_resume_bundle` and `--checkpoint` construct detached targets
 without original sources; see `checkpoint-resume.md`. The older base constructor
 retains its original source-opening contract.
 
+Intel HVF legacy capture checks every vCPU for pending I/O and holds the
+stopped backend boundary through capture of CPU 0 and the reported RAM
+prefix. A pending port or MMIO transaction on any vCPU requires a complete
+bundle. The native pending-XMM regression checks both read and write exits on
+secondary vCPUs and requires each transfer to dispatch once after bundle restore.
+
 With automatic checkpoints configured, the execution record ends with an
 8-byte `RAXSCH01` tag and the little-endian, 8-byte retirement count of the
 last successful automatic write. Manual capture records the current schedule

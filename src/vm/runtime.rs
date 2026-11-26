@@ -950,8 +950,8 @@ impl Vmm {
     }
 
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
-    /// KVM requires a stopped native frontier across all managed CPUs. Use
-    /// a complete snapshot bundle to settle native I/O and retain private state.
+    /// KVM and Intel HVF require a stopped frontier across all managed CPUs.
+    /// Use a complete snapshot bundle for in-flight I/O and private state.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
         if self.pc_powered_off() {
             return Err(Error::InvalidConfig(
@@ -1017,6 +1017,24 @@ impl Vmm {
                     let _scope = bindings.enter()?;
                     let state = kvm.capture_public_bootstrap_state(&boundary)?;
                     capture_ram(state, Default::default(), devices)
+                });
+            }
+            #[cfg(all(feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
+            if let Some(hvf) = self.vm.as_any().downcast_ref::<HvfVm>() {
+                return self.with_legacy_device_state(|devices| {
+                    let boundary = hvf.checkpoint_boundary()?;
+                    let bindings = crate::vm::memory::checkpoint::CheckpointBindings::new(
+                        self.guest_mem.memory(),
+                        Vec::new(),
+                    );
+                    let _scope = bindings.enter()?;
+                    for peer in self.vcpus.iter().skip(1) {
+                        peer.capture_legacy_checkpoint_projection(&boundary, false)?;
+                    }
+                    let state = vcpu
+                        .capture_legacy_checkpoint_projection(&boundary, true)?
+                        .ok_or_else(|| Error::Emulator("Intel HVF BSP projection absent".into()))?;
+                    capture_ram(state.state, state.emulator, devices)
                 });
             }
             let state = vcpu.get_state()?;

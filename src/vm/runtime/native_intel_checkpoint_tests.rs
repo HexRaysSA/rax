@@ -330,6 +330,7 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
         let mut source = Vmm::new_resume(paths.config(count)).unwrap();
         attach(&mut source, &accesses);
         install_program(&mut source, ap, read);
+        source.take_snapshot(0).unwrap();
 
         let turn = (0..32)
             .filter_map(|_| source.execute_turn().unwrap())
@@ -349,6 +350,16 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
                 matches!(turn.exit, VcpuExit::MmioWrite { addr: MMIO, data } if data == HIGH.to_le_bytes())
             );
         }
+        assert!(source.vcpus[ap].io_completion_result().is_err());
+        assert!(accesses.lock().unwrap().is_empty());
+        let error = source
+            .take_snapshot(0)
+            .err()
+            .expect("legacy snapshot discarded a pending MMIO transaction on the AP");
+        assert!(
+            error.to_string().contains(&format!("Intel HVF vCPU {ap}")),
+            "{error}"
+        );
         assert!(source.vcpus[ap].io_completion_result().is_err());
         assert!(accesses.lock().unwrap().is_empty());
 
