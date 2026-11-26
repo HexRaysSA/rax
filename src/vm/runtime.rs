@@ -967,10 +967,11 @@ impl Vmm {
                 "PC S5 capture requires a complete snapshot bundle".into(),
             ));
         }
-        if self
+        let emulator = self
             .vm
             .as_any()
-            .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+            .downcast_ref::<crate::backend::emulator::EmulatorVm>();
+        if emulator
             .and_then(|vm| vm.riscv_platform())
             .is_some_and(|platform| platform.enabled())
         {
@@ -1042,10 +1043,16 @@ impl Vmm {
                     capture_ram(state.state, state.emulator, devices)
                 });
             }
-            let state = vcpu.get_state()?;
-            let emulator = vcpu.get_emulator_state().unwrap_or_default();
-            let devices = self.capture_devices()?;
-            capture_ram(state, emulator, devices)
+            let capture_legacy = || {
+                let state = vcpu.get_state()?;
+                let cpu_private = vcpu.get_emulator_state().unwrap_or_default();
+                let devices = self.capture_devices()?;
+                capture_ram(state, cpu_private, devices)
+            };
+            match emulator.and_then(|vm| vm.arm_cluster()) {
+                Some(cluster) => cluster.capture_legacy_with(capture_legacy),
+                None => capture_legacy(),
+            }
         };
         let (cpu_state, emulator_state, devices, memory, elapsed_nanos) = capture()?;
 

@@ -259,6 +259,16 @@ impl Vmm {
         } else {
             None
         };
+        if arm_cluster.is_some()
+            && arm_restore.is_none()
+            && bundle
+                .execution()
+                .is_some_and(|state| state.online().first() == Some(&false))
+        {
+            return Err(Error::InvalidConfig(
+                "offline bootstrap CPU requires saved PSCI power state".into(),
+            ));
+        }
         let resources = match bundle.resources() {
             Some(resources) => resources.prepare()?,
             None => Arc::new(crate::vm::snapshot::PreparedResources::default()),
@@ -597,7 +607,7 @@ impl Vmm {
         };
         let commit = || match (arm_cluster, arm_restore) {
             (Some(cluster), Some(state)) => cluster.restore_with(state, commit),
-            (Some(cluster), None) => cluster.replace_terminal_with(legacy_arm_shutdown, commit),
+            (Some(cluster), None) => cluster.restore_legacy_with(legacy_arm_shutdown, commit),
             (None, _) => commit(),
         };
         let commit = || match (&self.pc_devices, pc_restore) {
@@ -709,7 +719,7 @@ impl Vmm {
             Ok(())
         };
         let commit = || match arm_cluster {
-            Some(cluster) => cluster.replace_terminal_with(false, commit),
+            Some(cluster) => cluster.restore_legacy_with(false, commit),
             None => commit(),
         };
         match platform {

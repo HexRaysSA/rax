@@ -200882,6 +200882,14 @@
       "scope": "Hosted Intel run 45759324408 at 22dfee6aa verified that legacy capture rejects an 8 B pending read on AP1 and an 8 B pending write on AP3 without touching the device. Complete files resumed one transaction each after source removal. Independent inspection verified both files' CPU records, online masks and replacement UD2. Cached-PDPTE file continuation passed again. Additional MMIO, interrupt and bare-metal qualification remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#legacy-capture-with-a-pending-secondary-mmio-exit",
       "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-legacy-psci-power-admission-2026-11-26",
+      "findings": ["C-STATE", "C-SMP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Software AArch64 rejects base capture and legacy warm restore when the bootstrap CPU is parked or PSCI power requests are queued. The guest CPU_OFF regression covers pending and acknowledged stops, target preservation and successful complete restoration. An incoming legacy projection with an offline bootstrap CPU cannot restore without the PSCI graph. Guest SYSTEM_OFF is retained by the complete bundle and rejected by base capture. Full private, platform and native restoration remain open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#aarch64-psci-power-state",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

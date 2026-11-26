@@ -34,11 +34,44 @@ Rejection preserves the pending write, RAM, hart state, UART and checkpoint
 counters. After ordinary VM execution dispatches the write, the same file can
 restore the legacy projection.
 
+### AArch64 PSCI power state
+
+The software AArch64 base format carries the bootstrap CPU's public
+registers. Register import makes that CPU runnable. Base capture and
+legacy warm restore hold the cluster control lock and require a runnable
+bootstrap CPU and an empty PSCI request queue. Base capture also requires
+the VM to be powered on because the format has no `SYSTEM_OFF` latch.
+A complete bundle can restore the CPU power flags, PSCI graph, outstanding
+requests and coordinator eligibility together.
+
+The coordinator can encode an offline bootstrap CPU only when the shared
+PSCI record accompanies it. A shared record with a parked CPU requires the
+corresponding private CPU state. Admission precedes device, CPU, RAM and
+clock publication. Older base files that already omitted their source
+power state contain insufficient information to reconstruct it.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Guest `CPU_OFF` parks the CPU before coordinator acknowledgement. | Execute `CPU_OFF` and attempt capture and both legacy restore routes before and after acknowledgement. Compare the power flag, shared graph, queue, scheduler, RAM and serial FIFO after each rejection. |
+| Coordinator, cluster and CPU state constrain the same power frontier. | Keep the offline scheduler bit and remove the shared cluster and private CPU state from the checkpoint. The legacy projection must reject. A complete running bundle must restore into the parked target. |
+| A legacy base transfer cannot save `SYSTEM_OFF`. | Execute `SYSTEM_OFF` in the guest, check base capture rejection and verify that complete capture retains the latch. Restore a compatible legacy base into the terminal target and check capture works again. |
+
+The baseline at `25a415533` accepted all three legacy operations during
+the unacknowledged stop. The corrected macOS Arm64 run passed all four
+targeted tests, including source-free continuation of queued multicore PSCI
+requests. The baseline and corrected log SHA-256 digests are
+`f7a178dc981b3aa809f87badf6f66f208692e12ce07a90179828796f5ae99efd` and
+`ce734953e9e2b9e1b93169d93524633dc73e8d17bac757bd06eabb3dc3d1111a`.
+
+### Intel HVF pending I/O
+
 Intel HVF legacy capture checks every vCPU for pending I/O and holds the
 stopped backend boundary through capture of CPU 0 and the reported RAM
 prefix. A pending port or MMIO transaction on any vCPU requires a complete
 bundle. The native pending-XMM regression checks both read and write exits on
 secondary vCPUs and requires each transfer to dispatch once after bundle restore.
+
+### Checkpoint scheduling
 
 With automatic checkpoints configured, the execution record ends with an
 8-byte `RAXSCH01` tag and the little-endian, 8-byte retirement count of the

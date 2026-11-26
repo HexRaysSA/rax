@@ -287,19 +287,46 @@ impl ArmCluster {
         self.shutdown.load(Ordering::Acquire)
     }
 
-    pub(super) fn set_shutdown(&self, shutdown: bool) -> Result<()> {
-        self.replace_terminal_with(shutdown, || Ok(()))
-    }
-
-    pub(crate) fn replace_terminal_with<T>(
-        &self,
-        shutdown: bool,
-        commit: impl FnOnce() -> Result<T>,
-    ) -> Result<T> {
+    pub(crate) fn set_shutdown(&self, shutdown: bool) -> Result<()> {
         let _control = self
             .control
             .lock()
             .map_err(|_| invalid("control lock poisoned"))?;
+        self.shutdown.store(shutdown, Ordering::Release);
+        Ok(())
+    }
+
+    fn validate_legacy_power(control: &Control) -> Result<()> {
+        if control.states.first() != Some(&PowerState::On) || !control.requests.is_empty() {
+            return Err(invalid("PSCI power state requires a complete checkpoint"));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn capture_legacy_with<T>(&self, capture: impl FnOnce() -> Result<T>) -> Result<T> {
+        let control = self
+            .control
+            .lock()
+            .map_err(|_| invalid("control lock poisoned"))?;
+        Self::validate_legacy_power(&control)?;
+        if self.shutdown() {
+            return Err(invalid("PSCI shutdown requires a complete checkpoint"));
+        }
+        capture()
+    }
+
+    pub(crate) fn restore_legacy_with<T>(
+        &self,
+        shutdown: bool,
+        commit: impl FnOnce() -> Result<T>,
+    ) -> Result<T> {
+        let control = self
+            .control
+            .lock()
+            .map_err(|_| invalid("control lock poisoned"))?;
+        // CPU register import makes the BSP runnable. The legacy image cannot
+        // replace the retained PSCI state or its pending coordinator work.
+        Self::validate_legacy_power(&control)?;
         let result = commit()?;
         self.shutdown.store(shutdown, Ordering::Release);
         Ok(result)

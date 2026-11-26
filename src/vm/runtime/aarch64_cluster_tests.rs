@@ -503,12 +503,12 @@ fn psci_publication_keeps_a_checkpointable_frontier_when_shutdown_intervenes() {
         }
 
         fn complete_cpu_start(&self, cpu_id: u32) -> Result<()> {
-            self.cluster.replace_terminal_with(true, || Ok(()))?;
+            self.cluster.set_shutdown(true)?;
             self.cluster.complete_start(cpu_id)
         }
 
         fn complete_cpu_stop(&self, cpu_id: u32) -> Result<()> {
-            self.cluster.replace_terminal_with(true, || Ok(()))?;
+            self.cluster.set_shutdown(true)?;
             self.cluster.complete_stop(cpu_id)
         }
 
@@ -579,6 +579,160 @@ fn psci_publication_keeps_a_checkpointable_frontier_when_shutdown_intervenes() {
     let started = target.vcpus[2].get_state().unwrap();
     let regs = &started.as_aarch64().unwrap().regs;
     assert_eq!((regs.pc, regs.x[0]), (CODE + 4, 0x1234));
+}
+
+#[test]
+fn legacy_checkpoint_cannot_cross_a_parked_bootstrap_cpu() {
+    use crate::vm::snapshot::SnapshotBundle;
+    use crate::vm::vcpu::CpuPowerRequest;
+
+    const HVC: u32 = 0xd400_0002;
+    const CPU_OFF: u64 = 0x8400_0002;
+    let mut source = Fixture::new(1);
+    source.vm.coordinator.retired = 31;
+    let archive = source.vm.take_snapshot_bundle(31).unwrap();
+    let base = source.vm.take_snapshot(31).unwrap();
+    let mut clock = *archive.clock().unwrap();
+    clock.elapsed_nanos = base.elapsed_nanos;
+    let mut legacy = SnapshotBundle::new(base).with_clock(clock).unwrap();
+    if let Some(pci) = &source.vm.pci_devices {
+        legacy = legacy.with_pci(pci.checkpoint().unwrap()).unwrap();
+    }
+
+    for acknowledge in [false, true] {
+        let mut target = Fixture::new(1);
+        let vm = &mut target.vm;
+        vm.guest_mem
+            .memory()
+            .write_obj(HVC, GuestAddress(CODE))
+            .unwrap();
+        let CpuState::Aarch64(mut state) = vm.vcpus[0].get_state().unwrap() else {
+            panic!("expected AArch64 state");
+        };
+        state.regs.x[0] = CPU_OFF;
+        vm.vcpus[0].update_state(&CpuState::Aarch64(state)).unwrap();
+        let step = vm.vcpus[0].run_retirement_budget(1).unwrap();
+        assert_eq!(step.retired, 1);
+        assert_eq!(vm.vcpus[0].checkpoint_powered_off(), Some(true));
+        assert_eq!(
+            vm.vm.take_cpu_power_requests().unwrap(),
+            [CpuPowerRequest::Off { cpu_id: 0 }]
+        );
+        if acknowledge {
+            vm.route_interprocessor_requests().unwrap();
+        }
+        vm.serial.lock().unwrap().queue_input(b"p");
+        let before = crate::codec::serialize(&vm.vcpus[0].get_state().unwrap()).unwrap();
+        let pending = vm.vm.take_cpu_power_requests().unwrap();
+        assert_eq!(pending.is_empty(), acknowledge);
+        let cluster = vm
+            .vm
+            .as_any()
+            .downcast_ref::<EmulatorVm>()
+            .unwrap()
+            .arm_cluster()
+            .unwrap();
+        let graph = || crate::codec::serialize(&cluster.checkpoint().unwrap()).unwrap();
+        let before_graph = graph();
+
+        let captured = vm.take_snapshot(11).err();
+        let base = vm.restore_snapshot(archive.base()).err();
+        let extended = vm.restore_snapshot_bundle(&legacy).err();
+        let errors = [captured, base, extended];
+        assert!(
+            errors.iter().all(|result| result
+                .as_ref()
+                .is_some_and(|error| error.to_string().contains("PSCI power state"))),
+            "capture, base and clock after acknowledge={acknowledge}: {errors:?}"
+        );
+        assert_eq!(vm.vcpus[0].checkpoint_powered_off(), Some(true));
+        assert_eq!(vm.vm.take_cpu_power_requests().unwrap(), pending);
+        assert_eq!(vm.coordinator.online, [!acknowledge]);
+        assert_eq!(vm.coordinator.retired, 0);
+        assert_eq!(vm.last_snapshot_insn, 0);
+        assert_eq!(graph(), before_graph);
+        assert_eq!(
+            crate::codec::serialize(&vm.vcpus[0].get_state().unwrap()).unwrap(),
+            before
+        );
+        assert_eq!(
+            vm.guest_mem
+                .memory()
+                .read_obj::<u32>(GuestAddress(CODE))
+                .unwrap(),
+            HVC
+        );
+        assert!(vm.serial.lock().unwrap().has_input());
+
+        if acknowledge {
+            let mut stopped = vm.take_snapshot_bundle(11).unwrap();
+            let mut execution = stopped.take_execution().unwrap();
+            let cpus = stopped.take_cpus().unwrap().entries().to_vec();
+            stopped.take_physical_memory().unwrap();
+            stopped.take_backend_contexts().unwrap();
+            stopped.take_clock().unwrap();
+            let (base, pci) = stopped.into_parts().unwrap();
+            execution.arm_cluster = None;
+            execution.pl011 = None;
+            let mut projection = SnapshotBundle::new(base).with_cpus(cpus).unwrap();
+            if let Some(pci) = pci {
+                projection = projection.with_pci(pci.to_devices().unwrap()).unwrap();
+            }
+            let projection = projection.with_execution(execution).unwrap();
+            let error = source.vm.restore_snapshot_bundle(&projection).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("offline bootstrap CPU requires saved PSCI power state"),
+                "{error}"
+            );
+            assert_eq!(source.vm.coordinator.online, [true]);
+            assert_eq!(source.vm.vcpus[0].checkpoint_powered_off(), Some(false));
+        }
+
+        vm.restore_snapshot_bundle(&archive).unwrap();
+        assert_eq!(vm.vcpus[0].checkpoint_powered_off(), Some(false));
+        assert!(vm.vm.take_cpu_power_requests().unwrap().is_empty());
+        assert_eq!(vm.coordinator.online, [true]);
+        assert_eq!(vm.coordinator.retired, 31);
+        assert!(vm.take_snapshot(31).is_ok());
+        assert!(vm.restore_snapshot(archive.base()).is_ok());
+        assert!(vm.restore_snapshot_bundle(&legacy).is_ok());
+    }
+}
+
+#[test]
+fn legacy_capture_rejects_psci_system_off() {
+    let mut fixture = Fixture::new(1);
+    let vm = &mut fixture.vm;
+    let base = vm.take_snapshot(0).unwrap();
+    vm.guest_mem
+        .memory()
+        .write_obj(0xd400_0002u32, GuestAddress(CODE)) // HVC #0.
+        .unwrap();
+    let CpuState::Aarch64(mut state) = vm.vcpus[0].get_state().unwrap() else {
+        panic!("expected AArch64 state");
+    };
+    state.regs.x[0] = 0x8400_0008; // PSCI SYSTEM_OFF.
+    vm.vcpus[0].update_state(&CpuState::Aarch64(state)).unwrap();
+    assert!(matches!(
+        vm.vcpus[0].step_insn().unwrap(),
+        Some(VcpuExit::Shutdown)
+    ));
+    let error = vm.take_snapshot(1).err().expect("legacy saved SYSTEM_OFF");
+    assert!(error.to_string().contains("PSCI shutdown"), "{error}");
+    assert!(
+        vm.take_snapshot_bundle(1)
+            .unwrap()
+            .execution()
+            .unwrap()
+            .arm_cluster
+            .as_ref()
+            .unwrap()
+            .shutdown
+    );
+    vm.restore_snapshot(&base).unwrap();
+    assert!(vm.take_snapshot(0).is_ok());
 }
 
 #[test]
