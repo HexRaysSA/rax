@@ -320,6 +320,10 @@ pub struct Armv6Vcpu {
 }
 
 impl Armv6Vcpu {
+    pub(crate) fn configure_arm11_vfp(&mut self) {
+        self.cpu.configure_arm11_vfp();
+    }
+
     pub fn new(id: u32, mem: Arc<GuestMemoryMmap>) -> Self {
         let uart = Arc::new(OnceLock::new());
         let bridge = S3cBridge {

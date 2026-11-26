@@ -887,6 +887,10 @@ enum StepOutcome {
 }
 
 impl S5L8900Vcpu {
+    pub(crate) fn configure_arm11_vfp(&mut self) {
+        self.cpu.configure_arm11_vfp();
+    }
+
     pub fn new(id: u32, mem: Arc<GuestMemoryMmap>) -> Self {
         // The console UART is provided by the VMM via attach_s3c_uart() so that
         // host stdin feeds the same instance the bridge serves.

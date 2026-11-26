@@ -1241,3 +1241,50 @@ The regression checks both instruction sets, both source forms, and the
 `VFMAL` add control against the assembly mnemonics. It
 failed on the parent and passed with the corrected spelling. The complete
 `a32_fp_controls`, `arm` and `arm_vfp_a32` suites passed 47,614 tests.
+
+## ARM1176-style VFPv2 selection
+
+`aarch32_isa = "v6"` and `"v6_k"` select D16 VFPv2 on the software
+S3C64xx and S5L8900 machines. VFP data execution starts with `FPEXC.EN`
+clear. Privileged guest code can enable it with `VMSR`. Admission rejects
+Advanced SIMD, D16–D31 operands, and VFPv3-only instructions. VFP short-vector
+controls remain available under the existing standalone execution path.
+Complete checkpoints carry the selected capability IDs and FP controls in
+the CPU record. The checks take constant time and space per instruction.
+Historical base-only files stored the ISA setting but omitted the FP
+capability IDs. For such a file the restored FP capabilities come from the
+configured destination.
+
+Arm DDI 0301H Tables 20-3 through 20-5 define the VFP11 registers and
+their access modes. The access table below assumes CPACR permits the
+instruction. The setting uses the VFP11 allocation and RAX's synchronous
+support-code ABI, identified by the FPSID subarchitecture field. Physical
+VFP11 asynchronous exception state and its support code remain outside
+this qualification. [ARM1176JZF-S Technical Reference Manual](https://documentation-service.arm.com/static/5e8e294efd977155116a6ca3)
+
+| Register reads | Supervisor, EN=0/1 | User, EN=0 | User, EN=1 |
+| --- | --- | --- | --- |
+| FPSID, MVFR0, MVFR1 | Available | Undefined | Available |
+| Selector 5 (MVFR2 on newer profiles) | Undefined | Undefined | Undefined |
+
+| Assumption | Basis | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| The VM applies the configured FP profile. | Software CPU factory and complete backend record. | Compare `v6`, `v6_k`, and `v7_a` using guest ID reads, a scalar add, a VFPv3 immediate, and an operation targeting D16. Repeat the admission checks on a fresh owner restored from the `v6_k` file. | High |
+| The VFP11 ID access policy depends on privilege and enable state. | DDI 0301H Table 20-4. | Vary all four ID selectors, A32 and T32, CPACR permissions, privilege, and FPEXC.EN. On denial the destination register must retain its original value. | High |
+
+Both regressions failed on `2cde00194`. QEMU 11.1.2 `arm1176` confirmed the
+privileged register results, the reserved selector and the disabled User
+MVFR denials. Its User-mode FPSID read succeeded with FPEXC.EN clear, and
+its User-mode MVFR0 and MVFR1 reads faulted with FPEXC.EN set. For those
+three cases the RAX setting follows Table 20-4. The observed QEMU values
+and process commands are in the retained 16-case receipt, SHA-256
+`0c56e5a21045dd0417f9b77e7f4a1d786fde3d3c523f3f35e621a5c3511b1b8c`.
+The same QEMU model returned binary32 `0x40400000` for `1 + 2`, then
+independently rejected the VFPv3 constant move and the operation targeting
+D16. The arithmetic receipt has SHA-256
+`de2a16ec1a6f08371ba390476f9ccc7e67d5c31aced4af81057886d97bc9f07a`.
+The `a32_fp_controls`, `a32_fp_pairs`, `arm`, `arm_vfp_a32`, and `isa_oracle`
+suites passed 47,730 tests. The five owning library modules passed 170
+tests. Library Clippy passed with warnings denied.
+The inputs and receipts are under
+`/Users/int/dev/rax-audit-work/four-findings-vfpv2-id-access-2026-11-26/`.

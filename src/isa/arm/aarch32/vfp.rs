@@ -71,6 +71,30 @@ impl VfpState {
     /// A64 PE derives both MVFR aliases from these same base capabilities.
     pub(crate) const PROFILE_IDS: [u32; 3] = [0x10110222, 0x13211111, 0x43];
 
+    const ARM11_FPSID: u32 = 0x4101_20b5;
+    const ARM11_MVFR0: u32 = 0x1111_1111;
+
+    /// ARM DDI 0301H Tables 20-3 and 20-5. The stored IDs describe the
+    /// instruction capabilities; guest FPSID identifies RAX's synchronous
+    /// support-code interface through `read_fpsid`.
+    pub(super) fn arm11() -> Self {
+        Self {
+            fpexc: 0,
+            fpsid: Self::ARM11_FPSID,
+            mvfr0: Self::ARM11_MVFR0,
+            mvfr1: 0,
+            mvfr2: 0,
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn is_arm11(&self) -> bool {
+        self.fpsid & !0xf == Self::ARM11_FPSID & !0xf
+            && self.mvfr0 == Self::ARM11_MVFR0
+            && self.mvfr1 == 0
+            && self.mvfr2 == 0
+    }
+
     /// Guest identity for the selected scalar support-code subarchitecture.
     /// DDI0406C.d B4.1.59 reserves FPSID[22:16]=3 for a complete
     /// hardware implementation. Restricted scalar modes instead use RAX's

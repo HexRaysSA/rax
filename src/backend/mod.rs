@@ -189,6 +189,7 @@ pub(crate) fn create_for_checkpoint(
     if config.backend == BackendKind::Emulator {
         return Ok(Box::new(
             emulator::EmulatorBackend::new(config.arch, config.hexagon_isa, config.hexagon_endian)
+                .with_aarch32_isa(config.aarch32_isa)
                 .for_checkpoint(contexts)?,
         ));
     }
@@ -211,11 +212,10 @@ pub fn create(config: &VmConfig) -> Result<Box<dyn Backend>> {
         BackendKind::Kvm => Err(Error::InvalidConfig(
             "KVM backend not available (requires x86_64 Linux with --features kvm)".to_string(),
         )),
-        BackendKind::Emulator => Ok(Box::new(emulator::EmulatorBackend::new(
-            config.arch,
-            config.hexagon_isa,
-            config.hexagon_endian,
-        ))),
+        BackendKind::Emulator => Ok(Box::new(
+            emulator::EmulatorBackend::new(config.arch, config.hexagon_isa, config.hexagon_endian)
+                .with_aarch32_isa(config.aarch32_isa),
+        )),
         // Intel Mac - HVF for x86_64 guests
         #[cfg(all(feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
         BackendKind::Hvf => {

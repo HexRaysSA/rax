@@ -15,7 +15,7 @@ Scalar precision fields do not govern Advanced SIMD operations.
 
 ## VFPv2 User-mode FPSID reads
 
-The standalone VFPv2 profile permits `VMRS Rt,FPSID` in User mode after
+The generic standalone VFPv2 profile permits `VMRS Rt,FPSID` in User mode after
 the ordinary coprocessor access checks. The read is independent of
 `FPEXC.EN`. Profile selection uses `FPSP=1` and `FPDP` equal to zero or one.
 In this legacy profile, a T32 `VMRS` or `VMSR` with SP as the core operand
@@ -27,6 +27,9 @@ The standalone VFPv3 and mixed-width Armv8-A profiles require privileged
 access to FPSID. The access check takes constant time and space.
 [Arm DDI0406C.d, §§ B1.11.2, B9.3.21 and B9.3.22](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
 [Arm DDI0597 ID032025, pp. 1124–1125 and 1127–1128](../../../specifications/arm/aarch32-isa-2025-03.pdf)
+
+The ARM1176-style VM setting has its own FPEXC.EN and User access rules.
+[ARM1176-style VFPv2 selection](../../a32-fp-controls.md#arm1176-style-vfpv2-selection)
 
 | Assumption and basis | Dependent behavior and falsification probe |
 | --- | --- |

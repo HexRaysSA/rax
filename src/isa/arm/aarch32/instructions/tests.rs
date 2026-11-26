@@ -643,6 +643,57 @@ fn pl0_vmrs_and_vmsr_reach_only_fpscr() {
 }
 
 #[test]
+fn a32_arm11_vfp_id_reads_depend_on_mode_and_enable() {
+    use crate::isa::arm::decoder::{Aarch32Decoder, ThumbDecoder};
+
+    for thumb in [false, true] {
+        for user in [false, true] {
+            for enabled in [false, true] {
+                for cp_access in [0, 1, 3] {
+                    for (reg, value) in [(0, 0x4141_20b5), (5, 0), (6, 0), (7, 0x1111_1111)] {
+                        let mut cpu = make_cpu();
+                        let mut mem = make_mem();
+                        cpu.vfp.fpsid = 0x4101_20b5;
+                        cpu.vfp.mvfr0 = 0x1111_1111;
+                        cpu.vfp.mvfr1 = 0;
+                        cpu.vfp.mvfr2 = 0;
+                        cpu.vfp.fpexc = u32::from(enabled) << 30;
+                        cpu.cp15.cpacr =
+                            crate::isa::arm::cp15::Cpacr::from_bits(cp_access * 0x0050_0000);
+                        cpu.cpsr.mode = if user {
+                            ProcessorMode::User
+                        } else {
+                            ProcessorMode::Supervisor
+                        } as u8;
+                        cpu.cpsr.t = thumb;
+                        cpu.regs[2] = 0xdead_beef;
+                        let word = 0xeef0_2a10 | (reg << 16);
+                        let instruction = if thumb {
+                            ThumbDecoder::decode_32bit(word)
+                        } else {
+                            Aarch32Decoder::decode(word)
+                        }
+                        .unwrap();
+                        let outcome = Executor::new(&mut cpu, &mut mem).execute(&instruction);
+                        let allowed = !thumb
+                            && reg != 5
+                            && cp_access != 0
+                            && (!user || enabled && cp_access == 3);
+                        assert_eq!(
+                            matches!(outcome, ExecResult::Continue),
+                            allowed,
+                            "{:?}",
+                            (thumb, user, enabled, cp_access, reg, outcome)
+                        );
+                        assert_eq!(cpu.regs[2], if allowed { value } else { 0xdead_beef });
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn test_privileged_mcr_mrc_cp15_still_access_state() {
     let mut cpu = make_cpu();
     let mut mem = make_mem();

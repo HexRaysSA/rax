@@ -21,7 +21,7 @@ use std::sync::{Arc, OnceLock};
 
 use vm_memory::GuestMemoryMmap;
 
-use crate::config::{ArchKind, Endianness, HexagonIsa};
+use crate::config::{Aarch32Isa, ArchKind, Endianness, HexagonIsa};
 use crate::error::{Error, Result};
 use crate::isa::hexagon::HexagonVcpu;
 use crate::isa::riscv::RiscVConfig;
@@ -36,6 +36,7 @@ use super::{Backend, Vm};
 /// Software emulator backend.
 pub struct EmulatorBackend {
     arch: ArchKind,
+    aarch32_isa: Aarch32Isa,
     hexagon_isa: HexagonIsa,
     hexagon_endian: Endianness,
     riscv_config: Option<RiscVConfig>,
@@ -46,6 +47,7 @@ impl EmulatorBackend {
     pub fn new(arch: ArchKind, hexagon_isa: HexagonIsa, hexagon_endian: Endianness) -> Self {
         EmulatorBackend {
             arch,
+            aarch32_isa: Aarch32Isa::default(),
             hexagon_isa,
             hexagon_endian,
             riscv_config: None,
@@ -61,11 +63,17 @@ impl EmulatorBackend {
     ) -> Self {
         EmulatorBackend {
             arch,
+            aarch32_isa: Aarch32Isa::default(),
             hexagon_isa,
             hexagon_endian,
             riscv_config: Some(riscv_config),
             checkpoint_machine: None,
         }
+    }
+
+    pub(crate) fn with_aarch32_isa(mut self, isa: Aarch32Isa) -> Self {
+        self.aarch32_isa = isa;
+        self
     }
 
     pub(crate) fn for_checkpoint(
@@ -89,6 +97,7 @@ impl Backend for EmulatorBackend {
             self.hexagon_endian,
             self.riscv_config,
         );
+        vm.aarch32_isa = self.aarch32_isa;
         if let Some(machine) = self.checkpoint_machine {
             vm.machine = machine;
             vm.checkpoint_targets = matches!(machine, MachineFamily::Gsc | MachineFamily::S5l8900);
@@ -100,6 +109,7 @@ impl Backend for EmulatorBackend {
 /// Emulated VM instance.
 pub struct EmulatorVm {
     machine: MachineFamily,
+    aarch32_isa: Aarch32Isa,
     checkpoint_targets: bool,
     arm_cluster: OnceLock<Arc<aarch64::cluster::ArmCluster>>,
     riscv_platform: OnceLock<Arc<riscv::platform::Platform>>,
@@ -121,6 +131,7 @@ impl EmulatorVm {
     ) -> Self {
         EmulatorVm {
             machine: MachineFamily::from_env(arch),
+            aarch32_isa: Aarch32Isa::default(),
             checkpoint_targets: false,
             arm_cluster: OnceLock::new(),
             riscv_platform: OnceLock::new(),
@@ -308,14 +319,23 @@ impl Vm for EmulatorVm {
             },
             ArchKind::CortexM => Ok(Box::new(cortex_m::CortexMVcpu::new(id, mem))),
             ArchKind::Armv7a => {
+                let arm11_vfp = matches!(self.aarch32_isa, Aarch32Isa::V6 | Aarch32Isa::V6K);
                 if self.machine == MachineFamily::S5l8900 {
-                    if self.checkpoint_targets {
-                        Ok(Box::new(S5L8900Vcpu::new_checkpoint_target(id, mem)?))
+                    let mut cpu = if self.checkpoint_targets {
+                        S5L8900Vcpu::new_checkpoint_target(id, mem)?
                     } else {
-                        Ok(Box::new(S5L8900Vcpu::new(id, mem)))
+                        S5L8900Vcpu::new(id, mem)
+                    };
+                    if arm11_vfp {
+                        cpu.configure_arm11_vfp();
                     }
+                    Ok(Box::new(cpu))
                 } else {
-                    Ok(Box::new(Armv6Vcpu::new(id, mem)))
+                    let mut cpu = Armv6Vcpu::new(id, mem);
+                    if arm11_vfp {
+                        cpu.configure_arm11_vfp();
+                    }
+                    Ok(Box::new(cpu))
                 }
             }
             _ => Err(Error::Emulator(format!(

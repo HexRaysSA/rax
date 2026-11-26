@@ -740,6 +740,14 @@ impl Armv7Cpu {
         cpu
     }
 
+    pub(crate) fn configure_arm11_vfp(&mut self) {
+        self.vfp = VfpState::arm11();
+        // ARM1176 has Thumb-1 and Security Extensions. The A32 FP access
+        // path must not expose the enclosing default PE's EL2 controls.
+        self.cp15.id_pfr0 = 0x111;
+        self.cp15.id_pfr1 = 0x11;
+    }
+
     /// The PC as an instruction reads it: its address plus 8 in A32 state,
     /// plus 4 in Thumb state.
     #[inline]

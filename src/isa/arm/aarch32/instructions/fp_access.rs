@@ -11,9 +11,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(super) fn fp_access_fault(&self, insn: &DecodedInsn) -> Option<ExecResult> {
         let mut kind = fp_access_kind(insn)?;
         let in_it = insn.state.is_thumb() && self.cpu.cpsr.in_it_block();
+        let standalone = self.cpu.fp_access_context.is_none();
+        let arm11 = standalone && self.cpu.vfp.is_arm11();
         // Predicate failure has already skipped the instruction. Choose
         // Undefined for executed restricted encodings before FP access traps.
-        if !fp_admission::predicate_supported(insn, kind.advsimd, in_it) {
+        if arm11 && insn.state.is_thumb()
+            || !fp_admission::predicate_supported(insn, kind.advsimd, in_it)
+        {
             return Some(ExecResult::Undefined);
         }
         // Capability absence is a decode failure, before FP access traps and
@@ -31,7 +35,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             kind.condition = self.cpu.cpsr.it_condition();
         }
         if kind.system_transfer
-            && self.cpu.fp_access_context.is_none()
+            && standalone
             && matches!((self.cpu.vfp.mvfr0 >> 4) & 0xff, 0x01 | 0x11)
         {
             // Arm DDI0406C.d Table B1-24 reserves the MVFR2 selector.
@@ -39,8 +43,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             if kind.system_read == Some(5) || insn.state.is_thumb() && (kind.raw >> 12) & 15 == 13 {
                 return Some(ExecResult::Undefined);
             }
-            // B1.11.2 makes only the FPSID read available to User mode.
-            if kind.system_read == Some(0) {
+            // ARM1176 Table 20-4 permits User reads of FPSID and MVFR0/1
+            // while enabled. Other VFPv2 profiles follow DDI0406C.d B1.11.2.
+            let user_read = if arm11 {
+                matches!(kind.system_read, Some(0 | 6 | 7)) && self.cpu.vfp.is_enabled()
+            } else {
+                kind.system_read == Some(0)
+            };
+            if user_read {
                 kind.privileged_only = false;
             }
         }

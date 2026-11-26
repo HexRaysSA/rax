@@ -201072,6 +201072,14 @@
       "scope": "Standalone AArch32, S3C64xx and S5L8900 legacy CPU projections retain the saved guest wait and clear any destination exclusive reservation. The S3C64xx tests exercise a serialized base and serialized CPU-set projection, and a complete bundle retaining the saved exclusive reservation. Historical complete records retain private wait authority. Full backend, platform and in-flight coordination remain open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#aarch32-guest-waits-and-reservations-in-legacy-projections",
       "full_goal_complete": false
+    },
+    {
+      "id": "arm1176-style-vfpv2-selection-2026-11-26",
+      "findings": ["A32-FP", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The v6 and v6_k software machine configuration selects ARM1176 D16 VFPv2 capability registers with a synchronous support-code interface and Table 20-4 ID access rules. The owning VMM regression exercises guest arithmetic and exact out-of-profile instruction admission after a fresh S3C64xx checkpoint restore. QEMU differs on three User-mode ID accesses. Physical VFP11 asynchronous exception handling and the full four findings remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#arm1176-style-vfpv2-selection",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
