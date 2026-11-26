@@ -215,7 +215,10 @@ impl ProcessConfigKey {
     }
 
     pub(super) fn captures_child_membership(self) -> bool {
-        matches!(self, Self::WinsockAppIdCatalog | Self::PowerShell)
+        matches!(
+            self,
+            Self::WinsockAppIdCatalog | Self::PowerShell | Self::DotNetPolicy
+        )
     }
 
     pub(super) fn winsock_catalog(self) -> Option<Catalog> {

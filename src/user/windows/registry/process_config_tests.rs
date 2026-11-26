@@ -247,10 +247,22 @@ fn dot_net_policy_lookup_preserves_canonical_identity_in_both_views() {
 }
 
 #[test]
-fn dot_net_policy_admits_only_the_captured_cached_information_and_name() {
+fn dot_net_policy_preserves_ordered_metadata_without_opening_children() {
     let subject = ProcessConfigKey::DotNetPolicy;
+    assert!(subject.captures_child_membership());
     let selection = units(subject.path());
-    let header = header(subject.path(), vec![]);
+    let mut header = header(subject.path(), vec![]);
+    let native_children = vec![
+        BasicChild {
+            name: units("v4.0"),
+            last_write: 42,
+        },
+        BasicChild {
+            name: units("AppPatch"),
+            last_write: 91,
+        },
+    ];
+    header.enumeration = Some(native_children.clone());
     let mut native = [0u8; 40];
     native[..8].copy_from_slice(&0x01dd71d91fbe51ac_u64.to_le_bytes());
     native[12..16].copy_from_slice(&header.children.to_le_bytes());
@@ -274,14 +286,26 @@ fn dot_net_policy_admits_only_the_captured_cached_information_and_name() {
         .unwrap();
     let mut wow_header = header.clone();
     wow_header.canonical = units(DOT_NET_POLICY_WOW_KEY);
-    wow_header.children += 1;
+    let wow_children = vec![native_children[1].clone()];
+    wow_header.children = wow_children.len() as u32;
+    wow_header.enumeration = Some(wow_children.clone());
     different[12..16].copy_from_slice(&wow_header.children.to_le_bytes());
     let registry = registry
         .with_dot_net_policy(RegistryView::Wow32, wow_header, different)
         .unwrap();
-    for (view, expected, canonical) in [
-        (RegistryView::Native64, native, subject.path()),
-        (RegistryView::Wow32, different, DOT_NET_POLICY_WOW_KEY),
+    for (view, expected, canonical, children) in [
+        (
+            RegistryView::Native64,
+            native,
+            subject.path(),
+            native_children,
+        ),
+        (
+            RegistryView::Wow32,
+            different,
+            DOT_NET_POLICY_WOW_KEY,
+            wow_children,
+        ),
     ] {
         let Lookup::Present(shared_key) = shared.lookup_view(&selection, view) else {
             panic!("shared .NET Framework policy record did not resolve");
@@ -298,6 +322,19 @@ fn dot_net_policy_admits_only_the_captured_cached_information_and_name() {
         assert_eq!(info.canonical(), units(canonical));
         for class in [0, 1, 2, 5, 6, 7, 8] {
             assert!(info.record(class).is_none());
+        }
+        assert_eq!(key.child_metadata(), Some(children.as_slice()));
+        for child in &children {
+            assert!(matches!(key.relative(&child.name), Lookup::Unselected));
+            let absolute = format!(
+                r"{}\{}",
+                subject.path(),
+                String::from_utf16_lossy(&child.name)
+            );
+            assert!(matches!(
+                registry.lookup_view(&units(&absolute), view),
+                Lookup::Unselected
+            ));
         }
         assert!(matches!(
             key.relative(&units("UnselectedChild")),

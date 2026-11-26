@@ -4031,10 +4031,11 @@ captured identity, including requests with a trailing backslash.
 
 The Win32 HKLM open selects the native or redirected WOW64 key during
 snapshot capture. The fixed key retains the installed 40-byte
-`KeyCachedInformation` record for each view. `NtQueryKey` requires the complete record
-capacity, reports a required length of 40 bytes, and leaves a smaller
-aligned output buffer untouched. Metadata counts do not enumerate child
-names or select values. The startup capture retains no native handle.
+`KeyCachedInformation` record for each view. `NtQueryKey` requires 40 bytes
+and leaves a smaller aligned output buffer untouched. The snapshot also
+retains ordered child names and last-write times for `NtEnumerateKey` with
+`KeyBasicInformation`. The capture retains no child bodies, values, or native
+handles.
 
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
