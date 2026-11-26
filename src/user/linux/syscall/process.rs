@@ -754,8 +754,8 @@ pub fn capget(c: &mut Ctx<'_>, hdr: u64, data: u64) -> SysResult {
     if pid < 0 {
         return Err(Errno(EINVAL));
     }
-    let current = || {
-        let bits = if c.p.creds.1 == 0 {
+    let guest_capabilities = |euid: u32| {
+        let bits = if euid == 0 {
             u64::from(u32::MAX) | (u64::from(0x1ffu32) << 32)
         } else {
             0
@@ -773,10 +773,12 @@ pub fn capget(c: &mut Ctx<'_>, hdr: u64, data: u64) -> SysResult {
         }
     };
     let (effective, permitted, inheritable) = if pid == 0 {
-        current()
+        guest_capabilities(c.p.creds.1)
+    } else if let Some(euid) = c.p.children.guest_effective_uid(pid) {
+        guest_capabilities(euid)
     } else {
         match task::find(c, pid) {
-            Ok(Task::Own(_) | Task::ExitedLeader) => current(),
+            Ok(Task::Own(_) | Task::ExitedLeader) => guest_capabilities(c.p.creds.1),
             Ok(Task::Other { .. }) => host_capabilities()?,
             // `find` deliberately limits foreign tasks to thread-group
             // leaders; Linux `capget` can name any visible host TID.

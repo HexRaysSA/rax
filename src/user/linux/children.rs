@@ -95,6 +95,8 @@ pub struct Child {
     pub(super) guest: Option<Box<LinuxProcess>>,
     guest_tid: Option<GuestTid>,
     pub(super) guest_uid: Option<u32>,
+    /// Effective UID retained for `capget` after a guest child exits.
+    pub(super) guest_euid: Option<u32>,
     /// The signal its exit sends the parent (`exit_signal`); 0 for none.
     pub exit_signal: i32,
     /// The thread that created it (`__WNOTHREAD`).
@@ -270,6 +272,7 @@ impl Children {
             status: None,
             guest_tid: Some(tid),
             guest_uid: Some(guest.state.creds.0),
+            guest_euid: Some(guest.state.creds.1),
             guest: Some(Box::new(guest)),
             exit_signal,
             creator,
@@ -316,6 +319,7 @@ impl Children {
             guest_tid: None,
             guest: None,
             guest_uid: None,
+            guest_euid: None,
             exit_signal,
             creator,
             parent_exec_id: exec_id,
@@ -332,6 +336,17 @@ impl Children {
     /// The child with `pid`.
     pub fn get_mut(&mut self, pid: i32) -> Option<&mut Child> {
         self.list.iter_mut().find(|c| c.pid == pid)
+    }
+
+    /// Effective UID of a guest child, including a waitable zombie.
+    pub(super) fn guest_effective_uid(&self, pid: i32) -> Option<u32> {
+        self.list.iter().find(|c| c.pid == pid).and_then(|child| {
+            child
+                .guest
+                .as_ref()
+                .map(|guest| guest.state.creds.1)
+                .or(child.guest_euid)
+        })
     }
 
     /// Removes a child (it was reaped), adding its resource use to the
@@ -419,6 +434,7 @@ impl Child {
     pub(super) fn finish_guest(&mut self, exit: ExitStatus) -> Children {
         let mut guest = self.guest.take().expect("running child");
         self.guest_uid = Some(guest.state.creds.0);
+        self.guest_euid = Some(guest.state.creds.1);
         let status = match exit {
             ExitStatus::Exited(code) => exited_status(code),
             // The embedded guest has no core-file output.

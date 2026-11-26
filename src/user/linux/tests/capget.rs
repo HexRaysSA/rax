@@ -156,3 +156,36 @@ fn another_host_task_returns_its_capability_sets() {
     drop(release);
     worker.join().unwrap();
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn guest_child_capget_uses_guest_credentials_when_pid_matches_a_host_task() {
+    let mut h = Harness::embedded(crate::user::linux::abi::LinuxAbi::Riscv64);
+    let guest_pid = h.ok(Sysno::Fork, &[]) as i32;
+    let host_pids = [std::process::id() as i32, unsafe { libc::getppid() as i32 }];
+    let (host_pid, host_caps) = host_pids
+        .into_iter()
+        .filter(|pid| *pid != h.proc.state.pid)
+        .find_map(|pid| native_capget(pid).ok().map(|caps| (pid, caps)))
+        .expect("a visible host PID distinct from the guest parent");
+    let mut root_caps = Vec::with_capacity(DATA_LEN);
+    for word in [u32::MAX, u32::MAX, 0, 0x1ff, 0x1ff, 0] {
+        root_caps.extend_from_slice(&word.to_le_bytes());
+    }
+    let guest_euid = if host_caps == root_caps { 1000 } else { 0 };
+    let expected = if guest_euid == 0 {
+        root_caps
+    } else {
+        vec![0; DATA_LEN]
+    };
+
+    let child = h.proc.state.children.get_mut(guest_pid).unwrap();
+    // Guest and host PID namespaces are independent, so these IDs may match.
+    child.pid = host_pid;
+    child.guest.as_mut().unwrap().state.creds.1 = guest_euid;
+
+    let (hdr, data) = (h.scratch, h.scratch + 0x100);
+    header(&h, hdr, V3, host_pid);
+    assert_eq!(capget(&mut h, hdr, data), 0);
+    assert_eq!(get(&h, data, DATA_LEN), expected);
+}
