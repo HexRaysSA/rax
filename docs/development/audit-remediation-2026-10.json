@@ -200801,6 +200801,14 @@
       "scope": "A32 and T32 render the FEAT_FHM vector and indexed subtract-long instruction as VFMSL. A 65,536-input A32 and T32 decoder sweep against LLVM exposed the spelling error. The focused test failed on the parent and passed after correction. The three owning Arm suites passed 47,614 tests.",
       "qualification": "docs/development/a32-fp-controls.md#fp16-multiply-long-mnemonic",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-instruction-local-sv39-walk-2026-11-26",
+      "findings": ["C-SMP", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "RV64 reuses a translated page for both parcels of the same instruction when they share a page. A three-level mapping now reads three PTEs instead of six and the next instruction sees a remap. QEMU and RAX passed the split-page fault witness; the RAX CLI also restored at retirement 84 from a file after removing the ELF. Median host elapsed time for the four-hart 90-million-instruction Sv39 benchmark fell from 23.23 s to 18.41 s. Full wall-clock Linux boot and checkpoint coverage remain open.",
+      "qualification": "docs/development/riscv-clint/README.md#one-sv39-walk-for-parcels-on-the-same-page",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

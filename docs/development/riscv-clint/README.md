@@ -469,6 +469,34 @@ reference runs. Images, commands, logs and the RAX checkpoint with
 active Sv39 are under
 `/Users/int/dev/rax-audit-work/four-findings-riscv-linux-2026-11-25/`.
 
+### One Sv39 walk for parcels on the same page
+
+The architectural fetch resolves the first parcel's virtual page once. A
+second parcel on the same 4 KiB page reuses its physical page and carries
+out its own physical read. A parcel on another page walks that page and
+reports its own virtual address on fault. The mapping is local to the
+instruction fetch. For L levels traversed per parcel, a same-page 32-bit
+fetch reduces page-table entry reads from 2L to L, excluding A/D retries.
+It uses O(1) temporary space.
+[RISC-V Privileged Architecture 20250508, §§12.3.2 and 12.4](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+| Assumption | Falsification probe | Result |
+|---|---|---|
+| Both parcels share a mapping and the following instruction walks afresh. | Execute a 32-bit instruction at an address aligned to 2 B, count PTE reads, then remap the page and repeat at the same PC. | The parent performed six PTE reads. The revised fetch used three on each execution and observed the new target after remapping. |
+| A page boundary still gives the second parcel its own translation. | Execute across a page boundary with the second PTE missing, check the trap PC and address, install the second mapping and retry. In a separate fixture, capture at retirement 84 in the handler and remove its ELF before restoring. | QEMU and the revised CLI both passed. The saved retirement count was 84 and `sepc` was `0x40000ffe`. The capture process and the fresh restore each printed one pass marker and exited with status 0. |
+| Paged fetch cost matters to the four-hart interpreter. | Profile the archived turn-batched Debian boot twice for 8 s. Time an identical Sv39 guest with 90,000,000 loop instructions on baseline and revised builds, with two interleaved runs per build. | The two host profiles counted 1,086 and 1,070 Sv39 walk samples out of 3,181 and 3,184 main-thread samples. The four-hart synthetic guest passed on both builds, with median elapsed time of 23.23 s on the baseline and 18.41 s on the revision, a 20.8% reduction for this workload. |
+
+Each hart in the timing guest verifies its arithmetic result and publishes
+a distinct bit. The boot hart prints the pass marker after all four bits
+are set. QEMU 11.1.2 also passed the same guest. The timed builds used the
+same optimized Cargo profile on Apple Silicon. This benchmark exercises
+four harts in supervisor mode. Complete Debian wall-clock boot qualification
+remains open.
+
+The guest and executable hashes, raw sampling traces, commands and
+per-run results are in
+`/Users/int/dev/rax-audit-work/four-findings-rv64-retirement-poll-2026-11-26/`.
+
 ## Exact retirement checkpoints
 
 The software coordinator can end a turn at an automatic checkpoint count.

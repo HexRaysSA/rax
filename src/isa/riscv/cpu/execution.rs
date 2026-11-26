@@ -11,8 +11,7 @@ impl RiscVCpu {
                 tval: pc,
             });
         }
-        let cfg = self.cfg;
-        decode_with_parcel_fetch(pc, cfg.xlen, &cfg.isa, |addr| self.fetch_parcel(addr))
+        self.fetch_instruction_parcels(pc)
     }
 
     /// Fetch, decode and execute one instruction.

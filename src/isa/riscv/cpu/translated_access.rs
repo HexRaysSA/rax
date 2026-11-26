@@ -120,14 +120,28 @@ impl RiscVCpu {
         Ok(())
     }
 
-    pub(super) fn fetch_parcel(&mut self, address: u64) -> Result<u16, Trap> {
-        if let Some(state) = self.active_translation(Access::Fetch) {
-            let physical = state.translate(self.mem.as_mut(), address, Access::Fetch)?;
-            return self.read_translated_parcel(physical, address);
-        }
-        self.mem
-            .fetch_u16(address)
-            .map_err(|_| Access::Fetch.access_fault(address))
+    pub(super) fn fetch_instruction_parcels(&mut self, pc: u64) -> Result<Insn, Trap> {
+        let cfg = self.cfg;
+        let access = Access::Fetch;
+        let Some(state) = self.active_translation(access) else {
+            return decode_with_parcel_fetch(pc, cfg.xlen, &cfg.isa, |address| {
+                self.mem
+                    .fetch_u16(address)
+                    .map_err(|_| access.access_fault(address))
+            });
+        };
+
+        let first_physical = state.translate(self.mem.as_mut(), pc, access)?;
+        decode_with_parcel_fetch(pc, cfg.xlen, &cfg.isa, |address| {
+            let physical = if address / PAGE_SIZE == pc / PAGE_SIZE {
+                // Both parcels in one page have the same mapping and permissions.
+                // The translation belongs to this instruction only.
+                (first_physical & !(PAGE_SIZE - 1)) | (address & (PAGE_SIZE - 1))
+            } else {
+                state.translate(self.mem.as_mut(), address, access)?
+            };
+            self.read_translated_parcel(physical, address)
+        })
     }
 
     pub(super) fn manage_cache_block(&mut self, address: u64) -> Result<(), Trap> {

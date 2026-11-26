@@ -1,6 +1,10 @@
 use super::*;
 use crate::isa::riscv::csr::SATP;
 use crate::isa::riscv::{FlatMemory, memory::MemResult};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 const ROOT: u64 = 0x1000;
 const MID: u64 = 0x2000;
@@ -12,7 +16,10 @@ const SECOND_PAGE: u64 = 0x4000_1000;
 const SV39: u64 = (8 << 60) | (ROOT >> 12);
 
 #[derive(Debug)]
-struct Sv39Memory(FlatMemory);
+struct Sv39Memory {
+    ram: FlatMemory,
+    pte_reads: Arc<AtomicUsize>,
+}
 
 impl Memory for Sv39Memory {
     fn supports_sv39(&self) -> bool {
@@ -20,18 +27,31 @@ impl Memory for Sv39Memory {
     }
 
     fn read(&self, address: u64, bytes: &mut [u8]) -> MemResult<()> {
-        self.0.read(address, bytes)
+        self.ram.read(address, bytes)
     }
 
     fn write(&mut self, address: u64, bytes: &[u8]) -> MemResult<()> {
-        self.0.write(address, bytes)
+        self.ram.write(address, bytes)
+    }
+
+    fn read_page_table_entry(&self, address: u64) -> MemResult<u64> {
+        self.pte_reads.fetch_add(1, Ordering::Relaxed);
+        self.ram.read_u64(address)
     }
 }
 
 fn cpu() -> RiscVCpu {
+    counted_cpu().0
+}
+
+fn counted_cpu() -> (RiscVCpu, Arc<AtomicUsize>) {
+    let pte_reads = Arc::new(AtomicUsize::new(0));
     let mut cpu = RiscVCpu::new(
         RiscVConfig::rv64gc(),
-        Box::new(Sv39Memory(FlatMemory::new(0, 0xa000))),
+        Box::new(Sv39Memory {
+            ram: FlatMemory::new(0, 0xa000),
+            pte_reads: Arc::clone(&pte_reads),
+        }),
     );
     cpu.memory_mut()
         .write_u64(ROOT + 8, (MID >> 2) | 1)
@@ -39,7 +59,28 @@ fn cpu() -> RiscVCpu {
     cpu.memory_mut().write_u64(MID, (TABLE >> 2) | 1).unwrap();
     cpu.csr_write(SATP, SV39).unwrap();
     cpu.set_privilege(Priv::Supervisor);
-    cpu
+    (cpu, pte_reads)
+}
+
+#[test]
+fn same_page_parcels_walk_once_and_next_instruction_rechecks_the_mapping() {
+    let (mut cpu, pte_reads) = counted_cpu();
+    let offset = 0x126;
+    let pc = FIRST_PAGE + offset;
+    for (frame, value) in [(FIRST_FRAME, 1), (SECOND_FRAME, 2)] {
+        cpu.memory_mut()
+            .write_u64(TABLE, (frame >> 2) | 0x49) // Valid, executable, accessed.
+            .unwrap();
+        cpu.memory_mut()
+            .write_u32(frame + offset, (value << 20) | 0x93) // ADDI x1, x0, value.
+            .unwrap();
+        pte_reads.store(0, Ordering::Relaxed);
+        cpu.set_pc(pc);
+        assert_eq!(cpu.step(), RiscVExit::Continue);
+        assert_eq!(cpu.x(1), u64::from(value));
+        assert_eq!(cpu.pc(), pc + 4);
+        assert_eq!(pte_reads.load(Ordering::Relaxed), 3);
+    }
 }
 
 #[test]
