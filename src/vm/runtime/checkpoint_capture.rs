@@ -103,6 +103,7 @@ impl Vmm {
                                 self.serial_irq,
                                 serial.has_pending_interrupt(),
                             )?;
+                            banks.validate_i8042_irq_levels(pc.as_ref())?;
                             Ok((banks.into_checkpoint_capture()?, sampled_at))
                         })
                         .transpose()?;

@@ -1,5 +1,6 @@
 //! Bind the stopped native graph to the ordered public CPU and VM records.
 use super::*;
+use crate::machine::pc::PcCheckpoint;
 use crate::vm::snapshot::{
     BackendContext, CpuSnapshot, KVM_CPU_TAG, KVM_VM_TAG, KVM_X86_64_CONTEXT, SnapshotBundle,
 };
@@ -78,6 +79,21 @@ impl Image {
         Ok(())
     }
 
+    pub(crate) fn validate_i8042_irq_levels(&self, pc: Option<&PcCheckpoint>) -> Result<()> {
+        if let (Some(chip), Some(pc)) = (&self.shared, pc) {
+            // The userspace GSI shadow is the external wire. A kernel PIC
+            // or I/O APIC request can outlive a deasserted edge.
+            for (irq, asserted) in pc.i8042_irq_levels()? {
+                if chip.irq_level(u32::from(irq)) != Some(asserted) {
+                    return Err(invalid(format!(
+                        "native i8042 IRQ{irq} line differs from the output latch"
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn into_checkpoint_capture(self) -> Result<Capture> {
         let count = self.cpus.len();
         let mut cpus = Vec::with_capacity(count);
@@ -140,6 +156,7 @@ impl Image {
             powered_off: shared.powered_off,
             shared: shared.controllers,
         };
+        image.validate_i8042_irq_levels(execution.pc.as_ref())?;
         let projection = |state: &CpuState, emulator: &crate::vm::snapshot::EmulatorState| {
             crate::codec::serialize_limited(&(state, emulator), CPU_LIMIT).map_err(invalid)
         };

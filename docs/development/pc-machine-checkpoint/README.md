@@ -291,6 +291,36 @@ The software controller checks apply to PC configurations that use the
 shared software interrupt controller. Native KVM interrupt banks and live
 Intel HVF guest execution are outside the validation for this change.
 
+## Native KVM i8042 IRQ1 and IRQ12 checkpoint coherence
+
+Managed KVM captures the 8042 under the PC device boundary and samples
+external GSI levels from the native interrupt owner. IRQ1 and IRQ12 must
+match the enabled output latch at capture and before native restore
+publishes CPU, RAM or device state. The check uses the line shadow because
+a kernel PIC or I/O APIC request can outlive the edge that created it.
+The two comparisons take constant time and storage after PC image decode.
+
+The native wire format is unchanged. A checkpoint from before the 8042
+router that retains an enabled output byte and a missing line fails native
+restore admission. Its native controller banks cannot establish whether
+generating an edge at import would duplicate an interrupt. Coherent files
+continue to restore the saved controller banks and pending guest delivery.
+
+On `38a55acd8`, both regressions reproduced on an Intel Xeon E5-1650 v3
+host using Linux KVM `6.8.0-138-generic` with APICv enabled. Capture accepted
+a contradictory IRQ state and restore accepted a mixed device/controller
+checkpoint. Both regressions passed on the same host with the rebuilt
+harness. Its target PC and RAM sentinels and the idle 8042 latch survived
+each rejected restore. The real-mode IRQ12 guest resumed from a detached
+file and reported the saved auxiliary byte once before reaching its
+continuation marker.
+
+| Assumption | Basis | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| The two native GSI levels have the same source as the saved output latch. | Stopped and normal PIO call the same native line publisher while holding the controller. | Assert each route with no gated output, then clear it with a gated byte still held. Both contradictions must fail capture. | High |
+| A native source graph can be checked before target publication. | Restore decodes the source KVM image before invoking native setters or committing physical RAM. | Combine each saved 8042 state with the opposite line state in an otherwise consistent graph. Restore must preserve the target PC, RAM sentinel and idle latch. | High |
+| Pending requests are distinct from the external line. | KVM owns interrupt requests after an edge is delivered or acknowledged. | Restore through the existing native IRQ12 guest, then require the correct aux byte and one handler invocation. | High |
+
 ## Native UART IRQ4 checkpoint coherence
 
 For the native PC interrupt controller, capture synchronizes GSI4 from the

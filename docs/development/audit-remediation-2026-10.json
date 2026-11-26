@@ -201184,6 +201184,14 @@
       "scope": "RAXPCD05 validation binds i8042 keyboard and auxiliary outputs to software I/O APIC and PIC input levels. Detached restore recovers held PIC inputs without replaying acknowledged edges. RAXPCD03 migration coverage verifies recovered AUX levels for both edge and level I/O APIC routes. Native KVM interrupt banks and live Intel HVF execution are outside the qualification.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#software-i8042-irq1-and-irq12-checkpoint-coherence",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-kvm-i8042-checkpoint-2026-11-27",
+      "findings": ["C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Managed KVM capture and native restore admission require GSI1 and GSI12 to agree with the gated i8042 latch. Both disagreement directions for both routes were checked on physical Intel KVM. Failed native restores preserve the target CPU PC, RAM sentinel and idle latch. The original native record format is retained. Pre-routing records with inconsistent lines are ambiguous and fail native restore admission.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#native-kvm-i8042-irq1-and-irq12-checkpoint-coherence",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

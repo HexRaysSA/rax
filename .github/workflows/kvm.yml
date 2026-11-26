@@ -164,14 +164,19 @@ jobs:
             --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
           grep -F -x "test $case_name ... ok" "$witness"
 
-      - name: Native i8042 IRQ12 after detached restore
+      - name: Native i8042 IRQ admission and detached delivery
         run: |
-          set -o pipefail
-          case_name=vm::runtime::checkpoint_io::tests::stopped_native_i8042_irq12_is_delivered_once_after_detached_restore
-          witness="$RUNNER_TEMP/rax-kvm-i8042-irq12.out"
-          cargo test --locked --features x86_64-suite --lib "$case_name" -- \
-            --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
-          grep -F -x "test $case_name ... ok" "$witness"
+          set -e -o pipefail
+          for test in \
+            i8042::capture_rejects_i8042_irq_lines_that_disagree_with_the_latch \
+            i8042::restore_rejects_i8042_irq_disagreement_before_publication \
+            stopped_native_i8042_irq12_is_delivered_once_after_detached_restore; do
+            case_name="vm::runtime::checkpoint_io::tests::$test"
+            witness="$RUNNER_TEMP/rax-kvm-${test##*::}.out"
+            cargo test --locked --features x86_64-suite --lib "$case_name" -- \
+              --include-ignored --exact --test-threads=1 --nocapture --color never | tee "$witness"
+            grep -F -x "test $case_name ... ok" "$witness"
+          done
 
       - name: Native finite entry, signal ownership, and PIO/MMIO continuation
         run: cargo test --features x86_64-suite --test kvm_host_slices -- --include-ignored --test-threads=1 --nocapture

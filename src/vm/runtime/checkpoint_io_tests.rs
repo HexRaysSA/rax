@@ -8,6 +8,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use vm_memory::{Bytes, GuestAddress};
 
+#[path = "checkpoint_io_i8042_tests.rs"]
+mod i8042;
 #[path = "checkpoint_io_timer_tests.rs"]
 mod timer;
 

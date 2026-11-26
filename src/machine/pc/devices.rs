@@ -369,6 +369,10 @@ impl PcCheckpoint {
     pub(crate) fn validate_com1(&self, asserted: bool) -> Result<()> {
         self.state_with_com1(Some(asserted)).map(|_| ())
     }
+    #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+    pub(crate) fn i8042_irq_levels(&self) -> Result<[(u8, bool); 2]> {
+        Ok(i8042_irq_levels(&self.state()?.i8042))
+    }
     pub(crate) fn references(&self) -> Result<Vec<ResourceKey>> {
         let state = self.state()?;
         Ok(state
