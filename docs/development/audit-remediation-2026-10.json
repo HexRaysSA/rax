@@ -201064,6 +201064,14 @@
       "scope": "Intel HVF plans one 16 B legacy or VEX.128 PCLMULQDQ read or one 32 B VEX.256 read. The descriptor carries the source vector and immediate through restore. The QEMU reference executed 6,144 RAM cases plus a legacy alignment fault, with the VEX.256 reference derived by combining two independently executed VEX.128 lanes. Hosted Intel execution, bare-metal Intel, EVEX and complete MMIO and checkpoint scope remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#carry-less-multiplication-with-a-device-operand",
       "full_goal_complete": false
+    },
+    {
+      "id": "aarch32-legacy-wait-and-reservation-2026-11-26",
+      "findings": ["C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Standalone AArch32, S3C64xx and S5L8900 legacy CPU projections retain the saved guest wait and clear any destination exclusive reservation. The S3C64xx tests exercise a serialized base and serialized CPU-set projection, and a complete bundle retaining the saved exclusive reservation. Historical complete records retain private wait authority. Full backend, platform and in-flight coordination remain open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#aarch32-guest-waits-and-reservations-in-legacy-projections",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

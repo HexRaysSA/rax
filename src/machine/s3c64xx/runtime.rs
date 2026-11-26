@@ -915,6 +915,22 @@ impl VCpu for Armv6Vcpu {
         Ok(public_state(&self.cpu))
     }
 
+    fn get_emulator_state(&self) -> Option<crate::vm::snapshot::EmulatorState> {
+        self.cpu
+            .is_halted
+            .then(|| crate::vm::snapshot::EmulatorState {
+                halted: true,
+                ..Default::default()
+            })
+    }
+
+    fn set_emulator_state(&mut self, state: &crate::vm::snapshot::EmulatorState) -> Result<()> {
+        self.cpu.is_halted = state.halted;
+        // The legacy projection cannot transfer exclusive reservations.
+        self.excl = Default::default();
+        Ok(())
+    }
+
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
         let state = match state {
             CpuState::Aarch32(s) => s,

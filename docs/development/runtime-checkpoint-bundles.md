@@ -209,3 +209,30 @@ The base restore on the parent failed the halted-exit check. The regression
 uses the legacy RV64 system profile with CLINT disabled. The 377 targeted
 RV64 library tests and 67 boot, hart-ID, lift and physical-checkpoint
 integration tests passed. Library Clippy passed with warnings denied.
+
+### AArch32 guest waits and reservations in legacy projections
+
+The standalone AArch32 engine and the S3C64xx and S5L8900 adapters use the
+existing legacy halt bit for a CPU waiting after a guest wait instruction.
+Restoring a projected CPU sets its wait state from that bit and clears the
+local exclusive monitor. A false bit in a historical projection clears the
+CPU wait flag. Complete checkpoint records carry the source wait state and
+reservation in their private CPU data. Capture and restore take constant
+time and space per CPU for these fields.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The projected bit is sufficient to preserve the CPU wait with interrupts quiescent. | High | Execute a guest WFI, restore the projected state, and require no retirement at the following PC until explicit wake. Restore a runnable projection over a waiting target. |
+| The destination's exclusive reservation is independent of the source projection. | High | Execute LDREX on the destination immediately before restoring the projected CPU. The following STREX must return failure and leave RAM unchanged. The S3C64xx complete-checkpoint control resumes with the captured reservation and returns success. |
+| Historical private records retain authority over the wait state. | High | Restore a private AArch32 record saved during WFI with a default legacy halt bit. Check that the CPU stays stopped at the following PC. |
+
+S3C64xx executes from a separate high RAM mapping. The base format carries
+the zero-based RAM prefix, so the base restore test provisions the guest
+code on the warm destination. The cold CPU-projection test includes a
+physical-memory section. Full peripheral phase and coordinated replay
+require the private CPU and platform records.
+
+The parent `c717f9474` failed the wait and reservation probes in all three
+backends. The corrected build passed all six regressions and 111 tests
+across the three backend suites and the VMM checkpoint suite. LLVM MC
+23.0.0git independently assembled the ARM and Thumb witnesses.

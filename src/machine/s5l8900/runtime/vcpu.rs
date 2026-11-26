@@ -52,6 +52,7 @@ impl VCpu for S5L8900Vcpu {
         Ok((
             crate::vm::snapshot::CpuSnapshot {
                 state: self.get_state()?,
+                // The S5L descriptor requires a default legacy projection.
                 emulator: Default::default(),
             },
             Some(private),
@@ -115,7 +116,8 @@ impl VCpu for S5L8900Vcpu {
                     .into(),
             ));
         }
-        self.set_state(state)
+        self.set_state(state)?;
+        self.set_emulator_state(emulator)
     }
     fn finish_checkpoint_restore(
         &mut self,
@@ -161,6 +163,22 @@ impl VCpu for S5L8900Vcpu {
 
     fn get_state(&self) -> Result<CpuState> {
         Ok(crate::backend::emulator::aarch32::public_state(&self.cpu))
+    }
+
+    fn get_emulator_state(&self) -> Option<crate::vm::snapshot::EmulatorState> {
+        self.cpu
+            .is_halted
+            .then(|| crate::vm::snapshot::EmulatorState {
+                halted: true,
+                ..Default::default()
+            })
+    }
+
+    fn set_emulator_state(&mut self, state: &crate::vm::snapshot::EmulatorState) -> Result<()> {
+        self.cpu.is_halted = state.halted;
+        // The legacy projection cannot transfer exclusive reservations.
+        self.excl = Default::default();
+        Ok(())
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {

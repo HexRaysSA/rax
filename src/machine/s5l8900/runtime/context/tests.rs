@@ -32,6 +32,78 @@ fn normalize_clocks(cpu: &mut S5L8900Vcpu) {
     cpu.boot_clock = ElapsedClock::suspended(ElapsedImage::zero()).unwrap();
     cpu.heartbeat_clock = ElapsedClock::suspended(ElapsedImage::zero()).unwrap();
 }
+
+#[test]
+fn legacy_aarch32_s5l_checkpoint_preserves_guest_wait() {
+    let mut source = fixture();
+    let code = IBOOT_BASE + 0x100;
+    let bytes = [0xbf30u16, 0x2007] // Thumb WFI; MOVS r0, #7.
+        .into_iter()
+        .flat_map(u16::to_le_bytes)
+        .collect::<Vec<_>>();
+    source
+        .bridge
+        .mem
+        .write_slice(&bytes, GuestAddress(u64::from(code)))
+        .unwrap();
+    source.cpu.regs[15] = code;
+    source.cpu.cpsr.t = true;
+    assert!(matches!(source.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+    let public = source.get_state().unwrap();
+    let legacy = source.get_emulator_state().unwrap_or_default();
+    let mut target = fixture();
+    target
+        .bridge
+        .mem
+        .write_slice(&bytes, GuestAddress(u64::from(code)))
+        .unwrap();
+    target
+        .restore_checkpoint_context(&public, &legacy, None)
+        .unwrap();
+    assert!(matches!(target.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+    assert_eq!(target.current_pc(), u64::from(code + 2));
+    assert_eq!(target.instruction_count(), 0);
+    target.wake();
+    assert!(target.step_insn().unwrap().is_none());
+    assert_eq!(target.cpu.regs[0], 7);
+}
+
+#[test]
+fn legacy_aarch32_s5l_checkpoint_discards_target_reservation() {
+    let mut target = fixture();
+    let code = IBOOT_BASE + 0x100;
+    let data = IBOOT_BASE + 0x180;
+    let bytes = [0xe192_1f9fu32, 0xe182_3f91] // LDREX r1, [r2]; STREX r3, r1, [r2].
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect::<Vec<_>>();
+    target
+        .bridge
+        .mem
+        .write_slice(&bytes, GuestAddress(u64::from(code)))
+        .unwrap();
+    target.cpu.regs[15] = code + 4;
+    target.cpu.regs[1] = 0xa5a5_a5a5;
+    target.cpu.regs[2] = data;
+    let public = target.get_state().unwrap();
+    target.cpu.regs[15] = code;
+    assert!(target.step_insn().unwrap().is_none());
+    assert_eq!(target.excl.address, Some(data));
+    target
+        .restore_checkpoint_context(&public, &Default::default(), None)
+        .unwrap();
+    assert!(target.step_insn().unwrap().is_none());
+    assert_eq!(target.cpu.regs[3], 1);
+    assert_eq!(
+        target
+            .bridge
+            .mem
+            .read_obj::<u32>(GuestAddress(u64::from(data)))
+            .unwrap(),
+        0
+    );
+}
+
 #[test]
 fn complete_private_image_roundtrips_banked_fp_mmu_devices_and_pending_work() {
     let mut source = fixture();

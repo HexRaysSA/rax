@@ -59,6 +59,51 @@ fn backend_context_trait_retains_controls_and_rejects_a_conflicting_projection()
 }
 
 #[test]
+fn legacy_aarch32_embedder_checkpoint_preserves_guest_wait() {
+    // WFI; MOV r0, #7.
+    let (mut source, memory) = fixture(&[0xe320_f003, 0xe3a0_0007]);
+    assert!(matches!(source.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+    let public = source.get_state().unwrap();
+    let legacy = source.get_emulator_state().unwrap_or_default();
+    let complete = source.capture_backend_context().unwrap().unwrap();
+    let running = crate::vm::snapshot::EmulatorState::default();
+    let mut target = Aarch32Vcpu::new(0, memory);
+    for (emulator, context) in [(&legacy, None), (&running, Some(&complete))] {
+        target
+            .restore_checkpoint_context(&public, emulator, context)
+            .unwrap();
+        let retired = target.instruction_count();
+        assert!(matches!(target.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+        assert_eq!(target.instruction_count(), retired);
+        assert_eq!(target.current_pc(), u64::from(CODE + 4));
+        target
+            .restore_checkpoint_context(&public, &running, None)
+            .unwrap();
+        assert!(target.step_insn().unwrap().is_none());
+        assert_eq!(target.cpu.regs[0], 7);
+    }
+}
+
+#[test]
+fn legacy_aarch32_embedder_checkpoint_discards_target_reservation() {
+    let (mut target, memory) = fixture(&[0xe192_1f9f, 0xe182_3f91]);
+    let data_address = GuestAddress(u64::from(DATA));
+    let word = 0x1234_5678u32;
+    memory.write_obj(word.to_le(), data_address).unwrap();
+    target.cpu.regs[2] = DATA;
+    target.set_current_pc(u64::from(CODE + 4)).unwrap();
+    let public = target.get_state().unwrap();
+    target.set_current_pc(u64::from(CODE)).unwrap();
+    assert!(target.step_insn().unwrap().is_none());
+    target
+        .restore_checkpoint_context(&public, &Default::default(), None)
+        .unwrap();
+    assert!(target.step_insn().unwrap().is_none());
+    assert_eq!(target.cpu.regs[3], 1);
+    assert_eq!(u32::from_le(memory.read_obj(data_address).unwrap()), word);
+}
+
+#[test]
 fn guest_written_cpacr_and_fpexc_survive_context_restore_and_still_fault() {
     // These are the unchanged guest transfers in the two retained predecessor
     // get_state/set_state failures. Capture occurs after the control write.

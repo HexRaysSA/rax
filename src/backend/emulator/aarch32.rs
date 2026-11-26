@@ -563,6 +563,22 @@ impl VCpu for Aarch32Vcpu {
         Ok(())
     }
 
+    fn get_emulator_state(&self) -> Option<crate::vm::snapshot::EmulatorState> {
+        self.cpu
+            .is_halted
+            .then(|| crate::vm::snapshot::EmulatorState {
+                halted: true,
+                ..Default::default()
+            })
+    }
+
+    fn set_emulator_state(&mut self, state: &crate::vm::snapshot::EmulatorState) -> Result<()> {
+        self.cpu.is_halted = state.halted;
+        // The legacy projection cannot transfer exclusive reservations.
+        self.excl = ExclusiveMonitor::default();
+        Ok(())
+    }
+
     fn complete_io_in(&mut self, _data: &[u8]) {}
 
     fn id(&self) -> u32 {

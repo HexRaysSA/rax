@@ -651,6 +651,151 @@ fn absent_private_context_section_retains_explicit_s3c_projection_compatibility(
     }
 }
 
+#[test]
+fn legacy_aarch32_s3c_checkpoint_preserves_guest_wait() {
+    let fixture = Fixture::new();
+    let mut source = Vmm::new_resume(fixture.config(1)).unwrap();
+    let bytes: Vec<u8> = [0xe320_f003u32, 0xe3a0_0007] // WFI; MOV r0, #7.
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    source
+        .guest_mem
+        .memory()
+        .write_slice(&bytes, GuestAddress(CODE))
+        .unwrap();
+    source.vcpus[0].set_current_pc(CODE + 4).unwrap();
+    let runnable = source.take_snapshot(0).unwrap();
+    source.vcpus[0].set_current_pc(CODE).unwrap();
+    assert!(matches!(
+        source.vcpus[0].step_insn().unwrap(),
+        Some(VcpuExit::Hlt)
+    ));
+    assert_eq!(source.vcpus[0].current_pc(), CODE + 4);
+    let stopped = source.take_snapshot(1).unwrap();
+    stopped.save(&fixture.checkpoint).unwrap();
+    let base = Snapshot::load(&fixture.checkpoint).unwrap();
+    let projected = SnapshotBundle::new(stopped)
+        .with_cpus(source.capture_cpu_states().unwrap())
+        .unwrap()
+        .with_physical_memory(
+            crate::vm::snapshot::PhysicalMemorySnapshot::capture(source.guest_mem.memory())
+                .unwrap(),
+        )
+        .unwrap();
+    projected.save(&fixture.checkpoint).unwrap();
+    let projected = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+
+    let verify_halted = |cpu: &mut dyn VCpu| {
+        assert_eq!(cpu.current_pc(), CODE + 4);
+        let retired = cpu.instruction_count();
+        assert!(matches!(cpu.step_insn().unwrap(), Some(VcpuExit::Hlt)));
+        assert_eq!(cpu.current_pc(), CODE + 4);
+        assert_eq!(cpu.instruction_count(), retired);
+    };
+    let verify_running = |cpu: &mut dyn VCpu| {
+        assert!(cpu.step_insn().unwrap().is_none());
+        let CpuState::Aarch32(state) = cpu.get_state().unwrap() else {
+            panic!("expected AArch32 state");
+        };
+        assert_eq!(state.regs.r[0], 7);
+        assert_eq!(cpu.current_pc(), CODE + 8);
+    };
+    let mut target = Vmm::new_resume(fixture.config(1)).unwrap();
+    // The base record covers the zero-based RAM prefix. S3C executes
+    // from its separately mapped high RAM, which must already be present.
+    target
+        .guest_mem
+        .memory()
+        .write_slice(&bytes, GuestAddress(CODE))
+        .unwrap();
+    target.restore_snapshot(&base).unwrap();
+    verify_halted(target.vcpus[0].as_mut());
+    target.restore_snapshot(&runnable).unwrap();
+    verify_running(target.vcpus[0].as_mut());
+    target.restore_snapshot_bundle(&projected).unwrap();
+    verify_halted(target.vcpus[0].as_mut());
+    target.vcpus[0].wake();
+    verify_running(target.vcpus[0].as_mut());
+
+    let mut fresh = Vmm::new_resume_bundle(fixture.config(1), &projected).unwrap();
+    verify_halted(fresh.vcpus[0].as_mut());
+    fresh.vcpus[0].wake();
+    verify_running(fresh.vcpus[0].as_mut());
+}
+
+#[test]
+fn legacy_aarch32_s3c_checkpoint_discards_target_reservation() {
+    const DATA: u64 = CODE + 0x80;
+    const WORD: u32 = 0x1234_5678;
+    let fixture = Fixture::new();
+    let mut vm = Vmm::new_resume(fixture.config(1)).unwrap();
+    let bytes: Vec<u8> = [0xe192_1f9fu32, 0xe182_3f91] // LDREX r1, [r2]; STREX r3, r1, [r2].
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    let memory = vm.guest_mem.memory().clone();
+    memory.write_slice(&bytes, GuestAddress(CODE)).unwrap();
+    memory.write_obj(WORD.to_le(), GuestAddress(DATA)).unwrap();
+    let CpuState::Aarch32(mut state) = vm.vcpus[0].get_state().unwrap() else {
+        panic!("expected AArch32 state");
+    };
+    state.regs.pc = (CODE + 4) as u32;
+    state.regs.r[1] = 0xa5a5_a5a5;
+    state.regs.r[2] = DATA as u32;
+    vm.vcpus[0].set_state(&CpuState::Aarch32(state)).unwrap();
+    let projected = SnapshotBundle::new(vm.take_snapshot(0).unwrap())
+        .with_cpus(vm.capture_cpu_states().unwrap())
+        .unwrap();
+    projected.save(&fixture.checkpoint).unwrap();
+    let projected = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+
+    let acquire = |vm: &mut Vmm| {
+        vm.vcpus[0].set_current_pc(CODE).unwrap();
+        assert!(vm.vcpus[0].step_insn().unwrap().is_none());
+        assert_eq!(vm.vcpus[0].current_pc(), CODE + 4);
+    };
+    let store_status = |vm: &mut Vmm| {
+        assert!(vm.vcpus[0].step_insn().unwrap().is_none());
+        let CpuState::Aarch32(state) = vm.vcpus[0].get_state().unwrap() else {
+            panic!("expected AArch32 state");
+        };
+        assert_eq!(vm.vcpus[0].current_pc(), CODE + 8);
+        state.regs.r[3]
+    };
+    acquire(&mut vm);
+    let complete = vm.take_snapshot_bundle(1).unwrap();
+    vm.restore_snapshot(projected.base()).unwrap();
+    assert_eq!(
+        store_status(&mut vm),
+        1,
+        "base restore inherited target LDREX"
+    );
+    assert_eq!(
+        memory.read_obj::<u32>(GuestAddress(DATA)).unwrap().to_le(),
+        WORD
+    );
+
+    acquire(&mut vm);
+    vm.restore_snapshot_bundle(&projected).unwrap();
+    assert_eq!(
+        store_status(&mut vm),
+        1,
+        "projected restore inherited target LDREX"
+    );
+    assert_eq!(
+        memory.read_obj::<u32>(GuestAddress(DATA)).unwrap().to_le(),
+        WORD
+    );
+
+    vm.restore_snapshot_bundle(&complete).unwrap();
+    assert_eq!(
+        store_status(&mut vm),
+        0,
+        "complete restore lost the saved LDREX"
+    );
+}
+
 struct PrivateComparison {
     records: Vec<Option<BackendContext>>,
     heartbeat_epochs: Vec<Option<(crate::host::time::Instant, crate::host::time::Instant)>>,
