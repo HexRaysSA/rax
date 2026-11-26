@@ -569,14 +569,18 @@ impl Files {
     #[cfg(any(target_os = "linux", target_os = "macos", test))]
     pub(super) fn with_native_symlink(&self, path: &str, target: &str) -> Result<Self, Error> {
         validate(target)?;
-        if self.default_runtime_entry_available(path)? {
+        if self.default_runtime_entry_available(path, Some(target.as_bytes()))? {
             return self.with_kind(path.into(), Kind::Symlink(Arc::from(target.as_bytes())));
         }
         Ok(self.clone())
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos", test))]
-    fn default_runtime_entry_available(&self, path: &str) -> Result<bool, Error> {
+    pub(super) fn default_runtime_entry_available(
+        &self,
+        path: &str,
+        known_native_link: Option<&[u8]>,
+    ) -> Result<bool, Error> {
         if self.caller_roots.as_ref().is_some_and(|roots| {
             roots.paths().any(|root| {
                 root == "/"
@@ -590,7 +594,15 @@ impl Files {
         }
         match self.lookup_with_follow(path, false) {
             Err(Error::NotFound) => Ok(true),
-            Ok(_) | Err(Error::NotDirectory) => Ok(false),
+            Ok((_, entry)) => Ok(known_native_link.is_some_and(|target| {
+                !self.entries.contains_key(path)
+                    && entry.link_target() == Some(target)
+                    && self
+                        .native_libraries
+                        .as_ref()
+                        .is_some_and(|roots| roots.owns(&entry))
+            })),
+            Err(Error::NotDirectory) => Ok(false),
             Err(error) => Err(error),
         }
     }
@@ -598,7 +610,7 @@ impl Files {
     #[cfg(any(target_os = "macos", test))]
     pub(super) fn with_darwin_descriptor_names(&self) -> Result<Self, Error> {
         let mut names = Vec::new();
-        if self.default_runtime_entry_available("/dev/fd")? {
+        if self.default_runtime_entry_available("/dev/fd", None)? {
             names.push(("/dev/fd".into(), Kind::DarwinDescriptorDirectory));
         }
         for (path, target) in [
@@ -606,7 +618,7 @@ impl Files {
             ("/dev/stdout", b"fd/1".as_slice()),
             ("/dev/stderr", b"fd/2".as_slice()),
         ] {
-            if self.default_runtime_entry_available(path)? {
+            if self.default_runtime_entry_available(path, None)? {
                 names.push((path.into(), Kind::Symlink(Arc::from(target))));
             }
         }
@@ -816,10 +828,11 @@ impl Files {
         roots: BTreeMap<String, std::path::PathBuf>,
         accept: Option<roots::AcceptFile>,
         confined_mounts: &'static [&'static str],
+        jointly_confined_mounts: &'static [&'static str],
     ) -> std::io::Result<Self> {
         self.with_library_roots(
             roots,
-            roots::Origin::linux_installed(accept, confined_mounts),
+            roots::Origin::linux_installed(accept, confined_mounts, jointly_confined_mounts),
         )
     }
 
@@ -2310,6 +2323,7 @@ mod tests {
             .with_linux_library_roots(
                 BTreeMap::from([("/lib".into(), fixture.dir.clone())]),
                 None,
+                &[],
                 &[],
             )
             .unwrap();

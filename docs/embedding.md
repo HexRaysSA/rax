@@ -63,6 +63,13 @@ explicitly rejected on Windows. Windows ELF startup also rejects missing
 placeholder mapping APIs before guest execution; private PE execution retains
 its existing fallback.
 
+On Linux, `native_runtime` supplies the installed OpenSSL configuration
+at `/etc/ssl/openssl.cnf` and public PEM certificates from the distribution
+and local CA stores. The `/usr/lib/ssl` aliases can resolve through those
+paths on distributions such as Debian. Certificate links stay within the
+selected CA stores. Private-key directories and mixed certificate/key PEM
+files are excluded from runtime selection.
+
 Darwin also provides a portable closed Rust profile through
 `DarwinConfig::embedded` for x86-64 and AArch64 Mach-O images. It uses a supplied
 POSIX namespace, captured streams, seeded entropy, virtual identity, and

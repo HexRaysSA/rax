@@ -20,6 +20,7 @@ pub(super) struct Origin {
     darwin_installed: bool,
     observe_symlinks: bool,
     confined_mounts: &'static [&'static str],
+    jointly_confined_mounts: &'static [&'static str],
     mounts_omitting_unreadable_files: &'static [&'static str],
     max_entries: usize,
 }
@@ -32,6 +33,7 @@ impl Origin {
         darwin_installed: false,
         observe_symlinks: false,
         confined_mounts: &[],
+        jointly_confined_mounts: &[],
         mounts_omitting_unreadable_files: &[],
         max_entries: MAX_ENTRIES,
     };
@@ -40,6 +42,7 @@ impl Origin {
     pub(super) fn linux_installed(
         accept: Option<AcceptFile>,
         confined_mounts: &'static [&'static str],
+        jointly_confined_mounts: &'static [&'static str],
     ) -> Self {
         Self {
             inode_base: 0xc000_0000_0000_0000,
@@ -48,6 +51,7 @@ impl Origin {
             darwin_installed: false,
             observe_symlinks: true,
             confined_mounts,
+            jointly_confined_mounts,
             mounts_omitting_unreadable_files: &[],
             max_entries: MAX_ENTRIES,
         }
@@ -66,10 +70,15 @@ impl Origin {
             darwin_installed: true,
             observe_symlinks: false,
             confined_mounts,
+            jointly_confined_mounts: &[],
             mounts_omitting_unreadable_files,
             // The system locale tree alone can contain over 2048 entries.
             max_entries: 4096,
         }
+    }
+
+    fn confined(&self, mount: &str) -> bool {
+        self.confined_mounts.contains(&mount) || self.jointly_confined_mounts.contains(&mount)
     }
 }
 
@@ -145,11 +154,17 @@ impl Roots {
         }
         let path = host.join(relative);
         let canonical = std::fs::canonicalize(path).map_err(path_error)?;
-        let confined = self.origin.confined_mounts.contains(&root);
-        let allowed = if confined {
+        let group = self.origin.jointly_confined_mounts;
+        let allowed = if group.contains(&root) {
+            self.roots
+                .iter()
+                .any(|(mount, host)| group.contains(&mount.as_str()) && canonical.starts_with(host))
+        } else if self.origin.confined_mounts.contains(&root) {
             canonical.starts_with(host)
         } else {
-            self.roots.values().any(|root| canonical.starts_with(root))
+            self.roots.iter().any(|(mount, host)| {
+                !group.contains(&mount.as_str()) && canonical.starts_with(host)
+            })
         };
         if !allowed {
             return Err(Error::NotFound);
@@ -298,11 +313,10 @@ impl Roots {
         let Some(target) = link_target(&parent.join(name))? else {
             return Ok(None);
         };
-        // A confined mount may expose internal aliases. An alias leaving the
-        // mount must not be followed through another selected guest root.
+        // A confined mount can expose aliases inside its allowed roots.
         if self
             .mount(path)
-            .is_some_and(|(root, _)| self.origin.confined_mounts.contains(&root))
+            .is_some_and(|(root, _)| self.origin.confined(root))
         {
             match self.host(path) {
                 Ok(_) => {}

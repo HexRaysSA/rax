@@ -12,6 +12,8 @@ use std::{
 };
 #[cfg(any(target_os = "linux", test))]
 mod ld_cache;
+#[cfg(any(target_os = "linux", test))]
+mod openssl;
 
 #[cfg(any(target_os = "linux", test))]
 const PERL_MODULE_ROOTS: &[&str] = &["/usr/share/perl", "/usr/share/perl5"];
@@ -49,8 +51,9 @@ const CONFINED_ROOTS: &[&str] = &[
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, plus installed
 /// executable programs, the packaged stdbuf helper, Perl modules, compiled
-/// terminfo, GNU message catalogs, timezone, protocol and service data. Include
-/// guest loopback names and a synthetic `/dev/null` in the guest namespace. Explicit
+/// terminfo, GNU message catalogs, OpenSSL configuration and public CA trust,
+/// timezone, protocol and service data. Include guest loopback names and a
+/// synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
 pub fn native(files: &Files) -> io::Result<Files> {
@@ -121,6 +124,16 @@ fn select_installed_for_executable(
             roots.insert(path.into(), host);
         }
     }
+    let canonical_root = root.canonicalize()?;
+    for &path in openssl::CERTIFICATE_ROOTS {
+        let host = canonical_root.join(path.trim_start_matches('/'));
+        if unshadowed(path)
+            && host.is_dir()
+            && host.canonicalize().is_ok_and(|canonical| canonical == host)
+        {
+            roots.insert(path.into(), host);
+        }
+    }
     for &[legacy, standard] in PROGRAM_ROOTS.as_chunks::<2>().0 {
         let host_legacy = root.join(legacy.trim_start_matches('/'));
         let host_standard = root.join(standard.trim_start_matches('/'));
@@ -166,6 +179,40 @@ fn select_installed_for_executable(
         .filter(|(_, host)| host.symlink_metadata().is_ok_and(|info| info.is_file()))
         .collect();
     let files = files.with_host_files(databases)?;
+    let config = canonical_root.join(openssl::CONFIG.trim_start_matches('/'));
+    let mut files = if unshadowed(openssl::CONFIG)
+        && files
+            .default_runtime_entry_available(openssl::CONFIG, None)
+            .map_err(io::Error::other)?
+        && config.is_file()
+        && config
+            .canonicalize()
+            .is_ok_and(|canonical| canonical == config)
+    {
+        files.with_host_file(openssl::CONFIG.into(), &config)?
+    } else {
+        files
+    };
+    // These package aliases can cross from the library mount to separately
+    // selected guest paths. Record them as links resolved inside the guest.
+    if canonical_root
+        .join("usr/lib/ssl")
+        .canonicalize()
+        .is_ok_and(|path| path == canonical_root.join("usr/lib/ssl"))
+    {
+        for &(alias, target) in openssl::ALIASES {
+            if unshadowed(alias)
+                && canonical_root
+                    .join(alias.trim_start_matches('/'))
+                    .read_link()
+                    .is_ok_and(|path| path == Path::new(target))
+            {
+                files = files
+                    .with_native_symlink(alias, target)
+                    .map_err(io::Error::other)?;
+            }
+        }
+    }
     // Some distributions install this exact alias to the selected /etc file.
     // Record the link in the guest without traversing it on the host.
     let alias = root.join(LOCALE_ALIAS.trim_start_matches('/'));
@@ -225,7 +272,10 @@ fn select(
     #[cfg(target_os = "linux")]
     let library_roots = roots
         .keys()
-        .filter(|name| !CONFINED_ROOTS.contains(&name.as_str()))
+        .filter(|name| {
+            !CONFINED_ROOTS.contains(&name.as_str())
+                && !openssl::CERTIFICATE_ROOTS.contains(&name.as_str())
+        })
         .cloned()
         .collect::<Vec<_>>();
     let files = files
@@ -233,8 +283,12 @@ fn select(
         .and_then(|files| files.with_device(Device::Zero))
         .and_then(|files| files.with_device(Device::Urandom))
         .map_err(io::Error::other)?;
-    let files =
-        files.with_linux_library_roots(roots, Some(accept_installed_file), CONFINED_ROOTS)?;
+    let files = files.with_linux_library_roots(
+        roots,
+        Some(accept_installed_file),
+        CONFINED_ROOTS,
+        openssl::CERTIFICATE_ROOTS,
+    )?;
     let Some(cache) = cache.filter(|_| files.lookup("/etc/ld.so.cache").is_err()) else {
         return Ok(files);
     };
@@ -254,6 +308,9 @@ fn under_root(path: &str, roots: &[&str]) -> bool {
 
 #[cfg(any(target_os = "linux", test))]
 fn accept_installed_file(path: &str, host: &Path, _file: &std::fs::File) -> io::Result<bool> {
+    if under_root(path, openssl::CERTIFICATE_ROOTS) {
+        return openssl::accept_certificate(_file);
+    }
     #[cfg(target_os = "linux")]
     if under_root(path, &PROGRAM_ROOTS) {
         return accept_installed_program(_file);
@@ -748,6 +805,97 @@ mod tests {
         assert_eq!(&*selected.read("/sbin/system-tool").unwrap(), &elf);
         assert!(matches!(
             selected.read("/sbin/escape"),
+            Err(Error::NotFound)
+        ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_openssl_uses_public_trust_roots_and_configuration() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, os::unix::fs::symlink, sync::Arc};
+
+        const CERTIFICATE: &[u8] =
+            b"-----BEGIN CERTIFICATE-----\nQUJDRA==\n-----END CERTIFICATE-----\n";
+        const KEY: &[u8] = b"-----BEGIN PRIVATE KEY-----\nQUJDRA==\n-----END PRIVATE KEY-----\n";
+        let fixture = TestFile::new(b"unused", 6);
+        let root = &fixture.dir;
+        for path in [
+            "usr/lib/ssl",
+            "etc/ssl/certs",
+            "etc/ssl/private",
+            "usr/share/ca-certificates/mozilla",
+        ] {
+            fs::create_dir_all(root.join(path)).unwrap();
+        }
+        fs::write(
+            root.join("usr/share/ca-certificates/mozilla/root.crt"),
+            CERTIFICATE,
+        )
+        .unwrap();
+        fs::write(root.join("etc/ssl/certs/ca-certificates.crt"), CERTIFICATE).unwrap();
+        fs::write(
+            root.join("etc/ssl/certs/mixed.pem"),
+            [CERTIFICATE, KEY].concat(),
+        )
+        .unwrap();
+        fs::write(root.join("etc/ssl/private/key.pem"), KEY).unwrap();
+        fs::write(root.join("usr/lib/outside.pem"), CERTIFICATE).unwrap();
+        fs::write(root.join("etc/ssl/openssl.cnf"), b"[ req ]\n").unwrap();
+        for (name, target) in [
+            ("usr/lib/ssl/certs", "/etc/ssl/certs"),
+            ("usr/lib/ssl/private", "/etc/ssl/private"),
+            ("usr/lib/ssl/openssl.cnf", "/etc/ssl/openssl.cnf"),
+            ("etc/ssl/certs/01234567.0", "root.pem"),
+            (
+                "etc/ssl/certs/root.pem",
+                "../../../usr/share/ca-certificates/mozilla/root.crt",
+            ),
+            ("etc/ssl/certs/escape", "../../../usr/lib/outside.pem"),
+            ("usr/lib/mixed.pem", "../../etc/ssl/certs/mixed.pem"),
+        ] {
+            symlink(target, root.join(name)).unwrap();
+        }
+
+        let files = Files::default();
+        let selected = select_installed(&files, root).unwrap();
+        for path in [
+            "/usr/lib/ssl/certs/01234567.0",
+            "/etc/ssl/certs/ca-certificates.crt",
+            "/usr/share/ca-certificates/mozilla/root.crt",
+        ] {
+            assert_eq!(&*selected.read(path).unwrap(), CERTIFICATE, "{path}");
+        }
+        assert_eq!(
+            &*selected.read("/usr/lib/ssl/openssl.cnf").unwrap(),
+            b"[ req ]\n"
+        );
+        for path in [
+            "/etc/ssl/certs/escape",
+            "/etc/ssl/certs/mixed.pem",
+            "/etc/ssl/private/key.pem",
+            "/usr/lib/mixed.pem",
+            "/usr/lib/ssl/private/key.pem",
+        ] {
+            assert!(
+                matches!(selected.lookup(path), Err(Error::NotFound)),
+                "{path}"
+            );
+        }
+        let supplied = files
+            .with_file(
+                openssl::CONFIG.into(),
+                Arc::from(b"guest config".as_slice()),
+            )
+            .unwrap();
+        let selected = select_installed(&supplied, root).unwrap();
+        assert_eq!(
+            &*selected.read("/usr/lib/ssl/openssl.cnf").unwrap(),
+            b"guest config"
+        );
+        let selected = select_installed_for_executable(&files, root, Some("/etc/ssl")).unwrap();
+        assert!(matches!(
+            selected.lookup(openssl::CONFIG),
             Err(Error::NotFound)
         ));
     }

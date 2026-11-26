@@ -348,6 +348,7 @@ fn installed_library_links_support_metadata_and_path_descriptors_all_abis() {
             ]),
             None,
             &[],
+            &[],
         )
         .unwrap();
     assert_eq!(
