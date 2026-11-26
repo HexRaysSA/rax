@@ -124,6 +124,36 @@ detached checkpoint. Settling the guest's stopped Register C read lowered
 the kernel line. The resumed guest reported the expected `0xc0` byte.
 [Hosted KVM run for `db443e45b`](https://github.com/HexRaysSA/rax/actions/runs/44750698131/job/136337513983)
 
+### IRQ8 at guest PIO boundaries
+
+The VMM samples the RTC before servicing a guest PIO access to either CMOS
+port, then publishes the device's resulting IRQ8 level without advancing the
+clock. Register C acknowledges the active flags through a read. Its IRQ8
+deassertion reaches the interrupt controller before another clock sample,
+including when the device read succeeds and the CPU reply fails. Sampling
+before a Register A write accounts for any tick already due under the outgoing
+rate. Stopped checkpoint settlement and normal guest execution use the same
+port-width overlap check for scalars and fixed-port string input.
+[DS12885/DS12887 datasheet, Control Register C and Table 3](https://www.analog.com/media/en/technical-documentation/data-sheets/ds12885-ds12c887a.pdf)
+
+At 1,024 Hz the period is `10^9 ns / 1024 = 976,562.5 ns`. The retired-clock
+tests sample the first period at the next integer nanosecond (`976,563 ns`)
+and the second at `1,953,125 ns`. The scalar Register C read returns `0xc0`.
+The two-element word read starts each element at port `0x70`, returning
+`[0x0c, 0xc0, 0x0c, 0x00]`. Both paths require a new PIC vector `0x28` when
+the next period elapses. A separate word output changes the rate to disabled
+at `976,563 ns` and requires vector `0x28` for the tick already due. Before the
+fix, the scalar acknowledgement test and the rate write both lost that
+delivery. Both regressions pass through the normal VMM dispatcher with a
+retired clock and the software interrupt controller. The local suite passed
+40 PC interrupt, 34 RTC device, 5 PIO dispatch and 30 VM execution tests.
+Native delivery for these exact cases is unverified.
+
+| ID | Basis and dependent result | Falsification probe | Status |
+| --- | --- | --- | --- |
+| RTC-PIO-1 | The attached PC routes CMOS PIO at `0x70` and `0x71`, including the second lane of a word access. IRQ8 publication depends on detecting that lane. | Read two words at fixed port `0x70` across a failed CPU reply and inspect the returned bytes and deasserted IRQ8 before polling again. | Exercised locally |
+| RTC-PIO-2 | The modeled periodic timer accrues time at the programmed rate. Delivery of an elapsed tick depends on sampling before the rate changes. | Disable the rate with an output at the first integer nanosecond at or after the period boundary and require an IRQ8 vector. | Exercised locally |
+
 ## Software PIC input levels
 
 RAXPCD05 places three bytes before the existing RTC timing prefix. The first

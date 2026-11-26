@@ -1291,6 +1291,141 @@ fn i8042_irq1_tracks_the_command_gate_while_the_output_latch_stays_full() {
 }
 
 #[test]
+fn rtc_guest_acknowledgement_releases_irq8_before_the_next_period() {
+    use crate::vm::runtime::coordinator::ExecutionTurn;
+    use crate::vm::timing::TimingContext;
+    use crate::vm::vcpu::VCpu;
+
+    struct TimedReply {
+        clock: Arc<TimingContext>,
+        data: Vec<u8>,
+        fail: bool,
+    }
+    impl VCpu for TimedReply {
+        fn id(&self) -> u32 {
+            0
+        }
+
+        fn run(&mut self) -> Result<VcpuExit> {
+            unreachable!("the fixture supplies a pending input exit")
+        }
+
+        fn get_state(&self) -> Result<CpuState> {
+            unreachable!("the round only completes an input")
+        }
+
+        fn set_state(&mut self, _state: &CpuState) -> Result<()> {
+            unreachable!("the round only completes an input")
+        }
+
+        fn complete_io_in(&mut self, data: &[u8]) {
+            assert_eq!(data, self.data);
+            self.clock.set_resume_base(1_953_125);
+        }
+
+        fn io_completion_result(&self) -> Result<()> {
+            if self.fail {
+                return Err(Error::Emulator("injected CPU reply failure".into()));
+            }
+            Ok(())
+        }
+    }
+
+    for fail in [false, true] {
+        let mut fixture = Fixture::with_retired_clock();
+        let vm = &mut fixture.vm;
+        vm.io_bus.write(0x21, &[0xfb]).unwrap();
+        vm.io_bus.write(0xa1, &[0xfe]).unwrap();
+        vm.io_bus.write(0x70, &[0x0b, 0xc2]).unwrap();
+        vm.timing_context.set_resume_base(976_563);
+        vm.poll_pc_rtc().unwrap();
+        assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(0x28));
+        vm.io_bus.write(0xa0, &[0x20]).unwrap();
+        vm.io_bus.write(0x20, &[0x20]).unwrap();
+        vm.io_bus.write(0x70, &[0x0c]).unwrap();
+
+        let (exit, data) = if fail {
+            (
+                VcpuExit::IoInString {
+                    port: 0x70,
+                    size: 2,
+                    count: 2,
+                },
+                vec![0x0c, 0xc0, 0x0c, 0],
+            )
+        } else {
+            (
+                VcpuExit::IoIn {
+                    port: 0x71,
+                    size: 1,
+                },
+                vec![0xc0],
+            )
+        };
+        vm.vcpus[0] = Box::new(TimedReply {
+            clock: vm.timing_context.clone(),
+            data,
+            fail,
+        });
+        let result = vm.apply_native_round(&mut vec![ExecutionTurn {
+            cpu_index: 0,
+            exit,
+            #[cfg(feature = "debug")]
+            debug_step_completed: false,
+        }]);
+        if fail {
+            assert!(
+                matches!(result, Err(Error::Emulator(message)) if message == "injected CPU reply failure")
+            );
+            assert!(
+                !vm.pc_devices
+                    .as_ref()
+                    .unwrap()
+                    .rtc
+                    .lock()
+                    .unwrap()
+                    .published_irq
+            );
+            vm.route_pc_interrupts().unwrap();
+        } else {
+            assert!(!result.unwrap());
+        }
+        assert_eq!(
+            vm.pic.lock().unwrap().get_pending_vector(),
+            Some(0x28),
+            "the second RTC period must raise a fresh edge (reply failure={fail})"
+        );
+    }
+}
+
+#[test]
+fn rtc_guest_rate_write_samples_the_old_clock_before_changing_the_divisor() {
+    use crate::vm::runtime::coordinator::ExecutionTurn;
+
+    let mut fixture = Fixture::with_retired_clock();
+    let vm = &mut fixture.vm;
+    vm.io_bus.write(0x21, &[0xfb]).unwrap();
+    vm.io_bus.write(0xa1, &[0xfe]).unwrap();
+    vm.io_bus.write(0x70, &[0x0b, 0xc2]).unwrap();
+    vm.timing_context.set_resume_base(976_563);
+
+    // An OUTW writes the index and turns off subsequent periodic events.
+    assert!(
+        !vm.apply_native_round(&mut vec![ExecutionTurn {
+            cpu_index: 0,
+            exit: VcpuExit::IoOut {
+                port: 0x70,
+                data: vec![0x0a, 0x20]
+            },
+            #[cfg(feature = "debug")]
+            debug_step_completed: false,
+        }])
+        .unwrap()
+    );
+    assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(0x28));
+}
+
+#[test]
 fn failed_native_rtc_acknowledgement_disables_guest_entry() {
     use crate::backend::Vm;
     use crate::vm::vcpu::VCpu;

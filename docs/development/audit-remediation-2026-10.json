@@ -201114,6 +201114,14 @@
       "full_goal_complete": false
     },
     {
+      "id": "pc-rtc-guest-pio-irq8-2026-11-26",
+      "findings": ["C-STATE", "C-HVF"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Normal PC guest CMOS PIO samples elapsed time before device access and publishes the resulting IRQ8 level before the next sample, including after a failed CPU input reply. Local retired-clock regressions cover scalar Register C input, fixed-port word string input and the outgoing periodic rate at a word output. Native execution of these regressions and full checkpoint and interrupt coverage remain open.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#irq8-at-guest-pio-boundaries",
+      "full_goal_complete": false
+    },
+    {
       "id": "hvf-bmi1-device-reads-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
       "status": "hosted_intel_qualified_full_findings_open",

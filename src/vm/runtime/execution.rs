@@ -464,10 +464,15 @@ impl Vmm {
         let mut shutdown = false;
         #[cfg(feature = "debug")]
         let mut debug_stop = turn.debug_step_completed;
-        let vcpu = self
-            .vcpus
-            .get_mut(turn.cpu_index)
-            .ok_or_else(|| Error::InvalidConfig("selected vCPU is missing".into()))?;
+        if turn.cpu_index >= self.vcpus.len() {
+            return Err(Error::InvalidConfig("selected vCPU is missing".into()).into());
+        }
+        let rtc = port_io::touches_rtc(&turn.exit);
+        if rtc {
+            // Account for ticks due before the guest changes the RTC registers.
+            self.poll_pc_rtc()?;
+        }
+        let vcpu = &mut self.vcpus[turn.cpu_index];
 
         let keyboard = self.pc_devices.as_ref().map(|pc| port_io::KeyboardIrqs {
             pc,
@@ -547,7 +552,13 @@ impl Vmm {
                     vcpu.complete_io_in(&data);
                     vcpu.io_completion_result()
                 };
-                let irq = self.sync_pc_serial_pio_input(port);
+                // Publish a Register C acknowledgement before sampling time
+                // again, even if the CPU could not accept the port reply.
+                let irq = if rtc {
+                    self.sync_pc_rtc_irq(None)
+                } else {
+                    self.sync_pc_serial_pio_input(port)
+                };
                 TurnFailure::check_io_reply(completion, irq)?;
             }
             VcpuExit::IoOut { port, data } => {
@@ -571,13 +582,18 @@ impl Vmm {
                     }
                     publish_kvm_shutdown(&*self.vm)?;
                 }
-                vcpu.complete_io_out().map_err(|error| {
-                    if shutdown {
-                        TurnFailure::Round(error)
-                    } else {
-                        TurnFailure::CpuLocal(error)
-                    }
-                })?;
+                let completion = vcpu.complete_io_out();
+                if rtc {
+                    TurnFailure::check_io_reply(completion, self.sync_pc_rtc_irq(None))?;
+                } else {
+                    completion.map_err(|error| {
+                        if shutdown {
+                            TurnFailure::Round(error)
+                        } else {
+                            TurnFailure::CpuLocal(error)
+                        }
+                    })?;
+                }
             }
             VcpuExit::MmioRead { addr, size } => {
                 let mut data = vec![0u8; size as usize];

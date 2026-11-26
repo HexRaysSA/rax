@@ -2,13 +2,26 @@
 use super::{SERIAL_BASE, publish_native_serial_irq};
 use crate::backend::Vm;
 use crate::config::BackendKind;
+use crate::cpu::VcpuExit;
 use crate::devices::bus::{IoBus, IoDevice};
 use crate::devices::i8042::{DATA_PORT, I8042, STATUS_PORT};
 use crate::devices::pic::DualPic;
+use crate::devices::rtc::{RTC_ADDRESS, RTC_DATA};
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
 use crate::machine::pc::PcDevices;
 use std::sync::{Arc, Mutex};
+
+pub(super) fn touches_rtc(exit: &VcpuExit) -> bool {
+    let (port, width) = match exit {
+        VcpuExit::IoIn { port, size } | VcpuExit::IoInString { port, size, .. } => {
+            (*port, usize::from(*size))
+        }
+        VcpuExit::IoOut { port, data } => (*port, data.len()),
+        _ => return false,
+    };
+    port <= RTC_DATA && width > usize::from(RTC_ADDRESS.saturating_sub(port))
+}
 
 pub(super) struct KeyboardIrqs<'a> {
     pub(super) pc: &'a PcDevices,

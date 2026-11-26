@@ -26,21 +26,11 @@ impl Vmm {
         cpu: usize,
         event: VcpuExit,
     ) -> Result<CheckpointIoReply> {
-        let port = match &event {
-            VcpuExit::IoIn { port, size } | VcpuExit::IoInString { port, size, .. } => {
-                Some((*port, usize::from(*size)))
-            }
-            VcpuExit::IoOut { port, data } => Some((*port, data.len())),
-            _ => None,
-        };
         let serial_input = match &event {
             VcpuExit::IoIn { port, .. } | VcpuExit::IoInString { port, .. } => Some(*port),
             _ => None,
         };
-        let rtc = port.is_some_and(|(port, width)| {
-            use crate::devices::rtc::{RTC_ADDRESS, RTC_DATA};
-            port <= RTC_DATA && width > usize::from(RTC_ADDRESS.saturating_sub(port))
-        });
+        let rtc = port_io::touches_rtc(&event);
         if rtc {
             self.poll_pc_rtc()?;
         }
