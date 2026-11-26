@@ -693,6 +693,23 @@ pub(super) fn open_target(
                     status,
                 ));
             }
+            if let FileObject::GuestPipe(end) = &file.object {
+                if flags & O_PATH == 0 {
+                    let need = match accmode {
+                        O_RDONLY => 4,
+                        O_WRONLY => 2,
+                        O_RDWR => 6,
+                        _ => return Err(Errno(EINVAL)),
+                    };
+                    if !end.permits(c.p.creds.1, need) {
+                        return Err(Errno(EACCES));
+                    }
+                    if flags & layout.direct != 0 {
+                        return Err(Errno(EINVAL));
+                    }
+                }
+                return end.reopen(status);
+            }
             let FileObject::Supplied(entry) = &file.object else {
                 return Err(Errno(ENOENT));
             };
@@ -1131,32 +1148,48 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             Ok(0)
         }
         Target::Supplied(entry, _) => supplied_entry_access(c, &entry, amode, ids),
-        Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => match &file.object {
-            FileObject::Supplied(entry) => supplied_entry_access(c, entry, amode, ids),
-            FileObject::Console { stream, .. } => console_access(stream.is_none(), amode),
-            _ => Err(Errno(ENOENT)),
-        },
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => {
+            descriptor_access(c, &file, amode, ids, follow, flags)
+        }
         Target::Proc(..) => Ok(0),
-        Target::Fd(f) => match (&f.object, &f.host_path) {
-            (FileObject::Supplied(entry), _) => supplied_entry_access(c, entry, amode, ids),
-            (FileObject::Console { stream, .. }, _) => console_access(stream.is_none(), amode),
-            (_, _) if f.supplied_stat.is_some() => {
-                supplied_access(amode, f.ftype == FileType::CharDevice)
-            }
-            #[cfg(unix)]
-            (_, Some(h)) => {
-                super::super::host::access(h, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
-            }
-            #[cfg(not(unix))]
-            (_, Some(_)) => Err(Errno(EPERM)),
-            (_, None) => Ok(0),
-        },
+        Target::Fd(file) => descriptor_access(c, &file, amode, ids, follow, flags),
         #[cfg(not(unix))]
         Target::Host { .. } => Err(Errno(EPERM)),
         #[cfg(unix)]
         Target::Host { host, .. } => {
             super::super::host::access(&host, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
         }
+    }
+}
+
+fn descriptor_access(
+    c: &Ctx<'_>,
+    file: &OpenFile,
+    amode: u32,
+    ids: (u32, u32),
+    follow: bool,
+    flags: u32,
+) -> SysResult {
+    match (&file.object, &file.host_path) {
+        (FileObject::Supplied(entry), _) => supplied_entry_access(c, entry, amode, ids),
+        (FileObject::Console { stream, .. }, _) => console_access(stream.is_none(), amode),
+        (FileObject::GuestPipe(end), _) => {
+            if end.permits(ids.0, amode) {
+                Ok(0)
+            } else {
+                Err(Errno(EACCES))
+            }
+        }
+        (_, _) if file.supplied_stat.is_some() => {
+            supplied_access(amode, file.ftype == FileType::CharDevice)
+        }
+        #[cfg(unix)]
+        (_, Some(host)) => {
+            super::super::host::access(host, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
+        }
+        #[cfg(not(unix))]
+        (_, Some(_)) => Err(Errno(EPERM)),
+        (_, None) => Ok(0),
     }
 }
 
@@ -1819,6 +1852,11 @@ fn supplied_statfs(
 pub(super) fn statfs_path(c: &mut Ctx<'_>, path: u64) -> Result<Kstatfs, Errno> {
     match resolve(c, AT_FDCWD, path, 0, true)? {
         Target::Supplied(entry, _) => supplied_statfs(c, Some(&entry)),
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _)
+            if matches!(file.object, FileObject::GuestPipe(_)) =>
+        {
+            Ok(synthetic_fs(PIPEFS_MAGIC))
+        }
         Target::Proc(..) => Ok(synthetic_fs(PROC_SUPER_MAGIC)),
         #[cfg(not(unix))]
         Target::Host { .. } => Err(Errno(EPERM)),

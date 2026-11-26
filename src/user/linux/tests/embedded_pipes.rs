@@ -1,6 +1,6 @@
 use super::harness::{Harness, P, each_abi};
 use crate::user::linux::abi::errno_table::*;
-use crate::user::linux::abi::open::{O_CLOEXEC, O_EXCL, O_NONBLOCK};
+use crate::user::linux::abi::open::{O_CLOEXEC, O_EXCL, O_NONBLOCK, O_PATH, O_RDWR, O_WRONLY};
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::signal::SIGPIPE;
 use crate::user::linux::syscall::ready::{ev, raw_fd};
@@ -13,6 +13,7 @@ const F_SETPIPE_SZ: u64 = 1031;
 const F_GETPIPE_SZ: u64 = 1032;
 const FIONREAD: u64 = 0x541b;
 const THREAD_FLAGS: u64 = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD;
+const AT_FDCWD: u64 = -100i64 as u64;
 
 fn pipe(h: &mut Harness, flags: u32) -> (u64, u64) {
     let at = h.scratch;
@@ -26,6 +27,111 @@ fn pipe(h: &mut Harness, flags: u32) -> (u64, u64) {
         assert!(raw_fd(&file).is_none());
     }
     (reader.into(), writer.into())
+}
+
+fn pipe_path(h: &Harness, fd: u64) -> u64 {
+    let path = h.scratch + 384;
+    h.proc
+        .space()
+        .write(path, format!("/proc/self/fd/{fd}\0").as_bytes())
+        .unwrap();
+    path
+}
+
+#[test]
+fn closed_linux_pipe_reopen_preserves_identity_and_access() {
+    each_abi(|abi| {
+        let mut h = Harness::embedded(abi);
+        let (rd, wr) = pipe(&mut h, 0);
+        let path = pipe_path(&h, rd);
+        let buf = h.scratch + 128;
+        let owner = h.proc.state.creds.1;
+        h.proc.state.creds.1 = if owner == 1000 { 1001 } else { 1000 };
+        assert_eq!(
+            h.err(Sysno::Openat, &[AT_FDCWD, path, O_RDWR.into(), 0]),
+            EACCES
+        );
+        assert_eq!(
+            h.err(Sysno::Faccessat2, &[AT_FDCWD, path, 6, 0x200]),
+            EACCES
+        );
+        let path_fd = h.ok(Sysno::Openat, &[AT_FDCWD, path, O_PATH.into(), 0]);
+        h.proc.state.creds.1 = owner;
+
+        h.ok(Sysno::Faccessat2, &[AT_FDCWD, path, 6, 0x200]);
+        let direct = abi.open_flags().direct;
+        assert_eq!(
+            h.err(Sysno::Openat, &[AT_FDCWD, path, direct.into(), 0]),
+            EINVAL
+        );
+        assert_eq!(h.err(Sysno::Openat, &[AT_FDCWD, path, 3, 0]), EINVAL);
+        let flags = O_RDWR | O_NONBLOCK | O_CLOEXEC;
+        let both = h.ok(Sysno::Openat, &[AT_FDCWD, path, flags.into(), 0]);
+        assert_eq!(h.ok(Sysno::Fcntl, &[both, F_GETFD, 0]), 1);
+        assert_eq!(
+            h.ok(Sysno::Fcntl, &[both, F_GETFL, 0]) & u64::from(O_RDWR | O_NONBLOCK),
+            u64::from(O_RDWR | O_NONBLOCK)
+        );
+        assert_eq!(h.ok(Sysno::Fcntl, &[rd, F_GETFL, 0]), 0);
+
+        let stat = |h: &Harness, fd| {
+            let f = h.proc.state.fds.file(fd as i32).unwrap();
+            assert!(raw_fd(&f).is_none());
+            crate::user::linux::syscall::path::stat_open(&f, (0, 0)).unwrap()
+        };
+        assert_eq!(stat(&h, rd).ino, stat(&h, both).ino);
+        assert_eq!(stat(&h, rd).ino, stat(&h, path_fd).ino);
+        assert_eq!(h.err(Sysno::Read, &[both, buf, 1]), EAGAIN);
+        assert_eq!(h.err(Sysno::Read, &[path_fd, buf, 1]), EBADF);
+        assert_eq!(h.err(Sysno::Fcntl, &[path_fd, F_GETPIPE_SZ, 0]), EBADF);
+
+        h.proc.space().write(buf, b"ab").unwrap();
+        assert_eq!(h.ok(Sysno::Write, &[wr, buf, 2]), 2);
+        assert_eq!(h.ok(Sysno::Read, &[rd, buf + 16, 1]), 1);
+        assert_eq!(h.byte(buf + 16), b'a');
+        h.ok(Sysno::Close, &[rd]);
+        h.ok(Sysno::Close, &[wr]);
+        assert_eq!(h.ok(Sysno::Read, &[both, buf + 16, 1]), 1);
+        assert_eq!(h.byte(buf + 16), b'b');
+        assert_eq!(h.ok(Sysno::Write, &[both, buf, 2]), 2);
+        h.ok(Sysno::Close, &[both]);
+
+        // An O_PATH description keeps the inode alive without holding the
+        // FIFO open or keeping unread bytes after the last transfer end.
+        let path = pipe_path(&h, path_fd);
+        let reader = h.ok(Sysno::Openat, &[AT_FDCWD, path, 0, 0]);
+        assert_eq!(stat(&h, reader).ino, stat(&h, path_fd).ino);
+        assert_eq!(h.ok(Sysno::Read, &[reader, buf, 2]), 0);
+        h.ok(Sysno::Close, &[reader]);
+        let writer = h.ok(Sysno::Openat, &[AT_FDCWD, path, O_WRONLY.into(), 0]);
+        assert_eq!(h.err(Sysno::Write, &[writer, buf, 1]), EPIPE);
+    });
+}
+
+#[test]
+fn closed_linux_pipe_reopen_notifies_all_watching_descriptions() {
+    each_abi(|abi| {
+        let mut h = Harness::embedded(abi);
+        let (rd, wr) = pipe(&mut h, 0);
+        let rpath = pipe_path(&h, rd);
+        let second_reader = h.ok(Sysno::Openat, &[AT_FDCWD, rpath, 0, 0]);
+        let wpath = pipe_path(&h, wr);
+        let second_writer = h.ok(Sysno::Openat, &[AT_FDCWD, wpath, O_WRONLY.into(), 0]);
+        let epoll = h.ok(Sysno::EpollCreate1, &[0]);
+        epoll_add(&mut h, epoll, rd);
+        epoll_add(&mut h, epoll, second_reader);
+        let buf = h.scratch + 128;
+        h.proc.space().write(buf, b"x").unwrap();
+        assert_eq!(h.ok(Sysno::Write, &[second_writer, buf, 1]), 1);
+        assert_eq!(h.ok(Sysno::EpollPwait, &[epoll, buf, 2, 0, 0, 8]), 2);
+        assert_eq!(h.ok(Sysno::Read, &[rd, buf, 1]), 1);
+        h.ok(Sysno::Close, &[wr]);
+        assert_eq!(h.ok(Sysno::EpollPwait, &[epoll, buf, 2, 0, 0, 8]), 0);
+        h.ok(Sysno::Close, &[second_writer]);
+        assert_eq!(h.ok(Sysno::EpollPwait, &[epoll, buf, 2, 0, 0, 8]), 2);
+        assert_eq!(h.byte(buf), ev::HUP as u8);
+        assert_eq!(h.ok(Sysno::Read, &[second_reader, buf, 1]), 0);
+    });
 }
 
 fn poll_request(h: &Harness, at: u64, fd: u64, mask: u32) {
@@ -164,10 +270,13 @@ fn closed_linux_pipe_capacity_reservations_follow_endpoint_lifetimes() {
     let at = h.scratch;
     assert_eq!(h.err(Sysno::Pipe2, &[at, 0]), ENFILE);
     let (rd, wr) = endpoints.pop().unwrap();
+    let path = pipe_path(&h, rd);
+    let inode = h.ok(Sysno::Openat, &[AT_FDCWD, path, O_PATH.into(), 0]);
     h.ok(Sysno::Close, &[rd]);
     assert_eq!(h.err(Sysno::Pipe2, &[at, 0]), ENFILE);
     h.ok(Sysno::Close, &[wr]);
     assert_eq!(pipe(&mut h, 0), (rd, wr));
+    h.ok(Sysno::Close, &[inode]);
 }
 
 #[test]

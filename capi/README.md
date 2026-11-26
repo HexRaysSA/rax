@@ -752,6 +752,9 @@ Closed Linux supports anonymous `pipe` and `pipe2` descriptors, including
 packet mode, blocking and nonblocking I/O, close-on-exec, and readiness through
 `poll` and `epoll`. Buffers are guest-owned and reserve up to 64 MiB per guest
 process. Individual pipes default to 64 KiB and can be resized up to 1 MiB.
+Programs can reopen these pipes through procfs descriptor links and `/dev/fd`.
+Each open takes its own access mode and status flags. The opens share queued
+bytes and see EOF or a broken pipe when the last relevant endpoint closes.
 
 Closed Linux programs can reopen captured streams through `/proc/self/fd/N`,
 `/proc/thread-self/fd/N`, `/dev/fd/N`, and the standard `/dev/std*` aliases.

@@ -51,6 +51,8 @@ jobs:
         run: cargo test --locked -p rax-capi --no-default-features installed_cat_reads_guest_null_through_closed_c_abi -- --nocapture
       - name: Compare native and emulated console descriptor paths
         run: cargo test --locked -p rax-capi --no-default-features installed_linux_reopens_guest_console_through_closed_c_abi -- --nocapture
+      - name: Compare native and emulated anonymous pipe descriptor paths
+        run: cargo test --locked -p rax-capi --no-default-features installed_shell_reopens_guest_pipes_through_closed_c_abi -- --nocapture
       - name: Compare native and emulated head with the zero device
         run: cargo test --locked -p rax-capi --no-default-features installed_head_reads_guest_zero_through_closed_c_abi -- --nocapture
       - name: Compare native and emulated process image replacement

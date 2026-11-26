@@ -34,7 +34,7 @@ pub enum ProcEntry {
     },
     /// A symbolic link with this target.
     Link(String),
-    /// A magic link to an unnamed workspace file or a captured console stream.
+    /// A magic link to an unnamed workspace file, a console, or a guest pipe.
     Descriptor {
         file: Arc<OpenFile>,
         target: Arc<[u8]>,
@@ -687,7 +687,9 @@ fn thread_entry(
                     {
                         Some(file_path(p, &file).into_bytes().into())
                     }
-                    FileObject::Console { .. } => Some(file.path.as_bytes().into()),
+                    FileObject::Console { .. } | FileObject::GuestPipe(_) => {
+                        Some(file.path.as_bytes().into())
+                    }
                     _ => None,
                 });
             if let Some(target) = target {

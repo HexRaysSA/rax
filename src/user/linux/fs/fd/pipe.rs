@@ -3,10 +3,11 @@
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering::Relaxed};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 
+use super::super::super::syscall::ready::{Polled, ev};
 use super::{EAGAIN, EBUSY, EINVAL, ENFILE, ENOMEM, EPERM, EPIPE};
-use super::{Errno, FileObject, FileType, O_RDONLY, O_WRONLY, OpenFile};
+use super::{Errno, FileObject, FileType, O_ACCMODE, O_PATH, O_RDONLY, O_RDWR, O_WRONLY, OpenFile};
 
 const PAGE: usize = 4096;
 const DEFAULT_SLOTS: usize = 16;
@@ -39,9 +40,6 @@ impl PipePool {
         packet_flag: u32,
         owner: (u32, u32),
     ) -> Result<(Arc<OpenFile>, Arc<OpenFile>), Errno> {
-        if !self.reserve(DEFAULT_SLOTS) {
-            return Err(Errno(ENFILE));
-        }
         let inode = self.next_inode.fetch_add(1, Relaxed) + 1;
         let pipe = Arc::new(Pipe {
             pool: self.clone(),
@@ -49,30 +47,15 @@ impl PipePool {
             owner,
             state: Mutex::new(State {
                 buffers: VecDeque::new(),
-                slots: DEFAULT_SLOTS,
-                readers: true,
-                writers: true,
+                slots: 0,
+                readers: 0,
+                writers: 0,
+                endpoints: Vec::new(),
                 generation: 0,
             }),
         });
-        let name = format!("pipe:[{inode}]");
-        let end = |reads, flags| {
-            OpenFile::new(
-                FileObject::GuestPipe(PipeEnd {
-                    pipe: pipe.clone(),
-                    reads,
-                    packet_flag,
-                }),
-                FileType::Fifo,
-                name.clone(),
-                None,
-                flags,
-            )
-        };
-        let reader = end(true, O_RDONLY | (status & !packet_flag));
-        let writer = end(false, O_WRONLY | status);
-        *reader.peer.lock().unwrap() = Arc::downgrade(&writer);
-        *writer.peer.lock().unwrap() = Arc::downgrade(&reader);
+        let reader = pipe.open_file(O_RDONLY | (status & !packet_flag), packet_flag)?;
+        let writer = pipe.open_file(O_WRONLY | status, packet_flag)?;
         Ok((reader, writer))
     }
 }
@@ -94,8 +77,9 @@ impl Buffer {
 struct State {
     buffers: VecDeque<Buffer>,
     slots: usize,
-    readers: bool,
-    writers: bool,
+    readers: usize,
+    writers: usize,
+    endpoints: Vec<Weak<OpenFile>>,
     generation: u64,
 }
 
@@ -113,6 +97,69 @@ struct Pipe {
     state: Mutex<State>,
 }
 
+impl Pipe {
+    fn open_file(self: &Arc<Self>, flags: u32, packet_flag: u32) -> Result<Arc<OpenFile>, Errno> {
+        let (reads, writes) = if flags & O_PATH != 0 {
+            (false, false)
+        } else {
+            match flags & O_ACCMODE {
+                O_RDONLY => (true, false),
+                O_WRONLY => (false, true),
+                O_RDWR => (true, true),
+                _ => return Err(Errno(EINVAL)),
+            }
+        };
+        let mut state = self.state.lock().unwrap();
+        if (reads || writes) && state.slots == 0 {
+            if !self.pool.reserve(DEFAULT_SLOTS) {
+                return Err(Errno(ENFILE));
+            }
+            state.slots = DEFAULT_SLOTS;
+        }
+
+        let file = OpenFile::new(
+            FileObject::GuestPipe(PipeEnd {
+                pipe: self.clone(),
+                reads,
+                writes,
+                packet_flag,
+            }),
+            FileType::Fifo,
+            format!("pipe:[{}]", self.inode),
+            None,
+            flags,
+        );
+        if reads || writes {
+            state.readers += usize::from(reads);
+            state.writers += usize::from(writes);
+            state.endpoints.push(Arc::downgrade(&file));
+            state.changed();
+        }
+        Ok(file)
+    }
+
+    fn wake(&self, readers: bool, key: u32) {
+        // A callback may poll this same pipe or drop one of its endpoints.
+        // Keep the descriptions alive and release the pipe lock first.
+        let endpoints = {
+            let state = self.state.lock().unwrap();
+            state
+                .endpoints
+                .iter()
+                .filter_map(Weak::upgrade)
+                .collect::<Vec<_>>()
+        };
+        for file in endpoints {
+            let FileObject::GuestPipe(end) = &file.object else {
+                continue;
+            };
+            if (readers && end.reads) || (!readers && end.writes) {
+                file.woke(key);
+            }
+        }
+    }
+}
+
 impl Drop for Pipe {
     fn drop(&mut self) {
         self.pool.release(self.state.get_mut().unwrap().slots);
@@ -123,6 +170,7 @@ impl Drop for Pipe {
 pub struct PipeEnd {
     pipe: Arc<Pipe>,
     reads: bool,
+    writes: bool,
     packet_flag: u32,
 }
 
@@ -155,6 +203,17 @@ impl PipeEnd {
         self.pipe.owner
     }
 
+    /// A reopen gets a new description of the same pipe inode.
+    pub(crate) fn reopen(&self, flags: u32) -> Result<Arc<OpenFile>, Errno> {
+        self.pipe.open_file(flags, self.packet_flag)
+    }
+
+    /// Reopening checks the inode's permissions, independently of the
+    /// direction in which the original description was opened.
+    pub(crate) fn permits(&self, uid: u32, mode: u32) -> bool {
+        mode == 0 || mode & 1 == 0 && (uid == 0 || uid == self.pipe.owner.0)
+    }
+
     pub(crate) fn packet_flag(&self) -> u32 {
         self.packet_flag
     }
@@ -185,17 +244,28 @@ impl PipeEnd {
         Ok(size)
     }
 
-    pub(crate) fn close(&self) -> u32 {
+    pub(super) fn close(&self) {
+        if !self.reads && !self.writes {
+            return;
+        }
         let mut state = self.pipe.state.lock().unwrap();
-        let wake = if self.reads {
-            state.readers = false;
-            0x008 // EPOLLERR
-        } else {
-            state.writers = false;
-            0x010 // EPOLLHUP
-        };
+        state.readers -= usize::from(self.reads);
+        state.writers -= usize::from(self.writes);
+        let last_reader = self.reads && state.readers == 0;
+        let last_writer = self.writes && state.writers == 0;
+        state.endpoints.retain(|file| file.strong_count() != 0);
+        if state.readers == 0 && state.writers == 0 {
+            state.buffers = VecDeque::new();
+            self.pipe.pool.release(std::mem::take(&mut state.slots));
+        }
         state.changed();
-        wake
+        drop(state);
+        if last_reader {
+            self.pipe.wake(false, ev::ERR);
+        }
+        if last_writer {
+            self.pipe.wake(true, ev::HUP);
+        }
     }
 
     pub(crate) fn wait(&self) -> PipeWait {
@@ -205,8 +275,7 @@ impl PipeEnd {
         }
     }
 
-    pub(crate) fn poll(&self) -> (super::super::super::syscall::ready::Polled, PipeWait) {
-        use super::super::super::syscall::ready::{Polled, ev};
+    pub(crate) fn poll(&self) -> (Polled, PipeWait) {
         let state = self.pipe.state.lock().unwrap();
         let mut result = Polled::default();
         if self.reads {
@@ -214,14 +283,15 @@ impl PipeEnd {
             if result.level != 0 {
                 result.mask |= ev::IN | ev::RDNORM;
             }
-            if !state.writers {
+            if state.writers == 0 {
                 result.mask |= ev::HUP;
             }
-        } else {
+        }
+        if self.writes {
             if state.buffers.len() < state.slots {
                 result.mask |= ev::OUT | ev::WRNORM;
             }
-            if !state.readers {
+            if state.readers == 0 {
                 result.mask |= ev::ERR;
             }
         }
@@ -258,7 +328,7 @@ impl PipeEnd {
 
     pub(super) fn read(&self, dest: &mut [u8]) -> Result<usize, Errno> {
         let mut state = self.pipe.state.lock().unwrap();
-        if dest.is_empty() || state.buffers.is_empty() && !state.writers {
+        if dest.is_empty() || state.buffers.is_empty() && state.writers == 0 {
             return Ok(0);
         }
         if state.buffers.is_empty() {
@@ -282,6 +352,8 @@ impl PipeEnd {
             }
         }
         state.changed();
+        drop(state);
+        self.pipe.wake(false, ev::OUT | ev::WRNORM);
         Ok(done)
     }
 
@@ -290,7 +362,7 @@ impl PipeEnd {
             return Ok(0);
         }
         let mut state = self.pipe.state.lock().unwrap();
-        if !state.readers {
+        if state.readers == 0 {
             return Err(Errno(EPIPE));
         }
         let mut done = 0;
@@ -328,6 +400,8 @@ impl PipeEnd {
             return Err(Errno(EAGAIN));
         }
         state.changed();
+        drop(state);
+        self.pipe.wake(true, ev::IN | ev::RDNORM);
         Ok(done)
     }
 }

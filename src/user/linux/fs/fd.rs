@@ -146,8 +146,7 @@ pub struct OpenFile {
     pub supplied_stat: Option<super::super::abi::types::Stat>,
     /// Mutable state.
     pub state: Mutex<FileState>,
-    /// The other end of a pipe the guest created, whose readers or writers
-    /// a transfer here wakes.
+    /// The peer of a host-backed pipe. Guest pipes own their wake queues.
     pub peer: Mutex<std::sync::Weak<OpenFile>>,
     /// The `epoll` items watching this description (its wait queue).
     pub watchers: Mutex<Vec<Watch>>,
@@ -174,7 +173,7 @@ impl Drop for OpenFile {
         match self.object {
             FileObject::PipeWrite(_) => self.wake_peer(0x010),
             FileObject::PipeRead(_) => self.wake_peer(0x008),
-            FileObject::GuestPipe(ref end) => self.wake_peer(end.close()),
+            FileObject::GuestPipe(ref end) => end.close(),
             _ => {}
         }
     }
@@ -359,13 +358,7 @@ impl OpenFile {
                 self.wake_peer(0x004 | 0x100);
                 Ok(n)
             }
-            FileObject::GuestPipe(end) => {
-                let n = end.read(buf)?;
-                if n != 0 {
-                    self.wake_peer(0x004 | 0x100);
-                }
-                Ok(n)
-            }
+            FileObject::GuestPipe(end) => end.read(buf),
             FileObject::PipeWrite(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             #[cfg(unix)]
@@ -467,13 +460,7 @@ impl OpenFile {
                 self.wake_peer(0x001 | 0x040);
                 Ok(n)
             }
-            FileObject::GuestPipe(end) => {
-                let n = end.write(data, self.flags() & end.packet_flag() != 0)?;
-                if n != 0 {
-                    self.wake_peer(0x001 | 0x040);
-                }
-                Ok(n)
-            }
+            FileObject::GuestPipe(end) => end.write(data, self.flags() & end.packet_flag() != 0),
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Supplied(entry) if entry.device().is_some() => Ok(data.len()),
             FileObject::Supplied(entry) if entry.workspace_file().is_some() => {

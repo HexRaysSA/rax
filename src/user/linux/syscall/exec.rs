@@ -85,10 +85,7 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
         }
         Target::Proc(ProcEntry::Link(_), _) => Err(Errno(ELOOP)),
         Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => {
-            if matches!(
-                &file.object,
-                super::super::fs::fd::FileObject::Console { .. }
-            ) {
+            if file.ftype != super::super::fs::fd::FileType::Regular {
                 return Err(Errno(EACCES));
             }
             open_target(c, Target::Fd(file), true, depth)

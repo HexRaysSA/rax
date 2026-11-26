@@ -639,6 +639,33 @@ fn installed_linux_reopens_guest_console_through_closed_c_abi() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn installed_shell_reopens_guest_pipes_through_closed_c_abi() {
+    for (script, expected) in [
+        (
+            "printf '%s\\n' 'pipe input' | /bin/cat /proc/self/fd/0",
+            "pipe input\n",
+        ),
+        (
+            "printf '%s\\n' 'aliased input' | { exec 3<&0; /bin/cat /dev/fd/3; }",
+            "aliased input\n",
+        ),
+        (
+            "printf '%s\\n' 'pipe output' >/proc/self/fd/1 | /bin/cat",
+            "pipe output\n",
+        ),
+    ] {
+        compare_installed_posix_output(
+            "linux",
+            "/bin/sh",
+            &["-c", script],
+            &[],
+            expected.as_bytes(),
+        );
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn installed_ls_lists_its_own_descriptor_through_closed_c_abi() {
     compare_installed_posix_output(
         "linux",
