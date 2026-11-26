@@ -1,7 +1,8 @@
 use super::*;
-use crate::backend::emulator::riscv::platform::{BASE, LEN, Platform};
+use crate::backend::emulator::riscv::platform::{BASE, FREQUENCY_HZ, LEN, Platform};
 use crate::isa::riscv::memory::AtomicOp;
-use crate::vm::timing::{ClockMode, TimingContext};
+use crate::vm::timing::{ClockMode, RETIREMENT_FREQUENCY_HZ, TimingContext};
+use crate::vm::vcpu::RetirementStop;
 
 fn fixture(architectural_traps: bool) -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
     fixture_with_clock(architectural_traps, ClockMode::Retired)
@@ -10,6 +11,16 @@ fn fixture(architectural_traps: bool) -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
 fn fixture_with_clock(
     architectural_traps: bool,
     clock: ClockMode,
+) -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
+    fixture_with_timing(
+        architectural_traps,
+        Arc::new(TimingContext::with_mode(clock)),
+    )
+}
+
+fn fixture_with_timing(
+    architectural_traps: bool,
+    clock: Arc<TimingContext>,
 ) -> (Arc<GuestMemoryMmap>, Arc<Platform>) {
     let mem = Arc::new(
         GuestMemoryMmap::from_ranges(&[
@@ -20,16 +31,58 @@ fn fixture_with_clock(
     );
     mem.write_obj(0xa5a5a5a5u32, GuestAddress(BASE + 4))
         .unwrap();
-    let platform = Arc::new(
-        Platform::new(
-            2,
-            0x2000,
-            Arc::new(TimingContext::with_mode(clock)),
-            architectural_traps,
-        )
-        .unwrap(),
-    );
+    let platform = Arc::new(Platform::new(2, 0x2000, clock, architectural_traps).unwrap());
     (mem, platform)
+}
+
+#[test]
+fn retirement_budget_publishes_the_timer_at_halt_and_samples_it_before_the_next_instruction() {
+    const PC: u64 = 0x100;
+    const WFI: u64 = PC + 4;
+    const VECTOR: u64 = 0x200;
+    const MTIP: u64 = 1 << cause::INT_M_TIMER;
+    const UNITS_PER_TICK: u64 = RETIREMENT_FREQUENCY_HZ / FREQUENCY_HZ;
+
+    for wait_at_deadline in [false, true] {
+        let timing = Arc::new(TimingContext::with_mode(ClockMode::RetiredWithIdle));
+        let (mem, platform) = fixture_with_timing(true, timing.clone());
+        mem.write_obj(0x0000_006fu32.to_le(), GuestAddress(PC))
+            .unwrap(); // jal zero,0
+        mem.write_obj(0x1050_0073u32.to_le(), GuestAddress(WFI))
+            .unwrap(); // wfi
+        platform.write(BASE + 0x4008, &1u64.to_le_bytes()).unwrap();
+        let mut hart =
+            RiscVVcpu::new_in_platform(1, mem, RiscVConfig::rv64gc(), platform.clone()).unwrap();
+        hart.cpu.set_pc(PC);
+        hart.cpu.csr_write(0x305, VECTOR).unwrap();
+        hart.cpu.csr_write(0x304, MTIP).unwrap();
+        hart.cpu.csr_write(0x300, 8).unwrap();
+        let _timing = timing.enter();
+
+        let before_tick = hart.run_retirement_budget(UNITS_PER_TICK - 1).unwrap();
+        assert!(matches!(before_tick.stop, RetirementStop::BudgetExhausted));
+        assert_eq!(before_tick.retired, UNITS_PER_TICK - 1);
+        assert_eq!(hart.cpu.csr_read(0x344).unwrap() & MTIP, 0);
+
+        let interrupted_pc = if wait_at_deadline {
+            hart.cpu.set_pc(WFI);
+            let halt = hart.run_retirement_budget(2).unwrap();
+            assert!(matches!(halt.stop, RetirementStop::Exit(VcpuExit::Hlt)));
+            assert_eq!(halt.retired, 1);
+            assert_eq!(hart.cpu.csr_read(0x344).unwrap() & MTIP, MTIP);
+            WFI + 4
+        } else {
+            PC
+        };
+        let interrupt = hart.run_retirement_budget(2).unwrap();
+        assert!(matches!(interrupt.stop, RetirementStop::StateChange));
+        assert_eq!(interrupt.retired, u64::from(!wait_at_deadline));
+        assert_eq!(hart.instruction_count(), UNITS_PER_TICK);
+        assert_eq!(timing.retirement_count(), Some(UNITS_PER_TICK));
+        assert_eq!(hart.cpu.pc(), VECTOR);
+        assert_eq!(hart.cpu.csr_read(0x341).unwrap(), interrupted_pc);
+        assert_eq!(hart.cpu.csr_read(0x342).unwrap(), (1 << 63) | 7);
+    }
 }
 
 #[test]

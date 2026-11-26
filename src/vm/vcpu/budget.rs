@@ -43,6 +43,15 @@ pub(crate) fn run<T: VCpu + ?Sized>(
     budget: u64,
     error_retirement: ErrorRetirement,
 ) -> Result<RetirementRun> {
+    run_with_step(cpu, budget, error_retirement, T::step_insn)
+}
+
+pub(crate) fn run_with_step<T: VCpu + ?Sized>(
+    cpu: &mut T,
+    budget: u64,
+    error_retirement: ErrorRetirement,
+    mut step: impl FnMut(&mut T) -> Result<Option<VcpuExit>>,
+) -> Result<RetirementRun> {
     let mut retired = 0;
     if budget == 0 {
         return Ok(RetirementRun {
@@ -57,7 +66,7 @@ pub(crate) fn run<T: VCpu + ?Sized>(
     }
     while retired < budget {
         let before = cpu.instruction_count();
-        let (exit, error) = match cpu.step_insn() {
+        let (exit, error) = match step(cpu) {
             Ok(exit) => (exit, None),
             Err(error) if error_retirement == ErrorRetirement::NoRetirement => {
                 return Ok(RetirementRun {

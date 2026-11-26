@@ -662,6 +662,23 @@ A separate wall-clock diagnostic appended only
 diagnostic guest through PID 1 and powered off. The wall-clock Linux boot
 remains unqualified.
 
+#### Timer publication at the end of a retirement budget
+
+The RV64 adapter samples its platform inputs before every instruction in a
+retirement budget. It publishes the executing hart's time and pending inputs
+again at the return boundary, after charging the final retirement to the
+clock. A completed batch of Q ordinary instructions on that hart uses Q+1
+samples, with constant extra space. The coordinator still publishes peer
+inputs before selecting the next hart.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The retirement timebase advances 300 instructions per CLINT tick (3 GHz / 10 MHz). | High | Arm hart 1 for tick 1. Require MTIP clear after 299 retirements, then retire `WFI` and require MTIP set on return. The parent returned with MTIP clear. |
+| Batching preserves per-instruction interrupt sampling. | High | Run through the same deadline without `WFI`. Require interrupt entry before the 301st instruction, with the original instruction address in MEPC and exactly 300 total retirements. |
+
+The regression checks the machine timer cause and vector in both paths.
+The default wall-clock Debian boot remains unqualified.
+
 #### Linux timer counters at the recorded checkpoints
 
 The saved RAM SHA-256 values were verified before reading the Linux IRQ

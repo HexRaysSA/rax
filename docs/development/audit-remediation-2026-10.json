@@ -200710,6 +200710,14 @@
       "full_goal_complete": false
     },
     {
+      "id": "rv64-retirement-timer-publication-2026-11-26",
+      "findings": ["C-STATE", "C-SMP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Platform-backed RV64 harts sample interrupt inputs before each instruction and publish the executing hart's clock and pending state after the final retirement in a budget. The parent returned with MTIP clear when WFI retired at the 300th instruction and crossed the compare deadline. The regression also verifies zero-retirement interrupt delivery before instruction 301 inside a batch. Default wall-clock Debian boot remains unqualified.",
+      "qualification": "docs/development/riscv-clint/README.md#timer-publication-at-the-end-of-a-retirement-budget",
+      "full_goal_complete": false
+    },
+    {
       "id": "a32-scalar-half-short-controls-2026-11-26",
       "findings": [
         "A32-FP"

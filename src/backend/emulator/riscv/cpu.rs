@@ -36,7 +36,10 @@ mod atomic_tests;
 #[path = "cpu_reservations.rs"]
 mod reservations;
 use super::platform::{UART_BASE, UART_LEN};
-use crate::vm::vcpu::{ClockIdle, CpuState, MemAccess, VCpu, VcpuExit};
+use crate::vm::vcpu::budget::{self, ErrorRetirement};
+use crate::vm::vcpu::{
+    ClockIdle, CpuState, MemAccess, RetirementRun, RetirementStop, VCpu, VcpuExit,
+};
 use reservations::overlaps_uart;
 
 /// 16550 Line Status Register offset and the "ready to transmit" bits.
@@ -860,7 +863,7 @@ impl RiscVVcpu {
             .is_some_and(|platform| platform.shutdown())
     }
 
-    fn step_system(&mut self) -> Result<Option<VcpuExit>> {
+    fn step_system(&mut self, refresh_after: bool) -> Result<Option<VcpuExit>> {
         if self.platform_shutdown() {
             return Ok(Some(VcpuExit::Shutdown));
         }
@@ -878,7 +881,9 @@ impl RiscVVcpu {
             self.waiting_for_interrupt = false;
         }
         let exit = self.cpu.step();
-        self.poll_vm_clock()?;
+        if refresh_after {
+            self.poll_vm_clock()?;
+        }
         if self.platform_shutdown() {
             return Ok(Some(VcpuExit::Shutdown));
         }
@@ -1141,7 +1146,7 @@ impl VCpu for RiscVVcpu {
             return Ok(VcpuExit::Hlt);
         }
         for _ in 0..MAX_ITERS {
-            if let Some(exit) = self.step_system()? {
+            if let Some(exit) = self.step_system(true)? {
                 return Ok(exit);
             }
         }
@@ -1283,7 +1288,27 @@ impl VCpu for RiscVVcpu {
         if self.user.is_some() {
             return self.step_user();
         }
-        self.step_system()
+        self.step_system(true)
+    }
+
+    fn run_retirement_budget(&mut self, budget: u64) -> Result<RetirementRun> {
+        if self.platform.is_none() || budget == 0 {
+            return budget::run(self, budget, ErrorRetirement::NoRetirement);
+        }
+        // Each step samples its inputs before executing. Publish again at the
+        // exposed boundary, after the last completed instruction has advanced
+        // the clock. The system counter records only completed retirement.
+        let mut result =
+            budget::run_with_step(self, budget, ErrorRetirement::CounterDelta, |hart| {
+                hart.ensure_checkpoint_active()?;
+                hart.step_system(false)
+            })?;
+        if !matches!(result.stop, RetirementStop::Fault(_))
+            && let Err(error) = self.poll_vm_clock()
+        {
+            result.stop = RetirementStop::Fault(error);
+        }
+        Ok(result)
     }
 }
 
