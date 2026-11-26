@@ -18,6 +18,16 @@ pub fn clock_gettime(_clock: HostClock) -> (i64, i64) {
     (0, 0)
 }
 
+/// This host adapter does not provide CPU accounting.
+pub fn thread_cpu_time_ns() -> u64 {
+    0
+}
+
+/// Resolution used for Linux PROF and VIRT CPU clocks on non-Linux hosts.
+pub fn cpu_clock_resolution_ns() -> u64 {
+    4_000_000
+}
+
 /// The only host process is the emulator itself, identified as in a closed
 /// embedding.
 pub fn pid() -> i32 {
