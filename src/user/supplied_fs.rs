@@ -566,7 +566,7 @@ impl Files {
     }
 
     /// Add an installed link whose absolute target is resolved in the guest.
-    #[cfg(any(target_os = "macos", test))]
+    #[cfg(any(target_os = "linux", target_os = "macos", test))]
     pub(super) fn with_native_symlink(&self, path: &str, target: &str) -> Result<Self, Error> {
         validate(target)?;
         if self.default_runtime_entry_available(path)? {
@@ -575,7 +575,7 @@ impl Files {
         Ok(self.clone())
     }
 
-    #[cfg(any(target_os = "macos", test))]
+    #[cfg(any(target_os = "linux", target_os = "macos", test))]
     fn default_runtime_entry_available(&self, path: &str) -> Result<bool, Error> {
         if self.caller_roots.as_ref().is_some_and(|roots| {
             roots.paths().any(|root| {

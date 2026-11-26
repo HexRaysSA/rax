@@ -18,6 +18,16 @@ const PERL_MODULE_ROOTS: &[&str] = &["/usr/share/perl", "/usr/share/perl5"];
 #[cfg(any(target_os = "linux", test))]
 const TERMINFO_ROOTS: &[&str] = &["/etc/terminfo", "/usr/share/terminfo"];
 #[cfg(any(target_os = "linux", test))]
+const MESSAGE_CATALOG_ROOTS: &[&str] = &[
+    "/usr/share/locale",
+    "/usr/share/locale-langpack",
+    "/usr/local/share/locale",
+];
+#[cfg(any(target_os = "linux", test))]
+const LOCALE_ALIAS: &str = "/usr/share/locale/locale.alias";
+#[cfg(target_os = "linux")]
+const LOCALE_ALIAS_TARGET: &str = "/etc/locale.alias";
+#[cfg(any(target_os = "linux", test))]
 const PROGRAM_ROOTS: [&str; 4] = ["/bin", "/usr/bin", "/sbin", "/usr/sbin"];
 #[cfg(target_os = "linux")]
 const STDBUF_LIBRARY: &str = "/usr/libexec/coreutils/libstdbuf.so";
@@ -27,6 +37,9 @@ const CONFINED_ROOTS: &[&str] = &[
     PERL_MODULE_ROOTS[1],
     TERMINFO_ROOTS[0],
     TERMINFO_ROOTS[1],
+    MESSAGE_CATALOG_ROOTS[0],
+    MESSAGE_CATALOG_ROOTS[1],
+    MESSAGE_CATALOG_ROOTS[2],
     PROGRAM_ROOTS[0],
     PROGRAM_ROOTS[1],
     PROGRAM_ROOTS[2],
@@ -36,7 +49,7 @@ const CONFINED_ROOTS: &[&str] = &[
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, plus installed
 /// executable programs, the packaged stdbuf helper, Perl modules, compiled
-/// terminfo, timezone, protocol and service data. Include
+/// terminfo, GNU message catalogs, timezone, protocol and service data. Include
 /// guest loopback names and a synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
@@ -90,12 +103,6 @@ fn select_installed_for_executable(
     if zoneinfo.is_dir() {
         roots.insert("/usr/share/zoneinfo".into(), zoneinfo);
     }
-    for &path in PERL_MODULE_ROOTS.iter().chain(TERMINFO_ROOTS) {
-        let host = root.join(path.trim_start_matches('/'));
-        if host.symlink_metadata().is_ok_and(|info| info.is_dir()) {
-            roots.insert(path.into(), host);
-        }
-    }
     let unshadowed = |mount: &str| {
         !executable.is_some_and(|image| {
             image == mount
@@ -104,6 +111,16 @@ fn select_installed_for_executable(
                     .is_some_and(|tail| tail.starts_with('/'))
         })
     };
+    for &path in PERL_MODULE_ROOTS
+        .iter()
+        .chain(TERMINFO_ROOTS)
+        .chain(MESSAGE_CATALOG_ROOTS)
+    {
+        let host = root.join(path.trim_start_matches('/'));
+        if unshadowed(path) && host.symlink_metadata().is_ok_and(|info| info.is_dir()) {
+            roots.insert(path.into(), host);
+        }
+    }
     for &[legacy, standard] in PROGRAM_ROOTS.as_chunks::<2>().0 {
         let host_legacy = root.join(legacy.trim_start_matches('/'));
         let host_standard = root.join(standard.trim_start_matches('/'));
@@ -141,14 +158,28 @@ fn select_installed_for_executable(
     } else {
         files
     };
-    // The libc files backend reads these tables for local name lookups.
-    let databases = ["/etc/protocols", "/etc/services"]
+    // libc reads these tables for local name and locale lookups.
+    let databases = ["/etc/protocols", "/etc/services", LOCALE_ALIAS_TARGET]
         .into_iter()
-        .filter(|path| matches!(files.lookup(path), Err(Error::NotFound)))
+        .filter(|path| unshadowed(path) && matches!(files.lookup(path), Err(Error::NotFound)))
         .map(|path| (path.to_owned(), root.join(path.trim_start_matches('/'))))
         .filter(|(_, host)| host.symlink_metadata().is_ok_and(|info| info.is_file()))
         .collect();
     let files = files.with_host_files(databases)?;
+    // Some distributions install this exact alias to the selected /etc file.
+    // Record the link in the guest without traversing it on the host.
+    let alias = root.join(LOCALE_ALIAS.trim_start_matches('/'));
+    let files = if unshadowed(LOCALE_ALIAS)
+        && alias
+            .read_link()
+            .is_ok_and(|target| target == Path::new(LOCALE_ALIAS_TARGET))
+    {
+        files
+            .with_native_symlink(LOCALE_ALIAS, LOCALE_ALIAS_TARGET)
+            .map_err(io::Error::other)?
+    } else {
+        files
+    };
     // Only guest loopback names are available without an explicit hosts file.
     let hosts = "/etc/hosts";
     let files = if matches!(files.lookup_with_follow(hosts, false), Err(Error::NotFound)) {
@@ -235,8 +266,51 @@ fn accept_installed_file(path: &str, host: &Path, _file: &std::fs::File) -> io::
             return crate::user::supplied_fs::terminfo::accepts(entry, _file);
         }
     }
+    if path == LOCALE_ALIAS {
+        return Ok(true);
+    }
+    for &root in MESSAGE_CATALOG_ROOTS {
+        if let Some(entry) = path
+            .strip_prefix(root)
+            .and_then(|tail| tail.strip_prefix('/'))
+        {
+            return accept_message_catalog(entry, _file);
+        }
+    }
     Ok(!under_root(path, PERL_MODULE_ROOTS)
         || (is_perl_runtime_file(Path::new(path)) && is_perl_runtime_file(host)))
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn accept_message_catalog(path: &str, mut file: &std::fs::File) -> io::Result<bool> {
+    use std::io::Read;
+
+    let mut parts = path.splitn(3, '/');
+    let (Some(locale), Some(category), Some(catalog)) = (parts.next(), parts.next(), parts.next())
+    else {
+        return Ok(false);
+    };
+    if locale.is_empty()
+        || !category
+            .strip_prefix("LC_")
+            .is_some_and(|name| !name.is_empty())
+        || !catalog
+            .strip_suffix(".mo")
+            .is_some_and(|domain| !domain.is_empty() && !domain.contains('/'))
+    {
+        return Ok(false);
+    }
+
+    // The guest's gettext implementation parses the catalog. Select only
+    // complete GNU MO headers in either of the two supported byte orders.
+    const GNU_MO_MAGIC: u32 = 0x9504_12de;
+    let mut header = [0; 28];
+    match file.read_exact(&mut header) {
+        Ok(()) => Ok(header.starts_with(&GNU_MO_MAGIC.to_le_bytes())
+            || header.starts_with(&GNU_MO_MAGIC.to_be_bytes())),
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -356,6 +430,102 @@ fn open_installed_shared_object(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn installed_message_catalogs_are_read_only_and_confined() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::{fs, os::unix::fs::symlink, sync::Arc};
+
+        let fixture = TestFile::new(b"unused", 6);
+        let root = &fixture.dir;
+        let installed = root.join("usr/share/locale/fr/LC_MESSAGES");
+        let distro = root.join("usr/share/locale-langpack/fr/LC_MESSAGES");
+        let local = root.join("usr/local/share/locale/fr/LC_TIME");
+        let lib = root.join("usr/lib");
+        for directory in [&installed, &distro, &local, &lib] {
+            fs::create_dir_all(directory).unwrap();
+        }
+        let mut little = [0; 28];
+        little[..4].copy_from_slice(&0x9504_12de_u32.to_le_bytes());
+        let mut big = little;
+        big[..4].copy_from_slice(&0x9504_12de_u32.to_be_bytes());
+        fs::write(installed.join("app.mo"), little).unwrap();
+        fs::write(distro.join("distro.mo"), big).unwrap();
+        fs::write(local.join("local.mo"), little).unwrap();
+        fs::write(installed.join("short.mo"), &little[..4]).unwrap();
+        fs::write(installed.join("text.mo"), [b'a'; 28]).unwrap();
+        fs::write(installed.join("source.po"), little).unwrap();
+        fs::write(installed.parent().unwrap().join("misplaced.mo"), little).unwrap();
+        fs::write(lib.join("outside.mo"), little).unwrap();
+        symlink("app.mo", installed.join("alias.mo")).unwrap();
+        symlink("../../../../lib/outside.mo", installed.join("escape.mo")).unwrap();
+        let aliases = root.join("etc/locale.alias");
+        let alias_link = root.join("usr/share/locale/locale.alias");
+        fs::create_dir_all(aliases.parent().unwrap()).unwrap();
+        fs::write(&aliases, b"french fr_FR.ISO-8859-1\n").unwrap();
+        symlink(LOCALE_ALIAS_TARGET, &alias_link).unwrap();
+
+        let files = select_installed(&Files::default(), root).unwrap();
+        let app = "/usr/share/locale/fr/LC_MESSAGES/app.mo";
+        for (path, bytes) in [
+            (app, little),
+            ("/usr/share/locale/fr/LC_MESSAGES/alias.mo", little),
+            ("/usr/share/locale-langpack/fr/LC_MESSAGES/distro.mo", big),
+            ("/usr/local/share/locale/fr/LC_TIME/local.mo", little),
+        ] {
+            assert_eq!(&*files.read(path).unwrap(), &bytes);
+            assert!(matches!(
+                files.unlink_workspace_file(path, (0, 0), &[]),
+                Err(Error::ReadOnly)
+            ));
+        }
+        for path in [
+            "/usr/share/locale/fr/LC_MESSAGES/short.mo",
+            "/usr/share/locale/fr/LC_MESSAGES/text.mo",
+            "/usr/share/locale/fr/LC_MESSAGES/source.po",
+            "/usr/share/locale/fr/LC_MESSAGES/escape.mo",
+            "/usr/share/locale/fr/misplaced.mo",
+        ] {
+            assert!(matches!(files.read(path), Err(Error::NotFound)), "{path}");
+        }
+        assert_eq!(
+            &*files.read(LOCALE_ALIAS).unwrap(),
+            b"french fr_FR.ISO-8859-1\n"
+        );
+
+        fs::remove_file(&alias_link).unwrap();
+        symlink("/usr/lib/outside.mo", &alias_link).unwrap();
+        let files = select_installed(&Files::default(), root).unwrap();
+        assert!(matches!(files.read(LOCALE_ALIAS), Err(Error::NotFound)));
+
+        fs::remove_file(&alias_link).unwrap();
+        fs::write(&alias_link, b"french fr_FR.ISO-8859-1\n").unwrap();
+        let files = select_installed(&Files::default(), root).unwrap();
+        assert_eq!(
+            &*files.read(LOCALE_ALIAS).unwrap(),
+            b"french fr_FR.ISO-8859-1\n"
+        );
+
+        let supplied = Files::default()
+            .with_file(app.into(), Arc::from(&b"caller catalog"[..]))
+            .unwrap();
+        assert_eq!(
+            &*select_installed(&supplied, root)
+                .unwrap()
+                .read(app)
+                .unwrap(),
+            b"caller catalog"
+        );
+        let executable = "/usr/share/locale";
+        let selected =
+            select_installed_for_executable(&Files::default(), root, Some(executable)).unwrap();
+        assert!(
+            selected
+                .with_file(executable.into(), Arc::from(&b"guest image"[..]))
+                .is_ok()
+        );
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
