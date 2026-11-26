@@ -23,6 +23,10 @@ use std::sync::Arc;
 #[path = "runtime_files/dylibs.rs"]
 mod dylibs;
 
+#[cfg(any(target_os = "macos", all(test, unix)))]
+#[path = "runtime_files/xcode_license.rs"]
+mod xcode_license;
+
 #[cfg(any(target_os = "macos", test))]
 const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.plist";
 
@@ -304,6 +308,15 @@ fn select_runtime_root(
         .and_then(|files| files.with_darwin_descriptor_names())
         .map_err(io::Error::other)?;
     let tools = select_developer_tools(root, executable, env);
+    #[cfg(unix)]
+    let files = if tools
+        .as_ref()
+        .is_some_and(|tools| tools.mount == XCODE_CONTENTS)
+    {
+        xcode_license::select(files, root, executable)?
+    } else {
+        files
+    };
     let selector = tools
         .as_ref()
         .filter(|tools| {
