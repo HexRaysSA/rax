@@ -66,6 +66,7 @@ const RUBY_VERSIONS: &str = "/System/Library/Frameworks/Ruby.framework/Versions"
 pub struct NativeKernelInfo {
     pub(crate) release: Vec<u8>,
     pub(crate) version: Vec<u8>,
+    pub(crate) apple_silicon: bool,
 }
 
 impl NativeKernelInfo {
@@ -75,6 +76,7 @@ impl NativeKernelInfo {
             Ok(Self {
                 release: native_kernel_string(libc::KERN_OSRELEASE)?,
                 version: native_kernel_string(libc::KERN_VERSION)?,
+                apple_silicon: native_apple_silicon(),
             })
         }
         #[cfg(not(target_os = "macos"))]
@@ -83,6 +85,27 @@ impl NativeKernelInfo {
             "native Darwin kernel information requires a macOS host",
         ))
     }
+}
+
+#[cfg(target_os = "macos")]
+fn native_apple_silicon() -> bool {
+    if cfg!(target_arch = "aarch64") {
+        return true;
+    }
+    // An x86-64 host process may itself be running under Rosetta.
+    let mut value = 0i32;
+    let mut size = std::mem::size_of_val(&value);
+    // SAFETY: the fixed name is NUL-terminated and the output is a writable i32.
+    let status = unsafe {
+        libc::sysctlbyname(
+            c"hw.optional.arm64".as_ptr(),
+            (&mut value as *mut i32).cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    status == 0 && size == std::mem::size_of_val(&value) && value == 1
 }
 
 /// Capture one fixed, public CTL_KERN string before execution.

@@ -10,12 +10,10 @@
 //! again as an encapsulated binary, a `#!` script's interpreter is looked
 //! up and goes round again as the image.
 //!
-//! The emulated machine follows the calling process: an arm64 process
-//! runs on Apple silicon, which executes arm64 images and, translated as
-//! by Rosetta, x86_64 ones (not x86_64h, and a fat file's x86_64 slice only
-//! when it has no arm64 one); an x86-64 process runs on an Intel Mac, which
-//! executes x86-64 images only, x86_64h first. The slice chosen is the one
-//! the loader maps.
+//! Installed runtimes on Apple silicon can execute both arm64 and x86_64
+//! images. A universal image defaults to the calling process's CPU type.
+//! The emulated hardware excludes x86_64h on Apple silicon and prefers it
+//! on Intel. The slice chosen here is the one the loader maps.
 
 #[cfg(unix)]
 use std::{
@@ -88,7 +86,7 @@ impl Binprefs {
 /// The emulated machine a process execs on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Machine {
-    /// The calling process's ABI.
+    /// The ABI of the machine used to grade the image.
     pub abi: DarwinAbi,
 }
 
@@ -119,21 +117,20 @@ impl Machine {
         (g > 0).then_some((g, target))
     }
 
-    /// `fatfile_getbestarch`: the best slice of the machine's own CPU type
-    /// (ignoring the ABI bits); on Apple silicon a file without one runs
-    /// its best x86-64 slice translated.
-    fn best_arch(self, arches: &[FatArch]) -> Option<FatArch> {
-        let own = self.abi.host_cpu().cputype;
+    /// Grade the calling ABI's slices first, then the other CPU type when
+    /// the installed machine can run it.
+    fn best_arch(self, arches: &[FatArch], preferred: DarwinAbi) -> Option<FatArch> {
+        let primary = preferred.host_cpu().cputype;
         let best = |cpu: u32| {
             best_graded(self, arches, |a| {
                 a.cputype & !CPU_ARCH_MASK == cpu & !CPU_ARCH_MASK
             })
         };
-        best(own).or_else(|| {
-            (own == CPU_TYPE_ARM64)
-                .then(|| best(CPU_TYPE_X86_64))
-                .flatten()
-        })
+        let fallback = match preferred {
+            DarwinAbi::Arm64 => CPU_TYPE_X86_64,
+            DarwinAbi::X86_64 => CPU_TYPE_ARM64,
+        };
+        best(primary).or_else(|| best(fallback))
     }
 }
 
@@ -202,7 +199,7 @@ pub fn activate_path(
     prefs: &Binprefs,
 ) -> Result<Activated, Errno> {
     let machine = Machine { abi: ctx.proc.abi };
-    activate_image(machine, user_path, prefs, |path| {
+    activate_image(machine, machine.abi, user_path, prefs, |path| {
         open_checked(ctx, path, dir)
     })
 }
@@ -216,8 +213,21 @@ pub(super) fn activate_supplied(
     prefs: &Binprefs,
 ) -> Result<Activated, Errno> {
     let user_path = ctx.cstr(path_addr, MAXPATHLEN)?;
-    let machine = Machine { abi: ctx.proc.abi };
-    let activated = activate_image(machine, &user_path, prefs, |path| {
+    let caller = ctx.proc.abi;
+    let installed_apple_silicon = ctx
+        .proc
+        .config
+        .native_kernel_info
+        .as_ref()
+        .is_some_and(|info| info.apple_silicon);
+    let machine = Machine {
+        abi: if installed_apple_silicon {
+            DarwinAbi::Arm64
+        } else {
+            caller
+        },
+    };
+    let activated = activate_image(machine, caller, &user_path, prefs, |path| {
         let (path, entry) = crate::user::darwin::syscall::bsd::path::embedded::lookup_followed(
             ctx, path, cwd, directory,
         )?;
@@ -235,8 +245,9 @@ pub(super) fn activate_supplied(
         }
         Ok(image)
     })?;
-    // The supplied dyld and shared cache were selected for the current ABI.
-    if activated.abi != machine.abi {
+    // Installed selection on Apple silicon can provide both dyld shared caches.
+    // An explicit supplied runtime retains its original ABI contract.
+    if !installed_apple_silicon && activated.abi != caller {
         return Err(Errno::EBADARCH);
     }
     Ok(activated)
@@ -244,6 +255,7 @@ pub(super) fn activate_supplied(
 
 fn activate_image(
     machine: Machine,
+    preferred: DarwinAbi,
     user_path: &[u8],
     prefs: &Binprefs,
     mut open: impl FnMut(&[u8]) -> Result<ImageFile, Errno>,
@@ -276,7 +288,7 @@ fn activate_image(
                     user_path: user_path.to_vec(),
                 });
             }
-            if let Some((o, s)) = fat_imgact(machine, view, &mut orig, prefs)? {
+            if let Some((o, s)) = fat_imgact(machine, preferred, view, &mut orig, prefs)? {
                 // An encapsulated binary: the slice goes round again.
                 offset += o;
                 size = s;
@@ -354,6 +366,7 @@ fn mach_imgact(
 /// not a fat file, or one inside a fat file).
 fn fat_imgact(
     m: Machine,
+    preferred: DarwinAbi,
     view: &[u8],
     orig: &mut Option<(u32, u32)>,
     prefs: &Binprefs,
@@ -375,7 +388,7 @@ fn fat_imgact(
     };
     let arch = match arch {
         Some(a) => a,
-        None => m.best_arch(&arches).ok_or(Errno::EBADARCH)?,
+        None => m.best_arch(&arches, preferred).ok_or(Errno::EBADARCH)?,
     };
     *orig = Some((arch.cputype, arch.cpusubtype));
     Ok(Some((arch.offset as usize, arch.size as usize)))
@@ -643,23 +656,39 @@ mod tests {
     }
 
     #[test]
-    fn fat_grading_prefers_the_native_slice() {
+    fn fat_grading_preserves_the_calling_abi_on_apple_silicon() {
         let m = Machine {
             abi: DarwinAbi::Arm64,
         };
         let both = [arch(CPU_TYPE_X86_64, 3), arch(CPU_TYPE_ARM64, 0)];
-        assert_eq!(m.best_arch(&both).unwrap().cputype, CPU_TYPE_ARM64);
-        let x86 = [arch(CPU_TYPE_X86_64, 3)];
-        assert_eq!(m.best_arch(&x86).unwrap().cputype, CPU_TYPE_X86_64);
+        assert_eq!(
+            m.best_arch(&both, DarwinAbi::Arm64).unwrap().cputype,
+            CPU_TYPE_ARM64
+        );
+        assert_eq!(
+            m.best_arch(&both, DarwinAbi::X86_64).unwrap().cputype,
+            CPU_TYPE_X86_64
+        );
+        assert_eq!(
+            m.best_arch(&both[..1], DarwinAbi::Arm64).unwrap().cputype,
+            CPU_TYPE_X86_64
+        );
+        assert_eq!(
+            m.best_arch(&both[1..], DarwinAbi::X86_64).unwrap().cputype,
+            CPU_TYPE_ARM64
+        );
         // Translated: the x86_64 slice, never the x86_64h one.
         let h = [arch(CPU_TYPE_X86_64, 8), arch(CPU_TYPE_X86_64, 3)];
-        assert_eq!(m.best_arch(&h).unwrap().cpusubtype, 3);
-        assert!(m.best_arch(&h[..1]).is_none());
+        assert_eq!(m.best_arch(&h, DarwinAbi::X86_64).unwrap().cpusubtype, 3);
+        assert!(m.best_arch(&h[..1], DarwinAbi::X86_64).is_none());
         let intel = Machine {
             abi: DarwinAbi::X86_64,
         };
-        assert_eq!(intel.best_arch(&both).unwrap().cputype, CPU_TYPE_X86_64);
-        assert!(intel.best_arch(&[arch(CPU_TYPE_ARM64, 0)]).is_none());
+        assert_eq!(
+            intel.best_arch(&both, DarwinAbi::X86_64).unwrap().cputype,
+            CPU_TYPE_X86_64
+        );
+        assert!(intel.best_arch(&both[1..], DarwinAbi::X86_64).is_none());
     }
 
     #[test]

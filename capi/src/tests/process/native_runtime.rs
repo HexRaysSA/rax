@@ -1,6 +1,10 @@
 //! Installed runtime grants exercised through the exported C process interface.
 use super::*;
 
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "native_runtime/darwin_mixed_abi.rs"]
+mod darwin_mixed_abi;
+
 #[cfg(all(windows, target_pointer_width = "64"))]
 #[path = "native_runtime/token_duplicate.rs"]
 mod token_duplicate;
