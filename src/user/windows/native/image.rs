@@ -118,11 +118,10 @@ impl NativeRuntime {
             #[cfg(windows)]
             Err(LookupError::Status(STATUS_OBJECT_NAME_NOT_FOUND))
                 if !ntdll
-                    && arch == WinArch::X64
-                    && pe.headers().machine == WinArch::Arm64.machine()
-                    && self.object_namespace.native_machine == Some(WinArch::Arm64.machine()) =>
+                    && self.object_namespace.native_machine == Some(WinArch::Arm64.machine())
+                    && arm64x_machine_pair(pe.headers().machine, arch.machine()) =>
             {
-                // Windows can project an installed ARM64X DLL with no KnownDlls
+                // Windows can expose either ARM64X view without a KnownDlls
                 // entry. Use the same open file that supplied the parsed PE.
                 installed_file_section(file)
                     .map_err(|error| invalid(format!("selected {name} file section: {error}")))?
@@ -165,6 +164,10 @@ fn installed_file_section(file: &File) -> io::Result<Arc<ImageSection>> {
     ))
 }
 
+fn arm64x_machine_pair(source: u16, target: u16) -> bool {
+    matches!((source, target), (0xAA64, 0x8664) | (0x8664, 0xAA64))
+}
+
 fn selected_view(
     file: &PeImage,
     arch: WinArch,
@@ -181,8 +184,7 @@ fn selected_view(
         ));
     }
     let source_machine = file.headers().machine;
-    if source_machine != template.machine
-        && !(source_machine == 0xAA64 && template.machine == 0x8664)
+    if source_machine != template.machine && !arm64x_machine_pair(source_machine, template.machine)
     {
         return Err(invalid(
             "unsupported installed source/view machine transformation",
@@ -209,18 +211,18 @@ mod tests {
     use crate::user::windows::memory::{mem, prot};
     use crate::user::windows::object_namespace::ImageRegion;
 
-    fn fixture() -> (PeImage, Arc<ImageTemplate>) {
-        let file = PeImage::parse(
-            include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/tests/fixtures/user/windows/bin/arm64/smoke.exe"
-            ))
-            .to_vec(),
-        )
-        .unwrap();
+    fn fixture(source: WinArch, target: WinArch) -> (PeImage, Arc<ImageTemplate>) {
+        let mut bytes = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/user/windows/bin/arm64/smoke.exe"
+        ))
+        .to_vec();
+        let nt = u32::from_le_bytes(bytes[0x3c..0x40].try_into().unwrap()) as usize;
+        let at = nt + 4;
+        bytes[at..at + 2].copy_from_slice(&source.machine().to_le_bytes());
+        let file = PeImage::parse(bytes).unwrap();
         let mut bytes = file.memory_image();
-        let at = file.headers().nt_offset as usize + 4;
-        bytes[at..at + 2].copy_from_slice(&0x8664u16.to_le_bytes());
+        bytes[at..at + 2].copy_from_slice(&target.machine().to_le_bytes());
         let size = bytes.len() as u64;
         let template = ImageTemplate::selected(
             bytes,
@@ -237,20 +239,25 @@ mod tests {
 
     #[test]
     fn kernel_projection_selects_metadata_without_relabeling_the_source_file() {
-        let (file, template) = fixture();
-        let selected = selected_view(
-            &file,
-            WinArch::X64,
-            ImageSection::with_test_image(template.clone()),
-            template.clone(),
-        )
-        .unwrap()
-        .unwrap();
-        assert_eq!(selected.pe.headers().machine, 0x8664);
-        assert_eq!(file.headers().machine, 0xAA64);
-        assert_eq!(selected.pe.bytes(), file.bytes());
-        assert_eq!(selected.pe.memory_image(), template.bytes.as_ref());
-        assert!(Arc::ptr_eq(&selected.template, &template));
+        for (source, target) in [
+            (WinArch::Arm64, WinArch::X64),
+            (WinArch::X64, WinArch::Arm64),
+        ] {
+            let (file, template) = fixture(source, target);
+            let selected = selected_view(
+                &file,
+                target,
+                ImageSection::with_test_image(template.clone()),
+                template.clone(),
+            )
+            .unwrap()
+            .unwrap();
+            assert_eq!(selected.pe.headers().machine, target.machine());
+            assert_eq!(file.headers().machine, source.machine());
+            assert_eq!(selected.pe.bytes(), file.bytes());
+            assert_eq!(selected.pe.memory_image(), template.bytes.as_ref());
+            assert!(Arc::ptr_eq(&selected.template, &template));
+        }
     }
 
     #[cfg(windows)]
@@ -369,9 +376,55 @@ mod tests {
         }
     }
 
+    #[cfg(all(windows, target_arch = "aarch64"))]
+    #[test]
+    fn installed_arm64x_clr_shim_selects_arm64_from_its_retained_file() {
+        let runtime = NativeRuntime::select(WinArch::Arm64).unwrap();
+        let path = runtime.dll("mscoree.dll").unwrap();
+        if runtime.version.build == 29708 {
+            assert!(
+                path.is_some(),
+                "measured Windows profile includes the CLR shim"
+            );
+        }
+        let Some(path) = path else {
+            return;
+        };
+        let mut file = File::open(&path).unwrap();
+        let pe = PeImage::parse(read_image_file(&mut file).unwrap()).unwrap();
+        if runtime.version.build == 29708 {
+            assert_eq!(pe.headers().machine, WinArch::X64.machine());
+        }
+        let selected = runtime
+            .installed_view(WinArch::Arm64, &pe, &path, &file)
+            .unwrap();
+        let effective = selected.as_ref().map(|view| &view.pe).unwrap_or(&pe);
+        assert_eq!(effective.headers().machine, WinArch::Arm64.machine());
+        if pe.headers().machine == WinArch::X64.machine() {
+            let selected = selected.expect("a transformed machine requires a pinned view");
+            assert_eq!(selected.pe.bytes(), pe.bytes());
+            assert_eq!(selected.pe.memory_image(), selected.template.bytes.as_ref());
+            if let Err(LookupError::Status(STATUS_OBJECT_NAME_NOT_FOUND)) =
+                runtime.object_namespace.lookup_section(
+                    None,
+                    &"\\KnownDlls\\mscoree.dll"
+                        .encode_utf16()
+                        .collect::<Vec<_>>(),
+                    0x40,
+                    false,
+                )
+            {
+                assert_eq!(
+                    selected.section.file_identity(),
+                    Some(&FileIdentity::retained(&file).unwrap()),
+                );
+            }
+        }
+    }
+
     #[test]
     fn kernel_projection_rejects_wrong_guest_and_changed_file_identity() {
-        let (file, template) = fixture();
+        let (file, template) = fixture(WinArch::Arm64, WinArch::X64);
         assert!(
             selected_view(
                 &file,

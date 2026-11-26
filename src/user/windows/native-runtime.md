@@ -1734,6 +1734,21 @@ and [native evidence](../../../docs/specifications/windows/native-section-map/RE
 record acquisition, projection, relocation, ABI, faults, lifetime and validation.
 Full ordinary Windows process completion remains unproved.
 
+### ARM64 view of the installed CLR shim
+
+On Windows 11 ARM64 build 29708, the System32 `mscoree.dll` file reports
+AMD64. A native `LoadLibraryExW` control and a default kernel view of a
+private `SEC_IMAGE` section from that file both report ARM64. An explicit
+AMD64 section view retains the file's AMD64 header. All three mapped views
+span `0xd0000` bytes. The ARM64 entry RVA is `0xa630` and the AMD64 entry
+RVA is `0x27a0`.
+
+For the ARM64/AMD64 machine pair on an ARM64 host, a missing named section
+now permits the existing private section path for the retained installed
+DLL. The guest loader uses the kernel's architecture view with the file's
+original identity and verifies the projected PE geometry. An incompatible
+view or a failure to capture one still stops image admission.
+
 ### Native performance-counter query (2026-10-14)
 
 Counter/frequency stores, host clock reuse, shared-data units and native/public
