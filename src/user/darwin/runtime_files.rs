@@ -1,7 +1,8 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type and
 //! terminal databases, character-conversion tables, system TLS defaults, and
-//! selected CoreText and AppKit resources. Installed Perl and Ruby modules,
+//! selected CoreText and AppKit resources, and system framework manifests.
+//! Installed Perl and Ruby modules,
 //! executables, and shebang scripts are available in the same guest namespace.
 //! A selected Command Line Tools or Xcode installation supplies its own tools
 //! and SDK resources.
@@ -95,6 +96,16 @@ const PERL_ROOT: &str = "/System/Library/Perl";
 
 #[cfg(any(target_os = "macos", test))]
 const RUBY_VERSIONS: &str = "/System/Library/Frameworks/Ruby.framework/Versions";
+
+#[cfg(any(target_os = "macos", test))]
+const FRAMEWORK_ROOTS: [&str; 6] = [
+    "/System/Library/Frameworks",
+    "/System/Library/PrivateFrameworks",
+    "/System/Cryptexes/OS/System/Library/Frameworks",
+    "/System/Cryptexes/OS/System/Library/PrivateFrameworks",
+    "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks",
+    "/System/Volumes/Preboot/Cryptexes/OS/System/Library/PrivateFrameworks",
+];
 
 /// Public kernel version strings collected when selecting the installed runtime.
 #[derive(Clone, Debug)]
@@ -272,8 +283,6 @@ fn select_runtime_root(
         .map(|tools| tools.developer);
     let roots = [
         "/usr/lib",
-        "/System/Library/Frameworks",
-        "/System/Library/PrivateFrameworks",
         // Perl installs its dylib beside its versioned language runtime.
         PERL_ROOT,
         RUBY_VERSIONS,
@@ -291,6 +300,7 @@ fn select_runtime_root(
         "/System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/System/Library/Perl",
     ]
     .into_iter()
+    .chain(FRAMEWORK_ROOTS)
     .chain(ZONEINFO_PATHS)
     .chain([LOCALE_ROOT])
     .chain(PROGRAM_ROOTS.into_iter().chain(DATA_ROOTS).filter(|mount| {
@@ -448,7 +458,11 @@ fn select_developer_tools(
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -> io::Result<bool> {
+fn accept_runtime_file(
+    guest: &str,
+    host: &std::path::Path,
+    file: &std::fs::File,
+) -> io::Result<bool> {
     use crate::user::image::macho::{MH_BUNDLE, MH_DYLIB, MH_EXECUTE};
 
     if [COMMAND_LINE_TOOLS, XCODE_CONTENTS]
@@ -541,6 +555,9 @@ fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -
             return accept_charset_resource(root, entry, file);
         }
     }
+    if let Some(framework) = framework_manifest_bundle(guest) {
+        return Ok(is_installed_framework_manifest(host, framework));
+    }
     if ZONEINFO_PATHS.into_iter().any(|root| {
         guest
             .strip_prefix(root)
@@ -550,6 +567,50 @@ fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -
     } else {
         dylibs::accept(file, MH_DYLIB)
     }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn framework_manifest_bundle(guest: &str) -> Option<&str> {
+    let relative = FRAMEWORK_ROOTS.iter().find_map(|root| {
+        guest
+            .strip_prefix(root)
+            .and_then(|suffix| suffix.strip_prefix('/'))
+    })?;
+    let (bundle, entry) = relative.split_once('/')?;
+    if !bundle.ends_with(".framework") {
+        return None;
+    }
+    let resources = entry.strip_suffix("/Resources/Info.plist");
+    let version = resources.and_then(|prefix| prefix.strip_prefix("Versions/"));
+    (entry == "Resources/Info.plist"
+        || version.is_some_and(|part| !part.is_empty() && !part.contains('/')))
+    .then_some(bundle)
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn is_installed_framework_manifest(host: &std::path::Path, framework: &str) -> bool {
+    use std::ffi::OsStr;
+
+    if !host.ends_with("Resources/Info.plist") {
+        return false;
+    }
+    let Some(mut bundle) = host.parent().and_then(std::path::Path::parent) else {
+        return false;
+    };
+    // The guest may request any standard alias for the manifest. Check the
+    // resolved host layout independently, including the framework directory.
+    if let Some(versions) = bundle.parent().filter(|dir| dir.ends_with("Versions")) {
+        let Some(parent) = versions.parent() else {
+            return false;
+        };
+        bundle = parent;
+    }
+    bundle.file_name() == Some(OsStr::new(framework))
+        && bundle.parent().is_some_and(|dir| {
+            FRAMEWORK_ROOTS
+                .iter()
+                .any(|root| dir.ends_with(root.trim_start_matches('/')))
+        })
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -1973,6 +2034,94 @@ mod tests {
             .unwrap();
         let selected = select_native_root(&explicit, root, None).unwrap();
         assert_eq!(&*selected.read(module).unwrap(), b"override");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_framework_manifests_follow_bundle_aliases() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"root", 4);
+        let root = &fixture.dir;
+        let lib = root.join("usr/lib");
+        let cache = root.join("System/Library/dyld");
+        let system = root.join("System/Library/Frameworks");
+        let cryptex = root.join("System/Cryptexes/OS/System/Library/Frameworks");
+        let private = root.join("System/Library/PrivateFrameworks");
+        let public = system.join("Public.framework");
+        let overlay = cryptex.join("Overlay.framework");
+        let local = private.join("Private.framework");
+        for dir in [&lib, &cache] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        fs::write(lib.join("dyld"), b"dyld").unwrap();
+        fs::write(cache.join("dyld_shared_cache_arm64e"), b"cache").unwrap();
+        for (bundle, manifest) in [
+            (&public, b"public".as_slice()),
+            (&overlay, b"overlay"),
+            (&local, b"private"),
+        ] {
+            let resources = bundle.join("Versions/A/Resources");
+            fs::create_dir_all(&resources).unwrap();
+            fs::write(resources.join("Info.plist"), manifest).unwrap();
+            symlink("A", bundle.join("Versions/Current")).unwrap();
+            symlink("Versions/Current/Resources", bundle.join("Resources")).unwrap();
+        }
+        symlink(&overlay, system.join("Overlay.framework")).unwrap();
+        let unrelated = public.join("Versions/A/Resources/Other.plist");
+        fs::write(&unrelated, b"other resource").unwrap();
+        let escaped = system.join("Escaped.framework/Resources");
+        fs::create_dir_all(&escaped).unwrap();
+        symlink(&unrelated, escaped.join("Info.plist")).unwrap();
+        let substituted = system.join("Substituted.framework/Resources");
+        fs::create_dir_all(&substituted).unwrap();
+        symlink(
+            public.join("Resources/Info.plist"),
+            substituted.join("Info.plist"),
+        )
+        .unwrap();
+        let nested = public.join("Versions/A/Resources/Helper.app/Resources");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(nested.join("Info.plist"), b"helper metadata").unwrap();
+
+        let selected = select_native_root(&Files::default(), root, None).unwrap();
+        let public_guest = "/System/Library/Frameworks/Public.framework";
+        for (bundle, manifest) in [
+            (public_guest, b"public".as_slice()),
+            ("/System/Library/Frameworks/Overlay.framework", b"overlay"),
+            (
+                "/System/Library/PrivateFrameworks/Private.framework",
+                b"private",
+            ),
+        ] {
+            for alias in [
+                "Resources",
+                "Versions/Current/Resources",
+                "Versions/A/Resources",
+            ] {
+                let path = format!("{bundle}/{alias}/Info.plist");
+                assert_eq!(&*selected.read(&path).unwrap(), manifest, "{path}");
+            }
+        }
+        for path in [
+            "/System/Library/Frameworks/Escaped.framework/Resources/Info.plist",
+            "/System/Library/Frameworks/Substituted.framework/Resources/Info.plist",
+            &format!("{public_guest}/Resources/Other.plist"),
+            &format!("{public_guest}/Resources/Helper.app/Resources/Info.plist"),
+        ] {
+            assert!(
+                matches!(selected.lookup(path), Err(Error::NotFound)),
+                "{path}"
+            );
+        }
+
+        let override_path = format!("{public_guest}/Resources/Info.plist");
+        let explicit = Files::default()
+            .with_file(override_path.clone(), Arc::from(&b"caller manifest"[..]))
+            .unwrap();
+        let selected = select_native_root(&explicit, root, None).unwrap();
+        assert_eq!(&*selected.read(&override_path).unwrap(), b"caller manifest");
     }
 
     #[cfg(unix)]

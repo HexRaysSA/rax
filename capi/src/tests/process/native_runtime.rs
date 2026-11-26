@@ -385,6 +385,24 @@ fn installed_darwin_fallback_font_matches_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_framework_manifests_match_native_through_closed_c_abi() {
+    for framework in ["AppKit", "WebKit"] {
+        let manifest =
+            format!("/System/Library/Frameworks/{framework}.framework/Resources/Info.plist");
+        let bytes = std::fs::read(&manifest).unwrap_or_else(|error| panic!("{manifest}: {error}"));
+        assert!(!bytes.is_empty(), "{manifest}");
+        compare_installed_posix_output(
+            "darwin",
+            "/bin/cat",
+            &[&manifest],
+            &[("LC_ALL", "C")],
+            &bytes,
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_textutil_converts_rtf_through_closed_c_abi() {
     compare_installed_posix_with_input(
         "darwin",
