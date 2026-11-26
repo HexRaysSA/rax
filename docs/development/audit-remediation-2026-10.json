@@ -200761,6 +200761,14 @@
       "scope": "In the four-hart RAX highres=off capture at 300 s, Debian Linux PID 1 and the tracefs worker waited on event_mutex. Its owner was current on CPU 3 in trace_event_update_all, beneath a scheduler softirq and nested timer IRQ. CPU 3 was the only CPU still pending for RCU sequence -1159, the sequence reported by all three logged stalls. RAM hashes and kernel BTF matched. The mutex was unowned in the other two wall captures and the retired-clock control. The findings remain open.",
       "qualification": "docs/development/riscv-clint/README.md#linux-task-state-at-the-recorded-checkpoints",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-linux-periodic-tick-control-2026-11-26",
+      "findings": ["C-SMP"],
+      "status": "diagnostic_evidence_wall_clock_open",
+      "scope": "Four-hart Debian Linux with highres=off and nohz=off reached all four affinity markers on QEMU 11.1.2. Turn-batched RAX eea2e5e65 reached the 950 s host limit with no markers. At the 150 s and 320 s checkpoint requests, all harts were online and PID 1 and the tracefs worker waited on event_mutex, held by PID 44 on CPU 1 and CPU 2 respectively. Linux jiffies and all four timer IRQ counters advanced. High-resolution timer counters and leaf RCU quiescent-state pending flags were zero in both captures. The wall-clock boot timeout remains open.",
+      "qualification": "docs/development/riscv-clint/README.md#periodic-tick-control-at-four-harts",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

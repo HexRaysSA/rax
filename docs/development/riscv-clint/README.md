@@ -705,6 +705,35 @@ wall-clock boot timeout remains open.
 The reader, hashes and decoded task, IRQ-stack, mutex and RCU records
 are in `/Users/int/dev/rax-audit-work/four-findings-rv64-task-stacks-2026-11-26/`.
 
+#### Periodic-tick control at four harts
+
+This control adds `nohz=off` to the four-hart `highres=off` guest. The
+DTB is the only changed ELF load segment. QEMU 11.1.2 reached the four
+affinity markers and powered off in 1.45 s. The `eea2e5e65` turn-batched
+RAX binary reached the 950 s host limit before any affinity marker.
+The saved RAM and kernel BTF identify the same mutex owner and waiters
+at both checkpoint requests. The scheduler moved the owner between harts.
+
+| Request | `event_mutex` | CPU timer IRQ totals (CPU 0 through CPU 3) | RCU quiescent state pending |
+| ---: | --- | --- | --- |
+| 150 s | PID 44 on CPU 1, with PIDs 39 and 1 waiting | 11,599 / 10,893 / 11,383 / 10,694 | None |
+| 320 s | PID 44 on CPU 2, with PIDs 39 and 1 waiting | 18,961 / 21,353 / 22,006 / 22,547 | None |
+
+All four harts were online at both captures. The difference in saved
+MTIME was 1,698,561,730 ticks at 10 MHz, or 169.856 s. Linux jiffies
+advanced by 30,861 and the high-resolution timer event, retry and hang
+counters were zero on all four harts. RCU sequence -1156 was waiting
+for a new grace period in both captures. PID 44 was interrupted in
+`trace_event_update_all` at offsets `0x216` and `0x144`, respectively.
+The periodic-tick control reproduced the timeout with no pending RCU
+quiescent state at either saved point. The boot timeout's cause remains
+unresolved.
+
+The supervisor waited 20 s for the second checkpoint, which completed
+47.25 s after the request. The second analysis uses a separately hashed
+copy of that completed file. The guest, console, saved checkpoints and
+decoded records are in the task-state evidence directory above.
+
 ## Issued UART writes in checkpoints
 
 The VMM retains an issued UART MMIO write at the head of the originating
