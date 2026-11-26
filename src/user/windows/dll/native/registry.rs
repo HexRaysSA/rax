@@ -12,6 +12,9 @@ use crate::user::windows::objects::Object;
 use crate::user::windows::registry::{Key, Lookup, RegistryView, Value};
 use std::sync::Arc;
 
+mod win32;
+pub(in crate::user::windows::dll) use win32::WIN32_REGISTRY_EXPORTS;
+
 const READ_ACCESS: u32 = 0x0002_0019;
 const MAX_CONVERSION_BYTES: usize = 16 << 20;
 
@@ -660,14 +663,7 @@ fn query_value(
         None => name(c, address)?,
     };
     let name = text(c, descriptor, false)?;
-    if !key.covers_value(&name.units) {
-        return Err(c
-            .unsupported("registry value is outside the installed snapshot")
-            .into());
-    }
-    let value = key
-        .value(&name.units)
-        .ok_or(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND))?;
+    let value = selected_value(c, &key, &name.units)?;
     // Native64 probes ULONG alignment for every admitted class when Length
     // is nonzero, including a buffer too short for its fixed header.
     if scratch.is_none() && length != 0 && out % 4 != 0 {
@@ -675,6 +671,16 @@ fn query_value(
     }
     probe_write(c, returned, 4)?;
     write_value_record(c, value, class, out, length, returned, scratch)
+}
+
+fn selected_value<'a>(c: &Ctx, key: &'a Key, name: &[u16]) -> Checked<&'a Value> {
+    if !key.covers_value(name) {
+        return Err(c
+            .unsupported("registry value is outside the installed snapshot")
+            .into());
+    }
+    key.value(name)
+        .ok_or(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND))
 }
 
 fn write_value_record(

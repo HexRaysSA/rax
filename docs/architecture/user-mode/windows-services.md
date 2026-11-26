@@ -223,6 +223,22 @@ NtOpenDirectoryObject service0x58 at PC0x1800015C0 remains unsupported. All four
 ordinary owning programs reach that boundary before guest exit.
 See [provider traits evidence](../../specifications/windows/native-etw-provider-traits/README.md).
 
+## Built-in registry services
+
+KernelBase exports `RegCloseKey`, `RegOpenKeyW` and `RegQueryValueExW` for
+the core registry API sets. GameOS Advapi32 forwards to these public names.
+Opened handles share the native guest registry's key objects, access grants
+and x86 view selection. Queries return the stored type and exact data bytes,
+including for the unnamed value. A size-only query reports the required byte
+count, and a short buffer returns Win32 error 234 (`ERROR_MORE_DATA`).
+
+The portable profile starts with an empty guest registry. Opening an absent
+ordinary subkey returns Win32 error 2. Where a partial snapshot is supplied,
+its coverage determines which keys and values can be resolved. Merged Classes
+views and live performance-provider queries are outside that profile.
+A drive mapping supplies guest files and does not populate the registry.
+[Registry value query contract](../../specifications/windows/native-nls-registry/regqueryvalueexw.md)
+
 ## Built-in ETW provider services
 
 The portable profile exposes the 23 NTDLL `Etw*` targets forwarded by desktop

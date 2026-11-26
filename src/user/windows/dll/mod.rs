@@ -223,6 +223,7 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         kernel::ERROR_MODE_EXPORTS,
         kernel::PROCESS_WRITE_BARRIER_EXPORTS,
         etw::KERNEL_FORWARDS,
+        native::WIN32_REGISTRY_EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {

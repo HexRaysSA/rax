@@ -57,6 +57,7 @@ pub(crate) use query::memory_usage_replay;
 mod raise;
 mod read_memory;
 mod registry;
+pub(super) use registry::WIN32_REGISTRY_EXPORTS;
 mod section_create;
 mod section_map;
 mod section_query;

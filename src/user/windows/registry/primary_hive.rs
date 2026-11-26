@@ -40,6 +40,10 @@ impl Key {
 }
 
 impl Registry {
+    pub(crate) fn primary_hive_path(&self) -> Option<&[u16]> {
+        self.primary_hive.as_ref().map(|hive| hive.path.as_slice())
+    }
+
     pub(super) fn check_primary_hive_sid(&self, sid: &[u8]) -> io::Result<()> {
         let path = user_policy::user_hive_path(sid)?;
         for (kind, suffix, message) in [
