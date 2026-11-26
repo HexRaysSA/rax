@@ -200822,7 +200822,7 @@
     {
       "id": "hvf-mmio-packed-register-blend-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "locally_qualified_full_findings_open",
+      "status": "hosted_intel_qualified_full_findings_open",
       "scope": "Intel HVF handles legacy and VEX.W0 BLENDVPS, BLENDVPD and PBLENDVB. It captures the mask sign bits with the first source before issuing the device read. The 255 independent RAM input cases include aliased sources and destinations. Hosted Intel run 45756410639 at 4baf5cf6c passed 255 direct reads, 255 fresh-owner continuations and three guest general-protection faults. All transfer results matched the RAM fingerprints. Full MMIO, checkpoint and bare-metal Intel coverage remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-blends-with-a-register-mask",
       "full_goal_complete": false
@@ -200830,8 +200830,8 @@
     {
       "id": "hvf-mmio-two-source-lane-permutation-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "locally_qualified_full_findings_open",
-      "scope": "Intel HVF projects one 32 B device read for VPERM2F128 and VPERM2I128. The 512 opcode and control pairs are checked against the independent Rosetta RAM oracle after pending-read restore. The hosted profile defines 100 direct and restored cases. Full MMIO and checkpoint coverage remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Intel HVF projects one 32 B device read for VPERM2F128 and VPERM2I128. The 512 opcode and control pairs are checked against the independent Rosetta RAM oracle after pending-read restore. Hosted Intel run 45758023326 at d12aaa25a passed 50 direct reads and 50 fresh-owner continuations. All widths and results matched the independent RAM reference. Full MMIO, checkpoint and bare-metal Intel coverage remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#two-source-128-bit-lane-permutations",
       "full_goal_complete": false
     },

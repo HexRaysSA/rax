@@ -1423,6 +1423,15 @@ strict signature verification. These local checks used a tree based on
 `4baf5cf6c`. The HVF changes were preserved byte for byte when advancing
 past an unrelated Windows change before publication.
 
+Hosted Intel run `45758023326` at `d12aaa25a927` passed all 100 cases.
+For each of the 50 direct reads and 50 fresh-owner continuations, the
+32 B request and result matched the independent Rosetta RAM reference.
+The exact source, executable digest and both downloaded artifacts were
+verified. The execution artifact SHA-256 is
+`415ac9a16b7aef74808201a1521dbad6a2e451fecb083987d6f42d3a826aa9af`.
+The runner reported a virtualized Intel host.
+[Hosted lane-permutation execution](https://github.com/HexRaysSA/rax/actions/runs/45758023326/job/139701170044)
+
 ## Unary packed shuffles with an immediate control
 
 Intel HVF supports the legacy XMM and VEX.128/.256 memory forms of
