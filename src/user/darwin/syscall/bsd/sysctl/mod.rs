@@ -555,11 +555,19 @@ impl Override {
 
 fn system_overrides(ctx: &Ctx<'_>) -> impl Iterator<Item = &'static Override> + use<> {
     let config = &ctx.proc.config;
-    let installed = !config.host_services && config.native_kernel_info.is_some();
+    let closed = !config.host_services;
+    let installed = closed && config.native_kernel_info.is_some();
     OVERRIDES
         .iter()
+        .chain(closed.then_some(&CLOSED_HOSTNAME))
         .chain(installed.then_some(&NATIVE_OS_RELEASE))
 }
+
+// Apple's uname reads KERN_HOSTNAME even when a caller only needs the release.
+static CLOSED_HOSTNAME: Override =
+    Override::new("kern.hostname", &[1, 10], 0xc0e0_0003, "A", "", |_| {
+        Value::Truncated(b"rax-embedded".to_vec())
+    });
 
 static NATIVE_OS_RELEASE: Override =
     Override::new("kern.osrelease", &[1, 2], 0x81e0_0003, "A", "", |ctx| {
@@ -734,11 +742,46 @@ mod tests {
         for row in OVERRIDES
             .iter()
             .map(|entry| &entry.row)
-            .chain([&NATIVE_OS_RELEASE.row])
+            .chain([&CLOSED_HOSTNAME.row, &NATIVE_OS_RELEASE.row])
         {
             assert!(names.insert(row.name), "{}", row.name);
             assert!(oids.insert(row.oid), "{:?}", row.oid);
             assert!(!tree::owns(row.oid[0]));
+        }
+    }
+
+    #[test]
+    fn closed_hostname_has_numeric_and_named_reads_without_host_access() {
+        use crate::user::darwin::abi::DarwinAbi;
+        use crate::user::darwin::process::bounded_tests::process;
+
+        for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+            let mut process = process(abi);
+            let proc = &mut process.proc;
+            let (_, mut thread) = proc.threads.pop_first().unwrap();
+            let addr = thread.cpu.sp() - 128;
+            let mut ctx = Ctx {
+                proc,
+                nr: 0,
+                pc: thread.cpu.pc(),
+                thread: &mut thread,
+            };
+
+            assert!(!ctx.proc.config.host_services);
+            assert_eq!(oid_of_name(&ctx, "kern.hostname"), Ok(vec![1, 10]));
+            let mut size = Req::new(0, 0, 0, 0);
+            assert_eq!(root(&mut ctx, &[1, 10], &mut size), Ok(()));
+            assert_eq!(size.reported(), 13);
+            for (room, expected) in [(64, b"rax-embedded\0".as_slice()), (3, b"ra\0")] {
+                ctx.write(addr, &[0xa5; 64]).unwrap();
+                let mut read = Req::new(addr, room, 0, 0);
+                assert_eq!(root(&mut ctx, &[1, 10], &mut read), Ok(()));
+                assert_eq!(read.reported(), expected.len() as u64);
+                assert_eq!(ctx.read(addr, expected.len()).unwrap(), expected);
+                assert_eq!(ctx.read(addr + expected.len() as u64, 1).unwrap(), [0xa5]);
+            }
+            let mut write = Req::new(0, 0, addr, 3);
+            assert_eq!(root(&mut ctx, &[1, 10], &mut write), Err(Errno::EPERM));
         }
     }
 
