@@ -654,6 +654,45 @@ fn installed_cat_reads_guest_null_through_closed_c_abi() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn installed_linux_id_resolves_guest_credentials_through_closed_c_abi() {
+    let path = "/usr/bin/id";
+    for flag in ["-un", "-gn"] {
+        compare_installed_posix_output(
+            "linux",
+            path,
+            &[flag, "root"],
+            &[("LC_ALL", "C")],
+            b"root\n",
+        );
+    }
+
+    // Local runners may use a different UID or GID from the closed guest.
+    let image = std::fs::read(path).unwrap();
+    for (flag, expected) in [
+        ("-un", b"root\n".as_slice()),
+        ("-gn", b"root\n".as_slice()),
+        ("-u", b"0\n".as_slice()),
+        ("-g", b"0\n".as_slice()),
+    ] {
+        let options = serde_json::json!({
+            "personality": "linux",
+            "guest_path": path,
+            "arguments": [flag],
+            "environment": {"LC_ALL": "C"},
+            "native_runtime": true,
+        });
+        let process = open(&image, &options.to_string());
+        assert_eq!(run_installed_posix(&process, path).exit_code, 0);
+        assert_eq!(
+            capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT),
+            expected
+        );
+        assert!(capture_installed_posix_stream(&process, RAX_PROCESS_STDERR).is_empty());
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn installed_linux_reopens_guest_console_through_closed_c_abi() {
     let input = b"guest descriptor input\n";
     for path in [

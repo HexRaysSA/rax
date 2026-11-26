@@ -39,6 +39,8 @@ pub const DEFAULT_ARENA_BYTES: u64 = 16 << 30;
 /// Kernel release reported by `uname`: the UAPI revision RAX implements.
 pub const DEFAULT_KERNEL_RELEASE: &str = "6.19.0";
 
+pub(super) const CLOSED_IDENTITY: (u32, u32) = (0, 0);
+
 /// How to start a process.
 #[derive(Clone, Debug)]
 pub struct LinuxConfig {
@@ -95,6 +97,23 @@ pub struct LinuxConfig {
 }
 
 impl LinuxConfig {
+    /// Select the installed runtime for this process's executable and profile.
+    pub fn select_native_runtime(
+        &mut self,
+        files: &crate::user::supplied_fs::Files,
+    ) -> std::io::Result<()> {
+        let executable = super::fs::join_guest(&self.cwd, &self.exec_path);
+        let selected = super::runtime_files::native_for_executable(files, &executable)?;
+        #[cfg(target_os = "linux")]
+        let selected = if self.host_services {
+            selected
+        } else {
+            super::runtime_files::with_guest_accounts(selected, &executable)?
+        };
+        self.supplied_files = Some(selected);
+        Ok(())
+    }
+
     /// A closed process using supplied files, bounded captured streams, virtual
     /// identity and emulated threads. External host services are denied.
     pub fn embedded(
@@ -943,7 +962,8 @@ impl LinuxProcess {
                 .unwrap_or(exe_guest);
             (vfs, path, Some(host))
         };
-        let mut creds = (0, 0, 0, 0);
+        let (uid, gid) = CLOSED_IDENTITY;
+        let mut creds = (uid, uid, gid, gid);
         let mut ppid = 1;
         let mut groups = Vec::new();
         let mut umask = 0o022;

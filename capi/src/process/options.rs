@@ -73,16 +73,11 @@ impl Config {
             Backend::Linux(c) => {
                 let files = rax_engine::user::supplied_fs::Files::new(files)
                     .map_err(|e| bad(e.to_string()))?;
-                c.supplied_files = Some(if native {
-                    let executable = rax_engine::user::linux::fs::join_guest(&c.cwd, &c.exec_path);
-                    rax_engine::user::linux::runtime_files::native_for_executable(
-                        &files,
-                        &executable,
-                    )
-                    .map_err(runtime_error)?
+                if native {
+                    c.select_native_runtime(&files).map_err(runtime_error)?;
                 } else {
-                    files
-                });
+                    c.supplied_files = Some(files);
+                }
             }
         }
         Ok(())

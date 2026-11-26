@@ -66,6 +66,39 @@ pub fn native_for_executable(files: &Files, executable: &str) -> io::Result<File
     select_native(files, Some(executable))
 }
 
+#[cfg(any(target_os = "linux", test))]
+pub(super) fn with_guest_accounts(mut files: Files, executable: &str) -> io::Result<Files> {
+    let (uid, gid) = super::process::CLOSED_IDENTITY;
+    let records = [
+        (
+            "/etc/passwd",
+            format!("root:*:{uid}:{gid}:root:/tmp:/bin/sh\n"),
+        ),
+        ("/etc/group", format!("root:*:{gid}:\n")),
+    ];
+    let contains_path = |parent: &str, path: &str| {
+        path == parent
+            || path
+                .strip_prefix(parent)
+                .is_some_and(|rest| rest.starts_with('/'))
+    };
+    for (path, record) in records {
+        // The main image is inserted after selection. Caller files and mounts
+        // also retain precedence over these guest-owned records.
+        if !contains_path(path, executable)
+            && !contains_path(executable, path)
+            && files
+                .default_runtime_entry_available(path, None)
+                .map_err(io::Error::other)?
+        {
+            files = files
+                .with_file(path.into(), record.into_bytes().into())
+                .map_err(io::Error::other)?;
+        }
+    }
+    Ok(files)
+}
+
 fn select_native(files: &Files, executable: Option<&str>) -> io::Result<Files> {
     #[cfg(target_os = "linux")]
     {
@@ -1115,6 +1148,54 @@ mod tests {
             selected.read("/etc/localtime"),
             Err(Error::NotFound)
         ));
+    }
+
+    #[test]
+    fn closed_guest_account_records_respect_caller_paths() {
+        use crate::user::supplied_fs::{Error, test_backing::TestFile};
+        use std::sync::Arc;
+
+        let empty = Files::default();
+        let selected = with_guest_accounts(empty.clone(), "/usr/bin/id").unwrap();
+        assert_eq!(
+            &*selected.read("/etc/passwd").unwrap(),
+            b"root:*:0:0:root:/tmp:/bin/sh\n"
+        );
+        assert_eq!(&*selected.read("/etc/group").unwrap(), b"root:*:0:\n");
+        assert!(matches!(
+            selected.lookup("/etc/shadow"),
+            Err(Error::NotFound)
+        ));
+
+        let caller = empty
+            .with_file("/etc/passwd".into(), Arc::from(&b"caller account"[..]))
+            .unwrap();
+        let selected = with_guest_accounts(caller, "/usr/bin/id").unwrap();
+        assert_eq!(&*selected.read("/etc/passwd").unwrap(), b"caller account");
+        assert_eq!(&*selected.read("/etc/group").unwrap(), b"root:*:0:\n");
+
+        let fixture = TestFile::new(b"unselected", 10);
+        std::fs::write(fixture.dir.join("passwd"), b"caller mounted account").unwrap();
+        let caller = empty
+            .with_host_roots(BTreeMap::from([("/etc".into(), fixture.dir.clone())]))
+            .unwrap();
+        let selected = with_guest_accounts(caller, "/usr/bin/id").unwrap();
+        assert_eq!(
+            &*selected.read("/etc/passwd").unwrap(),
+            b"caller mounted account"
+        );
+        assert!(matches!(
+            selected.lookup("/etc/group"),
+            Err(Error::NotFound)
+        ));
+
+        for executable in ["/etc", "/etc/passwd", "/etc/passwd/program"] {
+            let selected = with_guest_accounts(empty.clone(), executable).unwrap();
+            assert!(matches!(
+                selected.lookup("/etc/passwd"),
+                Err(Error::NotFound)
+            ));
+        }
     }
 
     #[test]
