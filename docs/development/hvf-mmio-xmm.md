@@ -1058,7 +1058,10 @@ signature verification. Its executable SHA-256 is
 `ffd0aedf792ba587cbf7af9fe381b3b149d3dffa66c17a7a5614638250dabce8`.
 At `870127acc`, the `vector-uniform-shifts` profile passed 392 direct
 reads, 392 fresh-owner completions, and eight legacy alignment fault
-cases on GitHub-hosted Intel macOS.
+cases on virtualized Intel macOS. All 784 direct and fresh-owner
+results matched the independent RAM fingerprints. The prepared source,
+signed executable and both archives were verified. The execution archive
+SHA-256 is `051c833718a8c165edb373b625822944765cb6f686ad8da71cd78a02ff3038f7`.
 [Hosted uniform-shift execution](https://github.com/HexRaysSA/rax/actions/runs/45478645398/job/138745518634)
 
 ## AVX2 per-element shifts with device counts
@@ -1488,9 +1491,15 @@ observation SHA-256 is
 `1f6111b21f5970273702f51f42c13858635c3ad2a998cd4e816fbdaaa22d95ea`.
 The Intel macOS consumer cross-built and passed strict code-signature
 verification. The local build ran on Arm64.
-The hosted `vector-sign` profile covers 30 direct reads, 30 fresh-owner
-reads and 3 legacy alignment faults. MMX device reads and bare-metal
-Intel macOS qualification remain open.
+The `vector-sign` profile passed all 63 cases on virtualized Intel macOS
+at `ebc675bb7121`. All 30 direct reads and 30 fresh-owner completions
+matched the independent RAM fingerprints, and all three legacy
+misalignment controls took #GP. The prepared source, signed executable
+and both archives were verified. The execution archive SHA-256 is
+`0f8c5f54dbd71e89429905bc8fe59acdc1ee3f69edb1b6d6804449f739333256`.
+[Hosted packed sign execution](https://github.com/HexRaysSA/rax/actions/runs/45715190897/job/139559351993)
+
+MMX device reads and bare-metal Intel macOS qualification remain open.
 
 Commands, inputs, disassembly and logs are under
 `/Users/int/dev/rax-audit-work/four-findings-hvf-packed-sign-2026-11-25/`.
