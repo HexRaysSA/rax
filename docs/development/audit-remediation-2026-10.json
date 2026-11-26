@@ -201020,8 +201020,8 @@
     {
       "id": "hvf-mmio-vex-lane-permutations-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "native_intel_qualification_pending",
-      "scope": "VEX.128 and VEX.256 VPERMILPS and VPERMILPD device reads accept immediate and variable selectors. Variable forms capture the vector data register in the pending record. Completion preserves 128-bit lane boundaries and retires once after restore. The 1,152 portable pending-read results match the independent Rosetta RAM reference at two placements. The 128-case Intel consumer cross-built and passed signature verification. Hosted execution, EVEX reads, bare-metal Intel and complete checkpoint and interrupt scope remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "VEX.128 and VEX.256 VPERMILPS and VPERMILPD device reads accept immediate and variable selectors. Variable forms capture the vector data register in the pending record. Completion preserves 128-bit lane boundaries and retires once after restore. The 1,152 portable pending-read results match the independent Rosetta RAM reference at two placements. Hosted Intel run 45808225455 at 0d0c5434f matched the reference in all 64 direct and 64 fresh-owner cases. EVEX reads, bare-metal Intel and complete checkpoint and interrupt scope remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#vex-permutations-within-a-128-bit-lane",
       "full_goal_complete": false
     },

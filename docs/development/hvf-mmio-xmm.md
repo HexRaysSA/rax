@@ -1647,8 +1647,24 @@ checks the device address and width, the vector bank, RFLAGS and RIP.
 The signed Intel macOS consumer cross-built and passed signature
 verification. All 182 portable MMIO tests and 55 Python HVF tool tests
 passed on Apple Silicon. Library Clippy passed with warnings denied.
-Hosted Intel execution, EVEX device reads and bare-metal Intel
-qualification remain open.
+
+Hosted run `45808225455` at `0d0c5434f060548f28750d2c2db3f1560c281f87`
+passed on virtualized Intel macOS. All 64 direct and 64 fresh-owner
+observations matched the independent RAM reference in case order.
+The guest requested 16 B in 64 cases and 32 B in 64 cases. Verification
+matched the pinned source hashes and the same signed executable across
+the two artifacts. The observation stream has SHA-256
+`795dec49fc553301be1f0f4abd36d9e30ffc482204a159ebb5f7bdcf2cb5a187`.
+[Hosted Intel execution](https://github.com/HexRaysSA/rax/actions/runs/45808225455/job/139868982186)
+
+- Build archive `15130298711` matched SHA-256
+  `819a989e3d5df7b7d720c7ffcccc65efff8efc44d78b77815a7fe015a137197e`.
+  [Signed build archive](https://github.com/HexRaysSA/rax/actions/runs/45808225455/artifacts/15130298711)
+- Execution archive `15129983937` matched SHA-256
+  `c9824a92237145a538eaffa277692c3152c7dc6bb458210e8af2378d5d9f95e9`.
+  [Native execution archive](https://github.com/HexRaysSA/rax/actions/runs/45808225455/artifacts/15129983937)
+
+EVEX device reads and bare-metal Intel qualification remain open.
 
 ## Unary packed shuffles with an immediate control
 
