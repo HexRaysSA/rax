@@ -486,6 +486,7 @@ dependencies = [
 name = "rax-capi"
 version = "0.1.2"
 dependencies = [
+ "libc",
  "rax",
  "serde_json",
  "tracing-subscriber",

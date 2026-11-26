@@ -695,11 +695,16 @@ cat /dev/fd/3 second
 #[cfg(target_os = "linux")]
 #[test]
 fn installed_ls_lists_its_own_descriptor_through_closed_c_abi() {
-    compare_installed_posix_output(
+    let path = installed_posix_utility("/bin/ls", "/usr/bin/ls");
+    let mut native = std::process::Command::new(path);
+    isolate_linux_control_descriptors(&mut native);
+    compare_installed_posix_with_control(
+        native,
         "linux",
-        installed_posix_utility("/bin/ls", "/usr/bin/ls"),
+        path,
         &["-a", "-1", "/proc/self/fd"],
         &[("LC_ALL", "C")],
+        b"",
         b".\n..\n0\n1\n2\n3\n",
     );
 }
@@ -1698,10 +1703,30 @@ fn compare_installed_posix_with_input(
     input: &[u8],
     expected_stdout: &[u8],
 ) {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
+    compare_installed_posix_with_control(
+        std::process::Command::new(path),
+        personality,
+        path,
+        arguments,
+        environment,
+        input,
+        expected_stdout,
+    );
+}
 
-    let mut command = Command::new(path);
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn compare_installed_posix_with_control(
+    mut command: std::process::Command,
+    personality: &str,
+    path: &str,
+    arguments: &[&str],
+    environment: &[(&str, &str)],
+    input: &[u8],
+    expected_stdout: &[u8],
+) {
+    use std::io::Write;
+    use std::process::Stdio;
+
     command
         .args(arguments)
         .env_clear()
@@ -1747,6 +1772,58 @@ fn compare_installed_posix_with_input(
     assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
     assert_eq!(stdout, native.stdout);
     assert_eq!(stderr, native.stderr);
+}
+
+#[cfg(target_os = "linux")]
+fn isolate_linux_control_descriptors(command: &mut std::process::Command) {
+    use std::io;
+    use std::os::unix::process::CommandExt;
+
+    // Include already open descriptors above a lowered RLIMIT_NOFILE.
+    let highest_open = std::fs::read_dir("/proc/self/fd")
+        .unwrap()
+        .map(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_str()
+                .unwrap()
+                .parse::<u32>()
+                .unwrap()
+        })
+        .max()
+        .unwrap();
+    // SAFETY: sysconf takes no pointer arguments.
+    let open_limit = unsafe { libc::sysconf(libc::_SC_OPEN_MAX) };
+    let last_fd = u32::try_from(open_limit)
+        .unwrap()
+        .saturating_sub(1)
+        .max(highest_open);
+    // SAFETY: the child callback only makes direct fd syscalls and reports OS errors.
+    // Marking descriptors instead of closing them preserves Rust's exec-error pipe.
+    unsafe {
+        command.pre_exec(move || {
+            if libc::syscall(
+                libc::SYS_close_range,
+                3u32,
+                u32::MAX,
+                libc::CLOSE_RANGE_CLOEXEC,
+            ) == 0
+            {
+                return Ok(());
+            }
+            // Older kernels and restricted runners may not support close_range.
+            for fd in 3..=last_fd {
+                if libc::fcntl(fd as libc::c_int, libc::F_SETFD, libc::FD_CLOEXEC) == -1 {
+                    let error = io::Error::last_os_error();
+                    if error.raw_os_error() != Some(libc::EBADF) {
+                        return Err(error);
+                    }
+                }
+            }
+            Ok(())
+        });
+    }
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
