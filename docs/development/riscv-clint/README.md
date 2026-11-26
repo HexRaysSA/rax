@@ -734,6 +734,28 @@ The supervisor waited 20 s for the second checkpoint, which completed
 copy of that completed file. The guest, console, saved checkpoints and
 decoded records are in the task-state evidence directory above.
 
+#### Trace-format traversal during the periodic-tick control
+
+The two saved `pt_regs` records place PID 44 inside the trace-format parser
+in `trace_event_update_all`. The disassembly identifies `s10` as the
+current `ftrace_events` list node and `s1` as its successor. The reader
+checks the instruction that resolves the list head against the matched
+kernel symbol and checks both directions of every saved list link. Both
+checkpoints contained the same 1,305 node addresses in the same order.
+[Linux v6.12.117 trace-event traversal](https://github.com/gregkh/linux/blob/v6.12.117/kernel/trace/trace_events.c#L2978-L3028)
+
+| Checkpoint request | Current event index (zero-based) | Next event index | Current evaluation-map index |
+| ---: | ---: | ---: | ---: |
+| 150 s | 792 | 793 | 276 |
+| 320 s | 796 | 797 | 232 |
+
+PID 44 advanced four event-list entries in the observed interval while
+PID 1 remained blocked on `event_mutex`. This measures progress in the
+captured interval. The traversal alone cannot establish what limited that
+progress or whether the full guest would eventually finish. Exact list
+order, register values, disassembly and the reader are in
+`periodic-trace-cursor.json` and its neighboring evidence files.
+
 ## Issued UART writes in checkpoints
 
 The VMM retains an issued UART MMIO write at the head of the originating
