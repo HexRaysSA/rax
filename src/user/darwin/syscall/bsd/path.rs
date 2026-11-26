@@ -20,6 +20,7 @@ use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
 #[cfg(not(target_os = "macos"))]
 use crate::user::darwin::io::{O_EXLOCK, O_SHLOCK};
 use crate::user::darwin::syscall::Ctx;
+use crate::user::supplied_fs::{Entry, Kind, NAME_MAX};
 
 pub(super) mod attributes;
 mod dev_fd;
@@ -679,21 +680,32 @@ pub fn pathconf(ctx: &mut Ctx<'_>, path: u64, name: i32) -> SysResult {
     #[cfg(unix)]
     {
         let (_, cpath) = guest_path(ctx, path)?;
-        host::set_errno(0);
         // SAFETY: `cpath` is NUL-terminated.
-        let r = unsafe { libc::pathconf(cpath.as_ptr(), name) };
-        if r < 0 {
-            let e = Errno::last();
-            if e.0 != 0 {
-                return Err(e);
-            }
-        }
-        Ok(Rv::one(r as u64))
+        native_pathconf(|| unsafe { libc::pathconf(cpath.as_ptr(), name) })
     }
     #[cfg(not(unix))]
     {
         Err(Errno::ENOTSUP)
     }
+}
+
+#[cfg(unix)]
+pub(super) fn host_fpathconf(fd: i32, name: i32) -> SysResult {
+    // SAFETY: fpathconf takes an integer descriptor and selector.
+    native_pathconf(|| unsafe { libc::fpathconf(fd, name) })
+}
+
+#[cfg(unix)]
+fn native_pathconf(call: impl FnOnce() -> libc::c_long) -> SysResult {
+    host::set_errno(0);
+    let value = call();
+    if value == -1 {
+        let error = Errno::last();
+        if error.0 != 0 {
+            return Err(error);
+        }
+    }
+    Ok(Rv::one(value as u64))
 }
 
 /// `getattrlistat(fd, path, alist, buf, size, options)` and its path-only
@@ -836,16 +848,43 @@ fn host_fsgetpath(_: [u8; 8], _: u64, _: usize, _: u32) -> Result<Vec<u8>, Errno
 
 const CLOSED_FS_BLOCK_SIZE: u32 = 4096;
 
-pub(super) fn workspace_pathconf(name: i32) -> SysResult {
-    // Darwin selector values from <sys/unistd.h>.
-    const PC_NAME_MAX: i32 = 4;
-    const PC_PATH_MAX: i32 = 5;
-    const PC_REC_INCR_XFER_SIZE: i32 = 20;
-    const PC_REC_MAX_XFER_SIZE: i32 = 21;
-    const PC_REC_MIN_XFER_SIZE: i32 = 22;
-    const PC_REC_XFER_ALIGN: i32 = 23;
+// Darwin selector values from <sys/unistd.h>.
+const PC_NAME_MAX: i32 = 4;
+const PC_PATH_MAX: i32 = 5;
+#[cfg(target_os = "macos")]
+const PC_FILESIZEBITS: i32 = 18;
+const PC_REC_INCR_XFER_SIZE: i32 = 20;
+const PC_REC_MAX_XFER_SIZE: i32 = 21;
+const PC_REC_MIN_XFER_SIZE: i32 = 22;
+const PC_REC_XFER_ALIGN: i32 = 23;
+
+pub(super) fn closed_pathconf(entry: &Entry, name: i32) -> SysResult {
+    if !entry.is_dir()
+        && !matches!(
+            &entry.kind,
+            Kind::File(_) | Kind::Backed(_) | Kind::Workspace(_)
+        )
+    {
+        return Err(Errno::ENOTSUP);
+    }
+    #[cfg(target_os = "macos")]
+    if matches!(
+        name,
+        PC_FILESIZEBITS
+            | PC_REC_INCR_XFER_SIZE
+            | PC_REC_MAX_XFER_SIZE
+            | PC_REC_MIN_XFER_SIZE
+            | PC_REC_XFER_ALIGN
+    ) && let Some(file) = entry.darwin_installed_file()
+    {
+        use std::os::fd::AsRawFd;
+        // Storage properties are available on the admitted read-only object.
+        return host_fpathconf(file.as_raw_fd(), name);
+    }
+
+    // The guest owns the pathname limits, including for an installed file.
     let value = match name {
-        PC_NAME_MAX => crate::user::supplied_fs::NAME_MAX as u64,
+        PC_NAME_MAX => NAME_MAX as u64,
         PC_PATH_MAX => crate::user::darwin::syscall::util::MAXPATHLEN as u64,
         PC_REC_INCR_XFER_SIZE | PC_REC_MIN_XFER_SIZE | PC_REC_XFER_ALIGN => {
             u64::from(CLOSED_FS_BLOCK_SIZE)
@@ -923,5 +962,80 @@ pub fn statfs64(ctx: &mut Ctx<'_>, path: u64, buf: u64) -> SysResult {
     #[cfg(not(unix))]
     {
         Err(Errno::ENOTSUP)
+    }
+}
+
+#[cfg(test)]
+mod pathconf_tests {
+    use super::*;
+    use crate::user::supplied_fs::{Device, Files};
+
+    #[test]
+    fn closed_pathconf_models_path_limits_for_files_and_directories() {
+        let files = Files::default()
+            .with_file("/supplied/file".into(), Arc::from(&b"file"[..]))
+            .unwrap()
+            .with_device(Device::Null)
+            .unwrap();
+        for path in ["/supplied", "/supplied/file"] {
+            let (_, entry) = files.lookup(path).unwrap();
+            assert_eq!(
+                closed_pathconf(&entry, PC_NAME_MAX).unwrap().0,
+                NAME_MAX as u64
+            );
+            assert_eq!(
+                closed_pathconf(&entry, PC_PATH_MAX).unwrap().0,
+                crate::user::darwin::syscall::util::MAXPATHLEN as u64
+            );
+            assert_eq!(
+                closed_pathconf(&entry, PC_REC_XFER_ALIGN).unwrap().0,
+                u64::from(CLOSED_FS_BLOCK_SIZE)
+            );
+            assert!(matches!(closed_pathconf(&entry, -91), Err(Errno::EINVAL)));
+        }
+        let (_, device) = files.lookup("/dev/null").unwrap();
+        assert!(matches!(
+            closed_pathconf(&device, PC_NAME_MAX),
+            Err(Errno::ENOTSUP)
+        ));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn closed_pathconf_queries_backing_limits_only_for_installed_files() {
+        use crate::user::mm::HostFileSource;
+        use std::os::fd::AsRawFd;
+
+        let file = std::fs::File::open("/usr/bin/true").unwrap();
+        let supplied = Entry {
+            ino: 1,
+            kind: Kind::Backed(Arc::new(
+                HostFileSource::new(file.try_clone().unwrap()).unwrap(),
+            )),
+        };
+        assert!(matches!(
+            closed_pathconf(&supplied, PC_FILESIZEBITS),
+            Err(Errno::EINVAL)
+        ));
+        let installed = Entry {
+            ino: 2,
+            kind: Kind::Backed(Arc::new(
+                HostFileSource::new(file.try_clone().unwrap())
+                    .unwrap()
+                    .for_darwin_installed(),
+            )),
+        };
+        for name in [
+            PC_FILESIZEBITS,
+            PC_REC_INCR_XFER_SIZE,
+            PC_REC_MAX_XFER_SIZE,
+            PC_REC_MIN_XFER_SIZE,
+            PC_REC_XFER_ALIGN,
+        ] {
+            assert_eq!(
+                closed_pathconf(&installed, name).unwrap().0,
+                host_fpathconf(file.as_raw_fd(), name).unwrap().0
+            );
+        }
     }
 }

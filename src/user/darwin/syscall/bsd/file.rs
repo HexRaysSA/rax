@@ -843,11 +843,9 @@ pub fn fpathconf(ctx: &mut Ctx<'_>, fd: i32, name: i32) -> SysResult {
     if !ctx.proc.config.host_services {
         let file = ctx.proc.fds.file(fd)?;
         if let FileKind::Embedded(data) = &file.kind
-            && data
-                .entry()
-                .is_some_and(|entry| entry.workspace_mode().is_some())
+            && let Some(entry) = data.entry()
         {
-            return super::path::workspace_pathconf(name);
+            return super::path::closed_pathconf(entry, name);
         }
         if file.pipe_end().is_none() {
             return Err(Errno::ENOTSUP);
@@ -860,16 +858,7 @@ pub fn fpathconf(ctx: &mut Ctx<'_>, fd: i32, name: i32) -> SysResult {
     #[cfg(unix)]
     {
         let (_, h) = host_fd(ctx, fd)?;
-        host::set_errno(0);
-        // SAFETY: fpathconf on a live descriptor.
-        let r = unsafe { libc::fpathconf(h, name) };
-        if r < 0 {
-            let e = Errno::last();
-            if e.0 != 0 {
-                return Err(e);
-            }
-        }
-        Ok(Rv::one(r as u64))
+        super::path::host_fpathconf(h, name)
     }
     #[cfg(not(unix))]
     {
