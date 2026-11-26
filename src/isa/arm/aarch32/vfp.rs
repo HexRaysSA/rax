@@ -114,9 +114,10 @@ impl VfpState {
     pub(in crate::isa::arm) fn fpscr_mask(&self) -> u32 {
         let scalar = self.has_scalar_fp();
         let advsimd = self.has_advsimd();
-        let simd_fp = advsimd && (self.mvfr1 >> 12) & 15 == 1 && (self.mvfr1 >> 16) & 15 == 1;
+        let simd_int = advsimd && (self.mvfr1 >> 12) & 15 == 1;
+        let simd_single = simd_int && (self.mvfr1 >> 16) & 15 == 1;
         let scalar_half = if scalar { (self.mvfr1 >> 24) & 15 } else { 0 };
-        let simd_half = if simd_fp { (self.mvfr1 >> 20) & 15 } else { 0 };
+        let simd_half = if simd_int { (self.mvfr1 >> 20) & 15 } else { 0 };
 
         // Arm DDI0406C.d B4.1.58 and DDI0487B.a G6.2.50. Select zero
         // for the unavailable fields in the standalone integer-only view.
@@ -133,10 +134,12 @@ impl VfpState {
         if advsimd {
             mask |= 1 << 27; // QC
         }
-        if simd_fp {
+        // Pure half data processing can set exception flags independently of
+        // FP32 SIMD. AHP still requires a conversion, which consumes FP32.
+        if simd_single || simd_half == 2 {
             mask |= 0x9f; // Cumulative exceptions.
         }
-        if matches!(scalar_half, 1..=3) || matches!(simd_half, 1 | 2) {
+        if matches!(scalar_half, 1..=3) || simd_single && matches!(simd_half, 1 | 2) {
             mask |= 1 << 26; // AHP
         }
         if scalar_half == 3 || simd_half == 2 {

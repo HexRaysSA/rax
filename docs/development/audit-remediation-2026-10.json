@@ -200842,6 +200842,14 @@
       "scope": "Legacy RAM restore checks every destination region for write access before CPU publication. A Unix regression uses an 8 KiB prefix with a read-only second region. On the parent the error left the new CPU state installed. The base and extensionless bundle APIs now reject while preserving CPU and private state, RAM, legacy devices, and scheduling counters. The same archive restores into a writable target.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-fpscr-pure-simd-half-2026-11-26",
+      "findings": ["A32-FP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "FPSCR transfers expose FZ16 and cumulative exceptions for pure FP16 Advanced SIMD with scalar FP and SIMDSP disabled. The parent returned only QC. ARM and Thumb regressions check guest FPSCR writes, subnormal arithmetic, invalid-operation status and absent or reserved capability controls. Four QEMU full-profile results independently match the SIMD half arithmetic and FPSCR observations.",
+      "qualification": "docs/development/a32-fp-controls.md#fpscr-for-pure-fp16-advanced-simd",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

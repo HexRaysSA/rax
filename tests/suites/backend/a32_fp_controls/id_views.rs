@@ -71,6 +71,43 @@ fn a64_mrs_and_arm_thumb_vmrs_share_the_selected_fp_profile() {
         }
     }
 }
+
+#[test]
+fn mixed_width_pure_simd_half_keeps_fpscr_across_instruction_boundaries() {
+    const FZ16: u64 = 1 << 19;
+    const AHP: u64 = 1 << 26;
+    const VMSR: u32 = 0xeee1_1a10; // VMSR FPSCR,R1.
+    const VMRS: u32 = 0xeef1_2a10; // VMRS R2,FPSCR.
+
+    for thumb in [false, true] {
+        let mut cpu = cpu(true);
+        let mut state = cpu.export_sregs();
+        let sysregs = &mut state.execution.as_mut().unwrap().sysregs;
+        // Retain the D32 bank and pure SIMD FP16. Omit scalar FP and SIMD FP32.
+        for (index, value) in [(0, 0x1011_0002), (1, 0x1020_1111)] {
+            sysregs.impl_defined.insert(
+                Aarch64SysRegEncoding::new(3, 0, 0, 3, index).encode(),
+                value,
+            );
+        }
+        cpu.import_sregs(&state).unwrap();
+        cpu.set_pstate_bits(0x1d3 | (u64::from(thumb) << 5))
+            .unwrap();
+        let add = if thumb { 0xef12_0d44 } else { 0xf212_0d44 };
+        words(&mut cpu, &[VMSR, add, VMRS], thumb);
+        cpu.set_x(1, AHP | FZ16);
+        cpu.set_simd(1, 0x7c00_0001);
+        cpu.set_simd(2, 0xfc00_0000);
+
+        for _ in 0..3 {
+            assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        }
+        assert_eq!(cpu.get_simd(0), 0x7e00_0000);
+        assert_eq!(cpu.get_x(2), FZ16 | 1);
+        assert_eq!(cpu.instruction_count(), 3);
+    }
+}
+
 #[test]
 fn mvfr_aliases_agree_in_saved_state_and_smir_and_after_reset() {
     for half in [false, true] {

@@ -1130,6 +1130,32 @@ the signed 8-bit saturating add.
 On macOS Arm64, the native JIT suites passed all 26 A32 cases and all
 25 T32 cases. The shared FP system-register transfers use the interpreter.
 
+### FPSCR for pure FP16 Advanced SIMD
+
+RAX admits pure Advanced SIMD FP16 data processing in synthetic profiles
+with `SIMDHP=2` and no scalar FP or `SIMDSP`. The FPSCR view for this
+configuration now exposes FZ16 and cumulative exceptions alongside QC.
+AHP stays clear because FP16-to-FP32 and FP32-to-FP16 conversions require
+`SIMDSP`. Arm DDI0487B.a G6.2.50 defines FZ16 for both scalar and SIMD
+half data processing. G6.2.108 defines the capability fields and constrains
+Armv8-A hardware profiles.
+[Armv8-A reference](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Guest FPSCR transfers expose the status and controls of admitted half operations. | Write all ones and read back QC, FZ16 and the cumulative flags. Add the smallest half subnormal to zero and add opposite infinities in a second lane. Toggle FZ16, compare the raw result and require IOC in both cases. |
+| The half data path has its own admission boundary. | Require the FP32 add and half-to-FP32 conversion to report Undefined. With absent, conversion-only or reserved SIMDHP fields and SIMDSP clear, require all-ones writes to read back only QC. |
+| The shared register projection retains the half controls and status. | Import the pure-half capability fields on a mixed-width PE and step VMSR, VADD.F16 and VMRS. The intermediate add must flush the subnormal and the later read must report IOC. |
+
+The parent returned only QC for the half data-processing profile. The
+corrected regressions cover standalone and mixed-width execution in ARM
+and Thumb. The five owning suites passed 47,725 tests. QEMU 11.1.2 `max`,
+with a full FP profile, independently matched the result and FPSCR for
+the four instruction-set and FZ16 combinations. The RAX synthetic profile
+cases qualify its guest view. Physical AArch32 qualification remains open.
+The scripts and results are in
+`/Users/int/dev/rax-audit-work/four-findings-a32-pure-simd-half-2026-11-26/`.
+
 ## FP16 multiply-long mnemonic
 
 The decoder renders the subtract-long instruction as `vfmsl` for both

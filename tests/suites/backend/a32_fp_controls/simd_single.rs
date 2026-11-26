@@ -587,6 +587,87 @@ fn integer_storage_scalar_and_pure_half_operations_do_not_require_simdsp() {
         campaign(Some("control"), field, false, false);
     }
 }
+
+#[test]
+fn pure_simd_half_exposes_fz16_and_cumulative_exceptions() {
+    const QC: u32 = 1 << 27;
+    const FZ16: u32 = 1 << 19;
+    const IOC: u32 = 1;
+    const VMSR: u32 = 0xeee1_1a10; // VMSR FPSCR,R1.
+    const VMRS: u32 = 0xeef1_2a10; // VMRS R2,FPSCR.
+
+    for thumb in [false, true] {
+        let mut cpu = Armv7Cpu::new();
+        cpu.cpsr.t = thumb;
+        cpu.vfp.mvfr0 &= !0xff0; // Omit scalar FP32 and FP64.
+        cpu.vfp.mvfr1 &= !((15 << 24) | (15 << 16)); // Omit scalar FP16 and SIMD FP32.
+        let mut memory = FlatMemory::new(4096, 0);
+        let mut execute = |cpu: &mut Armv7Cpu, arm, t32| {
+            let insn = if thumb {
+                ThumbDecoder::decode_32bit(t32)
+            } else {
+                Aarch32Decoder::decode(arm)
+            }
+            .unwrap();
+            Executor::new(cpu, &mut memory).execute(&insn)
+        };
+
+        cpu.regs[1] = u32::MAX;
+        assert!(matches!(
+            execute(&mut cpu, VMSR, VMSR),
+            ExecResult::Continue
+        ));
+        assert!(matches!(
+            execute(&mut cpu, VMRS, VMRS),
+            ExecResult::Continue
+        ));
+        assert_eq!(cpu.regs[2], QC | FZ16 | 0x9f, "Thumb={thumb}");
+
+        for controls in [FZ16, 0] {
+            cpu.regs[1] = controls;
+            assert!(matches!(
+                execute(&mut cpu, VMSR, VMSR),
+                ExecResult::Continue
+            ));
+            // Lane 0 adds the smallest subnormal to zero. Lane 1 adds
+            // opposite infinities, setting IOC independently of FZ16.
+            cpu.vfp.dregs[2] = 0x7c00_0001;
+            cpu.vfp.dregs[4] = 0xfc00_0000;
+            assert!(matches!(
+                execute(&mut cpu, 0xf212_0d44, 0xef12_0d44), // VADD.F16 Q0,Q1,Q2.
+                ExecResult::Continue
+            ));
+            assert_eq!(cpu.vfp.dregs[0], 0x7e00_0000 | u64::from(controls == 0));
+            assert!(matches!(
+                execute(&mut cpu, VMRS, VMRS),
+                ExecResult::Continue
+            ));
+            assert_eq!(cpu.regs[2], controls | IOC);
+        }
+        for (arm, t32) in [
+            (0xf202_0d44, 0xef02_0d44), // VADD.F32 Q0,Q1,Q2.
+            (0xf3b6_0701, 0xffb6_0701), // VCVT.F32.F16 Q0,D1.
+        ] {
+            let before = (cpu.vfp.dregs, cpu.vfp.fpscr.bits());
+            assert!(matches!(execute(&mut cpu, arm, t32), ExecResult::Undefined));
+            assert_eq!((cpu.vfp.dregs, cpu.vfp.fpscr.bits()), before);
+        }
+        for simd_half in [0, 1, 3, 15] {
+            cpu.vfp.mvfr1 = (cpu.vfp.mvfr1 & !(15 << 20)) | (simd_half << 20);
+            cpu.regs[1] = u32::MAX;
+            assert!(matches!(
+                execute(&mut cpu, VMSR, VMSR),
+                ExecResult::Continue
+            ));
+            assert!(matches!(
+                execute(&mut cpu, VMRS, VMRS),
+                ExecResult::Continue
+            ));
+            assert_eq!(cpu.regs[2], QC, "Thumb={thumb}, SIMDHP={simd_half}");
+        }
+    }
+}
+
 #[test]
 fn advertised_fp32_does_not_override_missing_integer_prerequisite() {
     for family in [
