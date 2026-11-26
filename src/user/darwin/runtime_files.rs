@@ -2102,7 +2102,6 @@ mod tests {
         assert_eq!(&*selected.read(module).unwrap(), b"override");
     }
 
-    #[cfg(unix)]
     #[test]
     fn installed_framework_service_directories_require_framework_image_paths() {
         for path in [
@@ -2126,6 +2125,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn installed_framework_files_follow_bundle_aliases() {
         use crate::user::image::macho::{CPU_TYPE_ARM64, MH_DYLIB, MH_EXECUTE, MH_MAGIC_64};
