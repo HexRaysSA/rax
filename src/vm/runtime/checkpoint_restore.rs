@@ -320,7 +320,7 @@ impl Vmm {
             .transpose()?;
         let memory = if physical.is_none() {
             let memory = snapshot.decompress_memory()?;
-            self.guest_mem.validate_restore_len(memory.len())?;
+            self.guest_mem.validate_restore_target(memory.len())?;
             Some(memory)
         } else {
             None
@@ -393,13 +393,6 @@ impl Vmm {
         }
         if let Some(state) = &uart_state {
             state.validate()?;
-        }
-        if let Some(memory) = &memory {
-            crate::vm::memory::reservations::preflight_write(
-                self.guest_mem.memory(),
-                0,
-                memory.len(),
-            )?;
         }
         let mut devices = snapshot.devices.clone();
         if snapshot.config.backend == BackendKind::Kvm && !native_kvm {
@@ -650,7 +643,7 @@ impl Vmm {
             .ok_or_else(|| Error::InvalidConfig("no vcpu available".to_string()))?;
         vcpu.validate_checkpoint_state(&snapshot.cpu_state, &snapshot.emulator_state)?;
         let memory = snapshot.decompress_memory()?;
-        self.guest_mem.validate_restore_len(memory.len())?;
+        self.guest_mem.validate_restore_target(memory.len())?;
         let mut devices = snapshot.devices.clone();
         if snapshot.config.backend == BackendKind::Kvm {
             devices.pit.admit_legacy_native_phase();

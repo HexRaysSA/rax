@@ -200834,6 +200834,14 @@
       "scope": "Intel HVF projects one 32 B device read for VPERM2F128 and VPERM2I128. The 512 opcode and control pairs are checked against the independent Rosetta RAM oracle after pending-read restore. The hosted profile defines 100 direct and restored cases. Full MMIO and checkpoint coverage remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#two-source-128-bit-lane-permutations",
       "full_goal_complete": false
+    },
+    {
+      "id": "checkpoint-legacy-ram-destination-2026-11-26",
+      "findings": ["C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Legacy RAM restore checks every destination region for write access before CPU publication. A Unix regression uses an 8 KiB prefix with a read-only second region. On the parent the error left the new CPU state installed. The base and extensionless bundle APIs now reject while preserving CPU and private state, RAM, legacy devices, and scheduling counters. The same archive restores into a writable target.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

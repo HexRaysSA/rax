@@ -1,4 +1,4 @@
-//! Device-lock admission must precede changes to any live base checkpoint field.
+//! Checkpoint admission must precede changes to any live base checkpoint field.
 use super::*;
 use crate::config::{CliConfig, MemorySize};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -9,6 +9,10 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::with_memory(4096)
+    }
+
+    fn with_memory(size: u64) -> Self {
         let kernel = std::env::temp_dir().join(format!(
             "rax-admission-lock-{}-{}",
             std::process::id(),
@@ -25,7 +29,7 @@ impl Fixture {
             None,
         )
         .unwrap();
-        config.memory = MemorySize(4096);
+        config.memory = MemorySize(size);
         Self {
             kernel,
             vm: Vmm::new_resume(config).unwrap(),
@@ -143,6 +147,87 @@ fn every_poisoned_legacy_device_lock_rejects_before_any_assignment() {
         );
         assert_eq!(vm.guest_mem.try_read_all().unwrap(), vec![0xa5; 4096]);
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn legacy_restore_checks_all_ram_permissions_before_publication() {
+    use vm_memory::mmap::MmapRegionBuilder;
+    use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap, GuestRegionMmap};
+
+    const PAGE: usize = 4096;
+    let mut fixture = Fixture::with_memory((2 * PAGE) as u64);
+    let vm = &mut fixture.vm;
+    let writable = MmapRegionBuilder::new(PAGE)
+        .with_mmap_prot(libc::PROT_READ | libc::PROT_WRITE)
+        .build()
+        .unwrap();
+    let readonly = MmapRegionBuilder::new(PAGE)
+        .with_mmap_prot(libc::PROT_READ)
+        .build()
+        .unwrap();
+    let backing = GuestMemoryMmap::from_regions(vec![
+        GuestRegionMmap::new(writable, GuestAddress(0)).unwrap(),
+        GuestRegionMmap::new(readonly, GuestAddress(PAGE as u64)).unwrap(),
+    ])
+    .unwrap();
+    backing.write_slice(&[0xa5; PAGE], GuestAddress(0)).unwrap();
+    vm.guest_mem = GuestMemoryWrapper::with_test_backing(backing, (2 * PAGE) as u64);
+
+    let before_ram = vm.guest_mem.try_read_all().unwrap();
+    assert_eq!(&before_ram[..PAGE], &[0xa5; PAGE]);
+    assert_eq!(&before_ram[PAGE..], &[0; PAGE]);
+    let before_cpu = crate::codec::serialize(&vm.vcpus[0].get_state().unwrap()).unwrap();
+    let before_private = crate::codec::serialize(&vm.vcpus[0].get_emulator_state()).unwrap();
+    let before_devices = crate::codec::serialize(&devices(vm)).unwrap();
+    let before_retired = vm.coordinator.retired;
+    let before_last_snapshot = vm.last_snapshot_insn;
+    let mut snapshot = vm.take_snapshot(41).unwrap();
+    let CpuState::X86_64(cpu) = &mut snapshot.cpu_state else {
+        unreachable!()
+    };
+    cpu.regs.rax = 0x12345678;
+    let private = &mut snapshot.emulator_state;
+    private.halted = !private.halted;
+    snapshot.memory_data = zstd::encode_all(&[0x33; 2 * PAGE][..], 3).unwrap();
+    snapshot.devices.pic.set_irq(3, true);
+    let bundle = crate::vm::snapshot::SnapshotBundle::new(snapshot);
+
+    for restore_bundle in [false, true] {
+        let error = if restore_bundle {
+            vm.restore_snapshot_bundle(&bundle).unwrap_err()
+        } else {
+            vm.restore_snapshot(bundle.base()).unwrap_err()
+        };
+        assert!(
+            crate::codec::serialize(&vm.vcpus[0].get_state().unwrap()).unwrap() == before_cpu,
+            "CPU state changed after rejected restore: {error}"
+        );
+        assert_eq!(
+            crate::codec::serialize(&vm.vcpus[0].get_emulator_state()).unwrap(),
+            before_private
+        );
+        assert_eq!(
+            crate::codec::serialize(&devices(vm)).unwrap(),
+            before_devices
+        );
+        assert_eq!(vm.guest_mem.try_read_all().unwrap(), before_ram);
+        assert_eq!(vm.coordinator.retired, before_retired);
+        assert_eq!(vm.last_snapshot_insn, before_last_snapshot);
+        assert!(error.to_string().contains("checkpoint RAM destination"));
+    }
+
+    let mut writable = Fixture::with_memory((2 * PAGE) as u64);
+    writable.vm.restore_snapshot_bundle(&bundle).unwrap();
+    let CpuState::X86_64(cpu) = writable.vm.vcpus[0].get_state().unwrap() else {
+        unreachable!()
+    };
+    assert_eq!(cpu.regs.rax, 0x12345678);
+    assert_eq!(
+        writable.vm.guest_mem.try_read_all().unwrap(),
+        [0x33; 2 * PAGE]
+    );
+    assert_eq!(writable.vm.coordinator.retired, 41);
 }
 
 #[cfg(feature = "debug")]

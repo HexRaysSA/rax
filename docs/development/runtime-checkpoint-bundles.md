@@ -20,6 +20,14 @@ restore. `Vmm::new_resume_bundle` and `--checkpoint` construct detached targets
 without original sources; see `checkpoint-resume.md`. The older base constructor
 retains its original source-opening contract.
 
+Restoring a legacy RAM prefix checks write permission across all of its
+regions before publishing CPU, device or timing state. On a target with a
+writable first page and a read-only second page, both the base API and the
+extensionless bundle API reject restore without changing RAM, architectural
+or emulator-private CPU state, legacy devices, or the retirement and
+checkpoint counters. Capture still reads the full reported prefix on that
+target. The same archive restores into a writable target.
+
 Intel HVF legacy capture checks every vCPU for pending I/O and holds the
 stopped backend boundary through capture of CPU 0 and the reported RAM
 prefix. A pending port or MMIO transaction on any vCPU requires a complete
@@ -47,7 +55,7 @@ backing; dirty bytes are restored, including zero source bytes.
 
 | ID | Assumption and dependency | Stress / falsification probe | Status |
 |---|---|---|---|
-| R1 | Checkpoint/target compatibility is admitted before mutation. | Wrong geometry/count/profile/private CPU state, malformed frames/bridge/late controller; every observed byte/record must remain unchanged on rejection. | Owning regressions and ledger receipts. |
+| R1 | Checkpoint/target compatibility is admitted before mutation. | Wrong geometry/count/profile/private CPU state, malformed frames/bridge/late controller, or a read-only trailing RAM region. Compare every represented owner on rejection and run the same legacy archive against writable RAM. | Owning regressions and ledger receipts. |
 | R2 | All live locks precede represented commit. | Four poisoned legacy locks and six PCI locks; exact state comparison and callback invocation count. | Owning regressions and ledger receipts. |
 | R3 | Candidate publication has no post-callback validation/allocation. | Callback error leaves bridge/endpoints unchanged; success publishes exact proposed records. | Owning regressions and ledger receipts. |
 | R4 | Media restore is detached. | Rename both image sources after constructing the target; compare all restored media/control bytes and original file bytes/protection. | Owning regressions and ledger receipts. |

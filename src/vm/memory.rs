@@ -129,6 +129,15 @@ pub struct GuestMemoryWrapper {
 }
 
 impl GuestMemoryWrapper {
+    #[cfg(all(test, unix))]
+    pub(crate) fn with_test_backing(mem: GuestMemoryMmap, size: u64) -> Self {
+        Self {
+            mem,
+            reported_size: size,
+            actual_size: size,
+        }
+    }
+
     pub fn new(size_bytes: u64) -> Result<Self> {
         let (reported_size, actual_size) = checked_guest_memory_sizes(size_bytes)?;
 
@@ -253,7 +262,7 @@ impl GuestMemoryWrapper {
             })?;
         Ok(bytes)
     }
-    pub(crate) fn validate_restore_len(&self, length: usize) -> Result<()> {
+    fn validate_restore_len(&self, length: usize) -> Result<()> {
         use vm_memory::GuestMemory;
         if length as u64 != self.reported_size {
             return Err(crate::error::Error::InvalidConfig(format!(
@@ -268,6 +277,17 @@ impl GuestMemoryWrapper {
         }
         Ok(())
     }
+
+    /// Admit the complete reported RAM prefix before publishing any checkpoint owner.
+    pub(crate) fn validate_restore_target(&self, length: usize) -> Result<()> {
+        self.validate_restore_len(length)?;
+        reservations::preflight_write(&self.mem, 0, length).map_err(|error| {
+            crate::error::Error::InvalidConfig(format!(
+                "checkpoint RAM destination is not writable: {error}"
+            ))
+        })
+    }
+
     /// Restore the legacy contiguous prefix; reject length mismatches before writes.
     pub fn write_all(&self, data: &[u8]) -> Result<()> {
         use vm_memory::Bytes;
