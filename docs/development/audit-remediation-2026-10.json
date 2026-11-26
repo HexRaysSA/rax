@@ -200946,6 +200946,14 @@
       "scope": "AArch32 CP15 feature ID interception follows EL2 enablement in both Security states. The parent retired a Secure EL1 ID_ISAR5 read with FEAT_SEL2, SCR_EL3.EEL2 and HCR_EL2.TID3 set. The regression covers ARM and Thumb, checks the exact trap and unchanged destination and retirement frontier, and confirms normal reads with either control clear or FEAT_SEL2 absent. QEMU 11.1.2 independently matched both traps and all six control outcomes. The five owning RAX suites passed 47,729 tests. Physical AArch32 qualification remains open.",
       "qualification": "docs/development/a32-fp-controls.md#cp15-feature-id-group-interception",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-intel-warm-pending-secondary-fixture-2026-11-26",
+      "findings": ["C-STATE", "C-HVF"],
+      "status": "native_intel_requalification_pending",
+      "scope": "Hosted run 45778197890 captured the AP1 input and stopped before any warm restore because the test checked the live target's pending output in the input request field. The corrected fixture checks the separate input and output records, the exact 6 B write instruction length, and both fields on the AP taken offline by a four-vCPU restore. Independent archive inspection verified both CPU records, the online mask and the replacement UD2 in the captured AP1 file. Native completion of the corrected fixture remains open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#warm-restore-with-pending-secondary-mmio",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -14,6 +14,7 @@ use vm_memory::{Bytes, GuestAddress};
 const RAM: u64 = 128 << 20;
 const CODE: u64 = 0x10_0000;
 const MMIO: u64 = 0x4000_0103;
+const LANE_INSN_LENGTH: u64 = 6;
 const LOW: u64 = 0x1122_3344_5566_7788;
 const HIGH: u64 = 0xa1b2_c3d4_e5f6_0718;
 const REPLY: u64 = 0x7e2d_b864_11db_feb0;
@@ -355,6 +356,23 @@ fn stopped_context(vm: &Vmm, index: usize) -> Context {
     context
 }
 
+fn assert_pending_lane(context: &Context, expected: &Packet, read: bool) {
+    assert_eq!(context.public.regs.rip, CODE);
+    if read {
+        assert_eq!(context.request.as_ref(), Some(expected));
+        assert!(context.output.is_none());
+    } else {
+        assert!(context.request.is_none());
+        assert_eq!(
+            context
+                .output
+                .as_ref()
+                .map(|(packet, length)| (packet, *length)),
+            Some((expected, LANE_INSN_LENGTH))
+        );
+    }
+}
+
 fn run_pending(vm: &mut Vmm, accesses: &Arc<Mutex<Vec<Access>>>, ap: usize, read: bool) {
     assert!(vm.vcpus[ap].io_completion_result().is_err());
     assert!(accesses.lock().unwrap().is_empty());
@@ -447,7 +465,7 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
             let old_request = hold_pending(&mut warm, old_ap, !read);
             let old_frontier = warm.coordinator.clone();
             let before = stopped_context(&warm, old_ap);
-            assert_eq!(before.request.as_ref(), Some(&old_request));
+            assert_pending_lane(&before, &old_request, !read);
             assert_ne!(old_request, expected);
 
             let check_unchanged = |vm: &Vmm| {
@@ -483,11 +501,12 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
             );
             if old_ap != ap {
                 assert!(!warm.coordinator.online[old_ap]);
-                assert!(stopped_context(&warm, old_ap).request.is_none());
+                let offline = stopped_context(&warm, old_ap);
+                assert!(offline.request.is_none());
+                assert!(offline.output.is_none());
             }
             let resumed = stopped_context(&warm, ap);
-            assert_eq!(resumed.public.regs.rip, CODE);
-            assert_eq!(resumed.request.as_ref(), Some(&expected));
+            assert_pending_lane(&resumed, &expected, read);
             run_pending(&mut warm, &accesses, ap, read);
 
             println!(
@@ -510,8 +529,7 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
         let mut target = Vmm::new_resume_bundle(config, &loaded).unwrap();
         attach(&mut target, &accesses);
         let resumed = stopped_context(&target, ap);
-        assert_eq!(resumed.public.regs.rip, CODE);
-        assert_eq!(resumed.request.as_ref(), Some(&expected));
+        assert_pending_lane(&resumed, &expected, read);
         run_pending(&mut target, &accesses, ap, read);
 
         println!("native pending XMM passed count={count} ap={ap} read={read}");

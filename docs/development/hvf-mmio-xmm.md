@@ -772,6 +772,28 @@ restore into a target with pending Intel MMIO and bare-metal Intel
 qualification remain open.
 [Hosted Intel checkpoint job](https://github.com/HexRaysSA/rax/actions/runs/45759324408/job/139705341644)
 
+### Warm restore with pending secondary MMIO
+
+Hosted Intel run `45778197890` completed source capture for the two-vCPU
+read case. The test stopped before warm restore because it looked for the
+warm VM's pending `MOVHPD` write in the input request field. Intel HVF
+stores a pending write in the output record with its instruction length.
+The corrected fixture checks both fields for the stopped and restored CPUs.
+It also verifies that the four-vCPU restore clears pending input and output
+from the AP that becomes offline. LLVM independently assembles both lane
+transfers as 6 B instructions.
+[Failing hosted Intel fixture](https://github.com/HexRaysSA/rax/actions/runs/45778197890/job/139766937812)
+
+The archived AP1 checkpoint contains both CPU records, online mask `[1, 1]`
+and `UD2` in place of the original read. Its SHA-256 is
+`f4268f66998b973d773f870923396fdcac90ca2adbdd193b90693c4f0824c67c`.
+Warm-restore execution requires a new native run of the corrected fixture.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| The saved record holds the exact stopped operation and retirement frontier. | Check the read packet or the write packet and its 6 B instruction length. Require the other field to be empty and the RIP to point to the stopped instruction. Repeat on the existing and fresh VM. |
+| Complete warm restore replaces the target's old work and CPU topology. | Restore a two-vCPU read over a pending write and a four-vCPU write over a different AP's pending read. Check the replaced RAM and CPU records, then require one device callback after restore. |
+
 ## Packed logical reads
 
 Intel HVF handles device reads for the packed AND, AND-NOT, OR, and XOR
