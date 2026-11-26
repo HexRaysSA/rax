@@ -15,6 +15,7 @@ use crate::user::darwin::io::{
     O_ACCMODE, O_APPEND, O_CREAT, O_EVTONLY, O_EXCL, O_EXEC, O_RDONLY, O_STATUS_FLAGS, O_TRUNC,
     O_WRONLY,
 };
+use crate::user::darwin::vfs::ClosedVolume;
 use crate::user::mm::{PageSource, SourceIdentity};
 use crate::user::supplied_fs::{Device, Entry, Kind, WorkspaceFlavor, WorkspaceTimestamp, Xattrs};
 
@@ -236,7 +237,11 @@ impl EmbeddedFile {
             allocated.unwrap_or_else(|| (size as u64).div_ceil(512) as i64)
         };
         Ok(Stat {
-            dev: if entry.is_some() { 0x524158 } else { 0x524159 },
+            dev: if entry.is_some() {
+                ClosedVolume::for_entry(None, entry).device()
+            } else {
+                0x524159
+            },
             ino,
             mode,
             size,
@@ -253,6 +258,14 @@ impl EmbeddedFile {
             birthtime: to_timespec(times.created),
             ..Default::default()
         })
+    }
+
+    pub(crate) fn stat_at_path(&self, path: Option<&[u8]>) -> Result<Stat, Errno> {
+        let mut stat = self.stat()?;
+        if self.entry().is_some() {
+            stat.dev = ClosedVolume::for_entry(path, self.entry()).device();
+        }
+        Ok(stat)
     }
 
     pub(crate) fn resource_stat(

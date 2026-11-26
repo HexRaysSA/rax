@@ -4,9 +4,11 @@ use super::{
 };
 use crate::user::darwin::abi::types::Stat;
 use crate::user::darwin::fd::DescriptorDirectoryBulk;
+use crate::user::darwin::syscall::bsd::path::attributes::{self, FSOPT_ATTR_CMN_EXTENDED};
 use crate::user::darwin::syscall::bsd::path::embedded::{
     check_search, describe_descriptor, entry_stat,
 };
+use crate::user::darwin::vfs::ClosedVolume;
 
 const RETURNED: u32 = 0x8000_0000;
 const NAME: u32 = 0x0000_0001;
@@ -48,6 +50,11 @@ const MAX_BUFFER: u64 = 16 << 20;
 struct Request {
     common: u32,
     file: u32,
+}
+
+enum SuppliedRequest {
+    Basic(Request),
+    Extended(attributes::Request),
 }
 
 impl Request {
@@ -189,14 +196,24 @@ pub(in crate::user::darwin::syscall::bsd) fn getattrlistbulk(
         return Err(Errno::ENOTDIR);
     };
     check_search(ctx, entry)?;
-    let request = Request::read(ctx, attrlist, options)?;
     let limit = size.min(MAX_BUFFER) as usize;
     if let Some(bulk) = descriptor_bulk {
+        let request = Request::read(ctx, attrlist, options)?;
         let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
         let mut bulk = bulk.lock().map_err(|_| Errno::EIO)?;
         return descriptor_bulk_records(ctx, &request, buffer, limit, &mut cursor, &mut bulk);
     }
-    let path = file.path.as_deref().ok_or(Errno::EIO)?;
+    let request = if options & FSOPT_ATTR_CMN_EXTENDED != 0 {
+        SuppliedRequest::Extended(attributes::Request::read_bulk(ctx, attrlist, options)?)
+    } else {
+        SuppliedRequest::Basic(Request::read(ctx, attrlist, options)?)
+    };
+    let current_path = entry.workspace_path()?;
+    let path = current_path
+        .as_deref()
+        .map(str::as_bytes)
+        .or(file.path.as_deref())
+        .ok_or(Errno::EIO)?;
     let path = std::str::from_utf8(path).map_err(|_| Errno::EIO)?;
     let files = ctx.proc.vfs.files().ok_or(Errno::EIO)?;
     let mut cursor = cursor.lock().map_err(|_| Errno::EIO)?;
@@ -210,7 +227,23 @@ pub(in crate::user::darwin::syscall::bsd) fn getattrlistbulk(
     let mut output = Vec::new();
     for (name, child) in entries.iter().skip(first) {
         let start = output.len();
-        request.append_record(&mut output, name, entry_stat(child.clone())?);
+        let child_path = format!("{}/{name}", path.trim_end_matches('/'));
+        let stat = entry_stat(&child_path, child.clone())?;
+        match &request {
+            SuppliedRequest::Basic(request) => request.append_record(&mut output, name, stat),
+            SuppliedRequest::Extended(request) => {
+                let raw_path = child_path.as_bytes();
+                let volume = ClosedVolume::for_entry(Some(raw_path), Some(child));
+                output.extend(attributes::pack(
+                    request,
+                    raw_path,
+                    stat,
+                    volume.fsid(),
+                    child_path == volume.mountpoint(files),
+                ));
+                Request::finish_record(&mut output, start, limit);
+            }
+        }
         if output.len() > limit {
             output.truncate(start);
             if output.is_empty() {

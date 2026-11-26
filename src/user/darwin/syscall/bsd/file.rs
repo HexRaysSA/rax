@@ -677,8 +677,8 @@ fn host_pipe(_status: u32) -> Result<(OpenFile, OpenFile), Errno> {
 /// `fstat64(fd, buf)`.
 pub fn fstat64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
     let file = ctx.proc.fds.file(fd)?;
-    if let FileKind::Embedded(file) = &file.kind {
-        ctx.write(buf, &file.stat()?.bytes())?;
+    if let FileKind::Embedded(data) = &file.kind {
+        ctx.write(buf, &data.stat_at_path(file.path.as_deref())?.bytes())?;
         return Ok(Rv::one(0));
     }
 
@@ -1587,8 +1587,8 @@ pub fn fstatfs64(ctx: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
         if entry.is_none() && data.device_access().is_none() {
             return Err(Errno::EPERM);
         }
-        let workspace = entry.is_some_and(|entry| entry.workspace_mode().is_some());
-        return super::path::write_closed_statfs(ctx, buf, workspace);
+        let volume = crate::user::darwin::vfs::ClosedVolume::for_entry(file.path.as_deref(), entry);
+        return super::path::write_closed_statfs(ctx, buf, volume);
     }
     let (_, h) = host_fd(ctx, fd)?;
     #[cfg(target_os = "macos")]
@@ -1619,7 +1619,16 @@ pub fn getfsstat64(ctx: &mut Ctx<'_>, buf: u64, bufsize: i32, flags: i32) -> Sys
     use crate::user::darwin::abi::types::STATFS64_SIZE;
 
     if let Some(files) = ctx.proc.vfs.files() {
-        let mounted = 1 + usize::from(files.workspace_mount().is_some());
+        use crate::user::darwin::vfs::ClosedVolume;
+        let preboot = files
+            .lookup(ClosedVolume::PREBOOT_PATH)
+            .is_ok_and(|(path, entry)| path == ClosedVolume::PREBOOT_PATH && entry.is_dir());
+        let volumes = [
+            Some(ClosedVolume::Root),
+            files.workspace_mount().map(|_| ClosedVolume::Workspace),
+            preboot.then_some(ClosedVolume::Preboot),
+        ];
+        let mounted = volumes.iter().flatten().count();
         if buf == 0 {
             return Ok(Rv::one(mounted as u64));
         }
@@ -1627,11 +1636,11 @@ pub fn getfsstat64(ctx: &mut Ctx<'_>, buf: u64, bufsize: i32, flags: i32) -> Sys
         // to size_t. Bound the resulting capacity to the actual guest mounts.
         let count = mounted.min(bufsize as usize / STATFS64_SIZE);
         // The guest has no cached host statistics to refresh.
-        for index in 0..count {
+        for (index, volume) in volumes.into_iter().flatten().take(count).enumerate() {
             let address = buf
                 .checked_add((index * STATFS64_SIZE) as u64)
                 .ok_or(Errno::EFAULT)?;
-            super::path::write_closed_statfs(ctx, address, index == 1)?;
+            super::path::write_closed_statfs(ctx, address, volume)?;
         }
         return Ok(Rv::one(count as u64));
     }

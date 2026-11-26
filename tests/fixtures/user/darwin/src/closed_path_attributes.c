@@ -38,6 +38,36 @@ static void check_string(const unsigned char *record, size_t reference,
     assert(memcmp(record + payload, expected, length) == 0);
 }
 
+static void check_bulk_after_rename(void) {
+    char parent[] = "/tmp/rax-attribute-path.XXXXXX";
+    assert(mkdtemp(parent) != NULL);
+    int root = open(parent, O_RDONLY | O_DIRECTORY);
+    assert(root != -1 && mkdirat(root, "old", 0700) == 0);
+    int dir = openat(root, "old", O_RDONLY | O_DIRECTORY);
+    assert(dir != -1 && mkdirat(dir, "child", 0700) == 0);
+    assert(renameat(root, "old", root, "new") == 0);
+
+    struct attrlist request = {
+        .bitmapcount = ATTR_BIT_MAP_COUNT,
+        .commonattr = ATTR_CMN_RETURNED_ATTRS | ATTR_CMN_NAME | ATTR_CMN_FULLPATH,
+    };
+    unsigned char record[PATH_MAX + 128];
+    assert(getattrlistbulk(dir, &request, record, sizeof(record), FSOPT_ATTR_CMN_EXTENDED) == 1);
+    assert(get_u32(record + 4) == request.commonattr);
+    uint32_t fullpath = 32 + get_u32(record + 32);
+    size_t fullpath_size = get_u32(record + 36);
+    const char suffix[] = "/new/child";
+    assert(fullpath_size >= sizeof(suffix));
+    assert(fullpath <= get_u32(record) && fullpath_size <= get_u32(record) - fullpath);
+    assert(get_u32(record) <= sizeof(record));
+    assert(memcmp(record + fullpath + fullpath_size - sizeof(suffix), suffix, sizeof(suffix)) == 0);
+    assert(getattrlistbulk(dir, &request, record, sizeof(record), FSOPT_ATTR_CMN_EXTENDED) == 0);
+
+    assert(unlinkat(dir, "child", AT_REMOVEDIR) == 0 && close(dir) == 0);
+    assert(unlinkat(root, "new", AT_REMOVEDIR) == 0 && close(root) == 0);
+    assert(rmdir(parent) == 0);
+}
+
 int main(void) {
     const char path[] = "/usr/bin/uname";
     struct attrlist request = {
@@ -101,6 +131,7 @@ int main(void) {
     errno = 0;
     assert(realpath("/usr/bin/rax-missing-path", resolved) == NULL && errno == ENOENT);
     assert(close(fd) == 0 && close(dir) == 0);
+    check_bulk_after_rename();
     puts("path attributes and realpath match");
     return 0;
 }

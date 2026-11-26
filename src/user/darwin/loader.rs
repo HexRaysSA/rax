@@ -109,12 +109,14 @@ impl ImageFile {
     }
 
     pub(super) fn from_entry(path: String, entry: Entry) -> std::io::Result<Self> {
+        let device =
+            super::vfs::ClosedVolume::for_entry(Some(path.as_bytes()), Some(&entry)).device();
         Ok(Self {
             vnode_path: path.clone(),
             path,
             host_path: PathBuf::new(),
             bytes: entry.bytes().map_err(std::io::Error::other)?,
-            file_id: (0x524158, entry.ino),
+            file_id: (device as u64, entry.ino),
             slice: None,
         })
     }

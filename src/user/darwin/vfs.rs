@@ -15,6 +15,51 @@ use std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
 
 use crate::user::supplied_fs::{Entry, Error, Files, LinkPolicy};
 
+/// Volumes reported by the closed filesystem.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ClosedVolume {
+    Root,
+    Workspace,
+    Preboot,
+}
+
+impl ClosedVolume {
+    pub(super) const PREBOOT_PATH: &str = "/System/Volumes/Preboot";
+
+    pub(super) fn for_entry(path: Option<&[u8]>, entry: Option<&Entry>) -> Self {
+        if entry.is_some_and(|entry| entry.workspace_mode().is_some()) {
+            return Self::Workspace;
+        }
+        if path
+            .and_then(|path| path.strip_prefix(Self::PREBOOT_PATH.as_bytes()))
+            .is_some_and(|suffix| suffix.is_empty() || suffix.starts_with(b"/"))
+        {
+            return Self::Preboot;
+        }
+        Self::Root
+    }
+
+    pub(super) fn device(self) -> i32 {
+        match self {
+            Self::Root => 0x524158,
+            Self::Workspace => 0x52415b,
+            Self::Preboot => 0x52415c,
+        }
+    }
+
+    pub(super) fn fsid(self) -> [i32; 2] {
+        [self.device(), i32::from(self != Self::Workspace)]
+    }
+
+    pub(super) fn mountpoint(self, files: &Files) -> &str {
+        match self {
+            Self::Root => "/",
+            Self::Workspace => files.workspace_mount().unwrap_or("/tmp"),
+            Self::Preboot => Self::PREBOOT_PATH,
+        }
+    }
+}
+
 /// Path resolution for one process.
 #[derive(Clone, Debug, Default)]
 pub struct Vfs {
@@ -164,6 +209,38 @@ impl Vfs {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn supplied_volumes_have_distinct_device_numbers() {
+        use super::{ClosedVolume, Files};
+        use crate::user::supplied_fs::WorkspaceFlavor;
+        use std::sync::Arc;
+
+        let files = Files::default()
+            .with_file(
+                "/System/Volumes/Preboot/cache".into(),
+                Arc::from(&b"cache"[..]),
+            )
+            .unwrap()
+            .with_temp_workspace(WorkspaceFlavor::Darwin);
+        let root = files.lookup("/").unwrap().1;
+        let preboot = files.lookup("/System/Volumes/Preboot/cache").unwrap().1;
+        let workspace = files.lookup("/tmp").unwrap().1;
+        let root = ClosedVolume::for_entry(Some(b"/"), Some(&root));
+        let preboot =
+            ClosedVolume::for_entry(Some(b"/System/Volumes/Preboot/cache"), Some(&preboot));
+        let workspace = ClosedVolume::for_entry(Some(b"/tmp"), Some(&workspace));
+        assert_eq!(root.mountpoint(&files), "/");
+        assert_eq!(preboot.mountpoint(&files), "/System/Volumes/Preboot");
+        assert_eq!(workspace.mountpoint(&files), "/tmp");
+        assert_ne!(root.fsid()[0], preboot.fsid()[0]);
+        assert_ne!(root.fsid()[0], workspace.fsid()[0]);
+        assert_ne!(workspace.fsid()[0], preboot.fsid()[0]);
+        assert_eq!(
+            ClosedVolume::for_entry(Some(b"/System/Volumes/PrebootOther"), None),
+            root
+        );
+    }
+
     use super::*;
 
     #[test]

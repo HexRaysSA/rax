@@ -96,8 +96,9 @@ pub(in crate::user::darwin::syscall::bsd) fn lookup(
 }
 
 pub(super) fn statfs64(ctx: &mut Ctx<'_>, path: u64, buf: u64) -> SysResult {
-    let (_, entry) = lookup(ctx, AT_FDCWD, path, LinkPolicy::Follow)?;
-    super::write_closed_statfs(ctx, buf, entry.workspace_mode().is_some())
+    let (path, entry) = lookup(ctx, AT_FDCWD, path, LinkPolicy::Follow)?;
+    let volume = super::ClosedVolume::for_entry(Some(path.as_bytes()), Some(&entry));
+    super::write_closed_statfs(ctx, buf, volume)
 }
 
 pub(super) fn pathconf(ctx: &Ctx<'_>, path: u64, name: i32) -> SysResult {
@@ -171,7 +172,7 @@ pub(in crate::user::darwin::syscall::bsd) fn describe_descriptor(
     let FileKind::Embedded(data) = &file.kind else {
         return Err(Errno::EBADF);
     };
-    let mut stat = data.stat()?;
+    let mut stat = data.stat_at_path(file.path.as_deref())?;
     let flags = *file.flags.lock().map_err(|_| Errno::EIO)?;
     let access = flags & O_ACCMODE;
     if access == O_WRONLY || data.search_only() {
@@ -951,7 +952,7 @@ pub(in crate::user::darwin::syscall::bsd) fn path_stat(
         }
         return descriptor_stat(ctx, fd, &path);
     }
-    let (_, entry) = result?;
+    let (resolved, entry) = result?;
     if resource.is_some() {
         if entry.workspace_file().is_none() {
             return Err(Errno::ENOENT);
@@ -962,10 +963,13 @@ pub(in crate::user::darwin::syscall::bsd) fn path_stat(
     if workspace_only && entry.workspace_mode().is_none() {
         return Err(Errno::EPERM);
     }
-    entry_stat(entry)
+    entry_stat(&resolved, entry)
 }
 
-pub(in crate::user::darwin::syscall::bsd) fn entry_stat(entry: Entry) -> Result<Stat, Errno> {
+pub(in crate::user::darwin::syscall::bsd) fn entry_stat(
+    path: &str,
+    entry: Entry,
+) -> Result<Stat, Errno> {
     if let Some(device) = entry.device() {
         Ok(EmbeddedFile::device_stat(device, entry.ino))
     } else {
@@ -975,6 +979,6 @@ pub(in crate::user::darwin::syscall::bsd) fn entry_stat(entry: Entry) -> Result<
             access: O_RDONLY,
             descriptor_bulk: None,
         }
-        .stat()
+        .stat_at_path(Some(path.as_bytes()))
     }
 }
