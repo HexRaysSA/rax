@@ -753,6 +753,11 @@ packet mode, blocking and nonblocking I/O, close-on-exec, and readiness through
 `poll` and `epoll`. Buffers are guest-owned and reserve up to 64 MiB per guest
 process. Individual pipes default to 64 KiB and can be resized up to 1 MiB.
 
+Closed Linux programs can reopen captured streams through `/proc/self/fd/N`,
+`/proc/thread-self/fd/N`, `/dev/fd/N`, and the standard `/dev/std*` aliases.
+The new descriptor shares the captured byte stream and has independent status
+flags. Input remains read-only and output remains write-only.
+
 ABI 1.11 adds `"native_runtime":true`. It explicitly selects read-only installed
 runtime files on the matching host OS: Linux library roots and optional
 `/etc/ld.so.cache`, macOS `/usr/lib/dyld`, installed split shared caches and

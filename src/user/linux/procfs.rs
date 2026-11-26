@@ -9,9 +9,10 @@
 //! follow `fs/proc/task_mmu.c`, `fs/proc/array.c`, and `fs/proc/base.c`.
 
 use std::fmt::Write as _;
+use std::sync::Arc;
 
 use super::abi::LinuxAbi;
-use super::fs::fd::{DirEntry, dt};
+use super::fs::fd::{DirEntry, FileObject, OpenFile, dt};
 use super::process::{ProcState, Thread};
 use crate::user::mm::{Backing, Perms};
 
@@ -19,7 +20,7 @@ mod ids;
 pub use ids::ThreadIds;
 
 /// A synthesized entry.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum ProcEntry {
     /// A regular file with this content.
     File(Vec<u8>),
@@ -33,10 +34,10 @@ pub enum ProcEntry {
     },
     /// A symbolic link with this target.
     Link(String),
-    /// A magic link to an unnamed workspace file, including a private memfd.
-    WorkspaceDescriptor {
-        fd: i32,
-        target: std::sync::Arc<[u8]>,
+    /// A magic link to an unnamed workspace file or a captured console stream.
+    Descriptor {
+        file: Arc<OpenFile>,
+        target: Arc<[u8]>,
     },
     /// A synthesized directory.
     Dir(Directory),
@@ -674,24 +675,25 @@ fn thread_entry(
         _ => {
             let n = rest.strip_prefix("fd/")?.parse::<i32>().ok()?;
             let f = p.fds.get(n).ok()?;
-            let target = f
-                .file
+            let file = f.file;
+            let target = file
                 .memfd
                 .as_ref()
                 .and_then(|memfd| memfd.workspace_link())
                 .cloned()
-                .or_else(|| match &f.file.object {
-                    super::fs::fd::FileObject::Supplied(entry)
+                .or_else(|| match &file.object {
+                    FileObject::Supplied(entry)
                         if entry.workspace_file().is_some_and(|file| file.is_tmpfile()) =>
                     {
-                        Some(file_path(p, &f.file).into_bytes().into())
+                        Some(file_path(p, &file).into_bytes().into())
                     }
+                    FileObject::Console { .. } => Some(file.path.as_bytes().into()),
                     _ => None,
                 });
             if let Some(target) = target {
-                return Some(ProcEntry::WorkspaceDescriptor { fd: n, target });
+                return Some(ProcEntry::Descriptor { file, target });
             }
-            Some(ProcEntry::Link(file_path(p, &f.file)))
+            Some(ProcEntry::Link(file_path(p, &file)))
         }
     }
 }

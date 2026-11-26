@@ -129,8 +129,38 @@ fn resolve_str_as(
             Err(error) => return Err(error.into()),
         }
     }
+    // Supply conventional devfs links in the closed namespace. Caller files
+    // have already been considered and the hosted profile keeps its devfs.
+    let guest = if c.p.config.host_services {
+        guest
+    } else {
+        let alias = match guest.trim_end_matches('/') {
+            "/dev/fd" => Some("/proc/self/fd"),
+            "/dev/stdin" => Some("/proc/self/fd/0"),
+            "/dev/stdout" => Some("/proc/self/fd/1"),
+            "/dev/stderr" => Some("/proc/self/fd/2"),
+            _ => None,
+        };
+        if let Some(alias) = alias {
+            if !follow && !guest.ends_with('/') {
+                return Ok(Target::Proc(ProcEntry::Link(alias.into()), guest));
+            }
+            if guest.ends_with('/') {
+                format!("{alias}/")
+            } else {
+                alias.into()
+            }
+        } else if let Some(slot) = guest.strip_prefix("/dev/fd/") {
+            format!("/proc/self/fd/{slot}")
+        } else {
+            guest
+        }
+    };
     let threads = c.thread_refs();
     if let Some(entry) = procfs::lookup(c.p, c.t, &threads, &guest) {
+        if guest.ends_with('/') && matches!(entry, ProcEntry::Descriptor { .. }) {
+            return Err(Errno(ENOTDIR));
+        }
         return Ok(Target::Proc(entry, guest));
     }
     if procfs::owned(c.p, &threads, &guest) {
@@ -190,9 +220,7 @@ fn proc_stat(ids: (u32, u32), e: &ProcEntry) -> Stat {
         ProcEntry::File(d) => (mode::S_IFREG | 0o444, d.len() as i64),
         ProcEntry::Comm { .. } => (mode::S_IFREG | 0o644, 0),
         ProcEntry::Link(t) => (mode::S_IFLNK | 0o777, t.len() as i64),
-        ProcEntry::WorkspaceDescriptor { target, .. } => {
-            (mode::S_IFLNK | 0o777, target.len() as i64)
-        }
+        ProcEntry::Descriptor { target, .. } => (mode::S_IFLNK | 0o777, target.len() as i64),
         ProcEntry::Dir(_) => (mode::S_IFDIR | 0o555, 0),
         ProcEntry::TraceeFile { .. } => (mode::S_IFREG | 0o444, 0),
     };
@@ -394,9 +422,7 @@ pub(super) fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat,
     match t {
         Target::Fd(f) => stat_file(c, f),
         Target::Supplied(entry, _) => Ok(supplied_stat(entry)),
-        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
-            stat_file(c, &*c.p.fds.file(*fd)?)
-        }
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => stat_file(c, file),
         Target::Proc(ProcEntry::Link(link), _) if follow => {
             let target = resolve_str(c, AT_FDCWD, link, true)?;
             stat_target(c, &target, true)
@@ -414,6 +440,20 @@ pub(super) fn stat_target(c: &Ctx<'_>, t: &Target, follow: bool) -> Result<Stat,
             Ok(fs::stat_from_metadata(&m))
         }
     }
+}
+
+fn open_proc_link(guest: String, target: Arc<[u8]>, flags: u32) -> Arc<OpenFile> {
+    let entry = Entry {
+        ino: 0x5241_5800,
+        kind: crate::user::supplied_fs::Kind::Symlink(target),
+    };
+    OpenFile::new(
+        FileObject::Supplied(entry),
+        FileType::Symlink,
+        guest,
+        None,
+        flags,
+    )
 }
 
 /// Opens a resolved target.
@@ -616,8 +656,8 @@ pub(super) fn open_target(
             drop(state);
             Ok(f)
         }
-        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, target }, guest) => {
-            if flags & (O_CREAT | O_EXCL) == (O_CREAT | O_EXCL) {
+        Target::Proc(ProcEntry::Descriptor { file, target }, guest) => {
+            if flags & (O_CREAT | O_EXCL | O_PATH) == (O_CREAT | O_EXCL) {
                 return Err(Errno(EEXIST));
             }
             if flags & layout.directory != 0 {
@@ -627,22 +667,32 @@ pub(super) fn open_target(
                 if flags & O_PATH == 0 {
                     return Err(Errno(ELOOP));
                 }
-                let entry = Entry {
-                    ino: 0x5241_5800,
-                    kind: crate::user::supplied_fs::Kind::Symlink(target),
-                };
-                return Ok(OpenFile::new(
-                    FileObject::Supplied(entry),
-                    FileType::Symlink,
-                    guest,
-                    None,
-                    status,
-                ));
+                return Ok(open_proc_link(guest, target, status));
             }
             if flags & O_TMPFILE_BIT != 0 && flags & O_PATH == 0 {
                 return Err(Errno(EINVAL));
             }
-            let file = c.p.fds.file(fd)?;
+            if let FileObject::Console { console, stream } = &file.object {
+                if flags & O_PATH == 0 {
+                    let allowed = if stream.is_none() { O_RDONLY } else { O_WRONLY };
+                    if accmode != allowed {
+                        return Err(Errno(EACCES));
+                    }
+                    if flags & layout.direct != 0 {
+                        return Err(Errno(EINVAL));
+                    }
+                }
+                return Ok(OpenFile::new(
+                    FileObject::Console {
+                        console: console.clone(),
+                        stream: *stream,
+                    },
+                    file.ftype,
+                    file.path.clone(),
+                    None,
+                    status,
+                ));
+            }
             let FileObject::Supplied(entry) = &file.object else {
                 return Err(Errno(ENOENT));
             };
@@ -684,11 +734,20 @@ pub(super) fn open_target(
                 file.memfd.clone(),
             ))
         }
-        Target::Proc(ProcEntry::Link(link), _) => {
-            if flags & layout.nofollow != 0 {
-                return Err(Errno(ELOOP));
+        Target::Proc(ProcEntry::Link(link), guest) => {
+            if flags & (O_CREAT | O_EXCL | O_PATH) == (O_CREAT | O_EXCL) {
+                return Err(Errno(EEXIST));
             }
-            // /proc/self/fd/N reopens the same object.
+            if flags & layout.nofollow != 0 {
+                if flags & (O_PATH | layout.directory) == O_PATH {
+                    return Ok(open_proc_link(guest, link.into_bytes().into(), status));
+                }
+                return Err(Errno(if flags & layout.directory != 0 {
+                    ENOTDIR
+                } else {
+                    ELOOP
+                }));
+            }
             let target = resolve_str(c, AT_FDCWD, &link, true)?;
             open_target(c, target, flags, create_mode)
         }
@@ -1072,16 +1131,15 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
             Ok(0)
         }
         Target::Supplied(entry, _) => supplied_entry_access(c, &entry, amode, ids),
-        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
-            let file = c.p.fds.file(fd)?;
-            let FileObject::Supplied(entry) = &file.object else {
-                return Err(Errno(ENOENT));
-            };
-            supplied_entry_access(c, entry, amode, ids)
-        }
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => match &file.object {
+            FileObject::Supplied(entry) => supplied_entry_access(c, entry, amode, ids),
+            FileObject::Console { stream, .. } => console_access(stream.is_none(), amode),
+            _ => Err(Errno(ENOENT)),
+        },
         Target::Proc(..) => Ok(0),
         Target::Fd(f) => match (&f.object, &f.host_path) {
             (FileObject::Supplied(entry), _) => supplied_entry_access(c, entry, amode, ids),
+            (FileObject::Console { stream, .. }, _) => console_access(stream.is_none(), amode),
             (_, _) if f.supplied_stat.is_some() => {
                 supplied_access(amode, f.ftype == FileType::CharDevice)
             }
@@ -1099,6 +1157,15 @@ pub fn faccessat(c: &mut Ctx<'_>, dirfd: i32, path: u64, amode: u32, flags: u32)
         Target::Host { host, .. } => {
             super::super::host::access(&host, amode, flags & AT_EACCESS != 0, follow).map(|_| 0)
         }
+    }
+}
+
+fn console_access(input: bool, amode: u32) -> SysResult {
+    let allowed = if input { 4 } else { 2 };
+    if amode & !allowed == 0 {
+        Ok(0)
+    } else {
+        Err(Errno(EACCES))
     }
 }
 
@@ -1134,7 +1201,7 @@ pub fn readlinkat(c: &mut Ctx<'_>, dirfd: i32, path: u64, buf: u64, size: u64) -
     }
     let bytes = match resolve(c, dirfd, path, AT_EMPTY_PATH, false)? {
         Target::Proc(ProcEntry::Link(t), _) => t.into_bytes(),
-        Target::Proc(ProcEntry::WorkspaceDescriptor { target, .. }, _) => target.to_vec(),
+        Target::Proc(ProcEntry::Descriptor { target, .. }, _) => target.to_vec(),
         Target::Proc(..) => return Err(Errno(EINVAL)),
         Target::Supplied(entry, _) => entry.link_target().ok_or(Errno(EINVAL))?.to_vec(),
         Target::Fd(file) => match &file.object {
@@ -1455,9 +1522,7 @@ pub fn linkat(
             target => {
                 let file = match target {
                     Target::Fd(file) => file,
-                    Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
-                        c.p.fds.file(fd)?
-                    }
+                    Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => file,
                     _ => return Err(Errno(EXDEV)),
                 };
                 match &file.object {
@@ -1522,13 +1587,10 @@ pub fn fchmodat(c: &mut Ctx<'_>, dirfd: i32, path: u64, perm: u32, flags: u32) -
     let follow = flags & AT_SYMLINK_NOFOLLOW == 0;
     match resolve(c, dirfd, path, flags, follow)? {
         Target::Supplied(entry, _) => chmod_supplied(c, &entry, perm),
-        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
-            let file = c.p.fds.file(fd)?;
-            let FileObject::Supplied(entry) = &file.object else {
-                return Err(Errno(ENOENT));
-            };
-            chmod_open_workspace(c, &file, entry, perm)
-        }
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => match &file.object {
+            FileObject::Supplied(entry) => chmod_open_workspace(c, &file, entry, perm),
+            _ => Err(Errno(EPERM)),
+        },
         Target::Fd(f) => match &f.object {
             FileObject::Supplied(entry) => chmod_open_workspace(c, &f, entry, perm),
             _ => chmod_host_path(c, f.host_path.as_deref().ok_or(Errno(EBADF))?, perm, follow),

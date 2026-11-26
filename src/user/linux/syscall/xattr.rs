@@ -276,8 +276,9 @@ fn lookup_path(c: &Ctx<'_>, dirfd: i32, path: u64, at_flags: u32) -> Result<Node
             Node::Pseudo(Pseudo::Anon, kind | 0o555)
         })),
         Target::Fd(file) => file_node(file, false),
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => file_node(file, false),
         Target::Proc(ProcEntry::Dir(_), _) => Ok(Node::Pseudo(Pseudo::Proc, mode::S_IFDIR | 0o555)),
-        Target::Proc(ProcEntry::Link(_), _) => {
+        Target::Proc(ProcEntry::Link(_) | ProcEntry::Descriptor { .. }, _) => {
             Ok(Node::Pseudo(Pseudo::Proc, mode::S_IFLNK | 0o777))
         }
         Target::Proc(_, _) => Ok(Node::Pseudo(Pseudo::Proc, mode::S_IFREG | 0o444)),

@@ -2,6 +2,7 @@
 use super::harness::Harness;
 use crate::user::console::{CapturedConsole, OutputStream};
 use crate::user::linux::abi::errno_table::*;
+use crate::user::linux::abi::open::{O_CLOEXEC, O_NONBLOCK, O_PATH, O_RDONLY, O_RDWR, O_WRONLY};
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::syscall::ready::raw_fd;
 
@@ -53,6 +54,80 @@ fn captured_streams_read_eof_refill_duplicates_and_faults() {
         assert_eq!(h.err(Sysno::Ioctl, &[1, 0x5401, buf]), ENOTTY);
         assert_eq!(h.err(Sysno::Pread64, &[0, buf, 1, 0, 0]), ESPIPE);
         assert_eq!(h.err(Sysno::Pwrite64, &[1, buf, 1, 0, 0]), ESPIPE);
+    }
+}
+
+#[test]
+fn captured_descriptor_links_reopen_the_live_stream() {
+    const CWD: u64 = -100i64 as u64;
+    for abi in ABIS {
+        let mut h = Harness::embedded(abi);
+        let file = h.proc.state.fds.file(0).unwrap();
+        let crate::user::linux::fs::fd::FileObject::Console { console, .. } = &file.object else {
+            panic!("expected captured stdin");
+        };
+        console.feed(b"input").unwrap();
+        let path = h.scratch;
+        let buf = path + 128;
+        let layout = abi.open_flags();
+        h.proc.space().write(path, b"/proc/self/fd/0\0").unwrap();
+
+        assert_eq!(h.err(Sysno::Openat, &[CWD, path, O_RDWR as u64, 0]), EACCES);
+        assert_eq!(
+            h.err(Sysno::Openat, &[CWD, path, layout.nofollow as u64, 0]),
+            ELOOP
+        );
+        let link = h.ok(
+            Sysno::Openat,
+            &[CWD, path, (O_PATH | layout.nofollow) as u64, 0],
+        );
+        h.proc.space().write(buf, &[0]).unwrap();
+        let len = h.ok(Sysno::Readlinkat, &[link, buf, buf + 8, 32]);
+        assert_eq!(bytes(&h, buf + 8, len as usize), b"/dev/fd/0");
+        assert_eq!(h.err(Sysno::Read, &[link, buf, 1]), EBADF);
+        h.ok(Sysno::Close, &[link]);
+
+        assert_eq!(h.err(Sysno::Faccessat2, &[CWD, path, 2, 0]), EACCES);
+        h.ok(Sysno::Faccessat2, &[CWD, path, 4, 0]);
+        let reopened = h.ok(
+            Sysno::Openat,
+            &[CWD, path, (O_RDONLY | O_NONBLOCK | O_CLOEXEC) as u64, 0],
+        );
+        let reopened_file = h.proc.state.fds.get(reopened as i32).unwrap();
+        assert!(reopened_file.cloexec);
+        assert!(raw_fd(&reopened_file.file).is_none());
+        let stat = crate::user::linux::syscall::path::stat_open;
+        assert_eq!(
+            stat(&file, (1, 1)).unwrap().ino,
+            stat(&reopened_file.file, (1, 1)).unwrap().ino
+        );
+        assert_eq!(reopened_file.file.flags() & O_NONBLOCK, O_NONBLOCK);
+        assert_eq!(file.flags() & O_NONBLOCK, 0);
+        assert_eq!(h.ok(Sysno::Read, &[reopened, buf, 2]), 2);
+        assert_eq!(bytes(&h, buf, 2), b"in");
+        h.ok(Sysno::Close, &[0]);
+        assert_eq!(h.err(Sysno::Openat, &[CWD, path, 0, 0]), ENOENT);
+        assert_eq!(h.ok(Sysno::Read, &[reopened, buf, 8]), 3);
+        assert_eq!(bytes(&h, buf, 3), b"put");
+
+        h.proc.space().write(path, b"/dev/stderr\0").unwrap();
+        assert_eq!(h.err(Sysno::Openat, &[CWD, path, 0, 0]), EACCES);
+        let output = h.ok(Sysno::Openat, &[CWD, path, O_WRONLY as u64, 0]);
+        assert_eq!(h.ok(Sysno::Write, &[output, buf, 3]), 3);
+        let mut result = [0; 3];
+        assert_eq!(console.drain(OutputStream::Stderr, &mut result).unwrap(), 3);
+        assert_eq!(&result, b"put");
+
+        let files = crate::user::supplied_fs::Files::default()
+            .with_file("/dev/stdin".into(), (&b"caller"[..]).into())
+            .unwrap();
+        let mut h = Harness::embedded_with_supplied(abi, files);
+        let path = h.scratch;
+        let buf = path + 128;
+        h.proc.space().write(path, b"/dev/stdin\0").unwrap();
+        let fd = h.ok(Sysno::Openat, &[CWD, path, 0, 0]);
+        assert_eq!(h.ok(Sysno::Read, &[fd, buf, 8]), 6);
+        assert_eq!(bytes(&h, buf, 6), b"caller");
     }
 }
 

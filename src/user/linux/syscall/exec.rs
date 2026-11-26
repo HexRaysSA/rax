@@ -84,10 +84,16 @@ fn open_target(c: &Ctx<'_>, target: Target, follow: bool, depth: u32) -> Result<
             open_target(c, next, true, depth + 1)
         }
         Target::Proc(ProcEntry::Link(_), _) => Err(Errno(ELOOP)),
-        Target::Proc(ProcEntry::WorkspaceDescriptor { fd, .. }, _) if follow => {
-            open_target(c, Target::Fd(c.p.fds.file(fd)?), true, depth)
+        Target::Proc(ProcEntry::Descriptor { file, .. }, _) if follow => {
+            if matches!(
+                &file.object,
+                super::super::fs::fd::FileObject::Console { .. }
+            ) {
+                return Err(Errno(EACCES));
+            }
+            open_target(c, Target::Fd(file), true, depth)
         }
-        Target::Proc(ProcEntry::WorkspaceDescriptor { .. }, _) => Err(Errno(ELOOP)),
+        Target::Proc(ProcEntry::Descriptor { .. }, _) => Err(Errno(ELOOP)),
         Target::Supplied(entry, guest) => {
             if entry.is_dir() {
                 return Err(Errno(EACCES));

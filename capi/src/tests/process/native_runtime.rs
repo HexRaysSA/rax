@@ -615,6 +615,30 @@ fn installed_cat_reads_guest_null_through_closed_c_abi() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn installed_linux_reopens_guest_console_through_closed_c_abi() {
+    let input = b"guest descriptor input\n";
+    for path in [
+        "/proc/self/fd/0",
+        "/proc/thread-self/fd/0",
+        "/dev/fd/0",
+        "/dev/stdin",
+    ] {
+        compare_installed_posix_with_input("linux", "/bin/cat", &[path], &[], input, input);
+    }
+    compare_installed_posix_output(
+        "linux",
+        "/bin/sh",
+        &[
+            "-c",
+            "printf out >/proc/self/fd/1; exec 2>&1; printf err >/dev/stderr",
+        ],
+        &[],
+        b"outerr",
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn installed_ls_lists_its_own_descriptor_through_closed_c_abi() {
     compare_installed_posix_output(
         "linux",
