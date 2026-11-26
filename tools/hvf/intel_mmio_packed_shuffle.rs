@@ -34,6 +34,51 @@ pub(super) fn immediate_reply() -> [u8; 32] {
 }
 
 pub(super) const PERMUTE_HALVES: [(&str, u8); 2] = [("vperm2f128", 0x06), ("vperm2i128", 0x46)];
+pub(super) const PERMUTE_DOUBLEWORDS: [(&str, u8); 2] = [("vpermps", 0x16), ("vpermd", 0x36)];
+pub(super) const PERMUTE_QUADWORDS: [(&str, u8); 2] = [("vpermq", 0x00), ("vpermpd", 0x01)];
+
+pub(super) fn permute_doublewords_code(opcode: u8) -> [u8; 6] {
+    [0xc4, 0x62, 0x3d, opcode, 0x7f, 3]
+}
+
+pub(super) fn permute_quadwords_code(opcode: u8, control: u8) -> [u8; 7] {
+    [0xc4, 0x63, 0xfd, opcode, 0x7f, 3, control]
+}
+
+pub(super) fn permute_indices(pattern: u8) -> [u8; 32] {
+    let mut indices = [0; 32];
+    for (output, chunk) in indices.chunks_exact_mut(4).enumerate() {
+        let index = if pattern & 8 == 0 {
+            (pattern + output as u8) & 7
+        } else {
+            pattern & 7
+        };
+        chunk.copy_from_slice(&[0xa8 | index, 0x80, output as u8, 0xff]);
+    }
+    indices
+}
+
+fn full_permute_expected<const BYTES: usize>(
+    reply: &[u8; 32],
+    indices: impl Iterator<Item = usize>,
+) -> [u8; 32] {
+    let mut result = [0; 32];
+    for (target, index) in result.chunks_exact_mut(BYTES).zip(indices) {
+        target.copy_from_slice(&reply[index * BYTES..(index + 1) * BYTES]);
+    }
+    result
+}
+
+pub(super) fn permute_doublewords_expected(indices: &[u8; 32], reply: &[u8; 32]) -> [u8; 32] {
+    full_permute_expected::<4>(
+        reply,
+        indices.chunks_exact(4).map(|i| usize::from(i[0] & 7)),
+    )
+}
+
+pub(super) fn permute_quadwords_expected(control: u8, reply: &[u8; 32]) -> [u8; 32] {
+    full_permute_expected::<8>(reply, (0..4).map(|i| usize::from((control >> (2 * i)) & 3)))
+}
 
 pub(super) fn permute_halves_code(opcode: u8, control: u8) -> [u8; 7] {
     [0xc4, 0x63, 0x3d, opcode, 0x7f, 3, control]

@@ -410,11 +410,13 @@ enum Operation {
     SumAbsoluteByteDifferences,
     Sign(Element),
     MaskBlend(Element, u32),
+    PermuteDoublewords,
 }
 
 impl Operation {
     fn mnemonic(name: &str) -> Option<Self> {
         match name {
+            "vpermps" | "vpermd" => return Some(Self::PermuteDoublewords),
             "vpsrlvd" => return Some(Self::VariableShift(Shift::RightDoubleword)),
             "vpsrlvq" => return Some(Self::VariableShift(Shift::RightQuadword)),
             "vpsravd" => return Some(Self::VariableShift(Shift::ArithmeticDoubleword)),
@@ -532,6 +534,10 @@ impl Operation {
                 }
             }),
             Self::ShuffleImmediate(shuffle, control) => shuffle.result(left, right, control),
+            Self::PermuteDoublewords => std::array::from_fn(|byte| {
+                let index = usize::from(left[byte / 4 * 4] & 7);
+                right[index * 4 + byte % 4]
+            }),
             Self::MaskBlend(element, selection) => std::array::from_fn(|i| {
                 if selection & (1 << (i / element.bytes())) != 0 {
                     right[i]
@@ -714,6 +720,7 @@ impl Input {
         if matches!(
             self.operation,
             Operation::ShuffleImmediate(ImmediateShuffle::PermuteHalves, _)
+                | Operation::PermuteDoublewords
         ) && self.encoding != Encoding::Vex256
         {
             return Err("invalid 256-bit permutation descriptor".into());

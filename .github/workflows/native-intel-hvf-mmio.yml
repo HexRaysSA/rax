@@ -51,6 +51,7 @@ on:
           - vector-immediate-blend
           - vector-register-blend
           - vector-permute-halves
+          - vector-full-permutation
           - vector-bit-test
           - compat-mmio
           - compat16-mmio

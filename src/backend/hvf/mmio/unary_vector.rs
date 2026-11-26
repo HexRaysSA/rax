@@ -10,6 +10,7 @@ enum Operation {
     // Append new operations to retain the saved transaction discriminants.
     Absolute(AbsoluteWidth),
     Widen { shape: Widening, signed: bool },
+    PermuteQuadwords,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -116,6 +117,11 @@ impl Input {
         {
             return Err("invalid HVF MMIO unary vector descriptor".into());
         }
+        if matches!(self.operation, Operation::PermuteQuadwords)
+            && self.encoding != Encoding::Vex256
+        {
+            return Err("invalid 256-bit permutation descriptor".into());
+        }
         Ok(())
     }
 
@@ -130,6 +136,12 @@ impl Input {
             Operation::LowWords => (0, 2),
             Operation::Absolute(width) => return width.result(data),
             Operation::Widen { shape, signed } => return shape.result(data, signed),
+            Operation::PermuteQuadwords => {
+                return std::array::from_fn(|byte| {
+                    let index = usize::from((self.control >> (2 * (byte / 8))) & 3);
+                    data[index * 8 + byte % 8]
+                });
+            }
         };
         let mut result = [0; N];
         result.copy_from_slice(data);
@@ -179,6 +191,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
     let mnemonic = instruction.mnemonic.as_str();
     let name = mnemonic.strip_prefix('v').unwrap_or(mnemonic);
     let operation = match name {
+        "permq" | "permpd" if mnemonic.starts_with('v') => Operation::PermuteQuadwords,
         "pshufd" => Operation::Doublewords,
         "pshufhw" => Operation::HighWords,
         "pshuflw" => Operation::LowWords,
@@ -208,7 +221,10 @@ pub(super) fn prepare<M: PhysicalMemory>(
     let (target, device, control) = match (operation, instruction.operands.as_slice()) {
         (Operation::Absolute(_) | Operation::Widen { .. }, [target, device]) => (target, device, 0),
         (
-            Operation::Doublewords | Operation::HighWords | Operation::LowWords,
+            Operation::Doublewords
+            | Operation::HighWords
+            | Operation::LowWords
+            | Operation::PermuteQuadwords,
             [target, device, immediate],
         ) => (target, device, shuffle_control(immediate)?),
         _ => return Err("wrong operands for unary vector MMIO".into()),

@@ -1543,6 +1543,50 @@ verified. The execution artifact SHA-256 is
 The runner reported a virtualized Intel host.
 [Hosted lane-permutation execution](https://github.com/HexRaysSA/rax/actions/runs/45758023326/job/139701170044)
 
+## Full-register AVX2 permutations
+
+Intel HVF projects one 32 B device read for each of these VEX.256 memory
+forms. The operation selects across the full YMM source. The pending
+read captures the selectors before device dispatch. Completion writes
+the destination once, advances RIP by the instruction length and leaves
+RFLAGS unchanged. It uses fixed-size storage and time proportional to
+the 32 B result.
+
+| Instruction | Selector | VEX fields |
+| --- | --- | --- |
+| `VPERMPS`, `VPERMD` | Low three bits of each 4 B lane in the register operand | W0, `vvvv` selects the register |
+| `VPERMQ`, `VPERMPD` | Four consecutive 2-bit fields in the immediate, from least to most significant | W1, encoded `vvvv` is `1111` |
+
+[Intel SDM revision 086, Vol. 2C, pp. 5-509, 5-531, 5-535 and 5-538](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A 32 B read supplies the entire operand, including when a selector repeats one lane. | Compare two unaligned RAM placements. Put byte 32 in an inaccessible page and require a fault. Check the address, width and read direction in the MMIO path. |
+| Each selector copies its lane without an FP operation. | Compare all 256 immediates per qword opcode and 16 seeded index vectors per dword opcode against the RAM result. Verify RFLAGS and MXCSR in the RAM probes. |
+| Encodings require L1, the specified W bit and mandatory 66. | Change each independently and require rejection. Change reserved `vvvv` for each immediate form. Compare a valid register form and reject its use for an MMIO exit. |
+| The saved read retains the selected operation and the captured selector. | Serialize and reload each pending read. Reject a 128-bit descriptor. Send a short reply and verify no retirement, then send a complete reply and a duplicate to a separate restored copy and require exactly one YMM write and retirement. |
+
+The parent `933d0a9ad` rejects the first `VPERMPS` device case at
+metadata decode. The Rosetta RAM reference produced 1,088 observations
+across 544 instruction cases at two placements. All four inaccessible
+last-byte probes faulted. The SHA-256 digest of the 544 vectors in case
+order is `5e5e6dc2ef8139990934f98c94c891fa306d605f5f98a275d22cc3a2defeab01`.
+Raw sources and results are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-full-permutations-2026-11-26/`.
+
+The `vector-full-permutation` hosted profile defines 96 Intel HVF cases.
+It runs 48 opcode and selector combinations, each directly and after
+restoring into a fresh CPU owner with the original instruction replaced.
+It checks the 32 B request, the full vector bank, RFLAGS and retirement.
+
+The Apple Silicon build passed 180 MMIO, 102 ISA-oracle, 16 CI-policy
+and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
+HVF tool tests passed, as did library Clippy with warnings denied. The
+Intel macOS guest cross-built and passed strict signature verification.
+Local gates used a candidate based on `933d0a9ad`. The Intel execution
+result is pending. The scope is unmasked VEX.256 device reads. EVEX and
+wider interrupt and checkpoint qualification remain open.
+
 ## Unary packed shuffles with an immediate control
 
 Intel HVF supports the legacy XMM and VEX.128/.256 memory forms of

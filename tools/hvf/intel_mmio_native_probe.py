@@ -26,6 +26,7 @@ PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "vmm-startup": 9
                  "compat16-mmio": 16, "string-mmio": 60, "vector-shuffle": 11,
                  "vector-immediate-shuffle": 54, "vector-immediate-blend": 105,
                  "vector-register-blend": 513, "vector-permute-halves": 100,
+                 "vector-full-permutation": 96,
                  "vector-narrow": 108, "vector-horizontal": 126,
                  "vector-unsigned": 87, "vector-sign": 63, "vector-absolute": 63,
                  "vector-widening": 240}

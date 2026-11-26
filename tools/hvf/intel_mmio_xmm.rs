@@ -1267,6 +1267,65 @@ pub(super) fn run_permute_halves(output: &Path) {
     println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
+pub(super) fn run_full_permutations(output: &Path) {
+    use packed_shuffle::{
+        PERMUTE_DOUBLEWORDS, PERMUTE_QUADWORDS, immediate_reply, permute_doublewords_code,
+        permute_doublewords_expected, permute_indices, permute_quadwords_code,
+        permute_quadwords_expected,
+    };
+
+    assert!(!output.exists(), "observations must be new");
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    let reply = immediate_reply();
+    let mut index = 0;
+    let mut run = |mnemonic: &str, selector: u8, code: &[u8], indices, expected| {
+        for (restore, phase) in [(false, "direct"), (true, "restored")] {
+            let value = packed_binary_case(
+                code,
+                true,
+                restore,
+                qwords(indices),
+                &reply,
+                qwords(expected),
+            );
+            record(
+                output,
+                index,
+                &format!("vector-full-permutation-{mnemonic}-{selector:02x}-{phase}"),
+                reply.len(),
+                value,
+            );
+            index += 1;
+        }
+    };
+    for (mnemonic, opcode) in PERMUTE_DOUBLEWORDS {
+        for pattern in 0..16 {
+            let indices = permute_indices(pattern);
+            run(
+                mnemonic,
+                pattern,
+                &permute_doublewords_code(opcode),
+                indices,
+                permute_doublewords_expected(&indices, &reply),
+            );
+        }
+    }
+    for (mnemonic, opcode) in PERMUTE_QUADWORDS {
+        for control in [0x00, 0x55, 0xaa, 0xff, 0x1b, 0xe4, 0x4e, 0xd8] {
+            run(
+                mnemonic,
+                control,
+                &permute_quadwords_code(opcode, control),
+                [0; 32],
+                permute_quadwords_expected(control, &reply),
+            );
+        }
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 pub(super) fn run_immediate_blend(output: &Path) {
     use packed_blend::{LEFT, REPLY, forms};
 

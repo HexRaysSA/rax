@@ -12,6 +12,8 @@ mod packed_shuffle;
 mod vector_immediate_blend;
 #[path = "vector_narrow.rs"]
 mod vector_narrow;
+#[path = "vector_permutation.rs"]
+mod vector_permutation;
 #[path = "vector_register_blend.rs"]
 mod vector_register_blend;
 

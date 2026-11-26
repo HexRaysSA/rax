@@ -44,10 +44,16 @@ pub(super) fn decode_xmm_transfer(
         (3, 1, 0x4c) => Some("vpblendvb"),
         _ => None,
     };
-    let unary_shuffle = if (map, opcode) == (1, 0x70) {
-        packed_unary_shuffle_mnemonics(flags & 3).map(|(_, vex)| vex)
-    } else {
-        None
+    let unary_shuffle = match (map, flags & 0x87, opcode) {
+        (3, 0x85, 0x00) => Some("vpermq"),
+        (3, 0x85, 0x01) => Some("vpermpd"),
+        (1, _, 0x70) => packed_unary_shuffle_mnemonics(flags & 3).map(|(_, vex)| vex),
+        _ => None,
+    };
+    let indexed_permutation = match (map, flags & 0x87, opcode) {
+        (2, 5, 0x16) => Some("vpermps"),
+        (2, 5, 0x36) => Some("vpermd"),
+        _ => None,
     };
     let absolute = if map == 2 && flags & 3 == 1 {
         packed_absolute_mnemonics(opcode).map(|(_, vex)| vex)
@@ -72,6 +78,7 @@ pub(super) fn decode_xmm_transfer(
         .or_else(|| packed_binary_mnemonics(map, flags & 3, opcode))
         .map(|(_, vex)| vex)
         .or(variable_shift)
+        .or(indexed_permutation)
         .or(immediate_shuffle)
         .or(register_blend);
     let bit_test = match (map, flags & 3, opcode) {

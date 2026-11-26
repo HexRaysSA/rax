@@ -200978,6 +200978,14 @@
       "scope": "Software AArch64 bundles with shared GIC and PSCI state and a PL011 image require a private record for every configured vCPU. The parent saved a one-vCPU bundle without private records. The regression checks missing tables at one, two and four vCPUs, missing final entries at two and four vCPUs, and complete-file restore at all three counts. The earlier cluster-only file shape retains its file readability and existing GIC timer-source restore admission. Full backend, device and in-flight checkpoint scope remains open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#private-cpu-records-for-the-software-aarch64-cluster",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-full-register-avx2-permutations-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "native_intel_qualification_pending",
+      "scope": "VEX.256 VPERMPS, VPERMD, VPERMQ and VPERMPD project one 32 B device read. Saved reads keep their selectors and retire once. The parent rejected the first VPERMPS case at metadata decode. The 544 portable pending-read results match the independent Rosetta RAM reference, which used two placements and four inaccessible-last-byte controls. The 96-case Intel macOS consumer cross-built and verified its signature. Hosted Intel execution and full MMIO, interrupt and checkpoint scope remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#full-register-avx2-permutations",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
