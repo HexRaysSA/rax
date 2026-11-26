@@ -1998,6 +1998,7 @@ fn installed_cmd_ver_matches_native_through_closed_c_abi() {
         &[],
         None,
         Some(r#"/d /c echo "rax-witness""#),
+        0,
     );
     assert!(native.status.success());
     assert_eq!(native.stdout, b"\"rax-witness\"\r\n");
@@ -2095,6 +2096,47 @@ fn installed_cmd_child_matches_native_through_closed_c_abi() {
         failures.is_empty(),
         "installed child cases failed: {failures:?}"
     );
+}
+
+#[cfg(windows)]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_more_matches_native_through_closed_c_abi() {
+    compare_installed_more("System32");
+}
+
+#[cfg(all(windows, target_pointer_width = "64"))]
+#[test]
+#[ignore = "run explicitly in the native Windows installed-process workflow"]
+fn installed_wow64_more_matches_native_through_closed_c_abi() {
+    compare_installed_more("SysWOW64");
+}
+
+#[cfg(windows)]
+fn compare_installed_more(directory: &str) {
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
+    for (arguments, input) in [
+        (&[][..], &b"alpha\r\nsecond\r\ngamma\r\n"[..]),
+        (
+            &["/S"][..],
+            &b"alpha\r\n\r\n\r\ngravity\r\n\r\n\r\ngamma\r\n"[..],
+        ),
+        (&[][..], &b""[..]),
+    ] {
+        let native = compare_windows_installed_command(
+            directory,
+            "more.com",
+            arguments,
+            Some(input),
+            None,
+            DETACHED_PROCESS,
+        );
+        assert!(native.status.success(), "{arguments:?}");
+        assert!(native.stderr.is_empty(), "{arguments:?}");
+        if !input.is_empty() {
+            assert!(native.stdout.starts_with(b"alpha\r\n"), "{arguments:?}");
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -2241,7 +2283,7 @@ fn compare_windows_installed_program_in(
     arguments: &[&str],
     stdin: Option<&[u8]>,
 ) -> std::process::Output {
-    compare_windows_installed_command(directory_name, image, arguments, stdin, None)
+    compare_windows_installed_command(directory_name, image, arguments, stdin, None, 0)
 }
 
 #[cfg(windows)]
@@ -2251,6 +2293,7 @@ fn compare_windows_installed_command(
     arguments: &[&str],
     stdin: Option<&[u8]>,
     raw_tail: Option<&str>,
+    creation_flags: u32,
 ) -> std::process::Output {
     use std::io::Write as _;
     use std::os::windows::process::CommandExt as _;
@@ -2285,6 +2328,7 @@ fn compare_windows_installed_command(
     }
     command
         .current_dir(&system_directory)
+        .creation_flags(creation_flags)
         .env_clear()
         .envs(environment);
     let native = if let Some(input) = stdin {

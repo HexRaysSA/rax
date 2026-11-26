@@ -3,6 +3,40 @@ use super::*;
 use crate::user::windows::objects::Object;
 
 #[test]
+fn detached_console_alias_opens_return_invalid_handle() {
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        std::sync::Arc::make_mut(&mut h.process.state_mut().cfg).host_filesystem = false;
+        let width = arch.ptr_size();
+        let baseline = h.process.state().objects.handle_count();
+        let io = h.base + 4096;
+        let sentinel = vec![0xff; width as usize];
+        for prefix in ["\\??\\", "\\DosDevices\\"] {
+            for alias in ["CON", "CONIN$", "ConOut$"] {
+                let name = format!("{prefix}{alias}");
+                h.name(&name);
+                for access in [0x8000_0000, 0x4000_0000, 0xc000_0000] {
+                    let p = h.process.state_mut();
+                    p.space.wr(h.base, &sentinel).unwrap();
+                    p.space.wr(io, &sentinel.repeat(2)).unwrap();
+                    let code = h.invoke_api(
+                        "NtCreateFile",
+                        &[h.base, access, h.attrs(), io, 0, 0x80, 3, 1, 0, 0, 0],
+                    );
+                    assert_eq!(code, STATUS_INVALID_HANDLE, "{arch}/{name}/{access:#x}");
+                    let p = h.process.state();
+                    let expected_handle = if arch.is64() { u64::MAX } else { 0 };
+                    assert_eq!(p.space.ptr(h.base, width).unwrap(), expected_handle);
+                    assert_eq!(p.space.ptr(io, width).unwrap(), arch.ptr(u64::MAX));
+                    assert_eq!(p.space.ptr(io + width, width).unwrap(), arch.ptr(u64::MAX));
+                    assert_eq!(p.objects.handle_count(), baseline);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn native_null_device_opens_replay_all_46_observations_without_host_files() {
     let rows: serde_json::Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

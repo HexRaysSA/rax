@@ -1,11 +1,11 @@
-//! The selected null device owns no host file or filesystem sharing state.
+//! DOS device opens for a process that starts without an attached console.
 use super::super::file_attributes::{attributes, path};
 use super::super::named_object::{Checked, status};
 use super::Request;
 use crate::user::windows::fs::{FileIdentity, FileLifetime};
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::nt::status::{
-    STATUS_INSUFFICIENT_RESOURCES, STATUS_OBJECT_NAME_NOT_FOUND,
+    STATUS_INSUFFICIENT_RESOURCES, STATUS_INVALID_HANDLE, STATUS_OBJECT_NAME_NOT_FOUND,
 };
 use crate::user::windows::objects::{FileObj, Object};
 use std::path::PathBuf;
@@ -41,16 +41,20 @@ pub(super) fn open(
         } else if device == "NUL" && !component.is_empty() && !component.contains(&u16::from(b':'))
         {
             let text = String::from_utf16_lossy(component);
-            let other_device = crate::user::windows::fs::dos_device(&text).is_some_and(|device| {
+            let other_device = crate::user::windows::fs::dos_device(&text).filter(|device| {
                 let units: Vec<u16> = device.encode_utf16().collect();
                 path::equal(c, component, &units)
             });
-            return Some(if other_device {
-                Err(c
+            return Some(match other_device.as_deref() {
+                // Process startup supplies redirected streams without an
+                // attached console. The DOS aliases require a console.
+                Some("CON" | "CONIN$" | "CONOUT$") if tail.len() == component.len() => {
+                    status(STATUS_INVALID_HANDLE)
+                }
+                Some(_) => Err(c
                     .unsupported("NT DOS device outside the selected null-device profile")
-                    .into())
-            } else {
-                status(STATUS_OBJECT_NAME_NOT_FOUND)
+                    .into()),
+                None => status(STATUS_OBJECT_NAME_NOT_FOUND),
             });
         }
         break;
