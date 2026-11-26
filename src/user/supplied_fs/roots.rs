@@ -23,6 +23,7 @@ pub(super) struct Origin {
     jointly_confined_mounts: &'static [&'static str],
     mounts_omitting_unreadable_files: &'static [&'static str],
     max_entries: usize,
+    max_directories: usize,
 }
 
 impl Origin {
@@ -36,6 +37,7 @@ impl Origin {
         jointly_confined_mounts: &[],
         mounts_omitting_unreadable_files: &[],
         max_entries: MAX_ENTRIES,
+        max_directories: 0,
     };
 
     #[cfg(any(target_os = "linux", test))]
@@ -54,6 +56,7 @@ impl Origin {
             jointly_confined_mounts,
             mounts_omitting_unreadable_files: &[],
             max_entries: MAX_ENTRIES,
+            max_directories: 0,
         }
     }
 
@@ -72,8 +75,11 @@ impl Origin {
             confined_mounts,
             jointly_confined_mounts: &[],
             mounts_omitting_unreadable_files,
-            // The system locale tree alone can contain over 2048 entries.
+            // Directory scans of Xcode and system frameworks are much larger
+            // than the number of retained file backings. Directory records
+            // retain no host descriptor and have a separate budget.
             max_entries: 4096,
+            max_directories: 1 << 16,
         }
     }
 
@@ -87,6 +93,7 @@ struct Entries {
     files: BTreeMap<String, Entry>,
     links: BTreeMap<String, Entry>,
     backings: BTreeMap<(u64, u64), Arc<HostFileSource>>,
+    directories: usize,
 }
 
 #[derive(Debug)]
@@ -234,7 +241,8 @@ impl Roots {
     }
     pub(super) fn owns(&self, entry: &Entry) -> bool {
         let base = self.origin.inode_base;
-        (base..base + self.origin.max_entries as u64).contains(&entry.ino)
+        let capacity = self.origin.max_entries + self.origin.max_directories;
+        (base..base + capacity as u64).contains(&entry.ino)
     }
 
     fn insert(&self, path: &str, kind: Kind) -> Result<Entry, Error> {
@@ -243,6 +251,7 @@ impl Roots {
             files,
             links,
             backings,
+            directories,
         } = &mut *entries;
         let index = files.len() + links.len();
         let table = if matches!(kind, Kind::Symlink(_)) {
@@ -253,7 +262,13 @@ impl Roots {
         if let Some(entry) = table.get(path) {
             return Ok(entry.clone());
         }
-        if index >= self.origin.max_entries {
+        let count_directory = self.origin.max_directories != 0 && matches!(kind, Kind::Directory);
+        let (used, limit) = if count_directory {
+            (*directories, self.origin.max_directories)
+        } else {
+            (index - *directories, self.origin.max_entries)
+        };
+        if used >= limit {
             return Err(Error::TooLarge);
         }
         let kind = match kind {
@@ -273,6 +288,9 @@ impl Roots {
             kind,
         };
         table.insert(path.to_owned(), entry.clone());
+        if count_directory {
+            *directories += 1;
+        }
         Ok(entry)
     }
 
@@ -398,6 +416,64 @@ impl Roots {
             }
         }
         Ok(names)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::user::supplied_fs::test_backing::TestFile;
+
+    #[test]
+    fn installed_darwin_directory_walk_can_exceed_the_file_budget() {
+        let backing = TestFile::new(b"installed file", 14);
+        let origin = Origin::darwin_installed(None, &[], &[]);
+        let file_budget = origin.max_entries;
+        let roots = Roots::new(
+            BTreeMap::from([("/bin".to_owned(), backing.dir.clone())]),
+            origin,
+        )
+        .unwrap();
+
+        for index in 0..=file_budget {
+            let path = format!("/developer/sdk/{index}");
+            let ino = roots.directory_ino(&path).unwrap();
+            assert_eq!(roots.directory_ino(&path).unwrap(), ino);
+        }
+
+        let file = roots.lookup("/bin/backing").unwrap();
+        assert!(roots.owns(&file));
+        assert_eq!(&*file.bytes().unwrap(), b"installed file");
+        assert_ne!(file.ino, roots.directory_ino("/developer/sdk/0").unwrap());
+    }
+
+    #[test]
+    fn darwin_installed_directory_and_file_limits_are_independent() {
+        let backing = TestFile::new(b"first", 5);
+        std::fs::write(backing.dir.join("second"), b"second").unwrap();
+        let origin = Origin {
+            max_entries: 1,
+            max_directories: 2,
+            ..Origin::darwin_installed(None, &[], &[])
+        };
+        let roots = Roots::new(
+            BTreeMap::from([("/bin".to_owned(), backing.dir.clone())]),
+            origin,
+        )
+        .unwrap();
+
+        let first = roots.lookup("/bin/backing").unwrap();
+        assert!(matches!(roots.lookup("/bin/second"), Err(Error::TooLarge)));
+        let directory = roots.lookup("/bin").unwrap();
+        let second_directory = roots.directory_ino("/developer").unwrap();
+        assert!(matches!(
+            roots.directory_ino("/other"),
+            Err(Error::TooLarge)
+        ));
+        assert_eq!(roots.lookup("/bin/backing").unwrap().ino, first.ino);
+        assert_eq!(roots.lookup("/bin").unwrap().ino, directory.ino);
+        assert_eq!(roots.directory_ino("/developer").unwrap(), second_directory);
+        assert!(roots.owns(&directory));
     }
 }
 
