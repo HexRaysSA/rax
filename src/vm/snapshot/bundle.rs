@@ -354,7 +354,7 @@ impl SnapshotBundle {
             })
         {
             return Err(Error::InvalidConfig(
-                "ARM platform checkpoint requires private CPU records for every vCPU".into(),
+                "ARM platform checkpoint is missing required private CPU records".into(),
             ));
         }
         if self.base.config.arch == crate::config::ArchKind::Aarch64

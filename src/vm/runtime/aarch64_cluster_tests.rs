@@ -209,9 +209,11 @@ fn arm_cluster_bundle_requires_every_private_cpu_record() {
             let restore = target.vm.restore_snapshot_bundle(incoming);
             for error in [save.err(), config.err(), restore.err()] {
                 assert!(
-                    error.as_ref().is_some_and(|error| error
-                        .to_string()
-                        .contains("ARM platform checkpoint requires private CPU records")),
+                    matches!(
+                        &error,
+                        Some(Error::InvalidConfig(reason))
+                            if reason == "ARM platform checkpoint is missing required private CPU records"
+                    ),
                     "{count} CPUs: {error:?}"
                 );
             }
