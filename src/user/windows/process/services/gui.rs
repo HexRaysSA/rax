@@ -294,6 +294,25 @@ pub(super) fn register_window_message(
     let Some(name) = first_argument(p, t, sp) else {
         return failure("window message argument capture is unreadable");
     };
+    if let Some((inputs, Wow64Gdi::Insider)) = wow64_inputs(p, wow64) {
+        let selected_user_views = p
+            .wow64
+            .as_ref()
+            .and_then(|state| state.user_data.as_ref())
+            .is_some_and(|client| client.owns_views(&p.vm));
+        if !selected_user_views
+            || t.teb_allocation.companion().is_none()
+            || !p.gui.has_ready_wow64_thread(&p.vm, &inputs, t.tid)
+        {
+            return failure(
+                "WoW64 window message registration requires an initialized USER companion",
+            );
+        }
+        return match complete_window_message(p, t, name) {
+            Ok(value) => returned(t, value, sp, resume, true),
+            Err(outcome) => outcome,
+        };
+    }
     convert(
         p,
         t,
@@ -551,22 +570,23 @@ fn check_guest_alignment(address: u64, alignment: u64) -> Result<(), u32> {
 }
 
 fn complete_window_message(p: &Proc, t: &Thread, descriptor: u64) -> Result<u64, Outcome> {
-    let invalid = || {
+    // The measured WoW64 thunk sets Win32 last error and preserves NT status.
+    let invalid = |native_status| {
         query_error(
             p,
             t,
             ERROR_INVALID_PARAMETER,
-            Some(STATUS_INVALID_PARAMETER),
+            (p.arch != WinArch::X86).then_some(native_status),
         )
     };
     let width = p.arch.ptr_size() as usize;
     let Ok(record) = p.space.bytes(descriptor, 2 * width) else {
-        return invalid();
+        return invalid(STATUS_INVALID_PARAMETER);
     };
     let length = usize::from(u16::from_le_bytes([record[0], record[1]]));
     let maximum = usize::from(u16::from_le_bytes([record[2], record[3]]));
     if length > maximum || length % 2 != 0 {
-        return query_error(p, t, ERROR_INVALID_PARAMETER, Some(STATUS_ACCESS_VIOLATION));
+        return invalid(STATUS_ACCESS_VIOLATION);
     }
     if length > 255 * 2 {
         return query_error(p, t, ERROR_INVALID_PARAMETER, None);
@@ -575,7 +595,7 @@ fn complete_window_message(p: &Proc, t: &Thread, descriptor: u64) -> Result<u64,
     pointer[..width].copy_from_slice(&record[width..]);
     let buffer = u64::from_le_bytes(pointer);
     let Ok(mut units) = p.space.wunits(buffer, (length / 2).max(1)) else {
-        return invalid();
+        return invalid(STATUS_INVALID_PARAMETER);
     };
     units.truncate(length / 2);
     if let Some(end) = units.iter().position(|&unit| unit == 0) {
@@ -590,7 +610,7 @@ fn complete_window_message(p: &Proc, t: &Thread, descriptor: u64) -> Result<u64,
     }
     match p.gui.register_message(&upcase, &units) {
         Ok(atom) => Ok(u64::from(atom)),
-        Err(ERROR_INVALID_PARAMETER) => invalid(),
+        Err(ERROR_INVALID_PARAMETER) => invalid(STATUS_INVALID_PARAMETER),
         Err(error) => query_error(p, t, error, None),
     }
 }

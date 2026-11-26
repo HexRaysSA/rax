@@ -26,7 +26,8 @@ fn present(p: &Proc, descriptor: u64, name: &str) -> u16 {
     let buffer = descriptor + 32;
     p.space.w16(descriptor, length).unwrap();
     p.space.w16(descriptor + 2, length + 2).unwrap();
-    p.space.w64(descriptor + 8, buffer).unwrap();
+    let width = p.arch.ptr_size();
+    p.space.wptr(descriptor + width, width, buffer).unwrap();
     p.space.put_wunits(buffer, &units).unwrap();
     length
 }
@@ -125,6 +126,99 @@ fn registered_window_message_resumes_cold_then_preserves_case_and_counted_input(
         register(p, &mut t, descriptor, resume);
         assert_eq!(t.cpu.gpr(0), 0xc004);
     }
+}
+
+#[test]
+fn wow64_window_message_uses_the_ready_companion_and_preserves_last_status() {
+    use crate::user::windows::object_namespace::csr::client_data::native_fixture;
+    use crate::user::windows::process::{services, thread, wow64};
+
+    let (mut process, _, entry) = setup(WinArch::X86);
+    let p = process.state_mut();
+    let version = &mut std::sync::Arc::make_mut(&mut p.cfg).version;
+    version.major = 10;
+    version.minor = 0;
+    version.build = 29708;
+    wow64::initialize_test_profile(p, WinArch::Arm64.machine()).unwrap();
+    let inputs = crate::user::windows::gui::tests::wow64_companion_fixture(WinArch::Arm64, 0x34000);
+    p.native.as_mut().unwrap().gui = Availability::Wow64Companion(inputs, Wow64Gdi::Insider);
+    p.registry = Registry::selected(upcase(), vec![]).unwrap();
+    let id = thread::create(p, p.modules.exe().entry, 0, 0x10000, false).unwrap();
+    let mut t = p.threads.remove(&id).unwrap();
+    let stack = t.cpu.sp();
+    let resume = entry + 0x4000;
+    let descriptor = entry + 0x5000;
+    let offsets = offsets(WinArch::X86);
+    let error = t.teb + offsets.teb_last_error;
+    let status = t.teb + offsets.teb_last_status;
+    let module = p.modules.win32u_services.as_ref().unwrap().0;
+    let call = |p: &mut Proc, t: &mut Thread, name, number, argument| {
+        p.modules.win32u_services = Some((module, named_table(WinArch::X86, name, number)));
+        t.cpu.set_sp(stack);
+        p.space.w32(stack, resume as u32).unwrap();
+        p.space.w32(stack + 4, (resume + 4) as u32).unwrap();
+        p.space.w32(stack + 8, argument as u32).unwrap();
+        t.cpu.set_gpr(0, u64::from(number));
+        services::wow64(p, t, entry)
+    };
+    let register = |p: &mut Proc, t: &mut Thread, address| {
+        call(p, t, "NtUserRegisterWindowMessage", REGISTER, address)
+    };
+    let views = native_fixture(0).map_wow64(&mut p.vm).unwrap();
+    p.wow64.as_mut().unwrap().user_data = Some(views);
+    present(p, descriptor, "RAX-Ä");
+    assert!(matches!(
+        register(p, &mut t, descriptor),
+        Outcome::Fail(reason) if reason.contains("requires an initialized USER companion")
+    ));
+    assert!(p.gui.threads.is_empty());
+    assert_eq!(call(p, &mut t, "NtGdiInit2", 0x1308, 0), Outcome::Continue);
+
+    let valid = [
+        ("RAX-Ä", None, false, false, 0xc000),
+        ("rax-ä-extra", Some(10), false, false, 0xc000),
+        ("#49151", None, false, false, 0xbfff),
+        ("", None, false, false, 0),
+    ];
+    let long_name = "w".repeat(256);
+    let invalid = [
+        ("x", Some(3), false, false, 0),
+        ("x", Some(6), false, false, 0),
+        ("x", None, true, false, 0),
+        ("", None, true, false, 0),
+        ("x", None, false, true, 0),
+        ("#49152", None, false, false, 0),
+        (&long_name, None, false, false, 0),
+    ];
+    for (cases, expected_error) in [
+        (valid.as_slice(), LAST_ERROR),
+        (&invalid, ERROR_INVALID_PARAMETER),
+    ] {
+        for &(name, length, null_buffer, null_descriptor, expected) in cases {
+            p.space.w32(error, LAST_ERROR).unwrap();
+            p.space.w32(status, LAST_STATUS).unwrap();
+            present(p, descriptor, name);
+            if let Some(length) = length {
+                p.space.w16(descriptor, length).unwrap();
+            }
+            if null_buffer {
+                p.space.w32(descriptor + 4, 0).unwrap();
+            }
+            let address = if null_descriptor { 0 } else { descriptor };
+            assert_eq!(register(p, &mut t, address), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), expected, "{name}");
+            assert_eq!(t.cpu.sp(), stack + 4);
+            assert_eq!(t.cpu.pc(), resume);
+            assert_eq!(p.space.u32(error).unwrap(), expected_error, "{name}");
+            assert_eq!(p.space.u32(status).unwrap(), LAST_STATUS, "{name}");
+            assert!(p.gui.threads[&id].callbacks.is_empty());
+        }
+    }
+    p.wow64.as_mut().unwrap().user_data = None;
+    assert!(matches!(
+        register(p, &mut t, descriptor),
+        Outcome::Fail(reason) if reason.contains("requires an initialized USER companion")
+    ));
 }
 
 #[test]

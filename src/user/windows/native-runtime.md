@@ -1944,6 +1944,12 @@ return zero with the measured last-error behavior. The selected GUI thread
 setup still precedes a cold registration. The callback and table use only
 guest memory. [RegisterWindowMessageW][register-window-message]
 
+Selected ARM64 build 29708 WoW64 inputs admit the 32-bit WIN32U registration
+leaf after USER initializes the native thread companion. The leaf reads a
+32-bit counted descriptor and uses the same guest atom table. Malformed input
+returns zero and sets Win32 last error to 87 while preserving the x86 TEB's
+NT status. An empty string with a readable buffer preserves both fields.
+
 [register-window-message]: https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-registerwindowmessagew
 
 ### Selected desktop settings

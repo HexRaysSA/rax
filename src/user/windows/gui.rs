@@ -278,6 +278,15 @@ struct Mappings {
     default_ime_title: Option<u64>,
 }
 
+impl Mappings {
+    fn owned_by(&self, vm: &VirtualMemory, inputs: &Arc<Inputs>, relocated: bool) -> bool {
+        self.relocated == relocated
+            && Arc::ptr_eq(&self.inputs, inputs)
+            && vm.owns_kernel_data_view(&self.gdi)
+            && vm.owns_kernel_data_view(&self.desktop)
+    }
+}
+
 pub(crate) struct ThreadState {
     pub(crate) record: u64,
     pub(crate) initialized: bool,
@@ -416,6 +425,21 @@ impl State {
         Ok((mappings.gdi.base, client))
     }
 
+    pub(crate) fn has_ready_wow64_thread(
+        &self,
+        vm: &VirtualMemory,
+        inputs: &Arc<Inputs>,
+        tid: u32,
+    ) -> bool {
+        self.threads
+            .get(&tid)
+            .is_some_and(|thread| thread.initialized)
+            && self
+                .mappings
+                .as_ref()
+                .is_some_and(|mappings| mappings.owned_by(vm, inputs, true))
+    }
+
     fn prepare_thread_views(
         &mut self,
         vm: &mut VirtualMemory,
@@ -425,11 +449,7 @@ impl State {
         relocate: bool,
     ) -> Result<u64, VmError> {
         if let Some(mappings) = &mut self.mappings {
-            if mappings.relocated != relocate
-                || !Arc::ptr_eq(&mappings.inputs, &inputs)
-                || !vm.owns_kernel_data_view(&mappings.gdi)
-                || !vm.owns_kernel_data_view(&mappings.desktop)
-            {
+            if !mappings.owned_by(vm, &inputs, relocate) {
                 return Err(VmError::InvalidAddress);
             }
             if let Some(thread) = self.threads.get(&tid) {
