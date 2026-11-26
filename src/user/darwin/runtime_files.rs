@@ -3,7 +3,7 @@
 //! terminal databases, character-conversion tables, system TLS defaults, and
 //! installed Perl and Ruby modules. Executables and shebang scripts are
 //! available for child execution in the same guest namespace. A selected
-//! Command Line Tools installation supplies its own tools and SDK resources.
+//! Command Line Tools or Xcode installation supplies its own tools and SDK resources.
 //!
 //! Selection happens before guest execution. Only these selected files enter
 //! the supplied namespace alongside a synthetic null character device. Cache
@@ -46,6 +46,15 @@ const DEVELOPER_SELECTOR: &str = "/var/db/xcode_select_link";
 
 #[cfg(any(target_os = "macos", test))]
 const COMMAND_LINE_TOOLS: &str = "/Library/Developer/CommandLineTools";
+
+#[cfg(any(target_os = "macos", test))]
+const XCODE_BUNDLE: &str = "/Applications/Xcode.app";
+
+#[cfg(any(target_os = "macos", test))]
+const XCODE_CONTENTS: &str = "/Applications/Xcode.app/Contents";
+
+#[cfg(any(target_os = "macos", test))]
+const XCODE_DEVELOPER: &str = "/Applications/Xcode.app/Contents/Developer";
 
 #[cfg(any(target_os = "macos", test))]
 const PROGRAM_ROOTS: [&str; 4] = ["/bin", "/usr/bin", "/sbin", "/usr/sbin"];
@@ -232,11 +241,13 @@ fn select_runtime_root(
         .and_then(|files| files.with_device(Device::Zero))
         .and_then(|files| files.with_darwin_descriptor_names())
         .map_err(io::Error::other)?;
-    let tools = select_command_line_tools(root, executable, env);
-    let add_selector = tools
+    let tools = select_developer_tools(root, executable, env);
+    let selector = tools
         .as_ref()
-        .is_some_and(|(_, selected_on_host)| *selected_on_host)
-        && !overlaps_executable(DEVELOPER_SELECTOR, executable);
+        .filter(|tools| {
+            tools.selected_on_host && !overlaps_executable(DEVELOPER_SELECTOR, executable)
+        })
+        .map(|tools| tools.developer);
     let roots = [
         "/usr/lib",
         "/System/Library/Frameworks",
@@ -279,7 +290,7 @@ fn select_runtime_root(
         };
         directory.then(|| (guest.to_owned(), host))
     })
-    .chain(tools.map(|(host, _)| (COMMAND_LINE_TOOLS.into(), host)))
+    .chain(tools.map(|tools| (tools.mount.into(), tools.host)))
     .collect();
     let files = files.with_native_library_roots(
         roots,
@@ -292,6 +303,7 @@ fn select_runtime_root(
             PERL_ROOT,
             RUBY_VERSIONS,
             COMMAND_LINE_TOOLS,
+            XCODE_CONTENTS,
             PROGRAM_ROOTS[0],
             PROGRAM_ROOTS[1],
             PROGRAM_ROOTS[2],
@@ -299,9 +311,9 @@ fn select_runtime_root(
         ],
         &PROGRAM_ROOTS,
     )?;
-    let files = if add_selector {
+    let files = if let Some(developer) = selector {
         files
-            .with_native_symlink(DEVELOPER_SELECTOR, COMMAND_LINE_TOOLS)
+            .with_native_symlink(DEVELOPER_SELECTOR, developer)
             .map_err(io::Error::other)?
     } else {
         files
@@ -310,11 +322,21 @@ fn select_runtime_root(
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn select_command_line_tools(
+struct DeveloperTools {
+    mount: &'static str,
+    host: std::path::PathBuf,
+    developer: &'static str,
+    selected_on_host: bool,
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn select_developer_tools(
     root: &std::path::Path,
     executable: Option<&str>,
     env: &[Vec<u8>],
-) -> Option<(std::path::PathBuf, bool)> {
+) -> Option<DeveloperTools> {
+    use std::path::Path;
+
     let override_path = env
         .iter()
         .find_map(|entry| entry.strip_prefix(b"DEVELOPER_DIR="))
@@ -323,13 +345,19 @@ fn select_command_line_tools(
         Some(path) => std::path::PathBuf::from(std::str::from_utf8(path).ok()?),
         None => std::fs::read_link(root.join(DEVELOPER_SELECTOR.trim_start_matches('/'))).ok()?,
     };
-    if selected_path != std::path::Path::new(COMMAND_LINE_TOOLS) {
+    let (mount, developer) = if selected_path == Path::new(COMMAND_LINE_TOOLS) {
+        (COMMAND_LINE_TOOLS, COMMAND_LINE_TOOLS)
+    } else if selected_path == Path::new(XCODE_BUNDLE)
+        || selected_path == Path::new(XCODE_DEVELOPER)
+    {
+        (XCODE_CONTENTS, XCODE_DEVELOPER)
+    } else {
         return None;
-    }
+    };
     // The main image can shadow individual tools. A parent image blocks the mount.
     if executable.is_some_and(|image| {
-        image == COMMAND_LINE_TOOLS
-            || COMMAND_LINE_TOOLS
+        image == mount
+            || mount
                 .strip_prefix(image)
                 .is_some_and(|tail| tail.starts_with('/'))
     }) {
@@ -341,20 +369,35 @@ fn select_command_line_tools(
     let host = root
         .canonicalize()
         .ok()?
-        .join(COMMAND_LINE_TOOLS.trim_start_matches('/'));
+        .join(mount.trim_start_matches('/'));
     if !host.is_dir() || host.canonicalize().ok()? != host {
         return None;
     }
-    Some((host, override_path.is_none()))
+    if mount == XCODE_CONTENTS
+        && (!host.join("Developer").symlink_metadata().ok()?.is_dir()
+            || !host.join("Info.plist").symlink_metadata().ok()?.is_file())
+    {
+        return None;
+    }
+    Some(DeveloperTools {
+        mount,
+        host,
+        developer,
+        selected_on_host: override_path.is_none(),
+    })
 }
 
 #[cfg(any(target_os = "macos", test))]
 fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -> io::Result<bool> {
     use crate::user::image::macho::{MH_BUNDLE, MH_DYLIB, MH_EXECUTE};
 
-    if guest
-        .strip_prefix(COMMAND_LINE_TOOLS)
-        .is_some_and(|name| name.starts_with('/'))
+    if [COMMAND_LINE_TOOLS, XCODE_CONTENTS]
+        .into_iter()
+        .any(|root| {
+            guest
+                .strip_prefix(root)
+                .is_some_and(|name| name.starts_with('/'))
+        })
     {
         // The confined package includes Mach-O images, SDK data, and scripts.
         return Ok(true);
@@ -982,6 +1025,82 @@ mod tests {
         symlink(developer.with_extension("relocated"), developer).unwrap();
         let selected = select_native_root(&files, root, None).unwrap();
         assert!(matches!(selected.lookup(&filename), Err(Error::NotFound)));
+        assert!(matches!(
+            selected.lookup(DEVELOPER_SELECTOR),
+            Err(Error::NotFound)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn selected_xcode_stays_in_the_installed_bundle() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"outside file", 12);
+        let root = &fixture.dir;
+        let contents = root.join(XCODE_CONTENTS.trim_start_matches('/'));
+        let selector = root.join(DEVELOPER_SELECTOR.trim_start_matches('/'));
+        for path in ["usr/lib", "System/Library/dyld", "usr/share/locale/CC"] {
+            fs::create_dir_all(root.join(path)).unwrap();
+        }
+        fs::write(root.join("usr/lib/dyld"), b"dyld").unwrap();
+        fs::write(
+            root.join("System/Library/dyld/dyld_shared_cache_arm64e"),
+            b"cache",
+        )
+        .unwrap();
+        let locale = root.join("usr/share/locale/CC/LC_CTYPE");
+        fs::write(&locale, b"locale").unwrap();
+        fs::create_dir_all(contents.join("Developer/usr/bin")).unwrap();
+        fs::create_dir_all(contents.join("SharedFrameworks")).unwrap();
+        fs::create_dir_all(selector.parent().unwrap()).unwrap();
+        fs::write(contents.join("Info.plist"), b"Xcode bundle metadata").unwrap();
+        fs::write(contents.join("SharedFrameworks/runtime"), b"runtime").unwrap();
+        symlink(
+            "../../../SharedFrameworks/runtime",
+            contents.join("Developer/usr/bin/tool"),
+        )
+        .unwrap();
+        symlink(locale, contents.join("Developer/usr/bin/escape")).unwrap();
+        symlink(XCODE_DEVELOPER, &selector).unwrap();
+
+        let files = Files::default();
+        let tool = format!("{XCODE_DEVELOPER}/usr/bin/tool");
+        let escape = format!("{XCODE_DEVELOPER}/usr/bin/escape");
+        for location in [None, Some(XCODE_BUNDLE), Some(XCODE_DEVELOPER)] {
+            let env: Vec<_> = location
+                .map(|path| format!("DEVELOPER_DIR={path}").into_bytes())
+                .into_iter()
+                .collect();
+            let selected = select_runtime_root(&files, root, None, &env).unwrap();
+            assert_eq!(&*selected.read(&tool).unwrap(), b"runtime");
+            assert!(matches!(selected.read(&escape), Err(Error::NotFound)));
+            assert_eq!(
+                &*selected.read("/usr/share/locale/CC/LC_CTYPE").unwrap(),
+                b"locale"
+            );
+            match selected.lookup_with_follow(DEVELOPER_SELECTOR, false) {
+                Ok((_, entry)) if location.is_none() => {
+                    assert_eq!(entry.link_target(), Some(XCODE_DEVELOPER.as_bytes()));
+                }
+                Err(Error::NotFound) if location.is_some() => {}
+                result => panic!("unexpected developer selector: {result:?}"),
+            }
+        }
+
+        let override_files = files
+            .with_file(tool.clone(), Arc::from(b"caller tool".as_slice()))
+            .unwrap();
+        let selected = select_native_root(&override_files, root, None).unwrap();
+        assert_eq!(&*selected.read(&tool).unwrap(), b"caller tool");
+        let selected = select_native_root(&files, root, Some(XCODE_BUNDLE)).unwrap();
+        assert!(matches!(selected.lookup(&tool), Err(Error::NotFound)));
+
+        fs::rename(&contents, contents.with_extension("relocated")).unwrap();
+        symlink(contents.with_extension("relocated"), contents).unwrap();
+        let selected = select_native_root(&files, root, None).unwrap();
+        assert!(matches!(selected.lookup(&tool), Err(Error::NotFound)));
         assert!(matches!(
             selected.lookup(DEVELOPER_SELECTOR),
             Err(Error::NotFound)

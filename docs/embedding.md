@@ -79,7 +79,11 @@ Tools package at `/Library/Developer/CommandLineTools` when the initial
 guest environment selects it with `DEVELOPER_DIR` or the host's
 `xcode-select` symlink points there and the guest leaves the setting at its
 default. Tools and SDK resources are read-only and aliases stay inside the
-package. Full Xcode application bundles remain outside these roots.
+package. The standard `/Applications/Xcode.app` installation supports
+read-only bundle access when selected through the same setting or its
+`Contents/Developer` path. Bundle aliases remain within its contents.
+The installed Xcode 27.2 `xcrun` reaches `xcodebuild`, whose
+`@rpath` framework dependency is rejected by the guest loader policy.
 
 The native Darwin session's private workspace also supplies the virtual
 user's directories under `/var/folders`. The installed libc resolves its user,
