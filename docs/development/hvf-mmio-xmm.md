@@ -1583,9 +1583,26 @@ The Apple Silicon build passed 180 MMIO, 102 ISA-oracle, 16 CI-policy
 and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
 HVF tool tests passed, as did library Clippy with warnings denied. The
 Intel macOS guest cross-built and passed strict signature verification.
-Local gates used a candidate based on `933d0a9ad`. The Intel execution
-result is pending. The scope is unmasked VEX.256 device reads. EVEX and
-wider interrupt and checkpoint qualification remain open.
+Local gates used a candidate based on `933d0a9ad`.
+
+Hosted run `45802151298` passed at
+`538ce19ad5e4d3302005746a2e38478b95688cdd` on a virtualized Intel host.
+All 48 direct and 48 fresh-owner cases reported a 32 B read and matched the
+independent RAM reference. The verifier checked the case ordering, source
+revision, archive digests, executable signature and hypervisor entitlement.
+The raw observations have SHA-256
+`a58cc438602e45bf92ed6c8ba3d3a56d6840d1acc1641edab15729231f5da17f`.
+[Hosted Intel execution](https://github.com/HexRaysSA/rax/actions/runs/45802151298/job/139847870903)
+
+- Build archive `15113859121` matched SHA-256
+  `8a701d2a227edae818a046616ed06a2e64b8ce54ca5fb4e1e476f486fece35ec`.
+  [Signed build archive](https://github.com/HexRaysSA/rax/actions/runs/45802151298/artifacts/15113859121)
+- Execution archive `15114499568` matched SHA-256
+  `0012a251b6cb16c3d4cffd4fc99a7ce92250d196397770275f8876ccb6dbe918`.
+  [Native execution archive](https://github.com/HexRaysSA/rax/actions/runs/45802151298/artifacts/15114499568)
+
+The qualified scope is unmasked VEX.256 device reads. Bare-metal Intel,
+EVEX and wider interrupt and checkpoint qualification remain open.
 
 ## VEX permutations within a 128-bit lane
 

@@ -200982,8 +200982,8 @@
     {
       "id": "hvf-mmio-full-register-avx2-permutations-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "native_intel_qualification_pending",
-      "scope": "VEX.256 VPERMPS, VPERMD, VPERMQ and VPERMPD project one 32 B device read. Saved reads keep their selectors and retire once. The parent rejected the first VPERMPS case at metadata decode. The 544 portable pending-read results match the independent Rosetta RAM reference, which used two placements and four inaccessible-last-byte controls. The 96-case Intel macOS consumer cross-built and verified its signature. Hosted Intel execution and full MMIO, interrupt and checkpoint scope remain open.",
+      "status": "native_intel_virtualized_qualified_full_findings_open",
+      "scope": "VEX.256 VPERMPS, VPERMD, VPERMQ and VPERMPD project one 32 B device read. Saved reads keep their selectors and retire once. The parent rejected the first VPERMPS case at metadata decode. The 544 portable cases matched the independent Rosetta RAM reference. Virtualized Intel macOS run 45802151298 at 538ce19ad5e4d3302005746a2e38478b95688cdd passed 48 direct and 48 fresh-owner cases. Independent inspection matched the RAM reference, Git source hashes, executable signature and hypervisor entitlement. Execution artifact 15114499568 matched SHA-256 0012a251b6cb16c3d4cffd4fc99a7ce92250d196397770275f8876ccb6dbe918. Bare-metal Intel, EVEX and complete MMIO, interrupt and checkpoint scope remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#full-register-avx2-permutations",
       "full_goal_complete": false
     },
