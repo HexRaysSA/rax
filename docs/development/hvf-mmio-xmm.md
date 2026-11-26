@@ -527,6 +527,21 @@ The corrected Cargo test log SHA-256 is
 `fce666f964fa59b1c4463ecf3b83870d53cfc4549aee8f25b59f546a706334b7`.
 The Rosetta observation SHA-256 is
 `0d570340d48375db0076dd547f533779acb5ca824be11538edb3c2b213045ef7`.
+
+On hosted Intel macOS 15.7.9 (24G830), SDK 15.5, the `legacy-ntload`
+profile passed all three cases at `6070f39454bcb0999ea1b9ffebd9678843fd4148`.
+The native x86-64 consumer completed one direct read and one restored
+read, and the misaligned load delivered guest #GP(0) before a device
+request. Independent verification checked the sources against Git, the
+consumer signature and entitlement, both artifact digests, and every
+observed width and result against the predetermined reference rows.
+[Hosted legacy run](https://github.com/HexRaysSA/rax/actions/runs/45772658201)
+
+The legacy runtime artifact `15095912784` has SHA-256
+`3b49180f872686ebe32ae983dd6e89a7b19ff8c51ccc2e8b113586dbe1cba901`.
+The observation SHA-256 is
+`a795505f72fe4570059dc9d8a866e602e1f40c11c5da993c4f43986373bf44cb`.
+
 EVEX device operands and bare-metal Intel macOS qualification remain open.
 
 ## Streaming vector stores
