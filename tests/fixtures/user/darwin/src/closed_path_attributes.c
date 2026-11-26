@@ -1,0 +1,73 @@
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/attr.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static uint32_t get_u32(const unsigned char *bytes) {
+    uint32_t value;
+    memcpy(&value, bytes, sizeof(value));
+    return value;
+}
+
+static void check_record(const unsigned char *record, const struct stat *st) {
+    assert(get_u32(record) == 36);
+    assert(get_u32(record + 4) == 24);
+    assert(get_u32(record + 8) == sizeof("uname"));
+    assert(get_u32(record + 12) == (uint32_t)st->st_dev);
+    assert(get_u32(record + 16) == 1); /* VREG */
+    uint64_t object_id;
+    memcpy(&object_id, record + 20, sizeof(object_id));
+    assert(object_id == st->st_ino);
+    assert(memcmp(record + 28, "uname", sizeof("uname")) == 0);
+    assert(record[34] == 0 && record[35] == 0);
+    assert(record[36] == 0xAB);
+}
+
+int main(void) {
+    const char path[] = "/usr/bin/uname";
+    struct attrlist request = {
+        .bitmapcount = ATTR_BIT_MAP_COUNT,
+        .commonattr = ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_OBJTYPE | ATTR_CMN_OBJID,
+    };
+    unsigned char record[96];
+    struct stat st;
+    int dir = open("/usr/bin", O_RDONLY | O_DIRECTORY);
+    int fd = open(path, O_RDONLY);
+    assert(dir != -1 && fd != -1 && fstat(fd, &st) == 0);
+    memset(record, 0xAB, sizeof(record));
+    assert(getattrlist(path, &request, record, sizeof(record), FSOPT_NOFOLLOW) == 0);
+    check_record(record, &st);
+    memset(record, 0xAB, sizeof(record));
+    assert(getattrlistat(dir, "uname", &request, record, sizeof(record), 0) == 0);
+    check_record(record, &st);
+    memset(record, 0xAB, sizeof(record));
+    assert(fgetattrlist(fd, &request, record, sizeof(record), 0) == 0);
+    check_record(record, &st);
+
+    memset(record, 0xAB, sizeof(record));
+    assert(getattrlist(path, &request, record, 5, FSOPT_REPORT_FULLSIZE) == 0);
+    assert(get_u32(record) == 36 && record[4] == 24 && record[5] == 0xAB);
+    errno = 0;
+    assert(getattrlist(path, &request, record, 3, 0) == -1 && errno == ERANGE);
+    errno = 0;
+    assert(fgetattrlist(-1, &request, record, sizeof(record), 0) == -1 && errno == EBADF);
+    errno = 0;
+    assert(getattrlistat(dir, "rax-missing-path", &request, record, sizeof(record), 0) == -1);
+    assert(errno == ENOENT);
+
+    char resolved[PATH_MAX];
+    assert(realpath("/usr/bin/../bin/uname", resolved) != NULL);
+    assert(strcmp(resolved, path) == 0);
+    errno = 0;
+    assert(realpath("/usr/bin/rax-missing-path", resolved) == NULL && errno == ENOENT);
+    assert(close(fd) == 0 && close(dir) == 0);
+    puts("path attributes and realpath match");
+    return 0;
+}

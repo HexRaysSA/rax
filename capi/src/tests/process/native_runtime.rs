@@ -5,6 +5,10 @@ use super::*;
 #[path = "native_runtime/darwin_mixed_abi.rs"]
 mod darwin_mixed_abi;
 
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[path = "native_runtime/darwin_path_attributes.rs"]
+mod darwin_path_attributes;
+
 #[cfg(all(windows, target_pointer_width = "64"))]
 #[path = "native_runtime/token_duplicate.rs"]
 mod token_duplicate;

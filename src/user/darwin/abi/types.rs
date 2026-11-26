@@ -104,6 +104,20 @@ pub struct Stat {
 }
 
 impl Stat {
+    /// The Darwin vnode type encoded in the stat mode.
+    pub(crate) fn vnode_type(&self) -> u32 {
+        match self.mode & 0o170000 {
+            0o100000 => 1, // VREG
+            0o040000 => 2, // VDIR
+            0o060000 => 3, // VBLK
+            0o020000 => 4, // VCHR
+            0o120000 => 5, // VLNK
+            0o140000 => 6, // VSOCK
+            0o010000 => 7, // VFIFO
+            _ => 0,        // VNON
+        }
+    }
+
     /// The guest's `struct stat64` bytes.
     pub fn bytes(&self) -> [u8; STAT64_SIZE] {
         let mut b = [0u8; STAT64_SIZE];

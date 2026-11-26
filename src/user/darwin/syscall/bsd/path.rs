@@ -21,6 +21,7 @@ use crate::user::darwin::io::{O_CLOEXEC, O_CLOFORK};
 use crate::user::darwin::io::{O_EXLOCK, O_SHLOCK};
 use crate::user::darwin::syscall::Ctx;
 
+pub(super) mod attributes;
 mod dev_fd;
 pub(crate) mod embedded;
 pub(crate) use dev_fd::{open_descriptor, open_in_table as open_descriptor_in_table};

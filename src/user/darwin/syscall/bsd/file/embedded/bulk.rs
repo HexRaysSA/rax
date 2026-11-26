@@ -73,16 +73,7 @@ impl Request {
     }
 
     fn append_record(&self, out: &mut Vec<u8>, name: &str, stat: Stat) {
-        let object_type: u32 = match stat.mode & 0o170000 {
-            0o100000 => 1, // VREG
-            0o040000 => 2, // VDIR
-            0o060000 => 3, // VBLK
-            0o020000 => 4, // VCHR
-            0o120000 => 5, // VLNK
-            0o140000 => 6, // VSOCK
-            0o010000 => 7, // VFIFO
-            _ => 0,        // VNON
-        };
+        let object_type = stat.vnode_type();
         // Native directory records omit the file group even with
         // FSOPT_PACK_INVAL_ATTRS.
         let file = if object_type == 2 { 0 } else { self.file };

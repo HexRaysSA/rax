@@ -189,6 +189,15 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                 if ctx.proc.vfs.files().is_some_and(|files| files.has_workspace()) =>
             {}
             nr::GETDIRENTRIES64 if ctx.proc.vfs.is_closed() => {}
+            nr::GETATTRLIST if ctx.proc.vfs.is_closed() => {
+                return path::attributes::get(ctx, AT_FDCWD, Some(a[0]), a[1], a[2], a[3], a[4]);
+            }
+            nr::GETATTRLISTAT if ctx.proc.vfs.is_closed() => {
+                return path::attributes::get(ctx, i(0), Some(a[1]), a[2], a[3], a[4], a[5]);
+            }
+            nr::FGETATTRLIST if ctx.proc.vfs.is_closed() => {
+                return path::attributes::get(ctx, i(0), None, a[1], a[2], a[3], u64::from(u(4)));
+            }
             nr::GETATTRLISTBULK if ctx.proc.vfs.is_closed() => {
                 return file::getattrlistbulk(ctx, i(0), a[1], a[2], a[3], a[4]);
             }
