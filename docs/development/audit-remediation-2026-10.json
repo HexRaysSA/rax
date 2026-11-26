@@ -201002,6 +201002,14 @@
       "scope": "VEX.128 and VEX.256 VPERMILPS and VPERMILPD device reads accept immediate and variable selectors. Variable forms capture the vector data register in the pending record. Completion preserves 128-bit lane boundaries and retires once after restore. The 1,152 portable pending-read results match the independent Rosetta RAM reference at two placements. The 128-case Intel consumer cross-built and passed signature verification. Hosted execution, EVEX reads, bare-metal Intel and complete checkpoint and interrupt scope remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#vex-permutations-within-a-128-bit-lane",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-queued-exception-checkpoint-payload-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The native Intel CPU record checks the deliver-error-code bit against the architectural event type, vector and guest CR0.PE. The 80-case matrix tests capture, decode and restore admission and covers hardware exceptions and software INT through exception vectors. The pre-change tree admitted 36 invalid cases. Validation applies to existing record versions. Native Intel exception replay during checkpoint, general interrupt delivery and complete backend checkpoint scope remain open.",
+      "qualification": "docs/development/hvf-interrupt-window/README.md#checkpoint-admission-of-queued-exception-payloads",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

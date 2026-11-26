@@ -411,3 +411,27 @@ Other interrupt-delivery exits, including intercepted nested exceptions and
 task gates, require separate handling. A gate or stack that remains assigned
 to a device cannot complete through this RAM mapping path. General event
 reinjection, native NMI qualification, and bare-metal Intel remain open.
+
+### Checkpoint admission of queued exception payloads
+
+Capture, decode, and restore admission check the saved event type, vector, and
+guest `CR0.PE` before accepting an error-code payload. The Intel hardware
+exceptions that deliver an error code outside real-address mode are `#DF`,
+`#TS`, `#NP`, `#SS`, `#GP`, `#PF`, `#AC`, and `#CP`. Real-address exceptions
+clear the deliver-error-code bit. `INT n` uses its saved instruction length
+even if `n` is an exception vector. The inactive entry slot preserves both
+unused payload fields. Validation applies to existing CPU record versions.
+[Intel SDM Vol. 3A Table 7-1 and Vol. 3C sections 28.2.1.3 and 29.2.4](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Dependent result | Stress test and falsification probe |
+| --- | --- | --- |
+| RAX saves an architectural event from its own fault injection, its interrupt controller, or Intel IDT vectoring. | Its error-code flag follows the event type, vector, and `CR0.PE`. | Toggle that flag for each represented hardware exception and for `INT 13` and `INT 14` with `CR0.PE` clear and set. A wrong flag must fail capture, decoding of independently serialized bytes, and same-profile restore admission. |
+| Event payload fields are meaningful only when selected by the active event. | An unused field survives checkpoint decode and re-encode. | Put out-of-range values in both unused fields and require byte-for-byte round trips for a pending external IRQ and an inactive slot. |
+
+The portable regression found 36 invalid admissions across the 80 cases
+before this change. All 21 Intel context unit tests and 76 tests across five
+portable integration targets passed with the new check. Under Rosetta, all
+102 Intel SDK model tests passed, including restore of a real-address
+`#GP` without an error code and a protected-mode `#GP` with one. A native
+Intel checkpoint taken during delivery of a protected-mode exception with
+an error code still needs a separate runtime witness.

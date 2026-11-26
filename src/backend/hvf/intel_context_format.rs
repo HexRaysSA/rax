@@ -651,7 +651,6 @@ impl Context {
         const VALID: u64 = 1 << 31;
         const DELIVER_ERROR: u64 = 1 << 11;
         const ZERO_LENGTH_INJECTION: u64 = 1 << 30;
-        const UNRESTRICTED_GUEST: u64 = 1 << 7;
         let info = self.vmcs(V::VMCS_CTRL_VMENTRY_IRQ_INFO as u32)?;
         if info & VALID == 0 {
             return Ok(());
@@ -669,15 +668,17 @@ impl Context {
         if info & !(VALID | 0xfff) != 0 || !kind_and_vector_valid {
             return Err(invalid("invalid queued VM-entry event information"));
         }
-        if info & DELIVER_ERROR != 0 {
-            let unrestricted = self.vmcs(V::VMCS_CTRL_CPU_BASED2 as u32)? & UNRESTRICTED_GUEST != 0;
-            let real_address = self.vmcs(V::VMCS_GUEST_CR0 as u32)? & 1 == 0;
-            if kind != 3
-                || (unrestricted && real_address)
-                || self.vmcs(V::VMCS_CTRL_VMENTRY_EXCEPTION_ERROR as u32)? > u64::from(u16::MAX)
-            {
-                return Err(invalid("invalid queued VM-entry exception error code"));
-            }
+        // Check the architectural payload produced by fault injection or IDT
+        // vectoring (SDM Vol. 3A Table 7-1 and Vol. 3C §29.2.4).
+        let delivers_error = info & DELIVER_ERROR != 0;
+        let expects_error = kind == 3
+            && matches!(vector, 8 | 10..=14 | 17 | 21)
+            && self.vmcs(V::VMCS_GUEST_CR0 as u32)? & 1 != 0;
+        if delivers_error != expects_error
+            || (delivers_error
+                && self.vmcs(V::VMCS_CTRL_VMENTRY_EXCEPTION_ERROR as u32)? > u64::from(u16::MAX))
+        {
+            return Err(invalid("invalid queued VM-entry exception error code"));
         }
         if matches!(kind, 4..=6) {
             let length = self.vmcs(V::VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH as u32)?;

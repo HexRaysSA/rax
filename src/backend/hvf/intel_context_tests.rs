@@ -136,6 +136,56 @@ fn active_vm_entry_event_must_match_its_checkpoint_state() {
 }
 
 #[test]
+fn checkpoint_exception_error_code_follows_event_kind_and_mode() {
+    const VALID: u64 = 1 << 31;
+    const ERROR_CODE: u64 = 1 << 11;
+    let mut mismatches = Vec::new();
+    // Intel SDM Vol. 3A §7.3 and Vol. 3C §29.2.4. INT n uses its
+    // instruction length even when n names an exception with an error code.
+    for (kind, vectors, protected_error) in [
+        (3, &[8, 10, 11, 12, 13, 14, 17, 21][..], true),
+        (3, &[0, 1, 4, 5, 6, 7, 16, 18, 19, 20], false),
+        (4, &[13, 14], false),
+    ] {
+        for &vector in vectors {
+            for cr0 in [0, 1] {
+                for has_error in [false, true] {
+                    let mut saved = context();
+                    let info = VALID | (kind << 8) | vector | (u64::from(has_error) * ERROR_CODE);
+                    for (id, value) in [
+                        (V::VMCS_GUEST_CR0, cr0),
+                        (V::VMCS_CTRL_VMENTRY_IRQ_INFO, info),
+                        (V::VMCS_CTRL_VMENTRY_EXCEPTION_ERROR, 0),
+                        (V::VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH, 2),
+                    ] {
+                        saved
+                            .vmcs
+                            .iter_mut()
+                            .find(|field| field.id == id as u32)
+                            .unwrap()
+                            .value = value;
+                    }
+                    refresh(&mut saved);
+                    let mut raw = CPU_TAG.to_vec();
+                    raw.extend(crate::codec::serialize_limited(&saved, CPU_LIMIT).unwrap());
+                    let public = CpuState::X86_64(saved.public.clone());
+                    let accepts = has_error == (cr0 != 0 && protected_error);
+                    let encoded = saved.encode();
+                    let decoded = Context::decode(&raw);
+                    let admitted = saved.admit(saved.id, &saved.profile, &public, &saved.emulator);
+                    if [encoded.is_ok(), decoded.is_ok(), admitted.is_ok()] != [accepts; 3] {
+                        mismatches.push((info, cr0, accepts));
+                    } else if accepts {
+                        assert_eq!(encoded.unwrap(), raw);
+                    }
+                }
+            }
+        }
+    }
+    assert!(mismatches.is_empty(), "event admission: {mismatches:x?}");
+}
+
+#[test]
 fn legacy_nmi_context_admission_preserves_a_queued_event_only_with_virtual_blocking() {
     let pin_id = V::VMCS_CTRL_PIN_BASED as u32;
     let entry_id = V::VMCS_CTRL_VMENTRY_IRQ_INFO as u32;
