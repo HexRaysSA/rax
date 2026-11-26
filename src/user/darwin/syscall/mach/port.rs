@@ -960,7 +960,7 @@ pub fn get_srights(proc: &Proc, name: PortName) -> Result<u32, KernReturn> {
 /// them); the object address is not disclosed on release kernels.
 pub fn kobject_type(k: &KObject) -> u32 {
     match k {
-        KObject::None => 0,
+        KObject::None | KObject::Bootstrap => 0,
         KObject::Thread(_) => 1,
         KObject::Task => 2,
         KObject::Host => 3,

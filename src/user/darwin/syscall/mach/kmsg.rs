@@ -323,6 +323,10 @@ pub fn deliver(ctx: &mut Ctx<'_>, m: Message) {
         crate::user::darwin::syscall::bsd::ptrace::deliver_remote_mach(ctx, m);
         return;
     }
+    if port.kobject == KObject::Bootstrap {
+        super::bootstrap::deliver(ctx.proc, &port, m);
+        return;
+    }
     if port.is_kernel() {
         if let Some(reply) = crate::user::darwin::mig::serve(ctx, &port, m) {
             deliver(ctx, reply);

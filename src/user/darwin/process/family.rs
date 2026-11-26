@@ -39,6 +39,7 @@ struct Registry {
     pending_signals: Vec<Delivery>,
     job_changes: Vec<JobChange>,
     workspace_locks: Locks,
+    bootstrap: crate::user::darwin::syscall::mach::bootstrap::Namespace,
 }
 
 struct Delivery {
@@ -189,6 +190,7 @@ impl Member {
                 pending_signals: Vec::new(),
                 job_changes: Vec::new(),
                 workspace_locks: Locks::default(),
+                bootstrap: Default::default(),
             })),
             pid: ROOT_PID,
             initial: ROOT_IDENTITY,
@@ -198,6 +200,13 @@ impl Member {
 
     pub(in crate::user::darwin) fn workspace_locks<T>(&self, f: impl FnOnce(&mut Locks) -> T) -> T {
         f(&mut self.registry.lock().unwrap().workspace_locks)
+    }
+
+    pub(in crate::user::darwin) fn bootstrap<T>(
+        &self,
+        f: impl FnOnce(&mut crate::user::darwin::syscall::mach::bootstrap::Namespace) -> T,
+    ) -> T {
+        f(&mut self.registry.lock().unwrap().bootstrap)
     }
 
     pub(crate) fn prepare_child(

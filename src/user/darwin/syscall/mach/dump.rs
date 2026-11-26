@@ -125,6 +125,7 @@ fn destination(ctx: &Ctx<'_>, raw: &[u8]) -> Option<String> {
 fn object(kobject: &KObject) -> Option<String> {
     Some(match kobject {
         KObject::None => return None,
+        KObject::Bootstrap => "guest bootstrap".into(),
         KObject::Task => "task".into(),
         KObject::TaskName => "task name".into(),
         KObject::TaskRead => "task read".into(),

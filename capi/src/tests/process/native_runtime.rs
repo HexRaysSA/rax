@@ -440,6 +440,39 @@ fn installed_darwin_xpc_service_bundle_files_match_native_through_closed_c_abi()
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "requires a locally built closed_bootstrap_namespace.c fixture"]
+fn installed_darwin_guest_bootstrap_registers_and_resolves_mach_ports_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_BOOTSTRAP_CONTROL").expect("built bootstrap fixture");
+    let arch = std::env::var("RAX_DARWIN_BOOTSTRAP_ARCH").expect("aarch64 or x86_64");
+    let path = "/closed-bootstrap-namespace";
+    let options = serde_json::json!({
+        "personality": "darwin",
+        "architecture": arch,
+        "guest_path": path,
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    });
+    let binary = std::fs::read(binary).unwrap();
+    for _ in 0..2 {
+        let process = open(&binary, &options.to_string());
+        let state = info(&process);
+        assert_eq!(state["capabilities"]["native_runtime"], true);
+        assert_eq!(state["capabilities"]["host_filesystem"], false);
+        assert_eq!(state["capabilities"]["host_services"], false);
+        let result = run_installed_posix(&process, path);
+        let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+        assert_eq!(result.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+        assert!(stderr.is_empty());
+        let stdout = capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT);
+        assert_eq!(
+            stdout,
+            b"guest bootstrap registration, inherited lookup and port delivery passed\n"
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_textutil_converts_rtf_through_closed_c_abi() {
     compare_installed_posix_with_input(
         "darwin",

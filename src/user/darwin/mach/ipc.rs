@@ -101,6 +101,8 @@ pub const UREFS_MAX: u32 = 0xffff;
 pub enum KObject {
     /// An ordinary port whose receive right a task holds.
     None,
+    /// The closed guest process family’s bootstrap message queue.
+    Bootstrap,
     /// The task (its control port).
     Task,
     /// The task's name port (`TASK_NAME_PORT`).
@@ -251,7 +253,7 @@ impl Port {
     pub fn is_kernel(&self) -> bool {
         !matches!(
             self.kobject,
-            KObject::None | KObject::Timer(_) | KObject::Proxy(_)
+            KObject::None | KObject::Bootstrap | KObject::Timer(_) | KObject::Proxy(_)
         )
     }
 

@@ -613,6 +613,7 @@ impl Proc {
     pub fn exit_with(&mut self, status: ExitStatus) {
         if self.exit.is_none() {
             self.exit = Some(status);
+            syscall::mach::bootstrap::remove_owner(self);
             #[cfg(target_os = "macos")]
             syscall::bsd::file::lifetime::cancel_reads(self);
         }
@@ -1569,6 +1570,9 @@ pub(crate) fn start(
                 codesign: None,
             };
             super::bridge::start(&mut proc.bridge, &mut proc.task);
+            if !proc.config.host_services && proc.config.native_kernel_info.is_some() {
+                syscall::mach::bootstrap::install(&mut proc.task);
+            }
             proc
         }
     };

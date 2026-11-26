@@ -1,5 +1,6 @@
 //! Mach traps.
 
+pub(crate) mod bootstrap;
 pub mod dump;
 pub mod entry;
 pub mod guard;
