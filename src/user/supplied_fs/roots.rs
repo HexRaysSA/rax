@@ -16,7 +16,6 @@ pub(super) type AcceptFile = fn(&str, &Path, &std::fs::File) -> std::io::Result<
 pub(super) struct Origin {
     inode_base: u64,
     accept: Option<AcceptFile>,
-    #[cfg(target_os = "macos")]
     darwin_installed: bool,
     observe_symlinks: bool,
     confined_mounts: &'static [&'static str],
@@ -30,7 +29,6 @@ impl Origin {
     pub(super) const CALLER: Self = Self {
         inode_base: 0x8000_0000_0000_0000,
         accept: None,
-        #[cfg(target_os = "macos")]
         darwin_installed: false,
         observe_symlinks: false,
         confined_mounts: &[],
@@ -49,7 +47,6 @@ impl Origin {
         Self {
             inode_base: 0xc000_0000_0000_0000,
             accept,
-            #[cfg(target_os = "macos")]
             darwin_installed: false,
             observe_symlinks: true,
             confined_mounts,
@@ -69,7 +66,6 @@ impl Origin {
         Self {
             inode_base: 0xc000_0000_0000_0000,
             accept,
-            #[cfg(target_os = "macos")]
             darwin_installed: true,
             observe_symlinks: false,
             confined_mounts,
@@ -92,7 +88,7 @@ impl Origin {
 struct Entries {
     files: BTreeMap<String, Entry>,
     links: BTreeMap<String, Entry>,
-    backings: BTreeMap<(u64, u64), Arc<HostFileSource>>,
+    backings: BTreeMap<(u64, u64), (u64, Arc<HostFileSource>)>,
     directories: usize,
 }
 
@@ -271,22 +267,24 @@ impl Roots {
         if used >= limit {
             return Err(Error::TooLarge);
         }
+        let mut ino = self.origin.inode_base | index as u64;
         let kind = match kind {
             Kind::Backed(source) => {
                 // Lookup has already admitted this path and opened its target.
-                // Share the read-only handle while keeping each guest inode.
                 let identity = source.identity();
-                let backing = backings
+                let (backing_ino, backing) = backings
                     .entry((identity.dev, identity.ino))
-                    .or_insert(source);
+                    .or_insert((ino, source));
+                if self.origin.darwin_installed {
+                    // dyld uses the installed file's device and inode to
+                    // recognize images opened through different paths.
+                    ino = *backing_ino;
+                }
                 Kind::Backed(backing.clone())
             }
             other => other,
         };
-        let entry = Entry {
-            ino: self.origin.inode_base | index as u64,
-            kind,
-        };
+        let entry = Entry { ino, kind };
         table.insert(path.to_owned(), entry.clone());
         if count_directory {
             *directories += 1;

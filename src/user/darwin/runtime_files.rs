@@ -2508,6 +2508,8 @@ mod tests {
         std::fs::write(rosetta.join("libextra.dylib"), thin).unwrap();
         std::os::unix::fs::symlink("A", framework.join("Versions/Current")).unwrap();
         std::os::unix::fs::symlink("Versions/Current/Example", framework.join("Example")).unwrap();
+        std::fs::hard_link(version.join("Example"), version.join("HardLink")).unwrap();
+        std::fs::write(version.join("DifferentFile"), thin).unwrap();
         let outside = root.join("secret.dylib");
         std::fs::write(&outside, thin).unwrap();
         std::os::unix::fs::symlink(&outside, lib.join("escape.dylib")).unwrap();
@@ -2552,12 +2554,21 @@ mod tests {
             &*selected.read("/usr/lib/libonly.dylib").unwrap(),
             b"explicit"
         );
-        assert_eq!(
-            &*selected
-                .read("/System/Library/Frameworks/Example.framework/Example")
-                .unwrap(),
-            &thin
-        );
+        let framework = "/System/Library/Frameworks/Example.framework";
+        let versioned = selected
+            .lookup(&format!("{framework}/Versions/A/Example"))
+            .unwrap()
+            .1;
+        for alias in ["Example", "Versions/Current/Example", "Versions/A/HardLink"] {
+            let alias = selected.lookup(&format!("{framework}/{alias}")).unwrap().1;
+            assert_eq!(alias.ino, versioned.ino);
+            assert_eq!(&*alias.bytes().unwrap(), &thin);
+        }
+        let separate = selected
+            .lookup(&format!("{framework}/Versions/A/DifferentFile"))
+            .unwrap()
+            .1;
+        assert_ne!(separate.ino, versioned.ino);
         assert_eq!(
             &*selected
                 .read(&format!("{rosetta_path}/libextra.dylib"))
