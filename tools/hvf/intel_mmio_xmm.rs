@@ -1,6 +1,8 @@
 //! Native SSE, SSE2 and AVX vector memory transfers, alignment faults and source-free continuation.
 use super::*;
 
+#[path = "intel_mmio_packed_blend.rs"]
+mod packed_blend;
 #[path = "intel_mmio_packed_multiply.rs"]
 mod packed_multiply;
 #[path = "intel_mmio_packed_narrow.rs"]
@@ -1161,6 +1163,54 @@ pub(super) fn run_immediate_shuffle(output: &Path) {
                 index,
                 &format!("{label}-misaligned"),
                 case.width,
+                value,
+            );
+            index += 1;
+        }
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+pub(super) fn run_immediate_blend(output: &Path) {
+    use packed_blend::{LEFT, REPLY, forms};
+
+    assert!(!output.exists(), "observations must be new");
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    let mut index = 0;
+    for form in forms() {
+        let vex = form.is_vex();
+        let label = format!("vector-immediate-blend-{}-{}", form.mnemonic, form.encoding);
+        for mask in [0, 0xa5, 0xff] {
+            let code = form.code(mask);
+            let expected = qwords(form.expected(mask));
+            for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                let value = packed_binary_case(
+                    &code,
+                    vex,
+                    restore,
+                    qwords(LEFT),
+                    &REPLY[..form.width],
+                    expected,
+                );
+                record(
+                    output,
+                    index,
+                    &format!("{label}-{mask:02x}-{phase}"),
+                    form.width,
+                    value,
+                );
+                index += 1;
+            }
+        }
+        if !vex {
+            let value = alignment_fault(&form.code(0xa5), false, 3);
+            record(
+                output,
+                index,
+                &format!("{label}-misaligned"),
+                form.width,
                 value,
             );
             index += 1;

@@ -717,6 +717,9 @@ fn packed_immediate_shuffle_mnemonics(
     Some(match (map, prefix, opcode) {
         (1, 0, 0xc6) => ("shufps", "vshufps"),
         (1, 1, 0xc6) => ("shufpd", "vshufpd"),
+        (3, 1, 0x0c) => ("blendps", "vblendps"),
+        (3, 1, 0x0d) => ("blendpd", "vblendpd"),
+        (3, 1, 0x0e) => ("pblendw", "vpblendw"),
         (3, 1, 0x0f) => ("palignr", "vpalignr"),
         _ => return None,
     })

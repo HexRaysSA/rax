@@ -1265,6 +1265,47 @@ artifact SHA-256 is
 `3a81b4fd3300d22a7819c82256baa3898fbed40a21f06bdb6517d2756d67b514`.
 [Hosted immediate-shuffle execution](https://github.com/HexRaysSA/rax/actions/runs/45534894120/job/138938975892)
 
+## Packed blends with immediate control
+
+The Intel MMIO planner handles the legacy and VEX memory forms of
+`BLENDPS`, `BLENDPD` and `PBLENDW`, and the VEX.W0 forms of `VPBLENDD`.
+Each form requests a single 16 B or 32 B device read, including when the
+immediate selects zero elements from the device. The pending descriptor
+retains the immediate and the first source. The completion path writes
+the vector and retires the instruction once.
+
+| Form | Mask indexing | Verification |
+| --- | --- | --- |
+| `BLENDPS` and `VPBLENDD` | One bit per 32-bit element across the vector. | Independently vary all eight bits at 128 and 256 bits. |
+| `BLENDPD` | One bit per 64-bit element across the vector. | Vary unused high bits and the selections in both halves. |
+| `PBLENDW` | One bit per 16-bit element, reused in each 128-bit half. | Supply distinct inputs in both halves and compare all 256 masks. |
+| Legacy and VEX destination state | Legacy preserves the old upper half. VEX.128 clears it and VEX.256 writes it. | Check the full YMM result and reject misaligned legacy, reserved VEX.W1 `VPBLENDD`, and register-only forms at the planner boundary. |
+
+The instruction descriptions are in Intel SDM revision 086, Vol. 2A,
+pp. 3-96 through 3-99, Vol. 2B, pp. 4-242 through 4-243, and Vol. 2C,
+pp. 5-444 through 5-445. The legacy memory operands require 16 B alignment.
+VEX.W is ignored for the three instructions that also have legacy forms.
+[Intel instruction reference](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The parent rejected legacy `BLENDPS` before planning the device read.
+The independent Rosetta RAM probe covered 4,352 encoding and mask pairs
+at two placements each, including a source ending at an inaccessible
+page. All 8,704 observations matched full YMM results and preserved
+RFLAGS and MXCSR. The SHA-256 of the full vector results in form and mask
+order is
+`6a57bb9dc894bf9086023b04340cde3e586c52795b663ce5d4f8bf58a26483ad`.
+The verifier and raw observations are in
+`/Users/int/dev/rax-audit-work/four-findings-hvf-immediate-blend-2026-11-26/`.
+
+The `vector-immediate-blend` hosted Intel profile selects masks 0x00,
+0xa5 and 0xff for each of the 17 forms. It exercises direct completion
+and a separate restore into a fresh CPU owner, and checks three legacy
+misalignment faults inside the guest.
+The Apple Silicon build passed 172 MMIO, 102 ISA-oracle, 16 CI-policy
+and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
+HVF tool tests passed. The Intel macOS consumer cross-built and passed
+strict signature verification.
+
 ## Unary packed shuffles with an immediate control
 
 Intel HVF supports the legacy XMM and VEX.128/.256 memory forms of

@@ -200809,6 +200809,14 @@
       "scope": "RV64 reuses a translated page for both parcels of the same instruction when they share a page. A three-level mapping now reads three PTEs instead of six and the next instruction sees a remap. QEMU and RAX passed the split-page fault witness; the RAX CLI also restored at retirement 84 from a file after removing the ELF. Median host elapsed time for the four-hart 90-million-instruction Sv39 benchmark fell from 23.23 s to 18.41 s. Full wall-clock Linux boot and checkpoint coverage remain open.",
       "qualification": "docs/development/riscv-clint/README.md#one-sv39-walk-for-parcels-on-the-same-page",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-packed-immediate-blend-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Intel HVF handles legacy and VEX BLENDPS, BLENDPD and PBLENDW and VEX.W0 VPBLENDD. The 17 forms retain a 16 B or 32 B device request and one-shot retirement across pending-read restore. The planner results for all 4,352 forms and masks match the independent Rosetta RAM digest. The hosted Intel profile exercises 105 cases. Full MMIO and checkpoint coverage remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#packed-blends-with-immediate-control",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -22,7 +22,7 @@ CONSUMER_SOURCES = ("intel_mmio_native_guest.rs", "intel_mmio_double_shift.rs",
                     "intel_mmio_crc32.rs", "intel_mmio_multiply.rs", "intel_mmio_divide.rs",
                     "intel_nmi_window.rs", "intel_mmio_xmm.rs", "intel_mmio_packed_multiply.rs",
                     "intel_mmio_packed_shuffle.rs", "intel_mmio_packed_narrow.rs",
-                    "intel_mmio_packed_vectors.rs",
+                    "intel_mmio_packed_vectors.rs", "intel_mmio_packed_blend.rs",
                     "intel_mmio_string.rs",
                     "intel_mmio_compat.rs",
                     "intel_mmio_level_irq.rs", "intel_irq_vectoring.rs")

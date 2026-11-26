@@ -266,6 +266,10 @@ enum ImmediateShuffle {
     PackedSingle,
     PackedDouble,
     AlignBytes,
+    // Keep wire discriminants stable by appending new operations.
+    BlendWord,
+    BlendDoubleword,
+    BlendQuadword,
 }
 
 impl ImmediateShuffle {
@@ -274,6 +278,9 @@ impl ImmediateShuffle {
             "shufps" => Self::PackedSingle,
             "shufpd" => Self::PackedDouble,
             "palignr" => Self::AlignBytes,
+            "pblendw" => Self::BlendWord,
+            "blendps" | "pblendd" => Self::BlendDoubleword,
+            "blendpd" => Self::BlendQuadword,
             _ => return None,
         })
     }
@@ -283,7 +290,17 @@ impl ImmediateShuffle {
             let lane = i / 16;
             let start = lane * 16;
             let byte = i % 16;
+            let blend_byte = |bit| {
+                if control & (1u8 << bit) != 0 {
+                    right[i]
+                } else {
+                    left[i]
+                }
+            };
             match self {
+                Self::BlendWord => blend_byte(byte / 2),
+                Self::BlendDoubleword => blend_byte(i / 4),
+                Self::BlendQuadword => blend_byte(i / 8),
                 Self::PackedSingle => {
                     let element = byte / 4;
                     let source = if element < 2 { &left[..] } else { right };

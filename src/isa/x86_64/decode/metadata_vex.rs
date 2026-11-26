@@ -31,8 +31,10 @@ pub(super) fn decode_xmm_transfer(
     };
     let opcode = ctx.consume_u8().ok()?;
     let uniform_shift = packed_uniform_shift_mnemonics(map, flags & 3, opcode);
-    let immediate_shuffle =
-        packed_immediate_shuffle_mnemonics(map, flags & 3, opcode).map(|(_, vex)| vex);
+    let immediate_shuffle = match (map, flags & 3, opcode) {
+        (3, 1, 0x02) if flags & 0x80 == 0 => Some("vpblendd"),
+        _ => packed_immediate_shuffle_mnemonics(map, flags & 3, opcode).map(|(_, vex)| vex),
+    };
     let unary_shuffle = if (map, opcode) == (1, 0x70) {
         packed_unary_shuffle_mnemonics(flags & 3).map(|(_, vex)| vex)
     } else {

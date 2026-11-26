@@ -46,6 +46,7 @@ on:
           - vector-widening
           - vector-shuffle
           - vector-immediate-shuffle
+          - vector-immediate-blend
           - vector-bit-test
           - compat-mmio
           - compat16-mmio
