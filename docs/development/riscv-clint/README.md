@@ -615,6 +615,36 @@ A separate wall-clock diagnostic appended only
 diagnostic guest through PID 1 and powered off. The wall-clock Linux boot
 remains unqualified.
 
+#### Linux timer counters at the recorded checkpoints
+
+The saved RAM SHA-256 values were verified before reading the Linux IRQ
+and high-resolution timer counters. The saved kernel's BTF matched the
+boot image. The IRQ descriptor matched hardware cause 5, Linux IRQ 10,
+and `riscv_timer_interrupt`. Linux's CPU-to-hart map identified the
+counter owner, including the two-hart run that booted on hart 1.
+[Linux v6.12.117 timer driver](https://raw.githubusercontent.com/gregkh/linux/v6.12.117/drivers/clocksource/timer-riscv.c)
+
+| Saved run | High-resolution timer events | Deadline retries | Timer hangs | Longest recorded hang |
+| --- | ---: | ---: | ---: | ---: |
+| Two harts, wall, later capture | 93,738 | 1,687 | 61 | 41.0 ms |
+| Four harts, wall | 160,928 | 164,269 | 17,591 | 176.9 ms |
+| Two harts, retired, batched | 103 | 0 | 0 | None recorded |
+
+Counts sum the per-CPU values at capture. Linux records a timer hang
+after three failed attempts to program the next deadline during one
+handler. Over 83.814 s between the two wall-clock captures of the same
+two-hart run, Linux jiffies advanced at 250 Hz and timer IRQ 10 arrived
+at 219 and 217 per second on CPUs 0 and 1. The interval is the difference
+in saved MTIME ticks divided by the guest's 10 MHz timebase. The
+four-hart snapshot establishes repeated deadline misses. The snapshots
+do not measure the share of execution spent in interrupt handlers or
+establish the cause of the boot timeout.
+[Linux v6.12.117 high-resolution timer handler](https://raw.githubusercontent.com/gregkh/linux/v6.12.117/kernel/time/hrtimer.c)
+
+The four-hart `highres=off` control adds one kernel argument. The DTB is
+the only changed ELF load segment. QEMU 11.1.2 reached all four affinity
+markers and powered off. The RAX wall-clock diagnostic is pending.
+
 The fixture, output, hashes and exact commands are in
 `/Users/int/dev/rax-audit-work/four-findings-rv64-turn-batching-2026-11-26/`.
 
