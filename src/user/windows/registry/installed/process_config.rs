@@ -22,11 +22,7 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
             _ => &[RegistryView::Native64, RegistryView::Wow32],
         };
         for &view in views {
-            let dot_net_policy = matches!(
-                subject,
-                ProcessConfigKey::DotNetPolicy | ProcessConfigKey::DotNetPolicyV4
-            );
-            let opened = if dot_net_policy || subject == ProcessConfigKey::DotNetFramework {
+            let opened = if subject.uses_dot_net_framework_view() {
                 // The Win32 HKLM open applies the WOW64 view to this redirected
                 // key even when the snapshot is collected by an ARM64 process.
                 match super::command_processor::open_snapshot(root, &[], view) {
@@ -47,20 +43,22 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
                     subject.check_name(&registry, view, &canonical)?;
                     let mut build_key_record = None;
                     let header = capture_header(&registry, subject, &key, canonical, || {
-                        if subject != ProcessConfigKey::DotNetPolicyV4 {
+                        if !subject.preserves_value_order() {
                             return capture_values(&key, subject.values());
                         }
                         let before = super::key_information::cached_record(&key)?;
                         let values = capture_values(&key, subject.values())?;
                         if super::key_information::cached_record(&key)? != before {
                             return Err(invalid(
-                                ".NET Framework build policy changed during capture",
+                                ".NET Framework policy values changed during capture",
                             ));
                         }
                         build_key_record = Some(before);
                         Ok(values)
                     })?;
-                    if dot_net_policy && let Ok(header) = header {
+                    if subject.captures_cached_record()
+                        && let Ok(header) = header
+                    {
                         let cached = match build_key_record {
                             Some(record) => record,
                             None => super::key_information::cached_record(&key)?,

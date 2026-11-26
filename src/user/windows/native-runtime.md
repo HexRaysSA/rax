@@ -4041,6 +4041,12 @@ the selected data when it covers the complete native value list. Other
 child bodies and values stay outside the selection. No native handles
 survive capture.
 
+The fixed `Policy\standards` key retains ordered child metadata and links
+`Standard CLI 2002`, `Standard CLI 2005`, and `v1.0.0`. Each child retains
+its installed cached record and the selected `v4.0.30319` value per view.
+Value enumeration uses the installed count to verify completeness for
+the parent and each child. The selection is limited to those named data.
+
 The CLR bootstrap opens the `HKLM\Software\Microsoft\.NETFramework`
 installation key after reading policy. Its snapshot uses each view's native
 `InstallRoot` value and links the existing `Policy` record. The selected

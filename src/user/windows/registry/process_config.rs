@@ -45,11 +45,15 @@ pub(crate) enum ProcessConfigKey {
     MiniNt,
     DotNetPolicy,
     DotNetPolicyV4,
+    DotNetPolicyStandards,
+    DotNetStandardCli2002,
+    DotNetStandardCli2005,
+    DotNetStandardV1,
     DotNetFramework,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 23] = [
+    pub(super) const ALL: [Self; 27] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -72,6 +76,10 @@ impl ProcessConfigKey {
         Self::PowerShell,
         Self::MiniNt,
         Self::DotNetPolicyV4,
+        Self::DotNetStandardCli2002,
+        Self::DotNetStandardCli2005,
+        Self::DotNetStandardV1,
+        Self::DotNetPolicyStandards,
         Self::DotNetPolicy,
         Self::DotNetFramework,
     ];
@@ -131,6 +139,18 @@ impl ProcessConfigKey {
             Self::DotNetPolicyV4 => {
                 r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\v4.0"
             }
+            Self::DotNetPolicyStandards => {
+                r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\standards"
+            }
+            Self::DotNetStandardCli2002 => {
+                r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\standards\Standard CLI 2002"
+            }
+            Self::DotNetStandardCli2005 => {
+                r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\standards\Standard CLI 2005"
+            }
+            Self::DotNetStandardV1 => {
+                r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\standards\v1.0.0"
+            }
             Self::DotNetFramework => r"\Registry\Machine\Software\Microsoft\.NETFramework",
         }
     }
@@ -164,8 +184,12 @@ impl ProcessConfigKey {
             | Self::OsDataAppCompatFlags
             | Self::PowerShell
             | Self::MiniNt
-            | Self::DotNetPolicy => &[],
+            | Self::DotNetPolicy
+            | Self::DotNetPolicyStandards => &[],
             Self::DotNetPolicyV4 => &["30319"],
+            Self::DotNetStandardCli2002 | Self::DotNetStandardCli2005 | Self::DotNetStandardV1 => {
+                &["v4.0.30319"]
+            }
             Self::DotNetFramework => &["InstallRoot", "InstallRootARM64"],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
@@ -215,6 +239,10 @@ impl ProcessConfigKey {
             Self::MiniNt => "Windows PE installation marker",
             Self::DotNetPolicy => ".NET Framework runtime policy",
             Self::DotNetPolicyV4 => ".NET Framework v4.0 runtime policy",
+            Self::DotNetPolicyStandards => ".NET Framework standards policy",
+            Self::DotNetStandardCli2002 => ".NET Framework Standard CLI 2002 policy",
+            Self::DotNetStandardCli2005 => ".NET Framework Standard CLI 2005 policy",
+            Self::DotNetStandardV1 => ".NET Framework v1.0.0 standards policy",
             Self::DotNetFramework => ".NET Framework installation",
         }
     }
@@ -235,7 +263,36 @@ impl ProcessConfigKey {
     pub(super) fn captures_child_membership(self) -> bool {
         matches!(
             self,
-            Self::WinsockAppIdCatalog | Self::PowerShell | Self::DotNetPolicy
+            Self::WinsockAppIdCatalog
+                | Self::PowerShell
+                | Self::DotNetPolicy
+                | Self::DotNetPolicyStandards
+        )
+    }
+
+    pub(super) fn admits_descendant_routes(self) -> bool {
+        matches!(self, Self::WinsockAppIdCatalog | Self::PowerShell)
+            || self.winsock_catalog().is_some()
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(super) fn uses_dot_net_framework_view(self) -> bool {
+        self.path().starts_with(Self::DotNetFramework.path())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(super) fn captures_cached_record(self) -> bool {
+        self == Self::DotNetPolicy || self.preserves_value_order()
+    }
+
+    pub(super) fn preserves_value_order(self) -> bool {
+        matches!(
+            self,
+            Self::DotNetPolicyV4
+                | Self::DotNetPolicyStandards
+                | Self::DotNetStandardCli2002
+                | Self::DotNetStandardCli2005
+                | Self::DotNetStandardV1
         )
     }
 
@@ -262,7 +319,12 @@ impl ProcessConfigKey {
             Self::PowerShell => &[Self::PowerShellV1, Self::PowerShellV3],
             Self::PowerShellV1 => &[Self::PowerShellEngineV1],
             Self::PowerShellV3 => &[Self::PowerShellEngineV3],
-            Self::DotNetPolicy => &[Self::DotNetPolicyV4],
+            Self::DotNetPolicy => &[Self::DotNetPolicyV4, Self::DotNetPolicyStandards],
+            Self::DotNetPolicyStandards => &[
+                Self::DotNetStandardCli2002,
+                Self::DotNetStandardCli2005,
+                Self::DotNetStandardV1,
+            ],
             Self::DotNetFramework => &[Self::DotNetPolicy],
             _ => return Ok(()),
         };

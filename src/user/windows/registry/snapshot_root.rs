@@ -407,10 +407,8 @@ impl Registry {
                     let key = Arc::get_mut(&mut key).expect("new snapshot key");
                     let information = KeyInformation::from_cached(key, cached)?;
                     self.value_budget()?.charge_information(&information)?;
-                    if matches!(
-                        root,
-                        SnapshotRoot::ProcessConfig(ProcessConfigKey::DotNetPolicyV4)
-                    ) && information.cached_value_count() == Some(key.values.entries.len())
+                    if matches!(root, SnapshotRoot::ProcessConfig(subject) if subject.preserves_value_order())
+                        && information.cached_value_count() == Some(key.values.entries.len())
                     {
                         // The fixed selection contains at most one named value.
                         // Its ordinal is known only when the selection is complete.

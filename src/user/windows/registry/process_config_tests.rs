@@ -481,6 +481,100 @@ fn dot_net_v4_policy_child_has_the_same_record_in_relative_and_absolute_opens() 
 }
 
 #[test]
+fn dot_net_standards_links_fixed_children_and_their_value_ordinals() {
+    let policy = ProcessConfigKey::DotNetPolicy;
+    let standards = ProcessConfigKey::DotNetPolicyStandards;
+    let children = [
+        (ProcessConfigKey::DotNetStandardCli2002, "Standard CLI 2002"),
+        (ProcessConfigKey::DotNetStandardCli2005, "Standard CLI 2005"),
+        (ProcessConfigKey::DotNetStandardV1, "v1.0.0"),
+    ];
+    let value_name = units("v4.0.30319");
+    let canonical = |subject: ProcessConfigKey, view| {
+        if view == RegistryView::Wow32 {
+            subject.path().replacen(
+                ProcessConfigKey::DotNetFramework.path(),
+                DOT_NET_FRAMEWORK_WOW_KEY,
+                1,
+            )
+        } else {
+            subject.path().into()
+        }
+    };
+    let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+    for (view, view_data) in [(RegistryView::Native64, 64_u32), (RegistryView::Wow32, 32)] {
+        for (subject, name) in children {
+            let value = Value {
+                name: value_name.clone(),
+                kind: 4,
+                data: view_data.to_le_bytes().to_vec(),
+            };
+            let mut selected = header(&canonical(subject, view), vec![value]);
+            selected.children = 0;
+            let mut cached = [0_u8; 40];
+            cached[20..24].copy_from_slice(&1_u32.to_le_bytes());
+            cached[24..28].copy_from_slice(&(value_name.len() as u32 * 2).to_le_bytes());
+            cached[28..32].copy_from_slice(&4_u32.to_le_bytes());
+            cached[32..36].copy_from_slice(&(units(name).len() as u32 * 2).to_le_bytes());
+            registry = registry
+                .with_cached_process_config(subject, view, selected, cached)
+                .unwrap();
+        }
+        let entries: Vec<_> = children
+            .iter()
+            .enumerate()
+            .map(|(index, (_, name))| BasicChild {
+                name: units(name),
+                last_write: index as u64,
+            })
+            .collect();
+        let mut selected = header(&canonical(standards, view), vec![]);
+        selected.children = entries.len() as u32;
+        selected.enumeration = Some(entries.clone());
+        let mut cached = [0_u8; 40];
+        cached[12..16].copy_from_slice(&selected.children.to_le_bytes());
+        cached[32..36].copy_from_slice(&18_u32.to_le_bytes());
+        registry = registry
+            .with_cached_process_config(standards, view, selected, cached)
+            .unwrap()
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(policy),
+                &[],
+                view,
+                Ok((header(&canonical(policy, view), vec![]), None)),
+            )
+            .unwrap();
+        let Lookup::Present(policy_key) = registry.lookup_view(&units(policy.path()), view) else {
+            panic!("fixed CLR policy key did not resolve");
+        };
+        let Lookup::Present(standards_key) = policy_key.relative(&units("STANDARDS")) else {
+            panic!("fixed CLR standards parent did not resolve");
+        };
+        assert_eq!(standards_key.child_metadata(), Some(entries.as_slice()));
+        assert_eq!(standards_key.ordered_values(), Some([].as_slice()));
+        for (subject, name) in children {
+            let nested_name = units(&format!(r"standards\{name}"));
+            let Lookup::Present(relative) = policy_key.relative(&nested_name) else {
+                panic!("fixed CLR standard did not resolve through its policy handle");
+            };
+            let Lookup::Present(absolute) = registry.lookup_view(&units(subject.path()), view)
+            else {
+                panic!("fixed CLR standard did not resolve through its absolute name");
+            };
+            assert!(Arc::ptr_eq(&relative, &absolute));
+            let value = relative.value(&value_name).expect("selected CLR version");
+            assert_eq!(value.data, view_data.to_le_bytes());
+            assert_eq!(relative.ordered_values(), Some(std::slice::from_ref(value)));
+            assert!(!relative.covers_value(&units("private")));
+        }
+        assert!(matches!(
+            standards_key.relative(&units("Unselected")),
+            Lookup::Unselected
+        ));
+    }
+}
+
+#[test]
 fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
     let framework = ProcessConfigKey::DotNetFramework;
     let policy = ProcessConfigKey::DotNetPolicy;

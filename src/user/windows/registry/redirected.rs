@@ -44,10 +44,7 @@ impl ViewRoot {
         !matches!(
             self,
             Self::ProcessConfig(subject)
-                if !suffix.is_empty()
-                    && (!subject.captures_child_membership()
-                        || subject == ProcessConfigKey::DotNetPolicy)
-                    && subject.winsock_catalog().is_none()
+                if !suffix.is_empty() && !subject.admits_descendant_routes()
         )
     }
 }
