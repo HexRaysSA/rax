@@ -200838,8 +200838,8 @@
     {
       "id": "hvf-mmio-streaming-vector-loads-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "locally_qualified_full_findings_open",
-      "scope": "Intel HVF projects one 16 B or 32 B read for memory-source MOVNTDQA and VEX VMOVNTDQA. The pending read reuses the existing vector record. The parent failed to decode the legacy form. All five encodings match the independent x86 RAM oracle under Rosetta, including guard-page controls. Hosted Intel legacy run 45772658201 at 6070f3945 passed the direct read, the fresh-owner continuation and the alignment fault before device dispatch. Hosted VEX qualification, broader MMIO, checkpoint coverage and bare-metal Intel coverage remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Intel HVF projects one 16 B or 32 B read for memory-source MOVNTDQA and VEX VMOVNTDQA. The pending read reuses the existing vector record. The parent failed to decode the legacy form. All five encodings match the independent x86 RAM oracle under Rosetta, including guard-page controls. Hosted Intel runs 45772658201 and 45772665050 at 6070f3945 passed five direct reads, five fresh-owner continuations and five alignment faults before device dispatch. Verified widths and results match the independent reference. Broader MMIO, checkpoint coverage and bare-metal Intel coverage remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#streaming-vector-loads",
       "full_goal_complete": false
     },

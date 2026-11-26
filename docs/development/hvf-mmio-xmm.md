@@ -542,6 +542,18 @@ The legacy runtime artifact `15095912784` has SHA-256
 The observation SHA-256 is
 `a795505f72fe4570059dc9d8a866e602e1f40c11c5da993c4f43986373bf44cb`.
 
+The `vex-ntload` profile used the same revision, environment and signed
+executable. All 12 cases passed, with one direct read, one restored read
+and one misalignment fault for each of VEX.128.W0, VEX.128.W1,
+VEX.256.W0 and VEX.256.W1. Independent verification checked both artifact
+digests and matched all observed widths and results to the reference rows.
+[Hosted VEX run](https://github.com/HexRaysSA/rax/actions/runs/45772665050)
+
+The VEX runtime artifact `15096687290` has SHA-256
+`e4d3e05e8bcf2b5b529749ba7c3d1a4933ec6c95dd63872161067c454586d22e`.
+The observation SHA-256 is
+`a4a35fa6245403ff74eb36fa64c9ab95c414eb50b1d510043f21161858eede7f`.
+
 EVEX device operands and bare-metal Intel macOS qualification remain open.
 
 ## Streaming vector stores
