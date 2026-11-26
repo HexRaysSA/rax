@@ -1306,6 +1306,16 @@ and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
 HVF tool tests passed. The Intel macOS consumer cross-built and passed
 strict signature verification.
 
+Hosted Intel macOS run `45754610462`, attempt 1 at `e5b5be0ef`, passed
+51 direct reads, 51 pending reads restored into fresh CPU owners, and
+three guest #GP controls. The observed device widths and full destination
+fingerprints matched the independent RAM reference. The verifier checked
+the signed Intel consumer, pinned engine and profile sources, and both
+artifact hashes. The runtime report identifies a virtualized Intel host.
+The execution artifact SHA-256 is
+`74bfa8542e059bdebd64e2a80ab4bebaf71b885e283d50371f08f87bff956fe2`.
+[Hosted immediate-blend execution](https://github.com/HexRaysSA/rax/actions/runs/45754610462/job/139690190862)
+
 ## Packed blends with a register mask
 
 Intel HVF projects one 16 B or 32 B device read for legacy and VEX.W0
