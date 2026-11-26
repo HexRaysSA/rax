@@ -56,18 +56,20 @@ establish hardware validation.
 
 ## Pending peer MMIO in a parallel round
 
-RAX latches VM-wide PSCI shutdown inside the AArch64 HVF owner. Once the
-coordinator collects a terminal exit, it keeps each undispatched peer MMIO
-transaction in the owning vCPU record through checkpoint capture. The
-coordinator scans the collected exits in O(V) time, where V is the number of
-collected vCPU exits, and uses O(1) additional space. Explicit embedding wake
-permits the saved transaction to continue after restoration.
+RAX latches VM-wide PSCI shutdown inside the AArch64 HVF owner. The
+coordinator preserves each undispatched peer MMIO transaction when the round
+includes a terminal exit or the power owner reports a latched shutdown. This
+covers partial collection results whose terminal exit is missing. The check
+scans O(V) collected vCPU exits, queries the latch in constant time, and uses
+O(1) additional space. Explicit embedding wake permits the saved transaction
+to continue after restoration.
 [Arm PSCI DEN0022, §5.10](../../specifications/arm/psci-den0022.pdf)
 
 | Assumption | Falsification probe |
 | --- | --- |
 | Both vCPUs entered the SDK before shutdown. | The peer waits for a guest release store by the caller before issuing its UART access. The host releases the caller only after collecting the peer's MMIO exit. |
 | A terminal round preserves unserviced transactions in either collection order. | Dispatch the two actual exits in both orders. Compare the terminal private record, then save and restore it into a fresh VM with the source and its kernel gone. Check the guest's next PC, the saved UART bytes and write acknowledgement. |
+| The power owner establishes terminal state independently of the result list. | Latch `SYSTEM_OFF` with a real HVC and retain only the peer's MMIO exit to model partial collection. Require dispatch to report termination and leave the peer's read or write pending through a detached file restore. |
 
 On baseline `b977e0d39`, the peer-first order installed byte `0xab` in X0,
 advanced the peer PC from `0x40002008` to `0x4000200c`, and cleared its pending
@@ -85,6 +87,19 @@ Its log SHA-256 is `851ddad988f9e6397738bdd532e8557e8df25bd4ab6070c40c186486b4b6
 The signed nonterminal PL011 dispatch regression also passed at two and four vCPUs.
 The modeled native scheduling suite passed all 11 cases. Its log SHA-256 is
 `50781088fa15c41b867437dad4472f300fc99ab82b97818730091a7168343845`.
+
+On baseline `0e0d3dc95`, the dispatcher reported that the round could continue
+with the shared shutdown latch set and only a peer read in its result list.
+On an Apple M4 Max running macOS 27.3 build `26C5047e`, the corrected signed
+harness passed both parallel terminal tests. The tests exercised six
+read/write and collection combinations, including two with the terminal
+exit omitted from the dispatcher input after the real guest HVC. Each
+transaction completed once after detached restore and explicit wake. An
+independent parser verified the pending I/O, saved PCs, terminal state and
+untouched PL011 state in all six files. Its log SHA-256 is
+`20f0952bfc15220a02a06a4da2ab43d6c62f1214c94bd8756ef59fa93d561312`.
+Two signed nonterminal parallel tests and all 16 native scheduling tests
+also passed. Apple Silicon Clippy and the Intel HVF cross-check passed.
 
 Previously qualified scope and assumption probes are in the qualification JSON.
 High-impact open requirements include broader terminal I/O profiles,

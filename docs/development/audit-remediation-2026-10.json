@@ -200930,6 +200930,14 @@
       "scope": "Non-secure AArch32 EL1 MRC takes the selected TID3 trap for the base CP15 feature ID group and the additional encodings of the mixed-width profile. Mixed-width preflight admits the trap before checking whether the ID value is implemented. The parent retired an ID_PFR0 read with TID3 set. QEMU 11.1.2 exercised 384 ARM and Thumb probes with AArch32 and AArch64 EL2, and the five owning RAX suites passed 47,728 tests. Wider profile and physical AArch32 validation remain open.",
       "qualification": "docs/development/a32-fp-controls.md#cp15-feature-id-group-interception",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-arm64-parallel-latched-shutdown-2026-11-26",
+      "findings": ["C-STATE", "C-SMP"],
+      "status": "native_arm64_qualified_full_findings_open",
+      "scope": "AArch64 HVF parallel dispatch preserves undispatched peer MMIO using the shared PSCI shutdown latch. The signed parent reported continuation after real SYSTEM_OFF when the test omitted its exit from the collected results. On Apple Silicon the corrected tests passed all six read/write and collection combinations, including the two with an omitted result. An independent parser verified terminal state, pending I/O and untouched PL011 state in all six files. Each saved transaction completed once after fresh restore and explicit wake. Two native nonterminal tests and 16 native scheduling tests passed. Intel HVF was compile-checked.",
+      "qualification": "docs/development/native-arm64-checkpoints/terminal-io.md#pending-peer-mmio-in-a-parallel-round",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

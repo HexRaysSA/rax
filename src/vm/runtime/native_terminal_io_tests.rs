@@ -14,6 +14,13 @@ enum Phase {
     Write,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ParallelOrder {
+    PeerFirst,
+    ShutdownFirst,
+    MissingShutdownExit,
+}
+
 fn public(cpu: &dyn crate::vm::vcpu::VCpu) -> crate::vm::vcpu::Aarch64CpuState {
     let CpuState::Aarch64(state) = cpu.get_state().unwrap() else {
         panic!()
@@ -49,20 +56,28 @@ fn native_shutdown_conserves_undispatched_peer_output_through_file_restart() {
 #[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
 fn native_parallel_shutdown_preserves_peer_io_in_both_dispatch_orders() {
     for phase in [Phase::Read, Phase::Write] {
-        for peer_first in [true, false] {
-            exercise(phase, Some(peer_first));
+        for order in [ParallelOrder::PeerFirst, ParallelOrder::ShutdownFirst] {
+            exercise(phase, Some(order));
         }
     }
 }
 
-fn exercise(phase: Phase, parallel_peer_first: Option<bool>) {
+#[test]
+#[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
+fn native_parallel_latched_shutdown_preserves_peer_io_without_a_shutdown_exit() {
+    for phase in [Phase::Read, Phase::Write] {
+        exercise(phase, Some(ParallelOrder::MissingShutdownExit));
+    }
+}
+
+fn exercise(phase: Phase, parallel: Option<ParallelOrder>) {
     let fixture = Fixture::new();
     let mut config = fixture.config(2);
-    config.hvf_parallel_vcpus = parallel_peer_first.is_some();
+    config.hvf_parallel_vcpus = parallel.is_some();
     let mut source = Vmm::new_resume(config).unwrap();
     psci::boot_native_secondaries(&mut source);
     let entry = CODE + 0x1000;
-    let pc = if parallel_peer_first.is_some() {
+    let pc = if parallel.is_some() {
         install_words(&source, entry, &[0x88df_fc83, 0x34ff_ffe3]); // LDAR W3,[X4]; CBZ W3,.-4.
         entry + 8
     } else {
@@ -96,11 +111,20 @@ fn exercise(phase: Phase, parallel_peer_first: Option<bool>) {
     source.vcpus[1]
         .set_state(&CpuState::Aarch64(state))
         .unwrap();
-    if phase == Phase::Read && parallel_peer_first.is_none() {
+    if phase == Phase::Read && parallel.is_none() {
         source.take_snapshot(0).unwrap();
     }
-    let turns = if let Some(peer_first) = parallel_peer_first {
-        Some(collect_parallel_shutdown(&mut source, write, peer_first))
+    let turns = if let Some(order) = parallel {
+        let mut turns =
+            collect_parallel_shutdown(&mut source, write, order == ParallelOrder::PeerFirst);
+        if order == ParallelOrder::MissingShutdownExit {
+            // Model a partial result handed to dispatch after collection
+            // failed. The real HVC and peer MMIO have already reached HVF.
+            turns.retain(|turn| !matches!(turn.exit, VcpuExit::Shutdown));
+            assert_eq!(turns.len(), 1);
+            assert!(source.vm.firmware_shutdown().unwrap());
+        }
+        Some(turns)
     } else {
         let exit = run_until_exit(source.vcpus[1].as_mut());
         check_peer_exit(&exit, write);
@@ -135,7 +159,7 @@ fn exercise(phase: Phase, parallel_peer_first: Option<bool>) {
         }
     }
     let mut expected = private_states(&source).remove(1);
-    assert_eq!(expected.shutdown, parallel_peer_first.is_some());
+    assert_eq!(expected.shutdown, parallel.is_some());
     assert!(expected.pending_read.is_some() || expected.pending_write.is_some());
     assert_eq!(
         expected.pending_reply.is_some(),
@@ -145,7 +169,7 @@ fn exercise(phase: Phase, parallel_peer_first: Option<bool>) {
         expected.completion_error.is_some(),
         phase == Phase::ReplyError
     );
-    if parallel_peer_first.is_none() {
+    if parallel.is_none() {
         let error = source
             .take_snapshot(0)
             .err()
@@ -157,7 +181,10 @@ fn exercise(phase: Phase, parallel_peer_first: Option<bool>) {
 
     // A different CPU requests VM-wide shutdown while the AP is at its I/O frontier.
     if let Some(mut turns) = turns {
-        assert!(source.apply_native_round(&mut turns).unwrap());
+        assert!(
+            source.apply_native_round(&mut turns).unwrap(),
+            "dispatcher continued after the VM latched SYSTEM_OFF ({phase:?})"
+        );
         assert!(turns.is_empty());
     } else {
         run_shutdown(&mut source);
@@ -175,8 +202,16 @@ fn exercise(phase: Phase, parallel_peer_first: Option<bool>) {
     if let Some(path) = std::env::var_os("RAX_NATIVE_CHECKPOINT_EVIDENCE") {
         let path = std::path::PathBuf::from(path);
         std::fs::create_dir_all(&path).unwrap();
-        let name = match parallel_peer_first {
-            Some(peer_first) => format!("native-terminal-{phase:?}-peer-first-{peer_first}.rxc"),
+        let name = match parallel {
+            Some(ParallelOrder::PeerFirst) => {
+                format!("native-terminal-{phase:?}-peer-first-true.rxc")
+            }
+            Some(ParallelOrder::ShutdownFirst) => {
+                format!("native-terminal-{phase:?}-peer-first-false.rxc")
+            }
+            Some(ParallelOrder::MissingShutdownExit) => {
+                format!("native-terminal-{phase:?}-missing-shutdown-exit.rxc")
+            }
             None => format!("native-terminal-{phase:?}.rxc"),
         };
         std::fs::copy(&fixture.checkpoint, path.join(name)).unwrap();

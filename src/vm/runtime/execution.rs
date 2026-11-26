@@ -402,13 +402,14 @@ impl Vmm {
     }
 
     pub(super) fn apply_native_round(&mut self, turns: &mut Vec<ExecutionTurn>) -> Result<bool> {
-        // ARM HVF PSCI shutdown is already VM-wide when the owners return.
-        // Keep unserviced peer MMIO in the backend for terminal capture.
+        // The ARM HVF power owner is terminal even when collecting the round
+        // yields no Shutdown exit. Leave unserviced MMIO in its CPU owner.
         let arm_hvf_shutdown = self.backend_kind == BackendKind::Hvf
             && self.checkpoint_config.arch == ArchKind::Aarch64
-            && turns
+            && (turns
                 .iter()
-                .any(|turn| matches!(turn.exit, VcpuExit::Shutdown));
+                .any(|turn| matches!(turn.exit, VcpuExit::Shutdown))
+                || self.vm.firmware_shutdown()?);
         let mut first_cpu_error = None;
         for turn in turns.drain(..) {
             if arm_hvf_shutdown
@@ -444,6 +445,9 @@ impl Vmm {
         }
         if let Some(error) = first_cpu_error {
             return Err(error);
+        }
+        if arm_hvf_shutdown {
+            return Ok(true);
         }
         // Every exit in this round predates the effects of a delivered INIT.
         // Complete a peer's device exit before applying a reset to that CPU.
