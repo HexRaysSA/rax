@@ -773,6 +773,14 @@ the denial of general host filesystem, sockets, processes and IPC remain in
 force. Inspection reports `capabilities.native_runtime`; this is a selected
 mode, not a guarantee that every runtime API or application is supported.
 
+The installed macOS runtime accepts libxpc framework image registrations
+from closed guest processes. A lookup in the process's domain can start an
+application-scope service from a registered system framework. Both the service
+manifest and executable must come from the installed read-only mounts.
+The service runs as a separate guest process and receives its Mach endpoint
+through the guest bootstrap server. The service's subsequent startup still
+depends on the guest support for its sandbox and other OS facilities.
+
 On macOS, regular files in the installed runtime report their metadata from
 the retained read-only backing. Size and allocated 512-byte blocks remain
 distinct. Device, inode, generation, and link count use the guest namespace.

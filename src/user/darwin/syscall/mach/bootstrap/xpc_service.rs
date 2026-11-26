@@ -1,6 +1,6 @@
-//! Application-bundled XPC services in the closed guest's process domain.
+//! Application- and framework-bundled XPC services in the closed guest.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
 use std::sync::Arc;
 
@@ -13,13 +13,13 @@ use crate::user::darwin::process::Proc;
 use crate::user::darwin::signal::{Origin, SIGKILL};
 use crate::user::darwin::syscall::Ctx;
 
-use super::{MAX_NAME_BYTES, SERVICE_NOT_FOUND};
+use super::{MAX_DOMAIN_BYTES, MAX_DOMAIN_PATHS, MAX_NAME_BYTES, SERVICE_NOT_FOUND};
 
 const MAX_MANIFEST: u64 = 256 << 10;
 
 #[derive(Default)]
 pub(super) struct Services {
-    domains: BTreeSet<i32>,
+    domains: BTreeMap<i32, BTreeSet<String>>,
     running: Vec<Service>,
 }
 
@@ -40,8 +40,11 @@ struct Configuration {
 }
 
 pub(super) enum Request<'a> {
-    Open { origin: Option<&'a str> },
-    Scan,
+    Open {
+        origin: Option<&'a str>,
+        paths: Vec<&'a str>,
+    },
+    Scan(Vec<&'a str>),
     Resume,
     LookUp(&'a str),
     Info,
@@ -104,12 +107,18 @@ fn read_manifest(data: &[u8]) -> Option<Value> {
     events.next().is_none().then_some(result)
 }
 
-fn resolve(proc: &Proc, name: &str) -> Result<(String, Configuration), i64> {
-    let app = app_root(&proc.config.exec_path).ok_or_else(missing)?;
+fn resolve(
+    proc: &Proc,
+    name: &str,
+    services: &str,
+    installed: bool,
+) -> Result<Option<(String, Configuration)>, i64> {
     let files = proc.vfs.files().ok_or_else(missing)?;
-    let services = format!("{app}/Contents/XPCServices");
+    let Ok(entries) = files.children(services) else {
+        return Ok(None);
+    };
     let mut match_found = None;
-    for (bundle, entry) in files.children(&services).map_err(|_| missing())? {
+    for (bundle, entry) in entries {
         if !bundle.ends_with(".xpc") || !entry.is_dir() {
             continue;
         }
@@ -118,7 +127,10 @@ fn resolve(proc: &Proc, name: &str) -> Result<(String, Configuration), i64> {
         let Ok((canonical, entry)) = files.lookup(&manifest) else {
             continue;
         };
-        if canonical != manifest || entry.len() > MAX_MANIFEST {
+        if canonical != manifest
+            || entry.len() > MAX_MANIFEST
+            || (installed && !files.is_installed_entry(&entry))
+        {
             continue;
         }
         let Some(manifest) = entry.bytes().ok().and_then(|bytes| read_manifest(&bytes)) else {
@@ -161,10 +173,9 @@ fn resolve(proc: &Proc, name: &str) -> Result<(String, Configuration), i64> {
             .map(|value| value.as_boolean().ok_or(invalid))
             .transpose()?
             .unwrap_or(false);
-        if service_type != "Application"
-            || !matches!(run_loop, None | Some("dispatch_main" | "NSRunLoop"))
-            || match_found.is_some()
-        {
+        let valid_run_loop = matches!(run_loop, None | Some("dispatch_main" | "NSRunLoop"))
+            || (installed && run_loop == Some("_NSApplicationMain"));
+        if service_type != "Application" || !valid_run_loop || match_found.is_some() {
             return Err(i64::from(Errno::ENOTSUP.0));
         }
         let mut env: Vec<Vec<u8>> = proc
@@ -195,8 +206,16 @@ fn resolve(proc: &Proc, name: &str) -> Result<(String, Configuration), i64> {
         if environment_bytes > 128 << 10 {
             return Err(i64::from(Errno::E2BIG.0));
         }
+        let executable = format!("{contents}/MacOS/{executable}");
+        if installed
+            && !files.lookup(&executable).is_ok_and(|(path, entry)| {
+                path == executable && files.is_installed_entry(&entry) && !entry.is_dir()
+            })
+        {
+            continue;
+        }
         match_found = Some((
-            format!("{contents}/MacOS/{executable}"),
+            executable,
             Configuration {
                 service_type: service_type.to_owned(),
                 run_loop: run_loop.map(str::to_owned),
@@ -205,36 +224,78 @@ fn resolve(proc: &Proc, name: &str) -> Result<(String, Configuration), i64> {
             },
         ));
     }
-    match_found.ok_or_else(missing)
+    Ok(match_found)
+}
+
+fn open_origin(proc: &Proc) -> Option<&str> {
+    app_root(&proc.config.exec_path).or_else(|| {
+        proc.config.native_kernel_info.as_ref()?;
+        let (parent, name) = proc.config.exec_path.rsplit_once('/')?;
+        component(name).then_some(if parent.is_empty() { "/" } else { parent })
+    })
+}
+
+fn remember_frameworks(
+    proc: &Proc,
+    frameworks: &mut BTreeSet<String>,
+    paths: &[&str],
+) -> Result<(), i64> {
+    if proc.config.native_kernel_info.is_none() {
+        return Ok(());
+    }
+    let selected: BTreeSet<_> = paths
+        .iter()
+        .filter_map(|path| crate::user::darwin::runtime_files::framework_service_directory(path))
+        .filter(|path| !frameworks.contains(path))
+        .collect();
+    let bytes: usize = frameworks
+        .iter()
+        .chain(&selected)
+        .map(|path| path.len())
+        .sum();
+    if frameworks.len() + selected.len() > MAX_DOMAIN_PATHS || bytes > MAX_DOMAIN_BYTES {
+        return Err(i64::from(Errno::E2BIG.0));
+    }
+    frameworks.extend(selected);
+    Ok(())
 }
 
 impl Services {
     fn reply(&mut self, proc: &Proc, request: &Request<'_>) -> Result<Reply, i64> {
-        match *request {
-            Request::Open { origin } => {
-                if self.current(proc.pid).is_some() {
+        match request {
+            Request::Open { origin, paths } => {
+                if proc.config.native_kernel_info.is_none() && self.current(proc.pid).is_some() {
                     return Ok(Reply::Empty);
                 }
-                let root = app_root(&proc.config.exec_path).ok_or_else(missing)?;
+                let root = open_origin(proc).ok_or_else(missing)?;
                 if origin.is_some_and(|path| !path.is_empty() && path != root) {
                     return Err(i64::from(Errno::EINVAL.0));
                 }
-                self.domains.insert(proc.pid);
+                remember_frameworks(proc, self.domains.entry(proc.pid).or_default(), paths)?;
                 Ok(Reply::Empty)
             }
-            Request::Scan if self.domains.contains(&proc.pid) => Ok(Reply::Scan),
+            Request::Scan(paths) => {
+                let frameworks = self.domains.get_mut(&proc.pid).ok_or_else(missing)?;
+                if proc.config.native_kernel_info.is_none()
+                    && paths.as_slice() != [proc.config.exec_path.as_str()]
+                {
+                    return Err(i64::from(Errno::ENOTSUP.0));
+                }
+                remember_frameworks(proc, frameworks, paths)?;
+                Ok(Reply::Scan)
+            }
             Request::Resume
-                if self.domains.contains(&proc.pid) || self.current(proc.pid).is_some() =>
+                if self.domains.contains_key(&proc.pid) || self.current(proc.pid).is_some() =>
             {
                 Ok(Reply::Empty)
             }
-            Request::LookUp(name) if self.domains.contains(&proc.pid) => {
+            Request::LookUp(name) if self.domains.contains_key(&proc.pid) => {
                 let service = self
                     .running
                     .iter()
                     .find(|service| {
                         service.client == proc.pid
-                            && service.name == name
+                            && service.name == *name
                             && !service.endpoint.is_dead()
                     })
                     .ok_or_else(missing)?;
@@ -254,7 +315,7 @@ impl Services {
             }
             Request::CheckIn(name) => {
                 let service = self.current(proc.pid).ok_or_else(missing)?;
-                if service.name != name || service.checked_in || service.endpoint.is_dead() {
+                if service.name != *name || service.checked_in || service.endpoint.is_dead() {
                     return Err(i64::from(Errno::EINVAL.0));
                 }
                 service.checked_in = true;
@@ -290,11 +351,32 @@ pub(super) fn service_reply(ctx: &mut Ctx<'_>, request: Request<'_>) -> Result<R
     };
     if name.len() > MAX_NAME_BYTES
         || !component(name)
-        || !family.bootstrap(|namespace| namespace.xpc.domains.contains(&ctx.proc.pid))
+        || !family.bootstrap(|namespace| namespace.xpc.domains.contains_key(&ctx.proc.pid))
     {
         return result;
     }
-    let (executable, mut configuration) = resolve(ctx.proc, name)?;
+    let mut candidate = None;
+    if let Some(app) = app_root(&ctx.proc.config.exec_path) {
+        candidate = resolve(
+            ctx.proc,
+            name,
+            &format!("{app}/Contents/XPCServices"),
+            false,
+        )?;
+    }
+    if candidate.is_none() {
+        let frameworks = family
+            .bootstrap(|namespace| namespace.xpc.domains.get(&ctx.proc.pid).cloned())
+            .ok_or_else(missing)?;
+        for framework in frameworks {
+            if let Some(service) = resolve(ctx.proc, name, &framework, true)? {
+                if candidate.replace(service).is_some() {
+                    return Err(i64::from(Errno::ENOTSUP.0));
+                }
+            }
+        }
+    }
+    let (executable, mut configuration) = candidate.ok_or_else(missing)?;
     let pid = crate::user::darwin::exec::spawn_bootstrap_service(
         ctx,
         &executable,

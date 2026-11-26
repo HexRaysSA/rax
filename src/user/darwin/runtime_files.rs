@@ -98,7 +98,6 @@ const PERL_ROOT: &str = "/System/Library/Perl";
 #[cfg(any(target_os = "macos", test))]
 const RUBY_VERSIONS: &str = "/System/Library/Frameworks/Ruby.framework/Versions";
 
-#[cfg(any(target_os = "macos", test))]
 const FRAMEWORK_ROOTS: [&str; 6] = [
     "/System/Library/Frameworks",
     "/System/Library/PrivateFrameworks",
@@ -107,6 +106,31 @@ const FRAMEWORK_ROOTS: [&str; 6] = [
     "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks",
     "/System/Volumes/Preboot/Cryptexes/OS/System/Library/PrivateFrameworks",
 ];
+
+/// Derive the XPC service directory for a standard installed framework image.
+pub(super) fn framework_service_directory(image: &str) -> Option<String> {
+    let relative = FRAMEWORK_ROOTS
+        .iter()
+        .find_map(|root| image.strip_prefix(root)?.strip_prefix('/'))?;
+    let (framework, suffix) = relative.split_once('/')?;
+    let name = framework.strip_suffix(".framework")?;
+    if name.is_empty()
+        || suffix
+            .rsplit('/')
+            .any(|part| matches!(part, "" | "." | ".."))
+    {
+        return None;
+    }
+    let (dir, executable) = image.rsplit_once('/')?;
+    if executable != name {
+        return None;
+    }
+    let versioned = suffix
+        .strip_prefix("Versions/")
+        .and_then(|tail| tail.split_once('/'))
+        .is_some_and(|(_, executable)| executable == name);
+    (suffix == name || versioned).then(|| format!("{dir}/XPCServices"))
+}
 
 /// Public kernel version strings collected when selecting the installed runtime.
 #[derive(Clone, Debug)]
@@ -2080,6 +2104,29 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn installed_framework_service_directories_require_framework_image_paths() {
+        for path in [
+            "/System/Library/Frameworks/Test.framework/Test",
+            "/System/Library/PrivateFrameworks/Test.framework/Versions/A/Test",
+            "/System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/Test.framework/Versions/Current/Test",
+        ] {
+            assert_eq!(
+                framework_service_directory(path),
+                path.rsplit_once('/')
+                    .map(|(path, _)| format!("{path}/XPCServices"))
+            );
+        }
+        for path in [
+            "/tmp/Test.framework/Versions/A/Test",
+            "/System/Library/Frameworks/Test.framework/Versions/../Test",
+            "/System/Library/Frameworks/Test.framework/Resources/Test",
+            "/System/Library/Frameworks/Test.framework/Versions/A/Other",
+        ] {
+            assert!(framework_service_directory(path).is_none(), "{path}");
+        }
+    }
+
+    #[test]
     fn installed_framework_files_follow_bundle_aliases() {
         use crate::user::image::macho::{CPU_TYPE_ARM64, MH_DYLIB, MH_EXECUTE, MH_MAGIC_64};
         use crate::user::supplied_fs::Error;
@@ -2201,6 +2248,10 @@ mod tests {
             let manifest = format!("{bundle}/Info.plist");
             let executable = format!("{bundle}/MacOS/Worker");
             assert_eq!(&*selected.read(&manifest).unwrap(), b"worker manifest");
+            for path in [&manifest, &executable] {
+                let entry = selected.lookup(path).unwrap().1;
+                assert!(selected.is_installed_entry(&entry), "{path}");
+            }
             assert_eq!(
                 &*selected.read(&executable).unwrap(),
                 &fs::read(&program).unwrap()
@@ -2208,6 +2259,12 @@ mod tests {
         }
         let services = format!("{framework}/XPCServices");
         let bundle = format!("{services}/{service}/Contents");
+        let manifest = format!("{bundle}/Info.plist");
+        let replaced = selected
+            .with_file(manifest.clone(), Arc::from(&b"caller manifest"[..]))
+            .unwrap();
+        let entry = replaced.lookup(&manifest).unwrap().1;
+        assert!(!replaced.is_installed_entry(&entry));
         assert_eq!(
             &*selected.read(&format!("{bundle}/MacOS/Library")).unwrap(),
             &image

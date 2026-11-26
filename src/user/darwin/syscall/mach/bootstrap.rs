@@ -299,21 +299,67 @@ fn string<'a>(bytes: &mut &'a [u8]) -> Option<&'a str> {
     c_string(take(bytes, length.next_multiple_of(4))?.get(..length)?)
 }
 
-// A domain request is a simple Mach message with no transferred descriptors.
-// Decode only its bounded CPX dictionary and the fields needed to authorize it.
-fn application_request<'a>(message: &'a Message, proc: &Proc) -> Option<xpc_service::Request<'a>> {
+const MAX_DOMAIN_BYTES: usize = 256 << 10;
+const MAX_DOMAIN_PATHS: usize = 2048;
+
+fn dictionary_key<'a>(bytes: &mut &'a [u8]) -> Option<&'a str> {
+    let length = bytes.iter().position(|&byte| byte == 0)? + 1;
+    c_string(take(bytes, length.next_multiple_of(4))?.get(..length)?)
+}
+
+fn domain_paths(mut bytes: &[u8]) -> Option<Vec<&str>> {
+    let count = word(&mut bytes)? as usize;
+    if count > MAX_DOMAIN_PATHS {
+        return None;
+    }
+    let mut paths = Vec::with_capacity(count);
+    for _ in 0..count {
+        let path = dictionary_key(&mut bytes)?;
+        if path.len() >= crate::user::supplied_fs::PATH_MAX
+            || !path.starts_with('/')
+            || word(&mut bytes)? != UNSIGNED
+            || integer(&mut bytes)? != 2
+        {
+            return None;
+        }
+        paths.push(path);
+    }
+    bytes.is_empty().then_some(paths)
+}
+
+// Large image lists use a single OOL descriptor and are padded to a page
+// boundary. The remaining domain operations use inline CPX dictionaries.
+fn application_request(message: &Message, pid: i32) -> Option<xpc_service::Request<'_>> {
     use xpc_service::Request;
 
-    if !message.items.is_empty() || message.bits & bits::COMPLEX != 0 || message.body.len() > 8192 {
+    let operation = message.id ^ XPC_REQUEST;
+    let out_of_line = message.bits & bits::COMPLEX != 0;
+    let mut bytes = if out_of_line {
+        let [(4, Item::Ool { data, .. })] = message.items.as_slice() else {
+            return None;
+        };
+        if operation != 800 || message.body.len() != 4 + desc::size(desc::OOL) {
+            return None;
+        }
+        data.as_slice()
+    } else {
+        if !message.items.is_empty() || message.body.len() > 8192 {
+            return None;
+        }
+        message.body.as_slice()
+    };
+    if bytes.len() > MAX_DOMAIN_BYTES
+        || take(&mut bytes, XPC_HEADER.len())? != XPC_HEADER
+        || word(&mut bytes)? != DICTIONARY
+    {
         return None;
     }
-    let mut bytes = message.body.as_slice();
-    if take(&mut bytes, XPC_HEADER.len())? != XPC_HEADER || word(&mut bytes)? != DICTIONARY {
+    let length = word(&mut bytes)? as usize;
+    let (dictionary, padding) = bytes.split_at_checked(length)?;
+    if (!out_of_line && !padding.is_empty()) || padding.iter().any(|&byte| byte != 0) {
         return None;
     }
-    if word(&mut bytes)? as usize != bytes.len() {
-        return None;
-    }
+    let mut bytes = dictionary;
     let count = word(&mut bytes)?;
     if count > 8 {
         return None;
@@ -322,8 +368,7 @@ fn application_request<'a>(message: &'a Message, proc: &Proc) -> Option<xpc_serv
     let mut paths = None;
     let (mut domain, mut handle, mut name, mut origin, mut own) = (None, None, None, None, false);
     for _ in 0..count {
-        let key_len = bytes.iter().position(|&byte| byte == 0)? + 1;
-        let key = c_string(take(&mut bytes, key_len.next_multiple_of(4))?.get(..key_len)?)?;
+        let key = dictionary_key(&mut bytes)?;
         if keys.contains(&key) {
             return None;
         }
@@ -348,26 +393,20 @@ fn application_request<'a>(message: &'a Message, proc: &Proc) -> Option<xpc_serv
             _ => return None,
         }
     }
-    let pid = proc.pid as u64;
+    let pid = pid as u64;
     if !bytes.is_empty() {
         return None;
     }
-    match (message.id ^ XPC_REQUEST, domain?, handle) {
+    match (operation, domain?, handle) {
         (718, 6, None) if own && count == 2 => Some(Request::Info),
-        (800, 5, Some(caller)) if caller == pid => {
-            let mut paths = paths?;
-            let key = proc.config.exec_path.as_bytes();
-            let length = key.len().checked_add(1)?;
-            let valid = word(&mut paths)? == 1
-                && c_string(take(&mut paths, length.next_multiple_of(4))?.get(..length)?)?
-                    .as_bytes()
-                    == key
-                && word(&mut paths)? == UNSIGNED
-                && integer(&mut paths)? == 2
-                && paths.is_empty();
-            valid.then_some(Request::Scan)
-        }
-        (802, 5, Some(caller)) if caller == pid => Some(Request::Open { origin }),
+        (800, 5, Some(caller)) if caller == pid => Some(Request::Scan(domain_paths(paths?)?)),
+        (802, 5, Some(caller)) if caller == pid => Some(Request::Open {
+            origin,
+            paths: match paths {
+                Some(paths) => domain_paths(paths)?,
+                None => Vec::new(),
+            },
+        }),
         (803, 5, Some(caller)) if caller == pid && count == 2 => Some(Request::Resume),
         (804, 5, Some(caller)) if caller == pid => Some(Request::LookUp(name?)),
         (805, 6, Some(0)) => Some(Request::CheckIn(name?)),
@@ -483,7 +522,7 @@ pub(super) fn deliver(ctx: &mut Ctx<'_>, port: &Arc<Port>, mut message: Message)
         let (body, items) = reply_payload(message.sender, result);
         (XPC_REPLY, body, items)
     } else if (message.id as u32) >> 24 == (XPC_REQUEST as u32) >> 24 {
-        let request = application_request(&message, proc);
+        let request = application_request(&message, proc.pid);
         let result = request
             .ok_or(i64::from(Errno::ENOTSUP.0))
             .and_then(|request| xpc_service::service_reply(ctx, request));
@@ -549,6 +588,57 @@ mod tests {
             sender: BOOTSTRAP_SENDER,
             aux: Vec::new(),
         }
+    }
+
+    #[test]
+    fn bootstrap_accepts_the_inline_and_out_of_line_framework_scan() {
+        let mut message = lookup_message();
+        message.id = XPC_REQUEST | 800;
+        let path = "/System/Library/PrivateFrameworks/Test.framework/Versions/A/Test";
+        let mut scan = XPC_HEADER.to_vec();
+        scan.extend_from_slice(&DICTIONARY.to_le_bytes());
+        dictionary(&mut scan, 3, |body| {
+            field(body, b"handle", UNSIGNED, Some(1000));
+            field(body, b"paths", DICTIONARY, None);
+            dictionary(body, 1, |body| {
+                field(body, path.as_bytes(), UNSIGNED, Some(2));
+            });
+            field(body, b"type", UNSIGNED, Some(5));
+        });
+        message.items.clear();
+        message.bits = 0;
+        message.body = scan.clone();
+        assert!(matches!(
+            application_request(&message, 1000),
+            Some(xpc_service::Request::Scan(paths)) if paths == [path]
+        ));
+        assert!(application_request(&message, 1001).is_none());
+
+        message.bits = bits::COMPLEX;
+        message.body = vec![0; 4 + desc::size(desc::OOL)];
+        message.body[0] = 1;
+        let mut padded = scan.clone();
+        padded.resize(4096, 0);
+        message.items.push((
+            4,
+            Item::Ool {
+                data: padded,
+                copy: 1,
+                page_offset: 0,
+            },
+        ));
+        assert!(matches!(
+            application_request(&message, 1000),
+            Some(xpc_service::Request::Scan(paths)) if paths == [path]
+        ));
+        message.items[0].0 = 0;
+        assert!(application_request(&message, 1000).is_none());
+        message.items[0].0 = 4;
+        let Item::Ool { data, .. } = &mut message.items[0].1 else {
+            unreachable!();
+        };
+        data[scan.len()] = 1;
+        assert!(application_request(&message, 1000).is_none());
     }
 
     #[test]

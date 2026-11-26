@@ -1465,6 +1465,14 @@ impl Files {
         Err(Error::NotFound)
     }
 
+    /// Whether an entry in the resolved guest namespace came from the
+    /// installed library mounts. Caller replacements have different inodes.
+    pub(super) fn is_installed_entry(&self, entry: &Entry) -> bool {
+        self.native_libraries
+            .as_ref()
+            .is_some_and(|roots| roots.owns(entry))
+    }
+
     /// Resolves an absolute guest path, retaining directory checks before `..`.
     /// Returns its canonical guest name and a shared entry; never a host path.
     pub fn lookup(&self, path: &str) -> Result<(String, Entry), Error> {
