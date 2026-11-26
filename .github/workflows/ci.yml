@@ -635,6 +635,20 @@ jobs:
                 tests::process::native_runtime::installed_darwin_rpath_dependency_matches_native_through_closed_c_abi \
                 -- --ignored --exact --nocapture
           done
+      - name: Compare Darwin path attributes through the closed C API
+        shell: bash
+        run: |
+          scratch="$GITHUB_WORKSPACE/target/darwin-installed-path-attributes"
+          mkdir -p "$scratch/tmp"
+          export TMPDIR="$scratch/tmp" TMP="$scratch/tmp" TEMP="$scratch/tmp"
+          for architecture in arm64 x86_64; do
+            xcrun --sdk macosx clang -arch "$architecture" -Wall -Wextra -Werror \
+              tests/fixtures/user/darwin/src/closed_path_attributes.c -o "$scratch/$architecture"
+          done
+          RAX_DARWIN_PATH_ATTRIBUTE_FIXTURES="$scratch" \
+            cargo test --locked --no-default-features --manifest-path capi/Cargo.toml --lib \
+              tests::process::native_runtime::darwin_path_attributes::installed_darwin_path_attributes_match_native \
+              -- --ignored --exact --nocapture
       - name: Compare installed Darwin sandbox profile files through the closed C API
         run: |
           cargo test --locked --no-default-features --manifest-path capi/Cargo.toml --lib \

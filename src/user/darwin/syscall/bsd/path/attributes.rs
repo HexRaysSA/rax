@@ -9,8 +9,9 @@ const DEVID: u32 = 0x0000_0002;
 const OBJTYPE: u32 = 0x0000_0008;
 const OBJID: u32 = 0x0000_0020;
 const FILEID: u32 = 0x0200_0000;
+const FULLPATH: u32 = 0x0800_0000;
 const RETURNED: u32 = 0x8000_0000;
-const COMMON: u32 = NAME | DEVID | OBJTYPE | OBJID | FILEID | RETURNED;
+const COMMON: u32 = NAME | DEVID | OBJTYPE | OBJID | FILEID | FULLPATH | RETURNED;
 
 const FSOPT_NOFOLLOW: u64 = 0x0001;
 const FSOPT_REPORT_FULLSIZE: u64 = 0x0004;
@@ -70,19 +71,10 @@ pub(in crate::user::darwin::syscall::bsd) fn get(
     if size < 4 {
         return Err(Errno::ERANGE);
     }
-    let name = path.as_deref().map(|p| {
-        if p == b"/" {
-            p
-        } else {
-            p.rsplit(|&byte| byte == b'/')
-                .next()
-                .expect("path component")
-        }
-    });
-    if requested & NAME != 0 && name.is_none() {
+    if requested & (NAME | FULLPATH) != 0 && path.is_none() {
         return Err(Errno::ENOTSUP);
     }
-    let record = pack(requested, name.unwrap_or_default(), stat);
+    let record = pack(requested, path.as_deref().unwrap_or_default(), stat);
     // The installed APFS attribute calls report the full record length and
     // copy only the bytes that fit in the caller's buffer.
     let copied = size.min(record.len() as u64) as usize;
@@ -90,7 +82,7 @@ pub(in crate::user::darwin::syscall::bsd) fn get(
     Ok(Rv::one(0))
 }
 
-fn pack(requested: u32, name: &[u8], stat: Stat) -> Vec<u8> {
+fn pack(requested: u32, path: &[u8], stat: Stat) -> Vec<u8> {
     let mut record = vec![0; 4];
     if requested & RETURNED != 0 {
         record.extend_from_slice(&requested.to_le_bytes());
@@ -110,15 +102,33 @@ fn pack(requested: u32, name: &[u8], stat: Stat) -> Vec<u8> {
             record.extend_from_slice(bytes);
         }
     }
+    let fullpath_offset = record.len();
+    if requested & FULLPATH != 0 {
+        record.extend_from_slice(&[0; 8]);
+    }
     if requested & NAME != 0 {
-        let relative = (record.len() - name_offset) as u32;
-        let length = (name.len() + 1) as u32;
-        record[name_offset..name_offset + 4].copy_from_slice(&relative.to_le_bytes());
-        record[name_offset + 4..name_offset + 8].copy_from_slice(&length.to_le_bytes());
-        record.extend_from_slice(name);
-        record.resize((record.len() + 1).next_multiple_of(4), 0);
+        let name = if path == b"/" {
+            path
+        } else {
+            path.rsplit(|&byte| byte == b'/')
+                .next()
+                .expect("path component")
+        };
+        append_string(&mut record, name_offset, name);
+    }
+    if requested & FULLPATH != 0 {
+        append_string(&mut record, fullpath_offset, path);
     }
     let length = record.len() as u32;
     record[..4].copy_from_slice(&length.to_le_bytes());
     record
+}
+
+fn append_string(record: &mut Vec<u8>, reference: usize, value: &[u8]) {
+    let relative = (record.len() - reference) as u32;
+    let length = (value.len() + 1) as u32;
+    record[reference..reference + 4].copy_from_slice(&relative.to_le_bytes());
+    record[reference + 4..reference + 8].copy_from_slice(&length.to_le_bytes());
+    record.extend_from_slice(value);
+    record.resize((record.len() + 1).next_multiple_of(4), 0);
 }

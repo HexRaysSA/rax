@@ -30,6 +30,14 @@ static void check_record(const unsigned char *record, const struct stat *st) {
     assert(record[36] == 0xAB);
 }
 
+static void check_string(const unsigned char *record, size_t reference,
+                         size_t payload, const char *expected) {
+    const size_t length = strlen(expected) + 1;
+    assert(get_u32(record + reference) == payload - reference);
+    assert(get_u32(record + reference + 4) == length);
+    assert(memcmp(record + payload, expected, length) == 0);
+}
+
 int main(void) {
     const char path[] = "/usr/bin/uname";
     struct attrlist request = {
@@ -61,6 +69,31 @@ int main(void) {
     errno = 0;
     assert(getattrlistat(dir, "rax-missing-path", &request, record, sizeof(record), 0) == -1);
     assert(errno == ENOENT);
+
+    request.commonattr = ATTR_CMN_FULLPATH;
+    memset(record, 0xAB, sizeof(record));
+    assert(getattrlist("/usr/bin/../bin/uname", &request, record, sizeof(record), 0) == 0);
+    assert(get_u32(record) == 28);
+    check_string(record, 4, 12, path);
+    assert(record[27] == 0 && record[28] == 0xAB);
+    memset(record, 0xAB, sizeof(record));
+    assert(getattrlistat(dir, "./uname", &request, record, sizeof(record), 0) == 0);
+    check_string(record, 4, 12, path);
+    memset(record, 0xAB, sizeof(record));
+    assert(fgetattrlist(fd, &request, record, sizeof(record), 0) == 0);
+    check_string(record, 4, 12, path);
+
+    request.commonattr |= ATTR_CMN_RETURNED_ATTRS | ATTR_CMN_NAME | ATTR_CMN_FILEID;
+    memset(record, 0xAB, sizeof(record));
+    assert(getattrlist(path, &request, record, sizeof(record), 0) == 0);
+    assert(get_u32(record) == 72);
+    assert(get_u32(record + 4) == request.commonattr);
+    check_string(record, 24, 48, "uname");
+    uint64_t file_id;
+    memcpy(&file_id, record + 32, sizeof(file_id));
+    assert(file_id == st.st_ino);
+    check_string(record, 40, 56, path);
+    assert(record[71] == 0 && record[72] == 0xAB);
 
     char resolved[PATH_MAX];
     assert(realpath("/usr/bin/../bin/uname", resolved) != NULL);
