@@ -1400,10 +1400,10 @@ consumes or generates a NaN. The result is `0x7fc00000` for binary32 and
 `0x7ff8000000000000` for binary64. Under the selected ARM1176 profile,
 `VNMUL` retains the canonical sign when FPSCR.DN is set. The multiply
 supplies the FPSCR exception flags. `VNEG` edits the operand sign in every
-mode. `VNMUL` negates the result with DN clear or under the later Arm
-profile. The instruction-entry profile hint is derived from the CPU
-identity and FPSCR that checkpoints store. The result selection takes
-constant time and storage per lane.
+mode. `VNMUL` negates propagated NaNs with DN clear and follows the later
+Arm profile's sign rule on later CPUs. The instruction-entry profile hint
+is derived from the CPU identity that checkpoints store. The result
+selection takes constant time and storage per lane.
 [Arm DDI 0301H, section 18.5.3 and Tables 20-1 and 20-2](https://documentation-service.arm.com/static/5e8e294efd977155116a6ca3)
 
 The parent `1e58c0e68` returned `0xffc00000` for a quiet NaN multiplied
@@ -1432,5 +1432,38 @@ The Cortex-A15 receipt SHA-256 is
 | The VFP11 arithmetic DN rule applies to `VNMUL`. | A positive canonical result with DN set. | Exercise both widths with a quiet NaN, a signaling NaN and zero times infinity. Read the result bits and FPSCR with DN and RunFast controls. | High |
 | NaN sign selection is separate from `VNEG`, finite results and the later profile. | Scope of the result-sign change. | Clear DN, execute `VNEG` with DN set, negate a finite product, and repeat under the later profile. | High |
 | The selected CPU identity is sufficient to recover the result rule after a file restore. | `v6_k` resumes the configured arithmetic. | Restore a new VMM, set RunFast in the guest, and require a positive canonical result with IOC and retained IDC. | High |
+
+Physical ARM1176 execution and asynchronous exception replay remain open.
+
+#### ARM1176 invalid products with DN clear
+
+With FPSCR.IOE clear, an invalid `VNMUL` product yields the positive
+Default NaN and sets FPSCR.IOC even with FPSCR.DN clear. This applies to
+zero times infinity in either operand order, including a subnormal that
+FPSCR.FZ flushes to zero. The result and the current operation's IOC
+distinguish a generated Default NaN from a propagated canonical quiet NaN
+when DN is clear. Sticky IOC alone has no effect on the sign decision.
+[Arm DDI 0301H, Table 20-1 and §§22.6–22.6.2](https://documentation-service.arm.com/static/5e8e294efd977155116a6ca3)
+
+The baseline `8bea42a95` returned `0xffc00000` for `VNMUL.F32` with
++0, +infinity, and FPSCR initially zero. The regression covers both
+precisions and both profiles, including a canonical quiet NaN with IOC
+already set. A fresh S3C64xx `v6_k` checkpoint restore also executes the
+invalid product after a guest write clears DN, FZ, and cumulative status.
+All 47,734 tests across the five owning binaries and all 18 backend-context
+tests passed.
+
+QEMU 11.1.2 `arm1176` matched the FPSCR field in all 16 independent
+system-guest observations and produced a negative canonical NaN in the
+10 cases where Table 20-1 and §22.6.2 specify a positive one. The guest
+sources and receipt are in
+`/Users/int/dev/rax-audit-work/four-findings-arm11-invalid-product-2026-11-26/`.
+The receipt SHA-256 is
+`328bad49d011e66368513343e9f3b3ae21079c9244ab54c8f74785b9f6ed00e1`.
+
+| Assumption | Dependent result | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| VFP11 invalid-product default handling applies across both FZ settings with DN and IOE clear. | Positive Default NaN and newly raised IOC. | Test signed zeros in both operand positions. Multiply a subnormal by infinity with FZ clear and set and check the result bits, IOC, and IDC. | High |
+| Per-operation IOC distinguishes the generated canonical NaN from a propagated canonical quiet NaN when DN is clear. | Propagated NaNs retain the existing sign operation. | Seed sticky IOC, then negate a product with a canonical quiet NaN operand. Check the result sign and retained IOC. | High |
 
 Physical ARM1176 execution and asynchronous exception replay remain open.

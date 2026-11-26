@@ -2,6 +2,13 @@
 use super::Fpscr;
 use crate::smir::interpret::{ArmFpOperation, SmirInterpreter};
 
+fn keep_default_nan_sign(fpscr: &Fpscr, bits: u64, canonical_nan: u64, status: u32) -> bool {
+    // DDI 0301H §22.6.2 also generates a Default NaN for an invalid product
+    // with DN clear. A propagated canonical quiet NaN does not raise IOC, and
+    // a quieted signaling NaN retains its nonzero payload when DN is clear.
+    fpscr.arm11 && bits == canonical_nan && (fpscr.dn() || status & 1 != 0)
+}
+
 pub(super) fn arithmetic_f32(
     operation: ArmFpOperation,
     first: f32,
@@ -13,9 +20,8 @@ pub(super) fn arithmetic_f32(
     let second = u64::from(fpscr.arithmetic_input_f32(second));
     let (bits, status) =
         SmirInterpreter::arm_eval_arithmetic(operation, first, second, false, fpscr.bits());
-    // DDI0301H §18.5.3 and Table 20-1 fix the VFP11 default NaN sign.
-    let default_nan = fpscr.arm11 && fpscr.dn() && bits == 0x7fc0_0000;
-    let sign = u64::from(negate_result && !default_nan) << 31;
+    let negate = negate_result && !keep_default_nan_sign(fpscr, bits, 0x7fc0_0000, status);
+    let sign = u64::from(negate) << 31;
     f32::from_bits(fpscr.arithmetic_result(bits ^ sign, status) as u32)
 }
 
@@ -30,8 +36,9 @@ pub(super) fn arithmetic_f64(
     let second = fpscr.arithmetic_input_f64(second);
     let (bits, status) =
         SmirInterpreter::arm_eval_arithmetic(operation, first, second, true, fpscr.bits());
-    let default_nan = fpscr.arm11 && fpscr.dn() && bits == 0x7ff8_0000_0000_0000;
-    let sign = u64::from(negate_result && !default_nan) << 63;
+    let negate =
+        negate_result && !keep_default_nan_sign(fpscr, bits, 0x7ff8_0000_0000_0000, status);
+    let sign = u64::from(negate) << 63;
     f64::from_bits(fpscr.arithmetic_result(bits ^ sign, status))
 }
 

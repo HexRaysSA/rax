@@ -402,15 +402,28 @@ fn arm1176_negated_multiply_keeps_the_default_nan_positive() {
         ),
     ] {
         for arm11 in [true, false] {
-            for control in [DN, DN | FZ, 0] {
-                // DDI0301H §18.5.3 and Tables 20-1/20-2. VNEG is a sign
-                // edit even in RunFast mode. Newer VNMUL uses FPNeg after FPMul.
+            for control in [DN, DN | FZ, 0, FZ, 1] {
+                // DDI0301H §18.5.3 and §§22.6–22.6.2. With IOE clear, an
+                // invalid non-NaN product generates a Default NaN even with DN clear.
                 let arithmetic_nan = |payload| match (control & DN != 0, arm11) {
                     (true, true) => default_nan,
                     (true, false) => default_nan | sign,
                     (false, _) => (default_nan | payload) ^ sign,
                 };
+                let invalid_product = if arm11 {
+                    default_nan
+                } else {
+                    default_nan | sign
+                };
                 for (name, instruction, left, right, expected, status) in [
+                    (
+                        "canonical quiet NaN",
+                        vnmul,
+                        default_nan,
+                        one,
+                        arithmetic_nan(0),
+                        0,
+                    ),
                     (
                         "quiet NaN",
                         vnmul,
@@ -427,7 +440,34 @@ fn arm1176_negated_multiply_keeps_the_default_nan_positive() {
                         arithmetic_nan(9),
                         1,
                     ),
-                    ("invalid product", vnmul, 0, infinity, arithmetic_nan(0), 1),
+                    (
+                        "zero times infinity",
+                        vnmul,
+                        0,
+                        infinity,
+                        invalid_product,
+                        1,
+                    ),
+                    (
+                        "infinity times zero",
+                        vnmul,
+                        infinity,
+                        sign,
+                        invalid_product,
+                        1,
+                    ),
+                    (
+                        "subnormal times infinity",
+                        vnmul,
+                        1,
+                        infinity,
+                        if control & FZ != 0 {
+                            invalid_product
+                        } else {
+                            infinity | sign
+                        },
+                        if control & FZ != 0 { 0x81 } else { 0 },
+                    ),
                     ("finite product", vnmul, one, one, one | sign, 0),
                     (
                         "sign edit",

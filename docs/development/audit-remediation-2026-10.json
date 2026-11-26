@@ -201160,6 +201160,14 @@
       "scope": "The standalone ARM1176 software VFP profile applies the DDI0301H positive canonical NaN rule to binary32 and binary64 VNMUL with FPSCR.DN set. Guest regressions cover both control settings, RunFast, NaN class, generated invalid results, ordinary sign edits and the later profile. A fresh S3C64xx v6_k file restore exercises the RunFast result and sticky status. QEMU arm1176 differs on 12 default-NaN result signs, while QEMU cortex-a15 matches the 30 later-profile results. Physical VFP11 execution and asynchronous exception replay remain open.",
       "qualification": "docs/development/a32-fp-controls.md#arm1176-default-nan-in-negated-multiply",
       "full_goal_complete": false
+    },
+    {
+      "id": "arm1176-negated-multiply-invalid-product-2026-11-26",
+      "findings": ["A32-FP", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "With invalid-operation traps disabled, binary32 and binary64 VNMUL on the standalone ARM1176 software profile return a positive Default NaN for invalid products even with DN clear. The tests distinguish the generated NaN from a propagated canonical quiet NaN with sticky IOC, and a fresh S3C64xx v6_k checkpoint restore executes the DN-clear case. The ARM1176 QEMU model differs on the generated NaN sign. Physical VFP11 execution and asynchronous exception replay remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#arm1176-invalid-products-with-dn-clear",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
