@@ -26,6 +26,7 @@ protected_mode:
     movw %ax, %es
     movw %ax, %ss
     movl $0x7000, %esp
+    movl $1, %ebp              /* MP pointer missing */
     movl $0xf0000, %esi
 find_pointer:
     cmpl $0x5f504d5f, (%esi)
@@ -35,9 +36,11 @@ find_pointer:
     jb find_pointer
     jmp bad
 pointer_found:
+    incl %ebp                  /* Invalid MP table signature */
     movl 4(%esi), %esi
     cmpl $0x504d4350, (%esi)
     jne bad
+    incl %ebp                  /* Invalid processor records */
     movzwl 34(%esi), %edi
     addl $44, %esi
     xorl %ecx, %ecx
@@ -67,22 +70,26 @@ have_count:
     outb %al, $0x80
     movl $0x000c4608, 0xfee00300
     outb %al, $0x80
-    movl $65536, %edx
+    incl %ebp                  /* Secondary startup timeout */
     movl $1, %ebx
+next_peer:
+    movl $4096, %edx
 wait_peer:
     cmpl $0x534d5052, 0x580(,%ebx,4)
     je peer_arrived
+    outb %al, $0x80             /* End this VMM turn if the peer needs one. */
     decl %edx
     jnz wait_peer
     jmp bad
 peer_arrived:
     incl %ebx
     cmpl %ecx, %ebx
-    jb wait_peer
+    jb next_peer
 success:
     movl $0x600d600d, 0x554
     jmp shutdown
 bad:
+    movl %ebp, 0x558
     movl $0xbad00bad, 0x554
 shutdown:
     movw $0x604, %dx

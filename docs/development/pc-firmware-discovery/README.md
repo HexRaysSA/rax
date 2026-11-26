@@ -113,7 +113,25 @@ native witness compiled and linked. The macOS Arm64 unfiltered library run
 reproduced the existing Darwin `kern.hostname` assertion failure, also
 observed on `aa89a1e80`.
 The KVM workflow runs the same ISO with the in-kernel interrupt controller
-and requires an explicit passing result for the native test. Native KVM and
-Intel HVF ISO execution remain unverified.
+and requires an explicit passing result for the native test. Native run
+`45866780395` at `733098a39` passed direct-boot secondary startup and fixed
+IPIs at two and four CPUs. The ISO guest wrote its failure marker in the
+same run. Its original marker did not distinguish discovery from peer
+startup. [Native KVM run](https://github.com/HexRaysSA/rax/actions/runs/45866780395/job/140071535914)
+
+The current ISO witness checks the published MP pointer before boot, then
+lets the guest discover the processor count. It records distinct guest
+failure stages for the pointer, table header, processor records, and peer
+startup. While waiting for each AP, the guest uses at most 4,096 port
+`0x80` writes to yield VMM turns, matching the scheduling technique used
+by the direct-boot KVM witness. The revised boot image SHA-256 is
+`b53d60bdc5e897ca62da2cede7bf5fe78155d8cc1fd670c4e8876d879f4a1ae8`.
+The QEMU control again observed all peer markers and shutdown in both CPU
+configurations using an independently generated MP table. A corrupt table
+header reported failure stage 2. Advertising four CPUs on a two-CPU VM
+reported failure stage 4 with the two existing CPU markers intact. Both
+negative controls shut down. Native KVM and Intel HVF ISO execution with
+the revised witness remain unverified. All seven local firmware tests passed
+with the revised image.
 Inputs, commands and results are under
 `/Users/int/dev/rax-audit-work/four-findings-pc-iso-smp-2026-11-26/`.

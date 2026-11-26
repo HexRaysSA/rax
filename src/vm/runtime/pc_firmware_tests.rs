@@ -94,13 +94,21 @@ fn check_el_torito_smp(backend: BackendKind) {
         assert_eq!(vm.vm.uses_native_x86_irqchip(), backend == BackendKind::Kvm);
         assert!(vm.coordinator.online[0]);
         assert!(vm.coordinator.online[1..].iter().all(|online| !online));
+        assert_eq!(read(&vm, 0xf0000), u32::from_le_bytes(*b"_MP_"));
         assert_eq!(read(&vm, 0x550), 0);
         vm.run().unwrap();
-        assert_eq!(read(&vm, 0x554), 0x600d600d);
-        assert_eq!(read(&vm, 0x550), u32::from(count));
-        for id in 0..count {
-            assert_eq!(read(&vm, 0x580 + u64::from(id) * 4), 0x534d5052);
-        }
+        let discovered = read(&vm, 0x550);
+        let markers: Vec<_> = (0..count)
+            .map(|id| read(&vm, 0x580 + u64::from(id) * 4))
+            .collect();
+        assert_eq!(
+            read(&vm, 0x554),
+            0x600d600d,
+            "{backend:?} with {count} CPUs: failure stage={}, discovered={discovered}, markers={markers:x?}",
+            read(&vm, 0x558),
+        );
+        assert_eq!(discovered, u32::from(count));
+        assert_eq!(markers, vec![0x534d5052; usize::from(count)]);
     }
 }
 

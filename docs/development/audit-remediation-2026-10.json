@@ -201085,7 +201085,7 @@
       "id": "pc-el-torito-smp-discovery-2026-11-26",
       "findings": ["C-SMP"],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Cold SMP El Torito boot publishes the configured PC MP tables without overwriting the loaded image. The RAX guest discovers two or four processors from the table, starts every AP with INIT/SIPI, and observes peer-written RAM markers. A QEMU control verified the startup sequence using independently supplied MP records. The KVM workflow requires that the same witness pass with in-kernel interrupt ownership. Native KVM and Intel HVF ISO execution and broader SMP coverage remain open.",
+      "scope": "Cold SMP El Torito boot publishes the configured PC MP tables without overwriting the loaded image. The software RAX guest discovers two or four processors from the table, starts every AP with INIT/SIPI, and observes peer-written RAM markers. A QEMU control verified startup and failure diagnostics using independently supplied MP records. KVM run 45866780395 passed direct-boot SMP but received an undifferentiated failure from the original ISO witness. The revised witness records the failure stage and yields while waiting for APs. Native KVM and Intel HVF ISO execution and broader SMP coverage remain open.",
       "qualification": "docs/development/pc-firmware-discovery/README.md#multiprocessor-iso-boot",
       "full_goal_complete": false
     },
