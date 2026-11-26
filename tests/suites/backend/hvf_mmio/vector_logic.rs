@@ -2,6 +2,7 @@
 use super::*;
 use mmio::vector_logic::Encoding;
 use rax::isa::x86_64::instruction_metadata::{self, OperandKind};
+use sha2::{Digest, Sha256};
 
 #[path = "../../../../tools/hvf/intel_mmio_packed_multiply.rs"]
 mod packed_multiply;
@@ -28,6 +29,108 @@ const FORMS: [(u8, u8, &str); 12] = [
     (1, 0xeb, "por"),
     (1, 0xef, "pxor"),
 ];
+
+#[test]
+fn two_source_permute_halves_matches_every_ram_control_after_restore() {
+    use packed_shuffle::{
+        PERMUTE_HALVES, immediate_reply, permute_halves_code, permute_halves_expected, source,
+    };
+
+    let mut observations = Sha256::new();
+    let reply = immediate_reply();
+    for (mnemonic, opcode) in PERMUTE_HALVES {
+        for control in u8::MIN..=u8::MAX {
+            let code = permute_halves_code(opcode, control);
+            let label = (mnemonic, control);
+            let (context, mut memory, mut exit) = fixture(&code);
+            exit.linear += 3;
+            exit.physical += 3;
+            let decoded = instruction_metadata::decode(64, context.rip, &code)
+                .unwrap_or_else(|error| panic!("{label:?}: {error:?}"));
+            assert_eq!(decoded.mnemonic, mnemonic);
+            assert!(decoded.operands_complete);
+            assert_eq!(decoded.operands[2].width_bits, 256);
+            assert_eq!(decoded.operands[3].value, u64::from(control));
+            let plan = prepare(&context, &mut memory, exit).unwrap();
+            assert_eq!(
+                (plan.linear, plan.physical, plan.length),
+                (exit.linear, exit.physical, 7)
+            );
+            assert!(
+                memory
+                    .reads
+                    .iter()
+                    .all(|&(address, _)| address != exit.physical)
+            );
+            let Action::VectorLogic {
+                input,
+                source: first,
+            } = plan.action
+            else {
+                panic!("{label:?}: unexpected action {:?}", plan.action);
+            };
+            assert_eq!(
+                (input.index, input.encoding, first),
+                (15, Encoding::Vex256, 8)
+            );
+            let mut pending = mmio::InputState::default();
+            pending.begin_vector_logic(input, source()).unwrap();
+            let saved = rax::codec::serialize(&pending).unwrap();
+            let mut restored: mmio::InputState = rax::codec::deserialize_strict(&saved).unwrap();
+            restored.validate_checkpoint().unwrap();
+            assert_eq!(restored.descriptor(), Some((32, None)));
+            let mut host = Host::default();
+            restored.complete(&mut host, &reply);
+            restored.complete(&mut host, &reply);
+            let [Write::Ymm(15, actual), Write::Retire(7)] = host.0.as_slice() else {
+                panic!("{label:?}: unexpected completion {:?}", host.0);
+            };
+            assert_eq!(*actual, permute_halves_expected(control), "{label:?}");
+            observations.update(actual);
+        }
+    }
+    assert_eq!(
+        format!("{:x}", observations.finalize()),
+        "c75e2212d0cf632e5e47c206b4f665aed25e4487ace402f51239aeb1a3500174"
+    );
+}
+
+#[test]
+fn two_source_permute_halves_refuses_reserved_and_register_only_encodings() {
+    for (_, opcode) in packed_shuffle::PERMUTE_HALVES {
+        let legal = packed_shuffle::permute_halves_code(opcode, 0x88);
+        for (index, replacement) in [
+            (2, 0x39), // L=0
+            (2, 0xbd), // W=1
+            (2, 0x3c), // Missing mandatory 66
+        ] {
+            let mut code = legal;
+            code[index] = replacement;
+            assert!(instruction_metadata::decode(64, 0x1000, &code).is_err());
+        }
+
+        let register = [0xc4, 0x63, 0x3d, opcode, 0xff, 0x88];
+        assert!(instruction_metadata::decode(64, 0x1000, &register).is_ok());
+        let (context, mut memory, exit) = fixture(&register);
+        assert!(prepare(&context, &mut memory, exit).is_err());
+
+        let (context, mut memory, mut exit) = fixture(&legal);
+        exit.linear += 3;
+        exit.physical += 3;
+        let Action::VectorLogic { mut input, .. } =
+            prepare(&context, &mut memory, exit).unwrap().action
+        else {
+            panic!("expected a pending vector read");
+        };
+        // A malformed saved descriptor must not select a 128-bit completion.
+        input.encoding = Encoding::Vex128;
+        assert!(
+            mmio::InputState::default()
+                .begin_vector_logic(input, packed_shuffle::source())
+                .is_err()
+        );
+    }
+}
 
 #[test]
 fn packed_byte_shuffle_preserves_lanes_and_restores_once() {

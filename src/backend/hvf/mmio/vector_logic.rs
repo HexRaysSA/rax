@@ -270,6 +270,7 @@ enum ImmediateShuffle {
     BlendWord,
     BlendDoubleword,
     BlendQuadword,
+    PermuteHalves,
 }
 
 impl ImmediateShuffle {
@@ -281,6 +282,7 @@ impl ImmediateShuffle {
             "pblendw" => Self::BlendWord,
             "blendps" | "pblendd" => Self::BlendDoubleword,
             "blendpd" => Self::BlendQuadword,
+            "perm2f128" | "perm2i128" => Self::PermuteHalves,
             _ => return None,
         })
     }
@@ -318,6 +320,15 @@ impl ImmediateShuffle {
                     shift @ 16..=31 => left[start + shift - 16],
                     _ => 0,
                 },
+                Self::PermuteHalves => {
+                    let selector = control >> (4 * lane);
+                    if selector & 8 != 0 {
+                        0
+                    } else {
+                        let source = if selector & 2 == 0 { &left[..] } else { right };
+                        source[16 * usize::from(selector & 1) + byte]
+                    }
+                }
             }
         })
     }
@@ -699,6 +710,13 @@ impl Input {
         }
         if matches!(self.operation, Operation::Sign(Element::Quadword)) {
             return Err("invalid packed sign descriptor".into());
+        }
+        if matches!(
+            self.operation,
+            Operation::ShuffleImmediate(ImmediateShuffle::PermuteHalves, _)
+        ) && self.encoding != Encoding::Vex256
+        {
+            return Err("invalid 256-bit permutation descriptor".into());
         }
         if let Operation::MaskBlend(element, selection) = self.operation {
             let lanes = usize::from(self.encoding.size()) / element.bytes();

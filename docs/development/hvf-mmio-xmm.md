@@ -1344,6 +1344,43 @@ and 28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python
 HVF tool tests passed. The Intel macOS consumer cross-built and passed
 strict signature verification.
 
+## Two-source 128-bit lane permutations
+
+Intel HVF projects one 32 B device read for the VEX.256.W0 memory forms of
+`VPERM2F128` and `VPERM2I128`. The pending record carries the first source
+and the immediate. The device reply supplies the second source. Each
+destination half selects from the four input halves or becomes zero.
+The completion writes the full YMM destination and advances RIP once.
+The permutation takes constant time and uses fixed-size storage.
+[Intel SDM revision 086, Vol. 2C, pp. 5-503 through 5-506](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| Bits 1:0 and 5:4 select the low and high destination halves, respectively. Bits 3 and 7 override their selectors with zero. | Exercise all 256 controls for each opcode with distinct bytes in all four input halves. Toggle the ignored bits 2 and 6 and compare the full YMM result. |
+| The full source is read even when neither output half uses it. | Run the RAM reference with a source whose last byte is in an inaccessible page. Check both the zeroing control 0x88 and the first-source-only control 0x00 for each opcode. Check a 32 B device request at the planner. |
+| The pending read retains the captured input and retires once. | Serialize and restore the read, replay a duplicate reply, and check one full YMM write and one retirement. Reject an inconsistent 128-bit descriptor. |
+| The encodings require 256-bit length, W0 and mandatory 66. | Change those fields separately. Confirm the register form still decodes and cannot produce a device read. |
+
+The parent rejected `VPERM2F128` at metadata decode. The Rosetta RAM
+reference produced 1,024 observations at two placements. All four
+cross-page guard probes faulted when byte 32 was inaccessible. The
+contiguous references preserved RFLAGS and MXCSR. The 512 full vectors
+at the first placement have SHA-256
+`c75e2212d0cf632e5e47c206b4f665aed25e4487ace402f51239aeb1a3500174`.
+The sources and raw results are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-permute-halves-2026-11-26/`.
+
+The `vector-permute-halves` hosted profile covers each of the 25 pairs of
+distinct half actions for both opcodes, directly and after restoring into
+a fresh CPU owner. The profile defines 100 guest cases.
+
+The Apple Silicon build passed 177 MMIO, 102 ISA-oracle, 16 CI-policy and
+28,561 x86-64 tests, with three x86-64 tests ignored. All 55 Python HVF
+tool tests passed. The Intel macOS guest consumer cross-built and passed
+strict signature verification. These local checks used a tree based on
+`4baf5cf6c`. The HVF changes were preserved byte for byte when advancing
+past an unrelated Windows change before publication.
+
 ## Unary packed shuffles with an immediate control
 
 Intel HVF supports the legacy XMM and VEX.128/.256 memory forms of

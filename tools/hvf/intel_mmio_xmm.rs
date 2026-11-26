@@ -1189,6 +1189,41 @@ pub(super) fn run_immediate_shuffle(output: &Path) {
     println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
+pub(super) fn run_permute_halves(output: &Path) {
+    use packed_shuffle::{
+        PERMUTE_HALVES, immediate_reply, permute_halves_code, permute_halves_expected, source,
+    };
+
+    assert!(!output.exists(), "observations must be new");
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    let left = qwords(source());
+    let reply = immediate_reply();
+    let mut index = 0;
+    for (mnemonic, opcode) in PERMUTE_HALVES {
+        for high in [0, 1, 2, 3, 8] {
+            for low in [0, 1, 2, 3, 8] {
+                let control = (high << 4) | low;
+                let code = permute_halves_code(opcode, control);
+                let expected = qwords(permute_halves_expected(control));
+                for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                    let value = packed_binary_case(&code, true, restore, left, &reply, expected);
+                    record(
+                        output,
+                        index,
+                        &format!("vector-permute-halves-{mnemonic}-{control:02x}-{phase}"),
+                        reply.len(),
+                        value,
+                    );
+                    index += 1;
+                }
+            }
+        }
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 pub(super) fn run_immediate_blend(output: &Path) {
     use packed_blend::{LEFT, REPLY, forms};
 

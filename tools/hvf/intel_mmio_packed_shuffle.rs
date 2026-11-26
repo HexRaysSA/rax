@@ -33,6 +33,28 @@ pub(super) fn immediate_reply() -> [u8; 32] {
     std::array::from_fn(|index| 0x80 + index as u8)
 }
 
+pub(super) const PERMUTE_HALVES: [(&str, u8); 2] = [("vperm2f128", 0x06), ("vperm2i128", 0x46)];
+
+pub(super) fn permute_halves_code(opcode: u8, control: u8) -> [u8; 7] {
+    [0xc4, 0x63, 0x3d, opcode, 0x7f, 3, control]
+}
+
+pub(super) fn permute_halves_expected(control: u8) -> [u8; 32] {
+    let mut output = [0; 32];
+    let left = source();
+    let right = immediate_reply();
+    let halves = [&left[..16], &left[16..], &right[..16], &right[16..]];
+    for (half, selector) in output
+        .chunks_exact_mut(16)
+        .zip([control & 15, control >> 4])
+    {
+        if selector & 8 == 0 {
+            half.copy_from_slice(halves[usize::from(selector & 3)]);
+        }
+    }
+    output
+}
+
 pub(super) fn immediate_cases() -> Vec<ImmediateCase> {
     let mut cases = Vec::new();
     for (mnemonic, control, legacy, vex128, vex256, expected) in [
