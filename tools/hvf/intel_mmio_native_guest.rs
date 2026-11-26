@@ -1518,14 +1518,15 @@ fn main() {
         xmm::run_packed_integer(&output, profile);
         return;
     }
-    if let Some(profile @ ("--vector-aes-rounds" | "--vector-vaes-rounds")) = std::env::args_os()
-        .nth(1)
-        .as_deref()
-        .and_then(std::ffi::OsStr::to_str)
+    if let Some(profile @ ("--vector-aes-rounds" | "--vector-vaes-rounds" | "--vector-aes-unary")) =
+        std::env::args_os()
+            .nth(1)
+            .as_deref()
+            .and_then(std::ffi::OsStr::to_str)
     {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        aes_rounds::run(&output, profile == "--vector-vaes-rounds");
+        aes_rounds::run(&output, profile);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-widening")) {

@@ -2,6 +2,9 @@
 use super::xmm::{alignment_fault, packed_binary_case};
 use super::*;
 
+#[path = "intel_mmio_aes_unary.rs"]
+mod unary;
+
 const ROUNDS: [(&str, u8); 4] = [
     ("enc", 0xdc),
     ("enclast", 0xdd),
@@ -86,7 +89,16 @@ const EXPECTED: [[[u128; 2]; 4]; 4] = [
     ],
 ];
 
-pub(super) fn run(output: &Path, wide: bool) {
+pub(super) fn run(output: &Path, profile: &str) {
+    match profile {
+        "--vector-aes-rounds" => run_rounds(output, false),
+        "--vector-vaes-rounds" => run_rounds(output, true),
+        "--vector-aes-unary" => unary::run(output),
+        _ => unreachable!("unknown AES profile"),
+    }
+}
+
+fn run_rounds(output: &Path, wide: bool) {
     assert!(!output.exists(), "observations must be new");
     let qwords = |bytes: [u8; 32]| {
         std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))

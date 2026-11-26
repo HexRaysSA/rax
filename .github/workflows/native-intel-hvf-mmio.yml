@@ -48,6 +48,7 @@ on:
           - vector-widening
           - vector-aes-rounds
           - vector-vaes-rounds
+          - vector-aes-unary
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-immediate-blend

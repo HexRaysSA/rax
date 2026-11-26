@@ -2037,5 +2037,17 @@ reads on a VAES-capable CPU. On Arm64 macOS, the `hvf_mmio`,
 `hvf_guest_translation`, `x86_64`, `isa_oracle` and
 `ci_actions_pinned` targets passed 28,873 tests with three ignored.
 The Intel macOS consumer cross-built and passed strict signature
-verification. Native execution of these profiles, native qualification
-of the unary instructions, and EVEX remain open.
+verification.
+
+The `vector-aes-unary` profile covers legacy and VEX.128 AESIMC on
+16 operands and AESKEYGENASSIST on two operands at each of eight
+immediates. It checks 64 direct reads and 64 fresh-owner restores with
+16 B device replies. The legacy forms include two #GP(0) alignment
+controls. VEX.128 reads use an operand misaligned by 3 B. The harness
+checks that the restored pending read completes from its saved state
+after the original instruction is overwritten. Its 130 expected
+records use independent QEMU RAM results for the 128 successful reads
+and the x86 alignment rule for the two fault controls. This profile
+cross-built for Intel macOS and passed strict signature verification.
+
+Native execution of these profiles and EVEX remain open.
