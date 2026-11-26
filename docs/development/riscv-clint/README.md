@@ -629,6 +629,7 @@ counter owner, including the two-hart run that booted on hart 1.
 | Two harts, wall, later capture | 93,738 | 1,687 | 61 | 41.0 ms |
 | Four harts, wall | 160,928 | 164,269 | 17,591 | 176.9 ms |
 | Two harts, retired, batched | 103 | 0 | 0 | None recorded |
+| Four harts, wall, batched, `highres=off` | 0 | 0 | 0 | None recorded |
 
 Counts sum the per-CPU values at capture. Linux records a timer hang
 after three failed attempts to program the next deadline during one
@@ -643,7 +644,13 @@ establish the cause of the boot timeout.
 
 The four-hart `highres=off` control adds one kernel argument. The DTB is
 the only changed ELF load segment. QEMU 11.1.2 reached all four affinity
-markers and powered off. The RAX wall-clock diagnostic is pending.
+markers and powered off. The archived turn-batched RAX build
+(`eea2e5e65`) reached the 950 s host limit before any affinity marker.
+At the 300 s checkpoint, Linux's online mask was `0xf`. The verified RAM
+counters recorded 47,405, 48,851, 47,660 and 46,676 timer IRQs for CPUs
+0 through 3. All four saved stacks included `riscv_timer_interrupt`.
+Linux logged RCU stalls even with its high-resolution timer disabled.
+The cause of the wall-clock boot timeout remains open.
 
 The fixture, output, hashes and exact commands are in
 `/Users/int/dev/rax-audit-work/four-findings-rv64-turn-batching-2026-11-26/`.
