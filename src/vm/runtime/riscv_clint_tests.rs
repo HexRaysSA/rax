@@ -102,6 +102,57 @@ fn platform(vm: &Vmm) -> Arc<crate::backend::emulator::riscv::platform::Platform
 }
 
 #[test]
+fn riscv_checkpoint_frontier_publishes_the_unentered_peers_timer() {
+    let mut fixture = Fixture::with_code(2, [0x13, 0, 0, 0].repeat(320), ClockMode::Retired);
+    let vm = &mut fixture.vm;
+    vm.snapshot_config = Some(SnapshotConfig {
+        at_instructions: vec![300],
+        ..SnapshotConfig::default()
+    });
+    platform(vm)
+        .write(0x0200_4008, &1u64.to_le_bytes())
+        .unwrap();
+    let CpuState::RiscV(mut peer) = vm.vcpus[1].get_state().unwrap() else {
+        panic!("expected RV64 peer");
+    };
+    peer.regs.csrs = vec![(0x300, 0x8), (0x304, 0x80), (0x305, 0x1800)];
+    vm.vcpus[1].set_state(&CpuState::RiscV(peer)).unwrap();
+
+    assert!(vm.execute_turn().unwrap().is_none());
+    assert_eq!(vm.coordinator.retired, 300);
+    assert_eq!(vm.coordinator.cursor, 1);
+    assert_eq!(vm.vcpus[0].instruction_count(), 300);
+    assert_eq!(vm.vcpus[1].instruction_count(), 0);
+    let CpuState::RiscV(peer) = vm.vcpus[1].get_state().unwrap() else {
+        panic!("expected RV64 peer");
+    };
+    assert!(peer.regs.csrs.contains(&(0x344, 0x80)));
+
+    vm.last_snapshot_insn = 300;
+    assert!(vm.execute_turn().unwrap().is_none());
+    assert_eq!(vm.coordinator.retired, 300);
+    assert_eq!(vm.vcpus[1].instruction_count(), 0);
+    assert_eq!(vm.vcpus[1].current_pc(), 0x1800);
+}
+
+#[test]
+fn riscv_retirement_wrap_restarts_the_checkpoint_schedule_inside_a_turn() {
+    let mut fixture = Fixture::with_code(1, [0x13, 0, 0, 0].repeat(320), ClockMode::Retired);
+    let vm = &mut fixture.vm;
+    vm.snapshot_config = Some(SnapshotConfig {
+        at_instructions: vec![3],
+        ..SnapshotConfig::default()
+    });
+    vm.last_snapshot_insn = u64::MAX - 10;
+    vm.coordinator.retired = u64::MAX - 3;
+
+    assert!(vm.execute_turn().unwrap().is_none());
+    assert_eq!(vm.coordinator.retired, 3);
+    assert_eq!(vm.last_snapshot_insn, 0);
+    assert_eq!(vm.vcpus[0].instruction_count(), 7);
+}
+
+#[test]
 fn idle_clock_file_preserves_riscv_wait_and_timer_wake_order() {
     use crate::vm::snapshot::SnapshotBundle;
     const BASE: u64 = 0x8000_8100;

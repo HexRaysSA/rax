@@ -200696,6 +200696,17 @@
       "scope": "The RV64 Sv39 firmware platform parks wall-clock harts after WFI and restores the waiting state from the per-hart private records. A two-hart timer probe failed immediately on the baseline and passed on revised RAX and QEMU 11.1.2. Both revised RAX harts restored at retirement 28 in a fresh process after removal of the input ELF and then woke on their timers. The revised four-hart Linux capture shows all three secondaries parked in the OpenSBI wait loop. Revised two- and four-hart wall-clock Linux runs reached the 420 s host limit before PID 1 affinity markers, so complete wall-clock Linux boot qualification remains open.",
       "qualification": "docs/development/riscv-clint/README.md#wall-clock-firmware-waits",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-retirement-batches-2026-11-26",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Generic RV64 turns keep per-instruction sampling on the executing hart and publish peer clock and interrupt state at the batch boundary. The coordinator stops at the exact checkpoint count and handles rollover inside a turn. Tests verify a peer timer pending at retirement 300 before the peer enters and a detached two-hart timer wait at retirement 28. A wall-clock ELF with a 90,000,000-instruction loop passed in both RAX versions and QEMU 11.1.2. Alternating four-hart RAX runs reduced the median elapsed time from 27.67 s to 13.05 s.",
+      "qualification": "docs/development/riscv-clint/README.md#rv64-retirement-batches",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

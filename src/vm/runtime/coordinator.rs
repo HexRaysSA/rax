@@ -158,8 +158,8 @@ impl Vmm {
         })
     }
 
-    /// The software coordinator drains platform requests after each instruction,
-    /// including instructions that retire I/O, before entering another CPU.
+    /// The software coordinator drains platform requests before entering
+    /// another CPU, at instruction boundaries for queued requests.
     pub(super) fn execute_turn(&mut self) -> Result<Option<ExecutionTurn>> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
@@ -230,13 +230,28 @@ impl Vmm {
                 debug_step_completed: false,
             }));
         }
-        for _ in 0..DEFAULT_RETIREMENT_QUANTUM {
-            // Retirement updates the VM clock at the end of each step. Give
-            // timers and queued controllers that boundary before another step.
+        // RV64 refreshes the executing hart's CLINT/PLIC inputs on each step.
+        // Peer inputs only need publication at the frontier of each batch.
+        let batch_riscv = self.checkpoint_config.arch == ArchKind::Riscv64
+            && self
+                .vm
+                .as_any()
+                .downcast_ref::<crate::backend::emulator::EmulatorVm>()
+                .is_some_and(crate::backend::emulator::EmulatorVm::boots_all_riscv_harts);
+        let mut remaining = DEFAULT_RETIREMENT_QUANTUM;
+        while remaining > 0 {
+            let budget = if batch_riscv {
+                let before_wrap = (u64::MAX - self.coordinator.retired).saturating_add(1);
+                let before_snapshot =
+                    snapshot_at.map_or(u64::MAX, |next| next - self.coordinator.retired);
+                remaining.min(before_wrap).min(before_snapshot)
+            } else {
+                1
+            };
             if retired_pc {
                 self.service_pc_interrupts(index)?;
             }
-            let result = self.vcpus[index].run_retirement_budget(1)?;
+            let result = self.vcpus[index].run_retirement_budget(budget)?;
             let (retired, wrapped) = self.coordinator.retired.overflowing_add(result.retired);
             self.coordinator.retired = retired;
             if wrapped {
@@ -267,7 +282,7 @@ impl Vmm {
                     // the next hart for both the live VM and the restored VM.
                     return Ok(None);
                 }
-                RetirementStop::BudgetExhausted => (),
+                RetirementStop::BudgetExhausted => remaining -= budget,
                 RetirementStop::Exit(exit) => {
                     return Ok(Some(ExecutionTurn {
                         cpu_index: index,

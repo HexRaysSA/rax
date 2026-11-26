@@ -565,3 +565,38 @@ produced the same pass marker and exit status. The adapter regression
 also exercises wake from a locally enabled machine software interrupt.
 Commands, the guest assembly and raw results are under
 `/Users/int/dev/rax-audit-work/four-findings-rv64-wall-clock-2026-11-26/`.
+
+### RV64 retirement batches
+
+The coordinator gives a generic RV64 hart a bounded retirement batch.
+The executing hart samples CLINT and PLIC inputs at every instruction.
+The coordinator refreshes the entire online cohort at entry and when the
+batch ends. An I/O exit or a zero-retirement trap still yields immediately.
+An automatic checkpoint or retirement-counter wrap limits the batch
+before entry, so the subsequent turn or file observes the same cursor,
+retirement count and peer interrupt state.
+
+For a turn of Q instructions on H online harts, clock sampling requires
+O(Q + H) work and O(1) additional space. Two tests check that a peer's
+timer is pending at retirement 300 before that peer executes, and that a
+turn crossing count wrap stops at the first checkpoint in the new epoch.
+The batched CLI also captured two machine timer waits at retirement 28.
+The live guest and a fresh restore with the ELF removed both woke the
+two harts on their timers and powered off.
+
+The same RV64 ELF ran a fixed loop of 90,000,000 instructions on the
+boot hart while its peers waited under the wall clock. Optimized RAX
+executables on macOS Arm64 and QEMU 11.1.2 produced the pass marker and
+powered off. In alternating runs, four-hart host elapsed time went from
+27.67 s to 13.05 s (median of two measurements per build). One two-hart
+pair took 29.23 s and 13.59 s. The timings describe this guest and host.
+The two-hart Debian wall-clock probe entered supervisor mode on both
+harts, then reported an RCU stall before the PID 1 affinity marker. Two
+warnings showed the same grace-period sequence and RCU softirq count.
+The first checkpoint recorded 422,699,490 retirements on hart 0 and
+574,624,537 on hart 1, both with active Sv39. This boot remains
+unqualified.
+[Linux RCU stall detector documentation](https://docs.kernel.org/RCU/stallwarn.html)
+
+The fixture, output, hashes and exact commands are in
+`/Users/int/dev/rax-audit-work/four-findings-rv64-turn-batching-2026-11-26/`.
