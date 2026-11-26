@@ -200682,7 +200682,7 @@
         "C-HVF"
       ],
       "status": "locally_qualified_full_findings_open",
-      "scope": "Intel HVF plans one read for all 15 legacy XMM and VEX memory encodings of PABSB, PABSW and PABSD. Baseline metadata rejected all 15. The corrected planner completed each form directly and after restoring pending I/O, and retained the legacy unary shuffle record byte for byte. Thirty independent Rosetta RAM observations matched full YMM state and RFLAGS. All 28,855 owning tests passed, with 3 opt-in tests ignored. The Intel cross-build and code-signature checks passed. Native runtime qualification remains pending.",
+      "scope": "Intel HVF plans one read for all 15 legacy XMM and VEX memory encodings of PABSB, PABSW and PABSD. Baseline metadata rejected all 15. The corrected planner completed each form directly and after restoring pending I/O, and retained the legacy unary shuffle record byte for byte. Thirty independent Rosetta RAM observations matched full YMM state and RFLAGS. All 28,855 owning tests passed, with 3 opt-in tests ignored. Hosted Intel macOS run 45722378457 passed all 63 cases at 45a277537b52. The 30 direct and 30 fresh-owner results matched the independent RAM fingerprints, and three legacy misalignment controls took #GP. The exact source, signed executable and both archives were verified. Bare-metal Intel macOS and remaining MMIO and interrupt profiles remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-absolute-value-with-a-device-operand",
       "full_goal_complete": false
     },

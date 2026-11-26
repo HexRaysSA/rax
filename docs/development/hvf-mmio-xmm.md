@@ -1530,11 +1530,17 @@ and `ci_actions_pinned` targets passed 28,855 tests, with 3 opt-in x86
 tests ignored. The admission tests also cover register sources, write
 exits, invalid VEX operands, LOCK, legacy misalignment, MMX and EVEX.
 
-The `vector-absolute` profile is configured for 30 direct reads, 30
-fresh-owner completions and 3 legacy alignment faults. The Intel macOS
-consumer cross-built and passed strict code-signature verification on
-Arm64. Native execution is pending. MMX and EVEX device operands are
-outside this profile.
+The `vector-absolute` profile passed all 63 cases on virtualized Intel
+macOS at `45a277537b52`. All 30 direct reads and 30 fresh-owner
+completions matched the independent RAM fingerprints, and all three
+legacy misalignment controls took #GP. Verification covered the exact
+source, both artifact archives and the signed executable. The execution
+archive SHA-256 is
+`ec4b00cc439bd41c25ddb3db8f328f704fdbe235ccb5f4139f23c63b96103068`.
+[Hosted packed absolute-value execution](https://github.com/HexRaysSA/rax/actions/runs/45722378457/job/139583614606)
+
+MMX and EVEX device operands and bare-metal Intel macOS qualification
+remain open.
 
 The RAM observation SHA-256 is
 `3aa78dcb1a58c034d1781a8ecc9e0387013379823c2ec2e8d2187433c08e151d`.
