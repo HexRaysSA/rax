@@ -22,8 +22,12 @@ encoded request and ordered remaining target slots. A zero remaining count
 identifies a request that has yet to resolve its destinations. Existing
 quiescent frames keep their original bytes and restore with no selected
 message. Older readers reject the required extension. Capture at this frontier
-requires a complete bundle. A successful legacy restore
-discards any selected message owned by the old machine.
+requires a complete bundle. Restore at this frontier requires a bundle with
+execution state. A base snapshot or an extended bundle without a coordinator
+record would drop the remaining destinations while leaving effects of the
+delivery in the target. Restore rejects these projections before publishing
+CPU, RAM or device state. The same legacy input can restore once the selected
+IPI and queued SIPI have been dispatched.
 
 For N local APICs, resolution uses O(N) time and O(N) space. Acknowledgment is
 O(1) per successful target. The wrapper adds 15 header bytes, up to 32 bytes
@@ -34,6 +38,7 @@ of encoded request, and up to 255 one-byte destination slots.
 | I1 | The coordinator retains sole ownership of delivery between vCPU turns. A returned backend rejection before application leaves that target outstanding. | Inject a one-shot error at CPU 2 after CPU 1 succeeds. Check the call sequence, final CS state and SIPI FIFO. | Confirmed by the modeled four-vCPU test. |
 | I2 | A previously selected logical target remains a destination even when its LAPIC configuration changes. | Change CPU 3's logical ID before saving and give CPU 1 a new pending vector. Load the file into a fresh VM, verify CPU 3 still starts and CPU 1 retains the vector. | Confirmed using software x86 CPUs and a single fault-injected INIT. |
 | I3 | The pending record can coexist with deadline and EOI wrappers without accepting malformed framing. | Round-trip all wrappers and queued SIPI together. Reject truncation, trailers, excessive sizes, repeated or out-of-range slots and inverted wrappers. | Confirmed by the execution codec tests. |
+| I4 | Legacy restore keeps peer state that can already reflect partial delivery. | Attempt base and public CPU set restore after CPU 1 accepts INIT and CPU 2 rejects it. Verify the selected targets, queued SIPI, CPUs, RAM and UART survive rejection. Retry after delivery completes. | Four software CPUs with a fault injected at CPU 2. |
 
 The four-CPU file test injects one error through a model. Real software CPUs
 receive the successful INIT and SIPI operations. Native backend setter errors,

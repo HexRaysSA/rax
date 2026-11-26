@@ -638,6 +638,83 @@ fn broadcast_init_keeps_undelivered_targets_ahead_of_a_queued_sipi() {
 }
 
 #[test]
+fn legacy_restore_preserves_a_partially_delivered_init() {
+    use crate::vm::snapshot::SnapshotBundle;
+    use vm_memory::{Bytes, GuestAddress};
+
+    for include_cpu_set in [false, true] {
+        let mut fixture = Fixture::new(4);
+        let vm = &mut fixture.vm;
+        vm.coordinator.online.fill(true);
+        let mut archive = SnapshotBundle::new(vm.take_snapshot(31).unwrap());
+        if include_cpu_set {
+            archive = archive.with_cpus(vm.capture_cpu_states().unwrap()).unwrap();
+            if let Some(pci) = &vm.pci_devices {
+                archive = archive.with_pci(pci.checkpoint().unwrap()).unwrap();
+            }
+        }
+
+        let calls = Arc::new(Mutex::new(Calls {
+            reject_init_once: Some(2),
+            ..Default::default()
+        }));
+        let state = vm.vcpus[2].get_state().unwrap();
+        let real_cpu = std::mem::replace(
+            &mut vm.vcpus[2],
+            Box::new(Native {
+                id: 2,
+                state,
+                calls: calls.clone(),
+                prepared_input: false,
+            }),
+        );
+        {
+            let mut bsp = vm.local_apics[0].lock().unwrap();
+            bsp.write_register(0x300, 0x000c_4500); // INIT, level assert, all excluding self.
+            bsp.write_register(0x300, 0x000c_0609); // SIPI vector 9, all excluding self.
+        }
+        let error = vm.route_interprocessor_requests().unwrap_err();
+        assert!(error.to_string().contains("test CPU rejected INIT"));
+        vm.vcpus[2] = real_cpu;
+        assert_eq!(calls.lock().unwrap().init_attempts, [2]);
+        assert_eq!(vm.coordinator.online, [true, false, true, true]);
+        let pending = vm.coordinator.pending_ipi.clone().unwrap();
+        assert_eq!(pending.remaining.as_ref().unwrap(), &[2, 3]);
+
+        let witness = GuestAddress(0x4000);
+        vm.guest_mem.memory().write_obj(0xa5u8, witness).unwrap();
+        vm.serial.lock().unwrap().queue_input(b"x");
+        let live = public_states(vm);
+        let restore = |vm: &mut Vmm| {
+            if include_cpu_set {
+                vm.restore_snapshot_bundle(&archive)
+            } else {
+                vm.restore_snapshot(archive.base())
+            }
+        };
+        let error = restore(vm).unwrap_err();
+        assert!(error.to_string().contains("x86 IPI"), "{error}");
+        assert_eq!(vm.coordinator.pending_ipi, Some(pending));
+        assert_eq!(vm.coordinator.online, [true, false, true, true]);
+        assert!(vm.local_apics[0].lock().unwrap().has_pending_ipi());
+        assert_eq!(vm.coordinator.retired, 0);
+        assert_eq!(vm.last_snapshot_insn, 0);
+        assert_eq!(public_states(vm), live);
+        assert_eq!(vm.guest_mem.memory().read_obj::<u8>(witness).unwrap(), 0xa5);
+        assert!(vm.serial.lock().unwrap().has_input());
+
+        vm.route_interprocessor_requests().unwrap();
+        assert_eq!(vm.coordinator.online, [true; 4]);
+        assert!(vm.coordinator.pending_ipi.is_none());
+        assert!(!vm.local_apics[0].lock().unwrap().has_pending_ipi());
+        restore(vm).unwrap();
+        assert_eq!(vm.coordinator.retired, 31);
+        assert_eq!(vm.guest_mem.memory().read_obj::<u8>(witness).unwrap(), 0);
+        assert!(!vm.serial.lock().unwrap().has_input());
+    }
+}
+
+#[test]
 fn checkpoint_resumes_only_the_unacknowledged_targets_of_a_logical_init() {
     use crate::vm::snapshot::SnapshotBundle;
 

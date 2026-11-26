@@ -94,6 +94,9 @@ impl Vmm {
         }
         let snapshot = bundle.base();
         self.validate_snapshot_target(snapshot)?;
+        if bundle.execution().is_none() {
+            self.validate_legacy_ipi_frontier()?;
+        }
         crate::config::runtime::validate_checkpoint_clock(self.backend_kind, bundle)?;
         if self.timing_context.mode().uses_retirement() && bundle.clock().is_none() {
             return Err(Error::InvalidConfig(
@@ -576,7 +579,6 @@ impl Vmm {
             } else {
                 lapics[0].replace_state(devices.lapic);
                 lapics[0].enable_coordinated_delivery();
-                coordinator.pending_ipi = None;
                 coordinator.retired = snapshot.instruction_count;
             }
             *last_snapshot_insn = restored_snapshot_insn;
@@ -626,6 +628,7 @@ impl Vmm {
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
         self.validate_base_snapshot_clock()?;
         self.validate_base_snapshot_io()?;
+        self.validate_legacy_ipi_frontier()?;
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
         let _timing = self.timing_context.enter();
@@ -700,7 +703,6 @@ impl Vmm {
             *serial = devices.serial;
             lapic.replace_state(devices.lapic);
             lapic.enable_coordinated_delivery();
-            self.coordinator.pending_ipi = None;
             self.coordinator.retired = snapshot.instruction_count;
             self.last_snapshot_insn = snapshot.instruction_count;
             crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);

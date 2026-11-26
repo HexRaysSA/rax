@@ -949,6 +949,15 @@ impl Vmm {
         Ok(())
     }
 
+    fn validate_legacy_ipi_frontier(&self) -> Result<()> {
+        if self.coordinator.pending_ipi.is_some() {
+            return Err(Error::InvalidConfig(
+                "pending x86 IPI delivery requires a complete snapshot bundle".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Capture the represented CPU-0 and legacy-device base checkpoint.
     /// KVM and Intel HVF require a stopped frontier across all managed CPUs.
     /// Use a complete snapshot bundle for in-flight I/O and private state.
@@ -969,11 +978,7 @@ impl Vmm {
                 "CLINT capture requires a complete snapshot bundle".into(),
             ));
         }
-        if self.coordinator.pending_ipi.is_some() {
-            return Err(Error::InvalidConfig(
-                "partially delivered x86 IPI requires a complete snapshot bundle".into(),
-            ));
-        }
+        self.validate_legacy_ipi_frontier()?;
         self.validate_base_snapshot_clock()?;
         self.validate_base_snapshot_io()?;
         #[cfg(feature = "debug")]

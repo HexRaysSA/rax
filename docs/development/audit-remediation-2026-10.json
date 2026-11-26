@@ -200858,6 +200858,14 @@
       "scope": "Legacy RV64 bundles without a private hart record reject a target hart with an issued UART MMIO write. The parent accepted a clock-only file and replaced the hart. The regression compares private state, RAM, retirement and checkpoint counters after rejection, checks that VM execution dispatches the preserved write, then restores the same file after the write completes.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md",
       "full_goal_complete": false
+    },
+    {
+      "id": "x86-legacy-restore-pending-ipi-2026-11-26",
+      "findings": ["C-STATE", "C-SMP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Base and extended public CPU restores reject a pending IPI when the restore has no coordinator record. The four-vCPU regression observes successful INIT delivery to CPU 1 and injects a failure at CPU 2 with SIPI queued. Rejection preserves the remaining destinations, queued SIPI, vCPUs, RAM, UART and retirement state. Routing resumes and releases the legacy restore boundary once both messages finish.",
+      "qualification": "docs/development/x86-ipi-delivery/README.md",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
