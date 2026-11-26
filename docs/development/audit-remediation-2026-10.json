@@ -200970,6 +200970,14 @@
       "scope": "Hosted Intel macOS run 45791687610 at b59e6eaf75b367b33692de744e1a39ff0d1fa078 passed both warm and both fresh pending-MMIO continuations and the separate cached-PDPTE PAE continuation. Both legacy restore entry points preserved the pending destination on rejection. Complete restore replaced the pending work, took AP2 offline in the four-vCPU case and dispatched each saved operation once. Independent inspection verified both archived CPU counts, online masks and changed instructions. Artifact 15104332729 matched SHA-256 20e27f3bc510ec360e9cf2db4b762e1a16d0bce9ed07624693b845b779b0c9a1. The Intel host was virtualized. Bare-metal Intel macOS, broader MMIO and interrupt profiles and complete checkpoint scope remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#warm-restore-with-pending-secondary-mmio",
       "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-cluster-private-cpu-admission-2026-11-26",
+      "findings": ["C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Software AArch64 bundles with shared GIC and PSCI state and a PL011 image require a private record for every configured vCPU. The parent saved a one-vCPU bundle without private records. The regression checks missing tables at one, two and four vCPUs, missing final entries at two and four vCPUs, and complete-file restore at all three counts. The earlier cluster-only file shape retains its file readability and existing GIC timer-source restore admission. Full backend, device and in-flight checkpoint scope remains open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#private-cpu-records-for-the-software-aarch64-cluster",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

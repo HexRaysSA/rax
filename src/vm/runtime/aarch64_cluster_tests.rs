@@ -162,6 +162,105 @@ fn complete_shared_platform_restores_and_missing_smp_state_rejects_before_mutati
 }
 
 #[test]
+fn arm_cluster_bundle_requires_every_private_cpu_record() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    const RAM_BYTES: u64 = 8 * 1024 * 1024;
+    for count in [1, 2, 4] {
+        let mut source = Fixture::with_memory(count, ClockMode::Wall, RAM_BYTES);
+        let mut target = Fixture::with_memory(count, ClockMode::Wall, RAM_BYTES);
+        source.vm.coordinator.retired = 17;
+        let mut saved = source.vm.take_snapshot_bundle(17).unwrap();
+        let mut records = saved.take_backend_contexts().unwrap().entries().to_vec();
+        let execution = saved.take_execution().unwrap();
+        assert!(execution.arm_cluster.is_some() && execution.pl011.is_some());
+        let cpus = saved.take_cpus().unwrap().entries().to_vec();
+        let memory = saved.take_physical_memory().unwrap();
+        let clock = saved.take_clock().unwrap();
+        let (base, pci) = saved.into_parts().unwrap();
+        assert!(pci.is_none());
+
+        // Older coordinated bundles have no capture section inventory.
+        let mut incomplete = SnapshotBundle::new(base)
+            .with_cpus(cpus)
+            .unwrap()
+            .with_execution(execution)
+            .unwrap()
+            .with_clock(clock)
+            .unwrap()
+            .with_physical_memory(memory)
+            .unwrap();
+        target.vm.coordinator.retired = 41;
+        let address = GuestAddress(CODE);
+        target
+            .vm
+            .guest_mem
+            .memory()
+            .write_obj(0xfeed_1234u32, address)
+            .unwrap();
+        let before = target.graph();
+        let path = source.kernel.with_extension("rxc");
+        let check_rejection = |incoming: &SnapshotBundle, target: &mut Fixture| {
+            let save = incoming.save(&path);
+            if save.is_ok() {
+                std::fs::remove_file(&path).unwrap();
+            }
+            let config = VmConfig::from_checkpoint_bundle(incoming, CliConfig::default());
+            let restore = target.vm.restore_snapshot_bundle(incoming);
+            for error in [save.err(), config.err(), restore.err()] {
+                assert!(
+                    error.as_ref().is_some_and(|error| error
+                        .to_string()
+                        .contains("ARM platform checkpoint requires private CPU records")),
+                    "{count} CPUs: {error:?}"
+                );
+            }
+            assert_eq!(target.graph(), before);
+            assert_eq!(target.vm.coordinator.retired, 41);
+            assert_eq!(
+                target
+                    .vm
+                    .guest_mem
+                    .memory()
+                    .read_obj::<u32>(address)
+                    .unwrap(),
+                0xfeed_1234
+            );
+        };
+        check_rejection(&incomplete, &mut target);
+        if count > 1 {
+            records.last_mut().unwrap().take();
+            incomplete = incomplete.with_backend_contexts(records).unwrap();
+            check_rejection(&incomplete, &mut target);
+            incomplete.take_backend_contexts().unwrap();
+        }
+        // Early cluster archives remain readable. Existing shared-GIC restore
+        // admission still requires the missing private timer sources.
+        let mut execution = incomplete.take_execution().unwrap();
+        execution.pl011 = None;
+        let legacy = incomplete.with_execution(execution).unwrap();
+        legacy.save(&path).unwrap();
+        let loaded = SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let error = target.vm.restore_snapshot_bundle(&loaded).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("shared GIC is missing its private CPU source frontiers"),
+            "{error}"
+        );
+        assert_eq!(target.vm.coordinator.retired, 41);
+
+        let complete = source.vm.take_snapshot_bundle(17).unwrap();
+        complete.save(&path).unwrap();
+        let loaded = SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        target.vm.restore_snapshot_bundle(&loaded).unwrap();
+        assert_eq!(target.vm.coordinator.retired, 17);
+    }
+}
+
+#[test]
 fn dma_writes_invalidate_only_reservations_in_the_written_granule() {
     use crate::backend::emulator::aarch64::Aarch64Vcpu;
     use crate::devices::virtio::Mem;

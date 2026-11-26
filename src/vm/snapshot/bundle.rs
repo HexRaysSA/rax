@@ -339,6 +339,24 @@ impl SnapshotBundle {
     pub(crate) fn validate_complete(&self) -> Result<()> {
         self.validate()?;
         self.validate_riscv_platform_graph()?;
+        // The software cluster gained its PL011 image and private CPU records
+        // together. An older cluster-only projection can lack both.
+        if self
+            .execution
+            .as_ref()
+            .is_some_and(|state| state.arm_cluster.is_some() && state.pl011.is_some())
+            && self.backend_contexts.as_ref().is_none_or(|contexts| {
+                contexts.entries().iter().any(|context| {
+                    context
+                        .as_ref()
+                        .is_none_or(|record| record.kind != super::AARCH64_CONTEXT)
+                })
+            })
+        {
+            return Err(Error::InvalidConfig(
+                "ARM platform checkpoint requires private CPU records for every vCPU".into(),
+            ));
+        }
         if self.base.config.arch == crate::config::ArchKind::Aarch64
             && self
                 .execution

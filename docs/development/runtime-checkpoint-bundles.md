@@ -63,6 +63,34 @@ requests. The baseline and corrected log SHA-256 digests are
 `f7a178dc981b3aa809f87badf6f66f208692e12ce07a90179828796f5ae99efd` and
 `ce734953e9e2b9e1b93169d93524633dc73e8d17bac757bd06eabb3dc3d1111a`.
 
+### Private CPU records for the software AArch64 cluster
+
+A software AArch64 bundle that carries both the shared GIC and PSCI record
+and the PL011 image requires a private AArch64 record for every configured
+vCPU. Bundle save, load, cold resume configuration and warm restore apply
+the same check before publishing state. Admission scans the ordered records
+in O(C) time and uses O(1) additional space for C configured vCPUs.
+
+Early cluster bundles carried the shared record and a public CPU projection.
+Commit `457c02a74` introduced the PL011 image and private records together.
+The file API still reads the earlier cluster-only projection. Restoring its
+shared GIC still requires the private timer source records. Commit
+`1ad4231e3` later added the capture section inventory. The producer
+requirement also applies to bundles without that inventory.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Each CPU in the newer software cluster needs its own private record. | High | At one, two and four vCPUs, remove the private table while keeping the shared and UART images. At two and four vCPUs, retain the table and remove the final entry. Check save, cold configuration and warm restore rejection, and compare target RAM, shared state and coordinator retirement. |
+| The PL011 image distinguishes this producer from the original cluster projection. | High | Save and load the cluster-only projection at each CPU count and check its existing restore error. Save, load and restore the complete bundle. The historical producer code establishes when both sections were added. |
+
+The baseline at `f402c6bd5` accepted the one-vCPU incomplete bundle at save.
+The regression and all 107 snapshot tests passed on macOS Arm64. The
+baseline and regression log SHA-256 digests are
+`f2b91216ff29f0a3fe000b6140df368b8e81a9399408b5a011af6c7d7aa8a00d` and
+`10df977cd30cc33b64a930613d91738f0d376ea631c6b7fd6a48f99d6fc32dbe`.
+The check covers the software AArch64 producer graph. The complete
+checkpoint audit across all backends remains open.
+
 ### Intel HVF pending I/O
 
 Intel HVF legacy capture checks every vCPU for pending I/O and holds the
