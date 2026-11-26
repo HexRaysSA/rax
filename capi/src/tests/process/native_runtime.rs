@@ -1799,6 +1799,19 @@ fn installed_darwin_fsevents_matches_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "run with a locally built closed_fsevents_watch_root.c fixture linked to CoreServices"]
+fn installed_darwin_fsevents_watch_root_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_FSEVENTS_WATCH_ROOT_CONTROL")
+        .expect("absolute path to the dynamically linked closed_fsevents_watch_root fixture");
+    compare_installed_workspace_fixture(
+        &binary,
+        "closed_fsevents_watch_root",
+        Some(b"FSEvents watch root reported directory renames and removal\n"),
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 #[ignore = "run with a locally built closed_workspace_filesec.c fixture on APFS"]
 fn installed_darwin_workspace_filesec_matches_native_through_closed_c_abi() {
     let binary = std::env::var("RAX_DARWIN_INSTALLED_FILESEC_CONTROL")

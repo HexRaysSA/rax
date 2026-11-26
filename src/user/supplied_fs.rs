@@ -17,6 +17,7 @@ pub(super) mod timezone;
 mod workspace;
 use roots::Roots;
 pub(super) use workspace::Capacity as WorkspaceCapacity;
+use workspace::RenamedDirectories;
 use workspace::{Attributes, Node, Workspace};
 pub(in crate::user) use workspace::{
     DARWIN_GUEST_OWNER, MAX_XATTR_VALUE, RESOURCE_FORK, SetTime as WorkspaceSetTime, SetXattr,
@@ -1293,7 +1294,7 @@ impl Files {
         path: &str,
         ids: (u32, u32),
         groups: &[u32],
-    ) -> Result<(), Error> {
+    ) -> Result<u64, Error> {
         validate(path)?;
         let trimmed = path.trim_end_matches('/');
         if trimmed.is_empty() {
@@ -1340,7 +1341,7 @@ impl Files {
         ids: (u32, u32),
         groups: &[u32],
         how: WorkspaceRename,
-    ) -> Result<(), Error> {
+    ) -> Result<RenamedDirectories, Error> {
         validate(from)?;
         validate(to)?;
         let old = from.trim_end_matches('/');

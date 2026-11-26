@@ -381,6 +381,8 @@ pub struct State {
     /// Knotes on Mach ports and port sets, by port or set identity
     /// (`ip_klist`, `ips_klist`).
     pub port_klists: HashMap<u64, Vec<(u64, u64)>>,
+    /// Knotes on workspace directory vnodes, by inode.
+    pub vnode_klists: HashMap<u64, Vec<(u64, u64)>>,
     /// `EVFILT_SIGNAL` knotes (`p_klist`).
     pub signal_knotes: Vec<(u64, u64)>,
     /// Armed timer knotes and their deadlines (Mach absolute time).

@@ -6,7 +6,7 @@
 //! - `EVFILT_MACHPORT` (`osfmk/ipc/ipc_pset.c`): a receive right or port
 //!   set with a message, received directly with `MACH_RCV_MSG`;
 //! - `EVFILT_READ` on a kqueue descriptor (`kqread_filtops`);
-//! - `EVFILT_VNODE` on immutable supplied vnodes;
+//! - `EVFILT_VNODE` on immutable supplied vnodes and workspace directories;
 //! - descriptor filters and `EVFILT_PROC` through the host ([`super::host`]);
 //! - `EVFILT_WORKLOOP` on workloops ([`super::workloop`]);
 //! - `EVFILT_FS` and `EVFILT_MEMORYSTATUS`, which attach and never fire;
@@ -39,6 +39,8 @@ pub enum State {
     Signal(u32),
     /// A Mach receive right or port set.
     MachPort(Watched),
+    /// A mutable workspace directory vnode, identified by inode.
+    Vnode(u64),
     /// Another kqueue (`EVFILT_READ` on its descriptor).
     Kqueue(u64),
     /// A knote the host kernel carries.
@@ -84,6 +86,9 @@ mod note {
     pub const FFOR: u32 = 0x8000_0000;
     pub const FFCOPY: u32 = 0xc000_0000;
 }
+
+pub(in crate::user::darwin) const NOTE_DELETE: u32 = 0x01;
+pub(in crate::user::darwin) const NOTE_RENAME: u32 = 0x20;
 
 /// `MACH_RCV_MSG` and the receive options a Mach-port knote may carry.
 mod rcv {
@@ -296,17 +301,26 @@ pub fn attach(ctx: &mut Ctx<'_>, kq: u64, knote: u64, kev: &mut Kev) -> i32 {
             }
             if kev.filter == evfilt::VNODE
                 && let FileKind::Embedded(object) = &file.kind
-                && object.entry().is_some_and(|entry| {
-                    matches!(
-                        entry.kind,
-                        Kind::File(_) | Kind::Backed(_) | Kind::Directory | Kind::Symlink(_)
-                    )
-                })
+                && let Some(entry) = object.entry()
             {
-                // An immutable guest vnode can only vanish as a result of
-                // descriptor close. The common fd_closed path handles that.
-                knote_mut(ctx.proc, kq, knote).state = State::Inert;
-                return 0;
+                if entry.workspace_directory().is_some() {
+                    knote_mut(ctx.proc, kq, knote).state = State::Vnode(entry.ino);
+                    ctx.proc
+                        .kq
+                        .vnode_klists
+                        .entry(entry.ino)
+                        .or_default()
+                        .push((kq, knote));
+                    return 0;
+                }
+                if matches!(
+                    entry.kind,
+                    Kind::File(_) | Kind::Backed(_) | Kind::Directory | Kind::Symlink(_)
+                ) {
+                    // The common fd_closed path handles a vanishing descriptor.
+                    knote_mut(ctx.proc, kq, knote).state = State::Inert;
+                    return 0;
+                }
             }
             host::attach(ctx.proc, kq, knote, file.host_fd())
         }
@@ -444,6 +458,11 @@ pub fn touch(ctx: &mut Ctx<'_>, kq: u64, knote: u64, kev: &mut Kev) -> i32 {
             let state = knote_mut(ctx.proc, kq, knote).state.clone();
             match state {
                 State::Kqueue(target) => i32::from(ctx.proc.kq.count(target) > 0),
+                State::Vnode(_) => {
+                    let k = knote_mut(ctx.proc, kq, knote);
+                    k.sfflags = kev.fflags;
+                    i32::from(k.fflags != 0)
+                }
                 State::Host(_) => host::touch(ctx.proc, kq, knote, kev),
                 _ => 0,
             }
@@ -510,6 +529,13 @@ pub fn process(ctx: &mut Ctx<'_>, kq: u64, knote: u64, data: &mut DataArea) -> (
             (kev, fr::ACTIVE)
         }
         State::MachPort(w) => machport_process(ctx, kq, knote, &w, data),
+        State::Vnode(_) => {
+            let k = knote_mut(ctx.proc, kq, knote);
+            if k.fflags == 0 {
+                return (Kev::default(), 0);
+            }
+            (k.fill(0), fr::ACTIVE)
+        }
         State::Kqueue(target) => {
             let count = ctx.proc.kq.count(target);
             if count == 0 {
@@ -630,6 +656,14 @@ pub fn detach(proc: &mut Proc, kq: u64, knote: u64) {
                 }
             }
         }
+        State::Vnode(ino) => {
+            if let Some(list) = proc.kq.vnode_klists.get_mut(&ino) {
+                list.retain(|&registration| registration != (kq, knote));
+                if list.is_empty() {
+                    proc.kq.vnode_klists.remove(&ino);
+                }
+            }
+        }
         State::Kqueue(target) => {
             if let Some(t) = proc.kq.kqueues.get_mut(&target) {
                 t.watchers.retain(|&e| e != (kq, knote));
@@ -665,6 +699,31 @@ pub fn post_machport(proc: &mut Proc, id: u64) {
     for (kq, knote) in list {
         super::activate(proc, kq, knote);
     }
+}
+
+/// Report a directory change to this task and to other tasks sharing the workspace.
+pub(in crate::user::darwin) fn post_vnode(proc: &mut Proc, ino: u64, notes: u32) {
+    deliver_vnode(proc, ino, notes);
+    if let Some(family) = &proc.family {
+        family.post_vnode_wake(ino, notes);
+    }
+}
+
+pub(in crate::user::darwin) fn deliver_vnode(proc: &mut Proc, ino: u64, notes: u32) -> bool {
+    let Some(list) = proc.kq.vnode_klists.get(&ino).cloned() else {
+        return false;
+    };
+    let mut active = false;
+    for (kq, knote) in list {
+        let k = knote_mut(proc, kq, knote);
+        let fired = k.sfflags & notes;
+        if fired != 0 {
+            k.fflags |= fired;
+            super::activate(proc, kq, knote);
+            active = true;
+        }
+    }
+    active
 }
 
 /// A signal was sent to the process (`proc_knote(NOTE_SIGNAL | sig)`).

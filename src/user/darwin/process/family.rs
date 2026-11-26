@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use super::{DarwinProcess, ExitStatus, Proc, RunStatus, usage::Usage, wait};
 use crate::user::darwin::abi::Errno;
+use crate::user::darwin::kevent::filters::deliver_vnode;
 use crate::user::darwin::signal::{self, frame::code};
 use crate::user::darwin::syscall::mach::kmsg::PortWake;
 use crate::user::darwin::workspace_locks::Locks;
@@ -39,6 +40,7 @@ struct Registry {
     children: BTreeMap<i32, Child>,
     pending_signals: Vec<Delivery>,
     mach_wakes: Vec<(i32, PortWake)>,
+    vnode_wakes: BTreeMap<(i32, u64), u32>,
     job_changes: Vec<JobChange>,
     workspace_locks: Locks,
     bootstrap: crate::user::darwin::syscall::mach::bootstrap::Namespace,
@@ -190,6 +192,7 @@ impl Member {
                 children: BTreeMap::new(),
                 pending_signals: Vec::new(),
                 mach_wakes: Vec::new(),
+                vnode_wakes: BTreeMap::new(),
                 job_changes: Vec::new(),
                 workspace_locks: Locks::default(),
                 bootstrap: Default::default(),
@@ -440,6 +443,17 @@ impl Member {
         std::mem::take(&mut self.registry.lock().unwrap().mach_wakes)
     }
 
+    pub(in crate::user::darwin) fn post_vnode_wake(&self, ino: u64, notes: u32) {
+        let mut registry = self.registry.lock().unwrap();
+        if self.pid != ROOT_PID || !registry.children.is_empty() {
+            *registry.vnode_wakes.entry((self.pid, ino)).or_default() |= notes;
+        }
+    }
+
+    fn take_vnode_wakes(&self) -> BTreeMap<(i32, u64), u32> {
+        std::mem::take(&mut self.registry.lock().unwrap().vnode_wakes)
+    }
+
     fn take_signals(&self) -> Vec<Delivery> {
         std::mem::take(&mut self.registry.lock().unwrap().pending_signals)
     }
@@ -684,10 +698,18 @@ impl Scheduler {
             }
             let family = root.proc.family.as_ref().expect("closed root");
             let mach_wakes = family.take_mach_wakes();
+            let vnode_wakes = family.take_vnode_wakes();
             let ready = family.workspace_locks(Locks::take_wakes);
             for (origin, event) in mach_wakes {
                 for target in std::iter::once(&mut *root).chain(self.active.values_mut()) {
                     if target.proc.pid != origin && event.deliver(&mut target.proc, true) {
+                        self.blocked = 0;
+                    }
+                }
+            }
+            for ((origin, ino), notes) in vnode_wakes {
+                for target in std::iter::once(&mut *root).chain(self.active.values_mut()) {
+                    if target.proc.pid != origin && deliver_vnode(&mut target.proc, ino, notes) {
                         self.blocked = 0;
                     }
                 }

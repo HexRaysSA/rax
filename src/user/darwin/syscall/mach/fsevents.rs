@@ -18,9 +18,11 @@ const EVENT: i32 = 67000;
 
 const USE_CF_TYPES: u32 = 0x01;
 const NO_DEFER: u32 = 0x02;
+const WATCH_ROOT: u32 = 0x04;
 const IGNORE_SELF: u32 = 0x08;
 const FILE_EVENTS: u32 = 0x10;
-const CREATE_FLAGS: u32 = USE_CF_TYPES | NO_DEFER | IGNORE_SELF | FILE_EVENTS;
+// With WatchRoot, the installed framework registers its own vnode knotes.
+const CREATE_FLAGS: u32 = USE_CF_TYPES | NO_DEFER | WATCH_ROOT | IGNORE_SELF | FILE_EVENTS;
 const FILE_CREATED: u32 = 0x0080_0001;
 const MAX_PATHS: usize = 256;
 const MAX_PATH_BYTES: usize = 256 << 10;

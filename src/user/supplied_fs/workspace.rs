@@ -168,6 +168,13 @@ pub(in crate::user) enum Rename {
     Exchange,
 }
 
+/// Directory inodes whose names changed in a committed rename.
+#[derive(Default)]
+pub(in crate::user) struct RenamedDirectories {
+    pub(crate) source: Option<u64>,
+    pub(crate) target: Option<u64>,
+}
+
 /// Identity and permissions of a guest-created directory.
 #[derive(Debug)]
 pub struct Directory {
@@ -962,7 +969,7 @@ impl Workspace {
         name: &str,
         uid: u32,
         parent: &Directory,
-    ) -> Result<(), Error> {
+    ) -> Result<u64, Error> {
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
         let Node::Directory(directory) = namespace
             .directory(parent)?
@@ -975,8 +982,9 @@ impl Workspace {
         if !namespace.directory(directory)?.is_empty() {
             return Err(Error::NotEmpty);
         }
+        let ino = directory.ino;
         namespace.detach(parent, name, self.flavor);
-        Ok(())
+        Ok(ino)
     }
 
     pub(super) fn rename(
@@ -985,7 +993,7 @@ impl Workspace {
         to: (&Arc<Directory>, &str),
         uid: u32,
         how: Rename,
-    ) -> Result<(), Error> {
+    ) -> Result<RenamedDirectories, Error> {
         let (old_parent, old_name) = from;
         let (new_parent, new_name) = to;
         let mut namespace = self.namespace.lock().map_err(|_| Error::Io)?;
@@ -1005,14 +1013,22 @@ impl Workspace {
             return Err(Error::Exists);
         }
         if same {
-            return Ok(());
+            return Ok(RenamedDirectories::default());
         }
         if target.is_some_and(|target| source.same_inode(target))
             && (how == Rename::Replace
                 || (how == Rename::Exchange && self.flavor == WorkspaceFlavor::Linux))
         {
-            return Ok(());
+            return Ok(RenamedDirectories::default());
         }
+        let directory_ino = |node: &Node| match node {
+            Node::Directory(directory) => Some(directory.ino),
+            _ => None,
+        };
+        let renamed = RenamedDirectories {
+            source: directory_ino(source),
+            target: target.and_then(directory_ino),
+        };
         old_parent.check_sticky(uid, source.uid())?;
         source.reject_ancestor(new_parent)?;
         if let Some(target) = target {
@@ -1051,7 +1067,7 @@ impl Workspace {
         namespace
             .directory_mut(new_parent)
             .insert(new_name.into(), source);
-        Ok(())
+        Ok(renamed)
     }
 
     pub(super) fn children(&self, directory: &Directory) -> Result<Vec<String>, Error> {

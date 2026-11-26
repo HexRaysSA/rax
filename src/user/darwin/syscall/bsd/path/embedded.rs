@@ -9,6 +9,7 @@ use crate::user::darwin::{
         AT_SYMLINK_NOFOLLOW_ANY,
     },
     io::*,
+    kevent::filters::{NOTE_DELETE, NOTE_RENAME, post_vnode},
     syscall::bsd::file::lifetime,
     workspace_locks,
 };
@@ -463,7 +464,7 @@ fn finish_locked_open(
     Ok(Rv::one(fd as u64))
 }
 
-pub(super) fn unlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult {
+pub(super) fn unlinkat(ctx: &mut Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysResult {
     if flags & !AT_REMOVEDIR != 0 {
         return Err(Errno::EINVAL);
     }
@@ -493,7 +494,8 @@ pub(super) fn unlinkat(ctx: &Ctx<'_>, dirfd: i32, path: u64, flags: u32) -> SysR
         return Err(Errno::ENOENT);
     }
     if flags == AT_REMOVEDIR {
-        files.remove_workspace_directory(&absolute, ids, &[])?;
+        let ino = files.remove_workspace_directory(&absolute, ids, &[])?;
+        post_vnode(ctx.proc, ino, NOTE_DELETE);
     } else {
         match files.unlink_workspace_file(&absolute, ids, &[]) {
             Err(crate::user::supplied_fs::Error::IsDirectory) => return Err(Errno::EPERM),
@@ -661,7 +663,7 @@ fn clone_file(
 }
 
 pub(super) fn renameat(
-    ctx: &Ctx<'_>,
+    ctx: &mut Ctx<'_>,
     fromfd: i32,
     from: u64,
     tofd: i32,
@@ -691,7 +693,14 @@ pub(super) fn renameat(
     };
     let from = read_path(fromfd, from)?;
     let to = read_path(tofd, to)?;
-    files.rename_workspace_entry(&from, &to, ids, &[], how)?;
+    let changed = files.rename_workspace_entry(&from, &to, ids, &[], how)?;
+    if let Some(ino) = changed.source {
+        post_vnode(ctx.proc, ino, NOTE_RENAME);
+    }
+    if let Some(ino) = changed.target {
+        // APFS marks the destination with NOTE_DELETE, including RENAME_SWAP.
+        post_vnode(ctx.proc, ino, NOTE_DELETE);
+    }
     Ok(Rv::one(0))
 }
 
