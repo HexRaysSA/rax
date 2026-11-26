@@ -1,4 +1,5 @@
 //! Measured NtTraceControl registration and configuration for dormant guest ETW.
+use super::super::etw::valid_traits;
 use super::query::{guard_result, probe_write};
 use crate::error::MemoryAccessKind;
 use crate::user::windows::arch::WinArch;
@@ -254,28 +255,4 @@ fn provider_traits(
     c.mem().w32(returned, 0)?;
     // The output buffer is probed but has no reply bytes in this dormant profile.
     Flow::ret(STATUS_SUCCESS.into())
-}
-
-/// Bounded native structural parser, O(T) time and O(1) auxiliary space.
-/// Names remain bytes: the installed kernel does not validate UTF-8 here.
-fn valid_traits(bytes: &[u8]) -> bool {
-    if bytes.len() < 3 || u16::from_le_bytes([bytes[0], bytes[1]]) as usize != bytes.len() {
-        return false;
-    }
-    let Some(name_end) = bytes[2..].iter().position(|&b| b == 0) else {
-        return false;
-    };
-    let mut at = name_end + 3;
-    while at < bytes.len() {
-        if bytes.len() - at < 3 {
-            return false;
-        }
-        let record = u16::from_le_bytes([bytes[at], bytes[at + 1]]) as usize;
-        if record < 3 || record > bytes.len() - at {
-            return false;
-        }
-        // Known and unknown record types retain their original bytes.
-        at += record;
-    }
-    true
 }

@@ -223,6 +223,34 @@ NtOpenDirectoryObject service0x58 at PC0x1800015C0 remains unsupported. All four
 ordinary owning programs reach that boundary before guest exit.
 See [provider traits evidence](../../specifications/windows/native-etw-provider-traits/README.md).
 
+## Built-in ETW provider services
+
+The portable profile exposes the 23 NTDLL `Etw*` targets forwarded by desktop
+Advapi32 build 10.0.18946. KernelBase exposes the public aliases, including
+`TraceEvent` forwarding to `EtwLogTraceEvent`. Provider and classic-provider
+API sets select KernelBase. An import through a GameOS Advapi32 forwarder
+and a direct NTDLL import resolve to the same address.
+
+`EventRegister` captures the 16-byte provider GUID before writing the 8-byte
+registration handle. It creates a process-local `EtwRegistration` with grant
+`0x804` and zeroes the rest of the internal 160-byte request. A null GUID
+returns Win32 error 87. The object table governs capacity. The dormant profile
+discards callback and context pointers, reports all providers disabled, and
+returns from writes on a live provider without reading event descriptors or
+payloads. Unregistering a foreign, closed or protected handle returns error 6.
+
+`EventSetInformation` supports empty binary tracking information (class 0),
+a structurally valid, once-only provider traits blob (class 2), and a one-byte
+descriptor-type switch (class 3). The portable class selection follows the
+retained 18946 x86 NTDLL. Reserved and unknown classes return error 50.
+
+Classic registration writes a zero trace handle. Classic queries and logging
+return zero. Activity-ID control writes a zero GUID for `EVENT_ACTIVITY_CTRL_GET_ID`
+(1), as used by GameOS WinHTTP. Other activity controls and trace-instance
+creation return success and leave caller buffers untouched. Session control, callback delivery and
+host tracing are outside this profile. The private scenario-write signatures
+are recorded in the [retained PHNT declarations](../../specifications/windows/native-etw-register-guids/phnt-ntwmi.h).
+
 ## Previous increment: native provider registration
 
 # Windows handle/service integration

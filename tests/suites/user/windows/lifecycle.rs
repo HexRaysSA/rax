@@ -112,6 +112,63 @@ fn run(arch: &str, program: &str) {
 }
 
 #[test]
+fn static_import_failure_names_every_dependency_and_the_missing_leaf() {
+    use rax::user::windows::SpawnError;
+    use rax::user::windows::nt::status::STATUS_DLL_NOT_FOUND;
+
+    let bundle = Bundle::new("x64", "startup", "missing-leaf");
+    std::fs::remove_file(bundle.directory.join("leaf.dll")).unwrap();
+    let error = WindowsProcess::spawn(super::config(bundle.directory.join("startup.exe")))
+        .err()
+        .expect("load should fail");
+    let SpawnError::Load { status, message } = error else {
+        panic!("{error}")
+    };
+    assert_eq!(status, STATUS_DLL_NOT_FOUND);
+    assert_eq!(
+        message,
+        "startup.exe imports root.dll: root.dll imports leaf.dll: leaf.dll was not found"
+    );
+}
+
+#[test]
+fn static_import_failure_names_the_missing_forwarded_export() {
+    use rax::user::windows::SpawnError;
+    use rax::user::windows::nt::status::STATUS_ENTRYPOINT_NOT_FOUND;
+
+    // Reuse the fixture's missing import to exercise the existing
+    // forward.dll!Missing -> leaf.dll!NoSuchExport path during IAT binding.
+    let bundle = Bundle::new("x64", "data", "missing-forward");
+    let path = bundle.directory.join("data.exe");
+    let mut image = std::fs::read(&path).unwrap();
+    for (from, to) in [
+        (
+            b"absent-lifecycle.dll\0".as_slice(),
+            b"forward.dll\0".as_slice(),
+        ),
+        (b"DeliberatelyMissing\0", b"Missing\0"),
+    ] {
+        let offset = image
+            .windows(from.len())
+            .position(|bytes| bytes == from)
+            .unwrap();
+        image[offset..offset + to.len()].copy_from_slice(to);
+    }
+    let SpawnError::Load { status, message } =
+        WindowsProcess::spawn_image(super::config(path), image)
+            .err()
+            .expect("load should fail")
+    else {
+        panic!("expected a loader failure")
+    };
+    assert_eq!(status, STATUS_ENTRYPOINT_NOT_FOUND);
+    assert_eq!(
+        message,
+        "data.exe imports forward.dll!Missing: the procedure entry point NoSuchExport could not be located in leaf.dll"
+    );
+}
+
+#[test]
 fn x86_dynamic_native_dll_lifecycle() {
     run("x86", "dynamic");
 }

@@ -27,6 +27,8 @@ const FAMILIES: &[(&str, &str)] = &[
     ("api-ms-win-core-", "kernelbase.dll"),
     ("api-ms-win-security-base-", "kernelbase.dll"),
     ("api-ms-win-security-", "advapi32.dll"),
+    ("api-ms-win-eventing-provider-", "kernelbase.dll"),
+    ("api-ms-win-eventing-classicprovider-", "kernelbase.dll"),
     ("api-ms-win-eventing-", "advapi32.dll"),
     ("api-ms-win-shcore-", "shcore.dll"),
     ("api-ms-win-shell-", "shell32.dll"),
@@ -82,6 +84,21 @@ mod tests {
         assert_eq!(host("api-ms-win-core-com-l1-1-0.dll"), Some("combase.dll"));
         assert_eq!(host("kernel32.dll"), None);
         assert!(is_api_set("ext-ms-win-foo-l1-1-0.dll"));
+    }
+
+    #[test]
+    fn eventing_contracts_select_the_provider_host() {
+        for (family, host_name) in [
+            ("provider", "kernelbase.dll"),
+            ("classicprovider", "kernelbase.dll"),
+            ("controller", "advapi32.dll"),
+            ("legacy", "advapi32.dll"),
+        ] {
+            assert_eq!(
+                host(&format!("api-ms-win-eventing-{family}-l1-1-0.dll")),
+                Some(host_name)
+            );
+        }
     }
 
     #[test]

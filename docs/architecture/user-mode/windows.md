@@ -30,7 +30,11 @@ parameters, environment, PEB, TEB, and loader lists. Native DLL dependencies run
 their TLS callbacks and `DllMain` before the executable starts. Built-in exports
 occupy readable non-executable trap slots; the CPU's fetch fault enters checked
 host implementations with the guest's original calling-convention state.
-Unknown DLLs and imports produce explicit loader or execution failures.
+Static import failures identify the importing modules and the leaf failure.
+The built-in API-set profile routes ETW provider and classic-provider contracts
+to KernelBase, whose public names forward to the dormant NTDLL `Etw*` services.
+Controller and legacy eventing contracts continue to select Advapi32.
+Installed-library mode uses the selected Windows API-set schema.
 
 Installed registry selection includes the fixed machine
 `System\Software\Microsoft\Command Processor` path. Its immutable record

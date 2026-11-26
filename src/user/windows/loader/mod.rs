@@ -103,6 +103,13 @@ impl LoadError {
             message: message.into(),
         }
     }
+
+    fn in_import(self, importer: &str, dependency: &str) -> Self {
+        Self::new(
+            self.status,
+            format!("{importer} imports {dependency}: {}", self.message),
+        )
+    }
 }
 
 impl std::fmt::Display for LoadError {
@@ -1390,7 +1397,15 @@ impl std::fmt::Display for SymRef {
 /// Resolves `sym` in module `idx`, following forwarders. `None` when the
 /// module does not export it.
 pub fn lookup(p: &mut Proc, idx: usize, sym: &SymRef) -> Result<Option<u64>, LoadError> {
-    lookup_depth(p, idx, sym, 0)
+    Ok(match lookup_depth(p, idx, sym, 0)? {
+        ExportLookup::Address(address) => Some(address),
+        ExportLookup::Missing { .. } => None,
+    })
+}
+
+enum ExportLookup {
+    Address(u64),
+    Missing { module: usize, symbol: SymRef },
 }
 
 fn lookup_depth(
@@ -1398,7 +1413,7 @@ fn lookup_depth(
     idx: usize,
     sym: &SymRef,
     depth: u32,
-) -> Result<Option<u64>, LoadError> {
+) -> Result<ExportLookup, LoadError> {
     if let Some(error) = p.modules.failed_indices.get(&idx) {
         return Err(error.clone());
     }
@@ -1411,10 +1426,17 @@ fn lookup_depth(
     if depth > 32 {
         return Err(LoadError::new(
             STATUS_INVALID_IMAGE_FORMAT,
-            "forwarder chain too long",
+            format!(
+                "forwarder chain too long at {}!{sym}",
+                p.modules.list[idx].name
+            ),
         ));
     }
     let m = &p.modules.list[idx];
+    let missing = || ExportLookup::Missing {
+        module: idx,
+        symbol: sym.clone(),
+    };
     let base = m.base;
     let size = m.size;
     let target = if let ModuleKind::Builtin(_) = m.kind {
@@ -1429,7 +1451,7 @@ fn lookup_depth(
         match s {
             Some(BuiltinSym::Rva(rva)) => ExportTarget::Rva(rva),
             Some(BuiltinSym::Forward(f)) => ExportTarget::Forwarder(f.as_bytes().to_vec()),
-            None => return Ok(None),
+            None => return Ok(missing()),
         }
     } else {
         let exports = m.exports;
@@ -1439,7 +1461,7 @@ fn lookup_depth(
             size: m.size,
         };
         let Ok(Some(d)) = ExportDirectory::read(&img, exports) else {
-            return Ok(None);
+            return Ok(missing());
         };
         let found = match sym {
             SymRef::Name(n, hint) => d.by_name(&img, n, *hint).ok().flatten().map(|(_, t)| t),
@@ -1447,7 +1469,7 @@ fn lookup_depth(
         };
         match found {
             Some(t) => t,
-            None => return Ok(None),
+            None => return Ok(missing()),
         }
     };
     match target {
@@ -1456,7 +1478,7 @@ fn lookup_depth(
                 LoadError::new(STATUS_INVALID_IMAGE_FORMAT, "export address overflow")
             })?;
             image_extent(base, size, address, 1, "export target")?;
-            Ok(Some(address))
+            Ok(ExportLookup::Address(address))
         }
         ExportTarget::Forwarder(text) => {
             let fwd = parse_forwarder(&text).ok_or_else(|| {
@@ -1542,28 +1564,24 @@ fn bind_imports(p: &mut Proc, idx: usize, pe: &PeImage) -> Result<(), LoadError>
             })?;
             (String::from_utf8_lossy(&n).into_owned(), t)
         };
-        let dep = load_dll_from(p, &dll_name, Some(&mname)).map_err(|e| {
-            if e.status == STATUS_DLL_NOT_FOUND {
-                LoadError::new(
-                    e.status,
-                    format!("{mname} imports {dll_name}, which was not found"),
-                )
-            } else {
-                e
-            }
-        })?;
+        let dep = load_dll_from(p, &dll_name, Some(&mname))
+            .map_err(|error| error.in_import(&mname, &dll_name))?;
         dynamic::dependency(p, idx, dep);
         for t in thunks {
             let sym = match &t.symbol {
                 ImportRef::Name { hint, name } => SymRef::Name(name.clone(), Some(*hint)),
                 ImportRef::Ordinal(o) => SymRef::Ordinal(u32::from(*o)),
             };
-            let addr = match lookup(p, dep, &sym)? {
-                Some(a) => a,
-                None if matches!(p.modules.list[dep].kind, ModuleKind::Builtin(_)) => {
+            let addr = match lookup_depth(p, dep, &sym, 0)
+                .map_err(|error| error.in_import(&mname, &format!("{dll_name}!{sym}")))?
+            {
+                ExportLookup::Address(address) => address,
+                ExportLookup::Missing { .. }
+                    if matches!(p.modules.list[dep].kind, ModuleKind::Builtin(_)) =>
+                {
                     missing_stub(p, dep, &sym)?
                 }
-                None => {
+                ExportLookup::Missing { module, symbol } => {
                     let status = match sym {
                         SymRef::Name(..) => STATUS_ENTRYPOINT_NOT_FOUND,
                         SymRef::Ordinal(_) => STATUS_ORDINAL_NOT_FOUND,
@@ -1571,8 +1589,8 @@ fn bind_imports(p: &mut Proc, idx: usize, pe: &PeImage) -> Result<(), LoadError>
                     return Err(LoadError::new(
                         status,
                         format!(
-                            "the procedure entry point {sym} could not be located in {}",
-                            p.modules.list[dep].name
+                            "{mname} imports {dll_name}!{sym}: the procedure entry point {symbol} could not be located in {}",
+                            p.modules.list[module].name
                         ),
                     ));
                 }

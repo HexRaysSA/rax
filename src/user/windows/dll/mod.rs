@@ -2,6 +2,7 @@
 //! fabricated successful operations.
 
 pub mod crt;
+mod etw;
 pub(crate) mod fibers;
 mod files;
 pub(crate) mod fls;
@@ -176,6 +177,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::DELAY_EXPORTS,
         native::APC_QUEUE_EXPORTS,
         native::KEY_CREATE_EXPORTS,
+        etw::NTDLL_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
@@ -220,6 +222,7 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         sysinfo::EXPORTS,
         kernel::ERROR_MODE_EXPORTS,
         kernel::PROCESS_WRITE_BARRIER_EXPORTS,
+        etw::KERNEL_FORWARDS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {
