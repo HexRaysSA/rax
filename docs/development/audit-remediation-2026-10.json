@@ -201036,8 +201036,8 @@
     {
       "id": "hvf-long-mode-event-checkpoint-witness-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "native_intel_qualification_pending",
-      "scope": "The signed Intel macOS consumer covers hardware #GP(0x30) and software INT 13 during IDT gate delivery, retrying on the original CPU owner and after checkpoint restore to a fresh owner. The tests disarm the source instruction before replay. An independent QEMU TCG control confirmed the 48 B and 40 B frames and the fault and software return addresses. Hosted Intel execution, other delivery exits and complete interrupt and checkpoint scope remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Hosted Intel run 45814028830 at 6b5d731ea505f3a3619e64d16d06eec4cf16866d passed hardware #GP(0x30) and software INT 13 stopped during IDT gate delivery, both on the original CPU owner and after checkpoint restore to a fresh owner. The source instruction was disarmed before replay. The signed and archived execution matched independent QEMU TCG observations for the 48 B and 40 B frames and the fault and software return addresses. Other delivery exits, bare-metal Intel macOS and complete interrupt and checkpoint scope remain open.",
       "qualification": "docs/development/hvf-interrupt-window/README.md#long-mode-hardware-and-software-event-replay",
       "full_goal_complete": false
     },

@@ -458,4 +458,16 @@ owner restored from a checkpoint captured while delivery was stopped.
 The QEMU TCG reference independently builds the two unobstructed frames
 and reproduces their byte counts, saved RIP, and selector error. The x86-64
 HVF consumer cross-built and passed signature and entitlement verification.
-Hosted Intel execution of the four interrupted cases is pending.
+
+Hosted run [45814028830](https://github.com/HexRaysSA/rax/actions/runs/45814028830/job/139888985168)
+executed all four cases on an untranslated Intel process in a macOS VM
+at source revision `6b5d731ea505f3a3619e64d16d06eec4cf16866d`. The
+verifier bound the signed consumer and both archives to that revision and
+compared the four ordered observations with the QEMU reference.
+All four stopped at GPA `0xc0d0`, entered the handler once and resumed
+with the original RSP. The archived executable has SHA-256
+`25ece56d60009a015a6df7caf89f240588c0da0541ccf63b0c65a38c7045d77a`.
+Other delivery boundaries and bare-metal Intel macOS remain open.
+
+The hosted receipt and raw observations are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-long-mode-events-2026-11-26/`.
