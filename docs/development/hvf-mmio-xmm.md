@@ -2124,8 +2124,23 @@ The workflow rejects incomplete observation sets and binds the consumer
 and all of its Rust inputs to the signed executable. Local validation
 matched the profile constants to the retained QEMU bytes, disassembled
 25 instruction encodings with LLVM, passed 22 prepared-consumer tests,
-and cross-built and verified the Intel executable signature. Hosted
-execution, bare-metal Intel and EVEX remain open.
+and cross-built and verified the Intel executable signature.
+
+Hosted Intel run `45862366065` at `847f3b003` passed all 33 narrow
+cases on virtualized macOS 15.7.9. The artifact contains 16 direct
+reads, 16 fresh-owner restores, and one legacy alignment fault. The two
+archive digests and the executable signature matched, and all 4,953
+engine and 31 consumer and runner files matched the pinned revision.
+The observation stream SHA-256 is
+`f9b1b849bbce45df4cc8a23e6285dd60801538aabb1df73616180baa6e2e2d4e`.
+[Hosted narrow profile](https://github.com/HexRaysSA/rax/actions/runs/45862366065)
+
+The wide profile at the same revision returned `Shutdown` on the first
+`VPCLMULQDQ ymm15, ymm8, [rdi + 3], 0`, before any device-read
+observation. The bootstrap had read back guest XCR0=7. LLVM matches the
+seven encoded bytes. The runner's VPCLMULQDQ capability and the guest
+exception vector are unknown. Native VEX.256, bare-metal Intel and EVEX
+remain open. [Hosted wide profile](https://github.com/HexRaysSA/rax/actions/runs/45862371988)
 
 | Assumption | Impact | Falsification probe |
 | --- | --- | --- |
