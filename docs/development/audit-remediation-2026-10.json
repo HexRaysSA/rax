@@ -200750,6 +200750,17 @@
       "scope": "Complete RV64 capture derives every hart's TIME and controller-owned pending lines from one saved clock, CLINT and PLIC frontier. The earlier four-hart wall-clock file reported TIME zero when MTIME was 90,000 ticks. The corrected file retained the common TIME, a comparator due exactly at capture, a separate peer MSIP and software SEIP. It restored the public and private records into a fresh VM before guest entry with the source VM and kernel absent. Capture did not change the live source records. Other backend-private state and the Debian wall-clock timeout remain open.",
       "qualification": "docs/development/riscv-clint/README.md#shared-timer-frontier-in-complete-rv64-files",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-linux-wall-clock-task-state-2026-11-26",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "diagnostic_evidence_wall_clock_open",
+      "scope": "In the four-hart RAX highres=off capture at 300 s, Debian Linux PID 1 and the tracefs worker waited on event_mutex. Its owner was current on CPU 3 in trace_event_update_all, beneath a scheduler softirq and nested timer IRQ. CPU 3 was the only CPU still pending for RCU sequence -1159, the sequence reported by all three logged stalls. RAM hashes and kernel BTF matched. The mutex was unowned in the other two wall captures and the retired-clock control. The findings remain open.",
+      "qualification": "docs/development/riscv-clint/README.md#linux-task-state-at-the-recorded-checkpoints",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

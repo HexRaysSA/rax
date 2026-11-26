@@ -674,6 +674,37 @@ The cause of the wall-clock boot timeout remains open.
 The fixture, output, hashes and exact commands are in
 `/Users/int/dev/rax-audit-work/four-findings-rv64-turn-batching-2026-11-26/`.
 
+#### Linux task state at the recorded checkpoints
+
+The task and mutex walk matched the saved RAM hashes and the kernel's BTF.
+For each online CPU the run queue's current task matched the hart's saved
+thread pointer. The frame walk used the saved `thread_struct` for blocked
+tasks and checked the task and per-CPU IRQ stack bounds for current tasks.
+[Linux v6.12.117 RISC-V stack unwinder](https://raw.githubusercontent.com/gregkh/linux/v6.12.117/arch/riscv/kernel/stacktrace.c),
+[IRQ stack switch](https://raw.githubusercontent.com/gregkh/linux/v6.12.117/arch/riscv/kernel/entry.S)
+
+| Saved run | PID 1 | `event_mutex` | RCU quiescent state pending |
+| --- | --- | --- | --- |
+| Four harts, wall, `highres=off`, 300 s | Blocked in `init_kprobe_trace` | Held by PID 40 on CPU 3, with PIDs 38 and 1 waiting | CPU 3 |
+| Four harts, wall, high-resolution timers enabled | Running in `dnotify_init` | Unowned | None |
+| Two harts, wall, high-resolution timers enabled | Running in `jent_memaccess` | Unowned | CPU 0 |
+| Two harts, retired clock | Runnable during `ftrace_free_init_mem` | Unowned | CPU 1 |
+
+In the 300 s capture, the outer timer interrupt interrupted PID 40 in
+`strlen` under `trace_event_update_all`. Its nested timer interrupt
+interrupted the scheduler's load-balancing softirq. The task waiting
+ahead of PID 1 was in `event_trace_init`. RCU's saved sequence matched
+the three console stalls for the same grace period (`g=-1159`).
+These observations locate PID 1's wait in this capture. The other wall
+captures identify different work in progress, and the cause of the
+wall-clock boot timeout remains open.
+[Linux trace-event update](https://github.com/gregkh/linux/blob/v6.12.117/kernel/trace/trace_events.c#L2978-L3028),
+[mutex owner and waiters](https://raw.githubusercontent.com/gregkh/linux/v6.12.117/kernel/locking/mutex.c),
+[RCU leaf state](https://raw.githubusercontent.com/gregkh/linux/v6.12.117/kernel/rcu/tree.h)
+
+The reader, hashes and decoded task, IRQ-stack, mutex and RCU records
+are in `/Users/int/dev/rax-audit-work/four-findings-rv64-task-stacks-2026-11-26/`.
+
 ## Issued UART writes in checkpoints
 
 The VMM retains an issued UART MMIO write at the head of the originating
