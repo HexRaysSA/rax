@@ -49,6 +49,8 @@ on:
           - vector-aes-rounds
           - vector-vaes-rounds
           - vector-aes-unary
+          - vector-pclmul
+          - vector-vpclmul
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-immediate-blend

@@ -31,7 +31,7 @@ PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "vmm-startup": 9
                  "vector-narrow": 108, "vector-horizontal": 126,
                  "vector-unsigned": 87, "vector-sign": 63, "vector-absolute": 63,
                  "vector-widening": 240, "vector-aes-rounds": 68, "vector-vaes-rounds": 32,
-                 "vector-aes-unary": 130}
+                 "vector-aes-unary": 130, "vector-pclmul": 33, "vector-vpclmul": 16}
 
 
 def sha(path):

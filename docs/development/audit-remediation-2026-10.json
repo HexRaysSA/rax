@@ -201061,7 +201061,7 @@
       "id": "hvf-mmio-carryless-product-device-reads-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
       "status": "native_intel_qualification_pending",
-      "scope": "Intel HVF plans one 16 B legacy or VEX.128 PCLMULQDQ read or one 32 B VEX.256 read. The descriptor carries the source vector and immediate through restore. The QEMU reference executed 6,144 RAM cases plus a legacy alignment fault, with the VEX.256 reference derived by combining two independently executed VEX.128 lanes. Hosted Intel execution, bare-metal Intel, EVEX and complete MMIO and checkpoint scope remain open.",
+      "scope": "Intel HVF plans one 16 B legacy or VEX.128 PCLMULQDQ read or one 32 B VEX.256 read. The descriptor carries the source vector and immediate through restore. The QEMU reference executed 6,144 RAM cases plus a legacy alignment fault, with the VEX.256 reference derived by combining two independently executed VEX.128 lanes. The hosted profiles require 33 narrow and 16 wide observations, including real device reads and fresh-owner restore. Hosted Intel execution, bare-metal Intel, EVEX and complete MMIO and checkpoint scope remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#carry-less-multiplication-with-a-device-operand",
       "full_goal_complete": false
     },

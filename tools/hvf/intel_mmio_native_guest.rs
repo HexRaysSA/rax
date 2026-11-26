@@ -20,6 +20,8 @@ mod adx;
 mod aes_rounds;
 #[path = "intel_mmio_bit_scan.rs"]
 mod bit_scan;
+#[path = "intel_mmio_clmul.rs"]
+mod clmul;
 #[path = "intel_mmio_cmov.rs"]
 mod cmov;
 #[path = "intel_mmio_cmpxchg16b.rs"]
@@ -1527,6 +1529,16 @@ fn main() {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
         aes_rounds::run(&output, profile);
+        return;
+    }
+    if let Some(profile @ ("--vector-pclmul" | "--vector-vpclmul")) = std::env::args_os()
+        .nth(1)
+        .as_deref()
+        .and_then(std::ffi::OsStr::to_str)
+    {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        clmul::run(&output, profile == "--vector-vpclmul");
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-widening")) {

@@ -2090,4 +2090,23 @@ The misalignment control has SHA-256
 `93386b51c164c7a6445a6270c063e4ad9b40aefce9f0502bf3d0f946dd190fc6`.
 The inputs and raw observations are under
 `/Users/int/dev/rax-audit-work/four-findings-hvf-pclmul-2026-11-26/`.
-Hosted Intel execution, bare-metal Intel and EVEX remain open.
+The hosted Intel workflow has two execution profiles. `vector-pclmul`
+requires 32 actual device-read results for legacy and VEX.128 plus a
+legacy #GP(0) alignment check. `vector-vpclmul` requires 16 device-read
+results for VEX.256, which requires host VPCLMULQDQ support. Each legal
+profile varies both factor selectors, ignored immediate bits and VEX.W
+where applicable. It tests direct completion and restoration into a fresh
+owner after the original instruction bytes are overwritten. Each read
+must match the encoded width, and the complete vector bank and RFLAGS
+must match after retirement and after the next guest instruction.
+The workflow rejects incomplete observation sets and binds the consumer
+and all of its Rust inputs to the signed executable. Local validation
+matched the profile constants to the retained QEMU bytes, disassembled
+25 instruction encodings with LLVM, passed 22 prepared-consumer tests,
+and cross-built and verified the Intel executable signature. Hosted
+execution, bare-metal Intel and EVEX remain open.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The Intel runner can execute the tested encoding far enough to reach the device read. | High | Require real MMIO exits at the exact operand width. Execute VEX.256 separately so an unsupported opcode cannot satisfy the narrow profile or erase its observations. |
+| Lane results are independent of native owner replacement. | High | Require the same 32 B result and flags with direct completion and after checkpoint restore. Compare the low 16 B to ordinary QEMU RAM execution and the wide upper 16 B to the independent second-lane VEX.128 RAM result. |
