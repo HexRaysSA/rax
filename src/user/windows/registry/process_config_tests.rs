@@ -143,6 +143,186 @@ fn process_config_preserves_absent_keys_and_control_set_aliases() {
 }
 
 #[test]
+fn powershell_registry_preserves_ordered_metadata_and_independent_views() {
+    let root = ProcessConfigKey::PowerShell;
+    let engine = ProcessConfigKey::PowerShellEngineV3;
+    let absent_engine = ProcessConfigKey::PowerShellEngineV1;
+    let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+    for (view, prefix, version, stamp, first_engine_status) in [
+        (
+            RegistryView::Native64,
+            root.path(),
+            "5.1.64",
+            64,
+            STATUS_OBJECT_NAME_NOT_FOUND,
+        ),
+        (
+            RegistryView::Wow32,
+            POWERSHELL_WOW_KEY,
+            "5.1.32",
+            32,
+            STATUS_OBJECT_PATH_NOT_FOUND,
+        ),
+    ] {
+        let physical = |key: ProcessConfigKey| key.path().replacen(root.path(), prefix, 1);
+        let mut version_value = Value {
+            name: units("PowerShellVersion"),
+            kind: 1,
+            data: version
+                .encode_utf16()
+                .chain(Some(0))
+                .flat_map(u16::to_le_bytes)
+                .collect(),
+        };
+        let mut root_header = header(prefix, vec![]);
+        root_header.enumeration = Some(vec![
+            BasicChild {
+                name: units("3"),
+                last_write: stamp,
+            },
+            BasicChild {
+                name: units("1"),
+                last_write: stamp + 1,
+            },
+        ]);
+        for (key, sample) in [
+            (absent_engine, Err(first_engine_status)),
+            (
+                engine,
+                Ok(header(&physical(engine), vec![version_value.clone()])),
+            ),
+            (
+                ProcessConfigKey::PowerShellV1,
+                Ok(header(&physical(ProcessConfigKey::PowerShellV1), vec![])),
+            ),
+            (
+                ProcessConfigKey::PowerShellV3,
+                Ok(header(&physical(ProcessConfigKey::PowerShellV3), vec![])),
+            ),
+            (root, Ok(root_header)),
+        ] {
+            registry = registry
+                .with_snapshot_selection(
+                    SnapshotRoot::ProcessConfig(key),
+                    &[],
+                    view,
+                    sample.map(|header| (header, None)),
+                )
+                .unwrap();
+        }
+        version_value.name = units("OtherValue");
+        assert!(
+            Registry::selected(upcase(), vec![])
+                .unwrap()
+                .with_snapshot_selection(
+                    SnapshotRoot::ProcessConfig(engine),
+                    &[],
+                    view,
+                    Ok((header(&physical(engine), vec![version_value]), None)),
+                )
+                .is_err()
+        );
+    }
+
+    registry = registry
+        .with_machine_hive(MachineHeader {
+            canonical: units(MACHINE_HIVE_KEY),
+            enumeration: None,
+            children: 6,
+            values: vec![],
+            access: header(MACHINE_HIVE_KEY, vec![]).access,
+        })
+        .unwrap();
+    let machine = registry.key(&units(MACHINE_HIVE_KEY)).unwrap();
+    for (view, prefix, version, stamp) in [
+        (RegistryView::Native64, root.path(), "5.1.64", 64),
+        (RegistryView::Wow32, POWERSHELL_WOW_KEY, "5.1.32", 32),
+    ] {
+        let Lookup::Present(opened) =
+            machine.relative_in_view(&units(r"SOFTWARE\Microsoft\PowerShell"), view)
+        else {
+            panic!("rooted PowerShell installation key not resolved");
+        };
+        assert_eq!(opened.path, units(prefix));
+        assert_eq!(
+            opened.child_metadata().unwrap(),
+            &[
+                BasicChild {
+                    name: units("3"),
+                    last_write: stamp
+                },
+                BasicChild {
+                    name: units("1"),
+                    last_write: stamp + 1
+                },
+            ],
+        );
+        let Lookup::Present(child) = opened.relative(&units(r"3\powershellengine")) else {
+            panic!("relative PowerShell engine not resolved");
+        };
+        assert_eq!(child.redirected_view, Some(view));
+        let expected: Vec<_> = version
+            .encode_utf16()
+            .chain(Some(0))
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        assert_eq!(
+            child.value(&units("powershellversion")).unwrap().data,
+            expected
+        );
+        assert!(child.covers_value(&units("RuntimeVersion")));
+        assert!(child.value(&units("RuntimeVersion")).is_none());
+        assert!(!child.covers_value(&units("OtherValue")));
+        for (path, requested_view) in [
+            (engine.path().to_owned(), view),
+            (
+                format!(r"{prefix}\3\PowerShellEngine"),
+                RegistryView::Native64,
+            ),
+        ] {
+            let Lookup::Present(absolute) = registry.lookup_view(&units(&path), requested_view)
+            else {
+                panic!("absolute PowerShell engine not resolved");
+            };
+            assert!(Arc::ptr_eq(&absolute, &child));
+        }
+        let first_engine = opened.relative(&units(r"1\PowerShellEngine"));
+        assert!(matches!(
+            (view, first_engine),
+            (RegistryView::Native64, Lookup::Missing) | (RegistryView::Wow32, Lookup::MissingPath)
+        ));
+        assert!(matches!(
+            opened.relative(&units(r"3\0409")),
+            Lookup::Unselected
+        ));
+        assert!(matches!(
+            opened.relative(&units("Unselected")),
+            Lookup::Unselected
+        ));
+    }
+}
+
+#[test]
+fn physical_wow_powershell_key_preserves_captured_missing_path() {
+    let root = SnapshotRoot::ProcessConfig(ProcessConfigKey::PowerShell);
+    let registry = Registry::selected(upcase(), vec![])
+        .unwrap()
+        .with_snapshot_selection(
+            root,
+            &[],
+            RegistryView::Wow32,
+            Err(STATUS_OBJECT_PATH_NOT_FOUND),
+        )
+        .unwrap();
+    let physical = units(POWERSHELL_WOW_KEY);
+    assert!(matches!(registry.lookup(&physical), Lookup::MissingPath));
+    assert!(matches!(
+        registry.lookup(&root.path(&[]).unwrap()),
+        Lookup::Unselected,
+    ));
+}
+
+#[test]
 fn winsock_parameters_exposes_only_selected_values_in_both_views() {
     let subject = ProcessConfigKey::WinsockParameters;
     let root = SnapshotRoot::ProcessConfig(subject);

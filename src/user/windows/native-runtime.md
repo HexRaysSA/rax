@@ -4006,9 +4006,14 @@ policy keys, the active computer-name key, and the two setup progress flags.
 The capture also records the CCG service key's open result. Software views are
 opened separately with explicit native and WoW64 flags. The active control-set
 alias and native access grant are checked before the keys enter the immutable
-runtime. Guest reads use the captured records. Value names outside the projection
-and descendant enumeration remain outside this capability, and the runtime does
-not forward guest registry requests or RPC calls to the host.
+runtime. The Windows PowerShell installation key under
+`HKLM\Software\Microsoft\PowerShell` retains its native child order and timestamps
+in each software view. The selected version 1 and 3 registrations and their
+`PowerShellEngine` keys retain the native open result and a fixed set of startup
+values. Guest enumeration reads this captured metadata. Relative and absolute
+opens use the same selected records, including the explicit WoW64 spelling.
+Other descendant bodies and values remain outside this selection. Guest registry
+requests and RPC calls are never forwarded to the host.
 
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with

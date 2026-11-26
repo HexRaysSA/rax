@@ -99,6 +99,10 @@ impl RegistryViews {
                 ViewRoot::AutoEnrollment,
                 snapshot_root::AUTO_ENROLLMENT_WOW_KEY,
             ),
+            (
+                ViewRoot::ProcessConfig(ProcessConfigKey::PowerShell),
+                process_config::POWERSHELL_WOW_KEY,
+            ),
         ] {
             let prefix: Vec<_> = physical
                 .encode_utf16()

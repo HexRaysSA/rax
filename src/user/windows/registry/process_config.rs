@@ -5,6 +5,9 @@ pub(super) const LEGACY_EXTENSION_FLAG: &str = "LoadAppInit_DLLs";
 
 pub(super) const SYSTEM_SETUP_VALUES: &[&str] = &[SYSTEM_SETUP_IN_PROGRESS, "OOBEInProgress"];
 
+pub(super) const POWERSHELL_WOW_KEY: &str =
+    r"\Registry\Machine\Software\WOW6432Node\Microsoft\PowerShell";
+
 #[path = "process_config/winsock_catalog.rs"]
 pub(super) mod winsock_catalog;
 use winsock_catalog::Catalog;
@@ -26,10 +29,15 @@ pub(crate) enum ProcessConfigKey {
     DisabledLegacyExtensions,
     MachineAppCompatFlags,
     OsDataAppCompatFlags,
+    PowerShell,
+    PowerShellV1,
+    PowerShellV3,
+    PowerShellEngineV1,
+    PowerShellEngineV3,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 14] = [
+    pub(super) const ALL: [Self; 19] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -45,6 +53,11 @@ impl ProcessConfigKey {
         Self::Ccg,
         Self::MachineAppCompatFlags,
         Self::OsDataAppCompatFlags,
+        Self::PowerShellEngineV1,
+        Self::PowerShellEngineV3,
+        Self::PowerShellV1,
+        Self::PowerShellV3,
+        Self::PowerShell,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -88,6 +101,15 @@ impl ProcessConfigKey {
             Self::OsDataAppCompatFlags => {
                 r"\Registry\Machine\OSDATA\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags"
             }
+            Self::PowerShell => r"\Registry\Machine\Software\Microsoft\PowerShell",
+            Self::PowerShellV1 => r"\Registry\Machine\Software\Microsoft\PowerShell\1",
+            Self::PowerShellV3 => r"\Registry\Machine\Software\Microsoft\PowerShell\3",
+            Self::PowerShellEngineV1 => {
+                r"\Registry\Machine\Software\Microsoft\PowerShell\1\PowerShellEngine"
+            }
+            Self::PowerShellEngineV3 => {
+                r"\Registry\Machine\Software\Microsoft\PowerShell\3\PowerShellEngine"
+            }
         }
     }
 
@@ -117,11 +139,27 @@ impl ProcessConfigKey {
             | Self::DnsClientSystemPolicy
             | Self::WinsockAppIdCatalog
             | Self::Ccg
-            | Self::OsDataAppCompatFlags => &[],
+            | Self::OsDataAppCompatFlags
+            | Self::PowerShell => &[],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
             Self::MachineAppCompatFlags => &["LogFlags"],
+            Self::PowerShellV1 => &["Install"],
+            Self::PowerShellV3 => &[
+                "ConsoleHostShortcutTarget",
+                "ConsoleHostShortcutTargetX86",
+                "Install",
+            ],
+            Self::PowerShellEngineV1 | Self::PowerShellEngineV3 => &[
+                "ApplicationBase",
+                "ConsoleHostAssemblyName",
+                "ConsoleHostModuleName",
+                "PowerShellVersion",
+                "PSCompatibleVersion",
+                "PSPluginWkrModuleName",
+                "RuntimeVersion",
+            ],
         }
     }
 
@@ -142,6 +180,11 @@ impl ProcessConfigKey {
             Self::DisabledLegacyExtensions => "disabled legacy extensions",
             Self::MachineAppCompatFlags => "machine AppCompatFlags",
             Self::OsDataAppCompatFlags => "OSDATA AppCompatFlags",
+            Self::PowerShell => "Windows PowerShell installation",
+            Self::PowerShellV1 => "Windows PowerShell version 1 registration",
+            Self::PowerShellV3 => "Windows PowerShell version 3 registration",
+            Self::PowerShellEngineV1 => "Windows PowerShell version 1 engine registration",
+            Self::PowerShellEngineV3 => "Windows PowerShell version 3 engine registration",
         }
     }
 
@@ -159,7 +202,7 @@ impl ProcessConfigKey {
     }
 
     pub(super) fn captures_child_membership(self) -> bool {
-        self == Self::WinsockAppIdCatalog
+        matches!(self, Self::WinsockAppIdCatalog | Self::PowerShell)
     }
 
     pub(super) fn winsock_catalog(self) -> Option<Catalog> {
@@ -176,14 +219,18 @@ impl ProcessConfigKey {
         view: RegistryView,
         parent: &mut Key,
     ) -> io::Result<()> {
-        if self != Self::WinsockParameters {
-            return Ok(());
-        }
-        for child in [
-            Self::WinsockAppIdCatalog,
-            Self::WinsockProtocolCatalog,
-            Self::WinsockNamespaceCatalog,
-        ] {
+        let children: &[Self] = match self {
+            Self::WinsockParameters => &[
+                Self::WinsockAppIdCatalog,
+                Self::WinsockProtocolCatalog,
+                Self::WinsockNamespaceCatalog,
+            ],
+            Self::PowerShell => &[Self::PowerShellV1, Self::PowerShellV3],
+            Self::PowerShellV1 => &[Self::PowerShellEngineV1],
+            Self::PowerShellV3 => &[Self::PowerShellEngineV3],
+            _ => return Ok(()),
+        };
+        for &child in children {
             let selection = (ViewRoot::ProcessConfig(child), view);
             let Some(selected) = registry.views.roots.get(&selection) else {
                 continue;
@@ -192,14 +239,21 @@ impl ProcessConfigKey {
                 .path()
                 .rsplit('\\')
                 .next()
-                .expect("fixed Winsock child name")
+                .expect("fixed process configuration child name")
                 .encode_utf16()
                 .collect::<Vec<_>>();
             let route = match selected {
                 Some(key) => {
                     if key.open_denial.is_none() {
                         let physical = tree::child_path(&parent.path, &name)?;
-                        if parent.children == 0 || parent.fold(&physical) != parent.fold(&key.path)
+                        if parent.children == 0
+                            || parent.fold(&physical) != parent.fold(&key.path)
+                            || parent.enumeration.as_ref().is_some_and(|entries| {
+                                let selected_name = parent.fold(&name);
+                                !entries
+                                    .iter()
+                                    .any(|entry| parent.fold(&entry.name) == selected_name)
+                            })
                         {
                             return Err(invalid(&format!(
                                 "{} differs from its parent",
@@ -234,6 +288,12 @@ impl ProcessConfigKey {
             || self == Self::Rpc
                 && view == RegistryView::Wow32
                 && same(r"\Registry\Machine\Software\WOW6432Node\Microsoft\Rpc")
+        {
+            return Ok(());
+        }
+        if view == RegistryView::Wow32
+            && let Some(suffix) = self.path().strip_prefix(Self::PowerShell.path())
+            && same(&format!("{POWERSHELL_WOW_KEY}{suffix}"))
         {
             return Ok(());
         }
