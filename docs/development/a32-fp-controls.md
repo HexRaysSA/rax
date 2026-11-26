@@ -1319,3 +1319,37 @@ VMM backend-context test module passed all 18 tests.
 Unequal CP10 and CP11 permissions are outside the defined VFP domain.
 Physical ARM1176 validation and asynchronous VFP11 exceptions remain open.
 [Arm Architecture Reference Manual, DDI 0100I, B3-17](https://www.scs.stanford.edu/~zyedidia/docs/arm/armv6.pdf)
+
+### ARM1176 FPSCR modes
+
+On ARM1176, `MVFR1[7:0]` describes media extensions. The zero reset value
+carries no information about the availability of `FPSCR.DN` or `FPSCR.FZ`.
+The software VFPv2 profile uses its scalar arithmetic for both settings of
+these controls and applies the `FPSCR.RMode` setting. This interpretation
+uses the existing ARM1176 profile identity and takes constant time and
+space. [ARM DDI 0301H, Tables 20-6 and 20-10](https://documentation-service.arm.com/static/5e8e294efd977155116a6ca3)
+
+The VMM regression on `4c83a81d` obtained `S0=0x00000000` where the guest
+addition at reset `FPSCR` should produce `S0=0x40400000`. Its revised
+sequence runs on `v6`, `v6_k`, and `v7_a`, and tests retirement again
+after restoring a `v6_k` checkpoint into a fresh owner. QEMU 11.1.2 with
+an `arm1176` CPU matched the result and guest-visible FPSCR in all 22
+binary32 and binary64 reference cases. They cover all four rounding
+settings, both NaN modes, and both input flush settings. The rounding test
+adds `2^-24` or `2^-53` to 1, exactly half the distance to the next
+representable value in binary32 or binary64. Round toward positive infinity
+selects that next value. All tested modes set `FPSCR.IXC` for the tie.
+The reference receipt SHA-256 is
+`3322d32d2ce1bcda07a8a57fc0bf513075470904472ebb528311fd5622d01b07`.
+The five owning integration binaries passed 47,731 tests. Library Clippy
+passed with warnings denied.
+
+| Assumption | Basis | Falsification probe | Status |
+| --- | --- | --- | --- |
+| ARM1176 `MVFR1=0` leaves both DN and FZ settings usable for RAX's software VFP. | DDI 0301H Tables 20-6 and 20-10. | Read zero from guest MVFR1 and vary DN, FZ, and rounding through guest FPSCR writes. Compare raw binary32 and binary64 results and FPSCR against the QEMU guest. | Confirmed for the tested scalar cases. |
+| Complete checkpoints retain the selected profile. | The backend CPU record carries FPSID, MVFR and FPSCR. | Restore the checkpoint into a fresh VMM, then require the reset-FPSCR VADD to retire at the next guest PC. | Checked by the VMM regression. |
+
+Physical ARM1176 behavior, including the high-impact VFP11 asynchronous
+bounce and replay path, remains open. The evaluated results describe software
+execution of the arithmetic, including inputs for which ARM1176 hardware
+delegates to support code.

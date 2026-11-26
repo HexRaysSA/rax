@@ -86,6 +86,151 @@ fn supported(case: &Case, support: u32, control: u32) -> bool {
 }
 
 #[test]
+fn arm1176_mvfr1_uses_legacy_meaning_for_scalar_modes() {
+    // DDI0301H Tables 20-6/20-10 and independent ARM1176 QEMU execution.
+    for (name, control, status, single, double) in [
+        (
+            "reset",
+            0,
+            0,
+            [0x3f80_0000, 0x4000_0000, 0x4040_0000],
+            [
+                0x3ff0_0000_0000_0000,
+                0x4000_0000_0000_0000,
+                0x4008_0000_0000_0000,
+            ],
+        ),
+        (
+            "round-nearest-tie",
+            0,
+            0x10,
+            [0x3f80_0000, 0x3380_0000, 0x3f80_0000],
+            [
+                0x3ff0_0000_0000_0000,
+                0x3ca0_0000_0000_0000,
+                0x3ff0_0000_0000_0000,
+            ],
+        ),
+        (
+            "round-positive-tie",
+            0x40_0000,
+            0x10,
+            [0x3f80_0000, 0x3380_0000, 0x3f80_0001],
+            [
+                0x3ff0_0000_0000_0000,
+                0x3ca0_0000_0000_0000,
+                0x3ff0_0000_0000_0001,
+            ],
+        ),
+        (
+            "round-negative-tie",
+            0x80_0000,
+            0x10,
+            [0x3f80_0000, 0x3380_0000, 0x3f80_0000],
+            [
+                0x3ff0_0000_0000_0000,
+                0x3ca0_0000_0000_0000,
+                0x3ff0_0000_0000_0000,
+            ],
+        ),
+        (
+            "round-zero-tie",
+            0xc0_0000,
+            0x10,
+            [0x3f80_0000, 0x3380_0000, 0x3f80_0000],
+            [
+                0x3ff0_0000_0000_0000,
+                0x3ca0_0000_0000_0000,
+                0x3ff0_0000_0000_0000,
+            ],
+        ),
+        ("retain-input-subnormal", 0, 0, [1, 0, 1], [1, 0, 1]),
+        (
+            "flush-input-subnormal",
+            0x100_0000,
+            0x80,
+            [1, 0, 0],
+            [1, 0, 0],
+        ),
+        (
+            "propagate-qnan",
+            0,
+            0,
+            [0x7fc0_1234, 0x3f80_0000, 0x7fc0_1234],
+            [
+                0x7ff8_1234_5678_90ab,
+                0x3ff0_0000_0000_0000,
+                0x7ff8_1234_5678_90ab,
+            ],
+        ),
+        (
+            "default-qnan",
+            0x200_0000,
+            0,
+            [0x7fc0_1234, 0x3f80_0000, 0x7fc0_0000],
+            [
+                0x7ff8_1234_5678_90ab,
+                0x3ff0_0000_0000_0000,
+                0x7ff8_0000_0000_0000,
+            ],
+        ),
+        (
+            "quiet-snan",
+            0,
+            1,
+            [0x7f80_1234, 0x3f80_0000, 0x7fc0_1234],
+            [
+                0x7ff0_1234_5678_90ab,
+                0x3ff0_0000_0000_0000,
+                0x7ff8_1234_5678_90ab,
+            ],
+        ),
+        (
+            "default-snan",
+            0x200_0000,
+            1,
+            [0x7f80_1234, 0x3f80_0000, 0x7fc0_0000],
+            [
+                0x7ff0_1234_5678_90ab,
+                0x3ff0_0000_0000_0000,
+                0x7ff8_0000_0000_0000,
+            ],
+        ),
+    ] {
+        for (word, [left, right, expected]) in [(super::VADD, single), (0xee31_0b02, double)] {
+            let mut cpu = Armv7Cpu::new();
+            cpu.cp15.cpacr = rax::isa::arm::aarch32::cp15::Cpacr::from_bits(0x00f0_0000);
+            cpu.vfp.fpsid = 0x4101_20b5;
+            cpu.vfp.mvfr0 = 0x1111_1111;
+            cpu.vfp.mvfr1 = 0;
+            cpu.vfp.mvfr2 = 0;
+            cpu.vfp.fpexc = 1 << 30;
+            cpu.regs[0] = control;
+            cpu.vfp.dregs[0] = 0x0987_6543_210f_edcb;
+            cpu.vfp.dregs[1] = left;
+            cpu.vfp.dregs[2] = right;
+            let mut memory = FlatMemory::new(4096, 0);
+            let mut executor = Executor::new(&mut cpu, &mut memory);
+            for raw in [0xeee1_0a10, word, 0xeef1_1a10, 0xeef6_2a10] {
+                let result = executor.execute(&Aarch32Decoder::decode(raw).unwrap());
+                assert!(
+                    matches!(result, ExecResult::Continue),
+                    "{name} {word:#x} {raw:#x}: {result:?}"
+                );
+            }
+            let wanted_d0 = if word == super::VADD {
+                0x0987_6543_0000_0000 | expected
+            } else {
+                expected
+            };
+            assert_eq!(cpu.vfp.dregs[0], wanted_d0, "{name} {word:#x}");
+            assert_eq!(cpu.regs[1], control | status, "{name} {word:#x}");
+            assert_eq!(cpu.regs[2], 0, "ARM1176 MVFR1 readback");
+        }
+    }
+}
+
+#[test]
 fn fixed_to_half_flush_admission_changes_above_fourteen_fraction_bits() {
     for thumb in [false, true] {
         for (raw, fractional_bits) in [

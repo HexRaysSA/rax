@@ -275,7 +275,7 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
         };
         state.regs.pc = CODE as u32;
         state.regs.r[3] = 1 << 30; // EN
-        state.regs.r[4] = (1 << 25) | (1 << 24); // DN and FZ, round to nearest.
+        state.regs.r[4] = 0; // Reset FPSCR, including DN and FZ clear.
         state.regs.r[7] = 0x00f0_0000;
         state.regs.s[2] = 1.0_f32.to_bits();
         state.regs.s[4] = 2.0_f32.to_bits();
@@ -317,6 +317,12 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
                 panic!("expected restored AArch32 CPU");
             };
             assert_eq!(state.regs.r[6], 0x00f0_0000);
+            let pc = CODE + 7 * 4;
+            vm.vcpus[0].set_current_pc(pc).unwrap();
+            let retired = vm.vcpus[0].instruction_count();
+            assert!(vm.vcpus[0].step_insn().unwrap().is_none());
+            assert_eq!(vm.vcpus[0].current_pc(), pc + 4);
+            assert_eq!(vm.vcpus[0].instruction_count(), retired + 1);
         }
         for index in [8, 9] {
             let pc = CODE + 4 * index;

@@ -24,7 +24,11 @@ struct Requirements {
 }
 
 fn full_controls(state: &VfpState) -> bool {
-    state.mvfr0 >> 28 == 1 && state.mvfr1 & 0xff == 0x11
+    // ARM1176 predates the modern MVFR1 scalar mode fields. DDI0301H
+    // Tables 20-6 and 20-10 define DN/FZ in FPSCR and give MVFR1[7:0]
+    // media-instruction meanings. The software VFP handles both DN/FZ
+    // settings directly for this profile.
+    state.is_arm11() || state.mvfr0 >> 28 == 1 && state.mvfr1 & 0xff == 0x11
 }
 
 fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
