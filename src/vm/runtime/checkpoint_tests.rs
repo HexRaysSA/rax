@@ -177,6 +177,176 @@ fn software_uart_irq4_checkpoint_rebinds_a_held_legacy_pic_input() {
     assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(0x24));
 }
 
+fn queue_i8042_irq(vm: &Vmm, irq: u8, byte: u8) {
+    use crate::devices::i8042::{AUX_IRQ, DATA_PORT, STATUS_PORT};
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    let mut sequence = vec![(STATUS_PORT, 0x60), (DATA_PORT, 1)];
+    if irq == AUX_IRQ {
+        sequence = vec![(STATUS_PORT, 0x60), (DATA_PORT, 2), (STATUS_PORT, 0xd3)];
+    }
+    sequence.push((DATA_PORT, byte));
+    for (port, value) in sequence {
+        assert!(matches!(
+            vm.checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port,
+                    data: vec![value]
+                }
+            )
+            .unwrap(),
+            CheckpointIoReply::Output
+        ));
+    }
+}
+
+#[test]
+fn software_i8042_checkpoint_rejects_inconsistent_routes() {
+    use crate::devices::i8042::{AUX_IRQ, KEYBOARD_IRQ};
+
+    for irq in [KEYBOARD_IRQ, AUX_IRQ] {
+        let fixture = Fixture::new();
+        let vm = &fixture.vm;
+        let ioapic = &vm.pc_devices.as_ref().unwrap().ioapic;
+        ioapic.lock().unwrap().set_irq(irq, true);
+        let error = vm.take_snapshot_bundle(0).unwrap_err();
+        assert!(
+            error.to_string().contains("I/O APIC i8042"),
+            "IRQ{irq}: {error}"
+        );
+        ioapic.lock().unwrap().set_irq(irq, false);
+
+        vm.pic.lock().unwrap().restore_irq_input_level(irq, true);
+        let error = vm.take_snapshot_bundle(0).unwrap_err();
+        assert!(error.to_string().contains("PIC i8042"), "IRQ{irq}: {error}");
+        vm.pic.lock().unwrap().restore_irq_input_level(irq, false);
+
+        queue_i8042_irq(vm, irq, 0x69);
+        vm.take_snapshot_bundle(0).unwrap();
+        ioapic.lock().unwrap().set_irq(irq, false);
+        let error = vm.take_snapshot_bundle(0).unwrap_err();
+        assert!(
+            error.to_string().contains("I/O APIC i8042"),
+            "IRQ{irq}: {error}"
+        );
+    }
+}
+
+#[test]
+fn software_i8042_checkpoint_rebinds_held_inputs_without_replaying_edges() {
+    use crate::devices::i8042::{AUX_IRQ, DATA_PORT, KEYBOARD_IRQ};
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    for (irq, output) in [(KEYBOARD_IRQ, 0xfa), (AUX_IRQ, 0x69)] {
+        let mut source = Fixture::new();
+        let path = source.kernel.with_extension("rxc");
+        let vm = &mut source.vm;
+        vm.io_bus.get_mut().unwrap().write(0x21, &[0xf9]).unwrap();
+        vm.io_bus.get_mut().unwrap().write(0xa1, &[0xef]).unwrap();
+        let vector = 0x20 + irq;
+        queue_i8042_irq(vm, irq, 0x69);
+        assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(vector));
+        if irq == AUX_IRQ {
+            vm.io_bus.get_mut().unwrap().write(0xa0, &[0x20]).unwrap();
+        }
+        vm.io_bus.get_mut().unwrap().write(0x20, &[0x20]).unwrap();
+
+        let mut saved = vm.take_snapshot_bundle(0).unwrap();
+        let mut execution = saved.take_execution().unwrap();
+        let pc = execution.pc.take().unwrap();
+        let mut inputs = vm.pic.lock().unwrap().irq_input_levels();
+        let bank = usize::from(irq / 8);
+        let mask = 1 << (irq % 8);
+        assert_ne!(inputs[bank] & mask, 0);
+        inputs[bank] &= !mask;
+        execution.pc = Some(pc.with_software_pic_inputs(inputs));
+        saved
+            .with_execution(execution)
+            .unwrap()
+            .save(&path)
+            .unwrap();
+        let saved = SnapshotBundle::load(&path).unwrap();
+        drop(source);
+
+        let mut target = Fixture::new();
+        let vm = &mut target.vm;
+        vm.restore_snapshot_bundle(&saved).unwrap();
+        {
+            let mut pic = vm.pic.lock().unwrap();
+            let mut expected_inputs = inputs;
+            expected_inputs[bank] |= mask;
+            assert_eq!(pic.irq_input_levels(), expected_inputs);
+            pic.set_irq(irq, true);
+            assert_eq!(pic.get_pending_vector(), None);
+        }
+        assert!(matches!(
+            vm.checkpoint_io_service(0, VcpuExit::IoIn { port: DATA_PORT, size: 1 }).unwrap(),
+            CheckpointIoReply::Input(bytes) if bytes == [output]
+        ));
+        assert_eq!(vm.pic.lock().unwrap().irq_input_levels()[bank] & mask, 0);
+        queue_i8042_irq(vm, irq, 0x74);
+        assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(vector));
+    }
+}
+
+#[test]
+fn software_i8042_checkpoint_recovers_the_legacy_output_without_an_edge() {
+    use crate::devices::bus::MmioDevice;
+    use crate::devices::i8042::AUX_IRQ;
+    use crate::devices::ioapic::IOAPIC_BASE;
+
+    for level_triggered in [false, true] {
+        let mut source = Fixture::new();
+        let path = source.kernel.with_extension("rxc");
+        let vm = &mut source.vm;
+        queue_i8042_irq(vm, AUX_IRQ, 0x69);
+        let mut saved = vm.take_snapshot_bundle(0).unwrap();
+        let pc = vm.pc_devices.as_ref().unwrap();
+        {
+            let mut ioapic = pc.ioapic.lock().unwrap();
+            // Simulate a file written before the latch drove an IRQ wire.
+            ioapic.set_irq(AUX_IRQ, false);
+            ioapic.write(IOAPIC_BASE, &[0x10 + 2 * AUX_IRQ]);
+            let route = 0x41u32 | (u32::from(level_triggered) << 15);
+            ioapic.write(IOAPIC_BASE + 0x10, &route.to_le_bytes());
+        }
+        let legacy = pc.checkpoint_with(|image, _| Ok(image)).unwrap();
+        assert_eq!(&legacy.encoded().unwrap()[..8], b"RAXPCD03");
+        let mut execution = saved.take_execution().unwrap();
+        execution.pc = Some(legacy);
+        saved
+            .with_execution(execution)
+            .unwrap()
+            .save(&path)
+            .unwrap();
+        let saved = SnapshotBundle::load(&path).unwrap();
+        drop(source);
+
+        let mut target = Fixture::new();
+        let vm = &mut target.vm;
+        vm.restore_snapshot_bundle(&saved).unwrap();
+        let rebound = vm.take_snapshot_bundle(0).unwrap();
+        assert!(rebound.execution().unwrap().pc.is_some());
+        let ioapic = vm.pc_devices.as_ref().unwrap().ioapic.lock().unwrap();
+        assert!(
+            ioapic
+                .checkpoint_state()
+                .unwrap()
+                .prepare()
+                .unwrap()
+                .line_asserted(AUX_IRQ)
+        );
+        let pending = ioapic.pending();
+        assert_eq!(pending.len(), usize::from(level_triggered));
+        if let Some(delivery) = pending.first() {
+            assert_eq!(delivery.gsi, AUX_IRQ);
+            assert_eq!(delivery.vector, 0x41);
+            assert!(delivery.level_triggered);
+        }
+    }
+}
+
 #[test]
 fn checkpoint_capture_rejects_a_stale_pic_rtc_input() {
     let fixture = Fixture::new();

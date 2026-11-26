@@ -423,7 +423,7 @@ fn s5_wire_state_changes_only_after_successful_publication() {
 #[test]
 fn software_pic_wire_preserves_both_banks_and_s5_with_strict_admission() {
     let (source, _, _) = device_set();
-    let inputs = [0x84, 0x50];
+    let inputs = [0x84, 0x60];
     for powered_off in [false, true] {
         source.set_powered_off(powered_off);
         let (image, resources) = capture(&source);
@@ -460,7 +460,7 @@ fn software_pic_wire_validates_rtc_routes_and_restores_legacy_inputs() {
         }
         source.ioapic.lock().unwrap().set_irq(RTC_IRQ, asserted);
         let (image, resources) = capture(&source);
-        let levels = [0x84, 0x50 | u8::from(asserted)];
+        let levels = [0x84, 0x60 | u8::from(asserted)];
         let mut raw = image.with_software_pic_inputs(levels).encoded().unwrap();
         assert!(PcCheckpoint::decode(&raw).is_ok());
 

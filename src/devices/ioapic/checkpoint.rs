@@ -57,13 +57,7 @@ fn deliveries<'de, D: Deserializer<'de>>(
     deserializer.deserialize_seq(Messages)
 }
 
-pub(crate) struct PreparedIoApicCheckpoint {
-    ioregsel: u8,
-    id: u32,
-    redirection_table: [u64; IOAPIC_NUM_RTE],
-    line_asserted: [bool; IOAPIC_NUM_RTE],
-    pending: Vec<PendingIrq>,
-}
+pub(crate) struct PreparedIoApicCheckpoint(IoApic);
 
 fn invalid(message: impl std::fmt::Display) -> Error {
     Error::InvalidConfig(format!("I/O APIC checkpoint: {message}"))
@@ -148,28 +142,42 @@ impl IoApicCheckpoint {
             destination: entry.destination,
             level_triggered: entry.level_triggered,
         }));
-        Ok(PreparedIoApicCheckpoint {
+        Ok(PreparedIoApicCheckpoint(IoApic {
             ioregsel: self.ioregsel,
             id: self.id,
             redirection_table: self.redirection_table,
             line_asserted: self.line_asserted,
             pending,
-        })
+        }))
     }
 }
 
 impl PreparedIoApicCheckpoint {
     pub(crate) fn line_asserted(&self, gsi: u8) -> bool {
-        self.line_asserted[usize::from(gsi)]
+        self.0.line_asserted[usize::from(gsi)]
+    }
+
+    /// Recover a legacy wire without inventing an edge. A changed level route
+    /// must still reflect the recovered input in its pending delivery state.
+    pub(crate) fn rebind_input(&mut self, gsi: u8, asserted: bool) -> Result<()> {
+        let pin = usize::from(gsi);
+        if self.0.line_asserted[pin] == asserted {
+            return Ok(());
+        }
+        if source_level_triggered(self.0.redirection_table[pin]) {
+            if asserted && self.0.pending.len() < MAX_PENDING {
+                self.0.pending.try_reserve(1).map_err(invalid)?;
+            }
+            self.0.set_irq(gsi, asserted);
+        } else {
+            self.0.line_asserted[pin] = asserted;
+        }
+        Ok(())
     }
 
     pub(crate) fn commit(self, target: &mut IoApic) {
-        target.ioregsel = self.ioregsel;
-        target.id = self.id;
-        target.redirection_table = self.redirection_table;
-        target.line_asserted = self.line_asserted;
         // Calling write_indexed here could enqueue asserted lines a second time.
-        target.pending = self.pending;
+        *target = self.0;
     }
 }
 

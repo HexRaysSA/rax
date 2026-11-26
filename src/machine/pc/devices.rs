@@ -4,7 +4,7 @@ use crate::devices::{
     dma::Dma,
     fdc::Fdc,
     fw_cfg::FwCfg,
-    i8042::I8042,
+    i8042::{AUX_IRQ, I8042, KEYBOARD_IRQ},
     ide::IdeController,
     ioapic::IoApic,
     rtc::{RTC_IRQ, RtcStub, RtcTimingCheckpoint},
@@ -85,7 +85,11 @@ impl PreparedPcCheckpoint {
             // Older PIC initialization could drop a held input. Rebind the
             // proven source levels without changing IRR or ISR.
             let com1 = u8::from(self.ioapic.line_asserted(COM1_IRQ)) << COM1_IRQ;
-            [master | com1, slave | u8::from(self.rtc.irq_asserted())]
+            let mut inputs = [master | com1, slave | u8::from(self.rtc.irq_asserted())];
+            if let Some(irq) = self.state.i8042.output_irq() {
+                inputs[usize::from(irq / 8)] |= 1 << (irq % 8);
+            }
+            inputs
         }))
     }
 
@@ -97,9 +101,12 @@ impl PreparedPcCheckpoint {
         self.ioapic.line_asserted(irq)
     }
 
-    pub(crate) fn i8042_irq_levels(&self) -> [(u8, bool); 2] {
-        use crate::devices::i8042::{AUX_IRQ, KEYBOARD_IRQ};
-        [KEYBOARD_IRQ, AUX_IRQ].map(|irq| (irq, self.irq_input_level(irq)))
+    pub(crate) fn recover_legacy_i8042_inputs(&mut self) -> Result<[(u8, bool); 2]> {
+        let levels = i8042_irq_levels(&self.state.i8042);
+        for (irq, asserted) in levels {
+            self.ioapic.rebind_input(irq, asserted)?;
+        }
+        Ok(levels)
     }
 
     pub(crate) fn rtc_irq_level(&self, uses_native_irqchip: bool) -> Result<Option<bool>> {
@@ -112,6 +119,11 @@ impl PreparedPcCheckpoint {
         }
         Ok(level)
     }
+}
+
+fn i8042_irq_levels(controller: &I8042) -> [(u8, bool); 2] {
+    let output = controller.output_irq();
+    [KEYBOARD_IRQ, AUX_IRQ].map(|irq| (irq, output == Some(irq)))
 }
 
 fn invalid(e: impl std::fmt::Display) -> Error {
@@ -258,6 +270,7 @@ impl State {
     ) -> Result<()> {
         let rtc = self.rtc.prepare()?;
         let ioapic = self.ioapic.prepare()?;
+        self.i8042.validate_checkpoint()?;
         if let Some([master, slave]) = software_pic_inputs {
             // A previous PIC initialization could clear its IRQ8 input
             // cache while the source stayed high. It could never set it.
@@ -277,11 +290,23 @@ impl State {
                     return Err(invalid("PIC COM1 line differs from UART output"));
                 }
             }
+            for (irq, asserted) in i8042_irq_levels(&self.i8042) {
+                if ioapic.line_asserted(irq) != asserted {
+                    return Err(invalid(format!(
+                        "I/O APIC i8042 IRQ{irq} line differs from output latch"
+                    )));
+                }
+                let bank = [master, slave][usize::from(irq / 8)];
+                if bank & (1 << (irq % 8)) != 0 && !asserted {
+                    return Err(invalid(format!(
+                        "PIC i8042 IRQ{irq} line differs from output latch"
+                    )));
+                }
+            }
         }
         self.sysctl.prepare()?;
         self.fw_cfg.validate_checkpoint()?;
         self.dma.validate_checkpoint()?;
-        self.i8042.validate_checkpoint()?;
         let sizes = self.buffer_sizes()?;
         self.fdc.validate_checkpoint(sizes[6])?;
         for (index, ((ide, key), (cmd, ctrl))) in [&self.ide_primary, &self.ide_secondary]

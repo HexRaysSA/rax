@@ -258,6 +258,39 @@ Clippy with warnings denied passed.
 This validation exercises the portable PC models. Intel HVF execution and
 the remaining native and platform checkpoint profiles stay open.
 
+## Software i8042 IRQ1 and IRQ12 checkpoint coherence
+
+The software PC controller routes keyboard output to IRQ1 and auxiliary
+output to IRQ12. RAXPCD05 verifies both I/O APIC inputs against the gated
+i8042 output latch and rejects asserted PIC inputs without a corresponding
+device output. When both the device and I/O APIC show an asserted wire,
+restoring an old low PIC input leaves IRR, ISR, and the cascade bit intact.
+
+RAXPCD01 through RAXPCD04 can contain a byte saved before the output latch
+drove the interrupt wires. Software restore reconstructs both input levels
+from the saved latch during preparation. It preserves pending edge messages
+and does not create an edge. A changed level-triggered I/O APIC input uses
+the controller's normal level evaluation, including cancellation on
+deassertion and withholding delivery while masked or awaiting EOI.
+The operation handles two pins in a controller bounded to 24 pending
+deliveries, so time and additional storage are bounded independently of
+guest memory size. The on-disk format is unchanged.
+
+On `3eb8dec24`, capture accepted a stale high I/O APIC input and detached
+restore left a held IRQ1 PIC input low. Both regressions passed after the
+change. The six local library groups ran 142 tests, covering VMM checkpoint
+admission, PC IRQ routing, PIO, the PC machine, I/O APIC and i8042.
+
+| Assumption | Basis | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| The gated i8042 output latch is the source for both saved wires. | Normal and stopped PIO publish changes through the same VMM routing helper. | With each input in turn, alter the I/O APIC line in both directions and separately leave a stale high PIC input. Require capture to reject each discrepancy. | High |
+| A low RAXPCD05 PIC input can be rebound from a consistent held source without changing delivery history. | Older ICW1 code could clear the PIC input cache after a request was acknowledged. | Restore detached IRQ1 and IRQ12 files with that input cleared. Refresh the held wire, consume the retained byte, and require exactly one interrupt on the next assertion. | High |
+| A pre-routing image supplies a level through the latch but supplies no new edge. | The older records preserved the latch and controller independently. | Restore a RAXPCD03 file with an unbound AUX output. Require zero queued edges or one level delivery according to the saved route, then require successful capture as RAXPCD05. | High |
+
+The software controller checks apply to PC configurations that use the
+shared software interrupt controller. Native KVM interrupt banks and live
+Intel HVF guest execution are outside the validation for this change.
+
 ## Native UART IRQ4 checkpoint coherence
 
 For the native PC interrupt controller, capture synchronizes GSI4 from the

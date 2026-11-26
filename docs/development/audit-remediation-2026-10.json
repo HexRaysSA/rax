@@ -201176,6 +201176,14 @@
       "scope": "RAXPCD05 validation binds the saved COM1 UART output to the software I/O APIC and PIC wire. The restore path recovers a held PIC input without latching an additional edge. The detach regression verifies the retained byte, absence of a duplicate vector, and delivery after the next assertion. Native Intel execution and the full backend and interrupt findings remain open.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#software-uart-irq4-checkpoint-coherence",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-software-i8042-checkpoint-2026-11-26",
+      "findings": ["C-STATE", "C-HVF"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "RAXPCD05 validation binds i8042 keyboard and auxiliary outputs to software I/O APIC and PIC input levels. Detached restore recovers held PIC inputs without replaying acknowledged edges. RAXPCD03 migration coverage verifies recovered AUX levels for both edge and level I/O APIC routes. Native KVM interrupt banks and live Intel HVF execution are outside the qualification.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#software-i8042-irq1-and-irq12-checkpoint-coherence",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

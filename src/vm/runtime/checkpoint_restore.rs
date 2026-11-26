@@ -290,7 +290,7 @@ impl Vmm {
                 referenced.insert(key);
             }
         }
-        let pc_restore = pc_image
+        let mut pc_restore = pc_image
             .map(|image| image.prepare(&resources))
             .transpose()?;
         let native_irqchip = self.vm.uses_native_x86_irqchip();
@@ -430,7 +430,7 @@ impl Vmm {
         if snapshot.config.backend == BackendKind::Kvm && !native_kvm {
             devices.pit.admit_legacy_native_phase();
         }
-        if let Some(pc) = &pc_restore {
+        if let Some(pc) = &mut pc_restore {
             // Historical PC records latched port B without driving GATE. Route
             // their saved input at the imported epoch. A matching gate leaves
             // the captured counter's phase intact.
@@ -447,7 +447,7 @@ impl Vmm {
                         .pic
                         .restore_irq_input_level(irq, pc.irq_input_level(irq));
                 }
-                for (irq, level) in pc.i8042_irq_levels() {
+                for (irq, level) in pc.recover_legacy_i8042_inputs()? {
                     devices.pic.restore_irq_input_level(irq, level);
                 }
                 if let Some(level) = rtc_irq_level {
