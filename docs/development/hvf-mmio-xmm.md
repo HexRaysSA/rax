@@ -2050,7 +2050,19 @@ records use independent QEMU RAM results for the 128 successful reads
 and the x86 alignment rule for the two fault controls. This profile
 cross-built for Intel macOS and passed strict signature verification.
 
-Native execution of these profiles and EVEX remain open.
+Hosted Intel run `45845605439` at `b2360a8f3` passed all 68 cases of
+`vector-aes-rounds`. All 32 direct and 32 fresh-owner completions used
+16 B device replies and matched the full-YMM fingerprints from the
+independent QEMU RAM run. All four legacy alignment controls raised #GP(0).
+The run's source and consumer digests matched the pinned revision, and
+the execution artifact identified the signed executable from the build
+artifact. The execution artifact SHA-256 is
+`66bb56b44d06ac4fc666600f0b7636bcca3c15f51f737f93e0c345ad1ecc9b74`.
+The host reported a native Intel process in a virtualized environment.
+[Hosted AES-round execution](https://github.com/HexRaysSA/rax/actions/runs/45845605439)
+
+Native execution of the VEX.256 and unary profiles, bare-metal Intel,
+and EVEX support remain open.
 
 ## Carry-less multiplication with a device operand
 

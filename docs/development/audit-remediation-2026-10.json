@@ -201044,8 +201044,8 @@
     {
       "id": "hvf-mmio-aes-device-reads-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "native_intel_qualification_pending",
-      "scope": "Intel HVF plans one read for legacy and VEX AES rounds, AESIMC and AESKEYGENASSIST in their admitted widths. The 192 round cases and 2,080 unary cases match independent QEMU RAM results after pending-read restoration. Native profiles cover 68 AES round cases, 32 VAES round cases and 130 unary cases. Native execution, EVEX, and complete MMIO, interrupt and checkpoint validation remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Intel HVF plans one read for legacy and VEX AES rounds, AESIMC and AESKEYGENASSIST in their admitted widths. The 192 round cases and 2,080 unary cases match independent QEMU RAM results after pending-read restoration. Hosted Intel run 45845605439 at b2360a8f3ae4d4472a18184b8cda857f676673a4 passed the 68-case AES round profile with 32 direct reads, 32 fresh-owner completions and four legacy alignment faults. Hosted execution of the 32-case VAES and 130-case unary profiles, bare-metal Intel, EVEX, and complete MMIO, interrupt and checkpoint validation remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#aes-instructions-with-a-device-operand",
       "full_goal_complete": false
     },
