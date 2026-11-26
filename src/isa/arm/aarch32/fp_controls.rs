@@ -98,7 +98,7 @@ impl FpAccessContext {
         }
     }
 
-    fn higher_aarch64_traps(self, kind: FpAccessKind) -> Option<FpAccessFault> {
+    fn aarch64_el2_trap(self, kind: FpAccessKind) -> Option<FpAccessFault> {
         use crate::isa::arm::common::fp_access::FpAccessControls;
         let controls = FpAccessControls {
             current_el: self.current_el,
@@ -111,7 +111,7 @@ impl FpAccessContext {
             cptr_el3: self.cptr_el3,
         };
         controls
-            .higher_fault()
+            .higher_el2_fault()
             .map(|fault| self.trap(kind, fault.target_el, u32::from(fault.ec), 0))
     }
 
@@ -119,7 +119,9 @@ impl FpAccessContext {
         if kind.invalid_system_encoding || kind.privileged_only && self.current_el == 0 {
             return Some(FpAccessFault::UndefinedEncoding);
         }
-        if self.current_el == 0 && self.el1_aarch64 {
+        let below_aarch64_el1 = self.current_el == 0 && self.el1_aarch64;
+        let ns_clamp = self.have_el3 && !self.el3_aarch64 && !self.secure;
+        if below_aarch64_el1 {
             // FPEXC.EN is effectively one for A32 EL0 under an A64 EL1.
             let host = self.el2_enabled
                 && self.vhe
@@ -141,11 +143,7 @@ impl FpAccessContext {
                     self.trap(kind, 1, 7, 0)
                 });
             }
-            if let Some(fault) = self.higher_aarch64_traps(kind) {
-                return Some(fault);
-            }
         } else {
-            let ns_clamp = self.have_el3 && !self.el3_aarch64 && !self.secure;
             let cp10 = if ns_clamp && self.nsacr & (1 << 10) == 0 {
                 0
             } else {
@@ -167,26 +165,19 @@ impl FpAccessContext {
             if kind.fpexc_check && !self.effective_fpexc_enabled() {
                 return Some(FpAccessFault::Undefined);
             }
-            if self.el2_enabled && self.el2_aarch64 {
-                if let Some(fault) = self.higher_aarch64_traps(kind) {
-                    return Some(fault);
-                }
-            } else {
-                if self.have_el2 && !self.secure {
-                    let tcp10 =
-                        self.hcptr & (1 << 10) != 0 || ns_clamp && self.nsacr & (1 << 10) == 0;
-                    let tase =
-                        self.hcptr & (1 << 15) != 0 || ns_clamp && self.nsacr & (1 << 15) != 0;
-                    if tcp10 || kind.advsimd && tase {
-                        return Some(self.trap(kind, 2, 7, if kind.advsimd { 1 << 5 } else { 10 }));
-                    }
-                }
-                if self.have_el3 && self.el3_aarch64 && self.cptr_el3 & (1 << 10) != 0 {
-                    return Some(self.trap(kind, 3, 7, 0));
-                }
+        }
+        if below_aarch64_el1 || self.el2_enabled && self.el2_aarch64 {
+            if let Some(fault) = self.aarch64_el2_trap(kind) {
+                return Some(fault);
+            }
+        } else if self.have_el2 && !self.secure {
+            let tcp10 = self.hcptr & (1 << 10) != 0 || ns_clamp && self.nsacr & (1 << 10) == 0;
+            let tase = self.hcptr & (1 << 15) != 0 || ns_clamp && self.nsacr & (1 << 15) != 0;
+            if tcp10 || kind.advsimd && tase {
+                return Some(self.trap(kind, 2, 7, if kind.advsimd { 1 << 5 } else { 10 }));
             }
         }
-        // VMRS ID-group traps follow the ordinary access checks.
+        // VMRS ID-group traps follow the EL2 FP access checks and precede EL3.TFP.
         if self.current_el == 1 && self.el2_enabled {
             if let Some(register) = kind.system_read {
                 let trap_id = register == 0 && self.hcr & (1 << 15) != 0
@@ -201,6 +192,9 @@ impl FpAccessContext {
                     return Some(self.trap(kind, 2, 8, iss));
                 }
             }
+        }
+        if self.have_el3 && self.el3_aarch64 && self.cptr_el3 & (1 << 10) != 0 {
+            return Some(self.trap(kind, 3, 7, 0));
         }
         None
     }

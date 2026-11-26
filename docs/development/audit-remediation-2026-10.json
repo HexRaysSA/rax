@@ -200954,6 +200954,14 @@
       "scope": "Hosted run 45778197890 captured the AP1 input and stopped before any warm restore because the test checked the live target's pending output in the input request field. The corrected fixture checks the separate input and output records, the exact 6 B write instruction length, and both fields on the AP taken offline by a four-vCPU restore. Independent archive inspection verified both CPU records, the online mask and the replacement UD2 in the captured AP1 file. Native completion of the corrected fixture remains open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#warm-restore-with-pending-secondary-mmio",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-vmrs-id-trap-priority-2026-11-26",
+      "findings": ["A32-FP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Normal AArch32 EL1 VMRS FPSID and MVFR0–2 take the EL2 ID trap before CPTR_EL3.TFP. The parent selected EL3 for combined TID0 and TFP. The ARM and Thumb regression verifies local denial, EL2 and EL3 priority, exact syndrome and unchanged destination and retirement. All 47,730 owning tests passed. The 48 QEMU 11.1.2 guests reproduce the parent ordering in eight combined cases. Arm's per-register pseudocode supplies the priority expectation. Physical AArch32 and halted Debug state remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#vmrs-id-trap-priority",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

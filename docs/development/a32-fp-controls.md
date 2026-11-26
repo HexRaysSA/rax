@@ -625,6 +625,37 @@ qualification remains open.
 The guest program and raw results are in
 `/Users/int/dev/rax-audit-work/four-findings-a32-secure-tid3-2026-11-26/`.
 
+### VMRS ID trap priority
+
+For normal AArch32 EL1 execution, `VMRS FPSID` and `VMRS MVFR0–2`
+check local coprocessor permission and EL2 FP access before the EL2 ID
+trap. The ID trap takes precedence over `CPTR_EL3.TFP`. FPSID uses
+`HCR_EL2.TID0`, and the three MVFRs use `HCR_EL2.TID3`. The checks use
+constant time and auxiliary space.
+[Arm FPSID access pseudocode](https://arm.jonpalmisc.com/latest_sysreg/AArch32-fpsid#access-instructions),
+[Arm MVFR0 access pseudocode](https://arm.jonpalmisc.com/latest_sysreg/AArch32-mvfr0#access-instructions),
+[Arm MVFR1 access pseudocode](https://arm.jonpalmisc.com/latest_sysreg/AArch32-mvfr1#access-instructions),
+[Arm MVFR2 access pseudocode](https://arm.jonpalmisc.com/latest_sysreg/AArch32-mvfr2#access-instructions)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Normal EL1 execution takes the ID trap before the EL3 FP trap. | High | Set the applicable TID bit and `CPTR_EL3.TFP`. For each register in ARM and Thumb, require EL2 EC `0x08`, the exact ISS, unchanged R2 and PC, and zero retirements. |
+| Each control retains its own priority. | High | Clear the TID bit to observe EL3 EC `0x07`. Set `CPTR_EL2.TFP` to observe EL2 EC `0x07`. Clear CPACR permission to observe Undefined ahead of both traps. |
+| The guest executes outside halted Debug state. | Medium | The Arm register pseudocode has a separate `EL3SDDUndefPriority()` path for `EDSCR.SDD` in halted Debug state. The regression checks ordinary guest instruction execution. |
+
+Parent `b59e6eaf7` reported EL3 EC `0x07` for the first combined FPSID
+case. In 48 QEMU 11.1.2 `max` guests, the eight combined TID and EL3 TFP
+cases also selected EL3. QEMU's VMRS translator checks general FP access
+before calling its HCR ID trap helper. The remaining 40 cases exercised
+each individual trap, EL2 TFP priority, local Undefined, and ordinary
+read completion. RAX implements the priority in Arm's per-register
+access pseudocode. All 47,730 tests across the five owning suites passed.
+Physical AArch32 qualification and halted Debug state remain open.
+[QEMU 11.1.2 VMRS translator](https://github.com/qemu/qemu/blob/v11.1.2/target/arm/tcg/translate-vfp.c#L722-L798)
+
+The guest code and raw results are in
+`/Users/int/dev/rax-audit-work/four-findings-a32-vmrs-id-priority-2026-11-26/`.
+
 ## AArch32 execution below EL2 without EL3
 
 On the represented Non-secure PE without EL3, `HCR_EL2.RW` selects the

@@ -33,8 +33,8 @@ impl FpAccessControls {
         self.el2_enabled && self.vhe && self.hcr & (1 << 34) != 0
     }
 
-    /// Higher controls are also used by AArch32 after its local access checks.
-    pub(crate) fn higher_fault(self) -> Option<FpAccessTrap> {
+    /// AArch32 ID accesses can take an EL2 trap before checking EL3.TFP.
+    pub(crate) fn higher_el2_fault(self) -> Option<FpAccessTrap> {
         if self.current_el <= 2 && self.el2_enabled {
             let disabled = if self.host_el2() {
                 let tge = self.hcr & (1 << 27) != 0;
@@ -52,6 +52,13 @@ impl FpAccessControls {
                     ec: 7,
                 });
             }
+        }
+        None
+    }
+
+    fn higher_fault(self) -> Option<FpAccessTrap> {
+        if let Some(fault) = self.higher_el2_fault() {
+            return Some(fault);
         }
         if self.have_el3 && self.cptr_el3 & (1 << 10) != 0 {
             return Some(FpAccessTrap {

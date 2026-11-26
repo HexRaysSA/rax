@@ -306,6 +306,68 @@ fn aarch32_tid3_traps_the_cp15_feature_id_group() {
 }
 
 #[test]
+fn vmrs_id_traps_precede_el3_fp_trapping() {
+    const TFP: u64 = 1 << 10;
+    const TID0: u64 = 1 << 15;
+    const TID3: u64 = 1 << 18;
+    const CANARY: u64 = 0xface_1234;
+    const FP_ISS: u32 = 0x1e << 20;
+
+    for thumb in [false, true] {
+        for selector in [0, 5, 6, 7] {
+            let raw = 0xeef0_2a10 | (selector << 16); // VMRS R2,FPSID or MVFR<n>.
+            let tid = if selector == 0 { TID0 } else { TID3 };
+            let id_iss = FP_ISS | (7 << 14) | (selector << 10) | (2 << 5) | 1;
+            for (hcr, cptr2, cptr3, cpacr, expected) in [
+                (tid, 0, TFP, 3 << 20, Some((8, id_iss, 2))),
+                (0, 0, TFP, 3 << 20, Some((7, FP_ISS, 3))),
+                (tid, TFP, TFP, 3 << 20, Some((7, FP_ISS, 2))),
+                (tid, 0, 0, 3 << 20, Some((8, id_iss, 2))),
+                (tid, TFP, TFP, 0, None),
+            ] {
+                let mut cpu = cpu(true);
+                let mut state = cpu.export_sregs();
+                let sysregs = &mut state.execution.as_mut().unwrap().sysregs;
+                sysregs.hcr_el2 = hcr;
+                sysregs.el1.cpacr = cpacr;
+                for (op1, cptr) in [(4, cptr2), (6, cptr3)] {
+                    sysregs
+                        .impl_defined
+                        .insert(Aarch64SysRegEncoding::new(3, op1, 1, 1, 2).encode(), cptr);
+                }
+                cpu.import_sregs(&state).unwrap();
+                cpu.set_pstate_bits(0x1d3 | (u64::from(thumb) << 5))
+                    .unwrap();
+                words(&mut cpu, &[raw], thumb);
+                cpu.set_x(2, CANARY);
+
+                let result = cpu.step();
+                let detail = format!(
+                    "Thumb={thumb}, VMRS selector {selector}, {hcr:#x}/{cptr2:#x}/{cptr3:#x}/{cpacr:#x}: {result:?}"
+                );
+                if let Some((ec, iss, target_el)) = expected {
+                    assert!(
+                        matches!(result, Err(ArmError::ArchitecturalException { ec: e, iss: i, target_el: Some(t) }) if (e, i, t) == (ec, iss, target_el)),
+                        "{detail}"
+                    );
+                } else {
+                    assert!(
+                        matches!(result, Err(ArmError::UndefinedInstruction(_))),
+                        "{detail}"
+                    );
+                }
+                assert_eq!(cpu.get_x(2), CANARY, "{detail}");
+                assert_eq!(
+                    (cpu.get_pc(), cpu.instruction_count()),
+                    (0x100, 0),
+                    "{detail}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn cp15_tid3_follows_secure_el2_enablement() {
     const ID_ISAR5: u32 = 0xee10_2fb2; // MRC P15,0,R2,C0,C2,5.
     const TID3: u64 = 1 << 18;
