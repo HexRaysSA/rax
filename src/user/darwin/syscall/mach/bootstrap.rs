@@ -22,6 +22,7 @@ const REGISTER: i32 = XPC_REQUEST | 204;
 const LOOK_UP: i32 = XPC_REQUEST | 207;
 const XPC_HEADER: [u8; 8] = *b"CPX@\x05\0\0\0";
 const DICTIONARY: u32 = 0xf000;
+const BOOL: u32 = 0x2000;
 const SIGNED: u32 = 0x3000;
 const UNSIGNED: u32 = 0x4000;
 const STRING: u32 = 0x9000;
@@ -168,7 +169,7 @@ fn request(message: &Message) -> Option<Request<'_>> {
         return None;
     }
     let count = word(&mut bytes)?;
-    if count > 7 {
+    if count > 8 {
         return None;
     }
     let mut name = None;
@@ -197,6 +198,9 @@ fn request(message: &Message) -> Option<Request<'_>> {
             ("port", MACH_SEND) => service = Some(ports.next()?),
             ("type", UNSIGNED) if integer(&mut bytes)? == BOOTSTRAP_DOMAIN => {}
             ("handle" | "flags", UNSIGNED) if integer(&mut bytes)? == 0 => {}
+            // The installed libxpc marks requests sent by a forked child
+            // before exec. The bootstrap domain still belongs to the family.
+            ("pre-exec", BOOL) if word(&mut bytes)? <= 1 => {}
             ("targetpid", SIGNED) if integer(&mut bytes)? == 0 => {}
             ("instance", UUID) if take(&mut bytes, 16)? == [0; 16] => {}
             _ => return None,
@@ -375,6 +379,16 @@ mod tests {
         message.body.extend_from_slice(&[0; 4]);
         assert!(request(&message).is_none());
         message.body = complete;
+        field(&mut message.body, b"pre-exec", BOOL, None);
+        message.body.extend_from_slice(&1u32.to_le_bytes());
+        let length = (message.body.len() - 32) as u32;
+        message.body[28..32].copy_from_slice(&length.to_le_bytes());
+        message.body[32..36].copy_from_slice(&4u32.to_le_bytes());
+        assert!(request(&message).is_some());
+        *message.body.last_mut().unwrap() = 2;
+        assert!(request(&message).is_none());
+        *message.body.last_mut().unwrap() = 0;
+        assert!(request(&message).is_some());
         message.items[0].0 += 4;
         assert!(request(&message).is_none());
     }

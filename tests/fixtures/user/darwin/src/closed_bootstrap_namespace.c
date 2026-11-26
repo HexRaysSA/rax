@@ -55,6 +55,20 @@ static int child(void) {
     return 0;
 }
 
+static bool wait_for_service(pid_t pid, mach_port_t port, const char *mode) {
+    int status = -1;
+    if (pid < 0 || waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
+        fprintf(stderr, "%s service client exit: %d\n", mode, status);
+        return false;
+    }
+    struct {
+        mach_msg_header_t hdr;
+        mach_msg_max_trailer_t trailer;
+    } incoming;
+    return mach_msg(&incoming.hdr, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof(incoming),
+                    port, 100, MACH_PORT_NULL) == KERN_SUCCESS && incoming.hdr.msgh_id == message_id;
+}
+
 int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "child") == 0) {
         return child();
@@ -77,21 +91,16 @@ int main(int argc, char **argv) {
     char *child_argv[] = {argv[0], child_flag, NULL};
     char *child_env[] = {NULL};
     int spawn_error = posix_spawn(&pid, argv[0], NULL, NULL, child_argv, child_env);
-    int child_status = -1;
-    if (spawn_error || waitpid(pid, &child_status, 0) != pid || !WIFEXITED(child_status) || WEXITSTATUS(child_status)) {
-        fprintf(stderr, "service client: spawn=%d exit=%d\n", spawn_error, child_status);
+    if (spawn_error || !wait_for_service(pid, port, "spawned") || !absent(bootstrap, transient)) {
+        fprintf(stderr, "posix_spawn error: %d\n", spawn_error);
         return 4;
     }
-    struct {
-        mach_msg_header_t hdr;
-        mach_msg_max_trailer_t trailer;
-    } incoming;
-    if (mach_msg(&incoming.hdr, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof(incoming),
-                 port, 100, MACH_PORT_NULL) != KERN_SUCCESS || incoming.hdr.msgh_id != message_id) {
-        return 5;
+    pid = fork();
+    if (pid == 0) {
+        _exit(child());
     }
-    if (!absent(bootstrap, transient)) {
-        return 6;
+    if (!wait_for_service(pid, port, "forked") || !absent(bootstrap, transient)) {
+        return 5;
     }
     if (mach_port_destroy(mach_task_self(), port) != KERN_SUCCESS || !absent(bootstrap, service)) {
         return 7;
