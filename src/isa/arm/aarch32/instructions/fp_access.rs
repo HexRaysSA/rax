@@ -34,9 +34,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && self.cpu.fp_access_context.is_none()
             && matches!((self.cpu.vfp.mvfr0 >> 4) & 0xff, 0x01 | 0x11)
         {
-            // Arm DDI0406C.d B9.3.21–22: legacy Thumb VMRS and VMSR
-            // constrain SP for every FP system register.
-            if insn.state.is_thumb() && (kind.raw >> 12) & 15 == 13 {
+            // Arm DDI0406C.d Table B1-24 reserves the MVFR2 selector.
+            // B9.3.21–22 also constrain SP in legacy Thumb transfers.
+            if kind.system_read == Some(5) || insn.state.is_thumb() && (kind.raw >> 12) & 15 == 13 {
                 return Some(ExecResult::Undefined);
             }
             // B1.11.2 makes only the FPSID read available to User mode.

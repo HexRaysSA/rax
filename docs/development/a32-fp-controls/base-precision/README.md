@@ -62,6 +62,32 @@ failures or ignored cases. The targets were `a32_fp_controls` (223),
 The combined test log SHA-256 is
 `1df81fdcdbbeb906e64bb3d0bb88acaeef95fe075b0f6af8f8fd92930a75b199`.
 
+## VFPv2 MVFR2 selector
+
+The standalone VFPv2 profile selects Undefined for `VMRS Rt,MVFR2` in
+A32 and T32 before checking HCPTR.TCP10 or HCR.TID3. Arm DDI0406C.d
+Table B1-24 reserves selector 5. Section B1.14.2 includes MVFR0 and MVFR1 in
+ID group 3. The current Armv8-A allocation includes MVFR2, so an Armv8-A PE
+continues to expose it even if its imported precision fields report VFPv2.
+See the [archived Armv7-A manual](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+and the VMRS encoding in [Arm DDI0597 ID032025](../../../specifications/arm/aarch32-isa-2025-03.pdf).
+
+The standalone regression varies the two VFPv2 precision pairs, A32/T32
+state and competing access traps. The Armv8-A mixed-width control imports
+the legacy precision fields, reads MVFR2 with FPEXC.EN clear, and checks the
+exact retirement count. The baseline at `22dfee6aa` accepted `0xeef52a10`
+under the VFPv2 single-precision selection.
+
+QEMU 11.1.2 ran 20 bare-metal register reads. `arm1176` took Undefined for
+selector 5 in A32. `cortex-a15` took Undefined in A32 and T32. `max` read
+`0x43` in both states. All three models completed their FPSID, MVFR0 and
+MVFR1 controls. The QEMU receipt SHA-256 is
+`838c50b030aca9979c77ff360a8b80a522d48d93023bfa80bbb0328ef7f1476d`.
+
+On macOS arm64 with `--no-default-features`, `a32_fp_controls`,
+`a32_fp_pairs`, `arm_vfp_a32`, `isa_oracle` and `arm` passed 47,723 tests
+with zero failures or skips. Physical AArch32 execution remains unverified.
+
 ## Evidence
 
 [Provenance](provenance.json) identifies the retained Arm MVFR0 definition and
@@ -102,6 +128,7 @@ uses the combined integration checkout, including unfinished native changes.
 | BP1 | Precision fields constrain arithmetic and conversion admission. | Arm DDI0487B.a G6.2.107; independent SP-only QEMU controls. | Absent/invalid precision rejection. | Both conversion directions and absent/reserved precision; successful absent arithmetic falsifies it. | Baseline violation reproduced; represented corrected controls pass. |
 | BP2 | Raw 64-bit storage remains available with scalar single precision alone. | QEMU trans_VMOV_64_dp and trans_VLDM_VSTM_dp; actual SP-only guest controls. | Legal D-register storage. | Core pair transfer and D-register loads/stores with FPDP=0; rejection falsifies it. | Baseline and independent controls pass. |
 | BP3 | Constants/fixed conversion and divide/sqrt obey their separate feature fields. | Arm MVFR0 definitions and retained QEMU v3 guards. | Exact instruction-family admission. | v2 versus v3, field 0/1/reserved and ordinary/denied access; successful unavailable operation falsifies it. | Baseline violation reproduced; represented corrected controls pass. |
+| BP4 | The selected standalone VFPv2 profile uses the legacy VMRS selector allocation. | Arm DDI0406C.d Table B1-24 and B9.3.21. | Undefined precedes both FP access traps for selector 5. | Exercise both VFPv2 precision pairs and widths. Read MVFR2 on the mixed-width Armv8-A PE after importing VFPv2 fields. | Baseline violation reproduced; corrected controls pass. |
 
 ## Boundaries
 

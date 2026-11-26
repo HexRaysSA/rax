@@ -233,6 +233,72 @@ fn standalone_vfpv2_user_fpsid_read_obeys_coprocessor_permissions() {
 }
 
 #[test]
+fn standalone_vfpv2_mvfr2_is_reserved_before_coprocessor_traps() {
+    const DESTINATION: u32 = 0xdead_beef;
+    const TID3: u32 = 1 << 18;
+    const TCP10: u32 = 1 << 10;
+    for thumb in [false, true] {
+        for mvfr0 in [0x1011_0011, 0x1011_0111, 0x1011_0222] {
+            for (selector, hcr, hcptr) in [
+                (5, 0, 0),
+                (5, TID3, 0),
+                (5, TID3, TCP10),
+                (6, 0, 0),
+                (6, TID3, 0),
+                (7, TID3, TCP10),
+            ] {
+                let mut cpu = Armv7Cpu::new();
+                cpu.vfp.mvfr0 = mvfr0;
+                cpu.vfp.fpexc = 0;
+                cpu.cp15.id_pfr1 = 1 << 12; // EL2 without an EL3 security clamp.
+                cpu.cp15.cpacr = Cpacr::from_bits(0x00f0_0000);
+                cpu.cp15.hcr = hcr;
+                cpu.cp15.hcptr = hcptr;
+                cpu.cpsr.mode = ProcessorMode::Supervisor as u8;
+                cpu.cpsr.t = thumb;
+                cpu.regs[2] = DESTINATION;
+                let word = 0xeef0_2a10 | (selector << 16); // VMRS r2, MVFRn.
+                let insn = if thumb {
+                    ThumbDecoder::decode_32bit(word)
+                } else {
+                    Aarch32Decoder::decode(word)
+                }
+                .unwrap();
+                let mut memory = FlatMemory::new(4096, 0);
+                let result = Executor::new(&mut cpu, &mut memory).execute(&insn);
+                let case = (word, mvfr0, thumb, hcr, hcptr);
+                if selector == 5 && mvfr0 != 0x1011_0222 {
+                    assert!(
+                        matches!(result, ExecResult::Undefined),
+                        "{case:x?} {result:?}"
+                    );
+                } else if hcr != 0 {
+                    let expected_ec = if hcptr == TCP10 { 7 } else { 8 };
+                    assert!(
+                        matches!(result, ExecResult::FpAccessTrap { target_el: 2, syndrome, .. }
+                        if syndrome >> 26 == expected_ec),
+                        "{case:x?} {result:?}"
+                    );
+                } else {
+                    assert!(
+                        matches!(result, ExecResult::Continue),
+                        "{case:x?} {result:?}"
+                    );
+                    let value = if selector == 5 {
+                        cpu.vfp.mvfr2
+                    } else {
+                        cpu.vfp.mvfr1
+                    };
+                    assert_eq!(cpu.regs[2], value, "{case:x?}");
+                    continue;
+                }
+                assert_eq!(cpu.regs[2], DESTINATION, "{case:x?}");
+            }
+        }
+    }
+}
+
+#[test]
 fn standalone_vfpv2_fpsid_read_to_sp_obeys_the_instruction_set_constraint() {
     const READ_FPSID_TO_SP: u32 = 0xeef0_da10;
     for thumb in [false, true] {

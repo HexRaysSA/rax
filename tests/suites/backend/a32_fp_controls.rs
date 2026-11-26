@@ -174,6 +174,27 @@ fn mixed_a32_cptr_el2_traps_before_register_effects() {
 }
 
 #[test]
+fn armv8_vmrs_mvfr2_survives_imported_vfpv2_precision_fields() {
+    const READ_MVFR2: u32 = 0xeef5_2a10;
+    const IMPORTED_MVFR0: u64 = 0x1011_0111;
+    const IMPORTED_MVFR2: u64 = 0x31;
+    for thumb in [false, true] {
+        let mut cpu = mixed(READ_MVFR2, thumb, 0, false, false);
+        let mut state = cpu.export_sregs();
+        let registers = &mut state.execution.as_mut().unwrap().sysregs.impl_defined;
+        for (selector, value) in [(0, IMPORTED_MVFR0), (2, IMPORTED_MVFR2)] {
+            let key = Aarch64SysRegEncoding::new(3, 0, 0, 3, selector).encode();
+            registers.insert(key, value);
+        }
+        cpu.import_sregs(&state).unwrap();
+
+        assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        assert_eq!(cpu.get_x(2), IMPORTED_MVFR2);
+        assert_eq!((cpu.get_pc(), cpu.instruction_count()), (0x104, 1));
+    }
+}
+
+#[test]
 fn armv8_mvfr0_alias_masks_legacy_short_vectors() {
     const MVFR0: u32 = 0x1011_0222;
     let key = Aarch64SysRegEncoding::new(3, 0, 0, 3, 0).encode();
