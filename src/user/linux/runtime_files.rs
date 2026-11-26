@@ -12,6 +12,8 @@ use std::{
 };
 #[cfg(any(target_os = "linux", test))]
 mod ld_cache;
+#[cfg(target_os = "linux")]
+mod magic;
 #[cfg(any(target_os = "linux", test))]
 mod openssl;
 
@@ -54,8 +56,9 @@ const CONFINED_ROOTS: &[&str] = &[
 /// Select installed Linux runtime roots, the dynamic-linker cache, and the
 /// installed ELF libraries that cache names outside the roots, plus installed
 /// executable programs, system include files, the packaged stdbuf helper,
-/// Perl modules, compiled terminfo, GNU message catalogs, OpenSSL configuration
-/// and public CA trust, timezone, protocol and service data. Include guest
+/// Perl modules, compiled terminfo, GNU message catalogs, the compiled
+/// libmagic database, OpenSSL configuration and public CA trust, timezone,
+/// protocol and service data. Include guest
 /// loopback names and a synthetic `/dev/null` in the guest namespace. Explicit
 /// supplied files override installed files. Later `dlopen` calls use the same
 /// namespace. Unregistered runtime roots require explicit selection.
@@ -211,6 +214,7 @@ fn select_installed_for_executable(
     } else {
         files
     };
+    let files = magic::select(files, &canonical_root, executable)?;
     // libc reads these tables for local name and locale lookups.
     let databases = ["/etc/protocols", "/etc/services", LOCALE_ALIAS_TARGET]
         .into_iter()

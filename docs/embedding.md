@@ -70,6 +70,12 @@ paths on distributions such as Debian. Certificate links stay within the
 selected CA stores. Private-key directories and mixed certificate/key PEM
 files are excluded from runtime selection.
 
+The Linux runtime also selects the installed libmagic compiled database from
+`/usr/share/misc/magic.mgc`, `/usr/share/file/magic.mgc`, or
+`/usr/lib/file/magic.mgc`. Distribution aliases to the library copy resolve
+inside the guest. User magic files and local `/etc/magic` rules require explicit
+supply.
+
 Darwin also provides a portable closed Rust profile through
 `DarwinConfig::embedded` for x86-64 and AArch64 Mach-O images. It uses a supplied
 POSIX namespace, captured streams, seeded entropy, virtual identity, and
