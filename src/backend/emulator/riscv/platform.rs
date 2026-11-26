@@ -68,6 +68,21 @@ fn saved_compare<'de, D: serde::Deserializer<'de>>(
     crate::devices::checkpoint_serde::vector::<u64, D, { u8::MAX as usize }>(d)
 }
 impl PlatformCheckpoint {
+    pub(crate) fn signals_at(&self, hart: usize, ticks: u64) -> Result<Signals> {
+        let (software, compare) = self
+            .msip
+            .get(hart)
+            .zip(self.compare.get(hart))
+            .ok_or_else(|| invalid("hart outside topology"))?;
+        let time = ticks.wrapping_add(self.offset);
+        Ok(Signals {
+            time,
+            software: *software,
+            timer: time >= *compare,
+            external: self.plic.as_ref().map(|plic| plic.hart_lines(hart)),
+        })
+    }
+
     pub(crate) fn validate(&self, count: usize, ram_end: u64) -> Result<()> {
         if !matches!(
             (self.version, self.plic.is_some()),
@@ -573,18 +588,7 @@ impl Platform {
         if !state.enabled {
             return Ok(None);
         }
-        let now = ticks.wrapping_add(state.registers.offset);
-        let id = id as usize;
-        Ok(Some(Signals {
-            time: now,
-            software: state.registers.msip[id],
-            timer: now >= state.registers.compare[id],
-            external: state
-                .registers
-                .plic
-                .as_ref()
-                .map(|plic| plic.hart_lines(id)),
-        }))
+        state.registers.signals_at(id as usize, ticks).map(Some)
     }
 
     pub(super) fn next_timer_assertion(&self, id: u32) -> Result<Option<u128>> {

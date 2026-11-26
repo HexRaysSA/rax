@@ -74,6 +74,25 @@ independent raw memory aliases and external clock writers must be quiescent.
 There are no guest/device callbacks under the controller lock. A rejected commit
 retains the prior shared controller/profile.
 
+### Shared timer frontier in complete RV64 files
+
+Complete RV64 capture samples the VM clock once while the shared platform
+is stopped. It adds the saved MTIME offset modulo 2^64 and uses the result
+for the TIME CSR in every public and private hart record. In that same
+frontier, CLINT supplies MSIP and MTIP, and the saved PLIC, when present,
+supplies MEIP and the separate external SEIP line. Software-injected SEIP
+and the other guest-owned pending bits are carried through. This uses
+the existing file layout and performs no guest entry or live hart updates.
+
+The four-hart regression fixes the wall clock at 12,345,600 ns and
+programs MTIME to 90,000 ticks. It sets hart 1's comparator to that same
+tick, asserts hart 2's software interrupt and seeds hart 3's software
+SEIP. The baseline file reported TIME = 0 in the first hart record. The
+test checks the live source records for byte equality across capture and
+admits the resulting file into a fresh VM with the source VM and kernel
+removed. The restored public and private records agree before any hart
+retires an instruction.
+
 ## Verification and limits
 
 The actual VMM guest in `tests/fixtures/riscv/vmm_clint.S` installs an M-mode trap

@@ -1,6 +1,6 @@
 //! Complete represented hart state, independent of RAM and host code caches.
 use super::sv39::{SATP_MODE_SHIFT, SATP_MODE_SV39};
-use super::{Priv, RiscVConfig, RiscVCpu, VLENB};
+use super::{MIP_MEIP, MIP_MSIP, MIP_MTIP, Priv, RiscVConfig, RiscVCpu, VLENB};
 use crate::isa::riscv::FlatMemory;
 use crate::isa::riscv::Xlen;
 use crate::isa::riscv::csr::SATP;
@@ -86,6 +86,23 @@ impl CoreContext {
 
     pub(crate) fn set_external_seip(&mut self, asserted: bool) {
         self.external_seip = asserted;
+    }
+
+    pub(crate) fn set_platform_inputs(
+        &mut self,
+        time: u64,
+        software: bool,
+        timer: bool,
+        external: Option<(bool, bool)>,
+    ) {
+        self.time = time;
+        self.mip = (self.mip & !(MIP_MSIP | MIP_MTIP))
+            | (u64::from(software) * MIP_MSIP)
+            | (u64::from(timer) * MIP_MTIP);
+        if let Some((machine, supervisor)) = external {
+            self.mip = (self.mip & !MIP_MEIP) | (u64::from(machine) * MIP_MEIP);
+            self.external_seip = supervisor;
+        }
     }
 
     pub(crate) fn validate(&self) -> Result<(), String> {

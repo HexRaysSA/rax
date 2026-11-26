@@ -1,9 +1,11 @@
 //! RISC-V instruction-boundary state, including ordered unpublished events.
 use super::{PendingEvent, RiscVVcpu, RvUser, RvUserTrap};
+use crate::backend::emulator::riscv::platform::Signals;
 use crate::error::{Error, GuestMemoryFault, Result};
 use crate::isa::riscv::cpu::{Priv, checkpoint::CoreContext};
 use crate::vm::memory::checkpoint::{CheckpointBindings, CheckpointPublication, CpuPublication};
 use crate::vm::memory::reservations::Reservation;
+use crate::vm::snapshot::{BackendContext, CpuSnapshot, RISCV_CONTEXT};
 use crate::vm::vcpu::CpuState;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -256,7 +258,7 @@ impl Context {
         Ok(())
     }
 
-    fn decode(raw: &[u8], target: &RiscVVcpu) -> Result<Self> {
+    fn decode_record(raw: &[u8]) -> Result<Self> {
         if raw.len() > Header::MAX_LEN + MAX_PAYLOAD {
             return Err(invalid("invalid context length"));
         }
@@ -283,9 +285,43 @@ impl Context {
         context.waiting_for_interrupt = header.waiting_for_interrupt;
         context.uart_write_issued = header.uart_write_issued;
         context.cpu.set_external_seip(header.external_seip);
+        Ok(context)
+    }
+
+    fn decode(raw: &[u8], target: &RiscVVcpu) -> Result<Self> {
+        let context = Self::decode_record(raw)?;
         context.validate(target)?;
         Ok(context)
     }
+}
+
+/// Refresh a freshly captured pair under the shared platform boundary. The
+/// hart's last execution sample can precede the file's clock and device state.
+pub(crate) fn refresh_checkpoint_signals(
+    hart: usize,
+    signals: Signals,
+    public: &mut CpuSnapshot,
+    private: Option<&mut BackendContext>,
+) -> Result<()> {
+    let record = private
+        .filter(|record| record.kind == RISCV_CONTEXT)
+        .ok_or_else(|| invalid("shared platform capture requires a private hart record"))?;
+    let mut context = Context::decode_record(&record.data)?;
+    if context.id as usize != hart
+        || !context.platform
+        || context.plic != signals.external.is_some()
+    {
+        return Err(invalid("captured hart differs from shared platform"));
+    }
+    context.cpu.set_platform_inputs(
+        signals.time,
+        signals.software,
+        signals.timer,
+        signals.external,
+    );
+    public.state = context.cpu.public_state(context.tohost);
+    record.data = context.encode()?;
+    Ok(())
 }
 
 impl RiscVVcpu {

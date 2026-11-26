@@ -92,6 +92,82 @@ fn contexts(vm: &Vmm) -> Vec<Option<crate::vm::snapshot::BackendContext>> {
         .map(|cpu| cpu.capture_backend_context().unwrap())
         .collect()
 }
+
+#[test]
+fn wall_checkpoint_uses_one_mtime_and_publishes_due_inputs_before_guest_entry() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    const MTIME: u64 = 0x0200_bff8;
+    const MTIMECMP: u64 = 0x0200_4000;
+    const TICKS: u64 = 90_000;
+    const SOFTWARE_SEIP: u64 = 1 << 9;
+    const MTIP: u64 = 1 << 7;
+    const MSIP: u64 = 1 << 3;
+
+    let hart_timing = |state: &CpuState| {
+        let CpuState::RiscV(hart) = state else {
+            panic!("expected an RV64 hart");
+        };
+        let csr = |address| {
+            hart.regs
+                .csrs
+                .iter()
+                .find(|&&(n, _)| n == address)
+                .unwrap()
+                .1
+        };
+        (csr(0xc01), csr(0x344))
+    };
+
+    let mut source = Fixture::with_clock(4, false, ClockMode::Wall);
+    let mut clock = source.vm.timing_context.checkpoint_state();
+    clock.elapsed_nanos = 12_345_600;
+    source
+        .vm
+        .timing_context
+        .prepare_stopped_checkpoint_state(&clock)
+        .unwrap()
+        .commit();
+    let platform = platform(&source.vm);
+    platform.write(MTIME, &TICKS.to_le_bytes()).unwrap();
+    platform.write(MTIMECMP + 8, &TICKS.to_le_bytes()).unwrap();
+    platform.write(0x0200_0008, &1u32.to_le_bytes()).unwrap();
+    let CpuState::RiscV(mut cpu) = source.vm.vcpus[3].get_state().unwrap() else {
+        panic!("expected an RV64 hart");
+    };
+    cpu.regs.csrs = vec![(0x344, SOFTWARE_SEIP)];
+    source.vm.vcpus[3].set_state(&CpuState::RiscV(cpu)).unwrap();
+    let source_before = contexts(&source.vm);
+
+    let captured = source.vm.take_snapshot_bundle(0).unwrap();
+    let file = source.kernel.with_extension("rxc");
+    captured.save(&file).unwrap();
+    assert_eq!(source_before, contexts(&source.vm));
+    let loaded = SnapshotBundle::load(&file).unwrap();
+    assert_eq!(loaded.clock(), Some(&clock));
+    let expected = [
+        (TICKS, 0),
+        (TICKS, MTIP),
+        (TICKS, MSIP),
+        (TICKS, SOFTWARE_SEIP),
+    ];
+    for (record, expected) in loaded.cpus().unwrap().entries().iter().zip(expected) {
+        assert_eq!(hart_timing(&record.state), expected);
+    }
+    std::fs::remove_file(&source.kernel).unwrap();
+    drop(source);
+    let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+    let restored = Vmm::new_resume_bundle(config, &loaded).unwrap();
+    for (hart, expected) in restored.vcpus.iter().zip(expected) {
+        assert_eq!(hart_timing(&hart.get_state().unwrap()), expected);
+        assert_eq!(hart.instruction_count(), 0);
+    }
+    assert_eq!(
+        contexts(&restored),
+        loaded.backend_contexts().unwrap().entries()
+    );
+}
+
 fn platform(vm: &Vmm) -> Arc<crate::backend::emulator::riscv::platform::Platform> {
     vm.vm
         .as_any()

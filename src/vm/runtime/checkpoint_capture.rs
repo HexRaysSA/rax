@@ -154,13 +154,30 @@ impl Vmm {
                         shared = Some(native.shared);
                     }
                     if shared.is_none() {
-                        for (cpu, prepared) in self.vcpus.iter().zip(&prepared) {
-                            let (public, private, cpu_resources) = cpu
+                        use crate::backend::emulator::riscv::{
+                            platform::FREQUENCY_HZ, refresh_checkpoint_signals,
+                        };
+
+                        let riscv_frontier = execution
+                            .riscv_platform
+                            .as_ref()
+                            .map(|platform| (platform, clock.counter_ticks(FREQUENCY_HZ)));
+                        for (hart, (cpu, prepared)) in self.vcpus.iter().zip(&prepared).enumerate()
+                        {
+                            let (mut public, mut private, cpu_resources) = cpu
                                 .capture_prepared_checkpoint_record(
                                     &boundary,
                                     Some(&scope),
                                     prepared.as_ref(),
                                 )?;
+                            if let Some((platform, ticks)) = riscv_frontier {
+                                refresh_checkpoint_signals(
+                                    hart,
+                                    platform.signals_at(hart, ticks)?,
+                                    &mut public,
+                                    private.as_mut(),
+                                )?;
+                            }
                             cpus.push(public);
                             backend_contexts.push(private);
                             resources.extend(cpu_resources);

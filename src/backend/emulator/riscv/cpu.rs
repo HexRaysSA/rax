@@ -21,6 +21,7 @@ use std::sync::{Arc, Mutex};
 
 #[path = "cpu_context.rs"]
 mod context;
+pub(crate) use context::refresh_checkpoint_signals;
 
 use vm_memory::{Bytes, GuestAddress, GuestMemory, GuestMemoryMmap};
 
