@@ -159,6 +159,7 @@ impl ProcessConfigKey {
                 "ApplicationBase",
                 "ConsoleHostAssemblyName",
                 "ConsoleHostModuleName",
+                "NetFrameworkV4IsInstalled",
                 "PowerShellVersion",
                 "PSCompatibleVersion",
                 "PSPluginWkrModuleName",

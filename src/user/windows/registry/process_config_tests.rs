@@ -217,6 +217,14 @@ fn powershell_registry_preserves_ordered_metadata_and_independent_views() {
                 .flat_map(u16::to_le_bytes)
                 .collect(),
         };
+        let mut engine_values = vec![version_value.clone()];
+        if view == RegistryView::Native64 {
+            engine_values.push(Value {
+                name: units("NetFrameworkV4IsInstalled"),
+                kind: 1,
+                data: b"Y\0e\0s\0\0\0".to_vec(),
+            });
+        }
         let mut root_header = header(prefix, vec![]);
         root_header.enumeration = Some(vec![
             BasicChild {
@@ -230,10 +238,7 @@ fn powershell_registry_preserves_ordered_metadata_and_independent_views() {
         ]);
         for (key, sample) in [
             (absent_engine, Err(first_engine_status)),
-            (
-                engine,
-                Ok(header(&physical(engine), vec![version_value.clone()])),
-            ),
+            (engine, Ok(header(&physical(engine), engine_values))),
             (
                 ProcessConfigKey::PowerShellV1,
                 Ok(header(&physical(ProcessConfigKey::PowerShellV1), vec![])),
@@ -315,6 +320,16 @@ fn powershell_registry_preserves_ordered_metadata_and_independent_views() {
         );
         assert!(child.covers_value(&units("RuntimeVersion")));
         assert!(child.value(&units("RuntimeVersion")).is_none());
+        let framework = units("netframeworkv4isinstalled");
+        assert!(child.covers_value(&framework));
+        match view {
+            RegistryView::Native64 => {
+                let value = child.value(&framework).unwrap();
+                assert_eq!(value.kind, 1);
+                assert_eq!(value.data, b"Y\0e\0s\0\0\0");
+            }
+            RegistryView::Wow32 => assert!(child.value(&framework).is_none()),
+        }
         assert!(!child.covers_value(&units("OtherValue")));
         for (path, requested_view) in [
             (engine.path().to_owned(), view),

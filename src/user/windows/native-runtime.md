@@ -4012,6 +4012,10 @@ in each software view. The selected version 1 and 3 registrations and their
 `PowerShellEngine` keys retain the native open result and a fixed set of startup
 values. Guest enumeration reads this captured metadata. Relative and absolute
 opens use the same selected records, including the explicit WoW64 spelling.
+The startup selection includes the engine's optional
+`NetFrameworkV4IsInstalled` value. When the selected view has no such value,
+`NtQueryValueKey` returns `STATUS_OBJECT_NAME_NOT_FOUND` without writing the
+output buffer or result length.
 Other descendant bodies and values remain outside this selection. Guest registry
 requests and RPC calls are never forwarded to the host.
 
