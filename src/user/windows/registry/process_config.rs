@@ -7,6 +7,8 @@ pub(super) const SYSTEM_SETUP_VALUES: &[&str] = &[SYSTEM_SETUP_IN_PROGRESS, "OOB
 
 pub(super) const POWERSHELL_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\PowerShell";
+const DOT_NET_POLICY_WOW_KEY: &str =
+    r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework\Policy";
 
 #[path = "process_config/winsock_catalog.rs"]
 pub(super) mod winsock_catalog;
@@ -35,10 +37,11 @@ pub(crate) enum ProcessConfigKey {
     PowerShellEngineV1,
     PowerShellEngineV3,
     MiniNt,
+    DotNetPolicy,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 20] = [
+    pub(super) const ALL: [Self; 21] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -60,6 +63,7 @@ impl ProcessConfigKey {
         Self::PowerShellV3,
         Self::PowerShell,
         Self::MiniNt,
+        Self::DotNetPolicy,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -113,6 +117,7 @@ impl ProcessConfigKey {
                 r"\Registry\Machine\Software\Microsoft\PowerShell\3\PowerShellEngine"
             }
             Self::MiniNt => r"\Registry\Machine\System\CurrentControlSet\Control\MiniNT",
+            Self::DotNetPolicy => r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy",
         }
     }
 
@@ -144,7 +149,8 @@ impl ProcessConfigKey {
             | Self::Ccg
             | Self::OsDataAppCompatFlags
             | Self::PowerShell
-            | Self::MiniNt => &[],
+            | Self::MiniNt
+            | Self::DotNetPolicy => &[],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
@@ -191,6 +197,7 @@ impl ProcessConfigKey {
             Self::PowerShellEngineV1 => "Windows PowerShell version 1 engine registration",
             Self::PowerShellEngineV3 => "Windows PowerShell version 3 engine registration",
             Self::MiniNt => "Windows PE installation marker",
+            Self::DotNetPolicy => ".NET Framework runtime policy",
         }
     }
 
@@ -294,6 +301,9 @@ impl ProcessConfigKey {
             || self == Self::Rpc
                 && view == RegistryView::Wow32
                 && same(r"\Registry\Machine\Software\WOW6432Node\Microsoft\Rpc")
+            || self == Self::DotNetPolicy
+                && view == RegistryView::Wow32
+                && same(DOT_NET_POLICY_WOW_KEY)
         {
             return Ok(());
         }

@@ -4024,6 +4024,11 @@ during startup. The selection records the installed system's open result for
 each view. When present, the key retains the active control-set name and the
 captured access grant. The projection covers this key's identity and metadata.
 
+The CLR bootstrap opens `HKLM\Software\Microsoft\.NETFramework\Policy`.
+The selected view retains the installed open result, canonical key name
+and access grant. Absolute and machine-rooted names resolve to the same
+captured identity, including requests with a trailing backslash.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not

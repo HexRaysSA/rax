@@ -186,6 +186,67 @@ fn minint_startup_lookup_preserves_open_result_in_both_views() {
 }
 
 #[test]
+fn dot_net_policy_lookup_preserves_canonical_identity_in_both_views() {
+    let subject = ProcessConfigKey::DotNetPolicy;
+    assert!(ProcessConfigKey::ALL.contains(&subject));
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let native_name = r"\Registry\Machine\Software\Microsoft\.NETFramework\policy";
+    let names = [
+        (RegistryView::Native64, native_name),
+        (RegistryView::Wow32, DOT_NET_POLICY_WOW_KEY),
+    ];
+    let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+    for (view, canonical) in names {
+        registry = registry
+            .with_snapshot_selection(root, &[], view, Ok((header(canonical, vec![]), None)))
+            .unwrap();
+    }
+    registry = registry
+        .with_machine_hive(MachineHeader {
+            canonical: units(MACHINE_HIVE_KEY),
+            enumeration: None,
+            children: 6,
+            values: vec![],
+            access: header(MACHINE_HIVE_KEY, vec![]).access,
+        })
+        .unwrap();
+    let machine = registry.key(&units(MACHINE_HIVE_KEY)).unwrap();
+    for (view, canonical) in names {
+        for tail in ["", "\\"] {
+            let absolute = units(&format!("{}{tail}", subject.path()));
+            let relative = units(&format!(r"Software\Microsoft\.NETFramework\Policy{tail}"));
+            let Lookup::Present(opened) = machine.relative_in_view(&relative, view) else {
+                panic!("machine-relative .NET Framework policy key not routed");
+            };
+            let Lookup::Present(absolute) = registry.lookup_view(&absolute, view) else {
+                panic!("absolute .NET Framework policy key not routed");
+            };
+            assert!(Arc::ptr_eq(&opened, &absolute));
+            assert_eq!(opened.path, units(canonical));
+            assert_eq!(
+                opened.captured_access().unwrap().grant(0x20019),
+                Ok(0x20019)
+            );
+            assert!(!opened.covers_value(&units("UnselectedValue")));
+        }
+        let child = format!(r"{}\UnselectedChild", subject.path());
+        assert!(matches!(
+            registry.lookup_view(&units(&child), view),
+            Lookup::Unselected
+        ));
+    }
+    assert!(
+        subject
+            .check_name(
+                &registry,
+                RegistryView::Native64,
+                &units(DOT_NET_POLICY_WOW_KEY)
+            )
+            .is_err()
+    );
+}
+
+#[test]
 fn powershell_registry_preserves_ordered_metadata_and_independent_views() {
     let root = ProcessConfigKey::PowerShell;
     let engine = ProcessConfigKey::PowerShellEngineV3;
