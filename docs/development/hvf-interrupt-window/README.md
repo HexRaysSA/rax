@@ -435,3 +435,27 @@ portable integration targets passed with the new check. Under Rosetta, all
 `#GP` without an error code and a protected-mode `#GP` with one. A native
 Intel checkpoint taken during delivery of a protected-mode exception with
 an error code still needs a separate runtime witness.
+
+### Long-mode hardware and software event replay
+
+The `long-mode-events` profile uses the same 64-bit interrupt gate at GPA
+`0xc0d0` for a hardware `#GP` and for `INT 13` (decimal). A segment
+load with selector `0x30` exceeds the GDT limit of `0x2f` and generates
+`#GP(0x30)`. Both events run with the original CPU owner and with a fresh
+owner restored from a checkpoint captured while delivery was stopped.
+[Intel SDM Vol. 2B MOV and Vol. 3A section 7.14](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+| Event | Handler entry frame | Saved RIP relative to event instruction | Error-code observation |
+| --- | ---: | ---: | --- |
+| Hardware `#GP` | 48 B | 0 B | `0x30` |
+| Software `INT 13` | 40 B | 2 B | Error observation register retains its seed |
+
+| Assumption | Dependent result | Stress test and falsification probe |
+| --- | --- | --- |
+| The covered gate causes an EPT data-access stop before either frame is built. | Both events can reach the same stopped owner boundary. | Require the GPA to fall within the 16 B gate, with RIP and RSP at their original values and zero handler visits. A second entry at the same layout must stop at the same GPA. |
+| VM-entry replay uses the saved vectoring fields. | Exposing the gate resumes delivery on either CPU owner. | Replace both bytes of the source instruction with HLT before exposing the gate. A missed replay halts before the guest reaches the handler or continuation. Require one handler visit, the applicable frame, and the original RSP after IRETQ. |
+
+The QEMU TCG reference independently builds the two unobstructed frames
+and reproduces their byte counts, saved RIP, and selector error. The x86-64
+HVF consumer cross-built and passed signature and entitlement verification.
+Hosted Intel execution of the four interrupted cases is pending.
