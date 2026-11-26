@@ -262,22 +262,24 @@ impl Entry {
         }
     }
     pub fn bytes(&self) -> Result<Arc<[u8]>, Error> {
+        self.bytes_with_limit(64 << 20)
+    }
+
+    pub(super) fn bytes_with_limit(&self, max_backed_bytes: u64) -> Result<Arc<[u8]>, Error> {
         match &self.kind {
             Kind::File(bytes) => Ok(bytes.clone()),
             Kind::Workspace(file) => file.snapshot(),
             Kind::Backed(source) => {
                 // Image parsers require contiguous bytes; mapping and descriptor
                 // reads use source() instead and do not impose this copy bound.
-                const MAX_COPY: u64 = 64 << 20;
                 let len = source.len();
-                if len > MAX_COPY {
+                if len > max_backed_bytes {
                     return Err(Error::TooLarge);
                 }
+                let len = usize::try_from(len).map_err(|_| Error::TooLarge)?;
                 let mut bytes = Vec::new();
-                bytes
-                    .try_reserve_exact(len as usize)
-                    .map_err(|_| Error::TooLarge)?;
-                bytes.resize(len as usize, 0);
+                bytes.try_reserve_exact(len).map_err(|_| Error::TooLarge)?;
+                bytes.resize(len, 0);
                 let mut done = 0;
                 while done < bytes.len() {
                     let n = source

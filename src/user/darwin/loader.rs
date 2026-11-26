@@ -36,6 +36,11 @@ pub fn default_stack_limit(abi: DarwinAbi) -> u64 {
 /// The path `load_dylinker` requires (`DEFAULT_DYLD_PATH`).
 pub const DYLD_PATH: &str = "/usr/lib/dyld";
 
+/// The Mach-O parser needs a contiguous image. This also covers the
+/// installed Xcode Clang and Swift compiler binaries, which exceed 64 MiB.
+#[cfg(target_os = "macos")]
+const MAX_INSTALLED_IMAGE_BYTES: u64 = 256 << 20;
+
 /// An executable file read for `exec`.
 #[derive(Clone)]
 pub struct ImageFile {
@@ -111,11 +116,19 @@ impl ImageFile {
     pub(super) fn from_entry(path: String, entry: Entry) -> std::io::Result<Self> {
         let device =
             super::vfs::ClosedVolume::for_entry(Some(path.as_bytes()), Some(&entry)).device();
+        #[cfg(target_os = "macos")]
+        let bytes = if entry.darwin_installed_file().is_some() {
+            entry.bytes_with_limit(MAX_INSTALLED_IMAGE_BYTES)
+        } else {
+            entry.bytes()
+        };
+        #[cfg(not(target_os = "macos"))]
+        let bytes = entry.bytes();
         Ok(Self {
             vnode_path: path.clone(),
             path,
             host_path: PathBuf::new(),
-            bytes: entry.bytes().map_err(std::io::Error::other)?,
+            bytes: bytes.map_err(std::io::Error::other)?,
             file_id: (device as u64, entry.ino),
             slice: None,
         })
@@ -605,4 +618,46 @@ pub fn load(
         mmap_base,
         image: image.clone(),
     })
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod installed_images {
+    use super::*;
+    use crate::user::darwin::abi::Errno;
+    use crate::user::mm::HostFileSource;
+    use crate::user::supplied_fs::{Kind, test_backing::TestFile};
+
+    fn backed_image(fixture: &TestFile, installed: bool) -> std::io::Result<ImageFile> {
+        let backing = HostFileSource::new(std::fs::File::open(&fixture.path)?)?;
+        let backing = if installed {
+            backing.for_darwin_installed()
+        } else {
+            backing
+        };
+        let entry = Entry {
+            ino: 42,
+            kind: Kind::Backed(Arc::new(backing)),
+        };
+        ImageFile::from_entry("/tool".into(), entry)
+    }
+
+    #[test]
+    fn only_installed_images_can_exceed_the_generic_copy_limit() {
+        let fixture = TestFile::new(b"executable", (64 << 20) + 1);
+        assert_eq!(
+            Errno::from(backed_image(&fixture, false).unwrap_err()),
+            Errno::EFBIG
+        );
+        let image = backed_image(&fixture, true).unwrap();
+        assert_eq!(image.bytes.len(), (64 << 20) + 1);
+        assert_eq!(&image.bytes[..10], b"executable");
+        assert_eq!(image.bytes.last(), Some(&0));
+        drop(image);
+
+        let oversized = TestFile::new(b"executable", MAX_INSTALLED_IMAGE_BYTES + 1);
+        assert_eq!(
+            Errno::from(backed_image(&oversized, true).unwrap_err()),
+            Errno::EFBIG
+        );
+    }
 }
