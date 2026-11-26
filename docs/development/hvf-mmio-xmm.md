@@ -767,9 +767,9 @@ Independent archive inspection checked the public and private CPU counts,
 the coordinator's online mask and the replacement `UD2` in both RAM images.
 The downloaded ZIP matched GitHub's SHA-256
 `dd8b544917b95b0a73028e3f7b3c658fe4f1db422481079743565578b4a8cb12`.
-The runner used untranslated Intel macOS in a virtualized host. Warm legacy
-restore into a target with pending Intel MMIO and bare-metal Intel
-qualification remain open.
+The runner used untranslated Intel macOS in a virtualized host. The later
+warm-restore run exercises legacy rejection in a target with pending Intel
+MMIO.
 [Hosted Intel checkpoint job](https://github.com/HexRaysSA/rax/actions/runs/45759324408/job/139705341644)
 
 ### Warm restore with pending secondary MMIO
@@ -787,7 +787,33 @@ transfers as 6 B instructions.
 The archived AP1 checkpoint contains both CPU records, online mask `[1, 1]`
 and `UD2` in place of the original read. Its SHA-256 is
 `f4268f66998b973d773f870923396fdcac90ca2adbdd193b90693c4f0824c67c`.
-Warm-restore execution requires a new native run of the corrected fixture.
+
+Hosted Intel run `45791687610` passed the corrected fixture at
+`b59e6eaf75b367b33692de744e1a39ff0d1fa078`. Both legacy restore entry points
+rejected the incomplete state while preserving the stopped target's CPU
+packet, public CPU state, scheduler and RAM. Complete restore then replaced
+the pending work and resumed the saved operation on the existing VM. At
+four vCPUs, the restore took AP2 offline and cleared both of its pending I/O
+fields. Both files also resumed on fresh owners using parallel host rounds
+after the original kernel had been deleted. Each continuation observed one
+device callback and checked the final RIP and XMM15.
+[Passing hosted Intel checkpoint job](https://github.com/HexRaysSA/rax/actions/runs/45791687610/job/139812034242)
+
+| Configured vCPUs | Saved operation | Work replaced in the existing VM | Saved online mask | Checkpoint SHA-256 |
+| --- | --- | --- | --- | --- |
+| 2 | AP1 `MOVLPD` read, 8 B | AP1 `MOVHPD` write, 8 B | `[1, 1]` | `826a82228db3f8a80f9205eac529bc26b4a071fbd07f35da0c5c2c946a6a3679` |
+| 4 | AP3 `MOVHPD` write, 8 B | AP2 `MOVLPD` read, 8 B | `[1, 0, 0, 1]` | `432ba466dfa8bce58fa8a93f446d84b1b4dfc33145ad366584c7511084b6d400` |
+
+An independent parser verified the public and private record counts, the
+online masks and the replacement `UD2` in both RAM images. GitHub artifact
+`15104332729` matched archive SHA-256
+`20e27f3bc510ec360e9cf2db4b762e1a16d0bce9ed07624693b845b779b0c9a1`.
+The signed harness SHA-256 was
+`1b45e5aa310da296cd17cbcb95673bb812a06bde183e74529afdb6e9ded8bbd4`
+and its MMIO log SHA-256 was
+`da164f477cf6d8746c4fa8b3a9d7874f297430da7e60409a18e421238d045ce9`.
+The runner used untranslated Intel macOS in a virtualized host. Bare-metal
+Intel macOS, broader MMIO profiles and interrupt conservation remain open.
 
 | Assumption | Falsification probe |
 | --- | --- |

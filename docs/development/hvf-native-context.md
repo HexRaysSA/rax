@@ -117,6 +117,13 @@ PDPT in RAM still zero. The retained PAE log SHA-256 is
 `ce51b1c50dda761e6c229b66c218af7313c732041edc035d1aa618dc302ae18b`.
 [Hosted PAE and pending-MMIO checkpoint job](https://github.com/HexRaysSA/rax/actions/runs/45759324408/job/139705341644)
 
+Hosted Intel run `45791687610` passed the PAE continuation at
+`b59e6eaf75b367b33692de744e1a39ff0d1fa078` alongside the two warm and two
+fresh pending-MMIO continuations. The verified archive retained the PAE
+log with SHA-256
+`092edaf1affda28167a25687967bec67602e5cfb44c9cd6b695d7da3298a4e93`.
+[Hosted warm and fresh checkpoint job](https://github.com/HexRaysSA/rax/actions/runs/45791687610/job/139812034242)
+
 ## Publication and rollback
 
 The VM boundary excludes owner requests, IRQ-queue writes, CPU lifetime changes,

@@ -3091,7 +3091,7 @@
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
       "latest_kvm_legacy_restore_qualification": "docs/development/kvm-public-state/README.md",
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#pending-xmm-transfer-in-a-native-vmm-file",
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#warm-restore-with-pending-secondary-mmio",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint",
       "historical_validation_notes": [
         "Native Intel HVF state effects are unverified"
@@ -4672,7 +4672,7 @@
         "hvf-mmio-movnti-2026-11-19",
         "hvf-mmio-implicit-divide-2026-11-20"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#packed-integer-addition-and-subtraction",
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#warm-restore-with-pending-secondary-mmio",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint"
     },
     {
@@ -200961,6 +200961,14 @@
       "status": "locally_qualified_full_findings_open",
       "scope": "Normal AArch32 EL1 VMRS FPSID and MVFR0–2 take the EL2 ID trap before CPTR_EL3.TFP. The parent selected EL3 for combined TID0 and TFP. The ARM and Thumb regression verifies local denial, EL2 and EL3 priority, exact syndrome and unchanged destination and retirement. All 47,730 owning tests passed. The 48 QEMU 11.1.2 guests reproduce the parent ordering in eight combined cases. Arm's per-register pseudocode supplies the priority expectation. Physical AArch32 and halted Debug state remain open.",
       "qualification": "docs/development/a32-fp-controls.md#vmrs-id-trap-priority",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-intel-warm-pending-secondary-native-2026-11-26",
+      "findings": ["C-STATE", "C-HVF"],
+      "status": "native_intel_virtualized_qualified_full_findings_open",
+      "scope": "Hosted Intel macOS run 45791687610 at b59e6eaf75b367b33692de744e1a39ff0d1fa078 passed both warm and both fresh pending-MMIO continuations and the separate cached-PDPTE PAE continuation. Both legacy restore entry points preserved the pending destination on rejection. Complete restore replaced the pending work, took AP2 offline in the four-vCPU case and dispatched each saved operation once. Independent inspection verified both archived CPU counts, online masks and changed instructions. Artifact 15104332729 matched SHA-256 20e27f3bc510ec360e9cf2db4b762e1a16d0bce9ed07624693b845b779b0c9a1. The Intel host was virtualized. Bare-metal Intel macOS, broader MMIO and interrupt profiles and complete checkpoint scope remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#warm-restore-with-pending-secondary-mmio",
       "full_goal_complete": false
     }
   ],
