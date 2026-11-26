@@ -463,7 +463,11 @@ impl LocalApic {
 
     /// Check if there's a pending IPI
     pub fn has_pending_ipi(&self) -> bool {
-        self.pending_ipi.is_some() || !self.pending_ipis.is_empty()
+        self.pending_ipi.is_some() || self.has_queued_ipis()
+    }
+
+    pub(crate) fn has_queued_ipis(&self) -> bool {
+        !self.pending_ipis.is_empty()
     }
 
     pub(crate) fn enable_coordinated_delivery(&mut self) {

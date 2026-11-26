@@ -773,6 +773,135 @@ fn failing_pio_dispatch_retains_output_without_mutating_the_uart() {
 }
 
 #[test]
+fn legacy_checkpoint_rejects_queued_lapic_ipi() {
+    for source in 0..2 {
+        check_legacy_lapic_frontier(source, false, "pending x86 IPI");
+    }
+}
+
+#[test]
+fn legacy_checkpoint_rejects_pending_lapic_eoi() {
+    for source in (0..2).rev() {
+        check_legacy_lapic_frontier(source, true, "pending LAPIC EOI");
+    }
+}
+
+fn check_legacy_lapic_frontier(source: usize, eoi: bool, diagnostic: &str) {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    const VECTOR: u8 = 0x51;
+    let mut fixture = Fixture::new(2);
+    let vm = &mut fixture.vm;
+    vm.coordinator.online.fill(true);
+    let target = 1 - source;
+    let mut archive = SnapshotBundle::new(vm.take_snapshot(31).unwrap())
+        .with_cpus(vm.capture_cpu_states().unwrap())
+        .unwrap();
+    if let Some(pci) = &vm.pci_devices {
+        archive = archive.with_pci(pci.checkpoint().unwrap()).unwrap();
+    }
+    {
+        let mut apic = vm.local_apics[source].lock().unwrap();
+        if eoi {
+            apic.receive_external_interrupt(VECTOR, true);
+            apic.ack_interrupt(VECTOR);
+            apic.write_register(0xb0, 0);
+        } else {
+            apic.write_register(0x310, (target as u32) << 24);
+            apic.write_register(0x300, u32::from(VECTOR));
+        }
+    }
+    let witness = GuestAddress(0x4000);
+    vm.guest_mem.memory().write_obj(0xa5u8, witness).unwrap();
+    vm.serial.lock().unwrap().queue_input(b"x");
+    let state = |vm: &Vmm| {
+        vm.capture_cpu_states()
+            .unwrap()
+            .into_iter()
+            .map(|cpu| crate::codec::serialize(&(cpu.state, cpu.emulator)).unwrap())
+            .collect::<Vec<_>>()
+    };
+    let before = state(vm);
+    let queued = |vm: &Vmm| {
+        vm.local_apics[source]
+            .lock()
+            .unwrap()
+            .checkpoint_at(crate::host::time::Instant::now())
+    };
+    let frontier = queued(vm);
+    assert_eq!(frontier.eois.len(), usize::from(eoi));
+    assert_eq!(frontier.queued.len(), usize::from(!eoi));
+    assert!(vm.coordinator.pending_ipi.is_none());
+
+    for operation in ["capture", "base restore", "CPU-set restore"] {
+        let result = match operation {
+            "capture" => vm.take_snapshot(9).map(|_| ()),
+            "base restore" => vm.restore_snapshot(archive.base()),
+            _ => vm.restore_snapshot_bundle(&archive),
+        };
+        let error = result.expect_err(operation);
+        assert!(
+            error.to_string().contains(diagnostic),
+            "{operation}, LAPIC {source}: {error}"
+        );
+        assert_eq!(queued(vm).queued, frontier.queued);
+        assert_eq!(queued(vm).eois, frontier.eois);
+        assert!(vm.coordinator.pending_ipi.is_none());
+        assert_eq!(vm.coordinator.online, [true, true]);
+        assert_eq!(vm.coordinator.retired, 0);
+        assert_eq!(vm.last_snapshot_insn, 0);
+        assert_eq!(state(vm), before);
+        assert_eq!(vm.guest_mem.memory().read_obj::<u8>(witness).unwrap(), 0xa5);
+        assert!(vm.serial.lock().unwrap().has_input());
+    }
+
+    vm.route_interprocessor_requests().unwrap();
+    assert!(queued(vm).queued.is_empty());
+    assert!(queued(vm).eois.is_empty());
+    if !eoi {
+        let apic = vm.local_apics[target].lock().unwrap();
+        assert_eq!(apic.read_register(0x220), 1 << (VECTOR % 32));
+    }
+    vm.restore_snapshot(archive.base()).unwrap();
+    vm.restore_snapshot_bundle(&archive).unwrap();
+    assert_eq!(vm.coordinator.retired, 31);
+    assert_eq!(vm.guest_mem.memory().read_obj::<u8>(witness).unwrap(), 0);
+    assert!(!vm.serial.lock().unwrap().has_input());
+    assert!(vm.take_snapshot(32).is_ok());
+}
+
+#[test]
+fn base_checkpoint_codec_preserves_the_historical_single_ipi_slot() {
+    let fixture = Fixture::new(2);
+    let mut base = fixture.vm.take_snapshot(0).unwrap();
+    let path = fixture.kernel.with_extension("rxc");
+    let mut lapic = LocalApic::new(0);
+    lapic.write_register(0x310, 1 << 24);
+    lapic.write_register(0x300, 0x51); // Fixed IPI to APIC 1.
+    assert!(lapic.has_pending_ipi());
+    assert!(!lapic.has_queued_ipis());
+    base.devices.lapic = lapic;
+    base.save(&path).unwrap();
+    let stored = std::fs::read(&path).unwrap();
+    let mut loaded = Snapshot::load(&path).unwrap();
+    let expected = loaded.devices.lapic.take_pending_ipi();
+    assert!(matches!(
+        expected,
+        Some(IpiRequest::Fixed {
+            vector: 0x51,
+            target: IpiTarget::Physical(1),
+        })
+    ));
+    assert!(loaded.devices.lapic.take_pending_ipi().is_none());
+
+    base.devices.lapic.enable_coordinated_delivery();
+    let error = base.save(&path).unwrap_err();
+    assert!(error.to_string().contains("queued LAPIC IPIs"), "{error}");
+    assert_eq!(std::fs::read(&path).unwrap(), stored);
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
 fn checkpoint_keeps_an_unprocessed_init_sipi_and_fixed_ipi_fifo() {
     let mut fixture = Fixture::with_memory(2, 128 * 1024 * 1024);
     {
@@ -785,6 +914,7 @@ fn checkpoint_keeps_an_unprocessed_init_sipi_and_fixed_ipi_fifo() {
     let saved = fixture.vm.take_snapshot_bundle(53).unwrap();
     let state = saved.execution().unwrap();
     assert_eq!(state.local_apics[0].queued.len(), 4);
+    assert!(!saved.base().devices.lapic.has_queued_ipis());
     let path = fixture.kernel.with_extension("rxc");
     saved.save(&path).unwrap();
     let saved = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();

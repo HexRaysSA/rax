@@ -1,6 +1,6 @@
-use std::sync::Arc;
 #[cfg(feature = "debug")]
 use std::sync::mpsc::TryRecvError;
+use std::sync::{Arc, MutexGuard};
 
 use tracing::{debug, info};
 use vm_memory::Bytes;
@@ -901,6 +901,7 @@ impl Vmm {
         self.machine()
     }
 
+    #[cfg(test)]
     fn capture_devices(&self) -> Result<DeviceState> {
         self.with_legacy_device_state(Ok)
     }
@@ -915,12 +916,15 @@ impl Vmm {
         let pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
         let pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
         let serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
-        let lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
-        if lapic.has_pending_eoi() {
-            return Err(Error::InvalidConfig(
-                "pending LAPIC EOI capture requires a complete snapshot bundle".into(),
-            ));
-        }
+        let lapics = self
+            .local_apics
+            .iter()
+            .map(|apic| apic.lock().map_err(|_| lock_err("lapic")))
+            .collect::<Result<Vec<_>>>()?;
+        Self::validate_legacy_lapic_frontier(&lapics)?;
+        let lapic = lapics
+            .first()
+            .ok_or_else(|| Error::InvalidConfig("no local controller".into()))?;
         capture(DeviceState {
             pic: pic.clone(),
             pit: pit.clone(),
@@ -954,6 +958,22 @@ impl Vmm {
             return Err(Error::InvalidConfig(
                 "pending x86 IPI delivery requires a complete snapshot bundle".into(),
             ));
+        }
+        Ok(())
+    }
+
+    fn validate_legacy_lapic_frontier(lapics: &[MutexGuard<'_, LocalApic>]) -> Result<()> {
+        for (cpu, lapic) in lapics.iter().enumerate() {
+            if lapic.has_pending_ipi() {
+                return Err(Error::InvalidConfig(format!(
+                    "pending x86 IPI on local APIC {cpu} requires a complete snapshot bundle"
+                )));
+            }
+            if lapic.has_pending_eoi() {
+                return Err(Error::InvalidConfig(format!(
+                    "pending LAPIC EOI on local APIC {cpu} requires a complete snapshot bundle"
+                )));
+            }
         }
         Ok(())
     }
@@ -1046,8 +1066,7 @@ impl Vmm {
             let capture_legacy = || {
                 let state = vcpu.get_state()?;
                 let cpu_private = vcpu.get_emulator_state().unwrap_or_default();
-                let devices = self.capture_devices()?;
-                capture_ram(state, cpu_private, devices)
+                self.with_legacy_device_state(|devices| capture_ram(state, cpu_private, devices))
             };
             match emulator.and_then(|vm| vm.arm_cluster()) {
                 Some(cluster) => cluster.capture_legacy_with(capture_legacy),

@@ -315,7 +315,22 @@ impl Snapshot {
                 self.version, CHECKPOINT_VERSION
             )));
         }
+        self.validate_base_lapic_projection()?;
         self.validate_memory_metadata()
+    }
+
+    fn validate_base_lapic_projection(&self) -> Result<()> {
+        if self.devices.lapic.has_queued_ipis() {
+            return Err(Error::InvalidConfig(
+                "base checkpoint cannot discard queued LAPIC IPIs".into(),
+            ));
+        }
+        if self.devices.lapic.has_pending_eoi() {
+            return Err(Error::InvalidConfig(
+                "base checkpoint cannot discard pending LAPIC EOI broadcasts".into(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn validate_memory_metadata(&self) -> Result<()> {

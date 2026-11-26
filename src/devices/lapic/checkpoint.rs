@@ -10,10 +10,11 @@ pub(crate) struct LapicCheckpoint {
 }
 
 impl LocalApic {
-    /// Detach runtime clock identity from captured register images.
+    /// Detach the runtime clock and deferred queues from the register image.
     pub(crate) fn checkpoint_registers(&self) -> Self {
         let mut registers = self.clone();
         registers.timer_clock = TimerClock::default();
+        registers.pending_ipis.clear();
         registers.pending_eois.clear();
         registers
     }
@@ -29,11 +30,8 @@ impl LocalApic {
             self.timer_elapsed_base_nanos
                 .saturating_add(self.timer_clock.sample(start, now).elapsed_nanos)
         });
-        let mut registers = self.checkpoint_registers();
-        registers.pending_ipis.clear();
-        registers.pending_eois.clear();
         LapicCheckpoint {
-            registers,
+            registers: self.checkpoint_registers(),
             queued: self.pending_ipis.clone(),
             eois: self.pending_eois.clone(),
             timer_age_nanos,

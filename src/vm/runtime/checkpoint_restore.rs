@@ -494,6 +494,9 @@ impl Vmm {
             for controller in local_apics {
                 lapics.push(controller.lock().map_err(|_| lock_err("lapic"))?);
             }
+            if bundle.execution().is_none() {
+                Self::validate_legacy_lapic_frontier(&lapics)?;
+            }
             legacy_publication = Some((pic, pit, serial, lapics));
             let (pic, pit, serial, lapics) =
                 legacy_publication.as_mut().expect("legacy locks installed");
@@ -673,7 +676,15 @@ impl Vmm {
             let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;
             let mut pit = self.pit.lock().map_err(|_| lock_err("pit"))?;
             let mut serial = self.serial.lock().map_err(|_| lock_err("serial"))?;
-            let mut lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?;
+            let mut lapics = self
+                .local_apics
+                .iter()
+                .map(|apic| apic.lock().map_err(|_| lock_err("lapic")))
+                .collect::<Result<Vec<_>>>()?;
+            Self::validate_legacy_lapic_frontier(&lapics)?;
+            let lapic = lapics
+                .first_mut()
+                .ok_or_else(|| Error::InvalidConfig("no local controller".into()))?;
             let mut restore = || -> Result<()> {
                 let vcpu = &mut self.vcpus[0];
                 vcpu.set_state(&snapshot.cpu_state)?;

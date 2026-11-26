@@ -396,11 +396,7 @@ impl ExecutionSnapshot {
 
     pub(crate) fn validate(&self, base: &Snapshot) -> Result<()> {
         validate_snapshot_schedule(self.retired, self.last_snapshot_insn)?;
-        if base.devices.lapic.has_pending_eoi() {
-            return Err(invalid(
-                "base controller projection contains unrepresented EOI state",
-            ));
-        }
+        base.validate_base_lapic_projection()?;
         let count = usize::from(base.config.vcpus);
         if count == 0
             || self.online.len() != count
@@ -462,6 +458,7 @@ impl ExecutionSnapshot {
                 || apic.eois.len() > MAX_REQUESTS
                 || apic.eois.iter().any(|vector| *vector < 16)
                 || apic.registers.has_pending_eoi()
+                || apic.registers.has_queued_ipis()
         }) {
             return Err(invalid("IPI queue exceeds format limit"));
         }
@@ -472,10 +469,10 @@ impl ExecutionSnapshot {
         if self
             .local_apics
             .iter()
-            .any(|apic| apic.registers.has_pending_eoi())
+            .any(|apic| apic.registers.has_pending_eoi() || apic.registers.has_queued_ipis())
         {
             return Err(invalid(
-                "controller projection contains hidden EOI broadcasts",
+                "controller projection contains hidden IPI or EOI messages",
             ));
         }
         let base = self.encoded_base()?;

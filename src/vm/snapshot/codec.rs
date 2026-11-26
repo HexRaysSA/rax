@@ -167,11 +167,7 @@ fn write_to_parts<W: Write>(
     let resources = bundle.and_then(SnapshotBundle::resources);
     let pci = bundle.and_then(SnapshotBundle::pci);
     let physical = bundle.and_then(SnapshotBundle::physical_memory);
-    if snapshot.devices.lapic.has_pending_eoi() {
-        return Err(invalid(
-            "base checkpoint cannot discard pending LAPIC EOI broadcasts",
-        ));
-    }
+    snapshot.validate_base_lapic_projection()?;
     // Public base save validates its CPU payload before entering this framing
     // layer. Extensions additionally require admission of their whole graph.
     if cpus.is_some() || backend_contexts.is_some() || vm_context.is_some() {

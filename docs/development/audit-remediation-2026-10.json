@@ -200868,6 +200868,14 @@
       "full_goal_complete": false
     },
     {
+      "id": "x86-legacy-restore-deferred-lapic-2026-11-26",
+      "findings": ["C-STATE", "C-SMP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Legacy x86 capture and restore without an execution record reject queued IPIs and pending level EOIs on every LAPIC under the publication locks. The parent accepted capture of a queued BSP IPI or AP EOI. The corrected tests cover both event types on CPU 0 and CPU 1, preserve RAM and CPU and device state after rejection, and retry after normal delivery. Complete execution records retain controller queues outside the base register projection. Historical base files with the serialized single IPI slot remain readable.",
+      "qualification": "docs/development/x86-ipi-delivery/README.md",
+      "full_goal_complete": false
+    },
+    {
       "id": "x86-legacy-restore-pending-ipi-2026-11-26",
       "findings": ["C-STATE", "C-SMP"],
       "status": "locally_qualified_full_findings_open",
