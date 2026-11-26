@@ -8,10 +8,13 @@
 //! `kernel/time/posix-timers.c`, `kernel/time/timekeeping.c`,
 //! `kernel/time/ntp.c`).
 
-use super::harness::{Harness, P, each_abi};
+use super::harness::{CODE, Harness, P, each_abi};
+use crate::user::linux::RunStatus;
 use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::signal::deliver::restart::ERESTARTSYS;
+use crate::user::linux::syscall::thread::cf::*;
+use std::sync::atomic::AtomicBool;
 
 const NOBODY: u32 = 65534;
 /// Never mapped (below `mmap_min_addr`).
@@ -532,17 +535,59 @@ fn getrusage_reports_context_switch_counters_for_the_selected_scope() {
 #[test]
 fn getrusage_counts_a_blocking_syscall_as_a_voluntary_switch() {
     let mut h = Harness::new(LinuxAbi::Riscv64);
-    let req = h.scratch + 0x100;
-    let mut request = Vec::with_capacity(16);
-    request.extend_from_slice(&0u64.to_le_bytes());
-    request.extend_from_slice(&1u64.to_le_bytes());
-    h.proc.state.space.write_raw(req, &request).unwrap();
+    let fds = h.scratch + 0x100;
+    h.ok(Sysno::Pipe2, &[fds, 0]);
+    let read_fd = u32::from_le_bytes(bytes(&h, fds, 4).try_into().unwrap()) as u64;
 
-    assert_eq!(h.start(0, Sysno::Nanosleep, &[req, 0]), None);
+    assert_eq!(
+        h.start(0, Sysno::Read, &[read_fd, h.scratch + 0x200, 1]),
+        None
+    );
     assert_eq!(h.proc.state.nvcsw, 1);
     assert_eq!(h.proc.threads[0].nvcsw, 1);
     h.ok(Sysno::Getrusage, &[0, h.scratch]);
     assert_eq!(i64_at(&h, h.scratch + 128), 1);
+}
+
+#[test]
+fn sched_yield_counts_a_runnable_switch_as_voluntary() {
+    let mut h = Harness::new(LinuxAbi::Riscv64);
+    let entry = CODE + 0x1000;
+    h.proc.state.config.slice_insns = 1;
+    put(&h, entry, &0x0000_0013u32.to_le_bytes());
+    let flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM;
+    h.ok(Sysno::Clone, &[flags, 0, 0, 0, 0]);
+    for thread in &mut h.proc.threads {
+        thread.cpu.set_pc(entry);
+    }
+
+    // Leave the scheduler positioned at the second runnable thread.
+    for _ in 0..3 {
+        assert_eq!(
+            h.proc.run_slice(1, &AtomicBool::new(false)),
+            RunStatus::BudgetExhausted
+        );
+    }
+    for thread in &mut h.proc.threads {
+        thread.cpu.set_pc(entry);
+        thread.nvcsw = 0;
+        thread.nivcsw = 0;
+    }
+    h.proc.state.nvcsw = 0;
+    h.proc.state.nivcsw = 0;
+
+    assert_eq!(h.start(0, Sysno::SchedYield, &[]), Some(0));
+    assert_eq!(
+        h.proc.run_slice(1, &AtomicBool::new(false)),
+        RunStatus::BudgetExhausted
+    );
+    assert_eq!(h.proc.state.nvcsw, 1);
+    assert_eq!(h.proc.state.nivcsw, 0);
+    assert_eq!(h.proc.threads[0].nvcsw, 1);
+    assert_eq!(h.proc.threads[0].nivcsw, 0);
+    h.ok(Sysno::Getrusage, &[0, h.scratch]);
+    assert_eq!(i64_at(&h, h.scratch + 128), 1);
+    assert_eq!(i64_at(&h, h.scratch + 136), 0);
 }
 
 #[test]

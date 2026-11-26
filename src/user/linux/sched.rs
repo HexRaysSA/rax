@@ -62,6 +62,18 @@ pub enum RunStatus {
     Complete(ExitStatus),
 }
 
+#[derive(Clone, Copy)]
+enum SwitchKind {
+    Voluntary,
+    Involuntary,
+}
+
+#[derive(Clone, Copy)]
+struct RunnableSwitch {
+    tid: i32,
+    kind: SwitchKind,
+}
+
 #[derive(Default)]
 pub(super) struct Scheduler {
     current: usize,
@@ -69,8 +81,8 @@ pub(super) struct Scheduler {
     // A blocked syscall or ptrace continuation also selects a guest thread.
     // This differs from ProcState::last_user, which governs rseq transitions.
     last_selected: Option<i32>,
-    // A runnable task switch counts when the scheduler selects another task.
-    runnable_switch: Option<i32>,
+    // Count a runnable switch when the scheduler selects another task.
+    runnable_switch: Option<RunnableSwitch>,
     terminal: Option<ExitStatus>,
 }
 
@@ -296,12 +308,20 @@ impl LinuxProcess {
                 continue;
             };
             let tid = self.threads[idx].tid;
-            if let Some(switched_out) = self.scheduler.runnable_switch.take()
-                && switched_out != tid
-                && let Some(thread) = self.threads.iter_mut().find(|t| t.tid == switched_out)
+            if let Some(switch) = self.scheduler.runnable_switch.take()
+                && switch.tid != tid
+                && let Some(thread) = self.threads.iter_mut().find(|t| t.tid == switch.tid)
             {
-                thread.nivcsw = thread.nivcsw.wrapping_add(1);
-                self.state.nivcsw = self.state.nivcsw.wrapping_add(1);
+                match switch.kind {
+                    SwitchKind::Voluntary => {
+                        thread.nvcsw = thread.nvcsw.wrapping_add(1);
+                        self.state.nvcsw = self.state.nvcsw.wrapping_add(1);
+                    }
+                    SwitchKind::Involuntary => {
+                        thread.nivcsw = thread.nivcsw.wrapping_add(1);
+                        self.state.nivcsw = self.state.nivcsw.wrapping_add(1);
+                    }
+                }
             }
             if !self.state.config.host_services
                 && self.state.children.select_guest_process(self.state.pid)
@@ -373,7 +393,10 @@ impl LinuxProcess {
                 CpuEvent::Signal(info, update) => self.trap_signal(idx, info, update),
                 CpuEvent::Yield if trap => self.step_trap(idx),
                 CpuEvent::Yield => {
-                    self.scheduler.runnable_switch = Some(tid);
+                    self.scheduler.runnable_switch = Some(RunnableSwitch {
+                        tid,
+                        kind: SwitchKind::Involuntary,
+                    });
                     self.scheduler.current = idx + 1;
                 }
                 CpuEvent::Internal(why) => {
@@ -521,7 +544,10 @@ impl LinuxProcess {
             Outcome::Yield(value) => {
                 self.threads[idx].cpu.set_syscall_result(value);
                 self.syscall_exit_work(idx);
-                self.scheduler.runnable_switch = Some(self.threads[idx].tid);
+                self.scheduler.runnable_switch = Some(RunnableSwitch {
+                    tid: self.threads[idx].tid,
+                    kind: SwitchKind::Voluntary,
+                });
                 return After::Next;
             }
             Outcome::Unchanged => {
