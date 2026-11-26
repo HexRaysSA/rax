@@ -200707,6 +200707,16 @@
       "scope": "Generic RV64 turns keep per-instruction sampling on the executing hart and publish peer clock and interrupt state at the batch boundary. The coordinator stops at the exact checkpoint count and handles rollover inside a turn. Tests verify a peer timer pending at retirement 300 before the peer enters and a detached two-hart timer wait at retirement 28. A wall-clock ELF with a 90,000,000-instruction loop passed in both RAX versions and QEMU 11.1.2. Alternating four-hart RAX runs reduced the median elapsed time from 27.67 s to 13.05 s.",
       "qualification": "docs/development/riscv-clint/README.md#rv64-retirement-batches",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-scalar-half-short-controls-2026-11-26",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The A32 and T32 scalar FP16 forms with a Len and Stride restriction reject nonzero visible controls before FP access traps and effects. The default profile reads these fields as zero, including after the import of nonzero raw state. QEMU 11.1.2 max rejected all 1,178 nonzero cases and executed all 38 zero cases across 19 encodings and both instruction sets. Physical AArch32 validation remains open.",
+      "qualification": "docs/development/a32-short-vectors/README.md#scalar-fp16-admission",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

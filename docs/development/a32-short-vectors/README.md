@@ -57,6 +57,32 @@ before bank masking. FPSCR control mask `0x00370000` excludes FZ16 bit19. No
 serialized field, wire format, public ABI, native lowerer or dependency changes.
 The ARM/Thumb SMIR frontier remains Unsupported for every affected base form.
 
+## Scalar FP16 admission
+
+Scalar FP16 arithmetic, fused arithmetic, move immediate, VMOVX and VINS
+require zero FPSCR.Len and FPSCR.Stride. The shared admission check rejects
+these encodings before an FP access trap or architectural effects. The
+configured legacy short-vector profile exposes both controls. On RAX profiles
+that read them as zero, raw bits in a saved context do not affect admission.
+FP16 comparison, core transfers and conversions follow their own encodings.
+[Arm DDI0597 ID032025](../../specifications/arm/aarch32-isa-2025-03.pdf)
+[Arm DDI0601, FPCR Len and Stride](https://support.arm.com/documentation/ddi0601/2023-12/AArch64-Registers/FPCR--Floating-point-Control-Register)
+
+| ID | Assumption and dependent behavior | Falsification probe | Result |
+| --- | --- | --- | --- |
+| A1 | Only visible Len and Stride participate in admission. This determines the default profile's behavior after restoring raw state. | Vary all 32 pairs across 19 forms, both instruction sets and profiles with and without the controls. Check unchanged GPRs, VFP state and FPSCR on rejection. | The parent took a Hyp FP trap for `VADD.F16` with Stride=1. The new admission check tests the control fields before the trap. |
+| A2 | The controls are decode restrictions for these FP16 forms and take priority over an FP access check. | Program and read back each pair on QEMU 11.1.2 `max`. Compare Undefined delivery and the destination register. Use Cortex-A15 as a negative control for absent FP16. | The `max` model rejected all 1,178 nonzero cases and executed all 38 zero cases. Cortex-A15 rejected all cases. Both QEMU models retained the written fields even with MVFR0.ShortVectors=0. RAX selects read-as-zero for its default profile. |
+
+The mask `0x0037_0000` combines Len[18:16] and Stride[21:20] and excludes
+FZ16[19]. Admission uses constant time and auxiliary space. Tests also cover
+software-backend fault retirement, context round-trip and the unsupported
+SMIR frontier in both instruction sets. The five complete integration suites
+and the two short-vector backend tests passed 47,722 tests with no failures
+or ignored tests. Clippy passed with warnings denied on macOS Arm64. The QEMU
+test guest, exact commands, tool versions and raw results are in
+`/Users/int/dev/rax-audit-work/four-findings-a32-half-short-controls-2026-11-26/`.
+Physical AArch32 execution and the broader A32-FP finding remain open.
+
 ## Evidence and reproduction
 
 Four observed failures on the parent engine covered discarded FPSCR controls,

@@ -1,8 +1,32 @@
 //! FP16 core transfer and scalar packing: exact bits, aliases and validity.
+use rax::isa::arm::aarch32::cpu::ProcessorMode;
 use rax::isa::arm::aarch32::vfp::Fpscr;
 use rax::isa::arm::decoder::{Aarch32Decoder, ThumbDecoder};
 use rax::isa::arm::execution::FlatMemory;
 use rax::isa::arm::{Armv7Cpu, ExecResult, Executor};
+
+const SCALAR_HALF_WITH_ZERO_VECTOR_CONTROLS: [u32; 19] = [
+    0xee31_0902, // VADD.F16
+    0xee31_0942, // VSUB.F16
+    0xee21_0902, // VMUL.F16
+    0xee81_0902, // VDIV.F16
+    0xee21_0942, // VNMUL.F16
+    0xee01_0902, // VMLA.F16
+    0xee01_0942, // VMLS.F16
+    0xee11_0942, // VNMLA.F16
+    0xee11_0902, // VNMLS.F16
+    0xeeb0_09c1, // VABS.F16
+    0xeeb1_0941, // VNEG.F16
+    0xeeb1_09c1, // VSQRT.F16
+    0xeeb7_0900, // VMOV.F16 (immediate)
+    0xeea1_0902, // VFMA.F16
+    0xeea1_0942, // VFMS.F16
+    0xee91_0942, // VFNMA.F16
+    0xee91_0902, // VFNMS.F16
+    0xfeb0_0a41, // VMOVX.F16
+    0xfeb0_0ac1, // VINS.F16
+];
+
 fn decode(raw: u32, thumb: bool) -> rax::isa::arm::decoder::DecodedInsn {
     if thumb {
         ThumbDecoder::decode_32bit(raw)
@@ -172,6 +196,7 @@ fn packing_rejects_nonzero_legacy_length_or_stride_without_changes() {
         for raw in [0xfeb00a41, 0xfeb00ac1] {
             for extra in (1..8).map(|n| n << 16).chain((1..4).map(|n| n << 20)) {
                 let mut cpu = cpu(thumb);
+                cpu.vfp.mvfr0 |= 1 << 24;
                 cpu.vfp.fpscr = Fpscr::from_bits(extra);
                 let dregs = cpu.vfp.dregs;
                 let regs = cpu.regs;
@@ -182,6 +207,71 @@ fn packing_rejects_nonzero_legacy_length_or_stride_without_changes() {
                 assert_eq!(cpu.cpsr.to_u32(), cpsr);
                 assert_eq!(cpu.vfp.fpscr.bits(), extra);
             }
+            let mut cpu_without_short_vectors = cpu(thumb);
+            cpu_without_short_vectors.vfp.fpscr = Fpscr::from_bits(0x0037_0000);
+            cpu_without_short_vectors.vfp.write_s_bits(2, 0xdead7c01);
+            assert!(matches!(
+                execute(&mut cpu_without_short_vectors, raw),
+                ExecResult::Continue
+            ));
+            assert_eq!(
+                cpu_without_short_vectors.vfp.read_s_bits(0),
+                if raw == 0xfeb0_0a41 {
+                    0x0000_dead
+                } else {
+                    0x7c01_1234
+                },
+            );
+            assert_eq!(cpu_without_short_vectors.vfp.fpscr.bits(), 0x0037_0000);
+        }
+    }
+}
+
+#[test]
+fn scalar_half_controls_reject_every_nonzero_pair_before_fp_access() {
+    for thumb in [false, true] {
+        for raw in SCALAR_HALF_WITH_ZERO_VECTOR_CONTROLS {
+            for short_vectors in [false, true] {
+                for (len, stride) in (0..8).flat_map(|len| (0..4).map(move |stride| (len, stride)))
+                {
+                    let mut cpu = cpu(thumb);
+                    cpu.cpsr.mode = ProcessorMode::Hyp as u8;
+                    cpu.cp15.scr = 1;
+                    cpu.cp15.nsacr = 1 << 10;
+                    cpu.cp15.hcptr = 1 << 10;
+                    cpu.vfp.mvfr0 |= u32::from(short_vectors) << 24;
+                    let fpscr = (len << 16) | (stride << 20);
+                    cpu.vfp.fpscr = Fpscr::from_bits(fpscr);
+                    let before = (cpu.regs, cpu.vfp.dregs, cpu.cpsr.to_u32());
+                    let result = execute(&mut cpu, raw);
+                    let invalid = short_vectors && fpscr != 0;
+                    assert!(
+                        if invalid {
+                            matches!(result, ExecResult::Undefined)
+                        } else {
+                            matches!(result, ExecResult::FpAccessTrap { target_el: 2, .. })
+                        },
+                        "raw={raw:08x}, Thumb={thumb}, ShortVectors={short_vectors}, FPSCR={fpscr:08x}: {result:?}",
+                    );
+                    assert_eq!(before, (cpu.regs, cpu.vfp.dregs, cpu.cpsr.to_u32()));
+                    assert_eq!(cpu.vfp.fpscr.bits(), fpscr);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn scalar_half_controls_leave_core_transfers_and_conversion_admitted() {
+    for thumb in [false, true] {
+        for raw in [0xee00_0910, 0xee11_0910, 0xeeb8_0941, 0xeeb4_0941] {
+            let mut cpu = cpu(thumb);
+            cpu.vfp.mvfr0 |= 1 << 24;
+            cpu.vfp.fpscr = Fpscr::from_bits(0x0031_0000);
+            assert!(
+                matches!(execute(&mut cpu, raw), ExecResult::Continue),
+                "raw={raw:08x}, Thumb={thumb}",
+            );
         }
     }
 }
@@ -222,12 +312,15 @@ fn forged_half_move_tags_and_core_pc_field_reject_without_effects() {
     }
 }
 #[test]
-fn half_register_moves_keep_explicit_smir_unsupported_admission() {
+fn scalar_half_forms_keep_explicit_smir_unsupported_admission() {
     use rax::smir::ir::types::SourceArch;
     use rax::smir::lift::aarch32::Aarch32Lifter;
     use rax::smir::lift::thumb::ThumbLifter;
     use rax::smir::lift::{LiftContext, LiftError, SmirLifter};
-    for raw in [0xfeb00a41u32, 0xfeb00ac1, 0xee000910, 0xee110910] {
+    for raw in SCALAR_HALF_WITH_ZERO_VECTOR_CONTROLS
+        .into_iter()
+        .chain([0xee000910, 0xee110910])
+    {
         for thumb in [false, true] {
             let bytes = if thumb {
                 let hi = ((raw >> 16) as u16).to_le_bytes();
@@ -246,10 +339,13 @@ fn half_register_moves_keep_explicit_smir_unsupported_admission() {
             } else {
                 Box::new(Aarch32Lifter::new())
             };
-            assert!(matches!(
-                lifter.lift_insn(0x1000, &bytes, &mut context),
-                Err(LiftError::Unsupported { addr: 0x1000, .. })
-            ));
+            assert!(
+                matches!(
+                    lifter.lift_insn(0x1000, &bytes, &mut context),
+                    Err(LiftError::Unsupported { addr: 0x1000, .. })
+                ),
+                "raw={raw:08x}, Thumb={thumb}"
+            );
         }
     }
 }

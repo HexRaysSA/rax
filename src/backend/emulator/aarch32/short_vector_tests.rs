@@ -2,7 +2,9 @@
 use super::*;
 use crate::vm::timing::{ClockMode, TimingContext};
 use crate::vm::vcpu::RetirementStop;
-fn fixture(thumb: bool) -> (Aarch32Vcpu, Arc<GuestMemoryMmap>) {
+const VECTOR_ADD: u32 = 0xee38_4a0c;
+
+fn fixture(thumb: bool, word: u32) -> (Aarch32Vcpu, Arc<GuestMemoryMmap>) {
     let memory = Arc::new(GuestMemoryMmap::from_ranges(&[(GuestAddress(0), 0x4000)]).unwrap());
     let mut cpu = Aarch32Vcpu::new(0, memory.clone());
     cpu.cpu.vfp.mvfr0 |= 1 << 24;
@@ -13,15 +15,14 @@ fn fixture(thumb: bool) -> (Aarch32Vcpu, Arc<GuestMemoryMmap>) {
         cpu.cpu.vfp.write_s(16 + i, (i + 1) as f32);
         cpu.cpu.vfp.write_s(24 + i, 10.0 * (i + 1) as f32);
     }
-    let add = 0xee384a0cu32;
     let bytes = if thumb {
         [
-            ((add >> 16) as u16).to_le_bytes(),
-            (add as u16).to_le_bytes(),
+            ((word >> 16) as u16).to_le_bytes(),
+            (word as u16).to_le_bytes(),
         ]
         .concat()
     } else {
-        add.to_le_bytes().to_vec()
+        word.to_le_bytes().to_vec()
     };
     memory.write_slice(&bytes, GuestAddress(0x100)).unwrap();
     let wfi = if thumb {
@@ -36,7 +37,7 @@ fn fixture(thumb: bool) -> (Aarch32Vcpu, Arc<GuestMemoryMmap>) {
 fn eight_vector_elements_retire_once_and_private_boundaries_resume_identically() {
     for thumb in [false, true] {
         for completed in [false, true] {
-            let (mut source, memory) = fixture(thumb);
+            let (mut source, memory) = fixture(thumb, VECTOR_ADD);
             let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
             if completed {
                 let _guard = clock.enter();
@@ -92,20 +93,23 @@ fn eight_vector_elements_retire_once_and_private_boundaries_resume_identically()
 #[test]
 fn invalid_vector_diagnostic_keeps_fp_pc_and_retirement_frontier() {
     for thumb in [false, true] {
-        let (mut cpu, _) = fixture(thumb);
-        cpu.cpu.vfp.fpscr = Fpscr::from_bits(0x00370000);
-        let before = cpu.cpu.vfp.dregs;
-        let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
-        let _guard = clock.enter();
-        let run = cpu.run_retirement_budget(8).unwrap();
-        assert_eq!(run.retired, 0);
-        assert!(matches!(run.stop, RetirementStop::Fault(_)));
-        assert_eq!(cpu.current_pc(), 0x100);
-        assert_eq!(cpu.instruction_count(), 0);
-        assert_eq!(clock.checkpoint_state().retired_units, 0);
-        assert_eq!(cpu.cpu.vfp.dregs, before);
-        let bytes = cpu.save_context().unwrap();
-        cpu.restore_context(&bytes).unwrap();
-        assert_eq!(cpu.save_context().unwrap(), bytes);
+        for (word, controls) in [(VECTOR_ADD, 0x0037_0000), (0xee31_0902, 1 << 16)] {
+            let (mut cpu, _) = fixture(thumb, word);
+            cpu.cpu.vfp.fpscr = Fpscr::from_bits(controls);
+            let before = cpu.cpu.vfp.dregs;
+            let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+            let _guard = clock.enter();
+            let run = cpu.run_retirement_budget(8).unwrap();
+            assert_eq!(run.retired, 0);
+            assert!(matches!(run.stop, RetirementStop::Fault(_)));
+            assert_eq!(cpu.current_pc(), 0x100);
+            assert_eq!(cpu.instruction_count(), 0);
+            assert_eq!(clock.checkpoint_state().retired_units, 0);
+            assert_eq!(cpu.cpu.vfp.dregs, before);
+            assert_eq!(cpu.cpu.vfp.fpscr.bits(), controls);
+            let bytes = cpu.save_context().unwrap();
+            cpu.restore_context(&bytes).unwrap();
+            assert_eq!(cpu.save_context().unwrap(), bytes);
+        }
     }
 }

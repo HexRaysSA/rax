@@ -1,7 +1,7 @@
 //! Optional VFP short vectors: Arm DDI0406C.d D11.1-4, Tables D11-1/2.
 //!
-//! Only the fourteen listed F32/F64 forms depend on these controls. Invalid
-//! iteration shapes choose Undefined before access checks or data effects.
+//! Fourteen F32/F64 forms can iterate. Other specified scalar forms require
+//! zero controls. Invalid controls choose Undefined before FP access checks.
 use super::vfp::VfpState;
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
 
@@ -89,8 +89,9 @@ pub(crate) fn plan(insn: &DecodedInsn, state: &VfpState) -> Result<Option<Plan>,
     } else {
         insn.raw
     };
-    // Exclude Advanced SIMD, core transfers, half data and memory/system forms.
-    if raw & 0x0f00_0010 != 0x0e00_0000 || !matches!((raw >> 8) & 15, 10 | 11) {
+    // Exclude Advanced SIMD, core transfers and memory/system forms.
+    let coprocessor = (raw >> 8) & 15;
+    if raw & 0x0f00_0010 != 0x0e00_0000 || !matches!(coprocessor, 9..=11) {
         return Ok(None);
     }
     if !Aarch32Decoder::decode(raw).is_ok_and(|decoded| decoded.mnemonic == insn.mnemonic) {
@@ -109,14 +110,24 @@ pub(crate) fn plan(insn: &DecodedInsn, state: &VfpState) -> Result<Option<Plan>,
         Mnemonic::VABS | Mnemonic::VNEG | Mnemonic::VSQRT => Shape::Unary,
         Mnemonic::VMOV if raw & (1 << 6) == 0 => Shape::Immediate,
         Mnemonic::VMOV => Shape::Unary,
-        // DDI0406C.d A8 VFMA/VFMS/VFNMA/VFNMS require scalar controls.
-        Mnemonic::VFMA | Mnemonic::VFMS | Mnemonic::VFNMA | Mnemonic::VFNMS
-            if capability == 1 && controls != 0 =>
+        // These forms require scalar controls at every allocated precision.
+        Mnemonic::VFMA
+        | Mnemonic::VFMS
+        | Mnemonic::VFNMA
+        | Mnemonic::VFNMS
+        | Mnemonic::VMOVX_F16
+        | Mnemonic::VINS_F16
+            if capability == 1 =>
         {
             return Err(());
         }
         _ => return Ok(None),
     };
+    // DDI0597: FP16 variants of the iterating forms require Len=Stride=0.
+    // An unimplemented or reserved control field reads as zero on this PE.
+    if coprocessor == 9 {
+        return if capability == 1 { Err(()) } else { Ok(None) };
+    }
     if capability != 1 {
         return Err(());
     }
