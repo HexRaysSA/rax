@@ -139,7 +139,6 @@ interrupt controller and requires the guest to discover two and four CPUs,
 start every secondary with INIT/SIPI, and observe all CPU-written markers.
 The Actions receipt SHA-256 is
 `b76a4e09057f11d4a8d15d12043fa2165ca086e6d8f6eb087916706247641fb3`.
-Intel HVF ISO execution and broader SMP coverage remain open.
 [Hosted KVM ISO test](https://github.com/HexRaysSA/rax/actions/runs/45870691656/job/140090652262)
 Inputs, commands and results are under
 `/Users/int/dev/rax-audit-work/four-findings-pc-iso-smp-2026-11-26/`.
@@ -153,8 +152,6 @@ the native log with the signed harness digest. The cross-built x86-64 harness
 registered the native case. Under Rosetta it passed all seven software
 firmware tests and all 39 PC machine tests. The workflow passed `actionlint`,
 and the receipt check rejected each control that omitted a required record.
-The current native ISO result is unknown until the workflow executes the
-four cases.
 
 | Assumption | Dependent result | Falsification probe | Impact |
 | --- | --- | --- | --- |
@@ -179,10 +176,35 @@ Intel HVF witness registered and remained ignored on the translated host.
 
 The native ISO witness records the CPU count and scheduling mode before
 constructing each VM and again before invoking the VMM run loop. The hosted
-run on `1e58c0e68` had already passed pending-MMIO and legacy PAE restore
-when the ISO step began. Its ISO result and the runtime effect of the task
-register correction on that host remain unknown.
+run on `1e58c0e68` passed pending-MMIO and legacy PAE restore. GitHub marked
+the job failed after losing communication with the runner during the ISO
+step. It retained zero ISO observations. The cause of the runner loss and
+the outcome of the older guest remain unknown.
 [Original Intel HVF run](https://github.com/HexRaysSA/rax/actions/runs/45888006650/job/140143432895)
+
+Hosted run `45894309053`, attempt 1, passed all four ISO cases at
+`2a2ba88f79ab2c06b1252d187f675a896990821f`. Each guest discovered the
+configured CPU count, wrote the `0x534d5052` marker from every CPU after
+starting the secondary CPUs, and produced success marker `0x600d600d` and
+power-off. The same signed harness passed pending-XMM read and write
+continuation on existing and fresh owners and the cached-PDPTE PAE case.
+[Hosted Intel HVF run](https://github.com/HexRaysSA/rax/actions/runs/45894309053/job/140164304596)
+
+| Scheduling mode | 2 vCPUs | 4 vCPUs |
+| --- | --- | --- |
+| Bounded turns | Passed | Passed |
+| Opt-in parallel rounds | Passed | Passed |
+
+The downloaded archive for artifact `15153677754` matched GitHub's
+SHA-256 `f8bfcfa6fd807ae7ae6969c3464673c2c7a68b1350ec6fa67c01db57415787f9`.
+The ISO log SHA-256 is
+`eacb32a24669417182751e7ddd86956dcc7bb68d16a446881b7fef5d75029ba3`.
+The runner verified the signed harness with SHA-256
+`bdfe925165dd56f5f5fd24befee73504b4cda99da1c47e3c2e850d70975e4c99`.
+The capability probe reported an untranslated Intel process and
+`kern.hv_vmm_present=1` via its hypervisor-guest check. This qualifies the
+tested virtualized Intel macOS runner. Bare-metal Intel HVF and broader
+guest and interrupt profiles remain open.
 
 | Assumption | Dependent result | Falsification probe | Impact |
 | --- | --- | --- | --- |

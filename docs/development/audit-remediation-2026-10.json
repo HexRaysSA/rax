@@ -201084,16 +201084,16 @@
     {
       "id": "pc-el-torito-smp-discovery-2026-11-26",
       "findings": ["C-SMP"],
-      "status": "locally_qualified_full_findings_open",
-      "scope": "Cold SMP El Torito boot publishes the configured PC MP tables without overwriting the loaded image. The software RAX guest discovers two or four processors from the table, starts every AP with INIT/SIPI, and observes peer-written RAM markers. A QEMU control verified startup and failure diagnostics using independently supplied MP records. KVM run 45866780395 passed direct-boot SMP but received an undifferentiated failure from the original ISO witness. The revised ISO witness passed on hosted x86-64 KVM with the in-kernel interrupt controller in run 45870691656, attempt 2, at 392341ed5. Intel HVF ISO execution and broader SMP coverage remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Cold SMP El Torito boot publishes the configured PC MP tables without overwriting the loaded image. The software RAX guest discovers two or four processors from the table, starts every AP with INIT/SIPI, and observes peer-written RAM markers. A QEMU control verified startup and failure diagnostics using independently supplied MP records. KVM run 45866780395 passed direct-boot SMP and received an undifferentiated failure from the original ISO witness. The revised witness passed on hosted x86-64 KVM with the in-kernel interrupt controller in run 45870691656, attempt 2, at 392341ed5. It also passed on a virtualized Intel macOS HVF runner in both scheduling modes in run 45894309053, attempt 1, at 2a2ba88f7. Broader SMP coverage remains open.",
       "qualification": "docs/development/pc-firmware-discovery/README.md#multiprocessor-iso-boot",
       "full_goal_complete": false
     },
     {
       "id": "pc-el-torito-vmx-segment-admission-2026-11-26",
       "findings": ["C-SMP", "C-HVF"],
-      "status": "locally_qualified_full_findings_open",
-      "scope": "Cold El Torito boot initializes the task register cache to a present busy 32-bit TSS and marks the unconfigured local descriptor table unusable. Both fields enter the Intel VMCS through the existing segment import. The signed Intel ISO witness now emits construction and pre-entry markers for each vCPU count and coordinator mode. Native evidence on the revised boot state and full SMP coverage remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Cold El Torito boot initializes the task register cache to a present busy 32-bit TSS and marks the unconfigured local descriptor table unusable. Both fields enter the Intel VMCS through the existing segment import. Hosted Intel HVF run 45894309053, attempt 1, passed the signed two- and four-vCPU ISO cases under bounded and parallel scheduling at 2a2ba88f79ab2c06b1252d187f675a896990821f. The capability probe identified a virtualized Intel macOS host. The preceding runner loss yielded zero ISO observations. Bare-metal Intel HVF and full SMP and interrupt coverage remain open.",
       "qualification": "docs/development/pc-firmware-discovery/README.md#real-mode-task-and-local-descriptor-state",
       "full_goal_complete": false
     },
