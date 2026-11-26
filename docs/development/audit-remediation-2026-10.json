@@ -201090,6 +201090,14 @@
       "full_goal_complete": false
     },
     {
+      "id": "pc-el-torito-vmx-segment-admission-2026-11-26",
+      "findings": ["C-SMP", "C-HVF"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Cold El Torito boot initializes the task register cache to a present busy 32-bit TSS and marks the unconfigured local descriptor table unusable. Both fields enter the Intel VMCS through the existing segment import. The signed Intel ISO witness now emits construction and pre-entry markers for each vCPU count and coordinator mode. Native evidence on the revised boot state and full SMP coverage remain open.",
+      "qualification": "docs/development/pc-firmware-discovery/README.md#real-mode-task-and-local-descriptor-state",
+      "full_goal_complete": false
+    },
+    {
       "id": "arm1176-coprocessor-permissions-2026-11-26",
       "findings": ["A32-FP", "C-STATE"],
       "status": "locally_qualified_full_findings_open",

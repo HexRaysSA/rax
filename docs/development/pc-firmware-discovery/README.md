@@ -160,3 +160,31 @@ four cases.
 | --- | --- | --- | --- |
 | Intel HVF executes the real-mode AP startup and the selected coordinator mode services it. | Cold Intel HVF ISO reaches every configured CPU. | Run the signed, untranslated harness with two and four CPUs in each mode and require guest-discovered counts, all CPU markers and successful exit. | High |
 | The host test measures actual guest entry under the requested backend. | Local harness registration and hosted execution remain distinct evidence. | Require the native availability probe, the signed executable's digest and a pass receipt from each guest run. | High |
+
+### Real-mode task and local descriptor state
+
+Cold El Torito boot now initializes the task-register cache as a present,
+usable busy 32-bit TSS and marks the unconfigured local descriptor table unusable.
+Intel VM entry checks the task register even with unrestricted guest enabled.
+The HVF adapter encodes the machine's segment records into the corresponding
+VMCS access-rights fields. The earlier boot record passed type 0 and present
+clear for both fields. The local regression at `0027e29b8` observed type 0
+instead of 11. This change initializes two fixed-size records and adds no
+checkpoint fields. [Intel SDM, Vol. 3C, §28.3.1.2](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The x86-64 tests under Rosetta passed 39 PC library cases, seven firmware
+cases and all ten real-mode integration cases. This includes the software
+ISO boot with two and four vCPUs. Clippy passed with warnings denied. The
+Intel HVF witness registered and remained ignored on the translated host.
+
+The native ISO witness records the CPU count and scheduling mode before
+constructing each VM and again before invoking the VMM run loop. The hosted
+run on `1e58c0e68` had already passed pending-MMIO and legacy PAE restore
+when the ISO step began. Its ISO result and the runtime effect of the task
+register correction on that host remain unknown.
+[Original Intel HVF run](https://github.com/HexRaysSA/rax/actions/runs/45888006650/job/140143432895)
+
+| Assumption | Dependent result | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| The cold boot record supplies VMX-compatible system segment caches. | Native boot can pass these two segment checks. | Assert a present, usable busy TSS with the TR selector's TI bit clear and an unusable LDTR in the generated boot state. | High |
+| Entry and AP startup work with the complete corrected boot state. | Intel HVF qualifies the ISO in both coordinator modes. | Require all four native ISO pass records after the pre-entry markers. | High |

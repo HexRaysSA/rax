@@ -105,12 +105,18 @@ fn check_el_torito_smp(backend: BackendKind, parallel: bool) {
     image.extend_from_slice(guest::ISO_AP);
     let iso = el_torito(0, &image);
     for count in [2, 4] {
+        if backend == BackendKind::Hvf {
+            println!("native Intel ISO constructing count={count} parallel={parallel}");
+        }
         let (mut vm, _iso) = cold_image(backend, count, &iso, parallel).unwrap();
         assert_eq!(vm.vm.uses_native_x86_irqchip(), backend == BackendKind::Kvm);
         assert!(vm.coordinator.online[0]);
         assert!(vm.coordinator.online[1..].iter().all(|online| !online));
         assert_eq!(read(&vm, 0xf0000), u32::from_le_bytes(*b"_MP_"));
         assert_eq!(read(&vm, 0x550), 0);
+        if backend == BackendKind::Hvf {
+            println!("native Intel ISO entering count={count} parallel={parallel}");
+        }
         vm.run().unwrap();
         let discovered = read(&vm, 0x550);
         let markers: Vec<_> = (0..count)

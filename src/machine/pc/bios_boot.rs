@@ -72,7 +72,7 @@ pub fn setup_real_mode_boot(mem: &GuestMemoryMmap, iso: Vec<u8>) -> Result<RealM
 }
 
 /// Initial 16-bit real-mode segment/control register state: CR0.PE=0, no paging,
-/// EFER=0; every segment base 0, limit 0xFFFF, 16-bit; IDT = real-mode IVT.
+/// EFER=0; flat 16-bit code and data segments; IDT points to the real-mode IVT.
 fn real_mode_sregs() -> SystemRegisters {
     let code = Segment {
         base: 0,
@@ -99,8 +99,17 @@ fn real_mode_sregs() -> SystemRegisters {
         fs: data.clone(),
         gs: data.clone(),
         ss: data,
-        tr: Segment::default(),
-        ldt: Segment::default(),
+        // Intel SDM Vol. 3C §28.3.1.2 checks TR even for unrestricted guests.
+        tr: Segment {
+            limit: 0xFFFF,
+            type_: 0x0B, // Busy 32-bit TSS.
+            present: true,
+            ..Segment::default()
+        },
+        ldt: Segment {
+            unusable: true,
+            ..Segment::default()
+        },
         gdt: DescriptorTable {
             base: 0,
             limit: 0xFFFF,
@@ -326,6 +335,13 @@ mod tests {
         assert_eq!(boot.sregs.cs.base, 0);
         assert_eq!(boot.sregs.cs.limit, 0xFFFF);
         assert_eq!(boot.sregs.idt.limit, 0x3FF, "real-mode IVT");
+
+        // Unrestricted VMX guests still need a usable, present busy TSS in TR.
+        assert_eq!(boot.sregs.tr.type_, 0x0B, "TR must be a busy 32-bit TSS");
+        assert!(boot.sregs.tr.present && !boot.sregs.tr.unusable && !boot.sregs.tr.s);
+        assert_eq!((boot.sregs.tr.selector, boot.sregs.tr.base), (0, 0));
+        assert_eq!(boot.sregs.tr.limit, 0xFFFF);
+        assert!(boot.sregs.ldt.unusable, "the bootloader has no LDT");
 
         // Entry: CS:IP = 0:0x7C00, DL = boot drive.
         assert_eq!(boot.regs.rip, 0x7C00);
