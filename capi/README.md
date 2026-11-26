@@ -781,6 +781,11 @@ The service runs as a separate guest process and receives its Mach endpoint
 through the guest bootstrap server. The service's subsequent startup still
 depends on the guest support for its sandbox and other OS facilities.
 
+The installed macOS runtime exposes system sandbox profile files directly
+under `/System/Library/Sandbox/Profiles` as read-only data. This lets guest
+libsystem read a named profile and its imports. Applying a compiled sandbox
+policy in the guest kernel remains unsupported.
+
 On macOS, regular files in the installed runtime report their metadata from
 the retained read-only backing. Size and allocated 512-byte blocks remain
 distinct. Device, inode, generation, and link count use the guest namespace.

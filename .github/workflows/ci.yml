@@ -570,6 +570,11 @@ jobs:
             cargo test --locked --no-default-features --manifest-path capi/Cargo.toml --lib \
               tests::process::native_runtime::installed_darwin_application_activates_bundled_xpc_service_through_closed_c_abi \
               -- --ignored --exact --nocapture
+      - name: Compare installed Darwin sandbox profile files through the closed C API
+        run: |
+          cargo test --locked --no-default-features --manifest-path capi/Cargo.toml --lib \
+            tests::process::native_runtime::installed_darwin_sandbox_profiles_match_native_through_closed_c_abi \
+            -- --exact --nocapture
       - name: cargo test (user_darwin, native oracle required)
         shell: bash
         env:

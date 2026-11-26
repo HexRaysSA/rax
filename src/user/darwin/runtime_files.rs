@@ -2,7 +2,7 @@
 //! system metadata, including timezone and locale data, the file-type and
 //! terminal databases, character-conversion tables, system TLS defaults, and
 //! selected CoreText and AppKit resources, system framework manifests, and
-//! framework-bundled XPC service files.
+//! framework-bundled XPC service files and system sandbox profiles.
 //! Installed Perl and Ruby modules,
 //! executables, and shebang scripts are available in the same guest namespace.
 //! A selected Command Line Tools or Xcode installation supplies its own tools
@@ -85,11 +85,15 @@ const CHARSET_ESDB_ROOT: &str = "/usr/share/i18n/esdb";
 const CHARSET_MAPPER_ROOT: &str = "/usr/share/i18n/csmapper";
 
 #[cfg(any(target_os = "macos", test))]
-const DATA_ROOTS: [&str; 4] = [
+const SANDBOX_PROFILE_ROOT: &str = "/System/Library/Sandbox/Profiles";
+
+#[cfg(any(target_os = "macos", test))]
+const DATA_ROOTS: [&str; 5] = [
     TERMINFO_ROOT,
     CHARSET_ESDB_ROOT,
     CHARSET_MAPPER_ROOT,
     APPKIT_APPEARANCE_ROOT,
+    SANDBOX_PROFILE_ROOT,
 ];
 
 #[cfg(any(target_os = "macos", test))]
@@ -358,6 +362,7 @@ fn select_runtime_root(
             CHARSET_ESDB_ROOT,
             CHARSET_MAPPER_ROOT,
             APPKIT_APPEARANCE_ROOT,
+            SANDBOX_PROFILE_ROOT,
             PERL_ROOT,
             RUBY_VERSIONS,
             COMMAND_LINE_TOOLS,
@@ -558,6 +563,27 @@ fn accept_runtime_file(
             || entry
                 .strip_prefix("Resources/")
                 .is_some_and(|catalog| !catalog.contains('/') && catalog.ends_with(".car")));
+    }
+    if let Some(entry) = guest
+        .strip_prefix(SANDBOX_PROFILE_ROOT)
+        .and_then(|tail| tail.strip_prefix('/'))
+    {
+        let profile_name = |name: &str| {
+            name.strip_suffix(".sb").is_some_and(|stem| {
+                !stem.is_empty()
+                    && stem.bytes().all(|byte| {
+                        byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_')
+                    })
+            })
+        };
+        return Ok(profile_name(entry)
+            && host.parent().is_some_and(|parent| {
+                parent.ends_with(SANDBOX_PROFILE_ROOT.trim_start_matches('/'))
+            })
+            && host
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(profile_name));
     }
     if let Some(entry) = guest
         .strip_prefix(TERMINFO_ROOT)
@@ -1950,6 +1976,81 @@ mod tests {
             selected.lookup(&catalog),
             Err(Error::NotDirectory)
         ));
+    }
+
+    #[test]
+    fn installed_sandbox_profiles_are_confined_read_only_data() {
+        use crate::user::supplied_fs::Error;
+        use std::fs;
+
+        let fixture = TestFile::new(b"unrelated", 9);
+        let root = &fixture.dir;
+        let profiles = root.join(SANDBOX_PROFILE_ROOT.trim_start_matches('/'));
+        for directory in [
+            root.join("usr/lib"),
+            root.join("System/Library/dyld"),
+            profiles.join("nested"),
+        ] {
+            fs::create_dir_all(directory).unwrap();
+        }
+        fs::write(root.join("usr/lib/dyld"), b"dyld").unwrap();
+        fs::write(
+            root.join("System/Library/dyld/dyld_shared_cache_arm64e"),
+            b"cache",
+        )
+        .unwrap();
+        fs::write(profiles.join("agent.sb"), b"(import \"system.sb\")").unwrap();
+        fs::write(profiles.join("system.sb"), b"(deny default)").unwrap();
+        fs::write(profiles.join("other.txt"), b"unrelated").unwrap();
+        fs::write(
+            profiles.join("nested/secret.sb"),
+            b"outside the profile set",
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            symlink("agent.sb", profiles.join("alias.sb")).unwrap();
+            symlink("other.txt", profiles.join("other.sb")).unwrap();
+            symlink("nested/secret.sb", profiles.join("nested.sb")).unwrap();
+            symlink(&fixture.path, profiles.join("external.sb")).unwrap();
+        }
+
+        let files = Files::default();
+        let selected = select_native_root(&files, root, None).unwrap();
+        let path = |name| format!("{SANDBOX_PROFILE_ROOT}/{name}");
+        let agent = path("agent.sb");
+        for (name, bytes) in [
+            ("agent.sb", &b"(import \"system.sb\")"[..]),
+            ("system.sb", &b"(deny default)"[..]),
+        ] {
+            let entry = selected.lookup(&path(name)).unwrap().1;
+            assert!(selected.is_installed_entry(&entry));
+            assert_eq!(&*entry.bytes().unwrap(), bytes);
+        }
+        for hidden in ["other.txt", "nested/secret.sb"] {
+            assert!(matches!(selected.read(&path(hidden)), Err(Error::NotFound)));
+        }
+        #[cfg(unix)]
+        {
+            assert_eq!(
+                &*selected.read(&path("alias.sb")).unwrap(),
+                b"(import \"system.sb\")"
+            );
+            for hidden in ["other.sb", "nested.sb", "external.sb"] {
+                assert!(matches!(selected.read(&path(hidden)), Err(Error::NotFound)));
+            }
+        }
+        let supplied = files
+            .with_file(agent.clone(), Arc::from(&b"caller profile"[..]))
+            .unwrap();
+        let override_files = select_native_root(&supplied, root, None).unwrap();
+        assert_eq!(&*override_files.read(&agent).unwrap(), b"caller profile");
+        let selected = select_native_root(&files, root, Some(SANDBOX_PROFILE_ROOT))
+            .unwrap()
+            .with_file(SANDBOX_PROFILE_ROOT.into(), Arc::from(&b"main image"[..]))
+            .unwrap();
+        assert!(matches!(selected.read(&agent), Err(Error::NotDirectory)));
     }
 
     #[cfg(unix)]

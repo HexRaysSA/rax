@@ -385,6 +385,33 @@ fn installed_darwin_fallback_font_matches_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_sandbox_profiles_match_native_through_closed_c_abi() {
+    let paths = [
+        "/System/Library/Sandbox/Profiles/nsattributedstringagent.sb",
+        "/System/Library/Sandbox/Profiles/system.sb",
+        "/System/Library/Sandbox/Profiles/dyld-support.sb",
+        "/System/Library/Sandbox/Profiles/com.apple.corefoundation.sb",
+    ];
+    let native = std::process::Command::new("/bin/cat")
+        .args(paths)
+        .env_clear()
+        .env("LC_ALL", "C")
+        .output()
+        .unwrap();
+    assert!(native.status.success(), "{:?}", native.stderr);
+    assert!(native.stderr.is_empty());
+    assert!(!native.stdout.is_empty());
+    compare_installed_posix_output(
+        "darwin",
+        "/bin/cat",
+        &paths,
+        &[("LC_ALL", "C")],
+        &native.stdout,
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_framework_manifests_match_native_through_closed_c_abi() {
     for framework in ["AppKit", "WebKit"] {
         let manifest =
