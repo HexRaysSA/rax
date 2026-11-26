@@ -36,8 +36,8 @@ enum InitState {
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Pic8259 {
-    /// Current electrical level of each IRQ input. This is transient wiring
-    /// state, reconstructed by device polling after snapshot restore.
+    /// Current electrical level of each IRQ input. The complete PC checkpoint
+    /// carries this separately to keep the legacy PIC record stable.
     #[serde(skip)]
     irq_lines: u8,
     /// Interrupt Request Register - pending interrupt requests.
@@ -432,6 +432,17 @@ impl Default for DualPic {
 }
 
 impl DualPic {
+    pub(crate) fn irq_input_levels(&self) -> [u8; 2] {
+        [self.master.irq_lines, self.slave.irq_lines]
+    }
+
+    /// Restore both input banks directly, including the master cascade level.
+    /// None of these assignments represents an edge, an INTA, or an EOI.
+    pub(crate) fn restore_irq_input_levels(&mut self, [master, slave]: [u8; 2]) {
+        self.master.irq_lines = master;
+        self.slave.irq_lines = slave;
+    }
+
     /// Bind a retained PC input level and its cascade without changing IRR or ISR.
     pub(crate) fn restore_irq_input_level(&mut self, irq: u8, asserted: bool) {
         let bit = irq & 7;

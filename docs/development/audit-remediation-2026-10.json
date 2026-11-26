@@ -201096,6 +201096,14 @@
       "scope": "Selected ARM1176-style v6 and v6_k software CPUs reset with CP10 and CP11 access denied. Guest CPACR and NSACR expose ARMv6 fields, and the v6_k complete checkpoint retains guest-programmed permissions on a fresh VMM. QEMU ARM1176 matched defined CP10 and CP11 access at reset and Secure and Non-secure VFP access decisions. Reserved register readback differs, and physical ARM1176 validation and asynchronous VFP11 exception state remain open.",
       "qualification": "docs/development/a32-fp-controls.md#arm1176-coprocessor-permissions",
       "full_goal_complete": false
+    },
+    {
+      "id": "software-pic-input-checkpoint-2026-11-26",
+      "findings": ["C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Complete PC software PIC checkpoints preserve both raw input banks, including the master cascade level. Detached restores match the source PIC after acknowledgement of a held IRQ3 or i8042 IRQ12. Legacy PC images use reconstruction from their available device inputs, and an in-kernel controller rejects a software PIC input bank. Native checkpoint and full backend coverage remain open.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#software-pic-input-levels",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

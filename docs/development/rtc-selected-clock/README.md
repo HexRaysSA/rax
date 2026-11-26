@@ -40,6 +40,7 @@ VM contract still requires independent writers to remain quiescent.
 
 | Private tags | Calendar restore admission |
 | --- | --- |
+| `RAXPCD05` | Same RTC timing as `RAXPCD03`, with an S5 flag and both software PIC input banks. |
 | `RAXPCD03` | Bundle-selected Wall or Retired calendar with PC RTC oscillator phase. |
 | `RAXPCD04` | Same RTC timing as `RAXPCD03`, with the PC in terminal S5. |
 | `RAXPCD02`, `RAXSLI02` | Bundle-selected Wall or Retired calendar. |

@@ -149,8 +149,9 @@ fn selected_cmos_guest_reads_continue_from_source_free_one_two_four_cpu_files() 
         // Explicit old calendar profile cannot be silently imported into this target.
         let mut execution = bundle.execution().unwrap().clone();
         let mut image = execution.pc.as_ref().unwrap().encoded().unwrap();
-        assert_eq!(&image[..8], b"RAXPCD03");
-        image.drain(8..8 + crate::devices::rtc::RtcTimingCheckpoint::WIRE_SIZE);
+        assert_eq!(&image[..8], b"RAXPCD05");
+        // Strip the S5 flag, PIC inputs and RTC timing prefix added since 01.
+        image.drain(8..11 + crate::devices::rtc::RtcTimingCheckpoint::WIRE_SIZE);
         image[..8].copy_from_slice(b"RAXPCD01");
         execution.pc = Some(crate::machine::pc::PcCheckpoint::decode(&image).unwrap());
         // Load a second complete bundle to preserve every unrelated section.

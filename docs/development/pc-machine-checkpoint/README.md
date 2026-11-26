@@ -14,7 +14,9 @@ does not qualify that two-call API for concurrent use.
 ## Wire and resource admission
 
 RAXEXE04 extends the execution record with a length-prefixed PC control image.
-Running machines use RAXPCD03 and machines stopped by S5 use RAXPCD04.
+Complete captures with a software PIC use RAXPCD05. With an in-kernel
+interrupt controller, running machines use RAXPCD03 and machines stopped
+by S5 use RAXPCD04.
 RAXEXE01/02/03 remain readable. Complete PC
 execution restoration rejects an older execution image without PC state.
 Historical base-only represented state remains a separate API and does not
@@ -106,7 +108,8 @@ calendar admission described above.
 On capture, the VMM polls RTC and publishes the pending IRQ8 level before
 sampling the controller banks. On restore, the recorded Register C level
 must agree with the saved I/O APIC input or native KVM GSI8. Software restore
-rebinds the PIC input without generating an edge. Reading Register C clears
+binds the saved PIC input bank, or reconstructs the IRQ8 input for older
+records, without generating an edge. Reading Register C clears
 the RTC flags and lowers the line, including when checkpoint settlement
 services a pending native PIO read. A failed native line update disables
 guest entry because the RTC and native controller can have diverged.
@@ -120,6 +123,44 @@ The hosted Linux x86-64 KVM regression restored an asserted GSI8 from a
 detached checkpoint. Settling the guest's stopped Register C read lowered
 the kernel line. The resumed guest reported the expected `0xc0` byte.
 [Hosted KVM run for `db443e45b`](https://github.com/HexRaysSA/rax/actions/runs/44750698131/job/136337513983)
+
+## Software PIC input levels
+
+RAXPCD05 places three bytes before the existing RTC timing prefix. The first
+is the S5 flag, encoded as 0 or 1. The next two are the master and slave input
+bitmaps, with bit 0 representing input 0 on each controller. The master bitmap
+includes its IRQ2 cascade level. The stable PIC record already carries the
+interrupt request and in-service registers.
+
+Capture samples the input bitmaps under the same PIC lock as the stable
+record. Restore assigns both bitmaps directly before publishing the controller.
+The assignment leaves the saved request and in-service registers intact.
+The work and additional space are constant. The RAXPCD01 through RAXPCD04
+reader continues reconstructing the inputs available from UART, i8042 and
+RTC state. Those formats cannot retain other held inputs or exact IRQ2 history.
+A target with a kernel-owned interrupt controller rejects a software PIC input
+bank before checkpoint publication. Readers that predate RAXPCD05 reject the
+new PC tag.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A held input keeps its edge history across detached file restore. | Acknowledge IRQ3, save while its level is high, restore into a fresh VM, and publish high again. After EOI, the restored PIC must match the source PIC and deliver no new vector. |
+| The cascade requires its own input bit. | Acknowledge i8042 IRQ12 while its output remains asserted. After file restore, raise a higher-priority slave request and send a master-only EOI. The source and restored PIC must both report no new delivery. |
+| The software PIC prefix preserves S5 and admits only a complete software-owned image. | Round-trip both S5 values, reject a truncated prefix and an invalid flag, and reject admission to an in-kernel controller. |
+
+The two detached-file tests on macOS arm64 reproduced extra vectors `0x23`
+and `0x28` against `392341ed5`. The predecessor log SHA-256 is
+`29b7d0c46bfa2fa366ae7699934cddd766d0d755fcd9efa64c00a1f59fa17fc2`.
+Both passed with the fix applied to `744a9a636` using
+`cargo test --locked --no-default-features --lib checkpoint_preserves_pic_`.
+The rerun log SHA-256 is
+`a2ffd83dc85d66e3f3ecece87000b3d62c005e1d65b60aca1c7fa94686735df9`.
+The source PIC serves as the continuation reference for both tests.
+The checkpoint, PC device, PIC, RTC clock and PC interrupt modules passed
+5, 12, 24, 1 and 38 tests respectively on `392341ed5` with the fix.
+An unfiltered library run on `392341ed5` with the fix reproduced the existing
+Darwin `kern.hostname` test failure and hit its 12-minute limit. Hardware
+8259 timing and native checkpoint coverage require separate evidence.
 
 ## Native UART IRQ4 checkpoint coherence
 
@@ -530,8 +571,9 @@ specifies that â€œExiting the G2 soft-off state requires rebooting the system.â€
 [ACPI 6.6, The ACPI Hardware Model](https://uefi.org/sites/default/files/resources/ACPI_Spec_6.6.pdf)
 
 RAXPCD04 has the same body as RAXPCD03. Its tag records acceptance of S5
-and requires the RTC timing prefix. RAXPCD01 through RAXPCD03 carry no PC
-power-off record. Restore publishes the latch only after the guest/backend
+and requires the RTC timing prefix. RAXPCD05 records S5 in a flag byte.
+RAXPCD01 through RAXPCD03 carry no PC power-off record.
+Restore publishes the latch only after the guest/backend
 transaction succeeds. A complete bundle is required to capture S5. An
 existing native backend terminal record still independently fences entry.
 Recording and checking the latch take O(1) time and space.

@@ -421,6 +421,34 @@ fn s5_wire_state_changes_only_after_successful_publication() {
 }
 
 #[test]
+fn software_pic_wire_preserves_both_banks_and_s5_with_strict_admission() {
+    let (source, _, _) = device_set();
+    let inputs = [0x84, 0x51];
+    for powered_off in [false, true] {
+        source.set_powered_off(powered_off);
+        let (image, resources) = capture(&source);
+        let previous = image.encoded().unwrap();
+        let raw = image.with_software_pic_inputs(inputs).encoded().unwrap();
+        assert_eq!(&raw[..8], b"RAXPCD05");
+        assert_eq!(raw[8..11], [u8::from(powered_off), inputs[0], inputs[1]]);
+        assert_eq!(raw[11..], previous[8..]);
+        for len in 8..11 + RtcTimingCheckpoint::WIRE_SIZE {
+            assert!(PcCheckpoint::decode(&raw[..len]).is_err());
+        }
+        let decoded = PcCheckpoint::decode(&raw).unwrap();
+        assert_eq!(decoded.encoded().unwrap(), raw);
+        let resources = PreparedResources::from_bindings(resources).unwrap();
+        let prepared = decoded.prepare(&resources).unwrap();
+        assert_eq!(prepared.software_pic_inputs(false).unwrap(), Some(inputs));
+        assert!(prepared.software_pic_inputs(true).is_err());
+
+        let mut invalid = raw;
+        invalid[8] = 2;
+        assert!(PcCheckpoint::decode(&invalid).is_err());
+    }
+}
+
+#[test]
 fn legacy_calendar_tags_reencode_and_wall_restore_but_retired_denies_before_publish() {
     use crate::vm::timing::{ClockMode, TimingContext};
     let (source, _, _) = device_set();

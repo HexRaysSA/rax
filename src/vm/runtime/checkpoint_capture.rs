@@ -1,5 +1,6 @@
 //! Capture CPU, platform, endpoint and RAM state under one writer boundary.
 use super::*;
+use crate::machine::pc::PcCheckpoint;
 use crate::vm::memory::checkpoint::CheckpointBindings;
 use crate::vm::snapshot::{ExecutionSnapshot, PhysicalMemorySnapshot, SnapshotBundle};
 
@@ -81,7 +82,7 @@ impl Vmm {
                 .collect(),
         );
         let capture = |pci| {
-            let capture = |pc, pc_resources: Vec<crate::vm::snapshot::CheckpointResource>| {
+            let capture = |pc: Option<PcCheckpoint>, pc_resources: Vec<_>| {
                 let capture = |arm_cluster, riscv_platform| {
                     let lock_error =
                         || Error::Emulator("legacy device capture lock poisoned".into());
@@ -111,6 +112,11 @@ impl Vmm {
                     let sampled_at = None;
                     let clock = self.timing_context.checkpoint_state_at(sampled_at);
                     let now = crate::host::time::Instant::now();
+                    let pc = if self.vm.uses_native_x86_irqchip() {
+                        pc
+                    } else {
+                        pc.map(|pc| pc.with_software_pic_inputs(pic.irq_input_levels()))
+                    };
                     let execution = ExecutionSnapshot {
                         cursor: self.coordinator.cursor,
                         retired: self.coordinator.retired,

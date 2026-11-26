@@ -17,6 +17,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 const LIMIT: usize = 60 * 1024 * 1024;
 const TAG: &[u8; 8] = b"RAXPCD03";
 const POWER_OFF_TAG: &[u8; 8] = b"RAXPCD04";
+const PIC_INPUT_TAG: &[u8; 8] = b"RAXPCD05";
 const CALENDAR_TAG: &[u8; 8] = b"RAXPCD02";
 const LEGACY_TAG: &[u8; 8] = b"RAXPCD01";
 
@@ -42,6 +43,7 @@ pub(crate) struct PcCheckpoint {
     legacy_calendar: bool,
     powered_off: bool,
     rtc_timing: Option<RtcTimingCheckpoint>,
+    software_pic_inputs: Option<[u8; 2]>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -65,12 +67,22 @@ pub(crate) struct PreparedPcCheckpoint {
     powered_off: bool,
     rtc: crate::devices::rtc::PreparedRtcCheckpoint,
     rtc_timing: Option<RtcTimingCheckpoint>,
+    software_pic_inputs: Option<[u8; 2]>,
     ioapic: crate::devices::ioapic::PreparedIoApicCheckpoint,
     sysctl: crate::devices::sysctl::PreparedSystemControlCheckpoint,
     state: State,
 }
 
 impl PreparedPcCheckpoint {
+    pub(crate) fn software_pic_inputs(&self, native_irqchip: bool) -> Result<Option<[u8; 2]>> {
+        if native_irqchip && self.software_pic_inputs.is_some() {
+            return Err(invalid(
+                "software PIC inputs require a software interrupt controller",
+            ));
+        }
+        Ok(self.software_pic_inputs)
+    }
+
     pub(crate) fn speaker_gate(&self) -> bool {
         self.sysctl.speaker_gate()
     }
@@ -189,6 +201,7 @@ impl PcDevices {
                 legacy_calendar: false,
                 powered_off: self.powered_off(),
                 rtc_timing: Some(held.rtc.timing_checkpoint()),
+                software_pic_inputs: None,
             },
             resources,
         );
@@ -267,12 +280,20 @@ impl State {
     }
 }
 impl PcCheckpoint {
+    pub(crate) fn with_software_pic_inputs(mut self, inputs: [u8; 2]) -> Self {
+        self.software_pic_inputs = Some(inputs);
+        self
+    }
+
     fn state(&self) -> Result<State> {
         if self.data.is_empty() || self.data.len() > LIMIT {
             return Err(invalid("control image length"));
         }
         if self.powered_off && self.rtc_timing.is_none() {
             return Err(invalid("S5 requires RTC timing"));
+        }
+        if self.software_pic_inputs.is_some() && self.rtc_timing.is_none() {
+            return Err(invalid("software PIC inputs require RTC timing"));
         }
         let state: State =
             crate::codec::deserialize_limited::<_, LIMIT>(&self.data).map_err(invalid)?;
@@ -305,8 +326,16 @@ impl PcCheckpoint {
         self.validate()?;
         let mut bytes = match &self.rtc_timing {
             Some(timing) => {
-                let tag = if self.powered_off { POWER_OFF_TAG } else { TAG };
-                let mut bytes = tag.to_vec();
+                let mut bytes = match self.software_pic_inputs {
+                    Some(inputs) => {
+                        let mut bytes = PIC_INPUT_TAG.to_vec();
+                        bytes.push(u8::from(self.powered_off));
+                        bytes.extend_from_slice(&inputs);
+                        bytes
+                    }
+                    None if self.powered_off => POWER_OFF_TAG.to_vec(),
+                    None => TAG.to_vec(),
+                };
                 bytes.extend_from_slice(&crate::codec::serialize(timing).map_err(invalid)?);
                 bytes
             }
@@ -317,17 +346,32 @@ impl PcCheckpoint {
         Ok(bytes)
     }
     pub(crate) fn decode(raw: &[u8]) -> Result<Self> {
-        let (legacy_calendar, powered_off, rtc_timing, data) = match raw.split_at_checked(TAG.len())
-        {
-            Some((tag, body)) if tag == TAG || tag == POWER_OFF_TAG => {
+        let (tag, body) = raw
+            .split_first_chunk::<8>()
+            .ok_or_else(|| invalid("unsupported control tag"))?;
+        let (powered_off, software_pic_inputs, body) = if tag == PIC_INPUT_TAG {
+            let (&[powered_off, master, slave], body) = body
+                .split_first_chunk::<3>()
+                .ok_or_else(|| invalid("truncated power flag and software PIC inputs"))?;
+            let powered_off = match powered_off {
+                0 => false,
+                1 => true,
+                _ => return Err(invalid("invalid S5 power flag")),
+            };
+            (powered_off, Some([master, slave]), body)
+        } else {
+            (tag == POWER_OFF_TAG, None, body)
+        };
+        let (legacy_calendar, rtc_timing, data) = match tag {
+            TAG | POWER_OFF_TAG | PIC_INPUT_TAG => {
                 let (timing, data) = body
                     .split_at_checked(RtcTimingCheckpoint::WIRE_SIZE)
                     .ok_or_else(|| invalid("truncated RTC timing"))?;
                 let timing = crate::codec::deserialize_strict(timing).map_err(invalid)?;
-                (false, tag == POWER_OFF_TAG, Some(timing), data)
+                (false, Some(timing), data)
             }
-            Some((tag, data)) if tag == CALENDAR_TAG => (false, false, None, data),
-            Some((tag, data)) if tag == LEGACY_TAG => (true, false, None, data),
+            CALENDAR_TAG => (false, None, body),
+            LEGACY_TAG => (true, None, body),
             _ => return Err(invalid("unsupported control tag")),
         };
         if data.len() > LIMIT {
@@ -338,6 +382,7 @@ impl PcCheckpoint {
             legacy_calendar,
             powered_off,
             rtc_timing,
+            software_pic_inputs,
         };
         image.validate()?;
         Ok(image)
@@ -372,6 +417,7 @@ impl PcCheckpoint {
             powered_off: self.powered_off,
             rtc: state.rtc.prepare()?,
             rtc_timing: self.rtc_timing.clone(),
+            software_pic_inputs: self.software_pic_inputs,
             ioapic: state.ioapic.prepare()?,
             sysctl: state.sysctl.prepare()?,
             state,

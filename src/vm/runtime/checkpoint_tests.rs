@@ -1,6 +1,7 @@
 //! Checkpoint admission must precede changes to any live base checkpoint field.
 use super::*;
 use crate::config::{CliConfig, MemorySize};
+use crate::vm::snapshot::SnapshotBundle;
 use std::sync::atomic::{AtomicU64, Ordering};
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Fixture {
@@ -90,6 +91,65 @@ fn console_checkpoint_preserves_input_before_the_hotkey_only() {
     assert_eq!(read_port(0x3f8), 1);
     assert_eq!(read_port(0x3fd) & 1, 0);
 }
+
+#[test]
+fn checkpoint_preserves_pic_input_high_after_acknowledgement() {
+    let mut source = Fixture::new();
+    let vm = &mut source.vm;
+    vm.io_bus.get_mut().unwrap().write(0x21, &[0xf7]).unwrap();
+    vm.pic.lock().unwrap().set_irq(3, true);
+    assert_pic_checkpoint_does_not_create_edge(&mut source, 3, 3);
+}
+
+#[test]
+fn checkpoint_preserves_pic_cascade_high_after_acknowledgement() {
+    use crate::vm::vcpu::CheckpointIoReply;
+    let mut source = Fixture::new();
+    let vm = &mut source.vm;
+    let io = vm.io_bus.get_mut().unwrap();
+    io.write(0x21, &[0xfb]).unwrap();
+    io.write(0xa1, &[0xee]).unwrap();
+    // Enable auxiliary IRQs and put a byte on the i8042 output latch.
+    for (port, value) in [(0x64, 0x60), (0x60, 0x22), (0x64, 0xd3), (0x60, 0x5a)] {
+        let reply = vm
+            .checkpoint_io_service(
+                0,
+                VcpuExit::IoOut {
+                    port,
+                    data: vec![value],
+                },
+            )
+            .unwrap();
+        assert!(matches!(reply, CheckpointIoReply::Output));
+    }
+    assert_pic_checkpoint_does_not_create_edge(&mut source, 12, 8);
+}
+
+fn assert_pic_checkpoint_does_not_create_edge(source: &mut Fixture, irq: u8, next_irq: u8) {
+    let vm = &mut source.vm;
+    assert_eq!(
+        vm.pic.lock().unwrap().get_pending_vector(),
+        Some(0x20 + irq)
+    );
+    let path = source.kernel.with_extension("rxc");
+    vm.take_snapshot_bundle(0).unwrap().save(&path).unwrap();
+    let saved = SnapshotBundle::load(&path).unwrap();
+    let mut target = Fixture::new();
+    target.vm.restore_snapshot_bundle(&saved).unwrap();
+
+    for (name, vm) in [("source", vm), ("restored", &mut target.vm)] {
+        // IRQ3 stays high. A higher-priority slave request also leaves an
+        // already-high cascade input high. Neither transition is a new edge.
+        vm.pic.lock().unwrap().set_irq(next_irq, true);
+        vm.io_bus.get_mut().unwrap().write(0x20, &[0x20]).unwrap();
+        assert_eq!(
+            vm.pic.lock().unwrap().get_pending_vector(),
+            None,
+            "{name} IRQ{irq}"
+        );
+    }
+}
+
 fn poison<T: Send + 'static>(lock: Arc<std::sync::Mutex<T>>) {
     assert!(
         std::thread::spawn(move || {

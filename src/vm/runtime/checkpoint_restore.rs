@@ -294,6 +294,11 @@ impl Vmm {
             .map(|image| image.prepare(&resources))
             .transpose()?;
         let native_irqchip = self.vm.uses_native_x86_irqchip();
+        let software_pic_inputs = pc_restore
+            .as_ref()
+            .map(|pc| pc.software_pic_inputs(native_irqchip))
+            .transpose()?
+            .flatten();
         let rtc_irq_level = pc_restore
             .as_ref()
             .map(|pc| pc.rtc_irq_level(native_irqchip))
@@ -432,9 +437,10 @@ impl Vmm {
             devices
                 .pit
                 .set_channel2_gate_at(pc.speaker_gate(), publication_clock.elapsed_nanos);
-            if !native_irqchip {
-                // Both software controllers see the same wire. Rebind the
-                // PIC's input history without modifying its saved IRR/ISR.
+            if let Some(inputs) = software_pic_inputs {
+                devices.pic.restore_irq_input_levels(inputs);
+            } else if !native_irqchip {
+                // Older PC records can recover only inputs with a known source.
                 if let Some(irq) = self.serial_irq.filter(|&pin| pin < 16) {
                     let irq = irq as u8;
                     devices
