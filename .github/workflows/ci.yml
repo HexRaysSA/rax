@@ -607,6 +607,34 @@ jobs:
                 tests::process::native_runtime::installed_darwin_rusage_matches_native_through_closed_c_abi \
                 -- --ignored --exact --nocapture
           done
+      - name: Compare a Darwin run-path dependency through the closed C API
+        shell: bash
+        run: |
+          scratch="$GITHUB_WORKSPACE/target/darwin-installed-rpath"
+          mkdir -p "$scratch/tmp"
+          export TMPDIR="$scratch/tmp" TMP="$scratch/tmp" TEMP="$scratch/tmp"
+          sdk="$(xcrun --sdk macosx --show-sdk-path)"
+          dylib="$(/usr/bin/perl -MConfig -e 'print $Config{archlibexp},"/CORE/",$Config{libperl}')"
+          test -f "$dylib"
+          install_name="$(xcrun otool -D "$dylib" | tail -n 1)"
+          relative="$(python3 -c 'import os, sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))' "${dylib%/*}" "$scratch")"
+          printf 'host-only file\n' > "$scratch/host-only"
+          for architecture in arm64 x86_64; do
+            executable="$scratch/closed-rpath-$architecture"
+            xcrun --sdk macosx clang -isysroot "$sdk" -arch "$architecture" \
+              -Wall -Wextra -Werror "-Wl,-rpath,@executable_path/$relative" "-Wl,-needed_library,$dylib" \
+              tests/fixtures/user/darwin/src/closed_rpath.c -o "$executable"
+            xcrun install_name_tool -change "$install_name" @rpath/libperl.dylib "$executable"
+            codesign --force --sign - "$executable"
+            xcrun otool -L "$executable" | grep -F '@rpath/libperl.dylib'
+            guest_architecture="$architecture"
+            if [ "$architecture" = arm64 ]; then guest_architecture=aarch64; fi
+            RAX_DARWIN_INSTALLED_RPATH="$executable" \
+              RAX_POSIX_INSTALLED_DIRECTORY_CONTROL_ARCH="$guest_architecture" \
+              cargo test --locked --no-default-features --manifest-path capi/Cargo.toml --lib \
+                tests::process::native_runtime::installed_darwin_rpath_dependency_matches_native_through_closed_c_abi \
+                -- --ignored --exact --nocapture
+          done
       - name: Compare installed Darwin sandbox profile files through the closed C API
         run: |
           cargo test --locked --no-default-features --manifest-path capi/Cargo.toml --lib \

@@ -711,6 +711,49 @@ fn installed_darwin_rusage_matches_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "run with the closed_rpath Mach-O fixture linked to installed libperl"]
+fn installed_darwin_rpath_dependency_matches_native_through_closed_c_abi() {
+    let executable = std::env::var("RAX_DARWIN_INSTALLED_RPATH")
+        .expect("path to the installed-dyld dependency fixture");
+    let host_only = std::path::Path::new(&executable).with_file_name("host-only");
+    assert!(host_only.is_file());
+    let arch = std::env::var("RAX_POSIX_INSTALLED_DIRECTORY_CONTROL_ARCH").unwrap();
+    let native = std::process::Command::new(&executable)
+        .env_clear()
+        .output()
+        .unwrap();
+    assert!(native.status.success(), "{:?}", native.stderr);
+    assert!(native.stderr.is_empty());
+    assert_eq!(native.stdout, b"resolved installed perl_alloc: 1\n");
+
+    let options = serde_json::json!({
+        "personality": "darwin",
+        "architecture": arch,
+        "guest_path": executable,
+        "arguments": [host_only],
+        "native_runtime": true,
+        "memory_bytes": 268435456,
+    })
+    .to_string();
+    let process = open(&std::fs::read(&executable).unwrap(), &options);
+    let state = info(&process);
+    assert_eq!(state["capabilities"]["native_runtime"], true);
+    assert_eq!(state["capabilities"]["host_filesystem"], false);
+    assert_eq!(state["capabilities"]["host_services"], false);
+    assert_eq!(state["architecture"], arch);
+    assert_eq!(state["loaded_program"]["has_dyld"], true);
+    let status = run_installed_posix(&process, &executable);
+    let stderr = capture_installed_posix_stream(&process, RAX_PROCESS_STDERR);
+    assert_eq!(status.exit_code, 0, "{}", String::from_utf8_lossy(&stderr));
+    assert_eq!(stderr, native.stderr);
+    assert_eq!(
+        capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT),
+        native.stdout
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_reopens_guest_descriptors_through_closed_c_abi() {
     let input = b"guest descriptor input\n";
     for name in ["/dev/stdin", "/dev/fd/0"] {

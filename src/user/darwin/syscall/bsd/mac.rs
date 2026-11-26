@@ -18,10 +18,32 @@ use crate::user::darwin::syscall::Ctx;
 /// `__mac_syscall("AMFI", 0x5a, {in_flags, out_ptr})`).
 const AMFI_CHECK_DYLD_POLICY_SELF: i32 = 0x5a;
 
+const AMFI_DYLD_OUTPUT_ALLOW_AT_PATH: u64 = 1 << 0;
+
 /// AMFI output flags granted to programs: `@`-paths, `DYLD_*` path and
 /// print variables, fallback paths, failed insertion, and interposing (an
 /// unrestricted, unsigned-developer process).
-const AMFI_DYLD_OUTPUT: u64 = (1 << 0) | (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6);
+const AMFI_DYLD_OUTPUT: u64 =
+    AMFI_DYLD_OUTPUT_ALLOW_AT_PATH | (1 << 1) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6);
+
+/// Resolve Mach-O install-name tokens within the existing closed filesystem.
+/// The query grants no environment overrides or other MAC policy operations.
+pub(super) fn closed_mac_syscall(ctx: &mut Ctx<'_>, policy: u64, call: i32, arg: u64) -> SysResult {
+    if call != AMFI_CHECK_DYLD_POLICY_SELF || ctx.cstr(policy, 32)? != b"AMFI" {
+        return Err(Errno::EPERM);
+    }
+    let flags = ctx.read_u64(arg)?;
+    let out = ctx.read_u64(arg.checked_add(8).ok_or(Errno::EFAULT)?)?;
+    // Nonzero input requests a policy for a restricted, encrypted, simulated
+    // or otherwise special process. Keep those policies deny-by-default.
+    let result = if flags == 0 {
+        AMFI_DYLD_OUTPUT_ALLOW_AT_PATH
+    } else {
+        0
+    };
+    ctx.write_u64(out, result)?;
+    Ok(Rv::one(0))
+}
 
 /// The Sandbox policy's calls the emulator passes to the host.
 mod sandbox {
