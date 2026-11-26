@@ -702,6 +702,63 @@ fn legacy_base_restore_disables_clint_before_guest_execution() {
 }
 
 #[test]
+fn legacy_rv64_checkpoint_preserves_a_halted_hart() {
+    const ENTRY: u64 = 0x1000;
+    let code: Vec<u8> = [0x0010_0073u32, 0x0070_0293] // EBREAK; ADDI t0, zero, 7.
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    let mut source = Fixture::with_code(1, code, ClockMode::Wall);
+    platform(&source.vm).restore_with(None, || Ok(())).unwrap();
+    let vm = &mut source.vm;
+    vm.vcpus[0].set_current_pc(ENTRY).unwrap();
+    let running = vm.take_snapshot(0).unwrap();
+    assert!(matches!(
+        vm.vcpus[0].step_insn().unwrap(),
+        Some(VcpuExit::Debug)
+    ));
+    let stopped_pc = vm.vcpus[0].current_pc();
+    let halted = vm.take_snapshot(0).unwrap();
+    let file = source.kernel.with_extension("rxc");
+    halted.save(&file).unwrap();
+    let legacy = Snapshot::load(&file).unwrap();
+    let cpu_set = crate::vm::snapshot::SnapshotBundle::new(halted)
+        .with_cpus(vm.capture_cpu_states().unwrap())
+        .unwrap();
+    cpu_set.save(&file).unwrap();
+    let cpu_set = crate::vm::snapshot::SnapshotBundle::load(&file).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&cpu_set, CliConfig::default()).unwrap();
+    let mut fresh = Vmm::new_resume_bundle(config, &cpu_set).unwrap();
+    let mut target = Fixture::with_clock(1, false, ClockMode::Wall);
+    let verify_halted = |cpu: &mut dyn VCpu| {
+        assert_eq!(cpu.current_pc(), stopped_pc);
+        let before = cpu.instruction_count();
+        let exit = cpu.step_insn().unwrap();
+        assert!(matches!(exit, Some(VcpuExit::Hlt)), "{exit:?}");
+        assert_eq!(cpu.current_pc(), stopped_pc);
+        assert_eq!(cpu.instruction_count(), before);
+        cpu.set_current_pc(ENTRY + 4).unwrap();
+        cpu.wake();
+        assert!(cpu.step_insn().unwrap().is_none());
+        let CpuState::RiscV(state) = cpu.get_state().unwrap() else {
+            panic!("expected RV64 state");
+        };
+        assert_eq!(state.regs.x[5], 7);
+    };
+    target.vm.restore_snapshot(&legacy).unwrap();
+    verify_halted(target.vm.vcpus[0].as_mut());
+    target.vm.restore_snapshot_bundle(&cpu_set).unwrap();
+    verify_halted(target.vm.vcpus[0].as_mut());
+    verify_halted(fresh.vcpus[0].as_mut());
+
+    target.vm.restore_snapshot(&running).unwrap();
+    assert!(matches!(
+        target.vm.vcpus[0].step_insn().unwrap(),
+        Some(VcpuExit::Debug)
+    ));
+}
+
+#[test]
 fn future_deadlines_advance_through_actual_vmm_retirement_on_every_hart() {
     for mode in [ClockMode::Retired, ClockMode::Wall] {
         for count in [1, 2, 4] {

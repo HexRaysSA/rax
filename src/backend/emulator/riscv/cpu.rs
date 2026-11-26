@@ -1086,6 +1086,7 @@ impl VCpu for RiscVVcpu {
                     ),
                 };
                 candidate.set_state(state)?;
+                candidate.set_emulator_state(emulator)?;
                 candidate.stage_without_reservation();
                 candidate
             }
@@ -1128,7 +1129,8 @@ impl VCpu for RiscVVcpu {
         if let Some(context) = context {
             self.restore_context(&context.data)
         } else {
-            self.set_state(state)
+            self.set_state(state)?;
+            self.set_emulator_state(emulator)
         }
     }
 
@@ -1192,6 +1194,25 @@ impl VCpu for RiscVVcpu {
         self.wake();
         if let Some(user) = self.user.as_mut() {
             user.trap = None;
+        }
+        Ok(())
+    }
+
+    fn get_emulator_state(&self) -> Option<crate::vm::snapshot::EmulatorState> {
+        (self.user.is_none() && self.halted).then(|| crate::vm::snapshot::EmulatorState {
+            halted: true,
+            ..Default::default()
+        })
+    }
+
+    fn set_emulator_state(&mut self, state: &crate::vm::snapshot::EmulatorState) -> Result<()> {
+        // Legacy checkpoints have a generic halt bit. A complete RISC-V
+        // context carries the authoritative halt and interrupt-wait state.
+        if self.user.is_none() {
+            self.halted = state.halted;
+            if self.halted {
+                self.waiting_for_interrupt = false;
+            }
         }
         Ok(())
     }

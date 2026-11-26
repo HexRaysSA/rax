@@ -190,3 +190,22 @@ Low impact: future required components must extend explicit preparation and
 publication rather than be silently dropped.
 
 Clock mode/phase/frequency and base-time consistency are admitted before CPU/RAM mutation. A prepared timing object installs the validated fields after the represented data commit. Files without clock state retain the previous elapsed-base behavior. See `checkpoint-clock.md`.
+
+### Halted RV64 harts in legacy projections
+
+The legacy system RV64 backend can halt a hart after reporting a guest
+debug exit. Its base checkpoint and projected CPU records now use the
+existing emulator halt bit. Complete RV64 records carry the authoritative
+halt, interrupt-wait and queued-event state in the private record. A
+pre-existing projection with a default halt bit still restores a runnable
+hart. The legacy projection format is unchanged.
+
+| Assumption | Falsification probe |
+| --- | --- |
+| A halted hart stays stopped across file restore. | Execute EBREAK, save and reload both projection forms, and restore on a running or fresh owner. Require a halted exit at the same PC with no retirement. |
+| A saved halt preserves the normal explicit wake operation. | Change the stopped PC to the following ADDI, wake the hart, and require execution to update the destination register. Restore the pre-EBREAK running projection and require the original debug exit. |
+
+The base restore on the parent failed the halted-exit check. The regression
+uses the legacy RV64 system profile with CLINT disabled. The 377 targeted
+RV64 library tests and 67 boot, hart-ID, lift and physical-checkpoint
+integration tests passed. Library Clippy passed with warnings denied.
