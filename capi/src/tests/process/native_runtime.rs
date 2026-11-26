@@ -2424,6 +2424,9 @@ fn compare_windows_installed_command(
         if let Some(shape) = stopped_token_duplicate_shape(&process, &stopped) {
             eprintln!("guest NtDuplicateToken request {shape}");
         }
+        if let Some(shape) = stopped_csr_connect_shape(&process, &stopped) {
+            eprintln!("guest NtConnectPort request {shape}");
+        }
         panic!(
             "guest {} stopped after {} scheduler turns: {}",
             opened["architecture"],
@@ -2461,6 +2464,53 @@ fn compare_windows_installed_command(
         String::from_utf8_lossy(&native.stderr)
     );
     native
+}
+
+#[cfg(windows)]
+fn stopped_csr_connect_shape(process: &Owned, stopped: &serde_json::Value) -> Option<String> {
+    use rax_engine::user::windows::{arch::WinArch, layout::offsets};
+
+    if stopped["architecture"] != "x64"
+        || !stopped["diagnostic"]
+            .as_str()?
+            .contains("NtConnectPort unmeasured CSR session, QoS, SID or information size")
+    {
+        return None;
+    }
+    let thread = ready_native_thread(stopped)?;
+    let parse = |value: &serde_json::Value| {
+        u64::from_str_radix(value.as_str()?.strip_prefix("0x")?, 16).ok()
+    };
+    let read = |address, bytes: &mut [u8]| {
+        rax_process_mem_read(process.0, address, bytes.as_mut_ptr(), bytes.len()) == RaxStatus::Ok
+    };
+    let word = |address| {
+        let mut bytes = [0; 4];
+        read(address, &mut bytes).then(|| u32::from_le_bytes(bytes))
+    };
+    let pointer = |address| {
+        let mut bytes = [0; 8];
+        read(address, &mut bytes).then(|| u64::from_le_bytes(bytes))
+    };
+    let mut qos = [0; 12];
+    if !read(parse(thread["registers"].get(8)?)?, &mut qos) {
+        return None;
+    }
+    let layout = offsets(WinArch::X64);
+    let teb = parse(&thread["teb"])?;
+    let peb = pointer(teb.checked_add(layout.teb_peb)?)?;
+    let session = word(peb.checked_add(layout.peb_session_id)?)?;
+    let stack = parse(&thread["sp"])?;
+    // The eighth native64 argument follows the return address, shadow
+    // space, and three stack arguments.
+    let length = word(pointer(stack.checked_add(0x40)?)?)?;
+    Some(format!(
+        "session={session} information_bytes={length} qos_level={} tracking={} effective={} padding_nonzero={}",
+        u32::from_le_bytes(qos[4..8].try_into().ok()?),
+        qos[8],
+        qos[9],
+        qos[10..12] != [0; 2]
+    ))
 }
 
 #[cfg(windows)]
@@ -2591,7 +2641,10 @@ fn stopped_native_request(
         "NtQueryLicenseValue" if diagnostic.contains("unmeasured NtQueryLicenseValue profile") => {
             ("NtQueryLicenseValue", 0)
         }
-        "NtConnectPort" if diagnostic.contains("requires a matched selected guest server") => {
+        "NtConnectPort"
+            if diagnostic.contains("requires a matched selected guest server")
+                || diagnostic.contains("unmeasured CSR session, QoS, SID or information size") =>
+        {
             ("NtConnectPort", 1)
         }
         _ => return None,
