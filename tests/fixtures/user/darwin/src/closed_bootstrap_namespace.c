@@ -1,9 +1,11 @@
+#include <errno.h>
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
 #include <spawn.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/event.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -55,9 +57,16 @@ static int child(void) {
     return 0;
 }
 
-static bool wait_for_service(pid_t pid, mach_port_t port, const char *mode) {
+static bool wait_for_service(pid_t pid, mach_port_t port, const char *mode, int event_queue) {
     if (pid < 0) {
         return false;
+    }
+    if (event_queue >= 0) {
+        struct kevent64_s ready;
+        if (kevent64(event_queue, NULL, 0, &ready, 1, 0, NULL) != 1 ||
+            ready.filter != EVFILT_MACHPORT || ready.ident != port || ready.data != port) {
+            return false;
+        }
     }
     struct {
         mach_msg_header_t hdr;
@@ -77,9 +86,42 @@ static bool wait_for_service(pid_t pid, mach_port_t port, const char *mode) {
     return true;
 }
 
+static bool guest_kevent_only(void) {
+    int queue = kqueue();
+    if (queue < 0) {
+        perror("guest kqueue");
+        return false;
+    }
+    struct kevent change, event = {0};
+    const struct timespec zero = {0, 0};
+    EV_SET(&change, getpid(), EVFILT_PROC, EV_ADD | EV_RECEIPT, NOTE_EXIT, 0, NULL);
+    int received = kevent(queue, &change, 1, &event, 1, &zero);
+    if (received != 1 || !(event.flags & EV_ERROR) || event.data != EPERM) {
+        fprintf(stderr, "unexpected process-filter receipt: %d, flags=%u, data=%lld\n",
+                received, event.flags, (long long)event.data);
+        close(queue);
+        return false;
+    }
+    EV_SET(&change, 7, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, NULL);
+    if (kevent(queue, &change, 1, &event, 1, &zero) != 0) {
+        perror("register guest user filter");
+        close(queue);
+        return false;
+    }
+    EV_SET(&change, 7, EVFILT_USER, 0, NOTE_TRIGGER, 0, NULL);
+    bool passed = kevent(queue, &change, 1, &event, 1, &zero) == 1 &&
+                  event.filter == EVFILT_USER && event.ident == 7 &&
+                  kevent(queue, NULL, 0, &event, 1, &zero) == 0;
+    return close(queue) == 0 && passed;
+}
+
 int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "child") == 0) {
         return child();
+    }
+    if (!guest_kevent_only()) {
+        fputs("legacy guest kqueue or host process-filter boundary failed\n", stderr);
+        return 13;
     }
     mach_port_t bootstrap = MACH_PORT_NULL, found = MACH_PORT_NULL;
     if (task_get_bootstrap_port(mach_task_self(), &bootstrap) != KERN_SUCCESS ||
@@ -94,20 +136,29 @@ int main(int argc, char **argv) {
     if (bootstrap_register(bootstrap, service, port) != BOOTSTRAP_NAME_IN_USE) {
         return 3;
     }
+    int event_queue = kqueue();
+    struct kevent64_s change, ready;
+    const struct timespec zero = {0, 0};
+    EV_SET64(&change, port, EVFILT_MACHPORT, EV_ADD, 0, 0, 0, 0, 0);
+    if (event_queue < 0 || kevent64(event_queue, &change, 1, &ready, 1, 0, &zero) != 0) {
+        perror("register Mach port with kqueue");
+        return 9;
+    }
     pid_t pid;
     char child_flag[] = "child";
     char *child_argv[] = {argv[0], child_flag, NULL};
     char *child_env[] = {NULL};
     int spawn_error = posix_spawn(&pid, argv[0], NULL, NULL, child_argv, child_env);
-    if (spawn_error || !wait_for_service(pid, port, "spawned") || !absent(bootstrap, transient)) {
+    if (spawn_error || !wait_for_service(pid, port, "spawned", event_queue) || !absent(bootstrap, transient)) {
         fprintf(stderr, "posix_spawn error: %d\n", spawn_error);
         return 4;
     }
+    close(event_queue);
     pid = fork();
     if (pid == 0) {
         _exit(child());
     }
-    if (!wait_for_service(pid, port, "forked") || !absent(bootstrap, transient)) {
+    if (!wait_for_service(pid, port, "forked", -1) || !absent(bootstrap, transient)) {
         return 5;
     }
     if (mach_port_destroy(mach_task_self(), port) != KERN_SUCCESS || !absent(bootstrap, service)) {

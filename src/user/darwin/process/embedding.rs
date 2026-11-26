@@ -181,6 +181,11 @@ pub(crate) fn bsd_allowed(number: u32) -> bool {
             | nr::BSDTHREAD_TERMINATE
             | nr::WORKQ_OPEN
             | nr::WORKQ_KERNRETURN
+            // Host-backed filters are still rejected by kevent::host::attach.
+            | nr::KQUEUE
+            | nr::KEVENT
+            | nr::KEVENT64
+            | nr::KEVENT_QOS
             | nr::KEVENT_ID
             | nr::PTHREAD_MARKCANCEL
             | nr::PTHREAD_CANCELED
