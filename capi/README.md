@@ -165,7 +165,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.17.0).
+C ABI version (currently 1.18.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -324,7 +324,7 @@ cargo build -p rax-capi --release --features jit
 | Context | `rax_context_save`, `rax_context_restore` |
 | User mode (ABI 1.5) | `RAX_MODE_USER`, `rax_hook_add_syscall`, `RAX_STOP_SYSCALL`, `rax_emu_last_exception` |
 | Stateless analysis | `rax_decode`, `rax_instruction_info`, `rax_analyze` (C++: `rax::decode`, `rax::instructionInfo`, `rax::analyze`) |
-| Scalar SMIR lifting | `rax_smir_lift_x64` |
+| Scalar SMIR lifting | `rax_smir_lift_x64`, `rax_smir_lift_arm` |
 
 ### Stateless instruction analysis
 
@@ -984,3 +984,46 @@ packet boundary. During a pending packet, an identical public-state write or
 same public-PC retry is a no-op; a changed register image or PC rejects before
 mutation. Finish the pending packet before making such edits. Explicit legacy
 `set_state` retains its separate projection/reset semantics.
+
+### ARM scalar SMIR export (ABI 1.18)
+
+`rax_smir_lift_arm` exports bounded AArch64/AArch32/Thumb lifter output through
+unchanged pointer-free SMIR record layouts. ARM registers occupy operand bank 5;
+A32 r13/r14 remain IDs 13/14. Shifted and extended sources become explicit scalar
+operations. CMN and pair load/store operations have additive opcode IDs 57..59.
+Pair widths are per element and retain the underlying SMIR fault/order contract.
+Multiply-accumulate operations are expanded into scalar multiply plus add/subtract
+with an explicit temporary and the original read-before-write order.
+
+A32 conditional data/call/return instructions begin with GUARD_CC (opcode 60).
+Evaluate its condition against entry NZCV once: false suppresses the complete
+body, memory faults, writeback, flag/link writes and header control flow, then
+continues at header.fallthrough. This is C API instruction framing around the
+strict unconditional SMIR body; upstream engine/JIT predication is unchanged.
+Unknown guards must be rejected, never treated as a destination-value select.
+
+The C API also supplies strict shared-SMIR bodies for unshifted register and
+expanded-immediate TST/TEQ/ANDS/ORRS/EORS/BICS. N/Z are selective updates; V is
+preserved. Non-rotated immediates preserve C, rotated immediates set C from bit
+31, represented through inverse SMIR CF. Other register-shifter carry cases
+remain rejected. Interpreter/native differential tests cover every input NZCV
+combination. A32 interworking calls retain explicit flow kinds 12/13 and the
+target state tag; consumers must preserve or reject a state change.
+
+Only little-endian modes are currently exported. Unliftable instructions,
+unrepresented operations, invalid modes, and insufficient capacity fail explicitly;
+no partial operation prefix is consumable. A COMPLETE size query reports required
+capacity without publishing operations. C++ consumers can use `rax::liftArm`.
+The high auxiliary PC_RELATIVE bit records origin dependence verified by lifting
+at a second origin; it never changes concrete operands or addresses.
+
+See `examples/arm_smir.c` and `examples/cpp_arm_smir.cpp` for compiled consumers.
+
+`rax_arm_system_info` is a separate, non-executable query for conservative GPR
+clobbers at recognized A64/A32 system instructions. Its UNKNOWN_EFFECTS flag is
+always set: privilege, exceptions, mode changes, translation, system state and
+memory behavior remain unknown. It does not convert a rejected SMIR lift into
+a successful one. The query also handles native metadata gaps for SYSL's Rt
+and the two exact MSR SPSel immediate encodings. Some missing A32 read metadata
+is conservatively reported as read-all. A consumer that proceeds past these
+instructions must state its system-context assumptions explicitly.

@@ -71,6 +71,16 @@ pub const RAX_SMIR_X86_MOVDQ: u32 = 53;
 pub const RAX_SMIR_CHECK_ALIGNMENT: u32 = 54;
 pub const RAX_SMIR_VXOR: u32 = 55;
 pub const RAX_SMIR_VBROADCAST: u32 = 56;
+pub const RAX_SMIR_OPERAND_ARM: u32 = 5;
+pub const RAX_SMIR_CMN: u32 = 57;
+pub const RAX_SMIR_LOAD_PAIR: u32 = 58;
+pub const RAX_SMIR_STORE_PAIR: u32 = 59;
+pub const RAX_SMIR_GUARD_CC: u32 = 60;
+pub const RAX_SMIR_ARM_PC_RELATIVE: u32 = 1 << 16;
+mod arm;
+mod arm_system;
+pub use arm::rax_smir_lift_arm;
+pub use arm_system::{RaxArmSystemInfo, rax_arm_system_info};
 mod vector;
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -144,6 +154,25 @@ fn reg(r: VReg) -> Checked<RaxSmirOperand> {
             value: 0,
         },
         VReg::Imm(v) => imm(v as u64),
+        VReg::Arch(ArchReg::Arm(r)) => {
+            let id = match r {
+                ArmReg::X(n) if n < 31 => u32::from(n),
+                ArmReg::Sp => 31,
+                ArmReg::Pc => 32,
+                ArmReg::Nzcv => 33,
+                ArmReg::Pstate => 34,
+                ArmReg::Fpcr => 35,
+                ArmReg::Fpsr => 36,
+                ArmReg::SpEl(n) if n <= 3 => 40 + u32::from(n),
+                ArmReg::SysReg(encoding) => 0x10000 + u32::from(encoding),
+                _ => return Err(()),
+            };
+            RaxSmirOperand {
+                kind: RAX_SMIR_OPERAND_ARM,
+                id,
+                value: 0,
+            }
+        }
         VReg::Arch(ArchReg::X86(r)) => {
             let id = if let Some(i) = r.gpr_index() {
                 i as u32
@@ -461,6 +490,13 @@ fn operation(op: &SmirOp) -> Checked<RaxSmirOp> {
             o.width_bits = width.bits();
             o.flags_mask = 63;
         }
+        OpKind::Cmn { src1, src2, width } => {
+            o.opcode = RAX_SMIR_CMN;
+            o.a = reg(*src1)?;
+            o.b = src(src2)?;
+            o.width_bits = width.bits();
+            o.flags_mask = 63;
+        }
         OpKind::Test { src1, src2, width } => {
             o.opcode = RAX_SMIR_TEST;
             o.a = reg(*src1)?;
@@ -590,6 +626,30 @@ fn operation(op: &SmirOp) -> Checked<RaxSmirOp> {
             o.address = addr(a, op.guest_pc)?;
             o.width_bits = width.bytes() * 8;
         }
+        OpKind::LoadPair {
+            dst1,
+            dst2,
+            addr: address,
+            width,
+        } => {
+            o.opcode = RAX_SMIR_LOAD_PAIR;
+            o.dst = reg(*dst1)?;
+            o.dst2 = reg(*dst2)?;
+            o.address = addr(address, op.guest_pc)?;
+            o.width_bits = width.bytes() * 8;
+        }
+        OpKind::StorePair {
+            src1,
+            src2,
+            addr: address,
+            width,
+        } => {
+            o.opcode = RAX_SMIR_STORE_PAIR;
+            o.a = reg(*src1)?;
+            o.b = reg(*src2)?;
+            o.address = addr(address, op.guest_pc)?;
+            o.width_bits = width.bytes() * 8;
+        }
         OpKind::Select {
             dst,
             cond,
@@ -706,6 +766,17 @@ fn flow(f: &ControlFlow, pc: u64, out: &mut RaxSmirInstruction) -> Checked<()> {
                 out.flow = 7;
                 out.predicate = reg(*r)?
             }
+            CallTarget::GuestAddrInterworking { addr, thumb } => {
+                if addr & 1 != 0 {
+                    return Err(());
+                }
+                out.flow = 12;
+                out.target = *addr | u64::from(*thumb);
+            }
+            CallTarget::IndirectInterworking(r) => {
+                out.flow = 13;
+                out.predicate = reg(*r)?;
+            }
             CallTarget::IndirectMem(a) => {
                 out.flow = 8;
                 out.address = addr(a, pc)?
@@ -794,7 +865,10 @@ pub extern "C" fn rax_smir_lift_x64(
                     ..Default::default()
                 });
             }
-            if records.iter().any(|r| r.opcode >= RAX_SMIR_VMOV) && !vector::legacy_encoding(input)
+            if records
+                .iter()
+                .any(|r| (RAX_SMIR_VMOV..=RAX_SMIR_VBROADCAST).contains(&r.opcode))
+                && !vector::legacy_encoding(input)
             {
                 return Err(());
             }
@@ -833,3 +907,6 @@ mod tests;
 
 #[cfg(test)]
 mod vector_tests;
+
+#[cfg(test)]
+mod arm_tests;

@@ -73,6 +73,15 @@ using Decoded = rax_decoded;
 
 inline const char* strerror(Status s) { return rax_strerror(static_cast<int>(s)); }
 
+// Complete caller-owned ARM SMIR with two-call sizing and atomic rejection.
+struct SmirInstruction {
+    rax_smir_instruction instruction{};
+    std::vector<rax_smir_op> operations;
+};
+
+inline SmirInstruction liftArm(Arch arch, uint32_t mode, uint64_t pc,
+                               const void* bytes, size_t length);
+
 // --- Error ----------------------------------------------------------------
 
 class Error : public std::runtime_error {
@@ -92,6 +101,21 @@ private:
 
 inline void check(rax_status s, const char* ctx = nullptr) {
     if (s != RAX_OK) throw Error(static_cast<Status>(s), ctx ? ctx : "");
+}
+
+inline SmirInstruction liftArm(Arch arch, uint32_t mode, uint64_t pc,
+                               const void* bytes, size_t length) {
+    SmirInstruction result;
+    check(rax_smir_lift_arm(static_cast<int>(arch), mode, pc, bytes, length,
+                          &result.instruction, nullptr, 0), "liftArm query");
+    result.operations.resize(result.instruction.required_op_count);
+    rax_smir_op sentinel{};
+    auto* output = result.operations.empty() ? &sentinel : result.operations.data();
+    check(rax_smir_lift_arm(static_cast<int>(arch), mode, pc, bytes, length,
+                          &result.instruction, output, result.operations.size()), "liftArm fill");
+    if (result.instruction.flags != RAX_SMIR_COMPLETE)
+        throw Error(Status::Unsupported, "liftArm incomplete result");
+    return result;
 }
 
 // --- Stateless decode and analysis -----------------------------------------

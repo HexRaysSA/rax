@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 17u
+#define RAX_API_MINOR 18u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -1377,6 +1377,37 @@ RAX_API rax_status rax_process_output_read(const rax_process *process, uint32_t 
 #define RAX_SMIR_CHECK_ALIGNMENT 54u
 #define RAX_SMIR_VXOR 55u
 #define RAX_SMIR_VBROADCAST 56u
+/* ARM scalar export (ABI 1.18). Existing record layouts/IDs are unchanged.
+ * ARM operands use kind 5, a separate register bank: X0..X30=0..30,
+ * SP=31, PC=32, NZCV=33, PSTATE=34, FPCR=35, FPSR=36,
+ * SP_EL0..3=40..43, system-register encoding=0x10000+encoding.
+ * AArch32 r0..r14 map to IDs 0..14; r13/r14 do not alias SP/X30.
+ * Shifted/extended sources become explicit scalar operations/temporaries.
+ * Pair width_bits is PER ELEMENT. LOAD_PAIR commits both destinations only
+ * after both reads succeed; STORE_PAIR preserves first-then-second store order.
+ * PC_RELATIVE annotates a MOV immediate or absolute effective address proven
+ * to translate with PC under a second origin. It does not alter its value.
+ * Unknown opcodes/operand kinds must be rejected by consumers. */
+#define RAX_SMIR_OPERAND_ARM 5u
+#define RAX_SMIR_ARM_SP 31u
+#define RAX_SMIR_ARM_PC 32u
+#define RAX_SMIR_ARM_NZCV 33u
+#define RAX_SMIR_ARM_PSTATE 34u
+#define RAX_SMIR_ARM_SYSREG(encoding) (0x10000u + (uint32_t)(encoding))
+#define RAX_SMIR_ARM_PC_RELATIVE (1u << 16)
+#define RAX_SMIR_CMN 57u
+#define RAX_SMIR_LOAD_PAIR 58u
+#define RAX_SMIR_STORE_PAIR 59u
+/* Optional first operation of an A32 instruction. Evaluate condition against
+ * entry NZCV once. If false, suppress ALL remaining operations (including
+ * memory accesses/faults, writeback and flags) AND the header's control flow;
+ * continue at header.fallthrough. If true, execute the complete body and flow.
+ * GUARD_CC is export framing around the strict unconditional SMIR body; it is
+ * not a selectable destination value. Exactly one guard, at index zero, is
+ * permitted. All fields except size/version/opcode/condition/guest_pc are zero.
+ * Consumers without instruction-guard support MUST reject this opcode. */
+#define RAX_SMIR_GUARD_CC 60u
+
     typedef struct rax_smir_operand
     {
         uint32_t kind;
@@ -1399,7 +1430,12 @@ RAX_API rax_status rax_process_output_read(const rax_process *process, uint32_t 
     } rax_smir_op;
     /* flow: NEXT=0, BRANCH=1, CONDITION=2, CONDITION_REG=3,
  * INDIRECT=4, INDIRECT_MEMORY=5, CALL=6, CALL_REG=7,
- * CALL_MEMORY=8, RETURN=9, TRAP=10, SYSCALL=11.
+ * CALL_MEMORY=8, RETURN=9, TRAP=10, SYSCALL=11,
+ * ARM_CALL_INTERWORK=12, ARM_CALL_INTERWORK_REG=13.
+ * Flow 12 target, or flow 13 W32 predicate value: bit 0 selects Thumb (1)
+ * versus ARM (0); clear bit 0 to obtain the guest PC. Link writes precede the
+ * transfer in the exported operations. A32/Thumb flow 4 (BX) uses the same
+ * register target-state rule. Consumers must preserve or reject state changes.
  * targets are absolute guest addresses, never host pointers.
  */
     typedef struct rax_smir_instruction
@@ -1421,6 +1457,41 @@ RAX_API rax_status rax_process_output_read(const rax_process *process, uint32_t 
     RAX_API rax_status rax_smir_lift_x64(uint64_t pc, const void *bytes, size_t len,
                                          rax_smir_instruction *out, rax_smir_op *ops,
                                          size_t capacity);
+
+/* Static GPR clobbers at recognized privileged/system instructions. NOT SMIR.
+ * kind: 1=system read, 2=system write, 3=system instruction/barrier.
+ * flags always includes UNKNOWN_EFFECTS: no privilege, exception, mode, memory,
+ * or system-state behavior is established. gpr masks use Xn/Rn bit n (SP is
+ * not a GPR bit). system_register is the encoding or UINT32_MAX if unavailable.
+ * arch/mode accepts the same A64/A32 little-endian modes as the lift API,
+ * excluding Thumb. len is exactly 4; PC is 4-byte aligned and A32 PC fits 32
+ * bits. out must be a full, aligned, writable 32-byte record, disjoint from
+ * input. Its size/version are output metadata, not caller buffer negotiation.
+ * This query must never be treated as executable semantics or a successful lift. */
+#define RAX_ARM_SYSTEM_INFO_VERSION 1u
+#define RAX_ARM_SYSTEM_UNKNOWN_EFFECTS 1u
+typedef struct rax_arm_system_info_t {
+    uint32_t struct_size, abi_version, kind, flags;
+    uint32_t gpr_written, gpr_read, system_register, reserved;
+} rax_arm_system_info_t;
+RAX_API rax_status rax_arm_system_info(int arch, uint32_t mode, uint64_t pc,
+    const void *bytes, size_t len, rax_arm_system_info_t *out);
+
+/* Lift one little-endian AArch64, ARM-state AArch32, or Thumb instruction.
+ * arch is ARM64 or ARM; mode is 0/default or LITTLE_ENDIAN, plus ARM/THUMB
+ * for AArch32. Other mode/architecture combinations fail explicitly.
+ * len is 4 for A64/A32 and 2..4 for Thumb; PC alignment is 4/4/2 bytes.
+ * A32/Thumb PC must fit 32 bits. The query/fill, no-prefix-on-failure,
+ * ownership, alignment and disjoint-buffer contract matches the x64 export.
+ * A32 predicates frame the strict unconditional body with GUARD_CC. The C API
+ * additionally lifts unshifted register / expanded immediate TST, TEQ, ANDS,
+ * ORRS, EORS and BICS into shared scalar SMIR with selective N/Z updates and
+ * explicit immediate shifter carry. Other strict lifter frontiers and
+ * unexported operations return UNSUPPORTED.
+ * COMPLETE describes the exported SMIR contract, not hardware execution. */
+RAX_API rax_status rax_smir_lift_arm(int arch, uint32_t mode, uint64_t pc,
+    const void *bytes, size_t len, rax_smir_instruction *out,
+    rax_smir_op *ops, size_t capacity);
 
 #ifdef __cplusplus
 } /* extern "C" */
