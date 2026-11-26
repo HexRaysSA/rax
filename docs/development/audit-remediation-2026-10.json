@@ -201168,6 +201168,14 @@
       "scope": "With invalid-operation traps disabled, binary32 and binary64 VNMUL on the standalone ARM1176 software profile return a positive Default NaN for invalid products even with DN clear. The tests distinguish the generated NaN from a propagated canonical quiet NaN with sticky IOC, and a fresh S3C64xx v6_k checkpoint restore executes the DN-clear case. The ARM1176 QEMU model differs on the generated NaN sign. Physical VFP11 execution and asynchronous exception replay remain open.",
       "qualification": "docs/development/a32-fp-controls.md#arm1176-invalid-products-with-dn-clear",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-software-uart-irq4-checkpoint-2026-11-26",
+      "findings": ["C-STATE", "C-HVF"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "RAXPCD05 validation binds the saved COM1 UART output to the software I/O APIC and PIC wire. The restore path recovers a held PIC input without latching an additional edge. The detach regression verifies the retained byte, absence of a duplicate vector, and delivery after the next assertion. Native Intel execution and the full backend and interrupt findings remain open.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#software-uart-irq4-checkpoint-coherence",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

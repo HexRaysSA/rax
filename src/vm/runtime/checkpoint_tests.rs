@@ -101,6 +101,82 @@ fn checkpoint_preserves_pic_input_high_after_acknowledgement() {
     assert_pic_checkpoint_does_not_create_edge(&mut source, 3, 3);
 }
 
+fn raise_com1(vm: &Vmm, byte: u8) {
+    let mut serial = vm.serial.lock().unwrap();
+    IoDevice::write(&mut *serial, 0x3fa, 1); // Enable FIFO.
+    IoDevice::write(&mut *serial, 0x3fc, 8); // Gate the interrupt through OUT2.
+    IoDevice::write(&mut *serial, 0x3f9, 1); // Enable the RX interrupt.
+    serial.queue_input(&[byte]);
+    drop(serial);
+    vm.refresh_pc_irq_sources().unwrap();
+}
+
+#[test]
+fn software_uart_irq4_checkpoint_rejects_inconsistent_routes() {
+    let fixture = Fixture::new();
+    let vm = &fixture.vm;
+    let idle = vm.take_snapshot_bundle(0).unwrap();
+    let mut idle_with_pic = vm.take_snapshot_bundle(0).unwrap();
+    raise_com1(vm, b'A');
+    let active = vm.take_snapshot_bundle(0).unwrap();
+
+    let idle_pc = idle.execution().unwrap().pc.clone();
+    let active_pc = active.execution().unwrap().pc.clone();
+    for (mut bundle, pc) in [(idle, active_pc), (active, idle_pc)] {
+        let mut execution = bundle.take_execution().unwrap();
+        execution.pc = pc;
+        let error = bundle.with_execution(execution).unwrap_err();
+        assert!(error.to_string().contains("I/O APIC COM1"), "{error}");
+    }
+
+    let mut execution = idle_with_pic.take_execution().unwrap();
+    let pc = execution.pc.take().unwrap();
+    execution.pc = Some(pc.with_software_pic_inputs([1 << 4, 0]));
+    let error = idle_with_pic.with_execution(execution).unwrap_err();
+    assert!(error.to_string().contains("PIC COM1"), "{error}");
+}
+
+#[test]
+fn software_uart_irq4_checkpoint_rebinds_a_held_legacy_pic_input() {
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    let mut source = Fixture::new();
+    let path = source.kernel.with_extension("rxc");
+    let vm = &mut source.vm;
+    vm.io_bus.get_mut().unwrap().write(0x21, &[0xef]).unwrap();
+    raise_com1(vm, b'A');
+    assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(0x24));
+    vm.io_bus.get_mut().unwrap().write(0x20, &[0x20]).unwrap();
+
+    let mut saved = vm.take_snapshot_bundle(0).unwrap();
+    let mut execution = saved.take_execution().unwrap();
+    let pc = execution.pc.take().unwrap();
+    let [master, slave] = vm.pic.lock().unwrap().irq_input_levels();
+    assert_ne!(master & (1 << 4), 0);
+    // Older PIC initialization could clear the input cache after acknowledgement.
+    execution.pc = Some(pc.with_software_pic_inputs([master & !(1 << 4), slave]));
+    saved
+        .with_execution(execution)
+        .unwrap()
+        .save(&path)
+        .unwrap();
+    let saved = SnapshotBundle::load(&path).unwrap();
+    drop(source);
+
+    let mut target = Fixture::new();
+    let vm = &mut target.vm;
+    vm.restore_snapshot_bundle(&saved).unwrap();
+    vm.refresh_pc_irq_sources().unwrap();
+    assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), None);
+    assert!(matches!(
+        vm.checkpoint_io_service(0, VcpuExit::IoIn { port: 0x3f8, size: 1 }).unwrap(),
+        CheckpointIoReply::Input(bytes) if bytes == [b'A']
+    ));
+    assert_eq!(vm.pic.lock().unwrap().irq_input_levels()[0] & (1 << 4), 0);
+    raise_com1(vm, b'B');
+    assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(0x24));
+}
+
 #[test]
 fn checkpoint_capture_rejects_a_stale_pic_rtc_input() {
     let fixture = Fixture::new();

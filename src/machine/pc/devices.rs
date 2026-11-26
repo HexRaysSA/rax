@@ -1,4 +1,5 @@
 //! Typed PC ownership. Aliases retain the target VM's Arc identities.
+use super::COM1_IRQ;
 use crate::devices::{
     dma::Dma,
     fdc::Fdc,
@@ -81,9 +82,10 @@ impl PreparedPcCheckpoint {
             ));
         }
         Ok(self.software_pic_inputs.map(|[master, slave]| {
-            // Older PIC initialization dropped this cached bit with a held
-            // IRQ8. Bind the physical level without changing IRR or ISR.
-            [master, slave | u8::from(self.rtc.irq_asserted())]
+            // Older PIC initialization could drop a held input. Rebind the
+            // proven source levels without changing IRR or ISR.
+            let com1 = u8::from(self.ioapic.line_asserted(COM1_IRQ)) << COM1_IRQ;
+            [master | com1, slave | u8::from(self.rtc.irq_asserted())]
         }))
     }
 
@@ -197,7 +199,7 @@ impl PcDevices {
             cds,
             buffers,
         };
-        state.validate(None)?;
+        state.validate(None, None)?;
         let data = crate::codec::serialize_limited(&state, LIMIT).map_err(invalid)?;
         let result = capture(
             PcCheckpoint {
@@ -249,10 +251,14 @@ impl State {
         }
         Ok(sizes)
     }
-    fn validate(&self, software_pic_inputs: Option<[u8; 2]>) -> Result<()> {
+    fn validate(
+        &self,
+        software_pic_inputs: Option<[u8; 2]>,
+        com1_asserted: Option<bool>,
+    ) -> Result<()> {
         let rtc = self.rtc.prepare()?;
         let ioapic = self.ioapic.prepare()?;
-        if let Some([_, slave]) = software_pic_inputs {
+        if let Some([master, slave]) = software_pic_inputs {
             // A previous PIC initialization could clear its IRQ8 input
             // cache while the source stayed high. It could never set it.
             let pic_rtc_line = slave & 1 != 0;
@@ -262,6 +268,14 @@ impl State {
             }
             if ioapic.line_asserted(RTC_IRQ) != rtc_line {
                 return Err(invalid("I/O APIC RTC line differs from Register C"));
+            }
+            if let Some(com1) = com1_asserted {
+                if ioapic.line_asserted(COM1_IRQ) != com1 {
+                    return Err(invalid("I/O APIC COM1 line differs from UART output"));
+                }
+                if master & (1 << COM1_IRQ) != 0 && !com1 {
+                    return Err(invalid("PIC COM1 line differs from UART output"));
+                }
             }
         }
         self.sysctl.prepare()?;
@@ -302,6 +316,10 @@ impl PcCheckpoint {
     }
 
     fn state(&self) -> Result<State> {
+        self.state_with_com1(None)
+    }
+
+    fn state_with_com1(&self, com1_asserted: Option<bool>) -> Result<State> {
         if self.data.is_empty() || self.data.len() > LIMIT {
             return Err(invalid("control image length"));
         }
@@ -317,11 +335,14 @@ impl PcCheckpoint {
             timing.validate()?;
             state.rtc.validate_irq_summary()?;
         }
-        state.validate(self.software_pic_inputs)?;
+        state.validate(self.software_pic_inputs, com1_asserted)?;
         Ok(state)
     }
     pub(crate) fn validate(&self) -> Result<()> {
         self.state().map(|_| ())
+    }
+    pub(crate) fn validate_com1(&self, asserted: bool) -> Result<()> {
+        self.state_with_com1(Some(asserted)).map(|_| ())
     }
     pub(crate) fn references(&self) -> Result<Vec<ResourceKey>> {
         let state = self.state()?;

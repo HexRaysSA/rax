@@ -660,6 +660,8 @@ mod owned_setup;
 pub(crate) use devices::PcCheckpoint;
 pub use devices::PcDevices;
 
+pub(crate) const COM1_IRQ: u8 = 4;
+
 impl Machine for PcMachine {
     fn name(&self) -> &'static str {
         "x86_64"
@@ -695,7 +697,7 @@ impl Machine for PcMachine {
     }
 
     fn serial_irq(&self) -> Option<u32> {
-        Some(4)
+        Some(u32::from(COM1_IRQ))
     }
 
     fn load_kernel(&self, mem: &GuestMemoryMmap, config: &VmConfig) -> Result<BootInfo> {

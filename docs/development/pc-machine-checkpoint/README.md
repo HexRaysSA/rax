@@ -227,6 +227,37 @@ timing and native checkpoint coverage are separate validation requirements.
 | Capture runs under the PC device and PIC ownership boundary. | The VMM samples the saved PIC inputs under the same lock as its request and service registers. | Inject a stale high PIC input with RTC interrupts disabled and require capture rejection. Clear the line and require capture to succeed. | Exercised by the VMM regression. |
 | A held physical input survives ICW1 independently of its interrupt request. | The 8259A requires a fresh transition in edge-triggered mode. | Reinitialize the slave PIC after acknowledging an RTC request. Restore the file, require no new vector while the input stays high, then clear Register C and require vector `0x28` on the next assertion. | Exercised by the detached VMM regression. |
 
+## Software UART IRQ4 checkpoint coherence
+
+The PC board routes the 16550 OUT2-gated COM1 output to IRQ4 on the PIC
+and input 4 on the I/O APIC. The coordinated RAXPCD05 image checks the
+saved I/O APIC wire against the UART and rejects a high master PIC input
+with a low UART. The check runs when validating the execution graph for
+capture, save, load, and restore. Older RAXPCD05 records with a held UART
+and a low PIC input can bind the input from the matching I/O APIC wire
+and retain the saved IRR and ISR. RAXPCD01 through RAXPCD04 omit the PIC
+input banks and reconstruct available inputs from their saved devices.
+Each wire comparison and binding takes constant time and storage.
+
+On `7c51e6b3e`, the bundle builder accepted a record assembled from an
+idle UART and an asserted I/O APIC input. A detached checkpoint with an
+acknowledged COM1 interrupt and a cleared PIC input latched another
+vector `0x24` at the first interrupt-source refresh. The regression
+reconstructs that file, retains the RX byte, confirms no extra interrupt
+while the line stays asserted, reads RBR to drop the line, and requires a
+new vector `0x24` on the next assertion. A second regression varies both
+directions of mismatch and a separately stale high PIC input.
+The four local test groups passed 69 tests in total. Formatting and library
+Clippy with warnings denied passed.
+
+| Assumption | Basis | Falsification probe | Impact |
+| --- | --- | --- | --- |
+| The managed PC's IRQ4 wire is the OUT2-gated COM1 level. | The board binding and software IRQ publisher route that source to both controllers. | Pair independently captured idle and asserted UART and I/O APIC states. Require each disagreement to fail execution graph admission. | High |
+| A low saved PIC input can be rebound when the other two records agree that COM1 is high. | Older ICW1 code could clear a held input without introducing a new edge. | Acknowledge IRQ4, detach a file with a low PIC input, and check that a refresh leaves IRR quiet. Read RBR and assert the next input, then require one new vector. | High |
+
+This validation exercises the portable PC models. Intel HVF execution and
+the remaining native and platform checkpoint profiles stay open.
+
 ## Native UART IRQ4 checkpoint coherence
 
 For the native PC interrupt controller, capture synchronizes GSI4 from the

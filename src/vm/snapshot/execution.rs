@@ -434,7 +434,7 @@ impl ExecutionSnapshot {
             {
                 return Err(invalid("PC state on another platform"));
             }
-            pc.validate()?;
+            pc.validate_com1(base.devices.serial.has_pending_interrupt())?;
         }
         if let Some(uart) = &self.pl011 {
             if base.config.arch != crate::config::ArchKind::Aarch64 {
