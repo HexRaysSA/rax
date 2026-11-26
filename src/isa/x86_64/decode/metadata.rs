@@ -851,6 +851,10 @@ fn packed_binary_mnemonics(
         (2, 1, 0x28) => ("pmuldq", "vpmuldq"),
         (2, 1, 0x0b) => ("pmulhrsw", "vpmulhrsw"),
         (2, 1, 0x04) => ("pmaddubsw", "vpmaddubsw"),
+        (2, 1, 0xdc) => ("aesenc", "vaesenc"),
+        (2, 1, 0xdd) => ("aesenclast", "vaesenclast"),
+        (2, 1, 0xde) => ("aesdec", "vaesdec"),
+        (2, 1, 0xdf) => ("aesdeclast", "vaesdeclast"),
         _ => return None,
     })
 }

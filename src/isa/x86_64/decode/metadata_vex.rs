@@ -64,6 +64,11 @@ pub(super) fn decode_xmm_transfer(
     } else {
         None
     };
+    let aes_transform = match (map, flags & 3, opcode) {
+        (2, 1, 0xdb) => Some(("vaesimc", false)),
+        (3, 1, 0xdf) => Some(("vaeskeygenassist", true)),
+        _ => None,
+    };
     let widening = if map == 2 && flags & 3 == 1 {
         packed_widening(opcode).map(|(_, name, source_size)| (name, source_size))
     } else {
@@ -98,6 +103,7 @@ pub(super) fn decode_xmm_transfer(
             || unary_shuffle.is_some()
             || absolute.is_some()
             || widening.is_some()
+            || aes_transform.is_some()
             || streaming_load =>
         {
             (true, 16, true)
@@ -139,8 +145,8 @@ pub(super) fn decode_xmm_transfer(
         return None;
     }
     if flags & 4 != 0 {
-        if size != 16 {
-            // Scalar floating moves use the canonical L=0 encoding.
+        if size != 16 || aes_transform.is_some() {
+            // Scalar floating moves and the AES transforms require L=0.
             *unsupported = scalar_float;
             return None;
         }
@@ -197,7 +203,10 @@ pub(super) fn decode_xmm_transfer(
     } else {
         vec![read_write(rm, false, true), vector]
     };
-    if immediate_shuffle.is_some() || unary_shuffle.is_some() {
+    if immediate_shuffle.is_some()
+        || unary_shuffle.is_some()
+        || aes_transform.is_some_and(|(_, immediate)| immediate)
+    {
         out.operands.push(immediate(ctx, 1, false)?);
     }
     if register_blend.is_some() {
@@ -215,6 +224,7 @@ pub(super) fn decode_xmm_transfer(
         _ if let Some(name) = binary => name,
         _ if let Some(name) = unary_shuffle.or(absolute) => name,
         _ if let Some((name, _)) = widening => name,
+        _ if let Some((name, _)) = aes_transform => name,
         _ if streaming_load => "vmovntdqa",
         (0x10 | 0x11, 4, 2) => "vmovss",
         (0x10 | 0x11, 8, 3) => "vmovsd",

@@ -30,7 +30,7 @@ PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "vmm-startup": 9
                  "vector-full-permutation": 96, "vector-lane-permutation": 128,
                  "vector-narrow": 108, "vector-horizontal": 126,
                  "vector-unsigned": 87, "vector-sign": 63, "vector-absolute": 63,
-                 "vector-widening": 240}
+                 "vector-widening": 240, "vector-aes-rounds": 68, "vector-vaes-rounds": 32}
 
 
 def sha(path):

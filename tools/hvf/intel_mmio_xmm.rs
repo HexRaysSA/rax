@@ -1057,7 +1057,7 @@ fn arithmetic_vectors(
     (qwords(left), reply, qwords(expected))
 }
 
-fn packed_binary_case(
+pub(super) fn packed_binary_case(
     code: &[u8],
     vex: bool,
     restore: bool,
@@ -1947,7 +1947,7 @@ fn run_cases(output: &Path, vex: bool, profile: &str, transfers: Vec<MoveCase<'_
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
-fn alignment_fault(code: &[u8], vex: bool, offset: u64) -> u64 {
+pub(super) fn alignment_fault(code: &[u8], vex: bool, offset: u64) -> u64 {
     const OBSERVATIONS: u64 = 0xa000;
     const HANDLER: u64 = 0xb000;
     const IDT: u64 = 0xc000;

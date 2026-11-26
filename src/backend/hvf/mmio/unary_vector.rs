@@ -1,4 +1,5 @@
 //! Packed vector instructions whose only data operand is the MMIO reply.
+use super::super::aes;
 use super::vector_logic::{Encoding, read_element, register, shuffle_control};
 use super::*;
 
@@ -12,6 +13,8 @@ enum Operation {
     Widen { shape: Widening, signed: bool },
     PermuteQuadwords,
     PermuteLaneQuadwords,
+    AesInverseMix,
+    AesKeySchedule,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -113,7 +116,7 @@ impl Input {
             || !(1..=15).contains(&self.length)
             || matches!(
                 self.operation,
-                Operation::Absolute(_) | Operation::Widen { .. }
+                Operation::Absolute(_) | Operation::Widen { .. } | Operation::AesInverseMix
             ) && self.control != 0
         {
             return Err("invalid HVF MMIO unary vector descriptor".into());
@@ -122,6 +125,13 @@ impl Input {
             && self.encoding != Encoding::Vex256
         {
             return Err("invalid 256-bit permutation descriptor".into());
+        }
+        if matches!(
+            self.operation,
+            Operation::AesInverseMix | Operation::AesKeySchedule
+        ) && self.encoding == Encoding::Vex256
+        {
+            return Err("invalid AES transform width".into());
         }
         if matches!(self.operation, Operation::PermuteLaneQuadwords)
             && self.encoding == Encoding::Legacy
@@ -142,6 +152,20 @@ impl Input {
             Operation::LowWords => (0, 2),
             Operation::Absolute(width) => return width.result(data),
             Operation::Widen { shape, signed } => return shape.result(data, signed),
+            Operation::AesInverseMix | Operation::AesKeySchedule => {
+                let (low, high) = data.split_at(8);
+                let low = read_element(low);
+                let high = read_element(high);
+                let (low, high) = if matches!(self.operation, Operation::AesInverseMix) {
+                    aes::aesimc(low, high)
+                } else {
+                    aes::aeskeygenassist(low, high, self.control)
+                };
+                let mut result = [0; N];
+                result[..8].copy_from_slice(&low.to_le_bytes());
+                result[8..16].copy_from_slice(&high.to_le_bytes());
+                return result;
+            }
             Operation::PermuteQuadwords => {
                 return std::array::from_fn(|byte| {
                     let index = usize::from((self.control >> (2 * (byte / 8))) & 3);
@@ -212,6 +236,8 @@ pub(super) fn prepare<M: PhysicalMemory>(
         "pabsb" => Operation::Absolute(AbsoluteWidth::Byte),
         "pabsw" => Operation::Absolute(AbsoluteWidth::Word),
         "pabsd" => Operation::Absolute(AbsoluteWidth::Doubleword),
+        "aesimc" => Operation::AesInverseMix,
+        "aeskeygenassist" => Operation::AesKeySchedule,
         _ => {
             let (shape, signed) = if let Some(shape) = name.strip_prefix("pmovsx") {
                 (shape, true)
@@ -233,13 +259,17 @@ pub(super) fn prepare<M: PhysicalMemory>(
         }
     };
     let (target, device, control) = match (operation, instruction.operands.as_slice()) {
-        (Operation::Absolute(_) | Operation::Widen { .. }, [target, device]) => (target, device, 0),
+        (
+            Operation::Absolute(_) | Operation::Widen { .. } | Operation::AesInverseMix,
+            [target, device],
+        ) => (target, device, 0),
         (
             Operation::Doublewords
             | Operation::HighWords
             | Operation::LowWords
             | Operation::PermuteQuadwords
-            | Operation::PermuteLaneQuadwords,
+            | Operation::PermuteLaneQuadwords
+            | Operation::AesKeySchedule,
             [target, device, immediate],
         ) => (target, device, shuffle_control(immediate)?),
         _ => return Err("wrong operands for unary vector MMIO".into()),

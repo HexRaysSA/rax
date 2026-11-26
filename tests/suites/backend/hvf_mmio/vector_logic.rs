@@ -8,6 +8,10 @@ use sha2::{Digest, Sha256};
 mod packed_multiply;
 #[path = "../../../../tools/hvf/intel_mmio_packed_shuffle.rs"]
 mod packed_shuffle;
+#[path = "vector_aes.rs"]
+mod vector_aes;
+#[path = "vector_aes_unary.rs"]
+mod vector_aes_unary;
 #[path = "vector_immediate_blend.rs"]
 mod vector_immediate_blend;
 #[path = "vector_narrow.rs"]

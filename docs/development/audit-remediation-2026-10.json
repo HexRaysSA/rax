@@ -201040,6 +201040,14 @@
       "scope": "The signed Intel macOS consumer covers hardware #GP(0x30) and software INT 13 during IDT gate delivery, retrying on the original CPU owner and after checkpoint restore to a fresh owner. The tests disarm the source instruction before replay. An independent QEMU TCG control confirmed the 48 B and 40 B frames and the fault and software return addresses. Hosted Intel execution, other delivery exits and complete interrupt and checkpoint scope remain open.",
       "qualification": "docs/development/hvf-interrupt-window/README.md#long-mode-hardware-and-software-event-replay",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-aes-device-reads-2026-11-26",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "native_intel_qualification_pending",
+      "scope": "Intel HVF plans one read for legacy and VEX AES rounds, AESIMC and AESKEYGENASSIST in their admitted widths. The 192 round cases and 2,080 unary cases match independent QEMU RAM results after pending-read restoration. The two native profiles cover 68 AES and 32 VAES round cases. Native execution, unary native coverage, EVEX, and complete MMIO, interrupt and checkpoint validation remain open.",
+      "qualification": "docs/development/hvf-mmio-xmm.md#aes-instructions-with-a-device-operand",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

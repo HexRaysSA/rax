@@ -1,6 +1,9 @@
 //! Compare production BT planning and retained completion with physical Intel records.
 use rax::{devices, isa};
 use std::collections::BTreeMap;
+#[allow(dead_code)]
+#[path = "../../src/isa/x86_64/execute/crypto/aes.rs"]
+mod aes;
 #[path = "../../src/isa/x86_64/inspection.rs"]
 mod guest_translation;
 #[path = "../../src/backend/hvf/mmio.rs"]

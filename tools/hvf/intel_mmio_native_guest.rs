@@ -16,6 +16,8 @@ const MARKER: u64 = 0xa1b2_c3d4_e5f6_0718;
 
 #[path = "intel_mmio_adx.rs"]
 mod adx;
+#[path = "intel_mmio_aes_rounds.rs"]
+mod aes_rounds;
 #[path = "intel_mmio_bit_scan.rs"]
 mod bit_scan;
 #[path = "intel_mmio_cmov.rs"]
@@ -1514,6 +1516,16 @@ fn main() {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
         xmm::run_packed_integer(&output, profile);
+        return;
+    }
+    if let Some(profile @ ("--vector-aes-rounds" | "--vector-vaes-rounds")) = std::env::args_os()
+        .nth(1)
+        .as_deref()
+        .and_then(std::ffi::OsStr::to_str)
+    {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        aes_rounds::run(&output, profile == "--vector-vaes-rounds");
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--vector-widening")) {

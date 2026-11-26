@@ -46,6 +46,8 @@ on:
           - vector-sign
           - vector-absolute
           - vector-widening
+          - vector-aes-rounds
+          - vector-vaes-rounds
           - vector-shuffle
           - vector-immediate-shuffle
           - vector-immediate-blend

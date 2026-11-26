@@ -1,4 +1,5 @@
 //! Legacy SSE and VEX packed binary operations with a device source.
+use super::super::aes;
 use super::*;
 use std::cmp::Ordering;
 
@@ -383,6 +384,43 @@ impl Horizontal {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+enum AesRound {
+    Encrypt,
+    EncryptLast,
+    Decrypt,
+    DecryptLast,
+}
+
+impl AesRound {
+    fn result<const N: usize>(self, left: &[u8; 32], right: &[u8]) -> [u8; N] {
+        let round = match self {
+            Self::Encrypt => aes::aesenc,
+            Self::EncryptLast => aes::aesenclast,
+            Self::Decrypt => aes::aesdec,
+            Self::DecryptLast => aes::aesdeclast,
+        };
+        let mut result = [0; N];
+        for ((state, key), target) in left
+            .chunks_exact(16)
+            .zip(right.chunks_exact(16))
+            .zip(result.chunks_exact_mut(16))
+        {
+            let (state_lo, state_hi) = state.split_at(8);
+            let (key_lo, key_hi) = key.split_at(8);
+            let (low, high) = round(
+                read_element(state_lo),
+                read_element(state_hi),
+                read_element(key_lo),
+                read_element(key_hi),
+            );
+            target[..8].copy_from_slice(&low.to_le_bytes());
+            target[8..].copy_from_slice(&high.to_le_bytes());
+        }
+        result
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
     And,
     AndNot,
@@ -412,6 +450,7 @@ enum Operation {
     MaskBlend(Element, u32),
     PermuteDoublewords,
     PermuteLanes(Element),
+    AesRound(AesRound),
 }
 
 impl Operation {
@@ -431,6 +470,10 @@ impl Operation {
             "orps" | "orpd" | "por" => Self::Or,
             "xorps" | "xorpd" | "pxor" => Self::Xor,
             "pshufb" => Self::ShuffleBytes,
+            "aesenc" => Self::AesRound(AesRound::Encrypt),
+            "aesenclast" => Self::AesRound(AesRound::EncryptLast),
+            "aesdec" => Self::AesRound(AesRound::Decrypt),
+            "aesdeclast" => Self::AesRound(AesRound::DecryptLast),
             "phaddw" => Self::Horizontal(Horizontal::AddWord),
             "phaddd" => Self::Horizontal(Horizontal::AddDoubleword),
             "phaddsw" => Self::Horizontal(Horizontal::AddSaturatingWord),
@@ -535,6 +578,7 @@ impl Operation {
                 }
             }),
             Self::ShuffleImmediate(shuffle, control) => shuffle.result(left, right, control),
+            Self::AesRound(round) => round.result(left, right),
             Self::PermuteDoublewords => std::array::from_fn(|byte| {
                 let index = usize::from(left[byte / 4 * 4] & 7);
                 right[index * 4 + byte % 4]

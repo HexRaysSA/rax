@@ -436,15 +436,26 @@ pub(super) fn decode_0f(
                 (1, op)
             };
             let prefix = u8::from(ctx.operand_size_override);
-            let Some((name, _)) = packed_immediate_shuffle_mnemonics(map, prefix, opcode) else {
+            let (name, destination_read) = if (map, prefix, opcode) == (3, 1, 0xdf) {
+                ("aeskeygenassist", false)
+            } else if let Some((name, _)) = packed_immediate_shuffle_mnemonics(map, prefix, opcode)
+            {
+                (name, true)
+            } else {
                 *unsupported = true;
                 return None;
             };
             out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
+            out.operands[0].read = destination_read;
             out.operands.push(immediate(ctx, 1, false)?);
             name
         }
         0x38 => match ctx.consume_u8().ok()? {
+            0xdb if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() => {
+                out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
+                out.operands[0].read = false;
+                "aesimc"
+            }
             0x2a if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() => {
                 out.operands = packed_xmm_operands(ctx, address_bits, *branch_bits == 64, true)?;
                 if out.operands[1].kind != OperandKind::Memory {
@@ -488,7 +499,7 @@ pub(super) fn decode_0f(
                 }
                 name
             }
-            map_opcode @ (0x00..=0x0b | 0x17 | 0x28..=0x29 | 0x2b | 0x37..=0x40)
+            map_opcode @ (0x00..=0x0b | 0x17 | 0x28..=0x29 | 0x2b | 0x37..=0x40 | 0xdc..=0xdf)
                 if ctx.operand_size_override && ctx.rep_prefix.is_none() && !ctx.has_rex2() =>
             {
                 let writes = map_opcode != 0x17;

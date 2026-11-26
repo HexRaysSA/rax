@@ -1980,3 +1980,46 @@ EVEX device reads and bare-metal Intel qualification remain open.
 
 The exact RAM inputs, output and local validation logs are under
 `/Users/int/dev/rax-audit-work/four-findings-hvf-packed-widen-2026-11-26/`.
+
+## AES instructions with a device operand
+
+Intel HVF plans one 16 B device read for legacy AESENC, AESENCLAST, AESDEC
+and AESDECLAST and their VEX.128 forms. VEX.256 takes one 32 B read and
+applies the round independently to the two 128-bit lanes. The legacy and
+VEX.128 encodings of AESIMC and AESKEYGENASSIST take one 16 B read.
+The legacy forms require 16 B alignment and preserve the upper half of
+YMM. VEX permits the unaligned operand tested here. VEX.128 clears the
+upper half of YMM and VEX.256 replaces all 32 B. These forms preserve
+RFLAGS. [Intel SDM revision 086, Volume 2A, AES instruction entries and
+Type 4 exception class](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The round descriptor preserves the encoding and the original source
+register bytes across a pending-read checkpoint. The unary descriptor
+preserves the encoding and the immediate for AESKEYGENASSIST. The new
+operations are appended to their serialized enums so existing operation
+discriminants retain their meanings. Completion writes the destination
+and advances RIP once.
+
+| Assumption | Falsification probe | Observed result |
+| --- | --- | --- |
+| Each encoding uses the original source and transforms the correct lanes. | Compare all 32 destination bytes after a pending-read restore with an independent QEMU 11.1.2 RAM run. Use different inputs in both halves of YMM and verify the device read width. | All 192 round cases matched. The 2,080 unary cases also matched, including all 256 AESKEYGENASSIST immediates in both encodings. |
+| Legacy memory operands require 16 B alignment. | Misalign the legacy round operand by 3 B in the model and the independent RAM guest. | The model rejects the access. QEMU delivered one #GP(0) at the faulting RIP for each round and preserved all 32 destination bytes. |
+| Unary VEX encodings require L=0 and reserved vvvv bits set to ones. | Change either field on each valid unary encoding before decode. | Both invalid field settings were rejected for both instructions. |
+
+The QEMU round and unary byte streams have SHA-256 values
+`ea7fe5c4f8a9c3852c620cd3c74aa93c0bbfc0256963be74a87285f2da353e01`
+and `fbaaece384f60cede79be087cd693fd6fd8df82a76aa1ffc592713f48fbd7478`,
+respectively. The unaligned legacy control stream has SHA-256
+`ff932c8663299ad86e484a5a1e52a12bd2c74498cb7cf33edb3d8eb0d80c4001`.
+Inputs, output and local validation logs are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-aes-rounds-2026-11-26/`.
+
+The `vector-aes-rounds` native profile covers 32 direct reads, 32 reads
+after fresh-owner restore and four legacy alignment faults. The
+`vector-vaes-rounds` profile covers 16 direct and 16 restored VEX.256
+reads on a VAES-capable CPU. On Arm64 macOS, the `hvf_mmio`,
+`hvf_guest_translation`, `x86_64`, `isa_oracle` and
+`ci_actions_pinned` targets passed 28,873 tests with three ignored.
+The Intel macOS consumer cross-built and passed strict signature
+verification. Native execution of these profiles, native qualification
+of the unary instructions, and EVEX remain open.
