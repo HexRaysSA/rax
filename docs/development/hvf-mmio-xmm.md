@@ -2061,8 +2061,17 @@ artifact. The execution artifact SHA-256 is
 The host reported a native Intel process in a virtualized environment.
 [Hosted AES-round execution](https://github.com/HexRaysSA/rax/actions/runs/45845605439)
 
-Native execution of the VEX.256 and unary profiles, bare-metal Intel,
-and EVEX support remain open.
+Hosted Intel run `45850814932` at `31ce1ec1c` passed all 130
+`vector-aes-unary` cases, covering 64 direct reads, 64 restored pending
+reads, and both legacy alignment controls. The host reported an untranslated
+Intel process on virtualized macOS 15.7.9. The execution receipt identified
+the signed consumer and matched the archived source hashes to the pinned
+revision. The observation stream SHA-256 is
+`d01341dea61c52cf1d77a2f81d2fccd91af7c61d814f65daeb054b549599671c`.
+[Hosted AES unary execution](https://github.com/HexRaysSA/rax/actions/runs/45850814932)
+
+Native execution of the VEX.256 profile, bare-metal Intel, and EVEX support
+remain open.
 
 ## Carry-less multiplication with a device operand
 
