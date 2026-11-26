@@ -423,7 +423,7 @@ fn s5_wire_state_changes_only_after_successful_publication() {
 #[test]
 fn software_pic_wire_preserves_both_banks_and_s5_with_strict_admission() {
     let (source, _, _) = device_set();
-    let inputs = [0x84, 0x51];
+    let inputs = [0x84, 0x50];
     for powered_off in [false, true] {
         source.set_powered_off(powered_off);
         let (image, resources) = capture(&source);
@@ -445,6 +445,50 @@ fn software_pic_wire_preserves_both_banks_and_s5_with_strict_admission() {
         let mut invalid = raw;
         invalid[8] = 2;
         assert!(PcCheckpoint::decode(&invalid).is_err());
+    }
+}
+
+#[test]
+fn software_pic_wire_validates_rtc_routes_and_restores_legacy_inputs() {
+    use crate::devices::rtc::RTC_IRQ;
+
+    for asserted in [false, true] {
+        let (source, mut io, _) = device_set();
+        io.write(0x70, &[0x0b, 0xc2]).unwrap();
+        if asserted {
+            assert!(source.rtc.lock().unwrap().tick(976_563));
+        }
+        source.ioapic.lock().unwrap().set_irq(RTC_IRQ, asserted);
+        let (image, resources) = capture(&source);
+        let levels = [0x84, 0x50 | u8::from(asserted)];
+        let mut raw = image.with_software_pic_inputs(levels).encoded().unwrap();
+        assert!(PcCheckpoint::decode(&raw).is_ok());
+
+        // The low bit of the slave input bank is the PIC's IRQ8 level.
+        raw[10] ^= 1;
+        if asserted {
+            // Older PIC initialization cleared its input latch even while an
+            // RTC request remained high. Preserve the wire image on readback
+            // and normalize the line at the restore boundary.
+            let legacy = PcCheckpoint::decode(&raw).unwrap();
+            assert_eq!(legacy.encoded().unwrap(), raw);
+            let resources = PreparedResources::from_bindings(resources).unwrap();
+            let prepared = legacy.prepare(&resources).unwrap();
+            assert_eq!(prepared.software_pic_inputs(false).unwrap(), Some(levels));
+        } else {
+            assert!(
+                matches!(PcCheckpoint::decode(&raw), Err(Error::InvalidConfig(message)) if message.contains("PIC RTC line differs from Register C"))
+            );
+        }
+
+        source.ioapic.lock().unwrap().set_irq(RTC_IRQ, !asserted);
+        let (image, _) = capture(&source);
+        // The same wire image without the software input banks can describe
+        // a VMM whose PC I/O APIC is inactive. Ownership is checked on restore.
+        assert!(image.encoded().is_ok());
+        assert!(
+            matches!(image.with_software_pic_inputs(levels).encoded(), Err(Error::InvalidConfig(message)) if message.contains("I/O APIC RTC line differs from Register C"))
+        );
     }
 }
 

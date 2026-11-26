@@ -102,6 +102,74 @@ fn checkpoint_preserves_pic_input_high_after_acknowledgement() {
 }
 
 #[test]
+fn checkpoint_capture_rejects_a_stale_pic_rtc_input() {
+    let fixture = Fixture::new();
+    let vm = &fixture.vm;
+    vm.pic
+        .lock()
+        .unwrap()
+        .set_irq(crate::devices::rtc::RTC_IRQ, true);
+    assert!(
+        matches!(vm.take_snapshot_bundle(0), Err(Error::InvalidConfig(message)) if message.contains("PIC RTC line differs from Register C"))
+    );
+    vm.pic
+        .lock()
+        .unwrap()
+        .set_irq(crate::devices::rtc::RTC_IRQ, false);
+    assert!(vm.take_snapshot_bundle(0).is_ok());
+}
+
+#[test]
+fn held_irq8_survives_pic_initialization_and_detached_restore() {
+    use crate::vm::vcpu::CheckpointIoReply;
+
+    let mut source = Fixture::new();
+    let path = source.kernel.with_extension("rxc");
+    let vm = &mut source.vm;
+    for (port, data) in [
+        (0x21, &[0xfb][..]),
+        (0xa1, &[0xfe][..]),
+        (0x70, &[0x0b, 0xc2][..]),
+    ] {
+        vm.io_bus.get_mut().unwrap().write(port, data).unwrap();
+    }
+    let raise_rtc = |vm: &Vmm| {
+        let rtc = &vm.pc_devices.as_ref().unwrap().rtc;
+        assert!(rtc.lock().unwrap().tick(976_563));
+        vm.sync_pc_rtc_irq(None).unwrap();
+    };
+    raise_rtc(vm);
+    assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(0x28));
+    for (port, value) in [
+        (0x20, 0x20),
+        (0xa0, 0x11),
+        (0xa1, 0x28),
+        (0xa1, 2),
+        (0xa1, 1),
+    ] {
+        vm.io_bus.get_mut().unwrap().write(port, &[value]).unwrap();
+    }
+    assert_eq!(vm.pic.lock().unwrap().irq_input_levels()[1] & 1, 1);
+    assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), None);
+    vm.take_snapshot_bundle(0).unwrap().save(&path).unwrap();
+
+    let bundle = SnapshotBundle::load(&path).unwrap();
+    drop(source);
+    let mut target = Fixture::new();
+    let vm = &mut target.vm;
+    vm.restore_snapshot_bundle(&bundle).unwrap();
+    assert_eq!(vm.pic.lock().unwrap().irq_input_levels()[1] & 1, 1);
+    assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), None);
+    vm.io_bus.get_mut().unwrap().write(0x70, &[0x0c]).unwrap();
+    assert!(matches!(
+        vm.checkpoint_io_service(0, VcpuExit::IoIn { port: 0x71, size: 1 }).unwrap(),
+        CheckpointIoReply::Input(bytes) if bytes == [0xc0]
+    ));
+    raise_rtc(vm);
+    assert_eq!(vm.pic.lock().unwrap().get_pending_vector(), Some(0x28));
+}
+
+#[test]
 fn checkpoint_preserves_pic_cascade_high_after_acknowledgement() {
     use crate::vm::vcpu::CheckpointIoReply;
     let mut source = Fixture::new();

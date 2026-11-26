@@ -192,6 +192,41 @@ An unfiltered library run on `392341ed5` with the fix reproduced the existing
 Darwin `kern.hostname` test failure and hit its 12-minute limit. Hardware
 8259 timing and native checkpoint coverage require separate evidence.
 
+### Saved IRQ8 agreement across software controllers
+
+The RTC Register C interrupt summary, I/O APIC input 8, and slave PIC input
+0 describe one physical line in the software PC. ICW1 clears the PIC's
+latched requests and retains the physical inputs. In edge-triggered mode,
+an input held high across initialization needs a fall and a new rise to
+create a request. [Intel 8259A data sheet, Initialization Command Words and Edge and Level Triggered Modes](https://www.scs.stanford.edu/12au-cs140/pintos/specs/8259A.pdf)
+
+The earlier PIC model zeroed its input cache during ICW1. An existing
+RAXPCD05 record can therefore contain a low PIC bit alongside an asserted
+RTC and I/O APIC input. Restore binds the PIC bit to the RTC level without
+changing the saved interrupt request or in-service registers. A high PIC
+bit alongside a low RTC can suppress the next PIC edge. New capture and
+decode reject that mismatch, and RAXPCD05 rejects an I/O APIC mismatch in
+either direction. The comparisons take constant time and storage and use
+the existing checkpoint layout.
+
+RAXPCD01 through RAXPCD04 lack a saved PIC input bank. The VMM continues
+to reconstruct the available inputs at software restore and to check
+the native controller against Register C where it owns the RTC route.
+
+The two checkpoint admission regressions failed on `6902c69f7`. The PIC
+unit regression observed input 0 clear after ICW1 on the old controller.
+The revised build passed 25 PIC tests, 13 PC device tests, seven VMM
+checkpoint tests, and four RTC routing tests. The detached regression
+restores the held level, reads `0xc0` from Register C to lower it, and
+receives vector `0x28` on the following assertion. Physical controller
+timing and native checkpoint coverage are separate validation requirements.
+
+| Assumption | Basis | Falsification probe | Status |
+| --- | --- | --- | --- |
+| The VMM's RTC is the source for PIC IRQ8 and I/O APIC input 8. | RTC publication sets both routes from the Register C summary. Older ICW1 code could clear the PIC bit. | Hold Register C and the I/O APIC line constant and invert only the PIC bit. Require rejection with a deasserted RTC and normalization with an asserted RTC. Reverse the I/O APIC input separately. | Exercised by the wire regression. |
+| Capture runs under the PC device and PIC ownership boundary. | The VMM samples the saved PIC inputs under the same lock as its request and service registers. | Inject a stale high PIC input with RTC interrupts disabled and require capture rejection. Clear the line and require capture to succeed. | Exercised by the VMM regression. |
+| A held physical input survives ICW1 independently of its interrupt request. | The 8259A requires a fresh transition in edge-triggered mode. | Reinitialize the slave PIC after acknowledging an RTC request. Restore the file, require no new vector while the input stays high, then clear Register C and require vector `0x28` on the next assertion. | Exercised by the detached VMM regression. |
+
 ## Native UART IRQ4 checkpoint coherence
 
 For the native PC interrupt controller, capture synchronizes GSI4 from the

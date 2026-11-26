@@ -282,8 +282,9 @@ impl Pic8259 {
             //    priority (IR0 highest), no special mask, IRR selected.
             self.imr = 0;
             self.isr = 0;
+            // ICW1 clears latched requests. A pin held high still needs to
+            // fall and rise before it can produce another edge.
             self.irr = 0;
-            self.irq_lines = 0;
             self.auto_eoi = false;
             self.rotate_in_auto_eoi = false;
             self.special_mask_mode = false;
@@ -705,6 +706,21 @@ mod tests {
     }
 
     // ---- ICW init state machine ----------------------------------------
+
+    #[test]
+    fn edge_pic_initialization_preserves_high_inputs_without_retriggering() {
+        let mut pic = Pic8259::new(0x28);
+        init_slave(&mut pic);
+        pic.set_irq(0, true);
+        assert_eq!(pic.highest_pending(), Some(0));
+        init_slave(&mut pic);
+        assert_eq!(pic.irq_lines, 1);
+        pic.set_irq(0, true);
+        assert_eq!(pic.highest_pending(), None);
+        pic.set_irq(0, false);
+        pic.set_irq(0, true);
+        assert_eq!(pic.highest_pending(), Some(0));
+    }
 
     #[test]
     fn icw_full_sequence_sets_state() {

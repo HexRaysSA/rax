@@ -201122,6 +201122,14 @@
       "full_goal_complete": false
     },
     {
+      "id": "pc-rtc-software-controller-agreement-2026-11-26",
+      "findings": ["C-STATE", "C-HVF"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Software PIC ICW1 retains physical levels while clearing latched requests. RAXPCD05 rejects mismatches between the RTC Register C summary and software I/O APIC input 8, and a high slave PIC input 0 while the RTC is deasserted. It rebinds older files where PIC initialization dropped a still-high input without changing IRR or ISR. Local tests exercise both input levels, independent mismatches and detached restore across PIC initialization. Full backend and interrupt coverage remain open.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#saved-irq8-agreement-across-software-controllers",
+      "full_goal_complete": false
+    },
+    {
       "id": "hvf-bmi1-device-reads-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
       "status": "hosted_intel_qualified_full_findings_open",
