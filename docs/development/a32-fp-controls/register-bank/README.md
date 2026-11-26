@@ -164,3 +164,35 @@ The five unfiltered owning targets passed all 47,693 tests with zero failures
 or skips. The corrected log SHA-256 is
 `80a476c740f3f747af66cdc28fec4411263c0bd57b729a2b3c8c3f401640f459`.
 The access masks use O(1) time and space.
+
+### Imported profiles with a register bank
+
+In the standalone ARM and Thumb views, `CPACR.cp10` and `CPACR.cp11`
+read zero and ignore writes when the imported profile exposes neither scalar
+FP nor Advanced SIMD. This also applies when the profile retains D16 or D32
+register storage. The guest view preserves the backing permission bits. Either
+scalar FP or an implemented Advanced SIMD instruction class keeps the fields
+writable when the security controls permit access. Arm DDI0406C.d B4-1549
+specifies read-as-zero, write-ignored fields for absent coprocessors.
+[Arm DDI0406C.d](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+
+An imported scalar FP16 profile with neither FP32 nor FP64 can execute half
+arithmetic and use VMRS and VMSR. FPSCR exposes FZ16 and the cumulative
+exceptions. AHP requires an available half-format conversion and FZ applies to
+FP32 and FP64. The mixed-width regression writes FPSCR, adds a subnormal to
+zero, and checks the invalid-operation flag produced by adding opposite
+infinities in ARM and Thumb. These imported profiles exercise RAX state views.
+Physical hardware with these feature combinations is unverified.
+[Arm DDI0487B.a G6.2.50 and G6.2.108](../../../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Imported register storage can exist without an instruction class. | Medium | Grant both coprocessors through NSACR and seed nonzero backing permissions. A nonzero guest read or a backing value changed by a guest write falsifies the projection. |
+| Imported scalar FP16 supports half arithmetic and its control state with FP32 and FP64 absent. | Medium | Execute VMSR, VADD.F16 and VMRS through the mixed-width interpreter. Failed execution, a retained subnormal with FZ16 set or a lost invalid-operation flag falsifies the view. |
+
+At baseline `33e5c9eb6`, the CPACR test read `0x00500000` from a D32
+bank-only profile and the pure FP16 test encountered an undefined VMSR.
+All 47,727 tests in `a32_fp_controls`, `a32_fp_pairs`, `arm`, `arm_vfp_a32`
+and `isa_oracle` passed on macOS Arm64 with `--no-default-features` after
+the correction. The passing log SHA-256 is
+`2dda84da975028143dd3323e8b33406ef2f8c5ee1341e99a8a4832d78536f507`.

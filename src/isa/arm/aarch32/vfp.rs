@@ -103,8 +103,19 @@ impl VfpState {
         (self.mvfr0 >> 12) & 15 == 1
     }
 
+    fn has_scalar_single(&self) -> bool {
+        matches!((self.mvfr0 >> 4) & 15, 1 | 2)
+    }
+
+    fn has_scalar_double(&self) -> bool {
+        matches!((self.mvfr0 >> 8) & 15, 1 | 2)
+    }
+
     pub(super) fn has_scalar_fp(&self) -> bool {
-        matches!((self.mvfr0 >> 4) & 15, 1 | 2) || matches!((self.mvfr0 >> 8) & 15, 1 | 2)
+        matches!(self.mvfr0 & 15, 1 | 2)
+            && (self.has_scalar_single()
+                || self.has_scalar_double()
+                || (self.mvfr1 >> 24) & 15 == 3)
     }
 
     pub(super) fn has_advsimd(&self) -> bool {
@@ -116,6 +127,8 @@ impl VfpState {
         let advsimd = self.has_advsimd();
         let simd_int = advsimd && (self.mvfr1 >> 12) & 15 == 1;
         let simd_single = simd_int && (self.mvfr1 >> 16) & 15 == 1;
+        let scalar_single = scalar && self.has_scalar_single();
+        let scalar_double = scalar && self.has_scalar_double();
         let scalar_half = if scalar { (self.mvfr1 >> 24) & 15 } else { 0 };
         let simd_half = if simd_int { (self.mvfr1 >> 20) & 15 } else { 0 };
 
@@ -123,7 +136,10 @@ impl VfpState {
         // for the unavailable fields in the standalone integer-only view.
         let mut mask = 0;
         if scalar {
-            mask |= 0xf3c0_009f; // NZCV, DN, FZ, RMode and cumulative exceptions.
+            mask |= 0xf2c0_009f; // NZCV, DN, RMode and cumulative exceptions.
+            if scalar_single || scalar_double {
+                mask |= 1 << 24; // FZ applies to FP32 and FP64.
+            }
             if (self.mvfr0 >> 24) & 15 == 1 {
                 mask |= super::short_vectors::CONTROL_MASK;
             }
@@ -135,11 +151,14 @@ impl VfpState {
             mask |= 1 << 27; // QC
         }
         // Pure half data processing can set exception flags independently of
-        // FP32 SIMD. AHP still requires a conversion, which consumes FP32.
+        // FP32 SIMD. AHP requires a conversion with an available base precision.
         if simd_single || simd_half == 2 {
             mask |= 0x9f; // Cumulative exceptions.
         }
-        if matches!(scalar_half, 1..=3) || simd_single && matches!(simd_half, 1 | 2) {
+        if (scalar_single && matches!(scalar_half, 1..=3))
+            || (scalar_double && matches!(scalar_half, 2 | 3))
+            || (simd_single && matches!(simd_half, 1 | 2))
+        {
             mask |= 1 << 26; // AHP
         }
         if scalar_half == 3 || simd_half == 2 {

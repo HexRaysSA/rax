@@ -170,6 +170,67 @@ fn absent_and_reserved_register_banks_do_not_enable_fp() {
 }
 
 #[test]
+fn cpacr_coprocessor_permissions_follow_available_execution_units() {
+    const PERMISSIONS: u32 = 0x00f0_0000; // Full access to CP10 and CP11.
+    const PRIVILEGED: u32 = 0x0050_0000;
+    const CPACR_WRITE: u32 = 0xee01_0f50; // MCR p15,0,R0,c1,c0,2.
+    const CPACR_READ: u32 = 0xee11_1f50; // MRC p15,0,R1,c1,c0,2.
+
+    for (mvfr0, mvfr1, present) in [
+        (2, 0, false),                    // D32 register storage without an execution unit.
+        (1, 0, false),                    // D16 register storage without an execution unit.
+        (0, 0, false),                    // No SIMD&FP bank.
+        (0x1011_0223, 0x11, false),       // Reserved bank, despite scalar precision fields.
+        (0x1011_0221, 0x11, true),        // D16 scalar FP.
+        (0x1011_0222, 0x11, true),        // D32 scalar FP without Advanced SIMD.
+        (0x1000_0002, 0x0300_0011, true), // Scalar FP16 without FP32 or FP64.
+        (2, 1 << 8, true),                // Advanced SIMD structure loads and stores only.
+        (2, 1 << 12, true),               // Integer Advanced SIMD only.
+    ] {
+        for thumb in [false, true] {
+            let mut cpu = Armv7Cpu::new();
+            cpu.cpsr.t = thumb;
+            cpu.vfp.mvfr0 = mvfr0;
+            cpu.vfp.mvfr1 = mvfr1;
+            cpu.cp15.scr = 1; // Non-secure, with NSACR permitting both coprocessors.
+            cpu.cp15.nsacr = (1 << 10) | (1 << 11);
+            // A captured backing value may predate a profile change.
+            cpu.cp15.cpacr = Cpacr::from_bits(PRIVILEGED);
+            let decode = |word| {
+                if thumb {
+                    ThumbDecoder::decode_32bit(word).unwrap()
+                } else {
+                    Aarch32Decoder::decode(word).unwrap()
+                }
+            };
+            let mut memory = FlatMemory::new(4096, 0);
+            let mut exec = Executor::new(&mut cpu, &mut memory);
+            let read = decode(CPACR_READ);
+            let write = decode(CPACR_WRITE);
+            for value in [PERMISSIONS, 0] {
+                assert!(matches!(exec.execute(&read), ExecResult::Continue));
+                let expected = if present {
+                    exec.cpu.cp15.cpacr.bits() & PERMISSIONS
+                } else {
+                    0
+                };
+                assert_eq!(
+                    exec.cpu.regs[1] & PERMISSIONS,
+                    expected,
+                    "MVFR0={mvfr0:#x}, MVFR1={mvfr1:#x}, Thumb={thumb}"
+                );
+                exec.cpu.regs[0] = value;
+                assert!(matches!(exec.execute(&write), ExecResult::Continue));
+                assert_eq!(
+                    exec.cpu.cp15.cpacr.bits() & PERMISSIONS,
+                    if present { value } else { PRIVILEGED }
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn mixed_width_full_bank_executes_all_controls_and_retires_once() {
     for &(name, arm, thumb, _, _) in CASES {
         for (raw, is_thumb) in [(arm, false), (thumb, true)] {

@@ -200866,6 +200866,14 @@
       "scope": "Base and extended public CPU restores reject a pending IPI when the restore has no coordinator record. The four-vCPU regression observes successful INIT delivery to CPU 1 and injects a failure at CPU 2 with SIPI queued. Rejection preserves the remaining destinations, queued SIPI, vCPUs, RAM, UART and retirement state. Routing resumes and releases the legacy restore boundary once both messages finish.",
       "qualification": "docs/development/x86-ipi-delivery/README.md",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-cpacr-coprocessor-presence-2026-11-26",
+      "findings": ["A32-FP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Standalone CPACR reports absent coprocessors even when an imported profile retains the register bank. The ARM and Thumb regression verifies writable permissions for executable scalar and Advanced SIMD classes and preserves backing permissions for absent units. An imported scalar FP16-only profile retains guest FPSCR transfers, FZ16 and cumulative exceptions in the mixed-width interpreter. Physical qualification of these imported combinations is unavailable.",
+      "qualification": "docs/development/a32-fp-controls/register-bank/README.md#imported-profiles-with-a-register-bank",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

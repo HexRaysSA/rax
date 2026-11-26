@@ -109,6 +109,53 @@ fn mixed_width_pure_simd_half_keeps_fpscr_across_instruction_boundaries() {
 }
 
 #[test]
+fn mixed_width_pure_scalar_half_keeps_fpscr_across_instruction_boundaries() {
+    const FZ16: u64 = 1 << 19;
+    const FZ: u64 = 1 << 24;
+    const AHP: u64 = 1 << 26;
+    const VMSR: u32 = 0xeee1_1a10; // VMSR FPSCR,R1.
+    const VADD: u32 = 0xee32_0904; // VADD.F16 S0,S4,S8.
+    const VMRS: u32 = 0xeef1_2a10; // VMRS R2,FPSCR.
+
+    for thumb in [false, true] {
+        let mut cpu = cpu(true);
+        let mut state = cpu.export_sregs();
+        let sysregs = &mut state.execution.as_mut().unwrap().sysregs;
+        for (index, value) in [(0, 0x1000_0002), (1, 0x0300_0011)] {
+            sysregs.impl_defined.insert(
+                Aarch64SysRegEncoding::new(3, 0, 0, 3, index).encode(),
+                value,
+            );
+        }
+        cpu.import_sregs(&state).unwrap();
+        cpu.set_pstate_bits(0x1d3 | (u64::from(thumb) << 5))
+            .unwrap();
+        words(&mut cpu, &[VMSR, VADD, VMRS, VADD, VMRS], thumb);
+        cpu.set_x(1, AHP | FZ | FZ16);
+        cpu.set_simd(1, 1);
+        cpu.set_simd(2, 0);
+        for step in ["VMSR", "VADD", "VMRS"] {
+            assert_eq!(
+                cpu.step().unwrap(),
+                CpuExit::Continue,
+                "{step}, Thumb={thumb}"
+            );
+        }
+        assert_eq!(cpu.get_simd(0), 0);
+        assert_eq!(cpu.get_x(2), FZ16);
+
+        cpu.set_simd(1, 0x7c00);
+        cpu.set_simd(2, 0xfc00);
+        for _ in 0..2 {
+            assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+        }
+        assert_eq!(cpu.get_simd(0), 0x7e00);
+        assert_eq!(cpu.get_x(2), FZ16 | 1);
+        assert_eq!(cpu.instruction_count(), 5);
+    }
+}
+
+#[test]
 fn mvfr_aliases_agree_in_saved_state_and_smir_and_after_reset() {
     for half in [false, true] {
         let mut cpu = cpu(half);

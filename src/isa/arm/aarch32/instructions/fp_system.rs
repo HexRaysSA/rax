@@ -164,7 +164,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 (2, NSACR) => zero |= 1 << 14,
                 _ => {}
             }
-            if bank == 0 && register == CPACR {
+            // CP10/CP11 exist when the profile has an execution unit.
+            // The imported register bank can also exist on its own.
+            if register == CPACR && !self.cpu.vfp.has_scalar_fp() && !self.cpu.vfp.has_advsimd() {
                 zero |= 0x00f0_0000;
             }
             if !self.cpu.vfp.has_advsimd() {
