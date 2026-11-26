@@ -2,6 +2,7 @@
 use super::*;
 use crate::config::{CliConfig, MemorySize};
 use crate::vm::snapshot::SnapshotBundle;
+use crate::vm::timing::ClockMode;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -29,7 +30,12 @@ impl Fixture {
         )
         .unwrap();
         c.memory = MemorySize(4096);
-        Vmm::new_resume(c).unwrap()
+        if arch == ArchKind::Riscv64 {
+            // Wall-clock capture samples MTIME even when no hart has run.
+            Vmm::new_resume_with_clock(c, ClockMode::Retired).unwrap()
+        } else {
+            Vmm::new_resume(c).unwrap()
+        }
     }
 }
 impl Drop for Fixture {
@@ -128,7 +134,7 @@ fn last_riscv_privilege_failure_preserves_every_earlier_cpu_and_ram() {
     let mut source = f.vm(ArchKind::Riscv64, 4);
     mark(&mut source);
     let bundle = source.take_snapshot_bundle(53).unwrap();
-    let mut states = source.capture_cpu_states().unwrap();
+    let mut states = bundle.cpus().unwrap().entries().to_vec();
     let CpuState::RiscV(s) = &mut states[3].state else {
         unreachable!()
     };
@@ -137,7 +143,13 @@ fn last_riscv_privilege_failure_preserves_every_earlier_cpu_and_ram() {
     let mut target = f.vm(ArchKind::Riscv64, 4);
     target.guest_mem.write_all(&[0xa5; 4096]).unwrap();
     let before = bytes(&target);
-    assert!(target.restore_snapshot_bundle(&b).is_err());
+    let error = target.restore_snapshot_bundle(&b).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("invalid RISC-V privilege level 2"),
+        "{error}"
+    );
     assert_eq!(bytes(&target), before);
     assert_eq!(target.guest_mem.try_read_all().unwrap(), vec![0xa5; 4096]);
 }
