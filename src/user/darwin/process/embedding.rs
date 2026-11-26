@@ -179,6 +179,7 @@ pub(crate) fn bsd_allowed(number: u32) -> bool {
             | nr::BSDTHREAD_REGISTER
             | nr::BSDTHREAD_CREATE
             | nr::BSDTHREAD_TERMINATE
+            | nr::BSDTHREAD_CTL
             | nr::WORKQ_OPEN
             | nr::WORKQ_KERNRETURN
             // Host-backed filters are still rejected by kevent::host::attach.

@@ -338,3 +338,42 @@ fn set_qos(ctx: &mut Ctx<'_>, pp: u32, flags: u64, is_wq: bool) -> Option<Errno>
     s.qos_bucket = s.qos_req.max(w.qos_override);
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::user::darwin::abi::{DarwinAbi, tables::nr};
+    use crate::user::darwin::{commpage, process::bounded_tests};
+
+    #[test]
+    fn closed_dispatch_reports_guest_qos_parallelism() {
+        for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+            let mut process = bounded_tests::process(abi);
+            let (_, mut thread) = process.proc.threads.pop_first().unwrap();
+            let mut ctx = Ctx {
+                proc: &mut process.proc,
+                nr: i64::from(nr::BSDTHREAD_CTL),
+                pc: thread.cpu.pc(),
+                thread: &mut thread,
+            };
+            let cpus = Ok(Rv::one(u64::from(commpage::NCPUS)));
+            let legacy = u64::from(priority::thread_qos::LEGACY);
+            for (qos, flags, reserved, expected) in [
+                (legacy, 0, 0, cpus),
+                (legacy, parallelism::COUNT_LOGICAL, 0, cpus),
+                (0, parallelism::REALTIME, 0, cpus),
+                (0, 0, 0, Err(Errno::EINVAL)),
+                (legacy, parallelism::REALTIME, 0, Err(Errno::EINVAL)),
+                (legacy, parallelism::COUNT_LOGICAL, 1, Err(Errno::EINVAL)),
+                (legacy, 8, 0, Err(Errno::EINVAL)),
+            ] {
+                let args = [cmd::QOS_MAX_PARALLELISM, qos, flags, reserved, 0, 0, 0, 0];
+                assert_eq!(
+                    super::super::call(&mut ctx, nr::BSDTHREAD_CTL, &args),
+                    expected,
+                    "{abi:?}, qos={qos}, flags={flags}, reserved={reserved}"
+                );
+            }
+        }
+    }
+}
