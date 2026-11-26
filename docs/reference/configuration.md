@@ -259,6 +259,8 @@ Default: `v7_a`.
 
 On the software S3C64xx and S5L8900 machines, `v6` and `v6_k` select
 ARM1176-style D16 VFPv2 capabilities and A32 FP instruction rules.
+Guest initialization enables CP10 and CP11 in CPACR before using VFP
+system registers, then sets `FPEXC.EN` to enable FP data instructions.
 The default `v7_a` selects the D32 software FP profile. The ARM1176-style
 setting uses RAX's synchronous floating-point exception interface.
 [AArch32 FP profile details](../development/a32-fp-controls.md#arm1176-style-vfpv2-selection)

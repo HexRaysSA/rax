@@ -742,6 +742,8 @@ impl Armv7Cpu {
 
     pub(crate) fn configure_arm11_vfp(&mut self) {
         self.vfp = VfpState::arm11();
+        // DDI0301H Table 3-44 resets access to every coprocessor to denied.
+        self.cp15.cpacr = crate::isa::arm::aarch32::cp15::Cpacr::default();
         // ARM1176 has Thumb-1 and Security Extensions. The A32 FP access
         // path must not expose the enclosing default PE's EL2 controls.
         self.cp15.id_pfr0 = 0x111;

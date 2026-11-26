@@ -694,6 +694,34 @@ fn a32_arm11_vfp_id_reads_depend_on_mode_and_enable() {
 }
 
 #[test]
+fn a32_arm11_coprocessor_controls_use_armv6_register_layouts() {
+    use crate::isa::arm::decoder::Aarch32Decoder;
+
+    let mut cpu = make_cpu();
+    let mut mem = make_mem();
+    cpu.configure_arm11_vfp();
+    cpu.regs[0] = u32::MAX;
+    cpu.regs[3] = 0xffff_cc00;
+    for raw in [
+        0xee11_1f50, // MRC p15, 0, r1, c1, c0, 2 (reset CPACR)
+        0xee01_0f50, // MCR p15, 0, r0, c1, c0, 2
+        0xee11_2f50, // MRC p15, 0, r2, c1, c0, 2
+        0xee01_3f51, // MCR p15, 0, r3, c1, c1, 2 (NSACR)
+        0xee11_4f51, // MRC p15, 0, r4, c1, c1, 2
+    ] {
+        let instruction = Aarch32Decoder::decode(raw).unwrap();
+        assert!(matches!(
+            Executor::new(&mut cpu, &mut mem).execute(&instruction),
+            ExecResult::Continue
+        ));
+    }
+    assert_eq!(
+        [cpu.regs[1], cpu.regs[2], cpu.regs[4]],
+        [0, 0x00f0_0000, 0x0007_0c00]
+    );
+}
+
+#[test]
 fn test_privileged_mcr_mrc_cp15_still_access_state() {
     let mut cpu = make_cpu();
     let mut mem = make_mem();

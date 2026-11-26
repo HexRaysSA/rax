@@ -147,7 +147,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     fn fp_cp15_access_masks(&self, enc: Cp15Encoding) -> (u32, u32) {
         let register = key(enc);
         let (mut zero, mut one) = (0, 0);
-        if self.cpu.fp_access_context.is_none() {
+        let arm11 = self.cpu.fp_access_context.is_none() && self.cpu.vfp.is_arm11();
+        if arm11 {
+            // DDI0301H Tables 3-44 and 3-51 predate the Armv7 SIMD and
+            // D32 disable bits. There are no attached external coprocessors.
+            zero |= match register {
+                CPACR => !0x00f0_0000,
+                NSACR => !0x0007_3fff,
+                _ => 0,
+            };
+        } else if self.cpu.fp_access_context.is_none() {
             let bank = self.cpu.vfp.mvfr0 & 15;
             // DDI0406C.d B4.1: D16 lacks D16-D31. The D32 model leaves
             // D32DIS unimplemented, so NSD32DIS is also RAZ/WI.
@@ -182,7 +191,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 if c.nsacr & (1 << 11) == 0 {
                     zero |= 3 << 22;
                 }
-                if c.nsacr & (1 << 15) != 0 {
+                if !arm11 && c.nsacr & (1 << 15) != 0 {
                     one |= 1 << 31;
                 }
             }

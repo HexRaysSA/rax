@@ -201088,6 +201088,14 @@
       "scope": "Cold SMP El Torito boot publishes the configured PC MP tables without overwriting the loaded image. The RAX guest discovers two or four processors from the table, starts every AP with INIT/SIPI, and observes peer-written RAM markers. A QEMU control verified the startup sequence using independently supplied MP records. The KVM workflow requires that the same witness pass with in-kernel interrupt ownership. Native KVM and Intel HVF ISO execution and broader SMP coverage remain open.",
       "qualification": "docs/development/pc-firmware-discovery/README.md#multiprocessor-iso-boot",
       "full_goal_complete": false
+    },
+    {
+      "id": "arm1176-coprocessor-permissions-2026-11-26",
+      "findings": ["A32-FP", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Selected ARM1176-style v6 and v6_k software CPUs reset with CP10 and CP11 access denied. Guest CPACR and NSACR expose ARMv6 fields, and the v6_k complete checkpoint retains guest-programmed permissions on a fresh VMM. QEMU ARM1176 matched defined CP10 and CP11 access at reset and Secure and Non-secure VFP access decisions. Reserved register readback differs, and physical ARM1176 validation and asynchronous VFP11 exception state remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#arm1176-coprocessor-permissions",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

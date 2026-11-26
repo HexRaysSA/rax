@@ -1288,3 +1288,34 @@ suites passed 47,730 tests. The five owning library modules passed 170
 tests. Library Clippy passed with warnings denied.
 The inputs and receipts are under
 `/Users/int/dev/rax-audit-work/four-findings-vfpv2-id-access-2026-11-26/`.
+
+### ARM1176 coprocessor permissions
+
+The ARM1176-style setting starts with CP10 and CP11 access denied. The
+guest initializes both fields in CPACR before using the VFP system
+registers. `FPEXC.EN` separately gates FP data operations. The guest view
+of CPACR exposes only CP10 and CP11. Neither CPACR nor NSACR exposes the
+later Armv7 SIMD and D32 disable fields. NSACR retains the ARM1176
+coprocessor, cache and TLB lockdown, and DMA permissions.
+[ARM DDI 0301H, Tables 3-44, 3-45 and 3-51](https://documentation-service.arm.com/static/5e8e294efd977155116a6ca3)
+
+| Assumption | Falsification probe | Impact |
+| --- | --- | --- |
+| No external coprocessor is attached to the modeled machine. | Write all ones to guest CPACR and read it back. Only the CP10 and CP11 fields should remain. | High |
+| The ARMv6 register view applies only to the selected ARM1176-style profile. | Read CPACR at startup with `v6`, `v6_k`, and `v7_a`. Enable both fields from guest code and restore the `v6_k` checkpoint into a fresh VM. Read CPACR again and check that the restored guest sees its programmed value. | High |
+| Reserved NSACR fields have zero readback in this model. | Write its reserved bits together with the CP10, CP11, CL, TL, and DMA fields. Require the defined bits to survive guest readback. | Medium |
+
+On `992d1c92d`, guest reset readback was `0xc0f00000`. The two regression
+cases exercise decoded CP15 transfers and the configured VMM. QEMU 11.1.2
+on `raspi0` confirmed the CP10/11 reset permissions and the single- and
+double-precision access decisions in Secure and Non-secure states. QEMU read
+`0xc0000000` from reset CPACR and retained reserved NSACR bits. RAX chooses
+zero readback for those reserved fields. The 11-case receipt SHA-256 is
+`21777d8a37e2d6574e042756bdf23688c1822340e9016ba20ec901bdb1858384`.
+The inputs, guest outputs and results are under
+`/Users/int/dev/rax-audit-work/four-findings-arm11-coprocessor-controls-2026-11-26/`.
+The five affected integration binaries passed all 47,730 tests, and the
+VMM backend-context test module passed all 18 tests.
+Unequal CP10 and CP11 permissions are outside the defined VFP domain.
+Physical ARM1176 validation and asynchronous VFP11 exceptions remain open.
+[Arm Architecture Reference Manual, DDI 0100I, B3-17](https://www.scs.stanford.edu/~zyedidia/docs/arm/armv6.pdf)
