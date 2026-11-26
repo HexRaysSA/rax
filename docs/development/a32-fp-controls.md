@@ -1129,3 +1129,17 @@ the signed 8-bit saturating add.
 
 On macOS Arm64, the native JIT suites passed all 26 A32 cases and all
 25 T32 cases. The shared FP system-register transfers use the interpreter.
+
+## FP16 multiply-long mnemonic
+
+The decoder renders the subtract-long instruction as `vfmsl` for both
+vector and indexed A32 and T32 encodings. A sweep compared 32,768 words
+per instruction set in the scalar FP and adjacent coprocessor space with
+LLVM 23.1.3. It found the `vfmls` spelling on 256 sampled indexed forms
+per instruction set. Arm defines `VFMSL` for both forms.
+[Arm DDI 0597 ID032025, pp. 950–955](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+The regression checks both instruction sets, both source forms, and the
+`VFMAL` add control against the assembly mnemonics. It
+failed on the parent and passed with the corrected spelling. The complete
+`a32_fp_controls`, `arm` and `arm_vfp_a32` suites passed 47,614 tests.

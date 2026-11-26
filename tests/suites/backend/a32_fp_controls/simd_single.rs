@@ -533,6 +533,20 @@ fn absent_simdsp_rejects_integer_fixed_and_cross_precision_conversions() {
 fn absent_simdsp_rejects_half_multiply_accumulation_into_single_precision() {
     campaign(Some("fhm"), 0, false, false);
 }
+
+#[test]
+fn multiply_long_uses_architectural_mnemonics() {
+    for (assembly, arm, thumb, _, _) in CASES.iter().filter(|case| case.3 == "fhm") {
+        let expected = assembly.split('.').next().unwrap();
+        for insn in [
+            Aarch32Decoder::decode(*arm).unwrap(),
+            ThumbDecoder::decode_32bit(*thumb).unwrap(),
+        ] {
+            assert_eq!(insn.mnemonic.as_str(), expected, "{:#010x}", insn.raw);
+        }
+    }
+}
+
 #[test]
 fn reserved_simdsp_values_do_not_enable_fp32() {
     for field in 2..=15 {

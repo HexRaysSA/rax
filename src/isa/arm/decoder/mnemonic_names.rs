@@ -463,7 +463,7 @@ impl Mnemonic {
             Mnemonic::VCMLA => "vcmla",
             Mnemonic::VSDOT => "vsdot",
             Mnemonic::VUDOT => "vudot",
-            Mnemonic::VFMLS => "vfmls",
+            Mnemonic::VFMLS => "vfmsl",
             Mnemonic::VNMLA => "vnmla",
             Mnemonic::VNMLS => "vnmls",
             Mnemonic::VFNMA => "vfnma",
