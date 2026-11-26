@@ -50,7 +50,7 @@ jobs:
           codesign --verify --strict "$binary"
           codesign -d --entitlements :- "$binary" > "$EVIDENCE/entitlements.plist"
           shasum -a 256 "$binary" > "$EVIDENCE/executable.sha256"
-      - name: Resume pending MMIO from real VMM files on fresh owners
+      - name: Resume pending MMIO from real VMM files on existing and fresh owners
         timeout-minutes: 20
         env:
           RAX_NATIVE_CHECKPOINT_EVIDENCE: ${{ runner.temp }}/rax-hvf-checkpoint-evidence/checkpoints
@@ -60,7 +60,9 @@ jobs:
           binary="$(cat "$RUNNER_TEMP/rax-hvf-checkpoint-test-path")"
           "$binary" vm::runtime::native_intel_checkpoint_tests::pending_xmm_lane_on_secondary_survives_file_and_dispatches_once \
             --exact --ignored --nocapture --test-threads=1 2>&1 | tee "$EVIDENCE/native.log"
-          grep -Eq '(^| \.\.\. )native pending XMM passed count=2 ap=1 read=true$' "$EVIDENCE/native.log"
+          grep -Eq '(^| \.\.\. )native warm pending XMM passed count=2 ap=1 replaced_ap=1 read=true$' "$EVIDENCE/native.log"
+          grep -Fx 'native warm pending XMM passed count=4 ap=3 replaced_ap=2 read=false' "$EVIDENCE/native.log"
+          grep -Fx 'native pending XMM passed count=2 ap=1 read=true' "$EVIDENCE/native.log"
           grep -Fx 'native pending XMM passed count=4 ap=3 read=false' "$EVIDENCE/native.log"
           test -s "$RAX_NATIVE_CHECKPOINT_EVIDENCE/pending-xmm-ap1-2cpus.rxc"
           test -s "$RAX_NATIVE_CHECKPOINT_EVIDENCE/pending-xmm-ap3-4cpus.rxc"

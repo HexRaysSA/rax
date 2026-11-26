@@ -1,6 +1,6 @@
 //! Signed Intel HVF integration tests for private CPU and in-flight state.
 use super::*;
-use crate::backend::intel_hvf_context::Context;
+use crate::backend::intel_hvf_context::{Context, Packet};
 use crate::backend::intel_hvf_projection::Read;
 use crate::backend::intel_hvf_registers::hv_vmx_vmcs_field_t as Vmcs;
 use crate::config::{CliConfig, MemorySize};
@@ -320,6 +320,61 @@ fn legacy_pae_requires_private_paging_bank_and_resumes_from_it() {
     assert_eq!(target.vcpus[0].get_state().unwrap().pc(), CODE + 16);
 }
 
+fn hold_pending(vm: &mut Vmm, ap: usize, read: bool) -> Packet {
+    let turn = (0..32)
+        .filter_map(|_| vm.execute_turn().unwrap())
+        .find(|turn| turn.cpu_index == ap)
+        .expect("native AP did not reach its MMIO instruction");
+    let expected = if read {
+        Packet::Read {
+            address: MMIO,
+            size: 8,
+        }
+    } else {
+        Packet::Write {
+            address: MMIO,
+            data: HIGH.to_le_bytes().to_vec(),
+        }
+    };
+    assert_eq!(Packet::from_exit(&turn.exit).unwrap(), expected);
+    assert!(vm.vcpus[ap].io_completion_result().is_err());
+    expected
+}
+
+fn stopped_context(vm: &Vmm, index: usize) -> Context {
+    // The public state accessor is fenced until the device request completes.
+    let boundary = vm.vm.checkpoint_boundary().unwrap();
+    let (public, record) = vm.vcpus[index]
+        .capture_checkpoint_record(&boundary, None)
+        .unwrap();
+    let record = record.unwrap();
+    assert_eq!(record.kind, HVF_INTEL_CONTEXT);
+    let context = Context::decode(&record.data).unwrap();
+    assert_eq!(context.id as usize, index);
+    assert_eq!(context.public.regs.rip, public.state.pc());
+    context
+}
+
+fn run_pending(vm: &mut Vmm, accesses: &Arc<Mutex<Vec<Access>>>, ap: usize, read: bool) {
+    assert!(vm.vcpus[ap].io_completion_result().is_err());
+    assert!(accesses.lock().unwrap().is_empty());
+    vm.run().unwrap();
+
+    let expected = if read {
+        Access::Read(MMIO, 8)
+    } else {
+        Access::Write(MMIO, HIGH.to_le_bytes().to_vec())
+    };
+    assert_eq!(*accesses.lock().unwrap(), [expected]);
+    let CpuState::X86_64(after) = vm.vcpus[ap].get_state().unwrap() else {
+        panic!("expected x86 vCPU")
+    };
+    assert_eq!(after.regs.rip, CODE + 16);
+    assert_eq!(after.regs.xmm[15], [if read { REPLY } else { LOW }, HIGH]);
+    vm.vcpus[ap].io_completion_result().unwrap();
+    assert!(vm.vcpus[ap].complete_io_out().is_err());
+}
+
 #[test]
 #[ignore = "requires Intel macOS and com.apple.security.hypervisor entitlement"]
 fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
@@ -330,27 +385,8 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
         let mut source = Vmm::new_resume(paths.config(count)).unwrap();
         attach(&mut source, &accesses);
         install_program(&mut source, ap, read);
-        source.take_snapshot(0).unwrap();
-
-        let turn = (0..32)
-            .filter_map(|_| source.execute_turn().unwrap())
-            .find(|turn| turn.cpu_index == ap)
-            .expect("native AP did not reach its MMIO instruction");
-        assert_eq!(turn.cpu_index, ap);
-        if read {
-            assert!(matches!(
-                turn.exit,
-                VcpuExit::MmioRead {
-                    addr: MMIO,
-                    size: 8
-                }
-            ));
-        } else {
-            assert!(
-                matches!(turn.exit, VcpuExit::MmioWrite { addr: MMIO, data } if data == HIGH.to_le_bytes())
-            );
-        }
-        assert!(source.vcpus[ap].io_completion_result().is_err());
+        let legacy = source.take_snapshot(0).unwrap();
+        let expected = hold_pending(&mut source, ap, read);
         assert!(accesses.lock().unwrap().is_empty());
         let error = source
             .take_snapshot(0)
@@ -385,8 +421,9 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
             )
             .unwrap();
         }
+        let source_coordinator = source.coordinator.clone();
         drop(source);
-        std::fs::remove_file(paths.0.join("kernel")).unwrap();
+
         let loaded = SnapshotBundle::load(&checkpoint).unwrap();
         assert_eq!(loaded.cpus().unwrap().entries()[ap].state.pc(), CODE);
         let private = loaded.backend_contexts().unwrap().entries();
@@ -398,6 +435,70 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
         );
         assert!(loaded.execution().unwrap().online()[ap]);
 
+        // Give the existing VM different live work. At four CPUs it is also
+        // on a different AP, which the loaded coordinator must take offline.
+        let old_ap = if count == 4 { 2 } else { ap };
+        let marker = GuestAddress(CODE + 0x200);
+        {
+            let mut warm = Vmm::new_resume(paths.config(count)).unwrap();
+            attach(&mut warm, &accesses);
+            install_program(&mut warm, old_ap, !read);
+            warm.guest_mem.memory().write_obj(0x5au8, marker).unwrap();
+            let old_request = hold_pending(&mut warm, old_ap, !read);
+            let old_frontier = warm.coordinator.clone();
+            let before = stopped_context(&warm, old_ap);
+            assert_eq!(before.request.as_ref(), Some(&old_request));
+            assert_ne!(old_request, expected);
+
+            let check_unchanged = |vm: &Vmm| {
+                let after = stopped_context(vm, old_ap);
+                assert_eq!(after.request, before.request);
+                assert_eq!(after.output, before.output);
+                assert_eq!(
+                    crate::codec::serialize(&after.public).unwrap(),
+                    crate::codec::serialize(&before.public).unwrap(),
+                );
+                assert_eq!(vm.coordinator, old_frontier);
+                assert_eq!(vm.guest_mem.memory().read_obj::<u8>(marker).unwrap(), 0x5a);
+                assert!(accesses.lock().unwrap().is_empty());
+            };
+            let err = warm.restore_snapshot(&legacy).unwrap_err();
+            assert!(err.to_string().contains("complete backend record"), "{err}");
+            check_unchanged(&warm);
+            let err = warm
+                .restore_snapshot_bundle(&SnapshotBundle::new(legacy))
+                .unwrap_err();
+            assert!(err.to_string().contains("complete CPU set"), "{err}");
+            check_unchanged(&warm);
+
+            warm.restore_snapshot_bundle(&loaded).unwrap();
+            assert_eq!(warm.coordinator, source_coordinator);
+            assert_eq!(warm.guest_mem.memory().read_obj::<u8>(marker).unwrap(), 0);
+            assert_eq!(
+                warm.guest_mem
+                    .memory()
+                    .read_obj::<u16>(GuestAddress(CODE))
+                    .unwrap(),
+                u16::from_le_bytes([0x0f, 0x0b]),
+            );
+            if old_ap != ap {
+                assert!(!warm.coordinator.online[old_ap]);
+                assert!(stopped_context(&warm, old_ap).request.is_none());
+            }
+            let resumed = stopped_context(&warm, ap);
+            assert_eq!(resumed.public.regs.rip, CODE);
+            assert_eq!(resumed.request.as_ref(), Some(&expected));
+            run_pending(&mut warm, &accesses, ap, read);
+
+            println!(
+                "native warm pending XMM passed count={count} ap={ap} replaced_ap={old_ap} read={read}"
+            );
+        }
+
+        // The archive remains independently usable by a fresh VM without its
+        // original loader input or any device calls from the warm target.
+        std::fs::remove_file(paths.0.join("kernel")).unwrap();
+        let accesses = Arc::new(Mutex::new(Vec::new()));
         let config = VmConfig::from_checkpoint_bundle(
             &loaded,
             CliConfig {
@@ -408,33 +509,10 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
         .unwrap();
         let mut target = Vmm::new_resume_bundle(config, &loaded).unwrap();
         attach(&mut target, &accesses);
-        // The public live-state accessor is fenced while I/O is pending.
-        // Inspect the stopped CPU through the checkpoint interface.
-        {
-            let boundary = target.vm.checkpoint_boundary().unwrap();
-            let (saved, private) = target.vcpus[ap]
-                .capture_checkpoint_record(&boundary, None)
-                .unwrap();
-            assert_eq!(saved.state.pc(), CODE);
-            assert_eq!(private.unwrap().kind, HVF_INTEL_CONTEXT);
-        }
-        assert!(target.vcpus[ap].io_completion_result().is_err());
-        assert!(accesses.lock().unwrap().is_empty());
-        target.run().unwrap();
-
-        let expected = if read {
-            Access::Read(MMIO, 8)
-        } else {
-            Access::Write(MMIO, HIGH.to_le_bytes().to_vec())
-        };
-        assert_eq!(*accesses.lock().unwrap(), [expected]);
-        let CpuState::X86_64(after) = target.vcpus[ap].get_state().unwrap() else {
-            panic!("expected x86 vCPU")
-        };
-        assert_eq!(after.regs.rip, CODE + 16);
-        assert_eq!(after.regs.xmm[15], [if read { REPLY } else { LOW }, HIGH]);
-        target.vcpus[ap].io_completion_result().unwrap();
-        assert!(target.vcpus[ap].complete_io_out().is_err());
+        let resumed = stopped_context(&target, ap);
+        assert_eq!(resumed.public.regs.rip, CODE);
+        assert_eq!(resumed.request.as_ref(), Some(&expected));
+        run_pending(&mut target, &accesses, ap, read);
 
         println!("native pending XMM passed count={count} ap={ap} read={read}");
     }
