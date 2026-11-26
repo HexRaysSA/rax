@@ -200761,6 +200761,17 @@
       "full_goal_complete": false
     },
     {
+      "id": "rv64-restore-platform-inputs-2026-11-26",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Restore validates the original public/private pair, then rebuilds TIME, MSIP, MTIP and the PLIC-owned external inputs on detached harts using the checkpoint clock and platform. A fresh restore of a four-hart file containing historical stale samples previously exposed tick 99 and stale IRQ inputs at a shared MTIME of 100. The regression checks the correct timer, software and both PLIC target classes before any entry, including software and hardware SEIP on the same hart. The full backend-private and default wall-clock Linux requirements remain open.",
+      "qualification": "docs/development/riscv-clint/README.md#shared-timer-frontier-in-complete-rv64-files",
+      "full_goal_complete": false
+    },
+    {
       "id": "rv64-linux-wall-clock-task-state-2026-11-26",
       "findings": [
         "C-STATE",

@@ -1,5 +1,6 @@
 //! Checkpoint target admission and coordinated component publication.
 use super::*;
+use crate::backend::emulator::riscv::{platform::FREQUENCY_HZ, project_checkpoint_signals};
 
 impl Vmm {
     pub(super) fn validate_legacy_checkpoint_cpu(
@@ -307,9 +308,25 @@ impl Vmm {
         replacements
             .try_reserve_exact(states.len())
             .map_err(|e| Error::Emulator(format!("CPU replacement allocation: {e}")))?;
-        for (vcpu, (state, emulator, context)) in self.vcpus.iter().zip(&states) {
+        let riscv_state = bundle
+            .execution()
+            .and_then(|state| state.riscv_platform.as_ref());
+        let riscv_frontier =
+            riscv_state.map(|platform| (platform, publication_clock.counter_ticks(FREQUENCY_HZ)));
+        for (hart, (vcpu, (state, emulator, context))) in self.vcpus.iter().zip(&states).enumerate()
+        {
+            let projected;
+            let (state, context) = if let Some((platform, ticks)) = riscv_frontier {
+                // The original pair has been validated. Rebuild cached inputs
+                // from the shared devices before publishing the replacement.
+                projected =
+                    project_checkpoint_signals(hart, platform.signals_at(hart, ticks)?, *context)?;
+                (&projected.0, Some(&projected.1))
+            } else {
+                (*state, *context)
+            };
             let mut replacement =
-                vcpu.prepare_checkpoint_replacement(state, emulator, *context, &resources)?;
+                vcpu.prepare_checkpoint_replacement(state, emulator, context, &resources)?;
             #[cfg(feature = "debug")]
             if let (Some(controls), Some(candidate)) =
                 (vcpu.debugger_controls(), replacement.as_mut())
@@ -373,11 +390,8 @@ impl Vmm {
             .as_any()
             .downcast_ref::<crate::backend::emulator::EmulatorVm>()
             .and_then(|vm| vm.riscv_platform());
-        let riscv_state = bundle
-            .execution()
-            .and_then(|state| state.riscv_platform.clone());
         if let Some(platform) = &riscv_platform {
-            platform.validate_checkpoint(riscv_state.as_ref())?;
+            platform.validate_checkpoint(riscv_state)?;
         } else if riscv_state.is_some() {
             return Err(Error::InvalidConfig(
                 "CLINT checkpoint requires the software platform".into(),
@@ -605,7 +619,7 @@ impl Vmm {
             Ok(())
         };
         let commit = || match &riscv_platform {
-            Some(platform) => platform.restore_with(riscv_state, commit),
+            Some(platform) => platform.restore_with(riscv_state.cloned(), commit),
             None => commit(),
         };
         let commit = || match (arm_cluster, arm_restore) {

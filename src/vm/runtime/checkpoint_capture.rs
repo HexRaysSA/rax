@@ -155,7 +155,7 @@ impl Vmm {
                     }
                     if shared.is_none() {
                         use crate::backend::emulator::riscv::{
-                            platform::FREQUENCY_HZ, refresh_checkpoint_signals,
+                            platform::FREQUENCY_HZ, project_checkpoint_signals,
                         };
 
                         let riscv_frontier = execution
@@ -171,12 +171,13 @@ impl Vmm {
                                     prepared.as_ref(),
                                 )?;
                             if let Some((platform, ticks)) = riscv_frontier {
-                                refresh_checkpoint_signals(
+                                let (registers, context) = project_checkpoint_signals(
                                     hart,
                                     platform.signals_at(hart, ticks)?,
-                                    &mut public,
-                                    private.as_mut(),
+                                    private.as_ref(),
                                 )?;
+                                public.state = registers;
+                                private = Some(context);
                             }
                             cpus.push(public);
                             backend_contexts.push(private);

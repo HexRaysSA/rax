@@ -3,6 +3,6 @@
 
 mod cpu;
 pub(crate) mod platform;
-pub(crate) use cpu::{checkpoint_profiles, refresh_checkpoint_signals};
+pub(crate) use cpu::{checkpoint_profiles, project_checkpoint_signals};
 
 pub use cpu::{RiscVVcpu, RvUserTrap};

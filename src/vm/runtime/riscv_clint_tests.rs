@@ -185,6 +185,103 @@ fn wall_checkpoint_uses_one_mtime_and_publishes_due_inputs_before_guest_entry() 
     );
 }
 
+#[test]
+fn legacy_riscv_file_rebinds_cached_hart_inputs_before_publication() {
+    use crate::backend::emulator::riscv::platform::{PLIC_BASE, UART_BASE};
+    use crate::vm::snapshot::SnapshotBundle;
+
+    const MTIME: u64 = 0x0200_bff8;
+    const MTIMECMP: u64 = 0x0200_4000;
+    const MSIP: u64 = 0x0200_0000;
+    const UART_ENABLE: u32 = 1 << 10;
+    const MEIP: u64 = 1 << 11;
+    const SEIP: u64 = 1 << 9;
+    const MTIP: u64 = 1 << 7;
+    const SW: u64 = 1 << 3;
+    let mut source = Fixture::new(4, false);
+    let platform = platform(&source.vm);
+    let route_uart = |context: u64, enable: u32| {
+        platform
+            .write(PLIC_BASE + 0x2000 + 0x80 * context, &enable.to_le_bytes())
+            .unwrap();
+    };
+    platform.write(MTIME, &99u64.to_le_bytes()).unwrap();
+    platform.write(MTIMECMP, &99u64.to_le_bytes()).unwrap();
+    platform.write(MSIP + 4, &1u32.to_le_bytes()).unwrap();
+    platform
+        .write(PLIC_BASE + 4 * 10, &1u32.to_le_bytes())
+        .unwrap();
+    route_uart(3, UART_ENABLE); // Hart 1 supervisor context.
+    assert!(platform.write_uart(UART_BASE + 1, &[1]).unwrap());
+    assert!(platform.queue_uart_input(b"R").unwrap());
+
+    let CpuState::RiscV(mut cpu) = source.vm.vcpus[3].get_state().unwrap() else {
+        panic!("expected an RV64 hart");
+    };
+    cpu.regs.csrs = vec![(0x344, SEIP)];
+    source.vm.vcpus[3].set_state(&CpuState::RiscV(cpu)).unwrap();
+    let stale_harts = source.vm.take_snapshot_bundle(0).unwrap();
+
+    platform.write(MTIME, &100u64.to_le_bytes()).unwrap();
+    platform.write(MTIMECMP, &101u64.to_le_bytes()).unwrap();
+    platform.write(MTIMECMP + 8, &100u64.to_le_bytes()).unwrap();
+    platform.write(MSIP + 4, &0u32.to_le_bytes()).unwrap();
+    platform.write(MSIP + 8, &1u32.to_le_bytes()).unwrap();
+    route_uart(3, 0);
+    route_uart(4, UART_ENABLE); // Hart 2 machine context.
+    route_uart(7, UART_ENABLE); // Hart 3 has hardware and software SEIP.
+    let coherent = source.vm.take_snapshot_bundle(0).unwrap();
+
+    // Historical files could store a last-executed sample in the hart
+    // records while the device section captured newer levels.
+    let legacy = stale_harts
+        .with_execution(coherent.execution().unwrap().clone())
+        .unwrap();
+    let file = source.kernel.with_extension("rxc");
+    legacy.save(&file).unwrap();
+    let loaded = SnapshotBundle::load(&file).unwrap();
+    std::fs::remove_file(&source.kernel).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+    let restored = Vmm::new_resume_bundle(config, &loaded).unwrap();
+
+    let hart_timing = |state: &CpuState| {
+        let CpuState::RiscV(hart) = state else {
+            panic!("expected an RV64 hart");
+        };
+        let read = |csr| hart.regs.csrs.iter().find(|&&(n, _)| n == csr).unwrap().1;
+        (read(0xc01), read(0x344))
+    };
+    let before: Vec<_> = loaded
+        .cpus()
+        .unwrap()
+        .entries()
+        .iter()
+        .map(|r| hart_timing(&r.state))
+        .collect();
+    let after: Vec<_> = restored
+        .vcpus
+        .iter()
+        .map(|cpu| hart_timing(&cpu.get_state().unwrap()))
+        .collect();
+    // Public MIP transfers the software SEIP latch. The PLIC line is in
+    // the private header and is compared with the coherent capture below.
+    assert_eq!(before, [(99, MTIP), (99, SW), (99, 0), (99, SEIP)]);
+    assert_eq!(
+        after,
+        [(100, 0), (100, MTIP), (100, SW | MEIP), (100, SEIP)]
+    );
+    assert_eq!(
+        contexts(&restored),
+        coherent.backend_contexts().unwrap().entries()
+    );
+    assert!(
+        restored
+            .vcpus
+            .iter()
+            .all(|cpu| cpu.instruction_count() == 0)
+    );
+}
+
 fn platform(vm: &Vmm) -> Arc<crate::backend::emulator::riscv::platform::Platform> {
     vm.vm
         .as_any()

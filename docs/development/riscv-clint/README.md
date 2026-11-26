@@ -93,6 +93,20 @@ admits the resulting file into a fresh VM with the source VM and kernel
 removed. The restored public and private records agree before any hart
 retires an instruction.
 
+Restore first compares the saved public and private hart records. It then
+rebuilds the cached TIME and hardware-owned pending inputs from the file's
+clock, CLINT and PLIC while preparing detached harts. The transaction
+publishes the rebuilt harts with those same shared devices. Files produced
+before capture used a common clock sample can therefore resume with coherent
+inputs. The saved record layout and software-owned pending bits are preserved.
+Rebuilding takes one projection per hart and linear time in the total size
+of the private records.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| A historical file can contain matching public and private hart records that precede the saved device state. | High | Save and reload a four-hart file with records from MTIME 99 and a shared platform at MTIME 100. Read each restored hart before entry. |
+| CLINT and PLIC own their input levels independently of the software SEIP latch. | High | Move MSIP and MTIP between harts and reroute an asserted UART from supervisor to machine and supervisor targets. Compare the full restored private records with a coherent capture, including a hart with both software and hardware SEIP asserted. |
+
 ## Verification and limits
 
 The actual VMM guest in `tests/fixtures/riscv/vmm_clint.S` installs an M-mode trap

@@ -5,7 +5,7 @@ use crate::error::{Error, GuestMemoryFault, Result};
 use crate::isa::riscv::cpu::{Priv, checkpoint::CoreContext};
 use crate::vm::memory::checkpoint::{CheckpointBindings, CheckpointPublication, CpuPublication};
 use crate::vm::memory::reservations::Reservation;
-use crate::vm::snapshot::{BackendContext, CpuSnapshot, RISCV_CONTEXT};
+use crate::vm::snapshot::{BackendContext, RISCV_CONTEXT};
 use crate::vm::vcpu::CpuState;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -295,23 +295,22 @@ impl Context {
     }
 }
 
-/// Refresh a freshly captured pair under the shared platform boundary. The
-/// hart's last execution sample can precede the file's clock and device state.
-pub(crate) fn refresh_checkpoint_signals(
+/// Project hart inputs from the shared checkpoint. The hart's last
+/// execution sample can precede the file's clock and device state.
+pub(crate) fn project_checkpoint_signals(
     hart: usize,
     signals: Signals,
-    public: &mut CpuSnapshot,
-    private: Option<&mut BackendContext>,
-) -> Result<()> {
+    private: Option<&BackendContext>,
+) -> Result<(CpuState, BackendContext)> {
     let record = private
         .filter(|record| record.kind == RISCV_CONTEXT)
-        .ok_or_else(|| invalid("shared platform capture requires a private hart record"))?;
+        .ok_or_else(|| invalid("shared platform checkpoint requires a private hart record"))?;
     let mut context = Context::decode_record(&record.data)?;
     if context.id as usize != hart
         || !context.platform
         || context.plic != signals.external.is_some()
     {
-        return Err(invalid("captured hart differs from shared platform"));
+        return Err(invalid("saved hart differs from shared platform"));
     }
     context.cpu.set_platform_inputs(
         signals.time,
@@ -319,9 +318,13 @@ pub(crate) fn refresh_checkpoint_signals(
         signals.timer,
         signals.external,
     );
-    public.state = context.cpu.public_state(context.tohost);
-    record.data = context.encode()?;
-    Ok(())
+    Ok((
+        context.cpu.public_state(context.tohost),
+        BackendContext {
+            kind: RISCV_CONTEXT,
+            data: context.encode()?,
+        },
+    ))
 }
 
 impl RiscVVcpu {
