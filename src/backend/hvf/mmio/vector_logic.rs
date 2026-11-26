@@ -411,6 +411,7 @@ enum Operation {
     Sign(Element),
     MaskBlend(Element, u32),
     PermuteDoublewords,
+    PermuteLanes(Element),
 }
 
 impl Operation {
@@ -538,6 +539,17 @@ impl Operation {
                 let index = usize::from(left[byte / 4 * 4] & 7);
                 right[index * 4 + byte % 4]
             }),
+            Self::PermuteLanes(element) => {
+                let width = element.bytes();
+                let control_shift = usize::from(matches!(element, Element::Quadword));
+                let control_mask = (16 / width - 1) as u8;
+                std::array::from_fn(|byte| {
+                    let lane_start = byte / 16 * 16;
+                    let control = right[byte / width * width];
+                    let index = usize::from((control >> control_shift) & control_mask);
+                    left[lane_start + index * width + byte % width]
+                })
+            }
             Self::MaskBlend(element, selection) => std::array::from_fn(|i| {
                 if selection & (1 << (i / element.bytes())) != 0 {
                     right[i]
@@ -725,6 +737,12 @@ impl Input {
         {
             return Err("invalid 256-bit permutation descriptor".into());
         }
+        if let Operation::PermuteLanes(element) = self.operation
+            && (self.encoding == Encoding::Legacy
+                || !matches!(element, Element::Doubleword | Element::Quadword))
+        {
+            return Err("invalid variable lane permutation descriptor".into());
+        }
         if let Operation::MaskBlend(element, selection) = self.operation {
             let lanes = usize::from(self.encoding.size()) / element.bytes();
             if matches!(element, Element::Word)
@@ -814,6 +832,18 @@ pub(super) fn prepare<M: PhysicalMemory>(
             operands,
             None,
         )
+    } else if matches!(mnemonic, "vpermilps" | "vpermilpd") {
+        if let [_, _, control] = operands
+            && control.kind == OperandKind::Immediate
+        {
+            return Ok(None); // The unary planner owns immediate controls.
+        }
+        let element = if mnemonic == "vpermilps" {
+            Element::Doubleword
+        } else {
+            Element::Quadword
+        };
+        (Operation::PermuteLanes(element), operands, None)
     } else if let Some(operation) = Operation::mnemonic(mnemonic) {
         (operation, operands, None)
     } else {

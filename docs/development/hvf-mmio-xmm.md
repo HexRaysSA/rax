@@ -1587,6 +1587,52 @@ Local gates used a candidate based on `933d0a9ad`. The Intel execution
 result is pending. The scope is unmasked VEX.256 device reads. EVEX and
 wider interrupt and checkpoint qualification remain open.
 
+## VEX permutations within a 128-bit lane
+
+Intel HVF projects one 16 B or 32 B device read for the VEX forms of
+`VPERMILPS` and `VPERMILPD`. Immediate forms read the data from the
+device. Variable forms read the selectors from the device and save the
+vector data register in the pending read before dispatch. A result element
+can select only from the same 128-bit lane. Completion writes the
+destination and advances RIP once. The 16 B form clears the upper half
+of YMM. Both forms use time linear in operand width and fixed storage.
+
+| Instruction | Immediate selector | Variable selector |
+| --- | --- | --- |
+| `VPERMILPS` | Two bits per destination element, repeated in each 128-bit lane | Bits [1:0] of each 32-bit memory element |
+| `VPERMILPD` | One bit per destination element across the vector | Bit [1] of each 64-bit memory element |
+
+The mandatory prefix is 66 and VEX.W is zero. An immediate form requires
+encoded VEX.vvvv = 1111b. The existing immediate doubleword shuffle
+descriptor can represent `VPERMILPS`. The other new operations append
+discriminants and retain the existing pending-read wire values.
+[Intel SDM revision 092, Vol. 2C, VPERMILPD and VPERMILPS](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html)
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The encoded vector width is the device read width. | High | Run both widths at an unaligned address and at the end of a mapped page. Check the exit address and exact request width. Reject device writes and register-only forms. |
+| The register source and selectors stay in their lanes. | High | Vary all 256 immediates per width and opcode. For variable forms, alias source and destination and vary both the selector and its ignored bits. Compare the entire YMM result. |
+| A pending record carries sufficient data for one completion. | High | Round-trip the record. Check that a short reply changes no state and that a correct reply followed by a duplicate writes the vector and retires only once. |
+| Encodings and saved operations retain their VEX constraints. | High | Vary W, the mandatory prefix, reserved immediate vvvv and the immediate length. Try a legacy descriptor for the new variable forms and immediate quadword operation. |
+
+The parent `47c8336a8` rejects the first immediate device case at
+metadata decode. The portable pending-read tests and the Rosetta RAM
+oracle use 1,152 cases. The RAM oracle recorded 2,304 observations at
+two placements and verified RFLAGS and MXCSR. The ordered 32 B result
+stream from the two paths has SHA-256
+`0e7f55ac725f1c315ce5d2e77e35597c8d19c4eee27a67da9b6658fae0c88032`.
+Inputs and observations are retained under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-lane-permutations-2026-11-26/`.
+
+The `vector-lane-permutation` native profile covers 64 cases directly
+and after restoring into fresh CPU owners, for 128 observations. It
+checks the device address and width, the vector bank, RFLAGS and RIP.
+The signed Intel macOS consumer cross-built and passed signature
+verification. All 182 portable MMIO tests and 55 Python HVF tool tests
+passed on Apple Silicon. Library Clippy passed with warnings denied.
+Hosted Intel execution, EVEX device reads and bare-metal Intel
+qualification remain open.
+
 ## Unary packed shuffles with an immediate control
 
 Intel HVF supports the legacy XMM and VEX.128/.256 memory forms of

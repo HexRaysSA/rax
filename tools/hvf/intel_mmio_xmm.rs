@@ -1326,6 +1326,73 @@ pub(super) fn run_full_permutations(output: &Path) {
     println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
 }
 
+pub(super) fn run_lane_permutations(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let qwords = |bytes: [u8; 32]| {
+        std::array::from_fn(|i| u64::from_le_bytes(bytes[i * 8..i * 8 + 8].try_into().unwrap()))
+    };
+    let table = packed_shuffle::immediate_reply();
+    let mut index = 0;
+    for (width, vex_l) in [(16, 0), (32, 4)] {
+        for (element, name, opcode) in [(4, "vpermilps", 0), (8, "vpermilpd", 1)] {
+            for immediate in [true, false] {
+                for control in [0, 1, 2, 3, 0x55, 0xaa, 0x1b, 0xe4] {
+                    let (code, reply, form) = if immediate {
+                        (
+                            vec![0xc4, 0x63, 0x79 | vex_l, 4 + opcode, 0x7f, 3, control],
+                            table,
+                            "immediate",
+                        )
+                    } else {
+                        let reply = std::array::from_fn(|byte| {
+                            0xf0 | ((usize::from(control) + byte / element + byte / 16) % 4) as u8
+                        });
+                        (
+                            vec![0xc4, 0x62, 0x39 | vex_l, 0x0c + opcode, 0x7f, 3],
+                            reply,
+                            "variable",
+                        )
+                    };
+                    let mut expected = [0; 32];
+                    for byte in (0..width).step_by(element) {
+                        let slot = byte / element;
+                        let pick = match (immediate, element) {
+                            (true, 4) => (control >> (2 * (slot % 4))) & 3,
+                            (true, _) => (control >> slot) & 1,
+                            (false, 4) => reply[byte] & 3,
+                            (false, _) => (reply[byte] >> 1) & 1,
+                        };
+                        let start = byte / 16 * 16 + usize::from(pick) * element;
+                        expected[byte..byte + element]
+                            .copy_from_slice(&table[start..start + element]);
+                    }
+                    for (restore, phase) in [(false, "direct"), (true, "restored")] {
+                        let value = packed_binary_case(
+                            &code,
+                            true,
+                            restore,
+                            qwords(table),
+                            &reply[..width],
+                            qwords(expected),
+                        );
+                        record(
+                            output,
+                            index,
+                            &format!(
+                                "vector-lane-permutation-{name}-{form}-{width}-{control:02x}-{phase}"
+                            ),
+                            width,
+                            value,
+                        );
+                        index += 1;
+                    }
+                }
+            }
+        }
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
 pub(super) fn run_immediate_blend(output: &Path) {
     use packed_blend::{LEFT, REPLY, forms};
 

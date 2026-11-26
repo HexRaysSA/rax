@@ -1492,6 +1492,14 @@ fn main() {
         xmm::run_full_permutations(&output);
         return;
     }
+    if std::env::args_os().nth(1).as_deref()
+        == Some(std::ffi::OsStr::new("--vector-lane-permutation"))
+    {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        xmm::run_lane_permutations(&output);
+        return;
+    }
     if let Some(
         profile @ ("--vector-narrow"
         | "--vector-horizontal"

@@ -47,10 +47,14 @@ pub(super) fn decode_xmm_transfer(
     let unary_shuffle = match (map, flags & 0x87, opcode) {
         (3, 0x85, 0x00) => Some("vpermq"),
         (3, 0x85, 0x01) => Some("vpermpd"),
+        (3, 1 | 5, 0x04) => Some("vpermilps"),
+        (3, 1 | 5, 0x05) => Some("vpermilpd"),
         (1, _, 0x70) => packed_unary_shuffle_mnemonics(flags & 3).map(|(_, vex)| vex),
         _ => None,
     };
     let indexed_permutation = match (map, flags & 0x87, opcode) {
+        (2, 1 | 5, 0x0c) => Some("vpermilps"),
+        (2, 1 | 5, 0x0d) => Some("vpermilpd"),
         (2, 5, 0x16) => Some("vpermps"),
         (2, 5, 0x36) => Some("vpermd"),
         _ => None,
