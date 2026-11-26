@@ -590,13 +590,26 @@ executables on macOS Arm64 and QEMU 11.1.2 produced the pass marker and
 powered off. In alternating runs, four-hart host elapsed time went from
 27.67 s to 13.05 s (median of two measurements per build). One two-hart
 pair took 29.23 s and 13.59 s. The timings describe this guest and host.
-The two-hart Debian wall-clock probe entered supervisor mode on both
-harts, then reported an RCU stall before the PID 1 affinity marker. Two
-warnings showed the same grace-period sequence and RCU softirq count.
-The first checkpoint recorded 422,699,490 retirements on hart 0 and
-574,624,537 on hart 1, both with active Sv39. This boot remains
-unqualified.
+The two- and four-hart Debian wall-clock probes reached their 650 s and
+750 s host limits before the PID 1 affinity markers. Linux reported RCU
+stalls and, on four harts, two blocked tasks. Checkpoint memory verified
+against the stored RAM digest contained Linux online CPU masks `0x3` and
+`0xf`. A frame-pointer walk using the exact kernel's symbol addresses found
+`riscv_timer_interrupt` in every saved hart's stack across two two-hart
+captures and one four-hart capture. Three snapshots are insufficient to
+measure interrupt occupancy or establish the cause of the stalls.
 [Linux RCU stall detector documentation](https://docs.kernel.org/RCU/stallwarn.html)
+[Linux v6.12 RISC-V stack walker](https://github.com/torvalds/linux/blob/v6.12/arch/riscv/kernel/stacktrace.c)
+
+The same optimized CLI restored the original two-hart guest at retirement
+zero from a bundle with `RetiredWithIdle`. PID 1 ran on both harts, emitted
+the pass marker and powered off. The run took 527 s of host elapsed time,
+including a diagnostic capture. That capture showed both harts executing
+kernel cryptographic self-tests. A separate wall-clock diagnostic appended
+only `initcall_blacklist=jent_mod_init` to the two-hart guest. It reached its
+420 s host limit and reported an X.509 load timeout. QEMU booted that
+diagnostic guest through PID 1 and powered off. The wall-clock Linux boot
+remains unqualified.
 
 The fixture, output, hashes and exact commands are in
 `/Users/int/dev/rax-audit-work/four-findings-rv64-turn-batching-2026-11-26/`.

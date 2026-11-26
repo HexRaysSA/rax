@@ -200717,6 +200717,17 @@
       "scope": "The A32 and T32 scalar FP16 forms with a Len and Stride restriction reject nonzero visible controls before FP access traps and effects. The default profile reads these fields as zero, including after the import of nonzero raw state. QEMU 11.1.2 max rejected all 1,178 nonzero cases and executed all 38 zero cases across 19 encodings and both instruction sets. Physical AArch32 validation remains open.",
       "qualification": "docs/development/a32-short-vectors/README.md#scalar-fp16-admission",
       "full_goal_complete": false
+    },
+    {
+      "id": "rv64-debian-wall-and-retired-clock-validation-2026-11-26",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "retired_clock_qualified_wall_clock_open",
+      "scope": "The two-hart retirement-clock bundle restored at retirement zero and the batched CLI booted Debian through PID 1 affinity on both harts and powered off. Wall-clock runs reached 650 s with two harts and 750 s with four harts before the affinity marker. Saved Linux online CPU masks were 0x3 and 0xf. Every sampled wall-clock hart was in a timer-interrupt stack, while both harts sampled on the retirement clock were running kernel cryptographic self-tests. Skipping only the jitter-entropy initcall did not resolve the wall-clock timeout. The wall-clock boot cause remains open.",
+      "qualification": "docs/development/riscv-clint/README.md#rv64-retirement-batches",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
