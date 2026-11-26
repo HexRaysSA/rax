@@ -677,7 +677,22 @@ inputs before selecting the next hart.
 | Batching preserves per-instruction interrupt sampling. | High | Run through the same deadline without `WFI`. Require interrupt entry before the 301st instruction, with the original instruction address in MEPC and exactly 300 total retirements. |
 
 The regression checks the machine timer cause and vector in both paths.
-The default wall-clock Debian boot remains unqualified.
+With `dd4eb7b2a`, the default four-hart Debian wall-clock boot reached the
+950 s host limit without a PID 1 affinity marker. The saved RAM and matching
+kernel BTF yielded the following task and RCU state.
+
+| Host elapsed time at checkpoint decode | `event_mutex` | PID 1 | RCU ticks on CPUs 0 through 3 |
+| ---: | --- | --- | --- |
+| 69.260 s | PID 40 on CPU 1, no waiters | Running on CPU 3 | 3,270 / 3,138 / 3,238 / 2,784 |
+| 309.203 s | PID 40 on CPU 0, PIDs 1 and 38 waiting | Blocked in `init_kprobe_trace` | 57,242 / 56,925 / 56,534 / 55,660 |
+
+Both captures had the same RCU sequence and a zero leaf quiescent-state
+pending mask. The later console reported blocked tasks and a separate RCU
+stall. The samples establish that each hart handled timer ticks and that
+the scheduler migrated the mutex owner between captures. The cause of the
+wall-clock boot timeout remains open. The console, supervisor result, RAM
+digests and decoded task records are in
+`/Users/int/dev/rax-audit-work/four-findings-rv64-timer-frontier-2026-11-26/`.
 
 #### Linux timer counters at the recorded checkpoints
 
