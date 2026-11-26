@@ -450,9 +450,11 @@ pub fn add<F: Sf>(a: F, b: F, mode: RoundingMode, flags: &mut u32) -> F {
             return F::ZERO.neg();
         }
     }
-    // 2Sum exact residual: a + b == r + e.
-    let bv = r.sub(a);
-    let e = a.sub(r.sub(bv)).add(b.sub(bv));
+    // 2Sum exact residual: order by magnitude so r - hi stays finite for a
+    // finite result near the maximum exponent.
+    let (hi, lo) = if a.abs() >= b.abs() { (a, b) } else { (b, a) };
+    let bv = r.sub(hi);
+    let e = hi.sub(r.sub(bv)).add(lo.sub(bv));
     correct(r, e, mode, true, flags)
 }
 
@@ -2231,5 +2233,48 @@ mod tests {
         let x64: u64 = 0x0123_4567_89AB_CDEF;
         assert_eq!(bits_to_u64::<f64>(x64), x64);
         assert_eq!(u64_to_bits::<f64>(x64), x64);
+    }
+
+    #[test]
+    fn add_directed_rounding_is_exact_at_max_finite_midpoints() {
+        // The exact sum is -(8973687.5)*2^104, halfway between adjacent
+        // representable values in the top binade.
+        let a = f32::from_bits(0x7eee_250f);
+        let b = f32::from_bits(0xff7f_ffff); // -max_finite
+        let cases = [
+            (RoundingMode::Rtz, 0xff08_ed77),
+            (RoundingMode::Rdn, 0xff08_ed78),
+            (RoundingMode::Rup, 0xff08_ed77),
+            (RoundingMode::Rne, 0xff08_ed78),
+            (RoundingMode::Rmm, 0xff08_ed78),
+        ];
+        for (mode, expected) in cases {
+            for (left, right) in [(a, b), (b, a)] {
+                let mut flags = 0;
+                assert_eq!(add(left, right, mode, &mut flags).to_bits(), expected);
+                assert_ne!(flags & fflags::NX, 0, "{mode:?} midpoint rounds inexactly");
+            }
+        }
+    }
+
+    #[test]
+    fn add_d_directed_rounding_is_exact_at_max_finite_midpoints() {
+        // Double-precision variant of the same midpoint defect.
+        let a = f64::from_bits(0x7fdf_2bae_0789_dc8b);
+        let b = f64::from_bits(0xffef_ffff_ffff_ffff); // -max_finite
+        let cases = [
+            (RoundingMode::Rtz, 0xffe0_6a28_fc3b_11b9),
+            (RoundingMode::Rdn, 0xffe0_6a28_fc3b_11ba),
+            (RoundingMode::Rup, 0xffe0_6a28_fc3b_11b9),
+            (RoundingMode::Rne, 0xffe0_6a28_fc3b_11ba),
+            (RoundingMode::Rmm, 0xffe0_6a28_fc3b_11ba),
+        ];
+        for (mode, expected) in cases {
+            for (left, right) in [(a, b), (b, a)] {
+                let mut flags = 0;
+                assert_eq!(add(left, right, mode, &mut flags).to_bits(), expected);
+                assert_ne!(flags & fflags::NX, 0, "{mode:?} midpoint rounds inexactly");
+            }
+        }
     }
 }
