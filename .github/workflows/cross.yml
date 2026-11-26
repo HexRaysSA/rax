@@ -139,4 +139,11 @@ jobs:
           targets: ${{ matrix.target }}
           cache-key: rustup-${{ matrix.target }}
       - name: cargo build (core, no default features)
+        env:
+          # The runner's clang searches /usr/include for WASI, so its builtin
+          # <limits.h> and <stdint.h> chain into the host glibc headers, which
+          # need multiarch `bits/` headers absent for wasm. zstd-sys needs only
+          # the clang builtin headers and its wasm-shim, so drop the libc
+          # include directories. cc reads this variable for that target alone.
+          CFLAGS_wasm32_wasip2: -nostdlibinc
         run: cargo build --locked --target ${{ matrix.target }} --no-default-features

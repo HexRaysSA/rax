@@ -169,7 +169,7 @@ fn stopped_wall_publication_retains_its_target_owner_and_incoming_epoch() {
     std::thread::sleep(Duration::from_millis(3));
     assert_eq!(first.elapsed(), Duration::new(7, 11));
     assert_eq!(second.elapsed(), Duration::new(13, 17));
-    assert!(target.resume_wall_at(std::time::Instant::now()));
+    assert!(target.resume_wall_at(crate::host::time::Instant::now()));
     std::thread::sleep(Duration::from_millis(2));
     let before = target.elapsed_nanos().wrapping_sub(21);
     let observed = first.elapsed().saturating_sub(Duration::new(7, 11));

@@ -40,7 +40,7 @@ fn prepared_wall_timer_retains_incoming_age_until_its_owner_resumes() {
     replacement.retain_target_binding(&clock);
     replacement.restart();
     assert_eq!(replacement.sample(wall, wall).elapsed_nanos, 0);
-    let entry = std::time::Instant::now();
+    let entry = crate::host::time::Instant::now();
     assert!(owner.resume_wall_at(entry));
     let before = entry.elapsed().as_nanos();
     let sample = replacement.sample(wall, wall);

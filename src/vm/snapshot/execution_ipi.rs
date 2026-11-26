@@ -120,7 +120,7 @@ mod tests {
             last_snapshot_insn: None,
             online: vec![true, false, true, true],
             local_apics: (0..4)
-                .map(|id| LocalApic::new(id).checkpoint_at(std::time::Instant::now()))
+                .map(|id| LocalApic::new(id).checkpoint_at(crate::host::time::Instant::now()))
                 .collect(),
             pending_ipi: None,
             pc: None,

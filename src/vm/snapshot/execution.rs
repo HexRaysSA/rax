@@ -817,7 +817,7 @@ mod riscv_frame_tests {
             last_snapshot_insn: None,
             online: vec![true],
             pending_ipi: None,
-            local_apics: vec![LocalApic::new(0).checkpoint_at(std::time::Instant::now())],
+            local_apics: vec![LocalApic::new(0).checkpoint_at(crate::host::time::Instant::now())],
             pc: None,
             pl011: None,
             arm_cluster: None,

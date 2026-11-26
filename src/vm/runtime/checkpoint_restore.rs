@@ -330,7 +330,7 @@ impl Vmm {
             .execution()
             .map(|state| {
                 state.validate(snapshot)?;
-                let now = std::time::Instant::now();
+                let now = crate::host::time::Instant::now();
                 let apics = state
                     .local_apics
                     .iter()
@@ -575,7 +575,7 @@ impl Vmm {
             }
             if let Some((saved, apics)) = execution {
                 *coordinator = saved;
-                let resume = std::time::Instant::now();
+                let resume = crate::host::time::Instant::now();
                 for (target, mut restored) in lapics.iter_mut().zip(apics) {
                     restored.resume_timer_at(resume);
                     target.replace_state(restored);

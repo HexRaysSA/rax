@@ -108,7 +108,9 @@ mod tests {
             online: vec![true; count],
             pending_ipi: None,
             local_apics: (0..count)
-                .map(|id| LocalApic::new(id as u32).checkpoint_at(std::time::Instant::now()))
+                .map(|id| {
+                    LocalApic::new(id as u32).checkpoint_at(crate::host::time::Instant::now())
+                })
                 .collect(),
             pc: None,
             pl011: None,
@@ -133,7 +135,7 @@ mod tests {
             let restored = ExecutionSnapshot::decode(&raw, count as u8).unwrap();
             assert_eq!(restored.encoded().unwrap(), raw);
             for (id, apic) in restored.local_apics.iter().enumerate() {
-                let mut target = apic.prepare(std::time::Instant::now());
+                let mut target = apic.prepare(crate::host::time::Instant::now());
                 for vector in [0x51 + id as u8, 0x61, 0x51] {
                     assert_eq!(target.take_pending_eoi(), Some(vector));
                 }

@@ -1,11 +1,11 @@
 //! VM-owned selectable clock, diagnostic tick counter and pending-timer flag.
 use super::{ClockMode, ClockState};
 use crate::error::{Error, Result};
+use crate::host::time::Instant;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 enum ClockSource {
     Wall { base: u64, start: Option<Instant> },

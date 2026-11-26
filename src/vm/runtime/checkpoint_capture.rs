@@ -110,7 +110,7 @@ impl Vmm {
                     #[cfg(not(all(feature = "kvm", target_os = "linux", target_arch = "x86_64")))]
                     let sampled_at = None;
                     let clock = self.timing_context.checkpoint_state_at(sampled_at);
-                    let now = std::time::Instant::now();
+                    let now = crate::host::time::Instant::now();
                     let execution = ExecutionSnapshot {
                         cursor: self.coordinator.cursor,
                         retired: self.coordinator.retired,

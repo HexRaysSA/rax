@@ -106,7 +106,7 @@ impl Vmm {
     pub(super) fn capture_execution_state(&self) -> Result<crate::vm::snapshot::ExecutionSnapshot> {
         #[cfg(feature = "debug")]
         self.debugger.ready()?;
-        let now = std::time::Instant::now();
+        let now = crate::host::time::Instant::now();
         let mut local_apics = Vec::with_capacity(self.local_apics.len());
         for controller in &self.local_apics {
             local_apics.push(

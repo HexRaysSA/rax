@@ -87,7 +87,7 @@ fn complete(count: u8) -> SnapshotBundle {
                 } else {
                     crate::devices::lapic::LocalApic::new(u32::from(id))
                 };
-                apic.checkpoint_at(std::time::Instant::now())
+                apic.checkpoint_at(crate::host::time::Instant::now())
             })
             .collect(),
         riscv_platform: None,

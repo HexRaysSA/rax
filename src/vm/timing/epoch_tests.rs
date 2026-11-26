@@ -116,7 +116,7 @@ fn wall_restore_epoch_is_prepared_before_the_stopped_clock_is_published() {
         published.sample().duration_since(&published).unwrap(),
         Duration::ZERO
     );
-    assert!(clock.resume_wall_at(std::time::Instant::now()));
+    assert!(clock.resume_wall_at(crate::host::time::Instant::now()));
     std::thread::sleep(Duration::from_millis(2));
     assert!(published.sample().duration_since(&published).unwrap() >= Duration::from_millis(2));
 }
