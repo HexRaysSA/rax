@@ -200922,6 +200922,14 @@
       "scope": "Apple Silicon HVF legacy capture holds the stopped backend frontier, checks in-flight MMIO and completion ownership on every vCPU, and rejects queued PSCI, a parked bootstrap CPU or VM shutdown. The native parent accepted five captures that omitted these states. Five signed native MMIO tests and seven signed native PSCI tests passed, and an independent reader verified the relevant owner state in eight complete files. Legacy capture succeeds after a terminal VM is explicitly woken. Intel HVF was compile-checked. Additional native and backend checkpoint coverage remains open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#apple-silicon-hvf-legacy-capture",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-cp15-tid3-feature-ids-2026-11-26",
+      "findings": ["A32-FP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Non-secure AArch32 EL1 MRC takes the selected TID3 trap for the base CP15 feature ID group and the additional encodings of the mixed-width profile. Mixed-width preflight admits the trap before checking whether the ID value is implemented. The parent retired an ID_PFR0 read with TID3 set. QEMU 11.1.2 exercised 384 ARM and Thumb probes with AArch32 and AArch64 EL2, and the five owning RAX suites passed 47,728 tests. Wider profile and physical AArch32 validation remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#cp15-feature-id-group-interception",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

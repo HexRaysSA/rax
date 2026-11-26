@@ -1,5 +1,6 @@
 //! Arm XML 2025-12 FP access policy shared by standalone and mixed-width PEs.
 use crate::isa::arm::aarch64::aarch32_state::system_trap_rt;
+use crate::isa::arm::common::sysreg::Cp15Encoding;
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
 
 #[derive(Clone, Copy, Debug)]
@@ -50,6 +51,30 @@ pub(crate) struct FpAccessContext {
 }
 
 impl FpAccessContext {
+    /// Arm DDI0487B.a D7.2 and G6.2, ID group 3 for CP15 MRC.
+    pub(in crate::isa::arm) fn traps_cp15_id_group3(self, enc: Cp15Encoding, armv8: bool) -> bool {
+        const TID3: u64 = 1 << 18;
+        const TGE: u64 = 1 << 27;
+        if self.current_el != 1
+            || self.secure
+            || !self.el2_enabled
+            || self.hcr & TID3 == 0
+            || self.el2_aarch64 && self.hcr & TGE != 0
+        {
+            return false;
+        }
+
+        match (enc.crn, enc.op1, enc.crm, enc.op2) {
+            // ID_PFRn, ID_DFR0, ID_AFR0, ID_MMFR0-3 and ID_ISAR0-5.
+            (0, 0, 1, 0..=7) | (0, 0, 2, 0..=5) => true,
+            // This PE selects the implementation-defined ID_ISAR6 trap.
+            (0, 0, 2, 7) => true,
+            // ID_MMFR4 and the additional Armv8-A identification encodings.
+            (0, 0, 2, 6) | (0, 0, 3..=7, 0 | 1) | (0, 0, 3, 2) | (0, 0, 5, 4 | 5) => armv8,
+            _ => false,
+        }
+    }
+
     pub(in crate::isa::arm) fn traps_cp15(self, selector: u8) -> bool {
         const HOST: u64 = (1 << 34) | (1 << 27); // HCR_EL2.{E2H,TGE}
         self.current_el <= 1

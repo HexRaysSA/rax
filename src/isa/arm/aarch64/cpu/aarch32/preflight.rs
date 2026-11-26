@@ -4,6 +4,7 @@
 use crate::isa::arm::aarch64::cpu::AArch64Cpu;
 use crate::isa::arm::aarch64::exception_return::uses_aarch32;
 use crate::isa::arm::common::cpu::ArmError;
+use crate::isa::arm::common::sysreg::Cp15Encoding;
 use crate::isa::arm::decoder::{DecodedInsn, Mnemonic};
 
 impl AArch64Cpu {
@@ -58,20 +59,26 @@ impl AArch64Cpu {
                 && cp == 15
                 && (insn.raw >> 4) & 15 <= 1
                 && crm == 14;
-            // A selected HSTR bit can intercept a CP15 transfer even when
+            // HSTR and TID3 can intercept a CP15 transfer even when
             // its ordinary effects are unimplemented. Execution owns the EL0
             // and operand checks. Pair transfers index HSTR by CRm.
             let selector = if scalar { crn } else { crm };
-            let hstr_trap = cp == 15
-                && insn.raw >> 28 != 15
-                && self.aarch32_fp_context().traps_cp15(selector as u8);
+            let intercepted = cp == 15 && insn.raw >> 28 != 15 && {
+                let context = self.aarch32_fp_context();
+                context.traps_cp15(selector as u8)
+                    || insn.mnemonic == Mnemonic::MRC
+                        && context.traps_cp15_id_group3(
+                            Cp15Encoding::new(crn as u8, opc1 as u8, crm as u8, opc2 as u8),
+                            true,
+                        )
+            };
             if !(fp_system
                 || fp_control
                 || fp_instruction_id
                 || thread_id
                 || frequency
                 || counter
-                || hstr_trap)
+                || intercepted)
             {
                 return Err(ArmError::UnsupportedExecutionState(format!(
                     "AArch32 coprocessor transfer {:#010x}",

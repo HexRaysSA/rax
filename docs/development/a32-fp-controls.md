@@ -584,6 +584,33 @@ configurations, including both ARM and Thumb encodings. All 47,683 tests
 passed across the five owning targets on Apple Silicon with `smir-jit`.
 Physical AArch32 qualification remains open.
 
+### CP15 feature ID group interception
+
+`HCR.TID3` intercepts Non-secure EL1 reads of the base CP15 feature ID
+group. Mixed-width Armv8-A execution also intercepts `ID_MMFR4` and the
+additional defined CP15 identification encodings. The selected
+`ID_ISAR6` trap applies even when the register reports zero. The same
+check admits the trap through mixed-width preflight and selects its
+execution outcome before reading the register. The classification uses
+constant time and auxiliary space.
+[Arm DDI 0487B.a, D7.2 and G6.2, HCR_EL2 and HCR](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+
+| Assumption | Falsification probe |
+| --- | --- |
+| An intercepted MRC has no destination or retirement effect. | Run every selected encoding in ARM and Thumb. Require EC `0x03` at EL2, the exact ISS, unchanged R2 and PC, and zero retirements. |
+| The feature ID group excludes MIDR, CTR and MPIDR. | Enable TID3 and issue those otherwise adjacent reads. Require the normal access outcome. |
+| A hypervisor can intercept a read whose value the mixed-width CPU does not supply. | Compare the same MRC with TID3 set and clear. The clear case preserves the existing mixed-width availability check. |
+
+The parent continued after a Non-secure EL1 `ID_PFR0` read with TID3
+set. QEMU 11.1.2 trapped all 28 base-group ARM and Thumb reads on each
+of its Cortex-A15 and Cortex-A53 models. The Cortex-A53 model trapped
+all 30 additional and optional cases with AArch32 EL2. With AArch64 EL2
+it matched all 128 syndrome and control probes, including 58 TID3
+traps. The Cortex-A15 model did not implement the later encoding traps.
+The five owning RAX test targets passed all 47,728 tests. Physical
+AArch32 execution remains unverified. The raw results and guest sources are in
+`/Users/int/dev/rax-audit-work/four-findings-a32-tid3-2026-11-26/`.
+
 ## AArch32 execution below EL2 without EL3
 
 On the represented Non-secure PE without EL3, `HCR_EL2.RW` selects the

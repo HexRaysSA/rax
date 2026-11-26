@@ -226,6 +226,86 @@ fn ns_el1_tid3_traps_mvfr_alias_reads_with_complete_iss_and_no_effects() {
 }
 
 #[test]
+fn aarch32_tid3_traps_the_cp15_feature_id_group() {
+    use rax::isa::arm::decoder::ThumbDecoder;
+
+    const TID3: u32 = 1 << 18;
+    const CANARY: u32 = 0xface_1234;
+    let group = (0..8)
+        .map(|op2| (1, op2))
+        .chain((0..8).map(|op2| (2, op2)))
+        .chain((3..=7).flat_map(|crm| [(crm, 0), (crm, 1)]))
+        .chain([(3, 2), (5, 4), (5, 5)]);
+    let controls = [(0, 0), (0, 1), (0, 5)]; // MIDR, CTR, MPIDR.
+
+    for thumb in [false, true] {
+        for tid3 in [0, TID3] {
+            for (crm, op2, mixed_traps) in group
+                .clone()
+                .map(|(crm, op2)| (crm, op2, tid3 != 0))
+                .chain(controls.map(|(crm, op2)| (crm, op2, false)))
+            {
+                let raw = 0xee10_2f10 | (op2 << 5) | crm; // MRC P15,0,R2,C0,CRm,Op2.
+                let insn = if thumb {
+                    ThumbDecoder::decode_32bit(raw)
+                } else {
+                    Aarch32Decoder::decode(raw)
+                }
+                .unwrap();
+                let iss = (0x1e << 20) | (op2 << 17) | (2 << 5) | (crm << 1) | 1;
+                let mut standalone = Armv7Cpu::new();
+                standalone.cp15.id_pfr1 = 1 << 12; // EL2, no EL3.
+                standalone.cp15.hcr = tid3;
+                standalone.cpsr.mode = ProcessorMode::Supervisor as u8;
+                standalone.cpsr.t = thumb;
+                standalone.regs[2] = CANARY;
+                let mut memory = Memory32::new(4096, 0);
+                let result = Executor::new(&mut standalone, &mut memory).execute(&insn);
+                let standalone_traps = mixed_traps && (crm == 1 || crm == 2 && op2 != 6);
+                if standalone_traps {
+                    assert!(
+                        matches!(result, ExecResult::FpAccessTrap { target_el: 2, syndrome, undefined: false }
+                            if syndrome == (3 << 26) | (1 << 25) | iss),
+                        "standalone Thumb={thumb} c{crm},{op2}: {result:?}"
+                    );
+                    assert_eq!(standalone.regs[2], CANARY);
+                } else {
+                    assert!(matches!(result, ExecResult::Continue), "{result:?}");
+                }
+
+                let mut mixed = mixed(raw, thumb, 0, false, false);
+                let mut state = mixed.export_sregs();
+                state.execution.as_mut().unwrap().sysregs.hcr_el2 = u64::from(tid3);
+                mixed.import_sregs(&state).unwrap();
+                mixed.set_x(2, u64::from(CANARY));
+                let result = mixed.step();
+                if mixed_traps {
+                    assert!(
+                        matches!(result, Err(ArmError::ArchitecturalException { ec: 3, iss: saved, target_el: Some(2) }) if saved == iss),
+                        "mixed Thumb={thumb} c{crm},{op2}: {result:?}"
+                    );
+                    assert_eq!(mixed.get_x(2), u64::from(CANARY));
+                    assert_eq!(mixed.get_pc(), 0x100);
+                    assert_eq!(mixed.instruction_count(), 0);
+                } else if crm == 2 && matches!(op2, 5 | 7) {
+                    assert_eq!(result.unwrap(), CpuExit::Continue);
+                    assert_eq!(mixed.get_pc(), 0x104);
+                    assert_eq!(mixed.instruction_count(), 1);
+                } else {
+                    assert!(matches!(
+                        result,
+                        Err(ArmError::UnsupportedExecutionState(_))
+                    ));
+                    assert_eq!(mixed.get_x(2), u64::from(CANARY));
+                    assert_eq!(mixed.get_pc(), 0x100);
+                    assert_eq!(mixed.instruction_count(), 0);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn el1_id_isar6_readback_and_tid3_traps_agree_across_execution_states() {
     const MRS_ISAR6: u32 = 0xd538_02e3; // MRS X3,ID_ISAR6_EL1.
     const MRC_ISAR6: u32 = 0xee10_3ff2; // MRC P15,0,R3,C0,C2,7.
