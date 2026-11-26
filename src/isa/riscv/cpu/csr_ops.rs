@@ -469,6 +469,37 @@ mod tests {
     }
 
     #[test]
+    fn mip_csr_writes_preserve_platform_machine_pending_bits() {
+        let machine_pending = MIP_MSIP | MIP_MTIP | MIP_MEIP;
+        let mut hart = cpu(Isa::rv64gc());
+
+        hart.csr_write(Csr::Mip as u16, machine_pending).unwrap();
+        assert_eq!(hart.csr_read(Csr::Mip as u16).unwrap() & machine_pending, 0);
+
+        hart.set_interrupt_pending(machine_pending, true);
+        hart.csr_write(Csr::Mip as u16, 0).unwrap();
+        assert_eq!(
+            hart.csr_read(Csr::Mip as u16).unwrap() & machine_pending,
+            machine_pending
+        );
+
+        hart.csr_write(Csr::Mip as u16, S_INTERRUPT_MASK).unwrap();
+        assert_eq!(
+            hart.csr_read(Csr::Mip as u16).unwrap() & S_INTERRUPT_MASK,
+            S_INTERRUPT_MASK
+        );
+        hart.csr_write(Csr::Mip as u16, 0).unwrap();
+        assert_eq!(
+            hart.csr_read(Csr::Mip as u16).unwrap() & S_INTERRUPT_MASK,
+            0
+        );
+        assert_eq!(
+            hart.csr_read(Csr::Mip as u16).unwrap() & machine_pending,
+            machine_pending
+        );
+    }
+
+    #[test]
     fn mepc_masks_the_configured_ialign_on_reads_and_mret() {
         let mut no_c = cpu(Isa::rv_i());
         no_c.csr_write(0x341, 0x1003).unwrap();
