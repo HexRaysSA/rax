@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use super::{DarwinProcess, ExitStatus, Proc, RunStatus, wait};
+use super::{DarwinProcess, ExitStatus, Proc, RunStatus, usage::Usage, wait};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::signal::{self, frame::code};
 use crate::user::darwin::syscall::mach::kmsg::PortWake;
@@ -179,8 +179,7 @@ pub(crate) struct Report {
     pub(crate) status: i32,
     pub(crate) code: i32,
     pub(crate) value: i32,
-    pub(crate) user_ns: u64,
-    pub(crate) system_ns: u64,
+    pub(crate) usage: Usage,
 }
 
 impl Member {
@@ -537,8 +536,7 @@ impl Report {
             status: (signal << 8) | 0x7f,
             code,
             value: signal,
-            user_ns: 0,
-            system_ns: 0,
+            usage: Usage::default(),
         }
     }
 
@@ -572,17 +570,13 @@ impl Report {
             ),
             ExitStatus::Internal(_) => unreachable!("internal failure stops the session"),
         };
-        let (mut user_ns, mut system_ns) = proc.task.dead_times;
-        for thread in proc.threads.values() {
-            user_ns = user_ns.saturating_add(thread.mach.user_ns);
-            system_ns = system_ns.saturating_add(thread.mach.system_ns);
-        }
+        let mut usage = proc.own_usage(None);
+        usage.add(proc.child_usage);
         Self {
             status,
             code,
             value,
-            user_ns,
-            system_ns,
+            usage,
         }
     }
 }

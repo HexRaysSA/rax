@@ -37,6 +37,7 @@ use crate::user::mm::{AddressSpace, MmError, SpaceConfig};
 
 pub(crate) mod embedding;
 pub(crate) mod family;
+pub(crate) mod usage;
 
 #[cfg(test)]
 pub(crate) mod bounded_tests;
@@ -478,6 +479,8 @@ pub struct Proc {
     pub(crate) pauth: Option<super::pauth::TaskPauth>,
     /// Resource limits.
     pub rlimits: Rlimits,
+    pub(super) exec_cpu_ns: (u64, u64),
+    pub(crate) child_usage: usage::Usage,
     /// File-creation mask.
     pub umask: u32,
     /// Signal actions.
@@ -943,12 +946,6 @@ impl DarwinProcess {
             if let Some(g) = self.proc.guard_ast.take() {
                 super::exception::post_guard(&mut thread.mach.guard_ast, g);
             }
-            if let Some(swap) = self.proc.exec.take() {
-                // The call ran a new image: the process continues as it,
-                // and the calling thread went with the old one.
-                self.swap(*swap);
-                continue;
-            }
             let t2 = thread_cpu_ns();
             let (user, system) = if continuing {
                 (0, t2.saturating_sub(t0))
@@ -957,6 +954,15 @@ impl DarwinProcess {
             };
             thread.mach.user_ns += user;
             thread.mach.system_ns += system;
+            if let Some(mut swap) = self.proc.exec.take() {
+                // BSD CPU time follows the process through exec. RSS, faults
+                // and previously reaped children's usage belong to the old image.
+                if !self.proc.config.host_services {
+                    swap.proc.exec_cpu_ns = self.proc.usage_cpu_ns(Some(&thread));
+                }
+                self.swap(*swap);
+                continue;
+            }
             signal::timer::charge(&mut self.proc, &mut thread, user, system);
             // Back to user mode: deliver the thread's signals (bsd_ast),
             // then raise its guard violation.
@@ -1269,6 +1275,9 @@ pub(crate) fn start(
         reserved_phys: reserved,
     })
     .map_err(SpawnError::Memory)?;
+    if !config.host_services {
+        space.track_residency();
+    }
 
     // The task's name space: the main thread's port first (th_port,
     // 0x103), then the task's (0x203), as on macOS.
@@ -1413,6 +1422,8 @@ pub(crate) fn start(
             entropy,
             pauth,
             rlimits,
+            exec_cpu_ns: Default::default(),
+            child_usage: Default::default(),
             umask: c.umask,
             sigacts: c.sigacts,
             itimers: c.itimers,
@@ -1543,6 +1554,8 @@ pub(crate) fn start(
                 entropy,
                 pauth,
                 rlimits,
+                exec_cpu_ns: Default::default(),
+                child_usage: Default::default(),
                 umask,
                 sigacts,
                 itimers: signal::timer::ITimers::default(),

@@ -23,9 +23,6 @@ pub mod idtype {
     pub const P_PGID: i32 = 2;
 }
 
-/// `sizeof(struct user64_rusage)`.
-pub(super) const RUSAGE_SIZE: usize = 144;
-
 pub(super) fn wait4(
     ctx: &mut Ctx<'_>,
     pid: i32,
@@ -53,14 +50,7 @@ pub(super) fn wait4(
         ctx.write_u32(status, report.status as u32)?;
     }
     if rusage != 0 && report.is_exit() {
-        let mut bytes = [0; RUSAGE_SIZE];
-        for (at, ns) in [(0, report.user_ns), (16, report.system_ns)] {
-            let seconds = ns / 1_000_000_000;
-            let microseconds = ns % 1_000_000_000 / 1_000;
-            bytes[at..at + 8].copy_from_slice(&seconds.to_le_bytes());
-            bytes[at + 8..at + 16].copy_from_slice(&microseconds.to_le_bytes());
-        }
-        ctx.write(rusage, &bytes)?;
+        ctx.write(rusage, &report.usage.bytes())?;
     }
     consume(ctx, child, report);
     Ok(Rv::one(child as u64))
@@ -111,6 +101,7 @@ fn consume(ctx: &mut Ctx<'_>, child: i32, report: Report) {
         member.consume_job(child, report);
         return;
     }
+    ctx.proc.child_usage.add(report.usage);
     let sig = signal::bit(SIGCHLD);
     if !member.reap(ctx.proc.pid, child) && ctx.thread.sig.mask & sig != 0 {
         ctx.thread.sig.pending &= !sig;

@@ -94,6 +94,17 @@ pub fn gettimeofday(ctx: &mut Ctx<'_>, tp: u64, tzp: u64, abs: u64) -> SysResult
     Ok(Rv::one(0))
 }
 
+/// `getrusage` for a closed process and the children it has waited for.
+pub(super) fn closed_getrusage(ctx: &mut Ctx<'_>, who: i32, out: u64) -> SysResult {
+    let usage = match who {
+        0 => ctx.proc.own_usage(Some(ctx.thread)),
+        -1 => ctx.proc.child_usage,
+        _ => return Err(Errno::EINVAL),
+    };
+    ctx.write(out, &usage.bytes())?;
+    Ok(Rv::one(0))
+}
+
 /// `getrusage(who, rusage)`.
 #[cfg(unix)]
 pub fn getrusage(ctx: &mut Ctx<'_>, who: i32, out: u64) -> SysResult {

@@ -8,9 +8,9 @@
 //! until the host's `SIGCHLD` wakes it (see `signal::host`), its wait
 //! interruptible by signals as XNU's `msleep(PCATCH)` is.
 
-use super::child_wait::RUSAGE_SIZE;
 pub use super::child_wait::{idtype, opt};
 use crate::user::darwin::abi::Errno;
+use crate::user::darwin::abi::types::RUSAGE_SIZE;
 use crate::user::darwin::arch::{Rv, SysResult};
 use crate::user::darwin::signal::{self, SIGCHLD};
 use crate::user::darwin::syscall::{self, Ctx};

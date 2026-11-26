@@ -53,6 +53,7 @@ pub(super) fn fork(ctx: &mut Ctx<'_>) -> SysResult {
                 .map_err(|_| Errno::ENOMEM)?;
         }
     }
+    space.track_residency();
     let mut cpu = match &running.cpu {
         DarwinCpu::Arm64(cpu) => DarwinCpu::Arm64(cpu.clone_to_space(&space)),
         DarwinCpu::X86_64(cpu) => DarwinCpu::X86_64(cpu.clone_to_space(&space)),
@@ -126,6 +127,8 @@ pub(super) fn fork(ctx: &mut Ctx<'_>) -> SysResult {
         entropy: parent.entropy.for_child(pid),
         pauth: parent.pauth.clone(),
         rlimits: parent.rlimits,
+        exec_cpu_ns: Default::default(),
+        child_usage: Default::default(),
         umask: parent.umask,
         sigacts,
         itimers: Default::default(),

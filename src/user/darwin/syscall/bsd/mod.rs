@@ -172,6 +172,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                 );
             }
             nr::GETGROUPS => return proc::closed_getgroups(ctx, i(0), a[1]),
+            nr::GETRUSAGE => return misc::closed_getrusage(ctx, i(0), a[1]),
             nr::PROC_INFO => return proc::closed_pidinfo(ctx, a, false),
             nr::PROC_INFO_EXTENDED_ID => return proc::closed_pidinfo(ctx, a, true),
             nr::SETPGID | nr::SETSID => {

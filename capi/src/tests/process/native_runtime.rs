@@ -702,6 +702,15 @@ fn installed_darwin_getgroups_matches_native_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "run with a locally built closed_rusage.c fixture"]
+fn installed_darwin_rusage_matches_native_through_closed_c_abi() {
+    let binary = std::env::var("RAX_DARWIN_INSTALLED_RUSAGE")
+        .expect("absolute path to the dynamically linked closed_rusage fixture");
+    compare_installed_workspace_fixture(&binary, "closed_rusage", None);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_reopens_guest_descriptors_through_closed_c_abi() {
     let input = b"guest descriptor input\n";
     for name in ["/dev/stdin", "/dev/fd/0"] {
