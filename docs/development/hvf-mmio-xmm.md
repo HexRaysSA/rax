@@ -2156,11 +2156,22 @@ QEMU 11.1.2 TCG independently confirmed the halt marker, the #UD frame
 for `UD2` and the #GP frame with nonzero error code `0xf8` for an invalid
 segment selector. With XCR0=7 and the VPCLMULQDQ CPUID bit clear, the exact
 wide instruction also produced #UD. The QEMU controls check the guest
-diagnostic layout. Hosted Intel execution is pending. Raw register and
-stack observations, the replay script, and the QEMU result file are under
+diagnostic layout. Raw register and stack observations, the replay script,
+and the QEMU result file are under
 `/Users/int/dev/rax-audit-work/four-findings-hvf-vpclmul-diagnostics-2026-11-26/`.
 The QEMU result file SHA-256 is
 `61d960616e02f1fddd6552697b3002ce246e36d49f53e7d0b0cdcb86ba2bfaf1`.
+
+Hosted Intel run `45882652682` at `7abe41862` confirmed an instruction
+admission failure on virtualized macOS 15.7.9. The native Intel process
+and both guests reported `CPUID.07H.0:ECX=0`, and both guests read back
+XCR0=7. Both probes reached the guest #UD handler with saved RIP `0x10000`.
+The device probe produced zero device reads, so VEX.256 MMIO remains
+unqualified. The two archive digests, signature, and all 4,954 engine
+files and 32 consumer and runner files matched the pinned revision.
+The native guest stderr SHA-256 is
+`7c77b518a87d452c23363c15f06f52b0412eb1e41e7aaf33783a3bff800b0010`.
+[Hosted diagnostic run](https://github.com/HexRaysSA/rax/actions/runs/45882652682)
 
 | Assumption | Impact | Falsification probe |
 | --- | --- | --- |
