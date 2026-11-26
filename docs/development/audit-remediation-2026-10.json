@@ -200938,6 +200938,14 @@
       "scope": "AArch64 HVF parallel dispatch preserves undispatched peer MMIO using the shared PSCI shutdown latch. The signed parent reported continuation after real SYSTEM_OFF when the test omitted its exit from the collected results. On Apple Silicon the corrected tests passed all six read/write and collection combinations, including the two with an omitted result. An independent parser verified terminal state, pending I/O and untouched PL011 state in all six files. Each saved transaction completed once after fresh restore and explicit wake. Two native nonterminal tests and 16 native scheduling tests passed. Intel HVF was compile-checked.",
       "qualification": "docs/development/native-arm64-checkpoints/terminal-io.md#pending-peer-mmio-in-a-parallel-round",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-secure-el2-tid3-2026-11-26",
+      "findings": ["A32-FP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "AArch32 CP15 feature ID interception follows EL2 enablement in both Security states. The parent retired a Secure EL1 ID_ISAR5 read with FEAT_SEL2, SCR_EL3.EEL2 and HCR_EL2.TID3 set. The regression covers ARM and Thumb, checks the exact trap and unchanged destination and retirement frontier, and confirms normal reads with either control clear or FEAT_SEL2 absent. QEMU 11.1.2 independently matched both traps and all six control outcomes. The five owning RAX suites passed 47,729 tests. Physical AArch32 qualification remains open.",
+      "qualification": "docs/development/a32-fp-controls.md#cp15-feature-id-group-interception",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -586,20 +586,24 @@ Physical AArch32 qualification remains open.
 
 ### CP15 feature ID group interception
 
-`HCR.TID3` intercepts Non-secure EL1 reads of the base CP15 feature ID
-group. Mixed-width Armv8-A execution also intercepts `ID_MMFR4` and the
+`HCR.TID3` intercepts EL1 reads of the base CP15 feature ID group when
+EL2 is enabled in the current Security state. In the mixed-width model,
+Secure EL2 also requires `FEAT_SEL2` and `SCR_EL3.EEL2=1`.
+Mixed-width Armv8-A execution also intercepts `ID_MMFR4` and the
 additional defined CP15 identification encodings. The selected
 `ID_ISAR6` trap applies even when the register reports zero. The same
 check admits the trap through mixed-width preflight and selects its
 execution outcome before reading the register. The classification uses
 constant time and auxiliary space.
 [Arm DDI 0487B.a, D7.2 and G6.2, HCR_EL2 and HCR](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+[Arm ID_ISAR5 register access pseudocode](https://arm.jonpalmisc.com/latest_sysreg/AArch32-id_isar5#access-instructions)
 
 | Assumption | Falsification probe |
 | --- | --- |
 | An intercepted MRC has no destination or retirement effect. | Run every selected encoding in ARM and Thumb. Require EC `0x03` at EL2, the exact ISS, unchanged R2 and PC, and zero retirements. |
 | The feature ID group excludes MIDR, CTR and MPIDR. | Enable TID3 and issue those otherwise adjacent reads. Require the normal access outcome. |
 | A hypervisor can intercept a read whose value the mixed-width CPU does not supply. | Compare the same MRC with TID3 set and clear. The clear case preserves the existing mixed-width availability check. |
+| Secure EL1 uses TID3 when EL2 is enabled for Secure state. | Read `ID_ISAR5` in ARM and Thumb with Secure EL2 enabled, with `SCR_EL3.EEL2` clear, and with `FEAT_SEL2` absent. Also clear TID3 as a control. Check the EL2 trap, syndrome, PC, R2 and retirement count. |
 
 The parent continued after a Non-secure EL1 `ID_PFR0` read with TID3
 set. QEMU 11.1.2 trapped all 28 base-group ARM and Thumb reads on each
@@ -610,6 +614,16 @@ traps. The Cortex-A15 model did not implement the later encoding traps.
 The five owning RAX test targets passed all 47,728 tests. Physical
 AArch32 execution remains unverified. The raw results and guest sources are in
 `/Users/int/dev/rax-audit-work/four-findings-a32-tid3-2026-11-26/`.
+
+Parent `3913a2180` let the Secure EL1 `ID_ISAR5` read retire with TID3
+set and Secure EL2 enabled. QEMU 11.1.2 `max` entered Secure EL1 with
+EL3 `ERET` and trapped both the ARM and Thumb instructions to EL2 with
+ESR `0x0fea0045`. It reached the follow-up HVC with TID3 clear and the
+follow-up SMC with Secure EL2 disabled. All eight reports completed.
+The five owning RAX suites passed 47,729 tests. Physical AArch32
+qualification remains open.
+The guest program and raw results are in
+`/Users/int/dev/rax-audit-work/four-findings-a32-secure-tid3-2026-11-26/`.
 
 ## AArch32 execution below EL2 without EL3
 

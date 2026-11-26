@@ -51,12 +51,11 @@ pub(crate) struct FpAccessContext {
 }
 
 impl FpAccessContext {
-    /// Arm DDI0487B.a D7.2 and G6.2, ID group 3 for CP15 MRC.
+    /// Arm HCR_EL2.TID3 applies when EL2 is enabled in the current Security state.
     pub(in crate::isa::arm) fn traps_cp15_id_group3(self, enc: Cp15Encoding, armv8: bool) -> bool {
         const TID3: u64 = 1 << 18;
         const TGE: u64 = 1 << 27;
         if self.current_el != 1
-            || self.secure
             || !self.el2_enabled
             || self.hcr & TID3 == 0
             || self.el2_aarch64 && self.hcr & TGE != 0

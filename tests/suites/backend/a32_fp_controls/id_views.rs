@@ -306,6 +306,68 @@ fn aarch32_tid3_traps_the_cp15_feature_id_group() {
 }
 
 #[test]
+fn cp15_tid3_follows_secure_el2_enablement() {
+    const ID_ISAR5: u32 = 0xee10_2fb2; // MRC P15,0,R2,C0,C2,5.
+    const TID3: u64 = 1 << 18;
+    const CANARY: u64 = 0xface_1234;
+    const ISS: u32 = (0x1e << 20) | (5 << 17) | (2 << 5) | (2 << 1) | 1;
+
+    for thumb in [false, true] {
+        for (sel2, eel2, tid3) in [
+            (true, true, true),
+            (true, true, false),
+            (true, false, true),
+            (false, true, true),
+        ] {
+            let mut cpu = cpu(true);
+            let mut state = cpu.export_sregs();
+            let execution = state.execution.as_mut().unwrap();
+            let mut features = ArmFeatures::from_bits_retain(execution.features);
+            features.set(ArmFeatures::SEL2, sel2);
+            execution.features = features.bits();
+            let sysregs = &mut execution.sysregs;
+            // SCR.NS=0 selects Secure state. When EL2 is disabled, SCR.RW=0
+            // selects AArch32 EL1. Otherwise HCR.RW=0 selects it below A64 EL2.
+            sysregs.scr_el3 = u64::from(eel2) << 18;
+            sysregs.hcr_el2 = if tid3 { TID3 } else { 0 };
+            sysregs.id_aa64isar0_el1 &= !(15 << 28); // RDM.
+            sysregs.id_aa64isar1_el1 &= !(15 << 16); // VCMA.
+            sysregs
+                .impl_defined
+                .remove(&Aarch64SysRegEncoding::new(3, 0, 0, 2, 5).encode());
+            cpu.import_sregs(&state).unwrap();
+            cpu.set_pstate_bits(0x1d3 | (u64::from(thumb) << 5))
+                .unwrap();
+            words(&mut cpu, &[ID_ISAR5], thumb);
+            cpu.set_x(2, CANARY);
+
+            let result = cpu.step();
+            if sel2 && eel2 && tid3 {
+                assert!(
+                    matches!(
+                        result,
+                        Err(ArmError::ArchitecturalException {
+                            ec: 3,
+                            iss: ISS,
+                            target_el: Some(2)
+                        })
+                    ),
+                    "Thumb={thumb}: {result:?}"
+                );
+                assert_eq!(cpu.get_x(2), CANARY);
+                assert_eq!(cpu.get_pc(), 0x100);
+                assert_eq!(cpu.instruction_count(), 0);
+            } else {
+                assert_eq!(result.unwrap(), CpuExit::Continue);
+                assert_eq!(cpu.get_x(2), 0);
+                assert_eq!(cpu.get_pc(), 0x104);
+                assert_eq!(cpu.instruction_count(), 1);
+            }
+        }
+    }
+}
+
+#[test]
 fn el1_id_isar6_readback_and_tid3_traps_agree_across_execution_states() {
     const MRS_ISAR6: u32 = 0xd538_02e3; // MRS X3,ID_ISAR6_EL1.
     const MRC_ISAR6: u32 = 0xee10_3ff2; // MRC P15,0,R3,C0,C2,7.
