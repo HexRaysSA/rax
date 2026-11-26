@@ -308,14 +308,15 @@ impl Registry {
     }
 
     #[cfg(any(target_os = "windows", test))]
-    pub(super) fn with_dot_net_policy(
+    pub(super) fn with_cached_process_config(
         self,
+        subject: ProcessConfigKey,
         view: RegistryView,
         header: CommandHeader,
         cached: [u8; CACHED_RECORD_BYTES],
     ) -> io::Result<Self> {
         self.with_snapshot_routes(
-            SnapshotRoot::ProcessConfig(ProcessConfigKey::DotNetPolicy),
+            SnapshotRoot::ProcessConfig(subject),
             &[],
             view,
             Ok((header, None)),
@@ -406,6 +407,17 @@ impl Registry {
                     let key = Arc::get_mut(&mut key).expect("new snapshot key");
                     let information = KeyInformation::from_cached(key, cached)?;
                     self.value_budget()?.charge_information(&information)?;
+                    if matches!(
+                        root,
+                        SnapshotRoot::ProcessConfig(ProcessConfigKey::DotNetPolicyV4)
+                    ) && information.cached_value_count() == Some(key.values.entries.len())
+                    {
+                        // The fixed selection contains at most one named value.
+                        // Its ordinal is known only when the selection is complete.
+                        Arc::get_mut(&mut key.values)
+                            .expect("new snapshot values")
+                            .native_order = true;
+                    }
                     key.information = Some(Arc::new(information));
                 }
                 if let Some(layers) = layers {

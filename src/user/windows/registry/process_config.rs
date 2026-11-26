@@ -9,6 +9,8 @@ pub(super) const POWERSHELL_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\PowerShell";
 const DOT_NET_POLICY_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework\Policy";
+const DOT_NET_POLICY_V4_WOW_KEY: &str =
+    r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework\Policy\v4.0";
 
 #[path = "process_config/winsock_catalog.rs"]
 pub(super) mod winsock_catalog;
@@ -38,10 +40,11 @@ pub(crate) enum ProcessConfigKey {
     PowerShellEngineV3,
     MiniNt,
     DotNetPolicy,
+    DotNetPolicyV4,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 21] = [
+    pub(super) const ALL: [Self; 22] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -63,6 +66,7 @@ impl ProcessConfigKey {
         Self::PowerShellV3,
         Self::PowerShell,
         Self::MiniNt,
+        Self::DotNetPolicyV4,
         Self::DotNetPolicy,
     ];
 
@@ -118,6 +122,9 @@ impl ProcessConfigKey {
             }
             Self::MiniNt => r"\Registry\Machine\System\CurrentControlSet\Control\MiniNT",
             Self::DotNetPolicy => r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy",
+            Self::DotNetPolicyV4 => {
+                r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\v4.0"
+            }
         }
     }
 
@@ -151,6 +158,7 @@ impl ProcessConfigKey {
             | Self::PowerShell
             | Self::MiniNt
             | Self::DotNetPolicy => &[],
+            Self::DotNetPolicyV4 => &["30319"],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
@@ -198,6 +206,7 @@ impl ProcessConfigKey {
             Self::PowerShellEngineV3 => "Windows PowerShell version 3 engine registration",
             Self::MiniNt => "Windows PE installation marker",
             Self::DotNetPolicy => ".NET Framework runtime policy",
+            Self::DotNetPolicyV4 => ".NET Framework v4.0 runtime policy",
         }
     }
 
@@ -244,6 +253,7 @@ impl ProcessConfigKey {
             Self::PowerShell => &[Self::PowerShellV1, Self::PowerShellV3],
             Self::PowerShellV1 => &[Self::PowerShellEngineV1],
             Self::PowerShellV3 => &[Self::PowerShellEngineV3],
+            Self::DotNetPolicy => &[Self::DotNetPolicyV4],
             _ => return Ok(()),
         };
         for &child in children {
@@ -307,6 +317,9 @@ impl ProcessConfigKey {
             || self == Self::DotNetPolicy
                 && view == RegistryView::Wow32
                 && same(DOT_NET_POLICY_WOW_KEY)
+            || self == Self::DotNetPolicyV4
+                && view == RegistryView::Wow32
+                && same(DOT_NET_POLICY_V4_WOW_KEY)
         {
             return Ok(());
         }

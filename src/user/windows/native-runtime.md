@@ -4034,8 +4034,12 @@ snapshot capture. The fixed key retains the installed 40-byte
 `KeyCachedInformation` record for each view. `NtQueryKey` requires 40 bytes
 and leaves a smaller aligned output buffer untouched. The snapshot also
 retains ordered child names and last-write times for `NtEnumerateKey` with
-`KeyBasicInformation`. The capture retains no child bodies, values, or native
-handles.
+`KeyBasicInformation`. The fixed `v4.0` child retains its access grant,
+cached key record, and named CLR build-range value `30319` per view.
+Relative and absolute opens share that record. `NtEnumerateValueKey` uses
+the selected data when it covers the complete native value list. Other
+child bodies and values stay outside the selection. No native handles
+survive capture.
 
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with

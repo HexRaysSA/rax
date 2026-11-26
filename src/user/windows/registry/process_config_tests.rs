@@ -270,19 +270,19 @@ fn dot_net_policy_preserves_ordered_metadata_without_opening_children() {
     native[32..36].copy_from_slice(&12u32.to_le_bytes());
     let selected = || Registry::selected(upcase(), vec![]).unwrap();
     let registry = selected()
-        .with_dot_net_policy(RegistryView::Native64, header.clone(), native)
+        .with_cached_process_config(subject, RegistryView::Native64, header.clone(), native)
         .unwrap();
     let mut different = native;
     different[0] ^= 1;
     assert!(
         registry
             .clone()
-            .with_dot_net_policy(RegistryView::Wow32, header.clone(), different)
+            .with_cached_process_config(subject, RegistryView::Wow32, header.clone(), different)
             .is_err()
     );
     let shared = registry
         .clone()
-        .with_dot_net_policy(RegistryView::Wow32, header.clone(), native)
+        .with_cached_process_config(subject, RegistryView::Wow32, header.clone(), native)
         .unwrap();
     let mut wow_header = header.clone();
     wow_header.canonical = units(DOT_NET_POLICY_WOW_KEY);
@@ -291,7 +291,7 @@ fn dot_net_policy_preserves_ordered_metadata_without_opening_children() {
     wow_header.enumeration = Some(wow_children.clone());
     different[12..16].copy_from_slice(&wow_header.children.to_le_bytes());
     let registry = registry
-        .with_dot_net_policy(RegistryView::Wow32, wow_header, different)
+        .with_cached_process_config(subject, RegistryView::Wow32, wow_header, different)
         .unwrap();
     for (view, expected, canonical, children) in [
         (
@@ -346,16 +346,138 @@ fn dot_net_policy_preserves_ordered_metadata_without_opening_children() {
     wrong_count[12] ^= 1;
     assert!(
         selected()
-            .with_dot_net_policy(RegistryView::Native64, header.clone(), wrong_count)
+            .with_cached_process_config(
+                subject,
+                RegistryView::Native64,
+                header.clone(),
+                wrong_count
+            )
             .is_err()
     );
     let mut wrong_name = native;
     wrong_name[32] ^= 2;
     assert!(
         selected()
-            .with_dot_net_policy(RegistryView::Native64, header, wrong_name)
+            .with_cached_process_config(subject, RegistryView::Native64, header, wrong_name)
             .is_err()
     );
+}
+
+#[test]
+fn dot_net_v4_policy_child_has_the_same_record_in_relative_and_absolute_opens() {
+    let parent = ProcessConfigKey::DotNetPolicy;
+    let child = ProcessConfigKey::DotNetPolicyV4;
+    let build = units("30319");
+    let captured = |range: &str| Value {
+        name: build.clone(),
+        kind: 1,
+        data: range
+            .encode_utf16()
+            .chain(Some(0))
+            .flat_map(u16::to_le_bytes)
+            .collect(),
+    };
+    let cached = |stamp: u64| {
+        let mut record = [0_u8; 40];
+        record[..8].copy_from_slice(&stamp.to_le_bytes());
+        record[20..24].copy_from_slice(&1_u32.to_le_bytes());
+        record[24..28].copy_from_slice(&10_u32.to_le_bytes());
+        record[28..32].copy_from_slice(&24_u32.to_le_bytes());
+        record[32..36].copy_from_slice(&8_u32.to_le_bytes());
+        record
+    };
+    let views = [
+        (
+            RegistryView::Native64,
+            parent.path(),
+            child.path(),
+            "30319-30319",
+            cached(42),
+        ),
+        (
+            RegistryView::Wow32,
+            DOT_NET_POLICY_WOW_KEY,
+            DOT_NET_POLICY_V4_WOW_KEY,
+            "30319-42000",
+            cached(91),
+        ),
+    ];
+    let mut registry = Registry::selected(upcase(), vec![]).unwrap();
+    for (view, parent_path, child_path, range, record) in views {
+        let mut leaf = header(child_path, vec![captured(range)]);
+        leaf.children = 0;
+        let mut incomplete = record;
+        incomplete[20..24].copy_from_slice(&2_u32.to_le_bytes());
+        let partial_snapshot = registry
+            .clone()
+            .with_cached_process_config(child, view, leaf.clone(), incomplete)
+            .unwrap();
+        let Lookup::Present(partial) = partial_snapshot.lookup_view(&units(child.path()), view)
+        else {
+            panic!("partial build policy projection did not resolve");
+        };
+        assert_eq!(partial.value(&build), Some(&captured(range)));
+        assert!(partial.ordered_values().is_none());
+        registry = registry
+            .with_cached_process_config(child, view, leaf, record)
+            .unwrap();
+        let mut parent_header = header(parent_path, vec![]);
+        parent_header.enumeration = Some(vec![
+            BasicChild {
+                name: units("AppPatch"),
+                last_write: 91,
+            },
+            BasicChild {
+                name: units("v4.0"),
+                last_write: 42,
+            },
+        ]);
+        registry = registry
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(parent),
+                &[],
+                view,
+                Ok((parent_header, None)),
+            )
+            .unwrap();
+    }
+
+    for (view, _, child_path, range, record) in views {
+        let Lookup::Present(parent) = registry.lookup_view(&units(parent.path()), view) else {
+            panic!("policy parent not captured");
+        };
+        let Lookup::Present(relative) = parent.relative(&units("V4.0")) else {
+            panic!("fixed version child did not resolve relative to its policy handle");
+        };
+        let Lookup::Present(absolute) = registry.lookup_view(&units(child.path()), view) else {
+            panic!("fixed version child did not resolve by logical path");
+        };
+        let Lookup::Present(physical) =
+            registry.lookup_view(&units(child_path), RegistryView::Native64)
+        else {
+            panic!("fixed version child did not resolve by physical path");
+        };
+        assert!(Arc::ptr_eq(&relative, &absolute));
+        assert!(Arc::ptr_eq(&relative, &physical));
+        assert_eq!(relative.value(&build), Some(&captured(range)));
+        assert_eq!(
+            relative.ordered_values(),
+            Some([captured(range)].as_slice())
+        );
+        assert_eq!(
+            relative.information().unwrap().record(4),
+            Some(record.as_slice())
+        );
+        assert!(!relative.covers_value(&units("UnselectedValue")));
+        assert!(matches!(
+            parent.relative(&units("AppPatch")),
+            Lookup::Unselected
+        ));
+        assert!(matches!(
+            relative.relative(&units("UnselectedChild")),
+            Lookup::Missing
+        ));
+    }
 }
 
 #[test]

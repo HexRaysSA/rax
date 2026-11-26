@@ -136,6 +136,10 @@ impl KeyInformation {
             .map(Vec::as_slice)
     }
 
+    pub(super) fn cached_value_count(&self) -> Option<usize> {
+        self.record(4).map(|record| word(record, 20))
+    }
+
     pub(super) fn with_enumeration(mut self, children: Vec<BasicChild>) -> Self {
         self.enumeration = Some(children);
         self
