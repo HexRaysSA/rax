@@ -601,12 +601,16 @@ measure interrupt occupancy or establish the cause of the stalls.
 [Linux RCU stall detector documentation](https://docs.kernel.org/RCU/stallwarn.html)
 [Linux v6.12 RISC-V stack walker](https://github.com/torvalds/linux/blob/v6.12/arch/riscv/kernel/stacktrace.c)
 
-The same optimized CLI restored the original two-hart guest at retirement
-zero from a bundle with `RetiredWithIdle`. PID 1 ran on both harts, emitted
-the pass marker and powered off. The run took 527 s of host elapsed time,
-including a diagnostic capture. That capture showed both harts executing
-kernel cryptographic self-tests. A separate wall-clock diagnostic appended
-only `initcall_blacklist=jent_mod_init` to the two-hart guest. It reached its
+The optimized CLIs from before and after retirement-turn batching restored
+the same two-hart `RetiredWithIdle` bundle at retirement zero. Both runs
+reached PID 1, ran on each hart and powered off at guest time 0.366651 s.
+Host elapsed time was 543 s before batching and 527 s after batching, with
+one diagnostic capture per run. The runs overlapped, so host load can
+affect the elapsed-time comparison. The capture from the batched
+run showed both harts executing kernel cryptographic self-tests.
+
+A separate wall-clock diagnostic appended only
+`initcall_blacklist=jent_mod_init` to the two-hart guest. It reached its
 420 s host limit and reported an X.509 load timeout. QEMU booted that
 diagnostic guest through PID 1 and powered off. The wall-clock Linux boot
 remains unqualified.
