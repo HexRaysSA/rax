@@ -62,9 +62,9 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
     let qos_matches = if requires_initialized_inputs {
         qos == QOS
     } else {
-        // The native AMD64 startup call leaves Length uninitialized. The
-        // impersonation/tracking/effective fields remain the measured values.
-        qos[4..12] == QOS[4..12]
+        // The native AMD64 startup call can leave Length and the final two
+        // alignment bytes uninitialized. Match the three initialized fields.
+        qos[4..10] == QOS[4..10]
     };
     if c.mem().u32(c.p.peb + 0x2C0)? != metadata.session
         || !qos_matches

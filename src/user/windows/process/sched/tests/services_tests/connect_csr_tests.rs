@@ -320,6 +320,26 @@ fn native_connect_csr_matches_measured_replies_and_owns_both_mapped_views() {
 }
 
 #[test]
+fn native_amd64_connect_csr_accepts_nonzero_qos_alignment_padding() {
+    let captures = captures();
+    for row in captures["projections"].as_array().unwrap() {
+        let (mut process, mut thread) = fixture(WinArch::X64, "NtConnectPort", SERVICE);
+        let p = process.state_mut();
+        let b = scratch(p, 65536);
+        let args = setup(p, b, row);
+        p.space.w16(args[2] + 10, 0x5aa5).unwrap();
+
+        assert_eq!(invoke(p, &mut thread, &args), Outcome::Continue);
+        assert_eq!(thread.cpu.gpr(0), 0);
+        assert_eq!(p.space.u16(args[2] + 10).unwrap(), 0x5aa5);
+        assert_eq!(
+            p.space.bytes(args[6], 48).unwrap(),
+            bytes(row, "information_after_hex")
+        );
+    }
+}
+
+#[test]
 fn native_connect_csr_rejects_foreign_session_profile_and_geometry_without_publication() {
     let captures = captures();
     let arm64 = arm64_capture();
@@ -332,7 +352,7 @@ fn native_connect_csr_rejects_foreign_session_profile_and_geometry_without_publi
 }
 
 fn reject_foreign_startup_inputs(arch: WinArch, row: &Value, foreign_build: u32) {
-    for variant in 0..10 {
+    for variant in 0..12 {
         let (mut process, mut thread) = fixture(arch, "NtConnectPort", SERVICE);
         let p = process.state_mut();
         let b = scratch(p, 65536);
@@ -350,6 +370,8 @@ fn reject_foreign_startup_inputs(arch: WinArch, row: &Value, foreign_build: u32)
             9 => {
                 p.vm.protect(b + 12288, 4096, prot::READONLY).unwrap();
             }
+            10 => p.space.w8(args[2] + 8, 0).unwrap(),
+            11 => p.space.w8(args[2] + 9, 0).unwrap(),
             _ => unreachable!(),
         }
         let before = p.space.bytes(b, 65536).unwrap();

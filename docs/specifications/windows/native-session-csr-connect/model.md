@@ -20,10 +20,16 @@ selected by the verified20-byte PID export. The signed RIP operands and every
 code/data span must remain inside the loaded PE image. Unrecognized exports, kernel/architecture/layout mismatches and unavailable native inputs select no
 CSR success profile. The private PID export is never invoked on AMD64.
 
-The AMD64 call ignores the captured QoS Length DWORD, whose native value can
-contain stack data. Its remaining measured QoS bytes and request word1 remain
-required. The first24 information bytes are outputs; AMD64's other initial
-bytes are retained exactly. A successful connection replaces those first24
+The AMD64 call ignores the captured QoS Length DWORD and two trailing
+alignment bytes. It validates the impersonation level, tracking mode and
+effective-only flag, along with request word1. Installed AMD64 `more.com`
+on Windows Server 2022 reached the selected ApiPort with the measured fields
+and nonzero alignment padding.
+[Server 2022 guest observation](https://github.com/HexRaysSA/rax/actions/runs/45758384592).
+[QoS structure](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-security_quality_of_service).
+
+The first 24 information bytes are outputs. The other AMD64 input bytes
+are retained exactly. A successful connection replaces those first 24
 bytes with server base, statics address and PID, preserves the final24 bytes
 and48-byte length, returns maximum952 bytes, and clears the24-byte remote view.
 The client view preserves its first32 bytes and receives distinct owned local
