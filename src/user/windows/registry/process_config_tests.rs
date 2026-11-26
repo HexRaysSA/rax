@@ -143,6 +143,49 @@ fn process_config_preserves_absent_keys_and_control_set_aliases() {
 }
 
 #[test]
+fn minint_startup_lookup_preserves_open_result_in_both_views() {
+    let subject = ProcessConfigKey::MiniNt;
+    let root = SnapshotRoot::ProcessConfig(subject);
+    let active_path = r"\Registry\Machine\System\ControlSet001\Control\MiniNT";
+    assert!(ProcessConfigKey::ALL.contains(&subject));
+    let views = [RegistryView::Native64, RegistryView::Wow32];
+    let mut missing = Registry::selected(upcase(), vec![]).unwrap();
+    let mut present = Registry::selected(upcase(), vec![]).unwrap();
+    for view in views {
+        missing = missing
+            .with_snapshot_selection(root, &[], view, Err(STATUS_OBJECT_NAME_NOT_FOUND))
+            .unwrap();
+        present = present
+            .with_snapshot_selection(root, &[], view, Ok((header(active_path, vec![]), None)))
+            .unwrap();
+    }
+    for view in views {
+        assert!(matches!(
+            missing.lookup_view(&units(subject.path()), view),
+            Lookup::Missing
+        ));
+        for path in [subject.path(), active_path] {
+            let Lookup::Present(key) = present.lookup_view(&units(path), view) else {
+                panic!("captured MiniNT key not routed");
+            };
+            assert_eq!(key.path, units(active_path));
+            assert_eq!(key.captured_access().unwrap().grant(0x20019), Ok(0x20019));
+            assert!(!key.covers_value(&units("UnselectedValue")));
+        }
+        let neighbor = r"\Registry\Machine\System\CurrentControlSet\Control\OtherKey";
+        assert!(matches!(
+            missing.lookup_view(&units(neighbor), view),
+            Lookup::Unselected
+        ));
+        let child = format!(r"{active_path}\UnselectedChild");
+        assert!(matches!(
+            present.lookup_view(&units(&child), view),
+            Lookup::Unselected
+        ));
+    }
+}
+
+#[test]
 fn powershell_registry_preserves_ordered_metadata_and_independent_views() {
     let root = ProcessConfigKey::PowerShell;
     let engine = ProcessConfigKey::PowerShellEngineV3;

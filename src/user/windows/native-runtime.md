@@ -4015,6 +4015,11 @@ opens use the same selected records, including the explicit WoW64 spelling.
 Other descendant bodies and values remain outside this selection. Guest registry
 requests and RPC calls are never forwarded to the host.
 
+PowerShell also checks `HKLM\System\CurrentControlSet\Control\MiniNT`
+during startup. The selection records the installed system's open result for
+each view. When present, the key retains the active control-set name and the
+captured access grant. The projection covers this key's identity and metadata.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not

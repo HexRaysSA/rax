@@ -34,10 +34,11 @@ pub(crate) enum ProcessConfigKey {
     PowerShellV3,
     PowerShellEngineV1,
     PowerShellEngineV3,
+    MiniNt,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 19] = [
+    pub(super) const ALL: [Self; 20] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -58,6 +59,7 @@ impl ProcessConfigKey {
         Self::PowerShellV1,
         Self::PowerShellV3,
         Self::PowerShell,
+        Self::MiniNt,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -110,6 +112,7 @@ impl ProcessConfigKey {
             Self::PowerShellEngineV3 => {
                 r"\Registry\Machine\Software\Microsoft\PowerShell\3\PowerShellEngine"
             }
+            Self::MiniNt => r"\Registry\Machine\System\CurrentControlSet\Control\MiniNT",
         }
     }
 
@@ -140,7 +143,8 @@ impl ProcessConfigKey {
             | Self::WinsockAppIdCatalog
             | Self::Ccg
             | Self::OsDataAppCompatFlags
-            | Self::PowerShell => &[],
+            | Self::PowerShell
+            | Self::MiniNt => &[],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
@@ -185,6 +189,7 @@ impl ProcessConfigKey {
             Self::PowerShellV3 => "Windows PowerShell version 3 registration",
             Self::PowerShellEngineV1 => "Windows PowerShell version 1 engine registration",
             Self::PowerShellEngineV3 => "Windows PowerShell version 3 engine registration",
+            Self::MiniNt => "Windows PE installation marker",
         }
     }
 
