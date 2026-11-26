@@ -6,6 +6,7 @@
 //! - `EVFILT_MACHPORT` (`osfmk/ipc/ipc_pset.c`): a receive right or port
 //!   set with a message, received directly with `MACH_RCV_MSG`;
 //! - `EVFILT_READ` on a kqueue descriptor (`kqread_filtops`);
+//! - `EVFILT_VNODE` on immutable supplied vnodes;
 //! - descriptor filters and `EVFILT_PROC` through the host ([`super::host`]);
 //! - `EVFILT_WORKLOOP` on workloops ([`super::workloop`]);
 //! - `EVFILT_FS` and `EVFILT_MEMORYSTATUS`, which attach and never fire;
@@ -15,11 +16,13 @@ use std::time::Duration;
 
 use super::{DataArea, Kev, ev, evfilt, fr, host};
 use crate::user::darwin::abi::{DarwinAbi, Errno};
+use crate::user::darwin::fd::FileKind;
 use crate::user::darwin::mach::ipc::Object;
 use crate::user::darwin::process::Proc;
 use crate::user::darwin::syscall::Ctx;
 use crate::user::darwin::syscall::mach::absolute_time;
 use crate::user::darwin::syscall::mach::msg::Watched;
+use crate::user::supplied_fs::Kind;
 
 /// A filter's per-knote state.
 #[derive(Clone, Debug)]
@@ -279,7 +282,7 @@ pub fn attach(ctx: &mut Ctx<'_>, kq: u64, knote: u64, kev: &mut Kev) -> i32 {
                 .fds
                 .file(kev.ident as i32)
                 .expect("checked descriptor");
-            if let crate::user::darwin::fd::FileKind::Kqueue(target) = file.kind {
+            if let FileKind::Kqueue(target) = file.kind {
                 // kqueue_kqfilter: only EVFILT_READ, not on itself.
                 if kev.filter != evfilt::READ || target == kq {
                     knote_mut(ctx.proc, kq, knote).set_error(Errno::EINVAL);
@@ -290,6 +293,20 @@ pub fn attach(ctx: &mut Ctx<'_>, kq: u64, knote: u64, kev: &mut Kev) -> i32 {
                     t.watchers.push((kq, knote));
                 }
                 return i32::from(ctx.proc.kq.count(target) > 0);
+            }
+            if kev.filter == evfilt::VNODE
+                && let FileKind::Embedded(object) = &file.kind
+                && object.entry().is_some_and(|entry| {
+                    matches!(
+                        entry.kind,
+                        Kind::File(_) | Kind::Backed(_) | Kind::Directory | Kind::Symlink(_)
+                    )
+                })
+            {
+                // An immutable guest vnode can only vanish as a result of
+                // descriptor close. The common fd_closed path handles that.
+                knote_mut(ctx.proc, kq, knote).state = State::Inert;
+                return 0;
             }
             host::attach(ctx.proc, kq, knote, file.host_fd())
         }

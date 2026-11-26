@@ -12,7 +12,8 @@ use crate::user::console::{CapturedConsole, Console, OutputStream};
 use crate::user::darwin::abi::Errno;
 use crate::user::darwin::abi::types::{Stat, Timespec};
 use crate::user::darwin::io::{
-    O_ACCMODE, O_APPEND, O_CREAT, O_EXCL, O_EXEC, O_RDONLY, O_TRUNC, O_WRONLY,
+    O_ACCMODE, O_APPEND, O_CREAT, O_EVTONLY, O_EXCL, O_EXEC, O_RDONLY, O_STATUS_FLAGS, O_TRUNC,
+    O_WRONLY,
 };
 use crate::user::mm::{PageSource, SourceIdentity};
 use crate::user::supplied_fs::{Device, Entry, Kind, WorkspaceFlavor, WorkspaceTimestamp, Xattrs};
@@ -572,7 +573,7 @@ impl OpenFile {
         }
         let attributes = entry.workspace_xattrs(need, owner, &[])?.clone();
         attributes.open_resource(create, create && flags & O_EXCL != 0, false)?;
-        let status = flags & (O_ACCMODE | crate::user::darwin::io::O_STATUS_FLAGS);
+        let status = flags & (O_ACCMODE | O_EVTONLY | O_STATUS_FLAGS);
         path.push_str(RESOURCE_FORK_SUFFIX);
         Ok(Self {
             kind: FileKind::Embedded(EmbeddedFile::Resource {

@@ -602,7 +602,7 @@ pub(in crate::user::darwin::syscall::bsd) fn fclonefileat(
     let policy = clone_policy(flags)?;
     let file = ctx.proc.fds.file(fromfd)?;
     let open_flags = *file.flags.lock().map_err(|_| Errno::EIO)?;
-    if open_flags & O_ACCMODE == O_WRONLY || open_flags & (O_EXEC | O_EVTONLY) != 0 {
+    if open_flags & O_ACCMODE == O_WRONLY || open_flags & O_EXEC != 0 {
         return Err(Errno::EBADF);
     }
     let FileKind::Embedded(object) = &file.kind else {
@@ -800,6 +800,7 @@ fn open_policy(flags: u32) -> Result<(LinkPolicy, bool, bool), Errno> {
     }
     let supported = O_ACCMODE
         | O_STATUS_FLAGS
+        | O_EVTONLY
         | O_CREAT
         | O_EXCL
         | O_TRUNC
@@ -845,7 +846,7 @@ fn open_or_create(
         if flags & O_DIRECTORY != 0 {
             return Err(Errno::ENOTDIR);
         }
-        let status = flags & (O_STATUS_FLAGS | O_ACCMODE);
+        let status = flags & (O_STATUS_FLAGS | O_EVTONLY | O_ACCMODE);
         return Ok(Arc::new(OpenFile::supplied_with_flags(path, entry, status)));
     }
     if search {
@@ -860,7 +861,7 @@ fn open_or_create(
         {
             return Err(Errno::EACCES);
         }
-        let status = O_EXEC | (flags & O_STATUS_FLAGS);
+        let status = O_EXEC | (flags & (O_STATUS_FLAGS | O_EVTONLY));
         return Ok(Arc::new(OpenFile::supplied_with_flags(path, entry, status)));
     }
     let device = entry.device();
@@ -879,7 +880,7 @@ fn open_or_create(
     {
         return Err(Errno::EACCES);
     }
-    let status = flags & (O_STATUS_FLAGS | O_DIRECTORY | O_ACCMODE);
+    let status = flags & (O_STATUS_FLAGS | O_EVTONLY | O_DIRECTORY | O_ACCMODE);
     let file = if let Some(device) = device {
         OpenFile::device(path, device, entry.ino, status)?
     } else if let Some(file) = workspace {
