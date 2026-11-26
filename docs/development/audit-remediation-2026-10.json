@@ -200773,8 +200773,8 @@
     {
       "id": "hvf-mmio-packed-widening-2026-11-26",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "locally_qualified_hosted_profile_added",
-      "scope": "Legacy and VEX PMOVSX and PMOVZX request the exact 2 B, 4 B, 8 B or 16 B operand and retain that request across checkpoint restoration. The 60 previously unsupported encodings matched 240 independent unaligned and guard-page RAM observations under Rosetta. The five owning targets passed 28,857 tests, with three opt-in x86 tests ignored. The signed Intel macOS consumer cross-built with a 240-case direct and restored MMIO profile. Full findings remain open.",
+      "status": "hosted_intel_qualified_full_findings_open",
+      "scope": "Legacy and VEX PMOVSX and PMOVZX request the exact 2 B, 4 B, 8 B or 16 B operand and retain that request across checkpoint restoration. The 60 previously unsupported encodings matched 240 independent unaligned and guard-page RAM observations under Rosetta. The five owning targets passed 28,857 tests, with three opt-in x86 tests ignored. Hosted Intel run 45747505600 at a3dc1093c passed 120 direct and 120 fresh-owner reads with matched widths and RAM fingerprints, verified against the signed executable, artifact hashes and pinned source. EVEX device reads and bare-metal Intel validation remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-sign-and-zero-extension-from-a-device-operand",
       "full_goal_complete": false
     },

@@ -1581,8 +1581,16 @@ and `ci_actions_pinned` targets passed 28,857 tests, with 3 opt-in x86
 tests ignored. The Intel macOS consumer cross-built and passed strict
 signature verification. Those local checks ran on Arm64.
 
-The `vector-widening` hosted profile exercises 120 direct device reads and
-120 fresh-owner completions across the five encodings of each mnemonic.
+On virtualized Intel macOS, the `vector-widening` profile at
+`a3dc1093ceddf` passed all 240 cases. All 120 direct device reads and
+120 fresh-owner completions matched the independent RAM fingerprints and
+the exact reply widths. The widths were 2 B in 24 cases, 4 B in 64 cases,
+8 B in 104 cases and 16 B in 48 cases. Both downloaded artifact archives,
+the signed executable and the source hashes matched. The execution archive
+SHA-256 is
+`f9fe5af34659f2cd2d1eafe269e229974165de8c9145ab514a3ebc1b9c3ece5a`.
+[Hosted packed widening execution](https://github.com/HexRaysSA/rax/actions/runs/45747505600/job/139667036243)
+
 EVEX device reads and bare-metal Intel qualification remain open.
 
 The exact RAM inputs, output and local validation logs are under
