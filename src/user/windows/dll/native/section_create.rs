@@ -5,7 +5,7 @@ use super::query::{guard_result, probe_write};
 use crate::user::mm::{PAGE_SIZE, SharedObject};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
-use crate::user::windows::memory::Mem;
+use crate::user::windows::memory::{GameOsPhysicalSection, Mem};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 use std::sync::Arc;
@@ -14,6 +14,8 @@ mod file;
 const KIND: &str = "pagefile section";
 const SECTION_ALL_ACCESS: u32 = 0x000F_001F;
 const SEC_RESERVE: u32 = 0x0400_0000;
+const SEC_PARTITION_OWNER_HANDLE: u32 = 0x0004_0000;
+const SEC_64K_PAGES: u32 = 0x0008_0000;
 const SEC_COMMIT: u32 = 0x0800_0000;
 const SEC_IMAGE: u32 = 0x0100_0000;
 const SEC_NOCACHE: u32 = 0x1000_0000;
@@ -25,6 +27,64 @@ const MAX_BACKING_BYTES: u64 = 64 << 20;
 pub(super) fn create(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
     guard_result(c, result)
+}
+
+pub(super) fn create_ex(c: &mut Ctx) -> ApiResult {
+    let result = checked_ex(c);
+    guard_result(c, result)
+}
+
+fn checked_ex(c: &mut Ctx) -> ApiResult {
+    let parameters = c.ptr(7)?;
+    let count = c.u32(8)?;
+    if count == 0 && c.u32(5)? & SEC_PARTITION_OWNER_HANDLE == 0 {
+        return checked(c);
+    }
+    let attributes = c.u32(5)?;
+    if !super::super::gameos::enabled(c)
+        || attributes != SEC_RESERVE | SEC_PARTITION_OWNER_HANDLE | SEC_64K_PAGES
+        || count != 1
+    {
+        return Err(c.unsupported(format!(
+            "NtCreateSectionEx allocation attributes {attributes:#x}, extended parameter count {count}"
+        )));
+    }
+    let (out, access, object, maximum, protection, owner) = (
+        c.ptr(0)?,
+        c.u32(1)?,
+        c.ptr(2)?,
+        c.ptr(3)?,
+        c.u32(4)?,
+        c.ptr(6)?,
+    );
+    if object != 0 || access & !SECTION_ALL_ACCESS != 0 || protection != 4 {
+        return Err(c.unsupported("NtCreateSectionEx physical section creation parameters"));
+    }
+    if parameters % 8 != 0 || maximum % 8 != 0 {
+        return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
+    }
+    probe_write(c, out, c.psize() as usize)?;
+    // XMem creates the partition's user-physical section using a zero
+    // maximum size and a single {type: 1, flags: 1} record.
+    if maximum == 0 || c.mem().u64(maximum)? != 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER_4.into());
+    }
+    let record = c.mem().bytes(parameters, 16)?;
+    if record[..8] != 1u64.to_le_bytes() || record[8..] != 1u64.to_le_bytes() {
+        return Err(c.unsupported("NtCreateSectionEx physical section extended parameter"));
+    }
+    let partition_id = match c.p.objects.get(owner) {
+        Some(Object::MemoryPartition { partition_id }) => *partition_id,
+        Some(_) => return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into()),
+        None => return Flow::ret(STATUS_INVALID_HANDLE.into()),
+    };
+    object_create::publish(
+        c,
+        out,
+        false,
+        access,
+        Object::GameOsPhysicalSection(Arc::new(GameOsPhysicalSection { partition_id })),
+    )
 }
 #[derive(Clone, Copy)]
 struct Request {

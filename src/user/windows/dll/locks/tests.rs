@@ -54,6 +54,7 @@ fn invoke(c: &mut Ctx, name: &str, args: &[u64]) -> ApiResult {
         .iter()
         .chain(NTDLL_CRITICAL_EXPORTS)
         .chain(ONCE_EXPORTS)
+        .chain(NTDLL_ONCE_EXPORTS)
         .chain(RESOURCE_EXPORTS)
         .find(|e| e.name == name)
         .unwrap();
@@ -145,6 +146,54 @@ fn one_time_initialization_retries_failure_and_publishes_callback_context() {
             assert_eq!(c.p.sync.once_owner(address), Some(c.t.tid));
             drop(abandoned);
             assert_eq!(c.p.sync.once_owner(address), None);
+        });
+    }
+}
+
+#[test]
+fn rtl_run_once_uses_ntstatus_and_passes_the_optional_output_to_the_callback() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, address| {
+            let output = address + 16;
+            let args = [address, 0x8760, 0x42, output];
+            let invoke_once = |c: &mut Ctx| invoke(c, "RtlRunOnceExecuteOnce", &args).unwrap();
+            let Flow::CallChecked { args, then, .. } = invoke_once(c) else {
+                panic!("first call must initialize");
+            };
+            assert_eq!(args, [address, 0x42, output]);
+            assert_eq!(int(then(c, 0)), u64::from(STATUS_UNSUCCESSFUL));
+            assert_eq!(c.read_ptr(address).unwrap(), 0);
+
+            let Flow::CallChecked { then, .. } = invoke_once(c) else {
+                panic!("failed initialization must be retryable");
+            };
+            c.write_ptr(output, 0x8000).unwrap();
+            assert_eq!(int(then(c, 1)), u64::from(STATUS_SUCCESS));
+            c.write_ptr(output, 0).unwrap();
+            assert_eq!(int(Ok(invoke_once(c))), u64::from(STATUS_SUCCESS));
+            assert_eq!(c.read_ptr(output).unwrap(), 0x8000);
+
+            let empty = address + 0x40;
+            let Flow::CallChecked { args, then, .. } =
+                invoke(c, "RtlRunOnceExecuteOnce", &[empty, 0x8760, 0x42, 0]).unwrap()
+            else {
+                panic!("NULL context must still allow initialization");
+            };
+            assert_eq!(args, [empty, 0x42, 0]);
+            assert_eq!(int(then(c, 1)), u64::from(STATUS_SUCCESS));
+
+            let retryable = address + 0x80;
+            let inaccessible = c.p.vm.high();
+            let Flow::CallChecked { then, .. } = invoke(
+                c,
+                "RtlRunOnceExecuteOnce",
+                &[retryable, 0x8760, 0x42, inaccessible],
+            )
+            .unwrap() else {
+                panic!("the native callback owns access to its output");
+            };
+            assert_eq!(int(then(c, 0)), u64::from(STATUS_UNSUCCESSFUL));
+            assert_eq!(c.read_ptr(retryable).unwrap(), 0);
         });
     }
 }

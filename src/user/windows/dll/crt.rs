@@ -10,11 +10,13 @@ mod legacy_onexit;
 mod math;
 mod memory;
 pub(crate) mod onexit;
+mod random;
 pub(crate) mod startup;
 mod state;
 pub(crate) mod stdio;
 mod strings;
 pub(crate) mod termination;
+mod time;
 
 #[cfg(test)]
 mod tests;
@@ -29,21 +31,24 @@ pub(crate) use bootstrap::{UCRT_BOOTSTRAP_EXPORTS, UCRT_LOCALE_EXPORTS};
 pub(crate) use handlers::{NEW_HANDLER_EXPORTS, UCRT_EXCEPTION_FILTER_EXPORTS};
 pub(crate) use initialize::{INIT_EXPORTS, MSVCRT_INIT_EXPORTS, UCRT_INIT_EXPORTS};
 pub(crate) use legacy_onexit::MSVCRT_ONEXIT_EXPORTS;
-pub(crate) use math::UCRT_MATH_EXPORTS;
+pub(crate) use math::{UCRT_MATH_EXPORTS, UCRT_SCALAR_MATH_EXPORTS};
 pub(crate) use memory::{MEMORY_EXPORTS, VCRUNTIME_MEMORY_EXPORTS};
 pub(crate) use onexit::UCRT_ONEXIT_EXPORTS;
+pub(crate) use random::UCRT_RANDOM_EXPORTS;
 pub(crate) use startup::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
 pub(crate) use stdio::{
-    MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_STDIO_EXPORTS, UCRT_STREAM_BUFFER_EXPORTS,
+    MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_BUFFER_FORMAT_EXPORTS, UCRT_STDIO_EXPORTS,
+    UCRT_STREAM_BUFFER_EXPORTS,
 };
 pub(crate) use strings::{
-    NTDLL_STRING_EXPORTS, STRING_EXPORTS, UCRT_SECURE_STRING_EXPORTS, UCRT_STRING_EXPORTS,
-    VCRUNTIME_STRING_EXPORTS,
+    NTDLL_STRING_EXPORTS, STRING_EXPORTS, UCRT_CASE_STRING_EXPORTS, UCRT_SECURE_STRING_EXPORTS,
+    UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS,
 };
 pub(crate) use termination::{
     UCRT_EXIT_EXPORTS, UCRT_FATAL_EXPORTS, UCRT_REGISTRATION_EXPORTS, UCRT_SIGNAL_EXPORTS,
 };
+pub(crate) use time::UCRT_TIME_EXPORTS;
 
 // The portable UCRT has one guest-owned runtime state. Its private system
 // entry points reach the same state as the corresponding public entries.

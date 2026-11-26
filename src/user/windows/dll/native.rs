@@ -26,6 +26,7 @@ mod file_pipe;
 mod file_read;
 mod file_state_set;
 mod file_write;
+mod gameos_xvc;
 mod hotpatch;
 pub(super) mod instruction_cache;
 mod io_completion;
@@ -1282,6 +1283,13 @@ pub(super) static EXTENDED_SECTION_VIEW_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, Ptr, Ptr, Ptr, Ptr, I32, I32, Ptr, I32],
     section_map::map_ex,
+)];
+
+pub(super) static EXTENDED_SECTION_CREATE_EXPORTS: &[Export] = &[Export::func(
+    "NtCreateSectionEx",
+    Stdcall,
+    &[Ptr, I32, Ptr, Ptr, I32, I32, Ptr, Ptr, I32],
+    section_create::create_ex,
 )];
 
 pub(super) static PROCESS_WRITE_BARRIER_EXPORTS: &[Export] = &[Export::func(

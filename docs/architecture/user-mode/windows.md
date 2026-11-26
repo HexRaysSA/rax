@@ -44,7 +44,22 @@ queries report the emulator's shared memory budget. The profile models a
 scoped guest lock-memory privilege for startup. The tools partition, memory
 ownership changes, and host privilege operations are outside this model.
 The GameOS product policy reports the guest OS SKU. The virtual-console
-management device reports object absence, which XMem's initializer handles.
+management device exposes a guest-owned handle and reports the portable
+profile's zero capability mask for the XMem counter query.
+The D3D12 and XMem direct transport probes report `STATUS_NOT_SUPPORTED`.
+A Win32 open of
+`\\.\XgsKmd10` reports `ERROR_FILE_NOT_FOUND`. The portable profile has no
+Xbox graphics device.
+GameOS NUMA queries report the available memory of the single guest node.
+The legacy Win32 processor topology query reports one core, node and package.
+The cooperative scheduler stores the process priority-boost setting and uses
+cooperative time slices for runnable threads. `GetStartupInfoW` reads the live
+process parameters, including the startup flags and applicable standard handles.
+XMem can create a partition-owned 64 KiB user-physical section and reserve
+address space against it without committing memory. Its graphics reservation
+and nonpaged reserve-and-commit requests preserve CPU permissions and the
+guest commitment budget. GPU mappings, physical-page allocation, and
+physical-page remapping require additional services.
 Current-process token queries report the portable profile's unprivileged
 guest state, including absence of elevation, UIAccess and AppContainer.
 The guest KsecDD provider watch retains a guest event on the device file.
@@ -54,12 +69,21 @@ arming, cancellation and closure. An expiration that requires callback
 delivery stops at the scheduler with the guest callback address.
 The CRT startup paths include the UCRT's C locale and private startup aliases,
 plus MSVCRT numbered locks and the DLL-owned `__dllonexit` registration table.
+The UCRT's bounded `_strnicmp` uses C-locale case folding. Its scalar math
+exports marshal arguments and results through the guest floating-point ABI.
+Its narrow buffer formatter reads guest variadic arguments for integer and
+byte string conversions and applies UCRT truncation and termination policies.
+Wide, floating-point, and explicit-locale formatting require additional support.
+The UCRT reads Unix epoch seconds from the host wall clock through `_time64`
+and uses the host entropy source for `rand_s`.
 The core CRT level-one API set uses the same built-in UCRT, including its raw
 memory exports. The level-two API set uses KernelBase, which forwards its
 initializer table walkers to UCRT and registers x64 DLL exit callbacks in the
 caller’s encoded `__dllonexit3` table.
 `InitOnceExecuteOnce` runs the guest initializer synchronously. A callback
 that returns failure leaves the one-time record available for retry.
+`RtlRunOnceExecuteOnce` shares that state and returns NTSTATUS. Its callback
+receives the caller's optional context pointer.
 `LocalAlloc` and `LocalFree` support fixed allocations on the guest process heap.
 The native RTL heap entry points use the same guest heap model. RTL resource
 acquisition supports shared and recursive exclusive locking with scheduler

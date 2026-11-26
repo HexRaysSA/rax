@@ -261,6 +261,9 @@ impl VirtualMemory {
         };
         let (first, end) = page_range(start, len)?;
         let a = self.allocation(first).ok_or(VmError::NotAllocated)?;
+        if self.physical_reservations.contains_key(&a.base) {
+            return Err(VmError::Conflicting);
+        }
         if a.kind != AllocKind::Private && requested & prot::TARGETS_INVALID != 0 {
             return Err(VmError::NotSupported);
         }

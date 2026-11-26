@@ -159,7 +159,14 @@ fn object(c: &Ctx, handle: u64, kind: Kind, access: u32) -> Checked<ObjId> {
     Ok(id)
 }
 
-fn create(c: &mut Ctx, attrs: u64, name: Option<Name>, kind: Kind, new: Object) -> ApiResult {
+fn create(
+    c: &mut Ctx,
+    attrs: u64,
+    name: Option<Name>,
+    kind: Kind,
+    access: u32,
+    new: Object,
+) -> ApiResult {
     let existing = name.as_ref().and_then(|name| name.lookup(c));
     if let Some(id) = existing
         && !c
@@ -184,7 +191,7 @@ fn create(c: &mut Ctx, attrs: u64, name: Option<Name>, kind: Kind, new: Object) 
     let Some((id, existed)) = result else {
         return c.fail(ERROR_NOT_ENOUGH_MEMORY, 0);
     };
-    let Some(handle) = c.p.objects.open_access(id, inherit, kind.all_access()) else {
+    let Some(handle) = c.p.objects.open_access(id, inherit, access) else {
         if !existed {
             c.p.objects.release(id);
         }
@@ -212,6 +219,7 @@ fn create_event(c: &mut Ctx, wide: bool) -> ApiResult {
         attrs,
         name,
         Kind::Event,
+        EVENT_ALL_ACCESS,
         Object::Event {
             manual,
             signaled: i32::from(signaled),
@@ -237,6 +245,7 @@ fn create_mutex(c: &mut Ctx, wide: bool) -> ApiResult {
         attrs,
         name,
         Kind::Mutex,
+        MUTEX_ALL_ACCESS,
         Object::Mutex {
             owner,
             count: u32::from(owned),
@@ -251,7 +260,7 @@ pub(super) fn create_mutex_a(c: &mut Ctx) -> ApiResult {
     create_mutex(c, false)
 }
 
-fn create_semaphore(c: &mut Ctx, wide: bool) -> ApiResult {
+fn create_semaphore(c: &mut Ctx, wide: bool, access: u32) -> ApiResult {
     let (attrs, count, max, addr) = (c.ptr(0)?, c.i32(1)?, c.i32(2)?, c.ptr(3)?);
     let name = match name(c, addr, wide) {
         Ok(name) => name,
@@ -267,14 +276,26 @@ fn create_semaphore(c: &mut Ctx, wide: bool) -> ApiResult {
         attrs,
         name,
         Kind::Semaphore,
+        access,
         Object::Semaphore { count, max },
     )
 }
 pub(super) fn create_semaphore_w(c: &mut Ctx) -> ApiResult {
-    create_semaphore(c, true)
+    create_semaphore(c, true, SEMAPHORE_ALL_ACCESS)
 }
 pub(super) fn create_semaphore_a(c: &mut Ctx) -> ApiResult {
-    create_semaphore(c, false)
+    create_semaphore(c, false, SEMAPHORE_ALL_ACCESS)
+}
+
+pub(super) fn create_semaphore_ex_w(c: &mut Ctx) -> ApiResult {
+    if c.u32(4)? != 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    let access = match desired_access(Kind::Semaphore, c.u32(5)?) {
+        Ok(access) => access,
+        Err(error) => return failure(c, error, 0),
+    };
+    create_semaphore(c, true, access)
 }
 
 fn desired_access(kind: Kind, access: u32) -> Checked<u32> {

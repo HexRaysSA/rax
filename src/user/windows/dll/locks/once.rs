@@ -1,10 +1,11 @@
-//! Synchronous Win32 one-time initialization and guest callback ownership.
+//! Synchronous one-time initialization and guest callback ownership.
 
 use crate::error::MemoryAccessKind;
 use crate::user::windows::{
     hle::{ApiResult, Arg::Ptr, Conv::Stdcall, Ctx, Export, Flow},
     memory::MemFault,
     nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOT_ENOUGH_MEMORY, ERROR_POSSIBLE_DEADLOCK},
+    nt::status::{STATUS_INVALID_PARAMETER, STATUS_NO_MEMORY, STATUS_SUCCESS, STATUS_UNSUCCESSFUL},
     sync::{OnceCallback, Wait},
 };
 
@@ -18,7 +19,36 @@ pub(in crate::user::windows::dll) static ONCE_EXPORTS: &[Export] = &[
     Export::func("InitOnceInitialize", Stdcall, &[Ptr], reset),
 ];
 
+pub(in crate::user::windows::dll) static NTDLL_ONCE_EXPORTS: &[Export] = &[Export::func(
+    "RtlRunOnceExecuteOnce",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr],
+    rtl_execute,
+)];
+
 const DONE: u64 = 2;
+
+#[derive(Clone, Copy)]
+enum OnceApi {
+    Win32,
+    Rtl,
+}
+
+impl OnceApi {
+    fn success(self) -> ApiResult {
+        match self {
+            Self::Win32 => Flow::bool(true),
+            Self::Rtl => Flow::ret(STATUS_SUCCESS.into()),
+        }
+    }
+
+    fn error(self, c: &mut Ctx, error: u32, status: u32) -> ApiResult {
+        match self {
+            Self::Win32 => c.fail(error, 0),
+            Self::Rtl => Flow::ret(status.into()),
+        }
+    }
+}
 
 fn reset(c: &mut Ctx) -> ApiResult {
     let address = c.ptr(0)?;
@@ -31,59 +61,97 @@ fn reset(c: &mut Ctx) -> ApiResult {
 
 fn execute(c: &mut Ctx) -> ApiResult {
     let (address, callback, parameter, output) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?, c.ptr(3)?);
-    initialize(c, address, callback, parameter, output)
+    initialize(c, OnceApi::Win32, address, callback, parameter, output)
 }
 
-fn initialize(c: &mut Ctx, address: u64, callback: u64, parameter: u64, output: u64) -> ApiResult {
+fn rtl_execute(c: &mut Ctx) -> ApiResult {
+    let (address, callback, parameter, output) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?, c.ptr(3)?);
+    initialize(c, OnceApi::Rtl, address, callback, parameter, output)
+}
+
+fn initialize(
+    c: &mut Ctx,
+    api: OnceApi,
+    address: u64,
+    callback: u64,
+    parameter: u64,
+    output: u64,
+) -> ApiResult {
     if address == 0 || address % c.psize() != 0 || callback == 0 || output == address {
-        return c.fail(ERROR_INVALID_PARAMETER, 0);
+        return api.error(c, ERROR_INVALID_PARAMETER, STATUS_INVALID_PARAMETER);
     }
     let state = c.read_ptr(address)?;
     if state & 3 == DONE {
         if output != 0 {
             c.write_ptr(output, state & !3)?;
         }
-        return Flow::bool(true);
+        return api.success();
     }
     if state != 0 {
-        return c.fail(ERROR_INVALID_PARAMETER, 0);
+        return api.error(c, ERROR_INVALID_PARAMETER, STATUS_INVALID_PARAMETER);
     }
     if let Some(owner) = c.p.sync.once_owner(address) {
         if owner == c.t.tid {
-            return c.fail(ERROR_POSSIBLE_DEADLOCK, 0);
+            return api.error(c, ERROR_POSSIBLE_DEADLOCK, STATUS_UNSUCCESSFUL);
         }
         return Flow::block(Wait::InitOnce { addr: address }, move |c, _| {
-            initialize(c, address, callback, parameter, output)
+            initialize(c, api, address, callback, parameter, output)
         });
     }
     probe(c, address)?;
-    if output != 0 {
+    let publish_output = if matches!(api, OnceApi::Win32) {
+        output
+    } else {
+        // The native callback receives the caller's pointer and owns that
+        // store. The runtime only reads it when initialization succeeds.
+        0
+    };
+    if publish_output != 0 {
         probe(c, output)?;
     }
-    // The dispatcher's cursor is above the outgoing callback frame and below
-    // the API's entry stack pointer. Use that reserved space for *Context.
-    let scratch = c.cursor;
-    c.write_ptr(scratch, 0)?;
+    let callback_output = match api {
+        OnceApi::Win32 => {
+            // The dispatcher's cursor is above the outgoing callback frame
+            // and below the API's entry stack pointer.
+            c.write_ptr(c.cursor, 0)?;
+            c.cursor
+        }
+        OnceApi::Rtl => output,
+    };
     let Some(owner) = c.p.sync.begin_once(address, c.t.tid) else {
-        return c.fail(ERROR_NOT_ENOUGH_MEMORY, 0);
+        return api.error(c, ERROR_NOT_ENOUGH_MEMORY, STATUS_NO_MEMORY);
     };
     Flow::call_checked(
         callback,
-        vec![address, parameter, scratch],
+        vec![address, parameter, callback_output],
         move |c, value| {
             if value as u32 == 0 {
                 drop(owner);
-                return Flow::bool(false);
+                return match api {
+                    OnceApi::Win32 => Flow::bool(false),
+                    OnceApi::Rtl => Flow::ret(STATUS_UNSUCCESSFUL.into()),
+                };
             }
-            let context = c.read_ptr(scratch)?;
-            publish(c, address, output, context, owner)
+            let context = if callback_output == 0 {
+                0
+            } else {
+                c.read_ptr(callback_output)?
+            };
+            publish(c, api, address, publish_output, context, owner)
         },
     )
 }
 
-fn publish(c: &mut Ctx, address: u64, output: u64, context: u64, owner: OnceCallback) -> ApiResult {
+fn publish(
+    c: &mut Ctx,
+    api: OnceApi,
+    address: u64,
+    output: u64,
+    context: u64,
+    owner: OnceCallback,
+) -> ApiResult {
     if context & 3 != 0 {
-        return c.fail(ERROR_INVALID_PARAMETER, 0);
+        return api.error(c, ERROR_INVALID_PARAMETER, STATUS_INVALID_PARAMETER);
     }
     if let Err(fault) = probe(c, address).and_then(|()| {
         if output == 0 {
@@ -94,7 +162,7 @@ fn publish(c: &mut Ctx, address: u64, output: u64, context: u64, owner: OnceCall
     }) {
         return Ok(Flow::RetryFault {
             fault,
-            retry: Box::new(move |c, _| publish(c, address, output, context, owner)),
+            retry: Box::new(move |c, _| publish(c, api, address, output, context, owner)),
         });
     }
     c.write_ptr(address, context | DONE)?;
@@ -102,7 +170,7 @@ fn publish(c: &mut Ctx, address: u64, output: u64, context: u64, owner: OnceCall
         c.write_ptr(output, context)?;
     }
     drop(owner);
-    Flow::bool(true)
+    api.success()
 }
 
 fn probe(c: &Ctx, ptr: u64) -> Result<(), MemFault> {

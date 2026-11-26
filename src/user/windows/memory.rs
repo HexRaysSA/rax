@@ -351,6 +351,13 @@ pub enum AllocKind {
     Mapped,
 }
 
+/// A container for 64 KiB user-physical pages owned by a GameOS partition.
+#[derive(Debug)]
+pub struct GameOsPhysicalSection {
+    /// Partition in the portable GameOS namespace.
+    pub partition_id: u32,
+}
+
 impl AllocKind {
     /// The `MEM_*` type value.
     pub fn value(self) -> u32 {
@@ -561,6 +568,7 @@ pub struct VirtualMemory {
     call_targets: call_targets::CallTargets,
     mapped_filenames: BTreeMap<u64, super::mapped_filename::Filename>,
     allocation_nodes: BTreeMap<u64, u32>,
+    physical_reservations: BTreeMap<u64, Arc<GameOsPhysicalSection>>,
     nls_views: BTreeSet<u64>,
     pagefile_views: BTreeSet<u64>,
     section_views: BTreeMap<u64, section::SectionView>,
@@ -605,6 +613,7 @@ impl VirtualMemory {
             call_targets: call_targets::CallTargets::default(),
             mapped_filenames: BTreeMap::new(),
             allocation_nodes: BTreeMap::new(),
+            physical_reservations: BTreeMap::new(),
             nls_views: BTreeSet::new(),
             pagefile_views: BTreeSet::new(),
             section_views: BTreeMap::new(),
@@ -803,6 +812,7 @@ impl VirtualMemory {
         }
         if self.section_views.contains_key(&a.base)
             || self.data_views.contains_key(&a.base)
+            || self.physical_reservations.contains_key(&a.base)
             || self.is_code_bitmap(a.base)
             || self.is_shared_view(a.base)
             || self.is_file_view(a.base)
@@ -896,6 +906,7 @@ impl VirtualMemory {
         }
         self.mapped_filenames.remove(&base);
         self.allocation_nodes.remove(&base);
+        self.physical_reservations.remove(&base);
         self.nls_views.remove(&base);
         self.pagefile_views.remove(&base);
         self.section_views.remove(&base);

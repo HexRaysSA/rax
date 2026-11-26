@@ -97,6 +97,8 @@ pub enum Object {
     File(FileObj),
     /// A selected, guest-owned kernel security-device file; never a host HANDLE.
     SecurityFile(super::object_namespace::security_device::SecurityDevice),
+    /// A guest-owned file on the portable GameOS virtual console device.
+    GameOsXvcFile,
     /// A console standard stream (the host's stdin, stdout, or stderr).
     Console(StdStream),
     /// The `NUL` device.
@@ -166,6 +168,8 @@ pub enum Object {
         /// Guest-only partition identifier.
         partition_id: u32,
     },
+    /// A portable GameOS user-physical section associated with a guest partition.
+    GameOsPhysicalSection(std::sync::Arc<super::memory::GameOsPhysicalSection>),
     /// An active scope for the portable GameOS lock-memory privilege.
     GameOsLockMemoryScope,
     /// A user-mode thread-pool timer.
@@ -302,7 +306,11 @@ impl Object {
     /// The object type name `NtQueryObject` reports.
     pub fn type_name(&self) -> &'static str {
         match self {
-            Object::File(_) | Object::SecurityFile(_) | Object::Console(_) | Object::Null => "File",
+            Object::File(_)
+            | Object::SecurityFile(_)
+            | Object::GameOsXvcFile
+            | Object::Console(_)
+            | Object::Null => "File",
             Object::Event { .. } => "Event",
             Object::Mutex { .. } => "Mutant",
             Object::Semaphore { .. } => "Semaphore",
@@ -313,7 +321,8 @@ impl Object {
             Object::Mapping { .. }
             | Object::ImageSection(_)
             | Object::DataSection(_)
-            | Object::FileSection(_) => "Section",
+            | Object::FileSection(_)
+            | Object::GameOsPhysicalSection(_) => "Section",
             Object::PipeDirectory | Object::Pipe { .. } => "File",
             Object::CompletionPort { .. } => "IoCompletion",
             Object::LpcPort(_) => "ALPC Port",

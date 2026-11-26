@@ -32,6 +32,9 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(MSVCRT_STDIO_EXPORTS)
         .chain(UCRT_STDIO_EXPORTS)
         .chain(UCRT_STREAM_BUFFER_EXPORTS)
+        .chain(UCRT_BUFFER_FORMAT_EXPORTS)
+        .chain(UCRT_TIME_EXPORTS)
+        .chain(UCRT_RANDOM_EXPORTS)
         .chain(UCRT_EXCEPTION_FILTER_EXPORTS)
         .chain(NEW_HANDLER_EXPORTS)
         .find_map(|export| match &export.item {
@@ -90,12 +93,19 @@ pub(super) fn invoke(c: &mut Ctx, kind: RuntimeKind, name: &str, args: &[u64]) -
         .expect("admitted export");
     c.api = api(name);
     assert_eq!(args.len(), c.api.args.len());
+    let mut x86_offset = 4;
     for (i, &value) in args.iter().enumerate() {
         match c.arch() {
-            WinArch::X86 => c
-                .mem()
-                .w32(c.entry_sp + 4 + i as u64 * 4, value as u32)
-                .unwrap(),
+            WinArch::X86 => {
+                let at = c.entry_sp + x86_offset;
+                let width = crate::user::windows::hle::args::slot_bytes_x86(c.api.args[i]);
+                if width == 8 {
+                    c.mem().w64(at, value).unwrap();
+                } else {
+                    c.mem().w32(at, value as u32).unwrap();
+                }
+                x86_offset += width;
+            }
             WinArch::X64 if i < 4 => c.t.cpu.set_gpr([1, 2, 8, 9][i], value),
             WinArch::X64 => c.mem().w64(c.entry_sp + 8 + i as u64 * 8, value).unwrap(),
             WinArch::Arm64 => c.t.cpu.set_gpr(i, value),

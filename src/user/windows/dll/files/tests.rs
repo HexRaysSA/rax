@@ -10,6 +10,30 @@ use std::sync::atomic::{AtomicU64, Ordering};
 mod name_origin;
 mod security_device;
 
+#[test]
+fn the_gameos_graphics_device_reports_absent() {
+    let mut harness = Harness::new(WinArch::X64);
+    harness.filename(r"\\.\xGsKmD10", true);
+    let args = [harness.memory, 0xc000_0000, 0, 0, 2, 0x80, 0];
+    assert!(matches!(
+        harness.call("CreateFileW", &args),
+        Err(ApiErr::Unimplemented(_))
+    ));
+
+    let process = harness.process.state_mut();
+    std::sync::Arc::make_mut(&mut process.cfg).gameos = true;
+    let handles = process.objects.handle_count();
+    assert_eq!(harness.value("CreateFileW", &args), u64::MAX);
+    assert_eq!(harness.error(), ERROR_FILE_NOT_FOUND);
+    assert_eq!(harness.process.state().objects.handle_count(), handles);
+
+    harness.filename(r"\\.\XgsKmd100", true);
+    assert!(matches!(
+        harness.call("CreateFileW", &args),
+        Err(ApiErr::Unimplemented(_))
+    ));
+}
+
 struct Temp(PathBuf);
 impl Temp {
     fn new() -> Self {

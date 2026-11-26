@@ -21,6 +21,18 @@ pub(super) static PROCESS_WRITE_BARRIER_EXPORTS: &[Export] = &[Export::func(
     super::native::flush_process_write_buffers,
 )];
 
+pub(super) static NTDLL_LAST_ERROR_EXPORTS: &[Export] = &[
+    Export::func("RtlGetLastWin32Error", Stdcall, &[], get_last_error),
+    Export::func("RtlSetLastWin32Error", Stdcall, &[I32], set_last_error),
+];
+
+pub(super) static STARTUP_INFO_EXPORTS: &[Export] = &[Export::func(
+    "GetStartupInfoW",
+    Stdcall,
+    &[Ptr],
+    get_startup_info_w,
+)];
+
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("ExitProcess", Stdcall, &[I32], exit_process),
     Export::func("ExitThread", Stdcall, &[I32], exit_thread),
@@ -370,6 +382,74 @@ fn set_std_handle(c: &mut Ctx) -> ApiResult {
     c.write_ptr(c.p.current_parameters()? + off, handle)?;
     Flow::bool(true)
 }
+fn get_startup_info_w(c: &mut Ctx) -> ApiResult {
+    let output = c.ptr(0)?;
+    let params = c.p.current_parameters()?;
+    let layout = offsets(c.arch());
+    let width = c.psize();
+    params
+        .checked_add(layout.pp_runtime_data + 2 * width - 1)
+        .filter(|&last| c.arch().ptr(last) == last)
+        .ok_or(super::super::memory::MemFault {
+            addr: params,
+            write: false,
+        })?;
+    let scalar = 4 * width;
+    let tail = (scalar + 36).next_multiple_of(width);
+    let size = tail + 4 * width;
+    c.mem().w32(output, size as u32)?;
+    // STARTUPINFOW stores the three live UNICODE_STRING buffer pointers.
+    for (i, off) in [
+        layout.pp_shell_info,
+        layout.pp_desktop_info,
+        layout.pp_window_title,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        c.write_ptr(
+            output + (i as u64 + 1) * width,
+            c.read_ptr(params + off + width)?,
+        )?;
+    }
+    // Seven consecutive ULONGs in RTL_USER_PROCESS_PARAMETERS precede WindowFlags.
+    for i in 0..7 {
+        let value = c.mem().u32(params + layout.pp_window_flags - (7 - i) * 4)?;
+        c.mem().w32(output + scalar + i * 4, value)?;
+    }
+    let flags = c.mem().u32(params + layout.pp_window_flags)?;
+    c.mem().w32(output + scalar + 28, flags)?;
+    c.mem().w16(
+        output + scalar + 32,
+        c.mem().u16(params + layout.pp_show_window_flags)?,
+    )?;
+    c.mem().w16(
+        output + scalar + 34,
+        c.mem().u16(params + layout.pp_runtime_data)?,
+    )?;
+    c.write_ptr(
+        output + tail,
+        c.read_ptr(params + layout.pp_runtime_data + width)?,
+    )?;
+    if flags & 0x700 != 0 {
+        // STARTF_USESTDHANDLES, STARTF_USEHOTKEY and STARTF_SHELLPRIVATE.
+        for (i, off) in [
+            layout.pp_std_input,
+            layout.pp_std_output,
+            layout.pp_std_error,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            c.write_ptr(
+                output + tail + (i as u64 + 1) * width,
+                c.read_ptr(params + off)?,
+            )?;
+        }
+    }
+    Flow::void()
+}
+
 fn command_line_w(c: &mut Ctx) -> ApiResult {
     Flow::ret(
         c.read_ptr(c.p.current_parameters()? + offsets(c.arch()).pp_command_line + c.psize())?,
@@ -640,7 +720,7 @@ mod tests {
     use crate::user::windows::process::{WindowsConfig, WindowsProcess};
 
     #[test]
-    fn live_parameter_replacement_controls_command_line_and_standard_handles_all_abis() {
+    fn live_parameter_replacement_controls_win32_startup_information_all_abis() {
         use crate::user::windows::arch::WinArch;
         for arch in WinArch::ALL {
             let image: &[u8] = match arch {
@@ -687,6 +767,7 @@ mod tests {
             let api = |name| {
                 EXPORTS
                     .iter()
+                    .chain(STARTUP_INFO_EXPORTS)
                     .find_map(|export| match &export.item {
                         Item::Func(api) if api.name == name => Some(api),
                         _ => None,
@@ -737,6 +818,41 @@ mod tests {
                 assert_eq!(c.read_ptr(replacement + offset).unwrap(), handle);
                 c.api = api("GetStdHandle");
                 assert_eq!(integer(get_std_handle(&mut c).unwrap()), handle);
+            }
+            let info =
+                c.p.heaps
+                    .alloc(&mut c.p.vm, c.p.process_heap, 128, true)
+                    .unwrap();
+            let (size, flags_offset, show_offset, std_offset) = if arch.is64() {
+                (104, 0x3c, 0x40, 0x50)
+            } else {
+                (68, 0x2c, 0x30, 0x38)
+            };
+            c.write_ptr(replacement + o.pp_window_title + o.ptr, buffer)
+                .unwrap();
+            c.mem()
+                .w32(replacement + o.pp_show_window_flags, 0xabcd_0042)
+                .unwrap();
+            c.mem().wr(info, &[0xd7; 104]).unwrap();
+            match arch {
+                WinArch::X86 => c.mem().w32(sp + 4, info as u32).unwrap(),
+                WinArch::X64 => c.t.cpu.set_gpr(1, info),
+                WinArch::Arm64 => c.t.cpu.set_gpr(0, info),
+            };
+            c.api = api("GetStartupInfoW");
+            for (flags, expected_input) in
+                [(0, arch.ptr(0xd7d7_d7d7_d7d7_d7d7)), (0x101, 0x1234_0000)]
+            {
+                c.mem().w32(replacement + o.pp_window_flags, flags).unwrap();
+                assert!(matches!(
+                    get_startup_info_w(&mut c).unwrap(),
+                    Flow::Ret(Value::None)
+                ));
+                assert_eq!(c.mem().u32(info).unwrap(), size);
+                assert_eq!(c.read_ptr(info + 3 * o.ptr).unwrap(), buffer);
+                assert_eq!(c.mem().u32(info + flags_offset).unwrap(), flags);
+                assert_eq!(c.mem().u16(info + show_offset).unwrap(), 0x42);
+                assert_eq!(c.read_ptr(info + std_offset).unwrap(), expected_input);
             }
             c.write_ptr(c.p.peb + o.peb_process_parameters, 0).unwrap();
             c.api = api("GetCommandLineW");

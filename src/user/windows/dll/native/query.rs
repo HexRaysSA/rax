@@ -42,6 +42,7 @@ const SYSTEM_EMULATION_PROCESSOR_INFORMATION: u32 = 63;
 const SYSTEM_NATIVE_BASIC_INFORMATION: u32 = 114;
 const SYSTEM_RANGE_START_INFORMATION: u32 = 50;
 const SYSTEM_NUMA_PROCESSOR_MAP: u32 = 55;
+const SYSTEM_NUMA_AVAILABLE_MEMORY: u32 = 60;
 const SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION: u32 = 197;
 const SYSTEM_PROCESSOR_FEATURES_BITMAP_INFORMATION: u32 = 250;
 const SYSTEM_CODE_INTEGRITY_INFORMATION: u32 = 103;
@@ -242,6 +243,9 @@ fn query(c: &mut Ctx) -> ApiResult {
         SYSTEM_RANGE_START_INFORMATION => range_start(c, output, length, returned),
         SYSTEM_CURRENT_TIME_ZONE_INFORMATION => current_time_zone(c, output, length, returned),
         SYSTEM_NUMA_PROCESSOR_MAP => numa_processor_map(c, output, length, returned),
+        SYSTEM_NUMA_AVAILABLE_MEMORY if super::super::gameos::enabled(c) => {
+            numa_available_memory(c, output, length, returned)
+        }
         SYSTEM_HYPERVISOR_SHARED_PAGE_INFORMATION => {
             hypervisor_shared_page(c, output, length, returned)
         }
@@ -301,6 +305,24 @@ fn numa_processor_map(c: &mut Ctx, output: u64, length: u32, returned: u64) -> A
         4
     };
     return_length(c, returned, required)?;
+    Flow::ret(0)
+}
+
+fn numa_available_memory(c: &mut Ctx, output: u64, length: u32, returned: u64) -> ApiResult {
+    // The portable profile has one node. The x64 consumer reads the highest
+    // node number at offset 0 and each available-byte count at 8 + node * 8.
+    const RECORD_BYTES: u32 = 16;
+    if length < RECORD_BYTES {
+        return_length(c, returned, RECORD_BYTES)?;
+        return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
+    }
+    let usage = match c.p.vm.memory_usage() {
+        Ok(usage) => usage,
+        Err(err) => return Flow::ret(err.status().into()),
+    };
+    c.mem().w32(output, 0)?;
+    c.mem().w64(output + 8, usage.available_bytes)?;
+    return_length(c, returned, RECORD_BYTES)?;
     Flow::ret(0)
 }
 

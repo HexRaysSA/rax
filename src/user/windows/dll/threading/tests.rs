@@ -62,6 +62,8 @@ fn with_context(arch: WinArch, test: impl FnOnce(&mut Ctx, u64)) {
 fn api(name: &str) -> &'static Api {
     EXPORTS
         .iter()
+        .chain(SEMAPHORE_EX_EXPORTS)
+        .chain(PROCESS_PRIORITY_EXPORTS)
         .chain(super::super::kernel::EXPORTS.iter())
         .chain(super::super::native::EXPORTS.iter())
         .chain(super::super::native::SEMAPHORE_EXPORTS.iter())
@@ -648,6 +650,29 @@ fn semaphore_release_limits_output_fault_and_existing_counts_all_abis() {
 }
 
 #[test]
+fn semaphore_ex_retains_the_explicit_grant_for_both_new_and_existing_names() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, data| {
+            put_name(c, data, "SEx");
+            let refused = integer(c, "CreateSemaphoreExW", &[0, 1, 2, data, 1, 0x10_0000]);
+            assert_eq!(refused, 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_INVALID_PARAMETER);
+            let waiting = integer(c, "CreateSemaphoreExW", &[0, 1, 2, data, 0, 0x10_0000]);
+            assert_eq!(c.last_error().unwrap(), ERROR_SUCCESS);
+            assert_eq!(c.p.objects.access(waiting), Some(0x10_0000));
+            let modifying = integer(c, "CreateSemaphoreExW", &[0, 0, 0, data, 0, 2]);
+            assert_eq!(c.last_error().unwrap(), ERROR_ALREADY_EXISTS);
+            assert_eq!(c.p.objects.access(modifying), Some(2));
+            assert_eq!(c.p.objects.id(waiting), c.p.objects.id(modifying));
+            assert_eq!(integer(c, "ReleaseSemaphore", &[waiting, 1, 0]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_ACCESS_DENIED);
+            assert_eq!(integer(c, "ReleaseSemaphore", &[modifying, 1, 0]), 1);
+            assert_eq!(integer(c, "WaitForSingleObject", &[waiting, 0]), 0);
+        });
+    }
+}
+
+#[test]
 fn multiple_waits_lowest_index_wait_all_atomicity_and_duplicate_rejection() {
     for arch in WinArch::ALL {
         with_context(arch, |c, data| {
@@ -870,6 +895,35 @@ fn exit_thread_frees_owned_tls_expansion_without_trusting_forged_teb_pointer() {
             assert_eq!(c.p.heaps.blocks(heap).len(), before.len() + 1);
             c.p.heaps.free(heap, victim).unwrap();
             assert_eq!(c.p.heaps.blocks(heap), before);
+        });
+    }
+}
+
+#[test]
+fn process_priority_boost_uses_shared_state_and_checks_the_handle_grant() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, at| {
+            let process = arch.ptr(crate::user::windows::objects::CURRENT_PROCESS);
+            assert_eq!(integer(c, "GetProcessPriorityBoost", &[process, at]), 1);
+            assert_eq!(c.mem().u32(at).unwrap(), 0);
+
+            let id = c.p.objects.create(Object::Process {
+                pid: c.p.pid,
+                exit_code: None,
+            });
+            let query = u64::from(
+                c.p.objects
+                    .open_access(id, false, PROCESS_QUERY_LIMITED_INFORMATION)
+                    .unwrap(),
+            );
+            assert_eq!(integer(c, "SetProcessPriorityBoost", &[query, 1]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_ACCESS_DENIED);
+            assert_eq!(integer(c, "SetProcessPriorityBoost", &[process, 3]), 1);
+            assert_eq!(integer(c, "GetProcessPriorityBoost", &[query, at]), 1);
+            assert_eq!(c.mem().u32(at).unwrap(), 1);
+            assert_eq!(integer(c, "SetProcessPriorityBoost", &[process, 0]), 1);
+            assert_eq!(integer(c, "GetProcessPriorityBoost", &[query, at]), 1);
+            assert_eq!(c.mem().u32(at).unwrap(), 0);
         });
     }
 }

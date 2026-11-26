@@ -7,8 +7,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
-use crate::user::windows::process::Proc;
+use crate::user::windows::process::family::with_live_handle;
 
 pub(super) const CLASS: u32 = 71;
 const BYTES: u32 = 4;
@@ -25,7 +24,7 @@ pub(super) fn set(c: &mut Ctx, handle: u64, input: u64, length: u32) -> ApiResul
     }
     // The setter captures the ULONG before checking the handle.
     let enabled = c.mem().u32(input)? != 0;
-    with_target(c, handle, PROCESS_SET_INFORMATION, |process| {
+    with_live_handle(c.p, handle, PROCESS_SET_INFORMATION, |process| {
         process.raise_um_exception_on_invalid_handle_close = enabled;
     })
     .map_or_else(|status| Flow::ret(status.into()), |()| Flow::ret(0))
@@ -53,8 +52,8 @@ fn checked_query(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u
     if length != BYTES {
         return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }
-    let enabled = match with_target(
-        c,
+    let enabled = match with_live_handle(
+        c.p,
         handle,
         PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION,
         |process| process.raise_um_exception_on_invalid_handle_close,
@@ -80,38 +79,4 @@ fn validate_buffer(c: &Ctx, buffer: u64, length: u32) -> Result<(), u32> {
         }
     }
     Ok(())
-}
-
-fn with_target<T>(
-    c: &mut Ctx,
-    handle: u64,
-    rights: u32,
-    visit: impl FnOnce(&mut Proc) -> T,
-) -> Result<T, u32> {
-    if handle == c.arch().ptr(CURRENT_PROCESS) {
-        return Ok(visit(c.p));
-    }
-    if handle == c.arch().ptr(CURRENT_THREAD) {
-        return Err(STATUS_OBJECT_TYPE_MISMATCH);
-    }
-    let pid = match c.p.objects.get(handle) {
-        Some(Object::Process { pid, .. }) => *pid,
-        Some(_) => return Err(STATUS_OBJECT_TYPE_MISMATCH),
-        None => return Err(STATUS_INVALID_HANDLE),
-    };
-    if c.p.objects.access(handle).unwrap_or(0) & rights == 0 {
-        return Err(STATUS_ACCESS_DENIED);
-    }
-    if pid == c.p.pid {
-        return Ok(visit(c.p));
-    }
-    let Some((_, exit)) = c.p.children.basic(pid) else {
-        return Err(STATUS_INVALID_HANDLE);
-    };
-    if exit.is_some() {
-        return Err(STATUS_PROCESS_IS_TERMINATING);
-    }
-    c.p.children
-        .with_process(pid, visit)
-        .ok_or(STATUS_PROCESS_IS_TERMINATING)
 }

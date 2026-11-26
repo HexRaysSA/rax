@@ -12,6 +12,7 @@
 use super::super::arch::{WinArch, WinCpu};
 use super::super::hle::{ApiErr, ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use super::super::memory::{ALLOCATION_GRANULARITY, Mem};
+use super::super::nt::error::{ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
 use super::super::nt::status::{STATUS_INVALID_PARAMETER, STATUS_SUCCESS};
 use super::super::process::processor::{native_arch, x86_signature};
 use crate::user::mm::PAGE_SIZE;
@@ -56,6 +57,13 @@ pub(super) static SYSTEM_INFO_EXPORTS: &[Export] = &[
         get_native_system_info,
     ),
 ];
+
+pub(super) static TOPOLOGY_EXPORTS: &[Export] = &[Export::func(
+    "GetLogicalProcessorInformation",
+    Stdcall,
+    &[Ptr, Ptr],
+    get_logical_processor_information,
+)];
 
 pub(super) static NTDLL_VERSION_EXPORTS: &[Export] = &[Export::func(
     "RtlGetVersion",
@@ -130,6 +138,46 @@ fn system_info(c: &mut Ctx, arch: WinArch) -> ApiResult {
     bytes[tail + 14..tail + 16].copy_from_slice(&revision.to_le_bytes());
     c.mem().wr(out, &bytes[..tail + 16])?;
     Flow::void()
+}
+
+fn get_logical_processor_information(c: &mut Ctx) -> ApiResult {
+    const RELATION_PROCESSOR_CORE: u32 = 0;
+    const RELATION_NUMA_NODE: u32 = 1;
+    const RELATION_PROCESSOR_PACKAGE: u32 = 3;
+    let (output, length) = (c.ptr(0)?, c.ptr(1)?);
+    if length == 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    // The 16-byte union has 8-byte alignment. It starts at offset 8 in
+    // Win32 and 16 in Win64, making the records 24 and 32 bytes respectively.
+    let width = c.psize() as usize;
+    let stride = (width + 4).next_multiple_of(8) + 16;
+    let required = (stride * 3) as u32;
+    if c.mem().u32(length)? < required {
+        c.mem().w32(length, required)?;
+        return c.fail(ERROR_INSUFFICIENT_BUFFER, 0);
+    }
+    if output == 0 || output % 4 != 0 {
+        return c.fail(ERROR_NOACCESS, 0);
+    }
+    // Model the same single-vCPU topology as GetSystemInfo. No cache entries
+    // are reported for the virtual processor.
+    let mut records = [0u8; 3 * 32];
+    for (record, relation) in records.chunks_mut(stride).zip([
+        RELATION_PROCESSOR_CORE,
+        RELATION_NUMA_NODE,
+        RELATION_PROCESSOR_PACKAGE,
+    ]) {
+        record[0] = 1;
+        record[width..width + 4].copy_from_slice(&relation.to_le_bytes());
+    }
+    let bytes = &records[..required as usize];
+    if let Err(fault) = c.mem().wr(output, bytes) {
+        c.p.vm.take_guard(fault.addr);
+        return c.fail(ERROR_NOACCESS, 0);
+    }
+    c.mem().w32(length, required)?;
+    Flow::bool(true)
 }
 
 fn system_directory_w(c: &mut Ctx) -> ApiResult {

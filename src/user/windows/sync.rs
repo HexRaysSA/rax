@@ -562,6 +562,7 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
         Some(
             Object::File(_)
             | Object::SecurityFile(_)
+            | Object::GameOsXvcFile
             | Object::Console(_)
             | Object::Null
             | Object::Pipe { .. },
@@ -571,6 +572,7 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
             | Object::ImageSection(_)
             | Object::DataSection(_)
             | Object::FileSection(_)
+            | Object::GameOsPhysicalSection(_)
             | Object::WorkerFactory { .. }
             | Object::EtwRegistration { .. }
             | Object::MemoryPartition { .. }

@@ -84,6 +84,53 @@ fn system_info_uses_guest_abi_and_virtual_address_bounds() {
 }
 
 #[test]
+fn legacy_processor_topology_reports_the_virtual_cpu_in_guest_layout() {
+    use crate::user::windows::layout::offsets;
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let last_error = t.teb + offsets(arch).teb_last_error;
+        let output = p.peb + 0x800;
+        let length = output - 4;
+        let (stride, relationship) = if arch == WinArch::X86 {
+            (24, 4)
+        } else {
+            (32, 8)
+        };
+        p.space.w32(length, 0).unwrap();
+        assert_eq!(
+            returned(call(
+                p,
+                &mut t,
+                "GetLogicalProcessorInformation",
+                &[0, length]
+            )),
+            0
+        );
+        assert_eq!(p.space.u32(last_error).unwrap(), ERROR_INSUFFICIENT_BUFFER);
+        assert_eq!(u64::from(p.space.u32(length).unwrap()), 3 * stride);
+        p.space.w8(output + 3 * stride, 0x5a).unwrap();
+        assert_eq!(
+            returned(call(
+                p,
+                &mut t,
+                "GetLogicalProcessorInformation",
+                &[output, length]
+            )),
+            1
+        );
+        for (index, relation) in [0, 1, 3].into_iter().enumerate() {
+            let record = output + index as u64 * stride;
+            assert_eq!(p.space.u32(record).unwrap(), 1);
+            assert_eq!(p.space.u32(record + relationship).unwrap(), relation);
+        }
+        assert_eq!(p.space.u8(output + 3 * stride).unwrap(), 0x5a);
+        assert_eq!(p.space.u32(last_error).unwrap(), ERROR_INSUFFICIENT_BUFFER);
+    }
+}
+
+#[test]
 fn shared_processor_features_match_hle_api_for_each_guest_cpu() {
     use crate::user::windows::layout::{KUSER_SHARED_DATA, kuser};
     for arch in WinArch::ALL {
@@ -141,6 +188,7 @@ fn call(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> ApiResult {
     let api = EXPORTS
         .iter()
         .chain(SYSTEM_INFO_EXPORTS)
+        .chain(TOPOLOGY_EXPORTS)
         .chain(NTDLL_VERSION_EXPORTS)
         .find_map(|e| match &e.item {
             Item::Func(api) if api.name == name => Some(api),

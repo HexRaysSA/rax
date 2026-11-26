@@ -151,6 +151,9 @@ fn create(c: &mut Ctx, wide: bool) -> ApiResult {
     if template != 0 {
         return Err(c.unsupported("file attribute template handle"));
     }
+    if super::super::gameos::enabled(c) && text.eq_ignore_ascii_case(r"\\.\XgsKmd10") {
+        return c.fail(ERROR_FILE_NOT_FOUND, u64::MAX);
+    }
     if let Some(device) = crate::user::windows::fs::dos_device(&text) {
         if device != "NUL" {
             return Err(c.unsupported("opening console/communications DOS devices"));

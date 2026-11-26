@@ -49,6 +49,13 @@ pub(crate) static UCRT_SECURE_STRING_EXPORTS: &[Export] = &[Export::func(
     wide_concat_secure,
 )];
 
+pub(crate) static UCRT_CASE_STRING_EXPORTS: &[Export] = &[Export::func(
+    "_strnicmp",
+    Cdecl,
+    &[Ptr, Ptr, Ptr],
+    compare_api,
+)];
+
 fn wide_concat_secure(c: &mut Ctx) -> ApiResult {
     let (dest, capacity, source) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?);
     if dest == 0 || capacity == 0 {
@@ -145,13 +152,30 @@ fn compare_api(c: &mut Ctx) -> ApiResult {
     let (left, right) = (c.ptr(0)?, c.ptr(1)?);
     // The native NTDLL comparison folds only ASCII A through Z. It compares
     // all other UTF-16 units as stored, without visiting a process locale.
-    let ignore_ascii_case = c.api.name == "_wcsicmp";
-    let bound = if matches!(c.api.name, "strncmp" | "wcsncmp") {
+    // UCRT supports the C locale, which uses the same folding for bytes.
+    let ignore_ascii_case = matches!(c.api.name, "_wcsicmp" | "_strnicmp");
+    let bound = if matches!(c.api.name, "strncmp" | "wcsncmp" | "_strnicmp") {
         Some(c.ptr(2)?)
     } else {
         None
     };
-    let unit = if ignore_ascii_case { 2 } else { units(c) };
+    if c.api.name == "_strnicmp"
+        && (left == 0 || right == 0 || bound.is_some_and(|n| n > i32::MAX as u64))
+    {
+        let kind = super::runtime(c)?;
+        super::state::set_errno(c, kind, 22)?;
+        return super::invalid::invoke(
+            c,
+            kind,
+            [0; 5],
+            Box::new(|_, _| Flow::ret(i32::MAX as u64)),
+        );
+    }
+    let unit = if c.api.name == "_wcsicmp" {
+        2
+    } else {
+        units(c)
+    };
     let fold = |value: u16| {
         if ignore_ascii_case && (0x41..=0x5a).contains(&value) {
             value + 0x20

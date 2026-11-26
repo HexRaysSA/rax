@@ -364,6 +364,8 @@ pub struct Proc {
     pub(crate) error_mode: error_mode::State,
     /// ProcessRaiseUMExceptionOnInvalidHandleClose information flag.
     pub(crate) raise_um_exception_on_invalid_handle_close: bool,
+    /// Public priority-boost setting for the guest process.
+    pub(crate) priority_boost_disabled: bool,
     /// Private ProcessConsoleHostProcess value. The standalone root has no
     /// modeled parent (PID 0); creation therefore starts with owner tag 2.
     /// Native detached initialization replaces it with tag 1 through class49.

@@ -1,5 +1,5 @@
-//! Selected synchronous controls on guest-owned security-device files.
-//! Each provider profile selects only a bounded guest request and reply layout.
+//! Selected synchronous controls on guest-owned device files.
+//! Each device profile supplies its own request and reply layout.
 
 use super::named_object::{Checked, finish_with, status};
 use super::query::probe_write;
@@ -56,6 +56,7 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     let code = c.u32(5)?;
     let device = match c.p.objects.get(handle) {
         Some(Object::SecurityFile(device)) => *device,
+        Some(Object::GameOsXvcFile) => return super::gameos_xvc::control(c, code),
         Some(_) => {
             return Err(c
                 .unsupported("NtDeviceIoControlFile object type is not selected")

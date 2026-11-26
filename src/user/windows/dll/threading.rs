@@ -13,10 +13,33 @@ use super::super::arch::WinArch;
 use super::super::hle::{ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use super::super::layout::offsets;
 use super::super::memory::{Mem, MemFault};
-use super::super::nt::error::*;
+use super::super::nt::{error::*, status_to_error};
 use super::super::objects::{ObjId, Object};
+use super::super::process::family::with_live_handle;
 use super::super::process::{Thread, ThreadState, thread};
 use crate::error::MemoryAccessKind;
+
+pub(super) static SEMAPHORE_EX_EXPORTS: &[Export] = &[Export::func(
+    "CreateSemaphoreExW",
+    Stdcall,
+    &[Ptr, I32, I32, Ptr, I32, I32],
+    objects::create_semaphore_ex_w,
+)];
+
+pub(super) static PROCESS_PRIORITY_EXPORTS: &[Export] = &[
+    Export::func(
+        "SetProcessPriorityBoost",
+        Stdcall,
+        &[Ptr, I32],
+        set_process_priority_boost,
+    ),
+    Export::func(
+        "GetProcessPriorityBoost",
+        Stdcall,
+        &[Ptr, Ptr],
+        get_process_priority_boost,
+    ),
+];
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func(
@@ -134,6 +157,37 @@ pub(super) static EXPORTS: &[Export] = &[
         waits::multiple_ex,
     ),
 ];
+
+const PROCESS_SET_INFORMATION: u32 = 0x0200;
+const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
+const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+
+fn set_process_priority_boost(c: &mut Ctx) -> ApiResult {
+    let (handle, disabled) = (c.ptr(0)?, c.bool(1)?);
+    // The cooperative scheduler runs guest time slices without dynamic boosts.
+    match with_live_handle(c.p, handle, PROCESS_SET_INFORMATION, |p| {
+        p.priority_boost_disabled = disabled;
+    }) {
+        Ok(()) => Flow::bool(true),
+        Err(status) => c.fail(status_to_error(status), 0),
+    }
+}
+
+fn get_process_priority_boost(c: &mut Ctx) -> ApiResult {
+    let (handle, output) = (c.ptr(0)?, c.ptr(1)?);
+    match with_live_handle(
+        c.p,
+        handle,
+        PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION,
+        |p| p.priority_boost_disabled,
+    ) {
+        Ok(disabled) => {
+            c.mem().w32(output, u32::from(disabled))?;
+            Flow::bool(true)
+        }
+        Err(status) => c.fail(status_to_error(status), 0),
+    }
+}
 
 const THREAD_TERMINATE: u32 = 0x0001;
 const THREAD_SUSPEND_RESUME: u32 = 0x0002;

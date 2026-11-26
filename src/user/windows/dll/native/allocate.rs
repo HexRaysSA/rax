@@ -4,7 +4,9 @@ use super::query::{guard_result, probe_write};
 use crate::error::MemoryAccessKind;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
-use crate::user::windows::memory::{AddressRequirements, Mem, MemFault, PrivateAttributes};
+use crate::user::windows::memory::{
+    AddressRequirements, Mem, MemFault, PrivateAttributes, mem, prot,
+};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
@@ -15,6 +17,18 @@ pub(super) fn extended(c: &mut Ctx) -> ApiResult {
         result => result,
     }
 }
+
+const ATTR_GRAPHICS: u64 = 0x01;
+const ATTR_NONPAGED: u64 = 0x02;
+const ATTR_ZERO_PAGES_OPTIONAL: u64 = 0x04;
+const ATTR_NONPAGED_LARGE: u64 = 0x08;
+const XMEM_NONPAGED: u64 = ATTR_NONPAGED | ATTR_ZERO_PAGES_OPTIONAL;
+const XMEM_GRAPHICS: u64 = XMEM_NONPAGED | ATTR_GRAPHICS;
+const XMEM_LARGE_GRAPHICS: u64 = ATTR_NONPAGED_LARGE | ATTR_ZERO_PAGES_OPTIONAL | ATTR_GRAPHICS;
+const PAGE_GRAPHICS_NOACCESS: u32 = 0x800;
+const PAGE_GRAPHICS_READWRITE: u32 = 0x2000;
+const PAGE_GRAPHICS_COHERENT: u32 = 0x20000;
+const SECTION_MAP_WRITE: u32 = 0x02;
 
 fn output_probe(c: &mut Ctx, address: u64) -> Result<(), MemFault> {
     loop {
@@ -100,19 +114,76 @@ fn checked(c: &mut Ctx) -> ApiResult {
             wow,
         );
     }
-    match c.p.vm.allocate_extended_attributes(
-        (base != 0).then_some(base),
-        size,
-        flags,
-        protection,
-        requirements.address,
-        PrivateAttributes {
-            node: requirements.node.map(|_| 0),
-            ec_code: requirements.ec_code,
-        },
-    ) {
+    let desired = (base != 0).then_some(base);
+    let result = if let Some(handle) = requirements.physical_section {
+        if requirements.ec_code
+            || !matches!(requirements.gameos_attributes, 0 | ATTR_NONPAGED_LARGE)
+        {
+            return Flow::ret(STATUS_INVALID_PARAMETER.into());
+        }
+        let section = match c.p.objects.get(handle) {
+            Some(Object::GameOsPhysicalSection(section)) => section.clone(),
+            Some(_) => return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into()),
+            None => return Flow::ret(STATUS_INVALID_HANDLE.into()),
+        };
+        if c.p.objects.access(handle).unwrap_or(0) & SECTION_MAP_WRITE == 0 {
+            return Flow::ret(STATUS_ACCESS_DENIED.into());
+        }
+        c.p.vm.reserve_physical(
+            desired,
+            size,
+            flags,
+            protection,
+            requirements.address,
+            section,
+        )
+    } else {
+        let Some((flags, protection)) =
+            gameos_allocation_flags(flags, protection, requirements.gameos_attributes)
+        else {
+            return Flow::ret(STATUS_INVALID_PARAMETER.into());
+        };
+        c.p.vm.allocate_extended_attributes(
+            desired,
+            size,
+            flags,
+            protection,
+            requirements.address,
+            PrivateAttributes {
+                node: requirements.node.map(|_| 0),
+                ec_code: requirements.ec_code,
+            },
+        )
+    };
+    match result {
         Ok((base, size)) => publish(c, base_ptr, size_ptr, base, size, STATUS_SUCCESS, true),
         Err(error) => publish(c, base_ptr, size_ptr, base, size, error.status(), wow),
+    }
+}
+
+fn gameos_allocation_flags(flags: u32, protect: u32, attributes: u64) -> Option<(u32, u32)> {
+    const XMEM_RESERVE: u32 = mem::LARGE_PAGES | mem::PHYSICAL | mem::RESERVE;
+    const XMEM_COMMIT: u32 = XMEM_RESERVE | mem::COMMIT;
+    const XMEM_LARGE_COMMIT: u32 = XMEM_COMMIT & !mem::PHYSICAL;
+    const GRAPHICS_NOACCESS: u32 = prot::NOACCESS | PAGE_GRAPHICS_NOACCESS;
+    match (flags, protect, attributes) {
+        (_, _, 0) => Some((flags, protect)),
+        // The portable profile preserves the CPU reservation and committed
+        // bytes. It has no graphics MMU or host large-page requirement.
+        (XMEM_RESERVE, GRAPHICS_NOACCESS, XMEM_GRAPHICS) => Some((mem::RESERVE, prot::NOACCESS)),
+        (XMEM_COMMIT, prot::READWRITE, XMEM_NONPAGED) => {
+            Some((mem::RESERVE | mem::COMMIT, prot::READWRITE))
+        }
+        (XMEM_LARGE_COMMIT, _, XMEM_LARGE_GRAPHICS)
+            if protect == prot::READWRITE | PAGE_GRAPHICS_READWRITE | PAGE_GRAPHICS_COHERENT
+                || protect == prot::READWRITE | PAGE_GRAPHICS_READWRITE | prot::WRITECOMBINE =>
+        {
+            Some((
+                mem::RESERVE | mem::COMMIT,
+                protect & !(PAGE_GRAPHICS_READWRITE | PAGE_GRAPHICS_COHERENT),
+            ))
+        }
+        _ => None,
     }
 }
 
@@ -146,6 +217,8 @@ struct AllocationParameters {
     address: AddressRequirements,
     node: Option<u64>,
     ec_code: bool,
+    physical_section: Option<u64>,
+    gameos_attributes: u64,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -196,11 +269,7 @@ fn read_parameters(
     let mut requirements = AddressRequirements::default();
     if count == 0 {
         return Ok(if parameters == 0 {
-            Ok(AllocationParameters {
-                address: requirements,
-                node: None,
-                ec_code: false,
-            })
+            Ok(AllocationParameters::default())
         } else {
             Err(STATUS_INVALID_PARAMETER)
         });
@@ -231,6 +300,8 @@ fn read_parameters(
     let mut seen = 0u8;
     let mut node = None;
     let mut ec_code = false;
+    let mut physical_section = None;
+    let mut gameos_attributes = 0;
     for index in 0..count.min(7) {
         let at = parameters
             .checked_add(u64::from(index) * 16)
@@ -273,10 +344,19 @@ fn read_parameters(
                 // and process-handle validation, including VM_OPERATION rights.
                 node = Some(value);
             } // Guest's single NUMA node.
+            4 if value != 0 && super::super::gameos::enabled(c) => {
+                physical_section = Some(value);
+            }
             5 => {
                 if value == 0x40 {
                     // EC admission follows process-handle access validation.
                     ec_code = true;
+                } else if matches!(
+                    value,
+                    ATTR_NONPAGED_LARGE | XMEM_NONPAGED | XMEM_GRAPHICS | XMEM_LARGE_GRAPHICS
+                ) && super::super::gameos::enabled(c)
+                {
+                    gameos_attributes = value;
                 } else if matches!(value, 0x80 | 0xc0) {
                     return Ok(Err(STATUS_NOT_SUPPORTED));
                 } else if value != 0 {
@@ -295,6 +375,8 @@ fn read_parameters(
         address: requirements,
         node,
         ec_code,
+        physical_section,
+        gameos_attributes,
     }))
 }
 

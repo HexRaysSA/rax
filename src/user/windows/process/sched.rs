@@ -966,6 +966,7 @@ mod tests {
             process_cookie: 0xA5A5_5A5B,
             error_mode: Default::default(),
             raise_um_exception_on_invalid_handle_close: false,
+            priority_boost_disabled: false,
             quota_limits: None,
             console_host_process: 2,
             cwd: vec![],

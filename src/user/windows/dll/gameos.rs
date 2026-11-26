@@ -1,4 +1,4 @@
-//! Portable GameOS memory-partition services.
+//! Portable GameOS system services.
 //!
 //! The guest system and title partitions share the emulator's memory budget.
 //! Named tools partitions and operations that change memory ownership are absent.
@@ -49,6 +49,29 @@ pub(super) static EXPORTS: &[Export] = &[
 
 pub(super) fn enabled(c: &Ctx) -> bool {
     c.p.cfg.gameos && c.p.native.is_none() && c.arch() == WinArch::X64
+}
+
+pub(super) static GRAPHICS_EXPORTS: &[Export] = &[Export::func(
+    "NtDirectGraphicsCall",
+    Stdcall,
+    &[I32, Ptr, I32, Ptr, I32],
+    direct_graphics_call,
+)
+.only(Archs::X64)];
+
+fn direct_graphics_call(c: &mut Ctx) -> ApiResult {
+    // D3D12 and XMem probe the direct transport before using their device
+    // paths. The portable profile handles device requests separately.
+    if enabled(c)
+        && matches!(c.u32(0)?, 0x7900_0000 | 0x0015_0000)
+        && c.ptr(1)? == 0
+        && c.u32(2)? == 0
+        && c.ptr(3)? == 0
+        && c.u32(4)? == 0
+    {
+        return Flow::ret(STATUS_NOT_SUPPORTED.into());
+    }
+    Err(c.unsupported("NtDirectGraphicsCall"))
 }
 
 fn acquire(c: &mut Ctx) -> ApiResult {
@@ -288,11 +311,21 @@ mod tests {
         WindowsProcess::spawn_image(config, image.to_vec()).unwrap()
     }
 
-    fn invoke(p: &mut Proc, t: &mut Thread, name: &str, args: [u64; 5]) -> ApiResult {
+    fn invoke<const N: usize>(
+        p: &mut Proc,
+        t: &mut Thread,
+        name: &str,
+        args: [u64; N],
+    ) -> ApiResult {
         let api = EXPORTS
             .iter()
+            .chain(GRAPHICS_EXPORTS)
+            .chain(crate::user::windows::dll::native::EXPORTS)
+            .chain(crate::user::windows::dll::native::EXTENDED_SECTION_CREATE_EXPORTS)
             .chain(crate::user::windows::dll::rtl_string::EXPORTS)
             .chain(crate::user::windows::dll::native::WIN32_TOKEN_EXPORTS)
+            .chain(crate::user::windows::dll::kernel::NTDLL_LAST_ERROR_EXPORTS)
+            .chain(crate::user::windows::dll::kernel::EXPORTS)
             .find_map(|export| match &export.item {
                 Item::Func(api) if export.name == name => Some(api),
                 _ => None,
@@ -302,7 +335,9 @@ mod tests {
         for (reg, value) in [1, 2, 8, 9].into_iter().zip(args) {
             t.cpu.set_gpr(reg, value);
         }
-        p.space.w64(sp + 0x28, args[4]).unwrap();
+        for (index, argument) in args.into_iter().skip(4).enumerate() {
+            p.space.w64(sp + 0x28 + index as u64 * 8, argument).unwrap();
+        }
         (api.imp)(&mut Ctx {
             p,
             t,
@@ -318,6 +353,299 @@ mod tests {
         match result.unwrap() {
             Flow::Ret(Value::Int(value)) => value.try_into().unwrap(),
             _ => panic!("expected a status return"),
+        }
+    }
+
+    #[test]
+    fn the_portable_graphics_transport_probe_reports_unavailable() {
+        for gameos in [false, true] {
+            let mut process = setup(gameos);
+            let p = process.state_mut();
+            let mut thread = p.threads.pop_first().unwrap().1;
+            let args = [0x7900_0000, 0, 0, 0, 0];
+            let result = invoke(p, &mut thread, "NtDirectGraphicsCall", args);
+            if gameos {
+                assert_eq!(status(result), STATUS_NOT_SUPPORTED);
+            } else {
+                assert!(matches!(result, Err(ApiErr::Unimplemented(_))));
+            }
+            for index in 0..args.len() {
+                let mut other = args;
+                other[index] += 1;
+                let result = invoke(p, &mut thread, "NtDirectGraphicsCall", other);
+                assert!(matches!(result, Err(ApiErr::Unimplemented(_))));
+            }
+        }
+    }
+
+    #[test]
+    fn xvc_device_publishes_only_the_portable_capability_counter() {
+        let mut process = setup(true);
+        let p = process.state_mut();
+        let mut thread = p.threads.pop_first().unwrap().1;
+        let base = thread.cpu.sp() - 0x500;
+        let (name, unicode, attributes, handle, io, output) = (
+            base,
+            base + 0x40,
+            base + 0x60,
+            base + 0x90,
+            base + 0xa0,
+            base + 0xb0,
+        );
+        let name_bytes: Vec<_> = r"\Device\xvcmgmt"
+            .encode_utf16()
+            .chain([0])
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        p.space.wr(name, &name_bytes).unwrap();
+        assert!(invoke(p, &mut thread, "RtlInitUnicodeString", [unicode, name]).is_ok());
+        p.space.wr(attributes, &[0; 0x30]).unwrap();
+        p.space.w32(attributes, 0x30).unwrap();
+        p.space.w64(attributes + 0x10, unicode).unwrap();
+        assert_eq!(
+            status(invoke(
+                p,
+                &mut thread,
+                "NtCreateFile",
+                [handle, 0x100003, attributes, io, 0, 0, 2, 3, 1, 0, 0],
+            )),
+            STATUS_SUCCESS
+        );
+        let handle = p.space.u64(handle).unwrap();
+        assert!(matches!(p.objects.get(handle), Some(Object::GameOsXvcFile)));
+        assert_eq!(
+            status(invoke(
+                p,
+                &mut thread,
+                "NtDirectGraphicsCall",
+                [0x150000, 0, 0, 0, 0],
+            )),
+            STATUS_NOT_SUPPORTED
+        );
+        p.space.w64(output, u64::MAX).unwrap();
+        let mut query = [handle, 0, 0, 0, io, 0x150068, 0, 0, output, 7];
+        assert_eq!(
+            status(invoke(p, &mut thread, "NtDeviceIoControlFile", query)),
+            STATUS_INVALID_PARAMETER
+        );
+        assert_eq!(p.space.u64(output).unwrap(), u64::MAX);
+        query[9] = 8;
+        assert_eq!(
+            status(invoke(p, &mut thread, "NtDeviceIoControlFile", query)),
+            STATUS_SUCCESS
+        );
+        assert_eq!(p.space.u64(io).unwrap(), 0);
+        assert_eq!(p.space.u64(io + 8).unwrap(), 8);
+        assert_eq!(p.space.u64(output).unwrap(), 0);
+        assert_eq!(
+            status(invoke(p, &mut thread, "NtClose", [handle])),
+            STATUS_SUCCESS
+        );
+        assert_eq!(
+            status(invoke(p, &mut thread, "NtDeviceIoControlFile", query)),
+            STATUS_INVALID_HANDLE
+        );
+    }
+
+    #[test]
+    fn rtl_and_win32_last_error_share_the_thread_teb_value() {
+        let mut process = setup(false);
+        let p = process.state_mut();
+        let mut thread = p.threads.pop_first().unwrap().1;
+        invoke(p, &mut thread, "RtlSetLastWin32Error", [0x1122_3344]).unwrap();
+        assert_eq!(
+            status(invoke(p, &mut thread, "GetLastError", [])),
+            0x1122_3344
+        );
+        invoke(p, &mut thread, "SetLastError", [7]).unwrap();
+        assert_eq!(
+            status(invoke(p, &mut thread, "RtlGetLastWin32Error", [])),
+            7
+        );
+    }
+
+    #[test]
+    fn system_numa_available_memory_reports_the_single_guest_budget() {
+        let mut process = setup(true);
+        let p = process.state_mut();
+        let mut thread = p.threads.pop_first().unwrap().1;
+        let output = thread.cpu.sp() - 0x800;
+        let returned = output + 0x408;
+        let budget = p.vm.memory_usage().unwrap().available_bytes;
+        p.space.w32(output + 4, 0x1234_5678).unwrap();
+        p.space.w64(output + 16, u64::MAX).unwrap();
+        assert_eq!(
+            status(invoke(
+                p,
+                &mut thread,
+                "NtQuerySystemInformation",
+                [60, output, 0x408, returned, 0],
+            )),
+            STATUS_SUCCESS
+        );
+        assert_eq!(p.space.u32(returned).unwrap(), 16);
+        assert_eq!(p.space.u32(output).unwrap(), 0);
+        assert_eq!(p.space.u64(output + 8).unwrap(), budget);
+        assert_eq!(p.space.u32(output + 4).unwrap(), 0x1234_5678);
+        assert_eq!(p.space.u64(output + 16).unwrap(), u64::MAX);
+    }
+
+    #[test]
+    fn creates_a_partition_owned_64k_physical_section() {
+        let mut process = setup(true);
+        let p = process.state_mut();
+        let mut thread = p.threads.pop_first().unwrap().1;
+        let output = thread.cpu.sp() - 0x300;
+        let maximum = output + 8;
+        let parameters = output + 16;
+        let partition = p
+            .objects
+            .insert(Object::MemoryPartition { partition_id: 1 });
+        p.space.w64(maximum, 0).unwrap();
+        p.space.w64(parameters, 1).unwrap();
+        p.space.w64(parameters + 8, 1).unwrap();
+        let args = [
+            output,
+            0xe,
+            0,
+            maximum,
+            4,
+            0x040c_0000,
+            partition.into(),
+            parameters,
+            1,
+        ];
+        assert_eq!(
+            status(invoke(p, &mut thread, "NtCreateSectionEx", args)),
+            STATUS_SUCCESS
+        );
+        let section = p.space.u64(output).unwrap();
+        assert_eq!(p.objects.access(section), Some(0xe));
+        assert!(matches!(
+            p.objects.get(section),
+            Some(Object::GameOsPhysicalSection(section)) if section.partition_id == 1
+        ));
+        p.objects.close(partition.into()).unwrap();
+        assert_eq!(
+            status(invoke(p, &mut thread, "NtCreateSectionEx", args)),
+            STATUS_INVALID_HANDLE
+        );
+        assert_eq!(p.space.u64(output).unwrap(), section);
+        assert_eq!(p.objects.get(section).unwrap().type_name(), "Section");
+    }
+
+    #[test]
+    fn physical_reserve_rounds_to_64k_and_retains_its_section_until_release() {
+        let mut process = setup(true);
+        let p = process.state_mut();
+        let mut thread = p.threads.pop_first().unwrap().1;
+        let base_ptr = thread.cpu.sp() - 0x300;
+        let size_ptr = base_ptr + 8;
+        let parameters = base_ptr + 16;
+        let section = std::sync::Arc::new(crate::user::windows::memory::GameOsPhysicalSection {
+            partition_id: 1,
+        });
+        let weak = std::sync::Arc::downgrade(&section);
+        let id = p.objects.create(Object::GameOsPhysicalSection(section));
+        let handle = u64::from(p.objects.open_access(id, false, 0xe).unwrap());
+        p.space.w64(base_ptr, 0).unwrap();
+        p.space.w64(size_ptr, 0x1_0010).unwrap();
+        for (index, entry) in [4, handle, 5, 8].into_iter().enumerate() {
+            p.space.w64(parameters + index as u64 * 8, entry).unwrap();
+        }
+        let before = p.vm.committed_bytes();
+        assert_eq!(
+            status(invoke(
+                p,
+                &mut thread,
+                "NtAllocateVirtualMemoryEx",
+                [
+                    u64::MAX,
+                    base_ptr,
+                    size_ptr,
+                    (mem::RESERVE | mem::PHYSICAL).into(),
+                    prot::READWRITE.into(),
+                    parameters,
+                    2,
+                ],
+            )),
+            STATUS_SUCCESS
+        );
+        let base = p.space.u64(base_ptr).unwrap();
+        assert_eq!(base % 0x1_0000, 0);
+        assert_eq!(p.space.u64(size_ptr).unwrap(), 0x2_0000);
+        assert_eq!(p.vm.query(base).unwrap().state, mem::RESERVE);
+        assert!(p.space.u8(base).is_err());
+        assert_eq!(p.vm.committed_bytes(), before);
+        assert!(p.vm.commit(base, PAGE_SIZE, prot::READWRITE).is_err());
+        p.objects.close(handle).unwrap();
+        assert!(weak.upgrade().is_some());
+        assert_eq!(p.vm.release(base).unwrap(), 0x2_0000);
+        assert!(weak.upgrade().is_none());
+    }
+
+    #[test]
+    fn xmem_graphics_reservation_and_nonpaged_commit_preserve_cpu_access() {
+        for gameos in [false, true] {
+            let mut process = setup(gameos);
+            let p = process.state_mut();
+            let mut thread = p.threads.pop_first().unwrap().1;
+            let base = thread.cpu.sp() - 0x300;
+            let size = base + 8;
+            let parameter = base + 16;
+            let address_requirement = parameter + 32;
+            const LENGTH: u64 = 0x20_0000;
+            let before = p.vm.committed_bytes();
+            for (flags, protection, attributes, commit) in [
+                (0x2040_2000, 0x801, 7, false),
+                (0x2040_3000, 4, 6, true),
+                (0x2000_3000, 0x2_2004, 0xd, true),
+                (0x2000_3000, 0x2404, 0xd, true),
+            ] {
+                p.space.w64(base, 0).unwrap();
+                p.space.w64(size, LENGTH).unwrap();
+                p.space.w64(parameter, 5).unwrap();
+                p.space.w64(parameter + 8, attributes).unwrap();
+                p.space.w64(parameter + 16, 1).unwrap();
+                p.space.w64(parameter + 24, address_requirement).unwrap();
+                p.space.w64(address_requirement, 0x1_0000_0000).unwrap();
+                p.space
+                    .w64(address_requirement + 8, 0xff_ffff_ffff)
+                    .unwrap();
+                p.space.w64(address_requirement + 16, LENGTH).unwrap();
+                let result = invoke(
+                    p,
+                    &mut thread,
+                    "NtAllocateVirtualMemoryEx",
+                    [u64::MAX, base, size, flags, protection, parameter, 2],
+                );
+                if !gameos {
+                    assert_eq!(status(result), STATUS_INVALID_PARAMETER);
+                    assert_eq!(p.space.u64(base).unwrap(), 0);
+                    continue;
+                }
+                assert_eq!(status(result), STATUS_SUCCESS);
+                let address = p.space.u64(base).unwrap();
+                assert!((0x1_0000_0000..=0x100_0000_0000 - LENGTH).contains(&address));
+                assert_eq!(address % LENGTH, 0);
+                assert_eq!(p.space.u64(size).unwrap(), LENGTH);
+                if commit {
+                    assert_eq!(p.vm.committed_bytes(), before + LENGTH);
+                    assert_eq!(
+                        p.vm.query(address).unwrap().protect,
+                        prot::READWRITE | (protection as u32 & prot::WRITECOMBINE)
+                    );
+                    assert_eq!(p.space.u8(address).unwrap(), 0);
+                    p.space.w8(address, 0x7e).unwrap();
+                    assert_eq!(p.space.u8(address).unwrap(), 0x7e);
+                } else {
+                    assert_eq!(p.vm.committed_bytes(), before);
+                    assert_eq!(p.vm.query(address).unwrap().state, mem::RESERVE);
+                    assert!(p.space.u8(address).is_err());
+                }
+                assert_eq!(p.vm.release(address).unwrap(), LENGTH);
+                assert_eq!(p.vm.committed_bytes(), before);
+            }
         }
     }
 

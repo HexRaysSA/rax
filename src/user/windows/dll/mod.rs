@@ -197,6 +197,10 @@ static NTDLL: BuiltinDll = BuiltinDll {
         sysinfo::NTDLL_VERSION_EXPORTS,
         crt::NTDLL_STRING_EXPORTS,
         locks::NTDLL_SRW_FORWARDS,
+        gameos::GRAPHICS_EXPORTS,
+        locks::NTDLL_ONCE_EXPORTS,
+        native::EXTENDED_SECTION_CREATE_EXPORTS,
+        kernel::NTDLL_LAST_ERROR_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
@@ -230,6 +234,10 @@ static KERNEL32: BuiltinDll = BuiltinDll {
         libraries::FILE_NAME_EXPORTS,
         sysinfo::SYSTEM_INFO_EXPORTS,
         files::ATTRIBUTES_EXPORTS,
+        threading::SEMAPHORE_EX_EXPORTS,
+        sysinfo::TOPOLOGY_EXPORTS,
+        threading::PROCESS_PRIORITY_EXPORTS,
+        kernel::STARTUP_INFO_EXPORTS,
     ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
@@ -267,6 +275,10 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         libraries::FILE_NAME_EXPORTS,
         sysinfo::SYSTEM_INFO_EXPORTS,
         files::ATTRIBUTES_EXPORTS,
+        threading::SEMAPHORE_EX_EXPORTS,
+        sysinfo::TOPOLOGY_EXPORTS,
+        threading::PROCESS_PRIORITY_EXPORTS,
+        kernel::STARTUP_INFO_EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {
@@ -316,6 +328,11 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::UCRT_MATH_EXPORTS,
         crt::UCRT_PRIVATE_FORWARDS,
         crt::UCRT_SECURE_STRING_EXPORTS,
+        crt::UCRT_CASE_STRING_EXPORTS,
+        crt::UCRT_SCALAR_MATH_EXPORTS,
+        crt::UCRT_BUFFER_FORMAT_EXPORTS,
+        crt::UCRT_TIME_EXPORTS,
+        crt::UCRT_RANDOM_EXPORTS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {

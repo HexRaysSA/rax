@@ -4,7 +4,7 @@
 
 use super::{ExitStatus, Proc, RunStatus, Thread, WindowsConfig, sched, start};
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::{ObjId, Object, Objects};
+use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, ObjId, Object, Objects};
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, VecDeque};
 use std::fs::File;
@@ -16,6 +16,41 @@ type Live = Rc<RefCell<Member>>;
 
 const MAX_CLOSED_CHILDREN: u64 = 32;
 const CLOSED_CHILD_ARENA_BYTES: u64 = 1 << 30;
+
+/// Visits a live process after resolving a guest handle and checking its grant.
+pub(crate) fn with_live_handle<T>(
+    p: &mut Proc,
+    handle: u64,
+    rights: u32,
+    visit: impl FnOnce(&mut Proc) -> T,
+) -> Result<T, u32> {
+    if handle == p.arch.ptr(CURRENT_PROCESS) {
+        return Ok(visit(p));
+    }
+    if handle == p.arch.ptr(CURRENT_THREAD) {
+        return Err(STATUS_OBJECT_TYPE_MISMATCH);
+    }
+    let pid = match p.objects.get(handle) {
+        Some(Object::Process { pid, .. }) => *pid,
+        Some(_) => return Err(STATUS_OBJECT_TYPE_MISMATCH),
+        None => return Err(STATUS_INVALID_HANDLE),
+    };
+    if p.objects.access(handle).unwrap_or(0) & rights == 0 {
+        return Err(STATUS_ACCESS_DENIED);
+    }
+    if pid == p.pid {
+        return Ok(visit(p));
+    }
+    let Some((_, exit)) = p.children.basic(pid) else {
+        return Err(STATUS_INVALID_HANDLE);
+    };
+    if exit.is_some() {
+        return Err(STATUS_PROCESS_IS_TERMINATING);
+    }
+    p.children
+        .with_process(pid, visit)
+        .ok_or(STATUS_PROCESS_IS_TERMINATING)
+}
 
 #[derive(Default)]
 pub(crate) struct Children {

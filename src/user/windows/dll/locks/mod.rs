@@ -11,7 +11,7 @@ mod tests;
 
 use crate::user::windows::hle::{Arg::*, Conv::Stdcall, Export};
 
-pub(super) use once::ONCE_EXPORTS;
+pub(super) use once::{NTDLL_ONCE_EXPORTS, ONCE_EXPORTS};
 pub(super) use resource::EXPORTS as RESOURCE_EXPORTS;
 
 pub(super) static NTDLL_CRITICAL_EXPORTS: &[Export] = &[

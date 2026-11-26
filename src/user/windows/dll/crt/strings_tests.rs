@@ -2,7 +2,9 @@ use super::*;
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{Api, Item, Value};
+use crate::user::windows::loader::{self, SymRef};
 use crate::user::windows::memory::{Mem, mem, prot};
+use crate::user::windows::nt::status::STATUS_STACK_BUFFER_OVERRUN;
 use crate::user::windows::process::{Thread, WindowsConfig, WindowsProcess};
 
 fn fixture(arch: WinArch) -> (WindowsProcess, Thread) {
@@ -31,6 +33,7 @@ fn api(name: &str) -> &'static Api {
     STRING_EXPORTS
         .iter()
         .chain(UCRT_STRING_EXPORTS)
+        .chain(UCRT_CASE_STRING_EXPORTS)
         .chain(NTDLL_STRING_EXPORTS)
         .find_map(|e| match &e.item {
             Item::Func(a) if a.name == name => Some(a),
@@ -150,6 +153,32 @@ fn ordinal_unsigned_compare_stops_at_nul_or_difference_all_abis() {
         assert_eq!(int(invoke(c, "wcsncmp", &[end, end, max])), 0);
         c.mem().w8(end + 1, 0).unwrap();
         assert_eq!(int(invoke(c, "strncmp", &[end + 1, end + 1, max])), 0);
+    });
+}
+
+#[test]
+fn ucrt_strnicmp_folds_c_locale_bytes_and_honors_bound_all_abis() {
+    run(|c| {
+        let a = area(c, PAGE_SIZE) + PAGE_SIZE - 2;
+        let b = area(c, PAGE_SIZE) + PAGE_SIZE - 2;
+        c.mem().wr(a, b"Ba").unwrap();
+        c.mem().wr(b, b"b_").unwrap();
+        assert_eq!(int(invoke(c, "_strnicmp", &[a + 2, b + 2, 0])), 0);
+        assert_eq!(int(invoke(c, "_strnicmp", &[a, b, 1])), 0);
+        assert!(int(invoke(c, "_strnicmp", &[a, b, 2])) as i32 > 0);
+        c.mem().w8(b + 1, b'A').unwrap();
+        assert_eq!(int(invoke(c, "_strnicmp", &[a, b, 2])), 0);
+        assert_eq!(fault(invoke(c, "_strnicmp", &[a, b, 3])).addr, a + 2);
+
+        let ucrt = loader::load_dll(c.p, "ucrtbase.dll").unwrap();
+        let symbol = SymRef::Name(b"_strnicmp".to_vec(), None);
+        c.entry_pc = loader::lookup(c.p, ucrt, &symbol).unwrap().unwrap();
+        for args in [[0, b, 0], [a, b, i32::MAX as u64 + 1]] {
+            assert!(matches!(
+                invoke(c, "_strnicmp", &args).unwrap(),
+                Flow::TerminateProcess(STATUS_STACK_BUFFER_OVERRUN)
+            ));
+        }
     });
 }
 

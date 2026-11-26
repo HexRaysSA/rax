@@ -353,6 +353,11 @@ impl Flow {
         Ok(Flow::Ret(Value::F64(v)))
     }
 
+    /// Returns a `float`.
+    pub fn f32(v: f32) -> ApiResult {
+        Ok(Flow::Ret(Value::F32(v)))
+    }
+
     /// Calls guest function `target`, then `then`.
     pub fn call(
         target: u64,

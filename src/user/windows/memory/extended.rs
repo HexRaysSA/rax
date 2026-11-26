@@ -41,6 +41,31 @@ pub(super) fn validate_private(
 }
 
 impl VirtualMemory {
+    pub(crate) fn reserve_physical(
+        &mut self,
+        base: Option<u64>,
+        size: u64,
+        flags: u32,
+        protection: u32,
+        address: AddressRequirements,
+        section: std::sync::Arc<super::GameOsPhysicalSection>,
+    ) -> Result<(u64, u64), VmError> {
+        if flags & !mem::TOP_DOWN != mem::RESERVE | mem::PHYSICAL
+            || protection != super::prot::READWRITE
+            || base.is_some_and(|base| base % ALLOCATION_GRANULARITY != 0)
+        {
+            return Err(VmError::InvalidParameter);
+        }
+        let size = size
+            .checked_add(ALLOCATION_GRANULARITY - 1)
+            .ok_or(VmError::InvalidParameter)?
+            & !(ALLOCATION_GRANULARITY - 1);
+        let (base, size) =
+            self.allocate_extended(base, size, flags & !mem::PHYSICAL, protection, address)?;
+        self.physical_reservations.insert(base, section);
+        Ok((base, size))
+    }
+
     /// NUMA preference belongs to a newly created reservation. A commit into
     /// an existing reservation neither sets nor clears its original preference.
     pub(crate) fn allocate_extended_numa(
