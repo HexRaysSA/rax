@@ -376,6 +376,28 @@ fn installed_darwin_df_lists_only_guest_mounts_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_fallback_font_matches_native_through_closed_c_abi() {
+    let font = "/System/Library/Fonts/LastResort.otf";
+    let bytes = std::fs::read(font).expect("installed macOS fallback font");
+    assert!(!bytes.is_empty());
+    compare_installed_posix_output("darwin", "/bin/cat", &[font], &[("LC_ALL", "C")], &bytes);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn installed_darwin_textutil_converts_rtf_through_closed_c_abi() {
+    compare_installed_posix_with_input(
+        "darwin",
+        "/usr/bin/textutil",
+        &["-convert", "txt", "-stdin", "-stdout", "-format", "rtf"],
+        &[("LC_ALL", "C"), ("TZ", "UTC")],
+        br"{\rtf1\ansi{\fonttbl{\f0 Helvetica;}}\f0 native process streams\par}",
+        b"native process streams\n",
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_locales_match_native_through_closed_c_abi() {
     let path = "/usr/bin/locale";
     let native = std::process::Command::new(path)

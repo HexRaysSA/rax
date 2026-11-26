@@ -1,9 +1,10 @@
 //! Read-only selection of the macOS host's dyld, caches, on-disk dylibs, and
 //! system metadata, including timezone and locale data, the file-type and
 //! terminal databases, character-conversion tables, system TLS defaults, and
-//! installed Perl and Ruby modules. Executables and shebang scripts are
-//! available for child execution in the same guest namespace. A selected
-//! Command Line Tools or Xcode installation supplies its own tools and SDK resources.
+//! selected CoreText and AppKit resources. Installed Perl and Ruby modules,
+//! executables, and shebang scripts are available in the same guest namespace.
+//! A selected Command Line Tools or Xcode installation supplies its own tools
+//! and SDK resources.
 //!
 //! Selection happens before guest execution. The supplied namespace also
 //! contains guest devices and account records. Cache pages are read on demand
@@ -25,6 +26,13 @@ const SYSTEM_VERSION_PLIST: &str = "/System/Library/CoreServices/SystemVersion.p
 
 #[cfg(any(target_os = "macos", test))]
 const FILE_MAGIC_DATABASE: &str = "/usr/share/file/magic.mgc";
+
+#[cfg(any(target_os = "macos", test))]
+const LAST_RESORT_FONT: &str = "/System/Library/Fonts/LastResort.otf";
+
+#[cfg(any(target_os = "macos", test))]
+const APPKIT_APPEARANCE_ROOT: &str =
+    "/System/Library/CoreServices/SystemAppearance.bundle/Contents";
 
 #[cfg(any(target_os = "macos", test))]
 const OPENSSL_CONFIG: &str = "/private/etc/ssl/openssl.cnf";
@@ -75,7 +83,12 @@ const CHARSET_ESDB_ROOT: &str = "/usr/share/i18n/esdb";
 const CHARSET_MAPPER_ROOT: &str = "/usr/share/i18n/csmapper";
 
 #[cfg(any(target_os = "macos", test))]
-const DATA_ROOTS: [&str; 3] = [TERMINFO_ROOT, CHARSET_ESDB_ROOT, CHARSET_MAPPER_ROOT];
+const DATA_ROOTS: [&str; 4] = [
+    TERMINFO_ROOT,
+    CHARSET_ESDB_ROOT,
+    CHARSET_MAPPER_ROOT,
+    APPKIT_APPEARANCE_ROOT,
+];
 
 #[cfg(any(target_os = "macos", test))]
 const PERL_ROOT: &str = "/System/Library/Perl";
@@ -236,12 +249,15 @@ fn select_runtime_root(
         &root.join(FILE_MAGIC_DATABASE.trim_start_matches('/')),
     )?;
     // The system volume provides the stock LibreSSL configuration and trust roots.
-    let files = select_system_file(files, OPENSSL_CONFIG, &root.join(OPENSSL_TEMPLATE))?;
-    let files = if overlaps_executable(OPENSSL_CA_BUNDLE, executable) {
-        files
-    } else {
-        select_system_file(files, OPENSSL_CA_BUNDLE, &root.join(OPENSSL_CA_TEMPLATE))?
-    };
+    let mut files = select_system_file(files, OPENSSL_CONFIG, &root.join(OPENSSL_TEMPLATE))?;
+    for (guest, relative) in [
+        (OPENSSL_CA_BUNDLE, OPENSSL_CA_TEMPLATE),
+        (LAST_RESORT_FONT, LAST_RESORT_FONT.trim_start_matches('/')),
+    ] {
+        if !overlaps_executable(guest, executable) {
+            files = select_system_file(files, guest, &root.join(relative))?;
+        }
+    }
     let files = files
         .with_device(Device::Null)
         .and_then(|files| files.with_device(Device::Zero))
@@ -306,6 +322,7 @@ fn select_runtime_root(
             TERMINFO_ROOT,
             CHARSET_ESDB_ROOT,
             CHARSET_MAPPER_ROOT,
+            APPKIT_APPEARANCE_ROOT,
             PERL_ROOT,
             RUBY_VERSIONS,
             COMMAND_LINE_TOOLS,
@@ -500,6 +517,15 @@ fn accept_runtime_file(guest: &str, _: &std::path::Path, file: &std::fs::File) -
             (Some("LC_MESSAGES"), Some("LC_MESSAGES")) => parts.next().is_none(),
             _ => false,
         });
+    }
+    if let Some(entry) = guest
+        .strip_prefix(APPKIT_APPEARANCE_ROOT)
+        .and_then(|tail| tail.strip_prefix('/'))
+    {
+        return Ok(entry == "Info.plist"
+            || entry
+                .strip_prefix("Resources/")
+                .is_some_and(|catalog| !catalog.contains('/') && catalog.ends_with(".car")));
     }
     if let Some(entry) = guest
         .strip_prefix(TERMINFO_ROOT)
@@ -1674,6 +1700,129 @@ mod tests {
             .unwrap();
         let selected = select_native_root(&explicit, root, None).unwrap();
         assert_eq!(&*selected.read(path).unwrap(), b"override");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_fallback_font_preserves_namespace_boundaries() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"unrelated", 9);
+        let root = &fixture.dir;
+        for path in ["usr/lib", "System/Library/dyld", "System/Library/Fonts"] {
+            fs::create_dir_all(root.join(path)).unwrap();
+        }
+        fs::write(root.join("usr/lib/dyld"), b"dyld").unwrap();
+        fs::write(
+            root.join("System/Library/dyld/dyld_shared_cache_arm64e"),
+            b"cache",
+        )
+        .unwrap();
+        let font = root.join(LAST_RESORT_FONT.trim_start_matches('/'));
+        let adjacent = "/System/Library/Fonts/other.otf";
+        fs::write(&font, b"fallback font").unwrap();
+        fs::write(root.join(adjacent.trim_start_matches('/')), b"unselected").unwrap();
+
+        let files = Files::default();
+        let selected = select_native_root(&files, root, None).unwrap();
+        assert_eq!(&*selected.read(LAST_RESORT_FONT).unwrap(), b"fallback font");
+        assert!(matches!(selected.lookup(adjacent), Err(Error::NotFound)));
+
+        let supplied = files
+            .with_file(
+                LAST_RESORT_FONT.into(),
+                Arc::from(b"caller font".as_slice()),
+            )
+            .unwrap();
+        let selected = select_native_root(&supplied, root, None).unwrap();
+        assert_eq!(&*selected.read(LAST_RESORT_FONT).unwrap(), b"caller font");
+
+        let parent = "/System/Library/Fonts";
+        let selected = select_native_root(&files, root, Some(parent))
+            .unwrap()
+            .with_file(parent.into(), Arc::from(b"main image".as_slice()))
+            .unwrap();
+        assert!(matches!(
+            selected.lookup(LAST_RESORT_FONT),
+            Err(Error::NotDirectory)
+        ));
+
+        fs::remove_file(&font).unwrap();
+        symlink(&fixture.path, &font).unwrap();
+        let selected = select_native_root(&files, root, None).unwrap();
+        assert!(matches!(
+            selected.lookup(LAST_RESORT_FONT),
+            Err(Error::NotFound)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn installed_appearance_catalogs_stay_inside_the_system_bundle() {
+        use crate::user::supplied_fs::Error;
+        use std::{fs, os::unix::fs::symlink};
+
+        let fixture = TestFile::new(b"unrelated", 9);
+        let root = &fixture.dir;
+        let bundle = root.join(APPKIT_APPEARANCE_ROOT.trim_start_matches('/'));
+        for directory in [
+            root.join("usr/lib"),
+            root.join("System/Library/dyld"),
+            bundle.join("Resources/nested"),
+            bundle.join("MacOS"),
+        ] {
+            fs::create_dir_all(directory).unwrap();
+        }
+        fs::write(root.join("usr/lib/dyld"), b"dyld").unwrap();
+        fs::write(
+            root.join("System/Library/dyld/dyld_shared_cache_arm64e"),
+            b"cache",
+        )
+        .unwrap();
+        fs::write(bundle.join("Info.plist"), b"bundle info").unwrap();
+        fs::write(bundle.join("Resources/SystemAppearance.car"), b"catalog").unwrap();
+        for unselected in [
+            "MacOS/SystemAppearance",
+            "Resources/nested/Other.car",
+            "Resources/Other.plist",
+        ] {
+            fs::write(bundle.join(unselected), b"unselected").unwrap();
+        }
+        symlink(&fixture.path, bundle.join("Resources/External.car")).unwrap();
+
+        let files = Files::default();
+        let selected = select_native_root(&files, root, None).unwrap();
+        let catalog = format!("{APPKIT_APPEARANCE_ROOT}/Resources/SystemAppearance.car");
+        let info = format!("{APPKIT_APPEARANCE_ROOT}/Info.plist");
+        assert_eq!(&*selected.read(&catalog).unwrap(), b"catalog");
+        assert_eq!(&*selected.read(&info).unwrap(), b"bundle info");
+        for hidden in [
+            "MacOS/SystemAppearance",
+            "Resources/nested/Other.car",
+            "Resources/Other.plist",
+            "Resources/External.car",
+        ] {
+            assert!(matches!(
+                selected.read(&format!("{APPKIT_APPEARANCE_ROOT}/{hidden}")),
+                Err(Error::NotFound)
+            ));
+        }
+        let supplied = files
+            .with_file(catalog.clone(), Arc::from(b"caller catalog".as_slice()))
+            .unwrap();
+        let selected = select_native_root(&supplied, root, None).unwrap();
+        assert_eq!(&*selected.read(&catalog).unwrap(), b"caller catalog");
+
+        let parent = "/System/Library/CoreServices";
+        let selected = select_native_root(&files, root, Some(parent))
+            .unwrap()
+            .with_file(parent.into(), Arc::from(b"main image".as_slice()))
+            .unwrap();
+        assert!(matches!(
+            selected.lookup(&catalog),
+            Err(Error::NotDirectory)
+        ));
     }
 
     #[cfg(unix)]
