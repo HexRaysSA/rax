@@ -3086,13 +3086,14 @@
         "hvf-mmio-movnti-2026-11-19",
         "hvf-mmio-implicit-divide-2026-11-20",
         "x86-software-nmi-blocking-2026-11-20",
-        "hvf-live-gdb-terminal-checkpoint-2026-11-27"
+        "hvf-live-gdb-terminal-checkpoint-2026-11-27",
+        "hvf-queued-init-after-native-mmio-2026-11-27"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
       "latest_kvm_legacy_restore_qualification": "docs/development/kvm-public-state/README.md",
-      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#live-gdb-resume-after-an-intel-triple-fault",
+      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#queued-init-after-retained-ap-mmio-on-intel",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint",
       "historical_validation_notes": [
         "Native Intel HVF state effects are unverified"
@@ -3953,12 +3954,13 @@
         "hvf-native-controller-irq-window-2026-11-19",
         "x86-software-nmi-blocking-2026-11-20",
         "x86-pc-interrupt-arbitration-2026-11-20",
-        "hvf-live-gdb-terminal-checkpoint-2026-11-27"
+        "hvf-live-gdb-terminal-checkpoint-2026-11-27",
+        "hvf-queued-init-after-native-mmio-2026-11-27"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#live-gdb-resume-after-an-intel-triple-fault",
+      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#queued-init-after-retained-ap-mmio-on-intel",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint"
     },
     {
@@ -4673,9 +4675,10 @@
         "hvf-native-controller-irq-window-2026-11-19",
         "hvf-mmio-movnti-2026-11-19",
         "hvf-mmio-implicit-divide-2026-11-20",
-        "hvf-live-gdb-terminal-checkpoint-2026-11-27"
+        "hvf-live-gdb-terminal-checkpoint-2026-11-27",
+        "hvf-queued-init-after-native-mmio-2026-11-27"
       ],
-      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#live-gdb-resume-after-an-intel-triple-fault",
+      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#queued-init-after-retained-ap-mmio-on-intel",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint"
     },
     {
@@ -201242,6 +201245,14 @@
       "status": "native_intel_virtualized_qualified_full_findings_open",
       "scope": "Hosted Intel run 46024850183 at c46c7e8ec captured an actual VMX triple fault on the bootstrap CPU and a pending eight-byte MMIO read on the AP. Warm restore preserved the live GDB connection and its selected thread. Continuing only the AP returned W00 with zero device calls. Independent archive decoding verified both Intel CPU records, AP read address and width, and an unchanged retirement count. The Intel process was untranslated in virtualized macOS. Bare-metal Intel, broader debugger and event profiles, and the full findings remain open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#live-gdb-resume-after-an-intel-triple-fault",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-queued-init-after-native-mmio-2026-11-27",
+      "findings": ["C-STATE", "C-SMP", "C-HVF"],
+      "status": "native_intel_virtualized_qualified_full_findings_open",
+      "scope": "Hosted Intel run 46032203831 at 795891a6e kept an INIT queued behind a debugger-stopped AP with a real eight-byte MMIO read exit. Cold restore drained one device callback, completed the XMM15 lane read and then applied INIT. Independent archive decoding verified both frontiers. The Intel process was untranslated in virtualized macOS. Bare-metal Intel and broader MMIO, IRQ, checkpoint and SMP coverage remain open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#queued-init-after-retained-ap-mmio-on-intel",
       "full_goal_complete": false
     }
   ],

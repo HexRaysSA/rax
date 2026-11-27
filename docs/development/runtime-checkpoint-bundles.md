@@ -246,6 +246,26 @@ Evidence artifact `15213259869` has SHA-256
 The run used an untranslated Intel process on a virtualized macOS host.
 Bare-metal Intel validation remains open.
 
+#### Queued INIT after retained AP MMIO on Intel
+
+Hosted Intel run `46032203831`, attempt 1, at `795891a6e` stopped the AP
+of a two-vCPU Intel HVF VM at an eight-byte read from `0x40000103`. The
+BSP queued INIT through its LAPIC while the debugger mask held the AP
+stopped. Two routing attempts preserved both the queued INIT and the
+device request, with zero device callbacks. A fresh VM restored the file
+after the guest input was removed. It submitted exactly one read to the
+device, applied its reply to the low lane of XMM15, and then took the AP
+offline with RIP `0xfff0` through INIT. The BSP shut down the VM.
+[Hosted Intel queued-INIT checkpoint run](https://github.com/HexRaysSA/rax/actions/runs/46032203831/job/140618547296)
+
+Independent decoding of evidence artifact `15218020013` verified that the
+CPU masks changed from `[online, online]` to `[online, offline]`, that both
+the AP read and the queued INIT were consumed, and that XMM15 held the reply
+afterward. The archive SHA-256 is
+`1f2af55faf4281ec9830a5872178174ef327b7002c857def18301602c5030841`.
+The run used an untranslated Intel process on virtualized macOS. Bare-metal
+Intel and broader event and device profiles remain open.
+
 ### Checkpoint scheduling
 
 With automatic checkpoints configured, the execution record ends with an
