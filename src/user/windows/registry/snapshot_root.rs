@@ -148,7 +148,10 @@ impl SnapshotRoot {
                 | Self::Wow64Amd64
                 | Self::Wow64X86Jit
                 | Self::Processor0
-        ) || self.winsock_catalog().is_some()
+        ) || self.captures_process_config_subtree()
+    }
+    pub(super) fn captures_process_config_subtree(self) -> bool {
+        matches!(self, Self::ProcessConfig(subject) if subject.captures_subtree())
     }
     pub(super) fn winsock_catalog(self) -> Option<process_config::winsock_catalog::Catalog> {
         match self {
@@ -374,10 +377,11 @@ impl Registry {
             matches!(&selected_tree, Err(status) if *status == STATUS_OBJECT_PATH_NOT_FOUND);
         let key = match selected_tree {
             Ok((header, children)) => {
-                if let SnapshotRoot::ProcessConfig(subject) = root {
-                    if subject.winsock_catalog().is_none()
-                        && (children.is_some()
-                            || header.enumeration.is_some() && !subject.captures_child_membership())
+                if let SnapshotRoot::ProcessConfig(subject) = root
+                    && !subject.captures_subtree()
+                {
+                    if (children.is_some()
+                        || header.enumeration.is_some() && !subject.captures_child_membership())
                         || !subject.accepts_values(view, &header.values)
                         || header.values.iter().any(|value| {
                             !process_config::covers_name(

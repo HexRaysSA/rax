@@ -46,6 +46,8 @@ pub(crate) enum ProcessConfigKey {
     DotNetPolicy,
     DotNetPolicyV4,
     DotNetPolicyUpgrades,
+    DotNetPolicyServicing,
+    DotNetPolicyAppPatch,
     DotNetPolicyStandards,
     DotNetStandardCli2002,
     DotNetStandardCli2005,
@@ -54,7 +56,7 @@ pub(crate) enum ProcessConfigKey {
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 28] = [
+    pub(super) const ALL: [Self; 30] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -78,6 +80,8 @@ impl ProcessConfigKey {
         Self::MiniNt,
         Self::DotNetPolicyV4,
         Self::DotNetPolicyUpgrades,
+        Self::DotNetPolicyServicing,
+        Self::DotNetPolicyAppPatch,
         Self::DotNetStandardCli2002,
         Self::DotNetStandardCli2005,
         Self::DotNetStandardV1,
@@ -144,6 +148,12 @@ impl ProcessConfigKey {
             Self::DotNetPolicyUpgrades => {
                 r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\Upgrades"
             }
+            Self::DotNetPolicyServicing => {
+                r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\Servicing"
+            }
+            Self::DotNetPolicyAppPatch => {
+                r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\AppPatch"
+            }
             Self::DotNetPolicyStandards => {
                 r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\standards"
             }
@@ -190,6 +200,8 @@ impl ProcessConfigKey {
             | Self::PowerShell
             | Self::MiniNt
             | Self::DotNetPolicy
+            | Self::DotNetPolicyServicing
+            | Self::DotNetPolicyAppPatch
             | Self::DotNetPolicyStandards => &[],
             Self::DotNetPolicyV4 => &["30319"],
             Self::DotNetPolicyUpgrades => &["4.0.30319"],
@@ -246,6 +258,8 @@ impl ProcessConfigKey {
             Self::DotNetPolicy => ".NET Framework runtime policy",
             Self::DotNetPolicyV4 => ".NET Framework v4.0 runtime policy",
             Self::DotNetPolicyUpgrades => ".NET Framework upgrade policy",
+            Self::DotNetPolicyServicing => ".NET Framework servicing policy",
+            Self::DotNetPolicyAppPatch => ".NET Framework application compatibility policy",
             Self::DotNetPolicyStandards => ".NET Framework standards policy",
             Self::DotNetStandardCli2002 => ".NET Framework Standard CLI 2002 policy",
             Self::DotNetStandardCli2005 => ".NET Framework Standard CLI 2005 policy",
@@ -273,13 +287,17 @@ impl ProcessConfigKey {
             Self::WinsockAppIdCatalog
                 | Self::PowerShell
                 | Self::DotNetPolicy
+                | Self::DotNetPolicyServicing
                 | Self::DotNetPolicyStandards
         )
     }
 
     pub(super) fn admits_descendant_routes(self) -> bool {
-        matches!(self, Self::WinsockAppIdCatalog | Self::PowerShell)
-            || self.winsock_catalog().is_some()
+        matches!(self, Self::WinsockAppIdCatalog | Self::PowerShell) || self.captures_subtree()
+    }
+
+    pub(super) fn captures_subtree(self) -> bool {
+        self == Self::DotNetPolicyAppPatch || self.winsock_catalog().is_some()
     }
 
     #[cfg(target_os = "windows")]
@@ -297,6 +315,7 @@ impl ProcessConfigKey {
             self,
             Self::DotNetPolicyV4
                 | Self::DotNetPolicyUpgrades
+                | Self::DotNetPolicyServicing
                 | Self::DotNetPolicyStandards
                 | Self::DotNetStandardCli2002
                 | Self::DotNetStandardCli2005
@@ -330,6 +349,8 @@ impl ProcessConfigKey {
             Self::DotNetPolicy => &[
                 Self::DotNetPolicyV4,
                 Self::DotNetPolicyUpgrades,
+                Self::DotNetPolicyServicing,
+                Self::DotNetPolicyAppPatch,
                 Self::DotNetPolicyStandards,
             ],
             Self::DotNetPolicyStandards => &[
@@ -463,7 +484,10 @@ pub(super) fn covered_values(path: &[u16]) -> Option<&'static [&'static str]> {
     ProcessConfigKey::ALL
         .into_iter()
         .chain([ProcessConfigKey::DisabledLegacyExtensions])
-        .find(|root| path.iter().copied().eq(root.path().encode_utf16()))
+        .find(|root| {
+            *root != ProcessConfigKey::DotNetPolicyAppPatch
+                && path.iter().copied().eq(root.path().encode_utf16())
+        })
         .map(ProcessConfigKey::values)
 }
 

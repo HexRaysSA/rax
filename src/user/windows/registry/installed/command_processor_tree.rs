@@ -103,7 +103,7 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
             let access = access(&key, &canonical)?;
             use super::super::key_enumeration::{stable_bounded, stable_ordered_values_bounded};
             let catalog = self.root.winsock_catalog();
-            let sample = if catalog.is_some() {
+            let sample = if self.root.captures_process_config_subtree() {
                 stable_ordered_values_bounded
             } else {
                 stable_bounded

@@ -14,6 +14,7 @@ pub(in crate::user::windows::registry) struct Builder {
     view: RegistryView,
     label: &'static str,
     complete_metadata: bool,
+    ordered_values: bool,
     catalog: Option<Catalog>,
     values: ValueBudget,
     metadata: TreeBudget,
@@ -31,6 +32,7 @@ impl Builder {
             view,
             label: root.label(),
             complete_metadata: root.requires_complete_metadata(),
+            ordered_values: root.captures_process_config_subtree(),
             catalog: root.winsock_catalog(),
             values,
             metadata,
@@ -81,7 +83,7 @@ impl Builder {
             )?;
         }
         let mut values = bounded_values(&self.upcase, header.values, &mut self.values)?;
-        values.native_order = self.catalog.is_some();
+        values.native_order = self.ordered_values;
         let enumeration = super::super::key_enumeration::bounded(
             &self.upcase,
             header.enumeration,

@@ -4053,6 +4053,15 @@ is available through a relative policy handle and the absolute name.
 Value enumeration verifies that the selected value covers the native
 list before serving its ordinal.
 
+The fixed `Policy\Servicing` child retains its selected view's installed
+open result. A present key provides cached key information and ordered
+assembly subkey metadata. The selection excludes assembly key contents.
+
+The fixed `Policy\AppPatch` root retains a bounded, immutable subtree per
+view. It preserves application compatibility rule paths, typed values,
+and native enumeration order. Descendant lookup stays inside the
+selected subtree and uses its captured membership to report absence.
+
 The CLR bootstrap opens the `HKLM\Software\Microsoft\.NETFramework`
 installation key after reading policy. Its snapshot uses each view's native
 `InstallRoot` value and links the existing `Policy` record. The selected

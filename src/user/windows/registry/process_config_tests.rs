@@ -623,6 +623,153 @@ fn dot_net_upgrades_retains_the_selected_build_range() {
 }
 
 #[test]
+fn dot_net_servicing_keeps_installed_membership_and_missing_view() {
+    let policy = ProcessConfigKey::DotNetPolicy;
+    let servicing = ProcessConfigKey::DotNetPolicyServicing;
+    let assembly = BasicChild {
+        name: units("Example.Assembly, Culture=neutral"),
+        last_write: 83,
+    };
+    let mut native = header(servicing.path(), vec![]);
+    native.children = 1;
+    native.enumeration = Some(vec![assembly.clone()]);
+    let mut cached = [0_u8; 40];
+    cached[12..16].copy_from_slice(&native.children.to_le_bytes());
+    cached[16..20].copy_from_slice(&(assembly.name.len() as u32 * 2).to_le_bytes());
+    cached[32..36].copy_from_slice(&18_u32.to_le_bytes());
+    let registry = Registry::selected(upcase(), vec![])
+        .unwrap()
+        .with_cached_process_config(servicing, RegistryView::Native64, native, cached)
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(servicing),
+            &[],
+            RegistryView::Wow32,
+            Err(STATUS_OBJECT_NAME_NOT_FOUND),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(policy),
+            &[],
+            RegistryView::Native64,
+            Ok((header(policy.path(), vec![]), None)),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(policy),
+            &[],
+            RegistryView::Wow32,
+            Ok((header(DOT_NET_POLICY_WOW_KEY, vec![]), None)),
+        )
+        .unwrap();
+    let name = units("Servicing");
+    let path = units(servicing.path());
+    let Lookup::Present(parent) =
+        registry.lookup_view(&units(policy.path()), RegistryView::Native64)
+    else {
+        panic!("native CLR policy key did not resolve");
+    };
+    let Lookup::Present(relative) = parent.relative(&name) else {
+        panic!("fixed CLR servicing key did not resolve");
+    };
+    let Lookup::Present(absolute) = registry.lookup_view(&path, RegistryView::Native64) else {
+        panic!("servicing key did not resolve through its absolute name");
+    };
+    assert!(Arc::ptr_eq(&relative, &absolute));
+    assert_eq!(
+        relative.child_metadata(),
+        Some([assembly.clone()].as_slice())
+    );
+    assert_eq!(relative.ordered_values(), Some([].as_slice()));
+    assert!(matches!(
+        relative.relative(&assembly.name),
+        Lookup::Unselected
+    ));
+    let Lookup::Present(parent) = registry.lookup_view(&units(policy.path()), RegistryView::Wow32)
+    else {
+        panic!("WoW64 CLR policy key did not resolve");
+    };
+    assert!(matches!(parent.relative(&name), Lookup::Missing));
+    assert!(matches!(
+        registry.lookup_view(&path, RegistryView::Wow32),
+        Lookup::Missing
+    ));
+}
+
+#[test]
+fn dot_net_app_patch_keeps_complete_version_routes_and_value_order() {
+    let policy = ProcessConfigKey::DotNetPolicy;
+    let app_patch = ProcessConfigKey::DotNetPolicyAppPatch;
+    let version = "v4.0.30319.00000";
+    let version_path = format!(r"{}\{version}", app_patch.path());
+    let values = vec![
+        Value {
+            name: units("Target Version"),
+            kind: 1,
+            data: units("v4.0\0")
+                .into_iter()
+                .flat_map(u16::to_le_bytes)
+                .collect(),
+        },
+        Value {
+            name: units("Other Rule"),
+            kind: 4,
+            data: 1_u32.to_le_bytes().to_vec(),
+        },
+    ];
+    let mut leaf = header(&version_path, values.clone());
+    leaf.children = 0;
+    leaf.enumeration = Some(vec![]);
+    let mut root = header(app_patch.path(), vec![]);
+    root.children = 1;
+    root.enumeration = Some(vec![BasicChild {
+        name: units(version),
+        last_write: 19,
+    }]);
+    let version_tree = CommandTree {
+        header: leaf,
+        children: vec![],
+    };
+    let view = RegistryView::Native64;
+    let registry = Registry::selected(upcase(), vec![])
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(app_patch),
+            &[],
+            view,
+            Ok((root, Some(vec![(units(version), version_tree)]))),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(policy),
+            &[],
+            view,
+            Ok((header(policy.path(), vec![]), None)),
+        )
+        .unwrap();
+    let Lookup::Present(parent) = registry.lookup_view(&units(policy.path()), view) else {
+        panic!("CLR policy key did not resolve");
+    };
+    let Lookup::Present(relative) = parent.relative(&units(&format!(r"AppPatch\{version}"))) else {
+        panic!("captured compatibility policy version did not resolve from its policy handle");
+    };
+    let Lookup::Present(absolute) = registry.lookup_view(&units(&version_path), view) else {
+        panic!("captured compatibility policy version did not resolve by its absolute name");
+    };
+    assert!(Arc::ptr_eq(&relative, &absolute));
+    assert_eq!(relative.ordered_values(), Some(values.as_slice()));
+    assert!(relative.covers_value(&units("Missing Rule")));
+    assert!(matches!(
+        parent.relative(&units(r"AppPatch\UnknownVersion")),
+        Lookup::Missing
+    ));
+    assert!(matches!(
+        parent.relative(&units("OutsideSelection")),
+        Lookup::Unselected
+    ));
+}
+
+#[test]
 fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
     let framework = ProcessConfigKey::DotNetFramework;
     let policy = ProcessConfigKey::DotNetPolicy;

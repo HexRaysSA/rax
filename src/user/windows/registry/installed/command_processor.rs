@@ -51,7 +51,7 @@ pub(super) fn capture_processor0(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Processor0, &[], open_snapshot)
 }
 
-pub(super) fn capture_winsock_catalog(
+pub(super) fn capture_process_config_subtree(
     registry: Registry,
     root: SnapshotRoot,
 ) -> io::Result<Registry> {

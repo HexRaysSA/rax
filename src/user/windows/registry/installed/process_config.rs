@@ -9,8 +9,8 @@ use crate::user::windows::nt::status::{
 pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
     for subject in ProcessConfigKey::ALL {
         let root = SnapshotRoot::ProcessConfig(subject);
-        if subject.winsock_catalog().is_some() {
-            registry = super::command_processor::capture_winsock_catalog(registry, root)?;
+        if subject.captures_subtree() {
+            registry = super::command_processor::capture_process_config_subtree(registry, root)?;
             continue;
         }
         let path = root.path(&[])?;
