@@ -2205,7 +2205,22 @@ The `packed-string` workflow profile compares 128 encodings and control inputs
 against guest execution of the same instructions with RAM operands. Each case
 then runs with a device operand both directly and after restoring into a fresh
 VM and vCPU, for 256 device observations. The probe replaces the saved opcode
-with `UD2` before the old VM is dropped. Hosted Intel execution is pending.
+with `UD2` before the old VM is dropped.
+
+Local validation passed 237 tests across the MMIO, guest translation, event
+injection, and workflow policy suites. All 22 prepared-consumer tests passed.
+Intel-target Clippy and the native consumer type-check passed. LLVM decoded all
+128 profile inputs and their `[RDI + 3]` memory operands. Executing those same
+128 inputs against RAM under Rosetta matched the shared evaluator for the
+index, mask, flags, preserved length registers, and upper YMM0 half. The
+Rosetta result covers instruction semantics. Hosted Intel MMIO and detached
+restore execution are queued at `b3706981b`.
+[Hosted Intel packed-string profile](https://github.com/HexRaysSA/rax/actions/runs/45996257998)
+
+The Rosetta test source, observations, and LLVM disassembly are under
+`/Users/int/dev/rax-audit-work/four-findings-hvf-packed-string-2026-11-27/`.
+The Rosetta observation log SHA-256 is
+`99acef9a94fae36170bd7d66a2953e5244cea40adf12b79ac51474fe5b9c09a6`.
 
 | Assumption | Impact | Falsification probe |
 | --- | --- | --- |
