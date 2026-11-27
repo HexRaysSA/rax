@@ -65,12 +65,17 @@ pub(super) fn collect(c: &Ctx, directory: &str) -> Checked<Vec<DirectoryEntry>> 
             .unsupported("closed installed runtime is unavailable")
             .into());
     };
+    let framework = path::framework_directory(c, &directory_name)?;
+    let root = framework
+        .as_ref()
+        .and_then(|directory| directory.framework.as_deref())
+        .unwrap_or(&runtime.directory);
     // For WoW64, the DOS System32 alias intentionally uses the selected
     // SysWOW64 view. No guest text is passed to the host directory scan.
     #[cfg(windows)]
-    return windows::collect(c, &runtime.directory);
+    return windows::collect(c, root);
     #[cfg(unix)]
-    return super::snapshot::installed(c, &runtime.directory);
+    return super::snapshot::installed(c, root);
     #[cfg(not(any(unix, windows)))]
     return Err(c
         .unsupported("installed directory enumeration adapter is unavailable")

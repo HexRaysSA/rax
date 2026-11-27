@@ -16,7 +16,11 @@ pub(super) fn open(
     name: Option<&[u16]>,
     creation: Option<&host::Creation>,
 ) -> Option<Checked<(u64, u64)>> {
-    let directory = path::guest_directory(c, attrs.root, name?)?;
+    let directory = match path::guest_directory(c, attrs.root, name?) {
+        Ok(Some(directory)) => directory.guest,
+        Ok(None) => return None,
+        Err(error) => return Some(Err(error)),
+    };
     let access = mapped_access(request.access);
     // LIST_DIRECTORY, TRAVERSE, READ_ATTRIBUTES, READ_CONTROL and SYNCHRONIZE.
     const DIRECTORY_READ: u32 = 0x0012_00a1;

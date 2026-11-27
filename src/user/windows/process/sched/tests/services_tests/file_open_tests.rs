@@ -517,6 +517,107 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
 }
 
 #[test]
+fn native_file_open_projects_only_the_selected_clr_directories() {
+    use crate::user::windows::nt::status::{
+        STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+    };
+    use crate::user::windows::objects::Object;
+
+    for (arch, directory, other) in [
+        (WinArch::X86, "Framework", "Framework64"),
+        (WinArch::X64, "Framework64", "FrameworkArm64"),
+        (WinArch::Arm64, "FrameworkArm64", "Framework"),
+    ] {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        let dot_net = installed.parent().unwrap().join("Microsoft.NET");
+        let folder = dot_net.join(directory);
+        std::fs::create_dir_all(folder.join("v4.0.30319")).unwrap();
+        std::fs::create_dir_all(dot_net.join(other).join("v4.0.30319")).unwrap();
+        std::fs::create_dir_all(folder.join("unselected")).unwrap();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let attrs = h.attrs();
+        let width = arch.ptr_size();
+        h.name(r"\??\C:\Windows");
+        assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+        let windows = h.process.state().space.ptr(output, width).unwrap();
+        for (path, root) in [
+            (
+                format!(r"\??\c:\windows\Microsoft.NET\{directory}\v4.0.30319\"),
+                0,
+            ),
+            (format!(r"Microsoft.NET\{directory}\v4.0.30319\"), windows),
+        ] {
+            h.name(&path);
+            let space = &h.process.state().space;
+            space.wptr(attrs + width, width, root).unwrap();
+            assert_eq!(
+                h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+                STATUS_SUCCESS
+            );
+            assert_ne!(h.process.state().space.u32(output + 32).unwrap() & 0x10, 0);
+            assert_eq!(
+                h.open_with(output, io, 0x100002, 7, 0x4021),
+                STATUS_ACCESS_DENIED
+            );
+            assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+            let p = h.process.state_mut();
+            let handle = p.space.ptr(output, width).unwrap();
+            assert!(
+                matches!(p.objects.get(handle), Some(Object::File(file)) if file.directory && file.host.is_none())
+            );
+            p.objects.close(handle).unwrap();
+        }
+        h.name(&format!(
+            r"\??\C:\Windows\Microsoft.NET\{directory}\Upgrades.4.0.30319\"
+        ));
+        assert_eq!(
+            h.open_with(output, io, 0x100001, 7, 0x4021),
+            STATUS_OBJECT_NAME_NOT_FOUND
+        );
+        let basic_bytes = if arch == WinArch::X86 { 36 } else { 40 };
+        let full_bytes = if arch == WinArch::X86 { 56 } else { 0 };
+        for (api, cleared) in [
+            ("NtQueryAttributesFile", basic_bytes),
+            ("NtQueryFullAttributesFile", full_bytes),
+        ] {
+            h.process.state().space.wr(output, &[0xa5; 64]).unwrap();
+            assert_eq!(
+                h.invoke_api(api, &[attrs, output]),
+                STATUS_OBJECT_NAME_NOT_FOUND,
+                "{arch} {api}"
+            );
+            let mut expected = [0xa5; 64];
+            expected[..cleared].fill(0);
+            assert_eq!(h.process.state().space.bytes(output, 64).unwrap(), expected);
+        }
+        for (path, expected) in [
+            (
+                format!(r"\??\C:\Windows\Microsoft.NET\{directory}\unselected\"),
+                STATUS_ACCESS_DENIED,
+            ),
+            (
+                format!(r"\??\C:\Windows\Microsoft.NET\{other}\v4.0.30319\"),
+                STATUS_ACCESS_DENIED,
+            ),
+        ] {
+            h.name(&path);
+            assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), expected);
+        }
+        std::fs::remove_dir_all(folder).unwrap();
+        h.name(&format!(
+            r"\??\C:\Windows\Microsoft.NET\{directory}\v4.0.30319\"
+        ));
+        assert_eq!(
+            h.open_with(output, io, 0x100001, 7, 0x4021),
+            STATUS_OBJECT_PATH_NOT_FOUND
+        );
+        h.process.state_mut().objects.close(windows).unwrap();
+    }
+}
+
+#[test]
 fn native_file_open_closed_system_drive_lists_only_guest_directories() {
     use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_NO_MORE_FILES};
 

@@ -4071,6 +4071,11 @@ The bootstrap's optional `InstallRootARM64`, `CLRLoadLogDir`, and
 `OnlyUseLatestCLR` queries use the same view. An absent value reports the
 native missing-value status.
 
+The closed installed filesystem projects the architecture-matched CLR
+`v4.0.30319` and `Upgrades.4.0.30319` directories under `Microsoft.NET`.
+Each component must resolve inside the installed Windows tree. Directory
+handles remain guest-owned and support read-only metadata and enumeration.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not

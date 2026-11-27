@@ -207,8 +207,11 @@ pub(super) fn by_name(
     // the caller's explicit no-reparse flag reach an authorized host query.
     let flags = attrs.flags & 0x1040 | if c.p.cfg.host_filesystem { 0 } else { 0x1000 };
     if let Some(name) = name {
-        if let Some(guest) = path::guest_directory(c, attrs.root, name) {
-            let host = path::installed_directory(c, &guest)?;
+        if let Some(directory) = path::guest_directory(c, attrs.root, name)? {
+            let host = match directory.framework.as_deref() {
+                Some(host) => host,
+                None => path::installed_directory(c, &directory.guest)?,
+            };
             return windows::by_name(c, host, None, None, flags, layout);
         }
         if let Some((root, leaf)) = path::installed_entry(c, attrs.root, name)? {

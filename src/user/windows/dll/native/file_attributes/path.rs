@@ -353,42 +353,96 @@ pub(in super::super) fn guest_directories(c: &Ctx) -> Option<Vec<String>> {
     Some(names)
 }
 
+pub(in super::super) struct GuestDirectory {
+    pub(in super::super) guest: String,
+    pub(in super::super) framework: Option<PathBuf>,
+}
+
+/// Select only the CLR installation and upgrade directories used by this
+/// guest architecture. Each path component must retain its installed identity.
+pub(in super::super) fn framework_directory(
+    c: &Ctx,
+    dos: &[u16],
+) -> Checked<Option<GuestDirectory>> {
+    let Some(runtime) = c.p.native.as_ref().filter(|_| !c.p.cfg.host_filesystem) else {
+        return Ok(None);
+    };
+    let directory = match c.arch() {
+        WinArch::Arm64 => "FrameworkArm64",
+        WinArch::X64 => "Framework64",
+        WinArch::X86 => "Framework",
+    };
+    let root = runtime.guest_root.trim_end_matches('\\');
+    let prefix = format!(r"{root}\Microsoft.NET\{directory}");
+    let Some((guest, leaf)) = ["v4.0.30319", "Upgrades.4.0.30319"]
+        .into_iter()
+        .find_map(|leaf| {
+            let guest = format!(r"{prefix}\{leaf}");
+            equal(c, dos, &guest.encode_utf16().collect::<Vec<_>>()).then_some((guest, leaf))
+        })
+    else {
+        return Ok(None);
+    };
+    let windows = runtime
+        .directory
+        .parent()
+        .ok_or_else(|| c.unsupported("installed Windows directory has no parent"))?;
+    let framework = confined_child(c, windows, "Microsoft.NET", STATUS_OBJECT_PATH_NOT_FOUND)?;
+    let framework = confined_child(c, &framework, directory, STATUS_OBJECT_PATH_NOT_FOUND)?;
+    let framework = confined_child(c, &framework, leaf, STATUS_OBJECT_NAME_NOT_FOUND)?;
+    if !framework.is_dir() {
+        return status(crate::user::windows::nt::status::STATUS_NOT_A_DIRECTORY);
+    }
+    Ok(Some(GuestDirectory {
+        guest,
+        framework: Some(framework),
+    }))
+}
+
 /// Match an absolute DOS name or a name relative to a guest-only directory handle.
-pub(in super::super) fn guest_directory(c: &Ctx, root: u64, name: &[u16]) -> Option<String> {
-    let names = guest_directories(c)?;
+pub(in super::super) fn guest_directory(
+    c: &Ctx,
+    root: u64,
+    name: &[u16],
+) -> Checked<Option<GuestDirectory>> {
+    let Some(names) = guest_directories(c) else {
+        return Ok(None);
+    };
     let absolute;
     let dos = if root == 0 {
-        dos_tail(c, name)?
+        let Some(dos) = dos_tail(c, name) else {
+            return Ok(None);
+        };
+        dos
     } else {
         let Some(Object::File(file)) = c.p.objects.get(root) else {
-            return None;
+            return Ok(None);
         };
         let FileIdentity::GuestDirectory(directory) = &file.lifetime.identity else {
-            return None;
+            return Ok(None);
         };
-        if name.is_empty() {
-            return Some(directory.clone());
+        if name.first() == Some(&u16::from(b'\\')) || parts(c, name).is_err() {
+            return Ok(None);
         }
-        if name.first() == Some(&u16::from(b'\\')) {
-            return None;
-        }
-        parts(c, name).ok()?;
         let mut path: Vec<_> = directory.encode_utf16().collect();
-        if !directory.ends_with('\\') {
+        if !name.is_empty() && !directory.ends_with('\\') {
             path.push(u16::from(b'\\'));
         }
         path.extend_from_slice(name);
         absolute = path;
         &absolute
     };
-    names.into_iter().find(|path| {
-        let name = if path.ends_with(":\\") {
-            dos
-        } else {
-            dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(dos)
-        };
+    let trimmed = dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(dos);
+    if let Some(guest) = names.into_iter().find(|path| {
+        let name = if path.ends_with(":\\") { dos } else { trimmed };
         equal(c, name, &path.encode_utf16().collect::<Vec<_>>())
-    })
+    }) {
+        return Ok(Some(GuestDirectory {
+            guest,
+            framework: None,
+        }));
+    }
+    framework_directory(c, trimmed)
 }
 
 /// Admit one counted child name in the selected installed system directory.
@@ -412,10 +466,13 @@ pub(super) fn installed_entry<'a>(
     {
         return Ok(None);
     }
-    let Some(directory) = guest_directory(c, root, parent) else {
+    let Some(directory) = guest_directory(c, root, parent)? else {
         return Ok(None);
     };
-    if directory.ends_with(":\\") || directory == runtime.guest_root.trim_end_matches('\\') {
+    if directory.framework.is_some()
+        || directory.guest.ends_with(":\\")
+        || directory.guest == runtime.guest_root.trim_end_matches('\\')
+    {
         return Ok(None);
     }
     let (components, _) = parts(c, leaf)?;

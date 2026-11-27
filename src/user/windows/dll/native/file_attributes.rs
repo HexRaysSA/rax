@@ -8,13 +8,14 @@ pub(super) mod path;
 #[cfg(unix)]
 pub(super) mod posix;
 
-use super::named_object::{Checked, finish, status};
+use super::named_object::{Checked, Failure, finish, status};
 use super::query::probe_write;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{
-    STATUS_DATATYPE_MISALIGNMENT, STATUS_INVALID_PARAMETER, STATUS_SUCCESS,
+    STATUS_DATATYPE_MISALIGNMENT, STATUS_INVALID_PARAMETER, STATUS_OBJECT_NAME_NOT_FOUND,
+    STATUS_SUCCESS,
 };
 use std::path::Path;
 
@@ -27,7 +28,6 @@ pub(super) fn full(c: &mut Ctx) -> ApiResult {
 }
 
 pub(in crate::user::windows::dll) fn win32_attributes(c: &mut Ctx, path: &Path) -> ApiResult {
-    use super::named_object::Failure;
     use crate::user::windows::{hle::Flow, nt::status_to_error};
     match metadata::resolved_attributes(c, path) {
         Ok(attributes) => Flow::ret(attributes.into()),
@@ -69,15 +69,39 @@ fn checked(c: &mut Ctx, full: bool) -> Checked<u32> {
         return status(STATUS_INVALID_PARAMETER);
     };
     let name = attributes::validate(c, &attrs)?;
-    let info = if name
-        .as_deref()
-        .and_then(|name| path::guest_directory(c, attrs.root, name))
-        .is_some()
-    {
-        metadata::guest_directory()
+    let directory = if let Some(name) = name.as_deref() {
+        match path::guest_directory(c, attrs.root, name) {
+            // NtQueryAttributesFile clears the basic output for a missing CLR
+            // directory. WoW64 also copies out zeroed network-open information.
+            Err(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND)) if !full || wow => {
+                c.mem().wr(output, &[0; 56][..bytes])?;
+                return status(STATUS_OBJECT_NAME_NOT_FOUND);
+            }
+            directory => directory?,
+        }
     } else {
-        let resolved = path::resolve(c, &attrs, name.as_deref())?;
-        metadata::query(c, &resolved, attrs.flags & 0x1000 != 0)?
+        None
+    };
+    let info = match directory {
+        Some(path::GuestDirectory {
+            framework: Some(host),
+            ..
+        }) => {
+            let resolved = path::Resolved {
+                base: host.parent().expect("selected framework parent").to_owned(),
+                host,
+                root: None,
+                relative: None,
+                directory: true,
+                runtime_library: true,
+            };
+            metadata::query(c, &resolved, true)?
+        }
+        Some(_) => metadata::guest_directory(),
+        None => {
+            let resolved = path::resolve(c, &attrs, name.as_deref())?;
+            metadata::query(c, &resolved, attrs.flags & 0x1000 != 0)?
+        }
     };
     let mut raw = [0u8; 56];
     for (field, value) in raw[..32].chunks_exact_mut(8).zip(info.times) {
