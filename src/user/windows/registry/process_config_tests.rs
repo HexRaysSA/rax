@@ -806,12 +806,18 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         kind: 4,
         data: 1u32.to_le_bytes().into(),
     };
+    let legacy_activation = Value {
+        name: units("UseLegacyV2RuntimeActivationPolicyDefaultValue"),
+        kind: 4,
+        data: 1u32.to_le_bytes().into(),
+    };
     let mut registry = Registry::selected(upcase(), vec![]).unwrap();
     for (view, framework_name, policy_name, path) in views {
         let mut values = vec![installation_value("InstallRoot", path)];
         if view == RegistryView::Native64 {
             values.push(arm64_value.clone());
             values.push(prefer_latest.clone());
+            values.push(legacy_activation.clone());
         } else {
             values.push(load_log.clone());
         }
@@ -875,6 +881,12 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         assert_eq!(
             opened.value(&prefer_latest_name),
             (view == RegistryView::Native64).then_some(&prefer_latest),
+        );
+        let legacy_activation_name = units("UseLegacyV2RuntimeActivationPolicyDefaultVALUE");
+        assert!(opened.covers_value(&legacy_activation_name));
+        assert_eq!(
+            opened.value(&legacy_activation_name),
+            (view == RegistryView::Native64).then_some(&legacy_activation),
         );
         assert!(!opened.covers_value(&units("UnselectedValue")));
         assert!(matches!(

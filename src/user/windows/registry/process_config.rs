@@ -213,6 +213,7 @@ impl ProcessConfigKey {
                 "InstallRootARM64",
                 "CLRLoadLogDir",
                 "OnlyUseLatestCLR",
+                "UseLegacyV2RuntimeActivationPolicyDefaultValue",
             ],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),

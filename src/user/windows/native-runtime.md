@@ -4067,9 +4067,10 @@ The CLR bootstrap opens the `HKLM\Software\Microsoft\.NETFramework`
 installation key after reading policy. Its snapshot uses each view's native
 `InstallRoot` value and links the existing `Policy` record. The selected
 installation path is also available through a machine-relative open.
-The bootstrap's optional `InstallRootARM64`, `CLRLoadLogDir`, and
-`OnlyUseLatestCLR` queries use the same view. An absent value reports the
-native missing-value status.
+The bootstrap's optional `InstallRootARM64`, `CLRLoadLogDir`,
+`OnlyUseLatestCLR`, and `UseLegacyV2RuntimeActivationPolicyDefaultValue`
+queries use the same view. An absent value reports the native missing-value
+status.
 
 The closed installed filesystem projects the architecture-matched CLR
 installation directory under `Microsoft.NET` and its selected `v4.0.30319`
