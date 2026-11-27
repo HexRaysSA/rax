@@ -118,6 +118,8 @@ pub(super) fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         sigtramp: p.sigtramp,
         unkillable: false,
         itimers: Default::default(),
+        cpu_user_ns: 0,
+        cpu_system_ns: 0,
         timers: Default::default(),
         futex: if shared {
             Arc::clone(&p.futex)

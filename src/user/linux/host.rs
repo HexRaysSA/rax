@@ -10,6 +10,7 @@
 use std::ffi::CString;
 use std::os::fd::AsRawFd;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use super::abi::errno::{Errno, from_host};
 
@@ -48,6 +49,42 @@ pub fn clock_getres(clock: HostClock) -> i64 {
     // SAFETY: as for `clock_gettime`.
     unsafe { libc::clock_getres(id, &mut ts) };
     ts.tv_nsec as i64 + ts.tv_sec as i64 * 1_000_000_000
+}
+
+/// CPU time consumed by the emulator's scheduler thread, in nanoseconds.
+/// Linux-user assigns the deltas around guest execution and syscall handling
+/// to the guest task that was active for that interval.
+pub fn thread_cpu_time_ns() -> u64 {
+    let (sec, nsec) = clock_gettime(HostClock::ThreadCpu);
+    (sec as u64)
+        .saturating_mul(1_000_000_000)
+        .saturating_add(nsec as u64)
+}
+
+/// The host kernel's scheduler tick, which is the resolution Linux reports
+/// for PROF and VIRT CPU clocks. Other hosts use RAX's 250 Hz default.
+pub fn cpu_clock_resolution_ns() -> u64 {
+    static RESOLUTION_NS: OnceLock<u64> = OnceLock::new();
+    *RESOLUTION_NS.get_or_init(|| {
+        #[cfg(target_os = "linux")]
+        {
+            let mut ts = libc::timespec {
+                tv_sec: 0,
+                tv_nsec: 0,
+            };
+            // SAFETY: `ts` is writable and `CLOCK_REALTIME_COARSE` is a
+            // supported Linux clock whose resolution is `TICK_NSEC`.
+            if unsafe { libc::clock_getres(libc::CLOCK_REALTIME_COARSE, &mut ts) } == 0 {
+                let ns = (ts.tv_sec as u64)
+                    .saturating_mul(1_000_000_000)
+                    .saturating_add(ts.tv_nsec as u64);
+                if ns != 0 {
+                    return ns;
+                }
+            }
+        }
+        4_000_000
+    })
 }
 
 /// Real and effective user and group IDs of the emulator process.

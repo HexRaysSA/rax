@@ -344,11 +344,14 @@ impl LinuxProcess {
             let mode = super::ptrace::tracee::mode(&self.threads[idx]);
             let step = mode.step;
             let trap = step && (!mode.block || self.threads[idx].cpu.branch_ahead());
+            let cpu_start = super::host::thread_cpu_time_ns();
             let event = if step {
                 self.threads[idx].cpu.step()
             } else {
                 self.threads[idx].cpu.run(slice)
             };
+            let user_ns = super::host::thread_cpu_time_ns().saturating_sub(cpu_start);
+            self.account_cpu_user(idx, user_ns);
             let irq = !matches!(
                 event,
                 CpuEvent::Syscall { .. } | CpuEvent::CompatSyscall { .. }
@@ -486,13 +489,33 @@ impl LinuxProcess {
     pub fn syscall(&mut self, idx: usize, call: Call) -> After {
         let (nr, args) = (call.nr, call.args);
         let mut spawned = Vec::new();
+        let cpu_start = super::host::thread_cpu_time_ns();
         let outcome = {
             let (lo, rest) = self.threads.split_at_mut(idx);
             let (t, hi) = rest.split_first_mut().expect("thread index is valid");
             syscall::dispatch(&mut self.state, t, Peers { lo, hi }, &mut spawned, call)
         };
+        let system_ns = super::host::thread_cpu_time_ns().saturating_sub(cpu_start);
+        self.account_cpu_system(idx, system_ns);
+        if matches!(&outcome, Outcome::Forked(_)) {
+            // The forked guest process starts with zero CPU-clock samples.
+            self.state.cpu_user_ns = 0;
+            self.state.cpu_system_ns = 0;
+            self.threads[idx].cpu_user_ns = 0;
+            self.threads[idx].cpu_system_ns = 0;
+        }
         self.threads.extend(spawned);
         self.apply(idx, nr, args, outcome)
+    }
+
+    fn account_cpu_user(&mut self, idx: usize, ns: u64) {
+        self.threads[idx].cpu_user_ns = self.threads[idx].cpu_user_ns.saturating_add(ns);
+        self.state.cpu_user_ns = self.state.cpu_user_ns.saturating_add(ns);
+    }
+
+    fn account_cpu_system(&mut self, idx: usize, ns: u64) {
+        self.threads[idx].cpu_system_ns = self.threads[idx].cpu_system_ns.saturating_add(ns);
+        self.state.cpu_system_ns = self.state.cpu_system_ns.saturating_add(ns);
     }
 
     /// Applies a system call's outcome to thread `idx`, then the exit work

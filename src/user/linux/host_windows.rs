@@ -12,6 +12,19 @@ pub fn clock_gettime(clock: HostClock) -> (i64, i64) {
     crate::user::clock::read(clock).expect("required host clock unavailable")
 }
 
+/// CPU time consumed by the emulator's scheduler thread, in nanoseconds.
+pub fn thread_cpu_time_ns() -> u64 {
+    let (sec, nsec) = clock_gettime(HostClock::ThreadCpu);
+    (sec as u64)
+        .saturating_mul(1_000_000_000)
+        .saturating_add(nsec as u64)
+}
+
+/// Resolution used for Linux PROF and VIRT CPU clocks on non-Linux hosts.
+pub fn cpu_clock_resolution_ns() -> u64 {
+    4_000_000
+}
+
 pub fn pid() -> i32 {
     std::process::id() as i32
 }
