@@ -19,6 +19,7 @@ const O_RDWR: u64 = 2;
 const O_CREAT: u64 = 0o100;
 const O_EXCL: u64 = 0o200;
 const O_NONBLOCK: u64 = 0o4000;
+const O_PATH: u64 = 0o10000000;
 const F_GETFD: u64 = 1;
 const F_GETFL: u64 = 3;
 const SIGEV_SIGNAL: i32 = 0;
@@ -196,6 +197,37 @@ fn mq_open_checks_in_the_kernels_order() {
             open(&mut h, &m, b"a/b", O_RDWR | O_CREAT, 0o600, 0),
             -(EMFILE as i64)
         );
+    });
+}
+
+#[test]
+fn o_path_descriptors_cannot_operate_on_a_queue() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = Mem::new(&mut h);
+        let a = attr(&h, m.base + 0x800, 4, 16);
+        let fd = open(&mut h, &m, b"opath", O_RDWR | O_CREAT, 0o600, a) as u64;
+        let path = open(&mut h, &m, b"opath", O_RDWR | O_PATH, 0, 0) as u64;
+        let (b, ev) = (m.buf(), m.base + 0xa00);
+
+        assert_eq!(h.err(Sysno::MqGetsetattr, &[path, 0, b]), EBADF);
+        assert_eq!(send(&mut h, path, b, b"blocked", 0), -(EBADF as i64));
+        assert_eq!(recv(&mut h, path, b), Err(EBADF));
+        sigevent(&h, ev, 0, 0, SIGEV_NONE);
+        assert_eq!(h.err(Sysno::MqNotify, &[path, ev]), EBADF);
+
+        // A rejected notify did not register; a normal descriptor can.
+        h.ok(Sysno::MqNotify, &[fd, ev]);
+        h.ok(Sysno::MqNotify, &[fd, 0]);
+        assert_eq!(send(&mut h, fd, b, b"kept", 0), 0);
+        assert_eq!(recv(&mut h, path, b), Err(EBADF));
+        assert_eq!(recv(&mut h, fd, b), Ok((b"kept".to_vec(), 0)));
+
+        h.ok(Sysno::Close, &[path]);
+        assert_eq!(h.err(Sysno::MqGetsetattr, &[path, 0, b]), EBADF);
+        assert_eq!(getattr(&mut h, fd, b), [0, 4, 16, 0]);
+        h.ok(Sysno::MqUnlink, &[m.name(&h, b"opath")]);
+        h.ok(Sysno::Close, &[fd]);
     });
 }
 

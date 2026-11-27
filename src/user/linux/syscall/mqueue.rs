@@ -81,7 +81,7 @@ fn ts((sec, nsec): (i64, i64)) -> Timespec {
 /// The queue behind descriptor `fd` (`EBADF` for none, or another file).
 fn queue_of(c: &Ctx<'_>, fd: i32) -> Result<Arc<OpenFile>, Errno> {
     let file = c.p.fds.file(fd)?;
-    if !matches!(file.object, FileObject::Mqueue(_)) {
+    if file.flags() & O_PATH != 0 || !matches!(file.object, FileObject::Mqueue(_)) {
         return Err(Errno(EBADF));
     }
     Ok(file)
