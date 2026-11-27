@@ -319,6 +319,7 @@ impl Vm for EmulatorVm {
             },
             ArchKind::CortexM => Ok(Box::new(cortex_m::CortexMVcpu::new(id, mem))),
             ArchKind::Armv7a => {
+                let legacy_transfers = self.aarch32_isa != Aarch32Isa::V8A32;
                 let arm11_vfp = matches!(self.aarch32_isa, Aarch32Isa::V6 | Aarch32Isa::V6K);
                 if self.machine == MachineFamily::S5l8900 {
                     let mut cpu = if self.checkpoint_targets {
@@ -326,15 +327,11 @@ impl Vm for EmulatorVm {
                     } else {
                         S5L8900Vcpu::new(id, mem)
                     };
-                    if arm11_vfp {
-                        cpu.configure_arm11_vfp();
-                    }
+                    cpu.configure_fp_profile(legacy_transfers, arm11_vfp);
                     Ok(Box::new(cpu))
                 } else {
                     let mut cpu = Armv6Vcpu::new(id, mem);
-                    if arm11_vfp {
-                        cpu.configure_arm11_vfp();
-                    }
+                    cpu.configure_fp_profile(legacy_transfers, arm11_vfp);
                     Ok(Box::new(cpu))
                 }
             }

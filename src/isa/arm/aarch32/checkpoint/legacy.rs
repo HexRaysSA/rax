@@ -288,6 +288,7 @@ impl LegacyArmv7Cpu {
             pstate_features: self.pstate_features,
             nonsecure: self.nonsecure,
             fp_access_context: self.fp_access_context,
+            legacy_fp_transfers: None,
             standalone_hstr: None,
             instruction_size: self.instruction_size,
             regs: self.regs,

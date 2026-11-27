@@ -3,6 +3,21 @@ use super::*;
 use crate::isa::arm::aarch32::fp_admission;
 use crate::isa::arm::aarch32::fp_controls::{FpAccessFault, fp_access_kind};
 
+fn thumb_fp_transfer_uses_sp(insn: &DecodedInsn, system_transfer: bool) -> bool {
+    let raw = insn.raw;
+    let rt_is_sp = (raw >> 12) & 15 == 13;
+    if system_transfer {
+        return rt_is_sp;
+    }
+    match insn.mnemonic {
+        // Core transfer of a doubleword or two consecutive singlewords.
+        Mnemonic::VMOV if raw & 0x0fe0_0000 == 0x0c40_0000 => rt_is_sp || (raw >> 16) & 15 == 13,
+        // Singleword or lane VMOV and core-to-vector VDUP use Rt in [15:12].
+        Mnemonic::VMOV | Mnemonic::VDUP => raw & 0x0f00_0010 == 0x0e00_0010 && rt_is_sp,
+        _ => false,
+    }
+}
+
 impl<'a, M: ArmMemory> Executor<'a, M> {
     pub(super) fn fp_data_enabled(&self) -> bool {
         self.cpu.fp_control_context().effective_fpexc_enabled()
@@ -34,15 +49,17 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if in_it {
             kind.condition = self.cpu.cpsr.it_condition();
         }
-        if kind.system_transfer
-            && standalone
-            && matches!((self.cpu.vfp.mvfr0 >> 4) & 0xff, 0x01 | 0x11)
+        let vfpv2 = matches!((self.cpu.vfp.mvfr0 >> 4) & 0xff, 0x01 | 0x11);
+        let legacy_transfers = standalone && self.cpu.legacy_fp_transfers.unwrap_or(vfpv2);
+        // Arm DDI0406C.d Table B1-24 reserves selector 5. Its VMRS, VMSR,
+        // VMOV and VDUP Thumb encodings also constrain the core SP operand.
+        if legacy_transfers
+            && (kind.system_read == Some(5)
+                || insn.state.is_thumb() && thumb_fp_transfer_uses_sp(insn, kind.system_transfer))
         {
-            // Arm DDI0406C.d Table B1-24 reserves the MVFR2 selector.
-            // B9.3.21–22 also constrain SP in legacy Thumb transfers.
-            if kind.system_read == Some(5) || insn.state.is_thumb() && (kind.raw >> 12) & 15 == 13 {
-                return Some(ExecResult::Undefined);
-            }
+            return Some(ExecResult::Undefined);
+        }
+        if kind.system_transfer && legacy_transfers && vfpv2 {
             // ARM1176 Table 20-4 permits User reads of FPSID and MVFR0/1
             // while enabled. Other VFPv2 profiles follow DDI0406C.d B1.11.2.
             let user_read = if arm11 {

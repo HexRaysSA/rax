@@ -401,6 +401,140 @@ fn a32_vm_config_selects_arm11_vfp_admission_through_checkpoint() {
     }
 }
 
+#[test]
+fn a32_fp_transfer_revision_survives_checkpoint_restore() {
+    use crate::config::Aarch32Isa;
+
+    const TRANSFERS: [u32; 17] = [
+        0xeef1_da10, // VMRS SP, FPSCR
+        0xeee1_da10, // VMSR FPSCR, SP
+        0xee11_da10, // VMOV SP, S2
+        0xee01_da10, // VMOV S2, SP
+        0xec52_da11, // VMOV SP, R2, S2, S3
+        0xec5d_2a11, // VMOV R2, SP, S2, S3
+        0xec42_da11, // VMOV S2, S3, SP, R2
+        0xec4d_2a11, // VMOV S2, S3, R2, SP
+        0xec52_db11, // VMOV SP, R2, D1
+        0xec5d_2b11, // VMOV R2, SP, D1
+        0xec42_db11, // VMOV D1, SP, R2
+        0xec4d_2b11, // VMOV D1, R2, SP
+        0xee21_db10, // VMOV.32 D1[1], SP
+        0xee31_db10, // VMOV.32 SP, D1[1]
+        0xee01_db70, // VMOV.16 D1[1], SP
+        0xee91_db70, // VMOV.U16 SP, D1[1]
+        0xeea0_db10, // VDUP.32 Q0, SP
+    ];
+    let check = |vm: &mut Vmm, thumb: bool, legacy: bool| {
+        for (raw, reject, skip) in TRANSFERS
+            .map(|raw| (raw, thumb && legacy, false))
+            .into_iter()
+            .chain([
+                (0xeef5_2a10, legacy, false), // VMRS R2, MVFR2
+                (0xee11_2a10, false, false),  // VMOV R2, S2
+                (if thumb { 0xffbc_0c41 } else { 0xf3bc_0c41 }, false, false), // VDUP.32 Q0, D1[1]
+            ])
+            .chain(thumb.then_some((TRANSFERS[0], false, true)))
+        {
+            let mut bytes = Vec::new();
+            if skip {
+                bytes.extend_from_slice(&0xbf08u16.to_le_bytes()); // IT EQ with Z clear.
+            }
+            if thumb {
+                bytes.extend_from_slice(&raw.rotate_left(16).to_le_bytes());
+            } else {
+                bytes.extend_from_slice(&raw.to_le_bytes());
+            }
+            vm.guest_mem
+                .memory()
+                .write_slice(&bytes, GuestAddress(CODE))
+                .unwrap();
+            let vcpu = &mut vm.vcpus[0];
+            let CpuState::Aarch32(mut state) = vcpu.get_state().unwrap() else {
+                panic!("expected AArch32 CPU");
+            };
+            state.regs.pc = CODE as u32;
+            state.regs.cpsr = 0x13 | (u32::from(thumb) << 5);
+            state.regs.r[2] = 0x7473_7271;
+            state.regs.sp = 0x4000_0080;
+            state.regs.fpscr = 0xa000_0000;
+            state.regs.s[..4].copy_from_slice(&[0, 0, 0x4433_2211, 0x8877_6655]);
+            let seed = state.regs.clone();
+            vcpu.set_state(&CpuState::Aarch32(state)).unwrap();
+            if skip {
+                assert!(vcpu.step_insn().unwrap().is_none());
+                assert_eq!(vcpu.current_pc(), CODE + 2);
+            }
+            let before = vcpu.instruction_count();
+
+            assert!(vcpu.step_insn().unwrap().is_none());
+            let label = format_args!("{raw:#010x} thumb={thumb} legacy={legacy} skip={skip}");
+            assert_eq!(
+                vcpu.current_pc(),
+                if reject { 4 } else { CODE + bytes.len() as u64 },
+                "{label}"
+            );
+            assert_eq!(
+                vcpu.instruction_count(),
+                before + u64::from(!reject),
+                "{label}"
+            );
+            let CpuState::Aarch32(state) = vcpu.get_state().unwrap() else {
+                panic!("expected AArch32 CPU");
+            };
+            if reject {
+                assert_eq!(state.regs.cpsr & 0x3f, 0x1b, "{label}");
+                assert_eq!(state.regs.r[2], seed.r[2], "{label}");
+                assert_eq!(state.regs.fpscr, seed.fpscr, "{label}");
+                assert_eq!(state.regs.s, seed.s, "{label}");
+                let context = vcpu.capture_backend_context().unwrap().unwrap();
+                assert_eq!(profile_cpu(&context).1.regs_svc[0], seed.sp, "{label}");
+            } else if skip {
+                assert_eq!(state.regs.r[2], seed.r[2], "{label}");
+                assert_eq!(state.regs.sp, seed.sp, "{label}");
+                assert_eq!(state.regs.fpscr, seed.fpscr, "{label}");
+                assert_eq!(state.regs.s, seed.s, "{label}");
+            } else {
+                assert_ne!(
+                    (
+                        state.regs.r[2],
+                        state.regs.sp,
+                        state.regs.fpscr,
+                        state.regs.s
+                    ),
+                    (seed.r[2], seed.sp, seed.fpscr, seed.s),
+                    "{label}"
+                );
+            }
+        }
+    };
+
+    for isa in [Aarch32Isa::V7A, Aarch32Isa::V8A32] {
+        let fixture = Fixture::new();
+        let mut config = fixture.config(1);
+        config.aarch32_isa = isa;
+        let mut source = Vmm::new_resume(config).unwrap();
+        let legacy = isa == Aarch32Isa::V7A;
+        check(&mut source, true, legacy);
+        check(&mut source, false, legacy);
+
+        let bundle = source
+            .take_snapshot_bundle(source.vcpus[0].instruction_count())
+            .unwrap();
+        bundle.save(&fixture.checkpoint).unwrap();
+        source.restore_snapshot_bundle(&bundle).unwrap();
+        check(&mut source, true, legacy);
+        check(&mut source, false, legacy);
+        drop(source);
+        std::fs::remove_file(&fixture.kernel).unwrap();
+        let file = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&file, CliConfig::default()).unwrap();
+        assert_eq!(config.aarch32_isa, isa);
+        let mut restored = Vmm::new_resume_bundle(config, &file).unwrap();
+        check(&mut restored, true, legacy);
+        check(&mut restored, false, legacy);
+    }
+}
+
 fn select_profile(vm: &mut Vmm, index: usize, enabled: bool) {
     let vcpu = &mut vm.vcpus[index];
     let mut context = vcpu.capture_backend_context().unwrap().unwrap();

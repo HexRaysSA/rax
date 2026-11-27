@@ -631,6 +631,11 @@ pub struct Armv7Cpu {
     pub(crate) pstate_features: crate::isa::arm::common::features::ArmFeatures,
     pub(crate) nonsecure: bool,
     pub(crate) fp_access_context: Option<super::fp_controls::FpAccessContext>,
+    /// Legacy FP transfer allocation selected by the standalone VM's ISA.
+    /// Platform restore takes it from the target configuration. A synthetic
+    /// CPU without that configuration falls back to its precision profile.
+    #[serde(skip)]
+    pub(crate) legacy_fp_transfers: Option<bool>,
     /// Live HSTR state for the standalone AArch32 adapter.
     /// Its private checkpoint envelope carries the versioned value.
     #[serde(skip)]
@@ -703,6 +708,7 @@ impl Armv7Cpu {
             pstate_features: crate::isa::arm::common::features::ArmFeatures::empty(),
             nonsecure: false,
             fp_access_context: None,
+            legacy_fp_transfers: None,
             standalone_hstr: None,
             instruction_size: 4,
             regs: [0; 16],
@@ -738,6 +744,13 @@ impl Armv7Cpu {
         cpu.cpsr.i = true;
         cpu.cpsr.f = true;
         cpu
+    }
+
+    pub(crate) fn configure_fp_profile(&mut self, legacy_transfers: bool, arm11: bool) {
+        self.legacy_fp_transfers = Some(legacy_transfers);
+        if arm11 {
+            self.configure_arm11_vfp();
+        }
     }
 
     pub(crate) fn configure_arm11_vfp(&mut self) {

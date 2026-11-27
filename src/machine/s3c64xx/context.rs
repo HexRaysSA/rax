@@ -166,6 +166,7 @@ impl Armv6Vcpu {
             candidate.attach_s3c_uart(uart.clone());
         }
         candidate.cpu = context.cpu;
+        candidate.cpu.legacy_fp_transfers = self.cpu.legacy_fp_transfers;
         candidate.excl = ExclusiveMonitor {
             address: context.exclusive_address,
             size: context.exclusive_size,
@@ -251,7 +252,8 @@ impl Armv6Vcpu {
         raw: &BackendContext,
     ) -> Result<()> {
         self.validate_context_record(state, raw)?;
-        let context = Context::decode(&raw.data, self.id)?;
+        let mut context = Context::decode(&raw.data, self.id)?;
+        context.cpu.legacy_fp_transfers = self.cpu.legacy_fp_transfers;
         let mut uart = self
             .uart
             .get()

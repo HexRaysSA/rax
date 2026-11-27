@@ -1074,7 +1074,8 @@
         "The mixed-width Armv8-A profile reports FPShVec as zero and preserves raw imported MVFR0. Its selected read-as-zero FPSCR Len/Stride settings and FPEXC32_EL2.TFV are exercised by ARM, Thumb and AArch64 controls. See a32-fp-controls.md. Physical AArch32 qualification and broader profile controls remain open.",
         "Standalone scalar-only D32 and no-FP control masks have ARM and Thumb regressions. The five owning macOS Arm64 binaries passed 47,692 and 47,693 tests respectively, with no failures or skips. QEMU independently confirmed absent CPACR.cp10/cp11 behavior. The Arm manual defines HCPTR.TASE for that profile, and physical AArch32 behavior remains unverified. See docs/development/a32-fp-controls/register-bank/README.md.",
         "Standalone VFPv2 now selects the legacy Undefined diagnostic for executed Thumb VMRS and VMSR with SP. ARM and mixed-width Armv8-A controls passed. Seven complete owning suites passed 47,769 tests, and QEMU max independently confirmed the ARMv8-A controls. QEMU Cortex-A15 executed the raw Thumb words that the Armv7-A manual marks unpredictable. Physical AArch32 qualification and the broader profile, security and debug controls stay open. See docs/development/a32-fp-controls/base-precision/README.md.",
-        "Standalone VFPv2 VMRS MVFR2 now takes Undefined before FP access or ID-group traps in both instruction states. The mixed-width Armv8-A control still reads MVFR2 after importing VFPv2 precision fields. The independent QEMU register matrix covers arm1176 (A32), cortex-a15 and max (A32 and T32). Broader profile, security, debug and physical AArch32 requirements remain open. See docs/development/a32-fp-controls/base-precision/README.md."
+        "Standalone VFPv2 VMRS MVFR2 now takes Undefined before FP access or ID-group traps in both instruction states. The mixed-width Armv8-A control still reads MVFR2 after importing VFPv2 precision fields. The independent QEMU register matrix covers arm1176 (A32), cortex-a15 and max (A32 and T32). Broader profile, security, debug and physical AArch32 requirements remain open. See docs/development/a32-fp-controls/base-precision/README.md.",
+        "Configured Armv7-A FP transfers now apply the legacy T32 SP constraint and MVFR2 allocation with the default arithmetic precision IDs. Guest execution in both states, warm restore and source-free cold restore passed for the two S3C64xx profiles. Physical AArch32 execution and the remaining control profiles are open. See docs/development/a32-fp-controls/base-precision/README.md#configured-armv7-a-and-armv8-a-transfers."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1123,7 +1124,8 @@
         "a32-bf16-admission-2026-11-20",
         "a32-i8mm-admission-2026-11-20",
         "a32-jscvt-profile-2026-11-20",
-        "a32-mixed-width-nsacr-2026-11-20"
+        "a32-mixed-width-nsacr-2026-11-20",
+        "a32-configured-fp-transfer-allocation-2026-11-27"
       ]
     },
     {
@@ -201253,6 +201255,14 @@
       "status": "native_intel_virtualized_qualified_full_findings_open",
       "scope": "Hosted Intel run 46032203831 at 795891a6e kept an INIT queued behind a debugger-stopped AP with a real eight-byte MMIO read exit. Cold restore drained one device callback, completed the XMM15 lane read and then applied INIT. Independent archive decoding verified both frontiers. The Intel process was untranslated in virtualized macOS. Bare-metal Intel and broader MMIO, IRQ, checkpoint and SMP coverage remain open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#queued-init-after-retained-ap-mmio-on-intel",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-configured-fp-transfer-allocation-2026-11-27",
+      "findings": ["A32-FP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The standalone VMM selects pre-Armv8 Thumb SP and MVFR2 allocation from its configured ISA. The live, warm and source-free cold S3C64xx guest cases cover 17 SP transfer forms, both instruction states, the MVFR2 selector, a failed predicate and non-SP controls. Independent Cortex-A15 and max guests produced 80 observations under QEMU. Broader FP-control profiles and physical AArch32 remain open.",
+      "qualification": "docs/development/a32-fp-controls/base-precision/README.md#configured-armv7-a-and-armv8-a-transfers",
       "full_goal_complete": false
     }
   ],

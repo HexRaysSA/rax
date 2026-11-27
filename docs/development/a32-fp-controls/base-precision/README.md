@@ -91,6 +91,46 @@ On macOS arm64 with `--no-default-features`, `a32_fp_controls`,
 `a32_fp_pairs`, `arm_vfp_a32`, `isa_oracle` and `arm` passed 47,723 tests
 with zero failures or skips. Physical AArch32 execution remains unverified.
 
+## Configured Armv7-A and Armv8-A transfers
+
+The standalone VMM selects the FP transfer allocation using `aarch32_isa`.
+For Armv7-A, RAX selects Undefined when an executed T32 `VMRS`, `VMSR`,
+core `VMOV` or core `VDUP` uses SP. This covers both core operands of pair
+transfers and both directions of the SIMD lane transfers. A32 permits SP
+for these encodings. Armv7-A reserves `VMRS` selector 5 in both states.
+Armv8-A permits these T32 SP operands and allocates selector 5 to MVFR2.
+Admission follows predication and precedes access traps. Warm restore and
+cold restore use the target configuration. The existing bundle supplies
+the saved ISA when the caller supplies no override. The per-instruction
+allocation check takes constant time and space.
+[Arm DDI0406C.d, §§ A8.8.315, A8.8.342–346, B9.3.21–22 and Table B1-24](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+[Arm DDI0597 ID032025](../../../specifications/arm/aarch32-isa-2025-03.pdf)
+
+| Assumption | Falsification probe | Impact |
+| --- | --- | --- |
+| The configured ISA supplies the transfer allocation independently of the arithmetic precision IDs. | Run 17 SP forms and the MVFR2 selector in A32 and T32 on the default-precision Armv7-A and Armv8-A S3C64xx VMMs. Check the Undefined vector, unchanged inputs and zero retirements on denial. | High |
+| Predication and operand kind still determine when the T32 SP constraint applies. | Put an SP transfer under failing `IT EQ`, then exercise an ordinary core transfer and a vector-only `VDUP`. | High |
+| Checkpoint construction retains the configured allocation. | Repeat the table after warm restore and on a fresh VM restored from a file after removing the original guest input. | High |
+
+The baseline at `0023859ce` retired raw T32 `0xeef1da10`
+(`VMRS SP,FPSCR`) on the default Armv7-A VMM. Independent QEMU 11.1.2
+guests recorded 80 observations. Both models completed the defined data
+and control transfers. Cortex-A15 executed the 17 unpredictable T32 SP
+forms and rejected `VMRS R2,MVFR2` in both states. QEMU `max` returned
+`0x43` from MVFR2 in both states. The receipt SHA-256 is
+`8b278e23dc5e112e7360168feda0e1fadbc1f324e6e344cd4e82b38e525f2381`.
+
+On macOS Arm64, all 47,786 tests passed across the complete
+`a32_fp_controls`, `a32_fp_pairs`, `arm`, `arm_vfp_a32`, `isa_oracle`,
+`smir_jit_aarch32_aarch64` and `smir_jit_thumb_aarch64` binaries with zero
+failures or ignored cases. The integration log SHA-256 is
+`ccd91d477e35cb4d5495d0660e8d4ab772f61c20ce3c477ff145e0b283484c34`.
+The unfiltered library run passed 13,702 tests with 49 ignored and zero
+failures. It included the S3C64xx end-to-end regression and the existing
+S5L8900 file-resume tests. The local test build used `63886d4b2` plus this
+change. Later Windows-only commits landed before publication.
+Physical AArch32 execution and the remaining FP-control profiles remain open.
+
 ## Evidence
 
 [Provenance](provenance.json) identifies the retained Arm MVFR0 definition and

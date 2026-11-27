@@ -190,6 +190,7 @@ impl S5L8900Vcpu {
         let nand = S5lNand::from_checkpoint(nand_bytes.as_slice(), nand_bytes.len())?;
         let (mut candidate, saved_uart) =
             image.into_cpu(self.bridge.mem.clone(), nand, self.uart.clone())?;
+        candidate.cpu.legacy_fp_transfers = self.cpu.legacy_fp_transfers;
         {
             let target = self.bridge.inner.borrow();
             let mut prepared = candidate.bridge.inner.borrow_mut();
