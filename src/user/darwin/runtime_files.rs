@@ -4,7 +4,7 @@
 //! manifest, system TLS defaults, and
 //! selected CoreText and AppKit resources, system framework manifests, and
 //! framework-bundled XPC service files, system sandbox profiles, and the
-//! installed AppleScript component.
+//! installed AppleScript and JavaScript OSA components.
 //! Installed Perl and Ruby modules,
 //! executables, and shebang scripts are available in the same guest namespace.
 //! A selected Command Line Tools or Xcode installation supplies its own tools
@@ -100,8 +100,12 @@ const SANDBOX_PROFILE_ROOT: &str = "/System/Library/Sandbox/Profiles";
 const APPLE_SCRIPT_ROOT: &str = "/System/Library/Components/AppleScript.component/Contents";
 
 #[cfg(any(target_os = "macos", test))]
-const DATA_ROOTS: [&str; 6] = [
+const JAVASCRIPT_ROOT: &str = "/System/Library/Components/JavaScript.component/Contents";
+
+#[cfg(any(target_os = "macos", test))]
+const DATA_ROOTS: [&str; 7] = [
     APPLE_SCRIPT_ROOT,
+    JAVASCRIPT_ROOT,
     TERMINFO_ROOT,
     CHARSET_ESDB_ROOT,
     CHARSET_MAPPER_ROOT,
@@ -387,6 +391,7 @@ fn select_runtime_root(
             CHARSET_MAPPER_ROOT,
             APPKIT_APPEARANCE_ROOT,
             APPLE_SCRIPT_ROOT,
+            JAVASCRIPT_ROOT,
             SANDBOX_PROFILE_ROOT,
             PERL_ROOT,
             RUBY_VERSIONS,
@@ -580,20 +585,27 @@ fn accept_runtime_file(
             _ => false,
         });
     }
-    if let Some(entry) = guest
-        .strip_prefix(APPLE_SCRIPT_ROOT)
-        .and_then(|tail| tail.strip_prefix('/'))
-    {
-        return match entry {
-            "MacOS/AppleScript" => dylibs::accept(file, MH_BUNDLE),
-            "Info.plist"
-            | "version.plist"
-            | "Resources/AppleScript.rsrc"
-            | "Resources/en.lproj/Localized.rsrc"
-            | "Resources/Localizable.loctable"
-            | "_CodeSignature/CodeResources" => Ok(true),
-            _ => Ok(false),
-        };
+    for root in [APPLE_SCRIPT_ROOT, JAVASCRIPT_ROOT] {
+        if let Some(entry) = guest
+            .strip_prefix(root)
+            .and_then(|tail| tail.strip_prefix('/'))
+        {
+            return match (root, entry) {
+                (APPLE_SCRIPT_ROOT, "MacOS/AppleScript")
+                | (JAVASCRIPT_ROOT, "MacOS/JavaScript") => dylibs::accept(file, MH_BUNDLE),
+                (_, "Info.plist" | "version.plist" | "_CodeSignature/CodeResources")
+                | (
+                    APPLE_SCRIPT_ROOT,
+                    "Resources/AppleScript.rsrc"
+                    | "Resources/en.lproj/Localized.rsrc"
+                    | "Resources/Localizable.loctable",
+                )
+                | (JAVASCRIPT_ROOT, "Resources/JavaScript.rsrc" | "Resources/InfoPlist.loctable") => {
+                    Ok(true)
+                }
+                _ => Ok(false),
+            };
+        }
     }
     if let Some(entry) = guest
         .strip_prefix(APPKIT_APPEARANCE_ROOT)
@@ -2083,14 +2095,20 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn installed_applescript_bundle_selects_only_the_component_and_its_fixed_resources() {
+    fn installed_osa_bundles_select_only_their_own_images_and_fixed_resources() {
+        check_installed_osa_bundle(APPLE_SCRIPT_ROOT, "AppleScript", "JavaScript");
+        check_installed_osa_bundle(JAVASCRIPT_ROOT, "JavaScript", "AppleScript");
+    }
+
+    #[cfg(unix)]
+    fn check_installed_osa_bundle(bundle_root: &str, component: &str, other_component: &str) {
         use crate::user::image::macho::{CPU_TYPE_ARM64, MH_BUNDLE, MH_EXECUTE, MH_MAGIC_64};
         use crate::user::supplied_fs::Error;
         use std::{fs, os::unix::fs::symlink};
 
         let fixture = TestFile::new(b"unrelated", 9);
         let root = &fixture.dir;
-        let bundle = root.join(APPLE_SCRIPT_ROOT.trim_start_matches('/'));
+        let bundle = root.join(bundle_root.trim_start_matches('/'));
         for directory in [
             root.join("usr/lib"),
             root.join("System/Library/dyld"),
@@ -2110,9 +2128,15 @@ mod tests {
         image[..4].copy_from_slice(&MH_MAGIC_64.to_le_bytes());
         image[4..8].copy_from_slice(&CPU_TYPE_ARM64.to_le_bytes());
         image[12..16].copy_from_slice(&MH_BUNDLE.to_le_bytes());
-        fs::write(bundle.join("MacOS/AppleScript"), image).unwrap();
+        fs::write(bundle.join(format!("MacOS/{component}")), image).unwrap();
         fs::write(bundle.join("MacOS/Neighbor"), image).unwrap();
-        fs::write(bundle.join("Resources/AppleScript.rsrc"), b"resource").unwrap();
+        fs::write(
+            bundle.join(format!("Resources/{component}.rsrc")),
+            b"resource",
+        )
+        .unwrap();
+        let other_resource = format!("Resources/{other_component}.rsrc");
+        fs::write(bundle.join(&other_resource), b"neighbor").unwrap();
         fs::write(bundle.join("Resources/Neighbor.rsrc"), b"neighbor").unwrap();
         symlink(&fixture.path, bundle.join("Info.plist")).unwrap();
         let neighbor = bundle
@@ -2122,8 +2146,8 @@ mod tests {
         fs::create_dir_all(neighbor.join("Contents")).unwrap();
         fs::write(neighbor.join("Contents/Info.plist"), b"neighbor").unwrap();
 
-        let executable = format!("{APPLE_SCRIPT_ROOT}/MacOS/AppleScript");
-        let resource = format!("{APPLE_SCRIPT_ROOT}/Resources/AppleScript.rsrc");
+        let executable = format!("{bundle_root}/MacOS/{component}");
+        let resource = format!("{bundle_root}/Resources/{component}.rsrc");
         let files = Files::default();
         let selected = select_native_root(&files, root, None).unwrap();
         assert!(matches!(
@@ -2131,9 +2155,14 @@ mod tests {
             Kind::Backed(_)
         ));
         assert_eq!(&*selected.read(&resource).unwrap(), b"resource");
-        for hidden in ["Info.plist", "MacOS/Neighbor", "Resources/Neighbor.rsrc"] {
+        for hidden in [
+            "Info.plist",
+            "MacOS/Neighbor",
+            "Resources/Neighbor.rsrc",
+            &other_resource,
+        ] {
             assert!(matches!(
-                selected.lookup(&format!("{APPLE_SCRIPT_ROOT}/{hidden}")),
+                selected.lookup(&format!("{bundle_root}/{hidden}")),
                 Err(Error::NotFound)
             ));
         }
@@ -2149,7 +2178,7 @@ mod tests {
         let overridden = select_native_root(&supplied, root, None).unwrap();
         assert_eq!(&*overridden.read(&executable).unwrap(), b"caller image");
         image[12..16].copy_from_slice(&MH_EXECUTE.to_le_bytes());
-        fs::write(bundle.join("MacOS/AppleScript"), image).unwrap();
+        fs::write(bundle.join(format!("MacOS/{component}")), image).unwrap();
         let rejected = select_native_root(&files, root, None).unwrap();
         assert!(matches!(rejected.lookup(&executable), Err(Error::NotFound)));
     }
