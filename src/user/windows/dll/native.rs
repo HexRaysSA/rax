@@ -11,6 +11,7 @@ mod alpc;
 mod alpc_connect;
 mod apc_queue;
 mod apphelp;
+mod client_open;
 mod delay;
 mod device_control;
 pub(super) use device_control::WIN32_EXPORTS as WIN32_DEVICE_CONTROL_EXPORTS;
@@ -50,6 +51,7 @@ mod process_console;
 mod process_create;
 mod process_handle_close;
 mod process_mitigation;
+mod process_open;
 mod process_query;
 mod process_set;
 mod process_tls;
@@ -1431,4 +1433,12 @@ pub(super) static KEY_CREATE_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, I32, Ptr, I32, Ptr, I32, Ptr],
     registry::create,
+)];
+
+// Keep the existing synthetic export ordinals and trap addresses.
+pub(super) static PROCESS_OPEN_EXPORTS: &[Export] = &[Export::func(
+    "NtOpenProcess",
+    Stdcall,
+    &[Ptr, I32, Ptr, Ptr],
+    process_open::open,
 )];

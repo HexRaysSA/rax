@@ -4424,3 +4424,18 @@ session-0 result only with the qualified WoW64 companion and exact
 arguments, preserving the companion GDI views and process value.
 Stock session-0 SysWOW64 findstr now completes for matching and nonmatching
 input. Captured stdout, stderr and exit status match the native controls.
+
+## Opening a process query handle
+
+Closed `NtOpenProcess` resolves existing guest process objects and grants
+query and synchronization rights. A request for `PROCESS_QUERY_INFORMATION`
+also grants `PROCESS_QUERY_LIMITED_INFORMATION`. The process lookup and
+the returned handle stay inside the guest object table. Unknown guest
+identifiers return `STATUS_INVALID_CID`.
+
+Native ARM64, x64, and WoW64 x86 controls on Windows build 29708 verified
+the self-query grant, accepted attributes, and client-ID validation.
+WoW64 clears the output handle when the kernel rejects a captured
+request. An invalid native-width request leaves the output untouched.
+A malformed WoW64 attributes header rejected before dispatch also leaves
+the output untouched.

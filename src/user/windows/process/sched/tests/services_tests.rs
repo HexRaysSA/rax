@@ -124,6 +124,9 @@ mod thread_token_tests;
 #[path = "services_tests/process_token_open_tests.rs"]
 mod process_token_open_tests;
 
+#[path = "services_tests/process_open_tests.rs"]
+mod process_open_tests;
+
 #[path = "services_tests/thread_open_tests.rs"]
 mod thread_open_tests;
 

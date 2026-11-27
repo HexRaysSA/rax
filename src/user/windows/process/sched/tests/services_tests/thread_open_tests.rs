@@ -16,6 +16,15 @@ const SERVICE: u32 = 0x139;
 const LAST_ERROR: u32 = 0x1234_5678;
 
 fn enter(p: &mut Proc, t: &mut Thread, args: [u64; 4]) -> Outcome {
+    enter_client_open(p, t, SERVICE, args)
+}
+
+pub(super) fn enter_client_open(
+    p: &mut Proc,
+    t: &mut Thread,
+    service: u32,
+    args: [u64; 4],
+) -> Outcome {
     let last_error = t.teb + layout::offsets(p.arch).teb_last_error;
     p.space.w32(last_error, LAST_ERROR).unwrap();
     let sp = t.cpu.sp();
@@ -27,7 +36,7 @@ fn enter(p: &mut Proc, t: &mut Thread, args: [u64; 4]) -> Outcome {
             }
         }
         WinArch::X64 => {
-            t.cpu.set_gpr(0, SERVICE.into());
+            t.cpu.set_gpr(0, service.into());
             t.cpu.set_gpr(1, 0x1234_0004);
             for (n, value) in args.into_iter().enumerate() {
                 t.cpu.set_gpr([10, 2, 8, 9][n], value);
@@ -39,13 +48,13 @@ fn enter(p: &mut Proc, t: &mut Thread, args: [u64; 4]) -> Outcome {
             for (n, value) in args.into_iter().enumerate() {
                 p.space.w32(sp + 8 + n as u64 * 4, value as u32).unwrap();
             }
-            t.cpu.set_gpr(0, SERVICE.into());
+            t.cpu.set_gpr(0, service.into());
         }
     }
     let result = if p.arch == WinArch::X86 {
         super::super::super::super::services::wow64(p, t, 0x1234_0000)
     } else {
-        handle_stop(p, t, stop(p.arch, SERVICE))
+        handle_stop(p, t, stop(p.arch, service))
     };
     if result == Outcome::Continue {
         assert_eq!(t.cpu.pc(), 0x1234_0004);

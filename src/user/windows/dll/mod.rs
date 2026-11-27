@@ -99,6 +99,7 @@ pub(crate) fn nt_service(
         .chain(native::DELAY_EXPORTS)
         .chain(native::APC_QUEUE_EXPORTS)
         .chain(native::KEY_CREATE_EXPORTS)
+        .chain(native::PROCESS_OPEN_EXPORTS)
         .chain(native::INSTALLED_ONLY_SERVICES)
         .find_map(|export| {
             if export.name == name
@@ -209,6 +210,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         libraries::DLL_SHUTDOWN_EXPORTS,
         locks::NTDLL_CRITICAL_QUERY_EXPORTS,
         sysinfo::STATE_SEPARATION_EXPORTS,
+        native::PROCESS_OPEN_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
