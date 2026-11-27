@@ -33,6 +33,84 @@ fn create(h: &mut Harness, access: u32, disposition: u32) -> u32 {
 }
 
 #[test]
+fn native_file_create_probes_the_installed_clr_engine_without_writing() {
+    const READ_ATTRIBUTES: u64 = 0x0012_0080;
+    const WRITE_DATA: u64 = 2;
+    let probe = |h: &mut Harness, access, disposition| {
+        h.invoke_api(
+            "NtCreateFile",
+            &[
+                h.base,
+                access,
+                h.attrs(),
+                h.base + 4096,
+                0,
+                0,
+                7,
+                disposition,
+                0x0002_0860,
+                0,
+                0,
+            ],
+        )
+    };
+    for (arch, framework, other) in [
+        (WinArch::X86, "Framework", "Framework64"),
+        (WinArch::X64, "Framework64", "FrameworkArm64"),
+        (WinArch::Arm64, "FrameworkArm64", "Framework"),
+    ] {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        let root = installed.parent().unwrap().join("Microsoft.NET");
+        for directory in [
+            root.join(framework).join("v4.0.30319"),
+            root.join(framework).join("Upgrades.4.0.30319"),
+            root.join(other).join("v4.0.30319"),
+        ] {
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(directory.join("clr.dll"), b"selected CLR engine").unwrap();
+        }
+
+        let prefix = format!(r"\??\C:\Windows\Microsoft.NET\{framework}\v4.0.30319");
+        h.name(&format!(r"{prefix}\CLR.DLL"));
+        assert_eq!(probe(&mut h, READ_ATTRIBUTES, 1), STATUS_SUCCESS, "{arch}");
+        let p = h.process.state_mut();
+        let handle = p.space.ptr(h.base, arch.ptr_size()).unwrap();
+        assert!(p.objects.runtime_library(handle));
+        assert_eq!(p.objects.access(handle), Some(READ_ATTRIBUTES as u32));
+        p.objects.close(handle).unwrap();
+        assert_eq!(
+            probe(&mut h, READ_ATTRIBUTES | WRITE_DATA, 1),
+            STATUS_ACCESS_DENIED
+        );
+        assert_eq!(probe(&mut h, READ_ATTRIBUTES, 5), STATUS_ACCESS_DENIED);
+
+        h.name(&format!(r"{prefix}\mscorwks.dll"));
+        assert_eq!(
+            probe(&mut h, READ_ATTRIBUTES, 1),
+            STATUS_OBJECT_NAME_NOT_FOUND
+        );
+        assert_eq!(
+            probe(&mut h, READ_ATTRIBUTES, 3),
+            STATUS_OBJECT_NAME_NOT_FOUND
+        );
+        assert!(
+            !root
+                .join(framework)
+                .join("v4.0.30319")
+                .join("mscorwks.dll")
+                .exists()
+        );
+        for (directory, version) in [(other, "v4.0.30319"), (framework, "Upgrades.4.0.30319")] {
+            h.name(&format!(
+                r"\??\C:\Windows\Microsoft.NET\{directory}\{version}\clr.dll"
+            ));
+            assert_eq!(probe(&mut h, READ_ATTRIBUTES, 1), STATUS_ACCESS_DENIED);
+        }
+    }
+}
+
+#[test]
 fn native_file_create_dispositions_change_real_contents_and_preserve_read_only_grants() {
     for arch in WinArch::ALL {
         for existing in [false, true] {

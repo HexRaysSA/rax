@@ -4102,6 +4102,12 @@ without reparsing. On Windows build 29708, the ARM64 and WoW64 x86
 PowerShell executables query their own file metadata and open their
 installed `powershell.exe.config` during CLR startup.
 
+CLR startup probes `clr.dll` and `mscorwks.dll` by name in the selected
+`v4.0.30319` directory. Both names are confined to the architecture-matched
+directory and use the installed read-only file policy. On the Windows build
+29708 control, `clr.dll` opens for attribute access and the legacy
+`mscorwks.dll` returns the missing-name status in all three framework views.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not

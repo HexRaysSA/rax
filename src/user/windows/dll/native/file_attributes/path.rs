@@ -22,12 +22,28 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 const CLR_LOADER: &str = "mscoreei.dll";
-const CLR_VERSION_DIRECTORIES: [&str; 2] = ["v4.0.30319", "Upgrades.4.0.30319"];
+const CLR_V4: &str = "v4.0.30319";
+const CLR_VERSION_DIRECTORIES: [&str; 2] = [CLR_V4, "Upgrades.4.0.30319"];
 
 pub(in super::super) fn clr_version_directory_name(c: &Ctx, name: &[u16]) -> bool {
     CLR_VERSION_DIRECTORIES
         .iter()
         .any(|version| equal(c, name, &version.encode_utf16().collect::<Vec<_>>()))
+}
+
+fn clr_image_name(c: &Ctx, version: &[u16], name: &[u16]) -> Option<&'static str> {
+    if !clr_version_directory_name(c, version) {
+        return None;
+    }
+    let names: &[&str] = if equal(c, version, &CLR_V4.encode_utf16().collect::<Vec<_>>()) {
+        &[CLR_LOADER, "clr.dll", "mscorwks.dll"]
+    } else {
+        &[CLR_LOADER]
+    };
+    names
+        .iter()
+        .copied()
+        .find(|name_match| equal(c, name, &name_match.encode_utf16().collect::<Vec<_>>()))
 }
 
 pub(in super::super) struct Resolved {
@@ -289,19 +305,14 @@ fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf, bool)>> 
         return Ok(Some((runtime.directory.clone(), file, true)));
     }
     if let Some(separator) = path.iter().rposition(|unit| *unit == u16::from(b'\\'))
-        && equal(
-            c,
-            &path[separator + 1..],
-            &CLR_LOADER.encode_utf16().collect::<Vec<_>>(),
-        )
-        && path[..separator]
+        && let Some(version) = path[..separator]
             .rsplit(|unit| *unit == u16::from(b'\\'))
             .next()
-            .is_some_and(|name| clr_version_directory_name(c, name))
+        && let Some(name) = clr_image_name(c, version, &path[separator + 1..])
         && let Some(framework) = framework_directory(c, &path[..separator])?
         && let Some(base) = framework.framework
     {
-        let image = confined_child(c, &base, CLR_LOADER, STATUS_OBJECT_NAME_NOT_FOUND)?;
+        let image = confined_child(c, &base, name, STATUS_OBJECT_NAME_NOT_FOUND)?;
         if !image.is_file() {
             return status(STATUS_OBJECT_NAME_NOT_FOUND);
         }
