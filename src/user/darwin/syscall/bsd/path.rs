@@ -900,13 +900,12 @@ pub(super) fn closed_pathconf(entry: &Entry, name: i32) -> SysResult {
 pub(super) fn write_closed_statfs(ctx: &Ctx<'_>, buf: u64, volume: ClosedVolume) -> SysResult {
     use crate::user::darwin::abi::types::Statfs;
 
-    const MNT_RDONLY: u32 = 0x0001;
-    const MNT_LOCAL: u32 = 0x1000;
     let files = ctx.proc.vfs.files().ok_or(Errno::ENOTSUP)?;
     let mut stat = Statfs {
         bsize: CLOSED_FS_BLOCK_SIZE,
         iosize: CLOSED_FS_BLOCK_SIZE as i32,
         fsid: volume.fsid(),
+        flags: volume.mount_flags(),
         fstypename: b"raxfs".to_vec(),
         mntfromname: b"raxfs".to_vec(),
         mntonname: volume.mountpoint(files).as_bytes().to_vec(),
@@ -920,9 +919,6 @@ pub(super) fn write_closed_statfs(ctx: &Ctx<'_>, buf: u64, volume: ClosedVolume)
         stat.bavail = stat.bfree;
         stat.files = capacity.nodes_total;
         stat.ffree = capacity.nodes_available;
-        stat.flags = MNT_LOCAL;
-    } else {
-        stat.flags = MNT_LOCAL | MNT_RDONLY;
     }
     ctx.write(buf, &stat.bytes())?;
     Ok(Rv::one(0))

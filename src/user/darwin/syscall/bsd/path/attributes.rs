@@ -4,6 +4,7 @@ use crate::user::darwin::abi::types::Stat;
 use crate::user::darwin::fd::FileKind;
 use crate::user::darwin::host::{AT_SYMLINK_NOFOLLOW, AT_SYMLINK_NOFOLLOW_ANY};
 use crate::user::darwin::vfs::ClosedVolume;
+use crate::user::supplied_fs::{Entry, Error};
 
 const NAME: u32 = 0x0000_0001;
 const DEVID: u32 = 0x0000_0002;
@@ -44,10 +45,16 @@ const COMMON: u32 = NAME
     | RETURNED;
 const COMMON_UNAVAILABLE: u32 = GEN_COUNT | DOCUMENT_ID | ADDEDTIME | DATA_PROTECT_FLAGS;
 
+const VOL_MOUNTFLAGS: u32 = 0x0000_4000;
 const VOL_CAPABILITIES: u32 = 0x0002_0000;
 const VOL_ATTRIBUTES: u32 = 0x4000_0000;
 const VOL_INFO: u32 = 0x8000_0000;
 const LINKCOUNT: u32 = 0x0000_0001;
+const DATALENGTH: u32 = 0x0000_0200;
+const DATAALLOCSIZE: u32 = 0x0000_0400;
+const RSRCLENGTH: u32 = 0x0000_1000;
+const RSRCALLOCSIZE: u32 = 0x0000_2000;
+const FORK_SIZES: u32 = DATALENGTH | DATAALLOCSIZE | RSRCLENGTH | RSRCALLOCSIZE;
 const DIR_MOUNTSTATUS: u32 = 0x0000_0004;
 const REALDEVID: u32 = 0x0000_0040;
 const EXT_FLAGS: u32 = 0x0000_0200;
@@ -80,6 +87,10 @@ impl Request {
         if request.volume != 0 || request.common & (RETURNED | NAME) != (RETURNED | NAME) {
             return Err(Errno::EINVAL);
         }
+        // Bulk results follow separate vnode-attr support rules.
+        if request.file & FORK_SIZES != 0 {
+            return Err(Errno::ENOTSUP);
+        }
         Ok(request)
     }
 
@@ -110,12 +121,12 @@ impl Request {
             != 0
             || common & !(COMMON | COMMON_UNAVAILABLE | ERROR) != 0
             || dir & !(LINKCOUNT | DIR_MOUNTSTATUS) != 0
-            || file & !LINKCOUNT != 0
+            || file & !(LINKCOUNT | FORK_SIZES) != 0
             || extended & !(REALDEVID | EXT_FLAGS) != 0
             || common & RETURNED == 0
                 && (common & COMMON_UNAVAILABLE != 0 || extended & EXT_FLAGS != 0)
             || volume != 0
-                && (volume & !(VOL_INFO | VOL_CAPABILITIES | VOL_ATTRIBUTES) != 0
+                && (volume & !(VOL_INFO | VOL_MOUNTFLAGS | VOL_CAPABILITIES | VOL_ATTRIBUTES) != 0
                     || common & !RETURNED != 0
                     || dir != 0
                     || file != 0
@@ -145,7 +156,7 @@ pub(in crate::user::darwin::syscall::bsd) fn get(
 ) -> SysResult {
     let request = Request::read(&ctx.read(attrlist, 24)?, options)?;
 
-    let (path, stat, volume) = if let Some(addr) = path {
+    let (path, stat, volume, forks) = if let Some(addr) = path {
         let mut flags = 0;
         if options & FSOPT_NOFOLLOW != 0 {
             flags |= AT_SYMLINK_NOFOLLOW;
@@ -155,8 +166,9 @@ pub(in crate::user::darwin::syscall::bsd) fn get(
         }
         let (resolved, entry) = embedded::lookup(ctx, dirfd, addr, embedded::link_policy(flags))?;
         let volume = ClosedVolume::for_entry(Some(resolved.as_bytes()), Some(&entry));
-        let stat = embedded::entry_stat(&resolved, entry)?;
-        (Some(resolved.into_bytes()), stat, volume)
+        let stat = embedded::entry_stat(&resolved, entry.clone())?;
+        let forks = ForkSizes::read(request.file, stat, Some(&entry))?;
+        (Some(resolved.into_bytes()), stat, volume, forks)
     } else {
         let file = ctx.proc.fds.file(dirfd)?;
         let FileKind::Embedded(object) = &file.kind else {
@@ -170,7 +182,12 @@ pub(in crate::user::darwin::syscall::bsd) fn get(
         .or_else(|| file.path.clone());
         let volume = ClosedVolume::for_entry(path.as_deref(), entry);
         let stat = object.stat_at_path(path.as_deref())?;
-        (path, stat, volume)
+        let forks = ForkSizes::read(
+            request.file,
+            stat,
+            entry.filter(|_| object.resource().is_none()),
+        )?;
+        (path, stat, volume, forks)
     };
 
     if size < 4 {
@@ -185,8 +202,9 @@ pub(in crate::user::darwin::syscall::bsd) fn get(
         &request,
         path,
         stat,
-        volume.fsid(),
+        volume,
         path == volume.mountpoint(files).as_bytes(),
+        forks,
     );
     // The installed APFS attribute calls report the full record length and
     // copy only the bytes that fit in the caller's buffer.
@@ -199,9 +217,11 @@ pub(in crate::user::darwin::syscall::bsd) fn pack(
     request: &Request,
     path: &[u8],
     stat: Stat,
-    fsid: [i32; 2],
+    volume: ClosedVolume,
     mountpoint: bool,
+    forks: ForkSizes,
 ) -> Vec<u8> {
+    let fsid = volume.fsid();
     let requested = request.common;
     let report_mask = requested & RETURNED != 0;
     let pack_error = requested & ERROR != 0 && (!report_mask || request.pack_invalid);
@@ -233,6 +253,9 @@ pub(in crate::user::darwin::syscall::bsd) fn pack(
         const CASE_SENSITIVE: u32 = 0x100;
         const CASE_PRESERVING: u32 = 0x200;
         const ATTRLIST: u32 = 0x2;
+        if request.volume & VOL_MOUNTFLAGS != 0 {
+            record.extend_from_slice(&volume.mount_flags().to_le_bytes());
+        }
         if request.volume & VOL_CAPABILITIES != 0 {
             let supported = [CASE_SENSITIVE | CASE_PRESERVING, ATTRLIST, 0, 0];
             for word in supported.into_iter().chain(supported) {
@@ -242,9 +265,9 @@ pub(in crate::user::darwin::syscall::bsd) fn pack(
         if request.volume & VOL_ATTRIBUTES != 0 {
             let supported = [
                 COMMON | ERROR,
-                VOL_INFO | VOL_CAPABILITIES | VOL_ATTRIBUTES,
+                VOL_INFO | VOL_MOUNTFLAGS | VOL_CAPABILITIES | VOL_ATTRIBUTES,
                 LINKCOUNT | DIR_MOUNTSTATUS,
-                LINKCOUNT,
+                LINKCOUNT | FORK_SIZES,
                 REALDEVID,
             ];
             for word in supported.into_iter().chain(supported) {
@@ -305,6 +328,7 @@ pub(in crate::user::darwin::syscall::bsd) fn pack(
     if dir & DIR_MOUNTSTATUS != 0 {
         record.extend_from_slice(&u32::from(mountpoint).to_le_bytes());
     }
+    forks.append(&mut record, file);
     if request.extended & REALDEVID != 0 {
         record.extend_from_slice(&fsid[0].to_le_bytes());
     }
@@ -325,6 +349,62 @@ pub(in crate::user::darwin::syscall::bsd) fn pack(
         append_string(&mut record, fullpath_offset, path);
     }
     finish(record)
+}
+
+#[derive(Clone, Copy, Default)]
+pub(in crate::user::darwin::syscall::bsd) struct ForkSizes {
+    data: i64,
+    data_allocated: i64,
+    resource: u64,
+}
+
+impl ForkSizes {
+    fn read(file: u32, stat: Stat, entry: Option<&Entry>) -> Result<Self, Errno> {
+        if file & FORK_SIZES == 0 || stat.vnode_type() == 2 {
+            return Ok(Self::default());
+        }
+        let workspace = entry.and_then(Entry::workspace_file);
+        let data_blocks = match workspace {
+            Some(workspace) if file & DATAALLOCSIZE != 0 => workspace
+                .darwin_data_allocated_blocks()?
+                .unwrap_or(stat.blocks),
+            _ => stat.blocks,
+        };
+        let resource = if file & (RSRCLENGTH | RSRCALLOCSIZE) != 0
+            && workspace.is_some()
+            && let Some(entry) = entry
+        {
+            match entry.workspace_xattrs(0, (0, 0), &[])?.resource_size() {
+                Ok(size) => size,
+                Err(Error::NotFound) => 0,
+                Err(error) => return Err(error.into()),
+            }
+        } else {
+            0
+        };
+        Ok(Self {
+            data: stat.size,
+            data_allocated: data_blocks.saturating_mul(512),
+            resource,
+        })
+    }
+
+    fn append(self, output: &mut Vec<u8>, attrs: u32) {
+        // XNU rounds the resource fork length to a filesystem allocation unit.
+        let resource_allocated = self
+            .resource
+            .next_multiple_of(u64::from(super::CLOSED_FS_BLOCK_SIZE));
+        for (bit, bytes) in [
+            (DATALENGTH, self.data.to_le_bytes()),
+            (DATAALLOCSIZE, self.data_allocated.to_le_bytes()),
+            (RSRCLENGTH, self.resource.to_le_bytes()),
+            (RSRCALLOCSIZE, resource_allocated.to_le_bytes()),
+        ] {
+            if attrs & bit != 0 {
+                output.extend_from_slice(&bytes);
+            }
+        }
+    }
 }
 
 fn finish(mut record: Vec<u8>) -> Vec<u8> {
@@ -369,7 +449,7 @@ mod tests {
             LINKCOUNT,
             REALDEVID | EXT_FLAGS,
         ];
-        let fsid = [0x524158, 1];
+        let volume = ClosedVolume::Root;
         let stat = Stat {
             mode: 0o40555,
             nlink: 3,
@@ -377,7 +457,7 @@ mod tests {
         };
         let path = b"/Developer/Toolchains";
         let compact = request(masks, FSOPT_ATTR_CMN_EXTENDED).unwrap();
-        let record = pack(&compact, path, stat, fsid, false);
+        let record = pack(&compact, path, stat, volume, false, ForkSizes::default());
         assert_eq!(word(&record, 0), 84);
         for (offset, expected) in [
             (4, selected),
@@ -398,7 +478,7 @@ mod tests {
         assert_eq!(&record[72..83], b"Toolchains\0");
 
         let packed = request(masks, FSOPT_ATTR_CMN_EXTENDED | FSOPT_PACK_INVAL_ATTRS).unwrap();
-        let record = pack(&packed, path, stat, fsid, true);
+        let record = pack(&packed, path, stat, volume, true, ForkSizes::default());
         assert_eq!(word(&record, 0), 124);
         assert_eq!(word(&record, 4), selected | ERROR);
         assert_eq!(word(&record, 20), REALDEVID);
@@ -414,7 +494,14 @@ mod tests {
             nlink: 1,
             ..Stat::default()
         };
-        let record = pack(&compact, b"/usr/bin/true", file, fsid, false);
+        let record = pack(
+            &compact,
+            b"/usr/bin/true",
+            file,
+            volume,
+            false,
+            ForkSizes::default(),
+        );
         assert_eq!(word(&record, 12), 0);
         assert_eq!(word(&record, 16), LINKCOUNT);
         assert_eq!(word(&record, 40), 1);
@@ -425,21 +512,42 @@ mod tests {
     fn volume_capabilities_only_advertise_guest_behavior() {
         let volume = VOL_INFO | VOL_CAPABILITIES;
         let query = request([0, volume, 0, 0, 0], 0).unwrap();
-        let record = pack(&query, b"/", Stat::default(), [0x524158, 1], true);
+        let record = pack(
+            &query,
+            b"/",
+            Stat::default(),
+            ClosedVolume::Root,
+            true,
+            ForkSizes::default(),
+        );
         assert_eq!(word(&record, 0), 36);
         assert_eq!(&record[4..20], &record[20..36]);
         assert_eq!(word(&record, 4), 0x300);
         assert_eq!(word(&record, 8), 2);
 
         let query = request([RETURNED, volume, 0, 0, 0], 0).unwrap();
-        let record = pack(&query, b"/", Stat::default(), [0x524158, 1], true);
+        let record = pack(
+            &query,
+            b"/",
+            Stat::default(),
+            ClosedVolume::Root,
+            true,
+            ForkSizes::default(),
+        );
         assert_eq!(word(&record, 0), 56);
         assert_eq!(word(&record, 4), RETURNED);
         assert_eq!(word(&record, 8), VOL_CAPABILITIES);
         assert_eq!(word(&record, 24), 0x300);
 
         let query = request([0, VOL_CAPABILITIES, 0, 0, 0], 0).unwrap();
-        let capabilities = pack(&query, b"/", Stat::default(), [0x524158, 1], true);
+        let capabilities = pack(
+            &query,
+            b"/",
+            Stat::default(),
+            ClosedVolume::Root,
+            true,
+            ForkSizes::default(),
+        );
         assert_eq!(&record[24..], &capabilities[4..]);
 
         let query = request(
@@ -447,10 +555,84 @@ mod tests {
             FSOPT_ATTR_CMN_EXTENDED,
         )
         .unwrap();
-        let record = pack(&query, b"/", Stat::default(), [0x524158, 1], true);
+        let record = pack(
+            &query,
+            b"/",
+            Stat::default(),
+            ClosedVolume::Root,
+            true,
+            ForkSizes::default(),
+        );
         assert_eq!(word(&record, 0), 44);
         assert_eq!(&record[4..24], &record[24..44]);
         assert_eq!(word(&record, 20), REALDEVID);
+    }
+
+    #[test]
+    fn single_file_records_pack_both_forks_and_advertise_their_sizes() {
+        let query = request([RETURNED, 0, 0, FORK_SIZES, 0], 0).unwrap();
+        let file = Stat {
+            mode: 0o100444,
+            size: 4,
+            blocks: 8,
+            ..Stat::default()
+        };
+        let forks = ForkSizes {
+            data: 4,
+            data_allocated: 4096,
+            resource: 5,
+        };
+        let record = pack(
+            &query,
+            b"/tmp/file",
+            file,
+            ClosedVolume::Workspace,
+            false,
+            forks,
+        );
+        assert_eq!(word(&record, 0), 56);
+        assert_eq!(word(&record, 16), FORK_SIZES);
+        let sizes: Vec<_> = record[24..]
+            .chunks_exact(8)
+            .map(|field| u64::from_le_bytes(field.try_into().unwrap()))
+            .collect();
+        assert_eq!(sizes, [4, 4096, 5, 4096]);
+
+        let directory = Stat {
+            mode: 0o40755,
+            ..file
+        };
+        let record = pack(
+            &query,
+            b"/tmp",
+            directory,
+            ClosedVolume::Workspace,
+            true,
+            forks,
+        );
+        assert_eq!(word(&record, 0), 24);
+        assert_eq!(word(&record, 16), 0);
+
+        let volume = request(
+            [
+                RETURNED,
+                VOL_INFO | VOL_MOUNTFLAGS | VOL_ATTRIBUTES,
+                0,
+                0,
+                0,
+            ],
+            0,
+        )
+        .unwrap();
+        for (kind, flags) in [
+            (ClosedVolume::Root, 0x1001),
+            (ClosedVolume::Workspace, 0x1000),
+        ] {
+            let record = pack(&volume, b"/", directory, kind, true, ForkSizes::default());
+            assert_eq!(word(&record, 24), flags);
+            assert_eq!(word(&record, 40), FORK_SIZES | LINKCOUNT);
+            assert_eq!(word(&record, 60), FORK_SIZES | LINKCOUNT);
+        }
     }
 
     #[test]

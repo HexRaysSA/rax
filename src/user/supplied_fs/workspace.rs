@@ -1294,7 +1294,7 @@ impl WorkspaceFile {
         cfg!(target_os = "macos") && self.inode.flavor == WorkspaceFlavor::Darwin
     }
 
-    pub(in crate::user) fn darwin_allocated_blocks(&self) -> Result<Option<i64>, Error> {
+    pub(in crate::user) fn darwin_data_allocated_blocks(&self) -> Result<Option<i64>, Error> {
         #[cfg(target_os = "macos")]
         if self.uses_darwin_backing() {
             use std::os::unix::fs::MetadataExt;
@@ -1304,6 +1304,14 @@ impl WorkspaceFile {
                     shared.file.metadata().map_err(|_| Error::Io)?.blocks() as i64
                 }
             };
+            return Ok(Some(blocks));
+        }
+        Ok(None)
+    }
+
+    pub(in crate::user) fn darwin_allocated_blocks(&self) -> Result<Option<i64>, Error> {
+        #[cfg(target_os = "macos")]
+        if let Some(blocks) = self.darwin_data_allocated_blocks()? {
             let fork_blocks = self
                 .attributes()
                 .xattrs(0, (0, 0), &[])?

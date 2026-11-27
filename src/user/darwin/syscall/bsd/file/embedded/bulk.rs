@@ -238,8 +238,9 @@ pub(in crate::user::darwin::syscall::bsd) fn getattrlistbulk(
                     request,
                     raw_path,
                     stat,
-                    volume.fsid(),
+                    volume,
                     child_path == volume.mountpoint(files),
+                    attributes::ForkSizes::default(),
                 ));
                 Request::finish_record(&mut output, start, limit);
             }

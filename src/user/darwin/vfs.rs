@@ -51,6 +51,17 @@ impl ClosedVolume {
         [self.device(), i32::from(self != Self::Workspace)]
     }
 
+    pub(super) fn mount_flags(self) -> u32 {
+        const MNT_RDONLY: u32 = 0x0001;
+        const MNT_LOCAL: u32 = 0x1000;
+        MNT_LOCAL
+            | if self == Self::Workspace {
+                0
+            } else {
+                MNT_RDONLY
+            }
+    }
+
     pub(super) fn mountpoint(self, files: &Files) -> &str {
         match self {
             Self::Root => "/",
