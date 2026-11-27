@@ -401,6 +401,58 @@ fn dot_net_policy_lookup_preserves_canonical_identity_in_both_views() {
 }
 
 #[test]
+fn dot_net_install_root_preserves_complete_native_order_per_view() {
+    let subject = ProcessConfigKey::DotNetFramework;
+    let values = |names: &[&str]| {
+        names
+            .iter()
+            .map(|name| Value {
+                name: units(name),
+                kind: 4,
+                data: 1_u32.to_le_bytes().to_vec(),
+            })
+            .collect::<Vec<_>>()
+    };
+    let native = values(&["UseRyuJIT", "Enable64Bit", "Fod"]);
+    let wow = values(&["Fod", "InstallRoot"]);
+    let selected = || Registry::selected(upcase(), vec![]).unwrap();
+    for (view, name, ordered) in [
+        (RegistryView::Native64, subject.path(), native),
+        (RegistryView::Wow32, DOT_NET_FRAMEWORK_WOW_KEY, wow),
+    ] {
+        let header = header(name, ordered.clone());
+        let mut cached = [0u8; 40];
+        cached[12..16].copy_from_slice(&header.children.to_le_bytes());
+        cached[20..24].copy_from_slice(&(ordered.len() as u32).to_le_bytes());
+        cached[32..36].copy_from_slice(&(units(".NETFramework").len() as u32 * 2).to_le_bytes());
+        let complete = selected()
+            .with_cached_process_config(subject, view, header.clone(), cached)
+            .unwrap();
+        let lookup = |registry: &Registry| {
+            let Lookup::Present(key) = registry.lookup_view(&units(subject.path()), view) else {
+                panic!("fixed CLR root did not resolve");
+            };
+            key
+        };
+        let key = lookup(&complete);
+        assert_eq!(key.ordered_values(), Some(ordered.as_slice()));
+        for setting in ["USEryuJit", "enable64BIT"] {
+            assert!(key.covers_value(&units(setting)));
+        }
+
+        cached[20..24].copy_from_slice(&(ordered.len() as u32 + 1).to_le_bytes());
+        let incomplete = selected()
+            .with_cached_process_config(subject, view, header, cached)
+            .unwrap();
+        let key = lookup(&incomplete);
+        assert!(key.ordered_values().is_none());
+        for setting in &ordered {
+            assert_eq!(key.value(&setting.name), Some(setting));
+        }
+    }
+}
+
+#[test]
 fn dot_net_policy_preserves_ordered_metadata_without_opening_children() {
     let subject = ProcessConfigKey::DotNetPolicy;
     assert!(subject.captures_child_membership());

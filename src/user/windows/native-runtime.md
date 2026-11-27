@@ -4131,6 +4131,11 @@ native and WoW registry views supply only the selected `Install`,
 Both views of the fixed machine `SOFTWARE\\Microsoft\\.NETFramework` key
 capture the CLR `DisableConfigCache` value at process creation, including
 its absence.
+The same selection admits `Enable64Bit` and `UseRyuJIT` as DWORDs.
+It verifies native ordinal names without reading any additional value data
+and preserves their order when the selected values cover the complete view.
+An incomplete view continues serving selected named queries and withholds
+ordinal enumeration.
 
 WoW64 GUI initialization can return the assigned process window station
 from its selected companion snapshot. Repeated

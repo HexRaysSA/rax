@@ -431,8 +431,8 @@ impl Registry {
                     if matches!(root, SnapshotRoot::ProcessConfig(subject) if subject.preserves_value_order())
                         && information.cached_value_count() == Some(key.values.entries.len())
                     {
-                        // The fixed selection contains at most one named value.
-                        // Its ordinal is known only when the selection is complete.
+                        // Multi-value selections arrive in observed native order.
+                        // The end ordinal is known only for a complete selection.
                         Arc::get_mut(&mut key.values)
                             .expect("new snapshot values")
                             .native_order = true;

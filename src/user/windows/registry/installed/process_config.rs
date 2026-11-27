@@ -1,6 +1,7 @@
 //! Query fixed startup values once during library selection.
 use super::super::process_config::{
-    DOT_NET_FUSION_OPTIONAL_POLICY, LEGACY_EXTENSION_FLAG, ProcessConfigKey, SYSTEM_SETUP_VALUES,
+    CLR_ENABLE_64_BIT, CLR_USE_RYU_JIT, DOT_NET_FUSION_OPTIONAL_POLICY, LEGACY_EXTENSION_FLAG,
+    ProcessConfigKey, SYSTEM_SETUP_VALUES,
 };
 use super::super::{CommandHeader, RegistryView, SnapshotRoot};
 use super::*;
@@ -52,7 +53,14 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
                             return capture_values(&key, subject.values());
                         }
                         let before = super::key_information::cached_record(&key)?;
-                        let values = capture_values(&key, subject.values())?;
+                        let values = if subject == ProcessConfigKey::DotNetFramework {
+                            capture_values_with(&key, || {
+                                let values = query_selected(&key, subject.values())?;
+                                order_framework_values(&key, &registry, &before, values)
+                            })?
+                        } else {
+                            capture_values(&key, subject.values())?
+                        };
                         if super::key_information::cached_record(&key)? != before {
                             return Err(invalid(
                                 ".NET Framework policy values changed during capture",
@@ -235,12 +243,74 @@ pub(super) fn system_setup() -> io::Result<Option<SelectedKey>> {
 }
 
 fn capture_values(key: &OwnedKey, names: &[&str]) -> io::Result<(u32, Vec<Value>)> {
-    capture_values_with(key, || {
-        names
-            .iter()
-            .filter_map(|name| query(key, name).transpose())
-            .collect()
-    })
+    capture_values_with(key, || query_selected(key, names))
+}
+
+fn query_selected(key: &OwnedKey, names: &[&str]) -> io::Result<Vec<Value>> {
+    names
+        .iter()
+        .filter_map(|name| query(key, name).transpose())
+        .collect()
+}
+
+fn order_framework_values(
+    key: &OwnedKey,
+    registry: &Registry,
+    cached: &[u8],
+    mut values: Vec<Value>,
+) -> io::Result<Vec<Value>> {
+    let native_count = u32::from_le_bytes(cached[20..24].try_into().expect("cached value count"));
+    if native_count as usize != values.len() || values.is_empty() {
+        return Ok(values);
+    }
+    let mut ordered = Vec::with_capacity(values.len());
+    let capacity = values
+        .iter()
+        .map(|value| value.name.len())
+        .max()
+        .unwrap_or(0)
+        + 1;
+    let mut name = vec![0u16; capacity];
+    for index in 0..native_count {
+        let mut length = name.len() as u32;
+        // SAFETY: the query-only handle and exclusive name/length buffer are
+        // valid. Enumeration requests no value type, size or data.
+        let status = unsafe {
+            RegEnumValueW(
+                key.0,
+                index,
+                name.as_mut_ptr(),
+                &mut length,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            )
+        };
+        if status != 0 {
+            return Err(io::Error::from_raw_os_error(status));
+        }
+        let reported = name
+            .get(..length as usize)
+            .filter(|reported| reported.len() < name.len())
+            .ok_or_else(|| invalid("CLR registry enumeration exceeded its name buffer"))?;
+        let fold = |unit: u16| registry.upcase[usize::from(unit)];
+        let matches = |value: &Value| {
+            value
+                .name
+                .iter()
+                .copied()
+                .map(fold)
+                .eq(reported.iter().copied().map(fold))
+        };
+        let Some(selected) = values.iter().position(matches) else {
+            return Err(invalid("CLR registry value order changed during capture"));
+        };
+        let mut value = values.swap_remove(selected);
+        value.name = reported.to_vec();
+        ordered.push(value);
+    }
+    Ok(ordered)
 }
 
 fn capture_values_with(
@@ -291,6 +361,7 @@ fn stamp(key: &OwnedKey) -> io::Result<(u32, [u32; 2])> {
 }
 
 fn query(key: &OwnedKey, name: &str) -> io::Result<Option<Value>> {
+    let dword_only = matches!(name, CLR_ENABLE_64_BIT | CLR_USE_RYU_JIT);
     let mut name: Vec<_> = name.encode_utf16().chain(Some(0)).collect();
     let (mut kind, mut bytes) = (0, 0);
     let query = |kind: &mut u32, bytes: &mut u32, data: Option<&mut [u8]>| {
@@ -304,6 +375,9 @@ fn query(key: &OwnedKey, name: &str) -> io::Result<Option<Value>> {
         2 => return Ok(None),
         status => return Err(io::Error::from_raw_os_error(status)),
     }
+    if dword_only && (kind != 4 || bytes != 4) {
+        return Ok(None);
+    }
     let capacity = bytes as usize;
     if capacity > MAX_VALUE_BYTES {
         return Err(invalid(
@@ -314,6 +388,7 @@ fn query(key: &OwnedKey, name: &str) -> io::Result<Option<Value>> {
     let mut data = vec![0; capacity.max(1)];
     let status = query(&mut kind, &mut bytes, Some(&mut data));
     match status {
+        0 if dword_only && (kind != 4 || bytes != 4) => Ok(None),
         0 if bytes as usize <= capacity => {
             name.pop();
             data.truncate(bytes as usize);

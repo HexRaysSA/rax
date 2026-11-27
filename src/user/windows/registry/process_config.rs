@@ -9,6 +9,8 @@ pub(super) const POWERSHELL_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\PowerShell";
 const DOT_NET_FRAMEWORK_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework";
+pub(super) const CLR_ENABLE_64_BIT: &str = "Enable64Bit";
+pub(super) const CLR_USE_RYU_JIT: &str = "UseRyuJIT";
 pub(super) const DOT_NET_FUSION_OPTIONAL_POLICY: &str = "NoClientChecks";
 pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
@@ -233,6 +235,8 @@ impl ProcessConfigKey {
                 "Fod",
                 "FodConservativeMode",
                 "DisableConfigCache",
+                CLR_ENABLE_64_BIT,
+                CLR_USE_RYU_JIT,
             ],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
@@ -342,7 +346,8 @@ impl ProcessConfigKey {
     pub(super) fn preserves_value_order(self) -> bool {
         matches!(
             self,
-            Self::DotNetPolicyV4
+            Self::DotNetFramework
+                | Self::DotNetPolicyV4
                 | Self::DotNetPolicyUpgrades
                 | Self::DotNetPolicyServicing
                 | Self::DotNetPolicyStandards
