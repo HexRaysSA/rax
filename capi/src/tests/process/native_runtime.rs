@@ -351,7 +351,36 @@ fn installed_darwin_df_lists_only_guest_mounts_through_closed_c_abi() {
         "native_runtime": true,
         "memory_bytes": 268435456,
     });
-    let process = open(&std::fs::read(path).unwrap(), &options.to_string());
+    // Make the guest Preboot volume present independently of where this Mac
+    // stores its runtime cache. The executable and libraries still use the
+    // installed runtime.
+    let preboot_path = b"/System/Volumes/Preboot/rax-mount-fixture";
+    let preboot_data = b"fixture";
+    let preboot = RaxProcessImage {
+        path: preboot_path.as_ptr().cast(),
+        path_size: preboot_path.len(),
+        data: preboot_data.as_ptr(),
+        data_size: preboot_data.len(),
+    };
+    let image = std::fs::read(path).unwrap();
+    let options = options.to_string();
+    let mut handle = std::ptr::null_mut();
+    assert_eq!(
+        rax_process_open_image(
+            image.as_ptr(),
+            image.len(),
+            options.as_ptr().cast(),
+            options.len(),
+            &preboot,
+            1,
+            &mut handle,
+        ),
+        RaxStatus::Ok,
+        "{}",
+        error()
+    );
+    assert!(!handle.is_null());
+    let process = Owned(handle);
     let state = info(&process);
     assert_eq!(state["capabilities"]["native_runtime"], true);
     assert_eq!(state["capabilities"]["host_filesystem"], false);
@@ -370,7 +399,7 @@ fn installed_darwin_df_lists_only_guest_mounts_through_closed_c_abi() {
             fields.last().unwrap()
         })
         .collect();
-    assert_eq!(mounts, ["/", "/tmp"], "{text}");
+    assert_eq!(mounts, ["/", "/tmp", "/System/Volumes/Preboot"], "{text}");
     assert!(capture_installed_posix_stream(&process, RAX_PROCESS_STDERR).is_empty());
 }
 
