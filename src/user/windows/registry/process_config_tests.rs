@@ -84,6 +84,57 @@ fn process_config_projects_only_fixed_named_values_in_the_requested_view() {
 }
 
 #[test]
+fn fusion_key_preserves_the_machine_view_without_admitting_values_or_children() {
+    let subject = ProcessConfigKey::DotNetFusion;
+    let snapshot = SnapshotRoot::ProcessConfig(subject);
+    let native = header(subject.path(), vec![]);
+    let mut wow = header(DOT_NET_FUSION_WOW_KEY, vec![]);
+    wow.children = 1;
+    let registry = Registry::selected(upcase(), vec![])
+        .unwrap()
+        .with_snapshot_selection(snapshot, &[], RegistryView::Native64, Ok((native, None)))
+        .unwrap()
+        .with_snapshot_selection(snapshot, &[], RegistryView::Wow32, Ok((wow, None)))
+        .unwrap()
+        .with_machine_hive(MachineHeader {
+            canonical: units(MACHINE_HIVE_KEY),
+            enumeration: None,
+            children: 6,
+            values: vec![],
+            access: header(MACHINE_HIVE_KEY, vec![]).access,
+        })
+        .unwrap();
+    let machine = registry.key(&units(MACHINE_HIVE_KEY)).unwrap();
+    for (view, canonical, children) in [
+        (RegistryView::Native64, subject.path(), 2),
+        (RegistryView::Wow32, DOT_NET_FUSION_WOW_KEY, 1),
+    ] {
+        let Lookup::Present(key) =
+            machine.relative_in_view(&units(r"SOFTWARE\Microsoft\Fusion"), view)
+        else {
+            panic!("machine-relative Fusion key must resolve in {view:?}");
+        };
+        let Lookup::Present(absolute) = registry.lookup_view(&units(subject.path()), view) else {
+            panic!("absolute Fusion key must resolve in {view:?}");
+        };
+        assert!(Arc::ptr_eq(&key, &absolute));
+        assert_eq!(key.path, units(canonical));
+        assert_eq!(key.children, children);
+        assert!(!key.covers_value(&units("Unselected")));
+        assert!(matches!(
+            key.relative(&units("Unselected")),
+            Lookup::Unselected
+        ));
+    }
+    let Lookup::Present(physical) =
+        registry.lookup_view(&units(DOT_NET_FUSION_WOW_KEY), RegistryView::Native64)
+    else {
+        panic!("physical Fusion name must select the WoW view");
+    };
+    assert_eq!(physical.children, 1);
+}
+
+#[test]
 fn process_config_preserves_absent_keys_and_control_set_aliases() {
     let ccg = SnapshotRoot::ProcessConfig(ProcessConfigKey::Ccg);
     let rpc = SnapshotRoot::ProcessConfig(ProcessConfigKey::Rpc);

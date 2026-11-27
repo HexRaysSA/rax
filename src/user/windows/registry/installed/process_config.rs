@@ -22,7 +22,7 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
             _ => &[RegistryView::Native64, RegistryView::Wow32],
         };
         for &view in views {
-            let opened = if subject.uses_dot_net_framework_view() {
+            let opened = if subject.uses_win32_framework_view() {
                 // The Win32 HKLM open applies the WOW64 view to this redirected
                 // key even when the snapshot is collected by an ARM64 process.
                 match super::command_processor::open_snapshot(root, &[], view) {

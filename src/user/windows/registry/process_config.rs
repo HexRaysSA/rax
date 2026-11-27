@@ -9,6 +9,8 @@ pub(super) const POWERSHELL_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\PowerShell";
 const DOT_NET_FRAMEWORK_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework";
+pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
+    r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
 #[cfg(test)]
 const DOT_NET_POLICY_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework\Policy";
@@ -53,10 +55,11 @@ pub(crate) enum ProcessConfigKey {
     DotNetStandardCli2005,
     DotNetStandardV1,
     DotNetFramework,
+    DotNetFusion,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 30] = [
+    pub(super) const ALL: [Self; 31] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -88,6 +91,7 @@ impl ProcessConfigKey {
         Self::DotNetPolicyStandards,
         Self::DotNetPolicy,
         Self::DotNetFramework,
+        Self::DotNetFusion,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -167,6 +171,7 @@ impl ProcessConfigKey {
                 r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\standards\v1.0.0"
             }
             Self::DotNetFramework => r"\Registry\Machine\Software\Microsoft\.NETFramework",
+            Self::DotNetFusion => r"\Registry\Machine\Software\Microsoft\Fusion",
         }
     }
 
@@ -202,7 +207,8 @@ impl ProcessConfigKey {
             | Self::DotNetPolicy
             | Self::DotNetPolicyServicing
             | Self::DotNetPolicyAppPatch
-            | Self::DotNetPolicyStandards => &[],
+            | Self::DotNetPolicyStandards
+            | Self::DotNetFusion => &[],
             Self::DotNetPolicyV4 => &["30319"],
             Self::DotNetPolicyUpgrades => &["4.0.30319"],
             Self::DotNetStandardCli2002 | Self::DotNetStandardCli2005 | Self::DotNetStandardV1 => {
@@ -274,6 +280,7 @@ impl ProcessConfigKey {
             Self::DotNetStandardCli2005 => ".NET Framework Standard CLI 2005 policy",
             Self::DotNetStandardV1 => ".NET Framework v1.0.0 standards policy",
             Self::DotNetFramework => ".NET Framework installation",
+            Self::DotNetFusion => ".NET Framework Fusion",
         }
     }
 
@@ -310,8 +317,8 @@ impl ProcessConfigKey {
     }
 
     #[cfg(target_os = "windows")]
-    pub(super) fn uses_dot_net_framework_view(self) -> bool {
-        self.path().starts_with(Self::DotNetFramework.path())
+    pub(super) fn uses_win32_framework_view(self) -> bool {
+        self == Self::DotNetFusion || self.path().starts_with(Self::DotNetFramework.path())
     }
 
     #[cfg(target_os = "windows")]
@@ -428,6 +435,9 @@ impl ProcessConfigKey {
             || self == Self::Rpc
                 && view == RegistryView::Wow32
                 && same(r"\Registry\Machine\Software\WOW6432Node\Microsoft\Rpc")
+            || self == Self::DotNetFusion
+                && view == RegistryView::Wow32
+                && same(DOT_NET_FUSION_WOW_KEY)
         {
             return Ok(());
         }

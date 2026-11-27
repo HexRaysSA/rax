@@ -103,6 +103,10 @@ impl RegistryViews {
                 ViewRoot::ProcessConfig(ProcessConfigKey::PowerShell),
                 process_config::POWERSHELL_WOW_KEY,
             ),
+            (
+                ViewRoot::ProcessConfig(ProcessConfigKey::DotNetFusion),
+                process_config::DOT_NET_FUSION_WOW_KEY,
+            ),
         ] {
             let prefix: Vec<_> = physical
                 .encode_utf16()
@@ -110,6 +114,7 @@ impl RegistryViews {
                 .collect();
             if folded.starts_with(&prefix)
                 && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
+                && selected.admits_suffix(&normalized[prefix.len()..])
             {
                 return self.lookup_selected(
                     selected,

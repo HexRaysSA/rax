@@ -4108,6 +4108,12 @@ directory and use the installed read-only file policy. On the Windows build
 29708 control, `clr.dll` opens for attribute access and the legacy
 `mscorwks.dll` returns the missing-name status in all three framework views.
 
+After locating the CLR engine, PowerShell opens the machine
+`SOFTWARE\Microsoft\Fusion` key relative to the machine hive. The snapshot
+records each selected key's canonical name and native access metadata.
+On Windows build 29708 the installed native and physical WoW keys have two
+and one subkeys respectively. This selection covers the key open.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not
