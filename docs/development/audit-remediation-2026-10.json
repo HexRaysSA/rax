@@ -3085,13 +3085,14 @@
         "hvf-native-controller-irq-window-2026-11-19",
         "hvf-mmio-movnti-2026-11-19",
         "hvf-mmio-implicit-divide-2026-11-20",
-        "x86-software-nmi-blocking-2026-11-20"
+        "x86-software-nmi-blocking-2026-11-20",
+        "hvf-live-gdb-terminal-checkpoint-2026-11-27"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
       "latest_kvm_legacy_restore_qualification": "docs/development/kvm-public-state/README.md",
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#warm-restore-with-pending-secondary-mmio",
+      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#live-gdb-resume-after-an-intel-triple-fault",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint",
       "historical_validation_notes": [
         "Native Intel HVF state effects are unverified"
@@ -3951,12 +3952,13 @@
         "x86-ipi-delivery-resume-2026-11-18",
         "hvf-native-controller-irq-window-2026-11-19",
         "x86-software-nmi-blocking-2026-11-20",
-        "x86-pc-interrupt-arbitration-2026-11-20"
+        "x86-pc-interrupt-arbitration-2026-11-20",
+        "hvf-live-gdb-terminal-checkpoint-2026-11-27"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/execution-coordinator.md",
+      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#live-gdb-resume-after-an-intel-triple-fault",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint"
     },
     {
@@ -4670,9 +4672,10 @@
         "hvf-native-entry-irq-2026-11-18",
         "hvf-native-controller-irq-window-2026-11-19",
         "hvf-mmio-movnti-2026-11-19",
-        "hvf-mmio-implicit-divide-2026-11-20"
+        "hvf-mmio-implicit-divide-2026-11-20",
+        "hvf-live-gdb-terminal-checkpoint-2026-11-27"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-xmm.md#warm-restore-with-pending-secondary-mmio",
+      "latest_native_intel_qualification": "docs/development/runtime-checkpoint-bundles.md#live-gdb-resume-after-an-intel-triple-fault",
       "latest_native_intel_level_irq_qualification": "docs/development/hvf-ioapic/README.md#level-triggered-uart-checkpoint"
     },
     {
@@ -201231,6 +201234,14 @@
       "status": "native_intel_virtualized_qualified_full_findings_open",
       "scope": "The VMM completes retained native HVF device exits before guest entry or queued INIT delivery. Ten physical Apple Silicon cold-resume cases cover serial and parallel scheduling, unserviced and consumed reads, retained read diagnostics, undispatched writes, and acknowledged writes that need only PC retirement. A saved terminal VM conserves pending state. Hosted Intel run 46002837220 at b904a1e0f passed four warm and fresh-owner AP MMIO cases, the legacy PAE checkpoint, and four serial and parallel two- and four-vCPU ISO boot cases. Independent archive checks verified the digest and Intel owner framing for both pending MMIO files. Intel terminal ordering is modeled by the coordinator test. Bare-metal Intel, GDB-attached native replay, and the full findings remain open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#native-hvf-device-io-before-guest-re-entry",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-live-gdb-terminal-checkpoint-2026-11-27",
+      "findings": ["C-STATE", "C-SMP", "C-HVF"],
+      "status": "native_intel_virtualized_qualified_full_findings_open",
+      "scope": "Hosted Intel run 46024850183 at c46c7e8ec captured an actual VMX triple fault on the bootstrap CPU and a pending eight-byte MMIO read on the AP. Warm restore preserved the live GDB connection and its selected thread. Continuing only the AP returned W00 with zero device calls. Independent archive decoding verified both Intel CPU records, AP read address and width, and an unchanged retirement count. The Intel process was untranslated in virtualized macOS. Bare-metal Intel, broader debugger and event profiles, and the full findings remain open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#live-gdb-resume-after-an-intel-triple-fault",
       "full_goal_complete": false
     }
   ],

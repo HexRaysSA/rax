@@ -230,7 +230,21 @@ without a GDB resume mask. In the GDB probe, resuming CPU 1 on the parent
 consumed a retained UART byte before entering the guest despite a saved
 shutdown on CPU 3. The regression requires GDB to receive the exit while
 the UART byte and retired count are preserved.
-Bare-metal Intel and GDB-attached native replay remain unverified.
+
+#### Live GDB resume after an Intel triple fault
+
+Hosted Intel run `46024850183`, attempt 1, at `c46c7e8ec` passed the
+two-vCPU checkpoint restore with a live GDB connection. The guest took an
+actual VMX triple-fault exit on the BSP. The same TCP connection retained its
+selected AP thread across restore and received `W00` after resuming only that
+AP. The MMIO device saw zero callbacks. An independent decode of both files
+found the BSP shutdown latch, an eight-byte AP read at `0x40000103`, and
+zero coordinator retirements before and after resume. [Hosted Intel GDB checkpoint run](https://github.com/HexRaysSA/rax/actions/runs/46024850183/job/140593481702)
+
+Evidence artifact `15213259869` has SHA-256
+`1b5c7779e962f31a32aa9e795be441e8b610b0c8c806f488f7b7d9385f4acab2`.
+The run used an untranslated Intel process on a virtualized macOS host.
+Bare-metal Intel validation remains open.
 
 ### Checkpoint scheduling
 
