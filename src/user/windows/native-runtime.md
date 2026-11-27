@@ -4118,6 +4118,12 @@ native missing-name status preserves the caller's output and return length.
 Capture checks presence without reading the setting's data. A configured
 value makes that registry view unavailable to the guest.
 
+Installed Windows processes can query their default system or user locale
+through `NtQueryDefaultLocale`. Runtime selection captures the two locale
+identifiers and guest queries publish one four-byte identifier into guest
+memory. The aligned and unaligned outputs matched native ARM64, x86 and x64
+controls on Windows 11 build 29708.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not

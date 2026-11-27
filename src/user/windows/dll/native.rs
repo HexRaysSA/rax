@@ -646,6 +646,12 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         topology::current_processor,
     )
     .only(Archs::X86),
+    Export::func(
+        "NtQueryDefaultLocale",
+        Stdcall,
+        &[I32, Ptr],
+        nls::default_locale,
+    ),
 ];
 
 // Tail family preserves existing synthetic export ordinals and trap slots.

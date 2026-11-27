@@ -47,6 +47,56 @@ pub(super) fn dispatch(p: &mut Proc, t: &mut Thread) -> Outcome {
 }
 
 #[test]
+fn native_default_locale_uses_selected_identifier_and_writes_only_four_bytes() {
+    use crate::user::windows::loader::services::tests::named_table;
+    use crate::user::windows::nls::{DefaultLocales, Nls};
+
+    for arch in WinArch::ALL {
+        let (mut process, mut thread, module) = terminal_fixture(arch);
+        let p = process.state_mut();
+        p.modules.nt_services = Some((module, named_table(arch, "NtQueryDefaultLocale", 0x12)));
+        let base =
+            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap()
+                .0;
+        let sp = thread.cpu.sp();
+        let mut nls = Nls::new(vec![]).unwrap();
+        p.nls = Some(nls.clone());
+        p.space.wr(base, &[0xA5; 16]).unwrap();
+        arguments(p, &mut thread, &[0, base + 4]);
+        assert!(matches!(dispatch(p, &mut thread), Outcome::Fail(reason)
+            if reason.contains("installed default locale identifiers are unavailable")));
+        assert_eq!(p.space.bytes(base, 16).unwrap(), vec![0xA5; 16]);
+        nls.default_locales = Some(DefaultLocales {
+            system: 0x0409,
+            user: 0x040c,
+        });
+        p.nls = Some(nls);
+
+        for (selector, offset, expected) in [
+            (0, 4, 0x0409_u32),
+            (0x100, 4, 0x0409),
+            (1, 4, 0x040c),
+            (2, 4, 0x040c),
+            (255, 5, 0x040c),
+        ] {
+            thread.cpu.set_sp(sp);
+            p.space.wr(base, &[0xA5; 16]).unwrap();
+            arguments(p, &mut thread, &[selector, base + offset as u64]);
+            assert_eq!(dispatch(p, &mut thread), Outcome::Continue, "{arch}");
+            assert_eq!(thread.cpu.gpr(0), u64::from(STATUS_SUCCESS));
+            assert_eq!(
+                thread.cpu.sp(),
+                sp + if arch == WinArch::X86 { 4 } else { 0 }
+            );
+            let mut bytes = [0xA5; 16];
+            bytes[offset..offset + 4].copy_from_slice(&expected.to_le_bytes());
+            assert_eq!(p.space.bytes(base, 16).unwrap(), bytes, "{arch}");
+        }
+    }
+}
+
+#[test]
 fn native_nls_null_section_output_is_invalid_parameter_all_abis() {
     for arch in WinArch::ALL {
         let (mut process, mut t) = fixture(arch, "NtGetNlsSectionPtr", 0x12);

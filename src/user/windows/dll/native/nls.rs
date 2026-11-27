@@ -9,6 +9,28 @@ use std::sync::Arc;
 pub(super) mod initialize;
 pub(super) mod mui;
 
+pub(super) fn default_locale(c: &mut Ctx) -> ApiResult {
+    let user = c.u32(0)? as u8 != 0;
+    let output = c.ptr(1)?;
+    let locales =
+        c.p.nls
+            .as_ref()
+            .and_then(|nls| nls.default_locales)
+            .ok_or_else(|| c.unsupported("installed default locale identifiers are unavailable"))?;
+    let locale = if user { locales.user } else { locales.system };
+    // All three measured ABIs accept an unaligned four-byte output. The
+    // guest memory write validates the entire range before changing it.
+    let result = c
+        .mem()
+        .w32(output, locale)
+        .map_err(ApiErr::from)
+        .and_then(|()| Flow::ret(STATUS_SUCCESS.into()));
+    match super::query::write_guard_result(c, result) {
+        Err(ApiErr::Fault(_)) => Flow::ret(STATUS_ACCESS_VIOLATION.into()),
+        result => result,
+    }
+}
+
 pub(super) fn get(c: &mut Ctx) -> ApiResult {
     let result = get_checked(c);
     match guard_result(c, result) {

@@ -1,6 +1,6 @@
 //! Capture fixed NLS types and installed numeric code-page candidates only.
 //! Guest services never call these native interfaces or retain host addresses.
-use super::{MAX_SECTION_BYTES, MAX_TOTAL_BYTES, Nls, invalid};
+use super::{DefaultLocales, MAX_SECTION_BYTES, MAX_TOTAL_BYTES, Nls, invalid};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::nt::status::STATUS_OBJECT_NAME_NOT_FOUND;
 use crate::user::windows::registry::Registry;
@@ -22,6 +22,7 @@ unsafe extern "system" {
         size: *mut u32,
     ) -> i32;
     fn NtUnmapViewOfSection(process: *mut c_void, address: *mut c_void) -> i32;
+    fn NtQueryDefaultLocale(user: u8, locale: *mut u32) -> i32;
 }
 struct View(*mut c_void);
 impl Drop for View {
@@ -73,6 +74,19 @@ fn invalid_status(name: &str, status: i32) -> io::Error {
         status as u32
     ))
 }
+fn capture_default_locales() -> Option<DefaultLocales> {
+    let (mut system, mut user) = (0, 0);
+    // SAFETY: fixed system and user selectors, with separate four-byte native
+    // outputs. Only the locale identifiers are retained at process creation.
+    let (system_status, user_status) = unsafe {
+        (
+            NtQueryDefaultLocale(0, &mut system),
+            NtQueryDefaultLocale(1, &mut user),
+        )
+    };
+    (system_status == 0 && user_status == 0).then_some(DefaultLocales { system, user })
+}
+
 pub(crate) fn snapshot(
     registry: &Registry,
     directory: &Path,
@@ -118,6 +132,7 @@ pub(crate) fn snapshot(
         }
     }
     let mut nls = Nls::new(sections)?;
+    nls.default_locales = capture_default_locales();
     if super::supports_initialize_profile(version, native_machine, arch) {
         let (locale, bytes) = initialize::capture()?;
         nls = nls.with_initialize(locale, bytes)?;

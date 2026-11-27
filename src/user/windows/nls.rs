@@ -87,6 +87,12 @@ pub(crate) struct InstalledUiLanguage {
     pub(crate) guard_before_write_access: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct DefaultLocales {
+    pub(crate) system: u32,
+    pub(crate) user: u32,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct Nls {
     sections: BTreeMap<(u32, u32), Arc<[u8]>>,
@@ -94,6 +100,7 @@ pub(crate) struct Nls {
     mui: Option<Arc<[u8]>>,
     pub(crate) ui_language_commitment: Option<u32>,
     pub(crate) installed_ui_language: Option<InstalledUiLanguage>,
+    pub(crate) default_locales: Option<DefaultLocales>,
 }
 impl Nls {
     pub(crate) fn new(sections: Vec<((u32, u32), Vec<u8>)>) -> io::Result<Self> {
@@ -106,6 +113,7 @@ impl Nls {
             mui: None,
             ui_language_commitment: None,
             installed_ui_language: None,
+            default_locales: None,
         };
         let mut total = 0usize;
         for ((kind, data), mut bytes) in sections {
