@@ -1,5 +1,5 @@
 //! Guest-owned USER station identity and installed object information.
-use super::{Availability, Mem, MemoryAccessKind, Outcome, Proc, Thread, failure, query_error};
+use super::{Mem, MemoryAccessKind, Outcome, Proc, Thread, failure, query_error};
 use crate::user::windows::nt::error::{
     ERROR_BUSY, ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_FUNCTION, ERROR_INVALID_HANDLE,
     ERROR_INVALID_PARAMETER,
@@ -13,19 +13,16 @@ use crate::user::windows::objects::Object;
 
 const STATUS_DEVICE_BUSY: u32 = 0x8000_0011;
 
-pub(super) fn station(p: &Proc) -> Result<u64, Outcome> {
-    let Some(Availability::Available(inputs)) = p.native.as_ref().map(|native| &native.gui) else {
-        return Err(failure(
-            "process window station requires selected native GUI inputs",
-        ));
-    };
-    let station = inputs
-        .window_station
+pub(super) fn station(p: &Proc) -> Result<u32, Outcome> {
+    let station = p
+        .native
+        .as_ref()
+        .and_then(|native| native.gui.window_station())
+        .ok_or_else(|| failure("process window station requires selected native GUI inputs"))?
         .as_ref()
         .map_err(|reason| failure(format!("selected window station unavailable: {reason}")))?;
     p.objects
         .window_station_handle(station)
-        .map(u64::from)
         .ok_or_else(|| failure("selected assigned-window-station handle identity was lost"))
 }
 

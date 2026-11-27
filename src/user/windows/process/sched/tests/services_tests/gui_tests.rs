@@ -111,10 +111,18 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, arch: WinArch, build: u32, 
     version.minor = 0;
     version.build = build;
     wow64::initialize_test_profile(p, arch.machine()).unwrap();
-    p.native.as_mut().unwrap().gui = Availability::Wow64Companion(
-        crate::user::windows::gui::tests::wow64_companion_fixture(arch, committed),
-        profile,
-    );
+    let station = crate::user::windows::objects::WindowStation::selected(
+        "TestStation".encode_utf16().collect(),
+        0xf037f,
+        0,
+        0,
+        vec![],
+    )
+    .unwrap();
+    let handle = p.objects.assign_window_station(station.clone()).unwrap();
+    let mut inputs = crate::user::windows::gui::tests::wow64_companion_fixture(arch, committed);
+    std::sync::Arc::get_mut(&mut inputs).unwrap().window_station = Ok(station);
+    p.native.as_mut().unwrap().gui = Availability::Wow64Companion(inputs, profile);
 
     let id = thread::create(p, p.modules.exe().entry, 0, 0x10000, false).unwrap();
     let mut thread = p.threads.remove(&id).unwrap();
@@ -208,6 +216,19 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, arch: WinArch, build: u32, 
         Outcome::Continue
     );
     assert_eq!(thread.cpu.gpr(0), 192);
+    let last_error =
+        thread.teb + crate::user::windows::layout::offsets(WinArch::X86).teb_last_error;
+    p.space.w32(last_error, 0x5aa5).unwrap();
+    let handle_count = p.objects.handle_count();
+    for _ in 0..2 {
+        assert_eq!(
+            call(p, &mut thread, "NtUserGetProcessWindowStation", 0x1101f),
+            Outcome::Continue
+        );
+        assert_eq!(thread.cpu.gpr(0), u64::from(handle));
+        assert_eq!(p.space.u32(last_error).unwrap(), 0x5aa5);
+    }
+    assert_eq!(p.objects.handle_count(), handle_count);
     assert_eq!(thread.cpu.sp(), original_sp + 4);
     assert_eq!(thread.cpu.pc(), 0x1234_000c);
     assert_eq!(p.rng, rng);

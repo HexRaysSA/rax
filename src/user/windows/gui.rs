@@ -246,6 +246,17 @@ impl Default for Availability {
 }
 
 impl Availability {
+    pub(crate) fn window_station(
+        &self,
+    ) -> Option<&Result<Arc<super::objects::WindowStation>, String>> {
+        match self {
+            Self::Available(inputs) | Self::Wow64Companion(inputs, _) => {
+                Some(&inputs.window_station)
+            }
+            Self::Unavailable(_) => None,
+        }
+    }
+
     pub(crate) fn select(
         arch: WinArch,
         user: std::path::PathBuf,

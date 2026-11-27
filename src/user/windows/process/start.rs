@@ -603,13 +603,11 @@ fn spawn_image_file(
             objects
                 .assign_desktop(inputs.assigned_desktop.clone())
                 .ok_or_else(|| memory("guest assigned-desktop handle allocation failed"))?;
-            if let Ok(station) = &inputs.window_station {
-                objects
-                    .assign_window_station(station.clone())
-                    .ok_or_else(|| {
-                        memory("guest assigned-window-station handle allocation failed")
-                    })?;
-            }
+        }
+        if let Some(Ok(station)) = runtime.gui.window_station() {
+            objects
+                .assign_window_station(station.clone())
+                .ok_or_else(|| memory("guest assigned-window-station handle allocation failed"))?;
         }
     }
     let performance_clock =

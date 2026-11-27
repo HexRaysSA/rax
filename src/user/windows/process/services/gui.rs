@@ -384,10 +384,21 @@ pub(super) fn process_window_station(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    match user_objects::station(p) {
-        Ok(value) => convert(p, t, sp, resume, wow64, Some(Completion::Value(value))),
-        Err(outcome) => outcome,
+    let handle = match user_objects::station(p) {
+        Ok(handle) => handle,
+        Err(outcome) => return outcome,
+    };
+    if let Some((inputs, profile)) = wow64_inputs(p, wow64) {
+        return initialize_wow64(p, t, sp, resume, inputs, profile, Some(handle));
     }
+    convert(
+        p,
+        t,
+        sp,
+        resume,
+        wow64,
+        Some(Completion::Value(u64::from(handle))),
+    )
 }
 
 pub(super) fn user_object_operation<const N: usize>(

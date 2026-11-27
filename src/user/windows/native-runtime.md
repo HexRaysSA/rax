@@ -4129,6 +4129,11 @@ PowerShell startup can open the installed machine
 native and WoW registry views supply only the selected `Install`,
 `Release`, and `Version` values. Capture uses read-only registry handles.
 
+WoW64 GUI initialization can return the assigned process window station
+from its selected companion snapshot. Repeated
+`NtUserGetProcessWindowStation` queries return the same guest-owned handle and
+preserve last error. The station identity comes from the installed snapshot.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not
