@@ -575,6 +575,54 @@ fn dot_net_standards_links_fixed_children_and_their_value_ordinals() {
 }
 
 #[test]
+fn dot_net_upgrades_retains_the_selected_build_range() {
+    let policy = ProcessConfigKey::DotNetPolicy;
+    let upgrades = ProcessConfigKey::DotNetPolicyUpgrades;
+    let range = Value {
+        name: units("4.0.30319"),
+        kind: 1,
+        data: "4.0.0-4.0.30319"
+            .encode_utf16()
+            .chain(Some(0))
+            .flat_map(u16::to_le_bytes)
+            .collect(),
+    };
+    let mut child = header(upgrades.path(), vec![range.clone()]);
+    child.children = 0;
+    let mut cached = [0_u8; 40];
+    cached[20..24].copy_from_slice(&1_u32.to_le_bytes());
+    cached[24..28].copy_from_slice(&(range.name.len() as u32 * 2).to_le_bytes());
+    cached[28..32].copy_from_slice(&(range.data.len() as u32).to_le_bytes());
+    cached[32..36].copy_from_slice(&16_u32.to_le_bytes());
+
+    let view = RegistryView::Native64;
+    let registry = Registry::selected(upcase(), vec![])
+        .unwrap()
+        .with_cached_process_config(upgrades, view, child, cached)
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(policy),
+            &[],
+            view,
+            Ok((header(policy.path(), vec![]), None)),
+        )
+        .unwrap();
+    let Lookup::Present(parent) = registry.lookup_view(&units(policy.path()), view) else {
+        panic!("fixed CLR policy key did not resolve");
+    };
+    let Lookup::Present(key) = parent.relative(&units("UPGRADES")) else {
+        panic!("fixed CLR upgrade policy did not resolve");
+    };
+    assert_eq!(
+        key.information().unwrap().record(4),
+        Some(cached.as_slice())
+    );
+    assert_eq!(key.value(&range.name), Some(&range));
+    assert_eq!(key.ordered_values(), Some([range].as_slice()));
+    assert!(!key.covers_value(&units("30319")));
+}
+
+#[test]
 fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
     let framework = ProcessConfigKey::DotNetFramework;
     let policy = ProcessConfigKey::DotNetPolicy;

@@ -4047,6 +4047,12 @@ its installed cached record and the selected `v4.0.30319` value per view.
 Value enumeration uses the installed count to verify completeness for
 the parent and each child. The selection is limited to those named data.
 
+The fixed `Policy\Upgrades` child retains the selected view's installed
+cached record and the named `4.0.30319` upgrade range. The same record
+is available through a relative policy handle and the absolute name.
+Value enumeration verifies that the selected value covers the native
+list before serving its ordinal.
+
 The CLR bootstrap opens the `HKLM\Software\Microsoft\.NETFramework`
 installation key after reading policy. Its snapshot uses each view's native
 `InstallRoot` value and links the existing `Policy` record. The selected

@@ -45,6 +45,7 @@ pub(crate) enum ProcessConfigKey {
     MiniNt,
     DotNetPolicy,
     DotNetPolicyV4,
+    DotNetPolicyUpgrades,
     DotNetPolicyStandards,
     DotNetStandardCli2002,
     DotNetStandardCli2005,
@@ -53,7 +54,7 @@ pub(crate) enum ProcessConfigKey {
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 27] = [
+    pub(super) const ALL: [Self; 28] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -76,6 +77,7 @@ impl ProcessConfigKey {
         Self::PowerShell,
         Self::MiniNt,
         Self::DotNetPolicyV4,
+        Self::DotNetPolicyUpgrades,
         Self::DotNetStandardCli2002,
         Self::DotNetStandardCli2005,
         Self::DotNetStandardV1,
@@ -139,6 +141,9 @@ impl ProcessConfigKey {
             Self::DotNetPolicyV4 => {
                 r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\v4.0"
             }
+            Self::DotNetPolicyUpgrades => {
+                r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\Upgrades"
+            }
             Self::DotNetPolicyStandards => {
                 r"\Registry\Machine\Software\Microsoft\.NETFramework\Policy\standards"
             }
@@ -187,6 +192,7 @@ impl ProcessConfigKey {
             | Self::DotNetPolicy
             | Self::DotNetPolicyStandards => &[],
             Self::DotNetPolicyV4 => &["30319"],
+            Self::DotNetPolicyUpgrades => &["4.0.30319"],
             Self::DotNetStandardCli2002 | Self::DotNetStandardCli2005 | Self::DotNetStandardV1 => {
                 &["v4.0.30319"]
             }
@@ -239,6 +245,7 @@ impl ProcessConfigKey {
             Self::MiniNt => "Windows PE installation marker",
             Self::DotNetPolicy => ".NET Framework runtime policy",
             Self::DotNetPolicyV4 => ".NET Framework v4.0 runtime policy",
+            Self::DotNetPolicyUpgrades => ".NET Framework upgrade policy",
             Self::DotNetPolicyStandards => ".NET Framework standards policy",
             Self::DotNetStandardCli2002 => ".NET Framework Standard CLI 2002 policy",
             Self::DotNetStandardCli2005 => ".NET Framework Standard CLI 2005 policy",
@@ -289,6 +296,7 @@ impl ProcessConfigKey {
         matches!(
             self,
             Self::DotNetPolicyV4
+                | Self::DotNetPolicyUpgrades
                 | Self::DotNetPolicyStandards
                 | Self::DotNetStandardCli2002
                 | Self::DotNetStandardCli2005
@@ -319,7 +327,11 @@ impl ProcessConfigKey {
             Self::PowerShell => &[Self::PowerShellV1, Self::PowerShellV3],
             Self::PowerShellV1 => &[Self::PowerShellEngineV1],
             Self::PowerShellV3 => &[Self::PowerShellEngineV3],
-            Self::DotNetPolicy => &[Self::DotNetPolicyV4, Self::DotNetPolicyStandards],
+            Self::DotNetPolicy => &[
+                Self::DotNetPolicyV4,
+                Self::DotNetPolicyUpgrades,
+                Self::DotNetPolicyStandards,
+            ],
             Self::DotNetPolicyStandards => &[
                 Self::DotNetStandardCli2002,
                 Self::DotNetStandardCli2005,
