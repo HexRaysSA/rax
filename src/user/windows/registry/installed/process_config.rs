@@ -1,5 +1,7 @@
 //! Query fixed startup values once during library selection.
-use super::super::process_config::{LEGACY_EXTENSION_FLAG, ProcessConfigKey, SYSTEM_SETUP_VALUES};
+use super::super::process_config::{
+    DOT_NET_FUSION_OPTIONAL_POLICY, LEGACY_EXTENSION_FLAG, ProcessConfigKey, SYSTEM_SETUP_VALUES,
+};
 use super::super::{CommandHeader, RegistryView, SnapshotRoot};
 use super::*;
 use crate::user::windows::nt::status::{
@@ -43,6 +45,9 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
                     subject.check_name(&registry, view, &canonical)?;
                     let mut build_key_record = None;
                     let header = capture_header(&registry, subject, &key, canonical, || {
+                        if subject == ProcessConfigKey::DotNetFusion {
+                            return capture_values_with(&key, || verify_fusion_policy_absent(&key));
+                        }
                         if !subject.preserves_value_order() {
                             return capture_values(&key, subject.values());
                         }
@@ -55,7 +60,16 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
                         }
                         build_key_record = Some(before);
                         Ok(values)
-                    })?;
+                    });
+                    let header = match header {
+                        Err(error)
+                            if subject == ProcessConfigKey::DotNetFusion
+                                && error.raw_os_error() == Some(5) =>
+                        {
+                            Err(STATUS_ACCESS_DENIED)
+                        }
+                        result => result?,
+                    };
                     if subject.captures_cached_record()
                         && let Ok(header) = header
                     {
@@ -85,6 +99,32 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
         }
     }
     capture_disabled_extensions(registry)
+}
+
+fn verify_fusion_policy_absent(key: &OwnedKey) -> io::Result<Vec<Value>> {
+    let name: Vec<_> = DOT_NET_FUSION_OPTIONAL_POLICY
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let mut bytes = 0;
+    // SAFETY: a live selection-owned handle, a fixed NUL-terminated name,
+    // and a size output. No value bytes are requested.
+    let status = unsafe {
+        RegQueryValueExW(
+            key.0,
+            name.as_ptr(),
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            &mut bytes,
+        )
+    };
+    match status {
+        2 => Ok(Vec::new()),
+        // A configured policy is outside the default startup snapshot.
+        0 => Err(io::Error::from_raw_os_error(5)),
+        status => Err(io::Error::from_raw_os_error(status)),
+    }
 }
 
 fn capture_disabled_extensions(registry: Registry) -> io::Result<Registry> {

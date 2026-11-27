@@ -4112,7 +4112,11 @@ After locating the CLR engine, PowerShell opens the machine
 `SOFTWARE\Microsoft\Fusion` key relative to the machine hive. The snapshot
 records each selected key's canonical name and native access metadata.
 On Windows build 29708 the installed native and physical WoW keys have two
-and one subkeys respectively. This selection covers the key open.
+and one subkeys respectively. The snapshot recognizes the optional Fusion
+policy query when the installed value is absent in the selected view. The
+native missing-name status preserves the caller's output and return length.
+Capture checks presence without reading the setting's data. A configured
+value makes that registry view unavailable to the guest.
 
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with

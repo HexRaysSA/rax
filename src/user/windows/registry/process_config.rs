@@ -9,6 +9,7 @@ pub(super) const POWERSHELL_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\PowerShell";
 const DOT_NET_FRAMEWORK_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework";
+pub(super) const DOT_NET_FUSION_OPTIONAL_POLICY: &str = "NoClientChecks";
 pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
 #[cfg(test)]
@@ -207,8 +208,8 @@ impl ProcessConfigKey {
             | Self::DotNetPolicy
             | Self::DotNetPolicyServicing
             | Self::DotNetPolicyAppPatch
-            | Self::DotNetPolicyStandards
-            | Self::DotNetFusion => &[],
+            | Self::DotNetPolicyStandards => &[],
+            Self::DotNetFusion => &[DOT_NET_FUSION_OPTIONAL_POLICY],
             Self::DotNetPolicyV4 => &["30319"],
             Self::DotNetPolicyUpgrades => &["4.0.30319"],
             Self::DotNetStandardCli2002 | Self::DotNetStandardCli2005 | Self::DotNetStandardV1 => {
@@ -286,6 +287,7 @@ impl ProcessConfigKey {
 
     pub(super) fn accepts_values(self, view: RegistryView, values: &[Value]) -> bool {
         match self {
+            Self::DotNetFusion => values.is_empty(),
             Self::DisabledLegacyExtensions => {
                 view == RegistryView::Native64
                     && matches!(values, [value] if value.kind == 4 && value.data == [0; 4])
