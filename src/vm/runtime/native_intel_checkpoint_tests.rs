@@ -635,3 +635,96 @@ fn gdb_resume_keeps_native_mmio_pending_after_a_saved_triple_fault() {
     }
     println!("native GDB terminal precedence passed count=2 ap=1");
 }
+
+#[cfg(feature = "debug")]
+#[test]
+#[ignore = "requires Intel macOS and com.apple.security.hypervisor entitlement"]
+fn saved_init_waits_for_the_native_mmio_owner() {
+    use crate::debug::gdb::threads::parse_resume;
+
+    let paths = Paths::new(2);
+    let accesses = Arc::new(Mutex::new(Vec::new()));
+    let checkpoint = paths.0.join("queued-init.rxc");
+    let expected = {
+        let mut source = Vmm::new_resume(paths.config(2)).unwrap();
+        attach(&mut source, &accesses);
+        install_program(&mut source, 1, true);
+        let expected = hold_pending(&mut source, 1, true);
+
+        // The BSP powers off the PC after the restored coordinator drains
+        // the AP's transaction and applies the queued INIT.
+        source
+            .guest_mem
+            .memory()
+            .write_slice(
+                &[0x66, 0xba, 4, 6, 0x66, 0xb8, 0, 0x20, 0x66, 0xef, 0xf4],
+                GuestAddress(CODE + 0x100),
+            )
+            .unwrap();
+        source.vcpus[0]
+            .set_state(&CpuState::X86_64(protected_long_mode_state()))
+            .unwrap();
+        source.vcpus[0].wake();
+        assert_eq!(
+            source
+                .resume_debugger(&parse_resume("c:1").unwrap())
+                .unwrap(),
+            Some(true)
+        );
+        assert!(!source.debugger_allows_cpu(1));
+        source.local_apics[0]
+            .lock()
+            .unwrap()
+            .write_register(0x300, 0x000c_4500); // INIT, excluding the sender.
+
+        for _ in 0..2 {
+            source.route_interprocessor_requests().unwrap();
+            assert_eq!(source.coordinator.online, [true, true]);
+            let delivery = source.coordinator.pending_ipi.as_ref().unwrap();
+            assert_eq!(delivery.source, 0);
+            assert_eq!(delivery.remaining.as_ref().unwrap(), &[1]);
+            assert_pending_lane(&stopped_context(&source, 1), &expected, true);
+        }
+        assert!(accesses.lock().unwrap().is_empty());
+        source
+            .take_snapshot_bundle(source.coordinator.retired)
+            .unwrap()
+            .save(&checkpoint)
+            .unwrap();
+        expected
+    };
+
+    std::fs::remove_file(paths.0.join("kernel")).unwrap();
+    let saved = SnapshotBundle::load(&checkpoint).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&saved, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &saved).unwrap();
+    attach(&mut target, &accesses);
+    assert_eq!(target.coordinator.online, [true, true]);
+    let delivery = target.coordinator.pending_ipi.as_ref().unwrap();
+    assert_eq!(delivery.remaining.as_ref().unwrap(), &[1]);
+    assert_pending_lane(&stopped_context(&target, 1), &expected, true);
+
+    target.run().unwrap();
+    assert_eq!(*accesses.lock().unwrap(), [Access::Read(MMIO, 8)]);
+    assert_eq!(target.coordinator.online, [true, false]);
+    assert!(target.coordinator.pending_ipi.is_none());
+    let ap = stopped_context(&target, 1);
+    assert!(ap.request.is_none());
+    assert!(ap.output.is_none());
+    assert_eq!(ap.public.regs.rip, 0xfff0);
+    // INIT preserves the SSE image, including the lane just written by the
+    // MMIO completion. A reset before completion would leave LOW in that lane.
+    assert_eq!(ap.public.regs.xmm[15], [REPLY, HIGH]);
+
+    if let Some(out) = std::env::var_os("RAX_NATIVE_CHECKPOINT_EVIDENCE") {
+        let out = PathBuf::from(out);
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::copy(&checkpoint, out.join("queued-init-2cpus.rxc")).unwrap();
+        target
+            .take_snapshot_bundle(target.coordinator.retired)
+            .unwrap()
+            .save(out.join("queued-init-after-resume-2cpus.rxc"))
+            .unwrap();
+    }
+    println!("native queued INIT followed pending MMIO count=2 ap=1");
+}
