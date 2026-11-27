@@ -190,6 +190,10 @@ With GDB attached, the dispatch follows the current debugger resume mask.
 On a resume request, an Intel HVF shutdown held by any online owner takes
 precedence over retained device I/O and new guest turns, including when
 GDB leaves the terminal owner stopped.
+If an Intel INIT reaches a CPU with a retained exit, delivery pauses at that
+target. Any receivers already reset stay complete. Later targets and IPIs
+remain queued. A debugger can run other CPUs and resume the owner so its
+device transaction completes before the queued INIT reaches it.
 The existing checkpoint records carry these states without format changes.
 For H vCPUs and R device dispatches, the resume preflight makes at most
 O(H × (R + 1)) owner probes with O(1) additional scheduler state.
@@ -199,6 +203,7 @@ O(H × (R + 1)) owner probes with O(1) additional scheduler state.
 | A retained peer transaction predates a new bootstrap instruction. | High | Cold-restore two native Apple Silicon vCPUs with a pending PL011 transaction on CPU 1 and a PSCI `SYSTEM_OFF` instruction next on CPU 0. Exercise serial and parallel scheduling. Check the AP's PC, UART contents, and terminal latch. |
 | A staged reply or an acknowledged write already changed the device. | High | Inject the register-write failure on the original owner. Verify the next unread UART byte and an intervening control-register write survive resumption. Check that a saved read error is surfaced before CPU 0 advances. |
 | Queued INIT and previously recorded terminal exits can coexist with device records. | High | Model an INIT broadcast with two pending inputs and check that both dispatch before INIT. Model a saved terminal exit on a higher-index Intel HVF owner and check that neither a device dispatch nor guest entry occurs. |
+| An Intel INIT can be partially delivered while GDB holds a device owner stopped. | High | Continue only the sender, broadcast to all owners, and retry delivery twice. Require the sender reset once, the other targets queued, and both saved UART reads completed before those targets reset. |
 
 The signed physical Apple Silicon baseline at `c27b8125d` entered CPU 0
 and latched `SYSTEM_OFF` while CPU 1's retained PL011 read remained pending.

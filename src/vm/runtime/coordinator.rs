@@ -431,7 +431,9 @@ impl Vmm {
                 self.coordinator.online[index] = eligible;
             }
         }
-        self.resume_ipi_delivery()?;
+        if !self.resume_ipi_delivery()? {
+            return Ok(());
+        }
         for source in 0..self.local_apics.len() {
             loop {
                 let request = self.local_apics[source]
@@ -446,7 +448,9 @@ impl Vmm {
                     request,
                     remaining: None,
                 });
-                self.resume_ipi_delivery()?;
+                if !self.resume_ipi_delivery()? {
+                    return Ok(());
+                }
             }
         }
         Ok(())
@@ -510,20 +514,20 @@ impl Vmm {
         Ok(targets.into_iter().map(|index| index as u8).collect())
     }
 
-    fn resume_ipi_delivery(&mut self) -> Result<()> {
+    /// Return whether there is room to admit the next IPI in delivery order.
+    fn resume_ipi_delivery(&mut self) -> Result<bool> {
         let Some(mut delivery) = self.coordinator.pending_ipi.take() else {
-            return Ok(());
+            return Ok(true);
         };
         let result = self.apply_ipi_delivery(&mut delivery);
-        if result.is_err()
-            && delivery
-                .remaining
-                .as_ref()
-                .is_none_or(|targets| !targets.is_empty())
-        {
+        let complete = delivery
+            .remaining
+            .as_ref()
+            .is_some_and(|targets| targets.is_empty());
+        if !complete {
             self.coordinator.pending_ipi = Some(delivery);
         }
-        result
+        result.map(|()| complete)
     }
 
     fn apply_ipi_delivery(&mut self, delivery: &mut PendingIpiDelivery) -> Result<()> {
@@ -546,7 +550,17 @@ impl Vmm {
                         .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?
                         .set_pending_nmi();
                 }
-                IpiRequest::Init { .. } => self.initialize_x86_cpu(index)?,
+                IpiRequest::Init { .. } => {
+                    // Intel HVF reports these retained exits without changing
+                    // owner state. INIT would discard the exit. A debugger can
+                    // keep its owner stopped while allowing a peer to run.
+                    if self.backend_kind == BackendKind::Hvf
+                        && self.vcpus[index].resume_native_device_io()?.is_some()
+                    {
+                        return Ok(());
+                    }
+                    self.initialize_x86_cpu(index)?;
+                }
                 IpiRequest::Sipi { vector, .. } => self.start_x86_cpu(index, *vector)?,
                 IpiRequest::Smi { .. } => {
                     // Unsupported delivery is terminal, as it was before retries.

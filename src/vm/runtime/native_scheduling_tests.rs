@@ -55,7 +55,12 @@ impl VCpu for Native {
             let mut calls = self.calls.lock().unwrap();
             calls.bounded.push((self.id, limit));
             if calls.resume_issued_input {
-                assert_eq!(calls.input_completions, [(1, 0), (2, 0)]);
+                let completed_cpus: Vec<_> = calls
+                    .input_completions
+                    .iter()
+                    .map(|&(cpu, _)| cpu)
+                    .collect();
+                assert_eq!(completed_cpus, [1, 2]);
                 return Ok(Some(VcpuExit::Shutdown));
             }
             calls.outgoing.take()
@@ -458,6 +463,7 @@ fn native_resume_completes_all_issued_inputs_before_init_or_guest_entry() {
         .write_register(0x300, 0x000c_4500);
     vm.run().unwrap();
     let calls = calls.lock().unwrap();
+    assert_eq!(calls.input_completions, [(1, 0), (2, 0)]);
     assert_eq!(calls.serial_replies, [(1, b'a'), (2, b'b')]);
     assert_eq!(calls.init_attempts, [1, 2, 3]);
     assert_eq!(
@@ -517,6 +523,61 @@ fn gdb_resume_observes_terminal_intel_owner_outside_resume_mask() {
     assert!(calls.input_completions.is_empty());
     assert_eq!(vm.serial.lock().unwrap().read(0x3f8), b'a');
     assert_eq!(vm.coordinator.retired, 17);
+    assert!(matches!(
+        client.resp_rx.try_recv(),
+        Ok(GdbResponse::Exited(0))
+    ));
+}
+
+#[cfg(feature = "debug")]
+#[test]
+fn pending_native_init_waits_for_debugger_stopped_device_owners() {
+    use crate::debug::gdb::{GdbCommand, GdbResponse, create_channels, threads::parse_resume};
+
+    let (mut fixture, calls) = fixture(4, true);
+    let vm = &mut fixture.vm;
+    vm.backend_kind = BackendKind::Hvf;
+    {
+        let mut calls = calls.lock().unwrap();
+        calls.resume_issued_input = true;
+        calls.serial_round = true;
+    }
+    let mut serial = vm.serial.lock().unwrap();
+    serial.write(0x3fa, 1);
+    serial.queue_input(b"abc");
+    drop(serial);
+    assert_eq!(
+        vm.resume_debugger(&parse_resume("c:1").unwrap()).unwrap(),
+        Some(true)
+    );
+    vm.local_apics[0]
+        .lock()
+        .unwrap()
+        .write_register(0x300, 0x0008_4500); // INIT, including the sender.
+
+    for _ in 0..2 {
+        vm.route_interprocessor_requests().unwrap();
+        assert_eq!(calls.lock().unwrap().init_attempts, [0]);
+        assert_eq!(vm.coordinator.online, [true; 4]);
+        let saved = vm.coordinator.pending_ipi.as_ref().unwrap();
+        assert_eq!(saved.source, 0);
+        assert_eq!(saved.remaining.as_ref().unwrap(), &[1, 2, 3]);
+    }
+
+    let (client, channels) = create_channels();
+    vm.gdb_channels = Some(channels);
+    vm.gdb_stopped = true;
+    client
+        .cmd_tx
+        .send(GdbCommand::Resume(parse_resume("c").unwrap()))
+        .unwrap();
+    vm.run().unwrap();
+    let calls = calls.lock().unwrap();
+    assert_eq!(calls.input_completions, [(1, 1), (2, 1)]);
+    assert_eq!(calls.serial_replies, [(1, b'a'), (2, b'b')]);
+    assert_eq!(calls.init_attempts, [0, 1, 2, 3]);
+    assert_eq!(vm.serial.lock().unwrap().read(0x3f8), b'c');
+    assert!(vm.coordinator.pending_ipi.is_none());
     assert!(matches!(
         client.resp_rx.try_recv(),
         Ok(GdbResponse::Exited(0))
