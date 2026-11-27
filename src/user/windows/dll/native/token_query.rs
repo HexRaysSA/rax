@@ -4,12 +4,13 @@ mod claims;
 mod groups;
 mod pointer_records;
 mod privileges;
+pub(super) mod sid;
 mod statistics;
 mod user;
 
 use super::query::{guard_result, probe_write, write_guard_result};
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::hle::{ApiResult, Ctx, Flow};
+use crate::user::windows::hle::{ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
@@ -23,6 +24,39 @@ const TOKEN_GROUPS: u32 = 2;
 const TOKEN_INTEGRITY_LEVEL: u32 = 25;
 const TOKEN_SECURITY_ATTRIBUTES: u32 = 39;
 const SE_GROUP_INTEGRITY: u32 = 0x20;
+
+pub(in crate::user::windows::dll) static APPCONTAINER_PATH_EXPORTS: &[Export] = &[Export::func(
+    "RtlGetAppContainerNamedObjectPath",
+    Stdcall,
+    &[Ptr, Ptr, I32, Ptr],
+    appcontainer_named_object_path,
+)];
+
+fn appcontainer_named_object_path(c: &mut Ctx) -> ApiResult {
+    let (token, sid, output) = (c.ptr(0)?, c.ptr(1)?, c.ptr(3)?);
+    if output == 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    if token != 0 && sid != 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER_MIX.into());
+    }
+    let primary_handle = matches!(c.p.objects.get(token), Some(Object::PrimaryToken));
+    let primary = token == c.arch().ptr(u64::MAX - 3) || primary_handle;
+    let effective = token == 0 || token == c.arch().ptr(u64::MAX - 5);
+    if !super::super::gameos::enabled(c)
+        || sid != 0
+        || (!effective && !primary)
+        || c.p.objects.primary_token_app_container() == Some(true)
+    {
+        return Err(c.unsupported("RtlGetAppContainerNamedObjectPath token or SID"));
+    }
+    if primary_handle && c.p.objects.access(token).unwrap_or(0) & 8 == 0 {
+        return Flow::ret(STATUS_ACCESS_DENIED.into());
+    }
+    // A normal process returns a zeroed UNICODE_STRING.
+    c.mem().wr(output, &[0; 16][..(2 * c.psize()) as usize])?;
+    Flow::ret(STATUS_SUCCESS.into())
+}
 
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
     let mut direct_copies = false;
@@ -160,6 +194,9 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
         }
     }
     if class == TOKEN_SECURITY_ATTRIBUTES {
+        if c.p.cfg.gameos_analysis && captured_subject.is_none() {
+            return super::gameos_xvc::query_launch_token(c, output, length, returned);
+        }
         let subject = captured_subject.or_else(|| c.p.objects.primary_token_subject());
         let empty = subject.as_ref().map_or(c.p.native.is_none(), |subject| {
             subject
@@ -220,15 +257,17 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
         return pointer_records::publish(c, data, output, length, returned);
     }
     if sid_record {
-        let subject = captured_subject
-            .or_else(|| c.p.objects.primary_token_subject())
-            .ok_or_else(|| {
-                c.unsupported(if class == TOKEN_USER {
-                    "primary-token user SID is not captured"
-                } else {
-                    "token integrity SID is not captured"
-                })
-            })?;
+        let subject = captured_subject.or_else(|| c.p.objects.primary_token_subject());
+        if class == TOKEN_USER && subject.is_none() && c.p.cfg.gameos_analysis {
+            return user::publish(c, sid::OFFLINE_GAMEOS_USER, 0, output, length, returned);
+        }
+        let subject = subject.ok_or_else(|| {
+            c.unsupported(if class == TOKEN_USER {
+                "primary-token user SID is not captured"
+            } else {
+                "token integrity SID is not captured"
+            })
+        })?;
         let (sid, attributes) = if class == TOKEN_USER {
             (subject.user.as_slice(), subject.user_attributes)
         } else {

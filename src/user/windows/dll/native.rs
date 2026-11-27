@@ -29,6 +29,20 @@ mod file_read;
 mod file_state_set;
 mod file_write;
 mod gameos_xvc;
+
+pub(super) static IO_CANCEL_EXPORTS: &[Export] = &[Export::func(
+    "NtCancelIoFileEx",
+    Stdcall,
+    &[Ptr, Ptr, Ptr],
+    gameos_xvc::cancel_io,
+)];
+
+pub(super) static OBJECT_COMPARE_EXPORTS: &[Export] = &[Export::func(
+    "NtCompareObjects",
+    Stdcall,
+    &[Ptr, Ptr],
+    object_duplicate::compare,
+)];
 mod hotpatch;
 pub(super) mod instruction_cache;
 mod io_completion;
@@ -87,7 +101,9 @@ mod token_attributes;
 mod token_duplicate;
 mod token_query;
 pub(super) use process_query::WIN32_PROCESS_QUERY_EXPORTS;
-pub(super) use token::{WIN32_PROCESS_TOKEN_EXPORTS, WIN32_TOKEN_EXPORTS};
+pub(super) use token::{WIN32_PROCESS_TOKEN_EXPORTS, WIN32_REVERT_EXPORTS, WIN32_TOKEN_EXPORTS};
+pub(super) use token_query::APPCONTAINER_PATH_EXPORTS;
+pub(super) use token_query::sid::{NTDLL_SID_EXPORTS, WELL_KNOWN_SID_EXPORTS, WIN32_SID_EXPORTS};
 mod topology;
 mod trace;
 mod trace_event;

@@ -62,6 +62,25 @@ pub(crate) fn sid(bytes: &[u8]) -> Option<&[u8]> {
     bytes.get(..8 + usize::from(bytes[1]) * 4)
 }
 
+pub(crate) fn sid_text(bytes: &[u8]) -> Option<String> {
+    use std::fmt::Write as _;
+
+    let sid = sid(bytes).filter(|sid| sid.len() == bytes.len())?;
+    let authority = sid[2..8]
+        .iter()
+        .fold(0u64, |n, &byte| (n << 8) | u64::from(byte));
+    let mut text = if authority > u64::from(u32::MAX) {
+        format!("S-1-0x{authority:X}")
+    } else {
+        format!("S-1-{authority}")
+    };
+    for subauthority in sid[8..].chunks_exact(4) {
+        let value = u32::from_le_bytes(subauthority.try_into().unwrap());
+        let _ = write!(text, "-{value}");
+    }
+    Some(text)
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Mapping(pub(crate) [u32; 4]);
 

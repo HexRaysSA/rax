@@ -516,6 +516,7 @@ mod tests {
         })
         .unwrap();
         Proc {
+            gameos_com_security_initialized: false,
             arch,
             vm: VirtualMemory::new_with_commit_limit(space.clone(), 0x10000, 1 << 32, limit),
             space,

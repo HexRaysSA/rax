@@ -174,7 +174,7 @@ fn open_from(c: &mut Ctx, parent: u64, subkey: Vec<u16>, access: u32) -> Checked
         // In built-in mode an unconfigured guest registry has no subkeys or values.
         if matches!(hive, 0x8000_0000..=0x8000_0003 | 0x8000_0005)
             && c.p.registry.upcase_table().is_empty()
-            && !(hive == 0x8000_0002 && c.p.registry.is_game_config_subkey(&subkey))
+            && !(hive == 0x8000_0002 && c.p.registry.is_portable_machine_subkey(&subkey))
         {
             return status(STATUS_OBJECT_NAME_NOT_FOUND);
         }

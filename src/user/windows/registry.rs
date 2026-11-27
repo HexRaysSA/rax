@@ -206,6 +206,7 @@ pub(crate) struct Registry {
     primary_hive: Option<PrimaryHive>,
     machine_hive: Option<Arc<Key>>,
     game_config: Option<Arc<Key>>,
+    gameos_launch_info: Option<Arc<Key>>,
     pub(crate) views: Arc<RegistryViews>,
 }
 impl Registry {
@@ -247,6 +248,7 @@ impl Registry {
             primary_hive: None,
             machine_hive: None,
             game_config: None,
+            gameos_launch_info: None,
             views: Arc::default(),
         };
         let mut budget = ValueBudget::default();
@@ -320,6 +322,9 @@ impl Registry {
         self.lookup_view(name, RegistryView::Native64)
     }
     pub(crate) fn lookup_view(&self, name: &[u16], view: RegistryView) -> Lookup {
+        if let Some(key) = self.gameos_launch_key(name) {
+            return Lookup::Present(key);
+        }
         if self.game_config.is_some() {
             match self.game_config_lookup(name) {
                 Lookup::Unselected => {}

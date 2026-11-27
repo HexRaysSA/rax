@@ -16,7 +16,10 @@ mod tests;
 pub(crate) use exports::{
     MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_STDIO_EXPORTS, UCRT_STREAM_BUFFER_EXPORTS,
 };
-pub(crate) use format::{UCRT_BUFFER_FORMAT_EXPORTS, UCRT_WIDE_BUFFER_FORMAT_EXPORTS};
+pub(crate) use format::{
+    MSVCRT_WIDE_BUFFER_FORMAT_EXPORTS, UCRT_BUFFER_FORMAT_EXPORTS,
+    UCRT_SECURE_BUFFER_FORMAT_EXPORTS, UCRT_WIDE_BUFFER_FORMAT_EXPORTS,
+};
 pub(super) use storage::StdioState;
 pub(crate) use storage::{PreparedStdio, prepare};
 

@@ -13,7 +13,9 @@ use super::super::arch::{WinArch, WinCpu};
 use super::super::hle::{ApiErr, ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
 use super::super::layout::{KUSER_SHARED_DATA, kuser};
 use super::super::memory::{ALLOCATION_GRANULARITY, Mem};
-use super::super::nt::error::{ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
+use super::super::nt::error::{
+    ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_PARAMETER, ERROR_MORE_DATA, ERROR_NOACCESS,
+};
 use super::super::nt::status::{
     STATUS_INVALID_BUFFER_SIZE, STATUS_INVALID_PARAMETER, STATUS_NOT_SUPPORTED, STATUS_SUCCESS,
 };
@@ -68,6 +70,45 @@ pub(super) static SYSTEM_INFO_EXPORTS: &[Export] = &[
     ),
 ];
 
+pub(super) static COMPUTER_NAME_EXPORTS: &[Export] = &[Export::func(
+    "GetComputerNameExW",
+    Stdcall,
+    &[I32, Ptr, Ptr],
+    get_computer_name_ex_w,
+)];
+
+pub(super) static COMPUTER_NAME_FORWARDS: &[Export] = &[Export::forward(
+    "GetComputerNameExW",
+    "KERNELBASE.GetComputerNameExW",
+)];
+
+fn get_computer_name_ex_w(c: &mut Ctx) -> ApiResult {
+    let (kind, output, size) = (c.u32(0)?, c.ptr(1)?, c.ptr(2)?);
+    if kind >= 8 || size == 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    let qualified = &c.p.cfg.computer_name;
+    let (host, domain) = qualified.split_once('.').unwrap_or((qualified, ""));
+    // This process profile has one machine name and no cluster aliases.
+    let name = match kind % 4 {
+        0 | 1 => host,
+        2 => domain,
+        _ => qualified,
+    };
+    let name: Vec<u16> = name.encode_utf16().collect();
+    let length = name.len() as u32;
+    if c.mem().u32(size)? <= length {
+        c.mem().w32(size, length + 1)?;
+        return c.fail(ERROR_MORE_DATA, 0);
+    }
+    if output == 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    c.mem().put_wstr(output, &name)?;
+    c.mem().w32(size, length)?;
+    Flow::bool(true)
+}
+
 pub(super) static TOPOLOGY_EXPORTS: &[Export] = &[Export::func(
     "GetLogicalProcessorInformation",
     Stdcall,
@@ -103,6 +144,28 @@ pub(super) static NTDLL_VERSION_EXPORTS: &[Export] = &[Export::func(
     &[Ptr],
     rtl_get_version,
 )];
+
+pub(super) static NTDLL_PRODUCT_TYPE_EXPORTS: &[Export] = &[Export::func(
+    "RtlGetNtProductType",
+    Stdcall,
+    &[Ptr],
+    rtl_get_nt_product_type,
+)];
+
+fn rtl_get_nt_product_type(c: &mut Ctx) -> ApiResult {
+    let output = c.ptr(0)?;
+    let valid = c
+        .mem()
+        .u8(KUSER_SHARED_DATA + kuser::PRODUCT_TYPE_IS_VALID)?
+        != 0;
+    let product = if valid {
+        c.mem().u32(KUSER_SHARED_DATA + kuser::NT_PRODUCT_TYPE)?
+    } else {
+        1 // NtProductWinNt fallback when there is no product type.
+    };
+    c.mem().w32(output, product)?;
+    Flow::bool(valid)
+}
 
 pub(super) static NTDLL_GLOBAL_DATA_EXPORTS: &[Export] = &[Export::func(
     "RtlGetSystemGlobalData",

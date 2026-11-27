@@ -33,6 +33,13 @@ pub(in crate::user::windows::dll) static WIN32_PROCESS_TOKEN_EXPORTS: &[Export] 
     },
 )];
 
+pub(in crate::user::windows::dll) static WIN32_REVERT_EXPORTS: &[Export] =
+    &[Export::func("RevertToSelf", Stdcall, &[], |_| {
+        // The portable personality cannot attach an impersonation token.
+        // Every thread already runs under its own process token.
+        Flow::bool(true)
+    })];
+
 fn win32_information(c: &mut Ctx) -> ApiResult {
     let result = super::token_query::information(c);
     win32_result(c, result)

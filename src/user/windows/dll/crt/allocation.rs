@@ -28,6 +28,11 @@ pub(crate) static ALLOCATION_EXPORTS: &[Export] = &[
     Export::func("_get_heap_handle", Cdecl, &[], heap_handle),
 ];
 
+pub(crate) static UCRT_ALIGNED_ALLOCATION_EXPORTS: &[Export] = &[
+    Export::func("_aligned_malloc", Cdecl, &[Ptr, Ptr], aligned_malloc),
+    Export::func("_aligned_free", Cdecl, &[Ptr], aligned_free),
+];
+
 pub(crate) static UCRT_RTTI_CLEANUP_EXPORTS: &[Export] = &[
     Export::func(
         "__std_type_info_destroy_list",
@@ -88,6 +93,58 @@ fn allocate(c: &mut Ctx, kind: RuntimeKind, size: u64, zero: bool) -> ApiResult 
 fn malloc(c: &mut Ctx) -> ApiResult {
     let kind = runtime(c)?;
     allocate(c, kind, c.arg(0)?, false)
+}
+
+fn aligned_malloc(c: &mut Ctx) -> ApiResult {
+    let (size, alignment) = (c.arg(0)?, c.arg(1)?);
+    let kind = runtime(c)?;
+    state::ensure_writable_context(c, kind)?;
+    if size == 0 || !alignment.is_power_of_two() {
+        state::set_errno(c, kind, 22)?;
+        return invalid::invoke(c, kind, [0; 5], Box::new(|_, _| Flow::ret(0)));
+    }
+    let padding = alignment - 1;
+    let Some(request) = size
+        .checked_add(padding)
+        .filter(|&total| total <= max_request(c))
+    else {
+        return oom(c, kind);
+    };
+    let index = kind.index();
+    if c.p.crt.runtimes[index]
+        .aligned_allocations
+        .try_reserve(1)
+        .is_err()
+    {
+        return oom(c, kind);
+    }
+    let heap = c.p.crt.runtimes[index].heap;
+    let base = match c.p.heaps.alloc_checked(&mut c.p.vm, heap, request, false) {
+        Ok(base) => base,
+        Err(error) => return heap_failure(c, kind, error),
+    };
+    let block = base + (base.wrapping_neg() & padding);
+    c.p.crt.runtimes[index]
+        .aligned_allocations
+        .insert(block, base);
+    Flow::ret(block)
+}
+
+fn aligned_free(c: &mut Ctx) -> ApiResult {
+    let block = c.arg(0)?;
+    if block == 0 {
+        return Flow::void();
+    }
+    let kind = runtime(c)?;
+    let rt = &mut c.p.crt.runtimes[kind.index()];
+    let Some(&base) = rt.aligned_allocations.get(&block) else {
+        return corrupt();
+    };
+    if c.p.heaps.free(rt.heap, base).is_err() {
+        return corrupt();
+    }
+    rt.aligned_allocations.remove(&block);
+    Flow::void()
 }
 
 fn calloc(c: &mut Ctx) -> ApiResult {

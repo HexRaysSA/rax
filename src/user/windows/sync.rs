@@ -21,7 +21,7 @@
 
 use crate::host::time::Instant;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
 use super::layout::offsets;
@@ -218,6 +218,7 @@ struct SrwState {
 pub struct SyncState {
     /// Callback instances owned by portable thread-pool workers.
     pub(crate) pool_workers: HashMap<u32, super::dll::threadpool::WorkCall>,
+    pub(crate) pool_waits: BTreeSet<ObjId>,
     /// Coalescing thread-ID alerts, keyed by owned object identity.
     thread_alerts: HashSet<ObjId>,
     /// Threads parked on each address key, in arrival order.
@@ -240,6 +241,7 @@ pub struct SyncState {
     /// Successful poll already consumed/dequeued its lock registration.
     completed: HashSet<u32>,
     once_callbacks: Rc<RefCell<HashMap<u64, u32>>>,
+    once_manual: HashMap<u64, u32>,
 }
 
 pub(crate) struct OnceCallback {
@@ -255,7 +257,26 @@ impl Drop for OnceCallback {
 
 impl SyncState {
     pub(crate) fn once_owner(&self, address: u64) -> Option<u32> {
-        self.once_callbacks.borrow().get(&address).copied()
+        self.once_manual
+            .get(&address)
+            .copied()
+            .or_else(|| self.once_callbacks.borrow().get(&address).copied())
+    }
+
+    pub(crate) fn begin_manual_once(&mut self, address: u64, tid: u32) -> bool {
+        if self.once_manual.try_reserve(1).is_err() {
+            return false;
+        }
+        self.once_manual.insert(address, tid);
+        true
+    }
+
+    pub(crate) fn manual_once_owner(&self, address: u64) -> Option<u32> {
+        self.once_manual.get(&address).copied()
+    }
+
+    pub(crate) fn finish_manual_once(&mut self, address: u64) {
+        self.once_manual.remove(&address);
     }
 
     pub(crate) fn begin_once(&mut self, address: u64, tid: u32) -> Option<OnceCallback> {
@@ -279,8 +300,9 @@ impl SyncState {
     }
 
     /// Retirement drops a latch before the object's numeric identity can recur.
-    pub(crate) fn retire_thread(&mut self, object: ObjId) {
+    pub(crate) fn retire_thread(&mut self, object: ObjId, tid: u32) {
         self.thread_alerts.remove(&object);
+        self.once_manual.retain(|_, owner| *owner != tid);
     }
 
     /// Wakes up to `count` threads parked on `key` (all for `usize::MAX`).
@@ -559,13 +581,19 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
             exit_code.is_some()
         }
         Some(Object::CompletionPort { queue, .. }) => !queue.is_empty(),
-        Some(Object::ThreadpoolWork { pending, .. }) => *pending == 0,
+        Some(
+            Object::ThreadpoolWork { pending, .. }
+            | Object::ThreadpoolWait { pending, .. }
+            | Object::ThreadpoolIo { armed: pending, .. },
+        ) => *pending == 0,
         // Files and console handles are signaled when no I/O is pending,
         // which is always here (I/O completes synchronously).
         Some(
             Object::File(_)
             | Object::SecurityFile(_)
             | Object::GameOsXvcFile
+            | Object::GameOsScsiAdapter
+            | Object::GameOsXvcQueue { .. }
             | Object::Console(_)
             | Object::Null
             | Object::Pipe { .. },

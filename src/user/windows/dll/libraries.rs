@@ -18,10 +18,71 @@ use crate::user::windows::loader::{self, DllSearch, LoadError, SymRef};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::{error::*, status::*, status_to_error};
 use crate::user::windows::process::{Proc, Thread};
+use crate::user::windows::registry::IFEO_KEY;
 use crate::user::windows::sync::{self, Wait};
 
 /// Disjoint from every guest u64 address and the condition-variable namespace.
 const LOADER_WAIT_KEY: u128 = 1 << 65;
+
+pub(super) static IMAGE_OPTIONS_EXPORTS: &[Export] = &[Export::func(
+    "LdrQueryImageFileExecutionOptions",
+    Stdcall,
+    &[Ptr, Ptr, I32, Ptr, I32, Ptr],
+    query_image_file_execution_options,
+)];
+
+fn query_image_file_execution_options(c: &mut Ctx) -> ApiResult {
+    const REG_DWORD: u32 = 4;
+    let (image, option, kind, output, capacity, result_size) = (
+        c.ptr(0)?,
+        c.ptr(1)?,
+        c.u32(2)?,
+        c.ptr(3)?,
+        c.u32(4)?,
+        c.ptr(5)?,
+    );
+    if kind != REG_DWORD {
+        return Err(c.unsupported("LdrQueryImageFileExecutionOptions value type"));
+    }
+    if image == 0 || option == 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    let bytes = c.mem().u16(image)?;
+    if bytes == 0 || bytes % 2 != 0 || bytes > c.mem().u16(image + 2)? {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    let path = c
+        .mem()
+        .wunits(c.read_ptr(image + c.psize())?, usize::from(bytes / 2))?;
+    let name = path
+        .rsplit(|unit| matches!(*unit, 0x2f | 0x5c))
+        .next()
+        .unwrap_or_default();
+    if name.is_empty() || name.contains(&0) {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    let mut key: Vec<_> = IFEO_KEY.encode_utf16().collect();
+    key.push(b'\\' as u16);
+    key.extend_from_slice(name);
+    let Some(key) = c.p.registry.key(&key) else {
+        return Flow::ret(STATUS_OBJECT_NAME_NOT_FOUND.into());
+    };
+    let option = c.mem().wstr(option, 16_384)?;
+    let Some(value) = key.value(&option) else {
+        return Flow::ret(STATUS_OBJECT_NAME_NOT_FOUND.into());
+    };
+    if value.kind != REG_DWORD || value.data.len() != 4 {
+        return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into());
+    }
+    if result_size != 0 {
+        c.mem().w32(result_size, 4)?;
+    }
+    if capacity < 4 {
+        return Flow::ret(STATUS_BUFFER_TOO_SMALL.into());
+    }
+    c.mem().wr(output, &value.data)?;
+    Flow::ret(STATUS_SUCCESS.into())
+}
 
 pub(super) static API_SET_QUERY_EXPORTS: &[Export] = &[Export::func(
     "ApiSetQueryApiSetPresence",

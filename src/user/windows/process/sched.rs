@@ -126,6 +126,10 @@ impl Scheduler {
                 p.fail(format!("wait-packet notification failed: {error:?}"));
                 continue;
             }
+            if let Err(error) = crate::user::windows::dll::threadpool::poll_event_waits(p) {
+                p.fail(error);
+                continue;
+            }
             // Extract each thread while invoking personality code so a guest
             // callback may create/modify other threads without borrow aliases.
             let tids: Vec<u32> = p.threads.keys().copied().collect();
@@ -854,6 +858,9 @@ fn next_apc(c: &mut Ctx, saved: RegContext, wait_status: Option<u64>) -> ApiResu
     if let Some(apc) = c.t.apcs.pop_front() {
         let (routine, arguments) = match apc {
             thread::UserApc::Simple(routine, argument) => (routine, vec![argument]),
+            thread::UserApc::Service {
+                routine, buffer, ..
+            } => (routine, vec![buffer]),
             thread::UserApc::Native { routine, arguments } => (routine, arguments.to_vec()),
             thread::UserApc::Registry {
                 routine,
@@ -920,6 +927,7 @@ mod tests {
         })
         .unwrap();
         Proc {
+            gameos_com_security_initialized: false,
             arch,
             vm: VirtualMemory::new(space.clone(), 0x10000, 1 << 32),
             space,

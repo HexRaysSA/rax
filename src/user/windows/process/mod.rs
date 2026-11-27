@@ -104,6 +104,8 @@ pub struct WindowsConfig {
     pub native_libraries: bool,
     /// Provide the portable GameOS guest memory partition namespace.
     pub gameos: bool,
+    /// Model an isolated GameOS launch for offline binary analysis.
+    pub gameos_analysis: bool,
     /// Explicit console routing (host streams for the CLI by default).
     pub console: crate::user::console::Console,
     /// Supplied DLL bytes indexed by normalized absolute Windows path.
@@ -183,6 +185,7 @@ impl WindowsConfig {
             host_filesystem: true,
             native_libraries: false,
             gameos: false,
+            gameos_analysis: false,
             console: Default::default(),
             supplied_dlls: BTreeMap::new(),
             args,
@@ -362,6 +365,7 @@ pub struct Proc {
     pub(crate) process_cookie: u32,
     /// Mutable native error-mode flags; shared by all threads in this process.
     pub(crate) error_mode: error_mode::State,
+    pub(crate) gameos_com_security_initialized: bool,
     /// ProcessRaiseUMExceptionOnInvalidHandleClose information flag.
     pub(crate) raise_um_exception_on_invalid_handle_close: bool,
     /// Public priority-boost setting for the guest process.

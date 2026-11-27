@@ -35,10 +35,29 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if capacity != 0 {
         probe_write(c, output, capacity as usize)?;
     }
-    let queries =
-        c.p.objects
-            .wnf_queries()
-            .ok_or_else(|| c.unsupported("WNF query-state metadata was not selected"))?;
+    if c.p.cfg.gameos_analysis
+        && let Some(data) = super::super::gameos::wnf::runtime_state(name)
+    {
+        if explicit != 0 || type_id.is_some() {
+            return Flow::ret(STATUS_INVALID_PARAMETER.into());
+        }
+        // No publisher exists in the offline profile. A subscription at
+        // change stamp zero starts without an initial callback.
+        c.mem().w32(stamp_ptr, 0)?;
+        c.mem().w32(length_ptr, data.len() as u32)?;
+        if (capacity as usize) < data.len() {
+            return Flow::ret(STATUS_BUFFER_TOO_SMALL.into());
+        }
+        if !data.is_empty() {
+            c.mem().wr(output, data)?;
+        }
+        return Flow::ret(STATUS_SUCCESS.into());
+    }
+    let queries = c.p.objects.wnf_queries().ok_or_else(|| {
+        c.unsupported(format!(
+            "WNF query-state metadata was not selected for {name:#018x}"
+        ))
+    })?;
     if explicit != 0 {
         match parsed.scope {
             0 | 4 => return Flow::ret(STATUS_INVALID_PARAMETER.into()),

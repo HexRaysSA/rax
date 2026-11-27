@@ -500,13 +500,19 @@ fn open_resolved(
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
             Lookup::MissingPath => return status(STATUS_OBJECT_PATH_NOT_FOUND),
             Lookup::Unselected
-                if !create && c.p.cfg.gameos && Registry::gameos_missing_key(&attrs.name.units) =>
+                if !create
+                    && (c.p.cfg.gameos && Registry::gameos_missing_key(&attrs.name.units)
+                        || c.p.cfg.gameos_analysis
+                            && Registry::gameos_analysis_missing_key(&attrs.name.units)) =>
             {
                 return status(STATUS_OBJECT_NAME_NOT_FOUND);
             }
             Lookup::Unselected => {
                 return Err(c
-                    .unsupported("registry key outside selected runtime snapshot")
+                    .unsupported(format!(
+                        "registry key outside selected runtime snapshot: {:?}",
+                        String::from_utf16_lossy(&attrs.name.units)
+                    ))
                     .into());
             }
         }

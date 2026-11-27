@@ -68,7 +68,12 @@ pub(super) fn capture_fields(c: &Ctx, address: u64) -> Result<Result<Attributes,
 }
 
 pub(super) fn supported_attributes(c: &Ctx, attrs: &Attributes, kind: &str) -> Result<(), ApiErr> {
-    if attrs.name != 0 {
+    let empty_gameos_event = c.p.cfg.gameos_analysis
+        && kind == "event"
+        && attrs.root == 0
+        && attrs.name != 0
+        && c.mem().u16(attrs.name)? == 0;
+    if attrs.name != 0 && !empty_gameos_event {
         return Err(c.unsupported(format!("named NT {kind} object namespace")));
     }
     if attrs.security != 0 {

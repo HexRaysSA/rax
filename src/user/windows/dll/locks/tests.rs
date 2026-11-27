@@ -55,6 +55,7 @@ fn invoke(c: &mut Ctx, name: &str, args: &[u64]) -> ApiResult {
         .chain(NTDLL_CRITICAL_EXPORTS)
         .chain(NTDLL_CRITICAL_QUERY_EXPORTS)
         .chain(ONCE_EXPORTS)
+        .chain(MANUAL_ONCE_EXPORTS)
         .chain(NTDLL_ONCE_EXPORTS)
         .chain(RESOURCE_EXPORTS)
         .find(|e| e.name == name)
@@ -147,6 +148,64 @@ fn one_time_initialization_retries_failure_and_publishes_callback_context() {
             assert_eq!(c.p.sync.once_owner(address), Some(c.t.tid));
             drop(abandoned);
             assert_eq!(c.p.sync.once_owner(address), None);
+        });
+    }
+}
+
+#[test]
+fn manual_once_synchronizes_waiters_and_publishes_one_context() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, address| {
+            let pending = address + 16;
+            let output = address + 32;
+            let begin = |c: &mut Ctx, address, flags| {
+                invoke(
+                    c,
+                    "InitOnceBeginInitialize",
+                    &[address, flags, pending, output],
+                )
+            };
+            let complete = |c: &mut Ctx, address, flags, context| {
+                invoke(c, "InitOnceComplete", &[address, flags, context])
+            };
+            assert_eq!(int(begin(c, address, 1)), 0);
+            assert_eq!(int(begin(c, address, 3)), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_INVALID_PARAMETER);
+            assert_eq!(int(begin(c, address, 0)), 1);
+            assert_eq!(c.mem().u32(pending).unwrap(), 1);
+            let owner = c.t.tid;
+            c.t.tid += 4;
+            let (wait, resume) = parked(begin(c, address, 0));
+            assert_eq!(wait, Wait::InitOnce { addr: address });
+            assert_eq!(int(complete(c, address, 0, 0x8000)), 0);
+            c.t.tid = owner;
+            assert_eq!(int(complete(c, address, 4, 0)), 1);
+            c.t.tid += 4;
+            assert_eq!(int(resume(c, 0)), 1);
+            assert_eq!(c.mem().u32(pending).unwrap(), 1);
+            assert_eq!(int(complete(c, address, 0, 0x8003)), 0);
+            assert_eq!(int(complete(c, address, 0, 0x8000)), 1);
+            assert_eq!(int(begin(c, address, 1)), 1);
+            assert_eq!(c.mem().u32(pending).unwrap(), 0);
+            assert_eq!(c.read_ptr(output).unwrap(), 0x8000);
+
+            let asynchronous = address + 64;
+            assert_eq!(int(begin(c, asynchronous, 2)), 1);
+            assert_eq!(int(begin(c, asynchronous, 0)), 0);
+            assert_eq!(int(begin(c, asynchronous, 2)), 1);
+            assert_eq!(int(complete(c, asynchronous, 2, 0x9000)), 1);
+            assert_eq!(int(complete(c, asynchronous, 2, 0xa000)), 0);
+            assert_eq!(int(begin(c, asynchronous, 1)), 1);
+            assert_eq!(c.read_ptr(output).unwrap(), 0x9000);
+
+            let faulting = address + 128;
+            let unmapped = c.p.vm.high();
+            assert!(matches!(
+                invoke(c, "InitOnceBeginInitialize", &[faulting, 0, unmapped, 0]),
+                Err(ApiErr::Fault(_))
+            ));
+            assert_eq!(c.p.sync.once_owner(faulting), None);
+            assert_eq!(c.read_ptr(faulting).unwrap(), 0);
         });
     }
 }

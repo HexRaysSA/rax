@@ -49,6 +49,22 @@ pub(super) fn duplicate(c: &mut Ctx) -> ApiResult {
     guard_result(c, result)
 }
 
+pub(super) fn compare(c: &mut Ctx) -> ApiResult {
+    let object = |handle| match handle {
+        h if h == c.arch().ptr(CURRENT_THREAD) => Some(c.t.obj),
+        h if h == c.arch().ptr(CURRENT_PROCESS) => c.p.objects.iter().find_map(|(id, object)| {
+            matches!(object, Object::Process { pid, .. } if *pid == c.p.pid).then_some(id)
+        }),
+        h => c.p.objects.id(h),
+    };
+    let status = match (object(c.ptr(0)?), object(c.ptr(1)?)) {
+        (Some(left), Some(right)) if left == right => STATUS_SUCCESS,
+        (Some(_), Some(_)) => STATUS_NOT_SAME_OBJECT,
+        _ => STATUS_INVALID_HANDLE,
+    };
+    Flow::ret(status.into())
+}
+
 fn process(c: &Ctx, handle: u64) -> Result<(), u32> {
     if handle == c.arch().ptr(CURRENT_PROCESS) {
         return Ok(());
@@ -305,11 +321,18 @@ fn same_access(c: &mut Ctx, r: Request) -> ApiResult {
             return Flow::ret(status.into());
         }
     }
-    if c.p.objects.get(source).is_none() {
+    let current_thread = source == c.arch().ptr(CURRENT_THREAD);
+    if !current_thread && c.p.objects.get(source).is_none() {
         return Flow::ret(STATUS_INVALID_HANDLE.into());
     }
     probe_write(c, output, c.psize() as usize)?;
-    let Some(duplicate) = c.p.objects.duplicate(source, attributes & 2 != 0) else {
+    let inherit = attributes & 2 != 0;
+    let duplicate = if current_thread {
+        c.p.objects.open_access(c.t.obj, inherit, ALL_ACCESS)
+    } else {
+        c.p.objects.duplicate(source, inherit)
+    };
+    let Some(duplicate) = duplicate else {
         return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into());
     };
     if let Err(error) = c.write_ptr(output, duplicate.into()) {

@@ -128,7 +128,9 @@ pub(crate) fn wait_object(p: &Proc, t: &Thread, handle: u64) -> Result<ObjId, Wa
             | Object::IrTimer { .. }
             | Object::WaitCompletionPacket { .. }
             | Object::SecurityFile(_)
-            | Object::GameOsXvcFile,
+            | Object::GameOsXvcFile
+            | Object::GameOsScsiAdapter
+            | Object::GameOsXvcQueue { .. },
         ) => Ok(id),
         Some(_) => Err(WaitTargetError::Unsupported),
         None => Err(WaitTargetError::InvalidHandle),

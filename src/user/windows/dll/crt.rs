@@ -26,7 +26,9 @@ use std::collections::HashMap;
 use super::super::hle::{ApiErr, Ctx, Export};
 use super::super::loader::ModuleKind;
 
-pub(crate) use allocation::{ALLOCATION_EXPORTS, UCRT_RTTI_CLEANUP_EXPORTS};
+pub(crate) use allocation::{
+    ALLOCATION_EXPORTS, UCRT_ALIGNED_ALLOCATION_EXPORTS, UCRT_RTTI_CLEANUP_EXPORTS,
+};
 
 pub(super) static UCRT_BASE_ALLOCATION_FORWARDS: &[Export] = &[
     Export::forward("_calloc_base", "ucrtbase.calloc"),
@@ -45,12 +47,13 @@ pub(crate) use random::UCRT_RANDOM_EXPORTS;
 pub(crate) use startup::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
 pub(crate) use stdio::{
-    MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_BUFFER_FORMAT_EXPORTS, UCRT_STDIO_EXPORTS,
+    MSVCRT_STDIO_EXPORTS, MSVCRT_WIDE_BUFFER_FORMAT_EXPORTS, STDIO_EXPORTS,
+    UCRT_BUFFER_FORMAT_EXPORTS, UCRT_SECURE_BUFFER_FORMAT_EXPORTS, UCRT_STDIO_EXPORTS,
     UCRT_STREAM_BUFFER_EXPORTS, UCRT_WIDE_BUFFER_FORMAT_EXPORTS,
 };
 pub(crate) use strings::{
-    NTDLL_STRING_EXPORTS, STRING_EXPORTS, UCRT_CASE_STRING_EXPORTS, UCRT_SECURE_STRING_EXPORTS,
-    UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS,
+    NTDLL_STRING_EXPORTS, STRING_EXPORTS, UCRT_CASE_STRING_EXPORTS, UCRT_SECURE_COPY_EXPORTS,
+    UCRT_SECURE_STRING_EXPORTS, UCRT_STRING_EXPORTS, VCRUNTIME_STRING_EXPORTS,
 };
 pub(crate) use termination::{
     UCRT_EXIT_EXPORTS, UCRT_FATAL_EXPORTS, UCRT_REGISTRATION_EXPORTS, UCRT_SIGNAL_EXPORTS,
@@ -148,6 +151,8 @@ struct RuntimeState {
     heap: u64,
     /// Only ordinary CRT allocations, excluding its private thread cells.
     allocations: HashMap<u64, u64>,
+    /// An aligned guest pointer maps back to its allocator-owned backing block.
+    aligned_allocations: HashMap<u64, u64>,
     contexts: HashMap<u32, ThreadState>,
     invalid_handler: u64,
     startup: Option<startup::StartupState>,

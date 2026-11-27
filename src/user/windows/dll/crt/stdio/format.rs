@@ -17,6 +17,13 @@ pub(crate) static UCRT_BUFFER_FORMAT_EXPORTS: &[Export] = &[Export::func(
     vsprintf,
 )];
 
+pub(crate) static UCRT_SECURE_BUFFER_FORMAT_EXPORTS: &[Export] = &[Export::func(
+    "__stdio_common_vsprintf_s",
+    Cdecl,
+    &[I64, Ptr, Ptr, Ptr, Ptr, Ptr],
+    secure_vsprintf,
+)];
+
 pub(crate) static UCRT_WIDE_BUFFER_FORMAT_EXPORTS: &[Export] = &[
     Export::func(
         "__stdio_common_vswprintf",
@@ -30,14 +37,21 @@ pub(crate) static UCRT_WIDE_BUFFER_FORMAT_EXPORTS: &[Export] = &[
     ),
 ];
 
+pub(crate) static MSVCRT_WIDE_BUFFER_FORMAT_EXPORTS: &[Export] = &[Export::func(
+    "_vsnwprintf",
+    Cdecl,
+    &[Ptr, Ptr, Ptr, Ptr],
+    legacy_vsnwprintf,
+)];
+
 const LEGACY_TERMINATION: u64 = 1;
 const STANDARD_SNPRINTF: u64 = 2;
 const LEGACY_WIDE_SPECIFIERS: u64 = 4;
 const STRING_LIMIT: usize = 1 << 20;
 
-fn invalid_parameter(c: &mut Ctx) -> ApiResult {
-    state::set_errno(c, RuntimeKind::Ucrt, 22)?;
-    invalid::invoke(c, RuntimeKind::Ucrt, [0; 5], Box::new(|_, _| result(-1)))
+fn invalid_parameter(c: &mut Ctx, kind: RuntimeKind) -> ApiResult {
+    state::set_errno(c, kind, 22)?;
+    invalid::invoke(c, kind, [0; 5], Box::new(|_, _| result(-1)))
 }
 
 fn result(value: i32) -> ApiResult {
@@ -354,22 +368,39 @@ impl Spec {
 }
 
 fn vsprintf(c: &mut Ctx) -> ApiResult {
-    format_buffer(c, false)
+    format_buffer(c, false, RuntimeKind::Ucrt, false)
+}
+
+fn secure_vsprintf(c: &mut Ctx) -> ApiResult {
+    format_buffer(c, false, RuntimeKind::Ucrt, true)
 }
 
 fn vswprintf(c: &mut Ctx) -> ApiResult {
-    format_buffer(c, true)
+    format_buffer(c, true, RuntimeKind::Ucrt, false)
 }
 
-fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
-    let options = c.arg(0)?;
-    let base = c.ptr(1)?;
-    let capacity = c.ptr(2)?;
-    let format = c.ptr(3)?;
-    if format == 0 || (base == 0 && capacity != 0) {
-        return invalid_parameter(c);
+fn legacy_vsnwprintf(c: &mut Ctx) -> ApiResult {
+    format_buffer(c, true, RuntimeKind::Msvcrt, false)
+}
+
+fn format_buffer(c: &mut Ctx, wide: bool, kind: RuntimeKind, secure: bool) -> ApiResult {
+    let (options, base, capacity, format, va_index) = match kind {
+        RuntimeKind::Msvcrt => (
+            LEGACY_TERMINATION | LEGACY_WIDE_SPECIFIERS,
+            c.ptr(0)?,
+            c.ptr(1)?,
+            c.ptr(2)?,
+            3,
+        ),
+        RuntimeKind::Ucrt => (c.arg(0)?, c.ptr(1)?, c.ptr(2)?, c.ptr(3)?, 5),
+    };
+    if format == 0 || (base == 0 && capacity != 0) || (secure && (base == 0 || capacity == 0)) {
+        if secure && base != 0 && capacity != 0 {
+            c.mem().w8(base, 0)?;
+        }
+        return invalid_parameter(c, kind);
     }
-    if c.ptr(4)? != 0 {
+    if kind == RuntimeKind::Ucrt && c.ptr(4)? != 0 {
         return Err(c.unsupported("UCRT buffer formatting with an explicit locale"));
     }
     let source = if wide {
@@ -385,7 +416,7 @@ fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
         return Err(c.unsupported("UCRT format exceeds the portable string limit"));
     }
     let mut format = Format(source.iter().copied().peekable());
-    let mut va = c.va_list(5)?;
+    let mut va = c.va_list(va_index)?;
     let mut out = Output {
         base,
         capacity,
@@ -394,7 +425,7 @@ fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
     };
     let legacy = options & LEGACY_TERMINATION != 0;
     let standard = options & STANDARD_SNPRINTF != 0;
-    let count_through = standard || base == 0;
+    let count_through = !secure && (standard || base == 0);
     while (count_through || out.count <= capacity)
         && let Some(unit) = format.0.next()
     {
@@ -421,11 +452,13 @@ fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
                     Length::Int => ty.is_ascii_uppercase(),
                     _ => return Err(c.unsupported("UCRT string argument length modifier")),
                 };
-                if read_wide && !wide {
-                    return Err(c.unsupported("UCRT wide string conversion to a byte buffer"));
-                }
                 let arg = c.va_next(&mut va, false)?;
                 if ty.eq_ignore_ascii_case(&b'c') {
+                    if read_wide && !wide {
+                        return Err(
+                            c.unsupported("UCRT wide character conversion to a byte buffer")
+                        );
+                    }
                     if read_wide {
                         spec.emit(c, &mut out, Text::Wide(&[arg as u16]), &[], 0, false)?;
                     } else {
@@ -439,7 +472,35 @@ fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
                 if read_wide && address != 0 {
                     let units = c.mem().wstr(address, bounded)?;
                     check_string_limit(c, units.len(), limit)?;
-                    spec.emit(c, &mut out, Text::Wide(&units), &[], 0, false)?;
+                    if wide {
+                        spec.emit(c, &mut out, Text::Wide(&units), &[], 0, false)?;
+                    } else {
+                        // The guest C locale represents U+0000 through U+00FF as single bytes.
+                        let bytes: Vec<_> = units
+                            .iter()
+                            .map(|&unit| u8::try_from(unit))
+                            .map_while(Result::ok)
+                            .collect();
+                        if bytes.len() != units.len() {
+                            if !spec.left {
+                                out.pad(c, b' ', spec.width.saturating_sub(units.len() as u64))?;
+                            }
+                            out.write(c, &bytes)?;
+                            state::set_errno(c, kind, 42)?; // EILSEQ
+                            if capacity != 0 {
+                                if secure || (!legacy && standard) {
+                                    c.mem().w8(base, 0)?;
+                                } else if out.count < capacity {
+                                    c.mem().w8(out.address(c, out.count)?, 0)?;
+                                } else if !legacy {
+                                    c.mem().w8(out.address(c, capacity - 1)?, 0)?;
+                                    return result(-2);
+                                }
+                            }
+                            return result(-1);
+                        }
+                        spec.emit(c, &mut out, Text::Bytes(&bytes), &[], 0, false)?;
+                    }
                 } else {
                     let bytes = if address == 0 {
                         b"(null)"[..limit.min(6) as usize].to_vec()
@@ -450,7 +511,12 @@ fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
                     spec.emit(c, &mut out, Text::Bytes(&bytes), &[], 0, false)?;
                 }
             }
-            None | Some(b'n') => return invalid_parameter(c),
+            None | Some(b'n') => {
+                if secure {
+                    c.mem().w8(base, 0)?;
+                }
+                return invalid_parameter(c, kind);
+            }
             Some(ty) => {
                 return Err(
                     c.unsupported(format!("UCRT buffer format conversion %{}", char::from(ty)))
@@ -460,6 +526,11 @@ fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
     }
     let used = out.count.min(capacity);
     let fits = out.count < capacity;
+    if secure && !fits {
+        c.mem().w8(base, 0)?;
+        state::set_errno(c, kind, 34)?;
+        return invalid::invoke(c, kind, [0; 5], Box::new(|_, _| result(-1)));
+    }
     if capacity != 0 && (fits || !legacy) {
         let at = out.address(c, used.min(capacity - 1))?;
         if wide {
@@ -479,7 +550,7 @@ fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
     match i32::try_from(out.count) {
         Ok(count) => result(count),
         Err(_) => {
-            state::set_errno(c, RuntimeKind::Ucrt, 132)?;
+            state::set_errno(c, kind, 132)?;
             result(-1)
         }
     }
@@ -498,6 +569,83 @@ mod tests {
     use crate::user::windows::dll::crt::tests::{area, int, invoke, run};
 
     const NAME: &str = "__stdio_common_vsprintf";
+
+    #[test]
+    fn secure_format_clears_the_output_on_overflow() {
+        run(|c| {
+            let output = area(c);
+            let format = output + 32;
+            c.mem().wr(format, b"abc\0").unwrap();
+            c.mem().wr(output, &[0x7f; 5]).unwrap();
+            let args = [0, output, 4, format, 0, output + 64];
+            let call = "__stdio_common_vsprintf_s";
+            assert_eq!(int(invoke(c, RuntimeKind::Ucrt, call, &args)), 3);
+            assert_eq!(c.mem().bytes(output, 5).unwrap(), b"abc\0\x7f");
+            let mut args = args;
+            args[2] = 3;
+            assert!(matches!(
+                invoke(c, RuntimeKind::Ucrt, call, &args),
+                Ok(Flow::TerminateProcess(
+                    crate::user::windows::nt::status::STATUS_STACK_BUFFER_OVERRUN
+                ))
+            ));
+            assert_eq!(c.mem().u8(output).unwrap(), 0);
+            assert_eq!(c.mem().u8(output + 4).unwrap(), 0x7f);
+        });
+    }
+
+    #[test]
+    fn narrow_format_converts_wide_strings_in_the_c_locale() {
+        run(|c| {
+            let output = area(c);
+            let format = output + 64;
+            let text = output + 128;
+            let arguments = output + 192;
+            c.mem().put_wstr(text, &[0x41, 0xe9, 0x100]).unwrap();
+            c.mem().wptr(arguments, c.psize(), text).unwrap();
+            c.mem().wr(format, b"[%4.2S]\0").unwrap();
+            let args = [0, output, 16, format, 0, arguments];
+            assert_eq!(int(invoke(c, RuntimeKind::Ucrt, NAME, &args)), 6);
+            assert_eq!(c.mem().bytes(output, 7).unwrap(), b"[  A\xe9]\0");
+
+            c.mem().wr(format, b"[%S]\0").unwrap();
+            assert_eq!(
+                int(invoke(c, RuntimeKind::Ucrt, NAME, &args)),
+                u64::from(u32::MAX)
+            );
+            assert_eq!(c.mem().bytes(output, 4).unwrap(), b"[A\xe9\0");
+        });
+    }
+
+    #[test]
+    fn msvcrt_wide_format_uses_utf16_strings_and_legacy_truncation() {
+        run(|c| {
+            let output = area(c);
+            let format = output + 64;
+            let text = output + 128;
+            let arguments = output + 192;
+            c.mem().put_wstr(format, &[0x25, 0x73, 0x21]).unwrap();
+            c.mem().put_wstr(text, &[0x3bb, 0x3c0]).unwrap();
+            c.mem().wptr(arguments, c.psize(), text).unwrap();
+            for (capacity, expected_return, expected) in [
+                (4, 3, [0x3bb, 0x3c0, 0x21, 0]),
+                (3, 3, [0x3bb, 0x3c0, 0x21, 0xfeed]),
+                (2, u64::from(u32::MAX), [0x3bb, 0x3c0, 0xfeed, 0xfeed]),
+            ] {
+                c.mem().put_wunits(output, &[0xfeed; 4]).unwrap();
+                assert_eq!(
+                    int(invoke(
+                        c,
+                        RuntimeKind::Msvcrt,
+                        "_vsnwprintf",
+                        &[output, capacity, format, arguments]
+                    )),
+                    expected_return
+                );
+                assert_eq!(c.mem().wunits(output, 4).unwrap(), expected);
+            }
+        });
+    }
 
     #[test]
     fn wide_buffer_counts_utf16_units_and_preserves_the_private_alias() {

@@ -33,22 +33,8 @@ pub(super) const POLICY_SUFFIX: &str =
     "\\Software\\Policies\\Microsoft\\Windows\\Safer\\CodeIdentifiers";
 
 pub(super) fn user_hive_path(sid: &[u8]) -> io::Result<Vec<u16>> {
-    if super::super::security::sid(sid) != Some(sid) {
-        return Err(invalid("invalid primary SID for runtime policy selection"));
-    }
-    let authority = sid[2..8]
-        .iter()
-        .fold(0u64, |n, &byte| (n << 8) | u64::from(byte));
-    let authority = if authority > u64::from(u32::MAX) {
-        format!("0x{authority:X}")
-    } else {
-        authority.to_string()
-    };
-    let mut text = format!("S-1-{authority}");
-    for subauthority in sid[8..].chunks_exact(4) {
-        let value = u32::from_le_bytes(subauthority.try_into().unwrap());
-        text.push_str(&format!("-{value}"));
-    }
+    let text = super::super::security::sid_text(sid)
+        .ok_or_else(|| invalid("invalid primary SID for runtime policy selection"))?;
     Ok(format!("\\Registry\\User\\{text}").encode_utf16().collect())
 }
 

@@ -96,6 +96,9 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
         /// Enable the portable GameOS guest memory partition profile.
         #[arg(long)]
         windows_gameos: bool,
+        /// Enable the isolated GameOS launch model for offline analysis.
+        #[arg(long, requires = "windows_gameos")]
+        windows_gameos_analysis: bool,
         /// Map a Windows drive letter to a host directory (repeatable C=/dir).
         #[arg(long, value_name = "LETTER=DIR")]
         drive: Vec<String>,
@@ -291,6 +294,7 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
                 return 126;
             }
             config.gameos = cli.windows_gameos;
+            config.gameos_analysis = cli.windows_gameos_analysis;
             #[cfg(windows)]
             {
                 // Preserve native drive identities even when the executable

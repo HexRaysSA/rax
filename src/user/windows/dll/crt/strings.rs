@@ -46,7 +46,14 @@ pub(crate) static UCRT_SECURE_STRING_EXPORTS: &[Export] = &[Export::func(
     "wcscat_s",
     Cdecl,
     &[Ptr, Ptr, Ptr],
-    wide_concat_secure,
+    secure_string_write,
+)];
+
+pub(crate) static UCRT_SECURE_COPY_EXPORTS: &[Export] = &[Export::func(
+    "strcpy_s",
+    Cdecl,
+    &[Ptr, Ptr, Ptr],
+    secure_string_write,
 )];
 
 pub(crate) static UCRT_CASE_STRING_EXPORTS: &[Export] = &[Export::func(
@@ -56,31 +63,36 @@ pub(crate) static UCRT_CASE_STRING_EXPORTS: &[Export] = &[Export::func(
     compare_api,
 )];
 
-fn wide_concat_secure(c: &mut Ctx) -> ApiResult {
+fn secure_string_write(c: &mut Ctx) -> ApiResult {
     let (dest, capacity, source) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?);
     if dest == 0 || capacity == 0 {
-        return concat_error(c, 22);
+        return secure_string_error(c, 22);
     }
-    let end = string_len(c, dest, 2, Some(capacity))?;
+    let unit = units(c);
+    let end = if c.api.name == "wcscat_s" {
+        string_len(c, dest, unit, Some(capacity))?
+    } else {
+        0
+    };
     if source == 0 || end == capacity {
-        write_unit(c, dest, 0, 2, 0)?;
-        return concat_error(c, 22);
+        write_unit(c, dest, 0, unit, 0)?;
+        return secure_string_error(c, 22);
     }
     let available = capacity - end;
-    let length = string_len(c, source, 2, Some(available))?;
+    let length = string_len(c, source, unit, Some(available))?;
     if length == available {
-        write_unit(c, dest, 0, 2, 0)?;
-        return concat_error(c, 34);
+        write_unit(c, dest, 0, unit, 0)?;
+        return secure_string_error(c, 34);
     }
     for index in 0..length {
-        let value = read_unit(c, source, index, 2)?;
-        write_unit(c, dest, end + index, 2, value)?;
+        let value = read_unit(c, source, index, unit)?;
+        write_unit(c, dest, end + index, unit, value)?;
     }
-    write_unit(c, dest, end + length, 2, 0)?;
+    write_unit(c, dest, end + length, unit, 0)?;
     Flow::ret(0)
 }
 
-fn concat_error(c: &mut Ctx, errno: u32) -> ApiResult {
+fn secure_string_error(c: &mut Ctx, errno: u32) -> ApiResult {
     let kind = super::runtime(c)?;
     super::state::set_errno(c, kind, errno)?;
     super::invalid::invoke(

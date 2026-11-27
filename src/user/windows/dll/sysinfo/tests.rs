@@ -1,6 +1,66 @@
 use super::*;
 
 #[test]
+fn computer_name_ex_w_reports_sizes_and_configured_parts_all_abis() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        std::sync::Arc::make_mut(&mut p.cfg).computer_name = "Guest.example".to_string();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let output = p.peb + 0x800;
+        let size = output + 0x100;
+        p.space.w32(size, 0).unwrap();
+        assert_eq!(
+            returned(call(p, &mut t, "GetComputerNameExW", &[0, 0, size])),
+            0
+        );
+        assert_eq!(p.space.u32(size).unwrap(), 6);
+        for (kind, name) in [(0, "Guest"), (2, "example"), (7, "Guest.example")] {
+            p.space.w32(size, 64).unwrap();
+            assert_eq!(
+                returned(call(p, &mut t, "GetComputerNameExW", &[kind, output, size])),
+                1
+            );
+            assert_eq!(p.space.u32(size).unwrap(), name.len() as u32);
+            assert!(
+                p.space
+                    .wunits(output, name.len() + 1)
+                    .unwrap()
+                    .into_iter()
+                    .eq(name.encode_utf16().chain([0]))
+            );
+        }
+    }
+}
+
+#[test]
+fn product_type_reads_guest_shared_data_all_abis() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let output = p.peb + 0x800;
+        p.vm.poke(
+            KUSER_SHARED_DATA + kuser::NT_PRODUCT_TYPE,
+            &3u32.to_le_bytes(),
+        )
+        .unwrap();
+        assert_eq!(
+            returned(call(p, &mut t, "RtlGetNtProductType", &[output])),
+            1
+        );
+        assert_eq!(p.space.u32(output).unwrap(), 3);
+        p.vm.poke(KUSER_SHARED_DATA + kuser::PRODUCT_TYPE_IS_VALID, &[0])
+            .unwrap();
+        assert_eq!(
+            returned(call(p, &mut t, "RtlGetNtProductType", &[output])),
+            0
+        );
+        assert_eq!(p.space.u32(output).unwrap(), 1);
+    }
+}
+
+#[test]
 fn state_separation_reads_the_guest_shared_data_flag() {
     for arch in WinArch::ALL {
         let mut process = spawn(arch);
@@ -209,6 +269,8 @@ fn call(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> ApiResult {
         .chain(TOPOLOGY_EXPORTS)
         .chain(XSTATE_EXPORTS)
         .chain(NTDLL_VERSION_EXPORTS)
+        .chain(NTDLL_PRODUCT_TYPE_EXPORTS)
+        .chain(COMPUTER_NAME_EXPORTS)
         .chain(NTDLL_GLOBAL_DATA_EXPORTS)
         .chain(NTDLL_CPU_NUMBER_EXPORTS)
         .chain(NTDLL_DEVICE_FAMILY_EXPORTS)

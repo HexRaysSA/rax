@@ -4,6 +4,10 @@ use super::super::{
     hle::{ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow},
     memory::Mem,
     nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOT_ENOUGH_MEMORY},
+    nt::status::{
+        STATUS_INSUFFICIENT_RESOURCES, STATUS_INVALID_HANDLE, STATUS_INVALID_PARAMETER,
+        STATUS_SUCCESS,
+    },
     objects::{ObjId, Object, Timer2Schedule},
     process::{Proc, thread},
     sync::Wait,
@@ -45,6 +49,38 @@ pub(super) static KERNEL32_WORK_FORWARDS: &[Export] = &[
     ),
 ];
 
+pub(super) static KERNEL32_WAIT_FORWARDS: &[Export] = &[
+    Export::forward("CreateThreadpoolWait", "KERNELBASE.CreateThreadpoolWait"),
+    Export::forward("SetThreadpoolWait", "KERNELBASE.SetThreadpoolWait"),
+    Export::forward(
+        "WaitForThreadpoolWaitCallbacks",
+        "KERNELBASE.WaitForThreadpoolWaitCallbacks",
+    ),
+    Export::forward("CloseThreadpoolWait", "KERNELBASE.CloseThreadpoolWait"),
+];
+
+pub(super) static WAIT_EXPORTS: &[Export] = &[
+    Export::func(
+        "CreateThreadpoolWait",
+        Stdcall,
+        &[Ptr, Ptr, Ptr],
+        create_event_wait,
+    ),
+    Export::func(
+        "SetThreadpoolWait",
+        Stdcall,
+        &[Ptr, Ptr, Ptr],
+        set_event_wait,
+    ),
+    Export::func(
+        "WaitForThreadpoolWaitCallbacks",
+        Stdcall,
+        &[Ptr, I32],
+        wait_event_callbacks,
+    ),
+    Export::func("CloseThreadpoolWait", Stdcall, &[Ptr], close_event_wait),
+];
+
 pub(super) static WORK_EXPORTS: &[Export] = &[
     Export::func(
         "CreateThreadpoolWork",
@@ -68,17 +104,179 @@ pub(super) static WORK_EXPORTS: &[Export] = &[
     ),
 ];
 
+pub(super) static CALLBACK_HINT_EXPORTS: &[Export] = &[Export::func(
+    "CallbackMayRunLong",
+    Stdcall,
+    &[Ptr],
+    callback_may_run_long,
+)];
+
+pub(super) static KERNEL32_CALLBACK_HINT_FORWARDS: &[Export] = &[Export::forward(
+    "CallbackMayRunLong",
+    "KERNELBASE.CallbackMayRunLong",
+)];
+
+pub(super) static NATIVE_ANALYSIS_EXPORTS: &[Export] = &[
+    Export::func("TpAllocWork", Stdcall, &[Ptr, Ptr, Ptr, Ptr], tp_alloc_work),
+    Export::func("TpReleaseWork", Stdcall, &[Ptr], close_work),
+    Export::func("TpPostWork", Stdcall, &[Ptr], submit_work),
+    Export::func("TpWaitForWork", Stdcall, &[Ptr, I32], wait_work),
+    Export::func(
+        "TpAllocIoCompletion",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr],
+        tp_alloc_io,
+    ),
+    Export::func("TpReleaseIoCompletion", Stdcall, &[Ptr], tp_release_io),
+    Export::func("TpStartAsyncIoOperation", Stdcall, &[Ptr], tp_start_io),
+    Export::func("TpCancelAsyncIoOperation", Stdcall, &[Ptr], tp_cancel_io),
+    Export::func("TpDisassociateCallback", Stdcall, &[Ptr], tp_disassociate),
+    Export::func("TpWaitForIoCompletion", Stdcall, &[Ptr, I32], tp_wait_io),
+];
+
+fn tp_alloc_work(c: &mut Ctx) -> ApiResult {
+    let (out, callback, context, environment) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?, c.ptr(3)?);
+    if out == 0 || callback == 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    if environment != 0 {
+        return Err(c.unsupported("TpAllocWork with a custom callback environment"));
+    }
+    publish_native(
+        c,
+        out,
+        Object::ThreadpoolWork {
+            callback,
+            context,
+            pending: 0,
+        },
+    )
+}
+
+fn tp_alloc_io(c: &mut Ctx) -> ApiResult {
+    let (out, handle, callback, context, environment) =
+        (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?, c.ptr(3)?, c.ptr(4)?);
+    if out == 0 || callback == 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    if environment != 0 || !c.p.cfg.gameos_analysis {
+        return Err(c.unsupported("TpAllocIoCompletion outside the default GameOS analysis queue"));
+    }
+    let Some(file) = c.p.objects.id(handle) else {
+        return Flow::ret(STATUS_INVALID_HANDLE.into());
+    };
+    if !matches!(c.p.objects.obj(file), Some(Object::GameOsXvcQueue { .. })) {
+        return Err(c.unsupported("TpAllocIoCompletion for an unsupported file type"));
+    }
+    c.p.objects.retain(file);
+    publish_native(
+        c,
+        out,
+        Object::ThreadpoolIo {
+            file,
+            callback,
+            context,
+            armed: 0,
+        },
+    )
+}
+
+fn publish_native(c: &mut Ctx, out: u64, registration: Object) -> ApiResult {
+    let file = match &registration {
+        Object::ThreadpoolIo { file, .. } => Some(*file),
+        _ => None,
+    };
+    let Some(object) = c.p.objects.try_create(registration) else {
+        if let Some(file) = file {
+            c.p.objects.release(file);
+        }
+        return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into());
+    };
+    let Some(handle) = c.p.objects.open_access(object, false, 0) else {
+        c.p.objects.release(object);
+        return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into());
+    };
+    if let Err(fault) = c.write_ptr(out, u64::from(handle)) {
+        let _ = c.p.objects.close(handle.into());
+        return Err(fault.into());
+    }
+    Flow::ret(STATUS_SUCCESS.into())
+}
+
+fn tp_release_io(c: &mut Ctx) -> ApiResult {
+    let handle = c.ptr(0)?;
+    if !matches!(c.p.objects.get(handle), Some(Object::ThreadpoolIo { .. })) {
+        return Err(c.unsupported("TpReleaseIoCompletion with an invalid registration"));
+    }
+    c.p.objects
+        .close(handle)
+        .map_err(|()| c.unsupported("protected thread-pool I/O registration"))?;
+    Flow::void()
+}
+
+fn tp_start_io(c: &mut Ctx) -> ApiResult {
+    change_io_count(c, u32::checked_add)
+}
+
+fn tp_cancel_io(c: &mut Ctx) -> ApiResult {
+    change_io_count(c, u32::checked_sub)
+}
+
+fn tp_wait_io(c: &mut Ctx) -> ApiResult {
+    let (handle, cancel) = (c.ptr(0)?, c.u32(1)? != 0);
+    let Some(id) =
+        c.p.objects
+            .id(handle)
+            .filter(|id| matches!(c.p.objects.obj(*id), Some(Object::ThreadpoolIo { .. })))
+    else {
+        return Err(c.unsupported("TpWaitForIoCompletion with an invalid registration"));
+    };
+    wait_callbacks(c, id, cancel)
+}
+
+fn change_io_count(c: &mut Ctx, change: fn(u32, u32) -> Option<u32>) -> ApiResult {
+    let handle = c.ptr(0)?;
+    let Some(id) = c.p.objects.id(handle) else {
+        return Err(c.unsupported("invalid thread-pool I/O registration"));
+    };
+    if let Some(Object::ThreadpoolIo { armed, .. }) = c.p.objects.obj_mut(id)
+        && let Some(next) = change(*armed, 1)
+    {
+        *armed = next;
+        return Flow::void();
+    }
+    Err(c.unsupported("invalid thread-pool I/O operation count"))
+}
+
 #[derive(Debug)]
 pub(crate) struct WorkCall {
     object: ObjId,
     handle: u64,
     instance: u64,
+    disassociated: bool,
+    args: CallbackArgs,
     events: Vec<ObjId>,
+}
+
+#[derive(Debug)]
+enum CallbackArgs {
+    Work,
+    Wait(u64),
+    Io { context: u64, status: u64 },
 }
 
 pub(crate) fn work_arguments(p: &Proc, tid: u32, context: u64) -> Option<Vec<u64>> {
     let call = p.sync.pool_workers.get(&tid)?;
-    Some(vec![call.instance, context, call.handle])
+    let mut args = vec![call.instance, context, call.handle];
+    match call.args {
+        CallbackArgs::Work => {}
+        CallbackArgs::Wait(result) => args.push(result),
+        CallbackArgs::Io { context, status } => {
+            args.truncate(2);
+            args.extend([context, status, call.handle]);
+        }
+    }
+    Some(args)
 }
 
 pub(crate) fn retire_work(p: &mut Proc, tid: u32, returned: bool) {
@@ -91,9 +289,8 @@ pub(crate) fn retire_work(p: &mut Proc, tid: u32, returned: bool) {
         }
         p.objects.release(event);
     }
-    match p.objects.obj_mut(call.object) {
-        Some(Object::ThreadpoolWork { pending, .. }) if *pending != 0 => *pending -= 1,
-        _ => p.fail("thread-pool worker has no outstanding registration".to_owned()),
+    if !call.disassociated && !complete_work(p, call.object) {
+        p.fail("thread-pool worker has no outstanding registration".to_owned());
     }
     p.objects.release(call.object);
     if let Err(error) = p.heaps.free(p.process_heap, call.instance) {
@@ -101,6 +298,53 @@ pub(crate) fn retire_work(p: &mut Proc, tid: u32, returned: bool) {
             "thread-pool callback instance cleanup failed: {error:?}"
         ));
     }
+}
+
+fn complete_work(p: &mut Proc, id: ObjId) -> bool {
+    if let Some(
+        Object::ThreadpoolWork { pending, .. }
+        | Object::ThreadpoolWait { pending, .. }
+        | Object::ThreadpoolIo { armed: pending, .. },
+    ) = p.objects.obj_mut(id)
+        && *pending != 0
+    {
+        *pending -= 1;
+        return true;
+    }
+    false
+}
+
+fn tp_disassociate(c: &mut Ctx) -> ApiResult {
+    let instance = c.ptr(0)?;
+    let Some(call) =
+        c.p.sync
+            .pool_workers
+            .get_mut(&c.t.tid)
+            .filter(|call| call.instance == instance)
+    else {
+        return Err(c.unsupported("TpDisassociateCallback requires the current callback instance"));
+    };
+    let object = call.object;
+    if !std::mem::replace(&mut call.disassociated, true) && !complete_work(c.p, object) {
+        return Err(c.unsupported("thread-pool callback has no outstanding registration"));
+    }
+    Flow::void()
+}
+
+fn callback_may_run_long(c: &mut Ctx) -> ApiResult {
+    let instance = c.ptr(0)?;
+    if !c
+        .p
+        .sync
+        .pool_workers
+        .get(&c.t.tid)
+        .is_some_and(|call| call.instance == instance)
+    {
+        return Err(c.unsupported("CallbackMayRunLong requires the current callback instance"));
+    }
+    // Each submission has its own guest worker. A long callback does not
+    // reserve a shared worker slot or delay dispatch of another submission.
+    Flow::bool(true)
 }
 
 fn create_work(c: &mut Ctx) -> ApiResult {
@@ -127,53 +371,107 @@ fn submit_work(c: &mut Ctx) -> ApiResult {
         return Err(c.unsupported("SubmitThreadpoolWork for an invalid work object"));
     };
     let Some(&Object::ThreadpoolWork {
-        callback,
-        context,
-        pending,
+        callback, context, ..
     }) = c.p.objects.obj(object)
     else {
         return Err(c.unsupported("SubmitThreadpoolWork for a non-work object"));
     };
-    let pending = pending
-        .checked_add(1)
-        .ok_or_else(|| c.unsupported("thread-pool work submission count overflow"))?;
-    let instance_size = c.psize();
-    let Some(instance) =
-        c.p.heaps
-            .alloc(&mut c.p.vm, c.p.process_heap, instance_size, true)
-    else {
-        return Err(c.unsupported("cannot allocate a thread-pool callback instance"));
+    submit_callback(c.p, object, handle, callback, context, CallbackArgs::Work)
+        .map_err(|error| c.unsupported(error))?;
+    Flow::void()
+}
+
+fn submit_callback(
+    p: &mut Proc,
+    object: ObjId,
+    handle: u64,
+    callback: u64,
+    context: u64,
+    args: CallbackArgs,
+) -> Result<(), String> {
+    let pending = match p.objects.obj(object) {
+        Some(Object::ThreadpoolWork { pending, .. } | Object::ThreadpoolWait { pending, .. }) => {
+            pending
+                .checked_add(1)
+                .ok_or("thread-pool submission count overflow")?
+        }
+        Some(Object::ThreadpoolIo { armed, .. }) if *armed != 0 => *armed,
+        _ => return Err("invalid thread-pool registration".to_owned()),
     };
-    let tid = match thread::create(c.p, callback, context, 0, false) {
+    let Some(instance) = p
+        .heaps
+        .alloc(&mut p.vm, p.process_heap, p.arch.ptr_size(), true)
+    else {
+        return Err("cannot allocate a thread-pool callback instance".to_owned());
+    };
+    let tid = match thread::create(p, callback, context, 0, false) {
         Ok(tid) => tid,
         Err(status) => {
-            c.p.heaps
-                .free(c.p.process_heap, instance)
-                .map_err(|error| {
-                    c.unsupported(format!("thread-pool callback instance cleanup: {error:?}"))
-                })?;
-            return Err(c.unsupported(format!(
+            p.heaps
+                .free(p.process_heap, instance)
+                .map_err(|error| format!("thread-pool callback instance cleanup: {error:?}"))?;
+            return Err(format!(
                 "cannot create a thread-pool worker ({status:#010x})"
-            )));
+            ));
         }
     };
-    if let Some(Object::ThreadpoolWork {
-        pending: current, ..
-    }) = c.p.objects.obj_mut(object)
+    if let Some(
+        Object::ThreadpoolWork {
+            pending: current, ..
+        }
+        | Object::ThreadpoolWait {
+            pending: current, ..
+        },
+    ) = p.objects.obj_mut(object)
     {
         *current = pending;
     }
-    c.p.objects.retain(object);
-    c.p.sync.pool_workers.insert(
+    p.objects.retain(object);
+    p.sync.pool_workers.insert(
         tid,
         WorkCall {
             object,
             handle,
             instance,
+            disassociated: false,
+            args,
             events: Vec::new(),
         },
     );
-    Flow::void()
+    Ok(())
+}
+
+pub(super) fn complete_io(
+    p: &mut Proc,
+    file: ObjId,
+    context: u64,
+    status: u64,
+) -> Result<(), String> {
+    let Some((object, callback, callback_context)) =
+        p.objects.iter().find_map(|(id, object)| match object {
+            Object::ThreadpoolIo {
+                file: registered,
+                callback,
+                context,
+                armed,
+            } if *registered == file && *armed != 0 => Some((id, *callback, *context)),
+            _ => None,
+        })
+    else {
+        return Ok(());
+    };
+    let handle = p
+        .objects
+        .handle_for(object)
+        .ok_or("thread-pool I/O registration lost its handle")?;
+    submit_callback(
+        p,
+        object,
+        handle,
+        callback,
+        callback_context,
+        CallbackArgs::Io { context, status },
+    )
 }
 
 fn wait_work(c: &mut Ctx) -> ApiResult {
@@ -185,11 +483,15 @@ fn wait_work(c: &mut Ctx) -> ApiResult {
     else {
         return Err(c.unsupported("WaitForThreadpoolWorkCallbacks for an invalid work object"));
     };
+    wait_callbacks(c, id, cancel)
+}
+
+fn wait_callbacks(c: &mut Ctx, id: ObjId, cancel: bool) -> ApiResult {
     if c.p
         .sync
         .pool_workers
         .get(&c.t.tid)
-        .is_some_and(|call| call.object == id)
+        .is_some_and(|call| call.object == id && !call.disassociated)
     {
         return Err(c.unsupported("thread-pool callback cannot wait for itself"));
     }
@@ -214,7 +516,11 @@ fn wait_work(c: &mut Ctx) -> ApiResult {
     }
     if matches!(
         c.p.objects.obj(id),
-        Some(Object::ThreadpoolWork { pending: 0, .. })
+        Some(
+            Object::ThreadpoolWork { pending: 0, .. }
+                | Object::ThreadpoolWait { pending: 0, .. }
+                | Object::ThreadpoolIo { armed: 0, .. }
+        )
     ) {
         return Flow::void();
     }
@@ -238,6 +544,124 @@ fn close_work(c: &mut Ctx) -> ApiResult {
         .close(work)
         .map_err(|()| c.unsupported("CloseThreadpoolWork for a protected work object"))?;
     Flow::void()
+}
+
+fn create_event_wait(c: &mut Ctx) -> ApiResult {
+    let (callback, context, environment) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?);
+    if callback == 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    if environment != 0 {
+        return Err(c.unsupported("CreateThreadpoolWait with a custom callback environment"));
+    }
+    allocate(
+        c,
+        Object::ThreadpoolWait {
+            callback,
+            context,
+            armed: None,
+            pending: 0,
+        },
+    )
+}
+
+fn event_wait_id(c: &Ctx, handle: u64) -> Option<ObjId> {
+    c.p.objects
+        .id(handle)
+        .filter(|&id| matches!(c.p.objects.obj(id), Some(Object::ThreadpoolWait { .. })))
+}
+
+fn arm_event_wait(p: &mut Proc, id: ObjId, arm: Option<(u64, ObjId)>) {
+    let Some(Object::ThreadpoolWait { armed, .. }) = p.objects.obj_mut(id) else {
+        p.sync.pool_waits.remove(&id);
+        return;
+    };
+    let old = std::mem::replace(armed, arm);
+    if let Some((_, event)) = arm {
+        p.objects.retain(event);
+        p.sync.pool_waits.insert(id);
+    } else {
+        p.sync.pool_waits.remove(&id);
+    }
+    if let Some((_, event)) = old {
+        p.objects.release(event);
+    }
+}
+
+fn set_event_wait(c: &mut Ctx) -> ApiResult {
+    let (handle, event, due) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?);
+    let Some(id) = event_wait_id(c, handle) else {
+        return Err(c.unsupported("SetThreadpoolWait for an invalid registration"));
+    };
+    let arm = if event == 0 {
+        None
+    } else {
+        if due != 0 {
+            return Err(c.unsupported("SetThreadpoolWait with a timeout"));
+        }
+        let Some(event_id) = c.p.objects.id(event).filter(|&id| {
+            matches!(c.p.objects.obj(id), Some(Object::Event { .. }))
+                && c.p
+                    .objects
+                    .access(event)
+                    .is_some_and(|access| access & 0x0010_0000 != 0)
+        }) else {
+            return Err(
+                c.unsupported("SetThreadpoolWait requires an event with synchronize access")
+            );
+        };
+        Some((handle, event_id))
+    };
+    arm_event_wait(c.p, id, arm);
+    Flow::void()
+}
+
+fn wait_event_callbacks(c: &mut Ctx) -> ApiResult {
+    let (handle, cancel) = (c.ptr(0)?, c.u32(1)? != 0);
+    let Some(id) = event_wait_id(c, handle) else {
+        return Err(c.unsupported("WaitForThreadpoolWaitCallbacks for an invalid registration"));
+    };
+    wait_callbacks(c, id, cancel)
+}
+
+fn close_event_wait(c: &mut Ctx) -> ApiResult {
+    let handle = c.ptr(0)?;
+    let Some(id) = event_wait_id(c, handle) else {
+        return Err(c.unsupported("CloseThreadpoolWait for an invalid registration"));
+    };
+    c.p.objects
+        .close(handle)
+        .map_err(|()| c.unsupported("CloseThreadpoolWait for a protected registration"))?;
+    arm_event_wait(c.p, id, None);
+    Flow::void()
+}
+
+pub(crate) fn poll_event_waits(p: &mut Proc) -> Result<(), String> {
+    let waits: Vec<_> = p.sync.pool_waits.iter().copied().collect();
+    for id in waits {
+        let Some(&Object::ThreadpoolWait {
+            callback,
+            context,
+            armed: Some((handle, event)),
+            ..
+        }) = p.objects.obj(id)
+        else {
+            p.sync.pool_waits.remove(&id);
+            continue;
+        };
+        let Some(&Object::Event { manual, signaled }) = p.objects.obj(event) else {
+            return Err("thread-pool wait lost its event".to_owned());
+        };
+        if signaled == 0 {
+            continue;
+        }
+        submit_callback(p, id, handle, callback, context, CallbackArgs::Wait(0))?;
+        if !manual && let Some(Object::Event { signaled, .. }) = p.objects.obj_mut(event) {
+            *signaled = 0;
+        }
+        arm_event_wait(p, id, None);
+    }
+    Ok(())
 }
 
 fn set_event_on_return(c: &mut Ctx) -> ApiResult {

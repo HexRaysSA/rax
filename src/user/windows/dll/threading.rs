@@ -41,6 +41,18 @@ pub(super) static SYNC_EX_EXPORTS: &[Export] = &[
     ),
 ];
 
+pub(super) static OPEN_MAPPING_EXPORTS: &[Export] = &[Export::func(
+    "OpenFileMappingW",
+    Stdcall,
+    &[I32, I32, Ptr],
+    objects::open_file_mapping_w,
+)];
+
+pub(super) static OPEN_MAPPING_FORWARDS: &[Export] = &[Export::forward(
+    "OpenFileMappingW",
+    "KERNELBASE.OpenFileMappingW",
+)];
+
 pub(super) static PROCESS_PRIORITY_EXPORTS: &[Export] = &[
     Export::func(
         "SetProcessPriorityBoost",

@@ -1,18 +1,28 @@
 //! Read-only REGF mount for a loose GameOS title's configuration.
 use super::{BasicChild, Key, KeyTree, Lookup, Registry, Value, invalid, tree};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 const NAME: &str = "GAMECONFIG";
 const ROOT: &str = "\\Registry\\Machine\\GAMECONFIG";
+const GAMECORE: &str = r"\Registry\Machine\Software\Microsoft\GameCore";
+#[cfg(test)]
+const APP_INFO: &str = "\\Registry\\Machine\\Software\\Microsoft\\GameCore\\AppInfo";
 const MAX_HIVE_BYTES: usize = 1 << 20;
 const HIVE_BASE: usize = 0x1000;
 const BIG_DATA_THRESHOLD: usize = 0x3fd8;
 
 impl Registry {
+    /// The retained GameOS SOFTWARE hive has no packaged COM catalog.
+    pub(crate) fn gameos_analysis_missing_key(path: &[u16]) -> bool {
+        const PACKAGED_COM: &str = r"\Registry\Machine\SOFTWARE\Classes\PackagedCom";
+        path.len() == PACKAGED_COM.len() && strip_component(path, PACKAGED_COM).is_some()
+    }
+
     pub(crate) fn mount_game_config(&mut self, image: &Path) -> io::Result<()> {
         let path = image.with_file_name("microsoft_gameconfig.bin");
         let metadata = match path.metadata() {
@@ -34,8 +44,48 @@ impl Registry {
         Ok(())
     }
 
-    pub(crate) fn is_game_config_subkey(&self, path: &[u16]) -> bool {
-        self.game_config.is_some() && strip_component(path, NAME).is_some()
+    pub(crate) fn is_portable_machine_subkey(&self, path: &[u16]) -> bool {
+        (self.game_config.is_some() && strip_component(path, NAME).is_some())
+            || strip_component(path, r"Software\Microsoft\GameCore")
+                .and_then(|relative| self.gameos_launch_subkey(relative))
+                .is_some()
+    }
+
+    pub(crate) fn mount_gameos_launch_info(&mut self) -> io::Result<()> {
+        let mut children = Vec::new();
+        if let Some(identity) = self.game_config.as_deref().and_then(package_identity) {
+            children.push((
+                "AppInfo".encode_utf16().collect(),
+                KeyTree {
+                    values: vec![reg_sz("PackageIdentity", &identity)],
+                    children: Vec::new(),
+                },
+            ));
+        }
+        self.gameos_launch_info = Some(tree::build(
+            portable_case_table(),
+            GAMECORE.encode_utf16().collect(),
+            KeyTree {
+                values: vec![reg_sz("SandboxId", "RAX-OFFLINE")],
+                children,
+            },
+            0,
+            &mut Default::default(),
+            &mut Default::default(),
+            None,
+        )?);
+        Ok(())
+    }
+
+    fn gameos_launch_subkey(&self, relative: &[u16]) -> Option<Arc<Key>> {
+        match self.gameos_launch_info.as_ref()?.relative(relative) {
+            Lookup::Present(key) => Some(key),
+            _ => None,
+        }
+    }
+
+    pub(super) fn gameos_launch_key(&self, path: &[u16]) -> Option<Arc<Key>> {
+        self.gameos_launch_subkey(strip_component(path, GAMECORE)?)
     }
 
     pub(super) fn game_config_lookup(&self, path: &[u16]) -> Lookup {
@@ -45,6 +95,73 @@ impl Registry {
             _ => Lookup::Unselected,
         }
     }
+}
+
+fn reg_sz(name: &str, text: &str) -> Value {
+    Value {
+        name: name.encode_utf16().collect(),
+        kind: 1, // REG_SZ
+        data: text
+            .encode_utf16()
+            .chain([0])
+            .flat_map(u16::to_le_bytes)
+            .collect(),
+    }
+}
+
+fn config_string(key: &Key, name: &str) -> Option<String> {
+    let value = key.value(&name.encode_utf16().collect::<Vec<_>>())?;
+    if value.kind != 1 || value.data.len() % 2 != 0 || value.data.len() > 16_386 {
+        return None;
+    }
+    let units: Vec<_> = value
+        .data
+        .chunks_exact(2)
+        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .collect();
+    let text = String::from_utf16(units.strip_suffix(&[0])?).ok()?;
+    (!text.is_empty() && !text.contains('\0')).then_some(text)
+}
+
+fn package_identity(config: &Key) -> Option<String> {
+    let name = config_string(config, "Name")?;
+    let version = config_string(config, "Version")?;
+    let publisher = config_string(config, "Publisher")?;
+    if !(3..=50).contains(&name.len())
+        || !name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.'))
+    {
+        return None;
+    }
+    let version: Vec<_> = version
+        .split('.')
+        .map(str::parse::<u16>)
+        .collect::<Result<_, _>>()
+        .ok()?;
+    let [major, minor, build, revision] = version[..] else {
+        return None;
+    };
+    let publisher_id = publisher_id(&publisher);
+    // The loose GameConfig contains no package architecture or resource ID.
+    Some(format!(
+        "{name}_{major}.{minor}.{build}.{revision}_neutral__{publisher_id}"
+    ))
+}
+
+fn publisher_id(publisher: &str) -> String {
+    const ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
+    let mut digest = Sha256::new();
+    for unit in publisher.encode_utf16() {
+        digest.update(unit.to_le_bytes());
+    }
+    let hash = digest.finalize();
+    let prefix = u64::from_be_bytes(hash[..8].try_into().unwrap());
+    let bits = u128::from(prefix) << 1;
+    (0..13)
+        .rev()
+        .map(|group| char::from(ALPHABET[((bits >> (5 * group)) & 31) as usize]))
+        .collect()
 }
 
 fn strip_component<'a>(path: &'a [u16], prefix: &str) -> Option<&'a [u16]> {
@@ -294,6 +411,29 @@ impl<'a> Hive<'a> {
     }
 }
 
+fn portable_case_table() -> Arc<[u16]> {
+    // Use invariant one-unit uppercase mappings, preserving unpaired UTF-16 units.
+    static TABLE: OnceLock<Arc<[u16]>> = OnceLock::new();
+    TABLE
+        .get_or_init(|| {
+            (0..=u16::MAX)
+                .map(|unit| {
+                    let Some(ch) = char::from_u32(u32::from(unit)) else {
+                        return unit;
+                    };
+                    let mut upper = ch.to_uppercase();
+                    let first = upper.next().unwrap_or(ch);
+                    if upper.next().is_none() {
+                        u16::try_from(first as u32).unwrap_or(unit)
+                    } else {
+                        unit
+                    }
+                })
+                .collect()
+        })
+        .clone()
+}
+
 fn parse(bytes: &[u8]) -> io::Result<Arc<Key>> {
     let (mut hive, root) =
         Hive::new(bytes).ok_or_else(|| invalid("invalid GameOS REGF header or bins"))?;
@@ -301,25 +441,9 @@ fn parse(bytes: &[u8]) -> io::Result<Arc<Key>> {
     let (_, config) = hive
         .key(root, &root_path, 0)
         .ok_or_else(|| invalid("unsupported or invalid GameOS REGF key data"))?;
-    // The portable mount has no captured NLS table. Use invariant one-unit
-    // uppercase mappings for its names, preserving unpaired UTF-16 units.
-    let case_table = (0..=u16::MAX)
-        .map(|unit| {
-            let Some(ch) = char::from_u32(u32::from(unit)) else {
-                return unit;
-            };
-            let mut upper = ch.to_uppercase();
-            let first = upper.next().unwrap_or(ch);
-            if upper.next().is_none() {
-                u16::try_from(first as u32).unwrap_or(unit)
-            } else {
-                unit
-            }
-        })
-        .collect::<Vec<_>>();
     let mut values = super::ValueBudget::default();
     let mut root = tree::build(
-        case_table.into(),
+        portable_case_table(),
         root_path,
         config,
         0,
@@ -353,6 +477,73 @@ fn attach_children(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn analysis_com_catalog_absence_applies_only_to_the_observed_key() {
+        let name = r"\REGISTRY\MACHINE\Software\Classes\PackagedCom";
+        assert!(Registry::gameos_analysis_missing_key(
+            &name.encode_utf16().collect::<Vec<_>>()
+        ));
+        for suffix in ["Extra", r"\ClassIndex"] {
+            assert!(!Registry::gameos_analysis_missing_key(
+                &name
+                    .encode_utf16()
+                    .chain(suffix.encode_utf16())
+                    .collect::<Vec<_>>()
+            ));
+        }
+    }
+
+    #[test]
+    fn derives_analysis_package_full_name_from_config_strings() {
+        let path = |text: &str| text.encode_utf16().collect::<Vec<_>>();
+        let mut registry = Registry {
+            game_config: Some(tree::build(
+                parse(&fixture()).unwrap().upcase.clone(),
+                path(ROOT),
+                KeyTree {
+                    values: [
+                        ("Name", "Microsoft.Windows.Photos"),
+                        ("Version", "2020.20090.1002.0"),
+                        ("Publisher", "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"),
+                    ].map(|(name, value)| Value {
+                        name: path(name),
+                        kind: 1,
+                        data: value.encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect(),
+                    }).to_vec(),
+                    children: Vec::new(),
+                },
+                0,
+                &mut Default::default(),
+                &mut Default::default(),
+                None,
+            ).unwrap()),
+            ..Default::default()
+        };
+        assert!(registry.key(&path(APP_INFO)).is_none());
+        registry.mount_gameos_launch_info().unwrap();
+        let app_info = registry.key(&path(&APP_INFO.to_ascii_lowercase())).unwrap();
+        assert_eq!(
+            config_string(&app_info, "PackageIdentity").as_deref(),
+            Some("Microsoft.Windows.Photos_2020.20090.1002.0_neutral__8wekyb3d8bbwe")
+        );
+        assert!(app_info.value(&path("InstallIdentity")).is_none());
+    }
+
+    #[test]
+    fn analysis_sandbox_id_is_available_without_a_title_config() {
+        let path = |text: &str| text.encode_utf16().collect::<Vec<_>>();
+        let mut registry = Registry::default();
+        assert!(registry.key(&path(GAMECORE)).is_none());
+        registry.mount_gameos_launch_info().unwrap();
+        let root = registry.key(&path(GAMECORE)).unwrap();
+        assert_eq!(
+            config_string(&root, "SandboxId").as_deref(),
+            Some("RAX-OFFLINE")
+        );
+        assert!(registry.is_portable_machine_subkey(&path(r"Software\Microsoft\GameCore")));
+        assert!(registry.key(&path(APP_INFO)).is_none());
+    }
 
     fn put(data: &mut [u8], at: usize, value: u32) {
         data[at..at + 4].copy_from_slice(&value.to_le_bytes());

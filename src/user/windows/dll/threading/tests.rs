@@ -64,6 +64,7 @@ fn api(name: &str) -> &'static Api {
         .iter()
         .chain(SEMAPHORE_EX_EXPORTS)
         .chain(SYNC_EX_EXPORTS)
+        .chain(OPEN_MAPPING_EXPORTS)
         .chain(PROCESS_PRIORITY_EXPORTS)
         .chain(super::super::kernel::EXPORTS.iter())
         .chain(super::super::native::EXPORTS.iter())
@@ -578,6 +579,53 @@ fn named_open_access_checks_and_last_error_success_preservation() {
                 assert_eq!(integer(c, "OpenEventW", &[unsupported, 0, data]), 0);
                 assert_eq!(c.last_error().unwrap(), ERROR_NOT_SUPPORTED);
             }
+        });
+    }
+}
+
+#[test]
+fn open_file_mapping_uses_guest_named_sections_all_abis() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, data| {
+            let open = "OpenFileMappingW";
+            put_name(c, data, "Global\\Cache");
+            assert_eq!(integer(c, open, &[4, 0, data]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_FILE_NOT_FOUND);
+
+            let event = integer(c, "CreateEventW", &[0, 0, 0, data]);
+            assert_eq!(integer(c, open, &[4, 0, data]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_INVALID_HANDLE);
+            c.p.objects.close(event).unwrap();
+
+            let (section, _) =
+                c.p.objects
+                    .try_create_named(
+                        "Global\\Cache",
+                        Object::Mapping {
+                            file: None,
+                            size: 0x1000,
+                            protect: prot::READONLY,
+                            attributes: 0,
+                            shared: None,
+                        },
+                    )
+                    .unwrap();
+            let original = u64::from(c.p.objects.open(section, false));
+            c.set_last_error(0x12345678).unwrap();
+            let opened = integer(c, open, &[4, 1, data]);
+            assert_ne!(opened, original);
+            assert_eq!(c.p.objects.id(opened), Some(section));
+            assert_eq!(c.p.objects.flags(opened), Some(1));
+            assert_eq!(c.p.objects.access(opened), Some(4));
+            assert_eq!(c.last_error().unwrap(), 0x12345678);
+            let copy = integer(c, open, &[1, 0, data]);
+            assert_eq!(c.p.objects.access(copy), Some(4));
+            c.p.objects.close(copy).unwrap();
+
+            c.p.objects.close(original).unwrap();
+            c.p.objects.close(opened).unwrap();
+            assert_eq!(integer(c, open, &[4, 0, data]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_FILE_NOT_FOUND);
         });
     }
 }

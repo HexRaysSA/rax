@@ -1056,7 +1056,15 @@ fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize
     let lower = norm.to_ascii_lowercase();
     if apiset::is_api_set(&lower) {
         match p.native.as_ref().map_or_else(
-            || apiset::host(&lower),
+            || match lower.as_str() {
+                "api-ms-win-service-winsvc-l1-1-0.dll"
+                | "api-ms-win-service-management-l1-1-0.dll"
+                    if p.cfg.gameos_analysis =>
+                {
+                    Some("kernelbase.dll")
+                }
+                _ => apiset::host(&lower),
+            },
             |runtime| runtime.apisets.host(&lower, parent),
         ) {
             Some(host) => norm = host.to_string(),
@@ -1454,6 +1462,15 @@ fn lookup_depth(
             SymRef::Name(n, hint) => d.by_name(&img, n, *hint).ok().flatten().map(|(_, t)| t),
             SymRef::Ordinal(o) => d.by_ordinal(&img, *o).ok().flatten(),
         };
+        if found.is_some()
+            && p.cfg.gameos_analysis
+            && m.name.eq_ignore_ascii_case("combase.dll")
+            && matches!(sym, SymRef::Name(name, _) if name == b"CoInitializeSecurity")
+        {
+            let host = load_dll_from(p, "kernelbase.dll", None)?;
+            dynamic::dependency(p, idx, host);
+            return lookup_depth(p, host, sym, depth + 1);
+        }
         match found {
             Some(t) => t,
             None => return Ok(missing()),
@@ -1559,7 +1576,7 @@ fn bind_imports(p: &mut Proc, idx: usize, pe: &PeImage) -> Result<(), LoadError>
                 ImportRef::Name { hint, name } => SymRef::Name(name.clone(), Some(*hint)),
                 ImportRef::Ordinal(o) => SymRef::Ordinal(u32::from(*o)),
             };
-            let addr = match lookup_depth(p, dep, &sym, 0)
+            let mut addr = match lookup_depth(p, dep, &sym, 0)
                 .map_err(|error| error.in_import(&mname, &format!("{dll_name}!{sym}")))?
             {
                 ExportLookup::Address(address) => address,
@@ -1582,6 +1599,17 @@ fn bind_imports(p: &mut Proc, idx: usize, pe: &PeImage) -> Result<(), LoadError>
                     ));
                 }
             };
+            if p.cfg.gameos_analysis
+                && mname.eq_ignore_ascii_case("xgameruntime.dll")
+                && p.modules.list[dep].name.eq_ignore_ascii_case("combase.dll")
+                && matches!(&sym, SymRef::Name(name, _) if name == b"CoCreateInstanceEx")
+            {
+                let host = load_dll_from(p, "kernelbase.dll", None)?;
+                if let Some(address) = lookup(p, host, &sym)? {
+                    dynamic::dependency(p, idx, host);
+                    addr = address;
+                }
+            }
             let slot = base.checked_add(u64::from(t.iat_slot)).ok_or_else(|| {
                 LoadError::new(STATUS_INVALID_IMAGE_FORMAT, "IAT address overflow")
             })?;

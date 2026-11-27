@@ -4,7 +4,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
-use crate::user::windows::object_namespace::{Directory, LookupError};
+use crate::user::windows::object_namespace::{Directory, LookupError, RPC_CONTROL_PATH};
 use crate::user::windows::objects::Object;
 use std::sync::Arc;
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -292,12 +292,21 @@ fn open_object(c: &mut Ctx, access: u32, attrs: Option<Attributes>, kind: Kind) 
             .open_selected_section(section, attrs.flags & 2 != 0, grant)
             .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES));
     }
+    let analysis_rpc_directory = c.p.cfg.gameos_analysis
+        && root.is_none()
+        && units.iter().copied().eq(RPC_CONTROL_PATH.encode_utf16());
     let directory = match c.p.object_namespace.lookup(root, &units, attrs.flags) {
         Ok(d) => d,
         Err(LookupError::Status(s)) => return status(s),
+        Err(LookupError::Unselected) if analysis_rpc_directory => {
+            return status(STATUS_OBJECT_NAME_NOT_FOUND);
+        }
         Err(LookupError::Unselected) => {
             return Err(c
-                .unsupported("NT directory outside selected installed namespace")
+                .unsupported(format!(
+                    "NT directory outside selected installed namespace ({:?})",
+                    String::from_utf16_lossy(&units)
+                ))
                 .into());
         }
     };

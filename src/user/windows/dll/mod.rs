@@ -17,6 +17,7 @@ mod native;
 mod path_strings;
 mod pointer_encoding;
 mod rtl_string;
+mod security_descriptor;
 #[cfg(test)]
 pub(crate) use native::memory_usage_replay;
 #[cfg(test)]
@@ -24,6 +25,7 @@ pub(crate) use native::object_name_replay;
 #[cfg(test)]
 pub(crate) use native::power::information_with as processor_power_information_with;
 mod slist;
+mod splay;
 mod sysinfo;
 mod threading;
 pub(crate) mod threadpool;
@@ -211,6 +213,17 @@ static NTDLL: BuiltinDll = BuiltinDll {
         locks::NTDLL_CRITICAL_QUERY_EXPORTS,
         sysinfo::STATE_SEPARATION_EXPORTS,
         native::PROCESS_OPEN_EXPORTS,
+        rtl_string::COMPARE_EXPORTS,
+        threadpool::NATIVE_ANALYSIS_EXPORTS,
+        gameos::wnf::EXPORTS,
+        native::NTDLL_SID_EXPORTS,
+        splay::EXPORTS,
+        sysinfo::NTDLL_PRODUCT_TYPE_EXPORTS,
+        etw::SQM_EXPORTS,
+        libraries::IMAGE_OPTIONS_EXPORTS,
+        native::APPCONTAINER_PATH_EXPORTS,
+        native::IO_CANCEL_EXPORTS,
+        native::OBJECT_COMPARE_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
@@ -256,6 +269,13 @@ static KERNEL32: BuiltinDll = BuiltinDll {
         sysinfo::WINDOWS_DIRECTORY_EXPORTS,
         files::FINAL_PATH_EXPORTS,
         threadpool::KERNEL32_WORK_FORWARDS,
+        threadpool::KERNEL32_WAIT_FORWARDS,
+        kernel::DEBUG_STRING_FORWARDS,
+        threading::OPEN_MAPPING_FORWARDS,
+        kernel::PROCESS_SESSION_FORWARDS,
+        locks::MANUAL_ONCE_FORWARDS,
+        sysinfo::COMPUTER_NAME_FORWARDS,
+        threadpool::KERNEL32_CALLBACK_HINT_FORWARDS,
     ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
@@ -311,6 +331,22 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         native::WIN32_REGISTRY_ENUM_EXPORTS,
         native::WIN32_PROCESS_TOKEN_EXPORTS,
         native::USER_CLASSES_EXPORTS,
+        gameos::ANALYSIS_WER_EXPORTS,
+        gameos::ANALYSIS_SERVICE_EXPORTS,
+        gameos::ANALYSIS_COM_EXPORTS,
+        threadpool::WAIT_EXPORTS,
+        kernel::DEBUG_STRING_EXPORTS,
+        threading::OPEN_MAPPING_EXPORTS,
+        native::WIN32_SID_EXPORTS,
+        kernel::PROCESS_SESSION_EXPORTS,
+        locks::MANUAL_ONCE_EXPORTS,
+        native::WELL_KNOWN_SID_EXPORTS,
+        gameos::ANALYSIS_DEVELOPER_MODE_EXPORTS,
+        sysinfo::COMPUTER_NAME_EXPORTS,
+        security_descriptor::EXPORTS,
+        native::WIN32_REVERT_EXPORTS,
+        gameos::ANALYSIS_EDP_EXPORTS,
+        threadpool::CALLBACK_HINT_EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {
@@ -329,6 +365,7 @@ static MSVCRT: BuiltinDll = BuiltinDll {
         crt::MSVCRT_STDIO_EXPORTS,
         crt::NEW_HANDLER_EXPORTS,
         crt::MSVCRT_ONEXIT_EXPORTS,
+        crt::MSVCRT_WIDE_BUFFER_FORMAT_EXPORTS,
     ],
 };
 static UCRTBASE: BuiltinDll = BuiltinDll {
@@ -368,6 +405,9 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::UCRT_RTTI_CLEANUP_EXPORTS,
         crt::UCRT_WIDE_BUFFER_FORMAT_EXPORTS,
         crt::UCRT_BASE_ALLOCATION_FORWARDS,
+        crt::UCRT_ALIGNED_ALLOCATION_EXPORTS,
+        crt::UCRT_SECURE_BUFFER_FORMAT_EXPORTS,
+        crt::UCRT_SECURE_COPY_EXPORTS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {

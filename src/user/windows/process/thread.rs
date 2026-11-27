@@ -57,6 +57,15 @@ pub enum ThreadState {
 pub enum UserApc {
     /// QueueUserAPC's single application argument.
     Simple(u64, u64),
+    /// Service status callback from the offline GameOS service manager.
+    Service {
+        /// Guest callback entrypoint.
+        routine: u64,
+        /// Guest SERVICE_NOTIFY_2A buffer.
+        buffer: u64,
+        /// Service object used to cancel notifications on close.
+        object: ObjId,
+    },
     /// Ordinary native APC and the three arguments captured at queue time.
     Native {
         /// Guest callback entrypoint.
@@ -543,7 +552,7 @@ fn create_inner(
 /// are freed.
 pub fn destroy(p: &mut Proc, mut t: Thread, code: u32) {
     super::super::dll::threadpool::retire_work(p, t.tid, false);
-    p.sync.retire_thread(t.obj);
+    p.sync.retire_thread(t.obj, t.tid);
     if let Err(error) = super::registry_notify::retire_thread(p, &mut t) {
         p.fail(error);
     }

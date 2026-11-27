@@ -33,10 +33,14 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(UCRT_STDIO_EXPORTS)
         .chain(UCRT_STREAM_BUFFER_EXPORTS)
         .chain(UCRT_BUFFER_FORMAT_EXPORTS)
+        .chain(UCRT_SECURE_BUFFER_FORMAT_EXPORTS)
         .chain(UCRT_TIME_EXPORTS)
         .chain(UCRT_RANDOM_EXPORTS)
         .chain(UCRT_RTTI_CLEANUP_EXPORTS)
+        .chain(UCRT_SECURE_COPY_EXPORTS)
+        .chain(UCRT_ALIGNED_ALLOCATION_EXPORTS)
         .chain(UCRT_WIDE_BUFFER_FORMAT_EXPORTS)
+        .chain(MSVCRT_WIDE_BUFFER_FORMAT_EXPORTS)
         .chain(UCRT_EXCEPTION_FILTER_EXPORTS)
         .chain(NEW_HANDLER_EXPORTS)
         .find_map(|export| match &export.item {
@@ -257,6 +261,63 @@ fn zero_allocations_alignment_zeroing_and_private_heap_ownership() {
             void(invoke(c, kind, "free", &[0]));
         }
         assert_ne!(c.p.crt.runtimes[0].heap, c.p.crt.runtimes[1].heap);
+    });
+}
+
+#[test]
+fn ucrt_secure_copy_uses_the_terminator_and_clears_an_insufficient_buffer() {
+    run(|c| {
+        let kind = RuntimeKind::Ucrt;
+        let dest = area(c);
+        let source = dest + 16;
+        c.mem().wr(source, b"abc\0").unwrap();
+        c.mem().wr(dest, &[0x7f; 5]).unwrap();
+        assert_eq!(int(invoke(c, kind, "strcpy_s", &[dest, 4, source])), 0);
+        assert_eq!(c.mem().bytes(dest, 5).unwrap(), b"abc\0\x7f");
+        assert!(matches!(
+            invoke(c, kind, "strcpy_s", &[dest, 3, source]),
+            Ok(Flow::TerminateProcess(STATUS_STACK_BUFFER_OVERRUN))
+        ));
+        assert_eq!(errno(c, kind), 34);
+        assert_eq!(c.mem().u8(dest).unwrap(), 0);
+        assert_eq!(c.mem().u8(dest + 4).unwrap(), 0x7f);
+    });
+}
+
+#[test]
+fn aligned_ucrt_blocks_retain_and_release_their_own_backing_allocation() {
+    run(|c| {
+        let kind = RuntimeKind::Ucrt;
+        let block = int(invoke(c, kind, "_aligned_malloc", &[77, 0x1000]));
+        assert_ne!(block, 0);
+        assert_eq!(block % 0x1000, 0);
+        c.mem().wr(block, &[0x5a; 77]).unwrap();
+        let base = c.p.crt.runtimes[kind.index()].aligned_allocations[&block];
+        assert_eq!(
+            c.p.heaps.owner(base),
+            Some(c.p.crt.runtimes[kind.index()].heap)
+        );
+        assert!(matches!(
+            invoke(c, kind, "free", &[block]),
+            Ok(Flow::TerminateProcess(STATUS_HEAP_CORRUPTION))
+        ));
+        void(invoke(c, kind, "_aligned_free", &[block]));
+        assert_eq!(c.p.heaps.owner(base), None);
+        assert!(
+            c.p.crt.runtimes[kind.index()]
+                .aligned_allocations
+                .is_empty()
+        );
+        assert_eq!(
+            int(invoke(
+                c,
+                kind,
+                "_aligned_malloc",
+                &[c.arch().ptr(u64::MAX), 16]
+            )),
+            0
+        );
+        assert_eq!(errno(c, kind), 12);
     });
 }
 
@@ -532,12 +593,7 @@ fn first_error_context_oom_is_an_explicit_admission_exception() {
 #[test]
 fn unsupported_new_handler_registration_and_legacy_compat_wrappers_are_not_exports() {
     run(|c| {
-        for name in [
-            "_set_new_handler",
-            "_query_new_handler",
-            "printf",
-            "_aligned_malloc",
-        ] {
+        for name in ["_set_new_handler", "_query_new_handler", "printf"] {
             for dll in ["msvcrt.dll", "ucrtbase.dll"] {
                 let index = c.p.modules.by_name(dll).unwrap();
                 assert_eq!(

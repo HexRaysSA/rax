@@ -96,6 +96,10 @@ pub(super) static NTDLL_EXPORTS: &[Export] = &[
     Export::func("EtwGetTraceLoggerHandle", Stdcall, &[Ptr], logger_handle),
 ];
 
+pub(super) static SQM_EXPORTS: &[Export] = &[Export::func("WinSqmIsOptedIn", Stdcall, &[], |_| {
+    Flow::bool(false)
+})];
+
 pub(super) static KERNEL_FORWARDS: &[Export] = &[
     Export::forward("EventRegister", "NTDLL.EtwEventRegister"),
     Export::forward("EventUnregister", "NTDLL.EtwEventUnregister"),

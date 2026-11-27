@@ -115,6 +115,10 @@ fn invoke(p: &mut Proc, t: &mut Thread, name: &str, arguments: &[u64]) -> ApiRes
     let api = EXPORTS
         .iter()
         .chain(NTDLL_EXPORTS)
+        .chain(IMAGE_OPTIONS_EXPORTS)
+        .chain(super::super::security_descriptor::EXPORTS)
+        .chain(super::super::splay::EXPORTS)
+        .chain(super::super::kernel::PROCESS_SESSION_EXPORTS)
         .chain(API_SET_QUERY_EXPORTS)
         .chain(FILE_NAME_EXPORTS)
         .chain(LOAD_EX_EXPORTS)
@@ -124,7 +128,9 @@ fn invoke(p: &mut Proc, t: &mut Thread, name: &str, arguments: &[u64]) -> ApiRes
         .chain(super::super::native::WIN32_PROCESS_TOKEN_EXPORTS)
         .chain(super::super::native::USER_CLASSES_EXPORTS)
         .chain(super::super::native::WIN32_TOKEN_EXPORTS)
+        .chain(super::super::native::WELL_KNOWN_SID_EXPORTS)
         .chain(super::super::threadpool::WORK_EXPORTS)
+        .chain(super::super::threadpool::WAIT_EXPORTS)
         .chain(super::super::environment::EXPORTS)
         .find_map(|export| match &export.item {
             Item::Func(api) if export.name == name => Some(api),
@@ -145,6 +151,224 @@ fn invoke(p: &mut Proc, t: &mut Thread, name: &str, arguments: &[u64]) -> ApiRes
         }
     }
     (api.imp)(&mut context(p, t, api))
+}
+
+#[test]
+fn process_id_to_session_id_reads_the_guest_peb_all_abis() {
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let pid = u64::from(p.pid);
+        let output = t.cpu.sp() - 0x100;
+        let address = p.peb + crate::user::windows::layout::offsets(arch).peb_session_id;
+        p.space.w32(address, 17).unwrap();
+        assert!(matches!(
+            invoke(p, &mut t, "ProcessIdToSessionId", &[pid, output]).unwrap(),
+            Flow::Ret(Value::Int(1))
+        ));
+        assert_eq!(p.space.u32(output).unwrap(), 17);
+        assert!(matches!(
+            invoke(p, &mut t, "ProcessIdToSessionId", &[pid + 4, output]).unwrap(),
+            Flow::Ret(Value::Int(0))
+        ));
+        assert_eq!(p.space.u32(output).unwrap(), 17);
+    }
+}
+
+#[test]
+fn create_well_known_sid_reports_size_and_writes_guest_sids_all_abis() {
+    use crate::user::windows::nt::error::ERROR_INSUFFICIENT_BUFFER;
+    use crate::user::windows::security::sid_text;
+
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let output = t.cpu.sp() - 0x100;
+        let size = output + 0x50;
+        p.space.w32(size, 0).unwrap();
+        assert!(matches!(
+            invoke(p, &mut t, "CreateWellKnownSid", &[24, 0, 0, size]).unwrap(),
+            Flow::Ret(Value::Int(0))
+        ));
+        assert_eq!(p.space.u32(size).unwrap(), 12);
+        assert_eq!(
+            context(p, &mut t, &TEST_API).last_error().unwrap(),
+            ERROR_INSUFFICIENT_BUFFER
+        );
+        for (kind, domain, sid) in [
+            (24, 0, "S-1-5-20"),
+            (26, 0, "S-1-5-32-544"),
+            (38, output, "S-1-5-32-544-500"),
+        ] {
+            p.space.w32(size, 68).unwrap();
+            assert!(matches!(
+                invoke(
+                    p,
+                    &mut t,
+                    "CreateWellKnownSid",
+                    &[kind, domain, output, size]
+                )
+                .unwrap(),
+                Flow::Ret(Value::Int(1))
+            ));
+            let bytes = p
+                .space
+                .bytes(output, p.space.u32(size).unwrap() as usize)
+                .unwrap();
+            assert_eq!(sid_text(&bytes).as_deref(), Some(sid));
+        }
+    }
+}
+
+#[test]
+fn image_options_read_selected_guest_dwords_all_abis() {
+    use crate::user::windows::registry::{IfeoTree, Registry, Value as RegistryValue};
+
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let descriptor = t.cpu.sp() - 0x200;
+        let path = descriptor + 0x20;
+        let option = descriptor + 0x80;
+        let output = descriptor + 0xd0;
+        let size = output + 4;
+        let text: Vec<_> = "D:\\image.exe".encode_utf16().collect();
+        p.space.put_wstr(path, &text).unwrap();
+        p.space.w16(descriptor, (text.len() * 2) as u16).unwrap();
+        p.space
+            .w16(descriptor + 2, (text.len() * 2 + 2) as u16)
+            .unwrap();
+        p.space
+            .wptr(descriptor + arch.ptr_size(), arch.ptr_size(), path)
+            .unwrap();
+        let option_name: Vec<_> = "RpcRuntimeConfigFlags".encode_utf16().collect();
+        p.space.put_wstr(option, &option_name).unwrap();
+        let arguments = [descriptor, option, 4, output, 4, size];
+        assert!(matches!(
+            invoke(p, &mut t, "LdrQueryImageFileExecutionOptions", &arguments).unwrap(),
+            Flow::Ret(Value::Int(value)) if value == u64::from(STATUS_OBJECT_NAME_NOT_FOUND)
+        ));
+        p.registry = Registry::selected((0..=u16::MAX).collect(), vec![])
+            .unwrap()
+            .with_ifeo(IfeoTree {
+                values: vec![],
+                children: vec![(
+                    "image.exe".encode_utf16().collect(),
+                    IfeoTree {
+                        values: vec![RegistryValue {
+                            name: option_name,
+                            kind: 4,
+                            data: vec![1, 0, 0, 0],
+                        }],
+                        children: vec![],
+                    },
+                )],
+            })
+            .unwrap();
+        assert!(matches!(
+            invoke(p, &mut t, "LdrQueryImageFileExecutionOptions", &arguments).unwrap(),
+            Flow::Ret(Value::Int(0))
+        ));
+        assert_eq!(p.space.u32(output).unwrap(), 1);
+        assert_eq!(p.space.u32(size).unwrap(), 4);
+    }
+}
+
+#[test]
+fn absolute_security_descriptor_retains_guest_acl_and_ace_all_abis() {
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let acl = t.cpu.sp() - 0x200;
+        let sid = acl + 0x40;
+        let descriptor = acl + 0x60;
+        let sid_bytes = [1, 1, 0, 0, 0, 0, 0, 5, 7, 0, 0, 0];
+        p.space.wr(sid, &sid_bytes).unwrap();
+        for (name, arguments) in [
+            ("InitializeAcl", &[acl, 28, 2][..]),
+            ("AddAccessAllowedAce", &[acl, 2, 0x8000_0000, sid][..]),
+            ("InitializeSecurityDescriptor", &[descriptor, 1][..]),
+            ("SetSecurityDescriptorDacl", &[descriptor, 1, acl, 0][..]),
+        ] {
+            assert!(matches!(
+                invoke(p, &mut t, name, arguments).unwrap(),
+                Flow::Ret(Value::Int(1))
+            ));
+        }
+        assert_eq!(p.space.u16(acl + 4).unwrap(), 1);
+        assert_eq!(p.space.u16(acl + 10).unwrap(), 20);
+        assert_eq!(p.space.u32(acl + 12).unwrap(), 0x8000_0000);
+        assert_eq!(p.space.bytes(acl + 16, 12).unwrap(), sid_bytes);
+        assert_eq!(p.space.u16(descriptor + 2).unwrap(), 4);
+        assert_eq!(
+            p.space
+                .ptr(descriptor + 4 * arch.ptr_size(), arch.ptr_size())
+                .unwrap(),
+            acl
+        );
+    }
+}
+
+#[test]
+fn rtl_splay_repairs_parent_and_child_links_all_abis() {
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let width = arch.ptr_size();
+        let grandparent = t.cpu.sp() - 0x400;
+        let parent = grandparent + 3 * width;
+        let node = parent + 3 * width;
+        let subtree = node + 3 * width;
+        for (address, links) in [
+            (grandparent, [grandparent, parent, 0]),
+            (parent, [grandparent, 0, node]),
+            (node, [parent, 0, subtree]),
+            (subtree, [node, 0, 0]),
+        ] {
+            for (index, value) in links.into_iter().enumerate() {
+                p.space
+                    .wptr(address + index as u64 * width, width, value)
+                    .unwrap();
+            }
+        }
+        assert!(matches!(
+            invoke(p, &mut t, "RtlSplay", &[node]).unwrap(),
+            Flow::Ret(Value::Int(address)) if address == node
+        ));
+        for (address, links) in [
+            (node, [node, parent, grandparent]),
+            (parent, [node, 0, 0]),
+            (grandparent, [node, subtree, 0]),
+            (subtree, [grandparent, 0, 0]),
+        ] {
+            for (index, value) in links.into_iter().enumerate() {
+                assert_eq!(
+                    p.space.ptr(address + index as u64 * width, width).unwrap(),
+                    value
+                );
+            }
+        }
+        let root = grandparent - width;
+        p.space.wptr(root, width, node).unwrap();
+        assert!(matches!(
+            invoke(p, &mut t, "RtlDeleteNoSplay", &[node, root]).unwrap(),
+            Flow::Ret(Value::None)
+        ));
+        assert_eq!(p.space.ptr(root, width).unwrap(), parent);
+        assert_eq!(p.space.ptr(parent, width).unwrap(), parent);
+        assert_eq!(p.space.ptr(parent + 2 * width, width).unwrap(), grandparent);
+        assert_eq!(p.space.ptr(grandparent, width).unwrap(), parent);
+        assert!(matches!(
+            invoke(p, &mut t, "RtlDelete", &[parent]).unwrap(),
+            Flow::Ret(Value::Int(address)) if address == grandparent
+        ));
+        assert_eq!(p.space.ptr(grandparent, width).unwrap(), grandparent);
+    }
 }
 
 #[test]
@@ -334,6 +558,53 @@ fn thread_pool_work_preserves_registration_until_close_all_abis() {
             Some(Object::Event { signaled: 1, .. })
         ));
         crate::user::windows::process::thread::destroy(p, worker, 0);
+    }
+}
+
+#[test]
+fn thread_pool_event_wait_queues_one_callback_per_arm_all_abis() {
+    use super::super::threadpool::{poll_event_waits, retire_work, work_arguments};
+    use crate::user::windows::objects::Object;
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let Ok(Flow::Ret(Value::Int(wait))) =
+            invoke(p, &mut t, "CreateThreadpoolWait", &[0x1234, 0x5678, 0])
+        else {
+            panic!("expected a wait registration");
+        };
+        let event = p.objects.create(Object::Event {
+            manual: false,
+            signaled: 1,
+        });
+        let handle = u64::from(p.objects.open_access(event, false, 0x0010_0000).unwrap());
+        invoke(p, &mut t, "SetThreadpoolWait", &[wait, handle, 0]).unwrap();
+        poll_event_waits(p).unwrap();
+        poll_event_waits(p).unwrap();
+        assert_eq!(p.sync.pool_workers.len(), 1);
+        assert!(p.sync.pool_waits.is_empty());
+        assert!(matches!(
+            p.objects.obj(event),
+            Some(Object::Event { signaled: 0, .. })
+        ));
+        assert!(matches!(
+            invoke(p, &mut t, "WaitForThreadpoolWaitCallbacks", &[wait, 0]),
+            Ok(Flow::Block { .. })
+        ));
+        let tid = *p.sync.pool_workers.keys().next().unwrap();
+        let worker = p.threads.remove(&tid).unwrap();
+        let args = work_arguments(p, tid, worker.param).unwrap();
+        assert_ne!(args[0], 0);
+        assert_eq!(&args[1..], &[0x5678, wait, 0]);
+        retire_work(p, tid, true);
+        crate::user::windows::process::thread::destroy(p, worker, 0);
+        invoke(p, &mut t, "SetThreadpoolWait", &[wait, handle, 0]).unwrap();
+        p.objects.close(handle).unwrap();
+        assert!(p.objects.obj(event).is_some());
+        invoke(p, &mut t, "CloseThreadpoolWait", &[wait]).unwrap();
+        assert!(p.objects.obj(event).is_none());
+        assert!(p.sync.pool_waits.is_empty());
     }
 }
 

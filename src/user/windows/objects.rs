@@ -99,6 +99,14 @@ pub enum Object {
     SecurityFile(super::object_namespace::security_device::SecurityDevice),
     /// A guest-owned file on the portable GameOS virtual console device.
     GameOsXvcFile,
+    /// The offline profile's guest-only storage adapter.
+    GameOsScsiAdapter,
+    /// An offline GameOS message queue with a process-owned registration.
+    GameOsXvcQueue {
+        registered: bool,
+        bound: bool,
+        pending: Option<(u64, u64)>,
+    },
     /// A console standard stream (the host's stdin, stdout, or stderr).
     Console(StdStream),
     /// The `NUL` device.
@@ -189,6 +197,20 @@ pub enum Object {
         context: u64,
         /// Submitted callbacks that have yet to return or be canceled.
         pending: u32,
+    },
+    /// An event wait that queues one callback per arm.
+    ThreadpoolWait {
+        callback: u64,
+        context: u64,
+        armed: Option<(u64, ObjId)>,
+        pending: u32,
+    },
+    /// Registered completion callback on an offline GameOS queue.
+    ThreadpoolIo {
+        file: ObjId,
+        callback: u64,
+        context: u64,
+        armed: u32,
     },
     /// A file mapping (section).
     Mapping {
@@ -318,6 +340,8 @@ impl Object {
             Object::File(_)
             | Object::SecurityFile(_)
             | Object::GameOsXvcFile
+            | Object::GameOsScsiAdapter
+            | Object::GameOsXvcQueue { .. }
             | Object::Console(_)
             | Object::Null => "File",
             Object::Event { .. } => "Event",
@@ -351,6 +375,8 @@ impl Object {
             Object::GameOsLockMemoryScope => "GameOsLockMemoryScope",
             Object::ThreadpoolTimer { .. } => "ThreadpoolTimer",
             Object::ThreadpoolWork { .. } => "ThreadpoolWork",
+            Object::ThreadpoolWait { .. } => "ThreadpoolWait",
+            Object::ThreadpoolIo { .. } => "ThreadpoolIo",
             Object::Opaque(t) => t,
         }
     }
@@ -661,6 +687,16 @@ impl Objects {
                 self.release(*id);
             }
         }
+        if let Object::ThreadpoolIo { file, .. } = &e.obj {
+            self.release(*file);
+        }
+        if let Object::ThreadpoolWait {
+            armed: Some((_, event)),
+            ..
+        } = &e.obj
+        {
+            self.release(*event);
+        }
         if let Some(event) = e.file_state.security_provider_event {
             self.release(event);
         }
@@ -770,6 +806,12 @@ impl Objects {
     /// The object a handle names.
     pub fn id(&self, handle: u64) -> Option<ObjId> {
         self.handles.get(&Self::key(handle)?).map(|e| e.obj)
+    }
+
+    pub(crate) fn handle_for(&self, id: ObjId) -> Option<u64> {
+        self.handles
+            .iter()
+            .find_map(|(&handle, entry)| (entry.obj == id).then_some(handle.into()))
     }
 
     /// The access mask granted to this particular handle.

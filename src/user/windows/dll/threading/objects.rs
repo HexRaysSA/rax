@@ -13,6 +13,7 @@ enum Kind {
     Event,
     Mutex,
     Semaphore,
+    Section,
 }
 
 enum Name {
@@ -67,6 +68,14 @@ impl Kind {
             (Self::Event, Object::Event { .. })
                 | (Self::Mutex, Object::Mutex { .. })
                 | (Self::Semaphore, Object::Semaphore { .. })
+                | (
+                    Self::Section,
+                    Object::Mapping { .. }
+                        | Object::ImageSection(_)
+                        | Object::DataSection(_)
+                        | Object::FileSection(_)
+                        | Object::GameOsPhysicalSection(_)
+                )
         )
     }
     fn all_access(self) -> u32 {
@@ -74,6 +83,7 @@ impl Kind {
             Self::Event => EVENT_ALL_ACCESS,
             Self::Mutex => MUTEX_ALL_ACCESS,
             Self::Semaphore => SEMAPHORE_ALL_ACCESS,
+            Self::Section => 0x000F_001F,
         }
     }
 }
@@ -347,7 +357,7 @@ fn desired_access(kind: Kind, access: u32) -> Checked<u32> {
 }
 
 fn open(c: &mut Ctx, wide: bool, kind: Kind) -> ApiResult {
-    let (access, inherit, addr) = (c.u32(0)?, c.bool(1)?, c.ptr(2)?);
+    let (mut access, inherit, addr) = (c.u32(0)?, c.bool(1)?, c.ptr(2)?);
     let name = match name(c, addr, wide) {
         Ok(Some(name)) => name,
         Ok(None) => return c.fail(ERROR_INVALID_PARAMETER, 0),
@@ -363,6 +373,15 @@ fn open(c: &mut Ctx, wide: bool, kind: Kind) -> ApiResult {
         .is_some_and(|object| kind.matches(object))
     {
         return c.fail(ERROR_INVALID_HANDLE, 0);
+    }
+    if matches!(kind, Kind::Section) {
+        // FILE_MAP_COPY alone selects read access. FILE_MAP_EXECUTE is
+        // translated from its Win32 value to SECTION_MAP_EXECUTE.
+        if access == 1 {
+            access = 4;
+        } else if access & 0x20 != 0 {
+            access = (access & !0x20) | 0x08;
+        }
     }
     let access = match desired_access(kind, access) {
         Ok(access) => access,
@@ -390,6 +409,9 @@ pub(super) fn open_semaphore_w(c: &mut Ctx) -> ApiResult {
 }
 pub(super) fn open_semaphore_a(c: &mut Ctx) -> ApiResult {
     open(c, false, Kind::Semaphore)
+}
+pub(super) fn open_file_mapping_w(c: &mut Ctx) -> ApiResult {
+    open(c, true, Kind::Section)
 }
 
 fn event_state(c: &mut Ctx, state: bool) -> ApiResult {

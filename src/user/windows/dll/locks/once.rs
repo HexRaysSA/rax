@@ -1,10 +1,18 @@
-//! Synchronous one-time initialization and guest callback ownership.
+//! One-time initialization and guest callback ownership.
 
 use crate::error::MemoryAccessKind;
 use crate::user::windows::{
-    hle::{ApiResult, Arg::Ptr, Conv::Stdcall, Ctx, Export, Flow},
-    memory::MemFault,
-    nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOT_ENOUGH_MEMORY, ERROR_POSSIBLE_DEADLOCK},
+    hle::{
+        ApiResult,
+        Arg::{I32, Ptr},
+        Conv::Stdcall,
+        Ctx, Export, Flow,
+    },
+    memory::{Mem, MemFault},
+    nt::error::{
+        ERROR_GEN_FAILURE, ERROR_INVALID_PARAMETER, ERROR_NOT_ENOUGH_MEMORY,
+        ERROR_POSSIBLE_DEADLOCK,
+    },
     nt::status::{STATUS_INVALID_PARAMETER, STATUS_NO_MEMORY, STATUS_SUCCESS, STATUS_UNSUCCESSFUL},
     sync::{OnceCallback, Wait},
 };
@@ -27,6 +35,118 @@ pub(in crate::user::windows::dll) static NTDLL_ONCE_EXPORTS: &[Export] = &[Expor
 )];
 
 const DONE: u64 = 2;
+const ASYNC_PENDING: u64 = 3;
+const CHECK_ONLY: u32 = 1;
+const ASYNC: u32 = 2;
+const INIT_FAILED: u32 = 4;
+
+pub(in crate::user::windows::dll) static MANUAL_ONCE_EXPORTS: &[Export] = &[
+    Export::func(
+        "InitOnceBeginInitialize",
+        Stdcall,
+        &[Ptr, I32, Ptr, Ptr],
+        begin,
+    ),
+    Export::func("InitOnceComplete", Stdcall, &[Ptr, I32, Ptr], complete),
+];
+
+pub(in crate::user::windows::dll) static MANUAL_ONCE_FORWARDS: &[Export] = &[
+    Export::forward(
+        "InitOnceBeginInitialize",
+        "KERNELBASE.InitOnceBeginInitialize",
+    ),
+    Export::forward("InitOnceComplete", "KERNELBASE.InitOnceComplete"),
+];
+
+fn begin(c: &mut Ctx) -> ApiResult {
+    let (address, flags, pending, context) = (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.ptr(3)?);
+    if address == 0
+        || address % c.psize() != 0
+        || pending == 0
+        || !matches!(flags, 0 | CHECK_ONLY | ASYNC)
+    {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    begin_at(c, address, flags, pending, context)
+}
+
+fn begin_at(c: &mut Ctx, address: u64, flags: u32, pending: u64, context: u64) -> ApiResult {
+    let state = c.read_ptr(address)?;
+    if state & 3 == DONE {
+        if context != 0 {
+            probe(c, context)?;
+        }
+        c.mem().w32(pending, 0)?;
+        if context != 0 {
+            c.write_ptr(context, state & !3)?;
+        }
+        return Flow::bool(true);
+    }
+    if flags & CHECK_ONLY != 0 {
+        return c.fail(ERROR_GEN_FAILURE, 0);
+    }
+    if state != 0 && (state != ASYNC_PENDING || flags & ASYNC == 0) {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    if let Some(owner) = c.p.sync.once_owner(address) {
+        if flags & ASYNC != 0 {
+            return c.fail(ERROR_INVALID_PARAMETER, 0);
+        }
+        if owner == c.t.tid {
+            return c.fail(ERROR_POSSIBLE_DEADLOCK, 0);
+        }
+        return Flow::block(Wait::InitOnce { addr: address }, move |c, _| {
+            begin_at(c, address, flags, pending, context)
+        });
+    }
+    probe(c, address)?;
+    c.mem()
+        .probe(pending, 4, MemoryAccessKind::Write)
+        .map_err(|fault| MemFault {
+            addr: fault.address,
+            write: true,
+        })?;
+    if flags & ASYNC != 0 {
+        c.write_ptr(address, ASYNC_PENDING)?;
+    } else if !c.p.sync.begin_manual_once(address, c.t.tid) {
+        return c.fail(ERROR_NOT_ENOUGH_MEMORY, 0);
+    }
+    c.mem().w32(pending, 1)?;
+    Flow::bool(true)
+}
+
+fn complete(c: &mut Ctx) -> ApiResult {
+    let (address, flags, context) = (c.ptr(0)?, c.u32(1)?, c.ptr(2)?);
+    if address == 0
+        || address % c.psize() != 0
+        || context & 3 != 0
+        || !matches!(flags, 0 | ASYNC | INIT_FAILED)
+        || (flags == INIT_FAILED && context != 0)
+    {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    let state = c.read_ptr(address)?;
+    let owns = if flags == ASYNC {
+        state == ASYNC_PENDING
+    } else {
+        state == 0 && c.p.sync.manual_once_owner(address) == Some(c.t.tid)
+    };
+    if !owns {
+        return c.fail(ERROR_GEN_FAILURE, 0);
+    }
+    c.write_ptr(
+        address,
+        if flags == INIT_FAILED {
+            0
+        } else {
+            context | DONE
+        },
+    )?;
+    if flags != ASYNC {
+        c.p.sync.finish_manual_once(address);
+    }
+    Flow::bool(true)
+}
 
 #[derive(Clone, Copy)]
 enum OnceApi {

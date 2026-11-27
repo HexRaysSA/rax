@@ -47,6 +47,35 @@ The GameOS product policy reports the guest OS SKU, and the native device
 family query reports Xbox for x64 GameOS guests. The virtual-console
 management device exposes a guest-owned handle and reports the portable
 profile's zero capability mask for the XMem counter query.
+The additional `--windows-gameos-analysis` option selects an offline launch
+model. The process token exposes a synthetic `XBOX://LI` attribute and the
+user SID returned to local COM clients is a private, guest-only identifier.
+The offline primary token supports queries. Requests for other access
+return an unsupported status. The guest virtual-console device accepts
+matching queue registration, binding and
+unregistration. The queue retains guest state and completes the handshake
+locally. A guest service manager exposes the `RpcSs` running notification
+through an APC to the thread that requested it. The guest accepts the GDK's
+local COM client policy and exposes dormant WNF state subscriptions,
+including the global connectivity state with no network connectivity.
+Its native COM client sees the packaged COM catalog as absent when the
+registry has no selected data for that key. The offline profile reports
+developer mode disabled and reports the local RPC directory as absent
+when the guest namespace supplies no such directory.
+The Game Runtime's activation requests for the Xbox companion VM return
+`HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED)` with no COM interface. The runtime
+can continue past services it treats as optional. Other activation requests
+use the guest's COM library.
+Its virtual storage adapter answers the XVD identification request on
+`\\.\Scsi0:`. Its queue notification receive stays pending in the absence
+of a publisher. Graceful disconnect reports that the peer is absent,
+so the guest can tear down locally. Explicit cancellation completes the request with
+`STATUS_CANCELLED` and dispatches its guest thread-pool I/O callback.
+The analysis guest uses `RAX-OFFLINE` as its `GameCore\SandboxId`.
+For loose titles with a configuration hive, the guest derives
+`GameCore\AppInfo\PackageIdentity` from the package fields in that hive.
+Queue delivery, real console launch credentials, host service bindings, and
+raw disk access are outside the model.
 The D3D12 and XMem direct transport probes report `STATUS_NOT_SUPPORTED`.
 A Win32 open of
 `\\.\XgsKmd10` reports `ERROR_FILE_NOT_FOUND`. The portable profile has no
@@ -98,6 +127,9 @@ initializer table walkers to UCRT and registers x64 DLL exit callbacks in the
 caller’s encoded `__dllonexit3` table.
 `InitOnceExecuteOnce` runs the guest initializer synchronously. A callback
 that returns failure leaves the one-time record available for retry.
+`InitOnceBeginInitialize` and `InitOnceComplete` share the same initialization
+record and publish a single context. Synchronous contenders wait for the
+initializer, while asynchronous contenders can prepare a context concurrently.
 `RtlRunOnceExecuteOnce` shares that state and returns NTSTATUS. Its callback
 receives the caller's optional context pointer.
 `LocalAlloc` and `LocalFree` support fixed allocations on the guest process heap.

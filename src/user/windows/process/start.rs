@@ -433,6 +433,12 @@ fn spawn_image_file(
     let h = pe.headers();
     let arch = WinArch::from_machine(h.machine)
         .ok_or_else(|| SpawnError::BadImage(format!("unsupported PE machine {:#x}", h.machine)))?;
+    if config.gameos_analysis && (!config.gameos || config.native_libraries || arch != WinArch::X64)
+    {
+        return Err(SpawnError::BadImage(
+            "GameOS analysis requires an x64 guest and built-in Windows libraries".into(),
+        ));
+    }
     let prohibited = child.as_ref().map_or(IMAGE_FILE_DLL, |child| {
         IMAGE_FILE_DLL | child.prohibited_characteristics
     });
@@ -579,10 +585,17 @@ fn spawn_image_file(
         .as_ref()
         .map(|r| r.registry.clone())
         .unwrap_or_default();
-    if native.is_none() && arch == WinArch::X64 && config.gameos && config.host_filesystem {
-        registry
-            .mount_game_config(&config.exe_host_path)
-            .map_err(SpawnError::Io)?;
+    if native.is_none() && arch == WinArch::X64 && config.gameos {
+        if config.host_filesystem {
+            registry
+                .mount_game_config(&config.exe_host_path)
+                .map_err(SpawnError::Io)?;
+        }
+        if config.gameos_analysis {
+            registry
+                .mount_gameos_launch_info()
+                .map_err(SpawnError::Io)?;
+        }
     }
     let object_namespace = native
         .as_ref()
@@ -630,6 +643,7 @@ fn spawn_image_file(
         space,
         vm,
         cfg: Arc::new(config),
+        gameos_com_security_initialized: false,
         native,
         quota_limits,
         flush_information,

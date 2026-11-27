@@ -10,8 +10,8 @@ use crate::user::windows::nt::error::{
     ERROR_GEN_FAILURE, ERROR_INVALID_HANDLE, ERROR_INVALID_PARAMETER,
 };
 use crate::user::windows::nt::status::{
-    STATUS_ACCESS_DENIED, STATUS_INSUFFICIENT_RESOURCES, STATUS_INVALID_HANDLE,
-    STATUS_OBJECT_TYPE_MISMATCH, STATUS_SUCCESS, STATUS_UNSUCCESSFUL,
+    STATUS_ACCESS_DENIED, STATUS_INSUFFICIENT_RESOURCES, STATUS_INVALID_DEVICE_REQUEST,
+    STATUS_INVALID_HANDLE, STATUS_OBJECT_TYPE_MISMATCH, STATUS_SUCCESS, STATUS_UNSUCCESSFUL,
 };
 use crate::user::windows::object_namespace::security_device::{
     CNG_DEVICE_TYPE, KSEC_DEVICE_TYPE, SecurityDevice,
@@ -67,6 +67,10 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     let device = match c.p.objects.get(handle) {
         Some(Object::SecurityFile(device)) => *device,
         Some(Object::GameOsXvcFile) => return super::gameos_xvc::control(c, code),
+        Some(Object::GameOsScsiAdapter) => return gameos_scsi_control(c, code),
+        Some(Object::GameOsXvcQueue { .. }) => {
+            return super::gameos_xvc::queue_control(c, handle, code);
+        }
         Some(_) => {
             return Err(c
                 .unsupported("NtDeviceIoControlFile object type is not selected")
@@ -81,6 +85,37 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             .unsupported("NtDeviceIoControlFile device identity is not selected")
             .into()),
     }
+}
+
+fn gameos_scsi_control(c: &mut Ctx, code: u32) -> Checked<u32> {
+    const IOCTL_SCSI_MINIPORT: u32 = 0x0004_d008;
+    const SRB_HEADER_BYTES: usize = 28;
+    const XVD_ADAPTER_PROBE: u32 = 0x7800_000c;
+    let (io, input, input_len, output, output_len) =
+        (c.ptr(4)?, c.ptr(6)?, c.u32(7)?, c.ptr(8)?, c.u32(9)?);
+    if code != IOCTL_SCSI_MINIPORT
+        || (c.ptr(1)?, c.ptr(2)?, c.ptr(3)?) != (0, 0, 0)
+        || input_len as usize != SRB_HEADER_BYTES
+        || output_len as usize != SRB_HEADER_BYTES
+    {
+        return status(STATUS_INVALID_DEVICE_REQUEST);
+    }
+    let mut header = [0; SRB_HEADER_BYTES];
+    c.mem().rd(input, &mut header)?;
+    if header[..4] != (SRB_HEADER_BYTES as u32).to_le_bytes()
+        || header[16..20] != XVD_ADAPTER_PROBE.to_le_bytes()
+        || header[24..28] != [0; 4]
+    {
+        return status(STATUS_INVALID_DEVICE_REQUEST);
+    }
+    probe_write(c, io, 16)?;
+    probe_write(c, output, SRB_HEADER_BYTES)?;
+    header[4..12].copy_from_slice(b"MSFT_XVD");
+    header[20..24].fill(0);
+    c.mem().wr(output, &header)?;
+    c.mem().w64(io, 0)?;
+    c.mem().w64(io + 8, SRB_HEADER_BYTES as u64)?;
+    Ok(STATUS_SUCCESS)
 }
 
 fn provider(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Checked<u32> {

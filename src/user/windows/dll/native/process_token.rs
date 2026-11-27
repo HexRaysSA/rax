@@ -84,6 +84,11 @@ fn checked(c: &mut Ctx, process: u64, desired: u32, attributes: u32, output: u64
             }
         }
         None if super::super::gameos::enabled(c) && desired == 8 => desired,
+        None if super::super::gameos::enabled(c) && c.p.cfg.gameos_analysis => {
+            // The offline identity supports queries. It has no token
+            // duplication or delegation model.
+            return failure(c, output, STATUS_NOT_SUPPORTED);
+        }
         None => return Err(c.unsupported("primary-token opening rights are not captured")),
     };
     // Successful native64 and WoW64 calls probe the complete HANDLE before

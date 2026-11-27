@@ -21,6 +21,18 @@ pub(super) static PROCESS_WRITE_BARRIER_EXPORTS: &[Export] = &[Export::func(
     super::native::flush_process_write_buffers,
 )];
 
+pub(super) static PROCESS_SESSION_EXPORTS: &[Export] = &[Export::func(
+    "ProcessIdToSessionId",
+    Stdcall,
+    &[I32, Ptr],
+    process_id_to_session_id,
+)];
+
+pub(super) static PROCESS_SESSION_FORWARDS: &[Export] = &[Export::forward(
+    "ProcessIdToSessionId",
+    "KERNELBASE.ProcessIdToSessionId",
+)];
+
 pub(super) static NTDLL_LAST_ERROR_EXPORTS: &[Export] = &[
     Export::func("RtlGetLastWin32Error", Stdcall, &[], get_last_error),
     Export::func("RtlSetLastWin32Error", Stdcall, &[I32], set_last_error),
@@ -161,6 +173,23 @@ fn current_thread(_: &mut Ctx) -> ApiResult {
 }
 fn process_id(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(c.p.pid))
+}
+fn process_id_to_session_id(c: &mut Ctx) -> ApiResult {
+    let (pid, output) = (c.u32(0)?, c.ptr(1)?);
+    if output == 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    let session = if pid == c.p.pid {
+        c.mem().u32(c.p.peb + offsets(c.arch()).peb_session_id)?
+    } else if let Some(session) = c.p.children.with_process(pid, |child| {
+        child.objects.wnf_queries().map_or(0, |q| q.session)
+    }) {
+        session
+    } else {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    };
+    c.mem().w32(output, session)?;
+    Flow::bool(true)
 }
 fn thread_id(c: &mut Ctx) -> ApiResult {
     Flow::ret(u64::from(c.t.tid))
@@ -627,6 +656,35 @@ fn performance_frequency(c: &mut Ctx) -> ApiResult {
 }
 fn is_debugger_present(_: &mut Ctx) -> ApiResult {
     Flow::bool(false)
+}
+
+pub(super) static DEBUG_STRING_EXPORTS: &[Export] = &[Export::func(
+    "OutputDebugStringA",
+    Stdcall,
+    &[Ptr],
+    output_debug_string_a,
+)];
+
+pub(super) static DEBUG_STRING_FORWARDS: &[Export] = &[Export::forward(
+    "OutputDebugStringA",
+    "KERNELBASE.OutputDebugStringA",
+)];
+
+fn output_debug_string_a(c: &mut Ctx) -> ApiResult {
+    let address = c.ptr(0)?;
+    let observer = tracing::enabled!(target: "rax::windows::debug_string", tracing::Level::DEBUG);
+    // An optional diagnostic observer must not introduce guest faults.
+    if address != 0
+        && (c.p.cfg.trace || observer)
+        && let Ok(bytes) = c.mem().cstr(address, 4096)
+    {
+        let message = String::from_utf8_lossy(&bytes);
+        if c.p.cfg.trace {
+            eprintln!("[{:04x}] debugger message {message:?}", c.t.tid);
+        }
+        tracing::debug!(target: "rax::windows::debug_string", %message);
+    }
+    Flow::void()
 }
 fn raise_exception(c: &mut Ctx) -> ApiResult {
     let (code, flags, count, args) = (c.u32(0)?, c.u32(1)?, c.u32(2)?, c.ptr(3)?);

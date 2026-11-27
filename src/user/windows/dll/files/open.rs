@@ -154,6 +154,28 @@ fn create(c: &mut Ctx, wide: bool) -> ApiResult {
     if super::super::gameos::enabled(c) && text.eq_ignore_ascii_case(r"\\.\XgsKmd10") {
         return c.fail(ERROR_FILE_NOT_FOUND, u64::MAX);
     }
+    const SCSI_PREFIX: &str = r"\\.\Scsi";
+    if c.p.cfg.gameos_analysis
+        && wide
+        && access == GENERIC_READ | GENERIC_WRITE | 0x0010_0000
+        && share == 0
+        && security == 0
+        && disposition == 3
+        && flags == 0
+    {
+        if let Some((prefix, port)) = text.split_at_checked(SCSI_PREFIX.len())
+            && prefix.eq_ignore_ascii_case(SCSI_PREFIX)
+            && let Some(number) = port.strip_suffix(':')
+            && number.bytes().all(|byte| byte.is_ascii_digit())
+            && let Ok(index) = number.parse::<u8>()
+        {
+            return if index == 0 {
+                publish(c, Object::GameOsScsiAdapter, inherit, access)
+            } else {
+                c.fail(ERROR_FILE_NOT_FOUND, u64::MAX)
+            };
+        }
+    }
     if let Some(device) = crate::user::windows::fs::dos_device(&text) {
         if device != "NUL" {
             return Err(c.unsupported("opening console/communications DOS devices"));
