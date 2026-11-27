@@ -129,8 +129,42 @@ fn read_into(
     let size = size.min(XATTR_MAXSIZE) as usize;
     let mut buf = vec![0u8; size.min(whole)];
     let n = read(Some(&mut buf))?;
-    ctx.write(value, &buf[..n])?;
+    // A zero-length descriptor buffer is itself a size query. The value or
+    // list may have grown since the first query.
+    ctx.write(value, buf.get(..n).ok_or(Errno::ERANGE)?)?;
     Ok(Rv::one(n as u64))
+}
+
+/// Read metadata through the handle of an admitted installed file.
+#[cfg(target_os = "macos")]
+pub(super) fn read_installed(
+    ctx: &Ctx<'_>,
+    file: &std::fs::File,
+    name: Option<&[u8]>,
+    value: u64,
+    size: Option<u64>,
+    position: u32,
+    options: u32,
+) -> SysResult {
+    use std::os::fd::AsRawFd;
+
+    let name = name
+        .map(CString::new)
+        .transpose()
+        .map_err(|_| Errno::EINVAL)?;
+    let max_copy = crate::user::supplied_fs::MAX_XATTR_VALUE as u64;
+    // The guest path walk has already applied the link options.
+    let options = options & !(opt::NOFOLLOW | opt::NOFOLLOW_ANY);
+    read_into(
+        ctx,
+        Target::Fd(file.as_raw_fd()),
+        name.as_ref(),
+        size.is_none(),
+        value,
+        size.unwrap_or(0).min(max_copy),
+        position,
+        options,
+    )
 }
 
 /// `getxattr(path, name, value, size, position, options)`.

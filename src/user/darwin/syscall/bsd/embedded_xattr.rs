@@ -1,4 +1,4 @@
-//! Darwin extended attributes backed by private workspace inodes.
+//! Darwin extended attributes on private workspace inodes and installed files.
 
 use super::{Ctx, Errno, Rv, SysResult, path, xattr_common as xattr};
 use crate::user::darwin::abi::tables::nr;
@@ -112,6 +112,18 @@ fn get(ctx: &Ctx<'_>, target: Target, args: &[u64; 8]) -> SysResult {
     if !query && position != 0 && !is_resource {
         return Err(Errno::EINVAL);
     }
+    #[cfg(target_os = "macos")]
+    if let Some(file) = entry.darwin_installed_file() {
+        return super::xattr::read_installed(
+            ctx,
+            file,
+            Some(&name),
+            buffer,
+            (!query).then_some(size),
+            position as u32,
+            options,
+        );
+    }
     let value = entry
         .workspace_xattrs(4, owner(ctx), &[])
         .and_then(|attrs| attrs.get(&name))
@@ -190,11 +202,24 @@ fn remove(ctx: &Ctx<'_>, target: Target, name: u64, options: u32) -> SysResult {
 fn list(ctx: &Ctx<'_>, target: Target, buffer: u64, size: u64, options: u32) -> SysResult {
     target.check_options(options)?;
     let entry = target.resolve(ctx, options)?;
+    let query = buffer == 0 || size == 0;
+    #[cfg(target_os = "macos")]
+    if let Some(file) = entry.darwin_installed_file() {
+        return super::xattr::read_installed(
+            ctx,
+            file,
+            None,
+            buffer,
+            (!query).then_some(size),
+            0,
+            options,
+        );
+    }
     let names = entry
         .workspace_xattrs(4, owner(ctx), &[])
         .and_then(|attrs| attrs.list())
         .map_err(errno)?;
-    if buffer == 0 || size == 0 {
+    if query {
         return Ok(Rv::one(names.len() as u64));
     }
     copy(ctx, buffer, size, &names)

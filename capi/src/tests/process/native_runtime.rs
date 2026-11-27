@@ -240,6 +240,58 @@ fn installed_darwin_stat_and_du_report_file_metadata_through_closed_c_abi() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn installed_darwin_xattr_reads_file_metadata_through_closed_c_abi() {
+    let path = "/usr/bin/xattr";
+    let target = "/usr/bin/true";
+    let image = std::fs::read(path).unwrap();
+    let cases: [(&[&str], u32); 4] = [
+        (&["-l", target][..], 0),
+        (&["-ls", target][..], 0),
+        (&["-p", "com.example.rax.fixture.absent", target][..], 1),
+        (&["-p", "com.apple.system.rax-fixture", target][..], 1),
+    ];
+    for (arguments, exit_code) in cases {
+        let native = std::process::Command::new(path)
+            .args(arguments)
+            .env_clear()
+            .env("LC_ALL", "C")
+            .output()
+            .unwrap();
+        assert_eq!(
+            native.status.code(),
+            Some(exit_code as i32),
+            "{arguments:?}"
+        );
+        let options = serde_json::json!({
+            "personality": "darwin",
+            "guest_path": path,
+            "arguments": arguments,
+            "environment": {"LC_ALL": "C"},
+            "native_runtime": true,
+            "memory_bytes": 268435456,
+        });
+        let process = open(&image, &options.to_string());
+        let state = info(&process);
+        assert_eq!(state["capabilities"]["native_runtime"], true);
+        assert_eq!(state["capabilities"]["host_filesystem"], false);
+        assert_eq!(state["capabilities"]["host_services"], false);
+        let result = run_installed_posix(&process, path);
+        assert_eq!(result.exit_code, exit_code, "{arguments:?}");
+        assert_eq!(
+            capture_installed_posix_stream(&process, RAX_PROCESS_STDOUT),
+            native.stdout,
+            "{arguments:?}"
+        );
+        assert_eq!(
+            capture_installed_posix_stream(&process, RAX_PROCESS_STDERR),
+            native.stderr,
+            "{arguments:?}"
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn installed_darwin_find_enumerates_programs_and_executes_children() {
     let find = "/usr/bin/find";
     let environment = [("LC_ALL", "C"), ("PATH", "/usr/bin:/bin")];
