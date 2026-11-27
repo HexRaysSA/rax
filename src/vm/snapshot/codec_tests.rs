@@ -65,6 +65,137 @@ fn sample() -> Snapshot {
 }
 
 #[test]
+fn software_arm_uart_checkpoint_requires_shared_gic_and_psci() {
+    use crate::config::{ArchKind, BackendKind, CliConfig, MemorySize, VmConfig};
+    use crate::vm::runtime::Vmm;
+    use crate::vm::timing::ClockMode;
+    use crate::vm::vcpu::state::CpuState;
+    use vm_memory::{Bytes, GuestAddress};
+
+    for count in [1, 2, 4] {
+        let kernel = TestPath::new();
+        std::fs::write(&kernel.0, [0; 64]).unwrap();
+        let mut config = VmConfig::from_sources(
+            CliConfig {
+                arch: Some(ArchKind::Aarch64),
+                backend: Some(BackendKind::Emulator),
+                vcpus: Some(count),
+                kernel: Some(kernel.0.clone()),
+                ..Default::default()
+            },
+            None,
+        )
+        .unwrap();
+        config.memory = MemorySize(128 * 1024 * 1024);
+        let source = Vmm::new_resume_with_clock(config.clone(), ClockMode::Retired).unwrap();
+        let mut complete = source.take_snapshot_bundle(0).unwrap();
+        let execution = complete.execution.as_mut().unwrap();
+        let mut uart = crate::devices::pl011::Pl011::new();
+        uart.queue_input(b"s");
+        execution.pl011 = Some(uart.checkpoint().unwrap());
+        execution.arm_cluster.as_mut().unwrap().shutdown = true;
+        // Exercise the producer shape from before the capture inventory.
+        complete.captured_sections = None;
+        let path = TestPath::new();
+        complete.save(&path.0).unwrap();
+        drop(source);
+        std::fs::remove_file(&kernel.0).unwrap();
+        let mut saved = SnapshotBundle::load(&path.0).unwrap();
+        let resume = VmConfig::from_checkpoint_bundle(&saved, CliConfig::default()).unwrap();
+        let restored = Vmm::new_resume_bundle(resume, &saved).unwrap();
+        let captured = restored.take_snapshot_bundle(0).unwrap();
+        assert!(
+            captured
+                .execution()
+                .unwrap()
+                .arm_cluster
+                .as_ref()
+                .unwrap()
+                .shutdown
+        );
+        assert_eq!(
+            captured.execution().unwrap().pl011,
+            saved.execution().unwrap().pl011
+        );
+        drop(restored);
+
+        let mut target = Vmm::new_resume_with_clock(config.clone(), ClockMode::Retired).unwrap();
+        let address = GuestAddress(crate::machine::arm_virt::AARCH64_RAM_BASE);
+        target
+            .guest_mem()
+            .memory()
+            .write_obj(0x5au8, address)
+            .unwrap();
+        let before = target.take_snapshot_bundle(0).unwrap();
+        let shared = saved.execution.as_mut().unwrap().arm_cluster.take();
+        let mut private = None;
+        for omit_private in [false, true] {
+            if omit_private {
+                private = saved.take_backend_contexts();
+            }
+            let invalid = TestPath::new();
+            let save = saved.save(&invalid.0);
+            // Write the old wire shape even when the public writer rejects it.
+            super::codec::save_bundle_atomic(&saved, &invalid.0).unwrap();
+            let load = SnapshotBundle::load(&invalid.0);
+            let config_result = VmConfig::from_checkpoint_bundle(&saved, CliConfig::default());
+            let cold = Vmm::new_resume_bundle(config.clone(), &saved);
+            let warm = target.restore_snapshot_bundle(&saved);
+            let errors = [
+                save.err(),
+                load.err(),
+                config_result.err(),
+                cold.err(),
+                warm.err(),
+            ];
+            assert!(
+                errors
+                    .iter()
+                    .all(|error| matches!(error, Some(Error::InvalidConfig(reason))
+                        if reason == "software AArch64 checkpoint requires its shared GIC and PSCI state")),
+                "{count} CPUs, omit private={omit_private}, save/load/config/cold/warm: {errors:?}"
+            );
+            let after = target.take_snapshot_bundle(0).unwrap();
+            assert_eq!(
+                before.execution().unwrap().encoded().unwrap(),
+                after.execution().unwrap().encoded().unwrap()
+            );
+            let before_cpus = before.cpus().unwrap().entries();
+            let after_cpus = after.cpus().unwrap().entries();
+            assert_eq!(before_cpus.len(), after_cpus.len());
+            for (id, (before, after)) in before_cpus.iter().zip(after_cpus).enumerate() {
+                assert!(
+                    matches!((&before.state, &after.state),
+                        (CpuState::Aarch64(before), CpuState::Aarch64(after)) if before == after),
+                    "rejected restore changed CPU {id} of {count}, omit private={omit_private}"
+                );
+            }
+            assert_eq!(
+                target.guest_mem().memory().read_obj::<u8>(address).unwrap(),
+                0x5a
+            );
+        }
+        saved.execution.as_mut().unwrap().arm_cluster = shared;
+        saved.backend_contexts = private;
+        target.restore_snapshot_bundle(&saved).unwrap();
+        let captured = target.take_snapshot_bundle(0).unwrap();
+        assert!(
+            captured
+                .execution()
+                .unwrap()
+                .arm_cluster
+                .as_ref()
+                .unwrap()
+                .shutdown
+        );
+        assert_eq!(
+            captured.execution().unwrap().pl011,
+            saved.execution().unwrap().pl011
+        );
+    }
+}
+
+#[test]
 fn backend_context_section_is_required_ordered_bounded_and_cannot_alias_optional() {
     let base = sample();
     let cpu = CpuSnapshot {

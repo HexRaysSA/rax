@@ -201208,6 +201208,14 @@
       "scope": "Hosted Intel macOS run 45915053012 at c239e7347ab34dcdcc4bb86e2c6671dc5ce968d9 passed 192 direct 4 B BMI1 MMIO reads and 192 pending-read continuations with fresh VM and vCPU owners. The profile pairs 16- and 32-bit code with both address widths and four VEX control combinations. The destination and defined flags matched the QEMU and physical Intel KVM RAM references in every case. Independent archive verification checked both digests, the executable signature and entitlement, pinned source hashes, and the full mode and restore matrix. Execution artifact 15162385994 matched SHA-256 4d7b3772ffb9caede04b8dda9be660d23a152b04e7ff09ba2744371dce02d9b2. Bare-metal Intel macOS, wider MMIO and interrupt coverage, and the full findings remain open.",
       "qualification": "docs/development/hvf-mmio-alu-read.md#bmi1-device-reads-in-ia-32e-compatibility-mode",
       "full_goal_complete": false
+    },
+    {
+      "id": "aarch64-uart-shared-platform-admission-2026-11-27",
+      "findings": ["C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "A software AArch64 checkpoint with a PL011 image requires the shared GIC and PSCI record. The parent accepted an incomplete one-vCPU file at save, load, and resume configuration before runtime restore rejected its missing shared GIC. The regression covers one, two, and four vCPUs, with and without the private CPU table, through save, load, configuration, and cold and warm restore. Complete files restore the saved terminal latch and UART state with the kernel source removed. This admission change covers the bundled software AArch64 producer. Full backend, in-flight, and coordinated replay coverage remains open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#shared-gic-and-psci-state-for-software-aarch64-uart-checkpoints",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

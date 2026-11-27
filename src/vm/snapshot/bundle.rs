@@ -339,6 +339,19 @@ impl SnapshotBundle {
     pub(crate) fn validate_complete(&self) -> Result<()> {
         self.validate()?;
         self.validate_riscv_platform_graph()?;
+        // A software PL011 record was introduced with the private CPU
+        // records on top of the existing shared GIC and PSCI record.
+        // Treat the UART as producer evidence even for a single CPU.
+        if self.base.config.backend == crate::config::BackendKind::Emulator
+            && self
+                .execution
+                .as_ref()
+                .is_some_and(|state| state.pl011.is_some() && state.arm_cluster.is_none())
+        {
+            return Err(Error::InvalidConfig(
+                "software AArch64 checkpoint requires its shared GIC and PSCI state".into(),
+            ));
+        }
         // The software cluster gained its PL011 image and private CPU records
         // together. An older cluster-only projection can lack both.
         if self

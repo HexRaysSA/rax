@@ -121,6 +121,32 @@ baseline and regression log SHA-256 digests are
 The check covers the software AArch64 producer graph. The complete
 checkpoint audit across all backends remains open.
 
+### Shared GIC and PSCI state for software AArch64 UART checkpoints
+
+A software AArch64 bundle with a PL011 image also requires the shared GIC
+and PSCI record, including on a one-vCPU machine. Both records are needed
+to validate that PL011 output agrees with the GIC interrupt line. The
+shared record also owns the PSCI shutdown latch and pending power requests.
+Save, load, resume configuration, and cold and warm restore all check the
+record before publishing state. The check takes constant time and space and
+does not change the file encoding.
+
+At `6fc625beb`, save, load, and resume configuration accepted the incomplete
+one-vCPU file with private CPU records. Cold and warm restore rejected it
+later when the CPU replacement required the shared GIC.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| A software PL011 image identifies a producer with a shared GIC and PSCI record. | High | The producer in `457c02a74` captured both. At one, two, and four vCPUs, keep the UART image and remove the shared record, with and without the private CPU table. All five public admission paths must reject. |
+| Rejection preserves the existing machine and permits a later complete restore. | High | Compare warm target shared execution state, typed vCPU registers and a RAM sentinel after rejection. Restore the complete file on warm and fresh owners and re-capture the PSCI shutdown latch and the PL011 FIFO. |
+
+Projection files from before the PL011 section retain their existing
+admission rules. Native AArch64 uses its own shared HVF image.
+All 108 snapshot tests and 50 checkpoint integration tests passed on
+macOS Arm64. The snapshot and integration log SHA-256 digests are
+`9a46b235b1bc3be9d94f6a37231a34834ccf6707b1ada7e1869b10b3bd693591` and
+`e4b7c148c21af41cb682d7983321fbc1d9ed3c77f6fea171e3b958b0fc9fb42d`.
+
 ### Intel HVF pending I/O
 
 Intel HVF legacy capture checks every vCPU for pending I/O and holds the
