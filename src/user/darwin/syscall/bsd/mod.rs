@@ -171,6 +171,7 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                     (number == nr::CSOPS_AUDITTOKEN).then_some(a[4]),
                 );
             }
+            nr::GETAUDIT_ADDR => return proc::closed_getaudit_addr(ctx, a[0], u(1)),
             nr::GETGROUPS => return proc::closed_getgroups(ctx, i(0), a[1]),
             nr::GETRUSAGE => return misc::closed_getrusage(ctx, i(0), a[1]),
             nr::MAC_SYSCALL => return mac::closed_mac_syscall(ctx, a[0], i(1), a[2]),

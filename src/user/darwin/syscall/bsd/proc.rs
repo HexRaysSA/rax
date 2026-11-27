@@ -299,3 +299,70 @@ mod tests {
         }
     }
 }
+
+/// A closed process family starts in one audit session. Each family has its
+/// own namespace, unrelated to host audit sessions or guest POSIX job control.
+const SESSION_ID: u32 = 100_000;
+const AU_IP_V4: u32 = 4;
+
+/// Copy the requested prefix of the 48-byte Darwin `auditinfo_addr_t`.
+/// This model has no terminal, auditing mask, or session privileges.
+pub(super) fn closed_getaudit_addr(ctx: &Ctx<'_>, output: u64, length: u32) -> SysResult {
+    let mut info = [0; 48];
+    info[..4].copy_from_slice(&ctx.proc.creds.0.to_le_bytes());
+    info[16..20].copy_from_slice(&AU_IP_V4.to_le_bytes());
+    info[36..40].copy_from_slice(&SESSION_ID.to_le_bytes());
+    ctx.write(output, &info[..info.len().min(length as usize)])?;
+    Ok(Rv::one(0))
+}
+
+#[cfg(test)]
+mod closed_audit_tests {
+    use super::*;
+    use crate::user::darwin::{
+        abi::{DarwinAbi, Errno, tables::nr},
+        process::bounded_tests::process,
+        syscall::bsd,
+    };
+
+    #[test]
+    fn closed_audit_address_copies_guest_identity_and_only_the_requested_prefix() {
+        for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+            let mut guest = process(abi);
+            guest.proc.creds.0 = 0x1234;
+            guest.proc.creds.1 = 0x5678;
+            let (_, mut thread) = guest.proc.threads.pop_first().unwrap();
+            let output = thread.cpu.sp() - 64;
+            let mut ctx = Ctx {
+                proc: &mut guest.proc,
+                thread: &mut thread,
+                nr: i64::from(nr::GETAUDIT_ADDR),
+                pc: 0,
+            };
+            let call = |ctx: &mut Ctx<'_>, destination, length| {
+                bsd::call(
+                    ctx,
+                    nr::GETAUDIT_ADDR,
+                    &[destination, length, 0, 0, 0, 0, 0, 0],
+                )
+            };
+            assert_eq!(call(&mut ctx, 0, 0), Ok(Rv::one(0)));
+            assert_eq!(call(&mut ctx, 0, 1), Err(Errno::EFAULT));
+            let mut expected = [0; 48];
+            expected[..4].copy_from_slice(&0x1234u32.to_le_bytes());
+            expected[16..20].copy_from_slice(&4u32.to_le_bytes());
+            expected[36..40].copy_from_slice(&SESSION_ID.to_le_bytes());
+            for length in [0, 1, 37, 48, 64] {
+                ctx.write(output, &[0xa5; 64]).unwrap();
+                assert_eq!(call(&mut ctx, output, length), Ok(Rv::one(0)));
+                let bytes = ctx.read(output, 64).unwrap();
+                let copied = (length as usize).min(expected.len());
+                assert_eq!(&bytes[..copied], &expected[..copied]);
+                assert!(bytes[copied..].iter().all(|&byte| byte == 0xa5));
+            }
+            for operation in [nr::AUDITON, nr::SETAUDIT_ADDR] {
+                assert_eq!(bsd::call(&mut ctx, operation, &[0; 8]), Err(Errno::EPERM));
+            }
+        }
+    }
+}

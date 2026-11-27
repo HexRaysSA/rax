@@ -15,6 +15,11 @@ dyld's existing code-signature operation. Caller-supplied files keep their
 normal precedence. Component discovery and execution also depend on
 Carbon resource-fork behavior.
 
+Closed `getaudit_addr` reports the guest's own audit user and a stable
+session ID in the guest namespace. Its terminal address, mask, and session
+flags do not carry host data. The call copies at most the 48-byte Darwin
+record, with shorter calls receiving only the requested prefix.
+
 ```text
 rax-user --arch arm64 /bin/echo hello
 rax-user --arch x86_64 ./program args...
