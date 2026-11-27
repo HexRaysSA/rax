@@ -201228,8 +201228,8 @@
     {
       "id": "hvf-peer-io-before-checkpoint-resume-2026-11-27",
       "findings": ["C-STATE", "C-SMP", "C-HVF"],
-      "status": "locally_qualified_full_findings_open",
-      "scope": "The VMM completes retained native HVF device exits before guest entry or queued INIT delivery. Apple Silicon cold resume checks serial and parallel scheduling across unserviced and consumed reads, retained read diagnostics, undispatched writes, and acknowledged writes that need only PC retirement. A saved terminal VM conserves pending state. The Intel HVF path passes cross-target lint and type checks, and the coordinator tests model its terminal ordering. Native Intel checkpoint replay and the full findings remain open.",
+      "status": "native_intel_virtualized_qualified_full_findings_open",
+      "scope": "The VMM completes retained native HVF device exits before guest entry or queued INIT delivery. Ten physical Apple Silicon cold-resume cases cover serial and parallel scheduling, unserviced and consumed reads, retained read diagnostics, undispatched writes, and acknowledged writes that need only PC retirement. A saved terminal VM conserves pending state. Hosted Intel run 46002837220 at b904a1e0f passed four warm and fresh-owner AP MMIO cases, the legacy PAE checkpoint, and four serial and parallel two- and four-vCPU ISO boot cases. Independent archive checks verified the digest and Intel owner framing for both pending MMIO files. Intel terminal ordering is modeled by the coordinator test. Bare-metal Intel, GDB-attached native replay, and the full findings remain open.",
       "qualification": "docs/development/runtime-checkpoint-bundles.md#native-hvf-device-io-before-guest-re-entry",
       "full_goal_complete": false
     }

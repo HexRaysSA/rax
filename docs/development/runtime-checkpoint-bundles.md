@@ -200,9 +200,25 @@ O(H × (R + 1)) owner probes with O(1) additional scheduler state.
 The signed physical Apple Silicon baseline at `c27b8125d` entered CPU 0
 and latched `SYSTEM_OFF` while CPU 1's retained PL011 read remained pending.
 The revised build passed all ten cold-resume cases on the same Apple M4 Max.
-The stopped-owner path passes compilation and lint checks for Intel macOS.
-A coordinator test covers Intel terminal ordering. Native Intel restore
-remains unverified for this change.
+All seven signed terminal-I/O tests and all 46 checkpoint integration tests
+passed. The unfiltered Apple Silicon library run passed 11,423 tests, with
+49 ignored. The stopped-owner path also passed Intel macOS lint and type checks.
+
+Hosted Intel run `46002837220`, attempt 1, at `b904a1e0f` passed the pending
+AP MMIO read with two vCPUs and the pending AP MMIO write with four vCPUs.
+Both scenarios ran on an existing VM and a fresh VM, with one device
+access per replay. The run also passed the legacy PAE
+checkpoint test and all four two- and four-vCPU ISO boot cases across serial
+and parallel scheduling. The run used an untranslated Intel process on a
+virtualized macOS host. [Hosted Intel checkpoint run](https://github.com/HexRaysSA/rax/actions/runs/46002837220/job/140518576766)
+
+The archive digest matched GitHub metadata. The two files had the expected
+public CPU counts, ordered private Intel CPU records, and shared Intel VM
+record. Evidence artifact
+`15203659734` has SHA-256
+`00bde6646674a46a41ab6d5173d1d9a3257f7e81af443847729af8db1f708e90`.
+The saved Intel terminal-ordering probe remains coordinator-model coverage.
+Bare-metal Intel and GDB-attached native replay remain unverified.
 
 ### Checkpoint scheduling
 
