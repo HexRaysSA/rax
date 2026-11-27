@@ -4075,7 +4075,10 @@ The closed installed filesystem projects the architecture-matched CLR
 `v4.0.30319` and `Upgrades.4.0.30319` directories under `Microsoft.NET`.
 The admitted `mscoreei.dll` file also supports metadata queries and read-only
 opens by absolute name or relative to the selected directory. Its pathname
-must resolve to the same direct installed file without reparsing.
+must resolve to the same direct installed file without reparsing. After
+loading it, CLR startup can open the creator's `Software\Microsoft\.NETFramework`
+key. The registry snapshot covers the exact key in the creator's hive, including
+the native absence result when the optional per-user settings are missing.
 Each component must resolve inside the installed Windows tree. Directory
 handles remain guest-owned and support read-only metadata and enumeration.
 

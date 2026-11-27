@@ -23,6 +23,8 @@ pub(super) const USER_NT_CURRENT_VERSION_SUFFIX: &str =
 pub(super) const USER_REGISTRY_POLICY_SUFFIX: &str =
     "\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
 
+pub(super) const USER_DOT_NET_FRAMEWORK_SUFFIX: &str = r"\Software\Microsoft\.NETFramework";
+
 pub(super) const THEME_MANAGER_SUFFIX: &str =
     "\\Software\\Microsoft\\Windows\\CurrentVersion\\ThemeManager";
 pub(super) const THEME_PERSONALIZE_SUFFIX: &str =
@@ -53,6 +55,7 @@ pub(crate) enum SnapshotRoot {
     ShellFolders,
     UserNtCurrentVersion,
     UserRegistryPolicy,
+    UserDotNetFramework,
     ThemeManager,
     ThemePersonalize,
     SideBySide,
@@ -72,6 +75,7 @@ impl SnapshotRoot {
             Self::ShellFolders => shell_folders::path(sid),
             Self::UserNtCurrentVersion
             | Self::UserRegistryPolicy
+            | Self::UserDotNetFramework
             | Self::ThemeManager
             | Self::ThemePersonalize => Ok(user_policy::user_hive_path(sid)?
                 .into_iter()
@@ -94,6 +98,7 @@ impl SnapshotRoot {
             Self::ShellFolders => ViewRoot::ShellFolders,
             Self::UserNtCurrentVersion => ViewRoot::UserNtCurrentVersion,
             Self::UserRegistryPolicy => ViewRoot::UserRegistryPolicy,
+            Self::UserDotNetFramework => ViewRoot::UserDotNetFramework,
             Self::ThemeManager => ViewRoot::ThemeManager,
             Self::ThemePersonalize => ViewRoot::ThemePersonalize,
             Self::SideBySide => ViewRoot::SideBySide,
@@ -111,6 +116,7 @@ impl SnapshotRoot {
                 | Self::ShellFolders
                 | Self::UserNtCurrentVersion
                 | Self::UserRegistryPolicy
+                | Self::UserDotNetFramework
                 | Self::ThemeManager
                 | Self::ThemePersonalize
         )
@@ -124,6 +130,7 @@ impl SnapshotRoot {
                 | Self::ShellFolders
                 | Self::UserNtCurrentVersion
                 | Self::UserRegistryPolicy
+                | Self::UserDotNetFramework
                 | Self::ThemeManager
                 | Self::ThemePersonalize
                 | Self::Processor0
@@ -169,6 +176,7 @@ impl SnapshotRoot {
             Self::ShellFolders => "Shell Folders",
             Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
             Self::UserRegistryPolicy => "creator registry-tools policy",
+            Self::UserDotNetFramework => "creator .NET Framework settings",
             Self::ThemeManager => "creator ThemeManager",
             Self::ThemePersonalize => "creator Themes Personalize",
             Self::SideBySide => "SideBySide",
@@ -182,6 +190,7 @@ impl SnapshotRoot {
         match self {
             Self::UserNtCurrentVersion => USER_NT_CURRENT_VERSION_SUFFIX,
             Self::UserRegistryPolicy => USER_REGISTRY_POLICY_SUFFIX,
+            Self::UserDotNetFramework => USER_DOT_NET_FRAMEWORK_SUFFIX,
             Self::ThemeManager => THEME_MANAGER_SUFFIX,
             Self::ThemePersonalize => THEME_PERSONALIZE_SUFFIX,
             _ => unreachable!("creator snapshot root with a fixed suffix"),
@@ -210,6 +219,7 @@ impl SnapshotRoot {
             }
             Self::UserNtCurrentVersion
             | Self::UserRegistryPolicy
+            | Self::UserDotNetFramework
             | Self::ThemeManager
             | Self::ThemePersonalize => {
                 let expected = self.path(sid)?;
@@ -449,6 +459,7 @@ impl Registry {
                 if matches!(
                     root,
                     SnapshotRoot::UserRegistryPolicy
+                        | SnapshotRoot::UserDotNetFramework
                         | SnapshotRoot::ThemeManager
                         | SnapshotRoot::ThemePersonalize
                         | SnapshotRoot::ProcessConfig(_)

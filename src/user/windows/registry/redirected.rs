@@ -30,6 +30,7 @@ pub(crate) enum ViewRoot {
     WindowsNt,
     UserNtCurrentVersion,
     UserRegistryPolicy,
+    UserDotNetFramework,
     ThemeManager,
     ThemePersonalize,
     SideBySide,
@@ -41,11 +42,12 @@ pub(crate) enum ViewRoot {
 
 impl ViewRoot {
     fn admits_suffix(self, suffix: &[u16]) -> bool {
-        !matches!(
-            self,
-            Self::ProcessConfig(subject)
-                if !suffix.is_empty() && !subject.admits_descendant_routes()
-        )
+        suffix.is_empty()
+            || match self {
+                Self::ProcessConfig(subject) => subject.admits_descendant_routes(),
+                Self::UserDotNetFramework => false,
+                _ => true,
+            }
     }
 }
 

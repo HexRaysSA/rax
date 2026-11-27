@@ -94,6 +94,13 @@ pub(super) fn capture_user_registry_policy(registry: Registry, sid: &[u8]) -> io
     capture_user_header(registry, sid, SnapshotRoot::UserRegistryPolicy)
 }
 
+pub(super) fn capture_user_dot_net_framework(
+    registry: Registry,
+    sid: &[u8],
+) -> io::Result<Registry> {
+    capture_user_header(registry, sid, SnapshotRoot::UserDotNetFramework)
+}
+
 pub(super) fn capture_user_theme(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     let registry = capture_user_header(registry, sid, SnapshotRoot::ThemeManager)?;
     capture_user_header(registry, sid, SnapshotRoot::ThemePersonalize)
@@ -316,6 +323,7 @@ fn open_snapshot_path(
         | SnapshotRoot::ShellFolders
         | SnapshotRoot::UserNtCurrentVersion
         | SnapshotRoot::UserRegistryPolicy
+        | SnapshotRoot::UserDotNetFramework
         | SnapshotRoot::ThemeManager
         | SnapshotRoot::ThemePersonalize => (-2_147_483_645isize, "\\Registry\\User\\"),
     };

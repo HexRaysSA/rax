@@ -73,6 +73,11 @@ impl Registry {
                 "primary hive and registry-tools policy select different subjects",
             ),
             (
+                ViewRoot::UserDotNetFramework,
+                super::snapshot_root::USER_DOT_NET_FRAMEWORK_SUFFIX,
+                "primary hive and .NET Framework settings select different subjects",
+            ),
+            (
                 ViewRoot::ThemeManager,
                 super::snapshot_root::THEME_MANAGER_SUFFIX,
                 "primary hive and ThemeManager select different subjects",
@@ -179,6 +184,7 @@ impl Registry {
             (ViewRoot::ShellFolders, "Shell Folders"),
             (ViewRoot::UserNtCurrentVersion, "Windows NT CurrentVersion"),
             (ViewRoot::UserRegistryPolicy, "registry-tools policy"),
+            (ViewRoot::UserDotNetFramework, ".NET Framework settings"),
             (ViewRoot::ThemeManager, "ThemeManager"),
             (ViewRoot::ThemePersonalize, "Themes Personalize"),
         ];

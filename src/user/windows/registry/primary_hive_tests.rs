@@ -377,16 +377,31 @@ fn user_nt_current_version_header(canonical: Vec<u16>) -> CommandHeader {
 
 #[test]
 fn user_registry_policy_preserves_presence_absence_and_denial_for_one_sid() {
-    use super::super::snapshot_root::USER_REGISTRY_POLICY_SUFFIX;
+    assert_creator_settings_lookup(
+        SnapshotRoot::UserRegistryPolicy,
+        super::super::snapshot_root::USER_REGISTRY_POLICY_SUFFIX,
+        "DisableRegistryTools",
+    );
+}
+
+#[test]
+fn user_dot_net_framework_preserves_presence_absence_and_denial_for_one_sid() {
+    assert_creator_settings_lookup(
+        SnapshotRoot::UserDotNetFramework,
+        super::super::snapshot_root::USER_DOT_NET_FRAMEWORK_SUFFIX,
+        "LogEnable",
+    );
+}
+
+fn assert_creator_settings_lookup(root: SnapshotRoot, suffix: &str, value_name: &str) {
     use crate::user::windows::nt::status::{
         STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
     };
     let user = sid();
-    let root = SnapshotRoot::UserRegistryPolicy;
     let path = root.path(&user).unwrap();
-    let relative = units(&USER_REGISTRY_POLICY_SUFFIX[1..]);
+    let relative = units(&suffix[1..]);
     let policy = Value {
-        name: units("DisableRegistryTools"),
+        name: units(value_name),
         kind: 4,
         data: 1u32.to_le_bytes().to_vec(),
     };
@@ -437,11 +452,9 @@ fn user_registry_policy_preserves_presence_absence_and_denial_for_one_sid() {
                 (Some(STATUS_OBJECT_NAME_NOT_FOUND), Lookup::Missing, Lookup::Missing)
                 | (Some(STATUS_OBJECT_PATH_NOT_FOUND), Lookup::MissingPath, Lookup::MissingPath) => {
                 }
-                _ => panic!("registry-tools policy route disagrees with capture"),
+                _ => panic!("{root:?} route disagrees with capture"),
             }
-            let sibling = units(&format!(
-                "\\Registry\\User\\S-1-5-19{USER_REGISTRY_POLICY_SUFFIX}"
-            ));
+            let sibling = units(&format!("\\Registry\\User\\S-1-5-19{suffix}"));
             assert!(matches!(
                 selected.lookup_view(&sibling, view),
                 Lookup::Unselected
