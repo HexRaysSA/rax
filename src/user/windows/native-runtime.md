@@ -4067,8 +4067,9 @@ The CLR bootstrap opens the `HKLM\Software\Microsoft\.NETFramework`
 installation key after reading policy. Its snapshot uses each view's native
 `InstallRoot` value and links the existing `Policy` record. The selected
 installation path is also available through a machine-relative open.
-The bootstrap's optional `InstallRootARM64` and `CLRLoadLogDir` queries
-use the same view. An absent value reports the native missing-value status.
+The bootstrap's optional `InstallRootARM64`, `CLRLoadLogDir`, and
+`OnlyUseLatestCLR` queries use the same view. An absent value reports the
+native missing-value status.
 
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
