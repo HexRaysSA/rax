@@ -21,6 +21,8 @@ use crate::user::windows::objects::Object;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
+const CLR_LOADER: &str = "mscoreei.dll";
+
 pub(in super::super) struct Resolved {
     pub(in super::super) host: PathBuf,
     pub(in super::super) base: PathBuf,
@@ -29,6 +31,17 @@ pub(in super::super) struct Resolved {
     pub(in super::super) relative: Option<PathBuf>,
     pub(in super::super) directory: bool,
     pub(in super::super) runtime_library: bool,
+}
+
+impl Resolved {
+    pub(in super::super) fn installed_clr_loader(&self) -> bool {
+        self.runtime_library
+            && self
+                .host
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.eq_ignore_ascii_case(CLR_LOADER))
+    }
 }
 
 fn canonical_root(c: &Ctx, path: &Path) -> Checked<PathBuf> {
@@ -239,6 +252,21 @@ pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathB
     let Some(runtime) = &c.p.native else {
         return Ok(None);
     };
+    if let Some(separator) = path.iter().rposition(|unit| *unit == u16::from(b'\\'))
+        && equal(
+            c,
+            &path[separator + 1..],
+            &CLR_LOADER.encode_utf16().collect::<Vec<_>>(),
+        )
+        && let Some(framework) = framework_directory(c, &path[..separator])?
+    {
+        let base = framework.framework.expect("resolved CLR directory");
+        let image = confined_child(c, &base, CLR_LOADER, STATUS_OBJECT_NAME_NOT_FOUND)?;
+        if !image.is_file() {
+            return status(STATUS_OBJECT_NAME_NOT_FOUND);
+        }
+        return Ok(Some((base, image)));
+    }
     let windows = runtime.guest_root.trim_end_matches('\\');
     let sort_table: Vec<_> = format!(r"{windows}\Globalization\Sorting\SortDefault.nls")
         .encode_utf16()

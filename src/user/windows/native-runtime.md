@@ -4073,6 +4073,9 @@ native missing-value status.
 
 The closed installed filesystem projects the architecture-matched CLR
 `v4.0.30319` and `Upgrades.4.0.30319` directories under `Microsoft.NET`.
+The admitted `mscoreei.dll` file also supports metadata queries and read-only
+opens by absolute name or relative to the selected directory. Its pathname
+must resolve to the same direct installed file without reparsing.
 Each component must resolve inside the installed Windows tree. Directory
 handles remain guest-owned and support read-only metadata and enumeration.
 

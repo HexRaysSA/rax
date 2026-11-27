@@ -618,6 +618,102 @@ fn native_file_open_projects_only_the_selected_clr_directories() {
 }
 
 #[test]
+fn native_file_open_selects_the_installed_clr_loader_by_name() {
+    use crate::user::windows::nt::status::STATUS_ACCESS_DENIED;
+    use crate::user::windows::objects::Object;
+
+    for (arch, directory) in [
+        (WinArch::X86, "Framework"),
+        (WinArch::X64, "Framework64"),
+        (WinArch::Arm64, "FrameworkArm64"),
+    ] {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        let prefix = format!(r"\??\C:\Windows\Microsoft.NET\{directory}\v4.0.30319");
+        let target = installed
+            .parent()
+            .unwrap()
+            .join("Microsoft.NET")
+            .join(directory)
+            .join("v4.0.30319");
+        std::fs::create_dir_all(&target).unwrap();
+        std::fs::write(target.join("mscoreei.dll"), b"fixture assembly loader").unwrap();
+        std::fs::write(target.join("other.dll"), b"fixture unrelated DLL").unwrap();
+
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let attrs = h.attrs();
+        let width = arch.ptr_size();
+        h.name(&prefix);
+        assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+        let directory_handle = h.process.state().space.ptr(output, width).unwrap();
+        for (path, root) in [
+            (format!(r"{prefix}\MSCOREEI.DLL"), 0),
+            ("mscoreei.dll".to_owned(), directory_handle),
+        ] {
+            h.name(&path);
+            h.process
+                .state()
+                .space
+                .wptr(attrs + width, width, root)
+                .unwrap();
+            assert_eq!(
+                h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+                STATUS_SUCCESS
+            );
+            assert_eq!(
+                h.open_with(output, io, 0x100002, 7, 0x60),
+                STATUS_ACCESS_DENIED
+            );
+            assert_eq!(h.open_with(output, io, 0x100021, 7, 0x60), STATUS_SUCCESS);
+            let p = h.process.state_mut();
+            let handle = p.space.ptr(output, width).unwrap();
+            assert!(matches!(
+                p.objects.get(handle),
+                Some(Object::File(file)) if !file.directory && file.host.is_some()
+            ));
+            assert!(p.objects.runtime_library(handle));
+            p.objects.close(handle).unwrap();
+        }
+        h.name("other.dll");
+        h.process
+            .state()
+            .space
+            .wptr(attrs + width, width, directory_handle)
+            .unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100021, 7, 0x60),
+            STATUS_ACCESS_DENIED
+        );
+        std::fs::remove_file(target.join("mscoreei.dll")).unwrap();
+        h.name("mscoreei.dll");
+        h.process
+            .state()
+            .space
+            .wptr(attrs + width, width, directory_handle)
+            .unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100021, 7, 0x60),
+            STATUS_OBJECT_NAME_NOT_FOUND
+        );
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(target.join("other.dll"), target.join("mscoreei.dll"))
+                .unwrap();
+            assert_eq!(
+                h.open_with(output, io, 0x100021, 7, 0x60),
+                STATUS_ACCESS_DENIED
+            );
+        }
+        h.process
+            .state_mut()
+            .objects
+            .close(directory_handle)
+            .unwrap();
+    }
+}
+
+#[test]
 fn native_file_open_closed_system_drive_lists_only_guest_directories() {
     use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_NO_MORE_FILES};
 

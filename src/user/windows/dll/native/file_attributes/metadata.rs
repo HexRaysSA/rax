@@ -103,6 +103,7 @@ pub(super) fn resolved_attributes(c: &Ctx, path: &Path) -> Checked<u32> {
 }
 
 pub(super) fn query(c: &Ctx, resolved: &Resolved, no_reparse: bool) -> Checked<Information> {
+    let no_reparse = no_reparse || resolved.installed_clr_loader();
     if no_reparse && resolved.relative.is_none() {
         let mut parent = Some(resolved.host.as_path());
         while let Some(path) = parent {
