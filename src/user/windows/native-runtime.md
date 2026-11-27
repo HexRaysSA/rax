@@ -4115,6 +4115,12 @@ offset zero after verification. Other template revisions and locally modified
 files fail the comparison. The directory's other files remain outside the
 selection.
 
+For `v4.0.30319\fusion.localgac`, closed guests report the missing-name
+result only when the installed directory confirms that the optional marker
+is absent. A present marker or an unreadable directory withholds the result.
+The build 29708 controls matched both NT metadata status codes and the
+architecture-specific output writes. The marker is never opened or read.
+
 After locating the CLR engine, PowerShell opens the machine
 `SOFTWARE\Microsoft\Fusion` key relative to the machine hive. The snapshot
 records each selected key's canonical name and native access metadata.

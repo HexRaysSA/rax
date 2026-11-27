@@ -214,6 +214,100 @@ fn native_file_attributes_selected_runtime_does_not_grant_general_host_access() 
 }
 
 #[test]
+fn native_file_attributes_replays_only_the_absent_selected_clr_gac_marker() {
+    for (arch, framework, other) in [
+        (WinArch::X86, "Framework", "Framework64"),
+        (WinArch::X64, "Framework64", "FrameworkArm64"),
+        (WinArch::Arm64, "FrameworkArm64", "Framework"),
+    ] {
+        let mut h = Harness::new(arch);
+        let runtime = selection(&mut h);
+        let root = runtime.parent().unwrap().join("Microsoft.NET");
+        let selected = root.join(framework).join("v4.0.30319");
+        for directory in [
+            selected.clone(),
+            root.join(other).join("v4.0.30319"),
+            root.join(framework).join("Upgrades.4.0.30319"),
+        ] {
+            std::fs::create_dir_all(directory).unwrap();
+        }
+
+        let directory = format!(r"C:\Windows\Microsoft.NET\{framework}\v4.0.30319");
+        let p = h.process.state_mut();
+        let object = p.objects.create(Object::File(FileObj {
+            host: None,
+            host_path: PathBuf::new(),
+            path: directory.clone(),
+            access: 0,
+            share: 7,
+            lifetime: Arc::new(FileLifetime::new(FileIdentity::GuestDirectory(
+                directory.clone(),
+            ))),
+            null: false,
+            append: false,
+            delete_on_close: false,
+            directory: true,
+            overlapped: false,
+        }));
+        let root = u64::from(p.objects.open_access(object, false, 0).unwrap());
+
+        for (query, cleared) in [
+            (
+                "NtQueryAttributesFile",
+                if arch == WinArch::X86 { 36 } else { 40 },
+            ),
+            (
+                "NtQueryFullAttributesFile",
+                if arch == WinArch::X86 { 56 } else { 0 },
+            ),
+        ] {
+            for (name, handle) in [
+                (format!(r"\??\{directory}\FUSION.LOCALGAC"), 0),
+                ("fusion.localgac".to_owned(), root),
+            ] {
+                h.name(&name);
+                let attrs = h.attrs();
+                let space = &h.process.state().space;
+                space
+                    .wptr(attrs + arch.ptr_size(), arch.ptr_size(), handle)
+                    .unwrap();
+                space.wr(h.base, &[0xa5; 64]).unwrap();
+                assert_eq!(
+                    h.query(query, attrs, h.base),
+                    STATUS_OBJECT_NAME_NOT_FOUND,
+                    "{arch}/{query}/{name}"
+                );
+                let mut expected = [0xa5; 64];
+                expected[..cleared].fill(0);
+                assert_eq!(h.process.state().space.bytes(h.base, 64).unwrap(), expected);
+            }
+        }
+
+        let present = selected.join("Fusion.LocalGac");
+        std::fs::write(&present, b"private fixture").unwrap();
+        for name in [
+            format!(r"\??\{directory}\fusion.localgac"),
+            format!(r"\??\{directory}\adjacent.localgac"),
+            format!(r"\??\C:\Windows\Microsoft.NET\{other}\v4.0.30319\fusion.localgac"),
+            format!(r"\??\C:\Windows\Microsoft.NET\{framework}\Upgrades.4.0.30319\fusion.localgac"),
+        ] {
+            h.name(&name);
+            h.process.state().space.wr(h.base, &[0xa5; 64]).unwrap();
+            assert_eq!(
+                h.query("NtQueryAttributesFile", h.attrs(), h.base),
+                STATUS_ACCESS_DENIED,
+                "{arch}/{name}"
+            );
+            assert_eq!(
+                h.process.state().space.bytes(h.base, 64).unwrap(),
+                [0xa5; 64]
+            );
+        }
+        assert_eq!(std::fs::read(present).unwrap(), b"private fixture");
+    }
+}
+
+#[test]
 fn native_file_attributes_root_handles_retain_identity_and_native_name_rules() {
     for arch in WinArch::ALL {
         for directory in [false, true] {

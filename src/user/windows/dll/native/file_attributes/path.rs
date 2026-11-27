@@ -3,7 +3,7 @@
 #[cfg(unix)]
 pub(in super::super) mod unix;
 
-use super::super::named_object::{Checked, status};
+use super::super::named_object::{Checked, Failure, status};
 use super::attributes::Attributes;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::fs::FileIdentity;
@@ -18,6 +18,7 @@ use crate::user::windows::nt::status::{
     STATUS_OBJECT_PATH_SYNTAX_BAD, STATUS_OBJECT_TYPE_MISMATCH,
 };
 use crate::user::windows::objects::Object;
+use std::borrow::Cow;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
@@ -298,8 +299,8 @@ fn selected_main_file(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked
     Ok(Some(host))
 }
 
-fn selected_clr_machine_config(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
-    let suffix: Vec<_> = r"\Config\machine.config".encode_utf16().collect();
+fn selected_clr_v4_directory(c: &Ctx, path: &[u16], suffix: &str) -> Checked<Option<PathBuf>> {
+    let suffix: Vec<_> = suffix.encode_utf16().collect();
     let Some(prefix_len) = path.len().checked_sub(suffix.len()) else {
         return Ok(None);
     };
@@ -313,7 +314,11 @@ fn selected_clr_machine_config(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf
     {
         return Ok(None);
     }
-    let Some(base) = framework_directory(c, prefix)?.and_then(|entry| entry.framework) else {
+    Ok(framework_directory(c, prefix)?.and_then(|entry| entry.framework))
+}
+
+fn selected_clr_machine_config(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
+    let Some(base) = selected_clr_v4_directory(c, path, r"\Config\machine.config")? else {
         return Ok(None);
     };
     let config = confined_child(c, &base, "Config", STATUS_OBJECT_PATH_NOT_FOUND)?;
@@ -322,6 +327,36 @@ fn selected_clr_machine_config(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf
         return status(STATUS_OBJECT_NAME_NOT_FOUND);
     }
     Ok(Some((config, file)))
+}
+
+/// The stock CLR probes for this optional override marker during startup.
+/// Report the observed default only after checking its installed directory.
+pub(in super::super) fn check_clr_gac_marker(c: &Ctx, root: u64, name: &[u16]) -> Checked<()> {
+    if c.p.cfg.host_filesystem || c.p.native.is_none() {
+        return Ok(());
+    }
+    let Some(path) = guest_dos_name(c, root, name) else {
+        return Ok(());
+    };
+    let Some(directory) = selected_clr_v4_directory(c, &path, r"\fusion.localgac")? else {
+        return Ok(());
+    };
+    let marker: Vec<_> = "fusion.localgac".encode_utf16().collect();
+    let entries =
+        std::fs::read_dir(directory).map_err(|_| Failure::Status(STATUS_ACCESS_DENIED))?;
+    for entry in entries {
+        let name = entry
+            .map_err(|_| Failure::Status(STATUS_ACCESS_DENIED))?
+            .file_name();
+        if equal(
+            c,
+            &name.to_string_lossy().encode_utf16().collect::<Vec<_>>(),
+            &marker,
+        ) {
+            return status(STATUS_ACCESS_DENIED);
+        }
+    }
+    status(STATUS_OBJECT_NAME_NOT_FOUND)
 }
 
 impl Resolved {
@@ -540,33 +575,12 @@ pub(in super::super) fn guest_directory(
     let Some(names) = guest_directories(c) else {
         return Ok(None);
     };
-    let absolute;
-    let dos = if root == 0 {
-        let Some(dos) = dos_tail(c, name) else {
-            return Ok(None);
-        };
-        dos
-    } else {
-        let Some(Object::File(file)) = c.p.objects.get(root) else {
-            return Ok(None);
-        };
-        let FileIdentity::GuestDirectory(directory) = &file.lifetime.identity else {
-            return Ok(None);
-        };
-        if name.first() == Some(&u16::from(b'\\')) || parts(c, name).is_err() {
-            return Ok(None);
-        }
-        let mut path: Vec<_> = directory.encode_utf16().collect();
-        if !name.is_empty() && !directory.ends_with('\\') {
-            path.push(u16::from(b'\\'));
-        }
-        path.extend_from_slice(name);
-        absolute = path;
-        &absolute
+    let Some(dos) = guest_dos_name(c, root, name) else {
+        return Ok(None);
     };
-    let trimmed = dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(dos);
+    let trimmed = dos.strip_suffix(&[u16::from(b'\\')]).unwrap_or(&dos);
     if let Some(guest) = names.into_iter().find(|path| {
-        let name = if path.ends_with(":\\") { dos } else { trimmed };
+        let name = if path.ends_with(":\\") { &dos } else { trimmed };
         equal(c, name, &path.encode_utf16().collect::<Vec<_>>())
     }) {
         return Ok(Some(GuestDirectory {
@@ -576,6 +590,27 @@ pub(in super::super) fn guest_directory(
         }));
     }
     framework_directory(c, trimmed)
+}
+
+fn guest_dos_name<'a>(c: &Ctx, root: u64, name: &'a [u16]) -> Option<Cow<'a, [u16]>> {
+    if root == 0 {
+        return dos_tail(c, name).map(Cow::Borrowed);
+    }
+    let Object::File(file) = c.p.objects.get(root)? else {
+        return None;
+    };
+    let FileIdentity::GuestDirectory(directory) = &file.lifetime.identity else {
+        return None;
+    };
+    if name.first() == Some(&u16::from(b'\\')) || parts(c, name).is_err() {
+        return None;
+    }
+    let mut absolute: Vec<_> = directory.encode_utf16().collect();
+    if !name.is_empty() && !directory.ends_with('\\') {
+        absolute.push(u16::from(b'\\'));
+    }
+    absolute.extend_from_slice(name);
+    Some(Cow::Owned(absolute))
 }
 
 /// Admit one counted child name in the selected installed system directory.

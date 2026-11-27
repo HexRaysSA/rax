@@ -70,9 +70,11 @@ fn checked(c: &mut Ctx, full: bool) -> Checked<u32> {
     };
     let name = attributes::validate(c, &attrs)?;
     let directory = if let Some(name) = name.as_deref() {
-        match path::guest_directory(c, attrs.root, name) {
-            // NtQueryAttributesFile clears the basic output for a missing CLR
-            // directory. WoW64 also copies out zeroed network-open information.
+        match path::check_clr_gac_marker(c, attrs.root, name)
+            .and_then(|()| path::guest_directory(c, attrs.root, name))
+        {
+            // NtQueryAttributesFile clears the basic output for these missing
+            // CLR names. WoW64 also copies out zeroed network-open information.
             Err(Failure::Status(STATUS_OBJECT_NAME_NOT_FOUND)) if !full || wow => {
                 c.mem().wr(output, &[0; 56][..bytes])?;
                 return status(STATUS_OBJECT_NAME_NOT_FOUND);
