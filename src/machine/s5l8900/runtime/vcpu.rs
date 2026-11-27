@@ -103,6 +103,13 @@ impl VCpu for S5L8900Vcpu {
             None => Ok(()),
         }
     }
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        crate::backend::emulator::aarch32::validate_platform_checkpoint_state(&self.cpu, state)
+    }
     fn restore_checkpoint_context(
         &mut self,
         state: &CpuState,
@@ -190,6 +197,8 @@ impl VCpu for S5L8900Vcpu {
                 ));
             }
         };
+        self.cpu
+            .validate_configured_mode((state.regs.cpsr & 31) as u8)?;
         crate::backend::emulator::aarch32::apply_public_state(&mut self.cpu, state);
         Ok(())
     }

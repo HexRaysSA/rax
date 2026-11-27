@@ -171,7 +171,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             if r != 0 {
                 self.write_current_spsr_by_mask(value, mask);
             } else {
-                self.write_cpsr_by_mask(value, mask);
+                return self.write_cpsr_by_mask(value, mask);
             }
             return ExecResult::Continue;
         }
@@ -189,7 +189,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if r != 0 {
             self.write_current_spsr_by_mask(value, mask);
         } else {
-            self.write_cpsr_by_mask(value, mask);
+            return self.write_cpsr_by_mask(value, mask);
         }
 
         ExecResult::Continue
@@ -239,6 +239,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         } else {
             ((raw >> 18) & 0x3, (raw >> 17) & 1, 6)
         };
+        let mode_bits = (raw & 31) as u8;
+        if m != 0 && self.cpu.configured_hyp_unavailable(mode_bits) {
+            return ExecResult::Undefined;
+        }
         let (a, i, f) = (
             (raw >> (aif + 2)) & 1,
             (raw >> (aif + 1)) & 1,
@@ -272,7 +276,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             _ => {}
         }
         if m == 1 {
-            if let Some(mode) = ProcessorMode::from_bits((raw & 0x1F) as u8) {
+            if let Some(mode) = ProcessorMode::from_bits(mode_bits) {
                 self.cpu.change_mode(mode);
             }
         }

@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use vm_memory::{Bytes, GuestAddress};
 
+#[path = "a32_el2_profile_tests.rs"]
+mod el2_profile;
 #[path = "a32_fp_trap_tests.rs"]
 mod fp_traps;
 #[path = "a32_restricted_fp_tests.rs"]
@@ -228,12 +230,12 @@ fn backend_contexts_cannot_be_dropped_by_base_or_cpu_set_extraction() {
     assert!(!fixture.checkpoint.exists());
 }
 
-// The S3C02 payload begins with a fixed-width ID and the complete typed CPU.
+// The current S3C payloads begin with a fixed-width ID and the complete typed CPU.
 // Preserve its remaining controller/adapter bytes exactly. Checking the decoded
 // prefix against re-encoding prevents a wire-layout change from going unnoticed.
 fn profile_cpu(context: &BackendContext) -> (u32, crate::isa::arm::Armv7Cpu, usize) {
     assert_eq!(context.kind, crate::vm::snapshot::S3C64XX_CONTEXT);
-    assert!(context.data.starts_with(b"RAXS3C02"));
+    assert!(matches!(&context.data[..8], b"RAXS3C02" | b"RAXS3C03"));
     let mut reader = std::io::Cursor::new(&context.data[8..]);
     let id: u32 = crate::codec::deserialize_from(&mut reader).unwrap();
     let cpu: crate::isa::arm::Armv7Cpu = crate::codec::deserialize_from(&mut reader).unwrap();

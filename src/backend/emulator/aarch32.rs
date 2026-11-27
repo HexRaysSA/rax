@@ -594,6 +594,15 @@ impl VCpu for Aarch32Vcpu {
 #[path = "aarch32_tests.rs"]
 mod tests;
 
+pub(crate) fn validate_platform_checkpoint_state(cpu: &Armv7Cpu, state: &CpuState) -> Result<()> {
+    let CpuState::Aarch32(state) = state else {
+        return Err(Error::InvalidConfig(
+            "checkpoint CPU kind does not match target vCPU".into(),
+        ));
+    };
+    cpu.validate_configured_mode((state.regs.cpsr & 31) as u8)
+}
+
 pub(crate) fn apply_public_state(cpu: &mut Armv7Cpu, state: &Aarch32CpuState) {
     // Apply the mode first so the banked SP/LR/SPSR land in it.
     let cpsr = Psr::from_u32(state.regs.cpsr);

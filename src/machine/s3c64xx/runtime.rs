@@ -872,6 +872,14 @@ impl VCpu for Armv6Vcpu {
         Ok(())
     }
 
+    fn validate_checkpoint_state(
+        &self,
+        state: &CpuState,
+        _emulator: &crate::vm::snapshot::EmulatorState,
+    ) -> Result<()> {
+        crate::backend::emulator::aarch32::validate_platform_checkpoint_state(&self.cpu, state)
+    }
+
     fn restore_checkpoint_context(
         &mut self,
         state: &CpuState,
@@ -946,6 +954,7 @@ impl VCpu for Armv6Vcpu {
         };
         // Apply CPSR first so banked registers land in the right mode.
         let cpsr = crate::isa::arm::Psr::from_u32(state.regs.cpsr);
+        self.cpu.validate_configured_mode(cpsr.mode)?;
         if let Some(mode) = ProcessorMode::from_bits(cpsr.mode) {
             self.cpu.change_mode(mode);
         }

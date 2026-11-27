@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+const HSTR_TAG: &[u8; 8] = b"RAXS3C03";
 const TAG: &[u8; 8] = b"RAXS3C02";
 const LEGACY_TAG: &[u8; 8] = b"RAXS3C01";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - 8;
@@ -67,15 +68,25 @@ impl Context {
         if raw.len() > TAG.len() + MAX_PAYLOAD {
             return Err(invalid("context exceeds budget"));
         }
-        let context: Self = if let Some(payload) = raw.strip_prefix(TAG) {
-            crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?
+        let (mut context, hstr): (Self, Option<u32>) = if let Some(payload) =
+            raw.strip_prefix(HSTR_TAG)
+        {
+            let (context, hstr): (Self, u32) =
+                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
+            (context, Some(hstr))
+        } else if let Some(payload) = raw.strip_prefix(TAG) {
+            (
+                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?,
+                None,
+            )
         } else if let Some(payload) = raw.strip_prefix(LEGACY_TAG) {
             let old: Context<crate::isa::arm::aarch32::checkpoint::legacy::LegacyArmv7Cpu> =
                 crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
-            old.into_current()
+            (old.into_current(), None)
         } else {
             return Err(invalid("invalid context tag"));
         };
+        context.cpu.standalone_hstr = hstr;
         if context.id != id {
             return Err(invalid("vCPU identity differs from target"));
         }
@@ -125,9 +136,18 @@ impl Armv6Vcpu {
             syscon: inner.syscon.clone(),
             uart,
         };
-        let payload = crate::codec::serialize_limited(&context, MAX_PAYLOAD).map_err(invalid)?;
+        let hstr = self.cpu.standalone_hstr.unwrap_or_default();
+        let (tag, payload) = if hstr == 0 {
+            (TAG, crate::codec::serialize_limited(&context, MAX_PAYLOAD))
+        } else {
+            (
+                HSTR_TAG,
+                crate::codec::serialize_limited(&(&context, hstr), MAX_PAYLOAD),
+            )
+        };
+        let payload = payload.map_err(invalid)?;
         let mut data = Vec::with_capacity(TAG.len() + payload.len());
-        data.extend_from_slice(TAG);
+        data.extend_from_slice(tag);
         data.extend_from_slice(&payload);
         // The producer must satisfy the same invariant as an imported record.
         Context::decode(&data, self.id)?;
@@ -159,14 +179,12 @@ impl Armv6Vcpu {
         state: &CpuState,
         raw: &BackendContext,
     ) -> Result<Self> {
-        self.validate_context_record(state, raw)?;
-        let context = Context::decode(&raw.data, self.id)?;
+        let context = self.admit_context_record(state, raw)?;
         let mut candidate = Self::new(self.id, self.bridge.mem.clone());
         if let Some(uart) = self.uart.get() {
             candidate.attach_s3c_uart(uart.clone());
         }
         candidate.cpu = context.cpu;
-        candidate.cpu.configured_fp_isa = self.cpu.configured_fp_isa;
         candidate.excl = ExclusiveMonitor {
             address: context.exclusive_address,
             size: context.exclusive_size,
@@ -228,11 +246,15 @@ impl Armv6Vcpu {
         state: &CpuState,
         context: &BackendContext,
     ) -> Result<()> {
+        self.admit_context_record(state, context).map(drop)
+    }
+
+    fn admit_context_record(&self, state: &CpuState, context: &BackendContext) -> Result<Context> {
         if context.kind != S3C64XX_CONTEXT {
             return Err(invalid("context producer differs from target backend"));
         }
-        let context = Context::decode(&context.data, self.id)?;
-        self.cpu.check_checkpoint_fp_isa(&context.cpu)?;
+        let mut context = Context::decode(&context.data, self.id)?;
+        self.cpu.rebind_checkpoint_fp_isa(&mut context.cpu)?;
         if crate::codec::serialize(&public_state(&context.cpu)).map_err(invalid)?
             != crate::codec::serialize(state).map_err(invalid)?
         {
@@ -244,7 +266,7 @@ impl Armv6Vcpu {
         if let Some(uart) = self.uart.get() {
             drop(uart.lock().map_err(|_| invalid("UART lock poisoned"))?);
         }
-        Ok(())
+        Ok(context)
     }
 
     pub(super) fn apply_context_record(
@@ -252,9 +274,7 @@ impl Armv6Vcpu {
         state: &CpuState,
         raw: &BackendContext,
     ) -> Result<()> {
-        self.validate_context_record(state, raw)?;
-        let mut context = Context::decode(&raw.data, self.id)?;
-        context.cpu.configured_fp_isa = self.cpu.configured_fp_isa;
+        let context = self.admit_context_record(state, raw)?;
         let mut uart = self
             .uart
             .get()

@@ -56,9 +56,11 @@ PC firmware and PC owned-capture test modules.
 
 ## Private CPU and machine records
 
-The standalone AArch32 producer retains its versioned `RAXA3202` context (`RAXA3201` remains readable). The
-actual ARM1176/S3C64xx VMM adapter uses `RAXS3C02` (`RAXS3C01` remains readable): its complete represented
-`Armv7Cpu`, CP15 and banked registers, exclusive reservation, instruction count,
+The standalone AArch32 producer uses `RAXA3202` or `RAXA3203`.
+The S3C64xx VMM adapter uses `RAXS3C02` or `RAXS3C03`. Both producers
+write version 3 when HSTR is active and can read their previous versions.
+The S3C64xx records hold the represented `Armv7Cpu`, CP15 and banked
+registers, exclusive reservation, instruction count,
 halt/shutdown state, last bridge fault, power-off latch, both VICs, PWM counter
 phase, SYSCON registers, and attached UART registers/input FIFO. MMU/privilege
 views are derived before the next access. Decoder and host tracing caches are

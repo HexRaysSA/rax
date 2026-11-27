@@ -63,8 +63,9 @@ S5L register setters/getters now preserve FPSCR, S/D registers, SPSR and CP15
 fields through the shared AArch32 projection helpers.
 
 The versioned descriptor is private kind 11, `RAXS5L01`, followed by CPU identity
-and two complete resource keys. New state kind 5 begins with `RAXSLI02` and is capped
-at 64 MiB. NAND kind 6 begins with `RAXNND01`. Resource keys include kind, size and
+and two complete resource keys. State kind 5 uses `RAXSLI02` when HSTR is zero
+and `RAXSLI03` when HSTR is active. Its size cap is 64 MiB.
+NAND kind 6 begins with `RAXNND01`. Resource keys include kind, size and
 SHA-256; existing bundle integrity and aggregate RAM/media admission apply.
 Framing rejects trailing/truncated bytes, noncanonical booleans/options,
 invalid topology/index/priority/protocol shapes and excessive collection counts.
@@ -114,5 +115,6 @@ private-producer group; current follow-up counts are recorded separately.
 
 The [selected-calendar follow-up](../rtc-selected-clock/README.md) adds retained
 PMU calendar ownership and source-free pre/post guest I2C read continuations.
-Legacy RAXSLI01 imports retain Wall-only admission; selected RAXSLI02 follows
-the complete saved VM clock. The earlier validation table is historical.
+Legacy `RAXSLI01` imports retain Wall-only admission. `RAXSLI02` and
+`RAXSLI03` follow the complete saved VM clock. The earlier validation
+table is historical.

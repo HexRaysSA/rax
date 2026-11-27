@@ -203,6 +203,53 @@ profiles stay open.
 [Arm Architecture Reference Manual, EL2 configurable controls](https://support.arm.com/documentation/ddi0487/md/-Part-G-The-AArch32-System-Level-Architecture/-Chapter-G1-The-AArch32-System-Level-Programmers--Model/-G1-22-Configurable-instruction-controls/-G1-22-5-EL2-configurable-controls?lang=en)
 [Arm AArch32 HSTR register description](https://df.lth.se/~getz/ARM/SysReg/AArch32-hstr.html)
 
+## Configured Armv7-A EL2 and platform HSTR
+
+The standalone VMM uses its configured ISA to set `ID_PFR1.Virtualization`
+and admit FP-related EL2 control access.
+
+| Configuration | Virtualization field | HSTR and HCPTR |
+| --- | --- | --- |
+| `v7_a` | 0 | Absent |
+| `v7_a_virt` | 1 | Present |
+| `v7_a_lpae` | 1 | Present |
+| `v8_a32` | 1 | Present |
+
+On `v7_a`, guest writes and exception returns cannot enter Hyp. The public
+CPU state setter and private checkpoint admission enforce the same mode
+constraint. Admission normalizes the old read-only virtualization field
+on an image with reset Hyp state. It rejects active Hyp state before
+publishing CPU state.
+
+When HSTR is active, S3C64xx writes a four-byte little-endian extension in
+`RAXS3C03`. S5L8900 writes the same field in `RAXSLI03`. Both platforms
+retain the preceding wire format when HSTR is zero. Imports of preceding
+versions initialize HSTR to zero. A reserved bit in the new field causes
+admission to fail before publishing guest state.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| Configured Armv7-A has no Hyp state. | High | Read the capability field in both instruction states, attempt HSTR and HCPTR access and attempt entry using CPS, MSR, RFE and the CPU state setter. |
+| Dormant legacy EL2 state can be imported with the capability normalized. | High | Import a checkpoint with the old capability bit set, then set HCR in the same image and verify that rejection preserves the destination. |
+| HSTR belongs to the stopped CPU. | High | Arm HSTR.T1 in Hyp and require the same lower-mode CP15 trap across live execution, warm restore and source-free cold restore on both adapters. |
+| A rejected import preserves the armed target. | High | Set the reserved HSTR bit 4 in a new context and compare the admitted CPU image before and after rejection. Restore a version-2 context and verify guest HSTR reads zero. |
+
+Baseline failures showed the unwanted EL2 capability and a zero readback
+after writing HSTR.T1. The three focused VMM tests passed on macOS Arm64.
+The unfiltered library and seven owning integration targets passed
+61,528 tests with zero failures and 49 ignored cases.
+The S5L8900 test also passed from a working directory without the optional
+default NAND dump, with the kernel file removed before cold restore.
+Independent Cortex-A15 and max guests under QEMU 11.1.2 exercised eight
+combinations of A32/T32 state and HSTR.T1. They reported
+`HSR=0x0fe40441` with T1 set and completed the CPACR read with T1 clear.
+Both RAX adapters delivered the same syndrome, with the destination
+register and faulting instruction's retirement count unchanged.
+This qualification covers the configured capability and CP15 trap
+continuation. Broader Hyp instruction and stage-2 translation semantics
+and physical AArch32 verification remain open.
+[Arm Architecture Reference Manual, Armv7-A and Armv7-R, sections A1.4, B3.15, B4.1.64, B4.1.73 and B4.1.94](../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+
 ## Register-pair admission and data routing
 
 `VMOV_ss` encodes the first single register as `Vm:M`; odd starts S1 through

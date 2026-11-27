@@ -800,6 +800,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let u = (raw >> 23) & 1 == 1;
         let w = (raw >> 21) & 1 == 1;
         let mode_bits = (raw & 0x1F) as u8;
+        if self.cpu.configured_hyp_unavailable(mode_bits) {
+            return ExecResult::Undefined;
+        }
         let cur_mode = self.cpu.cpsr.mode;
         let sp = self.banked_sp(mode_bits);
         let low = match (p, u) {
@@ -853,6 +856,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Ok(v) => v,
             Err(e) => return ExecResult::MemoryFault(e),
         };
+        if self.cpu.configured_hyp_unavailable(new_cpsr as u8 & 31) {
+            return ExecResult::Undefined;
+        }
         if w {
             let nb = if u {
                 base.wrapping_add(8)

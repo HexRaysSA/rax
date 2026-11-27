@@ -635,6 +635,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         // CPSR from the current SPSR (exception return).
         let s_bit = Self::a32_s_bit(insn);
         let exception_return = s_bit && is_load && reglist & 0x8000 != 0;
+        if exception_return
+            && self
+                .cpu
+                .configured_hyp_unavailable(self.current_spsr_bits() as u8 & 31)
+        {
+            return ExecResult::Undefined;
+        }
         let user_bank = s_bit && !exception_return && !self.cpu.is_user_or_system();
 
         let mut addr = low;
@@ -874,6 +881,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let mut branch_target = None;
         let s_bit = Self::a32_s_bit(insn);
         let exception_return = s_bit && (reglist & 0x8000) != 0 && !self.cpu.is_user_or_system();
+        if exception_return
+            && self
+                .cpu
+                .configured_hyp_unavailable(self.current_spsr_bits() as u8 & 31)
+        {
+            return ExecResult::Undefined;
+        }
         let user_bank = s_bit && !exception_return && !self.cpu.is_user_or_system();
 
         for i in 0..16 {

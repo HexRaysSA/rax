@@ -750,6 +750,7 @@ impl Armv7Cpu {
 
     pub(crate) fn configure_fp_profile(&mut self, isa: Aarch32Isa) {
         self.configured_fp_isa = Some(isa);
+        self.standalone_hstr = Some(0);
         if matches!(isa, Aarch32Isa::V6 | Aarch32Isa::V6K | Aarch32Isa::V6T2) {
             self.configure_arm11_vfp();
         }
@@ -757,10 +758,33 @@ impl Armv7Cpu {
             // DDI0406C.d B4.1.93 assigns ID_PFR0.State1=3 to Thumb-2.
             self.cp15.id_pfr0 = 0x131;
         }
+        // ID_PFR1.Virtualization identifies the presence of the FP trap bank.
+        if !isa.has_virtualization() {
+            self.cp15.id_pfr1 &= !(15 << 12);
+        }
     }
 
-    pub(crate) fn check_checkpoint_fp_isa(&self, saved: &Self) -> crate::error::Result<()> {
-        if self.configured_fp_isa == Some(Aarch32Isa::V6T2)
+    pub(crate) fn configured_hyp_unavailable(&self, mode: u8) -> bool {
+        mode == ProcessorMode::Hyp as u8
+            && self
+                .configured_fp_isa
+                .is_some_and(|isa| !isa.has_virtualization())
+    }
+
+    pub(crate) fn validate_configured_mode(&self, mode: u8) -> crate::error::Result<()> {
+        if self.configured_hyp_unavailable(mode) {
+            return Err(Error::InvalidConfig(
+                "Hyp mode requires a configured AArch32 Virtualization Extension".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn rebind_checkpoint_fp_isa(&self, saved: &mut Self) -> crate::error::Result<()> {
+        let Some(isa) = self.configured_fp_isa else {
+            return Ok(());
+        };
+        if isa == Aarch32Isa::V6T2
             && (!saved.vfp.is_arm11()
                 || saved.fp_access_context.is_some()
                 || self.cp15.id_pfr0 != saved.cp15.id_pfr0
@@ -770,6 +794,35 @@ impl Armv7Cpu {
                 "Armv6T2 checkpoint requires its configured VFPv2 D16 profile".into(),
             ));
         }
+        self.validate_configured_mode(saved.cpsr.mode)?;
+        let hstr = saved.standalone_hstr.unwrap_or_default();
+        if !isa.has_virtualization() {
+            // Old plain Armv7-A images could report EL2. A reset Hyp bank is
+            // safe to import under the configured profile. An active one
+            // requires EL2 to preserve the guest continuation.
+            let cp15 = &saved.cp15;
+            let reset = super::cp15::Cp15State::default();
+            if hstr != 0
+                || cp15.hcptr != reset.hcptr
+                || cp15.hcr != reset.hcr
+                || cp15.hsctlr.bits() != reset.hsctlr.bits()
+                || cp15.hvbar != reset.hvbar
+                || cp15.hsr != reset.hsr
+                || cp15.elr_hyp != reset.elr_hyp
+                || saved.sp_hyp != 0
+                || saved.spsr_hyp.to_u32() != Psr::default().to_u32()
+            {
+                return Err(Error::InvalidConfig(
+                    "checkpoint retains active Hyp state without configured AArch32 virtualization"
+                        .into(),
+                ));
+            }
+        }
+        let virtualization = 15 << 12;
+        saved.cp15.id_pfr1 =
+            (saved.cp15.id_pfr1 & !virtualization) | (self.cp15.id_pfr1 & virtualization);
+        saved.configured_fp_isa = Some(isa);
+        saved.standalone_hstr = Some(hstr);
         Ok(())
     }
 

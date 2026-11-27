@@ -44,6 +44,12 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let r = crate::isa::arm::aarch32::cpu::aarch32_reg_index(r);
         if r == 15 {
             if s_bit && !self.cpu.is_user_or_system() {
+                if self
+                    .cpu
+                    .configured_hyp_unavailable(self.current_spsr_bits() as u8 & 31)
+                {
+                    return ExecResult::Undefined;
+                }
                 // Exception return
                 self.exception_return();
             }
@@ -134,7 +140,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
     }
 
-    pub(crate) fn write_cpsr_by_mask(&mut self, value: u32, mask: u32) {
+    pub(crate) fn write_cpsr_by_mask(&mut self, value: u32, mask: u32) -> ExecResult {
+        let new_mode = (value & 31) as u8;
+        if mask & 1 != 0
+            && self.cpu.is_privileged()
+            && self.cpu.configured_hyp_unavailable(new_mode)
+        {
+            return ExecResult::Undefined;
+        }
         if (mask & 8) != 0 {
             self.cpu.cpsr.n = (value >> 31) != 0;
             self.cpu.cpsr.z = ((value >> 30) & 1) != 0;
@@ -166,13 +179,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             self.cpu.cpsr.i = ((value >> 7) & 1) != 0;
             self.cpu.cpsr.f = ((value >> 6) & 1) != 0;
 
-            let new_mode = value & 0x1F;
-            if let Some(mode) = ProcessorMode::from_bits(new_mode as u8) {
+            if let Some(mode) = ProcessorMode::from_bits(new_mode) {
                 if self.cpu.cpsr.mode != mode as u8 {
                     self.cpu.change_mode(mode);
                 }
             }
         }
+        ExecResult::Continue
     }
 
     pub(crate) fn set_banked_sp(&mut self, mode_bits: u8, value: u32) {

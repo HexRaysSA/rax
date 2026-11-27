@@ -1127,7 +1127,8 @@
         "a32-jscvt-profile-2026-11-20",
         "a32-mixed-width-nsacr-2026-11-20",
         "a32-configured-fp-transfer-allocation-2026-11-27",
-        "a32-configured-armv6t2-vfpv2-2026-11-27"
+        "a32-configured-armv6t2-vfpv2-2026-11-27",
+        "a32-configured-el2-platform-hstr-2026-11-27"
       ]
     },
     {
@@ -3091,7 +3092,8 @@
         "hvf-mmio-implicit-divide-2026-11-20",
         "x86-software-nmi-blocking-2026-11-20",
         "hvf-live-gdb-terminal-checkpoint-2026-11-27",
-        "hvf-queued-init-after-native-mmio-2026-11-27"
+        "hvf-queued-init-after-native-mmio-2026-11-27",
+        "a32-configured-el2-platform-hstr-2026-11-27"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -201273,6 +201275,14 @@
       "status": "locally_qualified_full_findings_open",
       "scope": "The Armv6T2 standalone VMM selects synchronous VFPv2 D16 and admits scalar VFP in A32 and T32. The S3C64xx regression checks the enable controls, arithmetic and instruction availability before and after restoration, and rejected admission of a complete older incompatible context. A separate S5L8900 CLI guest continued from the Thumb FPEXC write after a source-free cold restore. LLVM supplied 32 assembly observations and QEMU supplied 21 independent execution and feature observations. Physical AArch32 and asynchronous VFP11 behavior remain open.",
       "qualification": "docs/development/a32-fp-controls/base-precision/README.md#configured-armv6t2-vfpv2",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-configured-el2-platform-hstr-2026-11-27",
+      "findings": ["A32-FP", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Configured Armv7-A reports EL2 absent and rejects Hyp mode entry. Virtualized S3C64xx and S5L8900 retain HSTR across actual warm and source-free cold checkpoint restores. An older plain Armv7-A record with reset Hyp state imports with its capability normalized. Live Hyp state is rejected before publication. QEMU supplied eight independent trap observations. Broader Hyp instruction and stage-2 translation semantics, remaining CPU and device state, and physical AArch32 remain open.",
+      "qualification": "docs/development/a32-fp-controls.md#configured-armv7-a-el2-and-platform-hstr",
       "full_goal_complete": false
     }
   ],

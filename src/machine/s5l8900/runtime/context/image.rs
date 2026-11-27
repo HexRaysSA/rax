@@ -9,6 +9,7 @@ use crate::isa::arm::instructions::ExclusiveMonitor;
 use serde::{Deserialize, Serialize};
 const IMAGE_TAG: &[u8; 8] = b"RAXSLI02";
 const LEGACY_TAG: &[u8; 8] = b"RAXSLI01";
+const HSTR_TAG: &[u8; 8] = b"RAXSLI03";
 fn words<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Vec<u32>, D::Error> {
     crate::devices::checkpoint_serde::vector::<u32, D, { MAX_STATE / 4 }>(d)
 }
@@ -572,6 +573,14 @@ impl Image {
     }
     pub(super) fn encode(&self) -> Result<Vec<u8>> {
         self.validate()?;
+        let hstr = self.runtime.cpu.standalone_hstr.unwrap_or_default();
+        if hstr != 0 {
+            let mut bytes = HSTR_TAG.to_vec();
+            bytes.extend_from_slice(
+                &crate::codec::serialize_limited(&(self, hstr), MAX_STATE - 8).map_err(invalid)?,
+            );
+            return Ok(bytes);
+        }
         let mut bytes = if self.legacy_calendar {
             LEGACY_TAG
         } else {
@@ -584,12 +593,25 @@ impl Image {
         Ok(bytes)
     }
     pub(super) fn decode(raw: &[u8]) -> Result<Self> {
-        if raw.len() > MAX_STATE || !(raw.starts_with(IMAGE_TAG) || raw.starts_with(LEGACY_TAG)) {
+        if raw.len() > MAX_STATE || raw.len() < 8 {
             return Err(invalid("state tag/length differs"));
         }
-        let mut value: Self = crate::codec::deserialize_limited::<_, { MAX_STATE - 8 }>(&raw[8..])
-            .map_err(invalid)?;
+        let (mut value, hstr): (Self, Option<u32>) = match &raw[..8] {
+            tag if tag == HSTR_TAG => {
+                let (value, hstr) =
+                    crate::codec::deserialize_limited::<_, { MAX_STATE - 8 }>(&raw[8..])
+                        .map_err(invalid)?;
+                (value, Some(hstr))
+            }
+            tag if tag == IMAGE_TAG || tag == LEGACY_TAG => (
+                crate::codec::deserialize_limited::<_, { MAX_STATE - 8 }>(&raw[8..])
+                    .map_err(invalid)?,
+                None,
+            ),
+            _ => return Err(invalid("state tag/length differs")),
+        };
         value.legacy_calendar = raw.starts_with(LEGACY_TAG);
+        value.runtime.cpu.standalone_hstr = hstr;
         value.validate()?;
         Ok(value)
     }

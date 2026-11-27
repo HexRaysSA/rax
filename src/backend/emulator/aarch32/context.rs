@@ -64,6 +64,9 @@ pub(crate) fn validate_cpu(cpu: &Armv7Cpu) -> Result<()> {
             "enclosing-PE access context is not standalone state",
         ));
     }
+    if cpu.standalone_hstr.unwrap_or_default() & !cpu.standalone_hstr_mask() != 0 {
+        return Err(invalid("HSTR contains bits outside the saved CPU profile"));
+    }
     Ok(())
 }
 
@@ -95,9 +98,6 @@ impl Context {
             return Err(invalid("vCPU identity differs from target"));
         }
         validate_cpu(&self.cpu)?;
-        if self.cpu.standalone_hstr.unwrap_or_default() & !self.cpu.standalone_hstr_mask() != 0 {
-            return Err(invalid("HSTR contains bits outside the saved CPU profile"));
-        }
         if self.exclusive_address.is_some() && !matches!(self.exclusive_size, 1 | 2 | 4 | 8) {
             return Err(invalid("invalid exclusive reservation width"));
         }

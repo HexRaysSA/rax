@@ -81,7 +81,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return Some(self.fp_cp15_trap(insn, 2, context.el2_aarch64));
         }
         if standalone_hstr {
-            let monitor = context.current_el == 3 && context.have_el3 && self.cpu.cp15.scr & 1 != 0;
+            let monitor = context.current_el == 3
+                && context.have_el3
+                && self.cpu.cp15.scr & 1 != 0
+                && (context.have_el2 || self.cpu.configured_fp_isa.is_none());
             return if (context.current_el == 2 && context.have_el2) || monitor {
                 None
             } else {
