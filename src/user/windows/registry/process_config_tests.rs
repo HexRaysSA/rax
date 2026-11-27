@@ -816,13 +816,27 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         kind: 4,
         data: 0u32.to_le_bytes().into(),
     };
+    let fod = |bits: u32| Value {
+        name: units("Fod"),
+        kind: 4,
+        data: bits.to_le_bytes().into(),
+    };
+    let fod_conservative = Value {
+        name: units("FodConservativeMode"),
+        kind: 4,
+        data: 1u32.to_le_bytes().into(),
+    };
     let mut registry = Registry::selected(upcase(), vec![]).unwrap();
     for (view, framework_name, policy_name, path) in views {
-        let mut values = vec![installation_value("InstallRoot", path)];
+        let mut values = vec![
+            installation_value("InstallRoot", path),
+            fod(u32::from(view == RegistryView::Wow32)),
+        ];
         if view == RegistryView::Native64 {
             values.push(arm64_value.clone());
             values.push(prefer_latest.clone());
             values.push(legacy_activation.clone());
+            values.push(fod_conservative.clone());
         } else {
             values.push(load_log.clone());
             values.push(error_dialog.clone());
@@ -899,6 +913,18 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         assert_eq!(
             opened.value(&error_dialog_name),
             (view == RegistryView::Wow32).then_some(&error_dialog),
+        );
+        let fod_name = units("fod");
+        assert!(opened.covers_value(&fod_name));
+        assert_eq!(
+            opened.value(&fod_name),
+            Some(&fod(u32::from(view == RegistryView::Wow32))),
+        );
+        let conservative_name = units("fodconservativemode");
+        assert!(opened.covers_value(&conservative_name));
+        assert_eq!(
+            opened.value(&conservative_name),
+            (view == RegistryView::Native64).then_some(&fod_conservative),
         );
         assert!(!opened.covers_value(&units("UnselectedValue")));
         assert!(matches!(

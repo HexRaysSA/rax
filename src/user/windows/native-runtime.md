@@ -4076,6 +4076,11 @@ buffer. Native controls on Windows build 29708 reported
 `STATUS_OBJECT_NAME_NOT_FOUND` in both machine views and preserved the output
 bytes and return length.
 
+The same installation key carries `Fod` and `FodConservativeMode`.
+On Windows build 29708, both machine views return a DWORD zero for
+`Fod` and report an absent `FodConservativeMode`. The snapshot retains
+whatever typed value is installed in each selected view.
+
 The closed installed filesystem projects the architecture-matched CLR
 installation directory under `Microsoft.NET` and its selected `v4.0.30319`
 and `Upgrades.4.0.30319` subdirectories. The installation handle can enumerate

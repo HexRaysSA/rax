@@ -215,6 +215,8 @@ impl ProcessConfigKey {
                 "OnlyUseLatestCLR",
                 "UseLegacyV2RuntimeActivationPolicyDefaultValue",
                 "ErrorDialog",
+                "Fod",
+                "FodConservativeMode",
             ],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
