@@ -380,3 +380,33 @@ stream SHA-256 is
 
 The hosted profile uses a 64-bit code segment. Bare-metal Intel macOS
 and BMI1 device exits in 16- and 32-bit code segments remain unverified.
+
+### BMI1 device reads in IA-32e compatibility mode
+
+The `bmi1-compat` profile covers ANDN, BEXTR, BLSI, BLSMSK, and BLSR in
+16- and 32-bit code segments. It pairs each code width with both address
+widths and exercises all values of VEX.W and the high bit of VEX.vvvv.
+Every instruction reads 4 B. EDI starts at `0x18000` so a 16-bit address
+selects `0x8000` and a 32-bit address selects `0x18000`. Distinct DS,
+FS, and GS base setups place the intended operand at the same device GPA.
+[Intel SDM, Volume 2, BMI1 instructions](https://cdrdv2-public.intel.com/671110/325383-sdm-vol-2abcd.pdf)
+
+The profile checks 192 encoding and operand combinations. Each case completes
+directly and after restoring the pending read into fresh VM and vCPU owners.
+The probe checks the read address and width, exact result and RFLAGS, one
+RIP advance at completion, and the guest marker followed by HLT. It records
+the mode, encoding controls, restore status, result, RFLAGS and final RIP
+for all 384 cases. The regular compatibility profiles use the same
+transaction checks.
+
+Independent QEMU 11.1.2 TCG guests executed the 192 encodings from RAM
+with zero differences in the destination, defined flags, EDI, or ECX.
+The Intel macOS consumer cross-built and passed strict signature
+verification. Intel HVF device-exit and detached-restore qualification
+is pending execution of the new hosted profile.
+
+| Assumption | Falsification probe | Impact |
+| --- | --- | --- |
+| The address-size selection and segment base determine the GPA. | Seed distinct high and low offsets, vary the code and address sizes independently, and require the expected 4 B device read. | High |
+| VEX.W and the high bit of VEX.vvvv are ignored in the selected code segments. | Run all four bit combinations for each operation and operand case and compare the result and defined flags to QEMU RAM execution. | High |
+| Restore retains the pending operation and its unretired instruction boundary. | Replace both owners before replying. Require the same pending exit, one RIP advance, exact EAX and RFLAGS, and the guest marker. | High |

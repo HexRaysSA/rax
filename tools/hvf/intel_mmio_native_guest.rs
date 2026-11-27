@@ -1634,6 +1634,12 @@ fn main() {
         bmi1::run(&output);
         return;
     }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--bmi1-compat")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        compat::run_bmi1(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--bit-count")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

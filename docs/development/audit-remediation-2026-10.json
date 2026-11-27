@@ -201200,6 +201200,14 @@
       "scope": "The standalone ARM1176 profile retains the positive Default NaN from an invalid VMLS or VNMLA multiply stage with IOE clear. The binary32 and binary64 execution regressions distinguish generated and propagated NaNs, sticky IOC, and the sign of a rounded and flushed product. A fresh S3C64xx v6_k checkpoint restore exercises VMLS with DN clear. QEMU's ARM1176 model differs on the generated NaN sign with DN clear. Physical VFP11 execution and asynchronous exception replay remain open.",
       "qualification": "docs/development/a32-fp-controls.md#arm1176-invalid-products-in-vmls-and-vnmla",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-bmi1-compatibility-qualification-2026-11-27",
+      "findings": ["C-HVF", "C-STATE"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The signed Intel BMI1 compatibility profile pairs 16- and 32-bit code with both address widths and four VEX control combinations. QEMU verified 192 encoding and operand cases in RAM. The Intel profile requires 192 direct MMIO reads and 192 pending-read continuations on fresh VM and vCPU owners. Hosted Intel execution of the new profile and the full findings remain open.",
+      "qualification": "docs/development/hvf-mmio-alu-read.md#bmi1-device-reads-in-ia-32e-compatibility-mode",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
