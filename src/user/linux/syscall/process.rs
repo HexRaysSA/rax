@@ -156,6 +156,12 @@ pub fn setid(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> SysResult {
     if !c.p.config.host_services && (c.p.creds.0, c.p.creds.1) != (uid, euid) {
         c.p.children.guest_update_uid(c.p.creds.0, c.p.creds.1);
     }
+    #[cfg(unix)]
+    if euid != c.p.creds.1
+        && let Some(forked) = &c.p.forked
+    {
+        forked.effective_uid(c.p.creds.1);
+    }
     Ok(0)
 }
 

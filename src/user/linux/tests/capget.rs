@@ -3,6 +3,9 @@
 use super::harness::{Harness, each_abi};
 use crate::user::linux::abi::Sysno;
 use crate::user::linux::abi::errno_table::*;
+use crate::user::linux::children::ForkedSelf;
+use crate::user::linux::host;
+use crate::user::linux::signal::SIGCHLD;
 
 const V1: u32 = 0x1998_0330;
 const V2: u32 = 0x2007_1026;
@@ -188,4 +191,59 @@ fn guest_child_capget_uses_guest_credentials_when_pid_matches_a_host_task() {
     header(&h, hdr, V3, host_pid);
     assert_eq!(capget(&mut h, hdr, data), 0);
     assert_eq!(get(&h, data, DATA_LEN), expected);
+}
+
+#[cfg(unix)]
+#[test]
+fn host_backed_guest_children_track_effective_uid_through_exit() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        h.proc.state.config.processes = true;
+        let root_caps = {
+            let mut bytes = Vec::new();
+            for word in [u32::MAX, u32::MAX, 0, 0x1ff, 0x1ff, 0] {
+                bytes.extend_from_slice(&word.to_le_bytes());
+            }
+            bytes
+        };
+
+        let expected = |euid| {
+            if euid == 0 {
+                root_caps.clone()
+            } else {
+                vec![0; DATA_LEN]
+            }
+        };
+
+        for (pid, euid, changed_euid) in [(i32::MAX - 1, 0, 1000), (i32::MAX - 2, 1000, 0)] {
+            let (status, write) = host::status_pipe().unwrap();
+            h.proc.state.children.add(
+                pid,
+                status,
+                None,
+                SIGCHLD,
+                h.proc.state.pid,
+                0,
+                Some((euid, euid)),
+            );
+
+            header(&h, h.scratch, V3, pid);
+            assert_eq!(capget(&mut h, h.scratch, h.scratch + 0x100), 0);
+            assert_eq!(get(&h, h.scratch + 0x100, DATA_LEN), expected(euid));
+
+            ForkedSelf {
+                status: write,
+                vfork: false,
+            }
+            .effective_uid(changed_euid);
+            header(&h, h.scratch, V3, pid);
+            assert_eq!(capget(&mut h, h.scratch, h.scratch + 0x100), 0);
+            assert_eq!(get(&h, h.scratch + 0x100, DATA_LEN), expected(changed_euid));
+
+            h.proc.state.children.get_mut(pid).unwrap().zombie = Some((0, (0, 0, 0)));
+            header(&h, h.scratch, V3, pid);
+            assert_eq!(capget(&mut h, h.scratch, h.scratch + 0x100), 0);
+            assert_eq!(get(&h, h.scratch + 0x100, DATA_LEN), expected(changed_euid));
+        }
+    });
 }

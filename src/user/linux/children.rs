@@ -311,6 +311,7 @@ impl Children {
         exit_signal: i32,
         creator: i32,
         exec_id: u64,
+        guest_creds: Option<(u32, u32)>,
     ) {
         let pgid = host::getpgid(pid).unwrap_or(0);
         self.list.push(Child {
@@ -318,8 +319,8 @@ impl Children {
             status: Some(status),
             guest_tid: None,
             guest: None,
-            guest_uid: None,
-            guest_euid: None,
+            guest_uid: guest_creds.map(|creds| creds.0),
+            guest_euid: guest_creds.map(|creds| creds.1),
             exit_signal,
             creator,
             parent_exec_id: exec_id,
@@ -339,14 +340,21 @@ impl Children {
     }
 
     /// Effective UID of a guest child, including a waitable zombie.
-    pub(super) fn guest_effective_uid(&self, pid: i32) -> Option<u32> {
-        self.list.iter().find(|c| c.pid == pid).and_then(|child| {
-            child
-                .guest
-                .as_ref()
-                .map(|guest| guest.state.creds.1)
-                .or(child.guest_euid)
-        })
+    pub(super) fn guest_effective_uid(&mut self, pid: i32) -> Option<u32> {
+        self.list
+            .iter_mut()
+            .find(|c| c.pid == pid)
+            .and_then(|child| {
+                #[cfg(unix)]
+                if child.guest.is_none() && child.status.is_some() {
+                    read_records(child);
+                }
+                child
+                    .guest
+                    .as_ref()
+                    .map(|guest| guest.state.creds.1)
+                    .or(child.guest_euid)
+            })
     }
 
     /// Removes a child (it was reaped), adding its resource use to the
@@ -456,8 +464,9 @@ impl Child {
     }
 }
 
-/// Reads a child's available status records: `E` (it called `execve`) and
-/// `X` followed by its little-endian Linux wait status.
+/// Reads a child's available status records: `E` (it called `execve`), `U`
+/// followed by its little-endian effective UID, and `X` followed by its
+/// little-endian Linux wait status.
 #[cfg(unix)]
 fn read_records(c: &mut Child) {
     let status = c.status.as_ref().expect("host child has a status pipe");
@@ -475,6 +484,10 @@ fn read_records(c: &mut Child) {
                 b'E' => {
                     c.released = true;
                     rec = rest;
+                }
+                b'U' if rest.len() >= 4 => {
+                    c.guest_euid = Some(u32::from_le_bytes(rest[..4].try_into().unwrap()));
+                    rec = &rest[4..];
                 }
                 b'X' if rest.len() >= 4 => {
                     c.record = Some(i32::from_le_bytes(rest[..4].try_into().unwrap()));
@@ -525,6 +538,13 @@ impl ForkedSelf {
         if std::mem::take(&mut self.vfork) {
             self.write(b"E");
         }
+    }
+
+    /// Reports an effective-UID change to the parent.
+    pub fn effective_uid(&self, uid: u32) {
+        let mut rec = [b'U', 0, 0, 0, 0];
+        rec[1..].copy_from_slice(&uid.to_le_bytes());
+        self.write(&rec);
     }
 
     /// Reports the process's end with Linux wait status `status`.

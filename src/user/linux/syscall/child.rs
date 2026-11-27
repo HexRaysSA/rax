@@ -152,8 +152,16 @@ fn fork_host(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             drop(child_link);
             family.publish(c.p, pid);
             let (tid, exec_id) = (c.t.tid, c.p.exec_id);
-            c.p.children
-                .add(pid, read, Some(link), args.exit_signal as i32, tid, exec_id);
+            let guest_creds = Some((c.p.creds.0, c.p.creds.1));
+            c.p.children.add(
+                pid,
+                read,
+                Some(link),
+                args.exit_signal as i32,
+                tid,
+                exec_id,
+                guest_creds,
+            );
             if let Some(trace) = trace {
                 tracee::forker_traced(c.p, c.t, trace, pid);
             }
