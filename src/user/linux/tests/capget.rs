@@ -199,6 +199,7 @@ fn host_backed_guest_children_track_effective_uid_through_exit() {
     each_abi(|abi| {
         let mut h = Harness::new(abi);
         h.proc.state.config.processes = true;
+        let (hdr, data) = (h.scratch, h.scratch + 0x100);
         let root_caps = {
             let mut bytes = Vec::new();
             for word in [u32::MAX, u32::MAX, 0, 0x1ff, 0x1ff, 0] {
@@ -227,23 +228,23 @@ fn host_backed_guest_children_track_effective_uid_through_exit() {
                 Some((euid, euid)),
             );
 
-            header(&h, h.scratch, V3, pid);
-            assert_eq!(capget(&mut h, h.scratch, h.scratch + 0x100), 0);
-            assert_eq!(get(&h, h.scratch + 0x100, DATA_LEN), expected(euid));
+            header(&h, hdr, V3, pid);
+            assert_eq!(capget(&mut h, hdr, data), 0);
+            assert_eq!(get(&h, data, DATA_LEN), expected(euid));
 
             ForkedSelf {
                 status: write,
                 vfork: false,
             }
             .effective_uid(changed_euid);
-            header(&h, h.scratch, V3, pid);
-            assert_eq!(capget(&mut h, h.scratch, h.scratch + 0x100), 0);
-            assert_eq!(get(&h, h.scratch + 0x100, DATA_LEN), expected(changed_euid));
+            header(&h, hdr, V3, pid);
+            assert_eq!(capget(&mut h, hdr, data), 0);
+            assert_eq!(get(&h, data, DATA_LEN), expected(changed_euid));
 
             h.proc.state.children.get_mut(pid).unwrap().zombie = Some((0, (0, 0, 0)));
-            header(&h, h.scratch, V3, pid);
-            assert_eq!(capget(&mut h, h.scratch, h.scratch + 0x100), 0);
-            assert_eq!(get(&h, h.scratch + 0x100, DATA_LEN), expected(changed_euid));
+            header(&h, hdr, V3, pid);
+            assert_eq!(capget(&mut h, hdr, data), 0);
+            assert_eq!(get(&h, data, DATA_LEN), expected(changed_euid));
         }
     });
 }
