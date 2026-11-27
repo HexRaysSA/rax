@@ -2178,3 +2178,37 @@ The native guest stderr SHA-256 is
 | The Intel runner can execute the tested encoding far enough to reach the device read. | High | Require real MMIO exits at the exact operand width. Execute VEX.256 separately so an unsupported opcode cannot satisfy the narrow profile or erase its observations. |
 | The test guest can distinguish instruction admission faults from device-path failures. | High | Run the same opcode with a RAM operand and a device operand. Compare feature bits, exit reason, exception frame, and retirement marker. Check frame offsets against independent known #UD and #GP controls. |
 | Lane results are independent of native owner replacement. | High | Require the same 32 B result and flags with direct completion and after checkpoint restore. Compare the low 16 B to ordinary QEMU RAM execution and the wide upper 16 B to the independent second-lane VEX.128 RAM result. |
+
+## Packed-string comparisons
+
+Intel HVF plans one unaligned 16 B device read for SSE4.2 packed-string comparisons
+in the legacy and VEX.128 encodings. The parent rejected all 16 tested combinations
+of opcode, encoding, and W bit as unsupported metadata. Completion reuses the
+packed-string evaluator used by the software x86 instruction path. It preserves
+the other RFLAGS bits during result publication and clears AF and PF.
+[Intel SDM, Vol. 2B, PCMPESTRI through PCMPISTRM](https://cdrdv2-public.intel.com/782151/253667-sdm-vol-2b.pdf)
+
+| Opcode in map `0F 3A` | Legacy mnemonic | Lengths | Destination |
+| --- | --- | --- | --- |
+| `60` | `PCMPESTRM` | Signed EAX/EDX or RAX/RDX | XMM0 |
+| `61` | `PCMPESTRI` | Signed EAX/EDX or RAX/RDX | ECX |
+| `62` | `PCMPISTRM` | First zero element of each input | XMM0 |
+| `63` | `PCMPISTRI` | First zero element of each input | ECX |
+
+The pending read retains the left XMM operand, the effective signed lengths for
+explicit forms, the control byte, and the flags and retirement inputs. VEX mask
+forms zero the upper YMM0 half. Legacy mask forms and both index forms preserve
+it. The evaluator uses O(n^2) comparisons in the worst case, with at most 16
+elements per operand. The pending record uses constant space.
+
+The `packed-string` workflow profile compares 128 encodings and control inputs
+against guest execution of the same instructions with RAM operands. Each case
+then runs with a device operand both directly and after restoring into a fresh
+VM and vCPU, for 256 device observations. The probe replaces the saved opcode
+with `UD2` before the old VM is dropped. Hosted Intel execution is pending.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| The input is one contiguous 16 B read. | High | Check the unaligned exit address and width. Reject inconsistent direction, reserved VEX fields, and 15 B or 17 B completions. |
+| Saved inputs suffice to complete one retirement. | High | Round-trip the pending record, check destination and flag publication order, and attempt a second completion. The native profile also restores into fresh owners with `UD2` at the saved PC. |
+| The evaluator matches native RFLAGS, index or mask, and upper-lane behavior. | High | Compare the complete XMM and upper YMM arrays, RCX, RFLAGS, and both length registers against the native RAM reference across the profile. |

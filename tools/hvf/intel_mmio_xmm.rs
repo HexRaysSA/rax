@@ -1695,6 +1695,129 @@ fn restore_vector_read(
     (vm, cpu)
 }
 
+pub(super) fn run_packed_strings(output: &Path) {
+    assert!(!output.exists(), "observations must be new");
+    let mut index = 0;
+    for opcode in 0x60..=0x63 {
+        for (pattern, control) in [0x00, 0x05, 0x0a, 0x0f, 0x10, 0x67, 0x78, 0xc0]
+            .into_iter()
+            .enumerate()
+        {
+            let mut left = *b"AZBY\x00\x00XA\xff\x80zzabAZ";
+            let mut right = *b"ZBA\x00\x00AZB\x80\xffabzZA!";
+            if pattern % 2 != 0 {
+                left.reverse();
+                right.reverse();
+            }
+            let lengths = if pattern % 2 == 0 {
+                [0x0000_0001_0000_0001, 0x0000_0001_ffff_fffd]
+            } else {
+                [0x8000_0000_0000_0000, 0x0000_0000_8000_0000]
+            };
+            for (form, code) in [
+                (
+                    "legacy-w0",
+                    &[0x66, 0x44, 0x0f, 0x3a, opcode, 0x7f, 3, control][..],
+                ),
+                (
+                    "legacy-w1",
+                    &[0x66, 0x4c, 0x0f, 0x3a, opcode, 0x7f, 3, control][..],
+                ),
+                ("vex-w0", &[0xc4, 0x63, 0x79, opcode, 0x7f, 3, control][..]),
+                ("vex-w1", &[0xc4, 0x63, 0xf9, opcode, 0x7f, 3, control][..]),
+            ] {
+                let label = format!("packed-string-{form}-op{opcode:02x}-imm{control:02x}");
+                let expected = packed_string_case(code, left, &right, lengths, None).regs;
+                for (phase, restore) in [("direct", false), ("restored", true)] {
+                    let actual =
+                        packed_string_case(code, left, &right, lengths, Some(restore)).regs;
+                    assert_eq!(actual.rax, expected.rax, "{label} {phase} RAX");
+                    assert_eq!(actual.rdx, expected.rdx, "{label} {phase} RDX");
+                    assert_eq!(actual.rcx, expected.rcx, "{label} {phase} RCX");
+                    assert_eq!(actual.rflags, expected.rflags, "{label} {phase} RFLAGS");
+                    assert_eq!(actual.xmm, expected.xmm, "{label} {phase} XMM");
+                    assert_eq!(
+                        actual.ymm_high, expected.ymm_high,
+                        "{label} {phase} YMM upper"
+                    );
+                    let signature = [
+                        actual.rcx,
+                        actual.rflags,
+                        actual.xmm[0][0],
+                        actual.xmm[0][1],
+                        actual.ymm_high[0][0],
+                        actual.ymm_high[0][1],
+                    ]
+                    .into_iter()
+                    .fold(0u64, |hash, value| hash.rotate_left(7) ^ value);
+                    record(output, index, &format!("{label}-{phase}"), 16, signature);
+                    index += 1;
+                }
+            }
+        }
+    }
+    println!("{{\"cases\":{index},\"failed\":0,\"guest_execution_performed\":true}}");
+}
+
+fn packed_string_case(
+    code: &[u8],
+    left: [u8; 16],
+    right: &[u8; 16],
+    lengths: [u64; 2],
+    device: Option<bool>,
+) -> X86_64CpuState {
+    const REFERENCE: u64 = 0x1_8000;
+    let memory = guest_memory(code);
+    memory
+        .memory()
+        .write_slice(right, GuestAddress(REFERENCE + 3))
+        .unwrap();
+    word(&memory, 0x4000, 0x4000_009b);
+    let (mut vm, mut cpu) = machine(&memory);
+    enable_guest_avx(&memory, cpu.as_mut());
+    let mut initial = state(cpu.as_ref());
+    initial.regs.rip = CODE;
+    initial.regs.rdi = if device.is_some() { MMIO } else { REFERENCE };
+    [initial.regs.rax, initial.regs.rdx] = lengths;
+    initial.regs.rcx = MARKER;
+    initial.regs.rflags = 0xed7;
+    initial.regs.xmm = std::array::from_fn(|index| [SEED + index as u64, MARKER - index as u64]);
+    initial.regs.ymm_high =
+        std::array::from_fn(|index| [!SEED - index as u64, !MARKER + index as u64]);
+    initial.regs.xmm[15] = [
+        u64::from_le_bytes(left[..8].try_into().unwrap()),
+        u64::from_le_bytes(left[8..].try_into().unwrap()),
+    ];
+    cpu.set_state(&CpuState::X86_64(initial)).unwrap();
+
+    if let Some(restore) = device {
+        let pending = |cpu: &mut dyn VCpu| {
+            let exit = event(cpu);
+            assert!(
+                matches!(exit, VcpuExit::MmioRead { addr, size: 16 } if addr == MMIO + 3),
+                "{code:02x?}: {exit:?}"
+            );
+            assert!(cpu.io_completion_result().is_err());
+        };
+        pending(cpu.as_mut());
+        if restore {
+            (vm, cpu) = restore_vector_read(&memory, vm, cpu);
+            pending(cpu.as_mut());
+        }
+        cpu.complete_io_in(right);
+        cpu.io_completion_result().unwrap();
+        assert_eq!(state(cpu.as_ref()).regs.rip, CODE + code.len() as u64);
+    }
+    let exit = event(cpu.as_mut());
+    assert!(matches!(exit, VcpuExit::Hlt), "{code:02x?}: {exit:?}");
+    let retired = state(cpu.as_ref());
+    assert_eq!(retired.regs.rip, CODE + code.len() as u64 + 11);
+    assert_eq!(retired.regs.r10, MARKER);
+    drop(cpu);
+    drop(vm);
+    retired
+}
+
 pub(super) fn run_bit_tests(output: &Path) {
     const LEGACY: [u8; 6] = [0x66, 0x44, 0x0f, 0x38, 0x17, 0x3f];
     assert!(!output.exists(), "observations must be new");

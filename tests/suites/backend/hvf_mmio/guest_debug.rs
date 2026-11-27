@@ -192,6 +192,7 @@ fn pending(action: Action) -> mmio::InputState {
         | Action::VectorLogic { .. }
         | Action::VectorMaskBlend { .. }
         | Action::VectorBitTest { .. }
+        | Action::PackedString { .. }
         | Action::YmmWrite(_)
         | Action::StringStore { .. } => {
             panic!("write has an output acknowledgment")

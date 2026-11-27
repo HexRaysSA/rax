@@ -1,6 +1,6 @@
 use super::*;
 
-fn packed_xmm_operands(
+pub(super) fn packed_xmm_operands(
     ctx: &mut InsnContext,
     address_bits: u32,
     long_mode: bool,
@@ -436,6 +436,18 @@ pub(super) fn decode_0f(
                 (1, op)
             };
             let prefix = u8::from(ctx.operand_size_override);
+            if (map, prefix) == (3, 1) && (0x60..=0x63).contains(&opcode) {
+                let wide_lengths = *branch_bits == 64 && ctx.rex_w();
+                return packed_string_compare(
+                    ctx,
+                    address_bits,
+                    *branch_bits,
+                    opcode,
+                    wide_lengths,
+                    false,
+                    out,
+                );
+            }
             let (name, destination_read) = if (map, prefix, opcode) == (3, 1, 0xdf) {
                 ("aeskeygenassist", false)
             } else if (map, prefix, opcode) == (3, 1, 0x44) {

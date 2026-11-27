@@ -691,6 +691,45 @@ mod legacy;
 mod vex;
 use legacy::{decode_0f, fixed_legacy};
 
+fn packed_string_compare(
+    ctx: &mut InsnContext,
+    address_bits: u32,
+    code_bits: u32,
+    opcode: u8,
+    wide_lengths: bool,
+    vex: bool,
+    out: &mut Instruction,
+) -> Option<()> {
+    let (legacy, vex_name) = match opcode {
+        0x60 => ("pcmpestrm", "vpcmpestrm"),
+        0x61 => ("pcmpestri", "vpcmpestri"),
+        0x62 => ("pcmpistrm", "vpcmpistrm"),
+        0x63 => ("pcmpistri", "vpcmpistri"),
+        _ => return None,
+    };
+    let mut operands = legacy::packed_xmm_operands(ctx, address_bits, code_bits == 64, false)?;
+    operands.push(immediate(ctx, 1, false)?);
+    operands.push(if opcode & 1 == 0 {
+        Operand {
+            kind: OperandKind::Register,
+            reg: "xmm0".into(),
+            width_bits: 128,
+            write: true,
+            ..Operand::default()
+        }
+    } else {
+        reg_operand(1, 4, false, false, true)
+    });
+    if opcode < 0x62 {
+        let size = if wide_lengths { 8 } else { 4 };
+        operands.extend([0, 2].map(|index| reg_operand(index, size, false, true, false)));
+    }
+    out.mnemonic = if vex { vex_name } else { legacy }.into();
+    out.operands = operands;
+    out.flow = Flow::Next;
+    Some(())
+}
+
 fn packed_uniform_shift_mnemonics(
     map: u8,
     prefix: u8,

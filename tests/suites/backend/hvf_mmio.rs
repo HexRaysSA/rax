@@ -39,6 +39,8 @@ mod guest_debug_tests;
 mod movbe_tests;
 #[path = "hvf_mmio/movsxd.rs"]
 mod movsxd_tests;
+#[path = "hvf_mmio/packed_string.rs"]
+mod packed_string_tests;
 #[path = "hvf_mmio/rmw.rs"]
 mod rmw_tests;
 #[path = "hvf_mmio/shifts.rs"]
@@ -889,6 +891,7 @@ fn compare_guest_records(cases: &[u8], raw: &[u8]) -> (usize, usize) {
             | Action::VectorLogic { .. }
             | Action::VectorMaskBlend { .. }
             | Action::VectorBitTest { .. }
+            | Action::PackedString { .. }
             | Action::UnaryVector(_)
             | Action::YmmRead(_)
             | Action::YmmWrite(_) => panic!("unexpected vector plan for GPR MOV"),

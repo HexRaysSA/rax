@@ -30,6 +30,15 @@ pub(super) fn decode_xmm_transfer(
         ((!vex >> 5) & 4, vex & 0x7f, 1)
     };
     let opcode = ctx.consume_u8().ok()?;
+    if (map, flags & 3) == (3, 1) && (0x60..=0x63).contains(&opcode) {
+        // VEX.L must be clear and the encoded vvvv field must be all ones.
+        if flags & 0x7c != 0x78 {
+            return None;
+        }
+        ctx.rex = (bits == 64).then_some(0x40 | extensions);
+        let wide_lengths = bits == 64 && flags & 0x80 != 0;
+        return packed_string_compare(ctx, address_bits, bits, opcode, wide_lengths, true, out);
+    }
     if map == 2 && flags & 3 == 0 && matches!(opcode, 0xf2 | 0xf3 | 0xf7) {
         if flags & 4 != 0 {
             return None;

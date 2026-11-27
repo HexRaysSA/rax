@@ -61,6 +61,7 @@ on:
           - vector-full-permutation
           - vector-lane-permutation
           - vector-bit-test
+          - packed-string
           - compat-mmio
           - compat16-mmio
           - port-debug

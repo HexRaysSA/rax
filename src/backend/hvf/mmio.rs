@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 
 #[path = "../../isa/x86_64/execute/crypto/clmul.rs"]
 mod clmul;
+#[path = "../../isa/x86_64/execute/simd/pcmpxstrx.rs"]
+mod pcmpxstrx;
 
 const EFER_LMA: u64 = 1 << 10;
 
@@ -32,6 +34,8 @@ use divide::DivideInput;
 #[path = "mmio/string.rs"]
 mod string;
 pub(crate) use string::{Load as StringLoad, Progress as StringProgress};
+#[path = "mmio/packed_string.rs"]
+pub(crate) mod packed_string;
 #[path = "mmio/unary_vector.rs"]
 mod unary_vector;
 #[path = "mmio/vector_bit_test.rs"]
@@ -295,6 +299,10 @@ pub(crate) enum Action {
     UnaryVector(unary_vector::Input),
     VectorBitTest {
         input: vector_bit_test::Input,
+        source: u8,
+    },
+    PackedString {
+        input: packed_string::Input,
         source: u8,
     },
     YmmRead(YmmTransfer),
@@ -687,6 +695,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if let Some(plan) = vector_bit_test::prepare(context, memory, record, &instruction, read)? {
         return Ok(plan);
     }
+    if let Some(plan) = packed_string::prepare(context, memory, record, &instruction, read)? {
+        return Ok(plan);
+    }
     if matches!(instruction.mnemonic.as_str(), "div" | "idiv") {
         return divide::prepare(context, memory, record, &instruction);
     }
@@ -903,6 +914,12 @@ enum Effect {
         zero_upper: bool,
         length: u64,
     },
+    XmmAndFlags {
+        value: [u8; 16],
+        zero_upper: bool,
+        flags: u64,
+        length: u64,
+    },
     Ymm {
         index: u8,
         value: [u8; 32],
@@ -946,6 +963,10 @@ enum Pending {
     // Keep the unary shuffle discriminator in existing saved records.
     #[serde(rename = "UnaryShuffle")]
     UnaryVector(unary_vector::Input),
+    PackedString {
+        input: packed_string::Input,
+        left: [u8; 16],
+    },
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct InputState {
@@ -982,6 +1003,7 @@ impl InputState {
             Pending::VectorLogic { input, .. } => (input.memory_size(), None),
             Pending::VectorBitTest { input, .. } => (input.encoding.size(), None),
             Pending::UnaryVector(input) => (input.memory_size(), None),
+            Pending::PackedString { .. } => (packed_string::BYTES, None),
         })
     }
     pub(crate) fn validate_checkpoint(&self) -> Result<(), String> {
@@ -1003,6 +1025,7 @@ impl InputState {
             Some(Pending::VectorLogic { input, .. }) => input.validate()?,
             Some(Pending::VectorBitTest { input, .. }) => input.validate()?,
             Some(Pending::UnaryVector(input)) => input.validate()?,
+            Some(Pending::PackedString { input, .. }) => input.validate()?,
             Some(Pending::Divide { input, data_causes }) => {
                 Self::validate_divide(input, *data_causes)?;
             }
@@ -1024,6 +1047,7 @@ impl InputState {
             Some(Pending::VectorLogic { input, .. }) => Some(input.encoding),
             Some(Pending::VectorBitTest { input, .. }) => Some(input.encoding),
             Some(Pending::UnaryVector(input)) => Some(input.encoding),
+            Some(Pending::PackedString { input, .. }) => Some(input.encoding),
             _ => None,
         }
     }
@@ -1129,6 +1153,16 @@ impl InputState {
         self.pending = Some(Pending::UnaryVector(input));
         Ok(())
     }
+    pub(crate) fn begin_packed_string(
+        &mut self,
+        input: packed_string::Input,
+        left: [u8; 16],
+    ) -> Result<(), String> {
+        self.ready().map_err(str::to_owned)?;
+        input.validate()?;
+        self.pending = Some(Pending::PackedString { input, left });
+        Ok(())
+    }
     fn validate_divide(input: &DivideInput, data_causes: u64) -> Result<(), String> {
         input.validate()?;
         // Pending-debug B0–B3 plus the enabled-breakpoint bit. Every
@@ -1202,6 +1236,7 @@ impl InputState {
             Pending::VectorLogic { input, left } => input.effect(left, data),
             Pending::VectorBitTest { input, left } => input.effect(left, data),
             Pending::UnaryVector(input) => input.effect(data),
+            Pending::PackedString { input, left } => input.effect(left, data),
             Pending::Ymm(transfer) => data
                 .try_into()
                 .map(|value| Effect::Ymm {
@@ -1257,6 +1292,15 @@ impl InputState {
                     return host
                         .finish_instruction(length)
                         .map_err(|error| error.to_string());
+                }
+                Effect::XmmAndFlags {
+                    value,
+                    zero_upper,
+                    flags,
+                    length,
+                } => {
+                    host.write_xmm(0, value, zero_upper)?;
+                    ([None; 2], Some(flags), Some(length))
                 }
                 Effect::Ymm {
                     index,

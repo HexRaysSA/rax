@@ -77,6 +77,7 @@ impl HvfCore {
                 (input.memory_size(), false)
             }
             Action::VectorBitTest { input, .. } => (input.encoding.size(), false),
+            Action::PackedString { .. } => (mmio::packed_string::BYTES, false),
             Action::UnaryVector(input) => (input.encoding.size(), false),
             Action::YmmRead(_) => (mmio::YMM_BYTES, false),
             Action::YmmWrite(_) => (mmio::YMM_BYTES, true),
