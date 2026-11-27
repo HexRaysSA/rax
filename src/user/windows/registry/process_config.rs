@@ -12,6 +12,8 @@ const DOT_NET_FRAMEWORK_WOW_KEY: &str =
 pub(super) const DOT_NET_FUSION_OPTIONAL_POLICY: &str = "NoClientChecks";
 pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
+pub(super) const DOT_NET_V4_FULL_WOW_KEY: &str =
+    r"\Registry\Machine\Software\WOW6432Node\Microsoft\NET Framework Setup\NDP\v4\Full";
 #[cfg(test)]
 const DOT_NET_POLICY_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\.NETFramework\Policy";
@@ -57,10 +59,11 @@ pub(crate) enum ProcessConfigKey {
     DotNetStandardV1,
     DotNetFramework,
     DotNetFusion,
+    DotNetV4Full,
 }
 
 impl ProcessConfigKey {
-    pub(super) const ALL: [Self; 31] = [
+    pub(super) const ALL: [Self; 32] = [
         Self::Rpc,
         Self::RpcPolicy,
         Self::ActiveComputerName,
@@ -93,6 +96,7 @@ impl ProcessConfigKey {
         Self::DotNetPolicy,
         Self::DotNetFramework,
         Self::DotNetFusion,
+        Self::DotNetV4Full,
     ];
 
     pub(super) fn path(self) -> &'static str {
@@ -173,6 +177,9 @@ impl ProcessConfigKey {
             }
             Self::DotNetFramework => r"\Registry\Machine\Software\Microsoft\.NETFramework",
             Self::DotNetFusion => r"\Registry\Machine\Software\Microsoft\Fusion",
+            Self::DotNetV4Full => {
+                r"\Registry\Machine\Software\Microsoft\NET Framework Setup\NDP\v4\Full"
+            }
         }
     }
 
@@ -210,6 +217,7 @@ impl ProcessConfigKey {
             | Self::DotNetPolicyAppPatch
             | Self::DotNetPolicyStandards => &[],
             Self::DotNetFusion => &[DOT_NET_FUSION_OPTIONAL_POLICY],
+            Self::DotNetV4Full => &["Install", "Release", "Version"],
             Self::DotNetPolicyV4 => &["30319"],
             Self::DotNetPolicyUpgrades => &["4.0.30319"],
             Self::DotNetStandardCli2002 | Self::DotNetStandardCli2005 | Self::DotNetStandardV1 => {
@@ -282,6 +290,7 @@ impl ProcessConfigKey {
             Self::DotNetStandardV1 => ".NET Framework v1.0.0 standards policy",
             Self::DotNetFramework => ".NET Framework installation",
             Self::DotNetFusion => ".NET Framework Fusion",
+            Self::DotNetV4Full => ".NET Framework v4 Full registration",
         }
     }
 
@@ -320,7 +329,8 @@ impl ProcessConfigKey {
 
     #[cfg(target_os = "windows")]
     pub(super) fn uses_win32_framework_view(self) -> bool {
-        self == Self::DotNetFusion || self.path().starts_with(Self::DotNetFramework.path())
+        matches!(self, Self::DotNetFusion | Self::DotNetV4Full)
+            || self.path().starts_with(Self::DotNetFramework.path())
     }
 
     #[cfg(target_os = "windows")]
@@ -440,6 +450,9 @@ impl ProcessConfigKey {
             || self == Self::DotNetFusion
                 && view == RegistryView::Wow32
                 && same(DOT_NET_FUSION_WOW_KEY)
+            || self == Self::DotNetV4Full
+                && view == RegistryView::Wow32
+                && same(DOT_NET_V4_FULL_WOW_KEY)
         {
             return Ok(());
         }

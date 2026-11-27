@@ -4124,6 +4124,11 @@ identifiers and guest queries publish one four-byte identifier into guest
 memory. The aligned and unaligned outputs matched native ARM64, x86 and x64
 controls on Windows 11 build 29708.
 
+PowerShell startup can open the installed machine
+`SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full` registration. The
+native and WoW registry views supply only the selected `Install`,
+`Release`, and `Version` values. Capture uses read-only registry handles.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not

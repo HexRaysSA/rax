@@ -107,6 +107,10 @@ impl RegistryViews {
                 ViewRoot::ProcessConfig(ProcessConfigKey::DotNetFusion),
                 process_config::DOT_NET_FUSION_WOW_KEY,
             ),
+            (
+                ViewRoot::ProcessConfig(ProcessConfigKey::DotNetV4Full),
+                process_config::DOT_NET_V4_FULL_WOW_KEY,
+            ),
         ] {
             let prefix: Vec<_> = physical
                 .encode_utf16()

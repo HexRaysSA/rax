@@ -162,6 +162,82 @@ fn fusion_snapshot_rejects_an_installed_policy_payload() {
 }
 
 #[test]
+fn dot_net_v4_full_projects_install_release_and_version_in_each_machine_view() {
+    let subject = ProcessConfigKey::DotNetV4Full;
+    let snapshot = SnapshotRoot::ProcessConfig(subject);
+    let values = |release: u32| {
+        vec![
+            Value {
+                name: units("Release"),
+                kind: 4,
+                data: release.to_le_bytes().to_vec(),
+            },
+            Value {
+                name: units("Version"),
+                kind: 1,
+                data: units("4.8.10004\0")
+                    .into_iter()
+                    .flat_map(u16::to_le_bytes)
+                    .collect(),
+            },
+        ]
+    };
+    let registry = Registry::selected(upcase(), vec![])
+        .unwrap()
+        .with_snapshot_selection(
+            snapshot,
+            &[],
+            RegistryView::Native64,
+            Ok((header(subject.path(), values(534292)), None)),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            snapshot,
+            &[],
+            RegistryView::Wow32,
+            Ok((header(DOT_NET_V4_FULL_WOW_KEY, values(533325)), None)),
+        )
+        .unwrap()
+        .with_machine_hive(MachineHeader {
+            canonical: units(MACHINE_HIVE_KEY),
+            enumeration: None,
+            children: 6,
+            values: vec![],
+            access: header(MACHINE_HIVE_KEY, vec![]).access,
+        })
+        .unwrap();
+    let machine = registry.key(&units(MACHINE_HIVE_KEY)).unwrap();
+    for (relative, view, release) in [
+        (
+            r"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full",
+            RegistryView::Native64,
+            534292,
+        ),
+        (
+            r"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full",
+            RegistryView::Wow32,
+            533325,
+        ),
+        (
+            r"SOFTWARE\WOW6432Node\Microsoft\NET Framework Setup\NDP\v4\Full",
+            RegistryView::Native64,
+            533325,
+        ),
+    ] {
+        let Lookup::Present(key) = machine.relative_in_view(&units(relative), view) else {
+            panic!("machine-relative .NET v4 Full key must resolve in {view:?}");
+        };
+        let records = values(release);
+        assert_eq!(key.value(&units("release")), Some(&records[0]));
+        assert_eq!(key.value(&units("VERSION")), Some(&records[1]));
+        assert!(key.covers_value(&units("Install")));
+        assert!(key.value(&units("Install")).is_none());
+        assert!(!key.covers_value(&units("Unselected")));
+        assert!(matches!(key.relative(&units("1033")), Lookup::Unselected));
+    }
+}
+
+#[test]
 fn process_config_preserves_absent_keys_and_control_set_aliases() {
     let ccg = SnapshotRoot::ProcessConfig(ProcessConfigKey::Ccg);
     let rpc = SnapshotRoot::ProcessConfig(ProcessConfigKey::Rpc);
