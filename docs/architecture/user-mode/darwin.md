@@ -8,6 +8,13 @@ program runs against the host's `dyld`, dyld shared cache, and system
 libraries (or a guest root given with `--sysroot`), so its user space is
 the host's macOS release.
 
+The closed same-host runtime selects the installed AppleScript component
+and its fixed bundle metadata and resources read-only. It admits the
+component executable as a Mach-O bundle and uses its installed file for
+dyld's existing code-signature operation. Caller-supplied files keep their
+normal precedence. Component discovery and execution also depend on
+Carbon resource-fork behavior.
+
 ```text
 rax-user --arch arm64 /bin/echo hello
 rax-user --arch x86_64 ./program args...
