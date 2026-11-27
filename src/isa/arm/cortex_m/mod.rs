@@ -83,6 +83,7 @@ pub mod cpu;
 pub mod exception;
 pub mod exec;
 pub mod nvic;
+pub mod ppb;
 pub mod scb;
 pub mod state;
 pub mod systick;

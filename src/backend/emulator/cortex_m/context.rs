@@ -1,12 +1,15 @@
 //! Versioned private Cortex-M context and detached CPU publication.
 use super::*;
-use crate::isa::arm::cortex_m::cpu::CoreCheckpoint;
+use crate::isa::arm::cortex_m::cpu::{CoreCheckpoint, PpbCheckpoint};
 use crate::vm::memory::checkpoint::{CheckpointBindings, CheckpointPublication, CpuPublication};
 use crate::vm::snapshot::{BackendContext, CORTEX_M_CONTEXT, EmulatorState};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 const TAG: &[u8; 8] = b"RAXCM001";
+/// A record of a core that uses the PPB, a reset VTOR or the FPU: the
+/// [`PpbCheckpoint`] follows the [`Context`].
+const PPB_TAG: &[u8; 8] = b"RAXCM002";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - 8;
 #[derive(Serialize, Deserialize)]
 struct Context {
@@ -73,9 +76,20 @@ impl CortexMVcpu {
             },
         };
         self.validate_exclusive(context.exclusive)?;
-        let payload = crate::codec::serialize_limited(&context, MAX_PAYLOAD).map_err(invalid)?;
-        let mut data = Vec::with_capacity(TAG.len() + payload.len());
-        data.extend_from_slice(TAG);
+        let ppb = PpbCheckpoint::capture(&self.cpu);
+        // Keep the existing byte format for a core that uses no PPB, reset
+        // VTOR or FP state.
+        let (tag, payload) = if ppb.needed(&context.core) {
+            (
+                PPB_TAG,
+                crate::codec::serialize_limited(&(&context, &ppb), MAX_PAYLOAD),
+            )
+        } else {
+            (TAG, crate::codec::serialize_limited(&context, MAX_PAYLOAD))
+        };
+        let payload = payload.map_err(invalid)?;
+        let mut data = Vec::with_capacity(tag.len() + payload.len());
+        data.extend_from_slice(tag);
         data.extend_from_slice(&payload);
         Ok(BackendContext {
             kind: CORTEX_M_CONTEXT,
@@ -86,19 +100,29 @@ impl CortexMVcpu {
         if raw.kind != CORTEX_M_CONTEXT {
             return Err(invalid("producer differs"));
         }
-        let payload = raw
-            .data
-            .strip_prefix(TAG)
-            .ok_or_else(|| invalid("tag differs"))?;
+        let (payload, with_ppb) = if let Some(payload) = raw.data.strip_prefix(PPB_TAG) {
+            (payload, true)
+        } else if let Some(payload) = raw.data.strip_prefix(TAG) {
+            (payload, false)
+        } else {
+            return Err(invalid("tag differs"));
+        };
         if payload.len() > MAX_PAYLOAD {
             return Err(invalid("record exceeds budget"));
         }
-        let image: Context =
-            crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?;
+        let (image, ppb): (Context, PpbCheckpoint) = if with_ppb {
+            crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?
+        } else {
+            (
+                crate::codec::deserialize_limited::<_, MAX_PAYLOAD>(payload).map_err(invalid)?,
+                PpbCheckpoint::reset(),
+            )
+        };
         if image.id != self.id {
             return Err(invalid("CPU identity differs"));
         }
         image.core.validate(&self.cpu)?;
+        ppb.validate(&self.cpu)?;
         self.validate_exclusive(image.exclusive)?;
         // Resolve poisoned target locks before constructing or publishing state.
         drop(
@@ -113,6 +137,7 @@ impl CortexMVcpu {
         );
         let mut candidate = Self::with_variant(self.id, self.memory.clone(), self.cpu.variant());
         image.core.install(&mut candidate.cpu);
+        ppb.install(&mut candidate.cpu);
         candidate.cpu.retain_checkpoint_host_controls(&self.cpu);
         *candidate
             .fault

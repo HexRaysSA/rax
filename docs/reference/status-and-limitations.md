@@ -92,7 +92,7 @@ TOML exposes profile selectors for AArch64, AArch32, Cortex-M, and Cortex-R. The
 ### Established Arm surfaces
 
 - AArch64 scalar/system, floating-point/AdvSIMD, SVE-family, crypto, and modern extension code is present;
-- AArch32 and Thumb execution is present across application, microcontroller, and real-time profiles; the Cortex-M core implements the Armv7-M/Armv7E-M Thumb instruction set (integer and DSP, no Floating-point Extension or Armv8-M additions) and exception model, checked against QEMU's Cortex-M4;
+- AArch32 and Thumb execution is present across application, microcontroller, and real-time profiles; the Cortex-M core implements the Armv7-M/Armv7E-M Thumb instruction set (integer and DSP, no Armv8-M additions) and exception model, checked against QEMU's Cortex-M4; an embedder can give a Cortex-M7 part of the FPv5-D16 Floating-point Extension (the extension register loads, stores and transfers, VMRS/VMSR and register or immediate VMOV, with its exception frames; the data-processing instructions remain UNDEFINED and lazy state preservation is not modelled) and map its Private Peripheral Bus as memory (SCS, DWT cycle counter, cache identification, stored MPU registers, FP control registers), both unit-tested against the Armv7-M ARM, not differential-tested;
 - the AArch64 virtual machine boots the checked-in Linux image through the software backend and can use HVF on Apple Silicon;
 - native AArch64 EL0 and QEMU user-mode differential paths exist;
 - generated architecture cases and SMIR lowerer tests provide additional coverage;

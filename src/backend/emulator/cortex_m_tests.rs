@@ -351,6 +351,24 @@ fn state_round_trips_special_and_system_registers() {
 }
 
 #[test]
+fn state_round_trips_fp_registers_fpca_and_cpacr_with_an_fpu() {
+    let (_, mem) = new_vcpu(&[]);
+    let mut vcpu = CortexMVcpu::with_variant(0, mem, CortexMVariant::CortexM7);
+    vcpu.cpu.set_floating_point(true);
+    edit(&mut vcpu, |r, s| {
+        r.control = 0b111;
+        r.s = core::array::from_fn(|i| 0x3F80_0000 + i as u32);
+        r.fpscr = u32::MAX;
+        s.cpacr = u32::MAX;
+    });
+    let (r, s) = state(&vcpu);
+    assert_eq!(r.control, 0b111, "FPCA with an FPU");
+    assert_eq!((r.s[0], r.s[31]), (0x3F80_0000, 0x3F80_001F));
+    assert_eq!(r.fpscr, 0xF7C0_009F, "the M-profile FPSCR bits only");
+    assert_eq!(s.cpacr, 0x00F0_0000, "CP10 and CP11 only");
+}
+
+#[test]
 fn imported_handler_mode_can_return() {
     // A context in the SVCall handler with a frame on the main stack.
     let (mut vcpu, mem) = new_vcpu(&[0x70, 0x47]); // bx lr

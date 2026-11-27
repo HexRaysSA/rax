@@ -150,6 +150,8 @@ impl CortexMCpu {
                 0 if privileged => u32::from(self.primask),
                 1 | 2 if privileged => u32::from(self.basepri),
                 3 if privileged => u32::from(self.faultmask),
+                // CONTROL.FPCA with the Floating-point Extension
+                4 if self.vfp.is_some() => u32::from(self.control & 7),
                 4 => u32::from(self.control & 3),
                 _ => 0,
             },
@@ -215,6 +217,9 @@ impl CortexMCpu {
                     self.control = (self.control & !1) | (value as u8 & 1);
                     if self.thread_mode {
                         self.control = (self.control & !2) | (value as u8 & 2);
+                    }
+                    if self.vfp.is_some() {
+                        self.control = (self.control & !4) | (value as u8 & 4);
                     }
                 }
             },

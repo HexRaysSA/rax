@@ -18,12 +18,13 @@ use crate::isa::arm::common::memory::{ArmMemory, FlatMemory, MemoryError, Standa
 use super::exception::number;
 use super::exec::Fault;
 use super::nvic::Nvic;
+use super::ppb::{M7_MVFR, Ppb};
 use super::scb::{CortexMVariant, Scb, cfsr, hfsr};
 use super::systick::SysTick;
 
 #[path = "checkpoint.rs"]
 mod checkpoint;
-pub(crate) use checkpoint::CoreCheckpoint;
+pub(crate) use checkpoint::{CoreCheckpoint, PpbCheckpoint};
 
 /// EXC_RETURN values.
 pub mod exc_return {
@@ -90,6 +91,13 @@ pub struct CortexMCpu {
     systick: SysTick,
     /// VFP/FPU state (optional).
     pub(super) vfp: Option<VfpState>,
+    /// The Private Peripheral Bus registers outside the NVIC, SCB and
+    /// SysTick models.
+    pub(super) ppb: Ppb,
+    /// Whether loads and stores reach the Private Peripheral Bus.
+    pub(super) ppb_mapped: bool,
+    /// The reset value of VTOR, where reset reads the initial SP and PC.
+    initial_vtor: u32,
 
     /// Instruction count.
     pub(super) insn_count: u64,
@@ -200,8 +208,9 @@ impl CortexMCpu {
             ),
         };
 
-        // The Floating-point Extension is not implemented: FP instructions
-        // are coprocessor instructions with no coprocessor (NOCP).
+        // Without the Floating-point Extension, FP instructions are
+        // coprocessor instructions with no coprocessor (NOCP); see
+        // `set_floating_point`.
         let vfp: Option<VfpState> = None;
 
         Self {
@@ -223,6 +232,9 @@ impl CortexMCpu {
             scb: Scb::new(variant),
             systick: SysTick::with_frequency(100_000_000), // 100 MHz default
             vfp,
+            ppb: Ppb::default(),
+            ppb_mapped: false,
+            initial_vtor: 0,
             insn_count: 0,
             cycle_count: 0,
             breakpoints: HashSet::new(),
@@ -237,6 +249,26 @@ impl CortexMCpu {
             features,
             version,
         }
+    }
+
+    /// Gives a Cortex-M7 its Floating-point Extension, FPv5-D16 (16
+    /// double-precision registers; see [`exec::fp`](super::exec) for the
+    /// instructions implemented), or takes it away. Other variants have none
+    /// here.
+    pub fn set_floating_point(&mut self, enabled: bool) {
+        self.vfp = (enabled && self.variant == CortexMVariant::CortexM7).then(|| {
+            let mut vfp = VfpState::new();
+            [vfp.mvfr0, vfp.mvfr1, vfp.mvfr2] = M7_MVFR;
+            vfp
+        });
+        self.ppb.cpacr = 0;
+    }
+
+    /// Sets the reset value of VTOR (the Cortex-M7's INITVTOR, which the
+    /// chip chooses; 0 otherwise): reset takes the initial SP and PC from
+    /// the vector table there. Applies from the next reset.
+    pub fn set_initial_vtor(&mut self, address: u32) {
+        self.initial_vtor = address & !0x7F;
     }
 
     /// Create a new Cortex-M4 with flat memory.
@@ -415,6 +447,14 @@ impl CortexMCpu {
         if self.systick.is_pending() {
             self.scb.set_systick_pending(true);
         }
+        // nothing pending: the common case, checked before each instruction
+        if !self.scb.is_nmi_pending()
+            && !self.scb.is_pendsv_pending()
+            && !self.scb.is_systick_pending()
+            && !self.nvic.any_pending_enabled()
+        {
+            return Ok(None);
+        }
         let current = self.execution_priority();
         let mut best: Option<(i32, u16)> = None;
         let mut consider = |exception: u16, priority: i32| {
@@ -439,13 +479,11 @@ impl CortexMCpu {
                 i32::from(self.nvic.get_exception_priority(number::SYS_TICK)),
             );
         }
-        for irq in 0..496u16 {
-            if self.nvic.is_pending(irq) && self.nvic.is_enabled(irq) {
-                consider(
-                    irq + 16,
-                    i32::from(self.nvic.get_exception_priority(irq + 16)),
-                );
-            }
+        for irq in self.nvic.pending_enabled() {
+            consider(
+                irq + 16,
+                i32::from(self.nvic.get_exception_priority(irq + 16)),
+            );
         }
         let Some((_, exception)) = best else {
             return Ok(None);
@@ -608,15 +646,21 @@ impl ArmCpu for CortexMCpu {
         self.nvic.reset();
         self.scb.reset();
         self.systick.reset();
+        self.ppb.reset();
+        if self.vfp.is_some() {
+            self.set_floating_point(true);
+        }
 
         self.active = [0; 8];
         self.event_register = false;
 
         // Load initial SP and PC from vector table
-        if let Ok(sp) = self.mem_a(0, 4) {
+        let table = self.initial_vtor;
+        self.scb.set_vtor(table);
+        if let Ok(sp) = self.mem_a(table, 4) {
             self.sp_main = sp & !3;
         }
-        if let Ok(pc) = self.mem_a(4, 4) {
+        if let Ok(pc) = self.mem_a(table.wrapping_add(4), 4) {
             self.pc = pc & !1;
             if pc & 1 == 0 {
                 self.xpsr &= !0x0100_0000;

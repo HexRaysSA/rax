@@ -178,3 +178,58 @@ fn detached_cpu_rejects_publication_in_a_foreign_memory_domain() {
     assert!(candidate.publication(&scope).is_err());
     assert!(candidate.step_insn().is_err());
 }
+
+#[test]
+fn records_carry_fp_and_ppb_state_only_for_a_core_that_uses_them() {
+    let mut source = cpu(CortexMVariant::CortexM7);
+    let mut target = cpu(CortexMVariant::CortexM7);
+    assert!(
+        source
+            .capture_private()
+            .unwrap()
+            .data
+            .starts_with(b"RAXCM001")
+    );
+    for vcpu in [&mut source, &mut target] {
+        vcpu.cpu.set_floating_point(true);
+        vcpu.cpu.map_private_peripheral_bus(true);
+    }
+    let CpuState::CortexM(mut state) = source.get_state().unwrap() else {
+        unreachable!()
+    };
+    state.regs.control = 0b100; // FPCA
+    state.regs.s[3] = 0x4049_0FDB;
+    state.regs.fpscr = 0x00C0_0000; // RMode
+    state.sregs.cpacr = 0x00F0_0000;
+    source
+        .set_state(&CpuState::cortex_m(state.regs, state.sregs))
+        .unwrap();
+    let raw = source.capture_private().unwrap();
+    assert!(raw.data.starts_with(b"RAXCM002"));
+    restored(&source, &mut target);
+    assert_eq!(
+        crate::codec::serialize(&target.get_state().unwrap()).unwrap(),
+        crate::codec::serialize(&source.get_state().unwrap()).unwrap()
+    );
+    assert_eq!(target.capture_private().unwrap().data, raw.data);
+
+    // A target configured otherwise refuses the record and stays unchanged.
+    for configure in [
+        |vcpu: &mut CortexMVcpu| vcpu.cpu.map_private_peripheral_bus(true),
+        |vcpu: &mut CortexMVcpu| vcpu.cpu.set_floating_point(true),
+    ] {
+        let mut other = cpu(CortexMVariant::CortexM7);
+        configure(&mut other);
+        let before = other.capture_private().unwrap().data;
+        assert!(
+            other
+                .restore_checkpoint_context(
+                    &source.get_state().unwrap(),
+                    &EmulatorState::default(),
+                    Some(&raw)
+                )
+                .is_err()
+        );
+        assert_eq!(other.capture_private().unwrap().data, before);
+    }
+}

@@ -607,6 +607,35 @@ impl Nvic {
     // Register Access
     // =========================================================================
 
+    /// The external interrupt lines.
+    pub fn num_interrupts(&self) -> usize {
+        self.num_interrupts
+    }
+
+    /// Whether an interrupt is both pending and enabled.
+    pub fn any_pending_enabled(&self) -> bool {
+        self.pending
+            .iter()
+            .zip(&self.enabled)
+            .any(|(&pending, &enabled)| pending & enabled != 0)
+    }
+
+    /// The interrupts both pending and enabled, in increasing order.
+    pub fn pending_enabled(&self) -> impl Iterator<Item = u16> + '_ {
+        self.pending.iter().zip(&self.enabled).enumerate().flat_map(
+            |(word, (&pending, &enabled))| {
+                let mut bits = pending & enabled;
+                std::iter::from_fn(move || {
+                    (bits != 0).then(|| {
+                        let bit = bits.trailing_zeros();
+                        bits &= bits - 1;
+                        (32 * word as u32 + bit) as u16
+                    })
+                })
+            },
+        )
+    }
+
     /// Read from NVIC register space (offset from 0xE000E100).
     pub fn read(&self, offset: u32) -> u32 {
         match offset {

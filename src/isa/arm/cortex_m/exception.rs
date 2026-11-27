@@ -4,6 +4,7 @@
 //! every frame is the 32-byte basic frame.
 
 use super::cpu::CortexMCpu;
+use super::exec::fp::{CONTROL_FPCA, FPSCR_MASK};
 use super::exec::{Fault, XPSR_T};
 use super::scb::{cfsr, hfsr};
 use crate::isa::arm::common::cpu::AccessType;
@@ -49,6 +50,13 @@ impl From<Fault> for EntryError {
 /// Bits [27:4] of an EXC_RETURN value are all ones without the
 /// Floating-point Extension.
 const EXC_RETURN_ONES: u32 = 0x0FFF_FFF0;
+/// With the Floating-point Extension, EXC_RETURN bit 4 is the frame type
+/// (0: with the floating-point state).
+const EXC_RETURN_ONES_FP: u32 = 0x0FFF_FFE0;
+const EXC_RETURN_BASIC_FRAME: u32 = 1 << 4;
+/// The basic frame, and the frame with S0-S15, FPSCR and a reserved word.
+const FRAME_BASIC: u32 = 0x20;
+const FRAME_EXTENDED: u32 = 0x68;
 
 impl CortexMCpu {
     pub(super) fn is_active(&self, exception: u16) -> bool {
@@ -206,7 +214,9 @@ impl CortexMCpu {
         self.take_synchronous(exception, self.pc)
     }
 
-    /// `PushStack()` without the Floating-point Extension (B1.5.6).
+    /// `PushStack()` (B1.5.6). With CONTROL.FPCA, the frame holds S0-S15
+    /// and FPSCR too, stacked at once: lazy state preservation is not
+    /// modelled (FPCCR.LSPEN only reads back).
     fn push_stack(&mut self, return_address: u32) -> Result<(), EntryError> {
         let force_align = self.scb().stack_align();
         let use_psp = self.control & 2 != 0 && self.thread_mode;
@@ -215,8 +225,14 @@ impl CortexMCpu {
         } else {
             self.sp_main
         };
+        let extended = self.vfp.is_some() && self.control & CONTROL_FPCA != 0;
+        let size = if extended {
+            FRAME_EXTENDED
+        } else {
+            FRAME_BASIC
+        };
         let realigned = force_align && sp & 4 != 0;
-        let frame = sp.wrapping_sub(0x20) & !(u32::from(force_align) << 2);
+        let frame = sp.wrapping_sub(size) & !(u32::from(force_align) << 2);
         let xpsr = (self.xpsr & !(1 << 9)) | (u32::from(realigned) << 9);
         let words = [
             self.regs[0],
@@ -231,15 +247,31 @@ impl CortexMCpu {
         for (i, word) in words.iter().enumerate() {
             self.set_mem_a(frame.wrapping_add(4 * i as u32), 4, *word)?;
         }
+        if let (true, Some(vfp)) = (extended, &self.vfp) {
+            let mut fp = [0u32; 17];
+            for (i, word) in fp.iter_mut().take(16).enumerate() {
+                *word = vfp.read_s_bits(i as u8);
+            }
+            fp[16] = vfp.read_fpscr() & FPSCR_MASK;
+            for (i, word) in fp.iter().enumerate() {
+                self.set_mem_a(frame.wrapping_add(FRAME_BASIC + 4 * i as u32), 4, *word)?;
+            }
+            self.ppb.fpcar = frame.wrapping_add(FRAME_BASIC);
+        }
         if use_psp {
             self.sp_process = frame;
         } else {
             self.sp_main = frame;
         }
-        self.lr = if self.thread_mode {
+        let lr = if self.thread_mode {
             0xFFFF_FFF9 | (u32::from(self.control & 2) << 1)
         } else {
             0xFFFF_FFF1
+        };
+        self.lr = if extended {
+            lr & !EXC_RETURN_BASIC_FRAME
+        } else {
+            lr
         };
         Ok(())
     }
@@ -267,9 +299,12 @@ impl CortexMCpu {
     pub(super) fn exception_return(&mut self, exc_return: u32) -> Result<(), Fault> {
         let returning = self.current_exception;
         let nested = self.active_count();
-        let target = if exc_return & EXC_RETURN_ONES != EXC_RETURN_ONES
-            || !self.is_active(returning)
-        {
+        let ones = if self.vfp.is_some() {
+            EXC_RETURN_ONES_FP
+        } else {
+            EXC_RETURN_ONES
+        };
+        let target = if exc_return & ones != ones || !self.is_active(returning) {
             None
         } else {
             match exc_return & 0xF {
@@ -289,7 +324,12 @@ impl CortexMCpu {
         self.deactivate(returning);
         self.thread_mode = to_thread;
         self.control = (self.control & !2) | (u8::from(use_psp) << 1);
-        let return_address = self.pop_stack(use_psp)?;
+        let extended = self.vfp.is_some() && exc_return & EXC_RETURN_BASIC_FRAME == 0;
+        let return_address = self.pop_stack(use_psp, extended)?;
+        if self.vfp.is_some() {
+            // CONTROL.FPCA = NOT(EXC_RETURN[4])
+            self.control = (self.control & !CONTROL_FPCA) | if extended { CONTROL_FPCA } else { 0 };
+        }
         let ipsr = self.xpsr & 0x1FF;
         if to_thread != (ipsr == 0) {
             // The stacked IPSR contradicts the return mode: stack the frame
@@ -324,9 +364,9 @@ impl CortexMCpu {
         self.exception_taken(taken).map_err(entry_fault)
     }
 
-    /// `PopStack()` without the Floating-point Extension (B1.5.8); returns
-    /// the stacked return address.
-    fn pop_stack(&mut self, use_psp: bool) -> Result<u32, Fault> {
+    /// `PopStack()` (B1.5.8), of a frame `extended` with S0-S15 and FPSCR;
+    /// returns the stacked return address.
+    fn pop_stack(&mut self, use_psp: bool, extended: bool) -> Result<u32, Fault> {
         let force_align = self.scb().stack_align();
         let frame = if use_psp {
             self.sp_process
@@ -337,6 +377,23 @@ impl CortexMCpu {
         for (i, word) in words.iter_mut().enumerate() {
             *word = self.mem_a(frame.wrapping_add(4 * i as u32), 4)?;
         }
+        let mut fp = [0u32; 17];
+        if extended {
+            for (i, word) in fp.iter_mut().enumerate() {
+                *word = self.mem_a(frame.wrapping_add(FRAME_BASIC + 4 * i as u32), 4)?;
+            }
+        }
+        if let (true, Some(vfp)) = (extended, &mut self.vfp) {
+            for (i, word) in fp.iter().take(16).enumerate() {
+                vfp.write_s_bits(i as u8, *word);
+            }
+            vfp.write_fpscr(fp[16] & FPSCR_MASK);
+        }
+        let size = if extended {
+            FRAME_EXTENDED
+        } else {
+            FRAME_BASIC
+        };
         let psr = words[7];
         self.regs[0] = words[0];
         self.regs[1] = words[1];
@@ -346,7 +403,7 @@ impl CortexMCpu {
         self.lr = words[5];
         self.pc = words[6] & !1;
         let realign = u32::from(psr & (1 << 9) != 0 && force_align) << 2;
-        let sp = frame.wrapping_add(0x20) | realign;
+        let sp = frame.wrapping_add(size) | realign;
         if use_psp {
             self.sp_process = sp;
         } else {

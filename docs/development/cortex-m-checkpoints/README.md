@@ -14,6 +14,18 @@ The private record is at most 16 MiB including its tag; pending core exceptions
 are bounded to 262,144 entries before allocation, and 496 priority bytes use a
 fixed tuple. Raw counters wrap at their unsigned 64-bit boundary.
 
+A core using state `RAXCM001` cannot hold writes `RAXCM002`: the `RAXCM001`
+payload followed by the Private Peripheral Bus registers outside the
+NVIC/SCB/SysTick (DWT, ACTLR, CSSELR, CPACR, MPU, DEMCR, FPCCR, FPCAR, FPDSCR),
+whether the PPB is mapped as memory, and the reset VTOR. That state is any of
+those differing from reset, or the Floating-point Extension, whose registers
+(S0-S31, FPSCR, CONTROL.FPCA) the core payload already carries and `RAXCM001`
+admission refuses. Every other core still writes `RAXCM001`, byte for byte. The
+PPB mapping, reset VTOR, cache identification and FPU identification must match
+the target; D16-D31 must be zero, FPSCR hold only its M-profile bits, and each
+PPB register a value its writes can give. The public projection carries S0-S31,
+FPSCR, CONTROL.FPCA and CPACR when the core has the extension.
+
 VMM restoration prepares replacement CPUs without modifying live CPU or RAM
 state. A memory-binding-checked publication permit enables entry only after
 restored RAM is published. Dropping the candidate or permit leaves the live
@@ -55,7 +67,7 @@ These are algorithmic bounds, not measured performance claims.
 | Impact | Remaining boundary |
 | --- | --- |
 | High | All four original full findings remain open, including native in-flight/IRQ/clock/replay, SMP and physical Intel requirements |
-| High | Preserving modeled state does not implement the absent FPE, MPU enforcement, external SCS MMIO wiring or additional interrupt execution semantics |
+| High | Preserving modeled state does not implement the floating-point data-processing instructions, lazy FP state preservation, MPU enforcement or additional interrupt execution semantics |
 | High | Cortex-M keeps its existing local-only exclusive monitor; shared-writer invalidation/coherence is not established |
 | Medium | Legacy files cannot recover execution state they never recorded; raw independent RAM writers require caller quiescence |
 
