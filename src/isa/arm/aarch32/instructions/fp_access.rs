@@ -1,5 +1,6 @@
 //! Shared standalone/mixed-width FP access classification and policy.
 use super::*;
+use crate::config::Aarch32Isa;
 use crate::isa::arm::aarch32::fp_admission;
 use crate::isa::arm::aarch32::fp_controls::{FpAccessFault, fp_access_kind};
 
@@ -28,9 +29,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let in_it = insn.state.is_thumb() && self.cpu.cpsr.in_it_block();
         let standalone = self.cpu.fp_access_context.is_none();
         let arm11 = standalone && self.cpu.vfp.is_arm11();
+        let thumb1_vfp = arm11 && self.cpu.configured_fp_isa != Some(Aarch32Isa::V6T2);
         // Predicate failure has already skipped the instruction. Choose
         // Undefined for executed restricted encodings before FP access traps.
-        if arm11 && insn.state.is_thumb()
+        if thumb1_vfp && insn.state.is_thumb()
             || !fp_admission::predicate_supported(insn, kind.advsimd, in_it)
         {
             return Some(ExecResult::Undefined);
@@ -50,7 +52,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             kind.condition = self.cpu.cpsr.it_condition();
         }
         let vfpv2 = matches!((self.cpu.vfp.mvfr0 >> 4) & 0xff, 0x01 | 0x11);
-        let legacy_transfers = standalone && self.cpu.legacy_fp_transfers.unwrap_or(vfpv2);
+        let legacy_transfers = standalone
+            && self
+                .cpu
+                .configured_fp_isa
+                .map_or(vfpv2, |isa| isa != Aarch32Isa::V8A32);
         // Arm DDI0406C.d Table B1-24 reserves selector 5. Its VMRS, VMSR,
         // VMOV and VDUP Thumb encodings also constrain the core SP operand.
         if legacy_transfers

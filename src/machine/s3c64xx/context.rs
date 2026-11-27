@@ -166,7 +166,7 @@ impl Armv6Vcpu {
             candidate.attach_s3c_uart(uart.clone());
         }
         candidate.cpu = context.cpu;
-        candidate.cpu.legacy_fp_transfers = self.cpu.legacy_fp_transfers;
+        candidate.cpu.configured_fp_isa = self.cpu.configured_fp_isa;
         candidate.excl = ExclusiveMonitor {
             address: context.exclusive_address,
             size: context.exclusive_size,
@@ -232,6 +232,7 @@ impl Armv6Vcpu {
             return Err(invalid("context producer differs from target backend"));
         }
         let context = Context::decode(&context.data, self.id)?;
+        self.cpu.check_checkpoint_fp_isa(&context.cpu)?;
         if crate::codec::serialize(&public_state(&context.cpu)).map_err(invalid)?
             != crate::codec::serialize(state).map_err(invalid)?
         {
@@ -253,7 +254,7 @@ impl Armv6Vcpu {
     ) -> Result<()> {
         self.validate_context_record(state, raw)?;
         let mut context = Context::decode(&raw.data, self.id)?;
-        context.cpu.legacy_fp_transfers = self.cpu.legacy_fp_transfers;
+        context.cpu.configured_fp_isa = self.cpu.configured_fp_isa;
         let mut uart = self
             .uart
             .get()

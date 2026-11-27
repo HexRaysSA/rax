@@ -320,8 +320,8 @@ pub struct Armv6Vcpu {
 }
 
 impl Armv6Vcpu {
-    pub(crate) fn configure_fp_profile(&mut self, legacy_transfers: bool, arm11: bool) {
-        self.cpu.configure_fp_profile(legacy_transfers, arm11);
+    pub(crate) fn configure_fp_profile(&mut self, isa: crate::config::Aarch32Isa) {
+        self.cpu.configure_fp_profile(isa);
     }
 
     pub fn new(id: u32, mem: Arc<GuestMemoryMmap>) -> Self {

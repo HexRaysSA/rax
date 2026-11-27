@@ -27,6 +27,8 @@
 //! - Shift amount of 0 for LSR/ASR means shift by 32
 //! - Shift type 3 with imm5=0 means RRX, otherwise ROR
 
+use crate::config::Aarch32Isa;
+use crate::error::Error;
 use crate::isa::arm::aarch32::vfp::VfpState;
 use crate::isa::arm::decoder::ShiftType;
 
@@ -631,11 +633,11 @@ pub struct Armv7Cpu {
     pub(crate) pstate_features: crate::isa::arm::common::features::ArmFeatures,
     pub(crate) nonsecure: bool,
     pub(crate) fp_access_context: Option<super::fp_controls::FpAccessContext>,
-    /// Legacy FP transfer allocation selected by the standalone VM's ISA.
-    /// Platform restore takes it from the target configuration. A synthetic
-    /// CPU without that configuration falls back to its precision profile.
+    /// ISA selected by the standalone VM for FP admission. Platform restore
+    /// takes it from the target configuration. Unconfigured CPUs use their
+    /// stored FP capability fields.
     #[serde(skip)]
-    pub(crate) legacy_fp_transfers: Option<bool>,
+    pub(crate) configured_fp_isa: Option<Aarch32Isa>,
     /// Live HSTR state for the standalone AArch32 adapter.
     /// Its private checkpoint envelope carries the versioned value.
     #[serde(skip)]
@@ -708,7 +710,7 @@ impl Armv7Cpu {
             pstate_features: crate::isa::arm::common::features::ArmFeatures::empty(),
             nonsecure: false,
             fp_access_context: None,
-            legacy_fp_transfers: None,
+            configured_fp_isa: None,
             standalone_hstr: None,
             instruction_size: 4,
             regs: [0; 16],
@@ -746,11 +748,29 @@ impl Armv7Cpu {
         cpu
     }
 
-    pub(crate) fn configure_fp_profile(&mut self, legacy_transfers: bool, arm11: bool) {
-        self.legacy_fp_transfers = Some(legacy_transfers);
-        if arm11 {
+    pub(crate) fn configure_fp_profile(&mut self, isa: Aarch32Isa) {
+        self.configured_fp_isa = Some(isa);
+        if matches!(isa, Aarch32Isa::V6 | Aarch32Isa::V6K | Aarch32Isa::V6T2) {
             self.configure_arm11_vfp();
         }
+        if isa == Aarch32Isa::V6T2 {
+            // DDI0406C.d B4.1.93 assigns ID_PFR0.State1=3 to Thumb-2.
+            self.cp15.id_pfr0 = 0x131;
+        }
+    }
+
+    pub(crate) fn check_checkpoint_fp_isa(&self, saved: &Self) -> crate::error::Result<()> {
+        if self.configured_fp_isa == Some(Aarch32Isa::V6T2)
+            && (!saved.vfp.is_arm11()
+                || saved.fp_access_context.is_some()
+                || self.cp15.id_pfr0 != saved.cp15.id_pfr0
+                || self.cp15.id_pfr1 != saved.cp15.id_pfr1)
+        {
+            return Err(Error::InvalidConfig(
+                "Armv6T2 checkpoint requires its configured VFPv2 D16 profile".into(),
+            ));
+        }
+        Ok(())
     }
 
     pub(crate) fn configure_arm11_vfp(&mut self) {

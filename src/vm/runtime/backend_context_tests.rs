@@ -10,6 +10,8 @@ use vm_memory::{Bytes, GuestAddress};
 mod fp_traps;
 #[path = "a32_restricted_fp_tests.rs"]
 mod restricted_fp;
+#[path = "a32_v6t2_fp_tests.rs"]
+mod v6t2_fp;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 const CODE: u64 = 0x5000_0100;

@@ -1075,7 +1075,8 @@
         "Standalone scalar-only D32 and no-FP control masks have ARM and Thumb regressions. The five owning macOS Arm64 binaries passed 47,692 and 47,693 tests respectively, with no failures or skips. QEMU independently confirmed absent CPACR.cp10/cp11 behavior. The Arm manual defines HCPTR.TASE for that profile, and physical AArch32 behavior remains unverified. See docs/development/a32-fp-controls/register-bank/README.md.",
         "Standalone VFPv2 now selects the legacy Undefined diagnostic for executed Thumb VMRS and VMSR with SP. ARM and mixed-width Armv8-A controls passed. Seven complete owning suites passed 47,769 tests, and QEMU max independently confirmed the ARMv8-A controls. QEMU Cortex-A15 executed the raw Thumb words that the Armv7-A manual marks unpredictable. Physical AArch32 qualification and the broader profile, security and debug controls stay open. See docs/development/a32-fp-controls/base-precision/README.md.",
         "Standalone VFPv2 VMRS MVFR2 now takes Undefined before FP access or ID-group traps in both instruction states. The mixed-width Armv8-A control still reads MVFR2 after importing VFPv2 precision fields. The independent QEMU register matrix covers arm1176 (A32), cortex-a15 and max (A32 and T32). Broader profile, security, debug and physical AArch32 requirements remain open. See docs/development/a32-fp-controls/base-precision/README.md.",
-        "Configured Armv7-A FP transfers now apply the legacy T32 SP constraint and MVFR2 allocation with the default arithmetic precision IDs. Guest execution in both states, warm restore and source-free cold restore passed for the two S3C64xx profiles. Physical AArch32 execution and the remaining control profiles are open. See docs/development/a32-fp-controls/base-precision/README.md#configured-armv7-a-and-armv8-a-transfers."
+        "Configured Armv7-A FP transfers now apply the legacy T32 SP constraint and MVFR2 allocation with the default arithmetic precision IDs. Guest execution in both states, warm restore and source-free cold restore passed for the two S3C64xx profiles. Physical AArch32 execution and the remaining control profiles are open. See docs/development/a32-fp-controls/base-precision/README.md#configured-armv7-a-and-armv8-a-transfers.",
+        "Configured Armv6T2 now selects synchronous VFPv2 D16 in A32 and T32. S3C64xx guest execution, warm restore and source-free cold restore exercise FP enables and reject later FP instructions. Complete older checkpoints advertising incompatible FP state fail before publication. Physical AArch32 execution, asynchronous VFP11 state and the remaining control profiles are open. See docs/development/a32-fp-controls/base-precision/README.md#configured-armv6t2-vfpv2."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1125,7 +1126,8 @@
         "a32-i8mm-admission-2026-11-20",
         "a32-jscvt-profile-2026-11-20",
         "a32-mixed-width-nsacr-2026-11-20",
-        "a32-configured-fp-transfer-allocation-2026-11-27"
+        "a32-configured-fp-transfer-allocation-2026-11-27",
+        "a32-configured-armv6t2-vfpv2-2026-11-27"
       ]
     },
     {
@@ -201263,6 +201265,14 @@
       "status": "locally_qualified_full_findings_open",
       "scope": "The standalone VMM selects pre-Armv8 Thumb SP and MVFR2 allocation from its configured ISA. The live, warm and source-free cold S3C64xx guest cases cover 17 SP transfer forms, both instruction states, the MVFR2 selector, a failed predicate and non-SP controls. Independent Cortex-A15 and max guests produced 80 observations under QEMU. Broader FP-control profiles and physical AArch32 remain open.",
       "qualification": "docs/development/a32-fp-controls/base-precision/README.md#configured-armv7-a-and-armv8-a-transfers",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-configured-armv6t2-vfpv2-2026-11-27",
+      "findings": ["A32-FP"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The Armv6T2 standalone VMM selects synchronous VFPv2 D16 and admits scalar VFP in A32 and T32. The S3C64xx regression checks the enable controls, arithmetic and instruction availability before and after restoration, and rejected admission of a complete older incompatible context. A separate S5L8900 CLI guest continued from the Thumb FPEXC write after a source-free cold restore. LLVM supplied 32 assembly observations and QEMU supplied 21 independent execution and feature observations. Physical AArch32 and asynchronous VFP11 behavior remain open.",
+      "qualification": "docs/development/a32-fp-controls/base-precision/README.md#configured-armv6t2-vfpv2",
       "full_goal_complete": false
     }
   ],

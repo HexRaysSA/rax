@@ -131,6 +131,54 @@ S5L8900 file-resume tests. The local test build used `63886d4b2` plus this
 change. Later Windows-only commits landed before publication.
 Physical AArch32 execution and the remaining FP-control profiles remain open.
 
+## Configured Armv6T2 VFPv2
+
+The S3C64xx and S5L8900 runtimes select the synchronous VFP11 model when
+`aarch32_isa = "v6_t2"`. It exposes VFPv2 with 16 double registers, no
+Advanced SIMD and `ID_PFR0.State1 = 3` for Thumb-2. Privileged software must
+enable CPACR access and FPEXC.EN before scalar arithmetic in either execution
+state. The per-instruction profile check takes constant time and space.
+[Arm ARM1156T2F-S register file](https://support.arm.com/documentation/ddi0290/g/vfp-register-file/about-the-register-file)
+[Arm assembler guide on Thumb-2 VFP](https://support.arm.com/documentation/dui0204/f/vector-floating-point-programming/vfp-and-condition-codes)
+[Arm DDI0406C.d, § B4.1.93](../../../specifications/arm/aarch32-fp-profile/armv7ar-ddi0406cd.pdf)
+
+Warm and cold restore reapply the target's configured ISA. A complete older
+Armv6T2 checkpoint with the prior newer FP capability IDs is rejected during
+admission, before CPU or device publication. This avoids silently dropping
+saved architectural registers or allowing its incompatible instruction set.
+
+| Assumption | Stress test and falsification probe | Impact |
+| --- | --- | --- |
+| The Armv6T2 configuration selects the VFPv2 D16 instruction set in A32 and T32. | Read the Thumb and MVFR fields and execute scalar double addition. Advanced SIMD, D16 operands, a VFPv3 immediate and MVFR2 must take Undefined with zero retirements. | High |
+| The two FP enable controls reset disabled and apply independently. | Read CPACR and FPEXC at reset, enable CPACR, then execute a Thumb add with FPEXC.EN clear and again with it set. | High |
+| The restore target's configuration remains authoritative. | Repeat the matrix after warm and source-free cold restore. Inject the older FP capability IDs and check admission plus preservation of the current CPU state and retirements. | High |
+
+The regression failed at `dd2517fb7` because CPACR reset with both FP access
+fields already enabled. LLVM's ARM1156T2F-S and Cortex-A15 targets recorded
+32 assembly admission and encoding results across A32 and T32. QEMU 11.1.2
+recorded 21 execution and feature observations on ARM1176 (A32) and Cortex-A15
+(A32 and T32). LLVM verified T32 encoding and admission on ARM1156T2F-S.
+The LLVM and QEMU receipt SHA-256 values are respectively
+`01be1701dc8171727bd7f8e490ab54dc8f65e0cfb33a998e84ebe5f0f7d20a32` and
+`d0c66dd56f3f372637456bade0bbb4b3442fa522b3c620d3ebc808c6281318a0`.
+
+On macOS Arm64, all 47,786 tests passed in the full `a32_fp_controls`,
+`a32_fp_pairs`, `arm`, `arm_vfp_a32`, `isa_oracle`,
+`smir_jit_aarch32_aarch64` and `smir_jit_thumb_aarch64` binaries, with zero
+failures or ignored tests. The unfiltered library passed 13,736 tests with
+zero failures and 49 opt-in cases ignored. The build used `320e5b6fe` plus
+this change. Later Darwin and Windows user-mode commits landed before
+publication. The Cargo log SHA-256 is
+`e21bc31e28e7376260e02f121fa43d37441f739433879865c6838f8896ca6a75`.
+An S5L8900 CLI guest also read the Thumb MVFR0 and verified the exact double
+result `0x4008000000000000`. A complete file captured after `VMSR FPEXC`
+continued through the same checks on cold resume with the source image and
+configuration removed. The CLI receipt SHA-256 is
+`24ec6c5b9294b654c785125a2f2f0098a3d36127b7e1e4b8e2d285ac435abe7c`.
+
+Physical ARM1156T2F-S timing, variant-specific identification and asynchronous
+VFP11 exception state remain open.
+
 ## Evidence
 
 [Provenance](provenance.json) identifies the retained Arm MVFR0 definition and
