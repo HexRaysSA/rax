@@ -89,7 +89,7 @@ fn closed_workqueue_kevent_registers_user_events_and_rejects_host_knote() {
         let mut args = [u64::MAX, change_address, 1, 0, 0, 0, 0, 0];
         assert_eq!(
             bsd::call(&mut ctx, nr::KEVENT_QOS, &args),
-            Err(Errno::EPERM)
+            Err(Errno::EBADF)
         );
         let mut change = Kev {
             ident: 1,
