@@ -167,7 +167,7 @@ fn another_host_task_returns_its_capability_sets() {
 #[test]
 fn guest_child_capget_uses_guest_credentials_when_pid_matches_a_host_task() {
     let mut h = Harness::embedded(crate::user::linux::abi::LinuxAbi::Riscv64);
-    let guest_pid = h.ok(Sysno::Fork, &[]) as i32;
+    let guest_pid = h.ok(Sysno::Clone, &[SIGCHLD as u64, 0, 0, 0, 0]) as i32;
     let host_pids = [std::process::id() as i32, unsafe { libc::getppid() as i32 }];
     let (host_pid, host_caps) = host_pids
         .into_iter()
