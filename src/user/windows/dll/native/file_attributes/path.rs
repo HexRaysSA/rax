@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 
 const CLR_LOADER: &str = "mscoreei.dll";
 const CLR_V4: &str = "v4.0.30319";
+const CLR_MACHINE_CONFIG: &str = "machine.config";
 const CLR_VERSION_DIRECTORIES: [&str; 2] = [CLR_V4, "Upgrades.4.0.30319"];
 
 pub(in super::super) fn clr_version_directory_name(c: &Ctx, name: &[u16]) -> bool {
@@ -297,12 +298,53 @@ fn selected_main_file(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked
     Ok(Some(host))
 }
 
+fn selected_clr_machine_config(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
+    let suffix: Vec<_> = r"\Config\machine.config".encode_utf16().collect();
+    let Some(prefix_len) = path.len().checked_sub(suffix.len()) else {
+        return Ok(None);
+    };
+    let (prefix, rest) = path.split_at(prefix_len);
+    let version: Vec<_> = CLR_V4.encode_utf16().collect();
+    if !equal(c, rest, &suffix)
+        || !prefix
+            .rsplit(|unit| *unit == u16::from(b'\\'))
+            .next()
+            .is_some_and(|name| equal(c, name, &version))
+    {
+        return Ok(None);
+    }
+    let Some(base) = framework_directory(c, prefix)?.and_then(|entry| entry.framework) else {
+        return Ok(None);
+    };
+    let config = confined_child(c, &base, "Config", STATUS_OBJECT_PATH_NOT_FOUND)?;
+    let file = confined_child(c, &config, CLR_MACHINE_CONFIG, STATUS_OBJECT_NAME_NOT_FOUND)?;
+    if !file.is_file() {
+        return status(STATUS_OBJECT_NAME_NOT_FOUND);
+    }
+    Ok(Some((config, file)))
+}
+
+impl Resolved {
+    pub(in super::super) fn is_clr_machine_config(&self) -> bool {
+        self.runtime_library
+            && self.no_reparse
+            && self
+                .host
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.eq_ignore_ascii_case(CLR_MACHINE_CONFIG))
+    }
+}
+
 fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf, bool)>> {
     let Some(runtime) = &c.p.native else {
         return Ok(None);
     };
     if let Some(file) = selected_main_file(c, runtime, path)? {
         return Ok(Some((runtime.directory.clone(), file, true)));
+    }
+    if let Some((base, file)) = selected_clr_machine_config(c, path)? {
+        return Ok(Some((base, file, true)));
     }
     if let Some(separator) = path.iter().rposition(|unit| *unit == u16::from(b'\\'))
         && let Some(version) = path[..separator]

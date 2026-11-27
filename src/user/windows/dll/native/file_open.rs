@@ -15,10 +15,36 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{FileObj, Object};
+use sha2::{Digest, Sha256};
+use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 const ATTRIBUTES: u32 = 0x11ec2;
 const LIBRARY_READ: u32 = 0x0012_00a9;
+
+// Microsoft .NET Framework v4 factory file on Windows build 29708. The
+// installed default and active files matched on ARM64, x64, and x86.
+const CLR_MACHINE_CONFIG_BYTES: u64 = 35_982;
+const CLR_MACHINE_CONFIG_SHA256: [u8; 32] = [
+    0x68, 0xe0, 0xdc, 0x6f, 0xef, 0x3f, 0xf0, 0xdf, 0x42, 0x84, 0xc4, 0x7b, 0x93, 0x5a, 0xcc, 0xf4,
+    0x31, 0x5d, 0xfc, 0x82, 0x28, 0xfb, 0xa8, 0x09, 0xcb, 0x18, 0x12, 0x58, 0xc7, 0x8c, 0xb5, 0xe1,
+];
+
+/// Verify the same handle the guest will read. No guest handle is live yet;
+/// reset the shared file position before returning it.
+fn stock_clr_machine_config(mut file: &std::fs::File) -> bool {
+    let mut data = Vec::new();
+    if (&mut file)
+        .take(CLR_MACHINE_CONFIG_BYTES + 1)
+        .read_to_end(&mut data)
+        .is_err()
+        || file.seek(SeekFrom::Start(0)).is_err()
+    {
+        return false;
+    }
+    data.len() as u64 == CLR_MACHINE_CONFIG_BYTES
+        && Sha256::digest(&data)[..] == CLR_MACHINE_CONFIG_SHA256
+}
 
 #[derive(Clone, Copy)]
 pub(super) struct Request {
@@ -246,16 +272,26 @@ pub(super) fn kernel(
         return result;
     }
     let resolved = path::resolve_open(c, &attrs, name.as_deref())?;
+    let stock_config = resolved.is_clr_machine_config();
+    let installed_read_access = if stock_config {
+        LIBRARY_READ & !0x20
+    } else {
+        LIBRARY_READ
+    };
     let mut access = mapped_access(r.access);
     if access & 0x0200_0000 != 0 {
         access = (access & !0x0200_0000)
             | if resolved.runtime_library {
-                LIBRARY_READ
+                installed_read_access
             } else {
                 0x1f01ff
             };
     }
-    if resolved.runtime_library && (access & !LIBRARY_READ != 0 || r.options & 0x1000 != 0) {
+    if resolved.runtime_library && (access & !installed_read_access != 0 || r.options & 0x1000 != 0)
+    {
+        return status(STATUS_ACCESS_DENIED);
+    }
+    if stock_config && access & 1 != 0 && r.options & 0x30 == 0 {
         return status(STATUS_ACCESS_DENIED);
     }
     if resolved.runtime_library
@@ -282,11 +318,17 @@ pub(super) fn kernel(
             )
             .into());
     }
+    // On Windows, deny host writers and replacements through the lifetime of the
+    // verified handle. The guest's ordinary sharing model uses r.share.
+    let host_share = if stock_config { r.share & 1 } else { r.share };
     let flags = attrs.flags | if resolved.no_reparse { 0x1000 } else { 0 };
     let acquired = match creation {
-        Some(request) => host::create(c, &resolved, access, r.share, r.options, flags, request)?,
-        None => host::open(c, &resolved, access, r.share, r.options, flags)?,
+        Some(request) => host::create(c, &resolved, access, host_share, r.options, flags, request)?,
+        None => host::open(c, &resolved, access, host_share, r.options, flags)?,
     };
+    if stock_config && acquired.access & 1 != 0 && !stock_clr_machine_config(&acquired.file) {
+        return status(STATUS_ACCESS_DENIED);
+    }
     if resolved.runtime_library && acquired.directory {
         return status(STATUS_ACCESS_DENIED);
     }

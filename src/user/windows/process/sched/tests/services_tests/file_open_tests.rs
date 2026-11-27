@@ -667,6 +667,92 @@ fn native_file_open_projects_only_the_selected_clr_directories() {
 }
 
 #[test]
+fn native_file_open_rejects_custom_clr_machine_config_and_neighboring_files() {
+    use crate::user::windows::nt::status::STATUS_ACCESS_DENIED;
+
+    for (arch, directory, other) in [
+        (WinArch::X86, "Framework", "Framework64"),
+        (WinArch::X64, "Framework64", "FrameworkArm64"),
+        (WinArch::Arm64, "FrameworkArm64", "Framework"),
+    ] {
+        let mut h = Harness::new(arch);
+        let installed = selection(&mut h);
+        let dot_net = installed.parent().unwrap().join("Microsoft.NET");
+        for (framework, version) in [
+            (directory, "v4.0.30319"),
+            (directory, "v2.0.50727"),
+            (other, "v4.0.30319"),
+        ] {
+            let config = dot_net.join(framework).join(version).join("Config");
+            std::fs::create_dir_all(&config).unwrap();
+            std::fs::write(config.join("machine.config"), vec![b'a'; 35_982]).unwrap();
+            std::fs::write(config.join("machine.config.default"), b"fixture").unwrap();
+        }
+
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let attrs = h.attrs();
+        let width = arch.ptr_size();
+        let prefix = format!(r"\??\C:\Windows\Microsoft.NET\{directory}\v4.0.30319");
+        h.name(&format!(r"{prefix}\config\machine.config"));
+        assert_eq!(
+            h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+            STATUS_SUCCESS
+        );
+        let expected_handle = if arch == WinArch::X86 { 0 } else { 0xbeef };
+        let handle_count = h.process.state().objects.iter().count();
+        for (access, options) in [
+            (0x80100080, 0x00020060),
+            (0x100021, 0x60),
+            (0x100002, 0x60),
+            (1, 0x40),
+        ] {
+            h.process.state().space.wptr(output, width, 0xbeef).unwrap();
+            assert_eq!(
+                h.open_with(output, io, access, 7, options),
+                STATUS_ACCESS_DENIED
+            );
+            assert_eq!(
+                h.process.state().space.ptr(output, width).unwrap(),
+                expected_handle
+            );
+            assert_eq!(h.process.state().objects.iter().count(), handle_count);
+        }
+
+        for path in [
+            format!(r"{prefix}\Config\machine.config.default"),
+            format!(r"\??\C:\Windows\Microsoft.NET\{directory}\v2.0.50727\Config\machine.config"),
+            format!(r"\??\C:\Windows\Microsoft.NET\{other}\v4.0.30319\Config\machine.config"),
+        ] {
+            h.name(&path);
+            assert_eq!(
+                h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+                STATUS_ACCESS_DENIED
+            );
+            assert_eq!(
+                h.open_with(output, io, 0x100001, 1, 0x60),
+                STATUS_ACCESS_DENIED
+            );
+        }
+
+        h.name(&prefix);
+        assert_eq!(h.open_with(output, io, 0x100001, 1, 0x4021), STATUS_SUCCESS);
+        let root = h.process.state().space.ptr(output, width).unwrap();
+        h.name(r"Config\machine.config");
+        h.process
+            .state()
+            .space
+            .wptr(attrs + width, width, root)
+            .unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100001, 1, 0x60),
+            STATUS_ACCESS_DENIED
+        );
+        h.process.state_mut().objects.close(root).unwrap();
+    }
+}
+
+#[test]
 fn native_file_open_selects_the_installed_clr_loader_by_name() {
     use crate::user::windows::nt::status::STATUS_ACCESS_DENIED;
     use crate::user::windows::objects::Object;

@@ -4108,6 +4108,13 @@ directory and use the installed read-only file policy. On the Windows build
 29708 control, `clr.dll` opens for attribute access and the legacy
 `mscorwks.dll` returns the missing-name status in all three framework views.
 
+The selected `v4.0.30319\Config\machine.config` also supports synchronous
+read-only opens when its bytes match the factory .NET configuration measured
+in all three framework directories on Windows build 29708. The read starts at
+offset zero after verification. Other template revisions and locally modified
+files fail the comparison. The directory's other files remain outside the
+selection.
+
 After locating the CLR engine, PowerShell opens the machine
 `SOFTWARE\Microsoft\Fusion` key relative to the machine hive. The snapshot
 records each selected key's canonical name and native access metadata.
