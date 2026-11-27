@@ -66,6 +66,16 @@ fn atomic_admission_rv32_zacas_accepts_even_doubleword_pairs() {
     );
 }
 
+#[test]
+fn rv32_zacas_d_does_not_enable_ordinary_doubleword_amos() {
+    let ordinary_amo_d =
+        (0b00001u32 << 27) | (8 << 20) | (10 << 15) | (0b011 << 12) | (6 << 7) | 0x2f;
+    assert!(
+        crate::isa::riscv::decode::decode(ordinary_amo_d, Xlen::Rv32, &Isa::rv64gc()).is_illegal(),
+        "Zacas admits RV32 AMOCAS.D, not ordinary AMO.D instructions"
+    );
+}
+
 fn instruction(funct5: u32, width: u32, ordering: u32) -> u32 {
     (funct5 << 27) | (ordering << 25) | (2 << 20) | (1 << 15) | (width << 12) | (6 << 7) | 0x2f
 }
