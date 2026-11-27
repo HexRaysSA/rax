@@ -6,6 +6,9 @@ use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::children::ForkedSelf;
 use crate::user::linux::host;
 use crate::user::linux::signal::SIGCHLD;
+#[cfg(target_os = "linux")]
+use std::os::fd::AsRawFd;
+use std::sync::atomic::Ordering;
 
 const V1: u32 = 0x1998_0330;
 const V2: u32 = 0x2007_1026;
@@ -218,6 +221,10 @@ fn host_backed_guest_children_track_effective_uid_through_exit() {
 
         for (pid, euid, changed_euid) in [(i32::MAX - 1, 0, 1000), (i32::MAX - 2, 1000, 0)] {
             let (status, write) = host::status_pipe().unwrap();
+            let shared_euid = std::sync::Arc::new(host::SharedWords::new(1).unwrap());
+            shared_euid.words()[0].store(u64::from(euid), Ordering::Relaxed);
+            #[cfg(target_os = "linux")]
+            let pipe_size = unsafe { libc::fcntl(status.as_raw_fd(), libc::F_GETPIPE_SZ) };
             h.proc.state.children.add(
                 pid,
                 status,
@@ -225,18 +232,26 @@ fn host_backed_guest_children_track_effective_uid_through_exit() {
                 SIGCHLD,
                 h.proc.state.pid,
                 0,
-                Some((euid, euid)),
+                Some(shared_euid.clone()),
             );
 
             header(&h, hdr, V3, pid);
             assert_eq!(capget(&mut h, hdr, data), 0);
             assert_eq!(get(&h, data, DATA_LEN), expected(euid));
 
-            ForkedSelf {
+            let forked = ForkedSelf {
                 status: write,
+                guest_euid: shared_euid,
                 vfork: false,
+            };
+            #[cfg(target_os = "linux")]
+            {
+                assert!(pipe_size > 0);
+                for uid in 0..=(pipe_size as usize / 5) {
+                    forked.effective_uid((uid & 1) as u32);
+                }
             }
-            .effective_uid(changed_euid);
+            forked.effective_uid(changed_euid);
             header(&h, hdr, V3, pid);
             assert_eq!(capget(&mut h, hdr, data), 0);
             assert_eq!(get(&h, data, DATA_LEN), expected(changed_euid));

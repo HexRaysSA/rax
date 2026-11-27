@@ -19,6 +19,8 @@ use super::host::{self, HostWait};
 mod groups;
 
 use std::collections::BTreeMap;
+#[cfg(unix)]
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 use self::groups::GroupMember;
@@ -97,6 +99,9 @@ pub struct Child {
     pub(super) guest_uid: Option<u32>,
     /// Effective UID retained for `capget` after a guest child exits.
     pub(super) guest_euid: Option<u32>,
+    /// Live effective UID of a host-backed guest child.
+    #[cfg(unix)]
+    guest_euid_shared: Option<Arc<host::SharedWords>>,
     /// The signal its exit sends the parent (`exit_signal`); 0 for none.
     pub exit_signal: i32,
     /// The thread that created it (`__WNOTHREAD`).
@@ -273,6 +278,8 @@ impl Children {
             guest_tid: Some(tid),
             guest_uid: Some(guest.state.creds.0),
             guest_euid: Some(guest.state.creds.1),
+            #[cfg(unix)]
+            guest_euid_shared: None,
             guest: Some(Box::new(guest)),
             exit_signal,
             creator,
@@ -311,7 +318,7 @@ impl Children {
         exit_signal: i32,
         creator: i32,
         exec_id: u64,
-        guest_creds: Option<(u32, u32)>,
+        guest_euid_shared: Option<Arc<host::SharedWords>>,
     ) {
         let pgid = host::getpgid(pid).unwrap_or(0);
         self.list.push(Child {
@@ -319,8 +326,9 @@ impl Children {
             status: Some(status),
             guest_tid: None,
             guest: None,
-            guest_uid: guest_creds.map(|creds| creds.0),
-            guest_euid: guest_creds.map(|creds| creds.1),
+            guest_uid: None,
+            guest_euid: None,
+            guest_euid_shared,
             exit_signal,
             creator,
             parent_exec_id: exec_id,
@@ -340,21 +348,16 @@ impl Children {
     }
 
     /// Effective UID of a guest child, including a waitable zombie.
-    pub(super) fn guest_effective_uid(&mut self, pid: i32) -> Option<u32> {
-        self.list
-            .iter_mut()
-            .find(|c| c.pid == pid)
-            .and_then(|child| {
-                #[cfg(unix)]
-                if child.guest.is_none() && child.status.is_some() {
-                    read_records(child);
-                }
-                child
-                    .guest
-                    .as_ref()
-                    .map(|guest| guest.state.creds.1)
-                    .or(child.guest_euid)
-            })
+    pub(super) fn guest_effective_uid(&self, pid: i32) -> Option<u32> {
+        let child = self.list.iter().find(|child| child.pid == pid)?;
+        if let Some(guest) = &child.guest {
+            return Some(guest.state.creds.1);
+        }
+        #[cfg(unix)]
+        if let Some(shared) = &child.guest_euid_shared {
+            return Some(shared.words()[0].load(Ordering::Relaxed) as u32);
+        }
+        child.guest_euid
     }
 
     /// Removes a child (it was reaped), adding its resource use to the
@@ -464,9 +467,8 @@ impl Child {
     }
 }
 
-/// Reads a child's available status records: `E` (it called `execve`), `U`
-/// followed by its little-endian effective UID, and `X` followed by its
-/// little-endian Linux wait status.
+/// Reads a child's available status records: `E` (it called `execve`) and
+/// `X` followed by its little-endian Linux wait status.
 #[cfg(unix)]
 fn read_records(c: &mut Child) {
     let status = c.status.as_ref().expect("host child has a status pipe");
@@ -484,10 +486,6 @@ fn read_records(c: &mut Child) {
                 b'E' => {
                     c.released = true;
                     rec = rest;
-                }
-                b'U' if rest.len() >= 4 => {
-                    c.guest_euid = Some(u32::from_le_bytes(rest[..4].try_into().unwrap()));
-                    rec = &rest[4..];
                 }
                 b'X' if rest.len() >= 4 => {
                     c.record = Some(i32::from_le_bytes(rest[..4].try_into().unwrap()));
@@ -507,6 +505,9 @@ pub struct ForkedSelf {
     /// The write end.
     #[cfg(unix)]
     pub status: OwnedFd,
+    /// Latest guest effective UID, shared with the fork's parent.
+    #[cfg(unix)]
+    pub guest_euid: Arc<host::SharedWords>,
     #[cfg(not(unix))]
     unavailable: std::convert::Infallible,
     /// The parent sleeps in `CLONE_VFORK` until this process calls
@@ -540,11 +541,9 @@ impl ForkedSelf {
         }
     }
 
-    /// Reports an effective-UID change to the parent.
+    /// Publishes the latest effective UID to the parent.
     pub fn effective_uid(&self, uid: u32) {
-        let mut rec = [b'U', 0, 0, 0, 0];
-        rec[1..].copy_from_slice(&uid.to_le_bytes());
-        self.write(&rec);
+        self.guest_euid.words()[0].store(u64::from(uid), Ordering::Relaxed);
     }
 
     /// Reports the process's end with Linux wait status `status`.
