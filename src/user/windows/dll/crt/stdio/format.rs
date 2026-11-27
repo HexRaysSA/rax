@@ -1,4 +1,4 @@
-//! Byte-oriented UCRT buffer formatting in the guest C locale.
+//! UCRT buffer formatting in the guest C locale.
 
 use std::iter::Peekable;
 use std::slice::Iter;
@@ -17,8 +17,22 @@ pub(crate) static UCRT_BUFFER_FORMAT_EXPORTS: &[Export] = &[Export::func(
     vsprintf,
 )];
 
+pub(crate) static UCRT_WIDE_BUFFER_FORMAT_EXPORTS: &[Export] = &[
+    Export::func(
+        "__stdio_common_vswprintf",
+        Cdecl,
+        &[I64, Ptr, Ptr, Ptr, Ptr, Ptr],
+        vswprintf,
+    ),
+    Export::forward(
+        "_o___stdio_common_vswprintf",
+        "ucrtbase.__stdio_common_vswprintf",
+    ),
+];
+
 const LEGACY_TERMINATION: u64 = 1;
 const STANDARD_SNPRINTF: u64 = 2;
+const LEGACY_WIDE_SPECIFIERS: u64 = 4;
 const STRING_LIMIT: usize = 1 << 20;
 
 fn invalid_parameter(c: &mut Ctx) -> ApiResult {
@@ -34,12 +48,14 @@ struct Output {
     base: u64,
     capacity: u64,
     count: u64,
+    wide: bool,
 }
 
 impl Output {
     fn address(&self, c: &Ctx, offset: u64) -> Result<u64, MemFault> {
-        self.base
-            .checked_add(offset)
+        offset
+            .checked_mul(if self.wide { 2 } else { 1 })
+            .and_then(|offset| self.base.checked_add(offset))
             .filter(|&address| c.arch().ptr(address) == address)
             .ok_or(MemFault {
                 addr: u64::MAX,
@@ -53,10 +69,32 @@ impl Output {
             .saturating_sub(self.count)
             .min(bytes.len() as u64);
         if size != 0 {
-            c.mem()
-                .wr(self.address(c, self.count)?, &bytes[..size as usize])?;
+            let at = self.address(c, self.count)?;
+            let bytes = &bytes[..size as usize];
+            if self.wide {
+                let units: Vec<u16> = bytes.iter().map(|&byte| u16::from(byte)).collect();
+                c.mem().put_wunits(at, &units)?;
+            } else {
+                c.mem().wr(at, bytes)?;
+            }
         }
         self.count += bytes.len() as u64;
+        Ok(())
+    }
+
+    fn write_wide(&mut self, c: &Ctx, units: &[u16]) -> Result<(), ApiErr> {
+        let size = self
+            .capacity
+            .saturating_sub(self.count)
+            .min(units.len() as u64);
+        if size != 0 {
+            let at = self.address(c, self.count)?;
+            match &units[..size as usize] {
+                [unit] => c.mem().w16(at, *unit)?,
+                units => c.mem().put_wunits(at, units)?,
+            }
+        }
+        self.count += units.len() as u64;
         Ok(())
     }
 
@@ -66,9 +104,7 @@ impl Output {
         let bytes = [byte; 256];
         while remaining != 0 {
             let size = remaining.min(bytes.len() as u64);
-            c.mem()
-                .wr(self.address(c, self.count)?, &bytes[..size as usize])?;
-            self.count += size;
+            self.write(c, &bytes[..size as usize])?;
             remaining -= size;
         }
         self.count += count - written;
@@ -76,7 +112,43 @@ impl Output {
     }
 }
 
-type Format<'a> = Peekable<std::iter::Copied<Iter<'a, u8>>>;
+#[derive(Clone)]
+struct Format<'a>(Peekable<std::iter::Copied<Iter<'a, u16>>>);
+
+impl Format<'_> {
+    fn peek(&mut self) -> Option<u8> {
+        u8::try_from(*self.0.peek()?).ok()
+    }
+
+    fn next(&mut self) -> Option<u8> {
+        self.0.next().map(|unit| u8::try_from(unit).unwrap_or(0xff))
+    }
+
+    fn take(&mut self, byte: u8) -> bool {
+        self.0.next_if_eq(&u16::from(byte)).is_some()
+    }
+}
+
+enum Text<'a> {
+    Bytes(&'a [u8]),
+    Wide(&'a [u16]),
+}
+
+impl Text<'_> {
+    fn len(&self) -> usize {
+        match self {
+            Self::Bytes(bytes) => bytes.len(),
+            Self::Wide(units) => units.len(),
+        }
+    }
+
+    fn write(self, c: &Ctx, out: &mut Output) -> Result<(), ApiErr> {
+        match self {
+            Self::Bytes(bytes) => out.write(c, bytes),
+            Self::Wide(units) => out.write_wide(c, units),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Default, PartialEq)]
 enum Length {
@@ -85,6 +157,7 @@ enum Length {
     #[default]
     Int,
     Long,
+    WideChar,
     Wide,
     Pointer,
 }
@@ -102,7 +175,7 @@ struct Spec {
 
 fn decimal(format: &mut Format<'_>) -> u64 {
     let mut value = 0u64;
-    while let Some(byte @ b'0'..=b'9') = format.peek().copied() {
+    while let Some(byte @ b'0'..=b'9') = format.peek() {
         format.next();
         value = (value * 10 + u64::from(byte - b'0')).min(i32::MAX as u64);
     }
@@ -124,24 +197,24 @@ impl Spec {
             }
             format.next();
         }
-        spec.width = if format.next_if_eq(&b'*').is_some() {
+        spec.width = if format.take(b'*') {
             let width = c.va_next(va, false)? as i32;
             spec.left |= width < 0;
             u64::from(width.unsigned_abs())
         } else {
             decimal(format)
         };
-        if format.next_if_eq(&b'.').is_some() {
-            spec.precision = if format.next_if_eq(&b'*').is_some() {
+        if format.take(b'.') {
+            spec.precision = if format.take(b'*') {
                 u64::try_from(c.va_next(va, false)? as i32).ok()
             } else {
                 Some(decimal(format))
             };
         }
-        spec.length = match format.peek().copied() {
+        spec.length = match format.peek() {
             Some(b'h') => {
                 format.next();
-                if format.next_if_eq(&b'h').is_some() {
+                if format.take(b'h') {
                     Length::Byte
                 } else {
                     Length::Short
@@ -149,11 +222,15 @@ impl Spec {
             }
             Some(b'l') => {
                 format.next();
-                if format.next_if_eq(&b'l').is_some() {
+                if format.take(b'l') {
                     Length::Wide
                 } else {
                     Length::Long
                 }
+            }
+            Some(b'w') => {
+                format.next();
+                Length::WideChar
             }
             Some(b'j') => {
                 format.next();
@@ -187,14 +264,14 @@ impl Spec {
         &self,
         c: &Ctx,
         out: &mut Output,
-        bytes: &[u8],
+        text: Text<'_>,
         prefix: &[u8],
         leading_zeros: u64,
         zero_pad: bool,
     ) -> Result<(), ApiErr> {
         let extra = self
             .width
-            .saturating_sub(bytes.len() as u64 + prefix.len() as u64 + leading_zeros);
+            .saturating_sub(text.len() as u64 + prefix.len() as u64 + leading_zeros);
         if !self.left && !zero_pad {
             out.pad(c, b' ', extra)?;
         }
@@ -204,7 +281,7 @@ impl Spec {
             b'0',
             leading_zeros + if !self.left && zero_pad { extra } else { 0 },
         )?;
-        out.write(c, bytes)?;
+        text.write(c, out)?;
         if self.left {
             out.pad(c, b' ', extra)?;
         }
@@ -217,7 +294,7 @@ impl Spec {
             _ if ptr => c.psize() * 8,
             Length::Byte => 8,
             Length::Short => 16,
-            Length::Int | Length::Long => 32,
+            Length::Int | Length::Long | Length::WideChar => 32,
             Length::Wide => 64,
             Length::Pointer => c.psize() * 8,
         };
@@ -268,7 +345,7 @@ impl Spec {
         self.emit(
             c,
             out,
-            bytes,
+            Text::Bytes(bytes),
             prefix,
             zeroes,
             self.zero && precision.is_none(),
@@ -277,6 +354,14 @@ impl Spec {
 }
 
 fn vsprintf(c: &mut Ctx) -> ApiResult {
+    format_buffer(c, false)
+}
+
+fn vswprintf(c: &mut Ctx) -> ApiResult {
+    format_buffer(c, true)
+}
+
+fn format_buffer(c: &mut Ctx, wide: bool) -> ApiResult {
     let options = c.arg(0)?;
     let base = c.ptr(1)?;
     let capacity = c.ptr(2)?;
@@ -287,25 +372,38 @@ fn vsprintf(c: &mut Ctx) -> ApiResult {
     if c.ptr(4)? != 0 {
         return Err(c.unsupported("UCRT buffer formatting with an explicit locale"));
     }
-    let source = c.mem().cstr(format, STRING_LIMIT)?;
+    let source = if wide {
+        c.mem().wstr(format, STRING_LIMIT)?
+    } else {
+        c.mem()
+            .cstr(format, STRING_LIMIT)?
+            .into_iter()
+            .map(u16::from)
+            .collect()
+    };
     if source.len() == STRING_LIMIT {
         return Err(c.unsupported("UCRT format exceeds the portable string limit"));
     }
-    let mut format = source.iter().copied().peekable();
+    let mut format = Format(source.iter().copied().peekable());
     let mut va = c.va_list(5)?;
     let mut out = Output {
         base,
         capacity,
         count: 0,
+        wide,
     };
     let legacy = options & LEGACY_TERMINATION != 0;
     let standard = options & STANDARD_SNPRINTF != 0;
     let count_through = standard || base == 0;
     while (count_through || out.count <= capacity)
-        && let Some(byte) = format.next()
+        && let Some(unit) = format.0.next()
     {
-        if byte != b'%' || format.next_if_eq(&b'%').is_some() {
-            out.write(c, &[byte])?;
+        if unit != u16::from(b'%') || format.take(b'%') {
+            if wide {
+                out.write_wide(c, &[unit])?;
+            } else {
+                out.write(c, &[unit as u8])?;
+            }
             continue;
         }
         let spec = Spec::read(c, &mut format, &mut va)?;
@@ -313,27 +411,44 @@ fn vsprintf(c: &mut Ctx) -> ApiResult {
             Some(ty @ (b'd' | b'i' | b'u' | b'x' | b'X' | b'o' | b'p')) => {
                 spec.integer(c, &mut out, &mut va, ty)?;
             }
-            Some(b's') if matches!(spec.length, Length::Int | Length::Short) => {
-                let address = c.arch().ptr(c.va_next(&mut va, false)?);
-                let limit = spec.precision.unwrap_or(u64::MAX);
-                let bytes = if address == 0 {
-                    b"(null)"[..limit.min(6) as usize].to_vec()
-                } else {
-                    let bytes = c
-                        .mem()
-                        .cstr(address, limit.min(STRING_LIMIT as u64) as usize)?;
-                    if bytes.len() == STRING_LIMIT && limit > STRING_LIMIT as u64 {
-                        return Err(c.unsupported(
-                            "UCRT string argument exceeds the portable string limit",
-                        ));
+            Some(ty @ (b's' | b'S' | b'c' | b'C')) => {
+                let read_wide = match spec.length {
+                    Length::Long | Length::WideChar => true,
+                    Length::Short => false,
+                    Length::Int if wide && options & LEGACY_WIDE_SPECIFIERS != 0 => {
+                        ty.is_ascii_lowercase()
                     }
-                    bytes
+                    Length::Int => ty.is_ascii_uppercase(),
+                    _ => return Err(c.unsupported("UCRT string argument length modifier")),
                 };
-                spec.emit(c, &mut out, &bytes, &[], 0, false)?;
-            }
-            Some(b'c') if matches!(spec.length, Length::Int | Length::Short) => {
-                let byte = c.va_next(&mut va, false)? as u8;
-                spec.emit(c, &mut out, &[byte], &[], 0, false)?;
+                if read_wide && !wide {
+                    return Err(c.unsupported("UCRT wide string conversion to a byte buffer"));
+                }
+                let arg = c.va_next(&mut va, false)?;
+                if ty.eq_ignore_ascii_case(&b'c') {
+                    if read_wide {
+                        spec.emit(c, &mut out, Text::Wide(&[arg as u16]), &[], 0, false)?;
+                    } else {
+                        spec.emit(c, &mut out, Text::Bytes(&[arg as u8]), &[], 0, false)?;
+                    }
+                    continue;
+                }
+                let address = c.arch().ptr(arg);
+                let limit = spec.precision.unwrap_or(u64::MAX);
+                let bounded = limit.min(STRING_LIMIT as u64) as usize;
+                if read_wide && address != 0 {
+                    let units = c.mem().wstr(address, bounded)?;
+                    check_string_limit(c, units.len(), limit)?;
+                    spec.emit(c, &mut out, Text::Wide(&units), &[], 0, false)?;
+                } else {
+                    let bytes = if address == 0 {
+                        b"(null)"[..limit.min(6) as usize].to_vec()
+                    } else {
+                        c.mem().cstr(address, bounded)?
+                    };
+                    check_string_limit(c, bytes.len(), limit)?;
+                    spec.emit(c, &mut out, Text::Bytes(&bytes), &[], 0, false)?;
+                }
             }
             None | Some(b'n') => return invalid_parameter(c),
             Some(ty) => {
@@ -346,7 +461,12 @@ fn vsprintf(c: &mut Ctx) -> ApiResult {
     let used = out.count.min(capacity);
     let fits = out.count < capacity;
     if capacity != 0 && (fits || !legacy) {
-        c.mem().w8(out.address(c, used.min(capacity - 1))?, 0)?;
+        let at = out.address(c, used.min(capacity - 1))?;
+        if wide {
+            c.mem().w16(at, 0)?;
+        } else {
+            c.mem().w8(at, 0)?;
+        }
     }
     if !fits && base != 0 {
         if legacy && out.count > capacity {
@@ -365,12 +485,71 @@ fn vsprintf(c: &mut Ctx) -> ApiResult {
     }
 }
 
+fn check_string_limit(c: &Ctx, len: usize, limit: u64) -> Result<(), ApiErr> {
+    if len == STRING_LIMIT && limit > STRING_LIMIT as u64 {
+        return Err(c.unsupported("UCRT string argument exceeds the portable string limit"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::user::windows::dll::crt::tests::{area, int, invoke, run};
 
     const NAME: &str = "__stdio_common_vsprintf";
+
+    #[test]
+    fn wide_buffer_counts_utf16_units_and_preserves_the_private_alias() {
+        run(|c| {
+            let at = area(c);
+            let fmt = at + 64;
+            let text = at + 128;
+            let args = at + 192;
+            let name = "__stdio_common_vswprintf";
+            let format: Vec<u16> = "λ:%4s:%08X".encode_utf16().collect();
+            let value: Vec<u16> = "😀".encode_utf16().collect();
+            c.mem().put_wstr(fmt, &format).unwrap();
+            c.mem().put_wstr(text, &value).unwrap();
+            c.mem().wptr(args, c.psize(), text).unwrap();
+            c.mem().wptr(args + c.psize(), c.psize(), 0x2a).unwrap();
+            let expected: Vec<u16> = "λ:  😀:0000002A".encode_utf16().collect();
+            assert_eq!(
+                int(invoke(
+                    c,
+                    RuntimeKind::Ucrt,
+                    name,
+                    &[6, at, 20, fmt, 0, args]
+                )),
+                expected.len() as u64
+            );
+            assert_eq!(c.mem().wstr(at, 20).unwrap(), expected);
+            let canonical = c.entry_pc;
+            let dll = c.p.modules.by_name("ucrtbase.dll").unwrap();
+            let alias = crate::user::windows::loader::SymRef::Name(
+                b"_o___stdio_common_vswprintf".to_vec(),
+                None,
+            );
+            assert_eq!(
+                crate::user::windows::loader::lookup(c.p, dll, &alias).unwrap(),
+                Some(canonical)
+            );
+            c.mem().w16(at + 8, 0xfeed).unwrap();
+            assert_eq!(
+                int(invoke(
+                    c,
+                    RuntimeKind::Ucrt,
+                    name,
+                    &[6, at, 4, fmt, 0, args]
+                )),
+                expected.len() as u64
+            );
+            assert_eq!(
+                c.mem().wunits(at, 5).unwrap(),
+                [0x3bb, 0x3a, 0x20, 0, 0xfeed]
+            );
+        });
+    }
 
     #[test]
     fn formats_guest_va_list_across_abis() {

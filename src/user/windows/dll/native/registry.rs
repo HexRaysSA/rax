@@ -9,11 +9,13 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
-use crate::user::windows::registry::{Key, Lookup, RegistryView, Value};
+use crate::user::windows::registry::{Key, Lookup, Registry, RegistryView, Value};
 use std::sync::Arc;
 
 mod win32;
-pub(in crate::user::windows::dll) use win32::WIN32_REGISTRY_EXPORTS;
+pub(in crate::user::windows::dll) use win32::{
+    USER_CLASSES_EXPORTS, WIN32_REGISTRY_ENUM_EXPORTS, WIN32_REGISTRY_EXPORTS,
+};
 
 const READ_ACCESS: u32 = 0x0002_0019;
 const MAX_CONVERSION_BYTES: usize = 16 << 20;
@@ -497,6 +499,11 @@ fn open_resolved(
             }
             Lookup::Missing => return status(STATUS_OBJECT_NAME_NOT_FOUND),
             Lookup::MissingPath => return status(STATUS_OBJECT_PATH_NOT_FOUND),
+            Lookup::Unselected
+                if !create && c.p.cfg.gameos && Registry::gameos_missing_key(&attrs.name.units) =>
+            {
+                return status(STATUS_OBJECT_NAME_NOT_FOUND);
+            }
             Lookup::Unselected => {
                 return Err(c
                     .unsupported("registry key outside selected runtime snapshot")

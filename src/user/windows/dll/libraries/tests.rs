@@ -11,6 +11,10 @@ static TEST_API: Api = Api {
 };
 
 fn process(arch: WinArch) -> WindowsProcess {
+    process_for_profile(arch, false)
+}
+
+fn process_for_profile(arch: WinArch, gameos: bool) -> WindowsProcess {
     let name = match arch {
         WinArch::X86 => "x86",
         WinArch::X64 => "x64",
@@ -23,7 +27,58 @@ fn process(arch: WinArch) -> WindowsProcess {
     );
     config.arena_bytes = 64 << 20;
     config.seed = Some(1);
+    config.gameos = gameos;
     WindowsProcess::spawn(config).unwrap()
+}
+
+#[test]
+fn gameos_peb_loader_lock_serializes_guest_and_loader_ownership() {
+    for arch in WinArch::ALL {
+        let mut process = process_for_profile(arch, true);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let at = p.peb + crate::user::windows::layout::offsets(arch).peb_loader_lock;
+        let lock = p.space.ptr(at, arch.ptr_size()).unwrap();
+        assert_eq!(p.loader.guest_lock, Some(lock));
+
+        let other = t.tid + 4;
+        assert!(sync::cs_try_enter(p, lock, other).unwrap());
+        let mut c = context(p, &mut t, &TEST_API);
+        let Ok(Flow::Block {
+            wait: Wait::CritSec { addr },
+            then,
+        }) = with_lock(
+            &mut c,
+            Box::new(move |c, mut guard| {
+                assert!(c.p.loader.held_by(c.t.tid));
+                assert_eq!(sync::cs_recursion(c.p, lock, c.t.tid).unwrap(), 1);
+                guard.finish(c)?;
+                Flow::void()
+            }),
+        )
+        else {
+            panic!("a foreign guest owner must block loader operations");
+        };
+        assert_eq!(addr, lock);
+        let wait = Wait::CritSec { addr };
+        sync::on_block(c.p, c.t.tid, &wait).unwrap();
+        assert!(sync::cs_leave(c.p, lock, other).unwrap());
+        assert!(
+            sync::poll(
+                c.p,
+                c.t.tid,
+                &wait,
+                crate::host::time::Instant::now(),
+                false
+            )
+            .unwrap()
+            .is_some()
+        );
+        sync::on_cancel(c.p, c.t.tid, &wait).unwrap();
+        then(&mut c, 0).unwrap();
+        assert!(c.p.loader.is_idle());
+        assert!(!sync::cs_owned_by(c.p, lock, c.t.tid).unwrap());
+    }
 }
 
 fn context<'a>(p: &'a mut Proc, t: &'a mut Thread, api: &'static Api) -> Ctx<'a> {
@@ -60,7 +115,16 @@ fn invoke(p: &mut Proc, t: &mut Thread, name: &str, arguments: &[u64]) -> ApiRes
     let api = EXPORTS
         .iter()
         .chain(NTDLL_EXPORTS)
+        .chain(API_SET_QUERY_EXPORTS)
         .chain(FILE_NAME_EXPORTS)
+        .chain(LOAD_EX_EXPORTS)
+        .chain(DELAY_EXPORTS)
+        .chain(super::super::native::EXPORTS)
+        .chain(super::super::native::TOKEN_PACKAGE_EXPORTS)
+        .chain(super::super::native::WIN32_PROCESS_TOKEN_EXPORTS)
+        .chain(super::super::native::USER_CLASSES_EXPORTS)
+        .chain(super::super::native::WIN32_TOKEN_EXPORTS)
+        .chain(super::super::threadpool::WORK_EXPORTS)
         .chain(super::super::environment::EXPORTS)
         .find_map(|export| match &export.item {
             Item::Func(api) if export.name == name => Some(api),
@@ -75,11 +139,384 @@ fn invoke(p: &mut Proc, t: &mut Thread, name: &str, arguments: &[u64]) -> ApiRes
                 .space
                 .w32(sp + 4 + index as u64 * 4, argument as u32)
                 .unwrap(),
-            WinArch::X64 => t.cpu.set_gpr([1, 2, 8, 9][index], argument),
+            WinArch::X64 if index < 4 => t.cpu.set_gpr([1, 2, 8, 9][index], argument),
+            WinArch::X64 => p.space.w64(sp + 8 + index as u64 * 8, argument).unwrap(),
             WinArch::Arm64 => t.cpu.set_gpr(index, argument),
         }
     }
     (api.imp)(&mut context(p, t, api))
+}
+
+#[test]
+fn package_claims_leaves_unclaimed_identity_outputs_untouched_all_abis() {
+    use crate::user::windows::nt::status::{
+        STATUS_ACCESS_DENIED, STATUS_INVALID_HANDLE, STATUS_NO_TOKEN, STATUS_NOT_FOUND,
+    };
+    use crate::user::windows::objects::Object;
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        t.cpu.set_sp(t.cpu.sp() - 0x100);
+        let attributes = p.peb + 0x800;
+        let claim = attributes + 8;
+        let token = p.objects.create(Object::PrimaryToken);
+        let opened = p.objects.open_access(token, false, 8).unwrap();
+        let denied = p.objects.open_access(token, false, 0).unwrap();
+        for (handle, status) in [
+            (arch.ptr(u64::MAX - 3), STATUS_NOT_FOUND),
+            (arch.ptr(u64::MAX - 5), STATUS_NOT_FOUND),
+            (arch.ptr(u64::MAX - 4), STATUS_NO_TOKEN),
+            (u64::from(opened), STATUS_NOT_FOUND),
+            (u64::from(denied), STATUS_ACCESS_DENIED),
+            (0, STATUS_INVALID_HANDLE),
+        ] {
+            p.space.w64(attributes, u64::MAX).unwrap();
+            p.space.w64(claim, u64::MAX).unwrap();
+            let result = invoke(
+                p,
+                &mut t,
+                "RtlQueryPackageClaims",
+                &[handle, 0, 0, 0, 0, 0, claim, attributes],
+            );
+            assert!(
+                matches!(result, Ok(Flow::Ret(Value::Int(value))) if value == u64::from(status))
+            );
+            assert_eq!(p.space.u64(attributes).unwrap(), 0);
+            assert_eq!(p.space.u64(claim).unwrap(), u64::MAX);
+        }
+    }
+}
+
+#[test]
+fn gameos_open_process_token_preserves_portable_elevation_state() {
+    let mut process = process_for_profile(WinArch::X64, true);
+    let p = process.state_mut();
+    let mut t = p.threads.pop_first().unwrap().1;
+    t.cpu.set_sp(t.cpu.sp() - 0x100);
+    let out = p.peb + 0x800;
+    let returned = out + 8;
+    assert!(matches!(
+        invoke(p, &mut t, "OpenProcessToken", &[u64::MAX, 8, out]),
+        Ok(Flow::Ret(Value::Int(1)))
+    ));
+    let token = p.space.u64(out).unwrap();
+    assert_eq!(p.objects.access(token), Some(8));
+    assert!(matches!(
+        invoke(
+            p,
+            &mut t,
+            "GetTokenInformation",
+            &[token, 20, out, 4, returned]
+        ),
+        Ok(Flow::Ret(Value::Int(1)))
+    ));
+    assert_eq!(p.space.u32(out).unwrap(), 0);
+    assert_eq!(p.space.u32(returned).unwrap(), 4);
+    p.space.w64(out, u64::MAX).unwrap();
+    assert!(matches!(
+        invoke(
+            p,
+            &mut t,
+            "RegOpenUserClassesRoot",
+            &[token, 0, 0x20019, out]
+        ),
+        Ok(Flow::Ret(Value::Int(2)))
+    ));
+    assert_eq!(p.space.u64(out).unwrap(), 0);
+    p.space.w64(out, u64::MAX).unwrap();
+    assert!(matches!(
+        invoke(
+            p,
+            &mut t,
+            "RegOpenUserClassesRoot",
+            &[token, 1, 0x20019, out]
+        ),
+        Ok(Flow::Ret(Value::Int(87)))
+    ));
+    assert_eq!(p.space.u64(out).unwrap(), u64::MAX);
+}
+
+#[test]
+fn portable_token_security_attributes_report_empty_versioned_record_all_abis() {
+    use crate::user::windows::nt::status::STATUS_BUFFER_TOO_SMALL;
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        t.cpu.set_sp(t.cpu.sp() - 0x100);
+        let output = p.peb + 0x800;
+        let length = output + 32;
+        let token = arch.ptr(u64::MAX - 3);
+        let required = 8 + arch.ptr_size();
+        for (buffer, size, status) in [(0, 0, STATUS_BUFFER_TOO_SMALL), (output, 24, 0)] {
+            p.space.wr(output, &[0xa5; 24]).unwrap();
+            let result = invoke(
+                p,
+                &mut t,
+                "NtQueryInformationToken",
+                &[token, 39, buffer, size, length],
+            );
+            assert!(
+                matches!(result, Ok(Flow::Ret(Value::Int(value))) if value == u64::from(status))
+            );
+            assert_eq!(u64::from(p.space.u32(length).unwrap()), required);
+            if status == 0 {
+                assert_eq!(p.space.u64(output).unwrap(), 1);
+                assert_eq!(p.space.ptr(output + 8, arch.ptr_size()).unwrap(), 0);
+                assert_eq!(p.space.u8(output + required).unwrap(), 0xa5);
+            } else {
+                assert_eq!(p.space.u8(output).unwrap(), 0xa5);
+            }
+        }
+    }
+}
+
+#[test]
+fn thread_pool_work_preserves_registration_until_close_all_abis() {
+    use crate::user::windows::objects::Object;
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let Ok(Flow::Ret(Value::Int(work))) =
+            invoke(p, &mut t, "CreateThreadpoolWork", &[0x1234, 0x5678, 0])
+        else {
+            panic!("expected a work registration");
+        };
+        assert!(matches!(
+            p.objects.get(work),
+            Some(Object::ThreadpoolWork {
+                callback: 0x1234,
+                context: 0x5678,
+                pending: 0,
+            })
+        ));
+        invoke(p, &mut t, "WaitForThreadpoolWorkCallbacks", &[work, 0]).unwrap();
+        invoke(p, &mut t, "SubmitThreadpoolWork", &[work]).unwrap();
+        assert!(matches!(
+            invoke(p, &mut t, "WaitForThreadpoolWorkCallbacks", &[work, 0]),
+            Ok(Flow::Block { .. })
+        ));
+        invoke(p, &mut t, "WaitForThreadpoolWorkCallbacks", &[work, 1]).unwrap();
+        assert!(p.sync.pool_workers.is_empty());
+
+        let id = p.objects.id(work).unwrap();
+        invoke(p, &mut t, "SubmitThreadpoolWork", &[work]).unwrap();
+        let tid = *p.sync.pool_workers.keys().next().unwrap();
+        let mut worker = p.threads.remove(&tid).unwrap();
+        let args = super::super::threadpool::work_arguments(p, tid, worker.param).unwrap();
+        assert_ne!(args[0], 0);
+        assert_eq!(&args[1..], &[0x5678, work]);
+        let event = p.objects.create(Object::Event {
+            manual: true,
+            signaled: 0,
+        });
+        let event_handle = u64::from(p.objects.open_access(event, false, 2).unwrap());
+        invoke(
+            p,
+            &mut worker,
+            "SetEventWhenCallbackReturns",
+            &[args[0], event_handle],
+        )
+        .unwrap();
+        assert!(matches!(
+            p.objects.obj(event),
+            Some(Object::Event { signaled: 0, .. })
+        ));
+        invoke(p, &mut t, "CloseThreadpoolWork", &[work]).unwrap();
+        assert!(p.objects.get(work).is_none());
+        assert!(p.objects.obj(id).is_some());
+        super::super::threadpool::retire_work(p, tid, true);
+        assert!(p.objects.obj(id).is_none());
+        assert!(matches!(
+            p.objects.obj(event),
+            Some(Object::Event { signaled: 1, .. })
+        ));
+        crate::user::windows::process::thread::destroy(p, worker, 0);
+    }
+}
+
+#[test]
+fn api_set_query_uses_counted_guest_names_and_single_byte_results() {
+    for arch in WinArch::ALL {
+        let mut process = process(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let descriptor = p.peb + 0x800;
+        let buffer = descriptor + 32;
+        let out = descriptor + 200;
+        p.space
+            .wptr(descriptor + arch.ptr_size(), arch.ptr_size(), buffer)
+            .unwrap();
+        for (name, expected) in [
+            ("API-MS-WIN-EVENTING-PROVIDER-L1-1-0", 1u8),
+            ("ext-ms-win-ntuser-private-l1-1-0", 0),
+            ("kernelbase.dll", 0),
+        ] {
+            let text: Vec<u16> = name.encode_utf16().collect();
+            let bytes = (text.len() * 2) as u16;
+            p.space.w16(descriptor, bytes).unwrap();
+            p.space.w16(descriptor + 2, bytes).unwrap();
+            p.space.put_wunits(buffer, &text).unwrap();
+            p.space.w16(out, 0xfeed).unwrap();
+            let result = invoke(p, &mut t, "ApiSetQueryApiSetPresence", &[descriptor, out]);
+            assert!(matches!(result, Ok(Flow::Ret(Value::Int(0)))));
+            assert_eq!(p.space.u16(out).unwrap(), 0xfe00 | u16::from(expected));
+        }
+        p.space.w16(descriptor, 1).unwrap();
+        let result = invoke(p, &mut t, "ApiSetQueryApiSetPresence", &[descriptor, out]);
+        assert!(
+            matches!(result, Ok(Flow::Ret(Value::Int(status))) if status == u64::from(STATUS_INVALID_PARAMETER))
+        );
+        assert_eq!(p.space.u16(out).unwrap(), 0xfe00);
+    }
+}
+
+#[test]
+fn resolve_delay_import_initializes_dependency_and_publishes_pointer_slots_all_abis() {
+    use crate::user::image::pe::DataDirectory;
+
+    for arch in WinArch::ALL {
+        let mut process = dynamic_process(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let base = p.modules.exe().base;
+        let descriptor = 0x3100;
+        let name = 0x3140;
+        let module = 0x3160;
+        let thunk = 0x3170;
+        let lookup = 0x3190;
+        let export = 0x31b0;
+        let width = arch.ptr_size();
+        p.modules.list[0].delay_imports = DataDirectory {
+            rva: descriptor,
+            size: 64,
+        };
+        for (index, field) in [1, name, module, thunk, lookup, 0, 0, 0]
+            .into_iter()
+            .enumerate()
+        {
+            p.space
+                .w32(base + u64::from(descriptor) + index as u64 * 4, field)
+                .unwrap();
+        }
+        let [descriptor, name, module, thunk, lookup, export] =
+            [descriptor, name, module, thunk, lookup, export].map(|rva| base + u64::from(rva));
+        p.space.put_cstr(name, b"leaf.dll").unwrap();
+        p.space.put_cstr(export + 2, b"LeafReady").unwrap();
+        p.space.wptr(lookup, width, export - base).unwrap();
+        p.space.wptr(thunk, width, 0x1234).unwrap();
+        let args = [base, descriptor, 0, 0, thunk, 0];
+
+        let mut invalid = args;
+        invalid[4] = thunk + width;
+        let result = invoke(p, &mut t, "ResolveDelayLoadedAPI", &invalid).unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(0))));
+        assert_eq!(p.modules.by_name("leaf.dll"), None);
+        assert_eq!(p.space.ptr(module, width).unwrap(), 0);
+        assert_eq!(p.space.ptr(thunk, width).unwrap(), 0x1234);
+
+        let api = match &DELAY_EXPORTS[0].item {
+            Item::Func(api) => api,
+            _ => unreachable!(),
+        };
+        let mut result = invoke(p, &mut t, "ResolveDelayLoadedAPI", &args).unwrap();
+        let index = p.modules.by_name("leaf.dll").unwrap();
+        let mut callbacks = 0;
+        while let Flow::Call { then, .. } = result {
+            assert_eq!(p.space.ptr(module, width).unwrap(), 0);
+            assert_eq!(p.space.ptr(thunk, width).unwrap(), 0x1234);
+            callbacks += 1;
+            result = then(&mut context(p, &mut t, api), 1).unwrap();
+        }
+        assert!(callbacks > 0);
+        let expected = loader::lookup(p, index, &SymRef::Ordinal(1))
+            .unwrap()
+            .unwrap();
+        assert!(matches!(result, Flow::Ret(Value::Int(address)) if address == expected));
+        assert_eq!(p.space.ptr(thunk, width).unwrap(), expected);
+        assert_eq!(
+            p.space.ptr(module, width).unwrap(),
+            p.modules.list[index].base
+        );
+        assert_eq!(p.modules.list[index].load_count, 0);
+        assert!(p.modules.list[index].initialized);
+        assert!(p.loader.is_idle());
+    }
+}
+
+#[test]
+fn extended_load_restricts_root_and_dependency_search_for_all_guest_abis() {
+    for arch in WinArch::ALL {
+        let mut process = dynamic_process(arch);
+        let p = process.state_mut();
+        let app = p.modules.exe().path.rsplit_once('\\').unwrap().0.to_owned();
+        let system = loader::system_dir(arch);
+        let fixture_dir = p.cfg.exe_host_path.parent().unwrap().to_path_buf();
+        let config = std::sync::Arc::make_mut(&mut p.cfg);
+        config.host_filesystem = false;
+        config.guest_image_path = Some(format!("{app}\\dynamic.exe"));
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let text = t.cpu.sp() - 0x100;
+        let supply = |dir: &str, module: &str| {
+            let data = std::fs::read(fixture_dir.join(module)).unwrap();
+            (format!("{dir}\\{module}").to_ascii_lowercase(), data.into())
+        };
+        std::sync::Arc::make_mut(&mut p.cfg).supplied_dlls.extend([
+            supply(&app, "root.dll"),
+            supply(system, "root.dll"),
+            supply(&app, "observer.dll"),
+            supply(&app, "leaf.dll"),
+        ]);
+        p.space
+            .put_wstr(text, &"root.dll".encode_utf16().collect::<Vec<_>>())
+            .unwrap();
+        for (reserved, flags, expected) in [
+            (1, 0x800, ERROR_INVALID_PARAMETER),
+            (0, 2, ERROR_NOT_SUPPORTED),
+            (0, 0x800, ERROR_MOD_NOT_FOUND),
+        ] {
+            let flow = invoke(p, &mut t, "LoadLibraryExW", &[text, reserved, flags]).unwrap();
+            assert!(matches!(flow, Flow::Ret(Value::Int(0))));
+            assert_eq!(
+                context(p, &mut t, &TEST_API).last_error().unwrap(),
+                expected
+            );
+            assert_eq!(p.modules.by_name("root.dll"), None);
+            assert!(p.loader.is_idle());
+        }
+
+        // Rollback restores ordinary lookup after a restricted bind failure.
+        p.space.put_cstr(text, b"root.dll").unwrap();
+        let flow = invoke(p, &mut t, "LoadLibraryA", &[text]).unwrap();
+        assert!(matches!(flow, Flow::Call { .. }));
+        let index = p.modules.by_name("root.dll").unwrap();
+        assert_eq!(p.modules.list[index].path, format!("{app}\\root.dll"));
+        drop(flow);
+        cleanup_abandoned(p, &mut t).unwrap_err();
+
+        std::sync::Arc::make_mut(&mut p.cfg).supplied_dlls.extend([
+            supply(system, "observer.dll"),
+            supply(system, "leaf.dll"),
+            supply(system, "data.exe"),
+            supply(&app, "data.exe"),
+        ]);
+        let flow = invoke(p, &mut t, "LoadLibraryExA", &[text, 0, 0xa00]).unwrap();
+        assert!(matches!(flow, Flow::Call { .. }));
+        let index = p.modules.by_name("root.dll").unwrap();
+        assert_eq!(p.modules.list[index].path, format!("{app}\\root.dll"));
+        drop(flow);
+        cleanup_abandoned(p, &mut t).unwrap_err();
+
+        p.space.put_cstr(text, b"data.exe").unwrap();
+        let flow = invoke(p, &mut t, "LoadLibraryExA", &[text, 0, 0x800]).unwrap();
+        let index = p.modules.by_name("data.exe").unwrap();
+        assert!(matches!(flow, Flow::Ret(Value::Int(base)) if base == p.modules.list[index].base));
+        assert_eq!(p.modules.list[index].path, format!("{system}\\data.exe"));
+    }
 }
 
 #[test]
@@ -244,6 +681,48 @@ fn unready_native_handles_cannot_acquire_counted_or_pinned_ownership_all_abis() 
         assert_eq!(p.space.ptr(out, arch.ptr_size()).unwrap(), base);
         loader::attach_succeeded(p, index).unwrap();
         assert_eq!(p.modules.list[index].load_count, u32::MAX);
+    }
+}
+
+#[test]
+fn dynamic_dll_attach_pins_become_permanent_only_on_commit_all_abis() {
+    for arch in WinArch::ALL {
+        for commit in [false, true] {
+            let mut process = dynamic_process(arch);
+            let p = process.state_mut();
+            let tid = *p.threads.keys().next().unwrap();
+            let mut t = p.threads.remove(&tid).unwrap();
+            let plan = loader::begin_load(p, &mut t, "leaf.dll").unwrap();
+            let index = plan.root;
+            let base = p.modules.list[index].base;
+            let out = t.cpu.sp() - 0x100;
+            loader::attach_started(p, index, true).unwrap();
+            let pin = invoke(p, &mut t, "GetModuleHandleExW", &[5, base, out]).unwrap();
+            assert!(matches!(pin, Flow::Ret(Value::Int(1))));
+            assert_eq!(p.space.ptr(out, arch.ptr_size()).unwrap(), base);
+            assert_eq!(p.modules.list[index].load_count, 1);
+            loader::attach_succeeded(p, index).unwrap();
+            if commit {
+                loader::commit_load(p, plan.id).unwrap();
+                assert_eq!(p.modules.list[index].load_count, u32::MAX);
+                let unload = invoke(p, &mut t, "FreeLibrary", &[base]).unwrap();
+                assert!(matches!(unload, Flow::Ret(Value::Int(1))));
+                assert_eq!(p.modules.by_base(base), Some(index));
+            } else {
+                let failure = LoadError {
+                    status: STATUS_DLL_INIT_FAILED,
+                    message: "test rejected attach transaction".into(),
+                };
+                assert_eq!(
+                    loader::begin_rollback(p, plan.id, failure, None).unwrap(),
+                    vec![index]
+                );
+                loader::detach_completed(p, index).unwrap();
+                loader::finish_rollback(p, &mut t, plan.id).unwrap();
+                assert_eq!(p.modules.by_base(base), None);
+            }
+            assert!(p.loader.is_idle());
+        }
     }
 }
 

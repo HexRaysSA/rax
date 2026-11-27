@@ -1,6 +1,23 @@
 use super::*;
 
 #[test]
+fn state_separation_reads_the_guest_shared_data_flag() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let flags = KUSER_SHARED_DATA + kuser::SHARED_DATA_FLAGS;
+        for (bits, expected) in [(0u32, 0), (1 << 11, 0), (1 << 10 | 1 << 11, 1)] {
+            p.vm.poke(flags, &bits.to_le_bytes()).unwrap();
+            assert_eq!(
+                returned(call(p, &mut t, "RtlIsStateSeparationEnabled", &[])),
+                expected
+            );
+        }
+    }
+}
+
+#[test]
 fn rtl_version_reports_the_configured_version_for_both_records() {
     for arch in WinArch::ALL {
         let mut process = spawn(arch);
@@ -187,9 +204,15 @@ fn spawn(arch: WinArch) -> WindowsProcess {
 fn call(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> ApiResult {
     let api = EXPORTS
         .iter()
+        .chain(WINDOWS_DIRECTORY_EXPORTS)
         .chain(SYSTEM_INFO_EXPORTS)
         .chain(TOPOLOGY_EXPORTS)
+        .chain(XSTATE_EXPORTS)
         .chain(NTDLL_VERSION_EXPORTS)
+        .chain(NTDLL_GLOBAL_DATA_EXPORTS)
+        .chain(NTDLL_CPU_NUMBER_EXPORTS)
+        .chain(NTDLL_DEVICE_FAMILY_EXPORTS)
+        .chain(STATE_SEPARATION_EXPORTS)
         .find_map(|e| match &e.item {
             Item::Func(api) if api.name == name => Some(api),
             _ => None,
@@ -220,6 +243,126 @@ fn returned(result: ApiResult) -> u64 {
         Ok(Flow::Ret(Value::Int(value))) => value,
         Ok(_) => panic!("expected an integer return"),
         Err(error) => panic!("expected an integer return, got {error:?}"),
+    }
+}
+
+#[test]
+fn enabled_xstate_uses_a_64_bit_return_and_guest_xcr0() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let expected = if let WinCpu::X86(cpu, _) = &mut t.cpu {
+            let extended = cpu.vcpu().cpuid(1, 0).2 & (1 << 27) != 0;
+            cpu.vcpu_mut().set_xcr0(1).unwrap();
+            if extended { 1 } else { 3 }
+        } else {
+            3
+        };
+        assert!(matches!(
+            call(p, &mut t, "GetEnabledXStateFeatures", &[]),
+            Ok(Flow::Ret(Value::I64(mask))) if mask == expected
+        ));
+    }
+}
+
+#[test]
+fn seed_generation_reads_shared_data_with_exact_eight_byte_output() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let out = p.peb + 0x800;
+        let generation = 0x1234_5678_9abc_def0u64;
+        p.vm.poke(
+            KUSER_SHARED_DATA + kuser::RNG_SEED_VERSION,
+            &generation.to_le_bytes(),
+        )
+        .unwrap();
+        for size in [0, 4, 9] {
+            assert_eq!(
+                returned(call(p, &mut t, "RtlGetSystemGlobalData", &[1, 0, size])),
+                u64::from(STATUS_INVALID_BUFFER_SIZE)
+            );
+        }
+        assert_eq!(
+            returned(call(p, &mut t, "RtlGetSystemGlobalData", &[1, out, 8])),
+            u64::from(STATUS_SUCCESS)
+        );
+        assert_eq!(p.space.u64(out).unwrap(), generation);
+    }
+}
+
+#[test]
+fn processor_number_ex_reports_group_zero_and_preserves_adjacent_memory() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let out = p.peb + 0x800;
+        p.space.wr(out, &[0xa5; 8]).unwrap();
+        assert!(matches!(
+            call(p, &mut t, "RtlGetCurrentProcessorNumberEx", &[out]),
+            Ok(Flow::Ret(Value::None))
+        ));
+        assert_eq!(
+            p.space.bytes(out, 8).unwrap(),
+            [0, 0, 0, 0, 0xa5, 0xa5, 0xa5, 0xa5]
+        );
+    }
+}
+
+#[test]
+fn system_windows_directory_reports_size_and_the_guest_root() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let mut t = p.threads.pop_first().unwrap().1;
+        let out = p.peb + 0x800;
+        let path: Vec<u16> = r"C:\Windows".encode_utf16().collect();
+        let len = path.len() as u64;
+        let name = "GetSystemWindowsDirectoryW";
+        p.space.w16(out, 0xfeed).unwrap();
+        assert_eq!(returned(call(p, &mut t, name, &[out, len])), len + 1);
+        assert_eq!(p.space.u16(out).unwrap(), 0xfeed);
+        assert_eq!(returned(call(p, &mut t, name, &[out, len + 1])), len);
+        assert_eq!(p.space.wstr(out, 260).unwrap(), path);
+    }
+}
+
+#[test]
+fn device_family_uses_guest_version_and_the_gameos_profile() {
+    for arch in WinArch::ALL {
+        let mut process = spawn(arch);
+        let p = process.state_mut();
+        let tid = *p.threads.keys().next().unwrap();
+        let mut t = p.threads.remove(&tid).unwrap();
+        let out = p.peb + 0x800;
+        let config = &p.cfg.version;
+        let (major, minor, build) = (config.major, config.minor, config.build);
+        let version =
+            ((u64::from(major) << 32) | (u64::from(minor) << 16) | u64::from(build)) << 16;
+        for gameos in [false, true] {
+            std::sync::Arc::make_mut(&mut p.cfg).gameos = gameos;
+            assert!(matches!(
+                call(
+                    p,
+                    &mut t,
+                    "RtlGetDeviceFamilyInfoEnum",
+                    &[out, out + 8, out + 12]
+                ),
+                Ok(Flow::Ret(Value::None))
+            ));
+            assert_eq!(p.space.u64(out).unwrap(), version);
+            assert_eq!(
+                p.space.u32(out + 8).unwrap(),
+                if gameos && arch == WinArch::X64 { 5 } else { 3 }
+            );
+            assert_eq!(p.space.u32(out + 12).unwrap(), 0);
+        }
     }
 }
 

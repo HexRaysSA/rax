@@ -63,6 +63,7 @@ fn api(name: &str) -> &'static Api {
     EXPORTS
         .iter()
         .chain(SEMAPHORE_EX_EXPORTS)
+        .chain(SYNC_EX_EXPORTS)
         .chain(PROCESS_PRIORITY_EXPORTS)
         .chain(super::super::kernel::EXPORTS.iter())
         .chain(super::super::native::EXPORTS.iter())
@@ -171,6 +172,50 @@ fn native_mutant_and_win32_share_installed_names_and_cross_type_collisions_all_a
                 c.p.objects.close(event).unwrap();
             });
         }
+    }
+}
+
+#[test]
+fn create_event_ex_preserves_flags_and_the_handle_access_mask() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, _| {
+            let mask = u64::from(objects::SYNCHRONIZE);
+            assert_eq!(integer(c, "CreateEventExW", &[0, 0, 4, mask]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_INVALID_PARAMETER);
+            let event = integer(c, "CreateEventExW", &[0, 0, 3, mask]);
+            assert_ne!(event, 0);
+            for _ in 0..2 {
+                assert_eq!(integer(c, "WaitForSingleObject", &[event, 0]), 0);
+            }
+            assert_eq!(integer(c, "ResetEvent", &[event]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_ACCESS_DENIED);
+        });
+    }
+}
+
+#[test]
+fn create_mutex_ex_preserves_requested_access_and_existing_ownership() {
+    for arch in WinArch::ALL {
+        with_context(arch, |c, data| {
+            use crate::user::windows::nt::error::*;
+            let name: Vec<u16> = "Local\\MutexEx".encode_utf16().collect();
+            c.mem().put_wstr(data, &name).unwrap();
+            let mask = u64::from(objects::SYNCHRONIZE);
+            assert_eq!(integer(c, "CreateMutexExW", &[0, data, 2, mask]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_INVALID_PARAMETER);
+            let first = integer(c, "CreateMutexExW", &[0, data, 1, mask]);
+            assert_ne!(first, 0);
+            assert_eq!(c.p.objects.access(first), Some(mask as u32));
+            assert_eq!(c.last_error().unwrap(), ERROR_SUCCESS);
+            let second = integer(c, "CreateMutexExW", &[0, data, 1, 0]);
+            assert_ne!(second, 0);
+            assert_eq!(c.p.objects.access(second), Some(0));
+            assert_eq!(c.p.objects.id(second), c.p.objects.id(first));
+            assert_eq!(c.last_error().unwrap(), ERROR_ALREADY_EXISTS);
+            assert_eq!(integer(c, "ReleaseMutex", &[second]), 1);
+            assert_eq!(integer(c, "ReleaseMutex", &[first]), 0);
+            assert_eq!(c.last_error().unwrap(), ERROR_NOT_OWNER);
+        });
     }
 }
 

@@ -91,14 +91,20 @@ fn open_cng(
     creation: Option<&super::host::Creation>,
     exact_name: bool,
 ) -> Checked<(u64, u64)> {
-    let device =
+    let gameos = super::super::super::gameos::enabled(c);
+    let device = if gameos {
+        let version = &c.p.cfg.version;
+        SecurityDevice::gameos_cng((version.major, version.minor, version.build))
+    } else {
         c.p.object_namespace
             .cng_device()
-            .ok_or_else(|| c.unsupported("kernel CNG device identity is not captured"))?;
+            .ok_or_else(|| c.unsupported("kernel CNG device identity is not captured"))?
+    };
     let access = super::mapped_access(request.access);
-    if c.arch() != WinArch::Arm64
+    if !(gameos || c.arch() == WinArch::Arm64)
         || !exact_name
         || attributes.flags != 0x40
+        || (gameos && attributes.custom_security)
         || creation.is_some()
         || (access, request.share, request.options) != (0x100001, 7, 0x20)
     {

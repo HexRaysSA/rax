@@ -518,6 +518,8 @@ pub mod kuser {
     pub const TIME_ZONE_ID: u64 = 0x240;
     /// `LargePageMinimum`.
     pub const LARGE_PAGE_MINIMUM: u64 = 0x244;
+    /// `RNGSeedVersion`, the boot's random seed generation counter.
+    pub const RNG_SEED_VERSION: u64 = 0x250;
     /// `NtBuildNumber` (Windows 10 and later; `Reserved2[0]` in older
     /// headers).
     pub const NT_BUILD_NUMBER: u64 = 0x260;
@@ -544,6 +546,8 @@ pub mod kuser {
     pub const NUMBER_OF_PHYSICAL_PAGES: u64 = 0x2E8;
     /// `SafeBootMode`.
     pub const SAFE_BOOT_MODE: u64 = 0x2EC;
+    /// `SharedDataFlags` (ULONG).
+    pub const SHARED_DATA_FLAGS: u64 = 0x2F0;
     /// `QpcFrequency` (LONGLONG), verified by PHNT FIELD_OFFSET assertions.
     pub const QPC_FREQUENCY: u64 = 0x300;
     /// `TickCount` (`KSYSTEM_TIME`).

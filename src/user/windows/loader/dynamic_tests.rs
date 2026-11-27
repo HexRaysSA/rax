@@ -418,6 +418,50 @@ fn independent_nested_reference_retains_successful_dependency_after_outer_failur
 }
 
 #[test]
+fn outer_load_rollback_detaches_delay_dependency_created_by_its_image() {
+    for (arch, bytes) in fixtures() {
+        let mut process = process(arch, bytes);
+        let p = process.state_mut();
+        let mut t = take_thread(p);
+        // This fixture maps without statically loading leaf.dll.
+        let outer = begin_load(p, &mut t, "data.exe").unwrap();
+        assert_eq!(p.modules.by_name("leaf.dll"), None);
+        let delayed = begin_delay_lookup(
+            p,
+            &mut t,
+            &delay_import::DelayImport {
+                parent: outer.root,
+                library: "leaf.dll".into(),
+                symbol: SymRef::Ordinal(1),
+                slots: delay_import::DelaySlots {
+                    module: 0,
+                    thunk: 0,
+                },
+            },
+        )
+        .unwrap();
+        let leaf = p.modules.by_base(delayed.base).unwrap();
+        admit(p, &delayed.initialize);
+        commit_load(p, delayed.id).unwrap();
+        assert_eq!(p.modules.list[leaf].load_count, 0);
+        let detach = begin_rollback(
+            p,
+            outer.id,
+            LoadError::new(STATUS_DLL_INIT_FAILED, "outer failed"),
+            None,
+        )
+        .unwrap();
+        assert!(detach.contains(&leaf));
+        for index in detach {
+            detach_completed(p, index).unwrap();
+        }
+        finish_rollback(p, &mut t, outer.id).unwrap();
+        assert!(!p.modules.is_live(outer.root));
+        assert!(!p.modules.is_live(leaf));
+    }
+}
+
+#[test]
 fn absent_forwarded_export_rollback_removes_target_tls_and_owner_edge() {
     for (arch, bytes) in fixtures() {
         let mut process = process(arch, bytes);
@@ -526,6 +570,7 @@ fn historical_slot_cap_rejects_new_images_before_allocation_but_reuses_live_modu
         kind: ModuleKind::Data,
         timestamp: 0,
         exports: DataDirectory::default(),
+        delay_imports: DataDirectory::default(),
         pdata: DataDirectory::default(),
         hybrid: None,
         no_seh: false,

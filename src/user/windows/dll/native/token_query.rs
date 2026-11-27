@@ -21,6 +21,7 @@ use crate::user::windows::security::token::scalars::{self, CapturedScalar};
 const TOKEN_USER: u32 = 1;
 const TOKEN_GROUPS: u32 = 2;
 const TOKEN_INTEGRITY_LEVEL: u32 = 25;
+const TOKEN_SECURITY_ATTRIBUTES: u32 = 39;
 const SE_GROUP_INTEGRITY: u32 = 0x20;
 
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
@@ -47,7 +48,8 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     let pointer_class = PointerClass::from_raw(class);
     let widening = user::wow64_widening(class);
     let claim_record = matches!(class, TOKEN_USER_CLAIMS | TOKEN_DEVICE_CLAIMS);
-    let subject_record = sid_record || pointer_class.is_some() || claim_record;
+    let subject_record =
+        sid_record || pointer_class.is_some() || claim_record || class == TOKEN_SECURITY_ATTRIBUTES;
     if !token_kind
         && !subject_record
         && !matches!(class, TOKEN_GROUPS | TOKEN_PRIVILEGES | 10 | 12 | 29 | 44)
@@ -157,6 +159,29 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
             Some(_) => return user::handle_error(c, class, returned, STATUS_OBJECT_TYPE_MISMATCH),
         }
     }
+    if class == TOKEN_SECURITY_ATTRIBUTES {
+        let subject = captured_subject.or_else(|| c.p.objects.primary_token_subject());
+        let empty = subject.as_ref().map_or(c.p.native.is_none(), |subject| {
+            subject
+                .attributes
+                .as_ref()
+                .is_some_and(|attributes| attributes.is_empty())
+        });
+        if !empty {
+            return Err(c.unsupported("token security-attribute information is not captured"));
+        }
+        // TOKEN_SECURITY_ATTRIBUTES_INFORMATION has an 8-byte fixed prefix
+        // followed by one guest-width pointer to the attributes array.
+        let required = (8 + c.psize()) as u32;
+        c.mem().w32(returned, required)?;
+        if length < required {
+            return Flow::ret(STATUS_BUFFER_TOO_SMALL.into());
+        }
+        let mut record = [0; 16];
+        record[0] = 1; // TOKEN_SECURITY_ATTRIBUTES_INFORMATION_VERSION_V1
+        c.mem().wr(output, &record[..required as usize])?;
+        return Flow::ret(STATUS_SUCCESS.into());
+    }
     if claim_record {
         let subject = captured_subject
             .or_else(|| c.p.objects.primary_token_subject())
@@ -247,7 +272,10 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
         _ => None,
     };
     let primary = primary.or_else(|| {
-        if token != process_token || !super::super::gameos::enabled(c) {
+        let primary_handle = matches!(c.p.objects.get(token), Some(Object::PrimaryToken));
+        if !super::super::gameos::enabled(c)
+            || (token != process_token && token != effective_token && !primary_handle)
+        {
             return None;
         }
         // The portable GameOS process has no elevated, UIAccess or AppContainer

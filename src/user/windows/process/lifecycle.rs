@@ -138,6 +138,14 @@ fn start(c: &mut Ctx) -> ApiResult {
 fn enter_user(c: &mut Ctx) -> ApiResult {
     c.t.attached = true;
     let main = c.t.main;
+    if let Some(args) =
+        crate::user::windows::dll::threadpool::work_arguments(c.p, c.t.tid, c.t.param)
+    {
+        return Flow::call_checked(c.t.start, args, |c, _| {
+            crate::user::windows::dll::threadpool::retire_work(c.p, c.t.tid, true);
+            Ok(Flow::ExitThread(0))
+        });
+    }
     let args = if main { Vec::new() } else { vec![c.t.param] };
     Flow::call_checked(c.t.start, args, move |_, result| {
         Ok(if main {
@@ -490,6 +498,7 @@ mod tests {
             kind: ModuleKind::Native,
             timestamp: 0,
             exports: Default::default(),
+            delay_imports: Default::default(),
             pdata: Default::default(),
             hybrid: None,
             no_seh: false,

@@ -95,6 +95,10 @@ impl Attributes {
         self.0.iter().collect()
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Exact UTF-16 name comparison through the selected Windows upcase table.
     /// Separators and embedded zero units retain their name semantics.
     pub(crate) fn find(&self, name: &[u16], upcase: &[u16]) -> Option<&Attribute> {

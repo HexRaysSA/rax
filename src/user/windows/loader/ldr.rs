@@ -243,14 +243,23 @@ pub fn add_entry(p: &mut Proc, idx: usize) -> Result<(), LoadError> {
 
 /// The host's explicit reference counter is authoritative. The legacy 16-bit
 /// field saturates below its pinned sentinel; the 32-bit field remains exact.
-pub(crate) fn set_count(p: &Proc, idx: usize, count: u32) -> Result<(), LoadError> {
+pub(super) fn probe_count(p: &Proc, idx: usize) -> Result<(), LoadError> {
     let o = *offsets(p.arch);
     let e = p.modules.list[idx].ldr_entry;
     if e == 0 {
         return Ok(());
     }
     writable(p, e + o.entry_load_count, 2)?;
-    writable(p, e + o.entry_reference_count, 4)?;
+    writable(p, e + o.entry_reference_count, 4)
+}
+
+pub(crate) fn set_count(p: &Proc, idx: usize, count: u32) -> Result<(), LoadError> {
+    let o = *offsets(p.arch);
+    let e = p.modules.list[idx].ldr_entry;
+    if e == 0 {
+        return Ok(());
+    }
+    probe_count(p, idx)?;
     let legacy = if count == u32::MAX {
         0xFFFF
     } else {

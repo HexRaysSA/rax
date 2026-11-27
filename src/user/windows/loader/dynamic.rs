@@ -17,6 +17,12 @@ pub(crate) struct LookupPlan {
     pub address: Option<u64>,
     pub initialize: Vec<usize>,
 }
+pub(crate) struct DelayPlan {
+    pub id: u64,
+    pub base: u64,
+    pub address: u64,
+    pub initialize: Vec<usize>,
+}
 pub(crate) struct UnloadPlan {
     pub id: u64,
     pub detach: Vec<usize>,
@@ -24,6 +30,7 @@ pub(crate) struct UnloadPlan {
 
 #[derive(Default)]
 pub(crate) struct DynamicState {
+    pub(super) search: DllSearch,
     pub(super) unloaded: HashSet<usize>,
     pub(super) attaching: HashSet<usize>,
     pub(super) detaching: HashSet<usize>,
@@ -45,6 +52,8 @@ struct Journal {
     created: Vec<usize>,
     edges: Vec<(usize, usize)>,
     added_reference: Option<usize>,
+    pending_pins: BTreeSet<usize>,
+    delay_owner: Option<u64>,
     old_arrays: Vec<u64>,
     detach: Vec<usize>,
     remove: Vec<usize>,
@@ -67,6 +76,8 @@ fn journal(p: &mut Proc, unload: bool) -> Result<u64, LoadError> {
             created: Vec::new(),
             edges: Vec::new(),
             added_reference: None,
+            pending_pins: BTreeSet::new(),
+            delay_owner: None,
             old_arrays: Vec::new(),
             detach: Vec::new(),
             remove: Vec::new(),
@@ -158,6 +169,29 @@ pub(crate) fn startup_attach_can_reference(p: &Proc, index: usize) -> bool {
             .any(|journal| journal.created.contains(&index))
 }
 
+/// A DLL may request a pin from its process-attach code. Make the pin
+/// permanent only when the load owning the image successfully commits.
+pub(crate) fn defer_attach_pin(p: &mut Proc, index: usize) -> Result<bool, LoadError> {
+    let dynamic = &p.modules.dynamic;
+    if !dynamic.attaching.contains(&index) || dynamic.detaching.contains(&index) {
+        return Ok(false);
+    }
+    let Some((&id, _)) = dynamic.journals.iter().find(|(_, journal)| {
+        !journal.rollback && !journal.unload && journal.created.contains(&index)
+    }) else {
+        return Ok(false);
+    };
+    ldr::probe_count(p, index)?;
+    p.modules
+        .dynamic
+        .journals
+        .get_mut(&id)
+        .ok_or_else(missing_transaction)?
+        .pending_pins
+        .insert(index);
+    Ok(true)
+}
+
 /// Increment an explicit reference, or permanently pin a live module.
 pub(crate) fn reference_module(p: &mut Proc, idx: usize, pin: bool) -> Result<(), LoadError> {
     if !p.modules.is_live(idx) || p.modules.dynamic.detaching.contains(&idx) {
@@ -223,10 +257,23 @@ fn failed_begin(p: &mut Proc, t: &mut Thread, id: u64, error: LoadError) -> Load
 }
 
 pub(crate) fn begin_load(p: &mut Proc, t: &mut Thread, name: &str) -> Result<LoadPlan, LoadError> {
+    begin_load_with_search(p, t, name, DllSearch::Default)
+}
+
+pub(crate) fn begin_load_with_search(
+    p: &mut Proc,
+    t: &mut Thread,
+    name: &str,
+    search: DllSearch,
+) -> Result<LoadPlan, LoadError> {
     let id = journal(p, false)?;
     let first = p.modules.list.len();
     p.modules.dynamic.active.push(id);
+    // Mapping and import binding are synchronous. Guest DLL callbacks are
+    // scheduled after the search policy has been restored.
+    let previous_search = std::mem::replace(&mut p.modules.dynamic.search, search);
     let result = load_dll(p, name);
+    p.modules.dynamic.search = previous_search;
     p.modules.dynamic.active.pop();
     // Record partial images even when mapping/binding failed before TLS setup.
     p.modules.dynamic.journals.get_mut(&id).unwrap().created = (first..p.modules.list.len())
@@ -282,6 +329,68 @@ pub(crate) fn begin_lookup(
         id,
         address,
         initialize: initialization(p, idx),
+    })
+}
+
+pub(crate) fn begin_delay_lookup(
+    p: &mut Proc,
+    t: &mut Thread,
+    import: &delay_import::DelayImport,
+) -> Result<DelayPlan, LoadError> {
+    let owner = p
+        .modules
+        .dynamic
+        .journals
+        .iter()
+        .find_map(|(&id, journal)| {
+            (!journal.rollback && !journal.unload && journal.created.contains(&import.parent))
+                .then_some(id)
+        });
+    let id = journal(p, false)?;
+    let first = p.modules.list.len();
+    let parent_name = p.modules.list[import.parent].name.clone();
+    p.modules.dynamic.active.push(id);
+    let result = (|| {
+        let root = load_dll_from(p, &import.library, Some(&parent_name))?;
+        dependency(p, import.parent, root);
+        let symbol = &import.symbol;
+        let address = match lookup_depth(p, root, symbol, 0)? {
+            ExportLookup::Address(address) => address,
+            ExportLookup::Missing { .. }
+                if matches!(p.modules.list[root].kind, ModuleKind::Builtin(_)) =>
+            {
+                missing_stub(p, root, symbol)?
+            }
+            ExportLookup::Missing { module, symbol } => {
+                let status = match import.symbol {
+                    SymRef::Name(..) => STATUS_ENTRYPOINT_NOT_FOUND,
+                    SymRef::Ordinal(_) => STATUS_ORDINAL_NOT_FOUND,
+                };
+                return Err(LoadError::new(
+                    status,
+                    format!("{}!{symbol} has no export", p.modules.list[module].name),
+                ));
+            }
+        };
+        Ok((root, address))
+    })();
+    p.modules.dynamic.active.pop();
+    p.modules.dynamic.journals.get_mut(&id).unwrap().created = (first..p.modules.list.len())
+        .filter(|&idx| !matches!(p.modules.list[idx].kind, ModuleKind::Builtin(_)))
+        .collect();
+    let (root, address) = match result {
+        Ok(value) => value,
+        Err(error) => return Err(failed_begin(p, t, id, error)),
+    };
+    if let Err(error) = prepare(p, t, id, first) {
+        return Err(failed_begin(p, t, id, error));
+    }
+    p.modules.dynamic.journals.get_mut(&id).unwrap().delay_owner = owner;
+    Ok(DelayPlan {
+        id,
+        base: p.modules.list[root].base,
+        address,
+        initialize: initialization(p, root),
     })
 }
 
@@ -373,12 +482,51 @@ pub(crate) fn commit_load(p: &mut Proc, id: u64) -> Result<(), LoadError> {
         .journals
         .get(&id)
         .ok_or_else(missing_transaction)?;
-    if j.rollback || j.unload {
+    if j.rollback
+        || j.unload
+        || j.delay_owner.is_some_and(|owner| {
+            !p.modules
+                .dynamic
+                .journals
+                .get(&owner)
+                .is_some_and(|parent| !parent.rollback && !parent.unload)
+        })
+    {
         return Err(missing_transaction());
     }
     let arrays = j.old_arrays.clone();
+    let pins = j.pending_pins.clone();
+    for &idx in &pins {
+        if !p.modules.is_live(idx) || !p.modules.list[idx].initialized {
+            return Err(LoadError::new(
+                STATUS_DLL_INIT_FAILED,
+                "pin requested for an image that did not attach",
+            ));
+        }
+        ldr::probe_count(p, idx)?;
+    }
     free_arrays(p, arrays)?;
-    p.modules.dynamic.journals.remove(&id);
+    for idx in pins {
+        reference_module(p, idx, true)?;
+    }
+    let j = p
+        .modules
+        .dynamic
+        .journals
+        .remove(&id)
+        .ok_or_else(missing_transaction)?;
+    if let Some(owner) = j.delay_owner {
+        // Images and edges created by a delay thunk called from DllMain
+        // participate in rollback of the transaction that owns the caller.
+        let parent = p
+            .modules
+            .dynamic
+            .journals
+            .get_mut(&owner)
+            .ok_or_else(missing_transaction)?;
+        parent.created.extend(j.created);
+        parent.edges.extend(j.edges);
+    }
     Ok(())
 }
 
@@ -572,6 +720,7 @@ fn finish(p: &mut Proc, t: &mut Thread, id: u64) -> Result<(), LoadError> {
         m.initialized = false;
         m.load_count = 0;
         m.exports = DataDirectory::default();
+        m.delay_imports = DataDirectory::default();
         m.pdata = DataDirectory::default();
         m.safe_seh = None;
         let name = normalize_name(&m.name).to_ascii_lowercase();

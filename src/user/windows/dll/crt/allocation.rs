@@ -28,6 +28,19 @@ pub(crate) static ALLOCATION_EXPORTS: &[Export] = &[
     Export::func("_get_heap_handle", Cdecl, &[], heap_handle),
 ];
 
+pub(crate) static UCRT_RTTI_CLEANUP_EXPORTS: &[Export] = &[
+    Export::func(
+        "__std_type_info_destroy_list",
+        Cdecl,
+        &[Ptr],
+        destroy_type_info_list,
+    ),
+    Export::forward(
+        "_o___std_type_info_destroy_list",
+        "ucrtbase.__std_type_info_destroy_list",
+    ),
+];
+
 /// `_HEAP_MAXREQ = SIZE_MAX - 31` matches the retained installed mingw-w64
 /// malloc.h width constants. Microsoft documents the limit, not its numeric
 /// value. It is an explicit SDK-width admission profile, not a version oracle.
@@ -99,18 +112,34 @@ fn free(c: &mut Ctx) -> ApiResult {
     if block == 0 {
         return Flow::void();
     }
+    match free_block(c, kind, block) {
+        Ok(()) => Flow::void(),
+        Err(()) => corrupt(),
+    }
+}
+
+fn free_block(c: &mut Ctx, kind: RuntimeKind, block: u64) -> Result<(), ()> {
     let index = kind.index();
     if !c.p.crt.runtimes[index].allocations.contains_key(&block) {
-        return corrupt();
+        return Err(());
     }
     let heap = c.p.crt.runtimes[index].heap;
-    match c.p.heaps.free(heap, block) {
-        Ok(()) => {
-            c.p.crt.runtimes[index].allocations.remove(&block);
-            Flow::void()
+    c.p.heaps.free(heap, block).map_err(|_| ())?;
+    c.p.crt.runtimes[index].allocations.remove(&block);
+    Ok(())
+}
+
+fn destroy_type_info_list(c: &mut Ctx) -> ApiResult {
+    let header = c.ptr(0)?;
+    let mut node = super::super::slist::flush_list(c, header)?;
+    while node != 0 {
+        let next = c.read_ptr(node)?;
+        if free_block(c, RuntimeKind::Ucrt, node).is_err() {
+            return corrupt();
         }
-        Err(_) => corrupt(),
+        node = next;
     }
+    Flow::void()
 }
 
 fn resize(c: &mut Ctx, in_place: bool) -> ApiResult {

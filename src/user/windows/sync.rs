@@ -216,6 +216,8 @@ struct SrwState {
 /// Address-keyed synchronization state.
 #[derive(Debug, Default)]
 pub struct SyncState {
+    /// Callback instances owned by portable thread-pool workers.
+    pub(crate) pool_workers: HashMap<u32, super::dll::threadpool::WorkCall>,
     /// Coalescing thread-ID alerts, keyed by owned object identity.
     thread_alerts: HashSet<ObjId>,
     /// Threads parked on each address key, in arrival order.
@@ -557,6 +559,7 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
             exit_code.is_some()
         }
         Some(Object::CompletionPort { queue, .. }) => !queue.is_empty(),
+        Some(Object::ThreadpoolWork { pending, .. }) => *pending == 0,
         // Files and console handles are signaled when no I/O is pending,
         // which is always here (I/O completes synchronously).
         Some(
@@ -869,6 +872,14 @@ fn cs_fields(p: &Proc) -> (u64, u64, u64) {
     }
 }
 
+pub(crate) fn cs_owned_by(p: &Proc, addr: u64, tid: u32) -> Result<bool, MemFault> {
+    let (_, _, owner) = cs_fields(p);
+    let field = addr
+        .checked_add(owner)
+        .ok_or(MemFault { addr, write: false })?;
+    Ok(p.space.ptr(field, p.arch.ptr_size())? == u64::from(tid))
+}
+
 /// Validated storage extent and natural pointer alignment. Misuse diagnostics
 /// are policy; native behavior for malformed objects is not an oracle here.
 fn storage(p: &Proc, addr: u64, size: u64) -> Result<(), SyncError> {
@@ -885,7 +896,7 @@ fn storage(p: &Proc, addr: u64, size: u64) -> Result<(), SyncError> {
     Ok(())
 }
 
-fn cs_size(p: &Proc) -> usize {
+pub(crate) fn cs_size(p: &Proc) -> usize {
     if p.arch.is64() { 0x28 } else { 0x18 }
 }
 fn get32(bytes: &[u8], at: u64) -> u32 {

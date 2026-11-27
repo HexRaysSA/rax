@@ -16,7 +16,7 @@ use crate::user::windows::nt::{
     status::*,
     status_to_error,
 };
-use crate::user::windows::objects::RegistryCompletion;
+use crate::user::windows::objects::{Object, RegistryCompletion};
 use crate::user::windows::registry::{Key, MAX_NAME_UNITS};
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -62,8 +62,23 @@ pub(in crate::user::windows::dll) static WIN32_REGISTRY_EXPORTS: &[Export] = &[
     ),
 ];
 
+pub(in crate::user::windows::dll) static WIN32_REGISTRY_ENUM_EXPORTS: &[Export] = &[Export::func(
+    "RegEnumKeyExW",
+    Stdcall,
+    &[Ptr, I32, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
+    enum_key,
+)];
+
+pub(in crate::user::windows::dll) static USER_CLASSES_EXPORTS: &[Export] = &[Export::func(
+    "RegOpenUserClassesRoot",
+    Stdcall,
+    &[Ptr, I32, I32, Ptr],
+    open_user_classes,
+)];
+
 const MAXIMUM_ALLOWED: u32 = 0x0200_0000;
 const KEY_QUERY_VALUE: u32 = 1;
+const KEY_ENUMERATE_SUB_KEYS: u32 = 8;
 const RRF_RT_ANY: u32 = 0xffff;
 const RRF_SUBKEY_WOW6464KEY: u32 = 0x10000;
 const RRF_SUBKEY_WOW6432KEY: u32 = 0x20000;
@@ -102,6 +117,55 @@ fn wide_name(c: &Ctx, pointer: u64) -> Checked<Vec<u16>> {
     Ok(units)
 }
 
+fn enum_key(c: &mut Ctx) -> ApiResult {
+    let outcome = (|| -> Checked<u32> {
+        let (handle, index, name, length, reserved, class, class_length, time) = (
+            c.ptr(0)?,
+            c.u32(1)?,
+            c.ptr(2)?,
+            c.ptr(3)?,
+            c.ptr(4)?,
+            c.ptr(5)?,
+            c.ptr(6)?,
+            c.ptr(7)?,
+        );
+        if reserved != 0 || name == 0 || length == 0 {
+            return status(STATUS_INVALID_PARAMETER);
+        }
+        let key = key(c, handle, false)?;
+        if c.p.objects.access(handle).unwrap_or(0) & KEY_ENUMERATE_SUB_KEYS == 0 {
+            return status(STATUS_ACCESS_DENIED);
+        }
+        if class != 0 || class_length != 0 {
+            return Err(c
+                .unsupported("registry subkey class is not captured")
+                .into());
+        }
+        let capacity = c.mem().u32(length)?;
+        let children = key
+            .child_metadata()
+            .ok_or_else(|| c.unsupported("registry subkey enumeration is not captured"))?;
+        let Some(child) = children.get(index as usize) else {
+            return status(STATUS_NO_MORE_ENTRIES);
+        };
+        if capacity <= child.name.len() as u32 {
+            return Ok(ERROR_MORE_DATA);
+        }
+        probe_write(c, name, (child.name.len() + 1) * 2)?;
+        probe_write(c, length, 4)?;
+        if time != 0 {
+            probe_write(c, time, 8)?;
+        }
+        c.mem().put_wstr(name, &child.name)?;
+        c.mem().w32(length, child.name.len() as u32)?;
+        if time != 0 {
+            c.mem().w64(time, child.last_write)?;
+        }
+        Ok(0)
+    })();
+    result(outcome)
+}
+
 fn open_from(c: &mut Ctx, parent: u64, subkey: Vec<u16>, access: u32) -> Checked<u32> {
     if subkey.first() == Some(&92) {
         return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
@@ -110,6 +174,7 @@ fn open_from(c: &mut Ctx, parent: u64, subkey: Vec<u16>, access: u32) -> Checked
         // In built-in mode an unconfigured guest registry has no subkeys or values.
         if matches!(hive, 0x8000_0000..=0x8000_0003 | 0x8000_0005)
             && c.p.registry.upcase_table().is_empty()
+            && !(hive == 0x8000_0002 && c.p.registry.is_game_config_subkey(&subkey))
         {
             return status(STATUS_OBJECT_NAME_NOT_FOUND);
         }
@@ -195,6 +260,36 @@ fn open_current_user(c: &mut Ctx) -> ApiResult {
         probe_write(c, out, c.psize() as usize)?;
         c.write_ptr(out, 0)?;
         open_and_publish(c, current_user, Vec::new(), out, access)
+    })();
+    result(outcome)
+}
+
+fn open_user_classes(c: &mut Ctx) -> ApiResult {
+    let outcome = (|| {
+        let (token, options, out) = (c.ptr(0)?, c.u32(1)?, c.ptr(3)?);
+        if token == 0 || options != 0 || out == 0 {
+            return status(STATUS_INVALID_PARAMETER);
+        }
+        if !c.p.cfg.gameos || c.p.native.is_some() {
+            return Err(c
+                .unsupported("per-user registry classes hive is not captured")
+                .into());
+        }
+        if token == c.arch().ptr(u64::MAX - 4) {
+            return status(STATUS_NO_TOKEN);
+        }
+        if token != c.arch().ptr(u64::MAX - 3) && token != c.arch().ptr(u64::MAX - 5) {
+            match c.p.objects.get(token) {
+                Some(Object::PrimaryToken) if c.p.objects.access(token).unwrap_or(0) & 8 != 0 => {}
+                Some(Object::PrimaryToken) => return status(STATUS_ACCESS_DENIED),
+                Some(_) => return status(STATUS_OBJECT_TYPE_MISMATCH),
+                None => return status(STATUS_INVALID_HANDLE),
+            }
+        }
+        // The portable guest has no loaded user profile or SID_Classes hive.
+        probe_write(c, out, c.psize() as usize)?;
+        c.write_ptr(out, 0)?;
+        status(STATUS_OBJECT_NAME_NOT_FOUND)
     })();
     result(outcome)
 }

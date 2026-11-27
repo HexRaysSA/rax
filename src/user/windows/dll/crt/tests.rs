@@ -35,6 +35,8 @@ pub(super) fn api(name: &str) -> &'static Api {
         .chain(UCRT_BUFFER_FORMAT_EXPORTS)
         .chain(UCRT_TIME_EXPORTS)
         .chain(UCRT_RANDOM_EXPORTS)
+        .chain(UCRT_RTTI_CLEANUP_EXPORTS)
+        .chain(UCRT_WIDE_BUFFER_FORMAT_EXPORTS)
         .chain(UCRT_EXCEPTION_FILTER_EXPORTS)
         .chain(NEW_HANDLER_EXPORTS)
         .find_map(|export| match &export.item {
@@ -135,6 +137,40 @@ pub(super) fn area(c: &mut Ctx) -> u64 {
 fn errno(c: &mut Ctx, kind: RuntimeKind) -> u32 {
     let pointer = int(invoke(c, kind, "_errno", &[]));
     c.mem().u32(pointer).unwrap()
+}
+
+#[test]
+fn rtti_cleanup_flushes_and_frees_only_the_ucrt_list() {
+    run(|c| {
+        let header = area(c);
+        let ucrt = RuntimeKind::Ucrt;
+        let first = int(invoke(c, ucrt, "malloc", &[32]));
+        let second = int(invoke(c, ucrt, "malloc", &[32]));
+        let unrelated = int(invoke(c, ucrt, "malloc", &[32]));
+        c.write_ptr(first, second).unwrap();
+        c.write_ptr(second, 0).unwrap();
+        if c.arch().is64() {
+            assert_eq!(first & 0xf, 0);
+            c.mem().w64(header, 2).unwrap();
+            c.mem().w64(header + 8, first).unwrap();
+        } else {
+            c.mem().w32(header, first as u32).unwrap();
+            c.mem().w16(header + 4, 2).unwrap();
+        }
+        let module = c.p.modules.by_name("ucrtbase.dll").unwrap();
+        let alias = SymRef::Name(b"_o___std_type_info_destroy_list".to_vec(), None);
+        let address = loader::lookup(c.p, module, &alias).unwrap().unwrap();
+        void(invoke(c, ucrt, "__std_type_info_destroy_list", &[header]));
+        assert_eq!(c.entry_pc, address);
+        assert_eq!(c.p.heaps.owner(first), None);
+        assert_eq!(c.p.heaps.owner(second), None);
+        assert!(c.p.heaps.owner(unrelated).is_some());
+        assert_eq!(c.mem().u64(header).unwrap(), 0);
+        if c.arch().is64() {
+            assert_eq!(c.mem().u64(header + 8).unwrap(), 0);
+        }
+        void(invoke(c, ucrt, "__std_type_info_destroy_list", &[header]));
+    });
 }
 
 #[test]

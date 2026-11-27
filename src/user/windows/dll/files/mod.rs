@@ -56,6 +56,13 @@ pub(super) static ATTRIBUTES_EXPORTS: &[Export] = &[
     Export::func("GetFileAttributesW", Stdcall, &[Ptr], paths::attributes_w),
 ];
 
+pub(super) static FINAL_PATH_EXPORTS: &[Export] = &[Export::func(
+    "GetFinalPathNameByHandleW",
+    Stdcall,
+    &[Ptr, Ptr, I32, I32],
+    paths::final_path_w,
+)];
+
 const MAX_IO: usize = 16 << 20;
 const MAX_PATH_UNITS: usize = 32767;
 const GENERIC_READ: u32 = 0x8000_0000;

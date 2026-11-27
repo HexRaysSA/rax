@@ -43,7 +43,8 @@ provides guest-local system and title memory partitions. Their configuration
 queries report the emulator's shared memory budget. The profile models a
 scoped guest lock-memory privilege for startup. The tools partition, memory
 ownership changes, and host privilege operations are outside this model.
-The GameOS product policy reports the guest OS SKU. The virtual-console
+The GameOS product policy reports the guest OS SKU, and the native device
+family query reports Xbox for x64 GameOS guests. The virtual-console
 management device exposes a guest-owned handle and reports the portable
 profile's zero capability mask for the XMem counter query.
 The D3D12 and XMem direct transport probes report `STATUS_NOT_SUPPORTED`.
@@ -51,6 +52,14 @@ A Win32 open of
 `\\.\XgsKmd10` reports `ERROR_FILE_NOT_FOUND`. The portable profile has no
 Xbox graphics device.
 GameOS NUMA queries report the available memory of the single guest node.
+The built-in GameOS registry reports the FIPS, legacy LSA and optional
+cryptography configuration policy paths as absent when no selected snapshot
+provides them.
+A portable x64 GameOS title launched with host filesystem access can mount its
+sibling `microsoft_gameconfig.bin` as `HKLM\GAMECONFIG`. The mount reads a
+bounded clean REGF hive, including values, child order and child timestamps.
+It provides read-only guest keys. Hive recovery and segmented large values
+require additional support.
 The legacy Win32 processor topology query reports one core, node and package.
 The cooperative scheduler stores the process priority-boost setting and uses
 cooperative time slices for runnable threads. `GetStartupInfoW` reads the live
@@ -62,18 +71,25 @@ guest commitment budget. GPU mappings, physical-page allocation, and
 physical-page remapping require additional services.
 Current-process token queries report the portable profile's unprivileged
 guest state, including absence of elevation, UIAccess and AppContainer.
+`RtlQueryPackageClaims` reports the portable primary token as unpackaged.
+`RegOpenUserClassesRoot` reports the absence of a loaded user classes hive.
 The guest KsecDD provider watch retains a guest event on the device file.
+The guest CNG entropy request returns 48 bytes of fresh randomness and reports
+its length through synchronous `DeviceIoControl`. The PRNG's seed-generation
+query reads the boot-local field in guest shared data.
 The portable device has no external provider changes to deliver.
-Built-in thread-pool timer APIs support default-environment registration,
-arming, cancellation and closure. An expiration that requires callback
-delivery stops at the scheduler with the guest callback address.
+Built-in thread-pool APIs support default-environment timer and work
+registration and closure. Work runs on guest worker threads and can signal
+a retained event upon callback return. Timers can be armed and canceled, with
+delivery at expiration remaining a distinct unsupported boundary.
 The CRT startup paths include the UCRT's C locale and private startup aliases,
 plus MSVCRT numbered locks and the DLL-owned `__dllonexit` registration table.
 The UCRT's bounded `_strnicmp` uses C-locale case folding. Its scalar math
 exports marshal arguments and results through the guest floating-point ABI.
-Its narrow buffer formatter reads guest variadic arguments for integer and
-byte string conversions and applies UCRT truncation and termination policies.
-Wide, floating-point, and explicit-locale formatting require additional support.
+Its narrow and UTF-16 buffer formatters read guest variadic arguments for integer and
+string conversions and apply UCRT truncation and termination policies.
+Floating-point formatting, explicit locales and conversion from UTF-16 to a
+byte buffer require additional support.
 The UCRT reads Unix epoch seconds from the host wall clock through `_time64`
 and uses the host entropy source for `rand_s`.
 The core CRT level-one API set uses the same built-in UCRT, including its raw

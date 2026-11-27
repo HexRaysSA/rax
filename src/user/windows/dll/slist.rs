@@ -190,10 +190,14 @@ fn pop(c: &mut Ctx) -> ApiResult {
 
 fn flush(c: &mut Ctx) -> ApiResult {
     let header = c.ptr(0)?;
+    Flow::ret(flush_list(c, header)?)
+}
+
+pub(super) fn flush_list(c: &Ctx, header: u64) -> Result<u64, ApiErr> {
     check_aligned(c, header)?;
     let old = read_header(c, header)?;
     if old.first == 0 {
-        return Flow::ret(0);
+        return Ok(0);
     }
     write_header(
         c,
@@ -204,7 +208,7 @@ fn flush(c: &mut Ctx) -> ApiResult {
             sequence: old.sequence,
         },
     )?;
-    Flow::ret(old.first)
+    Ok(old.first)
 }
 
 fn query_depth(c: &mut Ctx) -> ApiResult {

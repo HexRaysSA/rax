@@ -11,9 +11,12 @@
 
 use super::super::arch::{WinArch, WinCpu};
 use super::super::hle::{ApiErr, ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
+use super::super::layout::{KUSER_SHARED_DATA, kuser};
 use super::super::memory::{ALLOCATION_GRANULARITY, Mem};
 use super::super::nt::error::{ERROR_INSUFFICIENT_BUFFER, ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
-use super::super::nt::status::{STATUS_INVALID_PARAMETER, STATUS_SUCCESS};
+use super::super::nt::status::{
+    STATUS_INVALID_BUFFER_SIZE, STATUS_INVALID_PARAMETER, STATUS_NOT_SUPPORTED, STATUS_SUCCESS,
+};
 use super::super::process::processor::{native_arch, x86_signature};
 use crate::user::mm::PAGE_SIZE;
 
@@ -48,6 +51,13 @@ pub(super) static SYSTEM_PATH_EXPORTS: &[Export] = &[Export::func(
     system_directory_w,
 )];
 
+pub(super) static WINDOWS_DIRECTORY_EXPORTS: &[Export] = &[Export::func(
+    "GetSystemWindowsDirectoryW",
+    Stdcall,
+    &[Ptr, I32],
+    system_windows_directory_w,
+)];
+
 pub(super) static SYSTEM_INFO_EXPORTS: &[Export] = &[
     Export::func("GetSystemInfo", Stdcall, &[Ptr], get_system_info),
     Export::func(
@@ -65,12 +75,118 @@ pub(super) static TOPOLOGY_EXPORTS: &[Export] = &[Export::func(
     get_logical_processor_information,
 )];
 
+pub(super) static XSTATE_EXPORTS: &[Export] = &[Export::func(
+    "GetEnabledXStateFeatures",
+    Stdcall,
+    &[],
+    get_enabled_xstate_features,
+)];
+
+pub(super) static XSTATE_FORWARDS: &[Export] = &[Export::forward(
+    "GetEnabledXStateFeatures",
+    "KERNELBASE.GetEnabledXStateFeatures",
+)];
+
+fn get_enabled_xstate_features(c: &mut Ctx) -> ApiResult {
+    // Use the guest OS-enabled feature mask, with KernelBase's legacy
+    // floating-point/SIMD mask when extended state is unavailable.
+    let mask = match &c.t.cpu {
+        WinCpu::X86(cpu, _) if bit(cpu.vcpu().cpuid(1, 0).2, 27) => cpu.vcpu().xcr0(),
+        _ => 3,
+    };
+    Flow::ret64(mask)
+}
+
 pub(super) static NTDLL_VERSION_EXPORTS: &[Export] = &[Export::func(
     "RtlGetVersion",
     Stdcall,
     &[Ptr],
     rtl_get_version,
 )];
+
+pub(super) static NTDLL_GLOBAL_DATA_EXPORTS: &[Export] = &[Export::func(
+    "RtlGetSystemGlobalData",
+    Stdcall,
+    &[I32, Ptr, I32],
+    rtl_get_system_global_data,
+)];
+
+pub(super) static NTDLL_CPU_NUMBER_EXPORTS: &[Export] = &[Export::func(
+    "RtlGetCurrentProcessorNumberEx",
+    Stdcall,
+    &[Ptr],
+    current_processor_number_ex,
+)];
+
+pub(super) static NTDLL_DEVICE_FAMILY_EXPORTS: &[Export] = &[Export::func(
+    "RtlGetDeviceFamilyInfoEnum",
+    Stdcall,
+    &[Ptr, Ptr, Ptr],
+    device_family_info,
+)];
+
+pub(super) static STATE_SEPARATION_EXPORTS: &[Export] = &[Export::func(
+    "RtlIsStateSeparationEnabled",
+    Stdcall,
+    &[],
+    is_state_separation_enabled,
+)];
+
+fn is_state_separation_enabled(c: &mut Ctx) -> ApiResult {
+    const STATE_SEPARATION_ENABLED: u32 = 1 << 10;
+    let flags = c.mem().u32(KUSER_SHARED_DATA + kuser::SHARED_DATA_FLAGS)?;
+    Flow::ret(u64::from(flags & STATE_SEPARATION_ENABLED != 0))
+}
+
+fn device_family_info(c: &mut Ctx) -> ApiResult {
+    const DESKTOP: u32 = 3;
+    const XBOX: u32 = 5;
+    let (version, family, form) = (c.ptr(0)?, c.ptr(1)?, c.ptr(2)?);
+    let config = &c.p.cfg.version;
+    if version != 0 {
+        let packed = (u64::from(config.major) << 48)
+            | (u64::from(config.minor) << 32)
+            | (u64::from(config.build) << 16);
+        c.mem().w64(version, packed)?;
+    }
+    if family != 0 {
+        let value = if super::gameos::enabled(c) {
+            XBOX
+        } else {
+            DESKTOP
+        };
+        c.mem().w32(family, value)?;
+    }
+    if form != 0 {
+        c.mem().w32(form, 0)?; // No OEM form factor is configured.
+    }
+    Flow::void()
+}
+
+pub(super) static CPU_NUMBER_FORWARDS: &[Export] = &[Export::forward(
+    "GetCurrentProcessorNumberEx",
+    "NTDLL.RtlGetCurrentProcessorNumberEx",
+)];
+
+fn current_processor_number_ex(c: &mut Ctx) -> ApiResult {
+    // A single virtual logical processor occupies group 0, number 0.
+    c.mem().w32(c.ptr(0)?, 0)?;
+    Flow::void()
+}
+
+fn rtl_get_system_global_data(c: &mut Ctx) -> ApiResult {
+    match c.u32(0)? {
+        1 => {} // GlobalDataIdRngSeedVersion
+        2..=18 => return Flow::ret(STATUS_NOT_SUPPORTED.into()),
+        _ => return Flow::ret(STATUS_INVALID_PARAMETER.into()),
+    }
+    if c.u32(2)? != 8 {
+        return Flow::ret(STATUS_INVALID_BUFFER_SIZE.into());
+    }
+    let version = c.mem().u64(KUSER_SHARED_DATA + kuser::RNG_SEED_VERSION)?;
+    c.mem().w64(c.ptr(1)?, version)?;
+    Flow::ret(STATUS_SUCCESS.into())
+}
 
 fn rtl_get_version(c: &mut Ctx) -> ApiResult {
     const BASE_SIZE: usize = 276;
@@ -181,14 +297,25 @@ fn get_logical_processor_information(c: &mut Ctx) -> ApiResult {
 }
 
 fn system_directory_w(c: &mut Ctx) -> ApiResult {
-    let (out, capacity) = (c.ptr(0)?, c.u32(1)? as usize);
     let directory: Vec<u16> = super::super::loader::system_dir(c.arch())
         .encode_utf16()
         .collect();
+    write_directory_w(c, &directory)
+}
+
+fn system_windows_directory_w(c: &mut Ctx) -> ApiResult {
+    let directory = c
+        .mem()
+        .wstr(KUSER_SHARED_DATA + kuser::NT_SYSTEM_ROOT, 260)?;
+    write_directory_w(c, &directory)
+}
+
+fn write_directory_w(c: &mut Ctx, directory: &[u16]) -> ApiResult {
+    let (out, capacity) = (c.ptr(0)?, c.u32(1)? as usize);
     if capacity <= directory.len() {
         return Flow::ret(directory.len() as u64 + 1);
     }
-    c.mem().put_wstr(out, &directory)?;
+    c.mem().put_wstr(out, directory)?;
     Flow::ret(directory.len() as u64)
 }
 

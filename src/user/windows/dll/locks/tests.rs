@@ -53,6 +53,7 @@ fn invoke(c: &mut Ctx, name: &str, args: &[u64]) -> ApiResult {
     let export = EXPORTS
         .iter()
         .chain(NTDLL_CRITICAL_EXPORTS)
+        .chain(NTDLL_CRITICAL_QUERY_EXPORTS)
         .chain(ONCE_EXPORTS)
         .chain(NTDLL_ONCE_EXPORTS)
         .chain(RESOURCE_EXPORTS)
@@ -245,10 +246,18 @@ fn native_critical_sections_return_status_and_share_win32_ownership() {
                 0
             );
             assert_eq!(int(invoke(c, "RtlEnterCriticalSection", &[addr])), 0);
+            assert_eq!(
+                int(invoke(c, "RtlIsCriticalSectionLockedByThread", &[addr])),
+                1
+            );
             assert_eq!(int(invoke(c, "TryEnterCriticalSection", &[addr])), 1);
             assert_eq!(sync::cs_recursion(c.p, addr, c.t.tid).unwrap(), 2);
             assert_eq!(int(invoke(c, "RtlLeaveCriticalSection", &[addr])), 0);
             invoke(c, "LeaveCriticalSection", &[addr]).unwrap();
+            assert_eq!(
+                int(invoke(c, "RtlIsCriticalSectionLockedByThread", &[addr])),
+                0
+            );
             assert_eq!(int(invoke(c, "RtlDeleteCriticalSection", &[addr])), 0);
         });
     }

@@ -56,6 +56,31 @@ fn subject(c: &Ctx, token: u64) -> Result<Arc<Subject>, u32> {
     c.p.objects.primary_token_subject().ok_or(0)
 }
 
+pub(super) fn query_package_claims(c: &mut Ctx) -> ApiResult {
+    let token = c.ptr(0)?;
+    let attributes = c.ptr(7)?;
+    if attributes != 0 {
+        c.mem().w64(attributes, 0)?;
+    }
+    match subject(c, token) {
+        // The portable process starts without an app-model token. Treat only
+        // its primary token as unpackaged when there is no captured subject.
+        Err(0)
+            if c.p.native.is_none()
+                && (token == c.arch().ptr(u64::MAX - 3)
+                    || token == c.arch().ptr(u64::MAX - 5)
+                    || matches!(c.p.objects.get(token), Some(Object::PrimaryToken))) =>
+        {
+            Flow::ret(STATUS_NOT_FOUND.into())
+        }
+        Ok(subject) if subject.attributes.as_ref().is_some_and(|a| a.is_empty()) => {
+            Flow::ret(STATUS_NOT_FOUND.into())
+        }
+        Ok(_) | Err(0) => Err(c.unsupported("token package claims are not modeled")),
+        Err(status) => Flow::ret(status.into()),
+    }
+}
+
 fn descriptors(
     c: &Ctx,
     names: u64,

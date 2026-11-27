@@ -575,10 +575,15 @@ fn spawn_image_file(
             u64::from_le_bytes(bytes)
         }
     };
-    let registry = native
+    let mut registry = native
         .as_ref()
         .map(|r| r.registry.clone())
         .unwrap_or_default();
+    if native.is_none() && arch == WinArch::X64 && config.gameos && config.host_filesystem {
+        registry
+            .mount_game_config(&config.exe_host_path)
+            .map_err(SpawnError::Io)?;
+    }
     let object_namespace = native
         .as_ref()
         .map(|r| r.object_namespace.clone())
@@ -710,6 +715,22 @@ fn spawn_image_file(
         .create(&mut p.vm, 0, h.heap_commit, 0)
         .ok_or_else(|| memory("cannot create process heap"))?;
     let o = *offsets(arch);
+    if p.cfg.gameos && p.native.is_none() {
+        let lock_size = crate::user::windows::sync::cs_size(&p) as u64;
+        let lock = p
+            .heaps
+            .alloc(&mut p.vm, p.process_heap, lock_size, true)
+            .ok_or_else(|| memory("cannot allocate the guest loader lock"))?;
+        crate::user::windows::sync::cs_init(&mut p, lock, 0).map_err(|error| {
+            memory(format!(
+                "cannot initialize the guest loader lock: {error:?}"
+            ))
+        })?;
+        p.space
+            .wptr(p.peb + o.peb_loader_lock, o.ptr, lock)
+            .map_err(|error| memory(format!("cannot publish the guest loader lock: {error:?}")))?;
+        p.loader.guest_lock = Some(lock);
+    }
     p.space
         .wptr(p.peb + o.peb_image_base, o.ptr, p.modules.exe().base)
         .map_err(|e| memory(format!("{e:?}")))?;

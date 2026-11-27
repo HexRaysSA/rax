@@ -33,6 +33,7 @@ const FAMILIES: &[(&str, &str)] = &[
     ("api-ms-win-security-", "advapi32.dll"),
     ("api-ms-win-service-private-", "sechost.dll"),
     ("api-ms-win-service-management-", "sechost.dll"),
+    ("api-ms-win-service-winsvc-", "sechost.dll"),
     ("api-ms-win-eventing-provider-", "kernelbase.dll"),
     ("api-ms-win-eventing-classicprovider-", "kernelbase.dll"),
     ("api-ms-win-eventing-", "advapi32.dll"),
@@ -65,6 +66,12 @@ pub fn host(name: &str) -> Option<&'static str> {
         .map(|&(_, dll)| dll)
 }
 
+/// The broad extension fallback is a binding heuristic, not a declaration
+/// that optional platform contracts (such as Windows GUI services) exist.
+pub(crate) fn present(name: &str) -> bool {
+    !name.starts_with("ext-ms-win-") && host(name).is_some()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,6 +88,7 @@ mod tests {
             "api-ms-win-security-sddl-l1-1-0.dll",
             "api-ms-win-service-private-l1-1-0.dll",
             "api-ms-win-service-management-l1-1-0.dll",
+            "api-ms-win-service-winsvc-l1-1-0.dll",
         ] {
             assert_eq!(host(contract), Some("sechost.dll"));
         }

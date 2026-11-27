@@ -74,6 +74,43 @@ fn portable_gameos_registers_a_guest_owned_ksecdd_provider_watch() {
 }
 
 #[test]
+fn portable_gameos_opens_guest_owned_cng_with_the_observed_amd64_grant() {
+    let mut h = Harness::new(WinArch::X64);
+    std::sync::Arc::make_mut(&mut h.process.state_mut().cfg).gameos = true;
+    h.name(r"\Device\CNG");
+    let out = h.base;
+    let io = h.base + 64;
+    let attrs = h.attrs();
+    h.process.state().space.w32(attrs + 24, 0x40).unwrap();
+    assert_eq!(
+        h.invoke_api("NtOpenFile", &[out, 0x100001, attrs, io, 7, 0x20]),
+        STATUS_SUCCESS
+    );
+    let state = h.process.state();
+    let handle = state.space.u64(out).unwrap();
+    assert_eq!(state.objects.access(handle), Some(0x100001));
+    assert_eq!(state.objects.file_mode(handle), Some(0x20));
+    assert!(matches!(
+        state.objects.get(handle),
+        Some(Object::SecurityFile(device))
+            if device.device_type == crate::user::windows::object_namespace::security_device::CNG_DEVICE_TYPE
+    ));
+    let output = h.base + 512;
+    assert_eq!(
+        h.invoke_api(
+            "NtDeviceIoControlFile",
+            &[handle, 0, 0, 0, io, 0x39_0008, 0, 0, output, 48]
+        ),
+        STATUS_SUCCESS
+    );
+    let state = h.process.state();
+    assert_eq!(state.space.u64(io + 8).unwrap(), 48);
+    assert_ne!(state.space.bytes(output, 48).unwrap(), [0xa5; 48]);
+    assert_eq!(state.space.u8(output + 48).unwrap(), 0xa5);
+    assert_eq!(h.invoke_api("NtClose", &[handle]), STATUS_SUCCESS);
+}
+
+#[test]
 fn native_security_provider_replays_arm64_bcrypt_configuration() {
     let observation: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

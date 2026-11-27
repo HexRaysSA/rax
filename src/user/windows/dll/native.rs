@@ -13,6 +13,7 @@ mod apc_queue;
 mod apphelp;
 mod delay;
 mod device_control;
+pub(super) use device_control::WIN32_EXPORTS as WIN32_DEVICE_CONTROL_EXPORTS;
 mod directory;
 mod events;
 mod file_attributes;
@@ -59,7 +60,9 @@ pub(crate) use query::memory_usage_replay;
 mod raise;
 mod read_memory;
 mod registry;
-pub(super) use registry::WIN32_REGISTRY_EXPORTS;
+pub(super) use registry::{
+    USER_CLASSES_EXPORTS, WIN32_REGISTRY_ENUM_EXPORTS, WIN32_REGISTRY_EXPORTS,
+};
 mod section_create;
 mod section_map;
 mod section_query;
@@ -82,7 +85,7 @@ mod token_attributes;
 mod token_duplicate;
 mod token_query;
 pub(super) use process_query::WIN32_PROCESS_QUERY_EXPORTS;
-pub(super) use token::WIN32_TOKEN_EXPORTS;
+pub(super) use token::{WIN32_PROCESS_TOKEN_EXPORTS, WIN32_TOKEN_EXPORTS};
 mod topology;
 mod trace;
 mod trace_event;
@@ -97,6 +100,13 @@ mod worker_factory;
 mod wow64_csr;
 mod wow64_process_memory;
 mod write_memory;
+
+pub(super) static TOKEN_PACKAGE_EXPORTS: &[Export] = &[Export::func(
+    "RtlQueryPackageClaims",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
+    token_attributes::query_package_claims,
+)];
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func(

@@ -1093,6 +1093,7 @@ mod tests {
             kind: ModuleKind::Native,
             timestamp: 0,
             exports: Default::default(),
+            delay_imports: Default::default(),
             pdata: Default::default(),
             hybrid: None,
             no_seh: false,

@@ -66,6 +66,35 @@ struct Harness {
     directory: Temp,
 }
 
+#[test]
+fn final_path_uses_guest_volume_and_reports_utf16_capacity() {
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        std::fs::write(h.directory.0.join("file.bin"), b"test").unwrap();
+        let handle = h.open(r"C:\file.bin", 0x80000000, 1, 3, 0);
+        assert_ne!(handle, h.invalid());
+        let out = h.memory + 0x400;
+        let name = "GetFinalPathNameByHandleW";
+        for (flags, expected) in [
+            (0, r"\\?\C:\file.bin"),
+            (2, r"\Device\HarddiskVolume3\file.bin"),
+            (4 | 8, r"\file.bin"),
+        ] {
+            let expected: Vec<u16> = expected.encode_utf16().collect();
+            let len = expected.len() as u64;
+            let space = &h.process.state().space;
+            space.w16(out, 0xfeed).unwrap();
+            assert_eq!(h.value(name, &[handle, out, len, flags]), len + 1);
+            assert_eq!(h.process.state().space.u16(out).unwrap(), 0xfeed);
+            assert_eq!(h.value(name, &[handle, out, len + 1, flags]), len);
+            assert_eq!(h.process.state().space.wstr(out, 100).unwrap(), expected);
+        }
+        h.close(handle);
+        assert_eq!(h.value(name, &[handle, out, 100, 0]), 0);
+        assert_eq!(h.error(), ERROR_INVALID_HANDLE);
+    }
+}
+
 impl Harness {
     fn new(arch: WinArch) -> Self {
         let directory = Temp::new();
@@ -105,6 +134,7 @@ impl Harness {
         let api = EXPORTS
             .iter()
             .chain(ATTRIBUTES_EXPORTS)
+            .chain(FINAL_PATH_EXPORTS)
             .chain(super::super::threading::EXPORTS.iter())
             .chain(super::super::native::EXPORTS.iter())
             .chain(super::super::native::FILE_INFORMATION_EXPORTS.iter())

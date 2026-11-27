@@ -208,8 +208,21 @@ fn create(
     Flow::ret(u64::from(handle))
 }
 
-fn create_event(c: &mut Ctx, wide: bool) -> ApiResult {
-    let (attrs, manual, signaled, addr) = (c.ptr(0)?, c.bool(1)?, c.bool(2)?, c.ptr(3)?);
+fn create_event(c: &mut Ctx, wide: bool, extended: bool) -> ApiResult {
+    let attrs = c.ptr(0)?;
+    let (addr, manual, signaled, access) = if extended {
+        let flags = c.u32(2)?;
+        if flags & !3 != 0 {
+            return c.fail(ERROR_INVALID_PARAMETER, 0);
+        }
+        let access = match desired_access(Kind::Event, c.u32(3)?) {
+            Ok(access) => access,
+            Err(error) => return failure(c, error, 0),
+        };
+        (c.ptr(1)?, flags & 1 != 0, flags & 2 != 0, access)
+    } else {
+        (c.ptr(3)?, c.bool(1)?, c.bool(2)?, EVENT_ALL_ACCESS)
+    };
     let name = match name(c, addr, wide) {
         Ok(name) => name,
         Err(error) => return failure(c, error, 0),
@@ -219,7 +232,7 @@ fn create_event(c: &mut Ctx, wide: bool) -> ApiResult {
         attrs,
         name,
         Kind::Event,
-        EVENT_ALL_ACCESS,
+        access,
         Object::Event {
             manual,
             signaled: i32::from(signaled),
@@ -227,14 +240,23 @@ fn create_event(c: &mut Ctx, wide: bool) -> ApiResult {
     )
 }
 pub(super) fn create_event_w(c: &mut Ctx) -> ApiResult {
-    create_event(c, true)
+    create_event(c, true, false)
 }
 pub(super) fn create_event_a(c: &mut Ctx) -> ApiResult {
-    create_event(c, false)
+    create_event(c, false, false)
+}
+pub(super) fn create_event_ex_w(c: &mut Ctx) -> ApiResult {
+    create_event(c, true, true)
 }
 
-fn create_mutex(c: &mut Ctx, wide: bool) -> ApiResult {
-    let (attrs, owned, addr) = (c.ptr(0)?, c.bool(1)?, c.ptr(2)?);
+fn create_mutex(
+    c: &mut Ctx,
+    attrs: u64,
+    owned: bool,
+    addr: u64,
+    wide: bool,
+    access: u32,
+) -> ApiResult {
     let name = match name(c, addr, wide) {
         Ok(name) => name,
         Err(error) => return failure(c, error, 0),
@@ -245,7 +267,7 @@ fn create_mutex(c: &mut Ctx, wide: bool) -> ApiResult {
         attrs,
         name,
         Kind::Mutex,
-        MUTEX_ALL_ACCESS,
+        access,
         Object::Mutex {
             owner,
             count: u32::from(owned),
@@ -254,10 +276,22 @@ fn create_mutex(c: &mut Ctx, wide: bool) -> ApiResult {
     )
 }
 pub(super) fn create_mutex_w(c: &mut Ctx) -> ApiResult {
-    create_mutex(c, true)
+    create_mutex(c, c.ptr(0)?, c.bool(1)?, c.ptr(2)?, true, MUTEX_ALL_ACCESS)
 }
 pub(super) fn create_mutex_a(c: &mut Ctx) -> ApiResult {
-    create_mutex(c, false)
+    create_mutex(c, c.ptr(0)?, c.bool(1)?, c.ptr(2)?, false, MUTEX_ALL_ACCESS)
+}
+
+pub(super) fn create_mutex_ex_w(c: &mut Ctx) -> ApiResult {
+    let (attrs, addr, flags, mask) = (c.ptr(0)?, c.ptr(1)?, c.u32(2)?, c.u32(3)?);
+    if flags & !1 != 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    let access = match desired_access(Kind::Mutex, mask) {
+        Ok(access) => access,
+        Err(error) => return failure(c, error, 0),
+    };
+    create_mutex(c, attrs, flags != 0, addr, true, access)
 }
 
 fn create_semaphore(c: &mut Ctx, wide: bool, access: u32) -> ApiResult {

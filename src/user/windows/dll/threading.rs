@@ -26,6 +26,21 @@ pub(super) static SEMAPHORE_EX_EXPORTS: &[Export] = &[Export::func(
     objects::create_semaphore_ex_w,
 )];
 
+pub(super) static SYNC_EX_EXPORTS: &[Export] = &[
+    Export::func(
+        "CreateMutexExW",
+        Stdcall,
+        &[Ptr, Ptr, I32, I32],
+        objects::create_mutex_ex_w,
+    ),
+    Export::func(
+        "CreateEventExW",
+        Stdcall,
+        &[Ptr, Ptr, I32, I32],
+        objects::create_event_ex_w,
+    ),
+];
+
 pub(super) static PROCESS_PRIORITY_EXPORTS: &[Export] = &[
     Export::func(
         "SetProcessPriorityBoost",

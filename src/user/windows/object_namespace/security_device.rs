@@ -40,6 +40,13 @@ impl SecurityDevice {
         }
     }
 
+    pub(crate) fn gameos_cng(kernel: (u32, u32, u32)) -> Self {
+        Self {
+            device_type: CNG_DEVICE_TYPE,
+            ..Self::gameos_provider(kernel)
+        }
+    }
+
     pub(super) fn expected_revision(
         kernel: (u32, u32, u32),
         native_machine: Option<u16>,

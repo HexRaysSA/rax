@@ -14,8 +14,11 @@ in the frozen combined-run section below.
 | Requirement | Implementation | Direct evidence |
 |---|---|---|
 | Checked native LoadLibraryW/A | Dependency mapping, static TLS publication, TLS/PE-entry callbacks, checked BOOL, commit before handle return | Compiled dynamic PE on all three ABIs; infrastructure and continuation tests |
+| LoadLibraryExW/A normal image loads | Default search and application-directory and System32 masks; the selected directories also govern import and forwarder binding during mapping | Restricted dependency lookup and rollback tests on all three ABIs |
 | Attach once and balanced release | Explicit counted references, independent import/forwarder graph edges, pins, actual ready-completion ledger | Repeat loads, shared dependencies, synthetic cycle and nested ownership tests |
 | Native forwarded exports | Initialize freshly resolved targets before publishing function address; failed lookup rolls back its target/TLS/edge journal | Successful forwarding fixture; missing-export fixture and host ledger regression |
+| ResolveDelayLoadedAPI | Bind an RVA-based delay thunk on demand and publish its module handle and function pointer after initialization | Delayed native import and pointer publication tests on all three ABIs |
+| GameOS PEB loader lock | Publish a guest critical section and serialize it with the portable loader's entrypoint guards | Guest ownership, scheduler wait, and loader release on all three ABIs |
 | Failed attachment and retry | FALSE detaches failed entry; prior ready dependencies detach as required by the selected profile; physical mappings/LDR/TLS ownership cleaned before failure return | Two consecutive failures, held/fresh dependency cases, DLL file replacement then successful retry |
 | Unload | Reverse ready-native detach; unmap after callbacks; dead stable module indices excluded from lookup/unwind | FreeLibrary, final release, VirtualQuery MEM_FREE, cycle and tombstone units |
 | Unload-and-exit | FreeLibraryAndExitThread emits normal thread exit without returning through the removed image | Cross-ABI API unit; normal exit scheduler tests |
@@ -39,10 +42,11 @@ The executable and synthetic built-in DLLs are intrinsic ownership roots;
 native startup imports are retained by their executable dependency edges, not
 blanket permanent pins. Releasing a module with no explicit counted reference
 is rejected by this profile; its precise native misuse status is unknown.
-Counted/PIN GetModuleHandleEx upgrades for an unready native image reject with
-ERROR_NOT_SUPPORTED; UNCHANGED_REFCOUNT lookup remains available. This avoids
-promising permanent PIN retention for an image that a failed attach must remove.
-Exact native reentrant behavior is unknown, not inferred from the return code.
+`GetModuleHandleEx` accepts PIN during process attachment. A dynamic load
+records the request in its journal and publishes the permanent reference on
+commit. Failed attachment disposes of the request during rollback. Other
+counted upgrades of unready dynamic images return ERROR_NOT_SUPPORTED.
+UNCHANGED_REFCOUNT lookup remains available while the image is mapped.
 The internal Data kind for LoadLibrary(EXE) follows the documented
 DONT_RESOLVE_DLL_REFERENCES-style loading profile; it does not imply the
 LoadLibraryEx LOAD_LIBRARY_AS_DATAFILE flag or its tagged-handle semantics.
@@ -241,6 +245,8 @@ not run for this process-personality group.
 - Medium, profile limits: finite historical module ceiling; no complete SxS,
   packaged-app or LoadLibraryEx search/flag policy; exact Unicode/code-page
   matching and native forwarder/cyclic ordering remain unknown.
+- Medium, delay imports: bound tables are resolved afresh. Legacy VA-based
+  descriptors, explicit delay-unload tables and failure hooks are unsupported.
 - Medium, performance: completion-ledger bookkeeping is quadratic; retained TLS
   array capacity and tombstone metadata are bounded high-water storage.
 - Medium, preexisting build artifact ambiguity: root rax and rax-capi library

@@ -34,11 +34,13 @@
 pub mod apiset;
 pub(crate) mod apiset_schema;
 pub mod builtin;
+pub(crate) mod delay_import;
 mod dynamic;
 mod hybrid;
 mod image_copies;
 pub mod ldr;
 mod native_image;
+mod search;
 pub(crate) mod services;
 mod supplied;
 
@@ -46,11 +48,12 @@ mod supplied;
 mod cookie_tests;
 
 pub(crate) use dynamic::{
-    LoadPlan, LookupPlan, UnloadPlan, attach_started, attach_succeeded, begin_load, begin_lookup,
-    begin_rollback, begin_unload, commit_load, detach_completed, detach_started,
-    discard_transactions, finish_rollback, finish_unload, reference_module,
-    startup_attach_can_reference,
+    LoadPlan, LookupPlan, UnloadPlan, attach_started, attach_succeeded, begin_delay_lookup,
+    begin_load, begin_load_with_search, begin_lookup, begin_rollback, begin_unload, commit_load,
+    defer_attach_pin, detach_completed, detach_started, discard_transactions, finish_rollback,
+    finish_unload, reference_module, startup_attach_can_reference,
 };
+pub(crate) use search::DllSearch;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -168,6 +171,8 @@ pub struct Module {
     pub timestamp: u32,
     /// The export directory.
     pub exports: DataDirectory,
+    /// Delay-loaded imports retained from the mapped PE headers.
+    pub(crate) delay_imports: DataDirectory,
     /// The exception directory (`.pdata`).
     pub pdata: DataDirectory,
     /// Code ISA/ABI ranges from the same selected view as exports and bytes.
@@ -724,6 +729,7 @@ pub fn load_exe(
         kind: ModuleKind::Exe,
         timestamp: h.time_date_stamp,
         exports: h.directory(dir::EXPORT),
+        delay_imports: h.directory(dir::DELAY_IMPORT),
         pdata: h.directory(dir::EXCEPTION),
         hybrid,
         no_seh: h.dll_characteristics & crate::user::image::pe::IMAGE_DLLCHARACTERISTICS_NO_SEH
@@ -879,6 +885,7 @@ fn load_builtin(p: &mut Proc, dll: &'static BuiltinDll) -> Result<usize, LoadErr
             size: img.export_dir.1,
         },
         pdata: DataDirectory::default(),
+        delay_imports: DataDirectory::default(),
         hybrid: None,
         no_seh: false,
         safe_seh: None,
@@ -967,37 +974,6 @@ fn known_dll(name: &str) -> bool {
     KNOWN.contains(&name)
 }
 
-/// Finds a DLL file for `name` in the search path.
-fn search_native(p: &Proc, name: &str) -> Option<PathBuf> {
-    if !p.cfg.host_filesystem {
-        return None;
-    }
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    if let Some(parent) = p.cfg.exe_host_path.parent() {
-        dirs.push(parent.to_path_buf());
-    }
-    let app_only = dirs.len();
-    dirs.extend(p.cfg.dll_paths.iter().cloned());
-    if let Some(cwd) = p
-        .cfg
-        .drives
-        .to_host(&String::from_utf16_lossy(&p.cwd), &p.cwd)
-    {
-        dirs.push(cwd);
-    }
-    let lower = name.to_ascii_lowercase();
-    for (i, d) in dirs.iter().enumerate() {
-        if p.native.is_none() && i >= app_only && dll::find(&lower).is_some() {
-            // The system directory (built-in DLLs) precedes these.
-            return None;
-        }
-        if let Some(found) = super::fs::find_case_insensitive(d, name) {
-            return Some(found);
-        }
-    }
-    None
-}
-
 fn loaded_path(p: &Proc, path: &Path) -> Option<usize> {
     loaded_guest_path(p, &p.cfg.drives.to_windows(path))
 }
@@ -1025,6 +1001,11 @@ fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize
         } else {
             format!("{prefix}{norm}")
         };
+        let absolute =
+            requested.starts_with(['\\', '/']) || requested.as_bytes().get(1) == Some(&b':');
+        if !absolute && p.modules.dynamic.search != DllSearch::Default {
+            return search::restricted(p, &requested, None, false);
+        }
         if let Some(result) = supplied::load(p, &requested, true) {
             return result;
         }
@@ -1034,8 +1015,6 @@ fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize
                 format!("{name}: DLL not supplied; host filesystem disabled"),
             ));
         }
-        let absolute =
-            requested.starts_with(['\\', '/']) || requested.as_bytes().get(1) == Some(&b':');
         let file = if absolute {
             p.cfg
                 .drives
@@ -1090,6 +1069,12 @@ fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize
         }
     }
     let lower = norm.to_ascii_lowercase();
+    if p.modules.dynamic.search != DllSearch::Default {
+        if let Some(i) = p.modules.by_name(&norm) {
+            return Ok(i);
+        }
+        return search::restricted(p, &norm, dll::find(&lower), known_dll(&lower));
+    }
     if let Some(error) = p.modules.failures.get(&lower) {
         return Err(error.clone());
     }
@@ -1117,7 +1102,7 @@ fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize
         let file = file
             .or_else(|| {
                 (!known_dll(&lower))
-                    .then(|| search_native(p, &norm))
+                    .then(|| search::native(p, &norm))
                     .flatten()
             })
             .ok_or_else(|| {
@@ -1137,7 +1122,7 @@ fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize
     if let Some(result) = supplied::load(p, &norm, false) {
         return result;
     }
-    let file = search_native(p, &norm);
+    let file = search::native(p, &norm);
     match (file, builtin) {
         (Some(path), _) => load_native(p, &path, &norm),
         (None, Some(b)) => load_builtin(p, b),
@@ -1280,6 +1265,7 @@ fn load_image(
         },
         timestamp: h.time_date_stamp,
         exports: h.directory(dir::EXPORT),
+        delay_imports: h.directory(dir::DELAY_IMPORT),
         pdata: h.directory(dir::EXCEPTION),
         hybrid,
         no_seh: h.dll_characteristics & crate::user::image::pe::IMAGE_DLLCHARACTERISTICS_NO_SEH

@@ -26,7 +26,7 @@ pub(crate) use native::power::information_with as processor_power_information_wi
 mod slist;
 mod sysinfo;
 mod threading;
-mod threadpool;
+pub(crate) mod threadpool;
 
 use super::hle::Export;
 
@@ -201,6 +201,14 @@ static NTDLL: BuiltinDll = BuiltinDll {
         locks::NTDLL_ONCE_EXPORTS,
         native::EXTENDED_SECTION_CREATE_EXPORTS,
         kernel::NTDLL_LAST_ERROR_EXPORTS,
+        sysinfo::NTDLL_GLOBAL_DATA_EXPORTS,
+        sysinfo::NTDLL_CPU_NUMBER_EXPORTS,
+        sysinfo::NTDLL_DEVICE_FAMILY_EXPORTS,
+        libraries::API_SET_QUERY_EXPORTS,
+        native::TOKEN_PACKAGE_EXPORTS,
+        libraries::DLL_SHUTDOWN_EXPORTS,
+        locks::NTDLL_CRITICAL_QUERY_EXPORTS,
+        sysinfo::STATE_SEPARATION_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
@@ -238,6 +246,14 @@ static KERNEL32: BuiltinDll = BuiltinDll {
         sysinfo::TOPOLOGY_EXPORTS,
         threading::PROCESS_PRIORITY_EXPORTS,
         kernel::STARTUP_INFO_EXPORTS,
+        libraries::LOAD_EX_EXPORTS,
+        sysinfo::XSTATE_FORWARDS,
+        native::WIN32_DEVICE_CONTROL_EXPORTS,
+        sysinfo::CPU_NUMBER_FORWARDS,
+        threading::SYNC_EX_EXPORTS,
+        sysinfo::WINDOWS_DIRECTORY_EXPORTS,
+        files::FINAL_PATH_EXPORTS,
+        threadpool::KERNEL32_WORK_FORWARDS,
     ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
@@ -279,6 +295,20 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         sysinfo::TOPOLOGY_EXPORTS,
         threading::PROCESS_PRIORITY_EXPORTS,
         kernel::STARTUP_INFO_EXPORTS,
+        libraries::LOAD_EX_EXPORTS,
+        crt::KERNELBASE_TIME_FORWARDS,
+        libraries::DELAY_EXPORTS,
+        sysinfo::XSTATE_EXPORTS,
+        native::WIN32_DEVICE_CONTROL_EXPORTS,
+        sysinfo::CPU_NUMBER_FORWARDS,
+        threading::SYNC_EX_EXPORTS,
+        sysinfo::WINDOWS_DIRECTORY_EXPORTS,
+        files::FINAL_PATH_EXPORTS,
+        libraries::API_SET_QUERY_FORWARDS,
+        threadpool::WORK_EXPORTS,
+        native::WIN32_REGISTRY_ENUM_EXPORTS,
+        native::WIN32_PROCESS_TOKEN_EXPORTS,
+        native::USER_CLASSES_EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {
@@ -333,6 +363,9 @@ static UCRTBASE: BuiltinDll = BuiltinDll {
         crt::UCRT_BUFFER_FORMAT_EXPORTS,
         crt::UCRT_TIME_EXPORTS,
         crt::UCRT_RANDOM_EXPORTS,
+        crt::UCRT_RTTI_CLEANUP_EXPORTS,
+        crt::UCRT_WIDE_BUFFER_FORMAT_EXPORTS,
+        crt::UCRT_BASE_ALLOCATION_FORWARDS,
     ],
 };
 static VCRUNTIME140: BuiltinDll = BuiltinDll {

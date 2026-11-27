@@ -23,6 +23,16 @@ pub(in crate::user::windows::dll) static WIN32_TOKEN_EXPORTS: &[Export] = &[
     ),
 ];
 
+pub(in crate::user::windows::dll) static WIN32_PROCESS_TOKEN_EXPORTS: &[Export] = &[Export::func(
+    "OpenProcessToken",
+    Stdcall,
+    &[Ptr, I32, Ptr],
+    |c| {
+        let result = super::process_token::open(c);
+        win32_result(c, result)
+    },
+)];
+
 fn win32_information(c: &mut Ctx) -> ApiResult {
     let result = super::token_query::information(c);
     win32_result(c, result)

@@ -11,15 +11,63 @@ use std::cell::RefCell;
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 
+use crate::error::MemoryAccessKind;
 use crate::user::windows::hle::{ApiErr, ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
-use crate::user::windows::loader::{self, LoadError, SymRef};
-use crate::user::windows::memory::Mem;
+use crate::user::windows::loader::delay_import::{self, DelaySlots};
+use crate::user::windows::loader::{self, DllSearch, LoadError, SymRef};
+use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::{error::*, status::*, status_to_error};
 use crate::user::windows::process::{Proc, Thread};
-use crate::user::windows::sync::Wait;
+use crate::user::windows::sync::{self, Wait};
 
 /// Disjoint from every guest u64 address and the condition-variable namespace.
 const LOADER_WAIT_KEY: u128 = 1 << 65;
+
+pub(super) static API_SET_QUERY_EXPORTS: &[Export] = &[Export::func(
+    "ApiSetQueryApiSetPresence",
+    Stdcall,
+    &[Ptr, Ptr],
+    api_set_query_presence,
+)];
+
+pub(super) static API_SET_QUERY_FORWARDS: &[Export] = &[Export::forward(
+    "ApiSetQueryApiSetPresence",
+    "NTDLL.ApiSetQueryApiSetPresence",
+)];
+
+pub(super) static DLL_SHUTDOWN_EXPORTS: &[Export] = &[Export::func(
+    "RtlDllShutdownInProgress",
+    Stdcall,
+    &[],
+    |c| Flow::bool(c.p.loader.exiting_process),
+)];
+
+fn api_set_query_presence(c: &mut Ctx) -> ApiResult {
+    let (descriptor, out) = (c.ptr(0)?, c.ptr(1)?);
+    if descriptor == 0 || out == 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    let len = c.mem().u16(descriptor)?;
+    let max = c.mem().u16(descriptor + 2)?;
+    if len > max || len % 2 != 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    let buffer = c.read_ptr(descriptor + c.psize())?;
+    let units = c.mem().wunits(buffer, usize::from(len / 2))?;
+    let present = String::from_utf16(&units).is_ok_and(|name| {
+        if name.is_empty() || name.contains(['\\', '/', ':', '\0']) {
+            return false;
+        }
+        let name = loader::normalize_name(&name).to_ascii_lowercase();
+        if let Some(runtime) = &c.p.native {
+            runtime.apisets.host(&name, None).is_some()
+        } else {
+            loader::apiset::present(&name)
+        }
+    });
+    c.mem().w8(out, u8::from(present))?;
+    Flow::ret(STATUS_SUCCESS.into())
+}
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("GetModuleHandleW", Stdcall, &[Ptr], module_handle_w),
@@ -69,11 +117,33 @@ pub(super) static FILE_NAME_EXPORTS: &[Export] = &[
     ),
 ];
 
+pub(super) static LOAD_EX_EXPORTS: &[Export] = &[
+    Export::func(
+        "LoadLibraryExW",
+        Stdcall,
+        &[Ptr, Ptr, I32],
+        load_library_ex_w,
+    ),
+    Export::func(
+        "LoadLibraryExA",
+        Stdcall,
+        &[Ptr, Ptr, I32],
+        load_library_ex_a,
+    ),
+];
+
 pub(super) static NTDLL_EXPORTS: &[Export] = &[Export::func(
     "LdrDisableThreadCalloutsForDll",
     Stdcall,
     &[Ptr],
     ldr_disable_thread_calls,
+)];
+
+pub(super) static DELAY_EXPORTS: &[Export] = &[Export::func(
+    "ResolveDelayLoadedAPI",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, Ptr, I32],
+    resolve_delay_loaded_api,
 )];
 
 #[derive(Clone, Copy, Debug)]
@@ -92,6 +162,8 @@ struct Abandoned {
 #[derive(Debug, Default)]
 pub struct LoaderState {
     owner: Option<(u32, u32)>,
+    /// The process-owned critical section published through the portable PEB.
+    pub(crate) guest_lock: Option<u64>,
     abandoned: Rc<RefCell<Vec<Abandoned>>>,
     /// Threads already running their normal DLL_THREAD_DETACH continuations.
     pub(crate) exiting_threads: HashSet<u32>,
@@ -142,6 +214,16 @@ impl LoaderGuard {
 }
 
 fn release(p: &mut Proc, tid: u32) -> Result<(), ApiErr> {
+    if !p.loader.held_by(tid) {
+        return Err(ApiErr::Internal("loader-lock ownership mismatch".into()));
+    }
+    if let Some(addr) = p.loader.guest_lock
+        && !sync::cs_leave(p, addr, tid)?
+    {
+        return Err(ApiErr::Internal(
+            "guest loader-lock ownership mismatch".into(),
+        ));
+    }
     match p.loader.owner {
         Some((owner, depth)) if owner == tid && depth > 1 => {
             p.loader.owner = Some((owner, depth - 1));
@@ -160,6 +242,27 @@ type Locked = Box<dyn FnOnce(&mut Ctx, LoaderGuard) -> ApiResult>;
 /// Serializes entrypoints, not ordinary execution of already attached threads.
 pub(crate) fn with_lock(c: &mut Ctx, then: Locked) -> ApiResult {
     let tid = c.t.tid;
+    if let Some(addr) = c.p.loader.guest_lock {
+        if !sync::cs_try_enter(c.p, addr, tid)? {
+            // The scheduler grants the critical section before resuming.
+            return Flow::block(Wait::CritSec { addr }, move |c, _| in_lock(c, then));
+        }
+        return in_lock(c, then);
+    }
+    if c.p.loader.owner.is_some_and(|(owner, _)| owner != tid) {
+        return Flow::block(
+            Wait::Address {
+                key: LOADER_WAIT_KEY,
+                deadline: None,
+            },
+            move |c, _| with_lock(c, then),
+        );
+    }
+    in_lock(c, then)
+}
+
+fn in_lock(c: &mut Ctx, then: Locked) -> ApiResult {
+    let tid = c.t.tid;
     match c.p.loader.owner {
         None => c.p.loader.owner = Some((tid, 1)),
         Some((owner, depth)) if owner == tid => {
@@ -169,13 +272,10 @@ pub(crate) fn with_lock(c: &mut Ctx, then: Locked) -> ApiResult {
             c.p.loader.owner = Some((tid, depth));
         }
         Some(_) => {
-            return Flow::block(
-                Wait::Address {
-                    key: LOADER_WAIT_KEY,
-                    deadline: None,
-                },
-                move |c, _| with_lock(c, then),
-            );
+            if let Some(addr) = c.p.loader.guest_lock {
+                sync::cs_leave(c.p, addr, tid)?;
+            }
+            return Err(ApiErr::Internal("loader-lock ownership mismatch".into()));
         }
     }
     let guard = LoaderGuard {
@@ -305,16 +405,7 @@ fn module_handle_ex(c: &mut Ctx, wide: bool) -> ApiResult {
                 return c.fail(ERROR_MOD_NOT_FOUND, 0);
             };
             if flags & 2 == 0 {
-                // Startup attach may pin a module in the process image graph.
-                // A dynamic transaction may still roll back an unready image.
-                if matches!(c.p.modules.list[index].kind, loader::ModuleKind::Native)
-                    && !c.p.modules.list[index].initialized
-                    && !loader::startup_attach_can_reference(c.p, index)
-                {
-                    guard.finish(c)?;
-                    return c.fail(ERROR_NOT_SUPPORTED, 0);
-                }
-                if let Err(error) = loader::reference_module(c.p, index, flags & 1 != 0) {
+                if let Err(error) = acquire_module_handle(c.p, index, flags & 1 != 0) {
                     guard.finish(c)?;
                     return c.fail(status_to_error(error.status), 0);
                 }
@@ -325,6 +416,22 @@ fn module_handle_ex(c: &mut Ctx, wide: bool) -> ApiResult {
         }),
     )
 }
+
+fn acquire_module_handle(p: &mut Proc, index: usize, pin: bool) -> Result<(), LoadError> {
+    if matches!(p.modules.list[index].kind, loader::ModuleKind::Native)
+        && !p.modules.list[index].initialized
+        && !loader::startup_attach_can_reference(p, index)
+    {
+        if pin && loader::defer_attach_pin(p, index)? {
+            return Ok(());
+        }
+        return Err(LoadError {
+            status: STATUS_NOT_SUPPORTED,
+            message: "module is not initialized".into(),
+        });
+    }
+    loader::reference_module(p, index, pin)
+}
 fn module_handle_ex_w(c: &mut Ctx) -> ApiResult {
     module_handle_ex(c, true)
 }
@@ -332,15 +439,18 @@ fn module_handle_ex_a(c: &mut Ctx) -> ApiResult {
     module_handle_ex(c, false)
 }
 
-fn load_library(c: &mut Ctx, wide: bool) -> ApiResult {
+fn load_library(c: &mut Ctx, wide: bool, search: DllSearch) -> ApiResult {
     let requested = name(c, c.ptr(0)?, wide)?;
     error_output(c)?;
     with_lock(
         c,
         Box::new(move |c, mut guard| {
-            let plan = match loader::begin_load(c.p, c.t, &requested) {
+            let plan = match loader::begin_load_with_search(c.p, c.t, &requested, search) {
                 Ok(plan) => plan,
                 Err(error) => {
+                    if c.p.cfg.trace {
+                        eprintln!("[{:04x}] DLL load {}: {error}", c.t.tid, requested);
+                    }
                     guard.finish(c)?;
                     return c.fail(status_to_error(error.status), 0);
                 }
@@ -352,10 +462,36 @@ fn load_library(c: &mut Ctx, wide: bool) -> ApiResult {
     )
 }
 fn load_library_w(c: &mut Ctx) -> ApiResult {
-    load_library(c, true)
+    load_library(c, true, DllSearch::Default)
 }
 fn load_library_a(c: &mut Ctx) -> ApiResult {
-    load_library(c, false)
+    load_library(c, false, DllSearch::Default)
+}
+
+fn load_library_ex(c: &mut Ctx, wide: bool) -> ApiResult {
+    const APPLICATION_DIR: u32 = 0x200;
+    const SYSTEM32: u32 = 0x800;
+    const APPLICATION_AND_SYSTEM: u32 = APPLICATION_DIR | SYSTEM32;
+
+    if c.ptr(1)? != 0 || c.ptr(0)? == 0 {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    let search = match c.u32(2)? {
+        0 => DllSearch::Default,
+        APPLICATION_DIR => DllSearch::Application,
+        SYSTEM32 => DllSearch::System,
+        APPLICATION_AND_SYSTEM => DllSearch::ApplicationAndSystem,
+        _ => return c.fail(ERROR_NOT_SUPPORTED, 0),
+    };
+    load_library(c, wide, search)
+}
+
+fn load_library_ex_w(c: &mut Ctx) -> ApiResult {
+    load_library_ex(c, true)
+}
+
+fn load_library_ex_a(c: &mut Ctx) -> ApiResult {
+    load_library_ex(c, false)
 }
 
 fn get_proc_address(c: &mut Ctx) -> ApiResult {
@@ -401,10 +537,63 @@ fn get_proc_address(c: &mut Ctx) -> ApiResult {
     )
 }
 
+fn resolve_delay_loaded_api(c: &mut Ctx) -> ApiResult {
+    let (base, descriptor, thunk) = (c.ptr(0)?, c.ptr(1)?, c.ptr(4)?);
+    if c.u32(5)? != 0 {
+        return Flow::ret(0);
+    }
+    with_lock(
+        c,
+        Box::new(move |c, mut guard| {
+            let import = match delay_import::read(c.p, base, descriptor, thunk) {
+                Ok(import) => import,
+                Err(error) => {
+                    if c.p.cfg.trace {
+                        eprintln!("[{:04x}] delay import 0x{descriptor:x}: {error}", c.t.tid);
+                    }
+                    guard.finish(c)?;
+                    return Flow::ret(0);
+                }
+            };
+            probe_delay_slots(c, import.slots)?;
+            let plan = match loader::begin_delay_lookup(c.p, c.t, &import) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    if c.p.cfg.trace {
+                        eprintln!(
+                            "[{:04x}] delay import {}!{}: {error}",
+                            c.t.tid, import.library, import.symbol
+                        );
+                    }
+                    guard.finish(c)?;
+                    return Flow::ret(0);
+                }
+            };
+            guard.journal = Some(Journal::Load(plan.id));
+            let mut init = Init::new(plan.initialize);
+            init.delay = Some((import.slots, plan.base));
+            initialize(c, guard, init, plan.address)
+        }),
+    )
+}
+
+fn probe_delay_slots(c: &Ctx, slots: DelaySlots) -> Result<(), MemFault> {
+    for address in [slots.module, slots.thunk] {
+        c.mem()
+            .probe(address, c.psize() as usize, MemoryAccessKind::Write)
+            .map_err(|fault| MemFault {
+                addr: fault.address,
+                write: true,
+            })?;
+    }
+    Ok(())
+}
+
 struct Init {
     modules: std::vec::IntoIter<usize>,
     current: Option<usize>,
     callbacks: VecDeque<(u64, bool)>,
+    delay: Option<(DelaySlots, u64)>,
 }
 
 impl Init {
@@ -413,6 +602,7 @@ impl Init {
             modules: modules.into_iter(),
             current: None,
             callbacks: VecDeque::new(),
+            delay: None,
         }
     }
 }
@@ -454,7 +644,10 @@ fn initialize(c: &mut Ctx, guard: LoaderGuard, mut init: Init, value: u64) -> Ap
                         guard,
                         LoadError {
                             status: STATUS_DLL_INIT_FAILED,
-                            message: "DllMain rejected DLL_PROCESS_ATTACH".into(),
+                            message: format!(
+                                "{} rejected DLL_PROCESS_ATTACH",
+                                c.p.modules.list[index].name
+                            ),
                         },
                         Some(index),
                     );
@@ -469,7 +662,14 @@ fn initialize(c: &mut Ctx, guard: LoaderGuard, mut init: Init, value: u64) -> Ap
             let Some(Journal::Load(id)) = guard.journal else {
                 return Err(ApiErr::Internal("missing load journal".into()));
             };
+            if let Some((slots, _)) = init.delay {
+                probe_delay_slots(c, slots)?;
+            }
             loader::commit_load(c.p, id).map_err(internal)?;
+            if let Some((slots, base)) = init.delay {
+                c.write_ptr(slots.module, base)?;
+                c.write_ptr(slots.thunk, value)?;
+            }
             let mut guard = guard;
             guard.finish(c)?;
             return Flow::ret(value);
@@ -505,6 +705,9 @@ fn rollback(
     let Some(Journal::Load(id)) = guard.journal else {
         return Err(ApiErr::Internal("missing rollback journal".into()));
     };
+    if c.p.cfg.trace {
+        eprintln!("[{:04x}] DLL load rollback: {error}", c.t.tid);
+    }
     let modules =
         loader::begin_rollback(c.p, id, error.clone(), failing_entry).map_err(internal)?;
     detach(

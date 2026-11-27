@@ -181,6 +181,15 @@ pub enum Object {
         /// Pending expiration, with relative and absolute clock semantics.
         schedule: Option<Timer2Schedule>,
     },
+    /// A user-mode thread-pool work registration.
+    ThreadpoolWork {
+        /// Guest callback address.
+        callback: u64,
+        /// Guest-supplied callback context.
+        context: u64,
+        /// Submitted callbacks that have yet to return or be canceled.
+        pending: u32,
+    },
     /// A file mapping (section).
     Mapping {
         /// Backing file, if any.
@@ -341,6 +350,7 @@ impl Object {
             Object::MemoryPartition { .. } => "Partition",
             Object::GameOsLockMemoryScope => "GameOsLockMemoryScope",
             Object::ThreadpoolTimer { .. } => "ThreadpoolTimer",
+            Object::ThreadpoolWork { .. } => "ThreadpoolWork",
             Object::Opaque(t) => t,
         }
     }

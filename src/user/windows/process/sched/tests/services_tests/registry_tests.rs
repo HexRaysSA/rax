@@ -10,6 +10,31 @@ mod denials;
 mod command_processor;
 
 #[test]
+fn portable_gameos_reports_absent_fips_policy_to_native_consumers() {
+    for arch in WinArch::ALL {
+        let (mut process, mut t, base) = setup(arch);
+        let p = process.state_mut();
+        std::sync::Arc::make_mut(&mut p.cfg).gameos = true;
+        let attrs = base + PAGE_SIZE * 2;
+        let width = arch.ptr_size();
+        for path in [
+            r"\REGISTRY\MACHINE\SYSTEM\CURRENTCONTROLSET\CONTROL\LSA",
+            r"\Registry\Machine\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy",
+            r"\Registry\Machine\System\CurrentControlSet\Policies\Microsoft\Cryptography\Configuration",
+        ] {
+            unicode(p, attrs + 64, attrs + 128, path);
+            attributes(p, attrs, attrs + 64, 0, 0x240);
+            p.space.wptr(base, width, 0x1234).unwrap();
+            assert_eq!(
+                call(p, &mut t, "NtOpenKey", &[base, 1, attrs]),
+                STATUS_OBJECT_NAME_NOT_FOUND
+            );
+            assert_eq!(p.space.ptr(base, width).unwrap(), 0);
+        }
+    }
+}
+
+#[test]
 fn native_registry_selected_namespace_query_and_handle_lifetime_all_abis() {
     use crate::user::windows::registry::{SESSION_MANAGER_KEY, SelectedKey};
     for arch in WinArch::ALL {

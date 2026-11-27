@@ -21,6 +21,8 @@ const MAX_TOTAL_BYTES: usize = 16 << 20;
 mod budget;
 use budget::ValueBudget;
 
+#[path = "registry/game_config.rs"]
+mod game_config;
 #[path = "registry/tree.rs"]
 mod tree;
 #[cfg(test)]
@@ -203,9 +205,25 @@ pub(crate) struct Registry {
     user_policies: BTreeMap<UserPolicyRoot, Arc<[u16]>>,
     primary_hive: Option<PrimaryHive>,
     machine_hive: Option<Arc<Key>>,
+    game_config: Option<Arc<Key>>,
     pub(crate) views: Arc<RegistryViews>,
 }
 impl Registry {
+    /// Machine paths probed for the optional policy in the portable profile.
+    pub(crate) fn gameos_missing_key(name: &[u16]) -> bool {
+        const POLICY_PATHS: [&[u8]; 3] = [
+            br"\Registry\Machine\System\CurrentControlSet\Control\Lsa",
+            br"\Registry\Machine\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy",
+            br"\Registry\Machine\System\CurrentControlSet\Policies\Microsoft\Cryptography\Configuration",
+        ];
+        POLICY_PATHS.iter().any(|path| {
+            name.len() == path.len()
+                && name.iter().zip(*path).all(|(&unit, &byte)| {
+                    u8::try_from(unit).is_ok_and(|character| character.eq_ignore_ascii_case(&byte))
+                })
+        })
+    }
+
     #[cfg(test)]
     pub(crate) fn nls(upcase: Vec<u16>, values: Vec<Value>, children: u32) -> io::Result<Self> {
         Self::selected(
@@ -228,6 +246,7 @@ impl Registry {
             user_policies: BTreeMap::new(),
             primary_hive: None,
             machine_hive: None,
+            game_config: None,
             views: Arc::default(),
         };
         let mut budget = ValueBudget::default();
@@ -301,6 +320,12 @@ impl Registry {
         self.lookup_view(name, RegistryView::Native64)
     }
     pub(crate) fn lookup_view(&self, name: &[u16], view: RegistryView) -> Lookup {
+        if self.game_config.is_some() {
+            match self.game_config_lookup(name) {
+                Lookup::Unselected => {}
+                selected => return selected,
+            }
+        }
         match self.views.lookup(name, view) {
             Lookup::Unselected => {}
             selected => return selected,

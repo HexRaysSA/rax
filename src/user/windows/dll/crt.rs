@@ -26,7 +26,14 @@ use std::collections::HashMap;
 use super::super::hle::{ApiErr, Ctx, Export};
 use super::super::loader::ModuleKind;
 
-pub(crate) use allocation::ALLOCATION_EXPORTS;
+pub(crate) use allocation::{ALLOCATION_EXPORTS, UCRT_RTTI_CLEANUP_EXPORTS};
+
+pub(super) static UCRT_BASE_ALLOCATION_FORWARDS: &[Export] = &[
+    Export::forward("_calloc_base", "ucrtbase.calloc"),
+    Export::forward("_free_base", "ucrtbase.free"),
+    Export::forward("_malloc_base", "ucrtbase.malloc"),
+    Export::forward("_realloc_base", "ucrtbase.realloc"),
+];
 pub(crate) use bootstrap::{UCRT_BOOTSTRAP_EXPORTS, UCRT_LOCALE_EXPORTS};
 pub(crate) use handlers::{NEW_HANDLER_EXPORTS, UCRT_EXCEPTION_FILTER_EXPORTS};
 pub(crate) use initialize::{INIT_EXPORTS, MSVCRT_INIT_EXPORTS, UCRT_INIT_EXPORTS};
@@ -39,7 +46,7 @@ pub(crate) use startup::{MSVCRT_STARTUP_EXPORTS, UCRT_STARTUP_EXPORTS};
 pub(crate) use state::{STATE_EXPORTS, UCRT_STATE_EXPORTS, release_thread};
 pub(crate) use stdio::{
     MSVCRT_STDIO_EXPORTS, STDIO_EXPORTS, UCRT_BUFFER_FORMAT_EXPORTS, UCRT_STDIO_EXPORTS,
-    UCRT_STREAM_BUFFER_EXPORTS,
+    UCRT_STREAM_BUFFER_EXPORTS, UCRT_WIDE_BUFFER_FORMAT_EXPORTS,
 };
 pub(crate) use strings::{
     NTDLL_STRING_EXPORTS, STRING_EXPORTS, UCRT_CASE_STRING_EXPORTS, UCRT_SECURE_STRING_EXPORTS,
@@ -48,7 +55,7 @@ pub(crate) use strings::{
 pub(crate) use termination::{
     UCRT_EXIT_EXPORTS, UCRT_FATAL_EXPORTS, UCRT_REGISTRATION_EXPORTS, UCRT_SIGNAL_EXPORTS,
 };
-pub(crate) use time::UCRT_TIME_EXPORTS;
+pub(crate) use time::{KERNELBASE_TIME_FORWARDS, UCRT_TIME_EXPORTS};
 
 // The portable UCRT has one guest-owned runtime state. Its private system
 // entry points reach the same state as the corresponding public entries.

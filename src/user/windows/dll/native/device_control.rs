@@ -4,8 +4,11 @@
 use super::named_object::{Checked, finish_with, status};
 use super::query::probe_write;
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::hle::{ApiResult, Ctx};
-use crate::user::windows::memory::Mem;
+use crate::user::windows::hle::{ApiResult, Arg::*, Conv::Stdcall, Ctx, Export, Flow};
+use crate::user::windows::memory::{Mem, MemFault};
+use crate::user::windows::nt::error::{
+    ERROR_GEN_FAILURE, ERROR_INVALID_HANDLE, ERROR_INVALID_PARAMETER,
+};
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_INSUFFICIENT_RESOURCES, STATUS_INVALID_HANDLE,
     STATUS_OBJECT_TYPE_MISMATCH, STATUS_SUCCESS, STATUS_UNSUCCESSFUL,
@@ -22,6 +25,13 @@ const WATCH_BYTES: usize = 104;
 const LOOKUP_BYTES: usize = 64;
 const REPLY_BYTES: usize = 224;
 const ABSENT: u64 = u64::MAX;
+
+pub(in crate::user::windows::dll) static WIN32_EXPORTS: &[Export] = &[Export::func(
+    "DeviceIoControl",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32, Ptr, I32, Ptr, Ptr],
+    win32_control,
+)];
 
 const WATCH_HEADER: [u64; 12] = [
     0x0001_0500_1a2b_3c4d,
@@ -139,8 +149,7 @@ fn provider(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Chec
 }
 
 fn entropy(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Checked<u32> {
-    if c.arch() != WinArch::Arm64
-        || !device.cng_profile()
+    if !(c.arch() == WinArch::Arm64 && device.cng_profile() || super::super::gameos::enabled(c))
         || code != ENTROPY_CONTROL
         || c.p.objects.file_mode(handle) != Some(0x20)
         || (c.ptr(1)?, c.ptr(2)?, c.ptr(3)?) != (0, 0, 0)
@@ -154,16 +163,52 @@ fn entropy(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Check
     probe_write(c, io, 16)?;
     probe_write(c, output, ENTROPY_BYTES)?;
 
-    // The process seed governs repeatable startup state. This request supplies
-    // fresh entropy to the installed library independently of that seed.
-    let mut bytes = [0u8; ENTROPY_BYTES];
-    if crate::user::entropy::fill(&mut bytes).is_err() {
+    if !write_entropy(c, output)? {
         return status(STATUS_UNSUCCESSFUL);
     }
-    c.mem().wr(output, &bytes)?;
     c.mem().w64(io, 0)?;
     c.mem().w64(io + 8, ENTROPY_BYTES as u64)?;
     Ok(STATUS_SUCCESS)
+}
+
+fn win32_control(c: &mut Ctx) -> ApiResult {
+    let handle = c.ptr(0)?;
+    let code = c.u32(1)?;
+    let gameos_cng = matches!(
+        c.p.objects.get(handle),
+        Some(Object::SecurityFile(device)) if device.device_type == CNG_DEVICE_TYPE
+    ) && super::super::gameos::enabled(c)
+        && c.p.objects.file_mode(handle) == Some(0x20);
+    if !gameos_cng || code != ENTROPY_CONTROL {
+        if c.p.objects.get(handle).is_none() {
+            return c.fail(ERROR_INVALID_HANDLE, 0);
+        }
+        return Err(c.unsupported(format!("DeviceIoControl request {code:#x} is not selected")));
+    }
+    let (out, written) = (c.ptr(4)?, c.ptr(6)?);
+    let len = c.u32(5)?;
+    if (c.ptr(2)?, c.u32(3)?, c.ptr(7)?) != (0, 0, 0) || len != ENTROPY_BYTES as u32 || written == 0
+    {
+        return c.fail(ERROR_INVALID_PARAMETER, 0);
+    }
+    probe_write(c, written, 4)?;
+    probe_write(c, out, ENTROPY_BYTES)?;
+    if !write_entropy(c, out)? {
+        c.mem().w32(written, 0)?;
+        return c.fail(ERROR_GEN_FAILURE, 0);
+    }
+    c.mem().w32(written, len)?;
+    Flow::bool(true)
+}
+
+fn write_entropy(c: &Ctx, output: u64) -> Result<bool, MemFault> {
+    // Kernel entropy is independent of the process's repeatable startup seed.
+    let mut bytes = [0u8; ENTROPY_BYTES];
+    if crate::user::entropy::fill(&mut bytes).is_err() {
+        return Ok(false);
+    }
+    c.mem().wr(output, &bytes)?;
+    Ok(true)
 }
 
 fn register_event(c: &mut Ctx, file: u64, event: u64) -> Checked<()> {

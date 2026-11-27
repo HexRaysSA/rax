@@ -196,16 +196,7 @@ pub fn delay_descriptors(
     }
     for i in 0..=MAX_IMPORT_ENTRIES {
         let at = range.extent_at(i as u64 * DELAY_DESCRIPTOR_SIZE, DELAY_DESCRIPTOR_SIZE)?;
-        let d = DelayDescriptor {
-            attributes: src.u32_at(at)?,
-            name_rva: src.u32_at(at + 4)?,
-            module_handle_rva: src.u32_at(at + 8)?,
-            iat_rva: src.u32_at(at + 12)?,
-            name_table_rva: src.u32_at(at + 16)?,
-            bound_iat_rva: src.u32_at(at + 20)?,
-            unload_iat_rva: src.u32_at(at + 24)?,
-            time_date_stamp: src.u32_at(at + 28)?,
-        };
+        let d = DelayDescriptor::read_at(src, at)?;
         if d.name_rva == 0 {
             return Ok(out);
         }
@@ -220,6 +211,20 @@ pub fn delay_descriptors(
 }
 
 impl DelayDescriptor {
+    /// Reads a descriptor at a directory-validated RVA.
+    pub(crate) fn read_at(src: &(impl RvaSource + ?Sized), at: u64) -> Result<Self, RvaFault> {
+        Ok(Self {
+            attributes: src.u32_at(at)?,
+            name_rva: src.u32_at(at + 4)?,
+            module_handle_rva: src.u32_at(at + 8)?,
+            iat_rva: src.u32_at(at + 12)?,
+            name_table_rva: src.u32_at(at + 16)?,
+            bound_iat_rva: src.u32_at(at + 20)?,
+            unload_iat_rva: src.u32_at(at + 24)?,
+            time_date_stamp: src.u32_at(at + 28)?,
+        })
+    }
+
     /// The delay-loaded imports of an RVA-based descriptor.
     ///
     /// A legacy VA-based descriptor cannot be decoded without the image's

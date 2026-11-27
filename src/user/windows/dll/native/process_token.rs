@@ -73,15 +73,18 @@ fn checked(c: &mut Ctx, process: u64, desired: u32, attributes: u32, output: u64
     if attributes & INVALID_ATTRIBUTES != 0 {
         return failure(c, output, STATUS_INVALID_PARAMETER);
     }
-    let Some(profile) = c.p.objects.primary_token_access() else {
-        return Err(c.unsupported("primary-token opening rights are not captured"));
-    };
-    if c.p.objects.primary_token_app_container().is_none() {
-        return Err(c.unsupported("primary-token subject is not captured"));
-    }
-    let grant = match profile.grant(desired) {
-        Ok(grant) => grant,
-        Err(status) => return failure(c, output, status),
+    let grant = match c.p.objects.primary_token_access() {
+        Some(profile) => {
+            if c.p.objects.primary_token_app_container().is_none() {
+                return Err(c.unsupported("primary-token subject is not captured"));
+            }
+            match profile.grant(desired) {
+                Ok(grant) => grant,
+                Err(status) => return failure(c, output, status),
+            }
+        }
+        None if super::super::gameos::enabled(c) && desired == 8 => desired,
+        None => return Err(c.unsupported("primary-token opening rights are not captured")),
     };
     // Successful native64 and WoW64 calls probe the complete HANDLE before
     // publication. No failed output access creates a guest object or handle.
