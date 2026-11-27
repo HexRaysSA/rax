@@ -214,6 +214,7 @@ impl ProcessConfigKey {
                 "CLRLoadLogDir",
                 "OnlyUseLatestCLR",
                 "UseLegacyV2RuntimeActivationPolicyDefaultValue",
+                "ErrorDialog",
             ],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),

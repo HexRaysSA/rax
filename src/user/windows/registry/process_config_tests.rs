@@ -811,6 +811,11 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         kind: 4,
         data: 1u32.to_le_bytes().into(),
     };
+    let error_dialog = Value {
+        name: units("ErrorDialog"),
+        kind: 4,
+        data: 0u32.to_le_bytes().into(),
+    };
     let mut registry = Registry::selected(upcase(), vec![]).unwrap();
     for (view, framework_name, policy_name, path) in views {
         let mut values = vec![installation_value("InstallRoot", path)];
@@ -820,6 +825,7 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
             values.push(legacy_activation.clone());
         } else {
             values.push(load_log.clone());
+            values.push(error_dialog.clone());
         }
         registry = registry
             .with_snapshot_selection(
@@ -887,6 +893,12 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         assert_eq!(
             opened.value(&legacy_activation_name),
             (view == RegistryView::Native64).then_some(&legacy_activation),
+        );
+        let error_dialog_name = units("errordialog");
+        assert!(opened.covers_value(&error_dialog_name));
+        assert_eq!(
+            opened.value(&error_dialog_name),
+            (view == RegistryView::Wow32).then_some(&error_dialog),
         );
         assert!(!opened.covers_value(&units("UnselectedValue")));
         assert!(matches!(

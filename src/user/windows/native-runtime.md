@@ -4068,9 +4068,13 @@ installation key after reading policy. Its snapshot uses each view's native
 `InstallRoot` value and links the existing `Policy` record. The selected
 installation path is also available through a machine-relative open.
 The bootstrap's optional `InstallRootARM64`, `CLRLoadLogDir`,
-`OnlyUseLatestCLR`, and `UseLegacyV2RuntimeActivationPolicyDefaultValue`
-queries use the same view. An absent value reports the native missing-value
-status.
+`OnlyUseLatestCLR`, `UseLegacyV2RuntimeActivationPolicyDefaultValue`, and
+`ErrorDialog` queries use the same view. The snapshot retains the installed
+value and its type when present. The installed ARM64 CLR under emulation
+queries `ErrorDialog` with `KeyValuePartialInformation` and a 16-byte output
+buffer. Native controls on Windows build 29708 reported
+`STATUS_OBJECT_NAME_NOT_FOUND` in both machine views and preserved the output
+bytes and return length.
 
 The closed installed filesystem projects the architecture-matched CLR
 installation directory under `Microsoft.NET` and its selected `v4.0.30319`
