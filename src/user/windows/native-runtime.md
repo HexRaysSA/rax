@@ -4128,6 +4128,9 @@ PowerShell startup can open the installed machine
 `SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full` registration. The
 native and WoW registry views supply only the selected `Install`,
 `Release`, and `Version` values. Capture uses read-only registry handles.
+Both views of the fixed machine `SOFTWARE\\Microsoft\\.NETFramework` key
+capture the CLR `DisableConfigCache` value at process creation, including
+its absence.
 
 WoW64 GUI initialization can return the assigned process window station
 from its selected companion snapshot. Repeated

@@ -980,6 +980,11 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         kind: 4,
         data: 1u32.to_le_bytes().into(),
     };
+    let disable_config_cache = Value {
+        name: units("DisableConfigCache"),
+        kind: 4,
+        data: 1u32.to_le_bytes().into(),
+    };
     let mut registry = Registry::selected(upcase(), vec![]).unwrap();
     for (view, framework_name, policy_name, path) in views {
         let mut values = vec![
@@ -991,6 +996,7 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
             values.push(prefer_latest.clone());
             values.push(legacy_activation.clone());
             values.push(fod_conservative.clone());
+            values.push(disable_config_cache.clone());
         } else {
             values.push(load_log.clone());
             values.push(error_dialog.clone());
@@ -1079,6 +1085,12 @@ fn dot_net_install_root_and_policy_link_follow_the_machine_view() {
         assert_eq!(
             opened.value(&conservative_name),
             (view == RegistryView::Native64).then_some(&fod_conservative),
+        );
+        let cache_setting = units("disableconfigcache");
+        assert!(opened.covers_value(&cache_setting));
+        assert_eq!(
+            opened.value(&cache_setting),
+            (view == RegistryView::Native64).then_some(&disable_config_cache),
         );
         assert!(!opened.covers_value(&units("UnselectedValue")));
         assert!(matches!(
