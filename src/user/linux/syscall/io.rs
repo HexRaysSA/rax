@@ -1582,9 +1582,37 @@ pub(super) fn fallocate_file(
 ) -> SysResult {
     const FALLOC_FL_KEEP_SIZE: u32 = 1;
     const FALLOC_FL_PUNCH_HOLE: u32 = 2;
+    const FALLOC_FL_COLLAPSE_RANGE: u32 = 8;
+    const FALLOC_FL_ZERO_RANGE: u32 = 0x10;
+    const FALLOC_FL_INSERT_RANGE: u32 = 0x20;
+    const FALLOC_FL_UNSHARE_RANGE: u32 = 0x40;
+    const FALLOC_FL_SUPPORTED_MASK: u32 = FALLOC_FL_KEEP_SIZE
+        | FALLOC_FL_PUNCH_HOLE
+        | FALLOC_FL_COLLAPSE_RANGE
+        | FALLOC_FL_ZERO_RANGE
+        | FALLOC_FL_INSERT_RANGE
+        | FALLOC_FL_UNSHARE_RANGE;
     const PUNCH_KEEP: u32 = FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE;
+    let is_mqueue = matches!(&file.object, FileObject::Mqueue(_));
     if off < 0 || len <= 0 {
         return Err(Errno(EINVAL));
+    }
+    if is_mqueue {
+        // Linux validates fallocate mode before checking file write access.
+        if mode & !FALLOC_FL_SUPPORTED_MASK != 0
+            || mode & (FALLOC_FL_PUNCH_HOLE | FALLOC_FL_ZERO_RANGE)
+                == (FALLOC_FL_PUNCH_HOLE | FALLOC_FL_ZERO_RANGE)
+            || mode & FALLOC_FL_PUNCH_HOLE != 0 && mode & FALLOC_FL_KEEP_SIZE == 0
+        {
+            return Err(Errno(EOPNOTSUPP));
+        }
+        if (mode & FALLOC_FL_COLLAPSE_RANGE != 0 && mode & !FALLOC_FL_COLLAPSE_RANGE != 0)
+            || (mode & FALLOC_FL_INSERT_RANGE != 0 && mode & !FALLOC_FL_INSERT_RANGE != 0)
+            || (mode & FALLOC_FL_UNSHARE_RANGE != 0
+                && mode & !(FALLOC_FL_UNSHARE_RANGE | FALLOC_FL_KEEP_SIZE) != 0)
+        {
+            return Err(Errno(EINVAL));
+        }
     }
     if !file.writable() {
         return Err(Errno(EBADF));
@@ -1597,6 +1625,13 @@ pub(super) fn fallocate_file(
         return Err(Errno(ENODEV));
     }
     let end = off.checked_add(len).ok_or(Errno(EFBIG))? as u64;
+    if is_mqueue {
+        // mqueue keeps alloc_super's MAX_NON_LFS limit and has no fallocate op.
+        if end > i32::MAX as u64 {
+            return Err(Errno(EFBIG));
+        }
+        return Err(Errno(EOPNOTSUPP));
+    }
     if matches!(mode, 0 | FALLOC_FL_KEEP_SIZE) && end > c.p.rlimits[1].0 {
         c.send_signal_to_caller(super::super::signal::SIGXFSZ);
         return Err(Errno(EFBIG));
