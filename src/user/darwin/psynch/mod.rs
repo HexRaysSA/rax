@@ -94,6 +94,15 @@ pub mod opt {
     pub const MUTEX: u32 = 0x2000;
 }
 
+/// The guest table keys queues by address within one process. XNU keys
+/// process-shared queues by a common backing object and offset.
+pub(super) fn check_private_flags(flags: u32) -> Result<(), Errno> {
+    if flags & opt::PSHARED_MASK == opt::PSHARED {
+        return Err(Errno::ENOTSUP);
+    }
+    Ok(())
+}
+
 /// Wait-queue types (`KSYN_WQTYPE_*`).
 pub mod wqtype {
     /// `KSYN_WQTYPE_INWAIT`.

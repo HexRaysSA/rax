@@ -20,6 +20,11 @@ session ID in the guest namespace. Its terminal address, mask, and session
 flags do not carry host data. The call copies at most the 48-byte Darwin
 record, with shorter calls receiving only the requested prefix.
 
+Closed guests use the emulated process's `psynch` queues for private pthread
+mutexes, condition variables, and read-write locks. Requests for process-shared
+queues return `ENOTSUP`. The queues live in guest process state and are never
+forwarded to the host kernel.
+
 ```text
 rax-user --arch arm64 /bin/echo hello
 rax-user --arch x86_64 ./program args...

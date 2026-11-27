@@ -3,6 +3,46 @@ use super::*;
 const I: u32 = PTHRW_INC;
 
 #[test]
+fn closed_psynch_rejects_shared_flags_at_each_syscall_argument() {
+    use crate::user::darwin::{
+        abi::{DarwinAbi, tables::nr},
+        process::bounded_tests::process,
+        syscall::bsd,
+    };
+
+    let calls = [
+        (nr::PSYNCH_MUTEXWAIT, 4),
+        (nr::PSYNCH_MUTEXDROP, 4),
+        (nr::PSYNCH_CVBROAD, 3),
+        (nr::PSYNCH_CVSIGNAL, 7),
+        (nr::PSYNCH_CVWAIT, 5),
+        (nr::PSYNCH_CVCLRPREPOST, 6),
+        (nr::PSYNCH_RW_RDLOCK, 4),
+        (nr::PSYNCH_RW_WRLOCK, 4),
+        (nr::PSYNCH_RW_UNLOCK, 4),
+    ];
+    for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+        let mut guest = process(abi);
+        let (_, mut thread) = guest.proc.threads.pop_first().unwrap();
+        let object = thread.cpu.sp() - 64;
+        for (number, flags_index) in calls {
+            let mut ctx = Ctx {
+                proc: &mut guest.proc,
+                thread: &mut thread,
+                nr: i64::from(number),
+                pc: 0,
+            };
+            let mut args = [0; 8];
+            args[0] = object;
+            args[flags_index] = u64::from(opt::PSHARED);
+            assert_eq!(bsd::call(&mut ctx, number, &args), Err(Errno::ENOTSUP));
+        }
+        assert!(guest.proc.psynch.kwqs.is_empty());
+        assert!(thread.wait.is_none());
+    }
+}
+
+#[test]
 fn sequence_comparisons_wrap() {
     assert!(is_seqlower(I, 2 * I));
     assert!(!is_seqlower(2 * I, I));

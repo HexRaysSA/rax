@@ -172,6 +172,14 @@ pub fn call(ctx: &mut Ctx<'_>, number: u32, a: &[u64; 8]) -> SysResult {
                 );
             }
             nr::GETAUDIT_ADDR => return proc::closed_getaudit_addr(ctx, a[0], u(1)),
+            nr::PSYNCH_MUTEXWAIT | nr::PSYNCH_MUTEXDROP => psynch::check_private_flags(u(4))?,
+            nr::PSYNCH_CVBROAD => psynch::check_private_flags(u(3))?,
+            nr::PSYNCH_CVSIGNAL => psynch::check_private_flags(u(7))?,
+            nr::PSYNCH_CVWAIT => psynch::check_private_flags(u(5))?,
+            nr::PSYNCH_CVCLRPREPOST => psynch::check_private_flags(u(6))?,
+            nr::PSYNCH_RW_RDLOCK | nr::PSYNCH_RW_WRLOCK | nr::PSYNCH_RW_UNLOCK => {
+                psynch::check_private_flags(u(4))?;
+            }
             nr::GETGROUPS => return proc::closed_getgroups(ctx, i(0), a[1]),
             nr::GETRUSAGE => return misc::closed_getrusage(ctx, i(0), a[1]),
             nr::MAC_SYSCALL => return mac::closed_mac_syscall(ctx, a[0], i(1), a[2]),
