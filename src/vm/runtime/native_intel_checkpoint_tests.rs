@@ -535,3 +535,103 @@ fn pending_xmm_lane_on_secondary_survives_file_and_dispatches_once() {
         println!("native pending XMM passed count={count} ap={ap} read={read}");
     }
 }
+
+#[cfg(feature = "debug")]
+#[test]
+#[ignore = "requires Intel macOS and com.apple.security.hypervisor entitlement"]
+fn gdb_resume_keeps_native_mmio_pending_after_a_saved_triple_fault() {
+    use super::gdb_lifecycle_tests::{connect, packet, unused_address};
+    use crate::debug::gdb::{GdbCommand, protocol::send_packet};
+    use std::time::Duration;
+
+    let paths = Paths::new(2);
+    let accesses = Arc::new(Mutex::new(Vec::new()));
+    let checkpoint = paths.0.join("gdb-terminal.rxc");
+    let (pending, retired) = {
+        let mut source = Vmm::new_resume(paths.config(2)).unwrap();
+        attach(&mut source, &accesses);
+        install_program(&mut source, 1, true);
+        let pending = hold_pending(&mut source, 1, true);
+        // The bootstrap CPU has an empty IDT. UD2 causes a native VMX
+        // triple-fault exit while the AP still owns its unserviced read.
+        source
+            .guest_mem
+            .memory()
+            .write_slice(&[0x0f, 0x0b], GuestAddress(CODE + 0x100))
+            .unwrap();
+        // Looking for the AP exit may have let the BSP execute its HLT.
+        source.vcpus[0]
+            .set_state(&CpuState::X86_64(protected_long_mode_state()))
+            .unwrap();
+        source.vcpus[0].wake();
+        let terminal = (0..32).find_map(|_| {
+            source.vcpus[0]
+                .run_host_slice(Duration::from_millis(10))
+                .unwrap()
+        });
+        assert!(matches!(terminal, Some(VcpuExit::Shutdown)), "{terminal:?}");
+        assert!(stopped_context(&source, 0).shutdown);
+        assert_pending_lane(&stopped_context(&source, 1), &pending, true);
+        assert!(accesses.lock().unwrap().is_empty());
+        let retired = source.coordinator.retired;
+        source
+            .take_snapshot_bundle(retired)
+            .unwrap()
+            .save(&checkpoint)
+            .unwrap();
+        (pending, retired)
+    };
+    let saved = SnapshotBundle::load(&checkpoint).unwrap();
+    let address = unused_address();
+    let mut config = paths.config(2);
+    config.gdb_port = Some(address.port());
+    config.wait_gdb = true;
+    let mut target = Vmm::new_resume(config).unwrap();
+    attach(&mut target, &accesses);
+    let mut stream = connect(address);
+    let receive = |vm: &Vmm| {
+        vm.gdb_channels
+            .as_ref()
+            .unwrap()
+            .cmd_rx
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+    };
+    let attach = receive(&target);
+    assert!(matches!(attach, GdbCommand::Attach));
+    target.handle_gdb_command(attach).unwrap();
+    send_packet(&mut stream, "Hg2").unwrap();
+    target.handle_gdb_command(receive(&target)).unwrap();
+    assert_eq!(packet(&mut stream), "OK");
+
+    target.restore_snapshot_bundle(&saved).unwrap();
+    assert!(target.gdb_stopped);
+    assert_eq!(target.coordinator.online, [true, true]);
+    assert!(stopped_context(&target, 0).shutdown);
+    assert_pending_lane(&stopped_context(&target, 1), &pending, true);
+    send_packet(&mut stream, "qC").unwrap();
+    target.handle_gdb_command(receive(&target)).unwrap();
+    assert_eq!(packet(&mut stream), "QC2");
+
+    // The AP has a valid power-off program after its pending load. If the
+    // terminal BSP is ignored, the VM can still exit, but the device and
+    // retirement assertions below will detect the extra work.
+    send_packet(&mut stream, "vCont;c:2").unwrap();
+    target.run().unwrap();
+    assert_eq!(packet(&mut stream), "W00");
+    assert!(accesses.lock().unwrap().is_empty());
+    assert_pending_lane(&stopped_context(&target, 1), &pending, true);
+    assert_eq!(target.coordinator.retired, retired);
+
+    if let Some(out) = std::env::var_os("RAX_NATIVE_CHECKPOINT_EVIDENCE") {
+        let out = PathBuf::from(out);
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::copy(&checkpoint, out.join("gdb-terminal-2cpus.rxc")).unwrap();
+        target
+            .take_snapshot_bundle(retired)
+            .unwrap()
+            .save(out.join("gdb-terminal-after-resume-2cpus.rxc"))
+            .unwrap();
+    }
+    println!("native GDB terminal precedence passed count=2 ap=1");
+}

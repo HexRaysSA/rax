@@ -88,7 +88,7 @@ impl Drop for Fixture {
     }
 }
 
-fn unused_address() -> SocketAddr {
+pub(super) fn unused_address() -> SocketAddr {
     TcpListener::bind("127.0.0.1:0")
         .unwrap()
         .local_addr()
@@ -118,7 +118,7 @@ fn disconnected(stream: &mut TcpStream) {
     }
 }
 
-fn connect(address: SocketAddr) -> TcpStream {
+pub(super) fn connect(address: SocketAddr) -> TcpStream {
     let stream = TcpStream::connect(address).unwrap();
     stream
         .set_read_timeout(Some(Duration::from_secs(2)))
@@ -129,7 +129,7 @@ fn connect(address: SocketAddr) -> TcpStream {
     stream
 }
 
-fn packet(stream: &mut TcpStream) -> String {
+pub(super) fn packet(stream: &mut TcpStream) -> String {
     let mut bytes = Vec::new();
     loop {
         let mut byte = [0];

@@ -36,7 +36,7 @@ jobs:
         timeout-minutes: 45
         shell: bash
         run: |
-          cargo +stable test --locked --no-default-features --features hvf \
+          cargo +stable test --locked --no-default-features --features hvf,debug \
             --lib --no-run --message-format=json > "$EVIDENCE/cargo.jsonl"
           jq -ser '
             map(select(.reason == "compiler-artifact" and .target.name == "rax"
@@ -76,6 +76,21 @@ jobs:
           "$binary" vm::runtime::native_intel_checkpoint_tests::legacy_pae_requires_private_paging_bank_and_resumes_from_it \
             --exact --ignored --nocapture --test-threads=1 2>&1 | tee "$EVIDENCE/legacy-pae.log"
           grep -F 'test result: ok. 1 passed;' "$EVIDENCE/legacy-pae.log"
+      - name: Resume through the live GDB connection after a saved triple fault
+        if: ${{ !cancelled() && steps.harness.outcome == 'success' }}
+        timeout-minutes: 5
+        env:
+          RAX_NATIVE_CHECKPOINT_EVIDENCE: ${{ runner.temp }}/rax-hvf-checkpoint-evidence/checkpoints
+        shell: bash
+        run: |
+          shasum -a 256 -c "$EVIDENCE/executable.sha256"
+          binary="$(cat "$RUNNER_TEMP/rax-hvf-checkpoint-test-path")"
+          "$binary" vm::runtime::native_intel_checkpoint_tests::gdb_resume_keeps_native_mmio_pending_after_a_saved_triple_fault \
+            --exact --ignored --nocapture --test-threads=1 2>&1 | tee "$EVIDENCE/gdb-terminal.log"
+          grep -Eq '(^| \.\.\. )native GDB terminal precedence passed count=2 ap=1$' "$EVIDENCE/gdb-terminal.log"
+          grep -F 'test result: ok. 1 passed;' "$EVIDENCE/gdb-terminal.log"
+          test -s "$RAX_NATIVE_CHECKPOINT_EVIDENCE/gdb-terminal-2cpus.rxc"
+          test -s "$RAX_NATIVE_CHECKPOINT_EVIDENCE/gdb-terminal-after-resume-2cpus.rxc"
       - name: Boot a real SMP ISO through both Intel HVF scheduling paths
         if: ${{ !cancelled() && steps.harness.outcome == 'success' }}
         timeout-minutes: 10
