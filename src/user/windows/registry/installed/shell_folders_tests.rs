@@ -1,5 +1,5 @@
 use super::*;
-use crate::user::windows::registry::{Key, Lookup, SnapshotRoot};
+use crate::user::windows::registry::{CommandTree, Key, Lookup, SnapshotRoot};
 use std::sync::Arc;
 
 fn compare(tree: CommandTree, key: Arc<Key>) -> usize {
@@ -45,7 +45,7 @@ fn installed_shell_folders_capture_matches_native_views_and_retained_routes() {
                 let tree =
                     subtree::capture(&base, SnapshotRoot::ShellFolders, &subject, view, native)
                         .unwrap();
-                assert!(compare(tree, key) > 0);
+                assert!(compare(tree.tree, key) > 0);
                 assert!(matches!(
                     primary.as_ref().unwrap().relative_in_view(&relative, view),
                     Lookup::Present(_)

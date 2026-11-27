@@ -36,7 +36,7 @@ fn installed_ole_snapshot_matches_native_views_and_retains_machine_routes() {
                 };
                 let base = Registry::selected(registry.upcase_table().to_vec(), vec![]).unwrap();
                 let tree = subtree::capture(&base, SnapshotRoot::Ole, &[], view, native).unwrap();
-                let count = compare(tree, key);
+                let count = compare(tree.tree, key);
                 assert!(count > 0);
                 eprintln!("native OLE {view:?}: {count} complete nodes");
                 assert!(matches!(

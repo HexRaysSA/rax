@@ -1,6 +1,6 @@
 //! Actual fixed-subject acquisition, with no unrelated registry fixture source.
 use super::*;
-use crate::user::windows::registry::{Key, Lookup};
+use crate::user::windows::registry::{CommandTree, Key, Lookup};
 use std::sync::Arc;
 
 fn compare(tree: CommandTree, key: Arc<Key>) -> usize {
@@ -35,7 +35,7 @@ fn installed_wow64_amd64_capture_matches_native_data_or_exact_absence_in_both_vi
                 };
                 let base = Registry::selected(registry.upcase_table().to_vec(), vec![]).unwrap();
                 let tree = subtree::capture(&base, root, &[], view, native).unwrap();
-                assert!(compare(tree, key) > 0);
+                assert!(compare(tree.tree, key) > 0);
             }
             Err(error) => assert!(matches!(
                 (error.raw_os_error(), registry.lookup_view(&path, view)),

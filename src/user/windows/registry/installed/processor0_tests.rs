@@ -1,6 +1,6 @@
 //! Matching-host comparison uses an independent retained native registry handle.
 use super::*;
-use crate::user::windows::registry::{Key, Lookup, PROCESSOR0_KEY};
+use crate::user::windows::registry::{CommandTree, Key, Lookup, PROCESSOR0_KEY};
 use std::sync::Arc;
 
 fn compare(tree: CommandTree, key: Arc<Key>) -> usize {
@@ -43,7 +43,7 @@ fn installed_processor0_capture_matches_fixed_native_values_grants_and_shared_vi
                 };
                 let base = Registry::selected(selected.upcase_table().to_vec(), vec![]).unwrap();
                 let tree = subtree::capture(&base, root, &[], view, native).unwrap();
-                assert!(compare(tree, key) > 0);
+                assert!(compare(tree.tree, key) > 0);
             }
             Err(error) => assert!(matches!(
                 (error.raw_os_error(), selected.lookup_view(&path, view)),
