@@ -729,7 +729,7 @@ pub fn wait4(
         c.write_u32(stat, f.status as u32)?;
     }
     if ru != 0 {
-        c.write_mem(ru, &super::process::rusage_bytes(c, f.rusage))?;
+        c.write_mem(ru, &super::process::rusage_bytes(c, f.rusage, 0, 0))?;
     }
     Ok(Outcome::Return(f.pid as u64))
 }
@@ -764,7 +764,7 @@ pub fn waitid(
     if let Ok(Some(f)) = &found
         && ru != 0
     {
-        c.write_mem(ru, &super::process::rusage_bytes(c, f.rusage))?;
+        c.write_mem(ru, &super::process::rusage_bytes(c, f.rusage, 0, 0))?;
     }
     if infop != 0 {
         // user_write_access_begin covers the whole 128-byte siginfo_t; a

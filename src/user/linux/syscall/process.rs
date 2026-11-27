@@ -368,28 +368,37 @@ pub fn getrusage(c: &mut Ctx<'_>, who: i32, buf: u64) -> SysResult {
     const RUSAGE_SELF: i32 = 0;
     const RUSAGE_CHILDREN: i32 = -1;
     const RUSAGE_THREAD: i32 = 1;
-    let usage = match who {
-        RUSAGE_SELF | RUSAGE_THREAD => host::rusage_self(),
-        RUSAGE_CHILDREN => (0, 0, 0),
+    let (usage, nvcsw, nivcsw) = match who {
+        RUSAGE_SELF => (host::rusage_self(), c.p.nvcsw, c.p.nivcsw),
+        RUSAGE_THREAD => (host::rusage_self(), c.t.nvcsw, c.t.nivcsw),
+        RUSAGE_CHILDREN => ((0, 0, 0), 0, 0),
         _ => return Err(Errno(EINVAL)),
     };
-    c.write_mem(buf, &rusage_bytes(c, usage))?;
+    c.write_mem(buf, &rusage_bytes(c, usage, nvcsw, nivcsw))?;
     Ok(0)
 }
 
 /// A `struct rusage` with user and system microseconds and the maximum
 /// resident size: 144 bytes, or for a 32-bit call `struct compat_rusage`
 /// (72 bytes: `old_timeval32`s and `compat_long_t`s, `put_compat_rusage`).
-pub(super) fn rusage_bytes(c: &Ctx<'_>, (user, system, maxrss): (u64, u64, u64)) -> Vec<u8> {
+pub(super) fn rusage_bytes(
+    c: &Ctx<'_>,
+    (user, system, maxrss): (u64, u64, u64),
+    nvcsw: u64,
+    nivcsw: u64,
+) -> Vec<u8> {
     let mut e = Encoder::new();
     for us in [user, system] {
         e.bytes(&c.timeval_bytes((us / 1_000_000) as i64, (us % 1_000_000) as i64));
     }
     if c.compat {
-        e.u32(maxrss as u32).zeros(13 * 4);
+        e.u32(maxrss as u32)
+            .zeros(11 * 4)
+            .u32(nvcsw as u32)
+            .u32(nivcsw as u32);
         debug_assert_eq!(e.len(), 72);
     } else {
-        e.u64(maxrss).zeros(13 * 8);
+        e.u64(maxrss).zeros(11 * 8).u64(nvcsw).u64(nivcsw);
         debug_assert_eq!(e.len(), 144);
     }
     e.finish()

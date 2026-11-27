@@ -8,10 +8,13 @@
 //! `kernel/time/posix-timers.c`, `kernel/time/timekeeping.c`,
 //! `kernel/time/ntp.c`).
 
-use super::harness::{Harness, P, each_abi};
+use super::harness::{CODE, Harness, P, each_abi};
+use crate::user::linux::RunStatus;
 use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::signal::deliver::restart::ERESTARTSYS;
+use crate::user::linux::syscall::thread::cf::*;
+use std::sync::atomic::AtomicBool;
 
 const NOBODY: u32 = 65534;
 /// Never mapped (below `mmap_min_addr`).
@@ -492,6 +495,99 @@ fn adjtimex_reads_an_unsynchronized_clock() {
         assert_eq!(h.call(Sysno::ClockAdjtime, &[0, t]), TIME_ERROR);
         assert_eq!(i64_at(&h, t + tx::TICK), 10_000);
     });
+}
+
+#[test]
+fn getrusage_reports_context_switch_counters_for_the_selected_scope() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        h.proc.state.nvcsw = 0x1234;
+        h.proc.state.nivcsw = 0x5678;
+        h.proc.threads[0].nvcsw = 0x9abc;
+        h.proc.threads[0].nivcsw = 0xdef0;
+
+        for (who, expected) in [
+            (0, (0x1234u64, 0x5678u64)),
+            (1, (0x9abcu64, 0xdef0u64)),
+            (-1, (0, 0)),
+        ] {
+            assert_eq!(h.call(Sysno::Getrusage, &[who as u64, h.scratch]), 0);
+            let counters = if abi.is_compat() {
+                (
+                    u64::from(u32::from_le_bytes(
+                        bytes(&h, h.scratch + 64, 4).try_into().unwrap(),
+                    )),
+                    u64::from(u32::from_le_bytes(
+                        bytes(&h, h.scratch + 68, 4).try_into().unwrap(),
+                    )),
+                )
+            } else {
+                (
+                    i64_at(&h, h.scratch + 128) as u64,
+                    i64_at(&h, h.scratch + 136) as u64,
+                )
+            };
+            assert_eq!(counters, expected, "{abi:?} RUSAGE who={who}");
+        }
+    });
+}
+
+#[test]
+fn getrusage_counts_a_blocking_syscall_as_a_voluntary_switch() {
+    let mut h = Harness::new(LinuxAbi::Riscv64);
+    let fds = h.scratch + 0x100;
+    h.ok(Sysno::Pipe2, &[fds, 0]);
+    let read_fd = u32::from_le_bytes(bytes(&h, fds, 4).try_into().unwrap()) as u64;
+
+    assert_eq!(
+        h.start(0, Sysno::Read, &[read_fd, h.scratch + 0x200, 1]),
+        None
+    );
+    assert_eq!(h.proc.state.nvcsw, 1);
+    assert_eq!(h.proc.threads[0].nvcsw, 1);
+    h.ok(Sysno::Getrusage, &[0, h.scratch]);
+    assert_eq!(i64_at(&h, h.scratch + 128), 1);
+}
+
+#[test]
+fn sched_yield_counts_a_runnable_switch_as_voluntary() {
+    let mut h = Harness::new(LinuxAbi::Riscv64);
+    let entry = CODE + 0x1000;
+    h.proc.state.config.slice_insns = 1;
+    put(&h, entry, &0x0000_0073u32.to_le_bytes());
+    put(&h, entry + 4, &0x0000_0073u32.to_le_bytes());
+    let flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM;
+    h.ok(Sysno::Clone, &[flags, 0, 0, 0, 0]);
+    let sched_yield_nr = h.abi().number(Sysno::SchedYield).unwrap();
+    let getpid_nr = h.abi().number(Sysno::Getpid).unwrap();
+    h.proc.threads[0].cpu.set_pc(entry);
+    h.proc.threads[0].cpu.set_syscall_number(sched_yield_nr);
+    h.proc.threads[1].cpu.set_pc(entry + 4);
+    h.proc.threads[1].cpu.set_syscall_number(getpid_nr);
+    for thread in &mut h.proc.threads {
+        thread.nvcsw = 0;
+        thread.nivcsw = 0;
+    }
+    h.proc.state.nvcsw = 0;
+    h.proc.state.nivcsw = 0;
+
+    assert_eq!(
+        h.proc.run_slice(1, &AtomicBool::new(false)),
+        RunStatus::BudgetExhausted
+    );
+    assert_eq!(h.proc.state.nvcsw, 0);
+    assert_eq!(h.proc.state.nivcsw, 0);
+    assert_eq!(
+        h.proc.run_slice(1, &AtomicBool::new(false)),
+        RunStatus::BudgetExhausted
+    );
+    assert_eq!(h.proc.state.nvcsw, 1);
+    assert_eq!(h.proc.state.nivcsw, 0);
+    assert_eq!(h.proc.threads[0].nvcsw, 1);
+    assert_eq!(h.proc.threads[0].nivcsw, 0);
+    h.ok(Sysno::Getrusage, &[0, h.scratch]);
+    assert_eq!(i64_at(&h, h.scratch + 128), 1);
+    assert_eq!(i64_at(&h, h.scratch + 136), 0);
 }
 
 #[test]

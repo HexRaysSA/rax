@@ -399,6 +399,10 @@ pub struct ProcState {
     pub(super) mm: Arc<Mutex<MmState>>,
     /// Resource limits.
     pub rlimits: Rlimits,
+    /// Voluntary context switches by all tasks in this process.
+    pub nvcsw: u64,
+    /// Involuntary context switches by all tasks in this process.
+    pub nivcsw: u64,
     /// Private file-creation mask. Use [Self::file_creation_mask] to include
     /// a shared filesystem context.
     pub umask: u32,
@@ -548,6 +552,10 @@ pub struct Thread {
     pub real_blocked: u64,
     /// The system call the thread sleeps in.
     pub blocked: Option<Blocked>,
+    /// Voluntary context switches by this task.
+    pub nvcsw: u64,
+    /// Involuntary context switches by this task.
+    pub nivcsw: u64,
     /// `set_child_tid` (`CLONE_CHILD_SETTID`): receives the TID before the
     /// thread first returns to user mode.
     pub set_child_tid: u64,
@@ -601,6 +609,8 @@ impl Thread {
             sigpending: false,
             real_blocked: 0,
             blocked: None,
+            nvcsw: 0,
+            nivcsw: 0,
             set_child_tid: 0,
             vfork_parent: None,
             comm: Vec::new(),
@@ -1074,6 +1084,8 @@ impl LinuxProcess {
             groups,
             mm: Arc::new(Mutex::new(img.mm)),
             rlimits: default_rlimits(config.stack_limit),
+            nvcsw: 0,
+            nivcsw: 0,
             // A new process inherits its parent's umask.
             umask,
             sigactions: [SigAction::default(); 64],
