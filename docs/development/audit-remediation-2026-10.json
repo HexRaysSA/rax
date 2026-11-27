@@ -201204,8 +201204,8 @@
     {
       "id": "hvf-bmi1-compatibility-qualification-2026-11-27",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "locally_qualified_full_findings_open",
-      "scope": "The signed Intel BMI1 compatibility profile pairs 16- and 32-bit code with both address widths and four VEX control combinations. QEMU verified 192 encoding and operand cases in RAM. The Intel profile requires 192 direct MMIO reads and 192 pending-read continuations on fresh VM and vCPU owners. Hosted Intel execution of the new profile and the full findings remain open.",
+      "status": "native_intel_virtualized_qualified_full_findings_open",
+      "scope": "Hosted Intel macOS run 45915053012 at c239e7347ab34dcdcc4bb86e2c6671dc5ce968d9 passed 192 direct 4 B BMI1 MMIO reads and 192 pending-read continuations with fresh VM and vCPU owners. The profile pairs 16- and 32-bit code with both address widths and four VEX control combinations. The destination and defined flags matched the QEMU and physical Intel KVM RAM references in every case. Independent archive verification checked both digests, the executable signature and entitlement, pinned source hashes, and the full mode and restore matrix. Execution artifact 15162385994 matched SHA-256 4d7b3772ffb9caede04b8dda9be660d23a152b04e7ff09ba2744371dce02d9b2. Bare-metal Intel macOS, wider MMIO and interrupt coverage, and the full findings remain open.",
       "qualification": "docs/development/hvf-mmio-alu-read.md#bmi1-device-reads-in-ia-32e-compatibility-mode",
       "full_goal_complete": false
     }

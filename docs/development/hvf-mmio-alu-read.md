@@ -378,8 +378,7 @@ stream SHA-256 is
 `3536feeb8860cdbf8299921c78c155afb3097b3f5255f00bdd33c31c65cd4356`.
 [Hosted BMI1 profile](https://github.com/HexRaysSA/rax/actions/runs/45877345239)
 
-The hosted profile uses a 64-bit code segment. Bare-metal Intel macOS
-and BMI1 device exits in 16- and 32-bit code segments remain unverified.
+The original hosted profile uses a 64-bit code segment.
 
 ### BMI1 device reads in IA-32e compatibility mode
 
@@ -399,14 +398,27 @@ the mode, encoding controls, restore status, result, RFLAGS and final RIP
 for all 384 cases. The regular compatibility profiles use the same
 transaction checks.
 
-Independent QEMU 11.1.2 TCG guests executed the 192 encodings from RAM
-with zero differences in the destination, defined flags, EDI, or ECX.
-The Intel macOS consumer cross-built and passed strict signature
-verification. Intel HVF device-exit and detached-restore qualification
-is pending execution of the new hosted profile.
+Independent QEMU 11.1.2 TCG and physical Intel KVM guests executed the same
+192 cases from RAM. Their EAX, defined EFLAGS, EDI, and ECX matched in every
+case. The 144 raw EFLAGS differences were confined to architecturally
+undefined PF and, for BEXTR, SF.
+
+Hosted run 45915053012 at `c239e7347ab34dcdcc4bb86e2c6671dc5ce968d9`
+passed 192 direct reads and 192 fresh-owner continuations on virtualized
+Intel macOS. The x86-64 process ran without translation. Post-run verification
+matched the destination and defined flags for every observation against both
+RAM references and checked the final RIP and complete case matrix. The
+downloaded executable passed strict signature, slice, and hypervisor
+entitlement checks. Both archive digests matched, and all 4,975 engine files
+and 32 consumer and runner files matched the pinned revision. The observation
+stream SHA-256 is
+`9bc01d2b3c1ac5eab75a862b5b1116bbc9020f3ca0219373b8342e3cecca715c`.
+Bare-metal Intel macOS and wider MMIO, interrupt, and checkpoint coverage
+remain open.
+[Hosted BMI1 compatibility profile](https://github.com/HexRaysSA/rax/actions/runs/45915053012)
 
 | Assumption | Falsification probe | Impact |
 | --- | --- | --- |
 | The address-size selection and segment base determine the GPA. | Seed distinct high and low offsets, vary the code and address sizes independently, and require the expected 4 B device read. | High |
-| VEX.W and the high bit of VEX.vvvv are ignored in the selected code segments. | Run all four bit combinations for each operation and operand case and compare the result and defined flags to QEMU RAM execution. | High |
+| VEX.W and the high bit of VEX.vvvv are ignored in the selected code segments. | Run all four bit combinations for each operation and operand case and compare the result and defined flags to both QEMU and physical Intel KVM RAM execution. | High |
 | Restore retains the pending operation and its unretired instruction boundary. | Replace both owners before replying. Require the same pending exit, one RIP advance, exact EAX and RFLAGS, and the guest marker. | High |
