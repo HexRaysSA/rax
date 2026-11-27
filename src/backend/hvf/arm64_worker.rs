@@ -344,6 +344,15 @@ impl VCpu for HvfArm64Vcpu {
         self.request(move |core| core.run_host_slice(limit))
     }
 
+    fn resume_native_device_io(&mut self) -> Result<Option<VcpuExit>> {
+        self.request(|core| {
+            if core.power_entry_exit()?.is_some() {
+                return Ok(None);
+            }
+            core.resume_device_io()
+        })
+    }
+
     fn post_host_slice(&mut self, limit: std::time::Duration) -> Result<()> {
         self.require_collected_entry()?;
         slice::validate_interval(limit).map_err(|error| Error::InvalidConfig(error.into()))?;

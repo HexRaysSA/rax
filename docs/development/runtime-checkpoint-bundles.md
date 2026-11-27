@@ -179,6 +179,31 @@ PSCI tests. An independent reader checked eight complete files for the
 saved PSCI or MMIO owners and the matching online CPU or instruction
 state. The Intel HVF build was cross-checked for compilation.
 
+### Native HVF device I/O before guest re-entry
+
+On resume, the VMM services device exits retained by online HVF vCPUs
+before entering a vCPU or delivering queued interprocessor requests.
+ARM64 owners with a saved input reply or an acknowledged output finish
+the register or PC update on the stopped owner. The device sees one
+transaction. An already terminal VM preserves its pending transactions.
+With GDB attached, the dispatch follows the current debugger resume mask.
+The existing checkpoint records carry these states without format changes.
+For H vCPUs and R device dispatches, the resume preflight makes at most
+O(H × (R + 1)) owner probes with O(1) additional scheduler state.
+
+| Assumption | Impact | Falsification probe |
+| --- | --- | --- |
+| A retained peer transaction predates a new bootstrap instruction. | High | Cold-restore two native Apple Silicon vCPUs with a pending PL011 transaction on CPU 1 and a PSCI `SYSTEM_OFF` instruction next on CPU 0. Exercise serial and parallel scheduling. Check the AP's PC, UART contents, and terminal latch. |
+| A staged reply or an acknowledged write already changed the device. | High | Inject the register-write failure on the original owner. Verify the next unread UART byte and an intervening control-register write survive resumption. Check that a saved read error is surfaced before CPU 0 advances. |
+| Queued INIT and previously recorded terminal exits can coexist with device records. | High | Model an INIT broadcast with two pending inputs and check that both dispatch before INIT. Model a saved terminal exit on a higher-index Intel HVF owner and check that neither a device dispatch nor guest entry occurs. |
+
+The signed physical Apple Silicon baseline at `c27b8125d` entered CPU 0
+and latched `SYSTEM_OFF` while CPU 1's retained PL011 read remained pending.
+The revised build passed all ten cold-resume cases on the same Apple M4 Max.
+The stopped-owner path passes compilation and lint checks for Intel macOS.
+A coordinator test covers Intel terminal ordering. Native Intel restore
+remains unverified for this change.
+
 ### Checkpoint scheduling
 
 With automatic checkpoints configured, the execution record ends with an

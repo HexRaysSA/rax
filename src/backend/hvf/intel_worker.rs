@@ -152,6 +152,12 @@ impl VCpu for HvfVcpu {
     fn run_host_slice(&mut self, limit: std::time::Duration) -> Result<Option<VcpuExit>> {
         self.request(move |core| core.run_host_slice(limit))
     }
+    fn resume_native_device_io(&mut self) -> Result<Option<VcpuExit>> {
+        self.request(|core| {
+            core.execution_ready()?;
+            core.pending_device_io()
+        })
+    }
     fn run_coordinated_host_slice(
         &mut self,
         limit: std::time::Duration,

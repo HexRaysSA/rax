@@ -875,6 +875,26 @@ impl HvfCore {
             .map_err(|error| Error::Emulator(error.into()))
     }
 
+    fn pending_device_io(&self) -> Result<Option<VcpuExit>> {
+        if let Some(failure) = self
+            .port_input
+            .failure()
+            .or_else(|| self.mmio_input.failure())
+        {
+            return Err(Error::Emulator(failure.to_string()));
+        }
+        if self.shutdown {
+            return Ok(Some(VcpuExit::Shutdown));
+        }
+        if let Some(request) = &self.pending_request {
+            return Ok(Some(request.exit()));
+        }
+        self.output
+            .pending()
+            .map(|packet| packet.map(|packet| packet.exit()))
+            .map_err(Error::Emulator)
+    }
+
     fn retire_mmio(&self, length: u64) -> Result<()> {
         self.advance_rip(length)
     }
@@ -1144,19 +1164,8 @@ impl run_loop::ExitHandler for HvfCore {
     type Error = Error;
     fn prepare(&mut self) -> Result<Option<VcpuExit>> {
         self.execution_ready()?;
-        for failure in [self.port_input.failure(), self.mmio_input.failure()] {
-            if let Some(failure) = failure {
-                return Err(Error::Emulator(failure.to_string()));
-            }
-        }
-        if self.shutdown {
-            return Ok(Some(VcpuExit::Shutdown));
-        }
-        if let Some(request) = &self.pending_request {
-            return Ok(Some(request.exit()));
-        }
-        if let Some(packet) = self.output.pending().map_err(Error::Emulator)? {
-            return Ok(Some(packet.exit()));
+        if let Some(exit) = self.pending_device_io()? {
+            return Ok(Some(exit));
         }
         self.io_ready()?;
         native_memory::validate_cpu_backing(&self.memory_layout, &self.mem)?;

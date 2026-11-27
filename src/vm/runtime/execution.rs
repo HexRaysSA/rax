@@ -191,39 +191,68 @@ impl Vmm {
         TurnFailure::check_io_reply(completion, irq)
     }
 
-    fn pending_software_io_turn(&mut self) -> Result<Option<ExecutionTurn>> {
-        if self.backend_kind != BackendKind::Emulator
-            || !matches!(
-                self.checkpoint_config.arch,
-                ArchKind::X86_64 | ArchKind::Riscv64
-            )
+    fn pending_device_io_turn(&mut self) -> Result<Option<ExecutionTurn>> {
+        let native = self.backend_kind == BackendKind::Hvf;
+        if !native
+            && (self.backend_kind != BackendKind::Emulator
+                || !matches!(
+                    self.checkpoint_config.arch,
+                    ArchKind::X86_64 | ArchKind::Riscv64
+                ))
         {
             return Ok(None);
         }
-        for (cpu_index, vcpu) in self.vcpus.iter().enumerate() {
+        // Intel HVF retains triple fault in the CPU record. Check for that
+        // terminal exit before touching a peer's device. ARM has a VM latch.
+        let check_intel_terminal = native && self.checkpoint_config.arch == ArchKind::X86_64;
+        let mut selected = Ok(None);
+        for cpu_index in 0..self.vcpus.len() {
+            if native && !self.coordinator.online[cpu_index] {
+                continue;
+            }
             #[cfg(feature = "debug")]
             if !self.debugger_allows_cpu(cpu_index) {
                 continue;
             }
-            let pending = if self.checkpoint_config.arch == ArchKind::X86_64 {
-                vcpu.pending_software_port_io()?
+            let vcpu = &mut self.vcpus[cpu_index];
+            let pending = if native {
+                vcpu.resume_native_device_io()
+            } else if self.checkpoint_config.arch == ArchKind::X86_64 {
+                vcpu.pending_software_port_io()
             } else {
-                vcpu.pending_software_mmio_write()?
+                vcpu.pending_software_mmio_write()
             };
-            if let Some(exit) = pending {
-                #[cfg(feature = "debug")]
-                {
-                    self.debugger.last_cpu = cpu_index;
+            let terminal = matches!(pending, Ok(Some(VcpuExit::Shutdown)));
+            if terminal || (matches!(selected, Ok(None)) && !matches!(pending, Ok(None))) {
+                selected = pending.map(|exit| {
+                    exit.map(|exit| ExecutionTurn {
+                        cpu_index,
+                        exit,
+                        #[cfg(feature = "debug")]
+                        debug_step_completed: !native && vcpu.is_single_step(),
+                    })
+                });
+                if terminal || !check_intel_terminal {
+                    break;
                 }
-                return Ok(Some(ExecutionTurn {
-                    cpu_index,
-                    exit,
-                    #[cfg(feature = "debug")]
-                    debug_step_completed: vcpu.is_single_step(),
-                }));
             }
         }
-        Ok(None)
+        #[cfg(feature = "debug")]
+        if let Ok(Some(turn)) = &selected {
+            self.debugger.last_cpu = turn.cpu_index;
+        }
+        selected
+    }
+
+    fn apply_pending_device_io(&mut self, turn: ExecutionTurn) -> Result<bool> {
+        // Restored native exits can come from the same parallel round. An INIT
+        // routed after only one exit could clear a peer's undispatched I/O.
+        let native = self.backend_kind == BackendKind::Hvf;
+        let shutdown = self.apply_execution_turn(turn, !native)?;
+        if shutdown && native {
+            self.maybe_snapshot(self.coordinator.retired)?;
+        }
+        Ok(shutdown)
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -246,8 +275,8 @@ impl Vmm {
         #[cfg(not(feature = "debug"))]
         let defer_io_replay = false;
         if !defer_io_replay {
-            while let Some(turn) = self.pending_software_io_turn()? {
-                if self.apply_execution_turn(turn, true)? {
+            while let Some(turn) = self.pending_device_io_turn()? {
+                if self.apply_pending_device_io(turn)? {
                     return Ok(());
                 }
             }
@@ -359,8 +388,8 @@ impl Vmm {
 
             // These turns already carry their retirement charge. Honor the
             // current resume mask, then complete I/O without entering the CPU.
-            if defer_io_replay && let Some(turn) = self.pending_software_io_turn()? {
-                if self.apply_execution_turn(turn, true)? {
+            if defer_io_replay && let Some(turn) = self.pending_device_io_turn()? {
+                if self.apply_pending_device_io(turn)? {
                     break;
                 }
                 continue;

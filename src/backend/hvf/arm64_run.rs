@@ -13,12 +13,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 impl HvfArm64Core {
-    pub(super) fn run_host_slice(&mut self, limit: Duration) -> Result<Option<VcpuExit>> {
-        slice::validate_interval(limit).map_err(|error| Error::InvalidConfig(error.into()))?;
-        let deadline = host_clock::after(limit)?;
-        if let Some(exit) = self.power_entry_exit()? {
-            return Ok(Some(exit));
-        }
+    pub(super) fn resume_device_io(&mut self) -> Result<Option<VcpuExit>> {
         if let Some(error) = self.io_completion_error.take() {
             return Err(error);
         }
@@ -45,6 +40,18 @@ impl HvfArm64Core {
                 addr: pending.addr,
                 size: pending.size,
             }));
+        }
+        Ok(None)
+    }
+
+    pub(super) fn run_host_slice(&mut self, limit: Duration) -> Result<Option<VcpuExit>> {
+        slice::validate_interval(limit).map_err(|error| Error::InvalidConfig(error.into()))?;
+        let deadline = host_clock::after(limit)?;
+        if let Some(exit) = self.power_entry_exit()? {
+            return Ok(Some(exit));
+        }
+        if let Some(exit) = self.resume_device_io()? {
+            return Ok(Some(exit));
         }
         loop {
             self._vm.ensure_live()?;

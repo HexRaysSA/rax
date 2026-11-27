@@ -201224,6 +201224,14 @@
       "scope": "Intel HVF plans one unaligned 16 B device read for legacy and VEX.128 PCMPESTRM, PCMPESTRI, PCMPISTRM, and PCMPISTRI. The parent rejected all 16 tested encoding combinations. The pending record retains the source XMM, effective signed lengths, immediate, and flags across restoration. Portable regression covers malformed access direction, reserved encodings, wrong reply widths, result publication and exactly one retirement. The 128 ordinary RAM executions under Rosetta matched the evaluator. Hosted Intel run 45996257998 at b3706981b is queued for 256 direct and fresh-owner completions against identical native RAM instructions. Hosted results, bare-metal Intel macOS, and the full findings remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-string-comparisons",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-peer-io-before-checkpoint-resume-2026-11-27",
+      "findings": ["C-STATE", "C-SMP", "C-HVF"],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "The VMM completes retained native HVF device exits before guest entry or queued INIT delivery. Apple Silicon cold resume checks serial and parallel scheduling across unserviced and consumed reads, retained read diagnostics, undispatched writes, and acknowledged writes that need only PC retirement. A saved terminal VM conserves pending state. The Intel HVF path passes cross-target lint and type checks, and the coordinator tests model its terminal ordering. Native Intel checkpoint replay and the full findings remain open.",
+      "qualification": "docs/development/runtime-checkpoint-bundles.md#native-hvf-device-io-before-guest-re-entry",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

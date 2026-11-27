@@ -393,6 +393,15 @@ pub trait VCpu: Send {
         Ok(None)
     }
 
+    /// Recover native device I/O retained at a stopped checkpoint or failed turn.
+    /// Report a retained terminal exit or an I/O exit that still needs device
+    /// dispatch. A backend may finish a staged reply or acknowledged write
+    /// without entering guest code. The VMM calls this before resuming peers.
+    #[doc(hidden)]
+    fn resume_native_device_io(&mut self) -> Result<Option<VcpuExit>> {
+        Ok(None)
+    }
+
     /// Retry a received port reply. A returned result means the port has
     /// already been read and the device must not be called again.
     #[doc(hidden)]

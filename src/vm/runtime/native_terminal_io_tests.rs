@@ -12,6 +12,7 @@ enum Phase {
     ReplyError,
     RetryReply,
     Write,
+    RetireWrite,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -67,6 +68,130 @@ fn native_parallel_shutdown_preserves_peer_io_in_both_dispatch_orders() {
 fn native_parallel_latched_shutdown_preserves_peer_io_without_a_shutdown_exit() {
     for phase in [Phase::Read, Phase::Write] {
         exercise(phase, Some(ParallelOrder::MissingShutdownExit));
+    }
+}
+
+#[test]
+#[ignore = "requires physical Apple Silicon and signed Hypervisor executable"]
+fn native_resume_finishes_issued_peer_io_before_bootstrap_shutdown() {
+    for parallel in [false, true] {
+        for phase in [
+            Phase::Read,
+            Phase::ReplyError,
+            Phase::RetryReply,
+            Phase::Write,
+            Phase::RetireWrite,
+        ] {
+            let fixture = Fixture::new();
+            let mut source = Vmm::new_resume(fixture.config(2)).unwrap();
+            psci::boot_native_secondaries(&mut source);
+            prepare_shutdown(&mut source, &[0xd400_0002]); // HVC #0: SYSTEM_OFF.
+            let entry = CODE + 0x1000;
+            let write = matches!(phase, Phase::Write | Phase::RetireWrite);
+            install_words(
+                &source,
+                entry,
+                &[
+                    if write { 0x39000020 } else { 0x39400020 }, // STRB/LDRB W0,[X1].
+                    0x14000000,                                  // B .
+                ],
+            );
+            source
+                .pl011
+                .as_ref()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .queue_input(&[0xab, 0xcd]);
+            let mut state = public(source.vcpus[1].as_ref());
+            state.regs.pc = entry;
+            state.regs.pstate = 0x3c5;
+            state.regs.x[0] = if write { 0xab } else { 0x1234 };
+            state.regs.x[1] = UART + if write { 0x30 } else { 0 };
+            source.vcpus[1]
+                .set_state(&CpuState::Aarch64(state))
+                .unwrap();
+            check_peer_exit(&run_until_exit(source.vcpus[1].as_mut()), write);
+            if matches!(phase, Phase::ReplyError | Phase::RetryReply) {
+                let mut data = [0];
+                source.mmio_bus.read(UART, &mut data).unwrap();
+                assert_eq!(data, [0xab]);
+                source
+                    .vm
+                    .as_any()
+                    .downcast_ref::<crate::backend::hvf::HvfArm64Vm>()
+                    .unwrap()
+                    .fail_next_gpr_writes(1, 0, 1);
+                source.vcpus[1].complete_io_in(&data);
+                assert!(source.vcpus[1].io_completion_result().is_err());
+                if phase == Phase::RetryReply {
+                    assert!(source.vcpus[1].run().is_err());
+                }
+            }
+            if phase == Phase::RetireWrite {
+                source.mmio_bus.write(UART + 0x30, &[0xab]).unwrap();
+                source
+                    .vm
+                    .as_any()
+                    .downcast_ref::<crate::backend::hvf::HvfArm64Vm>()
+                    .unwrap()
+                    .fail_next_gpr_writes(1, 31, 1); // HV_REG_PC.
+                let error = source.vcpus[1].complete_io_out().unwrap_err().to_string();
+                assert!(
+                    error.contains("injected native GPR write failure"),
+                    "{error}"
+                );
+                // A second device observation exposes any replay of the old write.
+                source.mmio_bus.write(UART + 0x30, &[0x39]).unwrap();
+            }
+            source.coordinator.cursor = 0;
+            source
+                .take_snapshot_bundle(0)
+                .unwrap()
+                .save(&fixture.checkpoint)
+                .unwrap();
+            drop(source);
+            std::fs::remove_file(&fixture.kernel).unwrap();
+            let saved = SnapshotBundle::load(&fixture.checkpoint).unwrap();
+            let mut config =
+                VmConfig::from_checkpoint_bundle(&saved, CliConfig::default()).unwrap();
+            config.hvf_parallel_vcpus = parallel;
+            let mut target = Vmm::new_resume_bundle(config, &saved).unwrap();
+            if phase == Phase::ReplyError {
+                let error = target.run().unwrap_err().to_string();
+                assert!(
+                    error.contains("injected native GPR write failure"),
+                    "{error}"
+                );
+                assert_eq!(public(target.vcpus[0].as_ref()).regs.pc, SHUTDOWN_PC);
+                assert!(!target.vm.firmware_shutdown().unwrap());
+            }
+            target.run().unwrap();
+            assert!(target.vm.firmware_shutdown().unwrap());
+            let peer = private_states(&target).remove(1);
+            assert!(
+                peer.pending_read.is_none()
+                    && peer.pending_write.is_none()
+                    && peer.pending_reply.is_none(),
+                "{phase:?} parallel={parallel}"
+            );
+            assert_eq!(peer.public.regs.pc, entry + 4);
+            assert_eq!(peer.public.regs.x[0], 0xab);
+            let mut remaining = [0];
+            target.mmio_bus.read(UART, &mut remaining).unwrap();
+            assert_eq!(remaining, [if write { 0xab } else { 0xcd }]);
+            if write {
+                target.mmio_bus.read(UART + 0x30, &mut remaining).unwrap();
+                assert_eq!(
+                    remaining,
+                    [if phase == Phase::RetireWrite {
+                        0x39
+                    } else {
+                        0xab
+                    }]
+                );
+            }
+        }
     }
 }
 
@@ -226,6 +351,8 @@ fn exercise(phase: Phase, parallel: Option<ParallelOrder>) {
             .power
             .shutdown
     );
+    assert_eq!(private_states(&target)[1], expected);
+    target.run().unwrap();
     assert_eq!(private_states(&target)[1], expected);
     for _ in 0..2 {
         assert!(matches!(target.vcpus[1].run().unwrap(), VcpuExit::Shutdown));

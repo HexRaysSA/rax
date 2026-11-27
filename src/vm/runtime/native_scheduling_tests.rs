@@ -25,6 +25,8 @@ struct Calls {
     serial_round: bool,
     reject_input_width: Option<u32>,
     reject_reply: Option<u32>,
+    resume_issued_input: bool,
+    resumed_terminal_cpu: Option<u32>,
 }
 
 struct Native {
@@ -52,6 +54,10 @@ impl VCpu for Native {
         let outgoing = {
             let mut calls = self.calls.lock().unwrap();
             calls.bounded.push((self.id, limit));
+            if calls.resume_issued_input {
+                assert_eq!(calls.input_completions, [(1, 0), (2, 0)]);
+                return Ok(Some(VcpuExit::Shutdown));
+            }
             calls.outgoing.take()
         };
         if let Some(apic) = outgoing {
@@ -62,6 +68,20 @@ impl VCpu for Native {
             port: 0x3f8 + self.id as u16,
             size: 1,
         }))
+    }
+
+    fn resume_native_device_io(&mut self) -> Result<Option<VcpuExit>> {
+        let calls = self.calls.lock().unwrap();
+        if calls.resumed_terminal_cpu == Some(self.id) {
+            return Ok(Some(VcpuExit::Shutdown));
+        }
+        Ok(
+            (calls.resume_issued_input && matches!(self.id, 1 | 2) && self.prepared_input)
+                .then_some(VcpuExit::IoIn {
+                    port: 0x3f8,
+                    size: 1,
+                }),
+        )
     }
 
     fn post_host_slice(&mut self, limit: Duration) -> Result<()> {
@@ -416,6 +436,55 @@ fn native_round_completes_peer_input_before_delivering_a_collected_init() {
     assert_eq!(calls.input_completions, [(1, 0)]);
     assert_eq!(calls.init_attempts, [1]);
     assert_eq!(vm.coordinator.online, [true, false]);
+}
+
+#[test]
+fn native_resume_completes_all_issued_inputs_before_init_or_guest_entry() {
+    let (mut fixture, calls) = fixture(4, true);
+    let vm = &mut fixture.vm;
+    vm.backend_kind = BackendKind::Hvf;
+    {
+        let mut calls = calls.lock().unwrap();
+        calls.resume_issued_input = true;
+        calls.serial_round = true;
+    }
+    let mut serial = vm.serial.lock().unwrap();
+    serial.write(0x3fa, 1);
+    serial.queue_input(b"abc");
+    drop(serial);
+    vm.local_apics[0]
+        .lock()
+        .unwrap()
+        .write_register(0x300, 0x000c_4500);
+    vm.run().unwrap();
+    let calls = calls.lock().unwrap();
+    assert_eq!(calls.serial_replies, [(1, b'a'), (2, b'b')]);
+    assert_eq!(calls.init_attempts, [1, 2, 3]);
+    assert_eq!(
+        calls.bounded.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+        [0]
+    );
+    assert_eq!(vm.serial.lock().unwrap().read(0x3f8), b'c');
+    assert_eq!(vm.coordinator.retired, 17);
+}
+
+#[test]
+fn native_resume_keeps_issued_peer_io_when_the_saved_round_was_terminal() {
+    let (mut fixture, calls) = fixture(4, true);
+    let vm = &mut fixture.vm;
+    vm.backend_kind = BackendKind::Hvf;
+    {
+        let mut calls = calls.lock().unwrap();
+        calls.resume_issued_input = true;
+        calls.resumed_terminal_cpu = Some(3);
+    }
+    vm.serial.lock().unwrap().queue_input(b"a");
+    vm.run().unwrap();
+    let calls = calls.lock().unwrap();
+    assert!(calls.bounded.is_empty());
+    assert!(calls.input_completions.is_empty());
+    assert_eq!(vm.serial.lock().unwrap().read(0x3f8), b'a');
+    assert_eq!(vm.coordinator.retired, 17);
 }
 
 #[test]
