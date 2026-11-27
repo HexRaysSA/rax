@@ -211,7 +211,13 @@ impl Vmm {
                 continue;
             }
             #[cfg(feature = "debug")]
-            if !self.debugger_allows_cpu(cpu_index) {
+            let allow_dispatch = self.debugger_allows_cpu(cpu_index);
+            #[cfg(not(feature = "debug"))]
+            let allow_dispatch = true;
+            // Intel's probe only reads owner state, so even a debugger-stopped
+            // owner can report the VM-wide terminal exit. Other backends may
+            // complete an instruction as part of the probe.
+            if !allow_dispatch && !check_intel_terminal {
                 continue;
             }
             let vcpu = &mut self.vcpus[cpu_index];
@@ -223,7 +229,9 @@ impl Vmm {
                 vcpu.pending_software_mmio_write()
             };
             let terminal = matches!(pending, Ok(Some(VcpuExit::Shutdown)));
-            if terminal || (matches!(selected, Ok(None)) && !matches!(pending, Ok(None))) {
+            if terminal
+                || (allow_dispatch && matches!(selected, Ok(None)) && !matches!(pending, Ok(None)))
+            {
                 selected = pending.map(|exit| {
                     exit.map(|exit| ExecutionTurn {
                         cpu_index,

@@ -487,6 +487,42 @@ fn native_resume_keeps_issued_peer_io_when_the_saved_round_was_terminal() {
     assert_eq!(vm.coordinator.retired, 17);
 }
 
+#[cfg(feature = "debug")]
+#[test]
+fn gdb_resume_observes_terminal_intel_owner_outside_resume_mask() {
+    use crate::debug::gdb::{GdbCommand, GdbResponse, create_channels, threads::parse_resume};
+
+    let (mut fixture, calls) = fixture(4, true);
+    let vm = &mut fixture.vm;
+    vm.backend_kind = BackendKind::Hvf;
+    {
+        let mut calls = calls.lock().unwrap();
+        calls.resume_issued_input = true;
+        calls.resumed_terminal_cpu = Some(3);
+    }
+    vm.serial.lock().unwrap().queue_input(b"a");
+    let (client, channels) = create_channels();
+    vm.gdb_channels = Some(channels);
+    vm.gdb_stopped = true;
+    // Resume CPU 1, whose retained input would consume the UART byte.
+    client
+        .cmd_tx
+        .send(GdbCommand::Resume(parse_resume("c:2").unwrap()))
+        .unwrap();
+
+    vm.run().unwrap();
+
+    let calls = calls.lock().unwrap();
+    assert!(calls.bounded.is_empty());
+    assert!(calls.input_completions.is_empty());
+    assert_eq!(vm.serial.lock().unwrap().read(0x3f8), b'a');
+    assert_eq!(vm.coordinator.retired, 17);
+    assert!(matches!(
+        client.resp_rx.try_recv(),
+        Ok(GdbResponse::Exited(0))
+    ));
+}
+
 #[test]
 fn host_yields_visit_every_online_cpu_without_guest_exits_or_retirement() {
     for count in [2, 4] {

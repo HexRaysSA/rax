@@ -187,6 +187,9 @@ ARM64 owners with a saved input reply or an acknowledged output finish
 the register or PC update on the stopped owner. The device sees one
 transaction. An already terminal VM preserves its pending transactions.
 With GDB attached, the dispatch follows the current debugger resume mask.
+On a resume request, an Intel HVF shutdown held by any online owner takes
+precedence over retained device I/O and new guest turns, including when
+GDB leaves the terminal owner stopped.
 The existing checkpoint records carry these states without format changes.
 For H vCPUs and R device dispatches, the resume preflight makes at most
 O(H × (R + 1)) owner probes with O(1) additional scheduler state.
@@ -217,7 +220,11 @@ public CPU counts, ordered private Intel CPU records, and shared Intel VM
 record. Evidence artifact
 `15203659734` has SHA-256
 `00bde6646674a46a41ab6d5173d1d9a3257f7e81af443847729af8db1f708e90`.
-The saved Intel terminal-ordering probe remains coordinator-model coverage.
+The saved Intel terminal-ordering probes use the coordinator model with and
+without a GDB resume mask. In the GDB probe, resuming CPU 1 on the parent
+consumed a retained UART byte before entering the guest despite a saved
+shutdown on CPU 3. The regression requires GDB to receive the exit while
+the UART byte and retired count are preserved.
 Bare-metal Intel and GDB-attached native replay remain unverified.
 
 ### Checkpoint scheduling
