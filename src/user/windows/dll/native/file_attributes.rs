@@ -94,6 +94,7 @@ fn checked(c: &mut Ctx, full: bool) -> Checked<u32> {
                 relative: None,
                 directory: true,
                 runtime_library: true,
+                no_reparse: false,
             };
             metadata::query(c, &resolved, true)?
         }

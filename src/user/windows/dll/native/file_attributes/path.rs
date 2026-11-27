@@ -38,17 +38,7 @@ pub(in super::super) struct Resolved {
     pub(in super::super) relative: Option<PathBuf>,
     pub(in super::super) directory: bool,
     pub(in super::super) runtime_library: bool,
-}
-
-impl Resolved {
-    pub(in super::super) fn installed_clr_loader(&self) -> bool {
-        self.runtime_library
-            && self
-                .host
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.eq_ignore_ascii_case(CLR_LOADER))
-    }
+    pub(in super::super) no_reparse: bool,
 }
 
 fn canonical_root(c: &Ctx, path: &Path) -> Checked<PathBuf> {
@@ -255,10 +245,49 @@ fn selected_mui(
     Ok(Some((directory, file)))
 }
 
-pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf)>> {
+fn selected_main_file(c: &Ctx, runtime: &NativeRuntime, path: &[u16]) -> Checked<Option<PathBuf>> {
+    if c.p.cfg.host_filesystem || !c.p.modules.installed_executable {
+        return Ok(None);
+    }
+    let executable = c.p.modules.executable_path();
+    let Some(relative) = runtime.executable_relative(executable) else {
+        return Ok(None);
+    };
+    let name: Vec<u16> = executable.encode_utf16().collect();
+    let suffix: Vec<u16> = ".config".encode_utf16().collect();
+    let config = path.len() == name.len() + suffix.len()
+        && equal(c, &path[..name.len()], &name)
+        && equal(c, &path[name.len()..], &suffix);
+    if !config && !equal(c, path, &name) {
+        return Ok(None);
+    }
+    let (parents, filename) = relative.rsplit_once('\\').unwrap_or(("", relative));
+    let mut directory = runtime.directory.clone();
+    for part in parents.split('\\').filter(|part| !part.is_empty()) {
+        directory = confined_child(c, &directory, part, STATUS_OBJECT_PATH_NOT_FOUND)?;
+        if !directory.is_dir() {
+            return status(STATUS_OBJECT_PATH_NOT_FOUND);
+        }
+    }
+    let filename = if config {
+        format!("{filename}.config")
+    } else {
+        filename.to_owned()
+    };
+    let host = confined_child(c, &directory, &filename, STATUS_OBJECT_NAME_NOT_FOUND)?;
+    if !host.is_file() {
+        return status(STATUS_OBJECT_NAME_NOT_FOUND);
+    }
+    Ok(Some(host))
+}
+
+fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathBuf, PathBuf, bool)>> {
     let Some(runtime) = &c.p.native else {
         return Ok(None);
     };
+    if let Some(file) = selected_main_file(c, runtime, path)? {
+        return Ok(Some((runtime.directory.clone(), file, true)));
+    }
     if let Some(separator) = path.iter().rposition(|unit| *unit == u16::from(b'\\'))
         && equal(
             c,
@@ -276,7 +305,7 @@ pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathB
         if !image.is_file() {
             return status(STATUS_OBJECT_NAME_NOT_FOUND);
         }
-        return Ok(Some((base, image)));
+        return Ok(Some((base, image, true)));
     }
     let windows = runtime.guest_root.trim_end_matches('\\');
     let sort_table: Vec<_> = format!(r"{windows}\Globalization\Sorting\SortDefault.nls")
@@ -293,7 +322,7 @@ pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathB
         if !file.is_file() {
             return status(STATUS_OBJECT_NAME_NOT_FOUND);
         }
-        return Ok(Some((base, file)));
+        return Ok(Some((base, file, false)));
     }
     let mut prefixes = vec![(runtime.guest_directory.clone(), false)];
     if c.arch() == WinArch::X86 {
@@ -309,7 +338,8 @@ pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathB
         }
         let basename = &path[prefix.len() + 1..];
         if !c.p.cfg.host_filesystem && basename.contains(&u16::from(b'\\')) {
-            return selected_mui(c, runtime, basename, system32_alias);
+            return selected_mui(c, runtime, basename, system32_alias)
+                .map(|selected| selected.map(|(base, file)| (base, file, false)));
         }
         if basename.len() < 5 {
             continue;
@@ -329,7 +359,11 @@ pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathB
             continue;
         }
         return match runtime.dll_paths(&name) {
-            Ok(Some((spelling, _))) => Ok(Some((runtime.directory.clone(), spelling))),
+            Ok(Some((spelling, _))) => Ok(Some((
+                runtime.directory.clone(),
+                spelling,
+                name.eq_ignore_ascii_case(CLR_LOADER),
+            ))),
             Ok(None) => status(STATUS_OBJECT_NAME_NOT_FOUND),
             Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
                 status(STATUS_ACCESS_DENIED)
@@ -605,7 +639,7 @@ fn resolve_kind(
                 absolute.push(u16::from(b'\\'));
             }
             absolute.extend_from_slice(name);
-            let Some((base, host)) = selected(c, &absolute)? else {
+            let Some((base, host, no_reparse)) = selected(c, &absolute)? else {
                 return status(STATUS_ACCESS_DENIED);
             };
             return Ok(Resolved {
@@ -615,6 +649,7 @@ fn resolve_kind(
                 relative: None,
                 directory: false,
                 runtime_library: true,
+                no_reparse,
             });
         }
         if !c.p.cfg.host_filesystem && !c.p.objects.runtime_library(attrs.root) {
@@ -636,6 +671,7 @@ fn resolve_kind(
                 relative: Some(relative),
                 directory,
                 runtime_library: c.p.objects.runtime_library(attrs.root),
+                no_reparse: false,
             });
         }
         let base = if name.is_empty() && file.host.is_some() {
@@ -652,6 +688,7 @@ fn resolve_kind(
             relative: None,
             directory,
             runtime_library: c.p.objects.runtime_library(attrs.root),
+            no_reparse: false,
         });
     }
     if name.is_empty() || name[0] != u16::from(b'\\') {
@@ -675,7 +712,7 @@ fn resolve_kind(
     } else {
         path
     };
-    if let Some((base, host)) = selected(c, selected_path)? {
+    if let Some((base, host, no_reparse)) = selected(c, selected_path)? {
         return Ok(Resolved {
             base,
             host,
@@ -683,6 +720,7 @@ fn resolve_kind(
             relative: None,
             directory,
             runtime_library: true,
+            no_reparse,
         });
     }
     if !c.p.cfg.host_filesystem {
@@ -699,5 +737,6 @@ fn resolve_kind(
         relative: None,
         directory,
         runtime_library: false,
+        no_reparse: false,
     })
 }

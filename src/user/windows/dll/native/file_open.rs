@@ -282,12 +282,7 @@ pub(super) fn kernel(
             )
             .into());
     }
-    let flags = attrs.flags
-        | if resolved.installed_clr_loader() {
-            0x1000
-        } else {
-            0
-        };
+    let flags = attrs.flags | if resolved.no_reparse { 0x1000 } else { 0 };
     let acquired = match creation {
         Some(request) => host::create(c, &resolved, access, r.share, r.options, flags, request)?,
         None => host::open(c, &resolved, access, r.share, r.options, flags)?,

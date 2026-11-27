@@ -103,7 +103,7 @@ pub(super) fn resolved_attributes(c: &Ctx, path: &Path) -> Checked<u32> {
 }
 
 pub(super) fn query(c: &Ctx, resolved: &Resolved, no_reparse: bool) -> Checked<Information> {
-    let no_reparse = no_reparse || resolved.installed_clr_loader();
+    let no_reparse = no_reparse || resolved.no_reparse;
     if no_reparse && resolved.relative.is_none() {
         let mut parent = Some(resolved.host.as_path());
         while let Some(path) = parent {
@@ -223,6 +223,7 @@ pub(super) fn by_name(
                 relative: None,
                 directory: true,
                 runtime_library: true,
+                no_reparse: false,
             };
             // SYNCHRONIZE | FILE_LIST_DIRECTORY, shared synchronous directory
             // open with reparsing forbidden throughout the retained query.

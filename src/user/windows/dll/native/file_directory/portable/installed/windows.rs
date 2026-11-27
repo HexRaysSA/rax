@@ -17,6 +17,7 @@ pub(super) fn collect(
         relative: None,
         directory: true,
         runtime_library: true,
+        no_reparse: false,
     };
     // SYNCHRONIZE | FILE_LIST_DIRECTORY and a synchronous directory open.
     // Refuse name reparsing and keep the host handle private for the full scan.

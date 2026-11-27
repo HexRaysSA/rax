@@ -4094,6 +4094,14 @@ the native absence result when the optional per-user settings are missing.
 Each component must resolve inside the installed Windows tree. Directory
 handles remain guest-owned and support read-only metadata and enumeration.
 
+The closed installed filesystem admits read-only opens and metadata for the
+exact selected main executable and its adjacent `.config` file. Admission
+requires the installed main image match established at process creation,
+then resolves the requested name under the selected system directory
+without reparsing. On Windows build 29708, the ARM64 and WoW64 x86
+PowerShell executables query their own file metadata and open their
+installed `powershell.exe.config` during CLR startup.
+
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with
 its native access mask. The capture leaves membership unknown and does not

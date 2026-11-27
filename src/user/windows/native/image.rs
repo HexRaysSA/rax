@@ -40,9 +40,13 @@ impl NativeRuntime {
     /// Find an installed backing file for a main image supplied as bytes.
     /// The exact bytes must match a file under the selected system directory.
     pub(crate) fn matching_executable(&self, guest_path: &str, image: &[u8]) -> Option<File> {
-        let relative = executable_relative_path(&self.guest_directory, guest_path)?;
+        let relative = self.executable_relative(guest_path)?;
         let (_, mut file) = self.open_executable(relative).ok()??;
         same_image_bytes(&mut file, image).ok()?.then_some(file)
+    }
+
+    pub(crate) fn executable_relative<'a>(&self, guest_path: &'a str) -> Option<&'a str> {
+        executable_relative_path(&self.guest_directory, guest_path)
     }
 
     pub(crate) fn open_child_executable(
@@ -50,7 +54,7 @@ impl NativeRuntime {
         arch: WinArch,
         guest_path: &str,
     ) -> io::Result<Option<(PathBuf, File)>> {
-        let Some(name) = executable_relative_path(&self.guest_directory, guest_path) else {
+        let Some(name) = self.executable_relative(guest_path) else {
             return Err(io::Error::from(io::ErrorKind::PermissionDenied));
         };
         if name.contains('\\') || !self.admits_child_executable(arch, name) {

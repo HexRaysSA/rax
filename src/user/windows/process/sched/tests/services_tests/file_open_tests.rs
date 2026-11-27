@@ -1107,6 +1107,89 @@ fn native_file_open_mui_satellites_require_an_installed_owner_and_read_only_acce
 }
 
 #[test]
+fn native_file_open_admits_only_the_installed_main_image_and_its_config() {
+    use crate::user::windows::nt::status::STATUS_ACCESS_DENIED;
+    use crate::user::windows::objects::Object;
+    use std::io::Read;
+
+    for arch in WinArch::ALL {
+        let mut h = Harness::new(arch);
+        let directory = selection(&mut h).join("Applications").join("Shell");
+        std::fs::create_dir_all(&directory).unwrap();
+        let config = directory.join("shell.exe.config");
+        std::fs::write(directory.join("shell.exe"), b"image").unwrap();
+        std::fs::write(directory.join("neighbor.exe.config"), b"unselected").unwrap();
+        std::fs::write(&config, b"settings").unwrap();
+        let system = h
+            .process
+            .state()
+            .native
+            .as_ref()
+            .unwrap()
+            .guest_directory
+            .clone();
+        let exe = format!(r"{system}\Applications\Shell\shell.exe");
+        h.process.state_mut().modules.list[0].path = exe.clone();
+        let output = h.base;
+        let io = h.base + PAGE_SIZE;
+        let attrs = h.attrs();
+        h.name(&format!(r"\??\{exe}"));
+        assert_eq!(
+            h.invoke_api("NtQueryAttributesFile", &[attrs, output]),
+            STATUS_ACCESS_DENIED,
+            "{arch}/unmatched image"
+        );
+        h.process.state_mut().modules.installed_executable = true;
+        for (suffix, expected) in [("", b"image".as_slice()), (".config", b"settings")] {
+            h.name(&format!(r"\??\{exe}{suffix}").to_ascii_uppercase());
+            for service in ["NtQueryAttributesFile", "NtQueryFullAttributesFile"] {
+                assert_eq!(
+                    h.invoke_api(service, &[attrs, output]),
+                    STATUS_SUCCESS,
+                    "{arch}/{service}/{suffix}"
+                );
+            }
+            let p = h.process.state();
+            assert_eq!(p.space.u64(output + 40).unwrap(), expected.len() as u64);
+            assert_eq!(
+                h.open_with(output, io, 0x80100080, 1, 0x20060),
+                STATUS_SUCCESS,
+                "{arch}/read/{suffix}"
+            );
+            let p = h.process.state_mut();
+            let handle = p.space.ptr(output, arch.ptr_size()).unwrap();
+            assert!(p.objects.runtime_library(handle));
+            let Some(Object::File(file)) = p.objects.get(handle) else {
+                panic!("recognized installed file");
+            };
+            let mut bytes = Vec::new();
+            file.host.as_ref().unwrap().read_to_end(&mut bytes).unwrap();
+            assert_eq!(bytes, expected, "{arch}/{suffix}");
+            p.objects.close(handle).unwrap();
+            assert_eq!(
+                h.open_with(output, io, 0x100002, 7, 0x60),
+                STATUS_ACCESS_DENIED,
+                "{arch}/write/{suffix}"
+            );
+        }
+        h.name(&format!(
+            r"\??\{system}\Applications\Shell\neighbor.exe.config"
+        ));
+        assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED);
+        std::fs::remove_file(&config).unwrap();
+        h.name(&format!(r"\??\{exe}.config"));
+        assert_eq!(h.open(output, io), STATUS_OBJECT_NAME_NOT_FOUND);
+        #[cfg(unix)]
+        {
+            let unrelated = directory.join("neighbor.exe.config");
+            std::os::unix::fs::symlink(unrelated, &config).unwrap();
+            assert_eq!(h.open(output, io), STATUS_ACCESS_DENIED);
+        }
+        assert!(!h.process.state().cfg.host_filesystem);
+    }
+}
+
+#[test]
 fn native_file_open_wow64_mui_uses_the_calling_threads_redirection_state() {
     use crate::user::windows::layout::WOW64_TEB_FS_REDIRECTION;
     use crate::user::windows::objects::Object;
