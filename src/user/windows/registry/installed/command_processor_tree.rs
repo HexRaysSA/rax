@@ -1,5 +1,7 @@
 //! Stable per-node values, names and grants, with one shared traversal budget.
 use super::*;
+use crate::user::windows::registry::key_information::CACHED_RECORD_BYTES;
+use crate::user::windows::registry::process_config::ProcessConfigKey;
 use crate::user::windows::registry::tree::{TreeBudget, child_path};
 use crate::user::windows::registry::{CommandTree, ValueBudget};
 
@@ -11,6 +13,7 @@ struct Capture<'a, F> {
     values: ValueBudget,
     metadata: TreeBudget,
     reserved: usize,
+    cached_root: Option<[u8; CACHED_RECORD_BYTES]>,
     opener: F,
 }
 
@@ -20,7 +23,7 @@ pub(super) fn capture(
     sid: &[u8],
     view: RegistryView,
     key: OwnedKey,
-) -> io::Result<CommandTree> {
+) -> io::Result<SnapshotTree> {
     capture_snapshot_with(registry, root, sid, view, key, |path| {
         open_snapshot_path(root, sid, view, path)
     })
@@ -35,14 +38,15 @@ pub(super) fn capture_with(
     key: OwnedKey,
     opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
 ) -> io::Result<CommandTree> {
-    capture_snapshot_with(
+    let snapshot = capture_snapshot_with(
         registry,
         SnapshotRoot::Command(root),
         sid,
         view,
         key,
         opener,
-    )
+    )?;
+    Ok(snapshot.tree)
 }
 
 fn capture_snapshot_with(
@@ -52,7 +56,7 @@ fn capture_snapshot_with(
     view: RegistryView,
     key: OwnedKey,
     opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
-) -> io::Result<CommandTree> {
+) -> io::Result<SnapshotTree> {
     let (values, metadata) = registry.snapshot_budgets(root)?;
     let reserved = metadata
         .key_count()
@@ -67,9 +71,14 @@ fn capture_snapshot_with(
         values,
         metadata,
         reserved,
+        cached_root: None,
         opener,
     };
-    capture.node(root.path(sid)?, None, 0, Some(key))
+    let tree = capture.node(root.path(sid)?, None, 0, Some(key))?;
+    Ok(SnapshotTree {
+        tree,
+        cached_root: capture.cached_root,
+    })
 }
 
 impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
@@ -101,6 +110,11 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
             }
             self.metadata.charge(&canonical, depth)?;
             let access = access(&key, &canonical)?;
+            let cached_root = (depth == 0
+                && self.root
+                    == SnapshotRoot::ProcessConfig(ProcessConfigKey::DotNetPolicyAppPatch))
+            .then(|| super::super::key_information::cached_record(&key))
+            .transpose()?;
             use super::super::key_enumeration::{stable_bounded, stable_ordered_values_bounded};
             let catalog = self.root.winsock_catalog();
             let sample = if self.root.captures_process_config_subtree() {
@@ -125,6 +139,14 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
                 return Err(invalid(
                     "Command Processor identity/grant changed during capture",
                 ));
+            }
+            if let Some(record) = cached_root {
+                if super::super::key_information::cached_record(&key)? != record {
+                    return Err(invalid(
+                        ".NET Framework AppPatch cached information changed during capture",
+                    ));
+                }
+                self.cached_root = Some(record);
             }
             (
                 CommandHeader {

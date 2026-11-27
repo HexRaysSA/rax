@@ -1,6 +1,12 @@
 //! Acquire fixed subjects before exposing immutable logical registry views.
 use super::*;
 
+#[derive(Clone)]
+pub(in crate::user::windows::registry) struct SnapshotTree {
+    pub(crate) tree: CommandTree,
+    pub(crate) cached_root: Option<[u8; CACHED_RECORD_BYTES]>,
+}
+
 pub(in crate::user::windows::registry) trait Source {
     type Key;
 
@@ -11,7 +17,7 @@ pub(in crate::user::windows::registry) trait Source {
         registry: &Registry,
         view: RegistryView,
         key: Self::Key,
-    ) -> io::Result<CommandTree>;
+    ) -> io::Result<SnapshotTree>;
 }
 
 pub(in crate::user::windows::registry) fn capture(
@@ -38,13 +44,10 @@ pub(in crate::user::windows::registry) fn capture(
     }
     for view in [RegistryView::Native64, RegistryView::Wow32] {
         let selected = match open(source, root, view)? {
-            Ok(key) => {
-                let tree = source.tree(&registry, view, key)?;
-                Ok((tree.header, Some(tree.children)))
-            }
+            Ok(key) => Ok(source.tree(&registry, view, key)?),
             Err(status) => Err(status),
         };
-        registry = registry.with_snapshot_selection(root, sid, view, selected)?;
+        registry = install(registry, root, sid, view, selected)?;
     }
     Ok(registry)
 }
@@ -74,7 +77,7 @@ fn shared(
             // second time merely to assign the other logical view's tags.
             drop(wow);
             let tree = source.tree(&registry, RegistryView::Native64, native)?;
-            let captured = (tree.header.canonical.clone(), tree.header.access);
+            let captured = (tree.tree.header.canonical.clone(), tree.tree.header.access);
             if !same_identity(&registry, &first, &captured) {
                 return Err(invalid(&format!(
                     "{} physical identity/grant changed during capture",
@@ -97,18 +100,34 @@ fn shared(
     };
     // The ordinary builders validate and charge both logical projections,
     // including every descendant, value, grant and child FILETIME.
-    registry = registry.with_snapshot_selection(
+    registry = install(
+        registry,
         root,
         sid,
         RegistryView::Native64,
-        Ok((tree.header.clone(), Some(tree.children.clone()))),
+        Ok(tree.clone()),
     )?;
-    registry.with_snapshot_selection(
-        root,
-        sid,
-        RegistryView::Wow32,
-        Ok((tree.header, Some(tree.children))),
-    )
+    install(registry, root, sid, RegistryView::Wow32, Ok(tree))
+}
+
+fn install(
+    registry: Registry,
+    root: SnapshotRoot,
+    sid: &[u8],
+    view: RegistryView,
+    selected: Result<SnapshotTree, u32>,
+) -> io::Result<Registry> {
+    match selected {
+        Ok(SnapshotTree { tree, cached_root }) => registry.with_snapshot_routes(
+            root,
+            sid,
+            view,
+            Ok((tree.header, Some(tree.children))),
+            None,
+            cached_root,
+        ),
+        Err(status) => registry.with_snapshot_selection(root, sid, view, Err(status)),
+    }
 }
 
 fn same_identity(

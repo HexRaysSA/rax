@@ -410,6 +410,13 @@ impl Registry {
                 if let Some(cached) = cached {
                     let key = Arc::get_mut(&mut key).expect("new snapshot key");
                     let information = KeyInformation::from_cached(key, cached)?;
+                    if root.captures_process_config_subtree()
+                        && information.cached_value_count() != Some(key.values.entries.len())
+                    {
+                        return Err(invalid(
+                            "native cached key record contradicts captured values",
+                        ));
+                    }
                     self.value_budget()?.charge_information(&information)?;
                     if matches!(root, SnapshotRoot::ProcessConfig(subject) if subject.preserves_value_order())
                         && information.cached_value_count() == Some(key.values.entries.len())

@@ -57,6 +57,7 @@ struct ChangingSource {
     errors: [Option<i32>; 2],
     identities: [Option<(Vec<u16>, KeyAccess)>; 2],
     captured_access: Option<KeyAccess>,
+    cached_roots: [Option<[u8; CACHED_RECORD_BYTES]>; 2],
 }
 
 impl ChangingSource {
@@ -69,6 +70,7 @@ impl ChangingSource {
             errors: [None, None],
             identities: [None, None],
             captured_access: None,
+            cached_roots: [None, None],
         }
     }
 }
@@ -110,7 +112,7 @@ impl Source for ChangingSource {
         _registry: &Registry,
         view: RegistryView,
         key: Key,
-    ) -> io::Result<CommandTree> {
+    ) -> io::Result<SnapshotTree> {
         assert_eq!(key.view, view);
         assert_eq!(
             self.live.get(),
@@ -137,7 +139,7 @@ impl Source for ChangingSource {
             },
             children: vec![],
         };
-        Ok(CommandTree {
+        let tree = CommandTree {
             header: CommandHeader {
                 canonical,
                 enumeration: Some(vec![BasicChild {
@@ -153,8 +155,57 @@ impl Source for ChangingSource {
                 access,
             },
             children: vec![(child_name, child)],
+        };
+        Ok(SnapshotTree {
+            tree,
+            cached_root: self.cached_roots[index(view)],
         })
     }
+}
+
+#[test]
+fn app_patch_keeps_cached_root_and_complete_children_for_each_view() {
+    let sid = subject();
+    let root = SnapshotRoot::ProcessConfig(ProcessConfigKey::DotNetPolicyAppPatch);
+    let mut source = ChangingSource::new(root, &sid);
+    source.identities[1] = Some((
+        wide(
+            "\\Registry\\Machine\\Software\\WOW6432Node\\Microsoft\\.NETFramework\\Policy\\AppPatch",
+        ),
+        access(),
+    ));
+    let record = |generation: u8| {
+        let mut bytes = [0; CACHED_RECORD_BYTES];
+        bytes[0] = generation;
+        bytes[12..16].copy_from_slice(&1u32.to_le_bytes());
+        bytes[20..24].copy_from_slice(&1u32.to_le_bytes());
+        bytes[32..36].copy_from_slice(&16u32.to_le_bytes());
+        bytes
+    };
+    source.cached_roots = [Some(record(1)), Some(record(2))];
+    let selected = capture(registry(&sid), root, &sid, &mut source).unwrap();
+    for (view, generation) in [(RegistryView::Native64, 1), (RegistryView::Wow32, 2)] {
+        let Lookup::Present(key) = selected.lookup_view(&source.path, view) else {
+            panic!("captured AppPatch root")
+        };
+        assert_eq!(
+            key.information().unwrap().record(4),
+            Some(record(generation).as_slice())
+        );
+        let Lookup::Present(child) = key.relative(&wide("Child")) else {
+            panic!("captured AppPatch child")
+        };
+        assert_eq!(
+            child.value(&wide("ChildGeneration")).unwrap().data,
+            [generation]
+        );
+        assert!(child.information().is_none());
+    }
+
+    let mut inconsistent = record(1);
+    inconsistent[20] = 2;
+    source.cached_roots[0] = Some(inconsistent);
+    assert!(capture(registry(&sid), root, &sid, &mut source).is_err());
 }
 
 #[test]

@@ -1,7 +1,8 @@
 //! Acquire complete fixed CMD subtrees, with a captured creator SID for HKU.
 //! No guest path, view, access mask, callback or native handle survives capture.
 use super::super::SnapshotRoot;
-use super::super::{CommandHeader, CommandRoot, CommandTree, KeyAccess, RegistryView};
+use super::super::snapshot_root::capture::SnapshotTree;
+use super::super::{CommandHeader, CommandRoot, KeyAccess, RegistryView};
 use super::*;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
@@ -249,7 +250,7 @@ where
         registry: &Registry,
         view: RegistryView,
         key: OwnedKey,
-    ) -> io::Result<CommandTree> {
+    ) -> io::Result<SnapshotTree> {
         subtree::capture(registry, self.root, self.sid, view, key)
     }
 }
