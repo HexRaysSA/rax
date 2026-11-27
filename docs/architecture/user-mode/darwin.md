@@ -23,7 +23,9 @@ record, with shorter calls receiving only the requested prefix.
 Closed guests use the emulated process's `psynch` queues for private pthread
 mutexes, condition variables, and read-write locks. Requests for process-shared
 queues return `ENOTSUP`. The queues live in guest process state and are never
-forwarded to the host kernel.
+forwarded to the host kernel. The user-lock wait calls also return the
+remaining number of waiters at the guest address when woken or when the
+compared value has changed.
 
 ```text
 rax-user --arch arm64 /bin/echo hello

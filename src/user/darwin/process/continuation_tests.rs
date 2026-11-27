@@ -50,6 +50,63 @@ fn wake(p: &mut DarwinProcess, tid: u64, targeted: bool) {
 }
 
 #[test]
+fn ulock_reports_other_waiters_until_their_kernel_calls_finish() {
+    use crate::user::darwin::arch::Rv;
+
+    for abi in [DarwinAbi::Arm64, DarwinAbi::X86_64] {
+        let mut guest = bounded_tests::process(abi);
+        let (tid, mut caller) = guest.proc.threads.pop_first().unwrap();
+        let address = caller.cpu.sp() - 64;
+        guest
+            .proc
+            .space
+            .write(address, &1u32.to_le_bytes())
+            .unwrap();
+        for (offset, target, woken) in [
+            (1, address, true),
+            (2, address, false),
+            (3, address + 4, false),
+        ] {
+            let (_, mut thread) = bounded_tests::process(abi)
+                .proc
+                .threads
+                .pop_first()
+                .unwrap();
+            thread.tid = tid + offset;
+            thread.wait = Some(Wait::key(WaitKey::Address(target), None));
+            thread.woken = woken;
+            guest.proc.threads.insert(thread.tid, thread);
+        }
+        let mut ctx = syscall::Ctx {
+            proc: &mut guest.proc,
+            thread: &mut caller,
+            nr: i64::from(nr::ULOCK_WAIT),
+            pc: ENTRY,
+        };
+        let args = [1, address, 2, 0, 0, 0, 0, 0];
+        assert_eq!(
+            syscall::bsd::call(&mut ctx, nr::ULOCK_WAIT, &args),
+            Ok(Rv::one(2))
+        );
+        assert!(ctx.thread.wait.is_none());
+
+        ctx.proc.threads.remove(&(tid + 1)).unwrap();
+        ctx.thread.resume = Some(Resume {
+            pc: ENTRY,
+            call: i64::from(nr::ULOCK_WAIT),
+            deadline: None,
+            step: 0,
+        });
+        ctx.thread.wake_event = true;
+        assert_eq!(
+            syscall::bsd::call(&mut ctx, nr::ULOCK_WAIT, &args),
+            Ok(Rv::one(1))
+        );
+        assert!(!ctx.thread.wake_event);
+    }
+}
+
+#[test]
 fn completed_bsd_return_preserves_only_successful_general_state_writes() {
     use crate::user::darwin::arch::Rv;
     use crate::user::darwin::{syscall, thread_status as ts};

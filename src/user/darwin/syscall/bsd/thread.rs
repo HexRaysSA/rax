@@ -222,9 +222,24 @@ fn ulock_wait_inner(
     if addr == 0 || addr & (size - 1) != 0 {
         return Err(Errno::EINVAL);
     }
-    // A thread woken by ulock_wake returns from its wait.
+    let key = WaitKey::Address(addr);
+    let remaining_waiters = |ctx: &Ctx<'_>| {
+        ctx.proc
+            .threads
+            .values()
+            .filter(|thread| {
+                !thread.exited
+                    && thread
+                        .wait
+                        .as_ref()
+                        .is_some_and(|wait| wait.keys.contains(&key))
+            })
+            .count() as u64
+    };
+    // The current thread has left the queue. Other woken threads still
+    // count until their own waits finish.
     if ctx.thread.resume.is_some() && std::mem::take(&mut ctx.thread.wake_event) {
-        return Ok(Rv::one(0));
+        return Ok(Rv::one(remaining_waiters(ctx)));
     }
     if expired(ctx) {
         return Err(Errno::ETIMEDOUT);
@@ -240,7 +255,7 @@ fn ulock_wait_inner(
         value
     };
     if cur != want {
-        return Ok(Rv::one(0));
+        return Ok(Rv::one(remaining_waiters(ctx)));
     }
     let timeout = (timeout_ns != 0).then(|| {
         if flags & ul::DEADLINE != 0 {
@@ -253,7 +268,7 @@ fn ulock_wait_inner(
         }
     });
     let deadline = deadline(ctx, timeout);
-    syscall::sleep(ctx, Wait::key(WaitKey::Address(addr), deadline))
+    syscall::sleep(ctx, Wait::key(key, deadline))
 }
 
 /// `ulock_wake(operation, addr, wake_value)`.
