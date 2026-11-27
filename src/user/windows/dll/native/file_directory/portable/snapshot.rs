@@ -1,5 +1,5 @@
 //! Enumerate and open children relative to the still-owned directory descriptor.
-use super::super::super::file_attributes::{metadata, posix};
+use super::super::super::file_attributes::{metadata, path, posix};
 use super::super::{Checked, Ctx};
 use crate::user::windows::objects::{DirectoryEntry, Object};
 use std::ffi::CStr;
@@ -41,24 +41,40 @@ pub(super) fn collect(c: &Ctx, handle: u64) -> Checked<Vec<DirectoryEntry>> {
         .host
         .as_ref()
         .ok_or_else(|| c.unsupported("mapped directory requires a retained descriptor"))?;
-    capture(c, retained, &file.host_path, false)
+    capture(c, retained, &file.host_path, Selection::Mapped)
 }
 
-/// The synthetic system directory has no guest-controlled host path.
-pub(super) fn installed(c: &Ctx, root: &Path) -> Checked<Vec<DirectoryEntry>> {
+/// The selected installed directory has no guest-controlled host path.
+pub(super) fn installed(
+    c: &Ctx,
+    root: &Path,
+    framework_installation: bool,
+) -> Checked<Vec<DirectoryEntry>> {
     let directory = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW)
         .open(root)
         .map_err(|e| c.unsupported(format!("installed directory descriptor: {e}")))?;
-    capture(c, &directory, root, true)
+    let selection = if framework_installation {
+        Selection::ClrVersions
+    } else {
+        Selection::InstalledFiles
+    };
+    capture(c, &directory, root, selection)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Selection {
+    Mapped,
+    InstalledFiles,
+    ClrVersions,
 }
 
 fn capture(
     c: &Ctx,
     retained: &File,
     host_path: &Path,
-    regular_files_only: bool,
+    selection: Selection,
 ) -> Checked<Vec<DirectoryEntry>> {
     let duplicate = retained
         .try_clone()
@@ -82,6 +98,7 @@ fn capture(
     }
     let mut entries = Vec::new();
     let mut bytes = 0usize;
+    let mapped = selection == Selection::Mapped;
     loop {
         reset_errno();
         // SAFETY: this exclusive stream stays live. The returned dirent is
@@ -99,7 +116,7 @@ fn capture(
         let native_name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) };
         let name = match native_name.to_str() {
             Ok(name) => name,
-            Err(_) if regular_files_only => continue,
+            Err(_) if !mapped => continue,
             Err(_) => {
                 return Err(c
                     .unsupported("directory entry has no UTF-8 Windows mapping")
@@ -107,7 +124,10 @@ fn capture(
             }
         };
         let units: Vec<_> = name.encode_utf16().collect();
-        if !regular_files_only {
+        if selection == Selection::ClrVersions && !path::clr_version_directory_name(c, &units) {
+            continue;
+        }
+        if mapped {
             account(c, &mut bytes, entries.len(), units.len())?;
         }
         #[cfg(target_os = "linux")]
@@ -123,7 +143,7 @@ fn capture(
         if descriptor < 0 {
             let error = std::io::Error::last_os_error();
             if error.kind() == std::io::ErrorKind::NotFound
-                || (regular_files_only && error.raw_os_error() == Some(libc::ELOOP))
+                || (!mapped && error.raw_os_error() == Some(libc::ELOOP))
             {
                 continue;
             }
@@ -136,18 +156,20 @@ fn capture(
         let stat = child
             .metadata()
             .map_err(|error| c.unsupported(format!("directory child identity: {error}")))?;
-        if regular_files_only {
-            if !stat.is_file() {
-                continue;
-            }
+        if (selection == Selection::InstalledFiles && !stat.is_file())
+            || (selection == Selection::ClrVersions && !stat.is_dir())
+        {
+            continue;
+        }
+        if !mapped {
             account(c, &mut bytes, entries.len(), units.len())?;
         }
         let info = metadata::descriptor(c, &host_path.join(name), &child)?;
-        let ea = if regular_files_only {
-            None
-        } else {
+        let ea = if mapped {
             posix::directory_ea(&child)
                 .map_err(|error| c.unsupported(format!("directory child Windows EAs: {error}")))?
+        } else {
+            None
         };
         bytes = bytes
             .checked_add(ea.as_ref().map_or(0, Vec::len))

@@ -22,6 +22,13 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 const CLR_LOADER: &str = "mscoreei.dll";
+const CLR_VERSION_DIRECTORIES: [&str; 2] = ["v4.0.30319", "Upgrades.4.0.30319"];
+
+pub(in super::super) fn clr_version_directory_name(c: &Ctx, name: &[u16]) -> bool {
+    CLR_VERSION_DIRECTORIES
+        .iter()
+        .any(|version| equal(c, name, &version.encode_utf16().collect::<Vec<_>>()))
+}
 
 pub(in super::super) struct Resolved {
     pub(in super::super) host: PathBuf,
@@ -258,9 +265,13 @@ pub(in super::super) fn selected(c: &Ctx, path: &[u16]) -> Checked<Option<(PathB
             &path[separator + 1..],
             &CLR_LOADER.encode_utf16().collect::<Vec<_>>(),
         )
+        && path[..separator]
+            .rsplit(|unit| *unit == u16::from(b'\\'))
+            .next()
+            .is_some_and(|name| clr_version_directory_name(c, name))
         && let Some(framework) = framework_directory(c, &path[..separator])?
+        && let Some(base) = framework.framework
     {
-        let base = framework.framework.expect("resolved CLR directory");
         let image = confined_child(c, &base, CLR_LOADER, STATUS_OBJECT_NAME_NOT_FOUND)?;
         if !image.is_file() {
             return status(STATUS_OBJECT_NAME_NOT_FOUND);
@@ -384,10 +395,11 @@ pub(in super::super) fn guest_directories(c: &Ctx) -> Option<Vec<String>> {
 pub(in super::super) struct GuestDirectory {
     pub(in super::super) guest: String,
     pub(in super::super) framework: Option<PathBuf>,
+    pub(in super::super) framework_installation: bool,
 }
 
-/// Select only the CLR installation and upgrade directories used by this
-/// guest architecture. Each path component must retain its installed identity.
+/// Select the CLR installation root and its supported version directories
+/// for this guest architecture.
 pub(in super::super) fn framework_directory(
     c: &Ctx,
     dos: &[u16],
@@ -402,12 +414,13 @@ pub(in super::super) fn framework_directory(
     };
     let root = runtime.guest_root.trim_end_matches('\\');
     let prefix = format!(r"{root}\Microsoft.NET\{directory}");
-    let Some((guest, leaf)) = ["v4.0.30319", "Upgrades.4.0.30319"]
-        .into_iter()
-        .find_map(|leaf| {
-            let guest = format!(r"{prefix}\{leaf}");
-            equal(c, dos, &guest.encode_utf16().collect::<Vec<_>>()).then_some((guest, leaf))
-        })
+    let Some((guest, version)) = std::iter::once((prefix.clone(), None))
+        .chain(
+            CLR_VERSION_DIRECTORIES
+                .into_iter()
+                .map(|version| (format!(r"{prefix}\{version}"), Some(version))),
+        )
+        .find(|(guest, _)| equal(c, dos, &guest.encode_utf16().collect::<Vec<_>>()))
     else {
         return Ok(None);
     };
@@ -417,13 +430,17 @@ pub(in super::super) fn framework_directory(
         .ok_or_else(|| c.unsupported("installed Windows directory has no parent"))?;
     let framework = confined_child(c, windows, "Microsoft.NET", STATUS_OBJECT_PATH_NOT_FOUND)?;
     let framework = confined_child(c, &framework, directory, STATUS_OBJECT_PATH_NOT_FOUND)?;
-    let framework = confined_child(c, &framework, leaf, STATUS_OBJECT_NAME_NOT_FOUND)?;
+    let framework = match version {
+        Some(version) => confined_child(c, &framework, version, STATUS_OBJECT_NAME_NOT_FOUND)?,
+        None => framework,
+    };
     if !framework.is_dir() {
         return status(crate::user::windows::nt::status::STATUS_NOT_A_DIRECTORY);
     }
     Ok(Some(GuestDirectory {
         guest,
         framework: Some(framework),
+        framework_installation: version.is_none(),
     }))
 }
 
@@ -468,6 +485,7 @@ pub(in super::super) fn guest_directory(
         return Ok(Some(GuestDirectory {
             guest,
             framework: None,
+            framework_installation: false,
         }));
     }
     framework_directory(c, trimmed)

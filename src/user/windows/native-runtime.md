@@ -4072,7 +4072,9 @@ The bootstrap's optional `InstallRootARM64`, `CLRLoadLogDir`, and
 native missing-value status.
 
 The closed installed filesystem projects the architecture-matched CLR
-`v4.0.30319` and `Upgrades.4.0.30319` directories under `Microsoft.NET`.
+installation directory under `Microsoft.NET` and its selected `v4.0.30319`
+and `Upgrades.4.0.30319` subdirectories. The installation handle can enumerate
+these version directories and open them by relative name.
 The admitted `mscoreei.dll` file also supports metadata queries and read-only
 opens by absolute name or relative to the selected directory. Its pathname
 must resolve to the same direct installed file without reparsing. After

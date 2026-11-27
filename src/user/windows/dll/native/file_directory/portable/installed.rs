@@ -66,6 +66,9 @@ pub(super) fn collect(c: &Ctx, directory: &str) -> Checked<Vec<DirectoryEntry>> 
             .into());
     };
     let framework = path::framework_directory(c, &directory_name)?;
+    let framework_installation = framework
+        .as_ref()
+        .is_some_and(|directory| directory.framework_installation);
     let root = framework
         .as_ref()
         .and_then(|directory| directory.framework.as_deref())
@@ -73,9 +76,9 @@ pub(super) fn collect(c: &Ctx, directory: &str) -> Checked<Vec<DirectoryEntry>> 
     // For WoW64, the DOS System32 alias intentionally uses the selected
     // SysWOW64 view. No guest text is passed to the host directory scan.
     #[cfg(windows)]
-    return windows::collect(c, root);
+    return windows::collect(c, root, framework_installation);
     #[cfg(unix)]
-    return super::snapshot::installed(c, root);
+    return super::snapshot::installed(c, root, framework_installation);
     #[cfg(not(any(unix, windows)))]
     return Err(c
         .unsupported("installed directory enumeration adapter is unavailable")

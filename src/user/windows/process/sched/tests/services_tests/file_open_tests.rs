@@ -519,7 +519,8 @@ fn native_file_open_closed_directory_names_and_entries_are_guest_local() {
 #[test]
 fn native_file_open_projects_only_the_selected_clr_directories() {
     use crate::user::windows::nt::status::{
-        STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+        STATUS_ACCESS_DENIED, STATUS_NO_SUCH_FILE, STATUS_OBJECT_NAME_NOT_FOUND,
+        STATUS_OBJECT_PATH_NOT_FOUND,
     };
     use crate::user::windows::objects::Object;
 
@@ -535,6 +536,7 @@ fn native_file_open_projects_only_the_selected_clr_directories() {
         std::fs::create_dir_all(folder.join("v4.0.30319")).unwrap();
         std::fs::create_dir_all(dot_net.join(other).join("v4.0.30319")).unwrap();
         std::fs::create_dir_all(folder.join("unselected")).unwrap();
+        std::fs::write(folder.join("mscoreei.dll"), b"outside version directory").unwrap();
         let output = h.base;
         let io = h.base + PAGE_SIZE;
         let attrs = h.attrs();
@@ -542,12 +544,53 @@ fn native_file_open_projects_only_the_selected_clr_directories() {
         h.name(r"\??\C:\Windows");
         assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
         let windows = h.process.state().space.ptr(output, width).unwrap();
+        h.name(&format!(r"\??\c:\windows\Microsoft.NET\{directory}\"));
+        assert_eq!(
+            h.open_with(output, io, 0x100002, 7, 0x4021),
+            STATUS_ACCESS_DENIED
+        );
+        assert_eq!(h.open_with(output, io, 0x100001, 7, 0x4021), STATUS_SUCCESS);
+        let installation = h.process.state().space.ptr(output, width).unwrap();
+        for (pattern, status) in [
+            ("v4.*", STATUS_SUCCESS),
+            ("unselected", STATUS_NO_SUCH_FILE),
+            ("mscoreei.dll", STATUS_NO_SUCH_FILE),
+        ] {
+            h.name(pattern);
+            assert_eq!(
+                h.invoke_api(
+                    "NtQueryDirectoryFileEx",
+                    &[installation, 0, 0, 0, io, output, 256, 12, 16, attrs + 64],
+                ),
+                status
+            );
+            if status == STATUS_SUCCESS {
+                let expected: Vec<_> = "v4.0.30319"
+                    .encode_utf16()
+                    .flat_map(u16::to_le_bytes)
+                    .collect();
+                let space = &h.process.state().space;
+                assert_eq!(space.u32(output + 8).unwrap() as usize, expected.len());
+                assert_eq!(space.bytes(output + 12, expected.len()).unwrap(), expected);
+            }
+        }
+        h.name("mscoreei.dll");
+        h.process
+            .state()
+            .space
+            .wptr(attrs + width, width, installation)
+            .unwrap();
+        assert_eq!(
+            h.open_with(output, io, 0x100021, 7, 0x60),
+            STATUS_ACCESS_DENIED
+        );
         for (path, root) in [
             (
                 format!(r"\??\c:\windows\Microsoft.NET\{directory}\v4.0.30319\"),
                 0,
             ),
             (format!(r"Microsoft.NET\{directory}\v4.0.30319\"), windows),
+            ("v4.0.30319".to_owned(), installation),
         ] {
             h.name(&path);
             let space = &h.process.state().space;
@@ -598,6 +641,10 @@ fn native_file_open_projects_only_the_selected_clr_directories() {
                 STATUS_ACCESS_DENIED,
             ),
             (
+                format!(r"\??\C:\Windows\Microsoft.NET\{other}\"),
+                STATUS_ACCESS_DENIED,
+            ),
+            (
                 format!(r"\??\C:\Windows\Microsoft.NET\{other}\v4.0.30319\"),
                 STATUS_ACCESS_DENIED,
             ),
@@ -613,7 +660,9 @@ fn native_file_open_projects_only_the_selected_clr_directories() {
             h.open_with(output, io, 0x100001, 7, 0x4021),
             STATUS_OBJECT_PATH_NOT_FOUND
         );
-        h.process.state_mut().objects.close(windows).unwrap();
+        let objects = &mut h.process.state_mut().objects;
+        objects.close(installation).unwrap();
+        objects.close(windows).unwrap();
     }
 }
 
