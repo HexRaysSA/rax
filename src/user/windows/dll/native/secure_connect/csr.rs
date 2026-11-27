@@ -21,7 +21,7 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
         (WinArch::X64, WinArch::Arm64, true) => {
             matches!(
                 (metadata.kernel, metadata.session),
-                ((10, 0, 29704), _) | ((10, 0, 29708), 1)
+                ((10, 0, 29704), _) | ((10, 0, 29708), 0 | 1)
             ) && c.p.object_namespace.native_machine == Some(0xAA64)
                 && c.t.cpu.is_arm64ec()
                 && c.t.cpu.instruction_arch() == WinArch::Arm64

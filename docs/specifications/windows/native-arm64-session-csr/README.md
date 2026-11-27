@@ -158,7 +158,15 @@ The [ARM64EC observation](arm64ec-profile-29708-v1.json) records the measured
 packet bytes and three observer hashes. The breakpoints recorded the service
 return. Separate uninstrumented runs verified natural exit with code zero.
 
-The guest enables this build for session 1 and retains the ARM64EC execution
-context and selected server bindings. The regression replays the observed
-reply, tests client and peer view ownership, and checks that a fully selected
-session 2 refuses this new pairing before making changes.
+A separate native execution in session 0 reached the same installed ARM64EC
+wrapper and connected to `\Windows\ApiPort`. The packet geometry, status and
+maximum message size matched session 1. The packet carried the actual
+session 0 CSRSS PID and used its own server base. The
+[session 0 observation](arm64ec-profile-29708-session-zero-v1.json) records
+the bytes and capture hashes. The AMD64 fixture exited naturally with code
+zero.
+
+The guest supports the two observed sessions with the same ARM64EC execution
+and selected server checks. The regression replays each reply, checks
+ownership of the client and peer views, and verifies that a session mismatch
+or a fully selected session 2 is rejected before any output is written.

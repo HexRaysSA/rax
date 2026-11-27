@@ -169,13 +169,16 @@ fn csr_current_session_selection_rejects_global_foreign_and_copied_section_owner
     }
 }
 
-fn arm64ec_captures() -> [Value; 2] {
+fn arm64ec_captures() -> [Value; 3] {
     [
         include_str!(
             "../../../../../../../docs/specifications/windows/native-arm64-session-csr/arm64ec-profile-29704-v1.json"
         ),
         include_str!(
             "../../../../../../../docs/specifications/windows/native-arm64-session-csr/arm64ec-profile-29708-v1.json"
+        ),
+        include_str!(
+            "../../../../../../../docs/specifications/windows/native-arm64-session-csr/arm64ec-profile-29708-session-zero-v1.json"
         ),
     ]
     .map(|fixture| serde_json::from_str(fixture).unwrap())
@@ -228,7 +231,8 @@ fn replay_arm64ec(profile: &Value) {
     let (mut process, mut thread) = fixture(WinArch::X64, "NtSecureConnectPort", SERVICE);
     let p = process.state_mut();
     let b = scratch(p, 65536);
-    let args = setup(p, b, 1, profile);
+    let session = profile["session"].as_u64().unwrap() as u32;
+    let args = setup(p, b, session, profile);
     p.object_namespace.native_machine = Some(0xAA64);
     let code = b + 32768;
     p.vm.protect(code, 4096, prot::EXECUTE_READWRITE).unwrap();
@@ -244,7 +248,10 @@ fn replay_arm64ec(profile: &Value) {
         bytes(profile, "information_after_hex")
     );
     assert_eq!(p.space.bytes(args[5], 24).unwrap(), vec![0; 24]);
-    assert_eq!(p.space.u32(args[6]).unwrap(), 952);
+    assert_eq!(
+        u64::from(p.space.u32(args[6]).unwrap()),
+        profile["maximum_message"].as_u64().unwrap()
+    );
     assert_eq!(p.space.u32(args[8]).unwrap(), 48);
 
     let handle = p.space.u64(args[0]).unwrap();
@@ -256,6 +263,10 @@ fn replay_arm64ec(profile: &Value) {
     let peer = port.peer().unwrap();
     assert!(!peer.vm.space().same_space(&p.space));
     assert_eq!(peer.base, remote);
+    assert_eq!(
+        peer.server_pid,
+        profile["server_pid"].as_u64().unwrap() as u32
+    );
     assert_eq!(p.objects.access(handle), Some(0x001F_0001));
     p.space.w32(local, 0xA55A_6996).unwrap();
     assert_eq!(peer.vm.space().u32(remote).unwrap(), 0xA55A_6996);
@@ -274,12 +285,13 @@ fn native_secure_connect_csr_arm64ec_refuses_foreign_profile_and_geometry_withou
 }
 
 fn reject_foreign_arm64ec(profile: &Value) {
+    let captured_session = profile["session"].as_u64().unwrap() as u32;
     let variants = if profile["kernel"][2] == 29708 { 9 } else { 8 };
     for variant in 0..variants {
         let (mut process, mut thread) = fixture(WinArch::X64, "NtSecureConnectPort", SERVICE);
         let p = process.state_mut();
         let b = scratch(p, 65536);
-        let session = if variant == 8 { 2 } else { 1 };
+        let session = if variant == 8 { 2 } else { captured_session };
         let args = setup(p, b, session, profile);
         p.object_namespace.native_machine = Some(0xAA64);
         let code = b + 32768;
@@ -292,7 +304,7 @@ fn reject_foreign_arm64ec(profile: &Value) {
             1 => p.object_namespace.native_machine = Some(0x8664),
             2 => {}
             3 => Arc::make_mut(&mut p.cfg).version.build = 29705,
-            4 => p.space.w32(p.peb + 0x2C0, 2).unwrap(),
+            4 => p.space.w32(p.peb + 0x2C0, 1 - captured_session).unwrap(),
             5 => p.space.w8(args[2] + 8, 0).unwrap(),
             6 => p.space.w32(args[4] + 8, 19).unwrap(),
             7 => p.space.w64(args[3] + 24, 4096).unwrap(),
