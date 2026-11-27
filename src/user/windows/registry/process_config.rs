@@ -208,7 +208,7 @@ impl ProcessConfigKey {
             Self::DotNetStandardCli2002 | Self::DotNetStandardCli2005 | Self::DotNetStandardV1 => {
                 &["v4.0.30319"]
             }
-            Self::DotNetFramework => &["InstallRoot", "InstallRootARM64"],
+            Self::DotNetFramework => &["InstallRoot", "InstallRootARM64", "CLRLoadLogDir"],
             Self::WinsockProtocolCatalog => Catalog::Protocol.header_values(),
             Self::WinsockNamespaceCatalog => Catalog::Namespace.header_values(),
             Self::DisabledLegacyExtensions => &[LEGACY_EXTENSION_FLAG],
