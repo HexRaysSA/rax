@@ -2212,15 +2212,31 @@ injection, and workflow policy suites. All 22 prepared-consumer tests passed.
 Intel-target Clippy and the native consumer type-check passed. LLVM decoded all
 128 profile inputs and their `[RDI + 3]` memory operands. Executing those same
 128 inputs against RAM under Rosetta matched the shared evaluator for the
-index, mask, flags, preserved length registers, and upper YMM0 half. The
-Rosetta result covers instruction semantics. Hosted Intel MMIO and detached
-restore execution are queued at `b3706981b`.
-[Hosted Intel packed-string profile](https://github.com/HexRaysSA/rax/actions/runs/45996257998)
+index, mask, flags, preserved length registers, and upper YMM0 half.
+
+Hosted run `45996257998`, attempt 1, at `b3706981b` passed 128 direct reads
+and 128 fresh-owner completions. Its untranslated Intel process ran on
+virtualized macOS 15.7.9 (`24G830`). The signed executable and entitlement
+verified locally. Both archive digests matched GitHub metadata. The recorded
+4,979 engine inputs and 32 probe and runner inputs matched Git at the pinned
+revision. A separate RAM run under Rosetta reproduced all 256 archived result
+signatures after normalization of the preserved input fields.
+[Hosted Intel packed-string profile](https://github.com/HexRaysSA/rax/actions/runs/45996257998/job/140496297829)
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Signed build archive `15198962472` | `40a5f80558ae9e1170bbe76dbc9d0eb6ace811d834a2c26bffcc4719aab805f0` |
+| Execution archive `15198503484` | `1e7601703219e69cf0d45afc3df833fd88cfb729b12480a255bb15b5f2b26758` |
+| Signed x86-64 executable | `92401b669bf6a36f1b07369f31e8cb897264f5a4bc53f87d03e2560595db6062` |
+| Hosted observations | `1395c1ca7b5158ec562f617ea4ba1c9f2647bf7a1461fb8bbae54f069202a34e` |
+| Rosetta signature output | `1ebc4bf16bd943f3e33a32146a4e7d3f0d9ba0a0d5be4f40137bd3c9d4cb59a3` |
 
 The Rosetta test source, observations, and LLVM disassembly are under
 `/Users/int/dev/rax-audit-work/four-findings-hvf-packed-string-2026-11-27/`.
 The Rosetta observation log SHA-256 is
 `99acef9a94fae36170bd7d66a2953e5244cea40adf12b79ac51474fe5b9c09a6`.
+The archive verification receipt and signature probe are in `native-45996257998/`
+under the same directory. Bare-metal Intel macOS qualification remains open.
 
 | Assumption | Impact | Falsification probe |
 | --- | --- | --- |

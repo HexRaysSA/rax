@@ -201220,8 +201220,8 @@
     {
       "id": "hvf-sse42-packed-string-mmio-2026-11-27",
       "findings": ["C-HVF", "C-STATE"],
-      "status": "locally_qualified_full_findings_open",
-      "scope": "Intel HVF plans one unaligned 16 B device read for legacy and VEX.128 PCMPESTRM, PCMPESTRI, PCMPISTRM, and PCMPISTRI. The parent rejected all 16 tested encoding combinations. The pending record retains the source XMM, effective signed lengths, immediate, and flags across restoration. Portable regression covers malformed access direction, reserved encodings, wrong reply widths, result publication and exactly one retirement. The 128 ordinary RAM executions under Rosetta matched the evaluator. Hosted Intel run 45996257998 at b3706981b is queued for 256 direct and fresh-owner completions against identical native RAM instructions. Hosted results, bare-metal Intel macOS, and the full findings remain open.",
+      "status": "native_intel_virtualized_qualified_full_findings_open",
+      "scope": "Intel HVF plans one unaligned 16 B device read for legacy and VEX.128 PCMPESTRM, PCMPESTRI, PCMPISTRM, and PCMPISTRI. The parent rejected all 16 tested encoding combinations. The pending record retains the source XMM, effective signed lengths, immediate, and flags across restoration. Portable regression covers malformed access direction, reserved encodings, wrong reply widths, result publication and exactly one retirement. Hosted Intel run 45996257998 at b3706981b passed 128 direct and 128 fresh-owner completions against identical native RAM instructions. An independent archive check recomputed all 256 recorded signatures under Rosetta, checked both archive digests and the signed executable, and matched pinned inputs to Git. Bare-metal Intel macOS and the full findings remain open.",
       "qualification": "docs/development/hvf-mmio-xmm.md#packed-string-comparisons",
       "full_goal_complete": false
     },
