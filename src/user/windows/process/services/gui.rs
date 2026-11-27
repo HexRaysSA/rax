@@ -99,14 +99,30 @@ fn initialize_wow64(
     profile: Wow64Gdi,
     result: Option<u32>,
 ) -> Outcome {
+    match prepare_wow64_thread(p, t, inputs, profile) {
+        Ok(value) => returned(t, result.map_or(value, u64::from), sp, resume, true),
+        Err(outcome) => outcome,
+    }
+}
+
+fn prepare_wow64_thread(
+    p: &mut Proc,
+    t: &Thread,
+    inputs: Arc<crate::user::windows::gui::Inputs>,
+    profile: Wow64Gdi,
+) -> Result<u64, Outcome> {
     let Some((state, teb)) = p.wow64.as_ref().zip(t.teb_allocation.companion()) else {
-        return failure("WoW64 GUI requires the process and thread companions");
+        return Err(failure(
+            "WoW64 GUI requires the process and thread companions",
+        ));
     };
     let Some(client_data) = state.user_data.as_ref() else {
-        return failure("WoW64 GUI requires the selected USER startup connection");
+        return Err(failure(
+            "WoW64 GUI requires the selected USER startup connection",
+        ));
     };
     if !client_data.owns_views(&p.vm) {
-        return failure("WoW64 GUI lost the selected USER startup views");
+        return Err(failure("WoW64 GUI lost the selected USER startup views"));
     }
 
     // On the measured pairs, native USER initializes the companion TEB only.
@@ -125,9 +141,9 @@ fn initialize_wow64(
             (teb + 0x800, 160),
         ] {
             if let Err(error) = p.space.probe(address, length, MemoryAccessKind::Write) {
-                return failure(format!(
+                return Err(failure(format!(
                     "WoW64 GUI companion state is inaccessible: {error:?}"
-                ));
+                )));
             }
         }
     }
@@ -139,7 +155,11 @@ fn initialize_wow64(
         .prepare_wow64_thread(&mut p.vm, inputs, t.tid, tick, version)
     {
         Ok(state) => state,
-        Err(error) => return failure(format!("WoW64 GUI views or thread record: {error:?}")),
+        Err(error) => {
+            return Err(failure(format!(
+                "WoW64 GUI views or thread record: {error:?}"
+            )));
+        }
     };
     let value = p
         .gui
@@ -157,7 +177,9 @@ fn initialize_wow64(
             p.space.wr(teb + 0x800, &client_bytes)
         };
         if let Err(error) = write() {
-            return failure(format!("WoW64 GUI companion state was lost: {error:?}"));
+            return Err(failure(format!(
+                "WoW64 GUI companion state was lost: {error:?}"
+            )));
         }
         p.gui
             .threads
@@ -166,7 +188,7 @@ fn initialize_wow64(
             .initialized = true;
         p.gui.value = Some(value);
     }
-    returned(t, result.map_or(value, u64::from), sp, resume, true)
+    Ok(value)
 }
 
 pub(super) fn remote_connect_state(
@@ -412,7 +434,21 @@ pub(super) fn user_object_operation<const N: usize>(
     let Some(arguments) = arguments(p, t, sp) else {
         return failure("USER object service arguments are unreadable");
     };
-    convert(p, t, sp, resume, wow64, Some(operation(arguments)))
+    let completion = operation(arguments);
+    if let Completion::QueryUserObject(arguments @ [handle, class, ..]) = completion
+        && class == u64::from(user_objects::FLAGS_CLASS)
+        && p.objects.assigned_window_station_handle(handle)
+        && let Some((inputs, profile)) = wow64_inputs(p, wow64)
+    {
+        if let Err(outcome) = prepare_wow64_thread(p, t, inputs, profile) {
+            return outcome;
+        }
+        return match user_objects::information(p, t, arguments) {
+            Ok(value) => returned(t, value, sp, resume, true),
+            Err(outcome) => outcome,
+        };
+    }
+    convert(p, t, sp, resume, wow64, Some(completion))
 }
 
 pub(super) fn process_ui_context(

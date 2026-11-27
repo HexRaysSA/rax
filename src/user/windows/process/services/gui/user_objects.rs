@@ -12,6 +12,7 @@ use crate::user::windows::nt::status_to_error;
 use crate::user::windows::objects::Object;
 
 const STATUS_DEVICE_BUSY: u32 = 0x8000_0011;
+pub(super) const FLAGS_CLASS: u32 = 1;
 
 pub(super) fn station(p: &Proc) -> Result<u32, Outcome> {
     let station = p
@@ -59,7 +60,7 @@ pub(super) fn information(
 ) -> Result<u64, Outcome> {
     let class = class as u32;
     let capacity = capacity as u32;
-    let alignment = if class == 1 { 4 } else { 2 };
+    let alignment = if class == FLAGS_CLASS { 4 } else { 2 };
     let probe = (|| -> Result<(), u32> {
         if capacity != 0 {
             if !output.is_multiple_of(alignment) {
@@ -84,7 +85,7 @@ pub(super) fn information(
         return Ok(0);
     };
     let payload = match (class, object) {
-        (1, _) => {
+        (FLAGS_CLASS, _) => {
             let inherit = p.objects.flags(handle).unwrap_or(0) & 1;
             let flags = match object {
                 Object::WindowStation(station) => station.user_flags,

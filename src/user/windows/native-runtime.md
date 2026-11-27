@@ -4133,6 +4133,9 @@ WoW64 GUI initialization can return the assigned process window station
 from its selected companion snapshot. Repeated
 `NtUserGetProcessWindowStation` queries return the same guest-owned handle and
 preserve last error. The station identity comes from the installed snapshot.
+The same WoW64 handle can query `UOI_FLAGS` through
+`NtUserGetObjectInformation`. The service applies the existing 12-byte
+USEROBJECTFLAGS layout and buffer checks to the guest-owned station.
 
 The installed NT namespace also selects the `\RPC Control` directory's identity
 and access grant. RPCRT4 can open the same process-owned directory handle with

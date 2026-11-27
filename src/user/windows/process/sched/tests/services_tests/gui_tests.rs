@@ -115,7 +115,7 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, arch: WinArch, build: u32, 
         "TestStation".encode_utf16().collect(),
         0xf037f,
         0,
-        0,
+        1,
         vec![],
     )
     .unwrap();
@@ -131,7 +131,7 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, arch: WinArch, build: u32, 
     let app_peb = p.space.bytes(p.peb, 512).unwrap();
     let app_teb = p.space.bytes(thread.teb, 4096).unwrap();
     let original_rng = p.rng;
-    let original_sp = thread.cpu.sp();
+    let original_sp = thread.cpu.sp() - 32;
     let module = p.modules.win32u_services.as_ref().unwrap().0;
     let call = |p: &mut Proc, thread: &mut Thread, name: &str, number: u32| {
         p.modules.win32u_services = Some((module, named_table(WinArch::X86, name, number)));
@@ -228,6 +228,39 @@ fn check_wow64_gui_initialization(profile: Wow64Gdi, arch: WinArch, build: u32, 
         assert_eq!(thread.cpu.gpr(0), u64::from(handle));
         assert_eq!(p.space.u32(last_error).unwrap(), 0x5aa5);
     }
+    let output = original_sp - 64;
+    let packet = [handle, 1, output as u32, 12, 0];
+    for (index, word) in packet.into_iter().enumerate() {
+        p.space
+            .w32(original_sp + 8 + 4 * index as u64, word)
+            .unwrap();
+    }
+    for offset in [0, 4, 8, 12] {
+        p.space.w32(output + offset, 0xa5a5_a5a5).unwrap();
+    }
+    let query = "NtUserGetObjectInformation";
+    assert_eq!(call(p, &mut thread, query, 0x1065), Outcome::Continue);
+    assert_eq!(thread.cpu.gpr(0), 1);
+    assert_eq!(p.space.u32(last_error).unwrap(), 0x5aa5);
+    assert_eq!(
+        [0, 4, 8, 12].map(|offset| p.space.u32(output + offset).unwrap()),
+        [0, 0, 1, 0xa5a5_a5a5]
+    );
+    p.space.w32(original_sp + 12, 2).unwrap();
+    assert!(matches!(
+        call(p, &mut thread, query, 0x1065),
+        Outcome::Fail(reason) if reason.contains("without selected native GUI inputs")
+    ));
+    assert_eq!(p.space.u32(output).unwrap(), 0);
+    p.space.w32(original_sp + 8, 0).unwrap();
+    p.space.w32(original_sp + 12, 1).unwrap();
+    assert!(matches!(
+        call(p, &mut thread, query, 0x1065),
+        Outcome::Fail(reason) if reason.contains("without selected native GUI inputs")
+    ));
+    assert_eq!(p.space.u32(output).unwrap(), 0);
+    assert_eq!(p.space.u32(last_error).unwrap(), 0x5aa5);
+    assert_eq!(call(p, &mut thread, leaf, number), Outcome::Continue);
     assert_eq!(p.objects.handle_count(), handle_count);
     assert_eq!(thread.cpu.sp(), original_sp + 4);
     assert_eq!(thread.cpu.pc(), 0x1234_000c);
