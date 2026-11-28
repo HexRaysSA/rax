@@ -855,11 +855,16 @@ fn installed_darwin_reopens_guest_descriptors_through_closed_c_abi() {
 #[cfg(target_os = "macos")]
 #[test]
 fn installed_darwin_lists_live_guest_descriptors_through_closed_c_abi() {
-    compare_installed_posix_output(
+    let path = "/bin/ls";
+    let mut native = std::process::Command::new(path);
+    isolate_posix_control_descriptors(&mut native);
+    compare_installed_posix_with_control(
+        native,
         "darwin",
-        "/bin/ls",
+        path,
         &["-a", "-1", "/dev/fd"],
         &[],
+        b"",
         b".\n..\n0\n1\n2\n3\n4\n",
     );
 }
@@ -1143,7 +1148,7 @@ cat /dev/fd/3 second
 fn installed_ls_lists_its_own_descriptor_through_closed_c_abi() {
     let path = installed_posix_utility("/bin/ls", "/usr/bin/ls");
     let mut native = std::process::Command::new(path);
-    isolate_linux_control_descriptors(&mut native);
+    isolate_posix_control_descriptors(&mut native);
     compare_installed_posix_with_control(
         native,
         "linux",
@@ -2246,13 +2251,18 @@ fn compare_installed_posix_with_control(
     assert_eq!(stderr, native.stderr);
 }
 
-#[cfg(target_os = "linux")]
-fn isolate_linux_control_descriptors(command: &mut std::process::Command) {
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn isolate_posix_control_descriptors(command: &mut std::process::Command) {
     use std::io;
     use std::os::unix::process::CommandExt;
 
+    #[cfg(target_os = "linux")]
+    let descriptor_directory = "/proc/self/fd";
+    #[cfg(target_os = "macos")]
+    let descriptor_directory = "/dev/fd";
+
     // Include already open descriptors above a lowered RLIMIT_NOFILE.
-    let highest_open = std::fs::read_dir("/proc/self/fd")
+    let highest_open = std::fs::read_dir(descriptor_directory)
         .unwrap()
         .map(|entry| {
             entry
@@ -2275,6 +2285,7 @@ fn isolate_linux_control_descriptors(command: &mut std::process::Command) {
     // Marking descriptors instead of closing them preserves Rust's exec-error pipe.
     unsafe {
         command.pre_exec(move || {
+            #[cfg(target_os = "linux")]
             if libc::syscall(
                 libc::SYS_close_range,
                 3u32,

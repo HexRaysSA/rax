@@ -59,7 +59,7 @@ all = "allow"
 # C/C++ conformance tests are compiled and linked against the staticlib by the
 # integration harness in tests/, which shells out to the system C/C++ toolchain.
 
-[target.'cfg(target_os = "linux")'.dev-dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dev-dependencies]
 libc = "0.2"
 
 [target.'cfg(windows)'.dev-dependencies]
