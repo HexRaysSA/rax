@@ -15,6 +15,11 @@
 
 mod guest;
 
+#[cfg(unix)]
+use std::sync::Arc;
+#[cfg(unix)]
+use std::sync::atomic::Ordering;
+
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::children::ChildEvent;
@@ -121,6 +126,8 @@ fn fork_host(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     }
     host::watch_children()?;
     let (read, write) = host::status_pipe()?;
+    let guest_euid = Arc::new(host::SharedWords::new(1)?);
+    guest_euid.words()[0].store(u64::from(c.p.creds.1), Ordering::Relaxed);
     let (link, child_link) = super::super::ptrace::Link::pair()?;
     // ptrace_init_task and the fork's event: traced by the forker's tracer
     // along a link of its own.
@@ -152,8 +159,15 @@ fn fork_host(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             drop(child_link);
             family.publish(c.p, pid);
             let (tid, exec_id) = (c.t.tid, c.p.exec_id);
-            c.p.children
-                .add(pid, read, Some(link), args.exit_signal as i32, tid, exec_id);
+            c.p.children.add(
+                pid,
+                read,
+                Some(link),
+                args.exit_signal as i32,
+                tid,
+                exec_id,
+                Some(guest_euid.clone()),
+            );
             if let Some(trace) = trace {
                 tracee::forker_traced(c.p, c.t, trace, pid);
             }
@@ -208,6 +222,7 @@ fn fork_host(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             }
             Ok(Outcome::Forked(ForkedSelf {
                 status: write,
+                guest_euid,
                 vfork: flags & CLONE_VFORK != 0,
             }))
         }

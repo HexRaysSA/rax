@@ -7,6 +7,7 @@ use super::super::abi::{LinuxAbi, Sysno};
 use super::super::arch::GuestCpu;
 use super::super::host;
 use super::super::process::RLIM_INFINITY;
+use super::task::{self, Task};
 use super::{Ctx, SysResult};
 
 fn is_self(c: &Ctx<'_>, pid: i32) -> bool {
@@ -154,6 +155,12 @@ pub fn setid(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> SysResult {
     }
     if !c.p.config.host_services && (c.p.creds.0, c.p.creds.1) != (uid, euid) {
         c.p.children.guest_update_uid(c.p.creds.0, c.p.creds.1);
+    }
+    #[cfg(unix)]
+    if euid != c.p.creds.1
+        && let Some(forked) = &c.p.forked
+    {
+        forked.effective_uid(c.p.creds.1);
     }
     Ok(0)
 }
@@ -729,7 +736,8 @@ pub fn getcpu(c: &mut Ctx<'_>, cpu: u64, node: u64) -> SysResult {
     Ok(0)
 }
 
-/// `capget`: an unprivileged process holds no capabilities.
+/// Current guest capabilities follow RAX's uid model; external tasks use the
+/// Linux host's capability sets.
 pub fn capget(c: &mut Ctx<'_>, hdr: u64, data: u64) -> SysResult {
     const V1: u32 = 0x1998_0330;
     const V2: u32 = 0x2007_1026;
@@ -743,19 +751,56 @@ pub fn capget(c: &mut Ctx<'_>, hdr: u64, data: u64) -> SysResult {
             return if data == 0 { Ok(0) } else { Err(Errno(EINVAL)) };
         }
     };
-    if data != 0 {
-        let full = c.p.creds.1 == 0;
-        let mut e = Encoder::new();
-        for i in 0..words {
-            let bits = if full {
-                if i == 0 { u32::MAX } else { 0x1ff }
-            } else {
-                0
-            };
-            e.u32(bits).u32(bits).u32(0);
-        }
-        c.write_mem(data, &e.finish())?;
+    if data == 0 {
+        return Ok(0);
     }
+
+    let pid_addr = hdr.checked_add(4).ok_or(Errno(EFAULT))?;
+    let pid = c.read_u32(pid_addr)? as i32;
+    if pid < 0 {
+        return Err(Errno(EINVAL));
+    }
+    let guest_capabilities = |euid: u32| {
+        let bits = if euid == 0 {
+            u64::from(u32::MAX) | (u64::from(0x1ffu32) << 32)
+        } else {
+            0
+        };
+        (bits, bits, 0)
+    };
+    let host_capabilities = || {
+        #[cfg(target_os = "linux")]
+        {
+            host::capget(pid)
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Err(Errno(ENOSYS))
+        }
+    };
+    let (effective, permitted, inheritable) = if pid == 0 {
+        guest_capabilities(c.p.creds.1)
+    } else if let Some(euid) = c.p.children.guest_effective_uid(pid) {
+        guest_capabilities(euid)
+    } else {
+        match task::find(c, pid) {
+            Ok(Task::Own(_) | Task::ExitedLeader) => guest_capabilities(c.p.creds.1),
+            Ok(Task::Other { .. }) => host_capabilities()?,
+            // `find` deliberately limits foreign tasks to thread-group
+            // leaders; Linux `capget` can name any visible host TID.
+            #[cfg(target_os = "linux")]
+            Err(e) if e == Errno(ESRCH) && c.p.config.processes => host_capabilities()?,
+            Err(e) => return Err(e),
+        }
+    };
+    let mut e = Encoder::new();
+    for i in 0..words {
+        let shift = 32 * i;
+        e.u32((effective >> shift) as u32)
+            .u32((permitted >> shift) as u32)
+            .u32((inheritable >> shift) as u32);
+    }
+    c.write_mem(data, &e.finish())?;
     Ok(0)
 }
 

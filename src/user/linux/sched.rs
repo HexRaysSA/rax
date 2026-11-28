@@ -223,6 +223,7 @@ impl LinuxProcess {
                 child.stopped = after_stop;
                 child.continued = after_stop.is_none();
                 child.guest_uid = Some(process.state.creds.0);
+                child.guest_euid = Some(process.state.creds.1);
                 let event = match after_stop {
                     Some(sig) => ChildEvent::Stopped(pid, sig),
                     None => ChildEvent::Continued(pid),

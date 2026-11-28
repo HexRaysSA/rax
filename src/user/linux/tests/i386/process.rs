@@ -158,7 +158,10 @@ fn a_waited_child_reports_compat_rusage_and_siginfo() {
     for (z, code) in [(Z1, 3), (Z2, 4)] {
         let (status, _) = host::status_pipe().unwrap();
         let pid = h.proc.state.pid;
-        h.proc.state.children.add(z, status, None, SIGCHLD, pid, 0);
+        h.proc
+            .state
+            .children
+            .add(z, status, None, SIGCHLD, pid, 0, None);
         let ch = h.proc.state.children.get_mut(z).unwrap();
         ch.zombie = Some((code << 8, (1_500_000, 250_000, 4096)));
     }

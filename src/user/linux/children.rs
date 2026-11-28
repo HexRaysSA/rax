@@ -19,6 +19,8 @@ use super::host::{self, HostWait};
 mod groups;
 
 use std::collections::BTreeMap;
+#[cfg(unix)]
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
 use self::groups::GroupMember;
@@ -95,6 +97,11 @@ pub struct Child {
     pub(super) guest: Option<Box<LinuxProcess>>,
     guest_tid: Option<GuestTid>,
     pub(super) guest_uid: Option<u32>,
+    /// Effective UID retained for `capget` after a guest child exits.
+    pub(super) guest_euid: Option<u32>,
+    /// Live effective UID of a host-backed guest child.
+    #[cfg(unix)]
+    guest_euid_shared: Option<Arc<host::SharedWords>>,
     /// The signal its exit sends the parent (`exit_signal`); 0 for none.
     pub exit_signal: i32,
     /// The thread that created it (`__WNOTHREAD`).
@@ -270,6 +277,9 @@ impl Children {
             status: None,
             guest_tid: Some(tid),
             guest_uid: Some(guest.state.creds.0),
+            guest_euid: Some(guest.state.creds.1),
+            #[cfg(unix)]
+            guest_euid_shared: None,
             guest: Some(Box::new(guest)),
             exit_signal,
             creator,
@@ -308,6 +318,7 @@ impl Children {
         exit_signal: i32,
         creator: i32,
         exec_id: u64,
+        guest_euid_shared: Option<Arc<host::SharedWords>>,
     ) {
         let pgid = host::getpgid(pid).unwrap_or(0);
         self.list.push(Child {
@@ -316,6 +327,8 @@ impl Children {
             guest_tid: None,
             guest: None,
             guest_uid: None,
+            guest_euid: None,
+            guest_euid_shared,
             exit_signal,
             creator,
             parent_exec_id: exec_id,
@@ -332,6 +345,19 @@ impl Children {
     /// The child with `pid`.
     pub fn get_mut(&mut self, pid: i32) -> Option<&mut Child> {
         self.list.iter_mut().find(|c| c.pid == pid)
+    }
+
+    /// Effective UID of a guest child, including a waitable zombie.
+    pub(super) fn guest_effective_uid(&self, pid: i32) -> Option<u32> {
+        let child = self.list.iter().find(|child| child.pid == pid)?;
+        if let Some(guest) = &child.guest {
+            return Some(guest.state.creds.1);
+        }
+        #[cfg(unix)]
+        if let Some(shared) = &child.guest_euid_shared {
+            return Some(shared.words()[0].load(Ordering::Relaxed) as u32);
+        }
+        child.guest_euid
     }
 
     /// Removes a child (it was reaped), adding its resource use to the
@@ -419,6 +445,7 @@ impl Child {
     pub(super) fn finish_guest(&mut self, exit: ExitStatus) -> Children {
         let mut guest = self.guest.take().expect("running child");
         self.guest_uid = Some(guest.state.creds.0);
+        self.guest_euid = Some(guest.state.creds.1);
         let status = match exit {
             ExitStatus::Exited(code) => exited_status(code),
             // The embedded guest has no core-file output.
@@ -478,6 +505,9 @@ pub struct ForkedSelf {
     /// The write end.
     #[cfg(unix)]
     pub status: OwnedFd,
+    /// Latest guest effective UID, shared with the fork's parent.
+    #[cfg(unix)]
+    pub guest_euid: Arc<host::SharedWords>,
     #[cfg(not(unix))]
     unavailable: std::convert::Infallible,
     /// The parent sleeps in `CLONE_VFORK` until this process calls
@@ -509,6 +539,11 @@ impl ForkedSelf {
         if std::mem::take(&mut self.vfork) {
             self.write(b"E");
         }
+    }
+
+    /// Publishes the latest effective UID to the parent.
+    pub fn effective_uid(&self, uid: u32) {
+        self.guest_euid.words()[0].store(u64::from(uid), Ordering::Relaxed);
     }
 
     /// Reports the process's end with Linux wait status `status`.

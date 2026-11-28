@@ -63,6 +63,47 @@ pub fn credentials() -> (u32, u32, u32, u32) {
     }
 }
 
+/// The effective, permitted, and inheritable capabilities of a Linux host task.
+#[cfg(target_os = "linux")]
+pub fn capget(pid: i32) -> Result<(u64, u64, u64), Errno> {
+    #[repr(C)]
+    struct Header {
+        version: u32,
+        pid: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy, Default)]
+    struct Data {
+        effective: u32,
+        permitted: u32,
+        inheritable: u32,
+    }
+
+    let mut header = Header {
+        version: 0x2008_0522,
+        pid,
+    };
+    let mut data = [Data::default(); 2];
+    // SAFETY: both pointers refer to initialized, writable ABI structs whose
+    // layouts match linux/capability.h and remain live for the syscall.
+    let rc = unsafe {
+        libc::syscall(
+            libc::SYS_capget,
+            &mut header as *mut Header,
+            data.as_mut_ptr(),
+        )
+    };
+    if rc != 0 {
+        return Err(last_errno());
+    }
+    let join = |low: u32, high: u32| u64::from(low) | (u64::from(high) << 32);
+    Ok((
+        join(data[0].effective, data[1].effective),
+        join(data[0].permitted, data[1].permitted),
+        join(data[0].inheritable, data[1].inheritable),
+    ))
+}
+
 /// The emulator's supplementary group IDs, sorted as `setgroups` leaves
 /// them.
 pub fn groups() -> Vec<u32> {
