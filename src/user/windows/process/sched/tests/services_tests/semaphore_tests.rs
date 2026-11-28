@@ -6,7 +6,7 @@ use crate::user::windows::hle::dispatch;
 use crate::user::windows::object_namespace::reparse_tests;
 use crate::user::windows::sync;
 
-fn named(p: &mut Proc, at: u64, root: u64, name: &str, flags: u32) {
+pub(super) fn named(p: &mut Proc, at: u64, root: u64, name: &str, flags: u32) {
     let width = p.arch.ptr_size();
     let text: Vec<_> = name.encode_utf16().collect();
     attrs(p, at, if p.arch.is64() { 48 } else { 24 }, flags, root);

@@ -9,6 +9,14 @@ pub(crate) struct Name {
 }
 
 impl Name {
+    pub(crate) fn is_global(&self) -> bool {
+        self.directory
+            .path
+            .iter()
+            .copied()
+            .eq(r"\BaseNamedObjects".encode_utf16())
+    }
+
     pub(crate) fn matches(&self, stored: &Self) -> bool {
         Arc::ptr_eq(&self.directory, &stored.directory)
             && self.leaf.len() == stored.leaf.len()

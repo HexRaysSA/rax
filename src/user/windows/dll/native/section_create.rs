@@ -1,5 +1,6 @@
-//! Guest-owned unnamed pagefile sections; native build29683 capture order.
+//! Guest-owned pagefile sections with temporary names in selected directories.
 //! No guest pointer, handle, name or argument is forwarded to a host NT call.
+use super::named_object;
 use super::object_create::{self, Attributes};
 use super::query::{guard_result, probe_write};
 use crate::user::mm::{PAGE_SIZE, SharedObject};
@@ -10,6 +11,8 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 use std::sync::Arc;
 mod file;
+mod named;
+pub(super) use named::open as open_named;
 
 const KIND: &str = "pagefile section";
 const SECTION_ALL_ACCESS: u32 = 0x000F_001F;
@@ -109,10 +112,24 @@ fn checked(c: &mut Ctx) -> ApiResult {
     let out = request.out;
     let wow = c.arch() == WinArch::X86;
     let converted = if wow {
-        Some(match object_create::capture(c, request.object, KIND)? {
-            Ok(a) => a,
-            Err(s) => return Flow::ret(s.into()),
-        })
+        let result = if request.file == 0 {
+            object_create::capture_fields(c, request.object)?
+        } else {
+            object_create::capture(c, request.object, KIND)?
+        };
+        let attrs = match result {
+            Ok(attrs) => attrs,
+            Err(code) => return Flow::ret(code.into()),
+        };
+        let name = if request.file == 0 {
+            match capture_name(c, &attrs) {
+                Ok(name) => name,
+                Err(error) => return named::api_error(error),
+            }
+        } else {
+            None
+        };
+        Some((attrs, name))
     } else {
         None
     };
@@ -171,7 +188,29 @@ fn preflight_attributes(attributes: u32) -> Option<u32> {
     }
     None
 }
-fn construct(c: &mut Ctx, request: Request, converted: Option<Attributes>) -> ApiResult {
+fn capture_name(c: &Ctx, attrs: &Attributes) -> named_object::Checked<Option<Vec<u16>>> {
+    if attrs.name == 0 {
+        object_create::supported_attributes(c, attrs, KIND)?;
+        return Ok(None);
+    }
+    if attrs.security != 0 {
+        return Err(c
+            .unsupported("NT named pagefile section explicit security descriptor")
+            .into());
+    }
+    if attrs.qos != 0 {
+        return Err(c
+            .unsupported("NT named pagefile section security quality of service")
+            .into());
+    }
+    named_object::attributes::capture_name(c, attrs.name, c.arch() == WinArch::X86)
+}
+
+fn construct(
+    c: &mut Ctx,
+    request: Request,
+    converted: Option<(Attributes, Option<Vec<u16>>)>,
+) -> ApiResult {
     let Request {
         out,
         access,
@@ -210,7 +249,7 @@ fn construct(c: &mut Ctx, request: Request, converted: Option<Attributes>) -> Ap
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
     if file != 0 {
-        return file::construct(c, request, converted, size);
+        return file::construct(c, request, converted.map(|(attrs, _)| attrs), size);
     }
     if mode == SEC_IMAGE {
         return Flow::ret(STATUS_INVALID_FILE_FOR_SECTION.into());
@@ -224,18 +263,27 @@ fn construct(c: &mut Ctx, request: Request, converted: Option<Attributes>) -> Ap
     if (size as i64) < 0 {
         return Flow::ret(STATUS_SECTION_TOO_BIG.into());
     }
-    let attrs = match converted {
-        Some(a) => a,
-        None => match object_create::capture(c, object, KIND)? {
-            Ok(a) => a,
-            Err(s) => return Flow::ret(s.into()),
-        },
+    let (attrs, name) = match converted {
+        Some(pair) => pair,
+        None => {
+            let attrs = match object_create::capture_fields(c, object)? {
+                Ok(attrs) => attrs,
+                Err(code) => return Flow::ret(code.into()),
+            };
+            if attrs.flags & !0x11EF2 != 0 {
+                return Flow::ret(STATUS_INVALID_PARAMETER.into());
+            }
+            let name = match capture_name(c, &attrs) {
+                Ok(name) => name,
+                Err(error) => return named::api_error(error),
+            };
+            (attrs, name)
+        }
     };
     if attrs.flags & !0x11EF2 != 0 {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
-    object_create::supported_attributes(c, &attrs, KIND)?;
-    if attrs.root != 0 {
+    if attrs.root != 0 && attrs.name == 0 {
         return Err(c.unsupported("NT pagefile section root handle without a name"));
     }
     if attrs.flags & 0x10 != 0 {
@@ -249,11 +297,67 @@ fn construct(c: &mut Ctx, request: Request, converted: Option<Attributes>) -> Ap
             c.unsupported("NtCreateSection based, 64K-page or no-change allocation contract")
         );
     }
-    if access & 0x0100_0000 != 0 {
-        return Err(c.unsupported("NT pagefile section ACCESS_SYSTEM_SECURITY privilege"));
-    }
+    let grant = grant(c, access)?;
     if size > MAX_BACKING_BYTES {
         return Err(c.unsupported("NtCreateSection exceeds the 64 MiB backing bound"));
+    }
+    let inherit = attrs.flags & 2 != 0;
+    let name = match named_object::resolve_name(
+        c,
+        attrs.root,
+        name.as_deref(),
+        attrs.flags,
+        false,
+        KIND,
+    ) {
+        Ok(name) => name,
+        Err(error) => return named::api_error(error),
+    };
+    if let Some(name) = &name {
+        match named::existing(c, name) {
+            Ok(Some(id)) => {
+                if attrs.flags & 0x80 == 0 {
+                    return Flow::ret(STATUS_OBJECT_NAME_COLLISION.into());
+                }
+                return named::publish(c, out, inherit, grant, id, true);
+            }
+            Ok(None) => {}
+            Err(error) => return named::api_error(error),
+        }
+        if let Err(error) = named::check_global_creation(c, name) {
+            return named::api_error(error);
+        }
+    }
+    let size = (size + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
+    let attributes = if attributes & SEC_NOCACHE != 0 {
+        attributes & !SEC_WRITECOMBINE
+    } else {
+        attributes
+    };
+    let shared = match SharedObject::anonymous(size) {
+        Ok(s) => Arc::new(s),
+        Err(_) => return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into()),
+    };
+    let mapping = Object::Mapping {
+        file: None,
+        size,
+        protect: protection,
+        attributes: attributes & !1,
+        shared: Some(shared),
+    };
+    let Some(name) = name else {
+        return object_create::publish(c, out, inherit, grant, mapping);
+    };
+    let Some((id, exists)) = c.p.objects.try_create_native_named(name, mapping) else {
+        return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into());
+    };
+    debug_assert!(!exists);
+    named::publish(c, out, inherit, grant, id, false)
+}
+
+fn grant(c: &Ctx, access: u32) -> Result<u32, ApiErr> {
+    if access & 0x0100_0000 != 0 {
+        return Err(c.unsupported("NT pagefile section ACCESS_SYSTEM_SECURITY privilege"));
     }
     let mut grant = access & 0x001F_001F;
     for (generic, specific) in [
@@ -267,27 +371,5 @@ fn construct(c: &mut Ctx, request: Request, converted: Option<Attributes>) -> Ap
             grant |= specific;
         }
     }
-    let size = (size + PAGE_SIZE - 1) & !(PAGE_SIZE - 1);
-    let attributes = if attributes & SEC_NOCACHE != 0 {
-        attributes & !SEC_WRITECOMBINE
-    } else {
-        attributes
-    };
-    let shared = match SharedObject::anonymous(size) {
-        Ok(s) => Arc::new(s),
-        Err(_) => return Flow::ret(STATUS_INSUFFICIENT_RESOURCES.into()),
-    };
-    object_create::publish(
-        c,
-        out,
-        attrs.flags & 2 != 0,
-        grant,
-        Object::Mapping {
-            file: None,
-            size,
-            protect: protection,
-            attributes: attributes & !1,
-            shared: Some(shared),
-        },
-    )
+    Ok(grant)
 }

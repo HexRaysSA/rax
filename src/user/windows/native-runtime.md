@@ -4572,3 +4572,17 @@ Read-only controls on Windows build 29708 queried `GCHeapCount` and
 `Monitor_SpinWithoutSleepWhenWaiterIsPresent`. ARM64, x86, and x64
 comparisons matched missing-name status and caller-buffer preservation
 in the default, explicit 64-bit, and explicit 32-bit views.
+
+### Named guest pagefile sections
+
+Temporary pagefile-backed sections with default object security use the
+selected guest named-object directories. Section handles resolve relative
+and absolute names through the same directory identities. A second creation
+with `OBJ_OPENIF` reopens the original section. A duplicate creation without
+that flag reports a name collision. Closing the last handle removes the
+name while existing mapped views retain their backing. Creation in the
+global directory uses the guest token's captured session and privilege.
+
+Windows build 29708 controls covered creation, case-insensitive reopen,
+type collision, shared view contents and post-close lifetime. The 28
+recorded fields matched native output for ARM64, x86, and x64.

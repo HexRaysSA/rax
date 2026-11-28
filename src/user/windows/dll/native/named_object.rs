@@ -59,8 +59,26 @@ pub(super) fn name(
     opening: bool,
     kind: &str,
 ) -> Checked<Option<NativeName>> {
-    let Some(units) = &attrs.name else {
-        return if attrs.root != 0 {
+    resolve_name(
+        c,
+        attrs.root,
+        attrs.name.as_deref(),
+        attrs.flags,
+        opening,
+        kind,
+    )
+}
+
+pub(super) fn resolve_name(
+    c: &Ctx,
+    root_handle: u64,
+    units: Option<&[u16]>,
+    flags: u32,
+    opening: bool,
+    kind: &str,
+) -> Checked<Option<NativeName>> {
+    let Some(units) = units else {
+        return if root_handle != 0 {
             status(STATUS_OBJECT_NAME_INVALID)
         } else if opening {
             status(STATUS_OBJECT_PATH_SYNTAX_BAD)
@@ -71,12 +89,12 @@ pub(super) fn name(
     if units.is_empty() && !opening {
         return Ok(None);
     }
-    let root = if attrs.root == 0 {
+    let root = if root_handle == 0 {
         None
     } else {
         let pseudo =
-            attrs.root == c.arch().ptr(u64::MAX) || attrs.root == c.arch().ptr(u64::MAX - 1);
-        let object = c.p.objects.get(attrs.root);
+            root_handle == c.arch().ptr(u64::MAX) || root_handle == c.arch().ptr(u64::MAX - 1);
+        let object = c.p.objects.get(root_handle);
         if !pseudo && object.is_none() {
             return status(STATUS_INVALID_HANDLE);
         }
@@ -96,7 +114,7 @@ pub(super) fn name(
         });
     }
     c.p.object_namespace
-        .named(root, units, attrs.flags)
+        .named(root, units, flags)
         .map(Some)
         .map_err(|error| match error {
             LookupError::Status(code) => Failure::Status(code),

@@ -25,7 +25,11 @@ fn name_fields(c: &Ctx, pointer: u64, wow: bool) -> Checked<Option<(usize, u64)>
     Ok(Some((length, buffer)))
 }
 
-fn name(c: &Ctx, pointer: u64, wow: bool) -> Checked<Option<Vec<u16>>> {
+pub(in super::super) fn capture_name(
+    c: &Ctx,
+    pointer: u64,
+    wow: bool,
+) -> Checked<Option<Vec<u16>>> {
     let Some((length, buffer)) = name_fields(c, pointer, wow)? else {
         return Ok(None);
     };
@@ -53,7 +57,7 @@ pub(in super::super) fn capture(c: &Ctx, address: u64, wow: bool) -> Checked<Opt
 /// separate so opening can perform the measured final zero-HANDLE copy.
 fn open_name(c: &Ctx, pointer: u64, wow: bool) -> Checked<(Option<Vec<u16>>, Option<u32>)> {
     if !wow {
-        return name(c, pointer, false).map(|name| (name, None));
+        return capture_name(c, pointer, false).map(|name| (name, None));
     }
     let Some((length, buffer)) = name_fields(c, pointer, true)? else {
         return Ok((None, None));
@@ -116,7 +120,7 @@ fn capture_inner(
         Some(if event_open {
             open_name(c, np, true)?
         } else {
-            (name(c, np, true)?, None)
+            (capture_name(c, np, true)?, None)
         })
     } else {
         None
@@ -137,7 +141,7 @@ fn capture_inner(
     }
     let (name, pending) = match converted_name {
         Some(name) => name,
-        None => (name(c, np, false)?, None),
+        None => (capture_name(c, np, false)?, None),
     };
     Ok((
         Some(Attributes {

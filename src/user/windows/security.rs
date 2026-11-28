@@ -48,7 +48,7 @@ impl Subject {
             })
     }
 
-    fn privilege(&self, luid: u64) -> bool {
+    pub(crate) fn privilege(&self, luid: u64) -> bool {
         self.privileges
             .iter()
             .any(|privilege| privilege.luid == luid && privilege.attributes & 2 != 0)

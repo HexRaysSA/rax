@@ -9,6 +9,8 @@ mod file;
 #[cfg(windows)]
 #[path = "section_create_leaf_tests.rs"]
 mod installed;
+#[path = "section_create_named_tests.rs"]
+mod named;
 #[path = "section_create_replay_tests.rs"]
 mod replay;
 fn invoke(p: &mut Proc, t: &mut Thread, args: &[u64]) -> Outcome {

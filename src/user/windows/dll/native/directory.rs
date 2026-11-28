@@ -256,6 +256,15 @@ fn open_object(c: &mut Ctx, access: u32, attrs: Option<Attributes>, kind: Kind) 
             .ok_or(Failure::Status(STATUS_INSUFFICIENT_RESOURCES));
     }
     if kind == Kind::Section {
+        if let Some(handle) =
+            super::section_create::open_named(c, root.clone(), &units, attrs.flags, access)
+                .map_err(|error| match error {
+                    super::named_object::Failure::Status(code) => Failure::Status(code),
+                    super::named_object::Failure::Api(error) => Failure::Api(error),
+                })?
+        {
+            return Ok(handle);
+        }
         let section = match c.p.object_namespace.lookup_installed_section(
             root,
             &units,
