@@ -127,6 +127,9 @@ fn fusion_key_preserves_the_machine_view_and_admits_only_selected_absent_values(
             DOT_NET_FUSION_ENABLE_LOG,
             DOT_NET_FUSION_LOGGING_LEVEL,
             DOT_NET_FUSION_FORCE_LOG,
+            DOT_NET_FUSION_LOG_FAILURES,
+            DOT_NET_FUSION_LOG_RESOURCE_BINDS,
+            DOT_NET_FUSION_LOG_PATH,
         ] {
             let name = units(name);
             assert!(key.covers_value(&name));
@@ -164,6 +167,9 @@ fn fusion_snapshot_rejects_installed_setting_payloads() {
             (DOT_NET_FUSION_ENABLE_LOG, 4, vec![0; 4]),
             (DOT_NET_FUSION_LOGGING_LEVEL, 4, 2u32.to_le_bytes().to_vec()),
             (DOT_NET_FUSION_FORCE_LOG, 4, 1u32.to_le_bytes().to_vec()),
+            (DOT_NET_FUSION_LOG_FAILURES, 4, 1u32.to_le_bytes().to_vec()),
+            (DOT_NET_FUSION_LOG_RESOURCE_BINDS, 4, 1u32.to_le_bytes().to_vec()),
+            (DOT_NET_FUSION_LOG_PATH, 1, vec![67, 0, 58, 0, 0, 0]),
         ] {
             let configured = Value {
                 name: units(name),

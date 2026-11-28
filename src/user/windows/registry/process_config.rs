@@ -17,6 +17,9 @@ pub(super) const DOT_NET_FUSION_CACHE_QUOTA: &str = "DownloadCacheQuotaInKB";
 pub(super) const DOT_NET_FUSION_ENABLE_LOG: &str = "EnableLog";
 pub(super) const DOT_NET_FUSION_LOGGING_LEVEL: &str = "LoggingLevel";
 pub(super) const DOT_NET_FUSION_FORCE_LOG: &str = "ForceLog";
+pub(super) const DOT_NET_FUSION_LOG_FAILURES: &str = "LogFailures";
+pub(super) const DOT_NET_FUSION_LOG_RESOURCE_BINDS: &str = "LogResourceBinds";
+pub(super) const DOT_NET_FUSION_LOG_PATH: &str = "LogPath";
 pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
 pub(super) const DOT_NET_V4_FULL_WOW_KEY: &str =
@@ -230,6 +233,9 @@ impl ProcessConfigKey {
                 DOT_NET_FUSION_ENABLE_LOG,
                 DOT_NET_FUSION_LOGGING_LEVEL,
                 DOT_NET_FUSION_FORCE_LOG,
+                DOT_NET_FUSION_LOG_FAILURES,
+                DOT_NET_FUSION_LOG_RESOURCE_BINDS,
+                DOT_NET_FUSION_LOG_PATH,
             ],
             Self::DotNetV4Full => &["Install", "Release", "Version"],
             Self::DotNetPolicyV4 => &["30319"],
