@@ -4539,3 +4539,14 @@ from the same machine Fusion key. ARM64, x86, and x64 controls on build
 29708 matched native status and preserved the output guards in the default,
 explicit 64-bit, and explicit 32-bit views. A configured or unreadable
 retry interval remains outside the snapshot.
+
+### CLR Fusion assembly identity format setting
+
+Installed .NET Framework 4 queries `UseLegacyIdentityFormat` in the
+machine Fusion key. The closed registry reports an established absence
+in each selected view. A configured or unreadable value remains
+outside the snapshot.
+
+Windows build 29708 ARM64, x86, and x64 controls agreed with the closed
+guest in the default, explicit 64-bit, and explicit 32-bit views on the
+missing-name status and caller-buffer preservation.
