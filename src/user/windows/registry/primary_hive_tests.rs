@@ -393,6 +393,81 @@ fn user_dot_net_framework_preserves_presence_absence_and_denial_for_one_sid() {
     );
 }
 
+#[test]
+fn user_dot_net_fusion_projects_only_the_fixed_creator_open_result() {
+    use crate::user::windows::nt::status::{
+        STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+    };
+    let primary = sid();
+    let root = SnapshotRoot::UserDotNetFusion;
+    let suffix = super::super::snapshot_root::USER_DOT_NET_FUSION_SUFFIX;
+    let path = root.path(&primary).unwrap();
+    let relative = units(&suffix[1..]);
+    let base = registry()
+        .with_primary_hive(&primary, Some(header(9)))
+        .unwrap();
+    let views = [RegistryView::Native64, RegistryView::Wow32];
+    for status in [
+        STATUS_OBJECT_NAME_NOT_FOUND,
+        STATUS_OBJECT_PATH_NOT_FOUND,
+        STATUS_ACCESS_DENIED,
+    ] {
+        let mut selected = base.clone();
+        for view in views {
+            selected = selected
+                .with_snapshot_selection(root, &primary, view, Err(status))
+                .unwrap();
+        }
+        let hive = selected.key(&units(r"\Registry\User\S-1-5-18")).unwrap();
+        for view in views {
+            for route in [
+                selected.lookup_view(&path, view),
+                selected.lookup_view(&units(&format!(r"\Registry\User\.DEFAULT{suffix}")), view),
+                hive.relative_in_view(&relative, view),
+            ] {
+                match (status, route) {
+                    (STATUS_OBJECT_NAME_NOT_FOUND, Lookup::Missing)
+                    | (STATUS_OBJECT_PATH_NOT_FOUND, Lookup::MissingPath) => {}
+                    (STATUS_ACCESS_DENIED, Lookup::Present(key)) => {
+                        assert_eq!(key.open_denial(), Some(STATUS_ACCESS_DENIED));
+                        assert!(key.value(&units("CacheLocation")).is_none());
+                    }
+                    _ => panic!("creator Fusion route differs from the fixed open result"),
+                }
+            }
+            let sibling = units(&format!(r"\Registry\User\S-1-5-19{suffix}"));
+            let descendant = units(&format!("{}\\Child", String::from_utf16_lossy(&path)));
+            assert!(matches!(
+                selected.lookup_view(&sibling, view),
+                Lookup::Unselected
+            ));
+            assert!(matches!(
+                selected.lookup_view(&descendant, view),
+                Lookup::Unselected
+            ));
+        }
+    }
+    let configured = CommandHeader {
+        canonical: path,
+        children: 0,
+        enumeration: None,
+        values: vec![value("CacheLocation")],
+        access: KeyAccess {
+            maximum_access: 0x20019,
+            system_security_status: 0xC0000061,
+        },
+    };
+    assert!(
+        base.with_snapshot_selection(
+            root,
+            &primary,
+            RegistryView::Native64,
+            Ok((configured, None))
+        )
+        .is_err()
+    );
+}
+
 fn assert_creator_settings_lookup(root: SnapshotRoot, suffix: &str, value_name: &str) {
     use crate::user::windows::nt::status::{
         STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,

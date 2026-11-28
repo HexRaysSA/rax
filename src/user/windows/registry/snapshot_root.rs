@@ -24,6 +24,7 @@ pub(super) const USER_REGISTRY_POLICY_SUFFIX: &str =
     "\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
 
 pub(super) const USER_DOT_NET_FRAMEWORK_SUFFIX: &str = r"\Software\Microsoft\.NETFramework";
+pub(super) const USER_DOT_NET_FUSION_SUFFIX: &str = r"\Software\Microsoft\Fusion";
 
 pub(super) const THEME_MANAGER_SUFFIX: &str =
     "\\Software\\Microsoft\\Windows\\CurrentVersion\\ThemeManager";
@@ -56,6 +57,7 @@ pub(crate) enum SnapshotRoot {
     UserNtCurrentVersion,
     UserRegistryPolicy,
     UserDotNetFramework,
+    UserDotNetFusion,
     ThemeManager,
     ThemePersonalize,
     SideBySide,
@@ -76,6 +78,7 @@ impl SnapshotRoot {
             Self::UserNtCurrentVersion
             | Self::UserRegistryPolicy
             | Self::UserDotNetFramework
+            | Self::UserDotNetFusion
             | Self::ThemeManager
             | Self::ThemePersonalize => Ok(user_policy::user_hive_path(sid)?
                 .into_iter()
@@ -99,6 +102,7 @@ impl SnapshotRoot {
             Self::UserNtCurrentVersion => ViewRoot::UserNtCurrentVersion,
             Self::UserRegistryPolicy => ViewRoot::UserRegistryPolicy,
             Self::UserDotNetFramework => ViewRoot::UserDotNetFramework,
+            Self::UserDotNetFusion => ViewRoot::UserDotNetFusion,
             Self::ThemeManager => ViewRoot::ThemeManager,
             Self::ThemePersonalize => ViewRoot::ThemePersonalize,
             Self::SideBySide => ViewRoot::SideBySide,
@@ -117,6 +121,7 @@ impl SnapshotRoot {
                 | Self::UserNtCurrentVersion
                 | Self::UserRegistryPolicy
                 | Self::UserDotNetFramework
+                | Self::UserDotNetFusion
                 | Self::ThemeManager
                 | Self::ThemePersonalize
         )
@@ -131,6 +136,7 @@ impl SnapshotRoot {
                 | Self::UserNtCurrentVersion
                 | Self::UserRegistryPolicy
                 | Self::UserDotNetFramework
+                | Self::UserDotNetFusion
                 | Self::ThemeManager
                 | Self::ThemePersonalize
                 | Self::Processor0
@@ -177,6 +183,7 @@ impl SnapshotRoot {
             Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
             Self::UserRegistryPolicy => "creator registry-tools policy",
             Self::UserDotNetFramework => "creator .NET Framework settings",
+            Self::UserDotNetFusion => "creator Fusion key",
             Self::ThemeManager => "creator ThemeManager",
             Self::ThemePersonalize => "creator Themes Personalize",
             Self::SideBySide => "SideBySide",
@@ -191,6 +198,7 @@ impl SnapshotRoot {
             Self::UserNtCurrentVersion => USER_NT_CURRENT_VERSION_SUFFIX,
             Self::UserRegistryPolicy => USER_REGISTRY_POLICY_SUFFIX,
             Self::UserDotNetFramework => USER_DOT_NET_FRAMEWORK_SUFFIX,
+            Self::UserDotNetFusion => USER_DOT_NET_FUSION_SUFFIX,
             Self::ThemeManager => THEME_MANAGER_SUFFIX,
             Self::ThemePersonalize => THEME_PERSONALIZE_SUFFIX,
             _ => unreachable!("creator snapshot root with a fixed suffix"),
@@ -220,6 +228,7 @@ impl SnapshotRoot {
             Self::UserNtCurrentVersion
             | Self::UserRegistryPolicy
             | Self::UserDotNetFramework
+            | Self::UserDotNetFusion
             | Self::ThemeManager
             | Self::ThemePersonalize => {
                 let expected = self.path(sid)?;
@@ -386,6 +395,11 @@ impl Registry {
         let missing_path =
             matches!(&selected_tree, Err(status) if *status == STATUS_OBJECT_PATH_NOT_FOUND);
         let key = match selected_tree {
+            Ok(_) if root == SnapshotRoot::UserDotNetFusion => {
+                return Err(invalid(
+                    "configured creator Fusion key is outside the snapshot",
+                ));
+            }
             Ok((header, children)) => {
                 if let SnapshotRoot::ProcessConfig(subject) = root
                     && !subject.captures_subtree()
@@ -460,6 +474,7 @@ impl Registry {
                     root,
                     SnapshotRoot::UserRegistryPolicy
                         | SnapshotRoot::UserDotNetFramework
+                        | SnapshotRoot::UserDotNetFusion
                         | SnapshotRoot::ThemeManager
                         | SnapshotRoot::ThemePersonalize
                         | SnapshotRoot::ProcessConfig(_)

@@ -78,6 +78,11 @@ impl Registry {
                 "primary hive and .NET Framework settings select different subjects",
             ),
             (
+                ViewRoot::UserDotNetFusion,
+                super::snapshot_root::USER_DOT_NET_FUSION_SUFFIX,
+                "primary hive and Fusion key select different subjects",
+            ),
+            (
                 ViewRoot::ThemeManager,
                 super::snapshot_root::THEME_MANAGER_SUFFIX,
                 "primary hive and ThemeManager select different subjects",
@@ -185,6 +190,7 @@ impl Registry {
             (ViewRoot::UserNtCurrentVersion, "Windows NT CurrentVersion"),
             (ViewRoot::UserRegistryPolicy, "registry-tools policy"),
             (ViewRoot::UserDotNetFramework, ".NET Framework settings"),
+            (ViewRoot::UserDotNetFusion, "Fusion key"),
             (ViewRoot::ThemeManager, "ThemeManager"),
             (ViewRoot::ThemePersonalize, "Themes Personalize"),
         ];

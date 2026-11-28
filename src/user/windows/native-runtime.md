@@ -4133,6 +4133,13 @@ settings in the default, explicit 64-bit, and explicit 32-bit views.
 Capture checks presence without reading the settings' data. A configured
 value makes that registry view unavailable to the closed guest.
 
+The creator's primary hive additionally selects the fixed
+standard-user `Software\\Microsoft\\Fusion` key. For this key, capture records
+the observed missing-name, missing-path, or access-denied result. A
+configured key withholds access without reading settings. On Windows
+build 29708 ARM64, x86, and x64 controls returned the missing-name status
+and cleared the output handle in the default, 64-bit, and 32-bit views.
+
 Installed Windows processes can query their default system or user locale
 through `NtQueryDefaultLocale`. Runtime selection captures the two locale
 identifiers and guest queries publish one four-byte identifier into guest

@@ -101,6 +101,10 @@ pub(super) fn capture_user_dot_net_framework(
     capture_user_header(registry, sid, SnapshotRoot::UserDotNetFramework)
 }
 
+pub(super) fn capture_user_dot_net_fusion(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
+    capture_user_header(registry, sid, SnapshotRoot::UserDotNetFusion)
+}
+
 pub(super) fn capture_user_theme(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     let registry = capture_user_header(registry, sid, SnapshotRoot::ThemeManager)?;
     capture_user_header(registry, sid, SnapshotRoot::ThemePersonalize)
@@ -114,6 +118,9 @@ fn capture_user_header(
     let path = root.path(sid)?;
     for view in [RegistryView::Native64, RegistryView::Wow32] {
         let selected = match super::native_key::open_view(&path, view) {
+            // The creator's Fusion key can hold a locally configured path.
+            // A successful open establishes presence without reading its data.
+            Ok(_) if root == SnapshotRoot::UserDotNetFusion => Err(STATUS_ACCESS_DENIED),
             Ok(key) => {
                 let canonical = canonical_hive_name(&key, root.label())?;
                 root.check_name(&registry, sid, view, &canonical)?;
@@ -324,6 +331,7 @@ fn open_snapshot_path(
         | SnapshotRoot::UserNtCurrentVersion
         | SnapshotRoot::UserRegistryPolicy
         | SnapshotRoot::UserDotNetFramework
+        | SnapshotRoot::UserDotNetFusion
         | SnapshotRoot::ThemeManager
         | SnapshotRoot::ThemePersonalize => (-2_147_483_645isize, "\\Registry\\User\\"),
     };

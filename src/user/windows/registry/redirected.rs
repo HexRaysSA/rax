@@ -31,6 +31,7 @@ pub(crate) enum ViewRoot {
     UserNtCurrentVersion,
     UserRegistryPolicy,
     UserDotNetFramework,
+    UserDotNetFusion,
     ThemeManager,
     ThemePersonalize,
     SideBySide,
@@ -45,7 +46,7 @@ impl ViewRoot {
         suffix.is_empty()
             || match self {
                 Self::ProcessConfig(subject) => subject.admits_descendant_routes(),
-                Self::UserDotNetFramework => false,
+                Self::UserDotNetFramework | Self::UserDotNetFusion => false,
                 _ => true,
             }
     }
