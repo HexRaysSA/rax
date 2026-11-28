@@ -4522,3 +4522,14 @@ WoW64 clears the output handle when the kernel rejects a captured
 request. An invalid native-width request leaves the output untouched.
 A malformed WoW64 attributes header rejected before dispatch also leaves
 the output untouched.
+
+### CLR Fusion file-in-use retry setting
+
+Installed .NET Framework 4 reads `FileInUseRetryAttempts` from the machine
+Fusion key. An established absence is kernel-owned in the selected native and
+WOW64 snapshots. A configured or unreadable value stays outside the snapshot.
+
+Read-only Windows build 29708 controls queried this value with the installed
+ARM64, x86, and x64 loaders using each default, explicit 64-bit, and explicit
+32-bit view. Native and closed guest both returned
+`STATUS_OBJECT_NAME_NOT_FOUND` without changing the caller's buffers.

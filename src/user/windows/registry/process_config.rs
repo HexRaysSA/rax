@@ -20,6 +20,7 @@ pub(super) const DOT_NET_FUSION_FORCE_LOG: &str = "ForceLog";
 pub(super) const DOT_NET_FUSION_LOG_FAILURES: &str = "LogFailures";
 pub(super) const DOT_NET_FUSION_LOG_RESOURCE_BINDS: &str = "LogResourceBinds";
 pub(super) const DOT_NET_FUSION_LOG_PATH: &str = "LogPath";
+pub(super) const DOT_NET_FUSION_FILE_IN_USE_RETRY_ATTEMPTS: &str = "FileInUseRetryAttempts";
 pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
 pub(super) const DOT_NET_V4_FULL_WOW_KEY: &str =
@@ -236,6 +237,7 @@ impl ProcessConfigKey {
                 DOT_NET_FUSION_LOG_FAILURES,
                 DOT_NET_FUSION_LOG_RESOURCE_BINDS,
                 DOT_NET_FUSION_LOG_PATH,
+                DOT_NET_FUSION_FILE_IN_USE_RETRY_ATTEMPTS,
             ],
             Self::DotNetV4Full => &["Install", "Release", "Version"],
             Self::DotNetPolicyV4 => &["30319"],
