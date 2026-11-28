@@ -1,7 +1,7 @@
 //! Query fixed startup values once during library selection.
 use super::super::process_config::{
-    CLR_ENABLE_64_BIT, CLR_USE_RYU_JIT, DOT_NET_FUSION_OPTIONAL_POLICY, LEGACY_EXTENSION_FLAG,
-    ProcessConfigKey, SYSTEM_SETUP_VALUES,
+    CLR_ENABLE_64_BIT, CLR_USE_RYU_JIT, LEGACY_EXTENSION_FLAG, ProcessConfigKey,
+    SYSTEM_SETUP_VALUES,
 };
 use super::super::{CommandHeader, RegistryView, SnapshotRoot};
 use super::*;
@@ -47,7 +47,9 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
                     let mut build_key_record = None;
                     let header = capture_header(&registry, subject, &key, canonical, || {
                         if subject == ProcessConfigKey::DotNetFusion {
-                            return capture_values_with(&key, || verify_fusion_policy_absent(&key));
+                            return capture_values_with(&key, || {
+                                verify_fusion_values_absent(&key, subject.values())
+                            });
                         }
                         if !subject.preserves_value_order() {
                             return capture_values(&key, subject.values());
@@ -109,30 +111,30 @@ pub(super) fn capture(mut registry: Registry) -> io::Result<Registry> {
     capture_disabled_extensions(registry)
 }
 
-fn verify_fusion_policy_absent(key: &OwnedKey) -> io::Result<Vec<Value>> {
-    let name: Vec<_> = DOT_NET_FUSION_OPTIONAL_POLICY
-        .encode_utf16()
-        .chain(Some(0))
-        .collect();
-    let mut bytes = 0;
-    // SAFETY: a live selection-owned handle, a fixed NUL-terminated name,
-    // and a size output. No value bytes are requested.
-    let status = unsafe {
-        RegQueryValueExW(
-            key.0,
-            name.as_ptr(),
-            null_mut(),
-            null_mut(),
-            null_mut(),
-            &mut bytes,
-        )
-    };
-    match status {
-        2 => Ok(Vec::new()),
-        // A configured policy is outside the default startup snapshot.
-        0 => Err(io::Error::from_raw_os_error(5)),
-        status => Err(io::Error::from_raw_os_error(status)),
+fn verify_fusion_values_absent(key: &OwnedKey, names: &[&str]) -> io::Result<Vec<Value>> {
+    for name in names {
+        let name: Vec<_> = name.encode_utf16().chain(Some(0)).collect();
+        let mut bytes = 0;
+        // SAFETY: a live selection-owned handle, a fixed NUL-terminated name,
+        // and a size output. No value bytes are requested.
+        let status = unsafe {
+            RegQueryValueExW(
+                key.0,
+                name.as_ptr(),
+                null_mut(),
+                null_mut(),
+                null_mut(),
+                &mut bytes,
+            )
+        };
+        match status {
+            2 => {}
+            // A configured setting is outside the default startup snapshot.
+            0 => return Err(io::Error::from_raw_os_error(5)),
+            status => return Err(io::Error::from_raw_os_error(status)),
+        }
     }
+    Ok(Vec::new())
 }
 
 fn capture_disabled_extensions(registry: Registry) -> io::Result<Registry> {

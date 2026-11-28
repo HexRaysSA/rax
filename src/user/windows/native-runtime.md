@@ -4125,11 +4125,13 @@ After locating the CLR engine, PowerShell opens the machine
 `SOFTWARE\Microsoft\Fusion` key relative to the machine hive. The snapshot
 records each selected key's canonical name and native access metadata.
 On Windows build 29708 the installed native and physical WoW keys have two
-and one subkeys respectively. The snapshot recognizes the optional Fusion
-policy query when the installed value is absent in the selected view. The
-native missing-name status preserves the caller's output and return length.
-Capture checks presence without reading the setting's data. A configured
-value makes that registry view unavailable to the guest.
+and one subkeys respectively. The snapshot recognizes the fixed
+`NoClientChecks`, `CacheLocation`, and `DownloadCacheQuotaInKB` names after
+verifying their absence in the selected view. Windows build 29708 returned
+the missing-name status with both outputs preserved for the two cache
+settings in the default, explicit 64-bit, and explicit 32-bit views.
+Capture checks presence without reading the settings' data. A configured
+value makes that registry view unavailable to the closed guest.
 
 Installed Windows processes can query their default system or user locale
 through `NtQueryDefaultLocale`. Runtime selection captures the two locale

@@ -12,6 +12,8 @@ const DOT_NET_FRAMEWORK_WOW_KEY: &str =
 pub(super) const CLR_ENABLE_64_BIT: &str = "Enable64Bit";
 pub(super) const CLR_USE_RYU_JIT: &str = "UseRyuJIT";
 pub(super) const DOT_NET_FUSION_OPTIONAL_POLICY: &str = "NoClientChecks";
+pub(super) const DOT_NET_FUSION_CACHE_LOCATION: &str = "CacheLocation";
+pub(super) const DOT_NET_FUSION_CACHE_QUOTA: &str = "DownloadCacheQuotaInKB";
 pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
 pub(super) const DOT_NET_V4_FULL_WOW_KEY: &str =
@@ -218,7 +220,11 @@ impl ProcessConfigKey {
             | Self::DotNetPolicyServicing
             | Self::DotNetPolicyAppPatch
             | Self::DotNetPolicyStandards => &[],
-            Self::DotNetFusion => &[DOT_NET_FUSION_OPTIONAL_POLICY],
+            Self::DotNetFusion => &[
+                DOT_NET_FUSION_OPTIONAL_POLICY,
+                DOT_NET_FUSION_CACHE_LOCATION,
+                DOT_NET_FUSION_CACHE_QUOTA,
+            ],
             Self::DotNetV4Full => &["Install", "Release", "Version"],
             Self::DotNetPolicyV4 => &["30319"],
             Self::DotNetPolicyUpgrades => &["4.0.30319"],

@@ -84,7 +84,7 @@ fn process_config_projects_only_fixed_named_values_in_the_requested_view() {
 }
 
 #[test]
-fn fusion_key_preserves_the_machine_view_and_admits_only_the_absent_policy() {
+fn fusion_key_preserves_the_machine_view_and_admits_only_selected_absent_values() {
     let subject = ProcessConfigKey::DotNetFusion;
     let snapshot = SnapshotRoot::ProcessConfig(subject);
     let native = header(subject.path(), vec![]);
@@ -120,9 +120,15 @@ fn fusion_key_preserves_the_machine_view_and_admits_only_the_absent_policy() {
         assert!(Arc::ptr_eq(&key, &absolute));
         assert_eq!(key.path, units(canonical));
         assert_eq!(key.children, children);
-        let policy = units(DOT_NET_FUSION_OPTIONAL_POLICY);
-        assert!(key.covers_value(&policy));
-        assert!(key.value(&policy).is_none());
+        for name in [
+            DOT_NET_FUSION_OPTIONAL_POLICY,
+            DOT_NET_FUSION_CACHE_LOCATION,
+            DOT_NET_FUSION_CACHE_QUOTA,
+        ] {
+            let name = units(name);
+            assert!(key.covers_value(&name));
+            assert!(key.value(&name).is_none());
+        }
         assert!(!key.covers_value(&units("Unselected")));
         assert!(matches!(
             key.relative(&units("Unselected")),
@@ -138,26 +144,36 @@ fn fusion_key_preserves_the_machine_view_and_admits_only_the_absent_policy() {
 }
 
 #[test]
-fn fusion_snapshot_rejects_an_installed_policy_payload() {
+fn fusion_snapshot_rejects_installed_setting_payloads() {
     let subject = ProcessConfigKey::DotNetFusion;
     for (path, view) in [
         (subject.path(), RegistryView::Native64),
         (DOT_NET_FUSION_WOW_KEY, RegistryView::Wow32),
     ] {
-        let configured = Value {
-            name: units(DOT_NET_FUSION_OPTIONAL_POLICY),
-            kind: 4,
-            data: vec![0; 4],
-        };
-        let result = Registry::selected(upcase(), vec![])
-            .unwrap()
-            .with_snapshot_selection(
-                SnapshotRoot::ProcessConfig(subject),
-                &[],
-                view,
-                Ok((header(path, vec![configured]), None)),
-            );
-        assert!(result.is_err());
+        for (name, kind, data) in [
+            (DOT_NET_FUSION_OPTIONAL_POLICY, 4, vec![0; 4]),
+            (DOT_NET_FUSION_CACHE_LOCATION, 1, vec![67, 0, 58, 0, 0, 0]),
+            (
+                DOT_NET_FUSION_CACHE_QUOTA,
+                4,
+                8192u32.to_le_bytes().to_vec(),
+            ),
+        ] {
+            let configured = Value {
+                name: units(name),
+                kind,
+                data,
+            };
+            let result = Registry::selected(upcase(), vec![])
+                .unwrap()
+                .with_snapshot_selection(
+                    SnapshotRoot::ProcessConfig(subject),
+                    &[],
+                    view,
+                    Ok((header(path, vec![configured]), None)),
+                );
+            assert!(result.is_err(), "{name}/{view:?}");
+        }
     }
 }
 
