@@ -4126,10 +4126,11 @@ After locating the CLR engine, PowerShell opens the machine
 records each selected key's canonical name and native access metadata.
 On Windows build 29708 the installed native and physical WoW keys have two
 and one subkeys respectively. The snapshot recognizes the fixed
-`NoClientChecks`, `CacheLocation`, `DownloadCacheQuotaInKB`, and `EnableLog` names after
+`NoClientChecks`, `CacheLocation`, `DownloadCacheQuotaInKB`, `EnableLog`, `LoggingLevel`, and `ForceLog`
+names after
 verifying their absence in the selected view. Windows build 29708 returned
 the missing-name status with both outputs preserved for the two cache
-settings and the logging flag in the default, explicit 64-bit, and explicit 32-bit views.
+settings and the logging values in the default, explicit 64-bit, and explicit 32-bit views.
 Capture checks presence without reading the settings' data. A configured
 value makes that registry view unavailable to the closed guest.
 
