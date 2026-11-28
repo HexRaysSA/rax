@@ -4560,3 +4560,15 @@ unreadable value stays outside the snapshot.
 The Windows build 29708 ARM64, x86, and x64 controls exercised both names
 in the default, explicit 64-bit, and explicit 32-bit views. All 18 native
 queries matched the closed guest's status and caller-buffer preservation.
+
+### Negative queries in a complete installed .NET Framework view
+
+When the selected values account for the entire native value count of
+the machine `.NETFramework` key in a registry view, the closed guest can
+also report absent names outside the fixed payload selection. A partial
+capture retains the fixed-name query boundary.
+
+Read-only controls on Windows build 29708 queried `GCHeapCount` and
+`Monitor_SpinWithoutSleepWhenWaiterIsPresent`. ARM64, x86, and x64
+comparisons matched missing-name status and caller-buffer preservation
+in the default, explicit 64-bit, and explicit 32-bit views.

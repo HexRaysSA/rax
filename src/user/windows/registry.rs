@@ -189,6 +189,16 @@ impl Key {
     }
     pub(crate) fn covers_value(&self, name: &[u16]) -> bool {
         let path = self.logical_path.as_deref().unwrap_or(&self.path);
+        // The installed Framework view has native value order only when its
+        // captured values account for its entire native value count.
+        if self.ordered_values().is_some()
+            && path
+                .iter()
+                .copied()
+                .eq(ProcessConfigKey::DotNetFramework.path().encode_utf16())
+        {
+            return true;
+        }
         process_config::covered_values(path)
             .is_none_or(|names| process_config::covers_name(names, &self.upcase, name))
     }

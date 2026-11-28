@@ -502,12 +502,24 @@ fn dot_net_install_root_preserves_complete_native_order_per_view() {
             assert!(key.covers_value(&units(setting)));
         }
 
+        let missing = [
+            units("GCHeapCount"),
+            units("Monitor_SpinWithoutSleepWhenWaiterIsPresent"),
+        ];
+        for setting in &missing {
+            assert!(key.covers_value(setting));
+            assert!(key.value(setting).is_none());
+        }
+
         cached[20..24].copy_from_slice(&(ordered.len() as u32 + 1).to_le_bytes());
         let incomplete = selected()
             .with_cached_process_config(subject, view, header, cached)
             .unwrap();
         let key = lookup(&incomplete);
         assert!(key.ordered_values().is_none());
+        for setting in &missing {
+            assert!(!key.covers_value(setting));
+        }
         for setting in &ordered {
             assert_eq!(key.value(&setting.name), Some(setting));
         }
