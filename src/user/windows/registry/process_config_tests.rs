@@ -124,6 +124,7 @@ fn fusion_key_preserves_the_machine_view_and_admits_only_selected_absent_values(
             DOT_NET_FUSION_OPTIONAL_POLICY,
             DOT_NET_FUSION_CACHE_LOCATION,
             DOT_NET_FUSION_CACHE_QUOTA,
+            DOT_NET_FUSION_ENABLE_LOG,
         ] {
             let name = units(name);
             assert!(key.covers_value(&name));
@@ -158,6 +159,7 @@ fn fusion_snapshot_rejects_installed_setting_payloads() {
                 4,
                 8192u32.to_le_bytes().to_vec(),
             ),
+            (DOT_NET_FUSION_ENABLE_LOG, 4, vec![0; 4]),
         ] {
             let configured = Value {
                 name: units(name),

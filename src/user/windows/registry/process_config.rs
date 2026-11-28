@@ -14,6 +14,7 @@ pub(super) const CLR_USE_RYU_JIT: &str = "UseRyuJIT";
 pub(super) const DOT_NET_FUSION_OPTIONAL_POLICY: &str = "NoClientChecks";
 pub(super) const DOT_NET_FUSION_CACHE_LOCATION: &str = "CacheLocation";
 pub(super) const DOT_NET_FUSION_CACHE_QUOTA: &str = "DownloadCacheQuotaInKB";
+pub(super) const DOT_NET_FUSION_ENABLE_LOG: &str = "EnableLog";
 pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
 pub(super) const DOT_NET_V4_FULL_WOW_KEY: &str =
@@ -224,6 +225,7 @@ impl ProcessConfigKey {
                 DOT_NET_FUSION_OPTIONAL_POLICY,
                 DOT_NET_FUSION_CACHE_LOCATION,
                 DOT_NET_FUSION_CACHE_QUOTA,
+                DOT_NET_FUSION_ENABLE_LOG,
             ],
             Self::DotNetV4Full => &["Install", "Release", "Version"],
             Self::DotNetPolicyV4 => &["30319"],
