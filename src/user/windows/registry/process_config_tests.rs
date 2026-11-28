@@ -133,6 +133,8 @@ fn fusion_key_preserves_the_machine_view_and_admits_only_selected_absent_values(
             DOT_NET_FUSION_FILE_IN_USE_RETRY_ATTEMPTS,
             DOT_NET_FUSION_FILE_IN_USE_RETRY_INTERVAL,
             DOT_NET_FUSION_LEGACY_IDENTITY_FORMAT,
+            DOT_NET_FUSION_FORCED_FULL_CLOSURE_WALK,
+            DOT_NET_FUSION_DISABLE_MSI_PEEK,
         ] {
             let name = units(name);
             assert!(key.covers_value(&name));
@@ -189,6 +191,16 @@ fn fusion_snapshot_rejects_installed_setting_payloads() {
             ),
             (
                 DOT_NET_FUSION_LEGACY_IDENTITY_FORMAT,
+                4,
+                1u32.to_le_bytes().to_vec(),
+            ),
+            (
+                DOT_NET_FUSION_FORCED_FULL_CLOSURE_WALK,
+                4,
+                1u32.to_le_bytes().to_vec(),
+            ),
+            (
+                DOT_NET_FUSION_DISABLE_MSI_PEEK,
                 4,
                 1u32.to_le_bytes().to_vec(),
             ),

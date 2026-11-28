@@ -24,6 +24,9 @@ pub(super) const DOT_NET_FUSION_FILE_IN_USE_RETRY_ATTEMPTS: &str = "FileInUseRet
 pub(super) const DOT_NET_FUSION_FILE_IN_USE_RETRY_INTERVAL: &str =
     "FileInUseMillisecondsBetweenRetries";
 pub(super) const DOT_NET_FUSION_LEGACY_IDENTITY_FORMAT: &str = "UseLegacyIdentityFormat";
+pub(super) const DOT_NET_FUSION_FORCED_FULL_CLOSURE_WALK: &str =
+    "FusionEnableForcedFullClosureWalk";
+pub(super) const DOT_NET_FUSION_DISABLE_MSI_PEEK: &str = "DisableMSIPeek";
 pub(super) const DOT_NET_FUSION_WOW_KEY: &str =
     r"\Registry\Machine\Software\WOW6432Node\Microsoft\Fusion";
 pub(super) const DOT_NET_V4_FULL_WOW_KEY: &str =
@@ -243,6 +246,8 @@ impl ProcessConfigKey {
                 DOT_NET_FUSION_FILE_IN_USE_RETRY_ATTEMPTS,
                 DOT_NET_FUSION_FILE_IN_USE_RETRY_INTERVAL,
                 DOT_NET_FUSION_LEGACY_IDENTITY_FORMAT,
+                DOT_NET_FUSION_FORCED_FULL_CLOSURE_WALK,
+                DOT_NET_FUSION_DISABLE_MSI_PEEK,
             ],
             Self::DotNetV4Full => &["Install", "Release", "Version"],
             Self::DotNetPolicyV4 => &["30319"],

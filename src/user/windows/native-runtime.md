@@ -4550,3 +4550,13 @@ outside the snapshot.
 Windows build 29708 ARM64, x86, and x64 controls agreed with the closed
 guest in the default, explicit 64-bit, and explicit 32-bit views on the
 missing-name status and caller-buffer preservation.
+
+### CLR Fusion closure walk and MSI settings
+
+The selected machine Fusion registry views report an established absence of
+`FusionEnableForcedFullClosureWalk` and `DisableMSIPeek`. A configured or
+unreadable value stays outside the snapshot.
+
+The Windows build 29708 ARM64, x86, and x64 controls exercised both names
+in the default, explicit 64-bit, and explicit 32-bit views. All 18 native
+queries matched the closed guest's status and caller-buffer preservation.
