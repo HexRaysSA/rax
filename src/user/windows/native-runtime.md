@@ -4533,3 +4533,9 @@ Read-only Windows build 29708 controls queried this value with the installed
 ARM64, x86, and x64 loaders using each default, explicit 64-bit, and explicit
 32-bit view. Native and closed guest both returned
 `STATUS_OBJECT_NAME_NOT_FOUND` without changing the caller's buffers.
+
+Installed CLR startup also queries `FileInUseMillisecondsBetweenRetries`
+from the same machine Fusion key. ARM64, x86, and x64 controls on build
+29708 matched native status and preserved the output guards in the default,
+explicit 64-bit, and explicit 32-bit views. A configured or unreadable
+retry interval remains outside the snapshot.
